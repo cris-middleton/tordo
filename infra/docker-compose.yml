@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database
   db:
@@ -40,7 +38,7 @@ services:
   # Backend API
   backend:
     build:
-      context: ./backend
+      context: ../backend
       dockerfile: Dockerfile
     container_name: licitaciones_backend
     ports:
@@ -51,7 +49,7 @@ services:
       SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
       DEBUG: ${DEBUG:-false}
     volumes:
-      - ./backend:/app
+      - ../backend:/app
       - /app/__pycache__
     depends_on:
       db:
@@ -67,10 +65,56 @@ services:
       timeout: 10s
       retries: 3
 
+  # Celery Worker
+  celery_worker:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: licitaciones_celery_worker
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-licitaciones}
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
+      DEBUG: ${DEBUG:-false}
+    volumes:
+      - ../backend:/app
+      - /app/__pycache__
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=4
+    networks:
+      - licitaciones_network
+
+  # Celery Beat (Scheduler)
+  celery_beat:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: licitaciones_celery_beat
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-licitaciones}
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
+      DEBUG: ${DEBUG:-false}
+    volumes:
+      - ../backend:/app
+      - /app/__pycache__
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A app.celery_app beat --loglevel=info
+    networks:
+      - licitaciones_network
+
   # ETL Service
   etl:
     build:
-      context: ./etl
+      context: ../etl
       dockerfile: Dockerfile
     container_name: licitaciones_etl
     environment:
@@ -79,10 +123,13 @@ services:
       LOG_LEVEL: ${ETL_LOG_LEVEL:-INFO}
       ETL_SCHEDULE_INTERVAL: ${ETL_SCHEDULE_INTERVAL:-3600}
       CHILECOMPRA_API_URL: ${CHILECOMPRA_API_URL:-}
-      MERCADO_PUBLICO_URL: ${MERCADO_PUBLICO_URL:-}
+      MERCADO_PUBLICO_URL: ${MERCADO_PUBLICO_URL:-https://api.mercadopublico.cl}
+      MERCADO_PUBLICO_TICKET: ${MERCADO_PUBLICO_TICKET:-F8537A18-6766-4DEF-9E59-426B4FEE2844}
+      PYTHONPATH: /workspace
     volumes:
-      - ./etl:/app
-      - /app/__pycache__
+      - ..:/workspace
+      - /workspace/etl/__pycache__
+    working_dir: /workspace/etl
     depends_on:
       db:
         condition: service_healthy
@@ -96,7 +143,7 @@ services:
   # Frontend (Next.js)
   frontend:
     build:
-      context: ./frontend
+      context: ../frontend
       dockerfile: Dockerfile
     container_name: licitaciones_frontend
     ports:
@@ -104,13 +151,14 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     volumes:
-      - ./frontend:/app
+      - ../frontend:/app
       - /app/node_modules
       - /app/.next
     depends_on:
       - backend
     networks:
       - licitaciones_network
+    command: npm run dev
 
 volumes:
   postgres_data:

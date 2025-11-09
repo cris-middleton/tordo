@@ -15,6 +15,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
+# Set PYTHONPATH so imports work correctly
+# The code structure expects etl/ as a package, so we need to set PYTHONPATH to parent
+ENV PYTHONPATH=/workspace
+
 # Default command
 CMD ["python", "main.py"]
 

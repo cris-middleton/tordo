@@ -14,6 +14,10 @@ numpy==1.26.2
 sqlalchemy==2.0.23
 psycopg2-binary==2.9.9
 
+# Backend dependencies (needed for database models)
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
 # Configuration
 python-dotenv==1.0.0
 
