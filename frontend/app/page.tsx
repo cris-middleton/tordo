@@ -98,13 +98,13 @@ const plans = [
     price: '$5.900',
     description: 'Recibe 10 alertas mensuales',
     features: ['10 alertas segmentadas por mes', 'Filtros básicos por región y rubro', 'Soporte por correo'],
-    highlight: true,
   },
   {
     name: 'Pro',
     price: '$11.900',
     description: 'Alertas ilimitadas para tu equipo',
     features: ['Alertas ilimitadas', 'Filtros avanzados y palabras clave', 'Exportaciones y analítica comparativa'],
+    highlight: true,
   },
   {
     name: 'Enterprise',
@@ -284,13 +284,13 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="relative aspect-[4/3] max-h-[460px]">
-                  <Image
+      <Image
                     src="/LicitApp_logo.png"
                     alt="Captura del dashboard LicitUp"
                     fill
                     className="object-cover"
-                    priority
-                  />
+        priority
+      />
                 </div>
               </div>
             </div>
@@ -471,10 +471,10 @@ export default function Home() {
             </div>
             <div className="mt-12 rounded-3xl bg-blue-600 px-8 py-12 text-center text-white shadow-lg shadow-blue-600/20">
               <h3 className="text-3xl font-semibold leading-tight sm:text-3xl">
-                Empieza hoy a recibir licitaciones que sí te interesan
+                Recibe licitaciones que sí te interesan
               </h3>
               <p className="mt-4 text-base text-blue-100 sm:text-lg">
-                Te avisamos cuando aparezca una oportunidad alineada con tu rubro, sin que debas revisar la plataforma oficial todos los días.
+                Alertas alineadas con tu rubro sin revisar Mercado Público todos los días.
               </p>
               <Link
                 href="/register"
