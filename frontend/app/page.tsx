@@ -11,12 +11,16 @@ const navItems = [
 
 const stats = [
   {
-    label: 'Licitaciones monitoreadas cada día',
-    value: '1.876',
+    label: 'Licitaciones publicadas en 2024',
+    value: '+2M',
   },
   {
-    label: 'Empresas chilenas activas en la plataforma',
-    value: '128',
+    label: 'Monto adjudicado en 2024',
+    value: '+US$17M',
+  },
+  {
+    label: 'Proveedores registrados en Mercado Público',
+    value: '+110K',
   },
 ];
 
@@ -233,8 +237,8 @@ export default function Home() {
 
       <main className="flex-1">
         <section id="inicio" className="relative overflow-hidden bg-slate-50">
-          <div className="mx-auto grid max-w-6xl gap-12 px-6 py-20 lg:grid-cols-2 lg:items-center lg:py-24">
-            <div className="space-y-7">
+          <div className="mx-auto grid max-w-6xl gap-14 px-6 py-16 lg:grid-cols-2 lg:items-center lg:gap-16 lg:py-20">
+            <div className="space-y-6 sm:space-y-7">
               <span className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-4 py-1 text-xs font-semibold uppercase tracking-wider text-blue-700">
                 Plataforma SaaS chilena
               </span>
@@ -263,14 +267,6 @@ export default function Home() {
               <p className="text-sm text-slate-500">
                 No requiere tarjeta de crédito · Cancela cuando quieras
               </p>
-              <div className="flex flex-wrap gap-6 text-sm text-slate-500">
-                {stats.map((stat) => (
-                  <div key={stat.label} className="flex items-baseline gap-2">
-                    <span className="text-2xl font-semibold text-slate-900">{stat.value}</span>
-                    <span>{stat.label}</span>
-                  </div>
-                ))}
-              </div>
             </div>
             <div className="relative">
               <div className="absolute -left-6 top-6 hidden h-24 w-24 rounded-full bg-blue-100 blur-3xl md:block" />
@@ -487,27 +483,43 @@ export default function Home() {
         </section>
 
         <section className="border-t border-slate-200 bg-white">
-          <div className="mx-auto grid max-w-6xl gap-10 px-6 py-16 lg:grid-cols-[1.2fr_1fr] lg:items-center lg:gap-14 lg:py-20">
+          <div className="mx-auto grid max-w-6xl gap-10 px-6 py-16 lg:grid-cols-[1.2fr_1fr] lg:items-start lg:gap-14 lg:py-20">
             <div className="space-y-6">
               <h2 className="text-3xl font-semibold tracking-tight text-slate-900 md:text-4xl">
                 Somos especialistas en datos y compras públicas
               </h2>
-              <p className="text-lg text-slate-600">
+              <p className="text-base leading-relaxed text-slate-600">
                 Nuestro equipo combina experiencia en tecnología, analítica de datos y licitaciones
                 del Estado de Chile. Creamos LicitUp para que las PYMES compitan en igualdad de
                 condiciones y no pierdan oportunidades relevantes.
               </p>
-              <p className="text-sm text-slate-500">
+              <p className="text-base leading-relaxed text-slate-600">
                 Creemos que revisar miles de licitaciones no debería requerir un equipo dedicado. Por
                 eso construimos una herramienta simple y accesible para todo tipo de empresas.
               </p>
+              <div className="grid w-full gap-4 sm:grid-cols-3">
+                {stats.map((stat) => (
+                  <div
+                    key={stat.label}
+                    className="group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white/90 p-5 pt-7 text-left shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-500/10 sm:text-center"
+                  >
+                    <div className="absolute inset-x-5 top-0 h-1 rounded-b-full bg-gradient-to-r from-blue-500 via-sky-500 to-blue-500 opacity-90" />
+                    <span className="block text-xs font-semibold uppercase tracking-wide text-blue-600">
+                      {stat.label}
+                    </span>
+                    <span className="mt-3 block text-3xl font-semibold leading-tight text-slate-900">
+                      {stat.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
             <div className="rounded-3xl border border-slate-200 bg-slate-50 p-8 shadow-sm shadow-slate-900/5">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
                 Nuestro propósito
               </h3>
-              <div className="mt-4 space-y-6 text-sm text-slate-600">
-                <p>
+              <div className="mt-4 space-y-6 text-base leading-relaxed text-slate-600">
+                <p className="text-base leading-relaxed">
                   Democratizar el acceso a oportunidades del Estado mediante tecnología aplicada y
                   analítica predictiva. Conectamos datos complejos con modelos que priorizan las mejores
                   licitaciones, entregando insights accionables para que las empresas chilenas diseñen
