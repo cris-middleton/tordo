@@ -67,11 +67,11 @@ export default function Layout({ children }: LayoutProps) {
               className="flex items-center gap-3"
             >
               <Image
-                src="/LicitApp_logo.png"
+                src="/licituplogo.svg"
                 alt="LicitUp isotipo"
                 width={40}
                 height={40}
-                className="h-10 w-10 rounded-full border border-border bg-white object-contain shadow-sm"
+                className="h-10 w-10 rounded-2xl shadow-sm"
               />
               <span className="text-xl font-semibold tracking-tight text-[#333333]">LicitUp</span>
             </button>

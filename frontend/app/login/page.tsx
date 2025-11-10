@@ -74,16 +74,16 @@ export default function LoginPage() {
         <div className="mb-8 text-center">
           <div className="mb-4 flex items-center justify-center gap-3">
             <Image
-              src="/LicitApp_logo.png"
+              src="/licituplogo.svg"
               alt="LicitUp isotipo"
               width={56}
               height={56}
-              className="h-14 w-14 rounded-full border border-border bg-white object-contain shadow-sm"
+              className="h-14 w-14 rounded-2xl shadow-sm"
               priority
             />
             <span className="text-3xl font-semibold tracking-tight text-[#333333]">LicitUp</span>
           </div>
-          <p className="text-muted">Ingresa a LicitUp para continuar</p>
+          <p className="text-muted">Ingresa para continuar</p>
         </div>
 
         <div className="card">
