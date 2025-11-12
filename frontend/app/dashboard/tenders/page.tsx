@@ -1,9 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import type { KeyboardEvent } from 'react';
+import Link from 'next/link';
 import { apiClient } from '@/lib/api';
-import { Search, Filter, Loader2, ExternalLink, Calendar, DollarSign, MapPin } from 'lucide-react';
+import {
+  Search,
+  Filter,
+  Loader2,
+  ExternalLink,
+  Calendar,
+  DollarSign,
+  MapPin,
+  BookmarkPlus,
+  BookmarkCheck,
+  Send,
+  CheckCircle2,
+} from 'lucide-react';
 import { format } from 'date-fns';
+import { useDashboardCollections } from '@/hooks/useDashboardCollections';
 
 interface Tender {
   id: number;
@@ -27,21 +42,19 @@ export default function TendersPage() {
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [filters, setFilters] = useState({
-    search: '',
     estado: '',
     region: '',
     min_amount: '',
     max_amount: '',
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [searchInput, setSearchInput] = useState('');
+  const [keywords, setKeywords] = useState<string[]>([]);
+  const { hydrated, isTenderStored, toggleTender } = useDashboardCollections();
 
   const limit = 20;
 
-  useEffect(() => {
-    loadTenders();
-  }, [page, filters]);
-
-  const loadTenders = async () => {
+  const loadTenders = useCallback(async () => {
     setLoading(true);
     try {
       const params: any = {
@@ -49,12 +62,10 @@ export default function TendersPage() {
         limit,
       };
 
-      if (filters.search) params.search = filters.search;
       if (filters.estado) params.estado = filters.estado;
       if (filters.region) params.region = filters.region;
       if (filters.min_amount) params.min_amount = parseFloat(filters.min_amount);
       if (filters.max_amount) params.max_amount = parseFloat(filters.max_amount);
-
       const response = await apiClient.getTenders(params);
       setTenders(response.items || []);
       setTotal(response.total || 0);
@@ -64,12 +75,51 @@ export default function TendersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters.estado, filters.max_amount, filters.min_amount, filters.region, page]);
+
+  useEffect(() => {
+    loadTenders();
+  }, [loadTenders]);
 
   const handleFilterChange = (key: string, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
     setPage(1);
   };
+
+  const addKeyword = useCallback(
+    (value: string) => {
+      const normalized = value.trim();
+      if (!normalized) return;
+      const exists = keywords.some((keyword) => keyword.toLowerCase() === normalized.toLowerCase());
+      if (exists) return;
+      setKeywords((prev) => [...prev, normalized]);
+      setSearchInput('');
+      setPage(1);
+    },
+    [keywords],
+  );
+
+  const handleKeywordKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      addKeyword(searchInput);
+    } else if (event.key === 'Backspace' && searchInput === '' && keywords.length) {
+      event.preventDefault();
+      const lastKeyword = keywords[keywords.length - 1];
+      setKeywords((prev) => prev.slice(0, -1));
+      setSearchInput(lastKeyword);
+    }
+  };
+
+  const removeKeyword = useCallback(
+    (value: string) => {
+      setKeywords((prev) =>
+        prev.filter((keyword) => keyword.toLowerCase() !== value.toLowerCase()),
+      );
+      setPage(1);
+    },
+    [],
+  );
 
   const formatCurrency = (amount?: number) => {
     if (!amount) return 'N/A';
@@ -79,6 +129,38 @@ export default function TendersPage() {
       minimumFractionDigits: 0,
     }).format(amount);
   };
+
+  const normalizedKeywords = useMemo(
+    () => keywords.map((keyword) => keyword.toLowerCase()),
+    [keywords],
+  );
+
+  const filteredTenders = useMemo(() => {
+    if (!normalizedKeywords.length) return tenders;
+    return tenders.filter((tender) => {
+      const values = [
+        tender.codigo_externo,
+        tender.nombre,
+        tender.descripcion,
+        tender.fecha_publicacion,
+        tender.fecha_cierre,
+        tender.estado,
+        tender.region,
+        tender.comuna,
+        tender.nombre_organismo,
+        typeof tender.monto_estimado === 'number' ? tender.monto_estimado.toString() : '',
+      ];
+      const haystack = values
+        .filter(Boolean)
+        .map((value) => String(value).toLowerCase())
+        .join(' ');
+      return normalizedKeywords.every((keyword) => haystack.includes(keyword));
+    });
+  }, [normalizedKeywords, tenders]);
+
+  const displayCount = normalizedKeywords.length ? filteredTenders.length : total;
+  const displayPage = normalizedKeywords.length ? 1 : page;
+  const displayPages = normalizedKeywords.length ? 1 : pages;
 
   return (
     <div className="space-y-6">
@@ -94,10 +176,12 @@ export default function TendersPage() {
             <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
             <input
               type="text"
-              placeholder="Buscar por nombre o descripción..."
-              value={filters.search}
-              onChange={(e) => handleFilterChange('search', e.target.value)}
+              placeholder="Buscar por palabra clave y presiona Enter..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={handleKeywordKeyDown}
               className="input-field pl-10"
+              autoComplete="off"
             />
           </div>
           <button
@@ -108,6 +192,26 @@ export default function TendersPage() {
             Filtros
           </button>
         </div>
+
+        {keywords.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {keywords.map((keyword) => (
+              <span
+                key={keyword}
+                className="flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+              >
+                {keyword}
+                <button
+                  type="button"
+                  className="text-primary transition-colors hover:text-primaryDark"
+                  onClick={() => removeKeyword(keyword)}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
 
         {showFilters && (
           <div className="grid grid-cols-1 gap-4 border-t border-border pt-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -159,7 +263,7 @@ export default function TendersPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted">
-            {total.toLocaleString()} resultado{total !== 1 ? 's' : ''}
+            {displayCount.toLocaleString()} resultado{displayCount !== 1 ? 's' : ''}
           </p>
         </div>
 
@@ -167,95 +271,140 @@ export default function TendersPage() {
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
-        ) : tenders.length === 0 ? (
+        ) : filteredTenders.length === 0 ? (
           <div className="card text-center py-12">
             <p className="text-muted">No se encontraron licitaciones</p>
           </div>
         ) : (
           <>
             <div className="space-y-4">
-              {tenders.map((tender) => (
-                <div key={tender.id} className="card-hover">
-                  <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-                    <div className="flex-1 space-y-3">
-                      <div>
-                        <h3 className="mb-1 text-lg font-semibold text-text">
-                          {tender.nombre}
-                        </h3>
-                        <p className="text-sm text-muted">Código: {tender.codigo_externo}</p>
+              {filteredTenders.map((tender) => {
+                const isSaved = hydrated && isTenderStored('saved', tender.id);
+                const isApplied = hydrated && isTenderStored('applied', tender.id);
+                return (
+                  <div key={tender.id} className="card-hover">
+                    <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+                      <div className="flex-1 space-y-3">
+                        <div>
+                          <Link
+                            href={`/dashboard/tenders/${encodeURIComponent(tender.codigo_externo)}`}
+                            className="mb-1 inline-block text-lg font-semibold text-primary hover:underline"
+                          >
+                            {tender.nombre}
+                          </Link>
+                          <p className="text-sm text-muted">Código: {tender.codigo_externo}</p>
+                        </div>
+
+                        {tender.descripcion && (
+                          <p className="line-clamp-2 text-sm text-muted">
+                            {tender.descripcion}
+                          </p>
+                        )}
+
+                        <div className="flex flex-wrap gap-4 text-sm text-muted">
+                          {tender.fecha_publicacion && (
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-4 w-4 text-primary" />
+                              <span>
+                                {format(new Date(tender.fecha_publicacion), 'dd MMM yyyy')}
+                              </span>
+                            </div>
+                          )}
+                          {tender.monto_estimado && (
+                            <div className="flex items-center gap-2">
+                              <DollarSign className="h-4 w-4 text-accent" />
+                              <span>{formatCurrency(tender.monto_estimado)}</span>
+                            </div>
+                          )}
+                          {tender.region && (
+                            <div className="flex items-center gap-2">
+                              <MapPin className="h-4 w-4 text-primaryDark" />
+                              <span>{tender.region}</span>
+                            </div>
+                          )}
+                          {tender.estado && (
+                            <span className="badge-primary text-xs">{tender.estado}</span>
+                          )}
+                        </div>
+
+                        {tender.nombre_organismo && (
+                          <p className="text-sm text-muted">
+                            Organismo: {tender.nombre_organismo}
+                          </p>
+                        )}
                       </div>
 
-                      {tender.descripcion && (
-                        <p className="line-clamp-2 text-sm text-muted">
-                          {tender.descripcion}
-                        </p>
-                      )}
-
-                      <div className="flex flex-wrap gap-4 text-sm text-muted">
-                        {tender.fecha_publicacion && (
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-primary" />
-                            <span>
-                              {format(new Date(tender.fecha_publicacion), 'dd MMM yyyy')}
-                            </span>
-                          </div>
-                        )}
-                        {tender.monto_estimado && (
-                          <div className="flex items-center gap-2">
-                            <DollarSign className="h-4 w-4 text-accent" />
-                            <span>{formatCurrency(tender.monto_estimado)}</span>
-                          </div>
-                        )}
-                        {tender.region && (
-                          <div className="flex items-center gap-2">
-                            <MapPin className="h-4 w-4 text-primaryDark" />
-                            <span>{tender.region}</span>
-                          </div>
-                        )}
-                        {tender.estado && (
-                          <span className="badge-primary text-xs">{tender.estado}</span>
+                      <div className="flex flex-col gap-2 sm:items-end">
+                        <div className="flex flex-col gap-2 sm:items-end">
+                          <button
+                            type="button"
+                            disabled={!hydrated}
+                            onClick={() => toggleTender('saved', tender)}
+                            className={`flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors ${
+                              isSaved
+                                ? 'border-primary bg-primary/10 text-primary'
+                                : 'border-border bg-surface text-text hover:border-primary/40'
+                            } ${hydrated ? '' : 'opacity-60'}`}
+                          >
+                            {isSaved ? (
+                              <BookmarkCheck className="h-4 w-4" />
+                            ) : (
+                              <BookmarkPlus className="h-4 w-4" />
+                            )}
+                            {isSaved ? 'Guardada' : 'Guardar'}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={!hydrated}
+                            onClick={() => toggleTender('applied', tender)}
+                            className={`flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors ${
+                              isApplied
+                                ? 'border-emerald-500 bg-emerald-50 text-emerald-600'
+                                : 'border-border bg-surface text-text hover:border-emerald-400'
+                            } ${hydrated ? '' : 'opacity-60'}`}
+                          >
+                            {isApplied ? (
+                              <CheckCircle2 className="h-4 w-4" />
+                            ) : (
+                              <Send className="h-4 w-4" />
+                            )}
+                            {isApplied ? 'Aplicada' : 'Aplicar'}
+                          </button>
+                        </div>
+                        {tender.url_licitacion && (
+                          <a
+                            href={tender.url_licitacion}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn-secondary flex items-center gap-2 sm:w-auto w-full justify-center"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                            Ver más
+                          </a>
                         )}
                       </div>
-
-                      {tender.nombre_organismo && (
-                        <p className="text-sm text-muted">
-                          Organismo: {tender.nombre_organismo}
-                        </p>
-                      )}
                     </div>
-
-                    {tender.url_licitacion && (
-                      <a
-                        href={tender.url_licitacion}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn-secondary flex items-center gap-2 sm:w-auto w-full justify-center"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                        Ver más
-                      </a>
-                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Pagination */}
-            {pages > 1 && (
+            {displayPages > 1 && (
               <div className="flex items-center justify-center gap-2 pt-4">
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
+                  disabled={displayPage === 1}
                   className="btn-secondary disabled:opacity-50"
                 >
                   Anterior
                 </button>
                 <span className="px-4 text-sm text-muted">
-                  Página {page} de {pages}
+                  Página {displayPage} de {displayPages}
                 </span>
                 <button
                   onClick={() => setPage((p) => Math.min(pages, p + 1))}
-                  disabled={page === pages}
+                  disabled={displayPage === displayPages}
                   className="btn-secondary disabled:opacity-50"
                 >
                   Siguiente

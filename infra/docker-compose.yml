@@ -149,16 +149,11 @@ services:
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
-    volumes:
-      - ../frontend:/app
-      - /app/node_modules
-      - /app/.next
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://backend:8000}
     depends_on:
       - backend
     networks:
       - licitaciones_network
-    command: npm run dev
 
 volumes:
   postgres_data:

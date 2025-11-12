@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, FormEvent, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { LogIn, Loader2, UserPlus } from 'lucide-react';
+import { ArrowLeft, LogIn, Loader2, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -15,13 +15,14 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const { login, isAuthenticated, loading: authLoading } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   useEffect(() => {
-    if (searchParams.get('registered') === 'true') {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('registered') === 'true') {
       setSuccess('Cuenta creada exitosamente. Por favor inicia sesión.');
     }
-  }, [searchParams]);
+  }, []);
   
   useEffect(() => {
     // Redirect if already authenticated (only after loading is complete)
@@ -69,7 +70,14 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 sm:px-6 lg:px-8">
+    <div className="relative flex min-h-screen items-center justify-center bg-background px-4 sm:px-6 lg:px-8">
+      <Link
+        href="/"
+        className="absolute left-4 top-4 inline-flex items-center gap-2 text-sm font-semibold text-muted transition-colors duration-200 hover:text-primary sm:left-6 sm:top-6"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Volver al inicio
+      </Link>
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <div className="mb-4 flex items-center justify-center gap-3">

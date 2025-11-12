@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '@/lib/api';
 import { Bell, Check, Trash2, Loader2, Plus, Filter } from 'lucide-react';
 import { format } from 'date-fns';
@@ -41,12 +41,7 @@ export default function AlertsPage() {
 
   const limit = 20;
 
-  useEffect(() => {
-    loadAlerts();
-    loadPreferences();
-  }, [page, filter]);
-
-  const loadAlerts = async () => {
+  const loadAlerts = useCallback(async () => {
     setLoading(true);
     try {
       const params: any = {
@@ -65,9 +60,9 @@ export default function AlertsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filter, page]);
 
-  const loadPreferences = async () => {
+  const loadPreferences = useCallback(async () => {
     setPrefsLoading(true);
     try {
       const data = await apiClient.getAlertPreferences(false);
@@ -77,7 +72,15 @@ export default function AlertsPage() {
     } finally {
       setPrefsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadAlerts();
+  }, [loadAlerts]);
+
+  useEffect(() => {
+    loadPreferences();
+  }, [loadPreferences]);
 
   const markAsRead = async (id: number) => {
     try {

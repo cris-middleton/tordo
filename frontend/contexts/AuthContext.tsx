@@ -10,6 +10,11 @@ interface User {
   full_name?: string;
   is_active: boolean;
   is_verified: boolean;
+  notification_email?: boolean;
+  notification_in_app?: boolean;
+  notification_webhook?: boolean;
+  created_at?: string;
+  last_login?: string | null;
 }
 
 interface AuthContextType {

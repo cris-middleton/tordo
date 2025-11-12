@@ -1,9 +1,32 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { apiClient } from '@/lib/api';
-import { FileText, ShoppingCart, Bell, TrendingUp } from 'lucide-react';
+import {
+  FileText,
+  ShoppingCart,
+  Bell,
+  TrendingUp,
+  Bookmark,
+  Send,
+  Calendar,
+  DollarSign,
+  MapPin,
+  Building2,
+  Trash2,
+} from 'lucide-react';
 import { format } from 'date-fns';
+import { useDashboardCollections } from '@/hooks/useDashboardCollections';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from 'recharts';
 
 export default function DashboardPage() {
   const [stats, setStats] = useState({
@@ -12,6 +35,40 @@ export default function DashboardPage() {
     alerts: { total: 0, unread: 0 },
   });
   const [loading, setLoading] = useState(true);
+  const { collections, counts, hydrated, toggleTender, toggleOrder } = useDashboardCollections();
+
+  const savedChartData = useMemo(
+    () => [
+      { name: 'Licitaciones', value: counts.tenders.saved },
+      { name: 'Órdenes', value: counts.orders.saved },
+    ],
+    [counts],
+  );
+
+  const appliedChartData = useMemo(
+    () => [
+      { name: 'Licitaciones', value: counts.tenders.applied },
+      { name: 'Órdenes', value: counts.orders.applied },
+    ],
+    [counts],
+  );
+
+  const formatStoredDate = (iso: string) => {
+    try {
+      return format(new Date(iso), 'dd MMM yyyy HH:mm');
+    } catch (error) {
+      return '';
+    }
+  };
+
+  const formatCurrency = (amount?: number, currency: string = 'CLP') => {
+    if (typeof amount !== 'number') return 'N/A';
+    return new Intl.NumberFormat('es-CL', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 0,
+    }).format(amount);
+  };
 
   useEffect(() => {
     loadStats();
@@ -52,12 +109,18 @@ export default function DashboardPage() {
       value: stats.tenders.total,
       icon: FileText,
       color: 'blue',
+      subtitle: hydrated
+        ? `${counts.tenders.saved} guardadas • ${counts.tenders.applied} aplicadas`
+        : 'Sin datos locales',
     },
     {
       title: 'Órdenes de Compra',
       value: stats.orders.total,
       icon: ShoppingCart,
       color: 'green',
+      subtitle: hydrated
+        ? `${counts.orders.saved} guardadas • ${counts.orders.applied} aplicadas`
+        : 'Sin datos locales',
     },
     {
       title: 'Alertas',
@@ -118,46 +181,329 @@ export default function DashboardPage() {
         })}
       </div>
 
-      {/* Quick actions */}
-      <div className="card">
-        <h2 className="mb-4 text-lg font-semibold text-text">Accesos rápidos</h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <a
-            href="/dashboard/tenders"
-            className="rounded-lg border border-border bg-surface p-4 transition-colors duration-200 hover:border-primary/40 hover:shadow-md"
-          >
-            <div className="flex items-center gap-3">
-              <FileText className="h-5 w-5 text-primary" />
-              <span className="font-medium text-text">Buscar Licitaciones</span>
-            </div>
-          </a>
-          <a
-            href="/dashboard/orders"
-            className="rounded-lg border border-border bg-surface p-4 transition-colors duration-200 hover:border-primary/40 hover:shadow-md"
-          >
-            <div className="flex items-center gap-3">
-              <ShoppingCart className="h-5 w-5 text-emerald-600" />
-              <span className="font-medium text-text">Ver Órdenes de Compra</span>
-            </div>
-          </a>
-          <a
-            href="/dashboard/alerts"
-            className="rounded-lg border border-border bg-surface p-4 transition-colors duration-200 hover:border-primary/40 hover:shadow-md"
-          >
-            <div className="flex items-center gap-3">
-              <Bell className="h-5 w-5 text-amber-500" />
-              <span className="font-medium text-text">Gestionar Alertas</span>
-            </div>
-          </a>
-          <a
-            href="/dashboard/settings"
-            className="rounded-lg border border-border bg-surface p-4 transition-colors duration-200 hover:border-primary/40 hover:shadow-md"
-          >
-            <div className="flex items-center gap-3">
-              <TrendingUp className="h-5 w-5 text-primary" />
-              <span className="font-medium text-text">Configuración</span>
-            </div>
-          </a>
+      {/* Saved/applied charts */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="card">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-text">Guardados</h2>
+            <Bookmark className="h-5 w-5 text-primary" />
+          </div>
+          <div className="mt-4 h-64">
+            {!hydrated ? (
+              <div className="flex h-full items-center justify-center text-sm text-muted">
+                Cargando datos locales...
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={savedChartData}>
+                  <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" />
+                  <XAxis dataKey="name" stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                  <YAxis
+                    allowDecimals={false}
+                    stroke="#94a3b8"
+                    tick={{ fill: '#94a3b8', fontSize: 12 }}
+                  />
+                  <Tooltip
+                    formatter={(value: number) => [`${value}`, 'Total']}
+                    cursor={{ fill: 'rgba(99, 102, 241, 0.12)' }}
+                  />
+                  <Bar dataKey="value" fill="#6366f1" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+        <div className="card">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-text">Aplicados</h2>
+            <Send className="h-5 w-5 text-emerald-600" />
+          </div>
+          <div className="mt-4 h-64">
+            {!hydrated ? (
+              <div className="flex h-full items-center justify-center text-sm text-muted">
+                Cargando datos locales...
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={appliedChartData}>
+                  <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" />
+                  <XAxis dataKey="name" stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                  <YAxis
+                    allowDecimals={false}
+                    stroke="#94a3b8"
+                    tick={{ fill: '#94a3b8', fontSize: 12 }}
+                  />
+                  <Tooltip
+                    formatter={(value: number) => [`${value}`, 'Total']}
+                    cursor={{ fill: 'rgba(16, 185, 129, 0.12)' }}
+                  />
+                  <Bar dataKey="value" fill="#10b981" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Saved collections */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <div className="card space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-text">
+              Licitaciones guardadas ({collections.tenders.saved.length})
+            </h3>
+          </div>
+          {!hydrated ? (
+            <p className="text-sm text-muted">Cargando datos locales...</p>
+          ) : collections.tenders.saved.length === 0 ? (
+            <p className="text-sm text-muted">No hay licitaciones guardadas aún.</p>
+          ) : (
+            <ul className="space-y-3">
+              {collections.tenders.saved.map((item) => (
+                <li
+                  key={`tender-saved-${item.id}`}
+                  className="rounded-lg border border-border bg-surface p-3 transition-colors hover:border-primary/40"
+                >
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <Link
+                          href={`/dashboard/tenders/${encodeURIComponent(item.codigo_externo)}`}
+                          className="font-medium text-primary hover:underline"
+                        >
+                          {item.nombre}
+                        </Link>
+                        <p className="text-xs text-muted">Código: {item.codigo_externo}</p>
+                      </div>
+                      <button
+                        type="button"
+                        aria-label="Quitar de guardados"
+                        className="rounded-md border border-border p-1 text-muted hover:border-destructive/40 hover:text-destructive"
+                        onClick={() => toggleTender('saved', item)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-3 text-xs text-muted">
+                      {item.region && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {item.region}
+                        </span>
+                      )}
+                      {typeof item.monto_estimado === 'number' && (
+                        <span className="flex items-center gap-1">
+                          <DollarSign className="h-3 w-3" />
+                          {formatCurrency(item.monto_estimado)}
+                        </span>
+                      )}
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        Guardado: {formatStoredDate(item.storedAt)}
+                      </span>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="card space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-text">
+              Órdenes guardadas ({collections.orders.saved.length})
+            </h3>
+          </div>
+          {!hydrated ? (
+            <p className="text-sm text-muted">Cargando datos locales...</p>
+          ) : collections.orders.saved.length === 0 ? (
+            <p className="text-sm text-muted">No hay órdenes guardadas aún.</p>
+          ) : (
+            <ul className="space-y-3">
+              {collections.orders.saved.map((item) => (
+                <li
+                  key={`order-saved-${item.id}`}
+                  className="rounded-lg border border-border bg-surface p-3 transition-colors hover:border-primary/40"
+                >
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <Link
+                          href={`/dashboard/orders/${encodeURIComponent(item.codigo_oc)}`}
+                          className="font-medium text-primary hover:underline"
+                        >
+                          {item.nombre}
+                        </Link>
+                        <p className="text-xs text-muted">Código OC: {item.codigo_oc}</p>
+                      </div>
+                      <button
+                        type="button"
+                        aria-label="Quitar de guardados"
+                        className="rounded-md border border-border p-1 text-muted hover:border-destructive/40 hover:text-destructive"
+                        onClick={() => toggleOrder('saved', item)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-3 text-xs text-muted">
+                      {item.region && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {item.region}
+                        </span>
+                      )}
+                      <span className="flex items-center gap-1">
+                        <DollarSign className="h-3 w-3" />
+                        {formatCurrency(item.monto_total, item.moneda || 'CLP')}
+                      </span>
+                      {item.nombre_proveedor && (
+                        <span className="flex items-center gap-1">
+                          <Building2 className="h-3 w-3" />
+                          {item.nombre_proveedor}
+                        </span>
+                      )}
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        Guardado: {formatStoredDate(item.storedAt)}
+                      </span>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      {/* Applied collections */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <div className="card space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-text">
+              Licitaciones aplicadas ({collections.tenders.applied.length})
+            </h3>
+          </div>
+          {!hydrated ? (
+            <p className="text-sm text-muted">Cargando datos locales...</p>
+          ) : collections.tenders.applied.length === 0 ? (
+            <p className="text-sm text-muted">No hay licitaciones aplicadas aún.</p>
+          ) : (
+            <ul className="space-y-3">
+              {collections.tenders.applied.map((item) => (
+                <li
+                  key={`tender-applied-${item.id}`}
+                  className="rounded-lg border border-border bg-surface p-3 transition-colors hover:border-emerald-400/40"
+                >
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <Link
+                          href={`/dashboard/tenders/${encodeURIComponent(item.codigo_externo)}`}
+                          className="font-medium text-emerald-600 hover:underline"
+                        >
+                          {item.nombre}
+                        </Link>
+                        <p className="text-xs text-muted">Código: {item.codigo_externo}</p>
+                      </div>
+                      <button
+                        type="button"
+                        aria-label="Quitar de aplicados"
+                        className="rounded-md border border-border p-1 text-muted hover:border-destructive/40 hover:text-destructive"
+                        onClick={() => toggleTender('applied', item)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-3 text-xs text-muted">
+                      {item.region && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {item.region}
+                        </span>
+                      )}
+                      {typeof item.monto_estimado === 'number' && (
+                        <span className="flex items-center gap-1">
+                          <DollarSign className="h-3 w-3" />
+                          {formatCurrency(item.monto_estimado)}
+                        </span>
+                      )}
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        Aplicada: {formatStoredDate(item.storedAt)}
+                      </span>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="card space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-text">
+              Órdenes aplicadas ({collections.orders.applied.length})
+            </h3>
+          </div>
+          {!hydrated ? (
+            <p className="text-sm text-muted">Cargando datos locales...</p>
+          ) : collections.orders.applied.length === 0 ? (
+            <p className="text-sm text-muted">No hay órdenes aplicadas aún.</p>
+          ) : (
+            <ul className="space-y-3">
+              {collections.orders.applied.map((item) => (
+                <li
+                  key={`order-applied-${item.id}`}
+                  className="rounded-lg border border-border bg-surface p-3 transition-colors hover:border-emerald-400/40"
+                >
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <Link
+                          href={`/dashboard/orders/${encodeURIComponent(item.codigo_oc)}`}
+                          className="font-medium text-emerald-600 hover:underline"
+                        >
+                          {item.nombre}
+                        </Link>
+                        <p className="text-xs text-muted">Código OC: {item.codigo_oc}</p>
+                      </div>
+                      <button
+                        type="button"
+                        aria-label="Quitar de aplicados"
+                        className="rounded-md border border-border p-1 text-muted hover:border-destructive/40 hover:text-destructive"
+                        onClick={() => toggleOrder('applied', item)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-3 text-xs text-muted">
+                      {item.region && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {item.region}
+                        </span>
+                      )}
+                      <span className="flex items-center gap-1">
+                        <DollarSign className="h-3 w-3" />
+                        {formatCurrency(item.monto_total, item.moneda || 'CLP')}
+                      </span>
+                      {item.nombre_proveedor && (
+                        <span className="flex items-center gap-1">
+                          <Building2 className="h-3 w-3" />
+                          {item.nombre_proveedor}
+                        </span>
+                      )}
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        Aplicada: {formatStoredDate(item.storedAt)}
+                      </span>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </div>
