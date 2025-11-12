@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
@@ -23,9 +23,15 @@ interface OrderDetail {
   descripcion?: string;
   fecha_publicacion?: string;
   fecha_emision?: string;
-  monto_total: number;
+  fecha_aceptacion?: string;
+  fecha_entrega?: string;
+  fecha_estimada_entrega?: string;
+  monto_total?: number;
+  monto_neto?: number;
+  monto_iva?: number;
   moneda?: string;
   estado?: string;
+  estado_proveedor?: string;
   region?: string;
   comuna?: string;
   nombre_organismo?: string;
@@ -33,13 +39,148 @@ interface OrderDetail {
   codigo_organismo?: string;
   codigo_proveedor?: string;
   url_detalle?: string;
+  url_oc?: string;
   categoria?: string;
   rubro?: string;
+  informacion_adicional?: Record<string, any>;
 }
 
 interface PageParams {
   params: { codigo: string };
 }
+
+const normalizeKey = (key: string) => key.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+const buildLookup = (source?: Record<string, any> | null) => {
+  const map = new Map<string, any>();
+  if (!source) return map;
+  Object.entries(source).forEach(([key, value]) => {
+    map.set(normalizeKey(key), value);
+  });
+  return map;
+};
+
+const getFirstValue = (lookups: Map<string, any>[], ...keys: string[]) => {
+  for (const key of keys) {
+    const normalized = normalizeKey(key);
+    for (const lookup of lookups) {
+      if (lookup.has(normalized)) {
+        const value = lookup.get(normalized);
+        if (value !== undefined && value !== null && value !== '') {
+          return value;
+        }
+      }
+    }
+  }
+  return undefined;
+};
+
+const toNumber = (value: any) => {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (typeof value === 'number') {
+    return Number.isNaN(value) ? undefined : value;
+  }
+  const parsed = Number(String(value).replace(/[^\d,.-]/g, '').replace(',', '.'));
+  return Number.isNaN(parsed) ? undefined : parsed;
+};
+
+const normalizeOrderDetail = (data: any): OrderDetail => {
+  const detail: OrderDetail = { ...data };
+  const lookups = [buildLookup(data), buildLookup(data?.informacion_adicional)];
+
+  const fechaPublicacion = getFirstValue(
+    lookups,
+    'fecha_publicacion',
+    'fechapublicacion',
+    'fechaoc',
+    'fechaorden',
+    'fechaemision'
+  );
+  if (fechaPublicacion) detail.fecha_publicacion = fechaPublicacion;
+
+  const fechaEmision = getFirstValue(
+    lookups,
+    'fecha_emision',
+    'fechaemision',
+    'fechaaceptacion',
+    'fechacreacion',
+    'fechaordencompra'
+  );
+  if (fechaEmision) detail.fecha_emision = fechaEmision;
+
+  const fechaAceptacion = getFirstValue(lookups, 'fecha_aceptacion', 'fechaaceptacion');
+  if (fechaAceptacion) detail.fecha_aceptacion = fechaAceptacion;
+
+  const fechaEntrega = getFirstValue(lookups, 'fecha_entrega', 'fechaentrega');
+  if (fechaEntrega) detail.fecha_entrega = fechaEntrega;
+
+  const fechaEstimadaEntrega = getFirstValue(
+    lookups,
+    'fecha_estimada_entrega',
+    'fechaestimadaentrega'
+  );
+  if (fechaEstimadaEntrega) detail.fecha_estimada_entrega = fechaEstimadaEntrega;
+
+  const montoTotal = toNumber(getFirstValue(lookups, 'monto_total', 'montototal', 'montooriginal'));
+  if (montoTotal !== undefined) detail.monto_total = montoTotal;
+
+  const montoNeto = toNumber(getFirstValue(lookups, 'monto_neto', 'montoneto'));
+  if (montoNeto !== undefined) detail.monto_neto = montoNeto;
+
+  const montoIva = toNumber(getFirstValue(lookups, 'monto_iva', 'montoiva', 'iva'));
+  if (montoIva !== undefined) detail.monto_iva = montoIva;
+
+  const moneda = getFirstValue(lookups, 'moneda', 'divisa', 'tipomoneda');
+  if (moneda) detail.moneda = moneda;
+
+  const estado = getFirstValue(lookups, 'estado', 'estadopublicacion', 'estadooc');
+  if (estado) detail.estado = estado;
+
+  const estadoProveedor = getFirstValue(lookups, 'estado_proveedor', 'estadoproveedor');
+  if (estadoProveedor) detail.estado_proveedor = estadoProveedor;
+
+  const region = getFirstValue(lookups, 'region', 'regiongeografica');
+  if (region) detail.region = region;
+
+  const comuna = getFirstValue(lookups, 'comuna', 'comunageografica');
+  if (comuna) detail.comuna = comuna;
+
+  const nombreOrganismo = getFirstValue(
+    lookups,
+    'nombre_organismo',
+    'nombreorganismo',
+    'organismonombre'
+  );
+  if (nombreOrganismo) detail.nombre_organismo = nombreOrganismo;
+
+  const codigoOrganismo = getFirstValue(lookups, 'codigo_organismo', 'codigoorganismo');
+  if (codigoOrganismo) detail.codigo_organismo = codigoOrganismo;
+
+  const nombreProveedor = getFirstValue(
+    lookups,
+    'nombre_proveedor',
+    'nombreproveedor',
+    'proveedornombre'
+  );
+  if (nombreProveedor) detail.nombre_proveedor = nombreProveedor;
+
+  const codigoProveedor = getFirstValue(lookups, 'codigo_proveedor', 'codigoproveedor');
+  if (codigoProveedor) detail.codigo_proveedor = codigoProveedor;
+
+  const categoria = getFirstValue(lookups, 'categoria', 'categorianombre', 'categoriaoc');
+  if (categoria) detail.categoria = categoria;
+
+  const rubro = getFirstValue(lookups, 'rubro', 'rubros', 'rubropartida');
+  if (rubro) detail.rubro = rubro;
+
+  const urlDetalle = getFirstValue(lookups, 'url_detalle', 'urldetalle', 'url_oc', 'urloc', 'link');
+  if (urlDetalle) detail.url_detalle = urlDetalle;
+
+  const urlOc = getFirstValue(lookups, 'url_oc', 'urloc', 'link');
+  if (urlOc) detail.url_oc = urlOc;
+
+  return detail;
+};
 
 export default function OrderDetailPage({ params }: PageParams) {
   const router = useRouter();
@@ -71,13 +212,27 @@ export default function OrderDetailPage({ params }: PageParams) {
     loadOrder();
   }, [params.codigo]);
 
-  const formatCurrency = (amount: number, currency: string = 'CLP') => {
+  const formatCurrency = (amount?: number, currency: string = 'CLP') => {
+    if (amount === undefined || amount === null || Number.isNaN(amount)) {
+      return 'N/A';
+    }
+
     return new Intl.NumberFormat('es-CL', {
       style: 'currency',
       currency,
       minimumFractionDigits: 0,
     }).format(amount);
   };
+
+  const orderData = useMemo(() => {
+    if (!order) return null;
+    return normalizeOrderDetail(order);
+  }, [order]);
+
+  const orderCurrency =
+    orderData?.moneda && typeof orderData.moneda === 'string' && orderData.moneda.length
+      ? orderData.moneda
+      : 'CLP';
 
   return (
     <div className="space-y-6">
@@ -103,7 +258,7 @@ export default function OrderDetailPage({ params }: PageParams) {
         <div className="card border border-destructive/40 bg-destructive/5 p-6 text-destructive">
           {error}
         </div>
-      ) : !order ? (
+      ) : !orderData ? (
         <div className="card p-6 text-muted">No se encontró la orden solicitada.</div>
       ) : (
         <div className="space-y-6">
@@ -111,30 +266,34 @@ export default function OrderDetailPage({ params }: PageParams) {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-sm text-muted">Código orden de compra</p>
-                <h2 className="text-2xl font-semibold text-text">{order.codigo_oc}</h2>
+                <h2 className="text-2xl font-semibold text-text">{orderData.codigo_oc}</h2>
               </div>
-              {order.url_detalle && (
-                <Link
-                  href={order.url_detalle}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-secondary flex items-center gap-2 sm:w-auto w-full justify-center"
-                >
-                  <BadgeCheck className="h-4 w-4" />
-                  Ver en Mercado Público
-                </Link>
-              )}
+              {(() => {
+                const detailUrl = orderData.url_detalle || orderData.url_oc;
+                if (!detailUrl) return null;
+                return (
+                  <Link
+                    href={detailUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-secondary flex items-center gap-2 sm:w-auto w-full justify-center"
+                  >
+                    <BadgeCheck className="h-4 w-4" />
+                    Ver en Mercado Público
+                  </Link>
+                );
+              })()}
             </div>
 
             <div>
               <p className="text-sm text-muted">Nombre</p>
-              <p className="text-lg font-medium text-text">{order.nombre}</p>
+              <p className="text-lg font-medium text-text">{orderData.nombre}</p>
             </div>
 
-            {order.descripcion && (
+            {orderData.descripcion && (
               <div>
                 <p className="text-sm text-muted">Descripción</p>
-                <p className="text-sm leading-6 text-text">{order.descripcion}</p>
+                <p className="text-sm leading-6 text-text">{orderData.descripcion}</p>
               </div>
             )}
           </div>
@@ -148,14 +307,32 @@ export default function OrderDetailPage({ params }: PageParams) {
               <div className="space-y-2 text-sm text-muted">
                 <p>
                   <span className="font-medium text-text">Publicación: </span>
-                  {order.fecha_publicacion
-                    ? format(new Date(order.fecha_publicacion), 'dd MMM yyyy')
+                  {orderData.fecha_publicacion
+                    ? format(new Date(orderData.fecha_publicacion), 'dd MMM yyyy')
                     : 'Sin información'}
                 </p>
-                {order.fecha_emision && (
+                {orderData.fecha_emision && (
                   <p>
                     <span className="font-medium text-text">Emisión: </span>
-                    {format(new Date(order.fecha_emision), 'dd MMM yyyy')}
+                    {format(new Date(orderData.fecha_emision), 'dd MMM yyyy')}
+                  </p>
+                )}
+                {orderData.fecha_aceptacion && (
+                  <p>
+                    <span className="font-medium text-text">Aceptación: </span>
+                    {format(new Date(orderData.fecha_aceptacion), 'dd MMM yyyy')}
+                  </p>
+                )}
+                {orderData.fecha_entrega && (
+                  <p>
+                    <span className="font-medium text-text">Entrega: </span>
+                    {format(new Date(orderData.fecha_entrega), 'dd MMM yyyy')}
+                  </p>
+                )}
+                {orderData.fecha_estimada_entrega && (
+                  <p>
+                    <span className="font-medium text-text">Entrega estimada: </span>
+                    {format(new Date(orderData.fecha_estimada_entrega), 'dd MMM yyyy')}
                   </p>
                 )}
               </div>
@@ -169,18 +346,40 @@ export default function OrderDetailPage({ params }: PageParams) {
               <div className="space-y-2 text-sm text-muted">
                 <p>
                   <span className="font-medium text-text">Monto total: </span>
-                  {formatCurrency(order.monto_total, order.moneda)}
+                  {formatCurrency(orderData.monto_total, orderCurrency)}
                 </p>
-                {order.categoria && (
+                {orderData.monto_neto !== undefined && (
                   <p>
-                    <span className="font-medium text-text">Categoría: </span>
-                    {order.categoria}
+                    <span className="font-medium text-text">Monto neto: </span>
+                    {formatCurrency(orderData.monto_neto, orderCurrency)}
                   </p>
                 )}
-                {order.rubro && (
+                {orderData.monto_iva !== undefined && (
+                  <p>
+                    <span className="font-medium text-text">IVA: </span>
+                    {formatCurrency(orderData.monto_iva, orderCurrency)}
+                  </p>
+                )}
+                {orderData.categoria && (
+                  <p>
+                    <span className="font-medium text-text">Categoría: </span>
+                    {orderData.categoria}
+                  </p>
+                )}
+                {orderData.rubro && (
                   <p>
                     <span className="font-medium text-text">Rubro: </span>
-                    {order.rubro}
+                    {orderData.rubro}
+                  </p>
+                )}
+                <p>
+                  <span className="font-medium text-text">Estado: </span>
+                  {orderData.estado || 'Sin información'}
+                </p>
+                {orderData.estado_proveedor && (
+                  <p>
+                    <span className="font-medium text-text">Estado proveedor: </span>
+                    {orderData.estado_proveedor}
                   </p>
                 )}
               </div>
@@ -194,32 +393,32 @@ export default function OrderDetailPage({ params }: PageParams) {
               <div className="space-y-2 text-sm text-muted">
                 <p>
                   <span className="font-medium text-text">Región: </span>
-                  {order.region || 'Sin información'}
+                  {orderData.region || 'Sin información'}
                 </p>
                 <p>
                   <span className="font-medium text-text">Comuna: </span>
-                  {order.comuna || 'Sin información'}
+                  {orderData.comuna || 'Sin información'}
                 </p>
-                {order.nombre_organismo && (
+                {orderData.nombre_organismo && (
                   <div className="flex items-start gap-2">
                     <Building2 className="mt-1 h-4 w-4 text-primary" />
                     <div>
                       <p className="text-xs text-muted">Organismo público</p>
-                      <p className="text-sm text-text">{order.nombre_organismo}</p>
-                      {order.codigo_organismo && (
-                        <p className="text-xs text-muted">Código: {order.codigo_organismo}</p>
+                      <p className="text-sm text-text">{orderData.nombre_organismo}</p>
+                      {orderData.codigo_organismo && (
+                        <p className="text-xs text-muted">Código: {orderData.codigo_organismo}</p>
                       )}
                     </div>
                   </div>
                 )}
-                {order.nombre_proveedor && (
+                {orderData.nombre_proveedor && (
                   <div className="flex items-start gap-2">
                     <Building2 className="mt-1 h-4 w-4 text-primary" />
                     <div>
                       <p className="text-xs text-muted">Proveedor</p>
-                      <p className="text-sm text-text">{order.nombre_proveedor}</p>
-                      {order.codigo_proveedor && (
-                        <p className="text-xs text-muted">Código: {order.codigo_proveedor}</p>
+                      <p className="text-sm text-text">{orderData.nombre_proveedor}</p>
+                      {orderData.codigo_proveedor && (
+                        <p className="text-xs text-muted">Código: {orderData.codigo_proveedor}</p>
                       )}
                     </div>
                   </div>
@@ -236,11 +435,11 @@ export default function OrderDetailPage({ params }: PageParams) {
             <div className="grid grid-cols-1 gap-4 text-sm text-muted sm:grid-cols-2">
               <div>
                 <p className="font-medium text-text">Estado</p>
-                <p>{order.estado || 'Sin información'}</p>
+                <p>{orderData.estado || 'Sin información'}</p>
               </div>
               <div>
                 <p className="font-medium text-text">ID interno</p>
-                <p>{order.id}</p>
+                <p>{orderData.id}</p>
               </div>
             </div>
           </div>

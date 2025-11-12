@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
@@ -30,14 +30,132 @@ interface TenderDetail {
   nombre_organismo?: string;
   url_licitacion?: string;
   categoria?: string;
-  tipo?: string;
+  tipo_licitacion?: string;
   dias_publicacion?: number;
   dias_cierre?: number;
+  moneda?: string;
+  codigo_organismo?: string;
+  informacion_adicional?: Record<string, any>;
 }
 
 interface PageParams {
   params: { codigo: string };
 }
+
+const normalizeKey = (key: string) => key.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+const buildLookup = (source?: Record<string, any> | null) => {
+  const map = new Map<string, any>();
+  if (!source) return map;
+  Object.entries(source).forEach(([key, value]) => {
+    map.set(normalizeKey(key), value);
+  });
+  return map;
+};
+
+const getFirstValue = (lookups: Map<string, any>[], ...keys: string[]) => {
+  for (const key of keys) {
+    const normalized = normalizeKey(key);
+    for (const lookup of lookups) {
+      if (lookup.has(normalized)) {
+        const value = lookup.get(normalized);
+        if (value !== undefined && value !== null && value !== '') {
+          return value;
+        }
+      }
+    }
+  }
+  return undefined;
+};
+
+const toNumber = (value: any) => {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (typeof value === 'number') {
+    return Number.isNaN(value) ? undefined : value;
+  }
+
+  const parsed = Number(String(value).replace(/[^\d,.-]/g, '').replace(',', '.'));
+  return Number.isNaN(parsed) ? undefined : parsed;
+};
+
+const normalizeTenderDetail = (data: any): TenderDetail => {
+  const detail: TenderDetail = { ...data };
+  const lookups = [buildLookup(data), buildLookup(data?.informacion_adicional)];
+
+  const fechaPublicacion = getFirstValue(
+    lookups,
+    'fecha_publicacion',
+    'fechapublicacion',
+    'fechapublicacionlicitacion',
+    'fechapublicacionutc',
+    'publicacion'
+  );
+  if (fechaPublicacion) detail.fecha_publicacion = fechaPublicacion;
+
+  const fechaCierre = getFirstValue(
+    lookups,
+    'fecha_cierre',
+    'fechacierre',
+    'fechacierrepropuestas',
+    'fechacierrelicitacion'
+  );
+  if (fechaCierre) detail.fecha_cierre = fechaCierre;
+
+  const montoEstimado = toNumber(
+    getFirstValue(lookups, 'monto_estimado', 'montorestimado', 'montoreferencial', 'montototal')
+  );
+  if (montoEstimado !== undefined) detail.monto_estimado = montoEstimado;
+
+  const moneda = getFirstValue(lookups, 'moneda', 'tipomoneda', 'monedaoferta');
+  if (moneda) detail.moneda = moneda;
+
+  const categoria = getFirstValue(
+    lookups,
+    'categoria',
+    'categorianombre',
+    'categoriaobjetocontratacion',
+    'rubros',
+    'rubrosprincipal'
+  );
+  if (categoria) detail.categoria = categoria;
+
+  const tipoLicitacion = getFirstValue(
+    lookups,
+    'tipo_licitacion',
+    'tipolicitacion',
+    'modalidad',
+    'tipo'
+  );
+  if (tipoLicitacion) detail.tipo_licitacion = tipoLicitacion;
+
+  const region = getFirstValue(lookups, 'region', 'regiongeografica');
+  if (region) detail.region = region;
+
+  const comuna = getFirstValue(lookups, 'comuna', 'comunageografica');
+  if (comuna) detail.comuna = comuna;
+
+  const nombreOrganismo = getFirstValue(
+    lookups,
+    'nombre_organismo',
+    'nombreorganismo',
+    'organismonombre'
+  );
+  if (nombreOrganismo) detail.nombre_organismo = nombreOrganismo;
+
+  const codigoOrganismo = getFirstValue(lookups, 'codigo_organismo', 'codigoorganismo');
+  if (codigoOrganismo) detail.codigo_organismo = codigoOrganismo;
+
+  const urlLicitacion = getFirstValue(
+    lookups,
+    'url_licitacion',
+    'urllicitacion',
+    'urldetalle',
+    'url'
+  );
+  if (urlLicitacion) detail.url_licitacion = urlLicitacion;
+
+  return detail;
+};
 
 export default function TenderDetailPage({ params }: PageParams) {
   const router = useRouter();
@@ -62,14 +180,24 @@ export default function TenderDetailPage({ params }: PageParams) {
     loadTender();
   }, [params.codigo]);
 
-  const formatCurrency = (amount?: number) => {
-    if (!amount) return 'N/A';
+  const formatCurrency = (amount?: number, currency: string = 'CLP') => {
+    if (amount === undefined || amount === null || Number.isNaN(amount)) return 'N/A';
     return new Intl.NumberFormat('es-CL', {
       style: 'currency',
-      currency: 'CLP',
+      currency,
       minimumFractionDigits: 0,
     }).format(amount);
   };
+
+  const tenderData = useMemo(() => {
+    if (!tender) return null;
+    return normalizeTenderDetail(tender);
+  }, [tender]);
+
+  const tenderCurrency =
+    tenderData?.moneda && typeof tenderData.moneda === 'string' && tenderData.moneda.length
+      ? tenderData.moneda
+      : 'CLP';
 
   return (
     <div className="space-y-6">
@@ -93,7 +221,7 @@ export default function TenderDetailPage({ params }: PageParams) {
         <div className="card border border-destructive/40 bg-destructive/5 p-6 text-destructive">
           {error}
         </div>
-      ) : !tender ? (
+      ) : !tenderData ? (
         <div className="card p-6 text-muted">No se encontró la licitación solicitada.</div>
       ) : (
         <div className="space-y-6">
@@ -101,11 +229,11 @@ export default function TenderDetailPage({ params }: PageParams) {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-sm text-muted">Código externo</p>
-                <h2 className="text-2xl font-semibold text-text">{tender.codigo_externo}</h2>
+                <h2 className="text-2xl font-semibold text-text">{tenderData.codigo_externo}</h2>
               </div>
-              {tender.url_licitacion && (
+              {tenderData.url_licitacion && (
                 <Link
-                  href={tender.url_licitacion}
+                  href={tenderData.url_licitacion}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn-secondary flex items-center gap-2 sm:w-auto w-full justify-center"
@@ -118,15 +246,15 @@ export default function TenderDetailPage({ params }: PageParams) {
 
             <div>
               <p className="text-sm text-muted">Nombre</p>
-              <p className="text-lg font-medium text-text">{tender.nombre}</p>
+              <p className="text-lg font-medium text-text">{tenderData.nombre}</p>
             </div>
 
-              {tender.descripcion && (
-                <div>
-                  <p className="text-sm text-muted">Descripción</p>
-                  <p className="text-sm leading-6 text-text">{tender.descripcion}</p>
-                </div>
-              )}
+            {tenderData.descripcion && (
+              <div>
+                <p className="text-sm text-muted">Descripción</p>
+                <p className="text-sm leading-6 text-text">{tenderData.descripcion}</p>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -138,26 +266,26 @@ export default function TenderDetailPage({ params }: PageParams) {
               <div className="space-y-2 text-sm text-muted">
                 <p>
                   <span className="font-medium text-text">Publicación: </span>
-                  {tender.fecha_publicacion
-                    ? format(new Date(tender.fecha_publicacion), 'dd MMM yyyy')
+                  {tenderData.fecha_publicacion
+                    ? format(new Date(tenderData.fecha_publicacion), 'dd MMM yyyy')
                     : 'Sin información'}
                 </p>
                 <p>
                   <span className="font-medium text-text">Cierre: </span>
-                  {tender.fecha_cierre
-                    ? format(new Date(tender.fecha_cierre), 'dd MMM yyyy')
+                  {tenderData.fecha_cierre
+                    ? format(new Date(tenderData.fecha_cierre), 'dd MMM yyyy')
                     : 'Sin información'}
                 </p>
-                {typeof tender.dias_publicacion === 'number' && (
+                {typeof tenderData.dias_publicacion === 'number' && (
                   <p>
                     <span className="font-medium text-text">Días publicada: </span>
-                    {tender.dias_publicacion}
+                    {tenderData.dias_publicacion}
                   </p>
                 )}
-                {typeof tender.dias_cierre === 'number' && (
+                {typeof tenderData.dias_cierre === 'number' && (
                   <p>
                     <span className="font-medium text-text">Días hasta cierre: </span>
-                    {tender.dias_cierre}
+                    {tenderData.dias_cierre}
                   </p>
                 )}
               </div>
@@ -171,18 +299,24 @@ export default function TenderDetailPage({ params }: PageParams) {
               <div className="space-y-2 text-sm text-muted">
                 <p>
                   <span className="font-medium text-text">Monto estimado: </span>
-                  {formatCurrency(tender.monto_estimado)}
+                  {formatCurrency(tenderData.monto_estimado, tenderCurrency)}
                 </p>
-                {tender.categoria && (
+                {tenderData.categoria && (
                   <p>
                     <span className="font-medium text-text">Categoría: </span>
-                    {tender.categoria}
+                    {tenderData.categoria}
                   </p>
                 )}
-                {tender.tipo && (
+                {tenderData.tipo_licitacion && (
                   <p>
                     <span className="font-medium text-text">Tipo: </span>
-                    {tender.tipo}
+                    {tenderData.tipo_licitacion}
+                  </p>
+                )}
+                {tenderData.moneda && (
+                  <p>
+                    <span className="font-medium text-text">Moneda: </span>
+                    {tenderData.moneda}
                   </p>
                 )}
               </div>
@@ -196,18 +330,21 @@ export default function TenderDetailPage({ params }: PageParams) {
               <div className="space-y-2 text-sm text-muted">
                 <p>
                   <span className="font-medium text-text">Región: </span>
-                  {tender.region || 'Sin información'}
+                  {tenderData.region || 'Sin información'}
                 </p>
                 <p>
                   <span className="font-medium text-text">Comuna: </span>
-                  {tender.comuna || 'Sin información'}
+                  {tenderData.comuna || 'Sin información'}
                 </p>
-                {tender.nombre_organismo && (
+                {tenderData.nombre_organismo && (
                   <div className="flex items-start gap-2">
                     <Building2 className="mt-1 h-4 w-4 text-primary" />
                     <div>
                       <p className="text-xs text-muted">Organismo público</p>
-                      <p className="text-sm text-text">{tender.nombre_organismo}</p>
+                      <p className="text-sm text-text">{tenderData.nombre_organismo}</p>
+                      {tenderData.codigo_organismo && (
+                        <p className="text-xs text-muted">Código: {tenderData.codigo_organismo}</p>
+                      )}
                     </div>
                   </div>
                 )}
@@ -223,11 +360,11 @@ export default function TenderDetailPage({ params }: PageParams) {
             <div className="grid grid-cols-1 gap-4 text-sm text-muted sm:grid-cols-2">
               <div>
                 <p className="font-medium text-text">Estado</p>
-                <p>{tender.estado || 'Sin información'}</p>
+                <p>{tenderData.estado || 'Sin información'}</p>
               </div>
               <div>
                 <p className="font-medium text-text">ID interno</p>
-                <p>{tender.id}</p>
+                <p>{tenderData.id}</p>
               </div>
             </div>
           </div>
