@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
-from typing import Optional, List
+from pydantic import field_validator
+from typing import Optional, List, Union
 
 
 class Settings(BaseSettings):
@@ -24,7 +25,21 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     
     # CORS settings
-    cors_origins: List[str] = ["http://localhost:3000", "http://localhost:3001"]
+    cors_origins: Union[List[str], str] = ["http://localhost:3000", "http://localhost:3001"]
+    
+    @field_validator('cors_origins', mode='before')
+    @classmethod
+    def parse_cors_origins(cls, v):
+        """Parse CORS_ORIGINS from env (can be comma-separated string or JSON list)"""
+        if isinstance(v, str):
+            # Try to parse as JSON first
+            import json
+            try:
+                return json.loads(v)
+            except:
+                # Fall back to comma-separated
+                return [origin.strip() for origin in v.split(',') if origin.strip()]
+        return v
     
     # ETL settings
     etl_schedule_interval: int = 3600  # seconds

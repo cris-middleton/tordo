@@ -145,4 +145,124 @@ class MercadoPublicoLicitacionesExtractor(BaseExtractor):
         # Basic validation - check for required fields
         required_fields = ["CodigoExterno", "Nombre"]
         return all(field in data for field in required_fields)
+    
+    def extract_detalle_licitacion(self, codigo_externo: str) -> Optional[Dict[str, Any]]:
+        """
+        Extract detailed information for a specific licitación
+        
+        Args:
+            codigo_externo: Código externo de la licitación
+            
+        Returns:
+            Detailed licitación data or None if not found
+        """
+        self.logger.info(f"Extracting detailed info for licitación: {codigo_externo}")
+        
+        params = {
+            "codigo": codigo_externo
+        }
+        
+        data = self._make_request(params)
+        
+        if not data:
+            self.logger.warning(f"No detailed data found for licitación: {codigo_externo}")
+            return None
+        
+        # API returns detailed structure for single record
+        # Check if it's an error response
+        if isinstance(data, dict):
+            if data.get("Codigo") == 404 or data.get("error"):
+                self.logger.warning(f"Licitaciones API returned error for codigo: {codigo_externo}")
+                return None
+        
+        self.logger.info(f"Successfully extracted detailed info for licitación: {codigo_externo}")
+        return data
+    
+    def extract_detalles_licitaciones_from_db(self, limit: Optional[int] = None, skip_existing_details: bool = True) -> List[Dict[str, Any]]:
+        """
+        Extract detailed information for licitaciones from database
+        
+        Args:
+            limit: Maximum number of records to process (None for all)
+            skip_existing_details: Skip records that already have detailed info
+            
+        Returns:
+            List of detailed licitaciones records with their database IDs
+        """
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        import sys
+        import os
+        
+        # Import models from backend
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../backend'))
+        from app.models.licitacion import Licitacion
+        from app.db import Base
+        from etl.config import config as etl_config
+        
+        self.logger.info("Connecting to database to fetch licitaciones códigos...")
+        
+        try:
+            # Connect to database
+            engine = create_engine(etl_config.DATABASE_URL, pool_pre_ping=True)
+            Session = sessionmaker(bind=engine)
+            session = Session()
+            
+            # Query licitaciones
+            query = session.query(Licitacion.id, Licitacion.codigo_externo, Licitacion.informacion_adicional)
+            
+            # Filter records without detailed info if requested
+            if skip_existing_details:
+                # Check if informacion_adicional is null or empty
+                from sqlalchemy import or_
+                query = query.filter(
+                    or_(
+                        Licitacion.informacion_adicional.is_(None),
+                        Licitacion.informacion_adicional == {}
+                    )
+                )
+            
+            # Apply limit if specified
+            if limit:
+                query = query.limit(limit)
+            
+            records = query.all()
+            
+            self.logger.info(f"Found {len(records)} licitaciones to process")
+            
+            # Extract detailed info for each record
+            detailed_records = []
+            success_count = 0
+            error_count = 0
+            
+            for db_id, codigo_externo, _ in records:
+                try:
+                    detalle = self.extract_detalle_licitacion(codigo_externo)
+                    if detalle:
+                        # Add database ID to the record for easier updating
+                        detalle['_db_id'] = db_id
+                        detailed_records.append(detalle)
+                        success_count += 1
+                    else:
+                        error_count += 1
+                    
+                    # Rate limiting
+                    time.sleep(0.5)
+                    
+                except Exception as e:
+                    self.logger.error(f"Error extracting details for licitación {codigo_externo}: {str(e)}")
+                    error_count += 1
+            
+            session.close()
+            engine.dispose()
+            
+            self.logger.info(
+                f"Extracted detailed info: {success_count} successful, {error_count} errors"
+            )
+            
+            return detailed_records
+            
+        except Exception as e:
+            self.logger.error(f"Failed to extract detalles from database: {str(e)}")
+            raise
 

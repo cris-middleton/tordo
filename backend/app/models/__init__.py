@@ -1,15 +1,29 @@
 from app.db import Base
 from app.models.licitacion import Licitacion
+from app.models.licitacion_detalle import LicitacionDetalle
+from app.models.licitacion_historial import LicitacionHistorial
 from app.models.orden_compra import OrdenCompra
+from app.models.orden_compra_detalle import OrdenCompraDetalle
+from app.models.orden_compra_historial import OrdenCompraHistorial
 from app.models.user import User
 from app.models.organization import BuyerOrganization, Supplier
 from app.models.category import Category
 from app.models.alert import Alert, AlertPreference, AlertStatus, AlertType, NotificationChannel
+from app.models.reference import (
+    TipoOrdenCompraRef,
+    UnidadMonetariaRef,
+    TipoDespachoRef,
+    FormaPagoRef,
+)
 
 __all__ = [
     "Base",
     "Licitacion",
+    "LicitacionDetalle",
+    "LicitacionHistorial",
     "OrdenCompra",
+    "OrdenCompraDetalle",
+    "OrdenCompraHistorial",
     "User",
     "BuyerOrganization",
     "Supplier",
@@ -19,5 +33,9 @@ __all__ = [
     "AlertStatus",
     "AlertType",
     "NotificationChannel",
+    "TipoOrdenCompraRef",
+    "UnidadMonetariaRef",
+    "TipoDespachoRef",
+    "FormaPagoRef",
 ]
 

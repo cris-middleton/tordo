@@ -64,6 +64,10 @@ class OrdenCompra(Base):
     fecha_extraccion = Column(DateTime(timezone=True), server_default=func.now())
     fecha_actualizacion = Column(DateTime(timezone=True), onupdate=func.now())
     activo = Column(Boolean, default=True)
+    
+    # Relationships to detailed info and history
+    detalle = relationship("OrdenCompraDetalle", back_populates="orden_compra", uselist=False, cascade="all, delete-orphan")
+    historial = relationship("OrdenCompraHistorial", back_populates="orden_compra", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<OrdenCompra(codigo_oc='{self.codigo_oc}', nombre='{self.nombre}')>"

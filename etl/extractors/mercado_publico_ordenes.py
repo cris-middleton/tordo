@@ -167,4 +167,124 @@ class MercadoPublicoOrdenesExtractor(BaseExtractor):
         codigo = data.get("Codigo") or data.get("CodigoOC")
         nombre = data.get("Nombre") or data.get("nombre")
         return codigo is not None and nombre is not None
+    
+    def extract_detalle_orden_compra(self, codigo_oc: str) -> Optional[Dict[str, Any]]:
+        """
+        Extract detailed information for a specific orden de compra
+        
+        Args:
+            codigo_oc: Código de la orden de compra
+            
+        Returns:
+            Detailed orden de compra data or None if not found
+        """
+        self.logger.info(f"Extracting detailed info for orden de compra: {codigo_oc}")
+        
+        params = {
+            "codigo": codigo_oc
+        }
+        
+        data = self._make_request(params)
+        
+        if not data:
+            self.logger.warning(f"No detailed data found for orden de compra: {codigo_oc}")
+            return None
+        
+        # API returns detailed structure for single record
+        # Check if it's an error response
+        if isinstance(data, dict):
+            if data.get("Codigo") == 404 or data.get("error"):
+                self.logger.warning(f"OrdenCompra API returned error for codigo: {codigo_oc}")
+                return None
+        
+        self.logger.info(f"Successfully extracted detailed info for orden de compra: {codigo_oc}")
+        return data
+    
+    def extract_detalles_ordenes_from_db(self, limit: Optional[int] = None, skip_existing_details: bool = True) -> List[Dict[str, Any]]:
+        """
+        Extract detailed information for órdenes de compra from database
+        
+        Args:
+            limit: Maximum number of records to process (None for all)
+            skip_existing_details: Skip records that already have detailed info
+            
+        Returns:
+            List of detailed órdenes de compra records with their database IDs
+        """
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        import sys
+        import os
+        
+        # Import models from backend
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../backend'))
+        from app.models.orden_compra import OrdenCompra
+        from app.db import Base
+        from etl.config import config as etl_config
+        
+        self.logger.info("Connecting to database to fetch órdenes de compra códigos...")
+        
+        try:
+            # Connect to database
+            engine = create_engine(etl_config.DATABASE_URL, pool_pre_ping=True)
+            Session = sessionmaker(bind=engine)
+            session = Session()
+            
+            # Query órdenes de compra
+            query = session.query(OrdenCompra.id, OrdenCompra.codigo_oc, OrdenCompra.informacion_adicional)
+            
+            # Filter records without detailed info if requested
+            if skip_existing_details:
+                # Check if informacion_adicional is null or empty
+                from sqlalchemy import or_
+                query = query.filter(
+                    or_(
+                        OrdenCompra.informacion_adicional.is_(None),
+                        OrdenCompra.informacion_adicional == {}
+                    )
+                )
+            
+            # Apply limit if specified
+            if limit:
+                query = query.limit(limit)
+            
+            records = query.all()
+            
+            self.logger.info(f"Found {len(records)} órdenes de compra to process")
+            
+            # Extract detailed info for each record
+            detailed_records = []
+            success_count = 0
+            error_count = 0
+            
+            for db_id, codigo_oc, _ in records:
+                try:
+                    detalle = self.extract_detalle_orden_compra(codigo_oc)
+                    if detalle:
+                        # Add database ID to the record for easier updating
+                        detalle['_db_id'] = db_id
+                        detailed_records.append(detalle)
+                        success_count += 1
+                    else:
+                        error_count += 1
+                    
+                    # Rate limiting
+                    time.sleep(0.5)
+                    
+                except Exception as e:
+                    self.logger.error(f"Error extracting details for orden {codigo_oc}: {str(e)}")
+                    error_count += 1
+            
+            session.close()
+            engine.dispose()
+            
+            self.logger.info(
+                f"Extracted detailed info: {success_count} successful, {error_count} errors"
+            )
+            
+            return detailed_records
+            
+        except Exception as e:
+            self.logger.error(f"Failed to extract detalles from database: {str(e)}")
+            raise
 

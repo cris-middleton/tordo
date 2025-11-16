@@ -242,4 +242,128 @@ class DatabaseLoader(BaseLoader):
             return self.load_ordenes_compra(data)
         else:
             raise ValueError(f"Unknown data type: {data_type}")
+    
+    def update_licitacion_detalles(self, detailed_records: List[Dict[str, Any]]) -> int:
+        """
+        Update licitaciones with detailed information
+        
+        Args:
+            detailed_records: List of detailed licitacion records (must include '_db_id' field)
+            
+        Returns:
+            Number of records successfully updated
+        """
+        if not self.session:
+            self.connect()
+        
+        updated_count = 0
+        error_count = 0
+        
+        for record in detailed_records:
+            try:
+                db_id = record.get('_db_id')
+                if not db_id:
+                    self.logger.warning("Record missing '_db_id' field, skipping")
+                    continue
+                
+                # Get existing record
+                existing = self.session.query(Licitacion).filter_by(id=db_id).first()
+                
+                if not existing:
+                    self.logger.warning(f"Licitacion with id {db_id} not found in database")
+                    error_count += 1
+                    continue
+                
+                # Update informacion_adicional with detailed data
+                # Store the entire detailed response
+                existing.informacion_adicional = record
+                
+                # You can also extract specific fields if needed:
+                # if 'Items' in record:
+                #     existing.items = record['Items']
+                # if 'Adjuntos' in record:
+                #     if existing.informacion_adicional is None:
+                #         existing.informacion_adicional = {}
+                #     existing.informacion_adicional['Adjuntos'] = record['Adjuntos']
+                
+                updated_count += 1
+                
+            except Exception as e:
+                self.session.rollback()
+                self.logger.error(f"Error updating licitacion details: {str(e)}")
+                error_count += 1
+        
+        try:
+            self.session.commit()
+            self.logger.info(
+                f"Licitacion details updated: {updated_count} successful, {error_count} errors"
+            )
+        except Exception as e:
+            self.session.rollback()
+            self.logger.error(f"Failed to commit licitacion details: {str(e)}")
+            raise
+        
+        return updated_count
+    
+    def update_orden_compra_detalles(self, detailed_records: List[Dict[str, Any]]) -> int:
+        """
+        Update órdenes de compra with detailed information
+        
+        Args:
+            detailed_records: List of detailed orden de compra records (must include '_db_id' field)
+            
+        Returns:
+            Number of records successfully updated
+        """
+        if not self.session:
+            self.connect()
+        
+        updated_count = 0
+        error_count = 0
+        
+        for record in detailed_records:
+            try:
+                db_id = record.get('_db_id')
+                if not db_id:
+                    self.logger.warning("Record missing '_db_id' field, skipping")
+                    continue
+                
+                # Get existing record
+                existing = self.session.query(OrdenCompra).filter_by(id=db_id).first()
+                
+                if not existing:
+                    self.logger.warning(f"OrdenCompra with id {db_id} not found in database")
+                    error_count += 1
+                    continue
+                
+                # Update informacion_adicional with detailed data
+                # Store the entire detailed response
+                existing.informacion_adicional = record
+                
+                # You can also extract specific fields if needed:
+                # if 'Items' in record:
+                #     existing.items = record['Items']
+                # if 'Comprador' in record:
+                #     if existing.informacion_adicional is None:
+                #         existing.informacion_adicional = {}
+                #     existing.informacion_adicional['Comprador'] = record['Comprador']
+                
+                updated_count += 1
+                
+            except Exception as e:
+                self.session.rollback()
+                self.logger.error(f"Error updating orden compra details: {str(e)}")
+                error_count += 1
+        
+        try:
+            self.session.commit()
+            self.logger.info(
+                f"Orden compra details updated: {updated_count} successful, {error_count} errors"
+            )
+        except Exception as e:
+            self.session.rollback()
+            self.logger.error(f"Failed to commit orden compra details: {str(e)}")
+            raise
+        
+        return updated_count
 
