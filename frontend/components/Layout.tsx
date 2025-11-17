@@ -13,6 +13,8 @@ import {
   LogOut,
   Menu,
   X,
+  BarChart3,
+  Star,
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -29,6 +31,12 @@ export default function Layout({ children }: LayoutProps) {
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Licitaciones', href: '/dashboard/tenders', icon: FileText },
     { name: 'Órdenes de Compra', href: '/dashboard/orders', icon: ShoppingCart },
+    {
+      name: 'Analítica Avanzada',
+      href: '/dashboard/analytics',
+      icon: BarChart3,
+      badge: 'Pro',
+    },
     { name: 'Alertas', href: '/dashboard/alerts', icon: Bell },
     { name: 'Configuración', href: '/dashboard/settings', icon: Settings },
   ];
@@ -94,14 +102,22 @@ export default function Layout({ children }: LayoutProps) {
                     router.push(item.href);
                     setSidebarOpen(false);
                   }}
-                  className={`flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
+                  className={`flex w-full items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
                     isActive(item.href)
                       ? 'bg-primary text-white shadow-sm'
                       : 'text-muted hover:bg-primary/10 hover:text-primary'
                   }`}
                 >
-                  <Icon className="h-5 w-5" />
-                  <span className="font-medium">{item.name}</span>
+                  <div className="flex items-center gap-3">
+                    <Icon className="h-5 w-5" />
+                    <span className="font-medium">{item.name}</span>
+                  </div>
+                  {item.badge && (
+                    <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                      <Star className="h-3 w-3" />
+                      {item.badge}
+                    </span>
+                  )}
                 </button>
               );
             })}
