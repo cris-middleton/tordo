@@ -7,6 +7,7 @@ import os
 import json
 from pathlib import Path
 from datetime import datetime
+from etl.utils import now_santiago
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -37,7 +38,7 @@ def debug_orden_compra(sample_size: int = 3, with_details: bool = True):
     transformer = OrdenCompraTransformer()
     
     # Extraer una orden de compra de hoy
-    hoy = datetime.now().strftime("%Y-%m-%d")
+    hoy = now_santiago().strftime("%Y-%m-%d")
     print(f"\n📅 Extrayendo órdenes de compra del {hoy} (máx {sample_size})...")
     
     raw_data = extractor.extract(fecha_desde=hoy, fecha_hasta=hoy)
@@ -106,7 +107,7 @@ def debug_licitaciones(sample_size: int = 3, with_details: bool = True):
     extractor = MercadoPublicoLicitacionesExtractor(extractor_config)
     transformer = LicitacionTransformer()
     
-    hoy = datetime.now().strftime("%Y-%m-%d")
+    hoy = now_santiago().strftime("%Y-%m-%d")
     print(f"\n📅 Extrayendo licitaciones del {hoy} (máx {sample_size})...")
     raw_data = extractor.extract(fecha_desde=hoy, fecha_hasta=hoy)
     if not raw_data:

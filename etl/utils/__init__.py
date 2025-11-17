@@ -5,7 +5,8 @@ from etl.utils.change_detection import (
     detectar_cambios_orden_compra,
     necesita_actualizacion,
     priorizar_actualizaciones,
-    now_utc
+    now_utc,
+    now_santiago
 )
 
 __all__ = [

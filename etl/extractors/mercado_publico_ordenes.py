@@ -4,6 +4,7 @@ Extractor for Mercado Público Órdenes de Compra API
 import requests
 import time
 from datetime import datetime
+from etl.utils import now_santiago
 from typing import List, Dict, Any, Optional
 from etl.extractors.base import BaseExtractor
 from etl.config import config
@@ -80,9 +81,9 @@ class MercadoPublicoOrdenesExtractor(BaseExtractor):
         """
         # Default to today if not specified
         if not fecha_desde:
-            fecha_desde = datetime.now().strftime("%Y-%m-%d")
+            fecha_desde = now_santiago().strftime("%Y-%m-%d")
         if not fecha_hasta:
-            fecha_hasta = datetime.now().strftime("%Y-%m-%d")
+            fecha_hasta = now_santiago().strftime("%Y-%m-%d")
         
         self.logger.info(f"Extracting órdenes de compra from {fecha_desde} to {fecha_hasta}")
         

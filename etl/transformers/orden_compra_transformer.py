@@ -4,6 +4,7 @@ Normalizes API response to database schema
 """
 from typing import Dict, Any
 from datetime import datetime
+from etl.utils import now_santiago
 from etl.transformers.base import BaseTransformer
 
 
@@ -142,7 +143,7 @@ class OrdenCompraTransformer(BaseTransformer):
             "codigo_licitacion": codigo_licitacion,
             "nombre": data.get("Nombre") or data.get("nombre") or "",
             "descripcion": data.get("Descripcion") or data.get("descripcion") or data.get("Detalle") or "",
-            "fecha_publicacion": fecha_publicacion or datetime.now(),
+            "fecha_publicacion": fecha_publicacion or now_santiago(),
             "fecha_aceptacion": fecha_aceptacion,
             "fecha_entrega": fecha_entrega,
             "fecha_estimada_entrega": fecha_estimada_entrega,

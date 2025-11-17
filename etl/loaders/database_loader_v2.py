@@ -9,7 +9,7 @@ from typing import List, Dict, Any, Optional
 from sqlalchemy import create_engine, or_
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.exc import IntegrityError
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from contextlib import contextmanager
 from etl.loaders.base import BaseLoader
 from etl.config import config
@@ -17,7 +17,7 @@ from etl.utils import (
     calcular_hash,
     detectar_cambios_licitacion,
     detectar_cambios_orden_compra,
-    now_utc
+    now_santiago
 )
 
 # Import models using shared module
@@ -316,7 +316,7 @@ class DatabaseLoaderV2(BaseLoader):
             detalle.datos_completos = datos_nuevos
             detalle.hash_contenido = hash_nuevo
             detalle.numero_actualizaciones += 1
-            detalle.fecha_ultima_actualizacion = now_utc()
+            detalle.fecha_ultima_actualizacion = now_santiago()
             
             detalle.estado_actual = main_obj.get('Estado') or main_obj.get('estado')
             detalle.items = main_obj.get('Items') or main_obj.get('items')
@@ -460,6 +460,7 @@ class DatabaseLoaderV2(BaseLoader):
                 return None
             fecha_acept_real = _parse_dt(fechas_block.get("FechaAceptacion"))
             fecha_entrega_real = _parse_dt(fechas_block.get("FechaEntrega"))
+            fecha_recepcion_real = _parse_dt(fechas_block.get("FechaRecepcion"))
             monto_final = main_obj.get("Total")
             
             # Create detalle record
@@ -467,7 +468,7 @@ class DatabaseLoaderV2(BaseLoader):
                 orden_compra_id=orden_compra_id,
                 codigo_oc=codigo_oc,
                 hash_contenido=hash_contenido,
-                datos_completos=datos_api,
+                datos_completos=datos_api,  # Guarda TODA la respuesta de la API completa
                 items=items,
                 documentos=documentos,
                 comprador_detalle=comprador,
@@ -476,6 +477,7 @@ class DatabaseLoaderV2(BaseLoader):
                 estado_proveedor_actual=estado_proveedor_actual,
                 fecha_aceptacion_real=fecha_acept_real,
                 fecha_entrega_real=fecha_entrega_real,
+                fecha_recepcion_real=fecha_recepcion_real,
                 monto_final=monto_final,
                 numero_actualizaciones=1
             )
@@ -624,19 +626,44 @@ class DatabaseLoaderV2(BaseLoader):
                 self.logger.warning(f"No detalle found for {codigo_oc}, creating initial")
                 return self.load_orden_compra_detalle_inicial(orden_compra_id, codigo_oc, datos_nuevos) is not None
             
+            # Verificar si el registro existente tiene datos incompletos ANTES de calcular hash
+            datos_anteriores = detalle.datos_completos or {}
+            datos_incompletos = False
+            
+            # Detectar si datos_anteriores tienen estructura mínima (solo Codigo/CodigoEstado)
+            if isinstance(datos_anteriores, dict):
+                keys_anteriores = set(datos_anteriores.keys())
+                # Si solo tiene Codigo y CodigoEstado, es estructura incompleta
+                if keys_anteriores in [{"Codigo", "CodigoEstado"}, {"Codigo"}, {"CodigoEstado"}] or len(keys_anteriores) <= 2:
+                    datos_incompletos = True
+                    self.logger.info(f"Detectados datos incompletos para {codigo_oc}, actualizando con datos completos de la API")
+            
             # Calculate new hash
             hash_nuevo = calcular_hash(datos_nuevos)
             
             # Check if there are changes
+            # IMPORTANT: Si el registro existente tiene datos incompletos, el hash será diferente
+            # y se actualizará correctamente con todos los datos completos de la API
             if hash_nuevo == detalle.hash_contenido:
                 self.logger.debug(f"No changes detected for {codigo_oc}")
                 return False
             
-            self.logger.info(f"Changes detected for {codigo_oc}, analyzing...")
+            # Si llegamos aquí, hay cambios (o datos incompletos que necesitan completarse)
+            if not datos_incompletos:
+                self.logger.info(f"Changes detected for {codigo_oc}, analyzing...")
             
-            # Detect specific changes
-            datos_anteriores = detalle.datos_completos or {}
-            cambios = detectar_cambios_orden_compra(datos_anteriores, datos_nuevos)
+            # Detect specific changes (solo si no son datos incompletos, para evitar ruido en historial)
+            if not datos_incompletos:
+                cambios = detectar_cambios_orden_compra(datos_anteriores, datos_nuevos)
+            else:
+                # Para datos incompletos, registrar un cambio general en historial
+                cambios = [{
+                    'tipo_cambio': 'datos_completados',
+                    'campo': 'datos_completos',
+                    'descripcion': 'Datos incompletos actualizados con información completa de la API',
+                    'valor_anterior': f"Estructura incompleta con {len(datos_anteriores)} campos",
+                    'valor_nuevo': 'Datos completos de la API'
+                }]
             
             # Register each change in historial
             for cambio in cambios:
@@ -664,7 +691,7 @@ class DatabaseLoaderV2(BaseLoader):
             detalle.datos_completos = datos_nuevos
             detalle.hash_contenido = hash_nuevo
             detalle.numero_actualizaciones += 1
-            detalle.fecha_ultima_actualizacion = now_utc()
+            detalle.fecha_ultima_actualizacion = now_santiago()
             
             detalle.estado_actual = main_obj.get('Estado') or main_obj.get('estado')
             detalle.estado_proveedor_actual = main_obj.get('EstadoProveedor') or main_obj.get('estadoProveedor')
@@ -690,6 +717,7 @@ class DatabaseLoaderV2(BaseLoader):
                 return None
             detalle.fecha_aceptacion_real = _parse_dt(fechas_block.get("FechaAceptacion"))
             detalle.fecha_entrega_real = _parse_dt(fechas_block.get("FechaEntrega"))
+            detalle.fecha_recepcion_real = _parse_dt(fechas_block.get("FechaRecepcion"))
             if main_obj.get("Total") is not None:
                 detalle.monto_final = main_obj.get("Total")
             
@@ -764,7 +792,7 @@ class DatabaseLoaderV2(BaseLoader):
         if excluir_estados_finales is None:
             excluir_estados_finales = ['Cerrada', 'Desierta', 'Adjudicada', 'Cancelada']
         
-        fecha_limite = now_utc() - timedelta(days=dias_sin_actualizar)
+        fecha_limite = now_santiago() - timedelta(days=dias_sin_actualizar)
         
         query = self.session.query(
             Licitacion.id,
@@ -810,7 +838,7 @@ class DatabaseLoaderV2(BaseLoader):
         if excluir_estados_finales is None:
             excluir_estados_finales = ['Cerrada', 'Finalizada', 'Cancelada']
         
-        fecha_limite = now_utc() - timedelta(days=dias_sin_actualizar)
+        fecha_limite = now_santiago() - timedelta(days=dias_sin_actualizar)
         
         query = self.session.query(
             OrdenCompra.id,

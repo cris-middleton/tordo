@@ -5,6 +5,7 @@ Main entry point for ETL processes with detalle and historial support
 import logging
 import sys
 from datetime import datetime
+from etl.utils import now_santiago
 from typing import Optional
 from etl.config import config
 from etl.extractors import MercadoPublicoLicitacionesExtractor, MercadoPublicoOrdenesExtractor
@@ -570,9 +571,9 @@ def run_etl_pipeline_v2(
     logger.info("=" * 60)
     
     if not fecha_desde:
-        fecha_desde = datetime.now().strftime("%Y-%m-%d")
+        fecha_desde = now_santiago().strftime("%Y-%m-%d")
     if not fecha_hasta:
-        fecha_hasta = datetime.now().strftime("%Y-%m-%d")
+        fecha_hasta = now_santiago().strftime("%Y-%m-%d")
     
     logger.info(f"Date range: {fecha_desde} to {fecha_hasta}")
     

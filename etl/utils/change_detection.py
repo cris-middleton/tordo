@@ -4,12 +4,20 @@ Utilities for detecting changes between data versions
 import hashlib
 import json
 from typing import Dict, Any, List, Optional
-from datetime import datetime, timezone
+from datetime import datetime
+import pytz
 
 
+def now_santiago() -> datetime:
+    """Get current Santiago/Chile datetime with timezone awareness"""
+    santiago_tz = pytz.timezone('America/Santiago')
+    return datetime.now(santiago_tz)
+
+
+# Alias for backward compatibility
 def now_utc() -> datetime:
-    """Get current UTC datetime with timezone awareness"""
-    return datetime.now(timezone.utc)
+    """Alias for now_santiago() - uses Santiago/Chile timezone"""
+    return now_santiago()
 
 
 def calcular_hash(data: Dict[str, Any]) -> str:
@@ -152,6 +160,17 @@ def detectar_cambios_licitacion(
     return cambios
 
 
+def _extract_main_object(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Extract main object from API response structure"""
+    if isinstance(data, dict):
+        listado = data.get("Listado")
+        if isinstance(listado, list) and listado:
+            return listado[0]
+        # If already at main level, return as is
+        return data
+    return {}
+
+
 def detectar_cambios_orden_compra(
     datos_anteriores: Dict[str, Any],
     datos_nuevos: Dict[str, Any]
@@ -160,24 +179,47 @@ def detectar_cambios_orden_compra(
     Detect changes specific to órdenes de compra
     
     Args:
-        datos_anteriores: Previous orden de compra data
-        datos_nuevos: New orden de compra data
+        datos_anteriores: Previous orden de compra data (may be full API response with Listado)
+        datos_nuevos: New orden de compra data (may be full API response with Listado)
         
     Returns:
         List of changes with orden-specific types
     """
-    # Priority fields to monitor for órdenes de compra
+    # Extract main objects if data is in Listado structure
+    obj_anterior = _extract_main_object(datos_anteriores)
+    obj_nuevo = _extract_main_object(datos_nuevos)
+    
+    # Priority fields to monitor for órdenes de compra (check in main object and Fechas)
     campos_importantes = [
         'Estado',
-        'Proveedor',
-        'FechaAceptacion',
-        'FechaEntrega',
+        'EstadoProveedor',
+        'Total',
+        'TotalNeto',
+        'Impuestos',
         'Items',
-        'MontoTotal',
-        'Documentos'
+        'Proveedor',
+        'Comprador'
     ]
     
-    cambios = detectar_cambios(datos_anteriores, datos_nuevos, campos_importantes)
+    # Also check Fechas nested object
+    fechas_ant = obj_anterior.get('Fechas', {}) or {}
+    fechas_nuevo = obj_nuevo.get('Fechas', {}) or {}
+    
+    cambios = detectar_cambios(obj_anterior, obj_nuevo, campos_importantes)
+    
+    # Check changes in Fechas
+    if fechas_ant != fechas_nuevo:
+        for fecha_field in ['FechaAceptacion', 'FechaEntrega', 'FechaCancelacion']:
+            val_ant = fechas_ant.get(fecha_field)
+            val_nuevo = fechas_nuevo.get(fecha_field)
+            if val_ant != val_nuevo:
+                cambios.append({
+                    'tipo_cambio': 'fecha' if fecha_field in ['FechaAceptacion', 'FechaEntrega'] else 'cancelacion',
+                    'campo': f'Fechas.{fecha_field}',
+                    'valor_anterior': str(val_ant) if val_ant else None,
+                    'valor_nuevo': str(val_nuevo) if val_nuevo else None,
+                    'descripcion': f"{fecha_field} cambió de '{val_ant}' a '{val_nuevo}'"
+                })
     
     # Add specific orden de compra change types
     for cambio in cambios:
@@ -189,11 +231,19 @@ def detectar_cambios_orden_compra(
             estado_nuevo = cambio['valor_nuevo']
             cambio['descripcion'] = f"Estado cambió de '{estado_ant}' a '{estado_nuevo}'"
             
-        elif campo == 'FechaAceptacion' and cambio['valor_anterior'] is None:
-            cambio['tipo_cambio'] = 'aceptacion'
-            cambio['descripcion'] = f"Orden aceptada el {cambio['valor_nuevo']}"
+        elif campo == 'EstadoProveedor':
+            cambio['tipo_cambio'] = 'estado_proveedor'
+            cambio['descripcion'] = f"Estado del proveedor cambió de '{cambio['valor_anterior']}' a '{cambio['valor_nuevo']}'"
             
-        elif campo == 'FechaEntrega':
+        elif campo == 'Fechas.FechaAceptacion':
+            if cambio['valor_anterior'] is None:
+                cambio['tipo_cambio'] = 'aceptacion'
+                cambio['descripcion'] = f"Orden aceptada el {cambio['valor_nuevo']}"
+            else:
+                cambio['tipo_cambio'] = 'aceptacion_modificada'
+                cambio['descripcion'] = f"Fecha de aceptación cambió de {cambio['valor_anterior']} a {cambio['valor_nuevo']}"
+            
+        elif campo == 'Fechas.FechaEntrega':
             if cambio['valor_anterior'] is None:
                 cambio['tipo_cambio'] = 'entrega'
                 cambio['descripcion'] = f"Orden entregada el {cambio['valor_nuevo']}"
@@ -201,14 +251,26 @@ def detectar_cambios_orden_compra(
                 cambio['tipo_cambio'] = 'entrega_modificada'
                 cambio['descripcion'] = f"Fecha de entrega cambió de {cambio['valor_anterior']} a {cambio['valor_nuevo']}"
                 
-        elif campo == 'Documentos':
-            # Check if new documents
-            docs_ant = datos_anteriores.get('Documentos', [])
-            docs_nuevo = datos_nuevos.get('Documentos', [])
-            if isinstance(docs_ant, list) and isinstance(docs_nuevo, list):
-                if len(docs_nuevo) > len(docs_ant):
-                    cambio['tipo_cambio'] = 'documento_nuevo'
-                    cambio['descripcion'] = f"{len(docs_nuevo) - len(docs_ant)} nuevo(s) documento(s)"
+        elif campo == 'Total' or campo == 'TotalNeto' or campo == 'Impuestos':
+            cambio['tipo_cambio'] = 'monto'
+            cambio['descripcion'] = f"{campo} cambió de {cambio['valor_anterior']} a {cambio['valor_nuevo']}"
+            
+        elif campo == 'Items':
+            # Check if new items
+            items_ant = obj_anterior.get('Items', {})
+            items_nuevo = obj_nuevo.get('Items', {})
+            if isinstance(items_ant, dict) and isinstance(items_nuevo, dict):
+                listado_ant = items_ant.get('Listado', [])
+                listado_nuevo = items_nuevo.get('Listado', [])
+                if len(listado_nuevo) > len(listado_ant):
+                    cambio['tipo_cambio'] = 'item_nuevo'
+                    cambio['descripcion'] = f"{len(listado_nuevo) - len(listado_ant)} nuevo(s) item(s)"
+                elif len(listado_nuevo) < len(listado_ant):
+                    cambio['tipo_cambio'] = 'item_eliminado'
+                    cambio['descripcion'] = f"{len(listado_ant) - len(listado_nuevo)} item(s) eliminado(s)"
+                else:
+                    cambio['tipo_cambio'] = 'item_modificado'
+                    cambio['descripcion'] = f"Items modificados"
     
     return cambios
 
@@ -246,7 +308,7 @@ def necesita_actualizacion(
             except:
                 return True  # If can't parse date, update to be safe
         
-        dias_desde_actualizacion = (now_utc() - fecha_ultima_actualizacion).days
+        dias_desde_actualizacion = (now_santiago() - fecha_ultima_actualizacion).days
         if dias_desde_actualizacion >= dias_sin_actualizar:
             return True
     
@@ -273,7 +335,7 @@ def priorizar_actualizaciones(
     Returns:
         Prioritized list of records
     """
-    ahora = now_utc()
+    ahora = now_santiago()
     
     def calcular_prioridad(registro):
         """Calculate priority score (lower = higher priority)"""
