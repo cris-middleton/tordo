@@ -2,7 +2,7 @@
 API endpoints for inspecting ETL data
 """
 from fastapi import APIRouter, Depends, Query, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, inspect
 from typing import Optional, List, Dict, Any
 from datetime import datetime
@@ -28,6 +28,20 @@ def model_to_dict(record, model_class) -> Dict[str, Any]:
             result[column.name] = float(value)
         else:
             result[column.name] = value
+    
+    # Include detalle information if available
+    if hasattr(record, 'detalle') and record.detalle:
+        detalle_dict = {}
+        for column in record.detalle.__table__.columns:
+            value = getattr(record.detalle, column.name)
+            if isinstance(value, datetime):
+                detalle_dict[column.name] = value.isoformat()
+            elif hasattr(value, '__float__') and not isinstance(value, (int, float, str, bool, type(None))):
+                detalle_dict[column.name] = float(value)
+            else:
+                detalle_dict[column.name] = value
+        result['detalle'] = detalle_dict
+    
     return result
 
 
@@ -177,7 +191,7 @@ async def get_ordenes_compra(
     codigo_proveedor: Optional[str] = Query(None, description="Filter by codigo_proveedor")
 ):
     """Get all ordenes de compra with optional filters"""
-    query = db.query(OrdenCompra)
+    query = db.query(OrdenCompra).options(joinedload(OrdenCompra.detalle))
     
     # Apply filters
     if codigo_oc:

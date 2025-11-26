@@ -20,6 +20,27 @@ import {
 import { format } from 'date-fns';
 import { useDashboardCollections } from '@/hooks/useDashboardCollections';
 
+// Normalize text to Title Case (first letter uppercase, rest lowercase)
+const normalizeText = (text: string | undefined): string => {
+  if (!text) return '';
+  return text
+    .split(' ')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
+interface OrderDetalle {
+  id?: number;
+  numero_actualizaciones?: number;
+  estado_actual?: string;
+  estado_proveedor_actual?: string;
+  fecha_aceptacion_real?: string;
+  fecha_entrega_real?: string;
+  fecha_recepcion_real?: string;
+  monto_final?: number;
+  items?: any[];
+}
+
 interface Order {
   id: number;
   codigo_oc: string;
@@ -33,6 +54,7 @@ interface Order {
   nombre_organismo?: string;
   nombre_proveedor?: string;
   moneda?: string;
+  detalle?: OrderDetalle;
 }
 
 export default function OrdersPage() {
@@ -50,7 +72,7 @@ export default function OrdersPage() {
   const [keywords, setKeywords] = useState<string[]>([]);
   const { hydrated, isOrderStored, toggleOrder } = useDashboardCollections();
 
-  const limit = 20;
+  const [limit, setLimit] = useState(20);
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
@@ -71,7 +93,7 @@ export default function OrdersPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters.codigo_organismo, filters.codigo_proveedor, filters.estado, page]);
+  }, [filters.codigo_organismo, filters.codigo_proveedor, filters.estado, page, limit]);
 
   useEffect(() => {
     loadOrders();
@@ -246,10 +268,29 @@ export default function OrdersPage() {
 
       {/* Results */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted">
             {displayCount.toLocaleString()} resultado{displayCount !== 1 ? 's' : ''}
           </p>
+          <div className="flex items-center gap-2">
+            <label htmlFor="per-page" className="text-sm text-muted">
+              Registros por página:
+            </label>
+            <select
+              id="per-page"
+              value={limit}
+              onChange={(e) => {
+                setLimit(Number(e.target.value));
+                setPage(1);
+              }}
+              className="input-field w-auto min-w-[100px]"
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </div>
         </div>
 
         {loading ? (
@@ -275,7 +316,7 @@ export default function OrdersPage() {
                             href={`/dashboard/orders/${encodeURIComponent(order.codigo_oc)}`}
                             className="mb-1 inline-block text-lg font-semibold text-primary hover:underline"
                           >
-                            {order.nombre}
+                            {normalizeText(order.nombre)}
                           </Link>
                           <p className="text-sm text-muted">Código OC: {order.codigo_oc}</p>
                         </div>
@@ -294,7 +335,6 @@ export default function OrdersPage() {
                             </div>
                           )}
                           <div className="flex items-center gap-2">
-                            <DollarSign className="h-4 w-4 text-accent" />
                             <span className="font-semibold text-emerald-600">
                               {formatCurrency(order.monto_total, order.moneda)}
                             </span>
@@ -302,11 +342,11 @@ export default function OrdersPage() {
                           {order.region && (
                             <div className="flex items-center gap-2">
                               <MapPin className="h-4 w-4 text-primaryDark" />
-                              <span>{order.region}</span>
+                              <span>{normalizeText(order.region)}</span>
                             </div>
                           )}
                           {order.estado && (
-                            <span className="badge-primary text-xs">{order.estado}</span>
+                            <span className="badge-primary text-xs">{normalizeText(order.estado)}</span>
                           )}
                         </div>
 
@@ -316,7 +356,7 @@ export default function OrdersPage() {
                               <Building2 className="mt-0.5 h-4 w-4 text-primary" />
                               <div>
                                 <p className="text-xs text-muted">Organismo</p>
-                                <p className="text-sm text-text">{order.nombre_organismo}</p>
+                                <p className="text-sm text-text">{normalizeText(order.nombre_organismo)}</p>
                               </div>
                             </div>
                           )}
@@ -325,11 +365,52 @@ export default function OrdersPage() {
                               <Building2 className="mt-0.5 h-4 w-4 text-primary" />
                               <div>
                                 <p className="text-xs text-muted">Proveedor</p>
-                                <p className="text-sm text-text">{order.nombre_proveedor}</p>
+                                <p className="text-sm text-text">{normalizeText(order.nombre_proveedor)}</p>
                               </div>
                             </div>
                           )}
                         </div>
+
+                        {/* Detalle information */}
+                        {order.detalle && (
+                          <div className="mt-3 space-y-2 border-t border-border pt-3">
+                            {order.detalle.numero_actualizaciones !== undefined && (
+                              <p className="text-xs text-muted">
+                                Actualizaciones: {order.detalle.numero_actualizaciones}
+                              </p>
+                            )}
+                            {order.detalle.estado_actual && (
+                              <p className="text-xs text-muted">
+                                Estado actual: {normalizeText(order.detalle.estado_actual)}
+                              </p>
+                            )}
+                            {order.detalle.estado_proveedor_actual && (
+                              <p className="text-xs text-muted">
+                                Estado proveedor: {normalizeText(order.detalle.estado_proveedor_actual)}
+                              </p>
+                            )}
+                            {order.detalle.fecha_aceptacion_real && (
+                              <p className="text-xs text-muted">
+                                Fecha aceptación: {format(new Date(order.detalle.fecha_aceptacion_real), 'dd MMM yyyy')}
+                              </p>
+                            )}
+                            {order.detalle.fecha_entrega_real && (
+                              <p className="text-xs text-muted">
+                                Fecha entrega: {format(new Date(order.detalle.fecha_entrega_real), 'dd MMM yyyy')}
+                              </p>
+                            )}
+                            {order.detalle.monto_final !== undefined && order.detalle.monto_final !== null && (
+                              <p className="text-xs text-muted">
+                                Monto final: {formatCurrency(order.detalle.monto_final, order.moneda || 'CLP')}
+                              </p>
+                            )}
+                            {order.detalle.items && Array.isArray(order.detalle.items) && order.detalle.items.length > 0 && (
+                              <p className="text-xs text-muted">
+                                Items: {order.detalle.items.length}
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex flex-col gap-2 sm:items-end">

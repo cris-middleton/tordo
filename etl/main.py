@@ -206,6 +206,8 @@ def run_etl_extraer_detalles_nuevos_licitaciones(limit: Optional[int] = None) ->
         # Extract and load details for each
         success_count = 0
         error_count = 0
+        total_records = len(registros_sin_detalle)
+        processed_count = 0
         
         for licitacion_id, codigo_externo in registros_sin_detalle:
             try:
@@ -238,6 +240,15 @@ def run_etl_extraer_detalles_nuevos_licitaciones(limit: Optional[int] = None) ->
             except Exception as e:
                 logger.error(f"Error processing licitación {codigo_externo}: {str(e)}")
                 error_count += 1
+            
+            # Progress tracking
+            processed_count += 1
+            if processed_count % 50 == 0 or processed_count == total_records:
+                logger.info("=" * 60)
+                logger.info(f"📊 PROGRESO EXTRACCIÓN LICITACIONES: {processed_count}/{total_records} registros procesados ({processed_count*100//total_records if total_records > 0 else 0}%)")
+                logger.info(f"   ✓ Exitosos: {success_count}")
+                logger.info(f"   ❌ Errores: {error_count}")
+                logger.info("=" * 60)
         
         loader.disconnect()
         
@@ -291,6 +302,8 @@ def run_etl_extraer_detalles_nuevos_ordenes(limit: Optional[int] = None) -> bool
         # Extract and load details for each
         success_count = 0
         error_count = 0
+        total_records = len(registros_sin_detalle)
+        processed_count = 0
         
         for orden_id, codigo_oc in registros_sin_detalle:
             try:
@@ -323,6 +336,15 @@ def run_etl_extraer_detalles_nuevos_ordenes(limit: Optional[int] = None) -> bool
             except Exception as e:
                 logger.error(f"Error processing orden {codigo_oc}: {str(e)}")
                 error_count += 1
+            
+            # Progress tracking
+            processed_count += 1
+            if processed_count % 50 == 0 or processed_count == total_records:
+                logger.info("=" * 60)
+                logger.info(f"📊 PROGRESO EXTRACCIÓN ÓRDENES: {processed_count}/{total_records} registros procesados ({processed_count*100//total_records if total_records > 0 else 0}%)")
+                logger.info(f"   ✓ Exitosos: {success_count}")
+                logger.info(f"   ❌ Errores: {error_count}")
+                logger.info("=" * 60)
         
         loader.disconnect()
         
@@ -389,6 +411,8 @@ def run_etl_actualizar_detalles_licitaciones(
         updated_count = 0
         no_changes_count = 0
         error_count = 0
+        total_records = len(registros_actualizar)
+        processed_count = 0
         
         for licitacion_id, codigo_externo, detalle_id in registros_actualizar:
             try:
@@ -423,6 +447,16 @@ def run_etl_actualizar_detalles_licitaciones(
             except Exception as e:
                 logger.error(f"Error updating licitación {codigo_externo}: {str(e)}")
                 error_count += 1
+            
+            # Progress tracking
+            processed_count += 1
+            if processed_count % 50 == 0 or processed_count == total_records:
+                logger.info("=" * 60)
+                logger.info(f"📊 PROGRESO LICITACIONES: {processed_count}/{total_records} registros procesados ({processed_count*100//total_records}%)")
+                logger.info(f"   ✓ Con cambios: {updated_count}")
+                logger.info(f"   ○ Sin cambios: {no_changes_count}")
+                logger.info(f"   ❌ Errores: {error_count}")
+                logger.info("=" * 60)
         
         loader.disconnect()
         
@@ -492,6 +526,8 @@ def run_etl_actualizar_detalles_ordenes(
         updated_count = 0
         no_changes_count = 0
         error_count = 0
+        total_records = len(registros_actualizar)
+        processed_count = 0
         
         for orden_id, codigo_oc, detalle_id in registros_actualizar:
             try:
@@ -526,6 +562,16 @@ def run_etl_actualizar_detalles_ordenes(
             except Exception as e:
                 logger.error(f"Error updating orden {codigo_oc}: {str(e)}")
                 error_count += 1
+            
+            # Progress tracking
+            processed_count += 1
+            if processed_count % 50 == 0 or processed_count == total_records:
+                logger.info("=" * 60)
+                logger.info(f"📊 PROGRESO ÓRDENES DE COMPRA: {processed_count}/{total_records} registros procesados ({processed_count*100//total_records}%)")
+                logger.info(f"   ✓ Con cambios: {updated_count}")
+                logger.info(f"   ○ Sin cambios: {no_changes_count}")
+                logger.info(f"   ❌ Errores: {error_count}")
+                logger.info("=" * 60)
         
         loader.disconnect()
         
@@ -657,7 +703,23 @@ def main():
     
     args = parser.parse_args()
     
-    logger.info("ETL V2 process started")
+    logger.info("=" * 80)
+    logger.info("ETL V2 PROCESS STARTED")
+    logger.info("=" * 80)
+    logger.info(f"Timestamp: {now_santiago().isoformat()}")
+    if args.only_actualizar:
+        logger.info("Mode: --only-actualizar (Update existing details)")
+        if args.skip_licitaciones:
+            logger.info("⚠️  Skipping licitaciones")
+        if args.skip_ordenes:
+            logger.info("⚠️  Skipping órdenes de compra")
+        logger.info(f"Days threshold: {args.dias_sin_actualizar} (0 = all records)")
+    elif args.only_extraer_nuevos:
+        logger.info("Mode: --only-extraer-nuevos (Extract details for new records)")
+    else:
+        logger.info("Mode: Full pipeline")
+    logger.info("=" * 80)
+    logger.info("")
     
     # Standalone mode: only extract new details
     if args.only_extraer_nuevos:
@@ -671,7 +733,13 @@ def main():
     
     # Standalone mode: only update existing
     elif args.only_actualizar:
+        import time
+        start_time = time.time()
         success = True
+        
+        logger.info("🚀 Starting update process...")
+        logger.info("")
+        
         if not args.skip_licitaciones:
             if not run_etl_actualizar_detalles_licitaciones(
                 dias_sin_actualizar=args.dias_sin_actualizar,
@@ -679,6 +747,8 @@ def main():
                 limit=args.detalles_limit
             ):
                 success = False
+            logger.info("")
+        
         if not args.skip_ordenes:
             if not run_etl_actualizar_detalles_ordenes(
                 dias_sin_actualizar=args.dias_sin_actualizar,
@@ -686,6 +756,20 @@ def main():
                 limit=args.detalles_limit
             ):
                 success = False
+        
+        # Final summary
+        elapsed_time = time.time() - start_time
+        hours = int(elapsed_time // 3600)
+        minutes = int((elapsed_time % 3600) // 60)
+        seconds = int(elapsed_time % 60)
+        
+        logger.info("")
+        logger.info("=" * 80)
+        logger.info("🏁 ETL V2 PROCESS COMPLETED")
+        logger.info("=" * 80)
+        logger.info(f"Total execution time: {hours}h {minutes}m {seconds}s")
+        logger.info(f"Timestamp: {now_santiago().isoformat()}")
+        logger.info("=" * 80)
     
     # Full pipeline
     else:
@@ -700,12 +784,17 @@ def main():
             dias_sin_actualizar=args.dias_sin_actualizar
         )
     
-    if success:
-        logger.info("ETL V2 process completed successfully")
-        sys.exit(0)
-    else:
-        logger.error("ETL V2 process failed")
-        sys.exit(1)
+    if not args.only_actualizar:  # Only show this summary if not already shown above
+        if success:
+            logger.info("=" * 80)
+            logger.info("✅ ETL V2 process completed successfully")
+            logger.info("=" * 80)
+        else:
+            logger.error("=" * 80)
+            logger.error("❌ ETL V2 process failed")
+            logger.error("=" * 80)
+    
+    sys.exit(0 if success else 1)
 
 
 if __name__ == '__main__':

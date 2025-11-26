@@ -20,6 +20,27 @@ import {
 import { format } from 'date-fns';
 import { useDashboardCollections } from '@/hooks/useDashboardCollections';
 
+// Normalize text to Title Case (first letter uppercase, rest lowercase)
+const normalizeText = (text: string | undefined): string => {
+  if (!text) return '';
+  return text
+    .split(' ')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
+interface TenderDetalle {
+  id?: number;
+  numero_actualizaciones?: number;
+  estado_actual?: string;
+  fecha_adjudicacion?: string;
+  monto_adjudicado?: string;
+  proveedor_adjudicado?: string;
+  fecha_cierre_real?: string;
+  items?: any[];
+  participantes?: any[];
+}
+
 interface Tender {
   id: number;
   codigo_externo: string;
@@ -33,6 +54,7 @@ interface Tender {
   comuna?: string;
   nombre_organismo?: string;
   url_licitacion?: string;
+  detalle?: TenderDetalle;
 }
 
 export default function TendersPage() {
@@ -52,7 +74,7 @@ export default function TendersPage() {
   const [keywords, setKeywords] = useState<string[]>([]);
   const { hydrated, isTenderStored, toggleTender } = useDashboardCollections();
 
-  const limit = 20;
+  const [limit, setLimit] = useState(20);
 
   const loadTenders = useCallback(async () => {
     setLoading(true);
@@ -75,7 +97,7 @@ export default function TendersPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters.estado, filters.max_amount, filters.min_amount, filters.region, page]);
+  }, [filters.estado, filters.max_amount, filters.min_amount, filters.region, page, limit]);
 
   useEffect(() => {
     loadTenders();
@@ -261,10 +283,29 @@ export default function TendersPage() {
 
       {/* Results */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted">
             {displayCount.toLocaleString()} resultado{displayCount !== 1 ? 's' : ''}
           </p>
+          <div className="flex items-center gap-2">
+            <label htmlFor="per-page" className="text-sm text-muted">
+              Registros por página:
+            </label>
+            <select
+              id="per-page"
+              value={limit}
+              onChange={(e) => {
+                setLimit(Number(e.target.value));
+                setPage(1);
+              }}
+              className="input-field w-auto min-w-[100px]"
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </div>
         </div>
 
         {loading ? (
@@ -290,7 +331,7 @@ export default function TendersPage() {
                             href={`/dashboard/tenders/${encodeURIComponent(tender.codigo_externo)}`}
                             className="mb-1 inline-block text-lg font-semibold text-primary hover:underline"
                           >
-                            {tender.nombre}
+                            {normalizeText(tender.nombre)}
                           </Link>
                           <p className="text-sm text-muted">Código: {tender.codigo_externo}</p>
                         </div>
@@ -312,25 +353,67 @@ export default function TendersPage() {
                           )}
                           {tender.monto_estimado && (
                             <div className="flex items-center gap-2">
-                              <DollarSign className="h-4 w-4 text-accent" />
-                              <span>{formatCurrency(tender.monto_estimado)}</span>
+                              <span className="font-semibold text-emerald-600">
+                                {formatCurrency(tender.monto_estimado)}
+                              </span>
                             </div>
                           )}
                           {tender.region && (
                             <div className="flex items-center gap-2">
                               <MapPin className="h-4 w-4 text-primaryDark" />
-                              <span>{tender.region}</span>
+                              <span>{normalizeText(tender.region)}</span>
                             </div>
                           )}
                           {tender.estado && (
-                            <span className="badge-primary text-xs">{tender.estado}</span>
+                            <span className="badge-primary text-xs">{normalizeText(tender.estado)}</span>
                           )}
                         </div>
 
                         {tender.nombre_organismo && (
                           <p className="text-sm text-muted">
-                            Organismo: {tender.nombre_organismo}
+                            Organismo: {normalizeText(tender.nombre_organismo)}
                           </p>
+                        )}
+
+                        {/* Detalle information */}
+                        {tender.detalle && (
+                          <div className="mt-3 space-y-2 border-t border-border pt-3">
+                            {tender.detalle.numero_actualizaciones !== undefined && (
+                              <p className="text-xs text-muted">
+                                Actualizaciones: {tender.detalle.numero_actualizaciones}
+                              </p>
+                            )}
+                            {tender.detalle.estado_actual && (
+                              <p className="text-xs text-muted">
+                                Estado actual: {normalizeText(tender.detalle.estado_actual)}
+                              </p>
+                            )}
+                            {tender.detalle.fecha_adjudicacion && (
+                              <p className="text-xs text-muted">
+                                Fecha adjudicación: {format(new Date(tender.detalle.fecha_adjudicacion), 'dd MMM yyyy')}
+                              </p>
+                            )}
+                            {tender.detalle.proveedor_adjudicado && (
+                              <p className="text-xs text-muted">
+                                Proveedor adjudicado: {normalizeText(tender.detalle.proveedor_adjudicado)}
+                              </p>
+                            )}
+                            {tender.detalle.monto_adjudicado && (
+                              <p className="text-xs text-muted">
+                                Monto adjudicado: {tender.detalle.monto_adjudicado}
+                              </p>
+                            )}
+                            {tender.detalle.items && Array.isArray(tender.detalle.items) && tender.detalle.items.length > 0 && (
+                              <p className="text-xs text-muted">
+                                Items: {tender.detalle.items.length}
+                              </p>
+                            )}
+                            {tender.detalle.participantes && Array.isArray(tender.detalle.participantes) && tender.detalle.participantes.length > 0 && (
+                              <p className="text-xs text-muted">
+                                Participantes: {tender.detalle.participantes.length}
+                              </p>
+                            )}
+                          </div>
                         )}
                       </div>
 

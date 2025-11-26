@@ -31,6 +31,30 @@ class TenderUpdate(BaseModel):
     organismo_id: Optional[int] = None
 
 
+class LicitacionDetalleResponse(BaseModel):
+    """Schema for licitacion detalle information"""
+    id: int
+    licitacion_id: int
+    codigo_externo: str
+    fecha_primera_extraccion: Optional[datetime] = None
+    fecha_ultima_actualizacion: Optional[datetime] = None
+    numero_actualizaciones: Optional[int] = None
+    hash_contenido: Optional[str] = None
+    datos_completos: Optional[Dict[str, Any]] = None
+    items: Optional[List[Dict[str, Any]]] = None
+    documentos: Optional[List[Dict[str, Any]]] = None
+    participantes: Optional[List[Dict[str, Any]]] = None
+    etapas: Optional[List[Dict[str, Any]]] = None
+    adjuntos: Optional[List[Dict[str, Any]]] = None
+    estado_actual: Optional[str] = None
+    fecha_cierre_real: Optional[datetime] = None
+    fecha_adjudicacion: Optional[datetime] = None
+    monto_adjudicado: Optional[str] = None
+    proveedor_adjudicado: Optional[str] = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
 class TenderResponse(TenderBase):
     id: int
     codigo_interno: Optional[str] = None
@@ -49,6 +73,7 @@ class TenderResponse(TenderBase):
     url_licitacion: Optional[str] = None
     fecha_extraccion: datetime
     fecha_actualizacion: Optional[datetime] = None
+    detalle: Optional[LicitacionDetalleResponse] = None
     
     model_config = ConfigDict(from_attributes=True)
 

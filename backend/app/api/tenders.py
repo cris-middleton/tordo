@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_, and_
 from typing import Optional, List
 from datetime import datetime
@@ -26,7 +26,7 @@ async def list_tenders(
     current_user: User = Depends(get_current_active_user),
 ):
     """List tenders with filtering and pagination"""
-    query = db.query(Licitacion).filter(Licitacion.activo == True)
+    query = db.query(Licitacion).options(joinedload(Licitacion.detalle)).filter(Licitacion.activo == True)
     
     # Apply filters
     if estado:
@@ -72,7 +72,7 @@ async def get_tender(
     current_user: User = Depends(get_current_active_user),
 ):
     """Get tender by ID"""
-    tender = db.query(Licitacion).filter(
+    tender = db.query(Licitacion).options(joinedload(Licitacion.detalle)).filter(
         Licitacion.id == tender_id,
         Licitacion.activo == True
     ).first()
@@ -93,7 +93,7 @@ async def get_tender_by_code(
     current_user: User = Depends(get_current_active_user),
 ):
     """Get tender by external code"""
-    tender = db.query(Licitacion).filter(
+    tender = db.query(Licitacion).options(joinedload(Licitacion.detalle)).filter(
         Licitacion.codigo_externo == codigo_externo,
         Licitacion.activo == True
     ).first()

@@ -29,10 +29,10 @@ export default function Layout({ children }: LayoutProps) {
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Licitaciones', href: '/dashboard/tenders', icon: FileText },
     { name: 'Órdenes de Compra', href: '/dashboard/orders', icon: ShoppingCart },
+    { name: 'Licitaciones', href: '/dashboard/tenders', icon: FileText },
     {
-      name: 'Analítica Avanzada',
+      name: 'Analytics',
       href: '/dashboard/analytics',
       icon: BarChart3,
       badge: 'Pro',
