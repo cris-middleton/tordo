@@ -134,8 +134,25 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <div className="animate-pulse text-muted">Cargando estadísticas...</div>
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <div className="h-8 w-48 bg-surface rounded animate-pulse"></div>
+          <div className="h-4 w-64 bg-surface rounded animate-pulse"></div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="card animate-pulse">
+              <div className="h-24 bg-surface rounded"></div>
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {[...Array(2)].map((_, i) => (
+            <div key={i} className="card animate-pulse">
+              <div className="h-64 bg-surface rounded"></div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -224,11 +241,14 @@ export default function DashboardPage() {
               )}
             </button>
             {expandedSections.orders.saved && (
-              <div className="max-h-96 space-y-2 overflow-y-auto pl-4">
+              <div className="max-h-96 space-y-2 overflow-y-auto pl-4 transition-all duration-300">
                 {!hydrated ? (
                   <p className="text-sm text-muted">Cargando datos locales...</p>
                 ) : collections.orders.saved.length === 0 ? (
-                  <p className="text-sm text-muted">No hay órdenes guardadas aún.</p>
+                  <div className="rounded-lg border border-border bg-surface p-4 text-center">
+                    <Bookmark className="mx-auto mb-2 h-8 w-8 text-muted" />
+                    <p className="text-sm text-muted">No hay órdenes guardadas aún.</p>
+                  </div>
                 ) : (
                   collections.orders.saved.map((item) => (
                     <div
@@ -310,11 +330,14 @@ export default function DashboardPage() {
               )}
             </button>
             {expandedSections.orders.applied && (
-              <div className="max-h-96 space-y-2 overflow-y-auto pl-4">
+              <div className="max-h-96 space-y-2 overflow-y-auto pl-4 transition-all duration-300">
                 {!hydrated ? (
                   <p className="text-sm text-muted">Cargando datos locales...</p>
                 ) : collections.orders.applied.length === 0 ? (
-                  <p className="text-sm text-muted">No hay órdenes aplicadas aún.</p>
+                  <div className="rounded-lg border border-border bg-surface p-4 text-center">
+                    <Send className="mx-auto mb-2 h-8 w-8 text-muted" />
+                    <p className="text-sm text-muted">No hay órdenes aplicadas aún.</p>
+                  </div>
                 ) : (
                   collections.orders.applied.map((item) => (
                     <div
@@ -411,11 +434,14 @@ export default function DashboardPage() {
               )}
             </button>
             {expandedSections.tenders.saved && (
-              <div className="max-h-96 space-y-2 overflow-y-auto pl-4">
+              <div className="max-h-96 space-y-2 overflow-y-auto pl-4 transition-all duration-300">
                 {!hydrated ? (
                   <p className="text-sm text-muted">Cargando datos locales...</p>
                 ) : collections.tenders.saved.length === 0 ? (
-                  <p className="text-sm text-muted">No hay licitaciones guardadas aún.</p>
+                  <div className="rounded-lg border border-border bg-surface p-4 text-center">
+                    <Bookmark className="mx-auto mb-2 h-8 w-8 text-muted" />
+                    <p className="text-sm text-muted">No hay licitaciones guardadas aún.</p>
+                  </div>
                 ) : (
                   collections.tenders.saved.map((item) => (
                     <div
@@ -493,11 +519,14 @@ export default function DashboardPage() {
               )}
             </button>
             {expandedSections.tenders.applied && (
-              <div className="max-h-96 space-y-2 overflow-y-auto pl-4">
+              <div className="max-h-96 space-y-2 overflow-y-auto pl-4 transition-all duration-300">
                 {!hydrated ? (
                   <p className="text-sm text-muted">Cargando datos locales...</p>
                 ) : collections.tenders.applied.length === 0 ? (
-                  <p className="text-sm text-muted">No hay licitaciones aplicadas aún.</p>
+                  <div className="rounded-lg border border-border bg-surface p-4 text-center">
+                    <Send className="mx-auto mb-2 h-8 w-8 text-muted" />
+                    <p className="text-sm text-muted">No hay licitaciones aplicadas aún.</p>
+                  </div>
                 ) : (
                   collections.tenders.applied.map((item) => (
                     <div

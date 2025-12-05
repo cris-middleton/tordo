@@ -309,12 +309,29 @@ export default function TendersPage() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="card animate-pulse">
+                <div className="space-y-4">
+                  <div className="h-6 w-3/4 bg-surface rounded"></div>
+                  <div className="h-4 w-1/2 bg-surface rounded"></div>
+                  <div className="flex gap-4">
+                    <div className="h-4 w-24 bg-surface rounded"></div>
+                    <div className="h-4 w-32 bg-surface rounded"></div>
+                    <div className="h-4 w-20 bg-surface rounded"></div>
+                  </div>
+                  <div className="h-20 bg-surface rounded"></div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : filteredTenders.length === 0 ? (
           <div className="card text-center py-12">
-            <p className="text-muted">No se encontraron licitaciones</p>
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-surface">
+              <Search className="h-8 w-8 text-muted" />
+            </div>
+            <p className="mb-2 text-lg font-medium text-text">No se encontraron licitaciones</p>
+            <p className="text-sm text-muted">Intenta ajustar tus filtros o términos de búsqueda</p>
           </div>
         ) : (
           <>
