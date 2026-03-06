@@ -314,7 +314,7 @@ class DatabaseLoaderV2(BaseLoader):
                 return {}
             main_obj = _get_main_object(datos_nuevos)
             detalle.datos_completos = datos_nuevos
-            detalle.hash_contenido = hash_nuevo
+            detalle.hash_contenido = hash_nuevo 
             detalle.numero_actualizaciones += 1
             detalle.fecha_ultima_actualizacion = now_santiago()
             
