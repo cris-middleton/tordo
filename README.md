@@ -1,72 +1,90 @@
 # SaaS Licitaciones Públicas Chile
 
-A SaaS platform for managing and tracking public tenders (licitaciones públicas) in Chile.
+Plataforma SaaS para PYMES chilenas que participan en licitaciones públicas. Gestiona alertas, seguimiento de oportunidades y **compliance operativo** (estado hábil, documentos, checklist de postulaciones).
 
-## Project Structure
+> **Estado del proyecto**: En pivot hacia **YUCA** (SPEC v3.1). Ver `SPEC.md` para la especificación técnica completa y `deploy_steps/` para el plan de implementación por fases.
+
+## Estructura del Proyecto
 
 ```
 saas_licitaciones/
-├── backend/          # FastAPI backend application
-├── frontend/         # Next.js frontend application
-├── etl/              # ETL pipeline for data extraction and processing
-├── infra/            # Infrastructure configuration (Docker, etc.)
-└── docs/             # Project documentation
+├── backend/          # FastAPI + SQLAlchemy + Celery
+├── frontend/         # Next.js 14 + Tailwind CSS
+├── etl/              # Pipeline de extracción (Mercado Público, estado hábil)
+├── infra/            # Docker Compose
+├── deploy_steps/     # Fases de implementación (Fase 0 → 6) + tareas manuales
+├── docs/             # Documentación adicional
+├── SPEC.md           # Especificación técnica completa (v3.1)
+└── .env.example      # Variables de entorno de referencia
 ```
 
-## Quick Start
+## Inicio Rápido
 
-### Prerequisites
+### Prerrequisitos
 
-- Docker and Docker Compose
-- Python 3.11+ (for local development)
-- Node.js 18+ (for frontend development)
+- Docker y Docker Compose
+- Python 3.11+ (desarrollo local)
+- Node.js 18+ (frontend)
 
-### Setup
+### Configuración
 
-1. **Clone the repository**
+1. **Clonar el repositorio**
    ```bash
    git clone <repository-url>
    cd saas_licitaciones
    ```
 
-2. **Create environment file**
+2. **Crear archivo de entorno**
    ```bash
    cp .env.example .env
-   # Edit .env with your configuration
+   # Editar .env con tu configuración
    ```
 
-3. **Start services with Docker Compose**
+3. **Levantar servicios con Docker Compose**
    ```bash
    cd infra
    docker-compose up -d
    ```
 
-4. **Run database migrations**
+4. **Aplicar migraciones**
    ```bash
    cd backend
    alembic upgrade head
    ```
 
-5. **Access the services**
-   - Backend API: http://localhost:8000
-   - API Docs: http://localhost:8000/docs
-   - Frontend: http://localhost:3000
-   - PostgreSQL: localhost:5432
-   - Redis: localhost:6379
+5. **Acceder a los servicios**
+   | Servicio | URL |
+   |----------|-----|
+   | Backend API | http://localhost:8000 |
+   | API Docs (Swagger) | http://localhost:8000/docs |
+   | Frontend | http://localhost:3000 |
+   | PostgreSQL | localhost:5432 |
+   | Redis | localhost:6379 |
 
-## Development
+   > **Nota**: Si el frontend corre en Docker y hace llamadas API desde el navegador, configura `NEXT_PUBLIC_API_URL=http://localhost:8000` en `.env` para que el cliente pueda alcanzar el backend.
 
-### Backend Development
+## Desarrollo
+
+### Flujo de Implementación (Pivot YUCA)
+
+El desarrollo sigue un plan por fases documentado en `deploy_steps/`:
+
+1. **Leer** `SPEC.md` (especificación técnica)
+2. **Revisar** `deploy_steps/tareas_manuales.md` (tareas que requieren acción humana)
+3. **Ejecutar** las fases en orden: `fase_0_c2.md` → `fase_1_c3.md` → ...
+
+### Backend
 
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Windows: venv\Scripts\activate
+# Linux/macOS: source venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-### Frontend Development
+### Frontend
 
 ```bash
 cd frontend
@@ -74,53 +92,70 @@ npm install
 npm run dev
 ```
 
-### ETL Development
+### ETL
 
 ```bash
 cd etl
 python -m venv venv
-source venv/bin/activate
+source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 python main.py
 ```
 
-## Database Migrations
+## Servicios (Docker Compose)
+
+| Servicio | Descripción |
+|----------|-------------|
+| **backend** | API REST FastAPI |
+| **frontend** | Aplicación Next.js |
+| **etl** | Pipeline de extracción de datos |
+| **celery_worker** | Procesamiento asíncrono de alertas |
+| **celery_beat** | Programador de tareas periódicas |
+| **db** | PostgreSQL 15 |
+| **redis** | Cola de tareas y caché |
+
+> MinIO (almacenamiento de documentos) y Flower (monitoreo de Celery) se agregarán en Fase 0 del plan de implementación.
+
+## Migraciones de Base de Datos
 
 ```bash
-# Create a new migration
 cd backend
-alembic revision --autogenerate -m "description"
+# Crear nueva migración
+alembic revision --autogenerate -m "descripción"
 
-# Apply migrations
+# Aplicar migraciones
 alembic upgrade head
 
-# Rollback migration
+# Rollback
 alembic downgrade -1
 ```
 
 ## Testing
 
 ```bash
-# Backend tests
 cd backend
 pytest
 
-# Run with coverage
+# Con cobertura
 pytest --cov=app tests/
 ```
 
-## Environment Variables
+## Variables de Entorno
 
-See `.env.example` for all available environment variables.
+Ver `.env.example` para la lista completa. Variables críticas:
 
-## Services
+- `DATABASE_URL` — Conexión PostgreSQL
+- `REDIS_URL` — Cola Celery
+- `SECRET_KEY` — JWT (cambiar en producción)
+- `MERCADO_PUBLICO_TICKET` — API ChileCompra (ticket demo incluido en .env.example)
+- `APP_NAME` — Nombre de la aplicación (placeholder hasta definir marca final)
 
-- **Backend**: FastAPI REST API
-- **Frontend**: Next.js web application
-- **ETL**: Data extraction and processing pipeline
-- **PostgreSQL**: Primary database
-- **Redis**: Caching and task queue
+## Documentación Relacionada
 
-## License
+- **SPEC.md** — Especificación técnica completa, arquitectura, modelo de datos, roadmap
+- **deploy_steps/** — Plan de implementación por fases
+- **docs/** — Guías de desarrollo y referencia de API
 
-[Add your license here]
+## Licencia
+
+[Agregar licencia]
