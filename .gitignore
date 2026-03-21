@@ -76,3 +76,4 @@ tmp/
 temp/
 *.tmp
 
+.DS_Store
