@@ -76,4 +76,7 @@ tmp/
 temp/
 *.tmp
 
+# ETL bulk data (ZIPs and parquets - too large for git)
+etl/data/
+
 .DS_Store
