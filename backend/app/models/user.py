@@ -25,14 +25,31 @@ class User(Base):
     notification_webhook = Column(Boolean, default=False)
     webhook_url = Column(String(500))
     
+    # Plan / billing
+    plan_tier = Column(String(20), nullable=False, default="basico")
+    subscription_status = Column(String(20), nullable=False, default="inactive")
+    stripe_customer_id = Column(String(255))
+    stripe_subscription_id = Column(String(255))
+
+    # OAuth
+    google_id = Column(String(100), unique=True, nullable=True, index=True)
+
+    # WhatsApp notifications
+    whatsapp_number = Column(String(20), nullable=True)
+
+    # Onboarding
+    onboarding_completed = Column(Boolean, default=False, nullable=False)
+    onboarding_step = Column(Integer, default=0, nullable=False)
+
     # Metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     last_login = Column(DateTime(timezone=True))
-    
+
     # Relationships
     alerts = relationship("Alert", back_populates="user", cascade="all, delete-orphan")
     alert_preferences = relationship("AlertPreference", back_populates="user", cascade="all, delete-orphan")
+    empresas = relationship("EmpresaUsuario", back_populates="user", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<User(email='{self.email}', username='{self.username}')>"

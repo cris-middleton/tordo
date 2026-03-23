@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, ForeignKey, JSON, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+from sqlalchemy.dialects.postgresql import UUID
 from app.db import Base
 import enum
 
@@ -20,6 +21,12 @@ class AlertType(str, enum.Enum):
     NEW_ORDER = "new_order"
     ORDER_UPDATE = "order_update"
     MATCHED_PREFERENCE = "matched_preference"
+    # Compliance / operational alerts (added Block 2)
+    ESTADO_HABIL_CAMBIO = "estado_habil_cambio"
+    DOCUMENTO_VENCIDO = "documento_vencido"
+    PLAZO_48H = "plazo_48h"
+    PLAZO_24H = "plazo_24h"
+    NUEVA_LICITACION_MATCH = "nueva_licitacion_match"
 
 
 class NotificationChannel(str, enum.Enum):
@@ -53,7 +60,13 @@ class Alert(Base):
     notification_channels = Column(JSON)  # List of channels used: ["email", "in_app", "webhook"]
     sent_at = Column(DateTime(timezone=True))
     read_at = Column(DateTime(timezone=True))
-    
+
+    # Deduplication
+    idempotency_key = Column(String(255), unique=True, nullable=True, index=True)
+
+    # Empresa association (for compliance alerts)
+    empresa_id = Column(UUID(as_uuid=True), ForeignKey("empresas.id", ondelete="SET NULL"), nullable=True)
+
     # Metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

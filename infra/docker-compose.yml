@@ -35,6 +35,44 @@ services:
     networks:
       - licitaciones_network
 
+  # MinIO — S3-compatible object store for local dev document storage
+  minio:
+    image: minio/minio:latest
+    container_name: licitaciones_minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - licitaciones_network
+
+  # MinIO setup — creates the default bucket on first start
+  minio-setup:
+    image: minio/mc:latest
+    container_name: licitaciones_minio_setup
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+        mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin};
+        mc mb --ignore-existing local/${AWS_BUCKET:-tordo-docs};
+        mc anonymous set download local/${AWS_BUCKET:-tordo-docs};
+        exit 0;
+      "
+    networks:
+      - licitaciones_network
+
   # Backend API
   backend:
     build:
@@ -48,6 +86,13 @@ services:
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
       DEBUG: ${DEBUG:-false}
+      STORAGE_BACKEND: s3
+      AWS_BUCKET: ${AWS_BUCKET:-tordo-docs}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_ENDPOINT_URL_PUBLIC: ${S3_ENDPOINT_URL_PUBLIC:-http://localhost:9000}
     volumes:
       - ../backend:/app
       - /app/__pycache__
@@ -55,6 +100,8 @@ services:
       db:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     networks:
@@ -76,6 +123,12 @@ services:
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
       DEBUG: ${DEBUG:-false}
+      STORAGE_BACKEND: s3
+      AWS_BUCKET: ${AWS_BUCKET:-tordo-docs}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      S3_ENDPOINT_URL: http://minio:9000
     volumes:
       - ../backend:/app
       - /app/__pycache__
@@ -83,6 +136,8 @@ services:
       db:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     command: celery -A app.celery_app worker --loglevel=info --concurrency=4
     networks:
@@ -108,6 +163,21 @@ services:
       redis:
         condition: service_healthy
     command: celery -A app.celery_app beat --loglevel=info
+    networks:
+      - licitaciones_network
+
+  # Flower — Celery task monitoring UI
+  flower:
+    image: mher/flower:2.0.0
+    container_name: licitaciones_flower
+    command: celery --broker=redis://redis:6379/0 flower --port=5555
+    ports:
+      - "${FLOWER_PORT:-5555}:5555"
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
     networks:
       - licitaciones_network
 
@@ -159,6 +229,8 @@ volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  minio_data:
     driver: local
 
 networks:

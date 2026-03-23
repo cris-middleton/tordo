@@ -1,17 +1,25 @@
 """
 Alert Engine Service
-Matches new records to user preferences and sends notifications
-"""
-from typing import List, Dict, Any, Optional
-from sqlalchemy.orm import Session
-from sqlalchemy import or_, and_
-from datetime import datetime
-import httpx
-import logging
+Matches new records to user preferences and sends notifications.
 
+Key methods
+-----------
+create_alert_idempotent — INSERT ... ON CONFLICT DO NOTHING on idempotency_key
+match_nueva_licitacion  — TF-IDF score every empresa profile, emit NUEVA_LICITACION_MATCH
+"""
+import hashlib
+import logging
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+import httpx
+from sqlalchemy import or_, and_
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.orm import Session
+
+from app.models.alert import Alert, AlertPreference, AlertStatus, AlertType, NotificationChannel
 from app.models.licitacion import Licitacion
 from app.models.orden_compra import OrdenCompra
-from app.models.alert import Alert, AlertPreference, AlertStatus, AlertType, NotificationChannel
 from app.models.user import User
 from app.config import settings
 
@@ -138,6 +146,140 @@ class AlertEngine:
         
         return alert
     
+    def create_alert_idempotent(
+        self,
+        *,
+        user_id: int,
+        alert_type: AlertType,
+        entity_type: str,
+        entity_id: int,
+        title: str,
+        idempotency_key: str,
+        message: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        empresa_id=None,
+        notification_channels: Optional[List[str]] = None,
+    ) -> bool:
+        """
+        Insert an alert using PostgreSQL INSERT … ON CONFLICT DO NOTHING.
+
+        The idempotency_key column has a UNIQUE index, so concurrent workers
+        racing on the same key will result in exactly one row being inserted.
+
+        Returns True if a new row was inserted, False if the key already existed.
+        """
+        stmt = (
+            pg_insert(Alert.__table__)
+            .values(
+                user_id=user_id,
+                alert_type=alert_type.value,
+                status=AlertStatus.PENDING.value,
+                entity_type=entity_type,
+                entity_id=entity_id,
+                title=title,
+                message=message,
+                alert_metadata=metadata or {},
+                notification_channels=notification_channels or ["in_app"],
+                idempotency_key=idempotency_key,
+                empresa_id=empresa_id,
+            )
+            .on_conflict_do_nothing(index_elements=["idempotency_key"])
+        )
+        result = self.db.execute(stmt)
+        self.db.commit()
+        return bool(result.rowcount)
+
+    def match_nueva_licitacion(self, licitacion: Licitacion) -> Dict[str, Any]:
+        """
+        Run TF-IDF semantic matching for a newly-extracted licitación against
+        every empresa that has a saved TFIDFPerfil vector.
+
+        For each empresa whose score is "alto" or "medio", emit a
+        NUEVA_LICITACION_MATCH alert for every member of that empresa.
+        Alerts are idempotent: re-running for the same licitación+empresa
+        produces no duplicates.
+
+        Returns {"created": N, "skipped": N} or a dict with a reason key
+        when the feature is disabled / model not loaded.
+        """
+        if not settings.feature_tfidf:
+            return {"skipped_reason": "feature_tfidf_off"}
+
+        from app.services import tfidf_matcher  # lazy — model may not be loaded
+
+        if not tfidf_matcher.is_available():
+            logger.info("[Matching] TF-IDF model not loaded — skipping licitacion %s", licitacion.codigo_externo)
+            return {"skipped_reason": "model_not_loaded"}
+
+        texto = (licitacion.nombre or "").strip()
+        if not texto:
+            return {"skipped_reason": "no_nombre"}
+
+        from app.models.empresa import EmpresaUsuario, TFIDFPerfil
+
+        perfiles: List[TFIDFPerfil] = (
+            self.db.query(TFIDFPerfil)
+            .filter(TFIDFPerfil.vector_bytes.isnot(None))
+            .all()
+        )
+
+        created = 0
+        skipped = 0
+
+        for perfil in perfiles:
+            try:
+                score, nivel = tfidf_matcher.score_empresa_licitacion(perfil.vector_bytes, texto)
+            except Exception as exc:
+                logger.warning("[Matching] score failed for empresa %s: %s", perfil.empresa_id, exc)
+                continue
+
+            if nivel not in ("alto", "medio"):
+                continue
+
+            memberships: List[EmpresaUsuario] = (
+                self.db.query(EmpresaUsuario)
+                .filter(EmpresaUsuario.empresa_id == perfil.empresa_id)
+                .all()
+            )
+
+            for m in memberships:
+                # key format: nueva_lic_match_<sha8>_<user_id>
+                # sha8 of "licitacion_id:empresa_id" keeps key short & deterministic
+                raw_key = f"{licitacion.id}:{perfil.empresa_id}"
+                key_hash = hashlib.sha256(raw_key.encode()).hexdigest()[:16]
+                idempotency_key = f"nueva_lic_match_{key_hash}_{m.user_id}"
+
+                inserted = self.create_alert_idempotent(
+                    user_id=m.user_id,
+                    alert_type=AlertType.NUEVA_LICITACION_MATCH,
+                    entity_type="licitacion",
+                    entity_id=licitacion.id,
+                    title=f"Licitación relevante: {licitacion.nombre[:100]}",
+                    message=(
+                        f"Nueva licitación '{licitacion.nombre}' "
+                        f"(código {licitacion.codigo_externo}) tiene encaje {nivel} "
+                        f"con el perfil de tu empresa. Similitud: {score:.1%}."
+                    ),
+                    idempotency_key=idempotency_key,
+                    metadata={
+                        "codigo_externo": licitacion.codigo_externo,
+                        "score_encaje": round(score, 4),
+                        "nivel": nivel,
+                    },
+                    empresa_id=perfil.empresa_id,
+                    notification_channels=["in_app"],
+                )
+                if inserted:
+                    created += 1
+                else:
+                    skipped += 1
+
+        logger.info(
+            "[Matching] licitacion=%s created=%d skipped=%d",
+            licitacion.codigo_externo, created, skipped,
+        )
+        return {"created": created, "skipped": skipped}
+
     def send_notifications(self, alert: Alert) -> List[str]:
         """Send notifications for an alert via configured channels"""
         user = self.db.query(User).filter(User.id == alert.user_id).first()

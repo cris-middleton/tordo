@@ -4,20 +4,26 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import Layout from '@/components/Layout';
+import PlanUpgradeBanner from '@/components/PlanUpgradeBanner';
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !isAuthenticated) {
+    if (loading) return;
+    if (!isAuthenticated) {
       router.push('/login');
+      return;
     }
-  }, [isAuthenticated, loading, router]);
+    if (user && user.onboarding_completed === false) {
+      router.push('/onboarding');
+    }
+  }, [isAuthenticated, loading, user, router]);
 
   if (loading) {
     return (
@@ -31,6 +37,11 @@ export default function DashboardLayout({
     return null;
   }
 
-  return <Layout>{children}</Layout>;
+  return (
+    <Layout>
+      {children}
+      <PlanUpgradeBanner />
+    </Layout>
+  );
 }
 

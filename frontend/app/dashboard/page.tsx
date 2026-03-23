@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
 import {
   FileText,
-  ShoppingCart,
   Bell,
   TrendingUp,
   Bookmark,
@@ -18,6 +17,9 @@ import {
   Trash2,
   ChevronDown,
   ChevronUp,
+  ClipboardList,
+  FolderOpen,
+  AlertTriangle,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -32,12 +34,22 @@ import {
   Tooltip,
 } from 'recharts';
 
+interface DashboardStats {
+  licitaciones_activas: number;
+  alertas_no_leidas: number;
+  postulaciones_activas: number;
+  documentos_por_vencer: number;
+  tiene_empresa: boolean;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
-  const [stats, setStats] = useState({
-    tenders: { total: 0, recent: 0 },
-    orders: { total: 0, recent: 0 },
-    alerts: { total: 0, unread: 0 },
+  const [stats, setStats] = useState<DashboardStats>({
+    licitaciones_activas: 0,
+    alertas_no_leidas: 0,
+    postulaciones_activas: 0,
+    documentos_por_vencer: 0,
+    tiene_empresa: false,
   });
   const [loading, setLoading] = useState(true);
   const [expandedSections, setExpandedSections] = useState({
@@ -94,26 +106,8 @@ export default function DashboardPage() {
 
   const loadStats = async () => {
     try {
-      const [tendersRes, ordersRes, alertsRes] = await Promise.all([
-        apiClient.getTenders({ limit: 1 }),
-        apiClient.getOrders({ limit: 1 }),
-        apiClient.getAlerts({ limit: 1 }),
-      ]);
-
-      setStats({
-        tenders: {
-          total: tendersRes.total || 0,
-          recent: 0, // Could calculate recent based on date
-        },
-        orders: {
-          total: ordersRes.total_count || 0,
-          recent: 0,
-        },
-        alerts: {
-          total: alertsRes.total || 0,
-          unread: alertsRes.unread_count || 0,
-        },
-      });
+      const data = await apiClient.getDashboardStats();
+      setStats(data);
     } catch (error) {
       console.error('Error loading stats:', error);
     } finally {
@@ -121,14 +115,36 @@ export default function DashboardPage() {
     }
   };
 
-  const statCards = [
+  const kpiCards = [
     {
-      title: 'Alertas',
-      value: stats.alerts.unread,
-      subtitle: `${stats.alerts.total} total`,
+      title: 'Licitaciones activas',
+      value: stats.licitaciones_activas,
+      icon: FileText,
+      href: '/dashboard/tenders',
+      color: 'blue',
+    },
+    {
+      title: 'Alertas sin leer',
+      value: stats.alertas_no_leidas,
       icon: Bell,
-      color: 'yellow',
       href: '/dashboard/alerts',
+      color: 'yellow',
+      urgent: stats.alertas_no_leidas > 0,
+    },
+    {
+      title: 'Postulaciones activas',
+      value: stats.postulaciones_activas,
+      icon: ClipboardList,
+      href: '/dashboard/postulaciones',
+      color: 'green',
+    },
+    {
+      title: 'Docs por vencer (30d)',
+      value: stats.documentos_por_vencer,
+      icon: FolderOpen,
+      href: '/dashboard/documentos',
+      color: 'red',
+      urgent: stats.documentos_por_vencer > 0,
     },
   ];
 
@@ -160,45 +176,55 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <div className="mb-1 flex items-center gap-3">
-          <h1 className="text-2xl font-semibold text-text sm:text-3xl">Dashboard</h1>
-          {statCards.map((stat) => {
-            const Icon = stat.icon;
-            const hasAlerts = stat.value > 0;
-            return (
-              <div
-                key={stat.title}
-                className="relative cursor-pointer transition-all hover:scale-110"
-                onClick={stat.href ? () => router.push(stat.href) : undefined}
-                role={stat.href ? 'button' : undefined}
-                tabIndex={stat.href ? 0 : undefined}
-                onKeyDown={
-                  stat.href
-                    ? (e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          router.push(stat.href!);
-                        }
-                      }
-                    : undefined
-                }
-              >
-                <Icon className="h-6 w-6 text-muted" />
-                {hasAlerts ? (
-                  <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-semibold text-white">
-                    {stat.value > 99 ? '99+' : stat.value}
-                  </span>
-                ) : (
-                  <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-green-500"></span>
-                )}
-              </div>
-            );
-          })}
-        </div>
+        <h1 className="mb-1 text-2xl font-semibold text-text sm:text-3xl">Dashboard</h1>
         <p className="text-sm text-muted">
           {format(new Date(), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}
         </p>
       </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {kpiCards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <button
+              key={card.title}
+              onClick={() => router.push(card.href)}
+              className={`card text-left transition-all hover:scale-[1.02] hover:shadow-md ${
+                card.urgent ? 'border-red-200 bg-red-50' : ''
+              }`}
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs font-medium text-muted">{card.title}</p>
+                  <p className={`mt-1 text-3xl font-bold ${card.urgent ? 'text-red-600' : 'text-text'}`}>
+                    {card.value}
+                  </p>
+                </div>
+                <div className={`rounded-lg p-2 ${card.urgent ? 'bg-red-100' : 'bg-primary/10'}`}>
+                  <Icon className={`h-5 w-5 ${card.urgent ? 'text-red-500' : 'text-primary'}`} />
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {!stats.tiene_empresa && (
+        <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>
+            Aún no tienes una empresa registrada.{' '}
+            <button
+              onClick={() => router.push('/onboarding')}
+              className="font-semibold underline"
+            >
+              Completa el onboarding
+            </button>{' '}
+            para activar estado hábil, documentos y postulaciones.
+          </span>
+        </div>
+      )}
 
       {/* Combined Collections with Tabs */}
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">

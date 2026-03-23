@@ -4,10 +4,14 @@ Runner principal del módulo de analytics de TORDO.
 Ejecuta todos los análisis en orden y genera reportes en etl/data/analytics/.
 
 Uso:
-  # Todos los análisis
+  # Todos los análisis (reconstrucción completa tras descarga OC + LIC)
   python -m etl.analytics.run_all
 
-  # Solo un módulo
+  # Solo un grupo de módulos por fuente de datos
+  python -m etl.analytics.run_all --grupo oc    # módulos basados en Órdenes de Compra
+  python -m etl.analytics.run_all --grupo lic   # módulos basados en Licitaciones
+
+  # Solo un módulo específico
   python -m etl.analytics.run_all --modulo seasonality
   python -m etl.analytics.run_all --modulo price
   python -m etl.analytics.run_all --modulo competitors
@@ -15,7 +19,43 @@ Uso:
   python -m etl.analytics.run_all --modulo clustering
   python -m etl.analytics.run_all --modulo trends
   python -m etl.analytics.run_all --modulo scorer
+  python -m etl.analytics.run_all --modulo product_prices
+  python -m etl.analytics.run_all --modulo buyers
+  python -m etl.analytics.run_all --modulo sectors
+  python -m etl.analytics.run_all --modulo discounts
+  python -m etl.analytics.run_all --modulo competitor_predictor
+  python -m etl.analytics.run_all --modulo transparency
+  python -m etl.analytics.run_all --modulo windows
+  python -m etl.analytics.run_all --modulo diversification
+
+Grupos por fuente de datos:
+  oc  — seasonality, price, competitors, tfidf, clustering, trends, product_prices,
+         buyers, sectors, discounts, diversification, scorer
+  lic — transparency, windows, competitor_predictor
 """
+
+# Módulos cuya fuente primaria son los ZIPs de Órdenes de Compra
+_MODULOS_OC = [
+    ("seasonality",   "Estacionalidad de compras"),
+    ("price",         "Benchmarking de precios"),
+    ("competitors",   "Análisis de competidores"),
+    ("trends",        "Tendencias de mercado"),
+    ("tfidf",         "Matching semántico TF-IDF"),
+    ("clustering",    "Clustering de tipos de compra"),
+    ("product_prices","Bandas de precio por producto"),
+    ("buyers",        "Scoring de compradores"),
+    ("sectors",       "Inteligencia por sector y región"),
+    ("discounts",     "Descuento óptimo por contexto"),
+    ("diversification","Score de diversificación de proveedores"),
+    ("scorer",        "Scoring de oportunidades"),     # al final: usa outputs anteriores
+]
+
+# Módulos cuya fuente primaria son los ZIPs de Licitaciones
+_MODULOS_LIC = [
+    ("transparency",         "Índice de transparencia del comprador"),
+    ("windows",              "Ventanas de preparación de ofertas"),
+    ("competitor_predictor", "Predictor de N° competidores"),
+]
 
 import argparse
 import logging
@@ -85,6 +125,26 @@ def run_module(name: str):
         from etl.analytics.sector_intelligence import run_sector_intelligence
         run_sector_intelligence()
 
+    elif name == "discounts":
+        from etl.analytics.discount_optimizer import run_discount_optimizer
+        run_discount_optimizer()
+
+    elif name == "competitor_predictor":
+        from etl.analytics.competitor_predictor import run_competitor_predictor
+        run_competitor_predictor()
+
+    elif name == "transparency":
+        from etl.analytics.buyer_transparency import run_buyer_transparency
+        run_buyer_transparency()
+
+    elif name == "windows":
+        from etl.analytics.preparation_window import run_preparation_window
+        run_preparation_window()
+
+    elif name == "diversification":
+        from etl.analytics.provider_diversification import run_provider_diversification
+        run_provider_diversification()
+
     else:
         logger.error(f"Módulo desconocido: {name}")
         return
@@ -93,13 +153,40 @@ def run_module(name: str):
     logger.info(f"  Módulo '{name}' completado en {elapsed:.0f}s ({elapsed/60:.1f} min)")
 
 
+def _run_modules(modules: list) -> None:
+    """Ejecuta una lista de (nombre, descripción) con manejo de errores."""
+    for mod_name, mod_desc in modules:
+        logger.info(f"\n{'─'*50}")
+        logger.info(f"Iniciando: {mod_desc}")
+        logger.info(f"{'─'*50}")
+        try:
+            run_module(mod_name)
+        except Exception as e:
+            logger.error(f"Error en módulo '{mod_name}': {e}", exc_info=True)
+            logger.info("Continuando con el siguiente módulo...")
+
+
 def main():
     parser = argparse.ArgumentParser(description="TORDO Analytics Runner")
     parser.add_argument(
         "--modulo",
-        choices=["seasonality", "price", "competitors", "tfidf", "clustering", "trends", "scorer", "product_prices", "buyers", "sectors"],
+        choices=[
+            "seasonality", "price", "competitors", "tfidf", "clustering",
+            "trends", "scorer", "product_prices", "buyers", "sectors",
+            "discounts", "competitor_predictor", "transparency", "windows", "diversification",
+        ],
         default=None,
-        help="Ejecutar solo un módulo específico. Si no se especifica, ejecuta todos.",
+        help="Ejecutar solo un módulo específico.",
+    )
+    parser.add_argument(
+        "--grupo",
+        choices=["oc", "lic"],
+        default=None,
+        help=(
+            "Ejecutar solo los módulos de un grupo de datos: "
+            "'oc' (Órdenes de Compra) o 'lic' (Licitaciones). "
+            "Si se omite junto con --modulo, ejecuta todos."
+        ),
     )
     args = parser.parse_args()
 
@@ -112,30 +199,17 @@ def main():
 
     if args.modulo:
         run_module(args.modulo)
+    elif args.grupo == "oc":
+        logger.info("Grupo: OC — módulos basados en Órdenes de Compra")
+        _run_modules(_MODULOS_OC)
+    elif args.grupo == "lic":
+        logger.info("Grupo: LIC — módulos basados en Licitaciones")
+        _run_modules(_MODULOS_LIC)
     else:
-        # Orden de ejecución: los módulos base primero, scorer al final
-        modules = [
-            ("seasonality", "Estacionalidad de compras"),
-            ("price", "Benchmarking de precios"),
-            ("competitors", "Análisis de competidores"),
-            ("trends", "Tendencias de mercado"),
-            ("tfidf", "Matching semántico TF-IDF"),
-            ("clustering", "Clustering de tipos de compra"),
-            ("product_prices", "Bandas de precio por producto"),
-            ("buyers", "Scoring de compradores"),
-            ("sectors", "Inteligencia por sector y región"),
-            ("scorer", "Scoring de oportunidades"),
-        ]
-
-        for mod_name, mod_desc in modules:
-            logger.info(f"\n{'─'*50}")
-            logger.info(f"Iniciando: {mod_desc}")
-            logger.info(f"{'─'*50}")
-            try:
-                run_module(mod_name)
-            except Exception as e:
-                logger.error(f"Error en módulo '{mod_name}': {e}", exc_info=True)
-                logger.info("Continuando con el siguiente módulo...")
+        # Sin filtro: ejecutar todos en orden (OC primero, LIC después, scorer al final)
+        _run_modules(_MODULOS_OC[:-1])     # OC sin scorer
+        _run_modules(_MODULOS_LIC)          # LIC
+        _run_modules(_MODULOS_OC[-1:])      # scorer al final
 
     elapsed_total = time.time() - t_total
     logger.info(f"\n{'='*70}")

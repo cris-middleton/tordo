@@ -15,6 +15,9 @@ from app.models.reference import (
     TipoDespachoRef,
     FormaPagoRef,
 )
+from app.models.empresa import Empresa, EmpresaUsuario, DocumentoEmpresa, EstadoHabilLog, TFIDFPerfil
+from app.models.postulacion import Postulacion, PlantillaChecklist, ChecklistPostulacion
+from app.models.task_failure import TaskFailure
 
 __all__ = [
     "Base",
@@ -37,5 +40,14 @@ __all__ = [
     "UnidadMonetariaRef",
     "TipoDespachoRef",
     "FormaPagoRef",
+    "Empresa",
+    "EmpresaUsuario",
+    "DocumentoEmpresa",
+    "EstadoHabilLog",
+    "TFIDFPerfil",
+    "Postulacion",
+    "PlantillaChecklist",
+    "ChecklistPostulacion",
+    "TaskFailure",
 ]
 

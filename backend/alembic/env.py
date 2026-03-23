@@ -32,8 +32,10 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Set the database URL from settings
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# Set the database URL from settings.
+# Prefer database_url_sync (psycopg2) when set — required once FastAPI moves to asyncpg.
+_alembic_url = settings.database_url_sync or settings.database_url
+config.set_main_option("sqlalchemy.url", _alembic_url)
 
 # add your model's MetaData object here
 # for 'autogenerate' support

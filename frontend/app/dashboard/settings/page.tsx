@@ -3,10 +3,11 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
-import { Save, Loader2, Mail, Bell, Webhook, Lock, Eye, EyeOff } from 'lucide-react';
+import { Save, Loader2, Mail, Bell, Webhook, Lock, Eye, EyeOff, MessageCircle, CreditCard, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(
@@ -19,6 +20,7 @@ export default function SettingsPage() {
     notification_in_app: true,
     notification_webhook: false,
     webhook_url: '',
+    whatsapp_number: '',
   });
   const [passwordData, setPasswordData] = useState({
     current_password: '',
@@ -43,7 +45,8 @@ export default function SettingsPage() {
         notification_email: user.notification_email ?? true,
         notification_in_app: user.notification_in_app ?? true,
         notification_webhook: user.notification_webhook ?? false,
-        webhook_url: '', // Not available in user response, would need to fetch separately
+        webhook_url: '',
+        whatsapp_number: user.whatsapp_number || '',
       });
     }
   }, [user]);
@@ -57,6 +60,7 @@ export default function SettingsPage() {
 
     try {
       await apiClient.updateUser(user.id, formData);
+      await refreshUser();
       setMessage({ type: 'success', text: 'Configuración guardada exitosamente' });
     } catch (error: any) {
       setMessage({
@@ -115,7 +119,7 @@ export default function SettingsPage() {
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-pulse text-gray-400">Cargando...</div>
+        <div className="animate-pulse text-muted">Cargando...</div>
       </div>
     );
   }
@@ -123,17 +127,36 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Configuración</h1>
-        <p className="text-gray-400">Gestiona tu perfil y preferencias de notificaciones</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-text mb-2">Configuración</h1>
+        <p className="text-muted">Gestiona tu perfil y preferencias de notificaciones</p>
+      </div>
+
+      {/* Plan section */}
+      <div className="card flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <p className="text-xs text-muted font-medium uppercase tracking-wide">Plan actual</p>
+          <p className="text-lg font-semibold text-text capitalize mt-0.5">
+            {user.plan_tier || 'Básico'}
+          </p>
+          <p className="text-xs text-muted mt-0.5">{user.subscription_status === 'active' ? 'Suscripción activa' : user.subscription_status === 'trialing' ? 'Prueba gratuita' : 'Plan gratuito'}</p>
+        </div>
+        <Link
+          href="/dashboard/billing"
+          className="btn-secondary flex items-center gap-2 text-sm"
+        >
+          <CreditCard className="h-4 w-4" />
+          Gestionar plan
+          <ExternalLink className="h-3 w-3" />
+        </Link>
       </div>
 
       {/* Profile section */}
       <div className="card space-y-4">
-        <h2 className="text-lg font-semibold text-white">Perfil</h2>
+        <h2 className="text-lg font-semibold text-text">Perfil</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="full_name" className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="full_name" className="block text-sm font-medium text-text mb-2">
                 Nombre completo
               </label>
               <input
@@ -146,7 +169,7 @@ export default function SettingsPage() {
               />
             </div>
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="email" className="block text-sm font-medium text-text mb-2">
                 Email
               </label>
               <input
@@ -165,8 +188,8 @@ export default function SettingsPage() {
             <div
               className={`p-4 rounded-lg ${
                 message.type === 'success'
-                  ? 'bg-green-900/20 border border-green-800 text-green-200'
-                  : 'bg-red-900/20 border border-red-800 text-red-200'
+                  ? 'bg-green-50 border border-green-200 text-green-700'
+                  : 'bg-red-50 border border-red-200 text-red-700'
               }`}
             >
               {message.text}
@@ -200,11 +223,11 @@ export default function SettingsPage() {
       <div className="card space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-text flex items-center gap-2">
                 <Lock className="w-5 h-5" />
                 Cambiar contraseña
               </h2>
-              <p className="text-sm text-gray-400 mt-1">
+              <p className="text-sm text-muted mt-1">
                 Actualiza tu contraseña para mantener tu cuenta segura
               </p>
             </div>
@@ -228,13 +251,13 @@ export default function SettingsPage() {
           </div>
 
           {showPasswordFields && (
-            <form onSubmit={handlePasswordSubmit} className="space-y-4 pt-4 border-t border-dark-800">
+            <form onSubmit={handlePasswordSubmit} className="space-y-4 pt-4 border-t border-border">
               {passwordMessage && (
                 <div
                   className={`p-4 rounded-lg ${
                     passwordMessage.type === 'success'
-                      ? 'bg-green-900/20 border border-green-800 text-green-200'
-                      : 'bg-red-900/20 border border-red-800 text-red-200'
+                      ? 'bg-green-50 border border-green-200 text-green-700'
+                      : 'bg-red-50 border border-red-200 text-red-700'
                   }`}
                 >
                   {passwordMessage.text}
@@ -244,7 +267,7 @@ export default function SettingsPage() {
               <div>
                 <label
                   htmlFor="current_password"
-                  className="block text-sm font-medium text-gray-300 mb-2"
+                  className="block text-sm font-medium text-text mb-2"
                 >
                   Contraseña actual
                 </label>
@@ -262,7 +285,7 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300"
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted hover:text-text"
                   >
                     {showCurrentPassword ? (
                       <EyeOff className="w-5 h-5" />
@@ -276,7 +299,7 @@ export default function SettingsPage() {
               <div>
                 <label
                   htmlFor="new_password"
-                  className="block text-sm font-medium text-gray-300 mb-2"
+                  className="block text-sm font-medium text-text mb-2"
                 >
                   Nueva contraseña
                 </label>
@@ -294,7 +317,7 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => setShowNewPassword(!showNewPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300"
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted hover:text-text"
                   >
                     {showNewPassword ? (
                       <EyeOff className="w-5 h-5" />
@@ -308,7 +331,7 @@ export default function SettingsPage() {
               <div>
                 <label
                   htmlFor="confirm_password"
-                  className="block text-sm font-medium text-gray-300 mb-2"
+                  className="block text-sm font-medium text-text mb-2"
                 >
                   Confirmar nueva contraseña
                 </label>
@@ -326,7 +349,7 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300"
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted hover:text-text"
                   >
                     {showConfirmPassword ? (
                       <EyeOff className="w-5 h-5" />
@@ -360,62 +383,62 @@ export default function SettingsPage() {
 
       {/* Notifications section */}
       <div className="card space-y-4">
-        <h2 className="text-lg font-semibold text-white">Notificaciones</h2>
-        <p className="text-sm text-gray-400">
+        <h2 className="text-lg font-semibold text-text">Notificaciones</h2>
+        <p className="text-sm text-muted">
           Configura cómo deseas recibir las alertas y notificaciones
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-4">
-            <label className="flex items-center gap-3 p-4 bg-dark-800 rounded-lg cursor-pointer hover:bg-dark-700 transition-colors">
+            <label className="flex items-center gap-3 p-4 bg-surface rounded-lg cursor-pointer hover:border-primary/20 border border-border transition-colors">
               <input
                 type="checkbox"
                 checked={formData.notification_email}
                 onChange={(e) => handleChange('notification_email', e.target.checked)}
-                className="w-5 h-5 rounded border-dark-600 bg-dark-900 text-blue-600 focus:ring-blue-600 focus:ring-2"
+                className="w-5 h-5 rounded border-border bg-surface text-primary focus:ring-primary focus:ring-2"
               />
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <Mail className="w-5 h-5 text-gray-400" />
-                  <span className="font-medium text-white">Notificaciones por Email</span>
+                  <Mail className="w-5 h-5 text-muted" />
+                  <span className="font-medium text-text">Notificaciones por Email</span>
                 </div>
-                <p className="text-sm text-gray-400 mt-1">
+                <p className="text-sm text-muted mt-1">
                   Recibe alertas importantes en tu correo electrónico
                 </p>
               </div>
             </label>
 
-            <label className="flex items-center gap-3 p-4 bg-dark-800 rounded-lg cursor-pointer hover:bg-dark-700 transition-colors">
+            <label className="flex items-center gap-3 p-4 bg-surface rounded-lg cursor-pointer hover:border-primary/20 border border-border transition-colors">
               <input
                 type="checkbox"
                 checked={formData.notification_in_app}
                 onChange={(e) => handleChange('notification_in_app', e.target.checked)}
-                className="w-5 h-5 rounded border-dark-600 bg-dark-900 text-blue-600 focus:ring-blue-600 focus:ring-2"
+                className="w-5 h-5 rounded border-border bg-surface text-primary focus:ring-primary focus:ring-2"
               />
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <Bell className="w-5 h-5 text-gray-400" />
-                  <span className="font-medium text-white">Notificaciones en la App</span>
+                  <Bell className="w-5 h-5 text-muted" />
+                  <span className="font-medium text-text">Notificaciones en la App</span>
                 </div>
-                <p className="text-sm text-gray-400 mt-1">
+                <p className="text-sm text-muted mt-1">
                   Recibe alertas dentro de la plataforma
                 </p>
               </div>
             </label>
 
-            <label className="flex items-center gap-3 p-4 bg-dark-800 rounded-lg cursor-pointer hover:bg-dark-700 transition-colors">
+            <label className="flex items-center gap-3 p-4 bg-surface rounded-lg cursor-pointer hover:border-primary/20 border border-border transition-colors">
               <input
                 type="checkbox"
                 checked={formData.notification_webhook}
                 onChange={(e) => handleChange('notification_webhook', e.target.checked)}
-                className="w-5 h-5 rounded border-dark-600 bg-dark-900 text-blue-600 focus:ring-blue-600 focus:ring-2"
+                className="w-5 h-5 rounded border-border bg-surface text-primary focus:ring-primary focus:ring-2"
               />
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <Webhook className="w-5 h-5 text-gray-400" />
-                  <span className="font-medium text-white">Notificaciones por Webhook</span>
+                  <Webhook className="w-5 h-5 text-muted" />
+                  <span className="font-medium text-text">Notificaciones por Webhook</span>
                 </div>
-                <p className="text-sm text-gray-400 mt-1">
+                <p className="text-sm text-muted mt-1">
                   Envía alertas a un endpoint personalizado
                 </p>
               </div>
@@ -425,7 +448,7 @@ export default function SettingsPage() {
               <div className="mt-4">
                 <label
                   htmlFor="webhook_url"
-                  className="block text-sm font-medium text-gray-300 mb-2"
+                  className="block text-sm font-medium text-text mb-2"
                 >
                   URL del Webhook
                 </label>
@@ -439,6 +462,30 @@ export default function SettingsPage() {
                 />
               </div>
             )}
+
+            {/* WhatsApp notifications */}
+            <div className="p-4 bg-surface border border-border rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <MessageCircle className="w-5 h-5 text-green-500" />
+                <span className="font-medium text-text">Notificaciones por WhatsApp</span>
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">Próximamente</span>
+              </div>
+              <p className="text-sm text-muted mb-3">
+                Recibe alertas urgentes en WhatsApp (disponible cuando se active el servicio)
+              </p>
+              <label htmlFor="whatsapp_number" className="block text-sm font-medium text-text mb-2">
+                Número de WhatsApp
+              </label>
+              <input
+                id="whatsapp_number"
+                type="tel"
+                value={formData.whatsapp_number}
+                onChange={(e) => handleChange('whatsapp_number', e.target.value)}
+                className="input-field"
+                placeholder="+56912345678"
+              />
+              <p className="text-xs text-muted mt-1">Formato: +56 seguido de 9 dígitos</p>
+            </div>
           </div>
 
           {/* Message */}
@@ -446,8 +493,8 @@ export default function SettingsPage() {
             <div
               className={`p-4 rounded-lg ${
                 message.type === 'success'
-                  ? 'bg-green-900/20 border border-green-800 text-green-200'
-                  : 'bg-red-900/20 border border-red-800 text-red-200'
+                  ? 'bg-green-50 border border-green-200 text-green-700'
+                  : 'bg-red-50 border border-red-200 text-red-700'
               }`}
             >
               {message.text}

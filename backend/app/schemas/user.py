@@ -21,6 +21,10 @@ class UserUpdate(BaseModel):
     notification_in_app: Optional[bool] = None
     notification_webhook: Optional[bool] = None
     webhook_url: Optional[str] = None
+    onboarding_completed: Optional[bool] = None
+    onboarding_step: Optional[int] = None
+    plan_tier: Optional[str] = None
+    whatsapp_number: Optional[str] = None
 
 
 class UserResponse(UserBase):
@@ -30,10 +34,24 @@ class UserResponse(UserBase):
     notification_email: bool
     notification_in_app: bool
     notification_webhook: bool
+    plan_tier: str = "basico"
+    subscription_status: str = "inactive"
+    onboarding_completed: bool = False
+    onboarding_step: int = 0
+    whatsapp_number: Optional[str] = None
+    has_google: bool = False  # derived: google_id is not None
     created_at: datetime
     last_login: Optional[datetime] = None
-    
+
     model_config = ConfigDict(from_attributes=True)
+
+    @classmethod
+    def model_validate(cls, obj, *args, **kwargs):
+        # Inject has_google derived field from ORM object
+        instance = super().model_validate(obj, *args, **kwargs)
+        if hasattr(obj, "google_id"):
+            instance.has_google = obj.google_id is not None
+        return instance
 
 
 class UserLogin(BaseModel):

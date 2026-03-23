@@ -10,9 +10,8 @@ Componentes del score (todos normalizados 0–1):
   ┌─────────────────────────────────────────────────────────────────────┐
   │ COMPONENTE              │ PESO  │ FUENTE   │ FÓRMULA              │
   ├─────────────────────────┼───────┼──────────┼──────────────────────┤
-  │ Velocidad de pago       │ 0.25  │ OC       │ 1 - clamp(mediana    │
-  │                         │       │          │   días_envío_a_      │
-  │                         │       │          │   aceptación / 60, 1)│
+  │ Transparencia           │ 0.25  │ LIC      │ 1 - clamp(pct_TD /   │
+  │                         │       │          │   0.40, 0, 1)        │
   │ Tasa de aceptación      │ 0.20  │ OC       │ clamp((tasa - 0.5)   │
   │                         │       │          │   / 0.5, 0, 1)       │
   │ Tasa de NO cancelación  │ 0.15  │ OC       │ 1 - clamp(tasa_      │
@@ -25,6 +24,11 @@ Componentes del score (todos normalizados 0–1):
   │ Satisfacción proveedor  │ 0.05  │ OC       │ prom_calificación /  │
   │                         │       │          │   5.0                │
   └─────────────────────────┴───────┴──────────┴──────────────────────┘
+
+  Nota: se reemplazó Velocidad de Pago por Transparencia (% Trato Directo).
+  El Estado chileno paga rápido (mediana 1.4 días), lo que hacía que el 90 %
+  de organismos obtuviera score "excelente" en esa dimensión — sin información
+  diferenciadora. El % de Trato Directo discrimina mucho mejor.
 
   score_final = Σ(componente_i × peso_i)  ∈ [0, 1]
 
@@ -53,7 +57,7 @@ logger = logging.getLogger(__name__)
 
 # Pesos de cada componente
 WEIGHTS = {
-    "velocidad_pago": 0.25,
+    "transparencia": 0.25,       # % Trato Directo — reemplaza velocidad_pago
     "tasa_aceptacion": 0.20,
     "tasa_no_cancelacion": 0.15,
     "tasa_adjudicacion": 0.15,
@@ -300,7 +304,7 @@ def build_lic_buyer_metrics() -> pl.DataFrame:
 
     cols_needed = [
         "CodigoOrganismo", "NombreOrganismo", "Estado",
-        "NumeroOferentes", "CantidadReclamos",
+        "NumeroOferentes", "CantidadReclamos", "CodigoTipo",
     ]
     org_col = "CodigoOrganismo"
 
@@ -319,6 +323,7 @@ def build_lic_buyer_metrics() -> pl.DataFrame:
                 pl.col("Estado").str.to_lowercase().alias("estado_lower"),
                 pl.col("NumeroOferentes").cast(pl.Float64, strict=False).alias("n_oferentes"),
                 pl.col("CantidadReclamos").cast(pl.Float64, strict=False).alias("n_reclamos"),
+                (pl.col("CodigoTipo") == "TD").cast(pl.Int8).alias("es_td"),
             ])
             .group_by([org_col, "NombreOrganismo"])
             .agg([
@@ -328,6 +333,7 @@ def build_lic_buyer_metrics() -> pl.DataFrame:
                 (pl.col("estado_lower").str.contains("desierta")).sum().alias("n_desiertas"),
                 pl.col("n_oferentes").mean().alias("prom_oferentes"),
                 pl.col("n_reclamos").mean().alias("prom_reclamos"),
+                pl.col("es_td").sum().alias("n_trato_directo"),
             ])
         )
         lic_frames.append(agg)
@@ -344,6 +350,7 @@ def build_lic_buyer_metrics() -> pl.DataFrame:
             pl.col("n_adjudicadas").sum(),
             pl.col("n_revocadas").sum(),
             pl.col("n_desiertas").sum(),
+            pl.col("n_trato_directo").sum(),
             (pl.col("prom_oferentes") * pl.col("n_lineas_lic")).sum().alias("_wt_ofer"),
             (pl.col("prom_reclamos") * pl.col("n_lineas_lic")).sum().alias("_wt_recl"),
         ])
@@ -353,10 +360,11 @@ def build_lic_buyer_metrics() -> pl.DataFrame:
             ).alias("tasa_adjudicacion"),
             (pl.col("_wt_ofer") / pl.col("n_lineas_lic")).alias("prom_oferentes"),
             (pl.col("_wt_recl") / pl.col("n_lineas_lic")).alias("prom_reclamos"),
+            (pl.col("n_trato_directo") / pl.col("n_lineas_lic").clip(lower_bound=1)).alias("pct_trato_directo"),
         ])
         .select([org_col, "NombreOrganismo", "n_lineas_lic",
                  "tasa_adjudicacion", "n_revocadas", "n_desiertas",
-                 "prom_oferentes", "prom_reclamos"])
+                 "prom_oferentes", "prom_reclamos", "pct_trato_directo"])
     )
 
     logger.info(f"Métricas LIC: {len(result):,} organismos")
@@ -372,7 +380,7 @@ def compute_buyer_scores(oc_metrics: pl.DataFrame, lic_metrics: pl.DataFrame) ->
     Combina métricas OC y LIC en un score 0–1 por organismo.
 
     Fórmulas:
-      score_velocidad     = 1 - clamp(mediana_dias_pago / 60, 0, 1)
+      score_transparencia = 1 - clamp(pct_trato_directo / 0.40, 0, 1)
       score_aceptacion    = clamp((tasa_aceptacion - 0.50) / 0.50, 0, 1)
       score_no_cancel     = 1 - clamp(tasa_cancelacion / 0.20, 0, 1)
       score_adjudicacion  = clamp((tasa_adjudicacion - 0.50) / 0.50, 0, 1)
@@ -398,10 +406,10 @@ def compute_buyer_scores(oc_metrics: pl.DataFrame, lic_metrics: pl.DataFrame) ->
     max_log_oc = combined["n_oc_total"].log().max() or 1.0
 
     scored = combined.with_columns([
-        # --- Velocidad de pago: 0=lento (60+ días), 1=rápido (0 días) ---
-        (1 - (pl.col("mediana_dias_pago").fill_null(30) / 60).clip(0, 1))
+        # --- Transparencia: 0=compra todo por TD (40%+), 1=0% TD ---
+        (1 - (pl.col("pct_trato_directo").fill_null(0.20) / 0.40).clip(0, 1))
         .round(4)
-        .alias("score_velocidad_pago"),
+        .alias("score_transparencia"),
 
         # --- Tasa de aceptación: 0=50% o menos, 1=100% ---
         ((pl.col("tasa_aceptacion").fill_null(0.7) - 0.5) / 0.5).clip(0, 1)
@@ -437,7 +445,7 @@ def compute_buyer_scores(oc_metrics: pl.DataFrame, lic_metrics: pl.DataFrame) ->
     # Score final ponderado
     scored = scored.with_columns([
         (
-            pl.col("score_velocidad_pago") * WEIGHTS["velocidad_pago"] +
+            pl.col("score_transparencia") * WEIGHTS["transparencia"] +
             pl.col("score_tasa_aceptacion") * WEIGHTS["tasa_aceptacion"] +
             pl.col("score_tasa_no_cancelacion") * WEIGHTS["tasa_no_cancelacion"] +
             pl.col("score_tasa_adjudicacion") * WEIGHTS["tasa_adjudicacion"] +
@@ -461,10 +469,10 @@ def compute_buyer_scores(oc_metrics: pl.DataFrame, lic_metrics: pl.DataFrame) ->
         "CodigoOrganismoPublico", "NombreOrganismo", "buyer_score", "clasificacion",
         "n_oc_total", "n_meses_activo",
         # Desglose de scores
-        "score_velocidad_pago", "score_tasa_aceptacion", "score_tasa_no_cancelacion",
+        "score_transparencia", "score_tasa_aceptacion", "score_tasa_no_cancelacion",
         "score_tasa_adjudicacion", "score_regularidad", "score_volumen", "score_satisfaccion",
         # Métricas raw
-        "mediana_dias_pago", "p75_dias_pago", "p90_dias_pago",
+        "pct_trato_directo", "mediana_dias_pago", "p75_dias_pago", "p90_dias_pago",
         "tasa_aceptacion", "tasa_cancelacion", "tasa_adjudicacion",
         "cv_mensual", "prom_calificacion", "prom_oferentes",
     ]).sort("buyer_score", descending=True)

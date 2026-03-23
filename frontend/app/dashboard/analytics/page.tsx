@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
 import {
   TrendingUp,
@@ -71,7 +72,10 @@ const generateBubbleData = () => {
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
+const ANALYTICS_ENABLED = process.env.NEXT_PUBLIC_ANALYTICS_ENABLED !== 'false';
+
 export default function AnalyticsPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     tenders: { total: 0, byRegion: [] },
@@ -82,8 +86,12 @@ export default function AnalyticsPage() {
   const bubbleData = useMemo(() => generateBubbleData(), []);
 
   useEffect(() => {
+    if (!ANALYTICS_ENABLED) {
+      router.replace('/dashboard/bi');
+      return;
+    }
     loadAnalytics();
-  }, []);
+  }, [router]);
 
   const loadAnalytics = async () => {
     try {

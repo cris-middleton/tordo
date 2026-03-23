@@ -13,6 +13,12 @@ interface User {
   notification_email?: boolean;
   notification_in_app?: boolean;
   notification_webhook?: boolean;
+  plan_tier?: string;
+  subscription_status?: string;
+  onboarding_completed?: boolean;
+  onboarding_step?: number;
+  whatsapp_number?: string;
+  has_google?: boolean;
   created_at?: string;
   last_login?: string | null;
 }
@@ -22,6 +28,7 @@ interface AuthContextType {
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
 }
 
@@ -84,6 +91,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const refreshUser = async () => {
+    try {
+      const userData = await apiClient.getCurrentUser();
+      setUser(userData);
+    } catch {
+      // ignore
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -91,6 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         login,
         logout,
+        refreshUser,
         isAuthenticated: !!user,
       }}
     >

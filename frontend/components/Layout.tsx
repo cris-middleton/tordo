@@ -7,7 +7,6 @@ import Image from 'next/image';
 import {
   LayoutDashboard,
   FileText,
-  ShoppingCart,
   Bell,
   Settings,
   LogOut,
@@ -15,6 +14,9 @@ import {
   X,
   BarChart3,
   Star,
+  FolderOpen,
+  ClipboardList,
+  CreditCard,
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -29,15 +31,17 @@ export default function Layout({ children }: LayoutProps) {
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Órdenes de Compra', href: '/dashboard/orders', icon: ShoppingCart },
     { name: 'Licitaciones', href: '/dashboard/tenders', icon: FileText },
+    { name: 'Postulaciones', href: '/dashboard/postulaciones', icon: ClipboardList },
+    { name: 'Documentos', href: '/dashboard/documentos', icon: FolderOpen },
     {
-      name: 'Analytics',
-      href: '/dashboard/analytics',
+      name: 'Inteligencia BI',
+      href: '/dashboard/bi',
       icon: BarChart3,
       badge: 'Pro',
     },
     { name: 'Alertas', href: '/dashboard/alerts', icon: Bell },
+    { name: 'Facturación', href: '/dashboard/billing', icon: CreditCard },
     { name: 'Configuración', href: '/dashboard/settings', icon: Settings },
   ];
 
@@ -46,7 +50,8 @@ export default function Layout({ children }: LayoutProps) {
     router.push('/login');
   };
 
-  const isActive = (href: string) => pathname === href;
+  const isActive = (href: string) =>
+    href === '/dashboard' ? pathname === href : pathname.startsWith(href);
 
   return (
     <div className="min-h-screen bg-dark-950">
