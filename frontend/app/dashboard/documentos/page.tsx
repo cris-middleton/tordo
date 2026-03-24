@@ -375,15 +375,16 @@ export default function DocumentosPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <a
-                  href={apiClient.getDocumentoDownloadUrl(empresaId, doc.id)}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={async () => {
+                    const url = await apiClient.getDocumentoDownloadUrl(empresaId, doc.id);
+                    window.open(url, '_blank', 'noopener,noreferrer');
+                  }}
                   className="rounded-md border border-border p-1.5 text-muted hover:border-primary/40 hover:text-primary transition-colors"
                   title="Descargar"
                 >
                   <Download className="h-4 w-4" />
-                </a>
+                </button>
                 <button
                   onClick={() => handleDelete(doc.id)}
                   className="rounded-md border border-border p-1.5 text-muted hover:border-red-400/40 hover:text-red-500 transition-colors"

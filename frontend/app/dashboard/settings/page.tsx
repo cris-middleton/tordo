@@ -45,7 +45,7 @@ export default function SettingsPage() {
         notification_email: user.notification_email ?? true,
         notification_in_app: user.notification_in_app ?? true,
         notification_webhook: user.notification_webhook ?? false,
-        webhook_url: '',
+        webhook_url: user.webhook_url || '',
         whatsapp_number: user.whatsapp_number || '',
       });
     }

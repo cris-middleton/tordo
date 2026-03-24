@@ -2,7 +2,7 @@
 Celery tasks for alert processing
 """
 from app.celery_app import celery_app
-from app.db import SessionLocal
+from app.db import SyncSessionLocal as SessionLocal
 from app.services.alert_engine import AlertEngine
 import logging
 

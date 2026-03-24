@@ -15,7 +15,7 @@ class Postulacion(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     empresa_id = Column(UUID(as_uuid=True), ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False, index=True)
-    licitacion_id = Column(Integer(), ForeignKey("licitaciones.id"), nullable=False, index=True)
+    licitacion_id = Column(Integer(), ForeignKey("licitaciones.id", ondelete="CASCADE"), nullable=False, index=True)
     estado = Column(String(30), nullable=False, default="en_seguimiento")
     notas = Column(Text(), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

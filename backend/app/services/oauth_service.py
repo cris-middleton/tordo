@@ -15,10 +15,13 @@ from __future__ import annotations
 
 import logging
 import secrets
+from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import urlencode
 
 import httpx
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from fastapi import HTTPException, status
 
@@ -96,7 +99,7 @@ async def get_userinfo(access_token: str) -> dict:
     return resp.json()
 
 
-def find_or_create_user(db, google_user: dict):
+async def find_or_create_user(db: AsyncSession, google_user: dict):
     """
     Given Google userinfo, find an existing user or create a new one.
     Returns the User ORM object.
@@ -105,7 +108,7 @@ def find_or_create_user(db, google_user: dict):
       1. google_id (most reliable)
       2. email (for users who registered normally before OAuth)
     """
-    from datetime import datetime
+    import re
 
     from app.core.security import get_password_hash
     from app.models.user import User
@@ -121,28 +124,26 @@ def find_or_create_user(db, google_user: dict):
         )
 
     # Check by google_id first
-    user = db.query(User).filter(User.google_id == google_id).first()
+    user = (await db.execute(select(User).where(User.google_id == google_id))).scalar_one_or_none()
     if user:
-        user.last_login = datetime.utcnow()
-        db.commit()
+        user.last_login = datetime.now(timezone.utc)
+        await db.commit()
         return user
 
     # Check by email (existing non-OAuth account)
-    user = db.query(User).filter(User.email == email).first()
+    user = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
     if user:
         user.google_id = google_id
         user.is_verified = True
-        user.last_login = datetime.utcnow()
-        db.commit()
+        user.last_login = datetime.now(timezone.utc)
+        await db.commit()
         return user
 
-    # Create new user
-    import re
-
+    # Create new user — find unique username
     base_username = re.sub(r"[^a-z0-9]", "", email.split("@")[0].lower()) or "user"
     username = base_username
     counter = 1
-    while db.query(User).filter(User.username == username).first():
+    while (await db.execute(select(User).where(User.username == username))).scalar_one_or_none():
         username = f"{base_username}{counter}"
         counter += 1
 
@@ -153,9 +154,9 @@ def find_or_create_user(db, google_user: dict):
         hashed_password=get_password_hash(secrets.token_hex(32)),  # unusable password
         google_id=google_id,
         is_verified=True,
-        last_login=datetime.utcnow(),
+        last_login=datetime.now(timezone.utc),
     )
     db.add(user)
-    db.commit()
-    db.refresh(user)
+    await db.commit()
+    await db.refresh(user)
     return user

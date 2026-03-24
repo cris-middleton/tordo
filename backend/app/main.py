@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -37,7 +37,7 @@ class BIRateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         ip = (request.client.host if request.client else None) or "unknown"
-        minute = datetime.utcnow().strftime("%Y%m%d%H%M")
+        minute = datetime.now(timezone.utc).strftime("%Y%m%d%H%M")
         key = f"rl:bi:{ip}:{minute}"
 
         try:

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Zap } from 'lucide-react';
+import { X, Zap, ArrowRight } from 'lucide-react';
 
 interface QuotaDetail {
   bloqueada_por_plan: boolean;
@@ -28,7 +28,6 @@ export default function PlanUpgradeBanner() {
       const d = (e as CustomEvent<QuotaDetail>).detail;
       if (d?.bloqueada_por_plan) {
         setDetail(d);
-        // Auto-dismiss after 12 seconds
         setTimeout(() => setDetail(null), 12_000);
       }
     };
@@ -38,33 +37,41 @@ export default function PlanUpgradeBanner() {
 
   if (!detail) return null;
 
-  const upgradeLabel = detail.upgrade_sugerido ? TIER_LABEL[detail.upgrade_sugerido] ?? detail.upgrade_sugerido : null;
+  const upgradeLabel = detail.upgrade_sugerido
+    ? TIER_LABEL[detail.upgrade_sugerido] ?? detail.upgrade_sugerido
+    : null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 max-w-sm w-full shadow-lg rounded-lg border border-amber-300 bg-amber-50 text-amber-900 p-4">
-      <div className="flex items-start gap-3">
-        <Zap className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium leading-snug">{detail.mensaje}</p>
-          {upgradeLabel && (
-            <button
-              onClick={() => {
-                setDetail(null);
-                router.push('/dashboard/billing');
-              }}
-              className="mt-2 text-xs font-semibold underline underline-offset-2 hover:text-amber-700"
-            >
-              Ver plan {upgradeLabel} →
-            </button>
-          )}
+    <div className="fixed bottom-5 right-5 z-50 w-full max-w-sm animate-slide-up">
+      <div className="rounded-xl border border-gold/30 bg-white shadow-card-lg overflow-hidden">
+        <div className="h-0.5 bg-gradient-to-r from-gold to-gold/40" />
+        <div className="flex items-start gap-3 p-4">
+          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-goldLight">
+            <Zap size={16} className="text-gold" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-text leading-snug">{detail.mensaje}</p>
+            {upgradeLabel && (
+              <button
+                onClick={() => {
+                  setDetail(null);
+                  router.push('/dashboard/billing');
+                }}
+                className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-gold hover:text-[#b45309] transition-colors"
+              >
+                Ver plan {upgradeLabel}
+                <ArrowRight size={12} />
+              </button>
+            )}
+          </div>
+          <button
+            onClick={() => setDetail(null)}
+            className="shrink-0 rounded-md p-1 text-muted hover:bg-background hover:text-text transition-colors"
+            aria-label="Cerrar"
+          >
+            <X size={15} />
+          </button>
         </div>
-        <button
-          onClick={() => setDetail(null)}
-          className="shrink-0 text-amber-500 hover:text-amber-700"
-          aria-label="Cerrar"
-        >
-          <X className="h-4 w-4" />
-        </button>
       </div>
     </div>
   );

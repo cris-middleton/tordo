@@ -14,13 +14,26 @@ from app.config import settings
 # Import all models so Alembic can detect them
 from app.models import (
     Licitacion,
+    LicitacionDetalle,
+    LicitacionHistorial,
     OrdenCompra,
+    OrdenCompraDetalle,
+    OrdenCompraHistorial,
     User,
     BuyerOrganization,
     Supplier,
     Category,
     Alert,
     AlertPreference,
+    Empresa,
+    EmpresaUsuario,
+    DocumentoEmpresa,
+    EstadoHabilLog,
+    TFIDFPerfil,
+    Postulacion,
+    PlantillaChecklist,
+    ChecklistPostulacion,
+    TaskFailure,
 )
 
 # this is the Alembic Config object, which provides
@@ -33,9 +46,17 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Set the database URL from settings.
-# Prefer database_url_sync (psycopg2) when set — required once FastAPI moves to asyncpg.
-_alembic_url = settings.database_url_sync or settings.database_url
-config.set_main_option("sqlalchemy.url", _alembic_url)
+# Alembic requires a sync driver (psycopg2). Strip +asyncpg if database_url_sync not set.
+def _get_alembic_url() -> str:
+    if settings.database_url_sync:
+        return settings.database_url_sync
+    url = settings.database_url
+    return (
+        url.replace("postgresql+asyncpg://", "postgresql://", 1)
+           .replace("postgres+asyncpg://", "postgresql://", 1)
+    )
+
+config.set_main_option("sqlalchemy.url", _get_alembic_url())
 
 # add your model's MetaData object here
 # for 'autogenerate' support

@@ -24,9 +24,6 @@ def upgrade():
             server_default="inactive",
         ),
     )
-    op.add_column("users", sa.Column("stripe_customer_id", sa.String(255), nullable=True))
-    op.add_column("users", sa.Column("stripe_subscription_id", sa.String(255), nullable=True))
-
     # ── Users: Google OAuth ───────────────────────────────────────────────────
     op.add_column("users", sa.Column("google_id", sa.String(100), nullable=True))
     op.create_index("ix_users_google_id", "users", ["google_id"], unique=True)
@@ -39,6 +36,4 @@ def downgrade():
     op.drop_column("users", "whatsapp_number")
     op.drop_index("ix_users_google_id", table_name="users")
     op.drop_column("users", "google_id")
-    op.drop_column("users", "stripe_subscription_id")
-    op.drop_column("users", "stripe_customer_id")
     op.drop_column("users", "subscription_status")

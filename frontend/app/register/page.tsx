@@ -21,7 +21,6 @@ export default function RegisterPage() {
   const { isAuthenticated } = useAuth();
   const router = useRouter();
 
-  // Redirect if already authenticated
   if (isAuthenticated) {
     router.push('/dashboard');
     return null;
@@ -31,19 +30,16 @@ export default function RegisterPage() {
     e.preventDefault();
     setError('');
 
-    // Validation
     if (formData.password !== formData.confirmPassword) {
       setError('Las contraseñas no coinciden');
       return;
     }
-
     if (formData.password.length < 6) {
       setError('La contraseña debe tener al menos 6 caracteres');
       return;
     }
 
     setLoading(true);
-
     try {
       await apiClient.register({
         username: formData.username,
@@ -51,20 +47,14 @@ export default function RegisterPage() {
         password: formData.password,
         full_name: formData.full_name || undefined,
       });
-      
-      // Redirect to login after successful registration
       router.push('/login?registered=true');
     } catch (err: any) {
-      console.error('Registration error:', err);
-      // Better error handling
       if (err.response?.data?.detail) {
         setError(err.response.data.detail);
-      } else if (err.message) {
-        setError(err.message);
       } else if (err.response?.status === 400) {
-        setError('Los datos proporcionados no son válidos. Verifica que el email y usuario sean únicos.');
-      } else if (err.response?.status === 0 || !err.response) {
-        setError('No se pudo conectar con el servidor. Verifica que el backend esté corriendo en http://localhost:8000');
+        setError('Los datos no son válidos. Verifica que el email y usuario sean únicos.');
+      } else if (!err.response) {
+        setError('No se pudo conectar con el servidor.');
       } else {
         setError('Error al crear la cuenta. Por favor intenta nuevamente.');
       }
@@ -73,146 +63,186 @@ export default function RegisterPage() {
     }
   };
 
+  const update = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setFormData({ ...formData, [field]: e.target.value });
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          <div className="mb-4 flex items-center justify-center gap-3">
-            <Image
-              src="/licituplogo.svg"
-              alt="LicitUp isotipo"
-              width={56}
-              height={56}
-              className="h-14 w-14 rounded-2xl shadow-sm"
-              priority
-            />
-            <span className="text-3xl font-semibold tracking-tight text-[#333333]">LicitUp</span>
+    <div className="flex min-h-screen">
+      {/* ── Left brand panel ── */}
+      <div className="hidden lg:flex lg:w-[40%] flex-col justify-between bg-primary p-12 relative overflow-hidden">
+        <div
+          className="absolute inset-0 opacity-[0.035]"
+          style={{
+            backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
+            backgroundSize: '28px 28px',
+          }}
+        />
+        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-accent via-accent/60 to-transparent" />
+
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-16">
+            <div className="relative h-10 w-10">
+              <Image
+                src="/images/TORDO_logo_openwings.png"
+                alt="TORDO"
+                fill
+                sizes="40px"
+                className="object-contain brightness-0 invert"
+                priority
+              />
+            </div>
+            <span className="font-display text-2xl font-bold text-white tracking-tight">TORDO</span>
           </div>
-          <h1 className="text-3xl font-semibold text-text">Crear cuenta</h1>
-          <p className="text-muted">Regístrate para comenzar a usar LicitUp</p>
+
+          <h1 className="font-display text-3xl xl:text-4xl font-bold text-white leading-[1.15] mb-5">
+            Empieza a postular<br />
+            <span className="text-accent">con ventaja.</span>
+          </h1>
+          <p className="text-white/65 text-base leading-relaxed max-w-xs">
+            Crea tu cuenta gratis. Sin tarjeta de crédito.
+          </p>
         </div>
 
-        <div className="card">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {error}
-              </div>
-            )}
+        <div className="relative z-10 space-y-2.5">
+          {[
+            { icon: '🔍', text: 'Matching semántico sobre historial de órdenes de compra' },
+            { icon: '📊', text: 'BI pre-postulación: precios, competidores, tasas de éxito' },
+            { icon: '✅', text: 'Checklist guiado por tipo de licitación' },
+          ].map((f) => (
+            <div key={f.text} className="flex items-start gap-3 rounded-xl bg-white/8 px-4 py-3">
+              <span className="text-base mt-0.5">{f.icon}</span>
+              <p className="text-sm text-white/75 font-medium leading-snug">{f.text}</p>
+            </div>
+          ))}
+        </div>
+      </div>
 
+      {/* ── Right form panel ── */}
+      <div className="flex flex-1 flex-col justify-center px-6 py-12 sm:px-10 lg:px-16 xl:px-20 bg-background relative">
+        <Link
+          href="/"
+          className="absolute top-6 left-6 inline-flex items-center gap-1.5 text-sm font-medium text-muted transition-colors hover:text-primary"
+        >
+          <ArrowLeft size={15} />
+          <span>Inicio</span>
+        </Link>
+
+        <div className="mx-auto w-full max-w-sm animate-slide-up">
+          {/* Mobile logo */}
+          <div className="lg:hidden mb-8 flex items-center gap-3">
+            <div className="relative h-9 w-9">
+              <Image src="/images/TORDO_logo.png" alt="TORDO" fill sizes="36px" className="object-contain" />
+            </div>
+            <span className="font-display text-xl font-bold text-primary">TORDO</span>
+          </div>
+
+          <h2 className="font-display text-2xl font-bold text-text mb-1">Crear cuenta gratuita</h2>
+          <p className="text-sm text-muted mb-7">Comienza en minutos. Sin tarjeta de crédito.</p>
+
+          {error && (
+            <div className="alert-error mb-5">
+              <span>{error}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="full_name" className="mb-2 block text-sm font-medium text-muted">
-                Nombre completo (opcional)
-              </label>
+              <label htmlFor="full_name" className="label">Nombre completo <span className="text-subtle font-normal">(opcional)</span></label>
               <input
                 id="full_name"
                 type="text"
                 value={formData.full_name}
-                onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                onChange={update('full_name')}
                 className="input-field"
                 placeholder="Tu nombre completo"
                 disabled={loading}
+                autoComplete="name"
               />
             </div>
 
             <div>
-              <label htmlFor="username" className="mb-2 block text-sm font-medium text-muted">
-                Usuario *
-              </label>
+              <label htmlFor="username" className="label">Usuario <span className="text-danger text-xs">*</span></label>
               <input
                 id="username"
                 type="text"
                 required
                 value={formData.username}
-                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                onChange={update('username')}
                 className="input-field"
                 placeholder="Elige un nombre de usuario"
                 disabled={loading}
+                autoComplete="username"
               />
             </div>
 
             <div>
-              <label htmlFor="email" className="mb-2 block text-sm font-medium text-muted">
-                Email *
-              </label>
+              <label htmlFor="email" className="label">Email <span className="text-danger text-xs">*</span></label>
               <input
                 id="email"
                 type="email"
                 required
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={update('email')}
                 className="input-field"
-                placeholder="tu@email.com"
+                placeholder="tu@empresa.cl"
                 disabled={loading}
+                autoComplete="email"
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="mb-2 block text-sm font-medium text-muted">
-                Contraseña *
-              </label>
+              <label htmlFor="password" className="label">Contraseña <span className="text-danger text-xs">*</span></label>
               <input
                 id="password"
                 type="password"
                 required
                 value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                onChange={update('password')}
                 className="input-field"
                 placeholder="Mínimo 6 caracteres"
                 disabled={loading}
+                autoComplete="new-password"
               />
             </div>
 
             <div>
-              <label
-                htmlFor="confirmPassword"
-                className="mb-2 block text-sm font-medium text-muted"
-              >
-                Confirmar contraseña *
-              </label>
+              <label htmlFor="confirmPassword" className="label">Confirmar contraseña <span className="text-danger text-xs">*</span></label>
               <input
                 id="confirmPassword"
                 type="password"
                 required
                 value={formData.confirmPassword}
-                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                onChange={update('confirmPassword')}
                 className="input-field"
                 placeholder="Repite tu contraseña"
                 disabled={loading}
+                autoComplete="new-password"
               />
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary w-full flex items-center justify-center gap-2"
-            >
+            <button type="submit" disabled={loading} className="btn-primary w-full mt-2">
               {loading ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Creando cuenta...
+                  <Loader2 size={16} className="animate-spin" />
+                  Creando cuenta…
                 </>
               ) : (
                 <>
-                  <UserPlus className="w-4 h-4" />
-                  Crear cuenta
+                  <UserPlus size={16} />
+                  Crear cuenta gratis
                 </>
               )}
             </button>
           </form>
-        </div>
 
-        <div className="mt-6 text-center">
-          <Link
-            href="/login"
-            className="inline-flex items-center justify-center gap-2 text-sm font-medium text-primary transition-colors duration-200 hover:text-primaryDark"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Ya tienes una cuenta? Inicia sesión
-          </Link>
+          <p className="mt-6 text-center text-sm text-muted">
+            ¿Ya tienes cuenta?{' '}
+            <Link href="/login" className="font-semibold text-primary hover:underline transition-colors">
+              Iniciar sesión
+            </Link>
+          </p>
         </div>
       </div>
     </div>
   );
 }
-

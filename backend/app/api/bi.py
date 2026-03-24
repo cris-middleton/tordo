@@ -373,6 +373,7 @@ def get_sector(
 def get_matching(
     texto: str = Query(..., min_length=3, description="Texto a buscar (nombre producto, servicio, etc.)"),
     top_n: int = Query(20, ge=1, le=100, description="Número máximo de proveedores a retornar"),
+    current_user: User = Depends(check_bi_quota_dep),
 ):
     _require_tfidf_flag()
     from app.services import tfidf_matcher
@@ -556,6 +557,7 @@ async def update_tfidf_perfil(
 )
 def get_clusters(
     limit: int = Query(100, ge=1, le=200),
+    current_user: User = Depends(check_bi_quota_dep),
 ):
     _require_tfidf_flag()
     from app.services import tfidf_matcher

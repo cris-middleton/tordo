@@ -9,7 +9,7 @@ match_nueva_licitacion  — TF-IDF score every empresa profile, emit NUEVA_LICIT
 """
 import hashlib
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -313,7 +313,7 @@ class AlertEngine:
         # Update alert
         alert.notification_channels = channels_used
         alert.status = AlertStatus.SENT
-        alert.sent_at = datetime.utcnow()
+        alert.sent_at = datetime.now(timezone.utc)
         self.db.commit()
         
         return channels_used

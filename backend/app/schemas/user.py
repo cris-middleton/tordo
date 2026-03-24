@@ -38,6 +38,7 @@ class UserResponse(UserBase):
     subscription_status: str = "inactive"
     onboarding_completed: bool = False
     onboarding_step: int = 0
+    webhook_url: Optional[str] = None
     whatsapp_number: Optional[str] = None
     has_google: bool = False  # derived: google_id is not None
     created_at: datetime

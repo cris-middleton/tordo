@@ -215,7 +215,7 @@ export default function AlertsPage() {
                 <div
                   key={alert.id}
                   className={`card ${
-                    alert.status !== 'READ' ? 'border-l-4 border-l-primary/70' : ''
+                    alert.status !== 'read' ? 'border-l-4 border-l-primary/70' : ''
                   }`}
                 >
                   <div className="flex items-start justify-between gap-4">
@@ -223,15 +223,15 @@ export default function AlertsPage() {
                       <div className="flex items-center gap-2">
                         <Bell
                           className={`h-5 w-5 ${
-                            alert.status !== 'READ' ? 'text-primary' : 'text-muted'
+                            alert.status !== 'read' ? 'text-primary' : 'text-muted'
                           }`}
                         />
                         <h3 className="font-semibold text-text">{alert.title}</h3>
                         <span
                           className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                            alert.status === 'READ'
+                            alert.status === 'read'
                               ? 'bg-gray-100 text-muted'
-                              : alert.status === 'UNREAD'
+                              : alert.status === 'pending'
                               ? 'bg-primary/10 text-primary'
                               : 'bg-amber-100 text-amber-600'
                           }`}
@@ -247,7 +247,7 @@ export default function AlertsPage() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      {alert.status !== 'READ' && (
+                      {alert.status !== 'read' && (
                         <button
                           onClick={() => markAsRead(alert.id)}
                           className="rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-emerald-600 transition-colors duration-200 hover:bg-emerald-100"

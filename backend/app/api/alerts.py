@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -175,7 +176,7 @@ async def update_alert(
         setattr(alert, field, value)
     if alert_update.status == AlertStatus.READ and not alert.read_at:
         from datetime import datetime
-        alert.read_at = datetime.utcnow()
+        alert.read_at = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(alert)
     return alert
@@ -196,7 +197,7 @@ async def mark_alert_as_read(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Alert not found")
     from datetime import datetime
     alert.status = AlertStatus.READ
-    alert.read_at = datetime.utcnow()
+    alert.read_at = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(alert)
     return alert

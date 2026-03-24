@@ -64,16 +64,16 @@ def get_precio_producto(
     Returns p10/p25/p50/p75/p90, confidence, sample count, and nivel_usado.
     """
     COLS_L1 = [
-        "codigoProductoONU", "NombreroductoGenerico",
+        "codigoProductoONU", "NombreProductoGenerico",
         "CodigoOrganismoPublico", "OrganismoPublico", "UnidadMedida",
         "p10", "p25", "p50", "p75", "p90", "pu_mean", "cv", "confianza", "n",
     ]
     COLS_L2 = [
-        "codigoProductoONU", "NombreroductoGenerico", "sector", "UnidadMedida",
+        "codigoProductoONU", "NombreProductoGenerico", "sector", "UnidadMedida",
         "p10", "p25", "p50", "p75", "p90", "pu_mean", "cv", "confianza", "n",
     ]
     COLS_L3 = [
-        "codigoProductoONU", "NombreroductoGenerico", "UnidadMedida",
+        "codigoProductoONU", "NombreProductoGenerico", "UnidadMedida",
         "p10", "p25", "p50", "p75", "p90", "pu_mean", "cv", "confianza", "n",
     ]
 
@@ -163,7 +163,7 @@ def get_precio_producto(
                         "p90": r.get("p90"),
                         "pu_mean": r.get("precio_promedio"),
                         "cv": r.get("coef_variacion"),
-                        "NombreroductoGenerico": r.get("RubroN2"),
+                        "NombreProductoGenerico": r.get("RubroN2"),
                         "n": r.get("n_transacciones"),
                         "confianza": "referencial" if r.get("precio_predecible") else "baja",
                     })

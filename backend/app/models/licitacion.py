@@ -61,7 +61,7 @@ class Licitacion(Base):
     # Relationships to detailed info and history
     detalle = relationship("LicitacionDetalle", back_populates="licitacion", uselist=False, cascade="all, delete-orphan")
     historial = relationship("LicitacionHistorial", back_populates="licitacion", cascade="all, delete-orphan")
-    postulaciones = relationship("Postulacion", back_populates="licitacion")
+    postulaciones = relationship("Postulacion", back_populates="licitacion", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Licitacion(codigo_externo='{self.codigo_externo}', nombre='{self.nombre}')>"

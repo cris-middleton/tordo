@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import get_current_active_user
 from app.db import get_db
-from app.models.alert import Alert
+from app.models.alert import Alert, AlertStatus
 from app.models.empresa import DocumentoEmpresa, EmpresaUsuario
 from app.models.licitacion import Licitacion
 from app.models.postulacion import Postulacion
@@ -21,13 +21,16 @@ async def get_dashboard_stats(
 ):
     licitaciones_activas = (
         await db.execute(
-            select(func.count(Licitacion.id)).where(Licitacion.estado.ilike("activa"))
+            select(func.count(Licitacion.id)).where(Licitacion.activo == True)
         )
     ).scalar() or 0
 
     alertas_no_leidas = (
         await db.execute(
-            select(func.count(Alert.id)).where(Alert.user_id == current_user.id, Alert.read_at.is_(None))
+            select(func.count(Alert.id)).where(
+                Alert.user_id == current_user.id,
+                Alert.status != AlertStatus.READ,
+            )
         )
     ).scalar() or 0
 

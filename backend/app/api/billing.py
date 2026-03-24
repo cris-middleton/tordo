@@ -10,7 +10,8 @@ router = APIRouter(prefix="/api/billing", tags=["billing"])
 
 PLANS: list[Plan] = [
     Plan(id="basico", nombre="Básico", precio_clp=None, descripcion="Para comenzar a explorar licitaciones públicas.", features=["Búsqueda de licitaciones", "Alertas básicas", "1 empresa", "Documentos (hasta 10)"]),
-    Plan(id="pro", nombre="Pro", precio_clp=11900, descripcion="Para proveedores activos en Mercado Público.", features=["Todo lo de Básico", "Inteligencia BI (benchmarks de precio)", "Documentos ilimitados", "Estado hábil automático cada 6h", "Alertas avanzadas + WhatsApp", "Postulaciones ilimitadas"]),
+    Plan(id="pyme", nombre="Pyme", precio_clp=5900, descripcion="Para pymes que quieren más alcance.", features=["Todo lo de Básico", "50 BI queries/día", "Alertas ilimitadas", "Documentos (hasta 50)"]),
+    Plan(id="pro", nombre="Pro", precio_clp=11900, descripcion="Para proveedores activos en Mercado Público.", features=["Todo lo de Pyme", "BI ilimitado", "Documentos ilimitados", "Estado hábil automático cada 6h", "Alertas avanzadas + WhatsApp", "Postulaciones ilimitadas"]),
     Plan(id="enterprise", nombre="Enterprise", precio_clp=29990, descripcion="Para equipos y empresas con múltiples RUTs.", features=["Todo lo de Pro", "Múltiples empresas", "API access", "SLA de soporte prioritario", "Onboarding asistido"]),
 ]
 

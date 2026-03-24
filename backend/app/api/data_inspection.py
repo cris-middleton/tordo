@@ -1,4 +1,5 @@
 """API endpoints for inspecting ETL data"""
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -153,4 +154,4 @@ async def get_data_summary(db: AsyncSession = Depends(get_db)):
     ordenes_count = (await db.execute(select(func.count(OrdenCompra.id)))).scalar() or 0
     licitaciones_total = (await db.execute(select(func.sum(Licitacion.monto_total)))).scalar() or 0
     ordenes_total = (await db.execute(select(func.sum(OrdenCompra.monto_total)))).scalar() or 0
-    return {"summary": {"licitaciones": {"count": licitaciones_count, "total_amount": float(licitaciones_total)}, "ordenes_compra": {"count": ordenes_count, "total_amount": float(ordenes_total)}}, "last_updated": datetime.utcnow().isoformat()}
+    return {"summary": {"licitaciones": {"count": licitaciones_count, "total_amount": float(licitaciones_total)}, "ordenes_compra": {"count": ordenes_count, "total_amount": float(ordenes_total)}}, "last_updated": datetime.now(timezone.utc).isoformat()}

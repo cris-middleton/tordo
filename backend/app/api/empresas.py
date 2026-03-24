@@ -1,8 +1,9 @@
+import asyncio
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.db import get_db
+from app.db import get_db, SyncSessionLocal
 from app.models.empresa import Empresa, EmpresaUsuario
 from app.models.user import User
 from app.schemas.empresa import EmpresaCreate, EmpresaUpdate, EmpresaConRol
@@ -148,7 +149,15 @@ async def check_estado_habil_now(
     await _get_empresa_or_404(empresa_id, db)
     await _get_membership_or_403(empresa_id, current_user, db)
     from app.services.estado_habil_service import check_empresa_now
-    return await check_empresa_now(empresa_id, db)
+
+    def _run_sync():
+        sync_db = SyncSessionLocal()
+        try:
+            return check_empresa_now(empresa_id, sync_db)
+        finally:
+            sync_db.close()
+
+    return await asyncio.to_thread(_run_sync)
 
 
 @router.delete("/{empresa_id}", status_code=status.HTTP_204_NO_CONTENT)

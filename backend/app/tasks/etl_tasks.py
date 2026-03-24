@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from app.celery_app import celery_app
-from app.db import SessionLocal
+from app.db import SyncSessionLocal as SessionLocal
 from app.models.task_failure import TaskFailure
 
 logger = logging.getLogger(__name__)
@@ -175,20 +175,16 @@ def _periodos_recientes(n_meses: int = 3) -> list[tuple[str, str]]:
     """
     scl_now = datetime.now(_SCL_TZ)
     periodos: list[tuple[str, str]] = []
+    year, month = scl_now.year, scl_now.month
     for i in range(n_meses - 1, -1, -1):
-        # subtract i months
-        dt = scl_now.replace(day=1) - timedelta(days=i * 28)
-        # edge correction: ensure we actually went back i distinct months
-        dt = dt.replace(day=1)
-        periodos.append((str(dt.year), str(dt.month)))
-    # deduplicate keeping order
-    seen: set[tuple[str, str]] = set()
-    unique: list[tuple[str, str]] = []
-    for p in periodos:
-        if p not in seen:
-            seen.add(p)
-            unique.append(p)
-    return unique
+        # Go back exactly i months using calendar arithmetic (no day-length ambiguity)
+        m = month - i
+        y = year
+        while m <= 0:
+            m += 12
+            y -= 1
+        periodos.append((str(y), str(m)))
+    return periodos
 
 
 def _purge_cached_zips(periodos: list[tuple[str, str]]) -> None:

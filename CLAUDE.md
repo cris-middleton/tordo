@@ -11,14 +11,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Desktop-first with responsive design. PWA planned for v3.
 
-See `SPEC.md` (TORDO v1.0) for the full technical specification and `deploy_steps/` for the phased implementation roadmap (Fases 0–6).
+See `SPEC.md` (TORDO v1.1) for the full technical specification and `deploy_steps/` for the phased implementation roadmap (Fases 0–6).
 
 ## Tech Stack
 
-- **Backend**: FastAPI, SQLAlchemy 2.0 (migrating to asyncpg), Alembic, Celery + Redis, JWT auth
+- **Backend**: FastAPI, SQLAlchemy 2.0 + asyncpg (async), Alembic (psycopg2 sync), Celery + Redis, JWT auth (python-jose + bcrypt + authlib for Google OAuth)
 - **Frontend**: Next.js 14 (App Router), TypeScript, Tailwind CSS, Axios
-- **ETL**: Python pipelines — hourly licitaciones from API, monthly OC histórico from ZIP bulk downloads, estado hábil CSV every 6h
-- **Analytics**: DuckDB embebido for BI queries over historical órdenes de compra (78 columns, millions of rows)
+- **ETL**: Python pipelines — hourly licitaciones from API, monthly OC + LIC histórico from ZIP bulk downloads, estado hábil CSV every 6h
+- **Analytics**: Polars batch over Parquet files — 15 pre-computed analytics modules over historical OC + LIC data (78 columns OC, ~30 columns LIC)
 - **Matching**: TF-IDF semantic matching service over historical OC titles (no LLM)
 - **Infra**: Docker Compose (PostgreSQL 15, Redis 7, backend, celery worker/beat, ETL, frontend)
 
@@ -81,13 +81,15 @@ cd etl && python main.py                 # Run ETL pipeline
 - `main.py` — Orchestrator
 - `extractors/` — Mercado Público licitaciones (hourly cron for active, daily for new) & OC histórico (monthly ZIP bulk)
 - `transformers/` — Data transformation
-- `loaders/` — Database loading (PostgreSQL + DuckDB)
-- New planned: `EstadoHabilExtractor` (CSV every 6h), `OCHistoricoExtractor` (monthly ZIP with 78 columns)
+- `loaders/` — Database loading (PostgreSQL) + Parquet consolidation
+- `analytics/` — 15 Polars batch modules (run with `python -m etl.analytics.run_all`)
+- `scripts/descargar_datos_masivos.py` — Downloads OC + LIC ZIPs from blob storage
+- New planned: `EstadoHabilExtractor` (CSV every 6h)
 - Requires `MERCADO_PUBLICO_TICKET` for API auth
 
 ### Database
 - **PostgreSQL 15** (transactional): users, licitaciones, alertas (with idempotency_key), alert_preferences, empresas_usuario, estado_habil_log, documentos_empresa, checklist_postulacion, postulaciones, tfidf_perfiles, task_failures
-- **DuckDB** (analytical): ordenes_compra historical data for BI queries
+- **Parquet + Polars** (analytical): pre-computed analytics outputs in `etl/data/analytics/`, read by BIService at runtime
 - Migrations in `backend/alembic/versions/`
 - All cron jobs use `America/Santiago` timezone
 

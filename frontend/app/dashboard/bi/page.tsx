@@ -231,9 +231,12 @@ export default function BIPage() {
     }
   };
 
-  if (!initialized && !loadingInit) {
-    probeBI();
-  }
+  useEffect(() => {
+    if (!initialized && !loadingInit) {
+      probeBI();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── On mount: probe TF-IDF + load empresa ────────────────────────────────
   useEffect(() => {

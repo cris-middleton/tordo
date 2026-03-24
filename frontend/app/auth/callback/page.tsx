@@ -1,26 +1,12 @@
 'use client';
 
-/**
- * Google OAuth callback page.
- *
- * The backend redirects here after a successful Google login:
- *   /auth/callback?token=<jwt>
- *
- * This page:
- *  1. Reads the token from the URL
- *  2. Stores it in localStorage
- *  3. Calls refreshUser() to populate AuthContext
- *  4. Redirects to /dashboard
- *
- * On error (e.g. ?error=google_denied) it redirects to /login with an error.
- */
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/lib/api';
 import { Loader2 } from 'lucide-react';
 
-export default function AuthCallbackPage() {
+function AuthCallbackInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { refreshUser } = useAuth();
@@ -51,5 +37,19 @@ export default function AuthCallbackPage() {
         <p className="text-sm text-muted">Iniciando sesión con Google…</p>
       </div>
     </div>
+  );
+}
+
+export default function AuthCallbackPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-background">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      }
+    >
+      <AuthCallbackInner />
+    </Suspense>
   );
 }

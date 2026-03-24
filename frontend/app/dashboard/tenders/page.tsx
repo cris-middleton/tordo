@@ -503,7 +503,7 @@ export default function TendersPage() {
                   Página {displayPage} de {displayPages}
                 </span>
                 <button
-                  onClick={() => setPage((p) => Math.min(pages, p + 1))}
+                  onClick={() => setPage((p) => Math.min(displayPages, p + 1))}
                   disabled={displayPage === displayPages}
                   className="btn-secondary disabled:opacity-50"
                 >

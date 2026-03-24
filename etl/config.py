@@ -17,13 +17,9 @@ class ETLConfig:
     # Data source settings
     CHILECOMPRA_API_URL: Optional[str] = os.getenv("CHILECOMPRA_API_URL")
     MERCADO_PUBLICO_URL: str = os.getenv("MERCADO_PUBLICO_URL") or "https://api.mercadopublico.cl"
-    # ⚠️  IMPORTANT: Set MERCADO_PUBLICO_TICKET in your .env file
-    # The default below is a demo ticket - replace with your own
-    # Get your ticket from: https://api.mercadopublico.cl
-    MERCADO_PUBLICO_TICKET: str = os.getenv(
-        "MERCADO_PUBLICO_TICKET",
-        "F8537A18-6766-4DEF-9E59-426B4FEE2844"  # Demo ticket - replace in production
-    )
+    # Set MERCADO_PUBLICO_TICKET in your .env file.
+    # Get your ticket at: https://api.mercadopublico.cl
+    MERCADO_PUBLICO_TICKET: str = os.getenv("MERCADO_PUBLICO_TICKET", "")
     
     # ETL settings
     BATCH_SIZE: int = int(os.getenv("ETL_BATCH_SIZE", "100"))

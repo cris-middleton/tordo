@@ -28,7 +28,7 @@ def trigger_licitacion_alert(licitacion_id: int, use_celery: bool = True):
     else:
         # Synchronous processing
         try:
-            from app.db import SessionLocal
+            from app.db import SyncSessionLocal as SessionLocal
             from app.services.alert_engine import AlertEngine
             
             db = SessionLocal()
@@ -62,7 +62,7 @@ def trigger_orden_compra_alert(orden_compra_id: int, use_celery: bool = True):
     else:
         # Synchronous processing
         try:
-            from app.db import SessionLocal
+            from app.db import SyncSessionLocal as SessionLocal
             from app.services.alert_engine import AlertEngine
             
             db = SessionLocal()

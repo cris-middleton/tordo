@@ -56,7 +56,7 @@ function PostulacionCard({
   onChecklistToggle,
 }: {
   postulacion: Postulacion;
-  onChecklistToggle: (postulacionId: string, itemId: string) => void;
+  onChecklistToggle: (postulacionId: string, itemId: string, currentCompleted: boolean) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const config = ESTADO_CONFIG[postulacion.estado] || ESTADO_CONFIG.en_seguimiento;
@@ -135,7 +135,7 @@ function PostulacionCard({
             .map((item) => (
               <li key={item.id} className="flex items-start gap-2">
                 <button
-                  onClick={() => onChecklistToggle(postulacion.id, item.id)}
+                  onClick={() => onChecklistToggle(postulacion.id, item.id, item.completado)}
                   className={`mt-0.5 h-4 w-4 shrink-0 rounded border transition-colors ${
                     item.completado
                       ? 'bg-primary border-primary'
@@ -204,16 +204,17 @@ export default function PostulacionesPage() {
     }
   };
 
-  const handleChecklistToggle = async (postulacionId: string, itemId: string) => {
+  const handleChecklistToggle = async (postulacionId: string, itemId: string, currentCompleted: boolean) => {
+    const newCompleted = !currentCompleted;
     try {
-      await apiClient.toggleChecklistItem(postulacionId, itemId);
+      await apiClient.toggleChecklistItem(postulacionId, itemId, newCompleted);
       setPostulaciones((prev) =>
         prev.map((p) =>
           p.id === postulacionId
             ? {
                 ...p,
                 checklist: p.checklist.map((i) =>
-                  i.id === itemId ? { ...i, completado: !i.completado } : i,
+                  i.id === itemId ? { ...i, completado: newCompleted } : i,
                 ),
               }
             : p,

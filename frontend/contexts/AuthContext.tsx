@@ -18,6 +18,7 @@ interface User {
   onboarding_completed?: boolean;
   onboarding_step?: number;
   whatsapp_number?: string;
+  webhook_url?: string;
   has_google?: boolean;
   created_at?: string;
   last_login?: string | null;

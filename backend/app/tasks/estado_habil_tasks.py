@@ -10,7 +10,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from app.celery_app import celery_app
 from app.config import settings
-from app.db import SessionLocal
+from app.db import SyncSessionLocal as SessionLocal
 from app.models.alert import Alert, AlertStatus, AlertType
 from app.models.empresa import DocumentoEmpresa, EmpresaUsuario
 from app.models.licitacion import Licitacion
@@ -96,7 +96,7 @@ def send_deadline_reminders() -> dict:
                     alert_type=alert_type,
                     status=AlertStatus.PENDING,
                     entity_type="postulacion",
-                    entity_id=0,
+                    entity_id=p.id.int & 0x7FFFFFFF,  # UUID → positive int for legacy column
                     title=f"Cierre en {hours_label}h: {licitacion.nombre[:80]}",
                     message=(
                         f"La licitación '{licitacion.nombre}' "
@@ -167,7 +167,7 @@ def check_document_expiry() -> dict:
                     alert_type=AlertType.DOCUMENTO_VENCIDO,
                     status=AlertStatus.PENDING,
                     entity_type="documento",
-                    entity_id=0,
+                    entity_id=doc.id.int & 0x7FFFFFFF,  # UUID → positive int for legacy column
                     title=f"Documento por vencer: {doc.nombre}",
                     message=(
                         f"El documento '{doc.nombre}' vence el {fecha_str} "

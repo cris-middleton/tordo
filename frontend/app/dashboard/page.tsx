@@ -7,7 +7,6 @@ import { apiClient } from '@/lib/api';
 import {
   FileText,
   Bell,
-  TrendingUp,
   Bookmark,
   Send,
   Calendar,
@@ -20,6 +19,8 @@ import {
   ClipboardList,
   FolderOpen,
   AlertTriangle,
+  TrendingUp,
+  ArrowRight,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -41,6 +42,49 @@ interface DashboardStats {
   documentos_por_vencer: number;
   tiene_empresa: boolean;
 }
+
+const kpiConfig = [
+  {
+    key: 'licitaciones_activas' as const,
+    title: 'Licitaciones activas',
+    icon: FileText,
+    href: '/dashboard/tenders',
+    accentClass: 'kpi-card-blue',
+    iconBg: 'bg-primary/10',
+    iconColor: 'text-primary',
+    urgentKey: null,
+  },
+  {
+    key: 'alertas_no_leidas' as const,
+    title: 'Alertas sin leer',
+    icon: Bell,
+    href: '/dashboard/alerts',
+    accentClass: 'kpi-card-gold',
+    iconBg: 'bg-gold/10',
+    iconColor: 'text-gold',
+    urgentKey: 'alertas_no_leidas' as const,
+  },
+  {
+    key: 'postulaciones_activas' as const,
+    title: 'Postulaciones activas',
+    icon: ClipboardList,
+    href: '/dashboard/postulaciones',
+    accentClass: 'kpi-card-green',
+    iconBg: 'bg-accent/10',
+    iconColor: 'text-accent',
+    urgentKey: null,
+  },
+  {
+    key: 'documentos_por_vencer' as const,
+    title: 'Docs por vencer (30d)',
+    icon: FolderOpen,
+    href: '/dashboard/documentos',
+    accentClass: 'kpi-card-danger',
+    iconBg: 'bg-danger/10',
+    iconColor: 'text-danger',
+    urgentKey: 'documentos_por_vencer' as const,
+  },
+];
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -74,7 +118,6 @@ export default function DashboardPage() {
     [counts],
   );
 
-  // Normalize text to Title Case (first letter uppercase, rest lowercase)
   const normalizeText = (text: string | undefined): string => {
     if (!text) return '';
     return text
@@ -86,7 +129,7 @@ export default function DashboardPage() {
   const formatStoredDate = (iso: string) => {
     try {
       return format(new Date(iso), 'dd MMM yyyy HH:mm', { locale: es });
-    } catch (error) {
+    } catch {
       return '';
     }
   };
@@ -101,72 +144,27 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    loadStats();
+    apiClient.getDashboardStats()
+      .then(setStats)
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }, []);
-
-  const loadStats = async () => {
-    try {
-      const data = await apiClient.getDashboardStats();
-      setStats(data);
-    } catch (error) {
-      console.error('Error loading stats:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const kpiCards = [
-    {
-      title: 'Licitaciones activas',
-      value: stats.licitaciones_activas,
-      icon: FileText,
-      href: '/dashboard/tenders',
-      color: 'blue',
-    },
-    {
-      title: 'Alertas sin leer',
-      value: stats.alertas_no_leidas,
-      icon: Bell,
-      href: '/dashboard/alerts',
-      color: 'yellow',
-      urgent: stats.alertas_no_leidas > 0,
-    },
-    {
-      title: 'Postulaciones activas',
-      value: stats.postulaciones_activas,
-      icon: ClipboardList,
-      href: '/dashboard/postulaciones',
-      color: 'green',
-    },
-    {
-      title: 'Docs por vencer (30d)',
-      value: stats.documentos_por_vencer,
-      icon: FolderOpen,
-      href: '/dashboard/documentos',
-      color: 'red',
-      urgent: stats.documentos_por_vencer > 0,
-    },
-  ];
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 animate-pulse">
         <div className="space-y-2">
-          <div className="h-8 w-48 bg-surface rounded animate-pulse"></div>
-          <div className="h-4 w-64 bg-surface rounded animate-pulse"></div>
+          <div className="h-8 w-52 bg-border rounded-lg" />
+          <div className="h-4 w-40 bg-border/60 rounded-lg" />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="card animate-pulse">
-              <div className="h-24 bg-surface rounded"></div>
-            </div>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-28 rounded-xl bg-surface border border-border shadow-card" />
           ))}
         </div>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           {[...Array(2)].map((_, i) => (
-            <div key={i} className="card animate-pulse">
-              <div className="h-64 bg-surface rounded"></div>
-            </div>
+            <div key={i} className="h-64 rounded-xl bg-surface border border-border shadow-card" />
           ))}
         </div>
       </div>
@@ -174,50 +172,33 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="mb-1 text-2xl font-semibold text-text sm:text-3xl">Dashboard</h1>
-        <p className="text-sm text-muted">
-          {format(new Date(), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}
-        </p>
+    <div className="space-y-6 animate-fade-in">
+      {/* Page header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="page-title">Dashboard</h1>
+          <p className="mt-1 text-sm text-muted capitalize">
+            {format(new Date(), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}
+          </p>
+        </div>
+        <button
+          onClick={() => router.push('/dashboard/tenders')}
+          className="hidden sm:inline-flex btn-primary gap-2"
+        >
+          <FileText size={15} />
+          Ver licitaciones
+        </button>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {kpiCards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <button
-              key={card.title}
-              onClick={() => router.push(card.href)}
-              className={`card text-left transition-all hover:scale-[1.02] hover:shadow-md ${
-                card.urgent ? 'border-red-200 bg-red-50' : ''
-              }`}
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xs font-medium text-muted">{card.title}</p>
-                  <p className={`mt-1 text-3xl font-bold ${card.urgent ? 'text-red-600' : 'text-text'}`}>
-                    {card.value}
-                  </p>
-                </div>
-                <div className={`rounded-lg p-2 ${card.urgent ? 'bg-red-100' : 'bg-primary/10'}`}>
-                  <Icon className={`h-5 w-5 ${card.urgent ? 'text-red-500' : 'text-primary'}`} />
-                </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
+      {/* Onboarding nudge */}
       {!stats.tiene_empresa && (
-        <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
+        <div className="alert-warning animate-slide-up">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" />
           <span>
             Aún no tienes una empresa registrada.{' '}
             <button
               onClick={() => router.push('/onboarding')}
-              className="font-semibold underline"
+              className="font-semibold underline underline-offset-2"
             >
               Completa el onboarding
             </button>{' '}
@@ -226,444 +207,272 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Combined Collections with Tabs */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        {/* Órdenes de Compra */}
-        <div className="card space-y-4">
-          <div className="flex items-center justify-between border-b border-border pb-3">
-            <h3 className="text-lg font-semibold text-text">Órdenes de Compra</h3>
-            <div className="flex gap-2 text-xs text-muted">
-              <span className="rounded-full bg-primary/10 px-2 py-1 text-primary">
-                {counts.orders.saved} guardadas
-              </span>
-              <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-600">
-                {counts.orders.applied} aplicadas
-              </span>
-            </div>
-          </div>
-
-          {/* Guardadas Section */}
-          <div className="space-y-2">
+      {/* ── KPI Cards ── */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {kpiConfig.map((cfg, idx) => {
+          const Icon = cfg.icon;
+          const value = stats[cfg.key];
+          const isUrgent = cfg.urgentKey ? stats[cfg.urgentKey] > 0 : false;
+          return (
             <button
-              type="button"
-              onClick={() =>
-                setExpandedSections((prev) => ({
-                  ...prev,
-                  orders: { ...prev.orders, saved: !prev.orders.saved },
-                }))
-              }
-              className="flex w-full items-center justify-between rounded-lg border border-border bg-surface p-3 transition-colors hover:border-primary/40"
+              key={cfg.key}
+              onClick={() => router.push(cfg.href)}
+              style={{ animationDelay: `${idx * 60}ms` }}
+              className={`kpi-card ${cfg.accentClass} text-left group animate-slide-up w-full`}
             >
-              <div className="flex items-center gap-2">
-                <Bookmark className="h-4 w-4 text-primary" />
-                <span className="font-medium text-text">
-                  Guardadas ({collections.orders.saved.length})
-                </span>
+              <div className="flex items-start justify-between mb-3">
+                <div className={`rounded-lg p-2.5 ${isUrgent ? 'bg-danger/10' : cfg.iconBg} transition-transform group-hover:scale-110`}>
+                  <Icon
+                    size={18}
+                    className={isUrgent ? 'text-danger' : cfg.iconColor}
+                    strokeWidth={2}
+                  />
+                </div>
+                <ArrowRight size={14} className="text-subtle opacity-0 group-hover:opacity-100 transition-opacity mt-1" />
               </div>
-              {expandedSections.orders.saved ? (
-                <ChevronUp className="h-4 w-4 text-muted" />
-              ) : (
-                <ChevronDown className="h-4 w-4 text-muted" />
-              )}
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">
+                {cfg.title}
+              </p>
+              <p className={`font-display text-3xl font-bold leading-none ${isUrgent ? 'text-danger' : 'text-text'}`}>
+                {value}
+              </p>
             </button>
-            {expandedSections.orders.saved && (
-              <div className="max-h-96 space-y-2 overflow-y-auto pl-4 transition-all duration-300">
-                {!hydrated ? (
-                  <p className="text-sm text-muted">Cargando datos locales...</p>
-                ) : collections.orders.saved.length === 0 ? (
-                  <div className="rounded-lg border border-border bg-surface p-4 text-center">
-                    <Bookmark className="mx-auto mb-2 h-8 w-8 text-muted" />
-                    <p className="text-sm text-muted">No hay órdenes guardadas aún.</p>
-                  </div>
-                ) : (
-                  collections.orders.saved.map((item) => (
-                    <div
-                      key={`order-saved-${item.id}`}
-                      className="rounded-lg border border-border bg-surface p-3 transition-colors hover:border-primary/40"
-                    >
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1">
-                            <Link
-                              href={`/dashboard/orders/${encodeURIComponent(item.codigo_oc)}`}
-                              className="font-medium text-primary hover:underline"
-                            >
-                              {normalizeText(item.nombre)}
-                            </Link>
-                            <p className="text-xs text-muted">Código OC: {item.codigo_oc}</p>
-                          </div>
-                          <button
-                            type="button"
-                            aria-label="Quitar de guardados"
-                            className="rounded-md border border-border p-1 text-muted hover:border-destructive/40 hover:text-destructive"
-                            onClick={() => toggleOrder('saved', item)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                        <div className="flex flex-wrap gap-3 text-xs text-muted">
-                          {item.region && (
-                            <span className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {normalizeText(item.region)}
-                            </span>
-                          )}
-                          <span className="flex items-center gap-1">
-                            <DollarSign className="h-3 w-3" />
-                            {formatCurrency(item.monto_total, item.moneda || 'CLP')}
-                          </span>
-                          {item.nombre_proveedor && (
-                            <span className="flex items-center gap-1">
-                              <Building2 className="h-3 w-3" />
-                              {normalizeText(item.nombre_proveedor)}
-                            </span>
-                          )}
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            Guardado: {formatStoredDate(item.storedAt)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Aplicadas Section */}
-          <div className="space-y-2">
-            <button
-              type="button"
-              onClick={() =>
-                setExpandedSections((prev) => ({
-                  ...prev,
-                  orders: { ...prev.orders, applied: !prev.orders.applied },
-                }))
-              }
-              className="flex w-full items-center justify-between rounded-lg border border-border bg-surface p-3 transition-colors hover:border-emerald-400/40"
-            >
-              <div className="flex items-center gap-2">
-                <Send className="h-4 w-4 text-emerald-600" />
-                <span className="font-medium text-text">
-                  Aplicadas ({collections.orders.applied.length})
-                </span>
-              </div>
-              {expandedSections.orders.applied ? (
-                <ChevronUp className="h-4 w-4 text-muted" />
-              ) : (
-                <ChevronDown className="h-4 w-4 text-muted" />
-              )}
-            </button>
-            {expandedSections.orders.applied && (
-              <div className="max-h-96 space-y-2 overflow-y-auto pl-4 transition-all duration-300">
-                {!hydrated ? (
-                  <p className="text-sm text-muted">Cargando datos locales...</p>
-                ) : collections.orders.applied.length === 0 ? (
-                  <div className="rounded-lg border border-border bg-surface p-4 text-center">
-                    <Send className="mx-auto mb-2 h-8 w-8 text-muted" />
-                    <p className="text-sm text-muted">No hay órdenes aplicadas aún.</p>
-                  </div>
-                ) : (
-                  collections.orders.applied.map((item) => (
-                    <div
-                      key={`order-applied-${item.id}`}
-                      className="rounded-lg border border-border bg-surface p-3 transition-colors hover:border-emerald-400/40"
-                    >
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1">
-                            <Link
-                              href={`/dashboard/orders/${encodeURIComponent(item.codigo_oc)}`}
-                              className="font-medium text-emerald-600 hover:underline"
-                            >
-                              {normalizeText(item.nombre)}
-                            </Link>
-                            <p className="text-xs text-muted">Código OC: {item.codigo_oc}</p>
-                          </div>
-                          <button
-                            type="button"
-                            aria-label="Quitar de aplicados"
-                            className="rounded-md border border-border p-1 text-muted hover:border-destructive/40 hover:text-destructive"
-                            onClick={() => toggleOrder('applied', item)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                        <div className="flex flex-wrap gap-3 text-xs text-muted">
-                          {item.region && (
-                            <span className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {normalizeText(item.region)}
-                            </span>
-                          )}
-                          <span className="flex items-center gap-1">
-                            <DollarSign className="h-3 w-3" />
-                            {formatCurrency(item.monto_total, item.moneda || 'CLP')}
-                          </span>
-                          {item.nombre_proveedor && (
-                            <span className="flex items-center gap-1">
-                              <Building2 className="h-3 w-3" />
-                              {normalizeText(item.nombre_proveedor)}
-                            </span>
-                          )}
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            Aplicada: {formatStoredDate(item.storedAt)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Licitaciones */}
-        <div className="card space-y-4">
-          <div className="flex items-center justify-between border-b border-border pb-3">
-            <h3 className="text-lg font-semibold text-text">Licitaciones</h3>
-            <div className="flex gap-2 text-xs text-muted">
-              <span className="rounded-full bg-primary/10 px-2 py-1 text-primary">
-                {counts.tenders.saved} guardadas
-              </span>
-              <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-600">
-                {counts.tenders.applied} aplicadas
-              </span>
-            </div>
-          </div>
-
-          {/* Guardadas Section */}
-          <div className="space-y-2">
-            <button
-              type="button"
-              onClick={() =>
-                setExpandedSections((prev) => ({
-                  ...prev,
-                  tenders: { ...prev.tenders, saved: !prev.tenders.saved },
-                }))
-              }
-              className="flex w-full items-center justify-between rounded-lg border border-border bg-surface p-3 transition-colors hover:border-primary/40"
-            >
-              <div className="flex items-center gap-2">
-                <Bookmark className="h-4 w-4 text-primary" />
-                <span className="font-medium text-text">
-                  Guardadas ({collections.tenders.saved.length})
-                </span>
-              </div>
-              {expandedSections.tenders.saved ? (
-                <ChevronUp className="h-4 w-4 text-muted" />
-              ) : (
-                <ChevronDown className="h-4 w-4 text-muted" />
-              )}
-            </button>
-            {expandedSections.tenders.saved && (
-              <div className="max-h-96 space-y-2 overflow-y-auto pl-4 transition-all duration-300">
-                {!hydrated ? (
-                  <p className="text-sm text-muted">Cargando datos locales...</p>
-                ) : collections.tenders.saved.length === 0 ? (
-                  <div className="rounded-lg border border-border bg-surface p-4 text-center">
-                    <Bookmark className="mx-auto mb-2 h-8 w-8 text-muted" />
-                    <p className="text-sm text-muted">No hay licitaciones guardadas aún.</p>
-                  </div>
-                ) : (
-                  collections.tenders.saved.map((item) => (
-                    <div
-                      key={`tender-saved-${item.id}`}
-                      className="rounded-lg border border-border bg-surface p-3 transition-colors hover:border-primary/40"
-                    >
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1">
-                            <Link
-                              href={`/dashboard/tenders/${encodeURIComponent(item.codigo_externo)}`}
-                              className="font-medium text-primary hover:underline"
-                            >
-                              {normalizeText(item.nombre)}
-                            </Link>
-                            <p className="text-xs text-muted">Código: {item.codigo_externo}</p>
-                          </div>
-                          <button
-                            type="button"
-                            aria-label="Quitar de guardados"
-                            className="rounded-md border border-border p-1 text-muted hover:border-destructive/40 hover:text-destructive"
-                            onClick={() => toggleTender('saved', item)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                        <div className="flex flex-wrap gap-3 text-xs text-muted">
-                          {item.region && (
-                            <span className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {normalizeText(item.region)}
-                            </span>
-                          )}
-                          {typeof item.monto_estimado === 'number' && (
-                            <span className="flex items-center gap-1">
-                              <DollarSign className="h-3 w-3" />
-                              {formatCurrency(item.monto_estimado)}
-                            </span>
-                          )}
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            Guardado: {formatStoredDate(item.storedAt)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Aplicadas Section */}
-          <div className="space-y-2">
-            <button
-              type="button"
-              onClick={() =>
-                setExpandedSections((prev) => ({
-                  ...prev,
-                  tenders: { ...prev.tenders, applied: !prev.tenders.applied },
-                }))
-              }
-              className="flex w-full items-center justify-between rounded-lg border border-border bg-surface p-3 transition-colors hover:border-emerald-400/40"
-            >
-              <div className="flex items-center gap-2">
-                <Send className="h-4 w-4 text-emerald-600" />
-                <span className="font-medium text-text">
-                  Aplicadas ({collections.tenders.applied.length})
-                </span>
-              </div>
-              {expandedSections.tenders.applied ? (
-                <ChevronUp className="h-4 w-4 text-muted" />
-              ) : (
-                <ChevronDown className="h-4 w-4 text-muted" />
-              )}
-            </button>
-            {expandedSections.tenders.applied && (
-              <div className="max-h-96 space-y-2 overflow-y-auto pl-4 transition-all duration-300">
-                {!hydrated ? (
-                  <p className="text-sm text-muted">Cargando datos locales...</p>
-                ) : collections.tenders.applied.length === 0 ? (
-                  <div className="rounded-lg border border-border bg-surface p-4 text-center">
-                    <Send className="mx-auto mb-2 h-8 w-8 text-muted" />
-                    <p className="text-sm text-muted">No hay licitaciones aplicadas aún.</p>
-                  </div>
-                ) : (
-                  collections.tenders.applied.map((item) => (
-                    <div
-                      key={`tender-applied-${item.id}`}
-                      className="rounded-lg border border-border bg-surface p-3 transition-colors hover:border-emerald-400/40"
-                    >
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1">
-                            <Link
-                              href={`/dashboard/tenders/${encodeURIComponent(item.codigo_externo)}`}
-                              className="font-medium text-emerald-600 hover:underline"
-                            >
-                              {normalizeText(item.nombre)}
-                            </Link>
-                            <p className="text-xs text-muted">Código: {item.codigo_externo}</p>
-                          </div>
-                          <button
-                            type="button"
-                            aria-label="Quitar de aplicados"
-                            className="rounded-md border border-border p-1 text-muted hover:border-destructive/40 hover:text-destructive"
-                            onClick={() => toggleTender('applied', item)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                        <div className="flex flex-wrap gap-3 text-xs text-muted">
-                          {item.region && (
-                            <span className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {normalizeText(item.region)}
-                            </span>
-                          )}
-                          {typeof item.monto_estimado === 'number' && (
-                            <span className="flex items-center gap-1">
-                              <DollarSign className="h-3 w-3" />
-                              {formatCurrency(item.monto_estimado)}
-                            </span>
-                          )}
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            Aplicada: {formatStoredDate(item.storedAt)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-        </div>
+          );
+        })}
       </div>
 
-      {/* Saved/applied charts */}
+      {/* ── Collections ── */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        {/* Órdenes de Compra */}
+        <CollectionCard
+          title="Órdenes de Compra"
+          savedCount={counts.orders.saved}
+          appliedCount={counts.orders.applied}
+          savedItems={collections.orders.saved}
+          appliedItems={collections.orders.applied}
+          hydrated={hydrated}
+          expandedSaved={expandedSections.orders.saved}
+          expandedApplied={expandedSections.orders.applied}
+          onToggleSaved={() =>
+            setExpandedSections((prev) => ({
+              ...prev,
+              orders: { ...prev.orders, saved: !prev.orders.saved },
+            }))
+          }
+          onToggleApplied={() =>
+            setExpandedSections((prev) => ({
+              ...prev,
+              orders: { ...prev.orders, applied: !prev.orders.applied },
+            }))
+          }
+          onRemoveSaved={(item) => toggleOrder('saved', item)}
+          onRemoveApplied={(item) => toggleOrder('applied', item)}
+          renderItem={(item, type) => (
+            <div className="rounded-lg border border-border bg-background p-3 transition-all hover:border-primary/25 hover:shadow-card-md">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <Link
+                    href={`/dashboard/orders/${encodeURIComponent(item.codigo_oc)}`}
+                    className={`text-sm font-semibold hover:underline underline-offset-2 transition-colors ${type === 'applied' ? 'text-accent' : 'text-primary'}`}
+                  >
+                    {normalizeText(item.nombre)}
+                  </Link>
+                  <p className="text-xs text-subtle mt-0.5">Código OC: {item.codigo_oc}</p>
+                </div>
+                <button
+                  type="button"
+                  className="shrink-0 rounded-md p-1.5 text-subtle hover:bg-danger/10 hover:text-danger transition-colors"
+                  onClick={() => type === 'saved' ? toggleOrder('saved', item) : toggleOrder('applied', item)}
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-3 mt-2 text-xs text-muted">
+                {item.region && (
+                  <span className="flex items-center gap-1">
+                    <MapPin size={11} />{normalizeText(item.region)}
+                  </span>
+                )}
+                <span className="flex items-center gap-1">
+                  <DollarSign size={11} />{formatCurrency(item.monto_total, item.moneda || 'CLP')}
+                </span>
+                {item.nombre_proveedor && (
+                  <span className="flex items-center gap-1">
+                    <Building2 size={11} />{normalizeText(item.nombre_proveedor)}
+                  </span>
+                )}
+                <span className="flex items-center gap-1 text-subtle">
+                  <Calendar size={11} />{formatStoredDate(item.storedAt)}
+                </span>
+              </div>
+            </div>
+          )}
+        />
+
+        {/* Licitaciones */}
+        <CollectionCard
+          title="Licitaciones"
+          savedCount={counts.tenders.saved}
+          appliedCount={counts.tenders.applied}
+          savedItems={collections.tenders.saved}
+          appliedItems={collections.tenders.applied}
+          hydrated={hydrated}
+          expandedSaved={expandedSections.tenders.saved}
+          expandedApplied={expandedSections.tenders.applied}
+          onToggleSaved={() =>
+            setExpandedSections((prev) => ({
+              ...prev,
+              tenders: { ...prev.tenders, saved: !prev.tenders.saved },
+            }))
+          }
+          onToggleApplied={() =>
+            setExpandedSections((prev) => ({
+              ...prev,
+              tenders: { ...prev.tenders, applied: !prev.tenders.applied },
+            }))
+          }
+          onRemoveSaved={(item) => toggleTender('saved', item)}
+          onRemoveApplied={(item) => toggleTender('applied', item)}
+          renderItem={(item, type) => (
+            <div className="rounded-lg border border-border bg-background p-3 transition-all hover:border-primary/25 hover:shadow-card-md">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <Link
+                    href={item.codigo_externo ? `/dashboard/tenders/${encodeURIComponent(item.codigo_externo)}` : '#'}
+                    className={`text-sm font-semibold hover:underline underline-offset-2 transition-colors ${type === 'applied' ? 'text-accent' : 'text-primary'}`}
+                  >
+                    {normalizeText(item.nombre)}
+                  </Link>
+                  <p className="text-xs text-subtle mt-0.5">Código: {item.codigo_externo}</p>
+                </div>
+                <button
+                  type="button"
+                  className="shrink-0 rounded-md p-1.5 text-subtle hover:bg-danger/10 hover:text-danger transition-colors"
+                  onClick={() => type === 'saved' ? toggleTender('saved', item) : toggleTender('applied', item)}
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-3 mt-2 text-xs text-muted">
+                {item.region && (
+                  <span className="flex items-center gap-1">
+                    <MapPin size={11} />{normalizeText(item.region)}
+                  </span>
+                )}
+                {typeof item.monto_estimado === 'number' && (
+                  <span className="flex items-center gap-1">
+                    <DollarSign size={11} />{formatCurrency(item.monto_estimado)}
+                  </span>
+                )}
+                <span className="flex items-center gap-1 text-subtle">
+                  <Calendar size={11} />{formatStoredDate(item.storedAt)}
+                </span>
+              </div>
+            </div>
+          )}
+        />
+      </div>
+
+      {/* ── Charts ── */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="card">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-text">Guardados</h2>
-            <Bookmark className="h-5 w-5 text-primary" />
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="section-title">Guardados</h2>
+              <p className="text-xs text-muted mt-0.5">Total de items guardados por tipo</p>
+            </div>
+            <div className="rounded-lg bg-primary/10 p-2">
+              <Bookmark size={16} className="text-primary" />
+            </div>
           </div>
-          <div className="mt-4 h-64">
+          <div className="h-48">
             {!hydrated ? (
               <div className="flex h-full items-center justify-center text-sm text-muted">
-                Cargando datos locales...
+                Cargando datos…
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={savedChartData}>
-                  <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" />
-                  <XAxis dataKey="name" stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                <BarChart data={savedChartData} barSize={40}>
+                  <CartesianGrid stroke="#E2E6EF" strokeDasharray="3 3" vertical={false} />
+                  <XAxis
+                    dataKey="name"
+                    stroke="#CBD5E1"
+                    tick={{ fill: '#94A3B8', fontSize: 12, fontFamily: 'var(--font-dm-sans)' }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
                   <YAxis
                     allowDecimals={false}
-                    stroke="#94a3b8"
-                    tick={{ fill: '#94a3b8', fontSize: 12 }}
+                    stroke="#CBD5E1"
+                    tick={{ fill: '#94A3B8', fontSize: 12, fontFamily: 'var(--font-dm-sans)' }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={30}
                   />
                   <Tooltip
                     formatter={(value: number) => [`${value}`, 'Total']}
-                    cursor={{ fill: 'rgba(99, 102, 241, 0.12)' }}
+                    cursor={{ fill: 'rgba(15,41,66,0.05)', radius: 6 }}
+                    contentStyle={{
+                      borderRadius: '10px',
+                      border: '1px solid #E2E6EF',
+                      boxShadow: '0 4px 12px rgba(15,41,66,0.10)',
+                      fontFamily: 'var(--font-dm-sans)',
+                      fontSize: '13px',
+                    }}
                   />
-                  <Bar dataKey="value" fill="#6366f1" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="value" fill="#0F2942" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}
           </div>
         </div>
+
         <div className="card">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-text">Aplicados</h2>
-            <Send className="h-5 w-5 text-emerald-600" />
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="section-title">Aplicados</h2>
+              <p className="text-xs text-muted mt-0.5">Total de items con postulación enviada</p>
+            </div>
+            <div className="rounded-lg bg-accent/10 p-2">
+              <TrendingUp size={16} className="text-accent" />
+            </div>
           </div>
-          <div className="mt-4 h-64">
+          <div className="h-48">
             {!hydrated ? (
               <div className="flex h-full items-center justify-center text-sm text-muted">
-                Cargando datos locales...
+                Cargando datos…
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={appliedChartData}>
-                  <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" />
-                  <XAxis dataKey="name" stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                <BarChart data={appliedChartData} barSize={40}>
+                  <CartesianGrid stroke="#E2E6EF" strokeDasharray="3 3" vertical={false} />
+                  <XAxis
+                    dataKey="name"
+                    stroke="#CBD5E1"
+                    tick={{ fill: '#94A3B8', fontSize: 12, fontFamily: 'var(--font-dm-sans)' }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
                   <YAxis
                     allowDecimals={false}
-                    stroke="#94a3b8"
-                    tick={{ fill: '#94a3b8', fontSize: 12 }}
+                    stroke="#CBD5E1"
+                    tick={{ fill: '#94A3B8', fontSize: 12, fontFamily: 'var(--font-dm-sans)' }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={30}
                   />
                   <Tooltip
                     formatter={(value: number) => [`${value}`, 'Total']}
-                    cursor={{ fill: 'rgba(16, 185, 129, 0.12)' }}
+                    cursor={{ fill: 'rgba(14,173,105,0.05)', radius: 6 }}
+                    contentStyle={{
+                      borderRadius: '10px',
+                      border: '1px solid #E2E6EF',
+                      boxShadow: '0 4px 12px rgba(15,41,66,0.10)',
+                      fontFamily: 'var(--font-dm-sans)',
+                      fontSize: '13px',
+                    }}
                   />
-                  <Bar dataKey="value" fill="#10b981" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="value" fill="#0EAD69" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -674,3 +483,148 @@ export default function DashboardPage() {
   );
 }
 
+/* ──────────────────────────────────────────────
+   Collection Card component
+────────────────────────────────────────────── */
+interface CollectionCardProps {
+  title: string;
+  savedCount: number;
+  appliedCount: number;
+  savedItems: any[];
+  appliedItems: any[];
+  hydrated: boolean;
+  expandedSaved: boolean;
+  expandedApplied: boolean;
+  onToggleSaved: () => void;
+  onToggleApplied: () => void;
+  onRemoveSaved: (item: any) => void;
+  onRemoveApplied: (item: any) => void;
+  renderItem: (item: any, type: 'saved' | 'applied') => React.ReactNode;
+}
+
+function CollectionCard({
+  title,
+  savedCount,
+  appliedCount,
+  savedItems,
+  appliedItems,
+  hydrated,
+  expandedSaved,
+  expandedApplied,
+  onToggleSaved,
+  onToggleApplied,
+  renderItem,
+}: CollectionCardProps) {
+  return (
+    <div className="card space-y-3">
+      <div className="flex items-center justify-between pb-3 border-b border-borderLight">
+        <h3 className="section-title">{title}</h3>
+        <div className="flex gap-2">
+          <span className="badge-primary text-[11px]">
+            <Bookmark size={10} />
+            {savedCount}
+          </span>
+          <span className="badge-accent text-[11px]">
+            <Send size={10} />
+            {appliedCount}
+          </span>
+        </div>
+      </div>
+
+      {/* Saved */}
+      <CollectionSection
+        label="Guardadas"
+        count={savedItems.length}
+        icon={<Bookmark size={14} className="text-primary" />}
+        expanded={expandedSaved}
+        onToggle={onToggleSaved}
+        hydrated={hydrated}
+        items={savedItems}
+        emptyMessage="No hay items guardados aún."
+        renderItem={(item) => renderItem(item, 'saved')}
+        accentColor="primary"
+      />
+
+      {/* Applied */}
+      <CollectionSection
+        label="Aplicadas"
+        count={appliedItems.length}
+        icon={<Send size={14} className="text-accent" />}
+        expanded={expandedApplied}
+        onToggle={onToggleApplied}
+        hydrated={hydrated}
+        items={appliedItems}
+        emptyMessage="No hay items aplicados aún."
+        renderItem={(item) => renderItem(item, 'applied')}
+        accentColor="accent"
+      />
+    </div>
+  );
+}
+
+function CollectionSection({
+  label,
+  count,
+  icon,
+  expanded,
+  onToggle,
+  hydrated,
+  items,
+  emptyMessage,
+  renderItem,
+  accentColor,
+}: {
+  label: string;
+  count: number;
+  icon: React.ReactNode;
+  expanded: boolean;
+  onToggle: () => void;
+  hydrated: boolean;
+  items: any[];
+  emptyMessage: string;
+  renderItem: (item: any) => React.ReactNode;
+  accentColor: 'primary' | 'accent';
+}) {
+  return (
+    <div className="space-y-2">
+      <button
+        type="button"
+        onClick={onToggle}
+        className={`flex w-full items-center justify-between rounded-lg border px-3 py-2.5 transition-all ${
+          expanded
+            ? `border-${accentColor}/30 bg-${accentColor}/5`
+            : 'border-border bg-background hover:border-primary/20'
+        }`}
+      >
+        <div className="flex items-center gap-2">
+          {icon}
+          <span className="text-sm font-medium text-text">
+            {label} ({count})
+          </span>
+        </div>
+        {expanded ? (
+          <ChevronUp size={15} className="text-muted" />
+        ) : (
+          <ChevronDown size={15} className="text-muted" />
+        )}
+      </button>
+
+      {expanded && (
+        <div className="max-h-80 space-y-2 overflow-y-auto pl-1 pr-1 scrollbar-thin animate-slide-up">
+          {!hydrated ? (
+            <p className="text-sm text-muted px-2">Cargando datos locales…</p>
+          ) : items.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border bg-background p-6 text-center">
+              <div className="opacity-30">{icon}</div>
+              <p className="text-sm text-muted">{emptyMessage}</p>
+            </div>
+          ) : (
+            items.map((item, i) => (
+              <div key={item.id || i}>{renderItem(item)}</div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

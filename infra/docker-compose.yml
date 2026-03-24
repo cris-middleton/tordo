@@ -93,9 +93,11 @@ services:
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
       S3_ENDPOINT_URL: http://minio:9000
       S3_ENDPOINT_URL_PUBLIC: ${S3_ENDPOINT_URL_PUBLIC:-http://localhost:9000}
+      ANALYTICS_DATA_PATH: /workspace/etl/data/analytics
     volumes:
       - ../backend:/app
       - /app/__pycache__
+      - ../etl/data:/workspace/etl/data:ro
     depends_on:
       db:
         condition: service_healthy
@@ -129,9 +131,12 @@ services:
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
       S3_ENDPOINT_URL: http://minio:9000
+      ANALYTICS_DATA_PATH: /workspace/etl/data/analytics
+      MERCADO_PUBLICO_TICKET: ${MERCADO_PUBLICO_TICKET:-}
     volumes:
       - ../backend:/app
       - /app/__pycache__
+      - ..:/workspace:ro
     depends_on:
       db:
         condition: service_healthy
