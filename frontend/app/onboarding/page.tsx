@@ -116,7 +116,7 @@ const BI_DEMO_DATA = [
   },
 ];
 
-type Step = 1 | 2 | 3 | 4 | 5;
+type Step = 1 | 2 | 3 | 4 | 5 | 6;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -133,6 +133,15 @@ export default function OnboardingPage() {
   const [step, setStep] = useState<Step>(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Step 4 — BI oportunidades (real API)
+  const [biOportunidades, setBiOportunidades] = useState<Array<{
+    nombre_organismo: string
+    score: number
+    n_transacciones: number
+    monto_promedio: number
+  }>>([])
+  const [biLoading, setBiLoading] = useState(false)
 
   // Step 1 — Empresa
   const [rut, setRut] = useState('');
@@ -231,6 +240,13 @@ export default function OnboardingPage() {
     } finally {
       setLoading(false);
     }
+    // Fetch real BI oportunidades for step 4
+    setBiLoading(true)
+    apiClient
+      .getBIOportunidades({ limit: 3 })
+      .then((data) => setBiOportunidades((data as any)?.oportunidades ?? []))
+      .catch(() => setBiOportunidades([]))
+      .finally(() => setBiLoading(false))
   };
 
   const handleCreateAlert = async () => {
@@ -268,7 +284,7 @@ export default function OnboardingPage() {
         onboarding_step: 5,
       });
       await refreshUser();
-      router.push('/dashboard');
+      setStep(6);
     } catch {
       setError('Error al guardar el plan. Intenta nuevamente.');
     } finally {
@@ -278,8 +294,8 @@ export default function OnboardingPage() {
 
   // ─── Step indicator ─────────────────────────────────────────────────────────
 
-  const STEP_LABELS = ['Empresa', 'Estado hábil', 'Rubros', 'BI demo', 'Alerta'];
-  const TOTAL_STEPS = 5;
+  const STEP_LABELS = ['Empresa', 'Estado hábil', 'Rubros', 'BI demo', 'Alerta', 'Listo'];
+  const TOTAL_STEPS = 6;
 
   const StepIndicator = () => (
     <div className="flex items-center justify-center gap-1.5 mb-8 flex-wrap">
@@ -549,104 +565,78 @@ export default function OnboardingPage() {
             </div>
           )}
 
-          {/* ── Step 4: BI demo ──────────────────────────────────────────── */}
-          {step === 4 && (() => {
-            const demo = getBiDemo();
-            const margin = demo.p50 * 0.08;
-            const suggested = Math.round((demo.p50 - margin) / 100) * 100;
-            return (
-              <div className="space-y-5">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-lg bg-primary/10 p-2">
-                    <BarChart3 className="h-6 w-6 text-primary" />
+          {/* ── Step 4: BI oportunidades ─────────────────────────────────── */}
+          {step === 4 && (
+            <div className="space-y-5">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900 mb-2">Tu ventaja competitiva</h2>
+                <p className="text-gray-500 text-sm mb-6">
+                  TORDO analiza el historial de compras públicas para darte inteligencia antes de postular.
+                </p>
+
+                {biLoading && (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="animate-pulse bg-gray-100 rounded-xl h-20" />
+                    ))}
                   </div>
-                  <div>
-                    <h2 className="text-lg font-semibold text-text">Así se ve TORDO BI</h2>
-                    <p className="text-sm text-muted">
-                      Datos históricos reales de Mercado Público para que ofertes con confianza.
+                )}
+
+                {!biLoading && biOportunidades.length > 0 && (
+                  <div className="space-y-3">
+                    {biOportunidades.map((op, i) => (
+                      <div key={i} className="border border-gray-200 rounded-xl p-4 bg-white">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-medium text-sm text-gray-800 truncate max-w-[200px]">
+                            {op.nombre_organismo}
+                          </span>
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                            op.score >= 7
+                              ? 'bg-green-100 text-green-700'
+                              : op.score >= 4
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-gray-100 text-gray-600'
+                          }`}>
+                            {op.score.toFixed(1)}/10
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          {op.n_transacciones} transacciones ·{' '}
+                          {new Intl.NumberFormat('es-CL', {
+                            style: 'currency',
+                            currency: 'CLP',
+                            maximumFractionDigits: 0,
+                          }).format(op.monto_promedio)}{' '}
+                          prom.
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {!biLoading && biOportunidades.length === 0 && (
+                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-5 text-center">
+                    <p className="text-blue-700 font-medium text-sm">Panel BI disponible en tu dashboard</p>
+                    <p className="text-blue-500 text-xs mt-1">
+                      Configura el perfil de tu empresa para ver precios históricos y competidores reales.
                     </p>
                   </div>
-                </div>
-
-                {/* Price bands card */}
-                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-xs text-muted uppercase tracking-wide">Benchmarks de precio</p>
-                      <p className="font-semibold text-text">{demo.producto}</p>
-                      <p className="text-xs text-muted">{demo.rubro} · {demo.n.toLocaleString('es-CL')} OC históricas</p>
-                    </div>
-                    <span className="rounded-full bg-primary/10 border border-primary/20 text-primary px-2 py-0.5 text-xs font-medium whitespace-nowrap">
-                      Demo
-                    </span>
-                  </div>
-
-                  {/* Price bar */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-xs text-muted">
-                      <span>Bajo (P25)</span>
-                      <span>Mediana</span>
-                      <span>Alto (P75)</span>
-                    </div>
-                    <div className="relative h-3 rounded-full bg-border overflow-hidden">
-                      <div
-                        className="absolute h-full rounded-full bg-gradient-to-r from-green-400 via-primary to-amber-400"
-                        style={{ left: '0%', width: '100%' }}
-                      />
-                      <div
-                        className="absolute top-0 h-full w-0.5 bg-white/80"
-                        style={{ left: '50%' }}
-                      />
-                    </div>
-                    <div className="grid grid-cols-3 text-xs text-center font-mono font-semibold text-text">
-                      <span>{formatClp(demo.p25)}<span className="font-normal text-muted">{demo.unidad}</span></span>
-                      <span>{formatClp(demo.p50)}<span className="font-normal text-muted">{demo.unidad}</span></span>
-                      <span>{formatClp(demo.p75)}<span className="font-normal text-muted">{demo.unidad}</span></span>
-                    </div>
-                  </div>
-
-                  {/* Recommendation */}
-                  <div className="flex items-start gap-2 rounded-lg bg-white/70 border border-primary/10 p-3 text-xs">
-                    <TrendingUp className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-medium text-text">Precio sugerido: </span>
-                      <span className="font-mono font-bold text-primary">
-                        {formatClp(suggested)}{demo.unidad}
-                      </span>
-                      <p className="text-muted mt-0.5">{demo.recomendacion}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Feature preview callout */}
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  {[
-                    { icon: '📊', label: 'Benchmarks por organismo, sector y producto' },
-                    { icon: '🏆', label: 'Top competidores y market share' },
-                    { icon: '📅', label: 'Estacionalidad de compras por mes' },
-                    { icon: '🔮', label: 'Pronóstico de número de oferentes' },
-                  ].map((f) => (
-                    <div key={f.label} className="flex items-start gap-1.5 rounded-lg bg-surface border border-border p-2">
-                      <span>{f.icon}</span>
-                      <span className="text-muted leading-tight">{f.label}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex gap-3">
-                  <button onClick={() => setStep(3)} className="btn-secondary flex-1">
-                    Atrás
-                  </button>
-                  <button
-                    onClick={() => setStep(5)}
-                    className="btn-primary flex-1 flex items-center justify-center gap-2"
-                  >
-                    Continuar <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
+                )}
               </div>
-            );
-          })()}
+
+              <div className="flex gap-3">
+                <button onClick={() => setStep(3)} className="btn-secondary flex-1">
+                  Atrás
+                </button>
+                <button
+                  onClick={() => setStep(5)}
+                  className="btn-primary flex-1 flex items-center justify-center gap-2"
+                >
+                  Continuar <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* ── Step 5: Alerta + Plan ────────────────────────────────────── */}
           {step === 5 && (
@@ -794,6 +784,62 @@ export default function OnboardingPage() {
                   )}
                 </button>
               </div>
+            </div>
+          )}
+          {/* ── Step 6: Completion ───────────────────────────────────────── */}
+          {step === 6 && (
+            <div className="text-center py-4">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                ¡Todo listo, {user?.full_name?.split(' ')[0] || 'bienvenido'}!
+              </h2>
+              <p className="text-gray-500 text-sm mb-8">Tu cuenta está configurada. Aquí tienes tu punto de partida:</p>
+
+              <div className="grid grid-cols-1 gap-3 text-left mb-8">
+                {[
+                  {
+                    icon: '🔍',
+                    title: 'Busca licitaciones',
+                    desc: 'Filtra por región, monto y estado',
+                    href: '/dashboard/tenders',
+                  },
+                  {
+                    icon: '📊',
+                    title: 'Analiza oportunidades',
+                    desc: 'Precios históricos y competidores reales',
+                    href: '/dashboard/bi',
+                  },
+                  {
+                    icon: '📋',
+                    title: 'Gestiona postulaciones',
+                    desc: 'Checklist automático por tipo de licitación',
+                    href: '/dashboard/postulaciones',
+                  },
+                ].map(({ icon, title, desc, href }) => (
+                  <a
+                    key={href}
+                    href={href}
+                    className="flex items-center gap-4 border border-gray-200 rounded-xl p-4 hover:bg-gray-50 transition-colors"
+                  >
+                    <span className="text-2xl">{icon}</span>
+                    <div>
+                      <p className="font-medium text-sm text-gray-900">{title}</p>
+                      <p className="text-xs text-gray-500">{desc}</p>
+                    </div>
+                  </a>
+                ))}
+              </div>
+
+              <button
+                onClick={() => router.push('/dashboard')}
+                className="w-full bg-blue-600 text-white py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors"
+              >
+                Ir al Dashboard →
+              </button>
             </div>
           )}
         </div>
