@@ -18,6 +18,7 @@ import {
   ClipboardList,
   CreditCard,
   ChevronRight,
+  Calendar,
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -28,6 +29,7 @@ const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Licitaciones', href: '/dashboard/tenders', icon: FileText },
   { name: 'Postulaciones', href: '/dashboard/postulaciones', icon: ClipboardList },
+  { name: 'Calendario', href: '/dashboard/calendario', icon: Calendar },
   { name: 'Documentos', href: '/dashboard/documentos', icon: FolderOpen },
   { name: 'Inteligencia BI', href: '/dashboard/bi', icon: BarChart3, badge: 'Pro' },
   { name: 'Alertas', href: '/dashboard/alerts', icon: Bell },
