@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useAuth } from '@/contexts/AuthContext'
 import { apiClient } from '@/lib/api'
 import { ChevronLeft, ChevronRight, Clock, AlertTriangle } from 'lucide-react'
 
@@ -56,7 +55,6 @@ const DAY_NAMES = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']
 const ACTIVE_ESTADOS = new Set(['en_seguimiento', 'en_preparacion'])
 
 export default function CalendarioPage() {
-  const { user } = useAuth()
   const today = new Date()
   const [year, setYear] = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth())
