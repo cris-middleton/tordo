@@ -278,6 +278,11 @@ class ApiClient {
     return res.data;
   }
 
+  async getBIDescuento(params: Record<string, unknown> = {}) {
+    const res = await this.client.get('/api/bi/descuento', { params });
+    return res.data;
+  }
+
   async getBIClusters(topN: number = 80) {
     const res = await this.client.get('/api/bi/clusters', { params: { top_n: topN } });
     return res.data;
