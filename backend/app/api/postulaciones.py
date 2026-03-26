@@ -27,11 +27,15 @@ VALID_ESTADOS = frozenset(
 
 
 async def _generate_checklist(postulacion_id: UUID, tipo_licitacion: str, db: AsyncSession) -> None:
+    # Include GENERICO items (apply to all types) alongside type-specific ones
     templates = (
         await db.execute(
             select(PlantillaChecklist)
-            .where(PlantillaChecklist.tipo_licitacion == tipo_licitacion, PlantillaChecklist.activo.is_(True))
-            .order_by(PlantillaChecklist.orden)
+            .where(
+                PlantillaChecklist.tipo_licitacion.in_([tipo_licitacion, "GENERICO"]),
+                PlantillaChecklist.activo.is_(True),
+            )
+            .order_by(PlantillaChecklist.tipo_licitacion.desc(), PlantillaChecklist.orden)
         )
     ).scalars().all()
     if not templates:
@@ -93,24 +97,17 @@ async def listar_postulaciones(
     current_user: User = Depends(get_current_active_user),
 ):
     await _get_membership_or_403(empresa_id, current_user, db)
-    stmt = select(Postulacion).options(selectinload(Postulacion.checklist)).where(Postulacion.empresa_id == empresa_id)
+    stmt = (
+        select(Postulacion)
+        .options(selectinload(Postulacion.checklist), selectinload(Postulacion.licitacion))
+        .where(Postulacion.empresa_id == empresa_id)
+    )
     if estado:
         if estado not in VALID_ESTADOS:
             raise HTTPException(status_code=400, detail=f"Estado inválido. Valores: {sorted(VALID_ESTADOS)}")
         stmt = stmt.where(Postulacion.estado == estado)
     postulaciones = (await db.execute(stmt.order_by(Postulacion.created_at.desc()))).scalars().all()
-    return [
-        PostulacionListItem(
-            id=p.id,
-            empresa_id=p.empresa_id,
-            licitacion_id=p.licitacion_id,
-            estado=p.estado,
-            created_at=p.created_at,
-            checklist_total=len(p.checklist),
-            checklist_completado=sum(1 for i in p.checklist if i.completado),
-        )
-        for p in postulaciones
-    ]
+    return postulaciones
 
 
 @router.get("/api/postulaciones/{postulacion_id}", response_model=PostulacionOut)

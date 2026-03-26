@@ -309,7 +309,15 @@ class AlertEngine:
                 channels_used.append(NotificationChannel.WEBHOOK.value)
             except Exception as e:
                 logger.error(f"Failed to send webhook notification: {e}")
-        
+
+        # WhatsApp notification
+        if getattr(user, 'notification_whatsapp', False) and user.whatsapp_number:
+            try:
+                self._send_whatsapp_notification(alert, user)
+                channels_used.append(NotificationChannel.WHATSAPP.value)
+            except Exception as e:
+                logger.error(f"Failed to send WhatsApp notification: {e}")
+
         # Update alert
         alert.notification_channels = channels_used
         alert.status = AlertStatus.SENT
@@ -335,6 +343,15 @@ class AlertEngine:
             alert_url=alert_url,
         )
     
+    def _send_whatsapp_notification(self, alert: Alert, user: User):
+        """Send WhatsApp notification via Twilio service"""
+        from app.services.twilio_service import send_whatsapp_alert
+
+        message = f"*{alert.title}*\n\n{alert.message or ''}"
+        success = send_whatsapp_alert(user.whatsapp_number, message)
+        if not success:
+            raise RuntimeError(f"WhatsApp delivery failed for user {user.id}")
+
     def _send_webhook_notification(self, alert: Alert, webhook_url: str):
         """Send webhook notification"""
         try:

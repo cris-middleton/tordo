@@ -20,6 +20,7 @@ class UserUpdate(BaseModel):
     notification_email: Optional[bool] = None
     notification_in_app: Optional[bool] = None
     notification_webhook: Optional[bool] = None
+    notification_whatsapp: Optional[bool] = None
     webhook_url: Optional[str] = None
     onboarding_completed: Optional[bool] = None
     onboarding_step: Optional[int] = None
@@ -34,6 +35,7 @@ class UserResponse(UserBase):
     notification_email: bool
     notification_in_app: bool
     notification_webhook: bool
+    notification_whatsapp: bool = False
     plan_tier: str = "basico"
     subscription_status: str = "inactive"
     onboarding_completed: bool = False

@@ -23,6 +23,7 @@ class User(Base):
     notification_email = Column(Boolean, default=True)
     notification_in_app = Column(Boolean, default=True)
     notification_webhook = Column(Boolean, default=False)
+    notification_whatsapp = Column(Boolean, default=False)
     webhook_url = Column(String(500))
     
     # Plan / billing

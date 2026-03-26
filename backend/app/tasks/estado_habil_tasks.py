@@ -78,19 +78,19 @@ def send_deadline_reminders() -> dict:
             hours_label = "24" if closes_in_24h else "48"
             fecha_str = licitacion.fecha_cierre.strftime("%Y-%m-%d")
 
-            # Idempotency: one alert per postulacion per day per type
-            idempotency_key = (
-                f"{alert_type.value}_{p.id}_{fecha_str}"
-            )
-            if db.query(Alert).filter(Alert.idempotency_key == idempotency_key).first():
-                skipped += 1
-                continue
-
             # Notify all users of the empresa
             memberships = (
                 db.query(EmpresaUsuario).filter(EmpresaUsuario.empresa_id == p.empresa_id).all()
             )
             for m in memberships:
+                # Idempotency: one alert per postulacion per day per type PER USER
+                idempotency_key = (
+                    f"{alert_type.value}_{p.id}_{fecha_str}_{m.user_id}"
+                )
+                if db.query(Alert).filter(Alert.idempotency_key == idempotency_key).first():
+                    skipped += 1
+                    continue
+
                 alert = Alert(
                     user_id=m.user_id,
                     alert_type=alert_type,
@@ -151,17 +151,18 @@ def check_document_expiry() -> dict:
         for doc in expiring_docs:
             fecha_str = doc.fecha_vencimiento.isoformat()
             week_str = today.strftime("%Y-W%W")
-            idempotency_key = f"doc_expiry_{doc.id}_{week_str}"
-
-            if db.query(Alert).filter(Alert.idempotency_key == idempotency_key).first():
-                skipped += 1
-                continue
-
             days_left = (doc.fecha_vencimiento - today).days
             memberships = (
                 db.query(EmpresaUsuario).filter(EmpresaUsuario.empresa_id == doc.empresa_id).all()
             )
             for m in memberships:
+                # Idempotency: one alert per document per week PER USER
+                idempotency_key = f"doc_expiry_{doc.id}_{week_str}_{m.user_id}"
+
+                if db.query(Alert).filter(Alert.idempotency_key == idempotency_key).first():
+                    skipped += 1
+                    continue
+
                 alert = Alert(
                     user_id=m.user_id,
                     alert_type=AlertType.DOCUMENTO_VENCIDO,

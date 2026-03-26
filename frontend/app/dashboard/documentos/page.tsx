@@ -377,8 +377,8 @@ export default function DocumentosPage() {
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={async () => {
-                    const url = await apiClient.getDocumentoDownloadUrl(empresaId, doc.id);
-                    window.open(url, '_blank', 'noopener,noreferrer');
+                    const res = await apiClient.getDocumentoDownloadUrl(empresaId, doc.id);
+                    window.open(res.url, '_blank', 'noopener,noreferrer');
                   }}
                   className="rounded-md border border-border p-1.5 text-muted hover:border-primary/40 hover:text-primary transition-colors"
                   title="Descargar"
