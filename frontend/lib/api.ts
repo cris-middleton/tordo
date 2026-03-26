@@ -172,6 +172,21 @@ class ApiClient {
     return res.data;
   }
 
+  async getEmpresaMembers(empresaId: string) {
+    const res = await this.client.get(`/api/empresas/${empresaId}/members`)
+    return res.data
+  }
+
+  async addEmpresaMember(empresaId: string, email: string, rol: 'admin' | 'viewer') {
+    const res = await this.client.post(`/api/empresas/${empresaId}/members`, { email, rol })
+    return res.data
+  }
+
+  async removeEmpresaMember(empresaId: string, userId: number) {
+    const res = await this.client.delete(`/api/empresas/${empresaId}/members/${userId}`)
+    return res.data
+  }
+
   // ── Documentos ─────────────────────────────────────────────────────────────
 
   async getDocumentos(empresaId: string) {
@@ -298,6 +313,23 @@ class ApiClient {
     return res.data;
   }
 
+  async getBIPanel(codigoExterno: string, empresaId?: string) {
+    const res = await this.client.get(`/api/bi/licitacion/${encodeURIComponent(codigoExterno)}/panel`, {
+      params: empresaId ? { empresa_id: empresaId } : undefined,
+    })
+    return res.data
+  }
+
+  async getBISector(params?: { sector?: string; limit?: number }) {
+    const res = await this.client.get('/api/bi/sector', { params })
+    return res.data
+  }
+
+  async getDataSummary() {
+    const res = await this.client.get('/api/data/summary')
+    return res.data
+  }
+
   // ── WhatsApp test ──────────────────────────────────────────────────────────
 
   async sendTestWhatsApp() {
@@ -305,35 +337,6 @@ class ApiClient {
     return res.data;
   }
 
-  // ─── BI Panel (aggregate endpoint for a single licitación) ────────────────
-  getBIPanel(codigoExterno: string, empresaId?: string) {
-    return this.client.get(`/api/bi/licitacion/${codigoExterno}/panel`, {
-      params: empresaId ? { empresa_id: empresaId } : undefined,
-    })
-  }
-
-  // ─── Sector summary ────────────────────────────────────────────────────────
-  getBISector(params?: { sector?: string; limit?: number }) {
-    return this.client.get('/api/bi/sector', { params })
-  }
-
-  // ─── Data summary (public endpoint, no auth needed) ────────────────────────
-  getDataSummary() {
-    return this.client.get('/api/data/summary')
-  }
-
-  // ─── Team / member management ──────────────────────────────────────────────
-  getEmpresaMembers(empresaId: string) {
-    return this.client.get(`/api/empresas/${empresaId}/members`)
-  }
-
-  addEmpresaMember(empresaId: string, email: string, rol: 'admin' | 'viewer') {
-    return this.client.post(`/api/empresas/${empresaId}/members`, { email, rol })
-  }
-
-  removeEmpresaMember(empresaId: string, userId: number) {
-    return this.client.delete(`/api/empresas/${empresaId}/members/${userId}`)
-  }
 }
 
 export const apiClient = new ApiClient();
