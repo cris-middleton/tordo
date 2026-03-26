@@ -233,6 +233,39 @@ async def send_test_alert(
     return {"created": True, "alert_id": alert.id}
 
 
+@router.post("/test-whatsapp")
+async def send_test_whatsapp(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Send a test WhatsApp message to the current user's registered number.
+    Uses Twilio sandbox in dev. Requires FEATURE_WHATSAPP=true and valid credentials."""
+    from app.config import settings as app_settings
+    from app.services.twilio_service import send_whatsapp_alert
+
+    if not current_user.whatsapp_number:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No tienes un número de WhatsApp registrado. Configúralo en Ajustes.",
+        )
+
+    message = (
+        "Hola desde *TORDO* — tu número de WhatsApp está conectado correctamente.\n\n"
+        "Recibirás alertas de licitaciones, plazos y documentos por este canal."
+    )
+    success = send_whatsapp_alert(current_user.whatsapp_number, message)
+
+    return {
+        "sent": success,
+        "to": current_user.whatsapp_number,
+        "live": bool(
+            app_settings.feature_whatsapp
+            and app_settings.twilio_account_sid
+            and app_settings.twilio_auth_token
+        ),
+    }
+
+
 @router.delete("/{alert_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_alert(
     alert_id: int,

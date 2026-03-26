@@ -19,9 +19,15 @@ export default function SettingsPage() {
     notification_email: true,
     notification_in_app: true,
     notification_webhook: false,
+    notification_whatsapp: false,
     webhook_url: '',
     whatsapp_number: '',
   });
+  const [whatsappTesting, setWhatsappTesting] = useState(false);
+  const [whatsappTestResult, setWhatsappTestResult] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
   const [passwordData, setPasswordData] = useState({
     current_password: '',
     new_password: '',
@@ -45,6 +51,7 @@ export default function SettingsPage() {
         notification_email: user.notification_email ?? true,
         notification_in_app: user.notification_in_app ?? true,
         notification_webhook: user.notification_webhook ?? false,
+        notification_whatsapp: user.notification_whatsapp ?? false,
         webhook_url: user.webhook_url || '',
         whatsapp_number: user.whatsapp_number || '',
       });
@@ -464,28 +471,102 @@ export default function SettingsPage() {
             )}
 
             {/* WhatsApp notifications */}
-            <div className="p-4 bg-surface border border-border rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <MessageCircle className="w-5 h-5 text-green-500" />
-                <span className="font-medium text-text">Notificaciones por WhatsApp</span>
-                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">Próximamente</span>
-              </div>
-              <p className="text-sm text-muted mb-3">
-                Recibe alertas urgentes en WhatsApp (disponible cuando se active el servicio)
-              </p>
-              <label htmlFor="whatsapp_number" className="block text-sm font-medium text-text mb-2">
-                Número de WhatsApp
-              </label>
+            <label className="flex items-center gap-3 p-4 bg-surface rounded-lg cursor-pointer hover:border-primary/20 border border-border transition-colors">
               <input
-                id="whatsapp_number"
-                type="tel"
-                value={formData.whatsapp_number}
-                onChange={(e) => handleChange('whatsapp_number', e.target.value)}
-                className="input-field"
-                placeholder="+56912345678"
+                type="checkbox"
+                checked={formData.notification_whatsapp}
+                onChange={(e) => handleChange('notification_whatsapp', e.target.checked)}
+                className="w-5 h-5 rounded border-border bg-surface text-primary focus:ring-primary focus:ring-2"
               />
-              <p className="text-xs text-muted mt-1">Formato: +56 seguido de 9 dígitos</p>
-            </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <MessageCircle className="w-5 h-5 text-green-500" />
+                  <span className="font-medium text-text">Notificaciones por WhatsApp</span>
+                </div>
+                <p className="text-sm text-muted mt-1">
+                  Recibe alertas urgentes de licitaciones, plazos y documentos en WhatsApp
+                </p>
+              </div>
+            </label>
+
+            {formData.notification_whatsapp && (
+              <div className="mt-4 space-y-3">
+                <div>
+                  <label htmlFor="whatsapp_number" className="block text-sm font-medium text-text mb-2">
+                    Número de WhatsApp
+                  </label>
+                  <input
+                    id="whatsapp_number"
+                    type="tel"
+                    value={formData.whatsapp_number}
+                    onChange={(e) => handleChange('whatsapp_number', e.target.value)}
+                    className="input-field"
+                    placeholder="+56912345678"
+                  />
+                  <p className="text-xs text-muted mt-1">Formato internacional: +56 seguido de 9 dígitos</p>
+                </div>
+
+                {formData.whatsapp_number && (
+                  <button
+                    type="button"
+                    disabled={whatsappTesting}
+                    onClick={async () => {
+                      setWhatsappTesting(true);
+                      setWhatsappTestResult(null);
+                      try {
+                        // Save the number first
+                        if (user) {
+                          await apiClient.updateUser(user.id, {
+                            whatsapp_number: formData.whatsapp_number,
+                            notification_whatsapp: true,
+                          });
+                          await refreshUser();
+                        }
+                        const result = await apiClient.sendTestWhatsApp();
+                        setWhatsappTestResult({
+                          type: 'success',
+                          text: result.live
+                            ? 'Mensaje de prueba enviado. Revisa tu WhatsApp.'
+                            : 'Mensaje registrado en modo prueba (Twilio sandbox). Activa FEATURE_WHATSAPP para enviar mensajes reales.',
+                        });
+                      } catch (error: any) {
+                        setWhatsappTestResult({
+                          type: 'error',
+                          text: error.response?.data?.detail || 'Error al enviar mensaje de prueba',
+                        });
+                      } finally {
+                        setWhatsappTesting(false);
+                      }
+                    }}
+                    className="btn-secondary flex items-center gap-2 text-sm"
+                  >
+                    {whatsappTesting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Enviando...
+                      </>
+                    ) : (
+                      <>
+                        <MessageCircle className="w-4 h-4" />
+                        Enviar mensaje de prueba
+                      </>
+                    )}
+                  </button>
+                )}
+
+                {whatsappTestResult && (
+                  <div
+                    className={`p-3 rounded-lg text-sm ${
+                      whatsappTestResult.type === 'success'
+                        ? 'bg-green-50 border border-green-200 text-green-700'
+                        : 'bg-red-50 border border-red-200 text-red-700'
+                    }`}
+                  >
+                    {whatsappTestResult.text}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Message */}

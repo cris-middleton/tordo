@@ -13,6 +13,7 @@ interface User {
   notification_email?: boolean;
   notification_in_app?: boolean;
   notification_webhook?: boolean;
+  notification_whatsapp?: boolean;
   plan_tier?: string;
   subscription_status?: string;
   onboarding_completed?: boolean;

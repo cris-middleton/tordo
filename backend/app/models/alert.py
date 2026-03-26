@@ -34,6 +34,7 @@ class NotificationChannel(str, enum.Enum):
     EMAIL = "email"
     IN_APP = "in_app"
     WEBHOOK = "webhook"
+    WHATSAPP = "whatsapp"
 
 
 class Alert(Base):
