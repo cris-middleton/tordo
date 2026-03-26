@@ -689,10 +689,12 @@ export default function TenderDetailPage({ params }: PageParams) {
   // Load BI panel + encaje after tender is ready
   useEffect(() => {
     if (!tender) return;
+    let active = true;
     const codigo = decodeURIComponent(params.codigo);
 
     // Get first empresa for per-empresa BI data and encaje check
     apiClient.getEmpresas().then((empresas: any[]) => {
+      if (!active) return;
       const empresaId: string | undefined = empresas?.[0]?.id;
       if (empresaId) setFirstEmpresaId(empresaId);
 
@@ -702,9 +704,9 @@ export default function TenderDetailPage({ params }: PageParams) {
       setBiLoading(true);
       apiClient
         .getBIPanel(cod, empresaId)
-        .then((data: BIPanel) => setBiPanel(data))
-        .catch(() => setBiPanel(null))   // 503 = feature disabled — fail silently
-        .finally(() => setBiLoading(false));
+        .then((data: BIPanel) => { if (active) setBiPanel(data) })
+        .catch(() => { if (active) setBiPanel(null) })   // 503 = feature disabled — fail silently
+        .finally(() => { if (active) setBiLoading(false) });
 
       // Encaje
       const textoLicitacion = tender.nombre || '';
@@ -712,12 +714,14 @@ export default function TenderDetailPage({ params }: PageParams) {
         setLoadingMatch(true);
         apiClient
           .getBILicitacionMatch(codigo, { empresa_id: empresaId, texto: textoLicitacion })
-          .then((res: PerfilMatchResult) => setPerfilMatch(res))
+          .then((res: PerfilMatchResult) => { if (active) setPerfilMatch(res) })
           .catch(() => {/* TF-IDF not enabled — skip */})
-          .finally(() => setLoadingMatch(false));
+          .finally(() => { if (active) setLoadingMatch(false) });
       }
     }).catch(() => {/* no empresas — skip */});
-  }, [tender, tender?.codigo_externo, params.codigo]);
+
+    return () => { active = false };
+  }, [tender, params.codigo]);
 
   const handleIniciarPostulacion = async () => {
     if (!tender || !firstEmpresaId) return;
