@@ -409,16 +409,7 @@ function PerfilEncajeWidget({
 }
 
 // BI Panel component
-function BIPanelSection({ panel, loading }: { panel: BIPanel | null; loading: boolean }) {
-  if (loading) {
-    return (
-      <div className="card flex items-center gap-3 text-sm text-muted py-6 justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-primary" />
-        Cargando inteligencia BI…
-      </div>
-    );
-  }
-  if (!panel) return null;
+function BIPanelSection({ panel }: { panel: BIPanel }) {
 
   const { comprador, ventana, competidores, precios } = panel;
 
@@ -670,7 +661,7 @@ export default function TenderDetailPage({ params }: PageParams) {
 
   // BI panel
   const [biPanel, setBiPanel] = useState<BIPanel | null>(null);
-  const [loadingBI, setLoadingBI] = useState(false);
+  const [biLoading, setBiLoading] = useState(false);
 
   // TF-IDF encaje
   const [perfilMatch, setPerfilMatch] = useState<PerfilMatchResult | null>(null);
@@ -706,12 +697,12 @@ export default function TenderDetailPage({ params }: PageParams) {
       if (empresaId) setFirstEmpresaId(empresaId);
 
       // BI panel
-      setLoadingBI(true);
+      setBiLoading(true);
       apiClient
-        .getBILicitacionPanel(codigo, empresaId)
-        .then((panel: BIPanel) => setBiPanel(panel))
-        .catch(() => {/* FEATURE_ANALYTICS off — silently skip */})
-        .finally(() => setLoadingBI(false));
+        .getBIPanel(codigo, empresaId)
+        .then((data: BIPanel) => setBiPanel(data))
+        .catch(() => setBiPanel(null))   // 503 = feature disabled — fail silently
+        .finally(() => setBiLoading(false));
 
       // Encaje
       const textoLicitacion = tender.nombre || '';
@@ -975,7 +966,22 @@ export default function TenderDetailPage({ params }: PageParams) {
           </div>
 
           {/* ── BI Panel ─────────────────────────────────────────── */}
-          <BIPanelSection panel={biPanel} loading={loadingBI} />
+          <div className="mt-6">
+            <h2 className="text-base font-semibold text-gray-800 mb-3">Análisis de Mercado</h2>
+            {biLoading && (
+              <div className="animate-pulse bg-gray-100 rounded-xl h-48 flex items-center justify-center">
+                <span className="text-gray-400 text-sm">Cargando análisis de mercado…</span>
+              </div>
+            )}
+            {!biLoading && biPanel && (
+              <BIPanelSection panel={biPanel} />
+            )}
+            {!biLoading && !biPanel && (
+              <p className="text-sm text-gray-400 italic bg-gray-50 rounded-xl px-4 py-3">
+                Panel BI no disponible para esta licitación.
+              </p>
+            )}
+          </div>
 
           {/* ── ¿Tu perfil encaja? ──────────────────────────────── */}
           <PerfilEncajeWidget loading={loadingMatch} result={perfilMatch} />
