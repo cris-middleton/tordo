@@ -697,9 +697,11 @@ export default function TenderDetailPage({ params }: PageParams) {
       if (empresaId) setFirstEmpresaId(empresaId);
 
       // BI panel
+      const cod = tender?.codigo_externo ?? codigo
+      if (!cod) return
       setBiLoading(true);
       apiClient
-        .getBIPanel(codigo, empresaId)
+        .getBIPanel(cod, empresaId)
         .then((data: BIPanel) => setBiPanel(data))
         .catch(() => setBiPanel(null))   // 503 = feature disabled — fail silently
         .finally(() => setBiLoading(false));
@@ -715,7 +717,7 @@ export default function TenderDetailPage({ params }: PageParams) {
           .finally(() => setLoadingMatch(false));
       }
     }).catch(() => {/* no empresas — skip */});
-  }, [tender, params.codigo]);
+  }, [tender, tender?.codigo_externo, params.codigo]);
 
   const handleIniciarPostulacion = async () => {
     if (!tender || !firstEmpresaId) return;
