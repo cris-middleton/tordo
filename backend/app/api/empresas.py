@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_db, SyncSessionLocal
 from app.models.empresa import Empresa, EmpresaUsuario
 from app.models.user import User
-from app.schemas.empresa import EmpresaCreate, EmpresaUpdate, EmpresaConRol
+from app.schemas.empresa import EmpresaCreate, EmpresaUpdate, EmpresaConRol, MiembroResponse, AddMiembroRequest
 from app.core.security import get_current_active_user
 
 router = APIRouter(prefix="/api/empresas", tags=["empresas"])
@@ -172,3 +172,94 @@ async def eliminar_empresa(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Solo el owner puede eliminar la empresa")
     empresa.activo = False
     await db.commit()
+
+
+@router.get("/{empresa_id}/members", response_model=list[MiembroResponse])
+async def listar_miembros(
+    empresa_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    await _get_membership_or_403(empresa_id, current_user, db)
+    rows = (
+        await db.execute(
+            select(EmpresaUsuario, User)
+            .join(User, EmpresaUsuario.user_id == User.id)
+            .where(EmpresaUsuario.empresa_id == empresa_id)
+            .order_by(EmpresaUsuario.created_at)
+        )
+    ).all()
+    return [
+        MiembroResponse(
+            user_id=user.id,
+            email=user.email,
+            full_name=user.full_name,
+            rol=eu.rol,
+            joined_at=eu.created_at.isoformat(),
+        )
+        for eu, user in rows
+    ]
+
+
+@router.post("/{empresa_id}/members", status_code=201)
+async def agregar_miembro(
+    empresa_id: UUID,
+    payload: AddMiembroRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    membership = await _get_membership_or_403(empresa_id, current_user, db)
+    if membership.rol == "viewer":
+        raise HTTPException(status_code=403, detail="Solo owner/admin puede añadir miembros")
+
+    target = (
+        await db.execute(select(User).where(User.email == payload.email))
+    ).scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404, detail=f"No existe un usuario con email {payload.email!r}")
+    if target.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Ya eres miembro de esta empresa")
+
+    existing = (
+        await db.execute(
+            select(EmpresaUsuario).where(
+                EmpresaUsuario.empresa_id == empresa_id,
+                EmpresaUsuario.user_id == target.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing:
+        raise HTTPException(status_code=409, detail="Este usuario ya es miembro")
+
+    db.add(EmpresaUsuario(empresa_id=empresa_id, user_id=target.id, rol=payload.rol))
+    await db.commit()
+    return {"ok": True, "user_id": target.id, "email": target.email, "rol": payload.rol}
+
+
+@router.delete("/{empresa_id}/members/{user_id}", status_code=200)
+async def eliminar_miembro(
+    empresa_id: UUID,
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    membership = await _get_membership_or_403(empresa_id, current_user, db)
+    if membership.rol == "viewer":
+        raise HTTPException(status_code=403, detail="Solo owner/admin puede eliminar miembros")
+
+    target = (
+        await db.execute(
+            select(EmpresaUsuario).where(
+                EmpresaUsuario.empresa_id == empresa_id,
+                EmpresaUsuario.user_id == user_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404, detail="Miembro no encontrado")
+    if target.rol == "owner":
+        raise HTTPException(status_code=403, detail="No se puede eliminar al owner")
+
+    await db.delete(target)
+    await db.commit()
+    return {"ok": True}

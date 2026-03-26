@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 from app.utils.rut import validar_rut, formatear_rut
 
 
@@ -55,3 +55,25 @@ class EmpresaUsuarioOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class MiembroResponse(BaseModel):
+    user_id: int
+    email: str
+    full_name: Optional[str] = None
+    rol: str
+    joined_at: str  # ISO datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AddMiembroRequest(BaseModel):
+    email: str
+    rol: str = "viewer"
+
+    @field_validator("rol")
+    @classmethod
+    def valid_rol(cls, v: str) -> str:
+        if v not in ("admin", "viewer"):
+            raise ValueError("rol must be 'admin' or 'viewer'")
+        return v
