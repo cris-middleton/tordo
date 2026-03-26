@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/lib/api';
@@ -86,8 +86,6 @@ function VencimientoBadge({ fecha }: { fecha?: string }) {
 export default function DocumentosPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [empresaId, setEmpresaId] = useState('');
   const [documentos, setDocumentos] = useState<Documento[]>([]);
@@ -102,6 +100,7 @@ export default function DocumentosPage() {
   const [tipoDocumento, setTipoDocumento] = useState(TIPOS_DOCUMENTO[0]);
   const [fechaVencimiento, setFechaVencimiento] = useState('');
   const [fechaEmision, setFechaEmision] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     loadEmpresas();
@@ -177,6 +176,38 @@ export default function DocumentosPage() {
       setError('Error al eliminar el documento.');
     }
   };
+
+  function handleFileSelect(file: File) {
+    const MAX_MB = 25
+    if (file.size > MAX_MB * 1024 * 1024) {
+      setError(`El archivo supera el límite de ${MAX_MB} MB`)
+      return
+    }
+    setUploadFile(file)
+    setError('')
+  }
+
+  function handleDragEnter(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault(); e.stopPropagation()
+    setIsDragging(true)
+  }
+
+  function handleDragLeave(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault(); e.stopPropagation()
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return
+    setIsDragging(false)
+  }
+
+  function handleDragOver(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault(); e.stopPropagation()
+  }
+
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault(); e.stopPropagation()
+    setIsDragging(false)
+    const dropped = e.dataTransfer.files[0]
+    if (dropped) handleFileSelect(dropped)
+  }
 
   if (loading && !empresaId) {
     return (
@@ -260,21 +291,69 @@ export default function DocumentosPage() {
             </div>
 
             <div
-              className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-border bg-background p-6 cursor-pointer hover:border-primary/50 transition-colors"
-              onClick={() => fileInputRef.current?.click()}
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              onClick={() => document.getElementById('file-upload-input')?.click()}
+              className={`relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
+                isDragging
+                  ? 'border-blue-500 bg-blue-50 scale-[1.01]'
+                  : uploadFile
+                  ? 'border-green-400 bg-green-50'
+                  : 'border-gray-300 hover:border-gray-400 bg-gray-50'
+              }`}
             >
-              <Upload className="h-8 w-8 text-muted mb-2" />
-              {uploadFile ? (
-                <p className="text-sm font-medium text-text">{uploadFile.name}</p>
-              ) : (
-                <p className="text-sm text-muted">Haz clic o arrastra un archivo (máx. 25 MB)</p>
+              {isDragging && (
+                <div className="absolute inset-0 flex items-center justify-center rounded-xl">
+                  <p className="text-blue-600 font-semibold text-sm">Suelta el archivo aquí</p>
+                </div>
               )}
+
+              {!isDragging && !uploadFile && (
+                <>
+                  <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-medium text-gray-600">Arrastra un archivo aquí</p>
+                  <p className="text-xs text-gray-400 mt-1">o haz clic para seleccionar</p>
+                  <p className="text-xs text-gray-400 mt-2">PDF, DOC, DOCX, JPG, PNG, XLSX · Máx. 25 MB</p>
+                </>
+              )}
+
+              {!isDragging && uploadFile && (
+                <div className="flex items-center justify-center gap-3">
+                  <svg className="w-6 h-6 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <div className="text-left min-w-0">
+                    <p className="text-sm font-medium text-gray-800 truncate max-w-[180px]">
+                      {uploadFile.name}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {(uploadFile.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setUploadFile(null) }}
+                    className="text-gray-400 hover:text-red-500 transition-colors ml-1"
+                    title="Quitar archivo"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+
               <input
-                ref={fileInputRef}
+                id="file-upload-input"
                 type="file"
                 className="hidden"
                 accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xlsx,.xls"
-                onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                onChange={(e) => { if (e.target.files?.[0]) handleFileSelect(e.target.files[0]) }}
               />
             </div>
 
