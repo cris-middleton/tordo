@@ -25,11 +25,16 @@ module.exports = {
         // Semantic — Obsidian dark palette
         text: '#E2E8F0',        // slate-200
         muted: '#94A3B8',       // slate-400
-        subtle: '#4B5563',      // gray-600
-        background: '#0A0C10',  // deep dark
-        surface: '#0F1117',     // card surface
-        border: '#1A1F2C',      // subtle border
-        borderLight: '#1F2537', // slightly lighter border
+        subtle: '#64748B',      // slate-500 — better contrast on dark bg
+        background: '#0A0C10',          // deep dark
+        surface: '#0F1117',             // card surface
+        'surface-elevated': '#161B26',  // modal / dropdown surface
+        border: '#1A1F2C',              // subtle border
+        borderLight: '#1F2537',         // slightly lighter border
+
+        // Informational blue — distinct from accent green (KPI cards, charts, info badges)
+        info: '#4A8FE7',
+        infoLight: '#071427',
 
         // State colors — calibrated for dark backgrounds
         danger: '#F85149',

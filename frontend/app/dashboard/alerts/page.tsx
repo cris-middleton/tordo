@@ -316,7 +316,7 @@ export default function AlertsPage() {
       {/* Create / Edit preference modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-xl bg-surface border border-border p-6 shadow-card-lg">
+          <div className="w-full max-w-lg rounded-xl bg-surface-elevated border border-borderLight p-6 shadow-card-lg">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-text">
                 {editingPref ? 'Editar preferencia' : 'Nueva preferencia'}
@@ -474,62 +474,90 @@ export default function AlertsPage() {
         ) : (
           <>
             <div className="space-y-3">
-              {alerts.map((alert) => (
-                <div
-                  key={alert.id}
-                  className={`card ${
-                    alert.status !== 'read' ? 'border-l-4 border-l-primary/70' : ''
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Bell
-                          className={`h-5 w-5 ${
-                            alert.status !== 'read' ? 'text-primary' : 'text-muted'
-                          }`}
-                        />
-                        <h3 className="font-semibold text-text">{alert.title}</h3>
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                            alert.status === 'read'
-                              ? 'bg-border text-muted'
-                              : alert.status === 'pending'
-                              ? 'bg-primary/15 text-primary'
-                              : 'bg-gold/15 text-gold'
-                          }`}
-                        >
-                          {alert.status}
-                        </span>
+              {alerts.map((alert) => {
+                // Derive severity from alert_type so critical items stand out
+                const type = alert.alert_type?.toLowerCase() ?? '';
+                const isCritical = type.includes('inhabil') || type.includes('bloqueado') || type.includes('sancion');
+                const isWarning = type.includes('compliance') || type.includes('vencimiento') || type.includes('plazo');
+                const isUnread = alert.status !== 'read';
+
+                const rowClass = isCritical
+                  ? 'alert-row-critical'
+                  : isWarning
+                  ? 'alert-row-medium'
+                  : isUnread
+                  ? 'alert-row-high'
+                  : 'alert-row-low';
+
+                const iconColor = isCritical
+                  ? 'text-danger'
+                  : isWarning
+                  ? 'text-gold'
+                  : isUnread
+                  ? 'text-primary'
+                  : 'text-muted';
+
+                return (
+                  <div
+                    key={alert.id}
+                    className={`card transition-colors ${rowClass}`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Bell className={`h-5 w-5 shrink-0 ${iconColor}`} />
+                          <h3 className="font-semibold text-text">{alert.title}</h3>
+                          {isCritical && (
+                            <span className="rounded-full bg-danger/15 px-2.5 py-0.5 text-xs font-semibold text-danger">
+                              Crítico
+                            </span>
+                          )}
+                          {isWarning && !isCritical && (
+                            <span className="rounded-full bg-gold/15 px-2.5 py-0.5 text-xs font-semibold text-gold">
+                              Atención
+                            </span>
+                          )}
+                          <span
+                            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                              alert.status === 'read'
+                                ? 'bg-border text-muted'
+                                : alert.status === 'pending'
+                                ? 'bg-primary/15 text-primary'
+                                : 'bg-gold/15 text-gold'
+                            }`}
+                          >
+                            {alert.status === 'read' ? 'Leída' : alert.status === 'pending' ? 'Pendiente' : alert.status}
+                          </span>
+                        </div>
+                        {alert.message && (
+                          <p className="text-sm text-muted">{alert.message}</p>
+                        )}
+                        <p className="text-xs text-muted">
+                          {format(new Date(alert.created_at), "dd MMM yyyy 'a las' HH:mm")}
+                        </p>
                       </div>
-                      {alert.message && (
-                        <p className="text-sm text-muted">{alert.message}</p>
-                      )}
-                      <p className="text-xs text-muted">
-                        {format(new Date(alert.created_at), "dd MMM yyyy 'a las' HH:mm")}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {alert.status !== 'read' && (
+                      <div className="flex items-center gap-2">
+                        {alert.status !== 'read' && (
+                          <button
+                            onClick={() => markAsRead(alert.id)}
+                            className="rounded-lg border border-accent/30 bg-accent/10 p-2 text-accent transition-colors duration-200 hover:bg-accent/20"
+                            title="Marcar como leída"
+                          >
+                            <Check className="h-4 w-4" />
+                          </button>
+                        )}
                         <button
-                          onClick={() => markAsRead(alert.id)}
-                          className="rounded-lg border border-accent/30 bg-accent/10 p-2 text-accent transition-colors duration-200 hover:bg-accent/20"
-                          title="Marcar como leída"
+                          onClick={() => deleteAlert(alert.id)}
+                          className="rounded-lg border border-danger/30 bg-danger/10 p-2 text-danger transition-colors duration-200 hover:bg-danger/20"
+                          title="Eliminar"
                         >
-                          <Check className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4" />
                         </button>
-                      )}
-                      <button
-                        onClick={() => deleteAlert(alert.id)}
-                        className="rounded-lg border border-danger/30 bg-danger/10 p-2 text-danger transition-colors duration-200 hover:bg-danger/20"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Pagination */}

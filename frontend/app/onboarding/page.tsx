@@ -304,7 +304,7 @@ export default function OnboardingPage() {
           <div
             className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition-colors ${
               step > s
-                ? 'bg-green-500 text-white'
+                ? 'bg-accent text-white'
                 : step === s
                   ? 'bg-primary text-white'
                   : 'border-2 border-border bg-surface text-muted'
@@ -313,7 +313,7 @@ export default function OnboardingPage() {
             {step > s ? <CheckCircle2 className="h-3.5 w-3.5" /> : s}
           </div>
           {s < TOTAL_STEPS && (
-            <div className={`h-0.5 w-8 ${step > s ? 'bg-green-500' : 'bg-border'}`} />
+            <div className={`h-0.5 w-8 ${step > s ? 'bg-accent' : 'bg-border'}`} />
           )}
         </div>
       ))}
@@ -337,7 +337,7 @@ export default function OnboardingPage() {
 
         <div className="card space-y-6">
           {error && (
-            <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+            <div className="alert-error">
               <X className="h-4 w-4 shrink-0" />
               {error}
             </div>
@@ -434,32 +434,32 @@ export default function OnboardingPage() {
                   </span>
                 </div>
               ) : estadoHabil === 'habil' ? (
-                <div className="flex items-center gap-4 rounded-xl border border-green-200 bg-green-50 p-5">
-                  <ShieldCheck className="h-10 w-10 text-green-600 shrink-0" />
+                <div className="flex items-center gap-4 rounded-xl border border-accent/30 bg-accentLight p-5">
+                  <ShieldCheck className="h-10 w-10 text-accent shrink-0" />
                   <div>
-                    <p className="font-semibold text-green-800 text-lg">Empresa Hábil ✓</p>
-                    <p className="text-sm text-green-700 mt-0.5">
+                    <p className="font-semibold text-primaryLight text-lg">Empresa Hábil ✓</p>
+                    <p className="text-sm text-muted mt-0.5">
                       Tu empresa está habilitada para ofertar en Mercado Público. ¡Todo en orden!
                     </p>
                   </div>
                 </div>
               ) : estadoHabil === 'inhabil' ? (
-                <div className="flex items-center gap-4 rounded-xl border border-red-200 bg-red-50 p-5">
-                  <ShieldX className="h-10 w-10 text-red-600 shrink-0" />
+                <div className="flex items-center gap-4 rounded-xl border border-danger/30 bg-dangerLight p-5">
+                  <ShieldX className="h-10 w-10 text-danger shrink-0" />
                   <div>
-                    <p className="font-semibold text-red-800 text-lg">Empresa Inhábil</p>
-                    <p className="text-sm text-red-700 mt-0.5">
+                    <p className="font-semibold text-danger text-lg">Empresa Inhábil</p>
+                    <p className="text-sm text-muted mt-0.5">
                       Tu empresa figura como inhábil en el registro de ChileCompra.
                       TORDO monitoreará el cambio y te avisará cuando se regularice.
                     </p>
                   </div>
                 </div>
               ) : estadoHabil === 'no_encontrado' ? (
-                <div className="flex items-center gap-4 rounded-xl border border-amber-200 bg-amber-50 p-5">
-                  <HelpCircle className="h-10 w-10 text-amber-600 shrink-0" />
+                <div className="flex items-center gap-4 rounded-xl border border-gold/30 bg-goldLight p-5">
+                  <HelpCircle className="h-10 w-10 text-gold shrink-0" />
                   <div>
-                    <p className="font-semibold text-amber-800 text-lg">No encontrado en el registro</p>
-                    <p className="text-sm text-amber-700 mt-0.5">
+                    <p className="font-semibold text-gold text-lg">No encontrado en el registro</p>
+                    <p className="text-sm text-muted mt-0.5">
                       El RUT <strong>{rut}</strong> no aparece en el CSV actual de ChileCompra.
                       Verifica que esté inscrito como proveedor en Mercado Público.
                     </p>
@@ -569,15 +569,15 @@ export default function OnboardingPage() {
           {step === 4 && (
             <div className="space-y-5">
               <div>
-                <h2 className="text-xl font-semibold text-gray-900 mb-2">Tu ventaja competitiva</h2>
-                <p className="text-gray-500 text-sm mb-6">
+                <h2 className="text-xl font-semibold text-text mb-2">Tu ventaja competitiva</h2>
+                <p className="text-muted text-sm mb-6">
                   TORDO analiza el historial de compras públicas para darte inteligencia antes de postular.
                 </p>
 
                 {biLoading && (
                   <div className="space-y-3">
                     {[1, 2, 3].map((i) => (
-                      <div key={i} className="animate-pulse bg-gray-100 rounded-xl h-20" />
+                      <div key={i} className="animate-pulse bg-border rounded-xl h-20" />
                     ))}
                   </div>
                 )}
@@ -585,22 +585,22 @@ export default function OnboardingPage() {
                 {!biLoading && biOportunidades.length > 0 && (
                   <div className="space-y-3">
                     {biOportunidades.map((op, i) => (
-                      <div key={i} className="border border-gray-200 rounded-xl p-4 bg-white">
+                      <div key={i} className="border border-border rounded-xl p-4 bg-background">
                         <div className="flex items-center justify-between mb-1">
-                          <span className="font-medium text-sm text-gray-800 truncate max-w-[200px]">
+                          <span className="font-medium text-sm text-text truncate max-w-[200px]">
                             {op.nombre_organismo}
                           </span>
                           <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                             op.score >= 7
-                              ? 'bg-green-100 text-green-700'
+                              ? 'bg-accent/15 text-accent'
                               : op.score >= 4
-                              ? 'bg-amber-100 text-amber-700'
-                              : 'bg-gray-100 text-gray-600'
+                              ? 'bg-gold/15 text-gold'
+                              : 'bg-border text-muted'
                           }`}>
                             {op.score.toFixed(1)}/10
                           </span>
                         </div>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-muted">
                           {op.n_transacciones} transacciones ·{' '}
                           {new Intl.NumberFormat('es-CL', {
                             style: 'currency',
@@ -615,9 +615,9 @@ export default function OnboardingPage() {
                 )}
 
                 {!biLoading && biOportunidades.length === 0 && (
-                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-5 text-center">
-                    <p className="text-blue-700 font-medium text-sm">Panel BI disponible en tu dashboard</p>
-                    <p className="text-blue-500 text-xs mt-1">
+                  <div className="bg-primary/5 border border-primary/20 rounded-xl p-5 text-center">
+                    <p className="text-primary font-medium text-sm">Panel BI disponible en tu dashboard</p>
+                    <p className="text-muted text-xs mt-1">
                       Configura el perfil de tu empresa para ver precios históricos y competidores reales.
                     </p>
                   </div>
@@ -692,11 +692,11 @@ export default function OnboardingPage() {
                     </button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 p-4">
-                    <CheckCircle2 className="h-8 w-8 text-green-600 shrink-0" />
+                  <div className="flex items-center gap-3 rounded-xl border border-accent/30 bg-accentLight p-4">
+                    <CheckCircle2 className="h-8 w-8 text-accent shrink-0" />
                     <div>
-                      <p className="font-semibold text-green-800">¡Alerta creada!</p>
-                      <p className="text-sm text-green-700">
+                      <p className="font-semibold text-primaryLight">¡Alerta creada!</p>
+                      <p className="text-sm text-muted">
                         Ya tienes una notificación de prueba en tu bandeja de alertas. A partir de ahora
                         recibirás avisos cuando aparezcan licitaciones relevantes.
                       </p>
@@ -711,7 +711,7 @@ export default function OnboardingPage() {
                   <div className="w-full border-t border-border" />
                 </div>
                 <div className="relative flex justify-center text-xs">
-                  <span className="bg-white px-3 text-muted">Elige tu plan</span>
+                  <span className="bg-surface px-3 text-muted">Elige tu plan</span>
                 </div>
               </div>
 
@@ -757,7 +757,7 @@ export default function OnboardingPage() {
                     <ul className="mt-2 space-y-0.5">
                       {plan.features.map((f) => (
                         <li key={f} className="flex items-center gap-1.5 text-xs text-muted">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                          <CheckCircle2 className="h-3.5 w-3.5 text-accent shrink-0" />
                           {f}
                         </li>
                       ))}
@@ -789,15 +789,15 @@ export default function OnboardingPage() {
           {/* ── Step 6: Completion ───────────────────────────────────────── */}
           {step === 6 && (
             <div className="text-center py-4">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="w-16 h-16 bg-accent/15 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">
+              <h2 className="text-xl font-semibold text-text mb-2">
                 ¡Todo listo, {user?.full_name?.split(' ')[0] || 'bienvenido'}!
               </h2>
-              <p className="text-gray-500 text-sm mb-8">Tu cuenta está configurada. Aquí tienes tu punto de partida:</p>
+              <p className="text-muted text-sm mb-8">Tu cuenta está configurada. Aquí tienes tu punto de partida:</p>
 
               <div className="grid grid-cols-1 gap-3 text-left mb-8">
                 {[
@@ -823,12 +823,12 @@ export default function OnboardingPage() {
                   <a
                     key={href}
                     href={href}
-                    className="flex items-center gap-4 border border-gray-200 rounded-xl p-4 hover:bg-gray-50 transition-colors"
+                    className="flex items-center gap-4 border border-border rounded-xl p-4 hover:border-primary/30 hover:bg-primary/5 transition-colors"
                   >
                     <span className="text-2xl">{icon}</span>
                     <div>
-                      <p className="font-medium text-sm text-gray-900">{title}</p>
-                      <p className="text-xs text-gray-500">{desc}</p>
+                      <p className="font-medium text-sm text-text">{title}</p>
+                      <p className="text-xs text-muted">{desc}</p>
                     </div>
                   </a>
                 ))}
@@ -836,7 +836,7 @@ export default function OnboardingPage() {
 
               <button
                 onClick={() => router.push('/dashboard')}
-                className="w-full bg-blue-600 text-white py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors"
+                className="btn-primary w-full py-3"
               >
                 Ir al Dashboard →
               </button>

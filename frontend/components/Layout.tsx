@@ -75,10 +75,12 @@ export default function Layout({ children }: LayoutProps) {
       )}
 
       {/* ─── Sidebar ─── */}
+      {/* Sidebar — deep background with subtle top accent glow for brand identity */}
       <aside
-        className={`fixed top-0 left-0 z-50 flex h-full w-64 flex-col border-r border-border bg-surface shadow-sidebar transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+        className={`fixed top-0 left-0 z-50 flex h-full w-64 flex-col border-r border-border shadow-sidebar transition-transform duration-300 ease-in-out lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
+        style={{ background: 'linear-gradient(180deg, #0D1420 0%, #0A0C10 35%)' }}
       >
         {/* Logo */}
         <div className="flex items-center justify-between px-5 py-5 border-b border-borderLight">
@@ -136,7 +138,7 @@ export default function Layout({ children }: LayoutProps) {
                 style={{ animationDelay: `${idx * 40}ms` }}
                 className={`group flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-150 animate-slide-in-left ${
                   active
-                    ? 'bg-primary/8 text-primary font-semibold shadow-[inset_3px_0_0_#0F2942]'
+                    ? 'bg-primary/8 text-primary font-semibold shadow-[inset_3px_0_0_#00C896]'
                     : 'text-muted font-medium hover:bg-primary/6 hover:text-primary'
                 }`}
               >
@@ -201,8 +203,10 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* ─── Main content ─── */}
       <div className="lg:pl-64 min-h-screen flex flex-col">
-        {/* Top bar */}
-        <header className="sticky top-0 z-30 border-b border-border bg-surface/90 backdrop-blur-md">
+        {/* Top bar — command center header with live status indicator */}
+        <header className="sticky top-0 z-30 border-b border-border backdrop-blur-md"
+          style={{ background: 'rgba(10, 12, 16, 0.92)' }}
+        >
           <div className="flex h-14 items-center gap-4 px-4 sm:px-6 lg:px-8">
             <button
               onClick={() => setSidebarOpen(true)}
@@ -210,12 +214,18 @@ export default function Layout({ children }: LayoutProps) {
             >
               <Menu className="h-5 w-5" />
             </button>
+            {/* Breadcrumb */}
             <div className="flex items-center gap-2 text-sm">
-              <span className="font-medium text-subtle hidden sm:block">TORDO</span>
+              <span className="font-medium text-subtle hidden sm:block tracking-wide">TORDO</span>
               <ChevronRight className="h-3.5 w-3.5 text-subtle hidden sm:block" />
               <span className="font-semibold text-text">{currentPage}</span>
             </div>
             <div className="flex-1" />
+            {/* Live system status pill */}
+            <div className="hidden sm:flex items-center gap-1.5 rounded-full border border-accent/20 bg-accent/5 px-2.5 py-1">
+              <span className="status-dot-live" />
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-accent">En línea</span>
+            </div>
             <button
               onClick={() => navigate('/dashboard/alerts')}
               className="relative rounded-lg p-2 text-muted transition-colors hover:bg-primary/8 hover:text-primary"
@@ -226,7 +236,8 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </header>
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 animate-fade-in">
+        {/* Main content with subtle grid texture for depth */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 animate-fade-in bg-grid">
           {children}
         </main>
       </div>

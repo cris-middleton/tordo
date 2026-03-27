@@ -134,7 +134,7 @@ interface DescuentoItem {
 function ScoreBar({ value, max = 10 }: { value: number; max?: number }) {
   const pct = Math.min(100, (value / max) * 100);
   const color =
-    pct >= 70 ? 'bg-green-500' : pct >= 40 ? 'bg-amber-400' : 'bg-red-400';
+    pct >= 70 ? 'bg-accent' : pct >= 40 ? 'bg-gold' : 'bg-danger';
   return (
     <div className="flex items-center gap-2">
       <div className="flex-1 h-2 rounded-full bg-border overflow-hidden">
@@ -150,8 +150,8 @@ function ScoreBar({ value, max = 10 }: { value: number; max?: number }) {
 function BIDisabledBanner() {
   return (
     <div className="card flex flex-col items-center gap-4 py-12 text-center">
-      <div className="rounded-full bg-amber-100 p-4">
-        <BarChart3 className="h-10 w-10 text-amber-600" />
+      <div className="rounded-full bg-gold/15 p-4">
+        <BarChart3 className="h-10 w-10 text-gold" />
       </div>
       <div>
         <h2 className="text-xl font-semibold text-text">Módulo BI desactivado</h2>
@@ -579,10 +579,10 @@ export default function BIPage() {
                     <div
                       className={`rounded-full px-2 py-1 text-xs font-bold ${
                         (compradorResult.buyer_score || 0) >= 0.7
-                          ? 'bg-green-100 text-green-700'
+                          ? 'bg-accent/15 text-accent'
                           : (compradorResult.buyer_score || 0) >= 0.4
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-red-100 text-red-700'
+                            ? 'bg-gold/15 text-gold'
+                            : 'bg-danger/15 text-danger'
                       }`}
                     >
                       {compradorResult.buyer_score != null
@@ -617,10 +617,10 @@ export default function BIPage() {
                   {compradorResult.risk_flags && compradorResult.risk_flags.n_flags > 0 && (
                     <div className="flex flex-wrap gap-1 pt-1">
                       {compradorResult.risk_flags.pago_lento && (
-                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700">Pago lento</span>
+                        <span className="rounded-full bg-danger/15 px-2 py-0.5 text-xs text-danger">Pago lento</span>
                       )}
                       {compradorResult.risk_flags.cancelaciones && (
-                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700">Alta cancelación</span>
+                        <span className="rounded-full bg-danger/15 px-2 py-0.5 text-xs text-danger">Alta cancelación</span>
                       )}
                       {compradorResult.risk_flags.baja_calificacion && (
                         <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">Baja calificación</span>
@@ -731,10 +731,10 @@ export default function BIPage() {
                             <div
                               className={`h-full rounded-full ${
                                 r.similarity_score >= 0.15
-                                  ? 'bg-green-500'
+                                  ? 'bg-accent'
                                   : r.similarity_score >= 0.05
-                                    ? 'bg-amber-400'
-                                    : 'bg-slate-400'
+                                    ? 'bg-gold'
+                                    : 'bg-subtle'
                               }`}
                               style={{ width: `${Math.min(100, r.similarity_score * 400)}%` }}
                             />
@@ -774,7 +774,7 @@ export default function BIPage() {
             </div>
             <div className="flex items-center gap-2">
               {perfilSaved && (
-                <span className="flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">
+                <span className="flex items-center gap-1 text-xs text-accent bg-accent/10 border border-accent/20 rounded-full px-2 py-0.5">
                   <Check className="h-3 w-3" /> Guardado
                 </span>
               )}
@@ -1046,7 +1046,7 @@ export default function BIPage() {
                       <td className="py-1.5 pr-2">{t.RubroN2 ?? '—'}</td>
                       <td className="py-1.5 text-right font-mono font-medium">
                         {t.cagr != null ? (
-                          <span className={t.cagr > 0 ? 'text-green-700' : 'text-red-600'}>
+                          <span className={t.cagr > 0 ? 'text-accent' : 'text-danger'}>
                             {t.cagr > 0 ? '+' : ''}{(t.cagr * 100).toFixed(1)}%
                           </span>
                         ) : '—'}
@@ -1115,10 +1115,10 @@ export default function BIPage() {
                     {d.senial_competencia && (
                       <span className={`rounded-full px-2 py-0.5 border text-xs ${
                         d.senial_competencia === 'alta'
-                          ? 'bg-red-50 border-red-200 text-red-700'
+                          ? 'bg-danger/10 border-danger/20 text-danger'
                           : d.senial_competencia === 'media'
-                          ? 'bg-amber-50 border-amber-200 text-amber-700'
-                          : 'bg-green-50 border-green-200 text-green-700'
+                          ? 'bg-gold/10 border-gold/20 text-gold'
+                          : 'bg-accent/10 border-accent/20 text-accent'
                       }`}>
                         competencia {d.senial_competencia}
                       </span>
@@ -1191,13 +1191,13 @@ export default function BIPage() {
               <>
                 <div className="flex items-center gap-3">
                   {ventanaResult.alerta_ventana_corta ? (
-                    <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
-                      <AlertTriangle className="h-4 w-4 shrink-0" />
+                    <div className="alert-warning">
+                      <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                       <span className="font-medium">Ventana inusualmente corta — acción urgente recomendada</span>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 rounded-lg bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-700">
-                      <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    <div className="alert-success">
+                      <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
                       <span>Ventana normal para este tipo de licitación</span>
                     </div>
                   )}

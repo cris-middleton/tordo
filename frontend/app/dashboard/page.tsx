@@ -50,8 +50,8 @@ const kpiConfig = [
     icon: FileText,
     href: '/dashboard/tenders',
     accentClass: 'kpi-card-blue',
-    iconBg: 'bg-primary/10',
-    iconColor: 'text-primary',
+    iconBg: 'bg-info/10',
+    iconColor: 'text-info',
     urgentKey: null,
   },
   {
@@ -482,7 +482,7 @@ export default function DashboardPage() {
                       color: '#E2E8F0',
                     }}
                   />
-                  <Bar dataKey="value" fill="#4A7FBB" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="value" fill="#00C896" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}
