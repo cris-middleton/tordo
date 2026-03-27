@@ -40,11 +40,11 @@ function daysUntil(dateStr: string): number {
 }
 
 function dotColor(days: number): string {
-  if (days < 0)  return 'bg-gray-400'
-  if (days <= 1) return 'bg-red-500'
-  if (days <= 3) return 'bg-orange-500'
-  if (days <= 7) return 'bg-amber-400'
-  return 'bg-blue-400'
+  if (days < 0)  return 'bg-subtle'
+  if (days <= 1) return 'bg-danger'
+  if (days <= 3) return 'bg-warning'
+  if (days <= 7) return 'bg-gold'
+  return 'bg-primary'
 }
 
 const MONTH_NAMES = [
@@ -121,38 +121,38 @@ export default function CalendarioPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      <h1 className="text-2xl font-semibold text-gray-900 mb-1">Calendario de Plazos</h1>
-      <p className="text-sm text-gray-500 mb-6">
+      <h1 className="page-title mb-1">Calendario de Plazos</h1>
+      <p className="text-sm text-muted mb-6">
         Fechas de cierre de tus postulaciones activas
       </p>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* ── Calendar ── */}
-        <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <div className="lg:col-span-2 card p-5">
           {/* Month navigation */}
           <div className="flex items-center justify-between mb-4">
             <button
               onClick={prevMonth}
-              className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-border transition-colors"
             >
-              <ChevronLeft className="w-4 h-4 text-gray-600" />
+              <ChevronLeft className="w-4 h-4 text-muted" />
             </button>
-            <span className="font-semibold text-gray-800">
+            <span className="font-semibold text-text">
               {MONTH_NAMES[month]} {year}
             </span>
             <button
               onClick={nextMonth}
-              className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-border transition-colors"
             >
-              <ChevronRight className="w-4 h-4 text-gray-600" />
+              <ChevronRight className="w-4 h-4 text-muted" />
             </button>
           </div>
 
           {/* Day-of-week headers */}
           <div className="grid grid-cols-7 mb-1">
             {DAY_NAMES.map((d) => (
-              <div key={d} className="text-center text-xs font-medium text-gray-400 py-1">
+              <div key={d} className="text-center text-xs font-medium text-subtle py-1">
                 {d}
               </div>
             ))}
@@ -172,10 +172,10 @@ export default function CalendarioPage() {
                   onClick={() => setSelectedDate(isSelected ? null : key)}
                   className={`relative flex flex-col items-center py-1.5 rounded-lg transition-colors ${
                     isSelected
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-primary text-background'
                       : isToday
-                      ? 'bg-blue-50 font-bold text-blue-700'
-                      : 'hover:bg-gray-50 text-gray-700'
+                      ? 'bg-primary/15 font-bold text-primary'
+                      : 'hover:bg-border text-muted'
                   }`}
                 >
                   <span className="text-sm leading-none">{day.getDate()}</span>
@@ -186,7 +186,7 @@ export default function CalendarioPage() {
                           key={di}
                           className={`w-1.5 h-1.5 rounded-full ${
                             isSelected
-                              ? 'bg-white'
+                              ? 'bg-background'
                               : dotColor(
                                   daysUntil(item.licitacion.fecha_cierre!.split('T')[0])
                                 )
@@ -201,12 +201,12 @@ export default function CalendarioPage() {
           </div>
 
           {/* Legend */}
-          <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t border-gray-100 text-xs text-gray-500">
+          <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t border-border text-xs text-muted">
             {[
-              { color: 'bg-red-500',    label: 'Hoy / mañana' },
-              { color: 'bg-orange-500', label: '2–3 días' },
-              { color: 'bg-amber-400',  label: '4–7 días' },
-              { color: 'bg-blue-400',   label: '8+ días' },
+              { color: 'bg-danger',  label: 'Hoy / mañana' },
+              { color: 'bg-warning', label: '2–3 días' },
+              { color: 'bg-gold',    label: '4–7 días' },
+              { color: 'bg-primary', label: '8+ días' },
             ].map(({ color, label }) => (
               <span key={label} className="flex items-center gap-1.5">
                 <span className={`w-2.5 h-2.5 rounded-full ${color}`} />
@@ -221,8 +221,8 @@ export default function CalendarioPage() {
 
           {/* Selected day detail */}
           {selectedDate && (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-              <p className="text-xs font-medium text-gray-500 mb-3 uppercase tracking-wide">
+            <div className="card p-4">
+              <p className="text-xs font-medium text-muted mb-3 uppercase tracking-wide">
                 {new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-CL', {
                   weekday: 'long',
                   day: 'numeric',
@@ -230,7 +230,7 @@ export default function CalendarioPage() {
                 })}
               </p>
               {selectedItems.length === 0 ? (
-                <p className="text-sm text-gray-400">Sin vencimientos este día.</p>
+                <p className="text-sm text-muted">Sin vencimientos este día.</p>
               ) : (
                 <div className="space-y-3">
                   {selectedItems.map((item) => {
@@ -240,21 +240,21 @@ export default function CalendarioPage() {
                       <a
                         key={item.id}
                         href={`/dashboard/tenders/${item.licitacion.codigo_externo}`}
-                        className="block border border-gray-100 rounded-xl p-3 hover:bg-gray-50 transition-colors"
+                        className="block border border-border rounded-xl p-3 hover:bg-border transition-colors"
                       >
-                        <p className="text-sm font-medium text-gray-800 leading-tight line-clamp-2">
+                        <p className="text-sm font-medium text-text leading-tight line-clamp-2">
                           {item.licitacion.nombre}
                         </p>
                         {total > 0 && (
                           <div className="mt-2">
-                            <div className="flex justify-between text-xs text-gray-500 mb-1">
+                            <div className="flex justify-between text-xs text-muted mb-1">
                               <span>Checklist</span>
                               <span>{done}/{total}</span>
                             </div>
-                            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="h-1.5 bg-border rounded-full overflow-hidden">
                               <div
                                 className={`h-full rounded-full transition-all ${
-                                  done === total ? 'bg-green-500' : 'bg-blue-500'
+                                  done === total ? 'bg-accent' : 'bg-primary'
                                 }`}
                                 style={{ width: `${total > 0 ? (done / total) * 100 : 0}%` }}
                               />
@@ -270,10 +270,10 @@ export default function CalendarioPage() {
           )}
 
           {/* Upcoming deadlines */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+          <div className="card p-4">
             <div className="flex items-center gap-2 mb-3">
-              <Clock className="w-4 h-4 text-gray-500" />
-              <p className="text-xs font-medium text-gray-700 uppercase tracking-wide">
+              <Clock className="w-4 h-4 text-muted" />
+              <p className="text-xs font-medium text-muted uppercase tracking-wide">
                 Próximos 30 días
               </p>
             </div>
@@ -281,13 +281,13 @@ export default function CalendarioPage() {
             {loading && (
               <div className="space-y-2">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="animate-pulse bg-gray-100 h-12 rounded-lg" />
+                  <div key={i} className="animate-pulse bg-border h-12 rounded-lg" />
                 ))}
               </div>
             )}
 
             {!loading && upcoming.length === 0 && (
-              <p className="text-sm text-gray-400">Sin postulaciones activas próximas.</p>
+              <p className="text-sm text-muted">Sin postulaciones activas próximas.</p>
             )}
 
             {!loading &&
@@ -295,16 +295,16 @@ export default function CalendarioPage() {
                 <a
                   key={item.id}
                   href={`/dashboard/tenders/${item.licitacion.codigo_externo}`}
-                  className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0 hover:bg-gray-50 -mx-1 px-1 rounded-lg transition-colors"
+                  className="flex items-center gap-3 py-2.5 border-b border-border last:border-0 hover:bg-border -mx-1 px-1 rounded-lg transition-colors"
                 >
                   <div
                     className={`w-1.5 h-8 rounded-full flex-shrink-0 ${dotColor(item.days)}`}
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-gray-800 truncate">
+                    <p className="text-xs font-medium text-text truncate">
                       {item.licitacion.nombre}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted">
                       {item.days === 0
                         ? 'Hoy'
                         : item.days === 1
@@ -313,7 +313,7 @@ export default function CalendarioPage() {
                     </p>
                   </div>
                   {item.days <= 1 && (
-                    <AlertTriangle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                    <AlertTriangle className="w-3.5 h-3.5 text-danger flex-shrink-0" />
                   )}
                 </a>
               ))}

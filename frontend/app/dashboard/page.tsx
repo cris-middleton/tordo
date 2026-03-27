@@ -257,20 +257,20 @@ export default function DashboardPage() {
 
       {/* ── Estado Hábil Banner ── */}
       {estadoHabil && (
-        <div className={`rounded-2xl border p-4 shadow-sm mb-6 ${
+        <div className={`rounded-xl border p-4 ${
           estadoHabil.estado_habil === 'habil'
-            ? 'bg-green-50 border-green-200'
+            ? 'bg-accent/8 border-accent/20'
             : estadoHabil.estado_habil === 'inhabil'
-            ? 'bg-red-50 border-red-200'
-            : 'bg-gray-50 border-gray-200'
+            ? 'bg-danger/8 border-danger/20'
+            : 'bg-surface border-border'
         }`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                estadoHabil.estado_habil === 'habil' ? 'bg-green-100' : 'bg-red-100'
+              <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                estadoHabil.estado_habil === 'habil' ? 'bg-accent/15' : 'bg-danger/15'
               }`}>
-                <svg className={`w-5 h-5 ${
-                  estadoHabil.estado_habil === 'habil' ? 'text-green-600' : 'text-red-600'
+                <svg className={`w-4.5 h-4.5 ${
+                  estadoHabil.estado_habil === 'habil' ? 'text-accent' : 'text-danger'
                 }`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   {estadoHabil.estado_habil === 'habil' ? (
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -280,10 +280,13 @@ export default function DashboardPage() {
                 </svg>
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-900">
-                  Estado Hábil: {estadoHabil.estado_habil === 'habil' ? 'Hábil' : estadoHabil.estado_habil === 'inhabil' ? 'Inhábil' : estadoHabil.estado_habil}
+                <p className="text-sm font-semibold text-text">
+                  Estado Hábil:{' '}
+                  <span className={estadoHabil.estado_habil === 'habil' ? 'text-accent' : 'text-danger'}>
+                    {estadoHabil.estado_habil === 'habil' ? 'Hábil' : estadoHabil.estado_habil === 'inhabil' ? 'Inhábil' : estadoHabil.estado_habil}
+                  </span>
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted">
                   RUT {estadoHabil.rut_empresa}
                   {estadoHabil.estado_habil_updated_at && (
                     <> · Actualizado {new Date(estadoHabil.estado_habil_updated_at).toLocaleDateString('es-CL')}</>
@@ -291,7 +294,7 @@ export default function DashboardPage() {
                 </p>
               </div>
             </div>
-            <a href="/dashboard/documentos" className="text-xs text-blue-600 hover:underline">
+            <a href="/dashboard/documentos" className="text-xs text-primary hover:underline">
               Ver documentos →
             </a>
           </div>
@@ -450,17 +453,17 @@ export default function DashboardPage() {
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={savedChartData} barSize={40}>
-                  <CartesianGrid stroke="#E2E6EF" strokeDasharray="3 3" vertical={false} />
+                  <CartesianGrid stroke="#1A1F2C" strokeDasharray="3 3" vertical={false} />
                   <XAxis
                     dataKey="name"
-                    stroke="#CBD5E1"
+                    stroke="transparent"
                     tick={{ fill: '#94A3B8', fontSize: 12, fontFamily: 'var(--font-dm-sans)' }}
                     axisLine={false}
                     tickLine={false}
                   />
                   <YAxis
                     allowDecimals={false}
-                    stroke="#CBD5E1"
+                    stroke="transparent"
                     tick={{ fill: '#94A3B8', fontSize: 12, fontFamily: 'var(--font-dm-sans)' }}
                     axisLine={false}
                     tickLine={false}
@@ -468,16 +471,18 @@ export default function DashboardPage() {
                   />
                   <Tooltip
                     formatter={(value: number) => [`${value}`, 'Total']}
-                    cursor={{ fill: 'rgba(15,41,66,0.05)', radius: 6 }}
+                    cursor={{ fill: 'rgba(0, 200, 150, 0.05)', radius: 6 }}
                     contentStyle={{
                       borderRadius: '10px',
-                      border: '1px solid #E2E6EF',
-                      boxShadow: '0 4px 12px rgba(15,41,66,0.10)',
+                      border: '1px solid #1A1F2C',
+                      background: '#0F1117',
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
                       fontFamily: 'var(--font-dm-sans)',
                       fontSize: '13px',
+                      color: '#E2E8F0',
                     }}
                   />
-                  <Bar dataKey="value" fill="#0F2942" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="value" fill="#4A7FBB" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -502,17 +507,17 @@ export default function DashboardPage() {
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={appliedChartData} barSize={40}>
-                  <CartesianGrid stroke="#E2E6EF" strokeDasharray="3 3" vertical={false} />
+                  <CartesianGrid stroke="#1A1F2C" strokeDasharray="3 3" vertical={false} />
                   <XAxis
                     dataKey="name"
-                    stroke="#CBD5E1"
+                    stroke="transparent"
                     tick={{ fill: '#94A3B8', fontSize: 12, fontFamily: 'var(--font-dm-sans)' }}
                     axisLine={false}
                     tickLine={false}
                   />
                   <YAxis
                     allowDecimals={false}
-                    stroke="#CBD5E1"
+                    stroke="transparent"
                     tick={{ fill: '#94A3B8', fontSize: 12, fontFamily: 'var(--font-dm-sans)' }}
                     axisLine={false}
                     tickLine={false}
@@ -520,16 +525,18 @@ export default function DashboardPage() {
                   />
                   <Tooltip
                     formatter={(value: number) => [`${value}`, 'Total']}
-                    cursor={{ fill: 'rgba(14,173,105,0.05)', radius: 6 }}
+                    cursor={{ fill: 'rgba(0, 200, 150, 0.05)', radius: 6 }}
                     contentStyle={{
                       borderRadius: '10px',
-                      border: '1px solid #E2E6EF',
-                      boxShadow: '0 4px 12px rgba(15,41,66,0.10)',
+                      border: '1px solid #1A1F2C',
+                      background: '#0F1117',
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
                       fontFamily: 'var(--font-dm-sans)',
                       fontSize: '13px',
+                      color: '#E2E8F0',
                     }}
                   />
-                  <Bar dataKey="value" fill="#0EAD69" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="value" fill="#00C896" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}

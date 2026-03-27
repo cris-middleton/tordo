@@ -253,8 +253,8 @@ export default function AlertsPage() {
                       <span
                         className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
                           pref.is_active
-                            ? 'bg-emerald-100 text-emerald-600'
-                            : 'bg-gray-100 text-muted'
+                            ? 'bg-accent/15 text-accent'
+                            : 'bg-border text-muted'
                         }`}
                       >
                         {pref.is_active ? 'Activa' : 'Inactiva'}
@@ -271,23 +271,23 @@ export default function AlertsPage() {
                     )}
                     <div className="flex flex-wrap gap-2 text-xs text-muted">
                       {pref.min_amount != null && (
-                        <span className="rounded bg-blue-50 px-2 py-0.5 text-blue-600">
+                        <span className="rounded bg-primary/10 px-2 py-0.5 text-primary">
                           Min: ${pref.min_amount.toLocaleString('es-CL')}
                         </span>
                       )}
                       {pref.max_amount != null && (
-                        <span className="rounded bg-blue-50 px-2 py-0.5 text-blue-600">
+                        <span className="rounded bg-primary/10 px-2 py-0.5 text-primary">
                           Max: ${pref.max_amount.toLocaleString('es-CL')}
                         </span>
                       )}
                       {pref.regiones && pref.regiones.length > 0 && (
-                        <span className="rounded bg-amber-50 px-2 py-0.5 text-amber-600">
+                        <span className="rounded bg-gold/10 px-2 py-0.5 text-gold">
                           {pref.regiones.length} {pref.regiones.length === 1 ? 'región' : 'regiones'}
                         </span>
                       )}
-                      {pref.notify_email && <span className="rounded bg-gray-100 px-2 py-0.5">Email</span>}
-                      {pref.notify_in_app && <span className="rounded bg-gray-100 px-2 py-0.5">In-app</span>}
-                      {pref.notify_webhook && <span className="rounded bg-gray-100 px-2 py-0.5">Webhook</span>}
+                      {pref.notify_email && <span className="rounded bg-border px-2 py-0.5 text-muted">Email</span>}
+                      {pref.notify_in_app && <span className="rounded bg-border px-2 py-0.5 text-muted">In-app</span>}
+                      {pref.notify_webhook && <span className="rounded bg-border px-2 py-0.5 text-muted">Webhook</span>}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -300,7 +300,7 @@ export default function AlertsPage() {
                     </button>
                     <button
                       onClick={() => handleDeletePref(pref)}
-                      className="rounded-lg border border-red-200 bg-red-50 p-2 text-red-500 transition-colors hover:bg-red-100"
+                      className="rounded-lg border border-danger/30 bg-danger/10 p-2 text-danger transition-colors hover:bg-danger/20"
                       title="Eliminar"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -316,7 +316,7 @@ export default function AlertsPage() {
       {/* Create / Edit preference modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+          <div className="w-full max-w-lg rounded-xl bg-surface border border-border p-6 shadow-card-lg">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-text">
                 {editingPref ? 'Editar preferencia' : 'Nueva preferencia'}
@@ -327,7 +327,7 @@ export default function AlertsPage() {
             </div>
 
             {prefError && (
-              <div className="mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">{prefError}</div>
+              <div className="mb-4 rounded-lg bg-danger/10 border border-danger/20 px-4 py-2 text-sm text-danger">{prefError}</div>
             )}
 
             <div className="space-y-4">
@@ -385,7 +385,7 @@ export default function AlertsPage() {
                 <div className="max-h-40 overflow-y-auto rounded-lg border border-border bg-surface p-2">
                   <div className="grid grid-cols-2 gap-1">
                     {REGIONES_CHILE.map((r) => (
-                      <label key={r} className="flex items-center gap-2 rounded px-2 py-1 text-xs hover:bg-gray-50 cursor-pointer">
+                      <label key={r} className="flex items-center gap-2 rounded px-2 py-1 text-xs hover:bg-border cursor-pointer">
                         <input
                           type="checkbox"
                           checked={formRegiones.includes(r)}
@@ -441,7 +441,7 @@ export default function AlertsPage() {
             <div className="mt-6 flex justify-end gap-3">
               <button
                 onClick={() => setShowModal(false)}
-                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted hover:bg-gray-50"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted hover:bg-border/60"
               >
                 Cancelar
               </button>
@@ -493,10 +493,10 @@ export default function AlertsPage() {
                         <span
                           className={`rounded-full px-2.5 py-1 text-xs font-medium ${
                             alert.status === 'read'
-                              ? 'bg-gray-100 text-muted'
+                              ? 'bg-border text-muted'
                               : alert.status === 'pending'
-                              ? 'bg-primary/10 text-primary'
-                              : 'bg-amber-100 text-amber-600'
+                              ? 'bg-primary/15 text-primary'
+                              : 'bg-gold/15 text-gold'
                           }`}
                         >
                           {alert.status}
@@ -513,7 +513,7 @@ export default function AlertsPage() {
                       {alert.status !== 'read' && (
                         <button
                           onClick={() => markAsRead(alert.id)}
-                          className="rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-emerald-600 transition-colors duration-200 hover:bg-emerald-100"
+                          className="rounded-lg border border-accent/30 bg-accent/10 p-2 text-accent transition-colors duration-200 hover:bg-accent/20"
                           title="Marcar como leída"
                         >
                           <Check className="h-4 w-4" />
@@ -521,7 +521,7 @@ export default function AlertsPage() {
                       )}
                       <button
                         onClick={() => deleteAlert(alert.id)}
-                        className="rounded-lg border border-red-200 bg-red-50 p-2 text-red-500 transition-colors duration-200 hover:bg-red-100"
+                        className="rounded-lg border border-danger/30 bg-danger/10 p-2 text-danger transition-colors duration-200 hover:bg-danger/20"
                         title="Eliminar"
                       >
                         <Trash2 className="h-4 w-4" />

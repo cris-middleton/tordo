@@ -64,7 +64,7 @@
      FORM FIELDS
   ────────────────────────────────────────────── */
   .input-field {
-    @apply w-full rounded-lg border border-border bg-white px-4 py-2.5 text-sm text-text placeholder-subtle shadow-sm transition-all duration-200 focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:bg-background disabled:opacity-70;
+    @apply w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-text placeholder-subtle shadow-sm transition-all duration-200 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:bg-background disabled:opacity-70;
     font-family: var(--font-dm-sans);
   }
 
@@ -207,7 +207,7 @@
   ────────────────────────────────────────────── */
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: theme('colors.border') transparent;
+    scrollbar-color: #1A1F2C transparent;
   }
 
   .scrollbar-thin::-webkit-scrollbar {
@@ -219,8 +219,12 @@
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: theme('colors.border');
+    background: #1A1F2C;
     border-radius: 2px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: #1F2537;
   }
 }
 
@@ -230,22 +234,23 @@
   }
 
   .bg-grid {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Cpath d='M0 0h40v40H0z' fill='none'/%3E%3Cpath d='M0 40V0h1M40 40V0' stroke='%23E2E6EF' stroke-width='.5'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Cpath d='M0 0h40v40H0z' fill='none'/%3E%3Cpath d='M0 40V0h1M40 40V0' stroke='%231A1F2C' stroke-width='.5'/%3E%3C/svg%3E");
   }
 
   .bg-dots {
-    background-image: radial-gradient(circle, #E2E6EF 1px, transparent 1px);
+    background-image: radial-gradient(circle, #1A1F2C 1px, transparent 1px);
     background-size: 20px 20px;
   }
 
   .glass {
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    background: rgba(255, 255, 255, 0.85);
+    background: rgba(10, 12, 16, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.06);
   }
 
   .text-gradient-brand {
-    background: linear-gradient(135deg, #0F2942 0%, #1B4F72 50%, #0EAD69 100%);
+    background: linear-gradient(135deg, #00C896 0%, #33DBA8 50%, #94A3B8 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;

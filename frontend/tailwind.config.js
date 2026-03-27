@@ -8,47 +8,47 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Brand navy — authority, trust, professionalism
-        primary: '#0F2942',
-        primaryDark: '#081A2E',
-        primaryLight: '#1B4F72',
+        // Obsidian — sole brand accent for interactive/success elements
+        primary: '#00C896',
+        primaryDark: '#009B77',
+        primaryLight: '#33DBA8',
 
-        // Emerald accent — growth, success, bid won
-        accent: '#0EAD69',
-        accentDark: '#09895B',
-        accentLight: '#E8FBF2',
+        // Alias — same as primary in Obsidian theme
+        accent: '#00C896',
+        accentDark: '#009B77',
+        accentLight: '#061915', // dark green tint for backgrounds
 
         // Gold — premium/Pro features
-        gold: '#D97706',
-        goldLight: '#FEF3C7',
+        gold: '#F59E0B',
+        goldLight: '#1C1505', // dark amber tint
 
-        // Semantic
-        text: '#0D1B2A',
-        muted: '#64748B',
-        subtle: '#94A3B8',
-        background: '#F6F7FB',
-        surface: '#FFFFFF',
-        border: '#E2E6EF',
-        borderLight: '#EEF1F7',
+        // Semantic — Obsidian dark palette
+        text: '#E2E8F0',        // slate-200
+        muted: '#94A3B8',       // slate-400
+        subtle: '#4B5563',      // gray-600
+        background: '#0A0C10',  // deep dark
+        surface: '#0F1117',     // card surface
+        border: '#1A1F2C',      // subtle border
+        borderLight: '#1F2537', // slightly lighter border
 
-        // States
-        danger: '#E53E3E',
-        dangerLight: '#FFF5F5',
-        warning: '#DD6B20',
-        warningLight: '#FFFAF0',
-        success: '#0EAD69',
-        successLight: '#E8FBF2',
+        // State colors — calibrated for dark backgrounds
+        danger: '#F85149',
+        dangerLight: '#1A0505',
+        warning: '#F97316',
+        warningLight: '#1C0E05',
+        success: '#00C896',
+        successLight: '#061915',
       },
       fontFamily: {
         sans: ['var(--font-dm-sans)', 'system-ui', 'sans-serif'],
         display: ['var(--font-outfit)', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
-        card: '0 1px 3px 0 rgba(15, 41, 66, 0.08), 0 1px 2px -1px rgba(15, 41, 66, 0.04)',
-        'card-md': '0 4px 12px 0 rgba(15, 41, 66, 0.10), 0 2px 4px -2px rgba(15, 41, 66, 0.06)',
-        'card-lg': '0 8px 24px 0 rgba(15, 41, 66, 0.12), 0 4px 8px -4px rgba(15, 41, 66, 0.08)',
-        sidebar: '2px 0 20px 0 rgba(15, 41, 66, 0.06)',
-        'nav-active': 'inset 3px 0 0 #0F2942',
+        card: '0 1px 4px 0 rgba(0, 0, 0, 0.4), 0 1px 2px -1px rgba(0, 0, 0, 0.3)',
+        'card-md': '0 4px 16px 0 rgba(0, 0, 0, 0.5), 0 2px 6px -2px rgba(0, 0, 0, 0.3)',
+        'card-lg': '0 8px 28px 0 rgba(0, 0, 0, 0.6), 0 4px 10px -4px rgba(0, 0, 0, 0.4)',
+        sidebar: '2px 0 24px 0 rgba(0, 0, 0, 0.5)',
+        'nav-active': 'inset 3px 0 0 #00C896',
       },
       animation: {
         'fade-in': 'fadeIn 0.4s ease-out both',
