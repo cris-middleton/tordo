@@ -96,6 +96,11 @@ export default function DashboardPage() {
     tiene_empresa: false,
   });
   const [loading, setLoading] = useState(true);
+  const [estadoHabil, setEstadoHabil] = useState<{
+    estado_habil: string
+    rut_empresa: string
+    estado_habil_updated_at: string | null
+  } | null>(null);
   const [expandedSections, setExpandedSections] = useState({
     tenders: { saved: false, applied: false },
     orders: { saved: false, applied: false },
@@ -148,6 +153,15 @@ export default function DashboardPage() {
       .then(setStats)
       .catch(console.error)
       .finally(() => setLoading(false));
+
+    apiClient.getEmpresas().then((empresas: any) => {
+      const list = Array.isArray(empresas) ? empresas : [];
+      if (list.length > 0) {
+        apiClient.getEstadoHabil(list[0].id)
+          .then((data: any) => setEstadoHabil(data))
+          .catch(() => {});
+      }
+    });
   }, []);
 
   if (loading) {
@@ -240,6 +254,49 @@ export default function DashboardPage() {
           );
         })}
       </div>
+
+      {/* ── Estado Hábil Banner ── */}
+      {estadoHabil && (
+        <div className={`rounded-2xl border p-4 shadow-sm mb-6 ${
+          estadoHabil.estado_habil === 'habil'
+            ? 'bg-green-50 border-green-200'
+            : estadoHabil.estado_habil === 'inhabil'
+            ? 'bg-red-50 border-red-200'
+            : 'bg-gray-50 border-gray-200'
+        }`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                estadoHabil.estado_habil === 'habil' ? 'bg-green-100' : 'bg-red-100'
+              }`}>
+                <svg className={`w-5 h-5 ${
+                  estadoHabil.estado_habil === 'habil' ? 'text-green-600' : 'text-red-600'
+                }`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  {estadoHabil.estado_habil === 'habil' ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  )}
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-900">
+                  Estado Hábil: {estadoHabil.estado_habil === 'habil' ? 'Hábil' : estadoHabil.estado_habil === 'inhabil' ? 'Inhábil' : estadoHabil.estado_habil}
+                </p>
+                <p className="text-xs text-gray-500">
+                  RUT {estadoHabil.rut_empresa}
+                  {estadoHabil.estado_habil_updated_at && (
+                    <> · Actualizado {new Date(estadoHabil.estado_habil_updated_at).toLocaleDateString('es-CL')}</>
+                  )}
+                </p>
+              </div>
+            </div>
+            <a href="/dashboard/documentos" className="text-xs text-blue-600 hover:underline">
+              Ver documentos →
+            </a>
+          </div>
+        </div>
+      )}
 
       {/* ── Collections ── */}
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">

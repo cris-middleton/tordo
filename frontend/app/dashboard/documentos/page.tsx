@@ -101,6 +101,7 @@ export default function DocumentosPage() {
   const [fechaVencimiento, setFechaVencimiento] = useState('');
   const [fechaEmision, setFechaEmision] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  const [estadoHabil, setEstadoHabil] = useState<string | null>(null);
 
   useEffect(() => {
     loadEmpresas();
@@ -108,6 +109,13 @@ export default function DocumentosPage() {
 
   useEffect(() => {
     if (empresaId) loadDocumentos();
+  }, [empresaId]);
+
+  useEffect(() => {
+    if (!empresaId) return;
+    apiClient.getEstadoHabil(empresaId)
+      .then((data: any) => setEstadoHabil(data?.estado_habil ?? null))
+      .catch(() => setEstadoHabil(null));
   }, [empresaId]);
 
   const loadEmpresas = async () => {
@@ -235,7 +243,23 @@ export default function DocumentosPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-text">Documentos</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-semibold text-text">Documentos</h1>
+          {estadoHabil && (
+            <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${
+              estadoHabil === 'habil'
+                ? 'bg-green-100 text-green-700'
+                : estadoHabil === 'inhabil'
+                ? 'bg-red-100 text-red-700'
+                : 'bg-gray-100 text-gray-600'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${
+                estadoHabil === 'habil' ? 'bg-green-500' : 'bg-red-500'
+              }`} />
+              {estadoHabil === 'habil' ? 'Hábil' : estadoHabil === 'inhabil' ? 'Inhábil' : estadoHabil}
+            </span>
+          )}
+        </div>
         <button
           onClick={() => setShowUploadForm(true)}
           className="btn-primary flex items-center gap-2"
