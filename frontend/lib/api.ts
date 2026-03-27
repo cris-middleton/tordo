@@ -349,6 +349,11 @@ class ApiClient {
     return res.data
   }
 
+  async getBIPrecio(codigoProducto: string) {
+    const res = await this.client.get(`/api/bi/precio/${encodeURIComponent(codigoProducto)}`);
+    return res.data;
+  }
+
   async getDataSummary() {
     const res = await this.client.get('/api/data/summary')
     return res.data

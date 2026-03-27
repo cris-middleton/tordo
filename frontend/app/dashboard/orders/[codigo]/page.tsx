@@ -187,6 +187,11 @@ export default function OrderDetailPage({ params }: PageParams) {
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [biPrecio, setBiPrecio] = useState<{
+    p10: number; p25: number; p50: number; p75: number; p90: number;
+    n_obs: number; confianza: string;
+  } | null>(null);
+  const [biLoading, setBiLoading] = useState(false);
 
   useEffect(() => {
     const loadOrder = async () => {
@@ -211,6 +216,19 @@ export default function OrderDetailPage({ params }: PageParams) {
 
     loadOrder();
   }, [params.codigo]);
+
+  useEffect(() => {
+    if (!order) return;
+    const rubro = order.rubro || order.categoria;
+    if (!rubro) return;
+    let active = true;
+    setBiLoading(true);
+    apiClient.getBIPrecio(rubro)
+      .then((data: any) => { if (active) setBiPrecio(data); })
+      .catch(() => { if (active) setBiPrecio(null); })
+      .finally(() => { if (active) setBiLoading(false); });
+    return () => { active = false; };
+  }, [order]);
 
   const formatCurrency = (amount?: number, currency: string = 'CLP') => {
     if (amount === undefined || amount === null || Number.isNaN(amount)) {
@@ -425,6 +443,72 @@ export default function OrderDetailPage({ params }: PageParams) {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* BI: Price Benchmark */}
+          <div className="mt-6">
+            <h2 className="text-base font-semibold text-gray-800 mb-3">Análisis de Mercado</h2>
+            {biLoading && (
+              <div className="animate-pulse bg-gray-100 rounded-xl h-32" />
+            )}
+            {!biLoading && biPrecio && (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">Benchmarking de Precios</h3>
+                <div className="grid grid-cols-5 gap-2 text-center mb-3">
+                  {[
+                    { label: 'P10', value: biPrecio.p10 },
+                    { label: 'P25', value: biPrecio.p25 },
+                    { label: 'P50', value: biPrecio.p50 },
+                    { label: 'P75', value: biPrecio.p75 },
+                    { label: 'P90', value: biPrecio.p90 },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="bg-gray-50 rounded-lg py-2 px-1">
+                      <p className="text-xs text-gray-500">{label}</p>
+                      <p className="text-sm font-bold text-gray-800">
+                        {new Intl.NumberFormat('es-CL', {
+                          style: 'currency', currency: 'CLP', maximumFractionDigits: 0,
+                        }).format(value)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>{biPrecio.n_obs} transacciones comparables</span>
+                  <span className={`font-medium ${
+                    biPrecio.confianza === 'alta' ? 'text-green-600'
+                      : biPrecio.confianza === 'media' ? 'text-amber-600'
+                      : 'text-gray-500'
+                  }`}>
+                    Confianza: {biPrecio.confianza}
+                  </span>
+                </div>
+                {orderData?.monto_total && biPrecio.p50 > 0 && (
+                  <div className="mt-3 pt-3 border-t border-gray-100">
+                    <p className="text-xs text-gray-600">
+                      Este monto ({new Intl.NumberFormat('es-CL', {
+                        style: 'currency', currency: 'CLP', maximumFractionDigits: 0,
+                      }).format(orderData.monto_total)}) está{' '}
+                      <span className={`font-semibold ${
+                        orderData.monto_total <= biPrecio.p50 ? 'text-green-600' : orderData.monto_total <= biPrecio.p75 ? 'text-amber-600' : 'text-red-600'
+                      }`}>
+                        {orderData.monto_total <= biPrecio.p25
+                          ? 'por debajo del P25 — precio muy competitivo'
+                          : orderData.monto_total <= biPrecio.p50
+                          ? 'bajo la mediana — buen precio'
+                          : orderData.monto_total <= biPrecio.p75
+                          ? 'sobre la mediana — precio moderado'
+                          : 'sobre el P75 — precio alto'}
+                      </span>
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+            {!biLoading && !biPrecio && (
+              <p className="text-sm text-gray-400 italic bg-gray-50 rounded-xl px-4 py-3">
+                Benchmark de precios no disponible para esta orden.
+              </p>
+            )}
           </div>
 
           <div className="card space-y-3">
