@@ -193,11 +193,7 @@ export default function SettingsPage() {
           {/* Message */}
           {message && (
             <div
-              className={`p-4 rounded-lg ${
-                message.type === 'success'
-                  ? 'bg-green-50 border border-green-200 text-green-700'
-                  : 'bg-red-50 border border-red-200 text-red-700'
-              }`}
+              className={message.type === 'success' ? 'alert-success' : 'alert-error'}
             >
               {message.text}
             </div>
@@ -261,11 +257,7 @@ export default function SettingsPage() {
             <form onSubmit={handlePasswordSubmit} className="space-y-4 pt-4 border-t border-border">
               {passwordMessage && (
                 <div
-                  className={`p-4 rounded-lg ${
-                    passwordMessage.type === 'success'
-                      ? 'bg-green-50 border border-green-200 text-green-700'
-                      : 'bg-red-50 border border-red-200 text-red-700'
-                  }`}
+                  className={passwordMessage.type === 'success' ? 'alert-success' : 'alert-error'}
                 >
                   {passwordMessage.text}
                 </div>
@@ -480,7 +472,7 @@ export default function SettingsPage() {
               />
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <MessageCircle className="w-5 h-5 text-green-500" />
+                  <MessageCircle className="w-5 h-5 text-accent" />
                   <span className="font-medium text-text">Notificaciones por WhatsApp</span>
                 </div>
                 <p className="text-sm text-muted mt-1">
@@ -556,11 +548,7 @@ export default function SettingsPage() {
 
                 {whatsappTestResult && (
                   <div
-                    className={`p-3 rounded-lg text-sm ${
-                      whatsappTestResult.type === 'success'
-                        ? 'bg-green-50 border border-green-200 text-green-700'
-                        : 'bg-red-50 border border-red-200 text-red-700'
-                    }`}
+                    className={whatsappTestResult.type === 'success' ? 'alert-success' : 'alert-error'}
                   >
                     {whatsappTestResult.text}
                   </div>
@@ -572,11 +560,7 @@ export default function SettingsPage() {
           {/* Message */}
           {message && (
             <div
-              className={`p-4 rounded-lg ${
-                message.type === 'success'
-                  ? 'bg-green-50 border border-green-200 text-green-700'
-                  : 'bg-red-50 border border-red-200 text-red-700'
-              }`}
+              className={message.type === 'success' ? 'alert-success' : 'alert-error'}
             >
               {message.text}
             </div>

@@ -30,9 +30,9 @@ interface BillingStatus {
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  active: { label: 'Activa', color: 'text-green-700 bg-green-100' },
-  trialing: { label: 'Prueba gratuita', color: 'text-blue-700 bg-blue-100' },
-  past_due: { label: 'Pago vencido', color: 'text-red-700 bg-red-100' },
+  active: { label: 'Activa', color: 'text-accent bg-accent/10' },
+  trialing: { label: 'Prueba gratuita', color: 'text-info bg-info/10' },
+  past_due: { label: 'Pago vencido', color: 'text-danger bg-danger/10' },
   canceled: { label: 'Cancelada', color: 'text-muted bg-surface border border-border' },
   inactive: { label: 'Gratuito', color: 'text-muted bg-surface border border-border' },
 };
@@ -151,7 +151,7 @@ export default function BillingPage() {
       {/* Success banner */}
       {typeof window !== 'undefined' &&
         new URLSearchParams(window.location.search).get('success') && (
-          <div className="flex items-center gap-2 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
+          <div className="alert-success flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 shrink-0" />
             ¡Suscripción activada correctamente! Bienvenido al plan{' '}
             <span className="font-semibold capitalize">{currentPlanId}</span>.
@@ -159,14 +159,14 @@ export default function BillingPage() {
         )}
 
       {error && (
-        <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+        <div className="alert-error flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           {error}
         </div>
       )}
 
       {!billingEnabled && (
-        <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="alert-warning flex items-center gap-3">
           <Lock className="h-4 w-4 shrink-0" />
           <span>
             El módulo de facturación está desactivado. Actívalo con{' '}
@@ -199,7 +199,7 @@ export default function BillingPage() {
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-semibold text-text">{plan.nombre}</span>
                   {plan.id === 'pro' && (
-                    <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                    <span className="flex items-center gap-1 rounded-full bg-gold/10 px-2 py-0.5 text-xs font-semibold text-gold">
                       <Star className="h-3 w-3" />
                       Popular
                     </span>
@@ -226,7 +226,7 @@ export default function BillingPage() {
                 <ul className="flex-1 space-y-1.5 mb-5">
                   {plan.features.map((f) => (
                     <li key={f} className="flex items-start gap-1.5 text-xs">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0 mt-0.5" />
+                      <CheckCircle2 className="h-3.5 w-3.5 text-accent shrink-0 mt-0.5" />
                       <span className="text-muted">{f}</span>
                     </li>
                   ))}
