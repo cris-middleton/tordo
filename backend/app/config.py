@@ -5,7 +5,7 @@ from typing import Optional, List, Union
 
 class Settings(BaseSettings):
     # App settings
-    app_name: str = "SaaS Licitaciones Públicas Chile"
+    app_name: str = "Tordo"
     app_version: str = "1.0.0"
     debug: bool = False
     

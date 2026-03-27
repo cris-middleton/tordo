@@ -1,4 +1,4 @@
-# SaaS Licitaciones Públicas Chile
+# Tordo
 
 Plataforma SaaS para PYMES chilenas que participan en licitaciones públicas. Gestiona alertas, seguimiento de oportunidades y **compliance operativo** (estado hábil, documentos, checklist de postulaciones).
 

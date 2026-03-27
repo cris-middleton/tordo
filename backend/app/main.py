@@ -82,7 +82,9 @@ app.include_router(webhooks.router)
 async def root():
     """Root endpoint"""
     return {
-        "message": "SaaS Licitaciones Públicas Chile API",
+        "status": "active",
+        "message": "Tordo API",
         "version": settings.app_version,
-        "docs": "/docs"
+        "docs": "/docs",
+        "redoc": "/redoc"
     }

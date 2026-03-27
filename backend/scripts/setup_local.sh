@@ -3,7 +3,7 @@
 
 set -e
 
-echo "🚀 Setting up SaaS Licitaciones Backend for local development..."
+echo "🚀 Setting up Tordo Backend for local development..."
 echo ""
 
 # Check if .env exists
