@@ -279,17 +279,17 @@ function EstadoHabilBadge({ estado }: { estado?: string }) {
   const cfg: Record<string, { icon: JSX.Element; cls: string; label: string }> = {
     habil: {
       icon: <ShieldCheck className="h-4 w-4" />,
-      cls: 'bg-green-50 text-green-700 border-green-200',
+      cls: 'bg-accent/10 text-accent border-accent/30',
       label: 'Tu empresa está hábil',
     },
     inhabil: {
       icon: <ShieldAlert className="h-4 w-4" />,
-      cls: 'bg-red-50 text-red-700 border-red-200',
+      cls: 'bg-danger/10 text-danger border-danger/30',
       label: 'Tu empresa no está hábil',
     },
     no_encontrado: {
       icon: <AlertTriangle className="h-4 w-4" />,
-      cls: 'bg-amber-50 text-amber-700 border-amber-200',
+      cls: 'bg-gold/10 text-gold border-gold/30',
       label: 'RUT no encontrado en registro',
     },
   };
@@ -310,26 +310,26 @@ function EstadoHabilBadge({ estado }: { estado?: string }) {
 // ¿Tu perfil encaja? widget
 const nivelConfig: Record<string, { icon: JSX.Element; color: string; label: string; description: string }> = {
   alto: {
-    icon: <CheckCircle2 className="h-5 w-5 text-green-600" />,
-    color: 'bg-green-50 border-green-200 text-green-800',
+    icon: <CheckCircle2 className="h-5 w-5 text-accent" />,
+    color: 'bg-accent/10 border-accent/30 text-accent',
     label: 'Encaje alto',
     description: 'Tu empresa tiene experiencia directa en este tipo de producto o servicio.',
   },
   medio: {
-    icon: <CheckCircle2 className="h-5 w-5 text-amber-600" />,
-    color: 'bg-amber-50 border-amber-200 text-amber-800',
+    icon: <CheckCircle2 className="h-5 w-5 text-gold" />,
+    color: 'bg-gold/10 border-gold/30 text-gold',
     label: 'Encaje moderado',
     description: 'Hay similitud parcial entre tu perfil y esta licitación.',
   },
   bajo: {
-    icon: <MinusCircle className="h-5 w-5 text-slate-500" />,
-    color: 'bg-slate-50 border-slate-200 text-slate-700',
+    icon: <MinusCircle className="h-5 w-5 text-muted" />,
+    color: 'bg-border border-borderLight text-muted',
     label: 'Encaje bajo',
     description: 'Hay poca coincidencia entre tu perfil y esta licitación.',
   },
   sin_encaje: {
-    icon: <XCircle className="h-5 w-5 text-red-500" />,
-    color: 'bg-red-50 border-red-200 text-red-700',
+    icon: <XCircle className="h-5 w-5 text-danger" />,
+    color: 'bg-danger/10 border-danger/30 text-danger',
     label: 'Sin encaje detectado',
     description: 'No se detectó coincidencia semántica entre tu perfil y esta licitación.',
   },
@@ -423,16 +423,16 @@ function BIPanelSection({ panel }: { panel: BIPanel }) {
   };
 
   const transpColor: Record<string, string> = {
-    muy_transparente: 'text-green-700 bg-green-50',
-    transparente: 'text-green-600 bg-green-50',
-    moderado: 'text-amber-700 bg-amber-50',
-    poco_transparente: 'text-orange-700 bg-orange-50',
-    opaco: 'text-red-700 bg-red-50',
+    muy_transparente: 'text-accent bg-accent/10',
+    transparente: 'text-accent bg-accent/10',
+    moderado: 'text-gold bg-gold/10',
+    poco_transparente: 'text-gold bg-gold/10',
+    opaco: 'text-danger bg-danger/10',
   };
 
   const ventanaColor =
     ventana.disponible && ventana.alerta_ventana_corta
-      ? 'border-red-200 bg-red-50'
+      ? 'border-danger/30 bg-danger/10'
       : 'border-border bg-background';
 
   return (
@@ -478,7 +478,7 @@ function BIPanelSection({ panel }: { panel: BIPanel }) {
                 </div>
               )}
               {(comprador.n_flags ?? 0) > 0 && (
-                <div className="flex items-center gap-1.5 text-amber-700 bg-amber-50 rounded px-2 py-1 text-xs">
+                <div className="flex items-center gap-1.5 text-gold bg-gold/10 rounded px-2 py-1 text-xs">
                   <BadgeAlert className="h-3.5 w-3.5 shrink-0" />
                   {comprador.n_flags} flag{(comprador.n_flags ?? 0) > 1 ? 's' : ''} de riesgo
                 </div>
@@ -518,7 +518,7 @@ function BIPanelSection({ panel }: { panel: BIPanel }) {
           ) : (
             <div className="space-y-2 text-sm">
               {ventana.alerta_ventana_corta && (
-                <div className="flex items-center gap-1.5 text-red-700 bg-red-100 rounded px-2 py-1 text-xs font-medium">
+                <div className="flex items-center gap-1.5 text-danger bg-danger/10 rounded px-2 py-1 text-xs font-medium">
                   <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                   Ventana inusualmente corta
                 </div>
@@ -609,8 +609,8 @@ function BIPanelSection({ panel }: { panel: BIPanel }) {
                         <span
                           className={`rounded px-1.5 py-0.5 font-mono text-[10px] ${
                             p.fallback
-                              ? 'bg-amber-50 text-amber-700'
-                              : 'bg-green-50 text-green-700'
+                              ? 'bg-gold/10 text-gold'
+                              : 'bg-accent/10 text-accent'
                           }`}
                         >
                           {p.nivel_usado}
@@ -637,7 +637,7 @@ function BIPanelSection({ panel }: { panel: BIPanel }) {
                     <p className="text-muted">Sin datos de precios</p>
                   )}
                   {p.fallback && p.disponible && (
-                    <p className="text-[10px] text-amber-600">
+                    <p className="text-[10px] text-gold">
                       Referencia {p.nivel_usado === 'L2' ? 'por sector' : 'nacional'} (sin datos específicos del organismo)
                     </p>
                   )}
@@ -973,17 +973,17 @@ export default function TenderDetailPage({ params }: PageParams) {
 
           {/* ── BI Panel ─────────────────────────────────────────── */}
           <div className="mt-6">
-            <h2 className="text-base font-semibold text-gray-800 mb-3">Análisis de Mercado</h2>
+            <h2 className="text-base font-semibold text-text mb-3">Análisis de Mercado</h2>
             {biLoading && (
-              <div className="animate-pulse bg-gray-100 rounded-xl h-48 flex items-center justify-center">
-                <span className="text-gray-400 text-sm">Cargando análisis de mercado…</span>
+              <div className="animate-pulse bg-border rounded-xl h-48 flex items-center justify-center">
+                <span className="text-muted text-sm">Cargando análisis de mercado…</span>
               </div>
             )}
             {!biLoading && biPanel && (
               <BIPanelSection panel={biPanel} />
             )}
             {!biLoading && !biPanel && (
-              <p className="text-sm text-gray-400 italic bg-gray-50 rounded-xl px-4 py-3">
+              <p className="text-sm text-muted italic bg-background rounded-xl px-4 py-3">
                 Panel BI no disponible para esta licitación.
               </p>
             )}

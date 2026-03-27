@@ -21,9 +21,9 @@ interface Miembro {
 }
 
 const ROL_CONFIG: Record<string, { label: string; Icon: React.ElementType; cls: string }> = {
-  owner:  { label: 'Owner',  Icon: Crown,  cls: 'text-purple-700 bg-purple-50' },
-  admin:  { label: 'Admin',  Icon: Shield, cls: 'text-blue-700 bg-blue-50'     },
-  viewer: { label: 'Viewer', Icon: Eye,    cls: 'text-gray-600 bg-gray-100'    },
+  owner:  { label: 'Owner',  Icon: Crown,  cls: 'text-gold bg-gold/10'       },
+  admin:  { label: 'Admin',  Icon: Shield, cls: 'text-info bg-info/10'        },
+  viewer: { label: 'Viewer', Icon: Eye,    cls: 'text-muted bg-border'        },
 }
 
 export default function EmpresaPage() {
@@ -95,27 +95,27 @@ export default function EmpresaPage() {
   if (loading) {
     return (
       <div className="p-6 max-w-2xl mx-auto space-y-4">
-        <div className="animate-pulse h-8 bg-gray-200 rounded w-40" />
-        <div className="animate-pulse h-48 bg-gray-100 rounded-2xl" />
+        <div className="animate-pulse h-8 bg-border rounded w-40" />
+        <div className="animate-pulse h-48 bg-background rounded-2xl" />
       </div>
     )
   }
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-semibold text-gray-900 mb-1">Mi Empresa</h1>
-      <p className="text-sm text-gray-500 mb-6">Gestiona el equipo de tu empresa</p>
+      <h1 className="text-2xl font-semibold text-text mb-1">Mi Empresa</h1>
+      <p className="text-sm text-muted mb-6">Gestiona el equipo de tu empresa</p>
 
       {empresas.length > 1 && (
         <div className="mb-5">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Empresa</label>
+          <label className="block text-xs font-medium text-muted mb-1">Empresa</label>
           <select
             value={selected?.id ?? ''}
             onChange={(e) => {
               const found = empresas.find((em) => em.id === e.target.value) ?? null
               setSelected(found)
             }}
-            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="input-field w-full"
           >
             {empresas.map((em) => (
               <option key={em.id} value={em.id}>{em.nombre_empresa}</option>
@@ -126,11 +126,11 @@ export default function EmpresaPage() {
 
       {selected && (
         <>
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-5">
+          <div className="bg-surface rounded-2xl border border-border shadow-sm p-5 mb-5">
             <div className="flex items-start justify-between">
               <div>
-                <h2 className="font-semibold text-gray-900">{selected.nombre_empresa}</h2>
-                <p className="text-sm text-gray-500 mt-0.5">{selected.rut_empresa}</p>
+                <h2 className="font-semibold text-text">{selected.nombre_empresa}</h2>
+                <p className="text-sm text-muted mt-0.5">{selected.rut_empresa}</p>
               </div>
               {(() => {
                 const r = ROL_CONFIG[selected.rol] ?? ROL_CONFIG.viewer
@@ -143,8 +143,8 @@ export default function EmpresaPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-5">
-            <h3 className="text-sm font-semibold text-gray-700 mb-4">
+          <div className="bg-surface rounded-2xl border border-border shadow-sm p-5 mb-5">
+            <h3 className="text-sm font-semibold text-text mb-4">
               Equipo ({miembros.length}{' '}
               {miembros.length === 1 ? 'miembro' : 'miembros'})
             </h3>
@@ -152,33 +152,33 @@ export default function EmpresaPage() {
             {loadingM ? (
               <div className="space-y-3">
                 {[1, 2].map((i) => (
-                  <div key={i} className="animate-pulse h-12 bg-gray-100 rounded-xl" />
+                  <div key={i} className="animate-pulse h-12 bg-background rounded-xl" />
                 ))}
               </div>
             ) : miembros.length === 0 ? (
-              <p className="text-sm text-gray-400">Sin miembros registrados.</p>
+              <p className="text-sm text-muted">Sin miembros registrados.</p>
             ) : (
-              <div className="divide-y divide-gray-50">
+              <div className="divide-y divide-border">
                 {miembros.map((m) => {
                   const r = ROL_CONFIG[m.rol] ?? ROL_CONFIG.viewer
                   const isMe = m.user_id === user?.id
                   return (
                     <div key={m.user_id} className="flex items-center justify-between py-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                          <span className="text-xs font-semibold text-blue-700">
+                        <div className="w-8 h-8 rounded-full bg-info/10 flex items-center justify-center flex-shrink-0">
+                          <span className="text-xs font-semibold text-info">
                             {(m.full_name ?? m.email)[0].toUpperCase()}
                           </span>
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-900 leading-tight">
+                          <p className="text-sm font-medium text-text leading-tight">
                             {m.full_name ?? m.email}
                             {isMe && (
-                              <span className="ml-1 text-xs font-normal text-gray-400">(tú)</span>
+                              <span className="ml-1 text-xs font-normal text-muted">(tú)</span>
                             )}
                           </p>
                           {m.full_name && (
-                            <p className="text-xs text-gray-500">{m.email}</p>
+                            <p className="text-xs text-muted">{m.email}</p>
                           )}
                         </div>
                       </div>
@@ -189,7 +189,7 @@ export default function EmpresaPage() {
                         {canManage && m.rol !== 'owner' && !isMe && (
                           <button
                             onClick={() => handleRemove(m)}
-                            className="p-1 text-gray-300 hover:text-red-500 transition-colors"
+                            className="p-1 text-subtle hover:text-danger transition-colors"
                             title="Eliminar miembro"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -204,26 +204,26 @@ export default function EmpresaPage() {
           </div>
 
           {canManage ? (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <div className="bg-surface rounded-2xl border border-border shadow-sm p-5">
               <div className="flex items-center gap-2 mb-4">
-                <UserPlus className="w-4 h-4 text-gray-500" />
-                <h3 className="text-sm font-semibold text-gray-700">Añadir miembro</h3>
+                <UserPlus className="w-4 h-4 text-muted" />
+                <h3 className="text-sm font-semibold text-text">Añadir miembro</h3>
               </div>
 
               {error && (
-                <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3 text-sm text-red-600 mb-4">
+                <div className="bg-danger/10 border border-danger/30 rounded-xl px-4 py-3 text-sm text-danger mb-4">
                   {error}
                 </div>
               )}
               {success && (
-                <div className="bg-green-50 border border-green-100 rounded-xl px-4 py-3 text-sm text-green-600 mb-4">
+                <div className="bg-accent/10 border border-accent/30 rounded-xl px-4 py-3 text-sm text-accent mb-4">
                   ✓ {success}
                 </div>
               )}
 
               <form onSubmit={handleInvite} className="space-y-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                  <label className="block text-xs font-medium text-muted mb-1">
                     Email del usuario
                   </label>
                   <input
@@ -232,18 +232,18 @@ export default function EmpresaPage() {
                     onChange={(e) => setInviteEmail(e.target.value)}
                     placeholder="usuario@empresa.cl"
                     required
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="input-field w-full"
                   />
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="text-xs text-muted mt-1">
                     El usuario debe tener una cuenta en TORDO.
                   </p>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Rol</label>
+                  <label className="block text-xs font-medium text-muted mb-1">Rol</label>
                   <select
                     value={inviteRol}
                     onChange={(e) => setInviteRol(e.target.value as 'admin' | 'viewer')}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="input-field w-full"
                   >
                     <option value="viewer">Viewer — solo puede leer</option>
                     <option value="admin">Admin — puede editar y añadir miembros</option>
@@ -252,14 +252,14 @@ export default function EmpresaPage() {
                 <button
                   type="submit"
                   disabled={inviting || !inviteEmail.trim()}
-                  className="w-full bg-blue-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {inviting ? 'Añadiendo…' : 'Añadir miembro'}
                 </button>
               </form>
             </div>
           ) : (
-            <p className="text-sm text-gray-400 text-center py-4">
+            <p className="text-sm text-muted text-center py-4">
               Solo el owner o admin puede gestionar miembros.
             </p>
           )}
@@ -268,8 +268,8 @@ export default function EmpresaPage() {
 
       {!loading && empresas.length === 0 && (
         <div className="text-center py-16">
-          <p className="text-gray-500 text-sm">No tienes empresas registradas.</p>
-          <a href="/onboarding" className="text-blue-600 text-sm hover:underline mt-2 block">
+          <p className="text-muted text-sm">No tienes empresas registradas.</p>
+          <a href="/onboarding" className="text-primary text-sm hover:underline mt-2 block">
             Registrar empresa →
           </a>
         </div>

@@ -63,20 +63,20 @@ function VencimientoBadge({ fecha }: { fecha?: string }) {
   const days = differenceInDays(new Date(fecha), new Date());
   if (days < 0)
     return (
-      <span className="flex items-center gap-1 text-xs font-medium text-red-600">
+      <span className="flex items-center gap-1 text-xs font-medium text-danger">
         <AlertTriangle className="h-3 w-3" />
         Vencido
       </span>
     );
   if (days <= 30)
     return (
-      <span className="flex items-center gap-1 text-xs font-medium text-amber-600">
+      <span className="flex items-center gap-1 text-xs font-medium text-gold">
         <AlertTriangle className="h-3 w-3" />
         Vence en {days}d
       </span>
     );
   return (
-    <span className="flex items-center gap-1 text-xs text-green-600">
+    <span className="flex items-center gap-1 text-xs text-accent">
       <CheckCircle2 className="h-3 w-3" />
       {format(new Date(fecha), 'dd MMM yyyy', { locale: es })}
     </span>
@@ -248,13 +248,13 @@ export default function DocumentosPage() {
           {estadoHabil && (
             <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${
               estadoHabil === 'habil'
-                ? 'bg-green-100 text-green-700'
+                ? 'bg-accent/10 text-accent'
                 : estadoHabil === 'inhabil'
-                ? 'bg-red-100 text-red-700'
-                : 'bg-gray-100 text-gray-600'
+                ? 'bg-danger/10 text-danger'
+                : 'bg-border text-muted'
             }`}>
               <span className={`w-1.5 h-1.5 rounded-full ${
-                estadoHabil === 'habil' ? 'bg-green-500' : 'bg-red-500'
+                estadoHabil === 'habil' ? 'bg-accent' : 'bg-danger'
               }`} />
               {estadoHabil === 'habil' ? 'Hábil' : estadoHabil === 'inhabil' ? 'Inhábil' : estadoHabil}
             </span>
@@ -288,7 +288,7 @@ export default function DocumentosPage() {
       )}
 
       {error && (
-        <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+        <div className="flex items-center gap-2 rounded-lg bg-danger/10 border border-danger/30 px-4 py-3 text-sm text-danger">
           <X className="h-4 w-4 shrink-0" />
           {error}
           <button onClick={() => setError('')} className="ml-auto">
@@ -297,7 +297,7 @@ export default function DocumentosPage() {
         </div>
       )}
       {success && (
-        <div className="flex items-center gap-2 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
+        <div className="flex items-center gap-2 rounded-lg bg-accent/10 border border-accent/30 px-4 py-3 text-sm text-accent">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           {success}
         </div>
@@ -322,49 +322,49 @@ export default function DocumentosPage() {
               onClick={() => document.getElementById('file-upload-input')?.click()}
               className={`relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
                 isDragging
-                  ? 'border-blue-500 bg-blue-50 scale-[1.01]'
+                  ? 'border-info bg-info/10 scale-[1.01]'
                   : uploadFile
-                  ? 'border-green-400 bg-green-50'
-                  : 'border-gray-300 hover:border-gray-400 bg-gray-50'
+                  ? 'border-accent bg-accent/10'
+                  : 'border-border hover:border-borderLight bg-background'
               }`}
             >
               {isDragging && (
                 <div className="absolute inset-0 flex items-center justify-center rounded-xl">
-                  <p className="text-blue-600 font-semibold text-sm">Suelta el archivo aquí</p>
+                  <p className="text-info font-semibold text-sm">Suelta el archivo aquí</p>
                 </div>
               )}
 
               {!isDragging && !uploadFile && (
                 <>
-                  <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="w-10 h-10 bg-border rounded-full flex items-center justify-center mx-auto mb-3">
+                    <svg className="w-5 h-5 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                         d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
                   </div>
-                  <p className="text-sm font-medium text-gray-600">Arrastra un archivo aquí</p>
-                  <p className="text-xs text-gray-400 mt-1">o haz clic para seleccionar</p>
-                  <p className="text-xs text-gray-400 mt-2">PDF, DOC, DOCX, JPG, PNG, XLSX · Máx. 25 MB</p>
+                  <p className="text-sm font-medium text-muted">Arrastra un archivo aquí</p>
+                  <p className="text-xs text-muted mt-1">o haz clic para seleccionar</p>
+                  <p className="text-xs text-muted mt-2">PDF, DOC, DOCX, JPG, PNG, XLSX · Máx. 25 MB</p>
                 </>
               )}
 
               {!isDragging && uploadFile && (
                 <div className="flex items-center justify-center gap-3">
-                  <svg className="w-6 h-6 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-6 h-6 text-accent flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                   <div className="text-left min-w-0">
-                    <p className="text-sm font-medium text-gray-800 truncate max-w-[180px]">
+                    <p className="text-sm font-medium text-text truncate max-w-[180px]">
                       {uploadFile.name}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted">
                       {(uploadFile.size / 1024 / 1024).toFixed(2)} MB
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); setUploadFile(null) }}
-                    className="text-gray-400 hover:text-red-500 transition-colors ml-1"
+                    className="text-muted hover:text-danger transition-colors ml-1"
                     title="Quitar archivo"
                   >
                     ✕
@@ -461,7 +461,7 @@ export default function DocumentosPage() {
             <div
               key={doc.id}
               className={`flex items-center justify-between gap-4 px-4 py-3 ${
-                !doc.esta_vigente ? 'bg-red-50' : ''
+                !doc.esta_vigente ? 'bg-danger/10' : ''
               }`}
             >
               <div className="flex items-center gap-3 min-w-0">
@@ -490,7 +490,7 @@ export default function DocumentosPage() {
                 </button>
                 <button
                   onClick={() => handleDelete(doc.id)}
-                  className="rounded-md border border-border p-1.5 text-muted hover:border-red-400/40 hover:text-red-500 transition-colors"
+                  className="rounded-md border border-border p-1.5 text-muted hover:border-danger/40 hover:text-danger transition-colors"
                   title="Eliminar"
                 >
                   <Trash2 className="h-4 w-4" />

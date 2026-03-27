@@ -45,10 +45,10 @@ interface Empresa {
 
 const ESTADO_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   en_seguimiento: { label: 'En seguimiento', color: 'text-muted border-border bg-surface', icon: Clock },
-  en_preparacion: { label: 'En preparación', color: 'text-amber-700 border-amber-200 bg-amber-50', icon: Clock },
-  enviada: { label: 'Enviada', color: 'text-blue-700 border-blue-200 bg-blue-50', icon: Send },
-  adjudicada: { label: 'Adjudicada', color: 'text-green-700 border-green-200 bg-green-50', icon: CheckCircle2 },
-  no_adjudicada: { label: 'No adjudicada', color: 'text-red-700 border-red-200 bg-red-50', icon: XCircle },
+  en_preparacion: { label: 'En preparación', color: 'text-gold border-gold/30 bg-gold/10', icon: Clock },
+  enviada: { label: 'Enviada', color: 'text-info border-info/30 bg-info/10', icon: Send },
+  adjudicada: { label: 'Adjudicada', color: 'text-accent border-accent/30 bg-accent/10', icon: CheckCircle2 },
+  no_adjudicada: { label: 'No adjudicada', color: 'text-danger border-danger/30 bg-danger/10', icon: XCircle },
   descartada: { label: 'Descartada', color: 'text-muted border-border bg-surface', icon: XCircle },
 };
 
@@ -112,7 +112,7 @@ function PostulacionCard({
               Checklist: {completedItems}/{totalItems}
             </span>
             <span
-              className={`text-xs font-medium ${allObligatoriosDone ? 'text-green-600' : 'text-amber-600'}`}
+              className={`text-xs font-medium ${allObligatoriosDone ? 'text-accent' : 'text-gold'}`}
             >
               {allObligatoriosDone ? '✓ Requisitos completos' : 'Faltan obligatorios'}
             </span>
@@ -120,7 +120,7 @@ function PostulacionCard({
           <div className="h-1.5 w-full rounded-full bg-border overflow-hidden">
             <div
               className={`h-full rounded-full transition-all ${
-                progress === 100 ? 'bg-green-500' : progress > 50 ? 'bg-blue-500' : 'bg-amber-400'
+                progress === 100 ? 'bg-accent' : progress > 50 ? 'bg-primary' : 'bg-gold'
               }`}
               style={{ width: `${progress}%` }}
             />
@@ -162,7 +162,7 @@ function PostulacionCard({
                 >
                   {item.descripcion}
                   {item.es_obligatorio && (
-                    <span className="ml-1 text-xs text-red-500">*</span>
+                    <span className="ml-1 text-xs text-danger">*</span>
                   )}
                 </span>
                 {documentos.length > 0 && (
@@ -173,7 +173,7 @@ function PostulacionCard({
                       const docId = e.target.value || null;
                       onDocumentoLink(postulacion.id, item.id, item.completado, docId);
                     }}
-                    className="ml-2 text-xs border border-gray-200 rounded-lg px-1.5 py-0.5 text-gray-600 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 max-w-[140px]"
+                    className="ml-2 text-xs border border-border rounded-lg px-1.5 py-0.5 text-muted bg-surface focus:outline-none focus:ring-1 focus:ring-primary max-w-[140px]"
                     title="Vincular documento"
                   >
                     <option value="">Doc...</option>

@@ -447,13 +447,13 @@ export default function OrderDetailPage({ params }: PageParams) {
 
           {/* BI: Price Benchmark */}
           <div className="mt-6">
-            <h2 className="text-base font-semibold text-gray-800 mb-3">Análisis de Mercado</h2>
+            <h2 className="text-base font-semibold text-text mb-3">Análisis de Mercado</h2>
             {biLoading && (
-              <div className="animate-pulse bg-gray-100 rounded-xl h-32" />
+              <div className="animate-pulse bg-border rounded-xl h-32" />
             )}
             {!biLoading && biPrecio && (
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Benchmarking de Precios</h3>
+              <div className="bg-surface rounded-2xl border border-border shadow-sm p-5">
+                <h3 className="text-sm font-semibold text-text mb-3">Benchmarking de Precios</h3>
                 <div className="grid grid-cols-5 gap-2 text-center mb-3">
                   {[
                     { label: 'P10', value: biPrecio.p10 },
@@ -462,9 +462,9 @@ export default function OrderDetailPage({ params }: PageParams) {
                     { label: 'P75', value: biPrecio.p75 },
                     { label: 'P90', value: biPrecio.p90 },
                   ].map(({ label, value }) => (
-                    <div key={label} className="bg-gray-50 rounded-lg py-2 px-1">
-                      <p className="text-xs text-gray-500">{label}</p>
-                      <p className="text-sm font-bold text-gray-800">
+                    <div key={label} className="bg-background rounded-lg py-2 px-1">
+                      <p className="text-xs text-muted">{label}</p>
+                      <p className="text-sm font-bold text-text">
                         {new Intl.NumberFormat('es-CL', {
                           style: 'currency', currency: 'CLP', maximumFractionDigits: 0,
                         }).format(value)}
@@ -472,24 +472,24 @@ export default function OrderDetailPage({ params }: PageParams) {
                     </div>
                   ))}
                 </div>
-                <div className="flex justify-between text-xs text-gray-500">
+                <div className="flex justify-between text-xs text-muted">
                   <span>{biPrecio.n_obs} transacciones comparables</span>
                   <span className={`font-medium ${
-                    biPrecio.confianza === 'alta' ? 'text-green-600'
-                      : biPrecio.confianza === 'media' ? 'text-amber-600'
-                      : 'text-gray-500'
+                    biPrecio.confianza === 'alta' ? 'text-accent'
+                      : biPrecio.confianza === 'media' ? 'text-gold'
+                      : 'text-muted'
                   }`}>
                     Confianza: {biPrecio.confianza}
                   </span>
                 </div>
                 {orderData?.monto_total && biPrecio.p50 > 0 && (
-                  <div className="mt-3 pt-3 border-t border-gray-100">
-                    <p className="text-xs text-gray-600">
+                  <div className="mt-3 pt-3 border-t border-border">
+                    <p className="text-xs text-muted">
                       Este monto ({new Intl.NumberFormat('es-CL', {
                         style: 'currency', currency: 'CLP', maximumFractionDigits: 0,
                       }).format(orderData.monto_total)}) está{' '}
                       <span className={`font-semibold ${
-                        orderData.monto_total <= biPrecio.p50 ? 'text-green-600' : orderData.monto_total <= biPrecio.p75 ? 'text-amber-600' : 'text-red-600'
+                        orderData.monto_total <= biPrecio.p50 ? 'text-accent' : orderData.monto_total <= biPrecio.p75 ? 'text-gold' : 'text-danger'
                       }`}>
                         {orderData.monto_total <= biPrecio.p25
                           ? 'por debajo del P25 — precio muy competitivo'
@@ -505,7 +505,7 @@ export default function OrderDetailPage({ params }: PageParams) {
               </div>
             )}
             {!biLoading && !biPrecio && (
-              <p className="text-sm text-gray-400 italic bg-gray-50 rounded-xl px-4 py-3">
+              <p className="text-sm text-muted italic bg-background rounded-xl px-4 py-3">
                 Benchmark de precios no disponible para esta orden.
               </p>
             )}
