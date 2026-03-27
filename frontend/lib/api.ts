@@ -145,6 +145,15 @@ class ApiClient {
     return res.data;
   }
 
+  async updateAlertPreference(prefId: number, data: Record<string, unknown>) {
+    const res = await this.client.put(`/api/alerts/preferences/${prefId}`, data);
+    return res.data;
+  }
+
+  async deleteAlertPreference(prefId: number) {
+    await this.client.delete(`/api/alerts/preferences/${prefId}`);
+  }
+
   async sendTestAlert() {
     const res = await this.client.post('/api/alerts/test');
     return res.data;
@@ -164,6 +173,11 @@ class ApiClient {
 
   async updateEmpresa(empresaId: string, data: Record<string, unknown>) {
     const res = await this.client.put(`/api/empresas/${empresaId}`, data);
+    return res.data;
+  }
+
+  async getEstadoHabil(empresaId: string) {
+    const res = await this.client.get(`/api/empresas/${empresaId}/estado-habil`);
     return res.data;
   }
 
