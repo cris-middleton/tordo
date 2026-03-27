@@ -231,11 +231,16 @@ class ApiClient {
     return res.data;
   }
 
-  async toggleChecklistItem(postulacionId: string, itemId: string, completed: boolean) {
+  async toggleChecklistItem(postulacionId: string, itemId: string, completed: boolean, documentoId?: string) {
     const res = await this.client.put(
       `/api/postulaciones/${postulacionId}/checklist/${itemId}`,
-      { completado: completed },
+      { completado: completed, ...(documentoId !== undefined ? { documento_id: documentoId } : {}) },
     );
+    return res.data;
+  }
+
+  async createPostulacion(data: { empresa_id: string; licitacion_id: number | string; notas?: string }) {
+    const res = await this.client.post('/api/postulaciones', data);
     return res.data;
   }
 

@@ -23,6 +23,7 @@ interface ChecklistItem {
   completado: boolean;
   es_obligatorio: boolean;
   orden: number;
+  documento_id: string | null;
 }
 
 interface Postulacion {
@@ -51,12 +52,22 @@ const ESTADO_CONFIG: Record<string, { label: string; color: string; icon: React.
   descartada: { label: 'Descartada', color: 'text-muted border-border bg-surface', icon: XCircle },
 };
 
+interface DocumentoRef {
+  id: string;
+  nombre_archivo: string;
+  tipo_documento: string;
+}
+
 function PostulacionCard({
   postulacion,
   onChecklistToggle,
+  documentos,
+  onDocumentoLink,
 }: {
   postulacion: Postulacion;
   onChecklistToggle: (postulacionId: string, itemId: string, currentCompleted: boolean) => void;
+  documentos: DocumentoRef[];
+  onDocumentoLink: (postulacionId: string, itemId: string, completado: boolean, documentoId: string | null) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const config = ESTADO_CONFIG[postulacion.estado] || ESTADO_CONFIG.en_seguimiento;
@@ -154,6 +165,25 @@ function PostulacionCard({
                     <span className="ml-1 text-xs text-red-500">*</span>
                   )}
                 </span>
+                {documentos.length > 0 && (
+                  <select
+                    value={item.documento_id ?? ''}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => {
+                      const docId = e.target.value || null;
+                      onDocumentoLink(postulacion.id, item.id, item.completado, docId);
+                    }}
+                    className="ml-2 text-xs border border-gray-200 rounded-lg px-1.5 py-0.5 text-gray-600 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 max-w-[140px]"
+                    title="Vincular documento"
+                  >
+                    <option value="">Doc...</option>
+                    {documentos.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.nombre_archivo?.length > 20 ? d.nombre_archivo.slice(0, 20) + '...' : d.nombre_archivo}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </li>
             ))}
           <p className="text-xs text-muted pl-6">* Obligatorio</p>
@@ -170,13 +200,17 @@ export default function PostulacionesPage() {
   const [postulaciones, setPostulaciones] = useState<Postulacion[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtroEstado, setFiltroEstado] = useState('');
+  const [documentos, setDocumentos] = useState<DocumentoRef[]>([]);
 
   useEffect(() => {
     loadEmpresas();
   }, []);
 
   useEffect(() => {
-    if (empresaId) loadPostulaciones();
+    if (empresaId) {
+      loadPostulaciones();
+      loadDocumentos();
+    }
   }, [empresaId, filtroEstado]);
 
   const loadEmpresas = async () => {
@@ -201,6 +235,42 @@ export default function PostulacionesPage() {
       setPostulaciones([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadDocumentos = async () => {
+    try {
+      const data = await apiClient.getDocumentos(empresaId);
+      const docs: DocumentoRef[] = (Array.isArray(data) ? data : data.items || []).map(
+        (d: { id: string; nombre_archivo: string; tipo_documento: string }) => ({
+          id: d.id,
+          nombre_archivo: d.nombre_archivo,
+          tipo_documento: d.tipo_documento,
+        }),
+      );
+      setDocumentos(docs);
+    } catch {
+      setDocumentos([]);
+    }
+  };
+
+  const handleDocumentoLink = async (postulacionId: string, itemId: string, completado: boolean, documentoId: string | null) => {
+    try {
+      await apiClient.toggleChecklistItem(postulacionId, itemId, completado, documentoId ?? undefined);
+      setPostulaciones((prev) =>
+        prev.map((p) =>
+          p.id === postulacionId
+            ? {
+                ...p,
+                checklist: p.checklist.map((c) =>
+                  c.id === itemId ? { ...c, documento_id: documentoId } : c,
+                ),
+              }
+            : p,
+        ),
+      );
+    } catch {
+      // ignore
     }
   };
 
