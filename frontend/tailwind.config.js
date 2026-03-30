@@ -8,52 +8,41 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Obsidian — sole brand accent for interactive/success elements
-        primary: '#00C896',
-        primaryDark: '#009B77',
-        primaryLight: '#33DBA8',
-
-        // Alias — same as primary in Obsidian theme
-        accent: '#00C896',
-        accentDark: '#009B77',
-        accentLight: '#061915', // dark green tint for backgrounds
-
-        // Gold — premium/Pro features
-        gold: '#F59E0B',
-        goldLight: '#1C1505', // dark amber tint
-
-        // Semantic — Obsidian dark palette
-        text: '#E2E8F0',        // slate-200
-        muted: '#94A3B8',       // slate-400
-        subtle: '#64748B',      // slate-500 — better contrast on dark bg
-        background: '#0A0C10',          // deep dark
-        surface: '#0F1117',             // card surface
-        'surface-elevated': '#161B26',  // modal / dropdown surface
-        border: '#1A1F2C',              // subtle border
-        borderLight: '#1F2537',         // slightly lighter border
-
-        // Informational blue — distinct from accent green (KPI cards, charts, info badges)
-        info: '#4A8FE7',
-        infoLight: '#071427',
-
-        // State colors — calibrated for dark backgrounds
-        danger: '#F85149',
-        dangerLight: '#1A0505',
-        warning: '#F97316',
-        warningLight: '#1C0E05',
-        success: '#00C896',
-        successLight: '#061915',
+        primary: 'rgb(var(--color-primary) / <alpha-value>)',
+        primaryDark: 'rgb(var(--color-primary-dark) / <alpha-value>)',
+        primaryLight: 'rgb(var(--color-primary-light) / <alpha-value>)',
+        accent: 'rgb(var(--color-accent) / <alpha-value>)',
+        accentDark: 'rgb(var(--color-accent-dark) / <alpha-value>)',
+        accentLight: 'rgb(var(--color-accent-light) / <alpha-value>)',
+        gold: 'rgb(var(--color-gold) / <alpha-value>)',
+        goldLight: 'rgb(var(--color-gold-light) / <alpha-value>)',
+        text: 'rgb(var(--color-text) / <alpha-value>)',
+        muted: 'rgb(var(--color-muted) / <alpha-value>)',
+        subtle: 'rgb(var(--color-subtle) / <alpha-value>)',
+        background: 'rgb(var(--color-background) / <alpha-value>)',
+        surface: 'rgb(var(--color-surface) / <alpha-value>)',
+        'surface-elevated': 'rgb(var(--color-surface-elevated) / <alpha-value>)',
+        border: 'rgb(var(--color-border) / <alpha-value>)',
+        borderLight: 'rgb(var(--color-border-light) / <alpha-value>)',
+        info: 'rgb(var(--color-info) / <alpha-value>)',
+        infoLight: 'rgb(var(--color-info-light) / <alpha-value>)',
+        danger: 'rgb(var(--color-danger) / <alpha-value>)',
+        dangerLight: 'rgb(var(--color-danger-light) / <alpha-value>)',
+        warning: 'rgb(var(--color-warning) / <alpha-value>)',
+        warningLight: 'rgb(var(--color-warning-light) / <alpha-value>)',
+        success: 'rgb(var(--color-success) / <alpha-value>)',
+        successLight: 'rgb(var(--color-success-light) / <alpha-value>)',
       },
       fontFamily: {
         sans: ['var(--font-dm-sans)', 'system-ui', 'sans-serif'],
         display: ['var(--font-outfit)', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
-        card: '0 1px 4px 0 rgba(0, 0, 0, 0.4), 0 1px 2px -1px rgba(0, 0, 0, 0.3)',
-        'card-md': '0 4px 16px 0 rgba(0, 0, 0, 0.5), 0 2px 6px -2px rgba(0, 0, 0, 0.3)',
-        'card-lg': '0 8px 28px 0 rgba(0, 0, 0, 0.6), 0 4px 10px -4px rgba(0, 0, 0, 0.4)',
-        sidebar: '2px 0 24px 0 rgba(0, 0, 0, 0.5)',
-        'nav-active': 'inset 3px 0 0 #00C896',
+        card: 'var(--shadow-card)',
+        'card-md': 'var(--shadow-card-md)',
+        'card-lg': 'var(--shadow-card-lg)',
+        sidebar: 'var(--shadow-sidebar)',
+        'nav-active': 'inset 3px 0 0 rgb(var(--color-primary))',
       },
       animation: {
         'fade-in': 'fadeIn 0.4s ease-out both',
