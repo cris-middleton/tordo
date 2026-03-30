@@ -14,29 +14,51 @@ import {
   X,
   BarChart3,
   Star,
-  FolderOpen,
   ClipboardList,
-  CreditCard,
   ChevronRight,
-  Calendar,
   Users,
+  ShoppingCart,
 } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
-const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Licitaciones', href: '/dashboard/tenders', icon: FileText },
-  { name: 'Postulaciones', href: '/dashboard/postulaciones', icon: ClipboardList },
-  { name: 'Calendario', href: '/dashboard/calendario', icon: Calendar },
-  { name: 'Documentos', href: '/dashboard/documentos', icon: FolderOpen },
-  { name: 'Mi Empresa', href: '/dashboard/empresa', icon: Users },
-  { name: 'Inteligencia BI', href: '/dashboard/bi', icon: BarChart3, badge: 'Pro' },
-  { name: 'Alertas', href: '/dashboard/alerts', icon: Bell },
-  { name: 'Facturación', href: '/dashboard/billing', icon: CreditCard },
-  { name: 'Configuración', href: '/dashboard/settings', icon: Settings },
+interface NavItem {
+  name: string;
+  href: string;
+  icon: React.ElementType;
+  badge?: string;
+}
+
+interface NavSection {
+  label: string;
+  items: NavItem[];
+}
+
+const navSections: NavSection[] = [
+  {
+    label: 'Operaciones',
+    items: [
+      { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+      { name: 'Licitaciones', href: '/dashboard/tenders', icon: FileText },
+      { name: 'Órdenes de compra', href: '/dashboard/orders', icon: ShoppingCart },
+      { name: 'Postulaciones', href: '/dashboard/postulaciones', icon: ClipboardList },
+    ],
+  },
+  {
+    label: 'Análisis',
+    items: [
+      { name: 'Inteligencia BI', href: '/dashboard/bi', icon: BarChart3, badge: 'Pro' },
+    ],
+  },
+  {
+    label: 'Cuenta',
+    items: [
+      { name: 'Mi Empresa', href: '/dashboard/empresa', icon: Users },
+      { name: 'Configuración', href: '/dashboard/settings', icon: Settings },
+    ],
+  },
 ];
 
 export default function Layout({ children }: LayoutProps) {
@@ -58,7 +80,8 @@ export default function Layout({ children }: LayoutProps) {
     setSidebarOpen(false);
   };
 
-  const currentPage = navigation.find((n) => isActive(n.href))?.name ?? 'Dashboard';
+  const allNavItems = navSections.flatMap((s) => s.items);
+  const currentPage = allNavItems.find((n) => isActive(n.href))?.name ?? 'Dashboard';
 
   const initials = user?.full_name
     ? user.full_name.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()
@@ -80,7 +103,7 @@ export default function Layout({ children }: LayoutProps) {
         className={`fixed top-0 left-0 z-50 flex h-full w-64 flex-col border-r border-border shadow-sidebar transition-transform duration-300 ease-in-out lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
-        style={{ background: 'linear-gradient(180deg, #0D1420 0%, #0A0C10 35%)' }}
+        style={{ background: 'linear-gradient(180deg, var(--color-sidebar-from) 0%, var(--color-sidebar-to) 35%)' }}
       >
         {/* Logo */}
         <div className="flex items-center justify-between px-5 py-5 border-b border-borderLight">
@@ -124,45 +147,51 @@ export default function Layout({ children }: LayoutProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5 scrollbar-thin">
-          <p className="px-3 mb-2 text-[10px] font-bold tracking-widest text-subtle uppercase">
-            Menú principal
-          </p>
-          {navigation.map((item, idx) => {
-            const Icon = item.icon;
-            const active = isActive(item.href);
-            return (
-              <button
-                key={item.name}
-                onClick={() => navigate(item.href)}
-                style={{ animationDelay: `${idx * 40}ms` }}
-                className={`group flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-150 animate-slide-in-left ${
-                  active
-                    ? 'bg-primary/8 text-primary font-semibold shadow-[inset_3px_0_0_#00C896]'
-                    : 'text-muted font-medium hover:bg-primary/6 hover:text-primary'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Icon
-                    className={`shrink-0 transition-colors ${
-                      active ? 'text-primary' : 'text-subtle group-hover:text-primary'
-                    }`}
-                    strokeWidth={active ? 2.5 : 2}
-                    size={17}
-                  />
-                  <span>{item.name}</span>
-                </div>
-                {item.badge ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-gold px-1.5 py-0.5 text-[10px] font-bold text-white">
-                    <Star size={9} />
-                    {item.badge}
-                  </span>
-                ) : active ? (
-                  <ChevronRight className="h-3.5 w-3.5 text-primary/50" />
-                ) : null}
-              </button>
-            );
-          })}
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-4 scrollbar-thin">
+          {navSections.map((section, sIdx) => (
+            <div key={section.label}>
+              <p className="px-3 mb-2 text-[10px] font-bold tracking-widest text-subtle uppercase">
+                {section.label}
+              </p>
+              <div className="space-y-0.5">
+                {section.items.map((item, idx) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.href);
+                  return (
+                    <button
+                      key={item.name}
+                      onClick={() => navigate(item.href)}
+                      style={{ animationDelay: `${(sIdx * 3 + idx) * 40}ms` }}
+                      className={`group flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-150 animate-slide-in-left ${
+                        active
+                          ? 'bg-primary/8 text-primary font-semibold shadow-nav-active'
+                          : 'text-muted font-medium hover:bg-primary/6 hover:text-primary'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Icon
+                          className={`shrink-0 transition-colors ${
+                            active ? 'text-primary' : 'text-subtle group-hover:text-primary'
+                          }`}
+                          strokeWidth={active ? 2.5 : 2}
+                          size={17}
+                        />
+                        <span>{item.name}</span>
+                      </div>
+                      {item.badge ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-gold px-1.5 py-0.5 text-[10px] font-bold text-white">
+                          <Star size={9} />
+                          {item.badge}
+                        </span>
+                      ) : active ? (
+                        <ChevronRight className="h-3.5 w-3.5 text-primary/50" />
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
         {/* User section */}
@@ -205,7 +234,7 @@ export default function Layout({ children }: LayoutProps) {
       <div className="lg:pl-64 min-h-screen flex flex-col">
         {/* Top bar — command center header with live status indicator */}
         <header className="sticky top-0 z-30 border-b border-border backdrop-blur-md"
-          style={{ background: 'rgba(10, 12, 16, 0.92)' }}
+          style={{ background: 'var(--color-header-bg)' }}
         >
           <div className="flex h-14 items-center gap-4 px-4 sm:px-6 lg:px-8">
             <button
