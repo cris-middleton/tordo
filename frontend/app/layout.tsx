@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Outfit, DM_Sans } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { ThemeProvider } from 'next-themes';
 
 const outfit = Outfit({
   subsets: ['latin'],
@@ -25,6 +26,14 @@ export const metadata: Metadata = {
     template: `%s · ${APP_NAME}`,
   },
   description: `${APP_NAME} — Inteligencia pre-postulación y cumplimiento para proveedores del Estado en Chile`,
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.ico', sizes: '32x32' },
+    ],
+    shortcut: '/icon.svg',
+    apple: '/apple-icon.png',
+  },
 };
 
 export default function RootLayout({
@@ -33,9 +42,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es" className={`${outfit.variable} ${dmSans.variable}`}>
+    <html lang="es" className={`${outfit.variable} ${dmSans.variable}`} suppressHydrationWarning>
       <body className="font-sans bg-background text-text">
-        <AuthProvider>{children}</AuthProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          themes={['dark', 'light']}
+          disableTransitionOnChange={false}
+        >
+          <AuthProvider>{children}</AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
