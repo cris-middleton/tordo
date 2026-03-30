@@ -2,6 +2,99 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ══════════════════════════════════════════════
+   THEME: CSS Custom Properties
+   Dark = default (Obsidian). Light = alternative.
+   next-themes adds class="dark" or class="light" on <html>.
+   ══════════════════════════════════════════════ */
+
+:root {
+  /* Tailwind colors — RGB channels for opacity modifier support */
+  --color-primary: 0 200 150;         /* #00C896 */
+  --color-primary-dark: 0 155 119;    /* #009B77 */
+  --color-primary-light: 51 219 168;  /* #33DBA8 */
+  --color-accent: 0 200 150;          /* #00C896 */
+  --color-accent-dark: 0 155 119;     /* #009B77 */
+  --color-accent-light: 6 25 21;      /* #061915 */
+  --color-gold: 245 158 11;           /* #F59E0B */
+  --color-gold-light: 28 21 5;        /* #1C1505 */
+  --color-text: 226 232 240;          /* #E2E8F0 */
+  --color-muted: 148 163 184;         /* #94A3B8 */
+  --color-subtle: 100 116 139;        /* #64748B */
+  --color-background: 10 12 16;       /* #0A0C10 */
+  --color-surface: 15 17 23;          /* #0F1117 */
+  --color-surface-elevated: 22 27 38; /* #161B26 */
+  --color-border: 26 31 44;           /* #1A1F2C */
+  --color-border-light: 31 37 55;     /* #1F2537 */
+  --color-info: 74 143 231;           /* #4A8FE7 */
+  --color-info-light: 7 20 39;        /* #071427 */
+  --color-danger: 248 81 73;          /* #F85149 */
+  --color-danger-light: 26 5 5;       /* #1A0505 */
+  --color-warning: 249 115 22;        /* #F97316 */
+  --color-warning-light: 28 14 5;     /* #1C0E05 */
+  --color-success: 0 200 150;         /* #00C896 */
+  --color-success-light: 6 25 21;     /* #061915 */
+
+  /* Utility colors — full values (used in inline styles, not Tailwind opacity modifiers) */
+  --color-sidebar-from: #0D1420;
+  --color-sidebar-to: #0A0C10;
+  --color-glass-bg: rgba(10, 12, 16, 0.85);
+  --color-header-bg: rgba(10, 12, 16, 0.92);
+  --color-scrollbar: #1A1F2C;
+  --color-scrollbar-hover: #1F2537;
+  --color-border-hex: #1A1F2C;
+  --color-surface-elevated-hex: #161B26;
+  --color-text-hex: #E2E8F0;
+
+  /* Shadows */
+  --shadow-card: 0 1px 4px 0 rgba(0,0,0,0.4), 0 1px 2px -1px rgba(0,0,0,0.3);
+  --shadow-card-md: 0 4px 16px 0 rgba(0,0,0,0.5), 0 2px 6px -2px rgba(0,0,0,0.3);
+  --shadow-card-lg: 0 8px 28px 0 rgba(0,0,0,0.6), 0 4px 10px -4px rgba(0,0,0,0.4);
+  --shadow-sidebar: 2px 0 24px 0 rgba(0,0,0,0.5);
+}
+
+.light {
+  --color-primary: 0 168 122;         /* #00A87A */
+  --color-primary-dark: 0 140 102;    /* #008C66 */
+  --color-primary-light: 230 249 243; /* #E6F9F3 */
+  --color-accent: 0 168 122;          /* #00A87A */
+  --color-accent-dark: 0 140 102;     /* #008C66 */
+  --color-accent-light: 230 249 243;  /* #E6F9F3 */
+  --color-gold: 217 119 6;            /* #D97706 */
+  --color-gold-light: 254 243 199;    /* #FEF3C7 */
+  --color-text: 15 23 42;             /* #0F172A */
+  --color-muted: 100 116 139;         /* #64748B */
+  --color-subtle: 148 163 184;        /* #94A3B8 */
+  --color-background: 248 250 252;    /* #F8FAFC */
+  --color-surface: 255 255 255;       /* #FFFFFF */
+  --color-surface-elevated: 241 245 249; /* #F1F5F9 */
+  --color-border: 226 232 240;        /* #E2E8F0 */
+  --color-border-light: 203 213 225;  /* #CBD5E1 */
+  --color-info: 59 130 246;           /* #3B82F6 */
+  --color-info-light: 239 246 255;    /* #EFF6FF */
+  --color-danger: 239 68 68;          /* #EF4444 */
+  --color-danger-light: 254 242 242;  /* #FEF2F2 */
+  --color-warning: 249 115 22;        /* #F97316 */
+  --color-warning-light: 255 247 237; /* #FFF7ED */
+  --color-success: 0 168 122;         /* #00A87A */
+  --color-success-light: 230 249 243; /* #E6F9F3 */
+
+  --color-sidebar-from: #F1F5F9;
+  --color-sidebar-to: #FFFFFF;
+  --color-glass-bg: rgba(255, 255, 255, 0.88);
+  --color-header-bg: rgba(255, 255, 255, 0.92);
+  --color-scrollbar: #CBD5E1;
+  --color-scrollbar-hover: #94A3B8;
+  --color-border-hex: #E2E8F0;
+  --color-surface-elevated-hex: #F1F5F9;
+  --color-text-hex: #0F172A;
+
+  --shadow-card: 0 1px 3px 0 rgba(0,0,0,0.06), 0 1px 2px -1px rgba(0,0,0,0.04);
+  --shadow-card-md: 0 4px 12px 0 rgba(0,0,0,0.08), 0 2px 4px -2px rgba(0,0,0,0.04);
+  --shadow-card-lg: 0 8px 24px 0 rgba(0,0,0,0.1), 0 4px 8px -4px rgba(0,0,0,0.06);
+  --shadow-sidebar: 2px 0 16px 0 rgba(0,0,0,0.06);
+}
+
 @layer base {
   :root {
     --nav-width: 256px;
@@ -66,6 +159,15 @@
   .input-field {
     @apply w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-text placeholder-subtle shadow-sm transition-all duration-200 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:bg-background disabled:opacity-70;
     font-family: var(--font-dm-sans);
+  }
+
+  select.input-field {
+    @apply bg-background;
+  }
+
+  select.input-field option {
+    background-color: var(--color-surface-elevated-hex);
+    color: var(--color-text-hex);
   }
 
   .label {
@@ -240,7 +342,7 @@
   ────────────────────────────────────────────── */
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: #1A1F2C transparent;
+    scrollbar-color: var(--color-scrollbar) transparent;
   }
 
   .scrollbar-thin::-webkit-scrollbar {
@@ -252,18 +354,36 @@
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: #1A1F2C;
+    background: var(--color-scrollbar);
     border-radius: 2px;
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: #1F2537;
+    background: var(--color-scrollbar-hover);
   }
+}
+
+@keyframes float {
+  0%, 100% { transform: perspective(1200px) rotateY(-5deg) rotateX(2deg) translateY(0); }
+  50% { transform: perspective(1200px) rotateY(-5deg) rotateX(2deg) translateY(-8px); }
+}
+
+@keyframes pulse-green {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  /* Landing page animations */
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  .animate-pulse-green {
+    animation: pulse-green 2s ease-in-out infinite;
   }
 
   /* Subtle grid texture — adds depth without visual noise */
@@ -272,16 +392,23 @@
   }
 
   .bg-dots {
-    background-image: radial-gradient(circle, #1A1F2C 1px, transparent 1px);
+    background-image: radial-gradient(circle, var(--color-border-hex) 1px, transparent 1px);
     background-size: 20px 20px;
   }
-
 
   .glass {
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    background: rgba(10, 12, 16, 0.85);
+    background: var(--color-glass-bg);
     border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .light .glass {
+    border: 1px solid var(--color-border-hex);
+  }
+
+  .light .bg-grid {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Cpath d='M0 0h40v40H0z' fill='none'/%3E%3Cpath d='M0 40V0h1M40 40V0' stroke='%23E2E8F0' stroke-width='.5'/%3E%3C/svg%3E");
   }
 
   .text-gradient-brand {
