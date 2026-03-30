@@ -3,11 +3,14 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
-import { Save, Loader2, Mail, Bell, Webhook, Lock, Eye, EyeOff, MessageCircle, CreditCard, ExternalLink } from 'lucide-react';
+import { Save, Loader2, Mail, Bell, Webhook, Lock, Eye, EyeOff, MessageCircle, CreditCard, ExternalLink, Sun, Moon, Monitor } from 'lucide-react';
 import Link from 'next/link';
+import { useTheme } from 'next-themes';
 
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth();
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(
@@ -42,6 +45,10 @@ export default function SettingsPage() {
     text: string;
   } | null>(null);
   const [changingPassword, setChangingPassword] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -136,6 +143,62 @@ export default function SettingsPage() {
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold text-text mb-2">Configuración</h1>
         <p className="text-muted">Gestiona tu perfil y preferencias de notificaciones</p>
+      </div>
+
+      {/* Apariencia */}
+      <div className="card">
+        <h2 className="mb-1 text-lg font-semibold text-text" style={{ fontFamily: 'var(--font-outfit)' }}>
+          Apariencia
+        </h2>
+        <p className="mb-4 text-sm text-muted">
+          Elige el tema visual de la aplicación
+        </p>
+        {mounted ? (
+          <div className="grid grid-cols-3 gap-3">
+            <button
+              type="button"
+              onClick={() => setTheme('dark')}
+              className={`flex flex-col items-center gap-2 rounded-xl border p-4 transition-all ${
+                theme === 'dark'
+                  ? 'border-primary bg-primary/8 text-primary'
+                  : 'border-border bg-surface text-muted hover:border-primary/30 hover:text-text'
+              }`}
+            >
+              <Moon className="h-5 w-5" />
+              <span className="text-sm font-medium">Oscuro</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTheme('light')}
+              className={`flex flex-col items-center gap-2 rounded-xl border p-4 transition-all ${
+                theme === 'light'
+                  ? 'border-primary bg-primary/8 text-primary'
+                  : 'border-border bg-surface text-muted hover:border-primary/30 hover:text-text'
+              }`}
+            >
+              <Sun className="h-5 w-5" />
+              <span className="text-sm font-medium">Claro</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTheme('system')}
+              className={`flex flex-col items-center gap-2 rounded-xl border p-4 transition-all ${
+                theme === 'system'
+                  ? 'border-primary bg-primary/8 text-primary'
+                  : 'border-border bg-surface text-muted hover:border-primary/30 hover:text-text'
+              }`}
+            >
+              <Monitor className="h-5 w-5" />
+              <span className="text-sm font-medium">Sistema</span>
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-20 animate-pulse rounded-xl bg-surface border border-border" />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Plan section */}
