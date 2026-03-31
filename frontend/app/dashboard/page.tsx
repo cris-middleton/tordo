@@ -21,6 +21,7 @@ import {
   AlertTriangle,
   TrendingUp,
   ArrowRight,
+  Star,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -34,6 +35,10 @@ import {
   CartesianGrid,
   Tooltip,
 } from 'recharts';
+import { TopOpportunities } from '@/components/TopOpportunities';
+import { MiniTrendChart } from '@/components/MiniTrendChart';
+import { MiniActivityBars } from '@/components/MiniActivityBars';
+import { DataFreshnessBar } from '@/components/DataFreshnessBar';
 
 interface DashboardStats {
   licitaciones_activas: number;
@@ -96,6 +101,8 @@ export default function DashboardPage() {
     tiene_empresa: false,
   });
   const [loading, setLoading] = useState(true);
+  const [topScore, setTopScore] = useState<number | null>(null);
+  const [biLastUpdated, setBiLastUpdated] = useState<string | null>(null);
   const [estadoHabil, setEstadoHabil] = useState<{
     estado_habil: string
     rut_empresa: string
@@ -162,6 +169,16 @@ export default function DashboardPage() {
           .catch(() => {});
       }
     });
+
+    // TODO: migrar a React Query
+    apiClient.getBIOportunidades({ min_score: 0, limit: 1 })
+      .then((res: any) => {
+        if (res.disponible !== false && res.oportunidades?.length > 0) {
+          setTopScore(res.oportunidades[0].opportunity_score ?? null);
+        }
+        if (res.last_updated) setBiLastUpdated(res.last_updated);
+      })
+      .catch(() => {});
   }, []);
 
   if (loading) {
@@ -171,8 +188,8 @@ export default function DashboardPage() {
           <div className="h-8 w-52 bg-border rounded-lg" />
           <div className="h-4 w-40 bg-border/60 rounded-lg" />
         </div>
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {[...Array(4)].map((_, i) => (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+          {[...Array(5)].map((_, i) => (
             <div key={i} className="h-28 rounded-xl bg-surface border border-border shadow-card" />
           ))}
         </div>
@@ -187,6 +204,9 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* ── Data freshness warning ── */}
+      <DataFreshnessBar lastUpdated={biLastUpdated} />
+
       {/* Page header */}
       <div className="flex items-start justify-between">
         <div>
@@ -222,7 +242,7 @@ export default function DashboardPage() {
       )}
 
       {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         {kpiConfig.map((cfg, idx) => {
           const Icon = cfg.icon;
           const value = stats[cfg.key];
@@ -253,6 +273,26 @@ export default function DashboardPage() {
             </button>
           );
         })}
+
+        {/* 5th card: Mejor Score BI */}
+        <button
+          onClick={() => router.push('/dashboard/bi')}
+          style={{ animationDelay: '240ms' }}
+          className="kpi-card kpi-card-blue text-left group animate-slide-up w-full"
+        >
+          <div className="flex items-start justify-between mb-3">
+            <div className="rounded-lg p-2.5 bg-info/10 transition-transform group-hover:scale-110">
+              <Star size={18} className="text-info" strokeWidth={2} />
+            </div>
+            <ArrowRight size={14} className="text-subtle opacity-0 group-hover:opacity-100 transition-opacity mt-1" />
+          </div>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">
+            Mejor score BI
+          </p>
+          <p className="font-display text-3xl font-bold leading-none text-text">
+            {topScore != null ? topScore.toFixed(1) : '—'}
+          </p>
+        </button>
       </div>
 
       {/* ── Estado Hábil Banner ── */}
@@ -431,6 +471,15 @@ export default function DashboardPage() {
             </div>
           )}
         />
+      </div>
+
+      {/* ── Top BI Opportunities ── */}
+      <TopOpportunities />
+
+      {/* ── BI Mini Charts ── */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <MiniTrendChart />
+        <MiniActivityBars organismoId={null} />
       </div>
 
       {/* ── Charts ── */}
