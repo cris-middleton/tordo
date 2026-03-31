@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy import select, or_, func
+from sqlalchemy import select, or_, func, asc, desc
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
@@ -22,6 +22,8 @@ async def list_tenders(
     min_amount: Optional[float] = None,
     max_amount: Optional[float] = None,
     search: Optional[str] = None,
+    sort_by: Optional[str] = Query(None, pattern="^(fecha_publicacion|fecha_cierre|monto_estimado|nombre)$"),
+    sort_order: Optional[str] = Query("desc", pattern="^(asc|desc)$"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
@@ -37,15 +39,26 @@ async def list_tenders(
     if max_amount:
         stmt = stmt.where(Licitacion.monto_estimado <= max_amount)
     if search:
-        stmt = stmt.where(
-            or_(Licitacion.nombre.ilike(f"%{search}%"), Licitacion.descripcion.ilike(f"%{search}%"))
-        )
+        terms = [t.strip() for t in search.split() if t.strip()]
+        for term in terms:
+            stmt = stmt.where(
+                or_(Licitacion.nombre.ilike(f"%{term}%"), Licitacion.descripcion.ilike(f"%{term}%"))
+            )
 
     count_stmt = select(func.count()).select_from(stmt.subquery())
     total = (await db.execute(count_stmt)).scalar() or 0
 
+    sort_col_map = {
+        "fecha_publicacion": Licitacion.fecha_publicacion,
+        "fecha_cierre": Licitacion.fecha_cierre,
+        "monto_estimado": Licitacion.monto_estimado,
+        "nombre": Licitacion.nombre,
+    }
+    sort_col = sort_col_map.get(sort_by or "fecha_publicacion", Licitacion.fecha_publicacion)
+    order_fn = desc if sort_order == "desc" else asc
+
     items = (
-        await db.execute(stmt.order_by(Licitacion.fecha_publicacion.desc()).offset(skip).limit(limit))
+        await db.execute(stmt.order_by(order_fn(sort_col)).offset(skip).limit(limit))
     ).scalars().all()
 
     pages = (total + limit - 1) // limit if limit > 0 else 0

@@ -1,7 +1,7 @@
 """API endpoints for inspecting ETL data"""
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, inspect, select
+from sqlalchemy import func, inspect, select, or_, asc, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from typing import Optional, List, Dict, Any
@@ -109,29 +109,49 @@ async def get_ordenes_compra_structure():
 @router.get("/ordenes_compra")
 async def get_ordenes_compra(
     db: AsyncSession = Depends(get_db),
-    limit: Optional[int] = Query(None, ge=1, le=1000),
+    limit: Optional[int] = Query(20, ge=1, le=1000),
     offset: Optional[int] = Query(0, ge=0),
     codigo_oc: Optional[str] = Query(None),
     estado: Optional[str] = Query(None),
+    region: Optional[str] = Query(None),
     codigo_organismo: Optional[str] = Query(None),
     codigo_proveedor: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    sort_by: Optional[str] = Query(None),
+    sort_order: Optional[str] = Query("desc"),
 ):
     stmt = select(OrdenCompra).options(selectinload(OrdenCompra.detalle))
     if codigo_oc:
         stmt = stmt.where(OrdenCompra.codigo_oc == codigo_oc)
     if estado:
         stmt = stmt.where(OrdenCompra.estado == estado)
+    if region:
+        stmt = stmt.where(OrdenCompra.region == region)
     if codigo_organismo:
         stmt = stmt.where(OrdenCompra.codigo_organismo == codigo_organismo)
     if codigo_proveedor:
         stmt = stmt.where(OrdenCompra.codigo_proveedor == codigo_proveedor)
+    if search:
+        terms = [t.strip() for t in search.split() if t.strip()]
+        for term in terms:
+            stmt = stmt.where(
+                or_(
+                    OrdenCompra.nombre.ilike(f"%{term}%"),
+                    OrdenCompra.nombre_organismo.ilike(f"%{term}%"),
+                    OrdenCompra.nombre_proveedor.ilike(f"%{term}%"),
+                )
+            )
 
     total_count = (await db.execute(select(func.count()).select_from(stmt.subquery()))).scalar() or 0
 
-    if limit:
-        stmt = stmt.limit(limit)
-    if offset:
-        stmt = stmt.offset(offset)
+    sort_col_map = {
+        "fecha_publicacion": OrdenCompra.fecha_publicacion,
+        "monto_total": OrdenCompra.monto_total,
+        "nombre": OrdenCompra.nombre,
+    }
+    sort_col = sort_col_map.get(sort_by or "fecha_publicacion", OrdenCompra.fecha_publicacion)
+    order_fn = desc if sort_order == "desc" else asc
+    stmt = stmt.order_by(order_fn(sort_col)).offset(offset).limit(limit)
 
     records = (await db.execute(stmt)).scalars().all()
     return {"table": "ordenes_compra", "total_count": total_count, "returned_count": len(records), "limit": limit, "offset": offset, "data": [model_to_dict(r, OrdenCompra) for r in records]}

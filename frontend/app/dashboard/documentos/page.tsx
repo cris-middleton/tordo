@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/lib/api';
+import SelectField from '@/components/SelectField';
 import {
   Upload,
   FileText,
@@ -273,17 +274,12 @@ export default function DocumentosPage() {
       {empresas.length > 1 && (
         <div className="flex items-center gap-3">
           <label className="text-sm font-medium text-muted">Empresa:</label>
-          <select
+          <SelectField
             value={empresaId}
-            onChange={(e) => setEmpresaId(e.target.value)}
-            className="input-field max-w-xs"
-          >
-            {empresas.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.nombre_empresa} ({e.rut_empresa})
-              </option>
-            ))}
-          </select>
+            onChange={setEmpresaId}
+            options={empresas.map((e) => ({ value: e.id, label: `${e.nombre_empresa} (${e.rut_empresa})` }))}
+            className="max-w-xs"
+          />
         </div>
       )}
 
@@ -383,15 +379,11 @@ export default function DocumentosPage() {
 
             <div className="space-y-1">
               <label className="text-sm font-medium text-text">Tipo de documento</label>
-              <select
+              <SelectField
                 value={tipoDocumento}
-                onChange={(e) => setTipoDocumento(e.target.value)}
-                className="input-field"
-              >
-                {TIPOS_DOCUMENTO.map((t) => (
-                  <option key={t}>{t}</option>
-                ))}
-              </select>
+                onChange={setTipoDocumento}
+                options={TIPOS_DOCUMENTO.map((t) => ({ value: t, label: t }))}
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-3">

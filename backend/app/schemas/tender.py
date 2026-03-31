@@ -41,11 +41,11 @@ class LicitacionDetalleResponse(BaseModel):
     numero_actualizaciones: Optional[int] = None
     hash_contenido: Optional[str] = None
     datos_completos: Optional[Dict[str, Any]] = None
-    items: Optional[List[Dict[str, Any]]] = None
-    documentos: Optional[List[Dict[str, Any]]] = None
-    participantes: Optional[List[Dict[str, Any]]] = None
-    etapas: Optional[List[Dict[str, Any]]] = None
-    adjuntos: Optional[List[Dict[str, Any]]] = None
+    items: Optional[Any] = None
+    documentos: Optional[Any] = None
+    participantes: Optional[Any] = None
+    etapas: Optional[Any] = None
+    adjuntos: Optional[Any] = None
     estado_actual: Optional[str] = None
     fecha_cierre_real: Optional[datetime] = None
     fecha_adjudicacion: Optional[datetime] = None

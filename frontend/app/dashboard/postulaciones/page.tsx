@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
+import SelectField from '@/components/SelectField';
 import {
   ClipboardList,
   CheckCircle2,
@@ -319,30 +320,22 @@ export default function PostulacionesPage() {
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
         {empresas.length > 1 && (
-          <select
+          <SelectField
             value={empresaId}
-            onChange={(e) => setEmpresaId(e.target.value)}
-            className="input-field max-w-xs"
-          >
-            {empresas.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.nombre_empresa}
-              </option>
-            ))}
-          </select>
+            onChange={setEmpresaId}
+            options={empresas.map((e) => ({ value: String(e.id), label: e.nombre_empresa }))}
+            className="w-48"
+          />
         )}
-        <select
+        <SelectField
           value={filtroEstado}
-          onChange={(e) => setFiltroEstado(e.target.value)}
-          className="input-field max-w-xs"
-        >
-          <option value="">Todos los estados</option>
-          {Object.entries(ESTADO_CONFIG).map(([key, cfg]) => (
-            <option key={key} value={key}>
-              {cfg.label}
-            </option>
-          ))}
-        </select>
+          onChange={setFiltroEstado}
+          options={[
+            { value: '', label: 'Todos los estados' },
+            ...Object.entries(ESTADO_CONFIG).map(([key, cfg]) => ({ value: key, label: cfg.label })),
+          ]}
+          className="w-48"
+        />
       </div>
 
       {/* List */}

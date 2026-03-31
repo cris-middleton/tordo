@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api';
+import SelectField from '@/components/SelectField';
 import {
   BarChart3,
   Search,
@@ -463,17 +464,12 @@ export default function BIPage() {
         <div className="flex flex-wrap gap-3">
           <div className="flex items-center gap-2">
             <label className="text-sm text-muted shrink-0">Score mín.</label>
-            <select
+            <SelectField
               value={minScore}
-              onChange={(e) => setMinScore(e.target.value)}
-              className="input-field max-w-[100px]"
-            >
-              {['4', '5', '6', '7', '8', '9'].map((s) => (
-                <option key={s} value={s}>
-                  {s}+
-                </option>
-              ))}
-            </select>
+              onChange={setMinScore}
+              options={['4', '5', '6', '7', '8', '9'].map((s) => ({ value: s, label: `${s}+` }))}
+              className="w-24"
+            />
           </div>
           <input
             className="input-field flex-1 min-w-[180px]"

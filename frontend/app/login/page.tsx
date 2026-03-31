@@ -3,7 +3,7 @@
 import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { LogIn, Loader2, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { LogIn, Loader2, ArrowLeft, Eye, EyeOff, BarChart2, FileCheck, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { apiClient } from '@/lib/api';
@@ -65,7 +65,7 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen">
       {/* ── Left brand panel ── */}
-      <div className="hidden lg:flex lg:w-[46%] xl:w-[50%] flex-col justify-between bg-primary p-12 relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-[46%] xl:w-[50%] flex-col justify-between bg-[#0F2942] p-12 relative overflow-hidden">
         {/* Dot grid background */}
         <div
           className="absolute inset-0 opacity-[0.035]"
@@ -80,16 +80,6 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-16">
-            <div className="relative h-10 w-10">
-              <Image
-                src="/images/TORDO_logo_openwings.png"
-                alt="TORDO"
-                fill
-                sizes="40px"
-                className="object-contain brightness-0 invert"
-                priority
-              />
-            </div>
             <span className="font-display text-2xl font-bold text-white tracking-tight">TORDO</span>
           </div>
 
@@ -105,13 +95,13 @@ export default function LoginPage() {
         {/* Feature pills */}
         <div className="relative z-10 space-y-2.5">
           {[
-            { icon: '📊', text: 'Benchmarks de precios adjudicados — 78 campos/OC' },
-            { icon: '✅', text: 'Checklist guiado de documentos por tipo de licitación' },
-            { icon: '🔔', text: 'Monitor de estado hábil y alertas de plazos críticos' },
-          ].map((f) => (
-            <div key={f.text} className="flex items-start gap-3 rounded-xl bg-white/8 px-4 py-3">
-              <span className="text-base mt-0.5">{f.icon}</span>
-              <p className="text-sm text-white/75 font-medium leading-snug">{f.text}</p>
+            { Icon: BarChart2, text: 'Benchmarks de precios con análisis profundo por transacción' },
+            { Icon: FileCheck, text: 'Checklist guiado de documentos por tipo de licitación' },
+            { Icon: ShieldAlert, text: 'Monitor de estado hábil y alertas de plazos críticos' },
+          ].map(({ Icon, text }) => (
+            <div key={text} className="flex items-start gap-3 rounded-xl bg-white/[0.06] border border-white/[0.08] px-4 py-3">
+              <Icon className="h-4 w-4 text-[#0EAD69] shrink-0 mt-0.5" />
+              <p className="text-sm text-white/70 font-medium leading-snug">{text}</p>
             </div>
           ))}
           <p className="text-white/35 text-xs px-1 pt-1.5">

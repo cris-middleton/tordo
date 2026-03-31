@@ -3,7 +3,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiClient } from '@/lib/api'
-import { UserPlus, Trash2, Shield, Eye, Crown } from 'lucide-react'
+import { UserPlus, Trash2, Shield, Eye, Crown, FolderOpen } from 'lucide-react'
+import Link from 'next/link'
+import SelectField from '@/components/SelectField'
 
 interface Empresa {
   id: string
@@ -103,24 +105,28 @@ export default function EmpresaPage() {
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-semibold text-text mb-1">Mi Empresa</h1>
-      <p className="text-sm text-muted mb-6">Gestiona el equipo de tu empresa</p>
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-text mb-1">Mi Empresa</h1>
+          <p className="text-sm text-muted">Gestiona el equipo de tu empresa</p>
+        </div>
+        <Link
+          href="/dashboard/documentos"
+          className="btn-secondary gap-2 text-sm hidden sm:inline-flex"
+        >
+          <FolderOpen size={15} />
+          Documentos
+        </Link>
+      </div>
 
       {empresas.length > 1 && (
         <div className="mb-5">
           <label className="block text-xs font-medium text-muted mb-1">Empresa</label>
-          <select
+          <SelectField
             value={selected?.id ?? ''}
-            onChange={(e) => {
-              const found = empresas.find((em) => em.id === e.target.value) ?? null
-              setSelected(found)
-            }}
-            className="input-field w-full"
-          >
-            {empresas.map((em) => (
-              <option key={em.id} value={em.id}>{em.nombre_empresa}</option>
-            ))}
-          </select>
+            onChange={(v) => setSelected(empresas.find((em) => em.id === v) ?? null)}
+            options={empresas.map((em) => ({ value: em.id, label: em.nombre_empresa }))}
+          />
         </div>
       )}
 
@@ -240,14 +246,14 @@ export default function EmpresaPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-muted mb-1">Rol</label>
-                  <select
+                  <SelectField
                     value={inviteRol}
-                    onChange={(e) => setInviteRol(e.target.value as 'admin' | 'viewer')}
-                    className="input-field w-full"
-                  >
-                    <option value="viewer">Viewer — solo puede leer</option>
-                    <option value="admin">Admin — puede editar y añadir miembros</option>
-                  </select>
+                    onChange={(v) => setInviteRol(v as 'admin' | 'viewer')}
+                    options={[
+                      { value: 'viewer', label: 'Viewer — solo puede leer' },
+                      { value: 'admin', label: 'Admin — puede editar y añadir miembros' },
+                    ]}
+                  />
                 </div>
                 <button
                   type="submit"
