@@ -305,7 +305,7 @@ export function OpportunityScoreCard({
               </p>
               <a
                 href="/dashboard/billing"
-                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                className="btn-primary inline-flex items-center gap-1.5 text-sm"
               >
                 Disponible en plan Pro
               </a>
