@@ -81,3 +81,6 @@ temp/
 etl/data/
 
 .DS_Store
+
+# Git worktrees
+.worktrees/
