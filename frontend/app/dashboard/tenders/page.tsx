@@ -19,6 +19,7 @@ import {
   X,
   ArrowRight,
   TrendingUp,
+  AlertTriangle,
 } from 'lucide-react';
 
 const REGIONES_CHILE = [
@@ -89,6 +90,53 @@ interface Tender {
   detalle?: TenderDetalle;
 }
 
+interface BIPanel {
+  codigo_externo: string;
+  organismo_id?: string;
+  comprador: {
+    disponible: boolean;
+    buyer_score?: number | null;
+    mediana_dias_pago?: number | null;
+    tasa_adjudicacion?: number | null;
+    n_flags?: number;
+    transparencia?: { clasificacion?: string | null } | null;
+    motivo?: string | null;
+  };
+  ventana: {
+    disponible: boolean;
+    window_days?: number | null;
+    alerta_ventana_corta?: boolean | null;
+    presion_score?: number | null;
+    clasificacion_ventana?: string | null;
+    pct_del_tipico?: number | null;
+    motivo?: string | null;
+  };
+  competidores: {
+    disponible: boolean;
+    top5?: Array<{
+      NombreProveedor?: string | null;
+      market_share_pct?: number | null;
+      n_oc?: number | null;
+      n_proveedores?: number | null;
+    }> | null;
+    hhi?: number | null;
+    tipo_mercado?: string | null;
+    motivo?: string | null;
+  };
+  precios: Array<{
+    disponible: boolean;
+    codigo_producto?: string | null;
+    nivel_usado?: string | null;
+    fallback?: boolean;
+    p25?: number | null;
+    p50?: number | null;
+    p75?: number | null;
+    confianza?: string | null;
+    n?: number | null;
+  }>;
+  postulacion_id?: string | null;
+}
+
 export default function TendersPage() {
   const [tenders, setTenders] = useState<Tender[]>([]);
   const [loading, setLoading] = useState(false);
@@ -110,7 +158,38 @@ export default function TendersPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const [selectedTender, setSelectedTender] = useState<Tender | null>(null);
+  const [biPanel, setBiPanel] = useState<BIPanel | null>(null);
+  const [biLoading, setBiLoading] = useState(false);
+  const [biError, setBiError] = useState(false);
+  const [firstEmpresaId, setFirstEmpresaId] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<'filtros' | 'lista' | 'detalle'>('lista');
+
+  // Load empresa ID once for BI calls
+  useEffect(() => {
+    // TODO: migrar a React Query
+    apiClient.getEmpresas().then((empresas: any[]) => {
+      if (empresas?.[0]?.id) setFirstEmpresaId(empresas[0].id);
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!selectedTender) {
+      setBiPanel(null);
+      setBiError(false);
+      return;
+    }
+    let active = true;
+    setBiLoading(true);
+    setBiError(false);
+    setBiPanel(null);
+    // TODO: migrar a React Query
+    apiClient
+      .getBIPanel(selectedTender.codigo_externo, firstEmpresaId ?? undefined)
+      .then((data: any) => { if (active) setBiPanel(data); })
+      .catch(() => { if (active) setBiError(true); })
+      .finally(() => { if (active) setBiLoading(false); });
+    return () => { active = false; };
+  }, [selectedTender, firstEmpresaId]);
 
   const loadTenders = useCallback(async () => {
     setLoading(true);
@@ -567,24 +646,121 @@ export default function TendersPage() {
         <aside className={`w-[360px] shrink-0 ${mobileTab !== 'detalle' ? 'hidden lg:block' : 'block w-full lg:w-[360px]'}`}>
           {selectedTender ? (
             <div className="card space-y-3">
+              {/* Header */}
               <div className="flex items-start justify-between gap-2">
-                <p className="text-sm font-semibold text-text line-clamp-2">{selectedTender.nombre}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-text line-clamp-2 leading-snug">
+                    {normalizeText(selectedTender.nombre)}
+                  </p>
+                  <p className="text-xs text-muted mt-0.5 truncate">
+                    {selectedTender.nombre_organismo ?? selectedTender.codigo_externo}
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={() => setSelectedTender(null)}
-                  className="shrink-0 text-muted hover:text-text"
+                  className="shrink-0 rounded p-0.5 text-muted hover:text-text transition-colors"
                 >
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              <p className="text-xs text-muted">{selectedTender.nombre_organismo}</p>
-              {/* BI panel will be added in the next task */}
-              <p className="text-xs text-subtle italic">Cargando análisis BI…</p>
+
+              {/* BI loading */}
+              {biLoading && (
+                <div className="animate-pulse space-y-2 py-2">
+                  <div className="h-16 rounded-lg bg-border" />
+                  <div className="h-12 rounded-lg bg-border" />
+                  <div className="h-12 rounded-lg bg-border" />
+                </div>
+              )}
+
+              {/* BI error */}
+              {!biLoading && biError && (
+                <p className="text-xs text-muted italic">Análisis BI no disponible para esta licitación.</p>
+              )}
+
+              {/* BI data */}
+              {!biLoading && !biError && biPanel && (
+                <div className="space-y-3">
+                  {/* Comprador */}
+                  <div className="rounded-lg border border-border bg-background px-3 py-2 space-y-1">
+                    <p className="text-[10px] font-semibold text-muted uppercase tracking-wide">Comprador</p>
+                    {biPanel.comprador.disponible ? (
+                      <>
+                        {biPanel.comprador.buyer_score != null && (
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-muted">Score comprador</span>
+                            <span className="font-semibold text-text">{biPanel.comprador.buyer_score.toFixed(1)}/10</span>
+                          </div>
+                        )}
+                        {biPanel.comprador.mediana_dias_pago != null && (
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-muted">Pago mediano</span>
+                            <span className="text-text">{Math.round(biPanel.comprador.mediana_dias_pago)} días</span>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-xs text-muted">Sin datos del comprador</p>
+                    )}
+                  </div>
+
+                  {/* Price reference */}
+                  {biPanel.precios.length > 0 && biPanel.precios[0].disponible && biPanel.precios[0].p50 != null && (
+                    <div className="rounded-lg border border-border bg-background px-3 py-2 space-y-1">
+                      <p className="text-[10px] font-semibold text-muted uppercase tracking-wide">Precio de referencia</p>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted">Mediana (P50)</span>
+                        <span className="font-semibold text-accent">
+                          {biPanel.precios[0].p50 >= 1_000_000
+                            ? `CLP ${(biPanel.precios[0].p50 / 1_000_000).toFixed(1)}M`
+                            : `CLP ${(biPanel.precios[0].p50 / 1_000).toFixed(0)}K`}
+                        </span>
+                      </div>
+                      {biPanel.precios[0].p25 != null && biPanel.precios[0].p75 != null && (
+                        <p className="text-[10px] text-muted">
+                          Rango típico: {biPanel.precios[0].p25 >= 1_000_000 ? `${(biPanel.precios[0].p25/1_000_000).toFixed(1)}M` : `${(biPanel.precios[0].p25/1_000).toFixed(0)}K`}
+                          {' – '}
+                          {biPanel.precios[0].p75 >= 1_000_000 ? `${(biPanel.precios[0].p75/1_000_000).toFixed(1)}M` : `${(biPanel.precios[0].p75/1_000).toFixed(0)}K`}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Competitors preview */}
+                  {biPanel.competidores.disponible && (biPanel.competidores.top5?.length ?? 0) > 0 && (
+                    <div className="rounded-lg border border-border bg-background px-3 py-2 space-y-1">
+                      <p className="text-[10px] font-semibold text-muted uppercase tracking-wide">
+                        Competidores {biPanel.competidores.tipo_mercado ? `· ${biPanel.competidores.tipo_mercado}` : ''}
+                      </p>
+                      {biPanel.competidores.top5!.slice(0, 3).map((c, i) => (
+                        <div key={i} className="flex items-center justify-between text-xs">
+                          <span className="text-text truncate max-w-[200px]">{i + 1}. {c.NombreProveedor ?? '—'}</span>
+                          <span className="text-muted shrink-0 ml-1">
+                            {c.market_share_pct != null ? `${c.market_share_pct.toFixed(0)}%` : '—'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Window alert */}
+                  {biPanel.ventana.disponible && biPanel.ventana.alerta_ventana_corta && (
+                    <div className="flex items-center gap-1.5 rounded-lg border border-danger/20 bg-danger/5 px-3 py-2 text-xs text-danger">
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                      Ventana corta: {biPanel.ventana.window_days} días disponibles
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Footer link */}
               <Link
                 href={`/dashboard/tenders/${encodeURIComponent(selectedTender.codigo_externo)}`}
-                className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium text-primary transition-all hover:border-primary/30 hover:bg-primary/5"
+                onClick={(e) => e.stopPropagation()}
               >
-                Ver detalle completo <ArrowRight className="h-3 w-3" />
+                Ver análisis completo <ArrowRight className="h-3 w-3" />
               </Link>
             </div>
           ) : (
