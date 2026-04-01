@@ -26,8 +26,13 @@ import {
   BadgeAlert,
   FilePlus,
   FileCheck2,
+  ArrowRight,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { OpportunityScoreCard } from '@/components/OpportunityScoreCard';
+import { PriceBandChart } from '@/components/PriceBandChart';
+import { CompetitorsList } from '@/components/CompetitorsList';
+import { BuyerProfilePanel } from '@/components/BuyerProfilePanel';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -408,27 +413,47 @@ function PerfilEncajeWidget({
   );
 }
 
+// BI Panel helper: Opportunity Timeline
+function OpportunityTimeline({
+  fechaPublicacion,
+  fechaCierre,
+}: {
+  fechaPublicacion?: string;
+  fechaCierre?: string;
+}) {
+  const fmt = (d?: string) => {
+    if (!d) return null;
+    try { return format(new Date(d), 'dd MMM yyyy'); } catch { return null; }
+  };
+
+  const steps = [
+    { label: 'Publicación', date: fmt(fechaPublicacion), done: !!fechaPublicacion },
+    { label: 'Cierre', date: fmt(fechaCierre), done: false, highlight: true },
+    { label: 'Adjudicación', date: null, done: false },
+  ];
+
+  return (
+    <div className="card">
+      <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-3">Hitos</p>
+      <div className="flex items-start gap-0">
+        {steps.map((step, i) => (
+          <div key={i} className="flex flex-1 flex-col items-center">
+            <div className="flex w-full items-center">
+              <div className={`h-3 w-3 shrink-0 rounded-full border-2 ${step.highlight ? 'border-primary bg-primary' : step.done ? 'border-accent bg-accent' : 'border-border bg-background'}`} />
+              {i < steps.length - 1 && <div className="h-0.5 flex-1 bg-border" />}
+            </div>
+            <p className="mt-1.5 text-center text-[10px] font-medium text-text leading-tight">{step.label}</p>
+            {step.date && <p className="text-[10px] text-muted text-center leading-tight">{step.date}</p>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // BI Panel component
-function BIPanelSection({ panel }: { panel: BIPanel }) {
-
+function BIPanelSection({ panel, tender }: { panel: BIPanel; tender?: TenderDetail }) {
   const { comprador, ventana, competidores, precios } = panel;
-
-  // Transparencia label
-  const transpLabel: Record<string, string> = {
-    muy_transparente: 'Muy transparente',
-    transparente: 'Transparente',
-    moderado: 'Moderado',
-    poco_transparente: 'Poco transparente',
-    opaco: 'Opaco',
-  };
-
-  const transpColor: Record<string, string> = {
-    muy_transparente: 'text-accent bg-accent/10',
-    transparente: 'text-accent bg-accent/10',
-    moderado: 'text-gold bg-gold/10',
-    poco_transparente: 'text-gold bg-gold/10',
-    opaco: 'text-danger bg-danger/10',
-  };
 
   const ventanaColor =
     ventana.disponible && ventana.alerta_ventana_corta
@@ -442,77 +467,27 @@ function BIPanelSection({ panel }: { panel: BIPanel }) {
         Inteligencia pre-oferta
       </h3>
 
+      {/* ── Score de oportunidad ── */}
+      <OpportunityScoreCard panel={panel} />
+
+      {/* ── Timeline de hitos ── */}
+      {tender && (tender.fecha_publicacion || tender.fecha_cierre) && (
+        <OpportunityTimeline
+          fechaPublicacion={tender.fecha_publicacion}
+          fechaCierre={tender.fecha_cierre}
+        />
+      )}
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {/* ── Comprador ── */}
-        <div className="card space-y-3">
-          <div className="flex items-center gap-2 text-sm font-medium text-text">
-            <Building2 className="h-4 w-4 text-primary" />
-            Perfil del comprador
-          </div>
+        {/* ── Perfil del comprador ── */}
+        <BuyerProfilePanel comprador={comprador} />
 
-          {!comprador.disponible ? (
-            <p className="text-xs text-muted">{comprador.motivo || 'Sin datos históricos.'}</p>
-          ) : (
-            <div className="space-y-2 text-sm">
-              {comprador.buyer_score != null && (
-                <div className="flex items-center justify-between">
-                  <span className="text-muted">Score comprador</span>
-                  <span className="font-semibold text-text">
-                    {comprador.buyer_score.toFixed(1)}/10
-                  </span>
-                </div>
-              )}
-              {comprador.mediana_dias_pago != null && (
-                <div className="flex items-center justify-between">
-                  <span className="text-muted flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    Pago mediano
-                  </span>
-                  <span className="text-text">{fmtDays(comprador.mediana_dias_pago)}</span>
-                </div>
-              )}
-              {comprador.tasa_adjudicacion != null && (
-                <div className="flex items-center justify-between">
-                  <span className="text-muted">Tasa adjudicación</span>
-                  <span className="text-text">{fmtPct(comprador.tasa_adjudicacion)}</span>
-                </div>
-              )}
-              {(comprador.n_flags ?? 0) > 0 && (
-                <div className="flex items-center gap-1.5 text-gold bg-gold/10 rounded px-2 py-1 text-xs">
-                  <BadgeAlert className="h-3.5 w-3.5 shrink-0" />
-                  {comprador.n_flags} flag{(comprador.n_flags ?? 0) > 1 ? 's' : ''} de riesgo
-                </div>
-              )}
-              {comprador.transparencia?.clasificacion && (
-                <div className="flex items-center justify-between">
-                  <span className="text-muted">Transparencia</span>
-                  <span
-                    className={`text-xs font-medium px-2 py-0.5 rounded-full ${transpColor[comprador.transparencia.clasificacion] ?? ''}`}
-                  >
-                    {transpLabel[comprador.transparencia.clasificacion] ??
-                      comprador.transparencia.clasificacion}
-                  </span>
-                </div>
-              )}
-              {comprador.transparencia?.pct_trato_directo != null && (
-                <div className="flex items-center justify-between">
-                  <span className="text-muted text-xs">% Trato directo</span>
-                  <span className="text-xs text-text">
-                    {fmtPct(comprador.transparencia.pct_trato_directo)}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* ── Ventana de preparación ── */}
+        {/* ── Ventana de preparación ── (kept as-is) */}
         <div className={`card space-y-3 border ${ventanaColor}`}>
           <div className="flex items-center gap-2 text-sm font-medium text-text">
             <Calendar className="h-4 w-4 text-primary" />
             Ventana de preparación
           </div>
-
           {!ventana.disponible ? (
             <p className="text-xs text-muted">{ventana.motivo || 'Sin datos históricos.'}</p>
           ) : (
@@ -540,7 +515,7 @@ function BIPanelSection({ panel }: { panel: BIPanel }) {
               {ventana.pct_del_tipico != null && (
                 <div className="flex items-center justify-between">
                   <span className="text-muted">% del plazo típico</span>
-                  <span className="text-text">{fmtPct(ventana.pct_del_tipico / 100)}</span>
+                  <span className="text-text">{(ventana.pct_del_tipico).toFixed(0)}%</span>
                 </div>
               )}
               {ventana.presion_score != null && (
@@ -553,98 +528,28 @@ function BIPanelSection({ panel }: { panel: BIPanel }) {
           )}
         </div>
 
-        {/* ── Top competidores ── */}
-        <div className="card space-y-3">
-          <div className="flex items-center gap-2 text-sm font-medium text-text">
-            <Users className="h-4 w-4 text-primary" />
-            Top competidores
-            {competidores.tipo_mercado && (
-              <span className="ml-auto text-xs text-muted font-normal">
-                {competidores.tipo_mercado}
-              </span>
-            )}
-          </div>
-
-          {!competidores.disponible ? (
-            <p className="text-xs text-muted">{competidores.motivo || 'Sin datos históricos.'}</p>
-          ) : (
-            <div className="space-y-2">
-              {(competidores.top5 ?? []).map((c, i) => (
-                <div key={i} className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="shrink-0 text-muted font-mono">{i + 1}.</span>
-                    <span className="truncate text-text">{c.NombreProveedor ?? '—'}</span>
-                  </div>
-                  <span className="shrink-0 text-muted ml-2">
-                    {c.market_share_pct != null ? fmtPct(c.market_share_pct / 100) : '—'}
-                  </span>
-                </div>
-              ))}
-              {competidores.hhi != null && (
-                <p className="text-xs text-muted pt-1 border-t border-border">
-                  HHI concentración: {competidores.hhi.toFixed(3)}
-                </p>
-              )}
-            </div>
-          )}
-        </div>
+        {/* ── Competidores ── */}
+        <CompetitorsList competidores={competidores} />
 
         {/* ── Referencia de precios ── */}
-        {precios.length > 0 && (
-          <div className="card space-y-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-text">
-              <DollarSign className="h-4 w-4 text-accent" />
-              Referencia de precios
-            </div>
+        <PriceBandChart precios={precios} />
+      </div>
 
-            <div className="space-y-3">
-              {precios.map((p, i) => (
-                <div key={i} className="text-xs space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted truncate max-w-[160px]">
-                      Producto {p.codigo_producto ?? i + 1}
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      {p.nivel_usado && (
-                        <span
-                          className={`rounded px-1.5 py-0.5 font-mono text-[10px] ${
-                            p.fallback
-                              ? 'bg-gold/10 text-gold'
-                              : 'bg-accent/10 text-accent'
-                          }`}
-                        >
-                          {p.nivel_usado}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  {p.disponible && p.p50 != null ? (
-                    <div className="grid grid-cols-3 gap-1 text-center">
-                      <div className="rounded bg-muted/10 px-1 py-0.5">
-                        <p className="text-[10px] text-muted">P25</p>
-                        <p className="font-medium text-text">{fmtCLP(p.p25)}</p>
-                      </div>
-                      <div className="rounded bg-primary/10 px-1 py-0.5">
-                        <p className="text-[10px] text-muted">P50</p>
-                        <p className="font-semibold text-text">{fmtCLP(p.p50)}</p>
-                      </div>
-                      <div className="rounded bg-muted/10 px-1 py-0.5">
-                        <p className="text-[10px] text-muted">P75</p>
-                        <p className="font-medium text-text">{fmtCLP(p.p75)}</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-muted">Sin datos de precios</p>
-                  )}
-                  {p.fallback && p.disponible && (
-                    <p className="text-[10px] text-gold">
-                      Referencia {p.nivel_usado === 'L2' ? 'por sector' : 'nacional'} (sin datos específicos del organismo)
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
+      {/* ── Checklist link ── */}
+      <div className="flex items-center justify-between rounded-lg border border-border bg-background px-4 py-3">
+        <div className="flex items-center gap-2 text-sm text-text">
+          <FileCheck2 className="h-4 w-4 text-primary" />
+          <span>Checklist de preparación</span>
+        </div>
+        {panel.postulacion_id ? (
+          <Link
+            href="/dashboard/postulaciones"
+            className="text-xs font-medium text-primary hover:underline flex items-center gap-1"
+          >
+            Ver checklist <ArrowRight className="h-3 w-3" />
+          </Link>
+        ) : (
+          <span className="text-xs text-muted">Crea una postulación para activar el checklist</span>
         )}
       </div>
     </div>
@@ -980,7 +885,7 @@ export default function TenderDetailPage({ params }: PageParams) {
               </div>
             )}
             {!biLoading && biPanel && (
-              <BIPanelSection panel={biPanel} />
+              <BIPanelSection panel={biPanel} tender={tender ?? undefined} />
             )}
             {!biLoading && !biPanel && (
               <p className="text-sm text-muted italic bg-background rounded-xl px-4 py-3">
