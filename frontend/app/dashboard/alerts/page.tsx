@@ -13,7 +13,7 @@ interface Alert {
   message?: string;
   created_at: string;
   read_at?: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }
 
 interface AlertPreference {
@@ -63,7 +63,7 @@ export default function AlertsPage() {
   const loadAlerts = useCallback(async () => {
     setLoading(true);
     try {
-      const params: any = {
+      const params: Record<string, unknown> = {
         offset: (page - 1) * limit,
         limit,
         unread_only: filter === 'unread',
@@ -159,15 +159,19 @@ export default function AlertsPage() {
       if (editingPref) { await apiClient.updateAlertPreference(editingPref.id, payload); }
       else { await apiClient.createAlertPreference(payload); }
       setShowModal(false); loadPreferences();
-    } catch (err: any) {
-      setPrefError(err?.response?.data?.detail ?? 'Error al guardar preferencia');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { detail?: string } } };
+      setPrefError(error?.response?.data?.detail ?? 'Error al guardar preferencia');
     } finally { setSaving(false); }
   }
 
   async function handleDeletePref(p: AlertPreference) {
     if (!confirm(`¿Eliminar la preferencia "${p.name}"?`)) return;
     try { await apiClient.deleteAlertPreference(p.id); loadPreferences(); }
-    catch (err: any) { alert(err?.response?.data?.detail ?? 'Error al eliminar'); }
+    catch (err: unknown) {
+      const error = err as { response?: { data?: { detail?: string } } };
+      alert(error?.response?.data?.detail ?? 'Error al eliminar');
+    }
   }
 
   return (
@@ -588,4 +592,3 @@ export default function AlertsPage() {
     </div>
   );
 }
-

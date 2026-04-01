@@ -1,3 +1,4 @@
+import React from 'react';
 import type { Metadata } from 'next';
 import { Outfit, DM_Sans } from 'next/font/google';
 import './globals.css';
@@ -26,13 +27,6 @@ export const metadata: Metadata = {
     template: `%s · ${APP_NAME}`,
   },
   description: `${APP_NAME} — Inteligencia pre-postulación y cumplimiento para proveedores del Estado en Chile`,
-  icons: {
-    icon: [
-      { url: '/favicon.ico', sizes: '32x32', type: 'image/x-icon' },
-      { url: '/images/tordo-logo.svg', type: 'image/svg+xml' },
-    ],
-    shortcut: '/favicon.ico',
-  },
 };
 
 export default function RootLayout({
