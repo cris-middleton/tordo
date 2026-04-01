@@ -9,6 +9,8 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
+import { Lock } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { ConfidenceBadge } from './ConfidenceBadge';
 
 interface PrecioFallback {
@@ -42,8 +44,7 @@ const nivelLabel: Record<string, string> = {
   L3: 'datos nacionales',
 };
 
-function ProductPriceSection({ p }: { p: PrecioFallback }) {
-  const productLabel = p.codigo_producto ? `Producto ${p.codigo_producto}` : 'Producto';
+function ProductPriceSection({ p, isPro }: { p: PrecioFallback; isPro: boolean }) {
   const n = p.n ?? 0;
 
   if (!p.disponible) {
@@ -71,13 +72,20 @@ function ProductPriceSection({ p }: { p: PrecioFallback }) {
     );
   }
 
-  const chartData = [
-    { label: 'P10', value: p.p10, color: '#64748B' },
-    { label: 'P25', value: p.p25, color: '#94A3B8' },
-    { label: 'P50', value: p.p50, color: '#00C896' },
-    { label: 'P75', value: p.p75, color: '#94A3B8' },
-    { label: 'P90', value: p.p90, color: '#64748B' },
-  ];
+  // For non-Pro: show only P25/P50/P75; P10 and P90 are blurred with upgrade CTA
+  const chartData = isPro
+    ? [
+        { label: 'P10', value: p.p10, color: '#64748B' },
+        { label: 'P25', value: p.p25, color: '#94A3B8' },
+        { label: 'P50', value: p.p50, color: '#00C896' },
+        { label: 'P75', value: p.p75, color: '#94A3B8' },
+        { label: 'P90', value: p.p90, color: '#64748B' },
+      ]
+    : [
+        { label: 'P25', value: p.p25, color: '#94A3B8' },
+        { label: 'P50', value: p.p50, color: '#00C896' },
+        { label: 'P75', value: p.p75, color: '#94A3B8' },
+      ];
 
   const nivelDesc = p.nivel_usado ? nivelLabel[p.nivel_usado] ?? p.nivel_usado : null;
 
@@ -89,39 +97,55 @@ function ProductPriceSection({ p }: { p: PrecioFallback }) {
         </p>
       )}
 
-      <ResponsiveContainer width="100%" height={120}>
-        <BarChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-          <XAxis
-            dataKey="label"
-            tick={{ fontSize: 11, fill: 'var(--color-muted, #94A3B8)' }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <YAxis
-            tickFormatter={(v) => fmtCLP(v)}
-            width={80}
-            tick={{ fontSize: 10, fill: 'var(--color-muted, #94A3B8)' }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <Tooltip
-            formatter={(v: number) => [fmtCLP(v), 'Precio']}
-            contentStyle={{
-              background: 'var(--color-surface, #1E293B)',
-              border: '1px solid var(--color-border, #334155)',
-              borderRadius: 6,
-              fontSize: 12,
-            }}
-            labelStyle={{ color: 'var(--color-text, #F1F5F9)', fontWeight: 600 }}
-            itemStyle={{ color: 'var(--color-text, #F1F5F9)' }}
-          />
-          <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-            {chartData.map((d, i) => (
-              <Cell key={i} fill={d.color} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+      <div className="relative">
+        <ResponsiveContainer width="100%" height={120}>
+          <BarChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+            <XAxis
+              dataKey="label"
+              tick={{ fontSize: 11, fill: 'var(--color-muted, #94A3B8)' }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              tickFormatter={(v) => fmtCLP(v)}
+              width={80}
+              tick={{ fontSize: 10, fill: 'var(--color-muted, #94A3B8)' }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <Tooltip
+              formatter={(v: number) => [fmtCLP(v), 'Precio']}
+              contentStyle={{
+                background: 'var(--color-surface, #1E293B)',
+                border: '1px solid var(--color-border, #334155)',
+                borderRadius: 6,
+                fontSize: 12,
+              }}
+              labelStyle={{ color: 'var(--color-text, #F1F5F9)', fontWeight: 600 }}
+              itemStyle={{ color: 'var(--color-text, #F1F5F9)' }}
+            />
+            <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+              {chartData.map((d, i) => (
+                <Cell key={i} fill={d.color} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+
+        {!isPro && (
+          <div className="absolute inset-0 flex items-center justify-end pr-4 pointer-events-none">
+            <div className="flex items-center gap-1.5 rounded-md bg-surface/90 border border-border px-2.5 py-1.5 backdrop-blur-sm pointer-events-auto">
+              <Lock size={12} className="text-muted" />
+              <span className="text-xs text-muted">
+                P10/P90 disponibles en{' '}
+                <a href="/dashboard/billing" className="text-primary hover:underline font-medium">
+                  plan Pro
+                </a>
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="flex flex-col gap-1">
         <p className="text-xs text-muted">
@@ -138,6 +162,9 @@ function ProductPriceSection({ p }: { p: PrecioFallback }) {
 }
 
 export function PriceBandChart({ precios }: PriceBandChartProps) {
+  const { user } = useAuth();
+  const isPro = user?.plan_tier === 'pro' || user?.plan_tier === 'enterprise';
+
   if (!precios || precios.length === 0) {
     return (
       <div className="card">
@@ -162,7 +189,7 @@ export function PriceBandChart({ precios }: PriceBandChartProps) {
               </h3>
               {p.disponible && <ConfidenceBadge n={n} />}
             </div>
-            <ProductPriceSection p={p} />
+            <ProductPriceSection p={p} isPro={isPro} />
           </div>
         );
       })}
