@@ -169,7 +169,7 @@ export function CompetitorsList({ competidores }: CompetidoresPanelProps) {
               key={c.CodigoOrganismoPublico ?? c.NombreProveedor ?? i}
               competidor={c}
               rank={i + 1}
-              isIncumbente={c.es_incumbente ?? c.rank_monto === 0 ?? i === 0}
+              isIncumbente={c.es_incumbente ?? (c.rank_monto === 0) ?? (i === 0)}
             />
           ))}
         </div>

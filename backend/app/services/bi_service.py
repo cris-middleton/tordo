@@ -63,22 +63,31 @@ def get_precio_producto(
 
     Returns p10/p25/p50/p75/p90, confidence, sample count, and nivel_usado.
     """
+    # ETL writes the column as "NombreroductoGenerico" (missing 'P' — historical typo).
+    # COLS lists use the typo'd name so _sel finds it; _to_dicts renames to the
+    # canonical API name "NombreProductoGenerico" before Pydantic serialisation.
     COLS_L1 = [
-        "codigoProductoONU", "NombreProductoGenerico",
+        "codigoProductoONU", "NombreroductoGenerico",
         "CodigoOrganismoPublico", "OrganismoPublico", "UnidadMedida",
         "p10", "p25", "p50", "p75", "p90", "pu_mean", "cv", "confianza", "n",
     ]
     COLS_L2 = [
-        "codigoProductoONU", "NombreProductoGenerico", "sector", "UnidadMedida",
+        "codigoProductoONU", "NombreroductoGenerico", "sector", "UnidadMedida",
         "p10", "p25", "p50", "p75", "p90", "pu_mean", "cv", "confianza", "n",
     ]
     COLS_L3 = [
-        "codigoProductoONU", "NombreProductoGenerico", "UnidadMedida",
+        "codigoProductoONU", "NombreroductoGenerico", "UnidadMedida",
         "p10", "p25", "p50", "p75", "p90", "pu_mean", "cv", "confianza", "n",
     ]
 
     def _sel(df, cols):
         return [c for c in cols if c in df.columns]
+
+    def _to_dicts(df, cols):
+        selected = df.select(_sel(df, cols))
+        if "NombreroductoGenerico" in selected.columns:
+            selected = selected.rename({"NombreroductoGenerico": "NombreProductoGenerico"})
+        return selected.to_dicts()
 
     def _unit_mask(df):
         if unidad_medida:
@@ -101,7 +110,7 @@ def get_precio_producto(
                 return {
                     "disponible": True,
                     "codigo_producto": codigo_producto,
-                    "resultado": rows.select(_sel(rows, COLS_L1)).to_dicts(),
+                    "resultado": _to_dicts(rows, COLS_L1),
                     "total_registros": len(rows),
                     "nivel_usado": "L1",
                     "fallback": False,
@@ -119,7 +128,7 @@ def get_precio_producto(
             return {
                 "disponible": True,
                 "codigo_producto": codigo_producto,
-                "resultado": rows.select(_sel(rows, COLS_L2)).to_dicts(),
+                "resultado": _to_dicts(rows, COLS_L2),
                 "total_registros": len(rows),
                 "nivel_usado": "L2",
                 "fallback": True,
@@ -138,7 +147,7 @@ def get_precio_producto(
             return {
                 "disponible": True,
                 "codigo_producto": codigo_producto,
-                "resultado": rows.select(_sel(rows, COLS_L3)).to_dicts(),
+                "resultado": _to_dicts(rows, COLS_L3),
                 "total_registros": len(rows),
                 "nivel_usado": "L3",
                 "fallback": True,

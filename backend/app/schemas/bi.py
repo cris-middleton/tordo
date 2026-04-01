@@ -10,7 +10,7 @@ class BINotAvailable(BaseModel):
 
 class PrecioBanda(BaseModel):
     codigoProductoONU: Optional[str] = None
-    NombreroductoGenerico: Optional[str] = None
+    NombreProductoGenerico: Optional[str] = None
     p10: Optional[float] = None
     p25: Optional[float] = None
     p50: Optional[float] = None
