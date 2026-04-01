@@ -168,7 +168,7 @@ export default function TendersPage() {
   useEffect(() => {
     // TODO: migrar a React Query
     apiClient.getEmpresas().then((empresas: any[]) => {
-      if (empresas?.[0]?.id) setFirstEmpresaId(empresas[0].id);
+      if (empresas?.[0]?.id) setFirstEmpresaId(String(empresas[0].id));
     }).catch(() => {});
   }, []);
 
@@ -262,7 +262,7 @@ export default function TendersPage() {
   );
 
   const formatCurrency = (amount?: number) => {
-    if (!amount) return null;
+    if (amount == null) return null;
     return new Intl.NumberFormat('es-CL', {
       style: 'currency',
       currency: 'CLP',
@@ -277,7 +277,7 @@ export default function TendersPage() {
     if (e.includes('adjudic')) return 'bg-info/10 text-info border-info/20';
     if (e.includes('evaluac')) return 'bg-primary/10 text-primary border-primary/20';
     if (e.includes('desierta') || e.includes('suspend')) return 'bg-border/50 text-subtle border-border';
-    if (e.includes('revocd') || e.includes('cancel')) return 'bg-danger/10 text-danger border-danger/20';
+    if (e.includes('revocad') || e.includes('cancel')) return 'bg-danger/10 text-danger border-danger/20';
     if (e.includes('cerrada')) return 'bg-gold/10 text-gold border-gold/20';
     return 'bg-border/50 text-muted border-border';
   };
@@ -289,7 +289,7 @@ export default function TendersPage() {
     if (e.includes('adjudic')) return 'bg-info';
     if (e.includes('evaluac')) return 'bg-primary';
     if (e.includes('desierta') || e.includes('suspend')) return 'bg-subtle';
-    if (e.includes('revocd') || e.includes('cancel')) return 'bg-danger';
+    if (e.includes('revocad') || e.includes('cancel')) return 'bg-danger';
     if (e.includes('cerrada')) return 'bg-gold';
     return 'bg-primary';
   };

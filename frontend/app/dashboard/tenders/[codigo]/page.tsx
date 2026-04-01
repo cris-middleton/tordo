@@ -29,6 +29,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { useAuth } from '@/contexts/AuthContext';
 import { OpportunityScoreCard } from '@/components/OpportunityScoreCard';
 import { PriceBandChart } from '@/components/PriceBandChart';
 import { CompetitorsList } from '@/components/CompetitorsList';
@@ -453,6 +454,7 @@ function OpportunityTimeline({
 
 // BI Panel component
 function BIPanelSection({ panel, tender }: { panel: BIPanel; tender?: TenderDetail }) {
+  const { user } = useAuth();
   const { comprador, ventana, competidores, precios } = panel;
 
   const ventanaColor =
@@ -468,7 +470,7 @@ function BIPanelSection({ panel, tender }: { panel: BIPanel; tender?: TenderDeta
       </h3>
 
       {/* ── Score de oportunidad ── */}
-      <OpportunityScoreCard panel={panel} />
+      <OpportunityScoreCard panel={panel} plan={user?.plan_tier ?? 'basico'} />
 
       {/* ── Timeline de hitos ── */}
       {tender && (tender.fecha_publicacion || tender.fecha_cierre) && (

@@ -1,5 +1,7 @@
 'use client';
 
+import { Lock } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { ConfidenceBadge } from './ConfidenceBadge';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -12,6 +14,7 @@ interface Competidor {
   n_oc?: number | null;
   rank_monto?: number | null;
   n_proveedores?: number | null;
+  es_incumbente?: boolean | null;
 }
 
 interface CompetidoresPanel {
@@ -121,6 +124,8 @@ function CompetitorRow({
 // ── Main component ─────────────────────────────────────────────────────────
 
 export function CompetitorsList({ competidores }: CompetidoresPanelProps) {
+  const { user } = useAuth();
+  const isPro = user?.plan_tier === 'pro' || user?.plan_tier === 'enterprise';
   const nBase = competidores.top5?.[0]?.n_proveedores ?? 0;
 
   return (
@@ -134,7 +139,20 @@ export function CompetitorsList({ competidores }: CompetidoresPanelProps) {
       </div>
 
       {/* Body */}
-      {!competidores.disponible ? (
+      {!isPro ? (
+        <div className="flex flex-col items-center gap-3 py-4 text-center">
+          <div className="rounded-full bg-border/60 p-3">
+            <Lock size={18} className="text-muted" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-text">Análisis de competidores</p>
+            <p className="text-xs text-muted mt-0.5">Ve quién compite en este segmento</p>
+          </div>
+          <a href="/dashboard/billing" className="btn-primary inline-flex items-center gap-1.5 text-sm">
+            Disponible en plan Pro
+          </a>
+        </div>
+      ) : !competidores.disponible ? (
         <p className="text-sm text-muted">
           {competidores.motivo
             ? competidores.motivo
@@ -151,24 +169,26 @@ export function CompetitorsList({ competidores }: CompetidoresPanelProps) {
               key={c.CodigoOrganismoPublico ?? c.NombreProveedor ?? i}
               competidor={c}
               rank={i + 1}
-              isIncumbente={i === 0}
+              isIncumbente={c.es_incumbente ?? c.rank_monto === 0 ?? i === 0}
             />
           ))}
         </div>
       )}
 
-      {/* Footer */}
-      <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
-        <ConfidenceBadge n={nBase} />
-        {competidores.hhi != null && (
-          <span className="text-xs text-muted">
-            HHI:{' '}
-            <span className="font-semibold tabular-nums text-text">
-              {competidores.hhi.toFixed(3)}
+      {/* Footer — only shown when Pro and data available */}
+      {isPro && (
+        <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+          <ConfidenceBadge n={nBase} />
+          {competidores.hhi != null && (
+            <span className="text-xs text-muted">
+              HHI:{' '}
+              <span className="font-semibold tabular-nums text-text">
+                {competidores.hhi.toFixed(3)}
+              </span>
             </span>
-          </span>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

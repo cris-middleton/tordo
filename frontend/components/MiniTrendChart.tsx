@@ -58,7 +58,7 @@ export function MiniTrendChart() {
       <div className="flex items-center justify-between mb-3">
         <div>
           <h2 className="section-title">Tendencias de mercado</h2>
-          <p className="text-xs text-muted mt-0.5">CAGR por rubro — top 6</p>
+          <p className="text-xs text-muted mt-0.5">Crecimiento anual por rubro (CAGR) — top 6</p>
         </div>
         <div className="flex items-center gap-2">
           {!unavailable && nBase > 0 && <ConfidenceBadge n={nBase} />}
