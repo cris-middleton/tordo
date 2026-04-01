@@ -1,6 +1,7 @@
 'use client';
 
 import { AlertTriangle } from 'lucide-react';
+import { ConfidenceBadge } from './ConfidenceBadge';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -17,6 +18,7 @@ interface CompradorPanel {
   mediana_dias_pago?: number | null;
   tasa_adjudicacion?: number | null;
   n_flags?: number;
+  n_base?: number | null;
   transparencia?: TransparenciaComprador | null;
   motivo?: string | null;
 }
@@ -88,13 +90,16 @@ export function BuyerProfilePanel({ comprador }: BuyerProfilePanelProps) {
   return (
     <div className="card flex flex-col gap-4">
       {/* Header */}
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="section-title">Perfil del comprador</h3>
-        {comprador.nombre && (
-          <span className="truncate text-sm text-muted" title={comprador.nombre}>
-            {comprador.nombre}
-          </span>
-        )}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div>
+          <h3 className="section-title">Perfil del comprador</h3>
+          {comprador.nombre && (
+            <p className="text-xs text-muted mt-0.5 truncate max-w-[220px]" title={comprador.nombre}>
+              {comprador.nombre}
+            </p>
+          )}
+        </div>
+        {comprador.n_base != null && <ConfidenceBadge n={comprador.n_base} />}
       </div>
 
       {/* Body */}
