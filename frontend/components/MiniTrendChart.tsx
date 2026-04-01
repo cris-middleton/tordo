@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import { TrendingUp } from 'lucide-react';
 import { apiClient } from '@/lib/api';
+import { ConfidenceBadge } from './ConfidenceBadge';
 
 interface ChartEntry {
   name: string;
@@ -20,6 +21,7 @@ interface ChartEntry {
 
 export function MiniTrendChart() {
   const [data, setData] = useState<ChartEntry[]>([]);
+  const [nBase, setNBase] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
   // TODO: migrar a React Query
@@ -33,6 +35,7 @@ export function MiniTrendChart() {
           return;
         }
         const items: any[] = res.tendencias || [];
+        setNBase(res.total ?? items.length);
         setData(
           items
             .filter((t) => t.cagr != null)
@@ -57,8 +60,11 @@ export function MiniTrendChart() {
           <h2 className="section-title">Tendencias de mercado</h2>
           <p className="text-xs text-muted mt-0.5">CAGR por rubro — top 6</p>
         </div>
-        <div className="rounded-lg bg-info/10 p-2">
-          <TrendingUp size={16} className="text-info" />
+        <div className="flex items-center gap-2">
+          {!unavailable && nBase > 0 && <ConfidenceBadge n={nBase} />}
+          <div className="rounded-lg bg-info/10 p-2">
+            <TrendingUp size={16} className="text-info" />
+          </div>
         </div>
       </div>
 

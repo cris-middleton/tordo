@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import { Calendar } from 'lucide-react';
 import { apiClient } from '@/lib/api';
+import { ConfidenceBadge } from './ConfidenceBadge';
 
 const MONTH_ABBR = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
@@ -26,6 +27,7 @@ interface MiniActivityBarsProps {
 
 export function MiniActivityBars({ organismoId }: MiniActivityBarsProps) {
   const [data, setData] = useState<ChartEntry[]>([]);
+  const [nBase, setNBase] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
   // TODO: migrar a React Query
@@ -45,6 +47,8 @@ export function MiniActivityBars({ organismoId }: MiniActivityBarsProps) {
           return;
         }
         const patrones: any[] = res.patrones || [];
+        const totalCompras = patrones.reduce((sum, p) => sum + ((p.compras_mes as number) ?? 0), 0);
+        setNBase(Math.round(totalCompras));
         setData(
           patrones.map((p) => ({
             mes: MONTH_ABBR[((p.mes as number) ?? 1) - 1] ?? '?',
@@ -66,8 +70,11 @@ export function MiniActivityBars({ organismoId }: MiniActivityBarsProps) {
           <h2 className="section-title">Actividad mensual</h2>
           <p className="text-xs text-muted mt-0.5">Probabilidad de compra por mes</p>
         </div>
-        <div className="rounded-lg bg-primary/10 p-2">
-          <Calendar size={16} className="text-primary" />
+        <div className="flex items-center gap-2">
+          {!unavailable && nBase > 0 && <ConfidenceBadge n={nBase} />}
+          <div className="rounded-lg bg-primary/10 p-2">
+            <Calendar size={16} className="text-primary" />
+          </div>
         </div>
       </div>
 

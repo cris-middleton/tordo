@@ -102,6 +102,7 @@ export default function DashboardPage() {
   });
   const [loading, setLoading] = useState(true);
   const [topScore, setTopScore] = useState<number | null>(null);
+  const [topOrganism, setTopOrganism] = useState<string | null>(null);
   const [biLastUpdated, setBiLastUpdated] = useState<string | null>(null);
   const [estadoHabil, setEstadoHabil] = useState<{
     estado_habil: string
@@ -174,7 +175,9 @@ export default function DashboardPage() {
     apiClient.getBIOportunidades({ min_score: 0, limit: 1 })
       .then((res: any) => {
         if (res.disponible !== false && res.oportunidades?.length > 0) {
-          setTopScore(res.oportunidades[0].opportunity_score ?? null);
+          const top = res.oportunidades[0];
+          setTopScore(top.opportunity_score ?? null);
+          setTopOrganism(top.CodigoOrganismoPublico ?? null);
         }
         if (res.last_updated) setBiLastUpdated(res.last_updated);
       })
@@ -479,7 +482,7 @@ export default function DashboardPage() {
       {/* ── BI Mini Charts ── */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <MiniTrendChart />
-        <MiniActivityBars organismoId={null} />
+        <MiniActivityBars organismoId={topOrganism} />
       </div>
 
       {/* ── Charts ── */}
