@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: '32x32', type: 'image/x-icon' },
-      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/images/tordo-logo.svg', type: 'image/svg+xml' },
     ],
     shortcut: '/favicon.ico',
   },

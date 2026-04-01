@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Image from 'next/image';
+import TordoLogo from '@/components/TordoLogo';
 import Link from 'next/link';
 import {
   BarChart3,
@@ -375,12 +375,9 @@ export default function Home() {
       {/* ── Navbar ── */}
       <header className="sticky top-0 z-50 border-b border-[#E2E6EF] bg-white/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="#" className="flex items-center gap-3 group">
-            <div className="relative h-9 w-9">
-              <Image src="/images/TORDO_logo.png" alt="TORDO" fill sizes="36px" className="object-contain absolute transition-opacity duration-300 group-hover:opacity-0" priority />
-              <Image src="/images/TORDO_logo_openwings.png" alt="TORDO" fill sizes="36px" className="object-contain absolute opacity-0 transition-opacity duration-300 group-hover:opacity-100" priority />
-            </div>
-            <span className="text-xl font-bold tracking-tight text-[#0F2942]" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>
+          <Link href="#" className="flex items-center gap-3">
+            <TordoLogo size={36} />
+            <span className="text-xl font-bold tracking-tight text-[#0F2942]" style={{ fontFamily: 'var(--font-varien, system-ui)' }}>
               TORDO
             </span>
           </Link>
@@ -752,10 +749,8 @@ export default function Home() {
           <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '28px 28px' }} />
 
           <div className="relative mx-auto max-w-2xl text-center">
-            <div className="mb-6 flex justify-center">
-              <div className="relative h-16 w-16">
-                <Image src="/images/TORDO_logo_openwings.png" alt="TORDO" fill sizes="64px" className="object-contain brightness-0 invert" />
-              </div>
+            <div className="mb-6 flex justify-center" style={{ filter: 'brightness(0) invert(1)' }}>
+              <TordoLogo size={64} />
             </div>
             <h2 className="mb-4 text-3xl font-bold text-white sm:text-4xl" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>
               Tu próxima licitación, con mejor información
@@ -776,10 +771,8 @@ export default function Home() {
         <div className="mx-auto max-w-6xl">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <div className="flex items-center gap-2.5">
-              <div className="relative h-6 w-6">
-                <Image src="/images/TORDO_logo.png" alt="TORDO" fill sizes="24px" className="object-contain" />
-              </div>
-              <span className="text-sm font-bold text-[#0F2942]" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>TORDO</span>
+              <TordoLogo size={24} />
+              <span className="text-sm font-bold text-[#0F2942]" style={{ fontFamily: 'var(--font-varien, system-ui)' }}>TORDO</span>
             </div>
             <p className="text-xs text-[#94A3B8]">© 2026 TORDO · Inteligencia para Mercado Público · Chile</p>
             <div className="flex gap-5 text-xs text-[#94A3B8]">

@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/lib/api';
 import { UserPlus, Loader2, ArrowLeft, Search, BarChart2, FileCheck } from 'lucide-react';
 import Link from 'next/link';
-import Image from 'next/image';
+import TordoLogo from '@/components/TordoLogo';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -81,7 +81,8 @@ export default function RegisterPage() {
 
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-16">
-            <span className="font-display text-2xl font-bold text-white tracking-tight">TORDO</span>
+            <TordoLogo size={48} />
+            <span className="font-brand text-2xl font-bold text-white tracking-tight">TORDO</span>
           </div>
 
           <h1 className="font-display text-3xl xl:text-4xl font-bold text-white leading-[1.15] mb-5">
@@ -120,10 +121,8 @@ export default function RegisterPage() {
         <div className="mx-auto w-full max-w-sm animate-slide-up">
           {/* Mobile logo */}
           <div className="lg:hidden mb-8 flex items-center gap-3">
-            <div className="relative h-9 w-9">
-              <Image src="/images/TORDO_logo.png" alt="TORDO" fill sizes="36px" className="object-contain" />
-            </div>
-            <span className="font-display text-xl font-bold text-primary">TORDO</span>
+            <TordoLogo size={36} />
+            <span className="font-brand text-xl font-bold text-primary">TORDO</span>
           </div>
 
           <h2 className="font-display text-2xl font-bold text-text mb-1">Crear cuenta gratuita</h2>

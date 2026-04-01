@@ -2,6 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Varien brand font ── */
+@font-face {
+  font-family: 'Varien';
+  src: url('/fonts/varien/Varien.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'VarienOutline';
+  src: url('/fonts/varien/Varien-Outline.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ══════════════════════════════════════════════
    THEME: CSS Custom Properties
    Dark = default (Obsidian). Light = alternative.
@@ -51,6 +68,10 @@
   --shadow-card-md: 0 4px 16px 0 rgba(0,0,0,0.5), 0 2px 6px -2px rgba(0,0,0,0.3);
   --shadow-card-lg: 0 8px 28px 0 rgba(0,0,0,0.6), 0 4px 10px -4px rgba(0,0,0,0.4);
   --shadow-sidebar: 2px 0 24px 0 rgba(0,0,0,0.5);
+
+  /* Brand font */
+  --font-varien: 'Varien', system-ui, sans-serif;
+  --font-varien-outline: 'VarienOutline', system-ui, sans-serif;
 }
 
 .light {
@@ -429,4 +450,25 @@
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
+}
+
+/* ── TordoLogo hover animation (patch — replaced when real wing SVG arrives) ── */
+.tordo-wing {
+  opacity: 0;
+  stroke-dasharray: 500;
+  stroke-dashoffset: 500;
+}
+
+.tordo-logo-wrapper:hover .tordo-wing-left {
+  animation: tordo-wing-draw 0.38s ease-out forwards;
+}
+
+.tordo-logo-wrapper:hover .tordo-wing-right {
+  animation: tordo-wing-draw 0.38s ease-out 0.05s forwards;
+}
+
+@keyframes tordo-wing-draw {
+  0%   { stroke-dashoffset: 500; opacity: 0; }
+  12%  { opacity: 0.85; }
+  100% { stroke-dashoffset: 0; opacity: 0.85; }
 }

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import Image from 'next/image';
+import TordoLogo from '@/components/TordoLogo';
 import {
   LayoutDashboard,
   FileText,
@@ -111,26 +111,9 @@ export default function Layout({ children }: LayoutProps) {
             onClick={() => navigate('/dashboard')}
             className="group flex items-center gap-3 focus-visible:outline-none"
           >
-            <div className="relative h-9 w-9 shrink-0">
-              <Image
-                src="/images/TORDO_logo.png"
-                alt="TORDO"
-                fill
-                sizes="36px"
-                className="object-contain transition-opacity duration-300 absolute group-hover:opacity-0"
-                priority
-              />
-              <Image
-                src="/images/TORDO_logo_openwings.png"
-                alt="TORDO"
-                fill
-                sizes="36px"
-                className="object-contain transition-opacity duration-300 absolute opacity-0 group-hover:opacity-100"
-                priority
-              />
-            </div>
+            <TordoLogo size={36} />
             <div className="leading-none">
-              <span className="font-display text-lg font-bold tracking-tight text-primary">
+              <span className="font-brand text-lg font-bold tracking-tight text-primary">
                 TORDO
               </span>
               <p className="text-[10px] font-medium tracking-widest text-muted uppercase mt-0.5">
