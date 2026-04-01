@@ -2,19 +2,20 @@
 
 Plataforma SaaS para PYMES chilenas que participan en licitaciones públicas. Gestiona alertas, seguimiento de oportunidades y **compliance operativo** (estado hábil, documentos, checklist de postulaciones).
 
-> **Estado del proyecto**: En pivot hacia **YUCA** (SPEC v3.1). Ver `SPEC.md` para la especificación técnica completa y `deploy_steps/` para el plan de implementación por fases.
+> **Estado del proyecto**: En pivot hacia **YUCA** (SPEC v3.1). Ver `docs/SPEC.md` para la especificación técnica completa y `docs/deploy_steps/` para el plan de implementación por fases.
 
 ## Estructura del Proyecto
 
 ```
-saas_licitaciones/
+tordo/
 ├── backend/          # FastAPI + SQLAlchemy + Celery
 ├── frontend/         # Next.js 14 + Tailwind CSS
 ├── etl/              # Pipeline de extracción (Mercado Público, estado hábil)
 ├── infra/            # Docker Compose
-├── deploy_steps/     # Fases de implementación (Fase 0 → 6) + tareas manuales
-├── docs/             # Documentación adicional
-├── SPEC.md           # Especificación técnica completa (v3.1)
+├── docs/             # Especificación técnica, planes de negocio, guías, deploy
+│   ├── SPEC.md       # Especificación técnica completa (v3.1)
+│   ├── deploy_steps/ # Fases de implementación (Fase 0 → 6) + tareas manuales
+│   └── assets/       # Assets de diseño (logos fuente, etc.)
 └── .env.example      # Variables de entorno de referencia
 ```
 
@@ -67,10 +68,10 @@ saas_licitaciones/
 
 ### Flujo de Implementación (Pivot YUCA)
 
-El desarrollo sigue un plan por fases documentado en `deploy_steps/`:
+El desarrollo sigue un plan por fases documentado en `docs/deploy_steps/`:
 
-1. **Leer** `SPEC.md` (especificación técnica)
-2. **Revisar** `deploy_steps/tareas_manuales.md` (tareas que requieren acción humana)
+1. **Leer** `docs/SPEC.md` (especificación técnica)
+2. **Revisar** `docs/deploy_steps/tareas_manuales.md` (tareas que requieren acción humana)
 3. **Ejecutar** las fases en orden: `fase_0_c2.md` → `fase_1_c3.md` → ...
 
 ### Backend
@@ -152,9 +153,9 @@ Ver `.env.example` para la lista completa. Variables críticas:
 
 ## Documentación Relacionada
 
-- **SPEC.md** — Especificación técnica completa, arquitectura, modelo de datos, roadmap
-- **deploy_steps/** — Plan de implementación por fases
-- **docs/** — Guías de desarrollo y referencia de API
+- **docs/SPEC.md** — Especificación técnica completa, arquitectura, modelo de datos, roadmap
+- **docs/deploy_steps/** — Plan de implementación por fases
+- **docs/** — Guías de desarrollo, referencia de API, planes de negocio
 
 ## Licencia
 

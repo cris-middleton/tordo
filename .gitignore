@@ -84,3 +84,6 @@ etl/data/
 
 # Git worktrees
 .worktrees/
+
+# Tooling session data
+.superpowers/

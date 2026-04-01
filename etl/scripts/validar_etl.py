@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
 Script de validación del entorno ETL
-Ejecutar desde el directorio raíz del proyecto: python validar_etl.py
+Ejecutar desde la raíz del proyecto: python etl/scripts/validar_etl.py
 """
 import sys
 from pathlib import Path
 
-# Asegurar que estamos en el directorio correcto
-PROJECT_ROOT = Path(__file__).parent
+# etl/scripts/validar_etl.py → subir 2 niveles para llegar a la raíz del proyecto
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 def validar_imports():

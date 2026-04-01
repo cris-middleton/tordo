@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Desktop-first with responsive design. PWA planned for v3.
 
-See `SPEC.md` (TORDO v1.1) for the full technical specification, `tordo_plan_saas.md` for the SaaS business plan, and `deploy_steps/` for the phased implementation roadmap (Fases 0–6).
+See `docs/SPEC.md` (TORDO v1.1) for the full technical specification, `docs/tordo_plan_saas.md` for the SaaS business plan, and `docs/deploy_steps/` for the phased implementation roadmap (Fases 0–6).
 
 ## Tech Stack
 
@@ -154,7 +154,7 @@ python scripts/descargar_datos_masivos.py --tipo ambos --desde 2025-01 --hasta 2
 
 ## Implementation Status
 
-Development followed phased plan in `deploy_steps/`. **Fases 0–6 are ~90% implemented.** Remaining work:
+Development followed phased plan in `docs/deploy_steps/`. **Fases 0–6 are ~90% implemented.** Remaining work:
 
 ### Pending — Code
 - **Tests**: No comprehensive test suite yet — need unit tests for services, integration tests for API, E2E for critical flows
@@ -167,7 +167,7 @@ Development followed phased plan in `deploy_steps/`. **Fases 0–6 are ~90% impl
 - **Automated market reports**: No scheduled PDF/email report generation for weekly summaries
 - **Analytics page**: Shows mock data, not yet wired to real BI API endpoints
 
-### Pending — External Services (see `deploy_steps/tareas_manuales.md`)
+### Pending — External Services (see `docs/deploy_steps/tareas_manuales.md`)
 - **Stripe**: Need live keys + 4 product/price IDs configured
 - **Google OAuth**: Need CLIENT_ID + CLIENT_SECRET from Google Cloud Console
 - **Twilio WhatsApp**: WABA approval (4–8 week process)
