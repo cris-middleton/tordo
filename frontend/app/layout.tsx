@@ -27,6 +27,15 @@ export const metadata: Metadata = {
     template: `%s · ${APP_NAME}`,
   },
   description: `${APP_NAME} — Inteligencia pre-postulación y cumplimiento para proveedores del Estado en Chile`,
+  icons: {
+    icon: [
+      { url: '/icon.svg?v=2', type: 'image/svg+xml' },
+      { url: '/icon.png?v=2', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/apple-icon.png?v=2' },
+    ],
+  },
 };
 
 export default function RootLayout({
