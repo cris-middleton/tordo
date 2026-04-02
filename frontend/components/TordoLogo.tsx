@@ -55,7 +55,7 @@ export default function TordoLogo({ size = 40, className = '' }: TordoLogoProps)
       className={`tordo-logo-wrapper ${className}`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      style={{ width: w, height: size, flexShrink: 0 }}
+      style={{ width: w, height: size, flexShrink: 0, transform: 'translateY(1px)' }}
     >
       <svg
         viewBox="75 139 403 344"
