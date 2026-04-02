@@ -113,14 +113,10 @@ export default function Layout({ children }: LayoutProps) {
           >
             <TordoLogo size={30} />
             <div className="leading-none">
-<<<<<<< HEAD
-              <span className="font-brand text-lg font-bold tracking-tighter text-primary">
-=======
               <span
                 className="font-brand font-bold text-primary block transition-colors group-hover:text-primaryLight leading-none"
                 style={{ letterSpacing: '0.16em', fontSize: '2.4rem' }}
               >
->>>>>>> 2bcd3bd7ad9bdb8cd9de89e4f7f8ff8330f485cd
                 TORDO
               </span>
               <p className="text-[11px] font-medium tracking-widest text-muted uppercase mt-1">

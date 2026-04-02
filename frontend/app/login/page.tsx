@@ -79,13 +79,8 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-16">
-<<<<<<< HEAD
-            <TordoLogo size={48} />
-            <span className="font-brand text-2xl font-bold text-white tracking-tighter">TORDO</span>
-=======
             <TordoLogo size={22} />
             <span className="font-brand text-2xl font-bold text-white tracking-tight">TORDO</span>
->>>>>>> 2bcd3bd7ad9bdb8cd9de89e4f7f8ff8330f485cd
           </div>
 
           <h1 className="font-display text-4xl xl:text-5xl font-bold text-white leading-[1.15] mb-5">
@@ -128,13 +123,8 @@ export default function LoginPage() {
         <div className="mx-auto w-full max-w-sm animate-slide-up">
           {/* Mobile logo */}
           <div className="lg:hidden mb-8 flex items-center gap-3">
-<<<<<<< HEAD
-            <TordoLogo size={36} />
-            <span className="font-brand text-xl font-bold text-primary tracking-tighter">TORDO</span>
-=======
             <TordoLogo size={18} />
             <span className="font-brand text-xl font-bold text-primary">TORDO</span>
->>>>>>> 2bcd3bd7ad9bdb8cd9de89e4f7f8ff8330f485cd
           </div>
 
           <h2 className="font-display text-2xl font-bold text-text mb-1">Bienvenido de vuelta</h2>
