@@ -375,11 +375,11 @@ export default function Home() {
       {/* ── Navbar ── */}
       <header className="sticky top-0 z-50 border-b border-[#E2E6EF] bg-white/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/" className="flex items-center gap-3">
-            <TordoLogo size={52} />
+          <Link href="/" className="flex items-center gap-2.5 shrink-0">
+            <TordoLogo size={48} />
             <span
               className="font-bold text-[#0F2942] leading-none self-center"
-              style={{ fontFamily: 'var(--font-varien, system-ui)', letterSpacing: '0.15em', fontSize: '2.6rem' }}
+              style={{ fontFamily: 'var(--font-varien, system-ui)', letterSpacing: '0.15em', fontSize: '2rem' }}
             >
               TORDO
             </span>

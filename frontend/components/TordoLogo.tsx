@@ -4,15 +4,17 @@ interface TordoLogoProps {
 }
 
 export default function TordoLogo({ size = 40, className = '' }: TordoLogoProps) {
-  const w = Math.round(size * (612 / 792));
+  // Tight crop around the actual bird (x:70–485, y:125–500) — fills the container
+  const w = Math.round(size * (415 / 375));
   return (
     <div
       className={`tordo-logo-wrapper ${className}`}
       style={{ position: 'relative', width: w, height: size, display: 'inline-block', flexShrink: 0 }}
     >
-      {/* Wing animation overlay — 3 arcs per side for feather depth */}
+      {/* Wing animation overlay — overflow visible so wings extend beyond the crop box */}
       <svg
-        viewBox="0 0 612 792"
+        viewBox="70 125 415 375"
+        overflow="visible"
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
         aria-hidden="true"
       >
@@ -83,10 +85,9 @@ export default function TordoLogo({ size = 40, className = '' }: TordoLogoProps)
         />
       </svg>
 
-      {/* Bird body — idle float driven by CSS */}
+      {/* Bird body — tight crop so bird fills the container */}
       <svg
-        className="tordo-bird"
-        viewBox="0 0 612 792"
+        viewBox="70 125 415 375"
         style={{ width: '100%', height: '100%', display: 'block' }}
         aria-label="TORDO"
         role="img"
