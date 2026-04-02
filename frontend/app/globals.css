@@ -457,21 +457,4 @@
   }
 }
 
-/* ── TordoLogo — 5-frame wing crossfade animation ── */
-
-/* Base: only frame 1 (static wing) is visible */
-.tordo-wing-frame { opacity: 0; transition: opacity 0.12s ease; }
-.tordo-wing-1     { opacity: 1; }
-
-/* On hover: smooth crossfade through 5 frames (0.3s total) */
-.tordo-logo-wrapper:hover .tordo-wing-1 { animation: tw1 0.3s ease forwards; }
-.tordo-logo-wrapper:hover .tordo-wing-2 { animation: tw2 0.3s ease forwards; }
-.tordo-logo-wrapper:hover .tordo-wing-3 { animation: tw3 0.3s ease forwards; }
-.tordo-logo-wrapper:hover .tordo-wing-4 { animation: tw4 0.3s ease forwards; }
-.tordo-logo-wrapper:hover .tordo-wing-5 { animation: tw5 0.3s ease forwards; }
-
-@keyframes tw1 { 0%{opacity:1} 15%{opacity:0} 100%{opacity:0} }
-@keyframes tw2 { 0%{opacity:0} 10%{opacity:1} 30%{opacity:1} 45%{opacity:0} 100%{opacity:0} }
-@keyframes tw3 { 0%{opacity:0} 30%{opacity:0} 40%{opacity:1} 55%{opacity:1} 65%{opacity:0} 100%{opacity:0} }
-@keyframes tw4 { 0%{opacity:0} 55%{opacity:0} 60%{opacity:1} 75%{opacity:1} 85%{opacity:0} 100%{opacity:0} }
-@keyframes tw5 { 0%{opacity:0} 75%{opacity:0} 85%{opacity:1} 100%{opacity:1} }
+/* ── TordoLogo — animation handled by React state ── */
