@@ -378,7 +378,7 @@ export default function Home() {
           <Link href="/" className="flex items-end gap-2.5 shrink-0">
             <TordoLogo size={34} />
             <span
-              className="font-bold text-[#0F2942] leading-none self-center"
+              className="font-bold text-[#0F2942] leading-none"
               style={{ fontFamily: 'var(--font-varien, system-ui)', letterSpacing: '0.15em', fontSize: '2rem' }}
             >
               TORDO

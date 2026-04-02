@@ -457,55 +457,21 @@
   }
 }
 
-/* ── TordoLogo animations ── */
+/* ── TordoLogo — 5-frame wing flipbook animation ── */
 
-/* Wing stroke base state — hidden until hover */
-.tordo-wing {
-  opacity: 0;
-  stroke-dasharray: 600;
-  stroke-dashoffset: 600;
-}
+/* Base: only frame 1 (static wing) is visible */
+.tordo-wing-frame { opacity: 0; }
+.tordo-wing-1     { opacity: 1; }
 
-/* Glow base state */
-.tordo-glow {
-  opacity: 0;
-}
+/* On hover, play the 5-frame flipbook (0.45s total) */
+.tordo-logo-wrapper:hover .tordo-wing-1 { animation: tw1 0.45s steps(1) forwards; }
+.tordo-logo-wrapper:hover .tordo-wing-2 { animation: tw2 0.45s steps(1) forwards; }
+.tordo-logo-wrapper:hover .tordo-wing-3 { animation: tw3 0.45s steps(1) forwards; }
+.tordo-logo-wrapper:hover .tordo-wing-4 { animation: tw4 0.45s steps(1) forwards; }
+.tordo-logo-wrapper:hover .tordo-wing-5 { animation: tw5 0.45s steps(1) forwards; }
 
-/* Hover — left wings cascade in */
-.tordo-logo-wrapper:hover .tordo-wing-left {
-  animation: tordo-wing-draw 0.42s ease-out forwards;
-}
-.tordo-logo-wrapper:hover .tordo-wing-left-2 {
-  animation: tordo-wing-draw 0.38s ease-out 0.07s forwards;
-}
-.tordo-logo-wrapper:hover .tordo-wing-left-3 {
-  animation: tordo-wing-draw 0.34s ease-out 0.13s forwards;
-}
-
-/* Hover — right wings cascade in */
-.tordo-logo-wrapper:hover .tordo-wing-right {
-  animation: tordo-wing-draw 0.42s ease-out 0.04s forwards;
-}
-.tordo-logo-wrapper:hover .tordo-wing-right-2 {
-  animation: tordo-wing-draw 0.38s ease-out 0.10s forwards;
-}
-.tordo-logo-wrapper:hover .tordo-wing-right-3 {
-  animation: tordo-wing-draw 0.34s ease-out 0.16s forwards;
-}
-
-/* Hover — glow pulse */
-.tordo-logo-wrapper:hover .tordo-glow {
-  animation: tordo-glow-pulse 0.7s ease-out forwards;
-}
-
-@keyframes tordo-wing-draw {
-  0%   { stroke-dashoffset: 600; opacity: 0; }
-  10%  { opacity: 0.9; }
-  100% { stroke-dashoffset: 0; opacity: 0.7; }
-}
-
-@keyframes tordo-glow-pulse {
-  0%   { opacity: 0; }
-  35%  { opacity: 0.14; }
-  100% { opacity: 0; }
-}
+@keyframes tw1 { 0%{opacity:1}  20%{opacity:0} 100%{opacity:0} }
+@keyframes tw2 { 0%{opacity:0}  20%{opacity:1} 40%{opacity:0}  100%{opacity:0} }
+@keyframes tw3 { 0%{opacity:0}  40%{opacity:1} 60%{opacity:0}  100%{opacity:0} }
+@keyframes tw4 { 0%{opacity:0}  60%{opacity:1} 80%{opacity:0}  100%{opacity:0} }
+@keyframes tw5 { 0%{opacity:0}  80%{opacity:1} 100%{opacity:1} }
