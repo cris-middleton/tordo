@@ -10,32 +10,82 @@ export default function TordoLogo({ size = 40, className = '' }: TordoLogoProps)
       className={`tordo-logo-wrapper ${className}`}
       style={{ position: 'relative', width: w, height: size, display: 'inline-block', flexShrink: 0 }}
     >
-      {/* Placeholder wing-spread animation — replaced when real SVG animation arrives */}
+      {/* Wing animation overlay — 3 arcs per side for feather depth */}
       <svg
         viewBox="0 0 612 792"
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
         aria-hidden="true"
       >
+        {/* Soft glow behind bird on hover */}
+        <ellipse
+          className="tordo-glow"
+          cx="295"
+          cy="335"
+          rx="115"
+          ry="100"
+          fill="#3db9bb"
+        />
+
+        {/* Left wing — primary */}
         <path
           className="tordo-wing tordo-wing-left"
-          d="M 195 355 Q 35 255 75 105"
+          d="M 215 368 C 158 302 88 238 44 142"
           fill="none"
           stroke="#3db9bb"
-          strokeWidth="22"
+          strokeWidth="20"
           strokeLinecap="round"
         />
+        {/* Left wing — secondary feather */}
         <path
-          className="tordo-wing tordo-wing-right"
-          d="M 385 305 Q 555 205 525 65"
+          className="tordo-wing tordo-wing-left-2"
+          d="M 228 358 C 178 308 132 272 88 196"
           fill="none"
           stroke="#3db9bb"
-          strokeWidth="22"
+          strokeWidth="13"
+          strokeLinecap="round"
+        />
+        {/* Left wing — tertiary feather */}
+        <path
+          className="tordo-wing tordo-wing-left-3"
+          d="M 205 378 C 140 328 72 290 28 208"
+          fill="none"
+          stroke="#3db9bb"
+          strokeWidth="8"
+          strokeLinecap="round"
+        />
+
+        {/* Right wing — primary */}
+        <path
+          className="tordo-wing tordo-wing-right"
+          d="M 378 298 C 448 226 512 172 558 88"
+          fill="none"
+          stroke="#3db9bb"
+          strokeWidth="20"
+          strokeLinecap="round"
+        />
+        {/* Right wing — secondary feather */}
+        <path
+          className="tordo-wing tordo-wing-right-2"
+          d="M 362 310 C 428 258 478 218 518 150"
+          fill="none"
+          stroke="#3db9bb"
+          strokeWidth="13"
+          strokeLinecap="round"
+        />
+        {/* Right wing — tertiary feather */}
+        <path
+          className="tordo-wing tordo-wing-right-3"
+          d="M 392 288 C 462 218 524 158 568 78"
+          fill="none"
+          stroke="#3db9bb"
+          strokeWidth="8"
           strokeLinecap="round"
         />
       </svg>
 
-      {/* Bird */}
+      {/* Bird body — idle float driven by CSS */}
       <svg
+        className="tordo-bird"
         viewBox="0 0 612 792"
         style={{ width: '100%', height: '100%', display: 'block' }}
         aria-label="TORDO"
