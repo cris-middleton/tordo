@@ -53,7 +53,7 @@ export default function LoginPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
-          <TordoLogo size={40} />
+          <TordoLogo size={32} />
           <p className="text-sm text-muted animate-pulse">Verificando sesión…</p>
         </div>
       </div>
@@ -78,7 +78,7 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-16">
-            <TordoLogo size={48} />
+            <TordoLogo size={28} />
             <span className="font-brand text-2xl font-bold text-white tracking-tight">TORDO</span>
           </div>
 
@@ -122,7 +122,7 @@ export default function LoginPage() {
         <div className="mx-auto w-full max-w-sm animate-slide-up">
           {/* Mobile logo */}
           <div className="lg:hidden mb-8 flex items-center gap-3">
-            <TordoLogo size={36} />
+            <TordoLogo size={24} />
             <span className="font-brand text-xl font-bold text-primary">TORDO</span>
           </div>
 

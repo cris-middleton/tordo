@@ -81,7 +81,7 @@ export default function RegisterPage() {
 
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-16">
-            <TordoLogo size={48} />
+            <TordoLogo size={28} />
             <span className="font-brand text-2xl font-bold text-white tracking-tight">TORDO</span>
           </div>
 
@@ -121,7 +121,7 @@ export default function RegisterPage() {
         <div className="mx-auto w-full max-w-sm animate-slide-up">
           {/* Mobile logo */}
           <div className="lg:hidden mb-8 flex items-center gap-3">
-            <TordoLogo size={36} />
+            <TordoLogo size={24} />
             <span className="font-brand text-xl font-bold text-primary">TORDO</span>
           </div>
 
