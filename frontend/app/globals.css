@@ -125,6 +125,11 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+  }
+
+  section[id] {
+    scroll-margin-top: 80px;
   }
 
   body {
@@ -453,16 +458,6 @@
 }
 
 /* ── TordoLogo animations ── */
-
-/* Idle float on the bird body */
-.tordo-bird {
-  animation: tordo-float 3.8s ease-in-out infinite;
-}
-
-@keyframes tordo-float {
-  0%, 100% { transform: translateY(0); }
-  50%       { transform: translateY(-5%); }
-}
 
 /* Wing stroke base state — hidden until hover */
 .tordo-wing {

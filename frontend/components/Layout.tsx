@@ -112,14 +112,14 @@ export default function Layout({ children }: LayoutProps) {
             className="group flex items-center gap-3.5 focus-visible:outline-none"
           >
             <TordoLogo size={56} />
-            <div className="leading-none">
+            <div className="flex flex-col justify-center" style={{ height: 56 }}>
               <span
-                className="font-brand text-[2rem] font-bold text-primary block transition-colors group-hover:text-primaryLight"
-                style={{ letterSpacing: '0.16em' }}
+                className="font-brand font-bold text-primary block transition-colors group-hover:text-primaryLight leading-none"
+                style={{ letterSpacing: '0.16em', fontSize: '2.4rem' }}
               >
                 TORDO
               </span>
-              <p className="text-[10px] font-medium tracking-widest text-muted uppercase mt-0.5">
+              <p className="text-[11px] font-medium tracking-widest text-muted uppercase mt-1">
                 Mercado Público
               </p>
             </div>
