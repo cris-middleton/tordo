@@ -115,7 +115,7 @@ export default function Layout({ children }: LayoutProps) {
             <div className="leading-none">
               <span
                 className="font-brand font-bold text-primary block transition-colors group-hover:text-primaryLight leading-none"
-                style={{ letterSpacing: '0.16em', fontSize: '2.4rem' }}
+                style={{ letterSpacing: '0.04em', fontSize: '2.4rem' }}
               >
                 TORDO
               </span>
