@@ -7,7 +7,6 @@ Key methods
 create_alert_idempotent — INSERT ... ON CONFLICT DO NOTHING on idempotency_key
 match_nueva_licitacion  — TF-IDF score every empresa profile, emit NUEVA_LICITACION_MATCH
 """
-import hashlib
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -243,11 +242,7 @@ class AlertEngine:
             )
 
             for m in memberships:
-                # key format: nueva_lic_match_<sha8>_<user_id>
-                # sha8 of "licitacion_id:empresa_id" keeps key short & deterministic
-                raw_key = f"{licitacion.id}:{perfil.empresa_id}"
-                key_hash = hashlib.sha256(raw_key.encode()).hexdigest()[:16]
-                idempotency_key = f"nueva_lic_match_{key_hash}_{m.user_id}"
+                idempotency_key = f"nueva_lic_match_{licitacion.id}_{perfil.empresa_id}_{m.user_id}"
 
                 inserted = self.create_alert_idempotent(
                     user_id=m.user_id,

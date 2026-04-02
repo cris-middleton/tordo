@@ -101,6 +101,7 @@ export default function DashboardPage() {
     tiene_empresa: false,
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [topScore, setTopScore] = useState<number | null>(null);
   const [topOrganism, setTopOrganism] = useState<string | null>(null);
   const [biLastUpdated, setBiLastUpdated] = useState<string | null>(null);
@@ -159,7 +160,9 @@ export default function DashboardPage() {
   useEffect(() => {
     apiClient.getDashboardStats()
       .then(setStats)
-      .catch(console.error)
+      .catch(() => {
+        setError('No se pudo cargar el dashboard. Por favor recarga la página.');
+      })
       .finally(() => setLoading(false));
 
     apiClient.getEmpresas().then((empresas: any) => {
@@ -206,9 +209,15 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in">
       {/* ── Data freshness warning ── */}
       <DataFreshnessBar lastUpdated={biLastUpdated} />
+
+      {error && (
+        <div className="alert-error">
+          <span>{error}</span>
+        </div>
+      )}
 
       {/* Page header */}
       <div className="flex items-start justify-between">

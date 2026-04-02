@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://redis:6379/0"
     
     # Security settings
-    secret_key: str = "your-secret-key-change-in-production"
+    secret_key: str
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     
@@ -39,7 +39,7 @@ class Settings(BaseSettings):
             import json
             try:
                 return json.loads(v)
-            except:
+            except (json.JSONDecodeError, ValueError):
                 # Fall back to comma-separated
                 return [origin.strip() for origin in v.split(',') if origin.strip()]
         return v
@@ -71,7 +71,7 @@ class Settings(BaseSettings):
 
     # Storage (documents)
     storage_backend: str = "local"          # "local" | "s3"
-    local_storage_path: str = "/tmp/tordo_docs"
+    local_storage_path: str = "./documents"
     aws_bucket: Optional[str] = None
     aws_region: str = "us-east-1"
     # S3-compatible endpoint (MinIO in dev, leave blank for real AWS)

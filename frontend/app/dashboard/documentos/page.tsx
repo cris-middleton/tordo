@@ -116,7 +116,10 @@ export default function DocumentosPage() {
     if (!empresaId) return;
     apiClient.getEstadoHabil(empresaId)
       .then((data: any) => setEstadoHabil(data?.estado_habil ?? null))
-      .catch(() => setEstadoHabil(null));
+      .catch((err) => {
+        console.error('Error fetching estado hábil:', err);
+        setEstadoHabil(null);
+      });
   }, [empresaId]);
 
   const loadEmpresas = async () => {
@@ -302,7 +305,7 @@ export default function DocumentosPage() {
       {/* Upload form modal */}
       {showUploadForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-xl bg-surface p-6 shadow-xl space-y-4">
+          <div className="w-full max-w-md rounded-xl bg-surface p-4 sm:p-6 shadow-xl space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-text">Subir documento</h2>
               <button onClick={() => setShowUploadForm(false)}>
@@ -316,7 +319,7 @@ export default function DocumentosPage() {
               onDragOver={handleDragOver}
               onDrop={handleDrop}
               onClick={() => document.getElementById('file-upload-input')?.click()}
-              className={`relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
+              className={`relative border-2 border-dashed rounded-xl p-5 sm:p-8 text-center cursor-pointer transition-all ${
                 isDragging
                   ? 'border-info bg-info/10 scale-[1.01]'
                   : uploadFile

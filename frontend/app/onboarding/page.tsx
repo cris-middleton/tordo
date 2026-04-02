@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/lib/api';
@@ -172,6 +172,25 @@ export default function OnboardingPage() {
   const [loadingAlert, setLoadingAlert] = useState(false);
   const [planSeleccionado, setPlanSeleccionado] = useState('basico');
 
+  // Fetch BI oportunidades when step 4 becomes active
+  useEffect(() => {
+    if (step !== 4) return;
+    let active = true;
+    setBiLoading(true);
+    apiClient
+      .getBIOportunidades({ limit: 3 })
+      .then((data: any) => {
+        if (active) setBiOportunidades((data as any)?.oportunidades ?? []);
+      })
+      .catch(() => {
+        if (active) setBiOportunidades([]);
+      })
+      .finally(() => {
+        if (active) setBiLoading(false);
+      });
+    return () => { active = false; };
+  }, [step]);
+
   // ─── Formatting ────────────────────────────────────────────────────────────
   const formatRut = (value: string) => {
     const clean = value.replace(/[^0-9kK]/g, '').toUpperCase();
@@ -240,13 +259,6 @@ export default function OnboardingPage() {
     } finally {
       setLoading(false);
     }
-    // Fetch real BI oportunidades for step 4
-    setBiLoading(true)
-    apiClient
-      .getBIOportunidades({ limit: 3 })
-      .then((data) => setBiOportunidades((data as any)?.oportunidades ?? []))
-      .catch(() => setBiOportunidades([]))
-      .finally(() => setBiLoading(false))
   };
 
   const handleCreateAlert = async () => {

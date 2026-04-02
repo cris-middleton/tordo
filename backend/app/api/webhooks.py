@@ -12,6 +12,7 @@ Handled events:
 
 The endpoint verifies the Stripe-Signature header and ignores unrecognised events.
 """
+import asyncio
 import logging
 
 from fastapi import APIRouter, HTTPException, Request, status
@@ -37,7 +38,6 @@ async def stripe_webhook(request: Request):
     Must be publicly reachable (no auth header — Stripe signs the payload instead).
     """
     from app.db import SyncSessionLocal
-    from app.models.user import User
     from app.services.stripe_service import (
         construct_webhook_event,
         subscription_status_from_stripe,
@@ -52,28 +52,32 @@ async def stripe_webhook(request: Request):
 
     logger.info("Stripe webhook received: %s", event_type)
 
-    db = SyncSessionLocal()
-    try:
-        if event_type == "checkout.session.completed":
-            _handle_checkout_completed(db, data)
+    def _sync_db_work():
+        db = SyncSessionLocal()
+        try:
+            if event_type == "checkout.session.completed":
+                _handle_checkout_completed(db, data)
 
-        elif event_type in ("customer.subscription.updated", "customer.subscription.created"):
-            _handle_subscription_updated(db, data)
+            elif event_type in ("customer.subscription.updated", "customer.subscription.created"):
+                _handle_subscription_updated(db, data)
 
-        elif event_type == "customer.subscription.deleted":
-            _handle_subscription_deleted(db, data)
+            elif event_type == "customer.subscription.deleted":
+                _handle_subscription_deleted(db, data)
 
-        elif event_type == "invoice.payment_failed":
-            _handle_payment_failed(db, data)
+            elif event_type == "invoice.payment_failed":
+                _handle_payment_failed(db, data)
 
-        else:
-            logger.debug("Unhandled Stripe event: %s", event_type)
+            else:
+                logger.debug("Unhandled Stripe event: %s", event_type)
 
-    except Exception as exc:
-        logger.error("Error processing Stripe event %s: %s", event_type, exc)
-        # Return 200 to prevent Stripe from retrying for non-critical errors
-    finally:
-        db.close()
+        except Exception as exc:
+            logger.error("Error processing Stripe event %s: %s", event_type, exc)
+            # Return 200 to prevent Stripe from retrying for non-critical errors
+        finally:
+            db.close()
+
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, _sync_db_work)
 
     return {"received": True}
 
@@ -96,7 +100,12 @@ def _handle_checkout_completed(db, session):
     user = _get_user_by_customer(db, customer_id)
     if not user and metadata.get("user_id"):
         from app.models.user import User
-        user = db.query(User).filter(User.id == int(metadata["user_id"])).first()
+        try:
+            uid = int(metadata["user_id"])
+        except (ValueError, KeyError):
+            logger.error("checkout.session.completed: invalid user_id in metadata: %s", metadata.get("user_id"))
+            return
+        user = db.query(User).filter(User.id == uid).first()
 
     if not user:
         logger.warning("checkout.session.completed: no user found for customer %s", customer_id)

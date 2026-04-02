@@ -9,8 +9,8 @@ lxml==4.9.3
 # Data processing
 pandas==2.1.3
 numpy==1.26.2
-pyarrow==14.0.1
-polars>=1.0.0
+pyarrow==14.0.2
+polars==0.20.15
 
 # Database
 sqlalchemy==2.0.23

@@ -364,7 +364,7 @@ export default function PostulacionesPage() {
               key={p.id}
               postulacion={p}
               onChecklistToggle={handleChecklistToggle}
-              documentos={documentos}
+              documentos={documentos || []}
               onDocumentoLink={handleDocumentoLink}
             />
           ))}

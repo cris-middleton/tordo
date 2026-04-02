@@ -377,7 +377,7 @@ export default function Home() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link href="#" className="flex items-center gap-3">
             <TordoLogo size={36} />
-            <span className="text-xl font-bold tracking-tight text-[#0F2942]" style={{ fontFamily: 'var(--font-varien, system-ui)' }}>
+            <span className="font-brand text-xl font-bold tracking-tighter text-[#0F2942]">
               TORDO
             </span>
           </Link>
@@ -388,11 +388,11 @@ export default function Home() {
             ))}
           </nav>
 
-          <div className="flex items-center gap-3">
-            <Link href="/login" className="hidden rounded-lg px-4 py-2 text-sm font-semibold text-[#64748B] transition-colors hover:text-[#0F2942] md:block">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link href="/login" className="rounded-lg px-3 py-2 text-sm font-semibold text-[#64748B] transition-colors hover:text-[#0F2942]">
               Iniciar sesión
             </Link>
-            <Link href="/register" className="rounded-lg bg-[#0EAD69] px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-[#09895B] hover:shadow-md">
+            <Link href="/register" className="hidden sm:inline-flex rounded-lg bg-[#0EAD69] px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-[#09895B] hover:shadow-md">
               Prueba gratis
             </Link>
             <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="rounded-lg p-2 text-[#64748B] hover:text-[#0F2942] md:hidden">
@@ -407,7 +407,9 @@ export default function Home() {
               {navItems.map((item) => (
                 <Link key={item.name} href={item.href} onClick={() => setMobileMenuOpen(false)} className="text-sm font-medium text-[#64748B] hover:text-[#0F2942]">{item.name}</Link>
               ))}
-              <Link href="/login" onClick={() => setMobileMenuOpen(false)} className="text-sm font-semibold text-[#64748B] hover:text-[#0F2942]">Iniciar sesión</Link>
+              <Link href="/register" onClick={() => setMobileMenuOpen(false)} className="inline-flex items-center justify-center rounded-lg bg-[#0EAD69] px-4 py-2.5 text-sm font-bold text-white transition-all hover:bg-[#09895B]">
+                Prueba gratis
+              </Link>
             </nav>
           </div>
         )}
@@ -415,7 +417,7 @@ export default function Home() {
 
       <main className="flex-1">
         {/* ── Hero ── */}
-        <section className="relative overflow-hidden bg-[#0F2942] px-6 py-12 sm:py-16">
+        <section className="relative overflow-hidden bg-[#0F2942] px-6 py-14 sm:py-20 lg:py-24">
           <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '28px 28px' }} />
           <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#0EAD69]/60 to-transparent" />
 
@@ -434,31 +436,30 @@ export default function Home() {
                   Precios históricos, mapa de competidores y checklist de documentos — todo lo que necesitas para decidir si conviene postular, antes de invertir tiempo.
                 </p>
 
-                {/* Inclusive message */}
-                <p className="mb-8 max-w-lg text-sm text-white/45 leading-relaxed">
+                <p className="mb-8 max-w-lg text-sm text-white/40 leading-relaxed">
                   No importa el tamaño de tu empresa ni tu experiencia en licitaciones. TORDO te ayuda a entender cada oportunidad y mejorar tus probabilidades.
                 </p>
 
-                <div className="flex flex-wrap gap-4 mb-12">
-                  <Link href="/register" className="inline-flex items-center gap-2 rounded-lg bg-[#0EAD69] px-6 py-3.5 text-sm font-bold text-white shadow-lg transition-all hover:bg-[#09895B] hover:shadow-xl">
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-10 sm:mb-12">
+                  <Link href="/register" className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0EAD69] px-6 py-3.5 text-sm font-bold text-white shadow-lg transition-all hover:bg-[#09895B] hover:shadow-xl">
                     Prueba gratis — sin tarjeta
                     <ArrowRight className="h-4 w-4" />
                   </Link>
-                  <Link href="#producto" className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/[0.08] px-6 py-3.5 text-sm font-semibold text-white/90 backdrop-blur-sm transition-all hover:bg-white/15">
+                  <Link href="#producto" className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/[0.08] px-6 py-3.5 text-sm font-semibold text-white/90 backdrop-blur-sm transition-all hover:bg-white/15">
                     Ver el producto
                   </Link>
                 </div>
 
                 {/* Stats */}
-                <div className="flex flex-wrap gap-8 sm:gap-12">
+                <div className="grid grid-cols-3 gap-6 sm:gap-10">
                   {[
                     { value: '$17.6B USD', label: 'en compras públicas (2024)' },
                     { value: '110.000+', label: 'proveedores en el mercado' },
                     { value: '+3.2M', label: 'transacciones analizadas' },
                   ].map((item) => (
                     <div key={item.value}>
-                      <p className="text-2xl font-bold text-white" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>{item.value}</p>
-                      <p className="mt-0.5 text-sm text-white/45">{item.label}</p>
+                      <p className="text-xl sm:text-2xl font-bold text-white" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>{item.value}</p>
+                      <p className="mt-0.5 text-xs sm:text-sm text-white/45">{item.label}</p>
                     </div>
                   ))}
                 </div>
@@ -478,7 +479,7 @@ export default function Home() {
         </section>
 
         {/* ── Benefits ── */}
-        <section className="bg-[#F6F7FB] px-6 py-20" id="beneficios">
+        <section className="bg-[#F6F7FB] px-6 py-16 sm:py-20" id="beneficios">
           <div className="mx-auto max-w-5xl">
             <div className="mb-14 text-center">
               <p className="mb-3 text-xs font-bold uppercase tracking-widest text-[#0EAD69]">
@@ -555,7 +556,7 @@ export default function Home() {
         </section>
 
         {/* ── Product Demo ── */}
-        <section id="producto" className="bg-[#F6F7FB] px-6 py-20 border-t border-[#E2E6EF]">
+        <section id="producto" className="bg-[#F6F7FB] px-6 py-16 sm:py-20 border-t border-[#E2E6EF]">
           <div className="mx-auto max-w-5xl">
             <div className="mb-12 text-center">
               <p className="mb-3 text-xs font-bold uppercase tracking-widest text-[#0EAD69]">EL PRODUCTO</p>
@@ -596,7 +597,7 @@ export default function Home() {
         </section>
 
         {/* ── How It Works ── */}
-        <section id="como-funciona" className="px-6 py-20">
+        <section id="como-funciona" className="px-6 py-16 sm:py-20">
           <div className="mx-auto max-w-5xl">
             <div className="mb-12 text-center">
               <p className="mb-3 text-xs font-bold uppercase tracking-widest text-[#0EAD69]">CÓMO EMPEZAR</p>
@@ -638,7 +639,7 @@ export default function Home() {
                 { value: '97K', label: 'proveedores perfilados' },
               ].map((item) => (
                 <div key={item.value} className="text-center">
-                  <p className="text-3xl font-bold text-[#0F2942] sm:text-4xl" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>{item.value}</p>
+                  <p className="text-2xl font-bold text-[#0F2942] sm:text-3xl lg:text-4xl" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>{item.value}</p>
                   <p className="mt-2 text-sm text-[#64748B]">{item.label}</p>
                 </div>
               ))}
@@ -647,7 +648,7 @@ export default function Home() {
         </section>
 
         {/* ── Pricing ── */}
-        <section id="precios" className="bg-[#F6F7FB] px-6 py-20">
+        <section id="precios" className="bg-[#F6F7FB] px-6 py-16 sm:py-20">
           <div className="mx-auto max-w-5xl">
             <div className="mb-12 text-center">
               <p className="mb-3 text-xs font-bold uppercase tracking-widest text-[#0EAD69]">PLANES</p>
@@ -715,7 +716,7 @@ export default function Home() {
         </section>
 
         {/* ── FAQ ── */}
-        <section id="faq" className="px-6 py-20">
+        <section id="faq" className="px-6 py-16 sm:py-20">
           <div className="mx-auto max-w-2xl">
             <div className="mb-12 text-center">
               <h2 className="text-3xl font-bold text-[#0D1B2A] sm:text-4xl" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>
@@ -767,12 +768,12 @@ export default function Home() {
       </main>
 
       {/* ── Footer ── */}
-      <footer className="border-t border-[#E2E6EF] bg-white px-6 py-8">
+      <footer className="border-t border-[#E2E6EF] bg-white px-6 py-8 pb-20 lg:pb-8">
         <div className="mx-auto max-w-6xl">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <div className="flex items-center gap-2.5">
               <TordoLogo size={24} />
-              <span className="text-sm font-bold text-[#0F2942]" style={{ fontFamily: 'var(--font-varien, system-ui)' }}>TORDO</span>
+              <span className="font-brand text-sm font-bold tracking-tighter text-[#0F2942]">TORDO</span>
             </div>
             <p className="text-xs text-[#94A3B8]">© 2026 TORDO · Inteligencia para Mercado Público · Chile</p>
             <div className="flex gap-5 text-xs text-[#94A3B8]">

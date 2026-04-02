@@ -189,7 +189,8 @@ export default function TendersPage() {
       .catch(() => { if (active) setBiError(true); })
       .finally(() => { if (active) setBiLoading(false); });
     return () => { active = false; };
-  }, [selectedTender, firstEmpresaId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTender]);
 
   const loadTenders = useCallback(async () => {
     setLoading(true);
@@ -230,13 +231,14 @@ export default function TendersPage() {
     (value: string) => {
       const normalized = value.trim();
       if (!normalized) return;
-      const exists = keywords.some((keyword) => keyword.toLowerCase() === normalized.toLowerCase());
-      if (exists) return;
-      setKeywords((prev) => [...prev, normalized]);
+      setKeywords((prev) => {
+        if (prev.some((k) => k.toLowerCase() === normalized.toLowerCase())) return prev;
+        return [...prev, normalized];
+      });
       setSearchInput('');
       setPage(1);
     },
-    [keywords],
+    [],
   );
 
   const handleKeywordKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -347,7 +349,7 @@ export default function TendersPage() {
       <div className="flex gap-4 items-start">
 
         {/* LEFT — Filters sidebar */}
-        <aside className={`w-60 shrink-0 space-y-3 ${mobileTab !== 'filtros' ? 'hidden lg:block' : 'block w-full lg:w-60'}`}>
+        <aside className={`shrink-0 space-y-3 ${mobileTab !== 'filtros' ? 'hidden lg:block' : 'block w-full'} lg:w-60`}>
           <div className="card space-y-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
@@ -428,7 +430,7 @@ export default function TendersPage() {
                   { value: 'monto_estimado', label: 'Monto' },
                   { value: 'nombre', label: 'Nombre' },
                 ]}
-                className="w-44"
+                className="w-full sm:w-44"
               />
               <SelectField
                 value={sortOrder}
@@ -437,7 +439,7 @@ export default function TendersPage() {
                   { value: 'desc', label: '↓ Mayor a menor' },
                   { value: 'asc', label: '↑ Menor a mayor' },
                 ]}
-                className="w-40"
+                className="w-full sm:w-40"
               />
               <SelectField
                 value={String(limit)}
@@ -448,7 +450,7 @@ export default function TendersPage() {
                   { value: '50', label: '50 / pág' },
                   { value: '100', label: '100 / pág' },
                 ]}
-                className="w-28"
+                className="w-full sm:w-28"
               />
             </div>
           </div>
@@ -643,7 +645,7 @@ export default function TendersPage() {
         </div>
 
         {/* RIGHT — Contextual BI panel */}
-        <aside className={`w-[360px] shrink-0 ${mobileTab !== 'detalle' ? 'hidden lg:block' : 'block w-full lg:w-[360px]'}`}>
+        <aside className={`shrink-0 ${mobileTab !== 'detalle' ? 'hidden lg:block' : 'block w-full'} lg:w-[360px]`}>
           {selectedTender ? (
             <div className="card space-y-3">
               {/* Header */}

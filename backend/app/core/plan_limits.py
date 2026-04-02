@@ -221,25 +221,6 @@ def _make_bi_quota_dep():
 check_bi_quota_dep = _make_bi_quota_dep()
 
 
-def _make_alert_quota_dep():
-    from app.core.security import get_current_active_user
-    from app.models.user import User
-
-    def _check(
-        db=Depends(  # type: ignore[assignment]
-            lambda: None
-        ),
-        current_user: User = Depends(get_current_active_user),
-    ) -> User:
-        from app.db import get_db as _get_db
-        from app.models.alert import AlertPreference
-
-        # Re-import db properly via real get_db
-        return current_user  # placeholder — see check_alert_quota_dep below
-
-    return _check
-
-
 def _make_alert_quota_dep_real():
     from app.core.security import get_current_active_user
     from app.db import get_db

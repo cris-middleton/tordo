@@ -43,6 +43,8 @@ export default function AlertsPage() {
   const [filter, setFilter] = useState<'all' | 'unread'>('unread');
   const [showPrefs, setShowPrefs] = useState(false);
 
+  const [error, setError] = useState<string | null>(null);
+
   const [showModal, setShowModal] = useState(false);
   const [editingPref, setEditingPref] = useState<AlertPreference | null>(null);
   const [saving, setSaving] = useState(false);
@@ -61,6 +63,7 @@ export default function AlertsPage() {
   const limit = 20;
 
   const loadAlerts = useCallback(async () => {
+    setError(null);
     setLoading(true);
     try {
       const params: Record<string, unknown> = {
@@ -74,20 +77,23 @@ export default function AlertsPage() {
       setTotal(response.total || 0);
       setUnreadCount(response.unread_count || 0);
       setPages(response.pages || 1);
-    } catch (error) {
-      console.error('Error loading alerts:', error);
+    } catch (err) {
+      console.error('Error loading alerts:', err);
+      setError('No se pudieron cargar las alertas.');
     } finally {
       setLoading(false);
     }
   }, [filter, page]);
 
   const loadPreferences = useCallback(async () => {
+    setError(null);
     setPrefsLoading(true);
     try {
       const data = await apiClient.getAlertPreferences(false);
       setPreferences(data || []);
-    } catch (error) {
-      console.error('Error loading preferences:', error);
+    } catch (err) {
+      console.error('Error loading preferences:', err);
+      setError('No se pudieron cargar las preferencias.');
     } finally {
       setPrefsLoading(false);
     }
@@ -194,6 +200,12 @@ export default function AlertsPage() {
           Gestionar Preferencias
         </button>
       </div>
+
+      {error && (
+        <div className="alert-error">
+          <span>{error}</span>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="card">
@@ -320,7 +332,7 @@ export default function AlertsPage() {
       {/* Create / Edit preference modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-xl bg-surface-elevated border border-borderLight p-6 shadow-card-lg">
+          <div className="w-full max-w-lg rounded-xl bg-surface-elevated border border-borderLight p-4 sm:p-6 shadow-card-lg">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-text">
                 {editingPref ? 'Editar preferencia' : 'Nueva preferencia'}
@@ -387,7 +399,7 @@ export default function AlertsPage() {
               <div>
                 <label className="mb-1 block text-sm font-medium text-text">Regiones</label>
                 <div className="max-h-40 overflow-y-auto rounded-lg border border-border bg-surface p-2">
-                  <div className="grid grid-cols-2 gap-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
                     {REGIONES_CHILE.map((r) => (
                       <label key={r} className="flex items-center gap-2 rounded px-2 py-1 text-xs hover:bg-border cursor-pointer">
                         <input

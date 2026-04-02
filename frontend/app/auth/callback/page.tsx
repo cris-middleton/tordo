@@ -25,9 +25,13 @@ function AuthCallbackInner() {
     }
 
     apiClient.setToken(token);
-    refreshUser().then(() => {
-      router.replace('/dashboard');
-    });
+    refreshUser()
+      .then(() => {
+        router.replace('/dashboard');
+      })
+      .catch(() => {
+        router.replace('/login?error=' + encodeURIComponent('No se pudo completar la autenticación'));
+      });
   }, [searchParams, router, refreshUser]);
 
   return (

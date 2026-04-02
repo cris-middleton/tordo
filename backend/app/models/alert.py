@@ -66,7 +66,7 @@ class Alert(Base):
     idempotency_key = Column(String(255), unique=True, nullable=True, index=True)
 
     # Empresa association (for compliance alerts)
-    empresa_id = Column(UUID(as_uuid=True), ForeignKey("empresas.id", ondelete="SET NULL"), nullable=True)
+    empresa_id = Column(UUID(as_uuid=True), ForeignKey("empresas.id", ondelete="CASCADE"), nullable=True)
 
     # Metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)

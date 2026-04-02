@@ -44,6 +44,7 @@ async def create_checkout_session(
     if customer_id != current_user.stripe_customer_id:
         current_user.stripe_customer_id = customer_id
         await db.commit()
+        await db.refresh(current_user)
     url = create_checkout_session(current_user, payload.plan_tier, payload.success_url, payload.cancel_url)
     return CheckoutResponse(checkout_url=url)
 

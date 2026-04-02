@@ -87,7 +87,7 @@ def _run_matching_for_new_licitaciones() -> None:
 
     db = SessionLocal()
     try:
-        since = datetime.now(timezone.utc) - timedelta(hours=2)
+        since = datetime.now(_SCL_TZ) - timedelta(hours=2)
         new_lics = (
             db.query(Licitacion)
             .filter(Licitacion.fecha_extraccion >= since)
@@ -313,6 +313,6 @@ def watchdog() -> dict:
             logger.warning("[Watchdog] %d unresolved task failures", unresolved)
         else:
             logger.info("[Watchdog] All tasks healthy — 0 unresolved failures")
-        return {"unresolved_failures": unresolved, "checked_at": datetime.now(timezone.utc).isoformat()}
+        return {"unresolved_failures": unresolved, "checked_at": datetime.now(_SCL_TZ).isoformat()}
     finally:
         db.close()

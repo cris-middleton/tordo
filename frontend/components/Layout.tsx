@@ -113,7 +113,7 @@ export default function Layout({ children }: LayoutProps) {
           >
             <TordoLogo size={36} />
             <div className="leading-none">
-              <span className="font-brand text-lg font-bold tracking-tight text-primary">
+              <span className="font-brand text-lg font-bold tracking-tighter text-primary">
                 TORDO
               </span>
               <p className="text-[10px] font-medium tracking-widest text-muted uppercase mt-0.5">
@@ -228,7 +228,7 @@ export default function Layout({ children }: LayoutProps) {
             </button>
             {/* Breadcrumb */}
             <div className="flex items-center gap-2 text-sm">
-              <span className="font-medium text-subtle hidden sm:block tracking-wide">TORDO</span>
+              <span className="font-brand font-bold text-subtle hidden sm:block tracking-tighter">TORDO</span>
               <ChevronRight className="h-3.5 w-3.5 text-subtle hidden sm:block" />
               <span className="font-semibold text-text">{currentPage}</span>
             </div>

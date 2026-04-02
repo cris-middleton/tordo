@@ -94,6 +94,7 @@ services:
       S3_ENDPOINT_URL: http://minio:9000
       S3_ENDPOINT_URL_PUBLIC: ${S3_ENDPOINT_URL_PUBLIC:-http://localhost:9000}
       ANALYTICS_DATA_PATH: /workspace/etl/data/analytics
+      MERCADO_PUBLICO_TICKET: ${MERCADO_PUBLICO_TICKET:-}
       TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
       TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
       TWILIO_WHATSAPP_FROM: ${TWILIO_WHATSAPP_FROM:-whatsapp:+14155238886}
@@ -135,6 +136,7 @@ services:
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
       S3_ENDPOINT_URL: http://minio:9000
+      S3_ENDPOINT_URL_PUBLIC: ${S3_ENDPOINT_URL_PUBLIC:-http://localhost:9000}
       ANALYTICS_DATA_PATH: /workspace/etl/data/analytics
       MERCADO_PUBLICO_TICKET: ${MERCADO_PUBLICO_TICKET:-}
       TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
@@ -153,6 +155,11 @@ services:
       minio:
         condition: service_healthy
     command: celery -A app.celery_app worker --loglevel=info --concurrency=4
+    healthcheck:
+      test: ["CMD", "celery", "-A", "app.celery_app", "inspect", "active", "--timeout=5"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - licitaciones_network
 
@@ -176,6 +183,11 @@ services:
       redis:
         condition: service_healthy
     command: celery -A app.celery_app beat --loglevel=info
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'celery.*beat' > /dev/null"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - licitaciones_network
 
@@ -191,6 +203,11 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5555/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - licitaciones_network
 
@@ -218,6 +235,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
     networks:
       - licitaciones_network
     # Uncomment to run ETL on a schedule

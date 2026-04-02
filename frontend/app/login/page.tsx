@@ -41,10 +41,11 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(username, password);
-      setTimeout(() => router.push('/dashboard'), 100);
+      router.push('/dashboard');
     } catch (err: any) {
       const errorMessage = err.response?.data?.detail || err.message || 'Error al iniciar sesión';
       setError(errorMessage);
+    } finally {
       setLoading(false);
     }
   };
@@ -79,7 +80,7 @@ export default function LoginPage() {
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-16">
             <TordoLogo size={48} />
-            <span className="font-brand text-2xl font-bold text-white tracking-tight">TORDO</span>
+            <span className="font-brand text-2xl font-bold text-white tracking-tighter">TORDO</span>
           </div>
 
           <h1 className="font-display text-4xl xl:text-5xl font-bold text-white leading-[1.15] mb-5">
@@ -123,7 +124,7 @@ export default function LoginPage() {
           {/* Mobile logo */}
           <div className="lg:hidden mb-8 flex items-center gap-3">
             <TordoLogo size={36} />
-            <span className="font-brand text-xl font-bold text-primary">TORDO</span>
+            <span className="font-brand text-xl font-bold text-primary tracking-tighter">TORDO</span>
           </div>
 
           <h2 className="font-display text-2xl font-bold text-text mb-1">Bienvenido de vuelta</h2>

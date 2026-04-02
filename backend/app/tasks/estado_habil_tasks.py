@@ -96,7 +96,7 @@ def send_deadline_reminders() -> dict:
                     alert_type=alert_type,
                     status=AlertStatus.PENDING,
                     entity_type="postulacion",
-                    entity_id=p.id.int & 0x7FFFFFFF,  # UUID → positive int for legacy column
+                    entity_id=int(str(p.id).replace('-', ''), 16) % (2**31 - 1),  # UUID → positive int for legacy column
                     title=f"Cierre en {hours_label}h: {licitacion.nombre[:80]}",
                     message=(
                         f"La licitación '{licitacion.nombre}' "
@@ -168,7 +168,7 @@ def check_document_expiry() -> dict:
                     alert_type=AlertType.DOCUMENTO_VENCIDO,
                     status=AlertStatus.PENDING,
                     entity_type="documento",
-                    entity_id=doc.id.int & 0x7FFFFFFF,  # UUID → positive int for legacy column
+                    entity_id=int(str(doc.id).replace('-', ''), 16) % (2**31 - 1),  # UUID → positive int for legacy column
                     title=f"Documento por vencer: {doc.nombre}",
                     message=(
                         f"El documento '{doc.nombre}' vence el {fecha_str} "

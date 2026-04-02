@@ -64,10 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Step 1: Login and get token
       const loginResponse = await apiClient.login(username, password);
       
-      // Step 2: Small delay to ensure token is set in localStorage and axios interceptor picks it up
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Step 3: Get user data with the token
+      // Step 2: Get user data with the token
       const userData = await apiClient.getCurrentUser();
       setUser(userData);
     } catch (error: any) {
@@ -94,12 +91,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshUser = async () => {
-    try {
-      const userData = await apiClient.getCurrentUser();
-      setUser(userData);
-    } catch {
-      // ignore
-    }
+    const userData = await apiClient.getCurrentUser();
+    setUser(userData);
   };
 
   return (

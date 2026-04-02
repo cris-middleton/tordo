@@ -95,7 +95,7 @@ async def google_callback(
         tokens = await exchange_code(code)
         user_info = await get_userinfo(tokens["access_token"])
         user = await find_or_create_user(db, user_info)
-    except HTTPException:
+    except Exception:
         return RedirectResponse(f"{settings.frontend_url}/login?error=google_failed")
 
     access_token = create_access_token(
@@ -115,4 +115,5 @@ async def change_password(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect")
     current_user.hashed_password = get_password_hash(password_data.new_password)
     await db.commit()
+    await db.refresh(current_user)
     return {"message": "Password changed successfully"}

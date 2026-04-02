@@ -472,7 +472,7 @@ export default function BIPage() {
             />
           </div>
           <input
-            className="input-field flex-1 min-w-[180px]"
+            className="input-field flex-1 min-w-0 sm:min-w-[180px]"
             placeholder="Filtrar por rubro (opcional)"
             value={rubroFiltro}
             onChange={(e) => setRubroFiltro(e.target.value)}
@@ -923,14 +923,14 @@ export default function BIPage() {
           </p>
           <div className="flex flex-wrap gap-3">
             <input
-              className="input-field flex-1 min-w-[180px]"
+              className="input-field flex-1 min-w-0 sm:min-w-[180px]"
               placeholder="CodigoOrganismo (ej. 1234)"
               value={estacOrganismo}
               onChange={(e) => setEstacOrganismo(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && loadEstacionalidad()}
             />
             <input
-              className="input-field flex-1 min-w-[180px]"
+              className="input-field flex-1 min-w-0 sm:min-w-[180px]"
               placeholder="Rubro (opcional)"
               value={estacRubro}
               onChange={(e) => setEstacRubro(e.target.value)}

@@ -69,7 +69,7 @@ export default function RegisterPage() {
   return (
     <div className="flex min-h-screen">
       {/* ── Left brand panel ── */}
-      <div className="hidden lg:flex lg:w-[40%] flex-col justify-between bg-[#0F2942] p-12 relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-[46%] xl:w-[50%] flex-col justify-between bg-[#0F2942] p-12 relative overflow-hidden">
         <div
           className="absolute inset-0 opacity-[0.035]"
           style={{
@@ -82,7 +82,7 @@ export default function RegisterPage() {
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-16">
             <TordoLogo size={48} />
-            <span className="font-brand text-2xl font-bold text-white tracking-tight">TORDO</span>
+            <span className="font-brand text-2xl font-bold text-white tracking-tighter">TORDO</span>
           </div>
 
           <h1 className="font-display text-3xl xl:text-4xl font-bold text-white leading-[1.15] mb-5">
@@ -122,7 +122,7 @@ export default function RegisterPage() {
           {/* Mobile logo */}
           <div className="lg:hidden mb-8 flex items-center gap-3">
             <TordoLogo size={36} />
-            <span className="font-brand text-xl font-bold text-primary">TORDO</span>
+            <span className="font-brand text-xl font-bold text-primary tracking-tighter">TORDO</span>
           </div>
 
           <h2 className="font-display text-2xl font-bold text-text mb-1">Crear cuenta gratuita</h2>

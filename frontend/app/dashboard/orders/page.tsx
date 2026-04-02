@@ -143,13 +143,14 @@ export default function OrdersPage() {
     (value: string) => {
       const normalized = value.trim();
       if (!normalized) return;
-      const exists = keywords.some((keyword) => keyword.toLowerCase() === normalized.toLowerCase());
-      if (exists) return;
-      setKeywords((prev) => [...prev, normalized]);
+      setKeywords((prev) => {
+        if (prev.some((k) => k.toLowerCase() === normalized.toLowerCase())) return prev;
+        return [...prev, normalized];
+      });
       setSearchInput('');
       setPage(1);
     },
-    [keywords],
+    [],
   );
 
   const handleKeywordKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {

@@ -44,14 +44,19 @@ export default function EmpresaPage() {
   const canManage = selected?.rol === 'owner' || selected?.rol === 'admin'
 
   useEffect(() => {
+    let active = true;
     apiClient
       .getEmpresas()
       .then((data: any) => {
+        if (!active) return;
         const list: Empresa[] = Array.isArray(data) ? data : (data?.data ?? [])
         setEmpresas(list)
         if (list.length > 0) setSelected(list[0])
       })
-      .finally(() => setLoading(false))
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
   }, [])
 
   const loadMiembros = useCallback(() => {

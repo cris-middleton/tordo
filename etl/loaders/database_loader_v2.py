@@ -135,10 +135,11 @@ class DatabaseLoaderV2(BaseLoader):
         
         for record in data:
             try:
+                self.session.begin_nested()  # SAVEPOINT
                 existing = self.session.query(Licitacion).filter_by(
                     codigo_externo=record.get("codigo_externo")
                 ).first()
-                
+
                 if existing:
                     # Update existing record
                     for key, value in record.items():
@@ -152,13 +153,13 @@ class DatabaseLoaderV2(BaseLoader):
                     self.session.flush()
                     new_record_ids.append(licitacion.id)
                     loaded_count += 1
-                
+
             except IntegrityError as e:
-                self.session.rollback()
+                self.session.rollback()  # Rolls back to savepoint
                 self.logger.warning(f"Integrity error loading licitacion {record.get('codigo_externo')}: {str(e)}")
                 error_count += 1
             except Exception as e:
-                self.session.rollback()
+                self.session.rollback()  # Rolls back to savepoint
                 self.logger.error(f"Error loading licitacion {record.get('codigo_externo')}: {str(e)}")
                 error_count += 1
         
@@ -354,10 +355,11 @@ class DatabaseLoaderV2(BaseLoader):
         
         for record in data:
             try:
+                self.session.begin_nested()  # SAVEPOINT
                 existing = self.session.query(OrdenCompra).filter_by(
                     codigo_oc=record.get("codigo_oc")
                 ).first()
-                
+
                 if existing:
                     # Update existing record
                     for key, value in record.items():
@@ -371,13 +373,13 @@ class DatabaseLoaderV2(BaseLoader):
                     self.session.flush()
                     new_record_ids.append(orden.id)
                     loaded_count += 1
-                
+
             except IntegrityError as e:
-                self.session.rollback()
+                self.session.rollback()  # Rolls back to savepoint
                 self.logger.warning(f"Integrity error loading orden {record.get('codigo_oc')}: {str(e)}")
                 error_count += 1
             except Exception as e:
-                self.session.rollback()
+                self.session.rollback()  # Rolls back to savepoint
                 self.logger.error(f"Error loading orden {record.get('codigo_oc')}: {str(e)}")
                 error_count += 1
         

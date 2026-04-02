@@ -45,7 +45,7 @@ class BIRateLimitMiddleware(BaseHTTPMiddleware):
             r = _redis.from_url(settings.redis_url, decode_responses=True, socket_connect_timeout=1)
             count = r.incr(key)
             if count == 1:
-                r.expire(key, 120)
+                r.expire(key, 60)
             if count > 60:
                 return JSONResponse(
                     status_code=429,
