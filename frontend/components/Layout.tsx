@@ -109,7 +109,7 @@ export default function Layout({ children }: LayoutProps) {
         <div className="flex items-center justify-between px-5 py-5 border-b border-borderLight">
           <button
             onClick={() => navigate('/dashboard')}
-            className="group flex items-end gap-3.5 focus-visible:outline-none"
+            className="group flex items-center gap-3.5 focus-visible:outline-none"
           >
             <TordoLogo size={40} />
             <div className="leading-none">
