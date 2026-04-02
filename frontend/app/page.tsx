@@ -376,8 +376,8 @@ export default function Home() {
       <header className="sticky top-0 z-50 border-b border-[#E2E6EF] bg-white/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link href="#" className="flex items-center gap-3">
-            <TordoLogo size={36} />
-            <span className="text-xl font-bold tracking-tight text-[#0F2942]" style={{ fontFamily: 'var(--font-varien, system-ui)' }}>
+            <TordoLogo size={52} />
+            <span className="text-3xl font-bold text-[#0F2942]" style={{ fontFamily: 'var(--font-varien, system-ui)', letterSpacing: '0.15em' }}>
               TORDO
             </span>
           </Link>

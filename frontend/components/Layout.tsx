@@ -111,10 +111,10 @@ export default function Layout({ children }: LayoutProps) {
             onClick={() => navigate('/dashboard')}
             className="group flex items-center gap-3.5 focus-visible:outline-none"
           >
-            <TordoLogo size={54} />
+            <TordoLogo size={56} />
             <div className="leading-none">
               <span
-                className="font-brand text-[1.65rem] font-bold text-primary block transition-colors group-hover:text-primaryLight"
+                className="font-brand text-[2rem] font-bold text-primary block transition-colors group-hover:text-primaryLight"
                 style={{ letterSpacing: '0.16em' }}
               >
                 TORDO
