@@ -125,6 +125,11 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+  }
+
+  section[id] {
+    scroll-margin-top: 80px;
   }
 
   body {
@@ -452,23 +457,4 @@
   }
 }
 
-/* ── TordoLogo hover animation (patch — replaced when real wing SVG arrives) ── */
-.tordo-wing {
-  opacity: 0;
-  stroke-dasharray: 500;
-  stroke-dashoffset: 500;
-}
-
-.tordo-logo-wrapper:hover .tordo-wing-left {
-  animation: tordo-wing-draw 0.38s ease-out forwards;
-}
-
-.tordo-logo-wrapper:hover .tordo-wing-right {
-  animation: tordo-wing-draw 0.38s ease-out 0.05s forwards;
-}
-
-@keyframes tordo-wing-draw {
-  0%   { stroke-dashoffset: 500; opacity: 0; }
-  12%  { opacity: 0.85; }
-  100% { stroke-dashoffset: 0; opacity: 0.85; }
-}
+/* ── TordoLogo — animation handled by React state ── */

@@ -109,14 +109,21 @@ export default function Layout({ children }: LayoutProps) {
         <div className="flex items-center justify-between px-5 py-5 border-b border-borderLight">
           <button
             onClick={() => navigate('/dashboard')}
-            className="group flex items-center gap-3 focus-visible:outline-none"
+            className="group flex items-center gap-3.5 focus-visible:outline-none"
           >
-            <TordoLogo size={36} />
+            <TordoLogo size={30} />
             <div className="leading-none">
+<<<<<<< HEAD
               <span className="font-brand text-lg font-bold tracking-tighter text-primary">
+=======
+              <span
+                className="font-brand font-bold text-primary block transition-colors group-hover:text-primaryLight leading-none"
+                style={{ letterSpacing: '0.16em', fontSize: '2.4rem' }}
+              >
+>>>>>>> 2bcd3bd7ad9bdb8cd9de89e4f7f8ff8330f485cd
                 TORDO
               </span>
-              <p className="text-[10px] font-medium tracking-widest text-muted uppercase mt-0.5">
+              <p className="text-[11px] font-medium tracking-widest text-muted uppercase mt-1">
                 Mercado Público
               </p>
             </div>

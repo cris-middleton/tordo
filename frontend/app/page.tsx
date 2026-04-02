@@ -375,9 +375,18 @@ export default function Home() {
       {/* ── Navbar ── */}
       <header className="sticky top-0 z-50 border-b border-[#E2E6EF] bg-white/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+<<<<<<< HEAD
           <Link href="#" className="flex items-center gap-3">
             <TordoLogo size={36} />
             <span className="font-brand text-xl font-bold tracking-tighter text-[#0F2942]">
+=======
+          <Link href="/" className="flex items-center gap-2.5 shrink-0">
+            <TordoLogo size={26} />
+            <span
+              className="font-bold text-[#0F2942] leading-none"
+              style={{ fontFamily: 'var(--font-varien, system-ui)', letterSpacing: '0.15em', fontSize: '2rem' }}
+            >
+>>>>>>> 2bcd3bd7ad9bdb8cd9de89e4f7f8ff8330f485cd
               TORDO
             </span>
           </Link>
@@ -751,7 +760,7 @@ export default function Home() {
 
           <div className="relative mx-auto max-w-2xl text-center">
             <div className="mb-6 flex justify-center" style={{ filter: 'brightness(0) invert(1)' }}>
-              <TordoLogo size={64} />
+              <TordoLogo size={40} />
             </div>
             <h2 className="mb-4 text-3xl font-bold text-white sm:text-4xl" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>
               Tu próxima licitación, con mejor información
@@ -772,8 +781,13 @@ export default function Home() {
         <div className="mx-auto max-w-6xl">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <div className="flex items-center gap-2.5">
+<<<<<<< HEAD
               <TordoLogo size={24} />
               <span className="font-brand text-sm font-bold tracking-tighter text-[#0F2942]">TORDO</span>
+=======
+              <TordoLogo size={14} />
+              <span className="text-sm font-bold text-[#0F2942]" style={{ fontFamily: 'var(--font-varien, system-ui)' }}>TORDO</span>
+>>>>>>> 2bcd3bd7ad9bdb8cd9de89e4f7f8ff8330f485cd
             </div>
             <p className="text-xs text-[#94A3B8]">© 2026 TORDO · Inteligencia para Mercado Público · Chile</p>
             <div className="flex gap-5 text-xs text-[#94A3B8]">
