@@ -375,7 +375,7 @@ export default function Home() {
       {/* ── Navbar ── */}
       <header className="sticky top-0 z-50 border-b border-[#E2E6EF] bg-white/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/" className="flex items-center gap-2.5 shrink-0">
+          <Link href="/" className="flex items-end gap-2.5 shrink-0">
             <TordoLogo size={34} />
             <span
               className="font-bold text-[#0F2942] leading-none self-center"
@@ -773,7 +773,7 @@ export default function Home() {
       <footer className="border-t border-[#E2E6EF] bg-white px-6 py-8">
         <div className="mx-auto max-w-6xl">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-end gap-2.5">
               <TordoLogo size={18} />
               <span className="text-sm font-bold text-[#0F2942]" style={{ fontFamily: 'var(--font-varien, system-ui)' }}>TORDO</span>
             </div>
