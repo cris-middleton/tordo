@@ -378,8 +378,8 @@ export default function Home() {
           <Link href="/" className="flex items-center gap-2.5 shrink-0">
             <TordoLogo size={26} />
             <span
-              className="font-bold text-[#0F2942] leading-none"
-              style={{ fontFamily: 'var(--font-varien, system-ui)', letterSpacing: '0.04em', fontSize: '2rem' }}
+              className="font-bold text-[#0F2942] leading-none tracking-tight"
+              style={{ fontFamily: 'var(--font-varien, system-ui)', fontSize: '2rem' }}
             >
               TORDO
             </span>
@@ -776,7 +776,7 @@ export default function Home() {
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <div className="flex items-center gap-2.5">
               <TordoLogo size={14} />
-              <span className="text-sm font-bold text-[#0F2942]" style={{ fontFamily: 'var(--font-varien, system-ui)', letterSpacing: '0.04em' }}>TORDO</span>
+              <span className="text-sm font-bold text-[#0F2942] tracking-tight" style={{ fontFamily: 'var(--font-varien, system-ui)' }}>TORDO</span>
             </div>
             <p className="text-xs text-[#94A3B8]">© 2026 TORDO · Inteligencia para Mercado Público · Chile</p>
             <div className="flex gap-5 text-xs text-[#94A3B8]">
