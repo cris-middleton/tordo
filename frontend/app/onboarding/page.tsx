@@ -37,7 +37,7 @@ type Step = 1 | 2 | 3;
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, loading: authLoading, isAuthenticated } = useAuth();
 
   const [step, setStep] = useState<Step>(1);
   const [loading, setLoading] = useState(false);
@@ -53,6 +53,20 @@ export default function OnboardingPage() {
   const [selectedRubros, setSelectedRubros] = useState<string[]>([]);
   const [alertCreated, setAlertCreated] = useState(false);
   const [loadingAlert, setLoadingAlert] = useState(false);
+
+  // Auth guards — after all hooks
+  if (!authLoading && !isAuthenticated) {
+    router.push('/login');
+    return null;
+  }
+
+  if (authLoading || !user) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-sm text-muted animate-pulse">Cargando...</p>
+      </div>
+    );
+  }
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
 
