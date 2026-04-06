@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/lib/api';
@@ -54,11 +54,12 @@ export default function OnboardingPage() {
   const [alertCreated, setAlertCreated] = useState(false);
   const [loadingAlert, setLoadingAlert] = useState(false);
 
-  // Auth guards — after all hooks
-  if (!authLoading && !isAuthenticated) {
-    router.push('/login');
-    return null;
-  }
+  // Auth guard — must be in useEffect to avoid calling navigation during render
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push('/login');
+    }
+  }, [authLoading, isAuthenticated, router]);
 
   if (authLoading || !user) {
     return (
