@@ -27,12 +27,13 @@
 
 :root {
   /* Tailwind colors — RGB channels for opacity modifier support */
-  --color-primary: 0 200 150;         /* #00C896 */
-  --color-primary-dark: 0 155 119;    /* #009B77 */
-  --color-primary-light: 51 219 168;  /* #33DBA8 */
-  --color-accent: 0 200 150;          /* #00C896 */
-  --color-accent-dark: 0 155 119;     /* #009B77 */
-  --color-accent-light: 6 25 21;      /* #061915 */
+  --color-primary: 59 91 219;          /* #3B5BDB — slate-blue */
+  --color-primary-dark: 47 73 175;     /* #2F49AF */
+  --color-primary-light: 99 133 241;   /* #6385F1 */
+  --color-accent: 0 200 150;           /* #00C896 — green */
+  --color-accent-dark: 0 155 119;      /* #009B77 */
+  --color-accent-light: 6 25 21;       /* #061915 */
+  --color-brand-navy: 15 41 66;        /* #0F2942 — theme-invariant */
   --color-gold: 245 158 11;           /* #F59E0B */
   --color-gold-light: 28 21 5;        /* #1C1505 */
   --color-text: 226 232 240;          /* #E2E8F0 */
@@ -75,12 +76,13 @@
 }
 
 .light {
-  --color-primary: 0 168 122;         /* #00A87A */
-  --color-primary-dark: 0 140 102;    /* #008C66 */
-  --color-primary-light: 230 249 243; /* #E6F9F3 */
-  --color-accent: 0 168 122;          /* #00A87A */
-  --color-accent-dark: 0 140 102;     /* #008C66 */
-  --color-accent-light: 230 249 243;  /* #E6F9F3 */
+  --color-primary: 15 41 66;           /* #0F2942 — navy */
+  --color-primary-dark: 10 30 50;      /* #0A1E32 */
+  --color-primary-light: 230 237 245;  /* #E6EDF5 */
+  --color-accent: 0 168 122;           /* #00A87A — green */
+  --color-accent-dark: 0 140 102;      /* #008C66 */
+  --color-accent-light: 230 249 243;   /* #E6F9F3 */
+  --color-brand-navy: 15 41 66;        /* #0F2942 — theme-invariant */
   --color-gold: 217 119 6;            /* #D97706 */
   --color-gold-light: 254 243 199;    /* #FEF3C7 */
   --color-text: 15 23 42;             /* #0F172A */
@@ -296,7 +298,7 @@
      ALERTS / FEEDBACK
   ────────────────────────────────────────────── */
   .alert-success {
-    @apply flex items-start gap-3 rounded-lg border border-accent/30 bg-accentLight px-4 py-3 text-sm text-primaryLight;
+    @apply flex items-start gap-3 rounded-lg border border-accent/30 bg-accentLight px-4 py-3 text-sm text-accent;
   }
 
   .alert-error {
@@ -450,7 +452,7 @@
   }
 
   .text-gradient-brand {
-    background: linear-gradient(135deg, #00C896 0%, #33DBA8 50%, #94A3B8 100%);
+    background: linear-gradient(135deg, #3B5BDB 0%, #00C896 50%, #94A3B8 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;

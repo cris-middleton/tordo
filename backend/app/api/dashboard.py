@@ -8,6 +8,7 @@ from app.db import get_db
 from app.models.alert import Alert, AlertStatus
 from app.models.empresa import DocumentoEmpresa, EmpresaUsuario
 from app.models.licitacion import Licitacion
+from app.models.orden_compra import OrdenCompra
 from app.models.postulacion import Postulacion
 from app.models.user import User
 
@@ -21,7 +22,18 @@ async def get_dashboard_stats(
 ):
     licitaciones_activas = (
         await db.execute(
-            select(func.count(Licitacion.id)).where(Licitacion.activo == True)
+            select(func.count(Licitacion.id)).where(
+                Licitacion.activo == True,
+                Licitacion.estado == "Publicada",
+            )
+        )
+    ).scalar() or 0
+
+    ordenes_activas = (
+        await db.execute(
+            select(func.count(OrdenCompra.id)).where(
+                OrdenCompra.estado == "En proceso",
+            )
         )
     ).scalar() or 0
 
@@ -67,6 +79,7 @@ async def get_dashboard_stats(
 
     return {
         "licitaciones_activas": licitaciones_activas,
+        "ordenes_activas": ordenes_activas,
         "alertas_no_leidas": alertas_no_leidas,
         "postulaciones_activas": postulaciones_activas,
         "documentos_por_vencer": documentos_por_vencer,

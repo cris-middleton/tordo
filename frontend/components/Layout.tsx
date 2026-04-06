@@ -252,7 +252,7 @@ export default function Layout({ children }: LayoutProps) {
         </header>
 
         {/* Main content with subtle grid texture for depth */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 animate-fade-in bg-grid">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 animate-fade-in">
           {children}
         </main>
       </div>

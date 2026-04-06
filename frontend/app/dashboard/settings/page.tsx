@@ -535,7 +535,7 @@ export default function SettingsPage() {
               />
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <MessageCircle className="w-5 h-5 text-accent" />
+                  <MessageCircle className="w-5 h-5 text-primary" />
                   <span className="font-medium text-text">Notificaciones por WhatsApp</span>
                 </div>
                 <p className="text-sm text-muted mt-1">

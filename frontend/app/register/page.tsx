@@ -69,7 +69,7 @@ export default function RegisterPage() {
   return (
     <div className="flex min-h-screen">
       {/* ── Left brand panel ── */}
-      <div className="hidden lg:flex lg:w-[46%] xl:w-[50%] flex-col justify-between bg-[#0F2942] p-12 relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-[46%] xl:w-[50%] flex-col justify-between bg-brand-navy p-12 relative overflow-hidden">
         <div
           className="absolute inset-0 opacity-[0.035]"
           style={{
@@ -77,7 +77,6 @@ export default function RegisterPage() {
             backgroundSize: '28px 28px',
           }}
         />
-        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-accent via-accent/60 to-transparent" />
 
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-16">
@@ -101,7 +100,7 @@ export default function RegisterPage() {
             { Icon: FileCheck, text: 'Checklist guiado por tipo de licitación' },
           ].map(({ Icon, text }) => (
             <div key={text} className="flex items-start gap-3 rounded-xl bg-white/[0.06] border border-white/[0.08] px-4 py-3">
-              <Icon className="h-4 w-4 text-[#0EAD69] shrink-0 mt-0.5" />
+              <Icon className="h-4 w-4 text-accent shrink-0 mt-0.5" />
               <p className="text-sm text-white/70 font-medium leading-snug">{text}</p>
             </div>
           ))}

@@ -99,6 +99,8 @@ services:
       TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
       TWILIO_WHATSAPP_FROM: ${TWILIO_WHATSAPP_FROM:-whatsapp:+14155238886}
       FEATURE_WHATSAPP: ${FEATURE_WHATSAPP:-false}
+      FEATURE_ANALYTICS: ${FEATURE_ANALYTICS:-true}
+      FEATURE_TFIDF: ${FEATURE_TFIDF:-true}
     volumes:
       - ../backend:/app
       - /app/__pycache__

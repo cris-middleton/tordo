@@ -267,41 +267,38 @@ export default function OrdersPage() {
 
       {/* Results */}
       <div className="space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-muted">
+        <div className="flex items-center justify-between rounded-lg border border-border bg-surface px-3 py-2">
+          <p className="text-xs text-muted whitespace-nowrap">
             {total.toLocaleString()} resultado{total !== 1 ? 's' : ''}
           </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <SelectField
+          <div className="flex items-center gap-1.5">
+            <select
               value={sortBy}
-              onChange={(v) => { setSortBy(v); setPage(1); }}
-              options={[
-                { value: 'fecha_publicacion', label: 'Fecha publicación' },
-                { value: 'monto_total', label: 'Monto' },
-                { value: 'nombre', label: 'Nombre' },
-              ]}
-              className="w-44"
-            />
-            <SelectField
+              onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
+              className="rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
+            >
+              <option value="fecha_publicacion">Fecha publicación</option>
+              <option value="monto_total">Monto</option>
+              <option value="nombre">Nombre</option>
+            </select>
+            <select
               value={sortOrder}
-              onChange={(v) => { setSortOrder(v as 'asc' | 'desc'); setPage(1); }}
-              options={[
-                { value: 'desc', label: '↓ Mayor a menor' },
-                { value: 'asc', label: '↑ Menor a mayor' },
-              ]}
-              className="w-40"
-            />
-            <SelectField
+              onChange={(e) => { setSortOrder(e.target.value as 'asc' | 'desc'); setPage(1); }}
+              className="rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
+            >
+              <option value="desc">↓ Mayor a menor</option>
+              <option value="asc">↑ Menor a mayor</option>
+            </select>
+            <select
               value={String(limit)}
-              onChange={(v) => { setLimit(Number(v)); setPage(1); }}
-              options={[
-                { value: '10', label: '10 / pág' },
-                { value: '20', label: '20 / pág' },
-                { value: '50', label: '50 / pág' },
-                { value: '100', label: '100 / pág' },
-              ]}
-              className="w-28"
-            />
+              onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+              className="rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
+            >
+              <option value="10">10 / pág</option>
+              <option value="20">20 / pág</option>
+              <option value="50">50 / pág</option>
+              <option value="100">100 / pág</option>
+            </select>
           </div>
         </div>
 
@@ -392,7 +389,7 @@ export default function OrdersPage() {
                       <div className="flex items-end justify-between mt-4 pt-3 border-t border-border">
                         <div>
                           <p className="text-xs text-muted leading-none mb-0.5">Monto</p>
-                          <p className="text-base font-bold text-accent" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>
+                          <p className="text-base font-bold text-primary" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>
                             {formatCurrency(order.monto_total, order.moneda)}
                           </p>
                           {order.fecha_publicacion && (

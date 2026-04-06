@@ -42,6 +42,7 @@ import { DataFreshnessBar } from '@/components/DataFreshnessBar';
 
 interface DashboardStats {
   licitaciones_activas: number;
+  ordenes_activas: number;
   alertas_no_leidas: number;
   postulaciones_activas: number;
   documentos_por_vencer: number;
@@ -51,12 +52,22 @@ interface DashboardStats {
 const kpiConfig = [
   {
     key: 'licitaciones_activas' as const,
-    title: 'Licitaciones activas',
+    title: 'Licitaciones publicadas',
     icon: FileText,
     href: '/dashboard/tenders',
     accentClass: 'kpi-card-blue',
     iconBg: 'bg-info/10',
     iconColor: 'text-info',
+    urgentKey: null,
+  },
+  {
+    key: 'ordenes_activas' as const,
+    title: 'Órdenes en proceso',
+    icon: DollarSign,
+    href: '/dashboard/orders',
+    accentClass: 'kpi-card-green',
+    iconBg: 'bg-accent/10',
+    iconColor: 'text-accent',
     urgentKey: null,
   },
   {
@@ -74,9 +85,9 @@ const kpiConfig = [
     title: 'Postulaciones activas',
     icon: ClipboardList,
     href: '/dashboard/postulaciones',
-    accentClass: 'kpi-card-green',
-    iconBg: 'bg-accent/10',
-    iconColor: 'text-accent',
+    accentClass: 'kpi-card-blue',
+    iconBg: 'bg-info/10',
+    iconColor: 'text-info',
     urgentKey: null,
   },
   {
@@ -95,6 +106,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [stats, setStats] = useState<DashboardStats>({
     licitaciones_activas: 0,
+    ordenes_activas: 0,
     alertas_no_leidas: 0,
     postulaciones_activas: 0,
     documentos_por_vencer: 0,
@@ -220,20 +232,11 @@ export default function DashboardPage() {
       )}
 
       {/* Page header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="page-title">Dashboard</h1>
-          <p className="mt-1 text-sm text-muted capitalize">
-            {format(new Date(), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}
-          </p>
-        </div>
-        <button
-          onClick={() => router.push('/dashboard/tenders')}
-          className="hidden sm:inline-flex btn-primary gap-2"
-        >
-          <FileText size={15} />
-          Ver licitaciones
-        </button>
+      <div>
+        <h1 className="page-title">Dashboard</h1>
+        <p className="mt-1 text-sm text-muted capitalize">
+          {format(new Date(), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}
+        </p>
       </div>
 
       {/* Onboarding nudge */}
@@ -254,7 +257,7 @@ export default function DashboardPage() {
       )}
 
       {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
         {kpiConfig.map((cfg, idx) => {
           const Icon = cfg.icon;
           const value = stats[cfg.key];
@@ -286,25 +289,6 @@ export default function DashboardPage() {
           );
         })}
 
-        {/* 5th card: Mejor Score BI */}
-        <button
-          onClick={() => router.push('/dashboard/bi')}
-          style={{ animationDelay: '240ms' }}
-          className="kpi-card kpi-card-blue text-left group animate-slide-up w-full"
-        >
-          <div className="flex items-start justify-between mb-3">
-            <div className="rounded-lg p-2.5 bg-info/10 transition-transform group-hover:scale-110">
-              <Star size={18} className="text-info" strokeWidth={2} />
-            </div>
-            <ArrowRight size={14} className="text-subtle opacity-0 group-hover:opacity-100 transition-opacity mt-1" />
-          </div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">
-            Mejor score BI
-          </p>
-          <p className="font-display text-3xl font-bold leading-none text-text">
-            {topScore != null ? topScore.toFixed(1) : '—'}
-          </p>
-        </button>
       </div>
 
       {/* ── Estado Hábil Banner ── */}

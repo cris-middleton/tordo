@@ -313,8 +313,11 @@ export default function PostulacionesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-text">Postulaciones</h1>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="mb-1 text-2xl font-semibold text-text sm:text-3xl">Postulaciones</h1>
+          <p className="text-sm text-muted">Gestiona tus postulaciones a licitaciones activas</p>
+        </div>
       </div>
 
       {/* Filters */}
@@ -350,12 +353,20 @@ export default function PostulacionesPage() {
           <p className="text-sm text-muted">
             Desde una licitación, haz clic en «Postular» para crear una postulación con checklist automático.
           </p>
-          <button
-            onClick={() => router.push('/dashboard/tenders')}
-            className="btn-primary"
-          >
-            Explorar licitaciones
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => router.push('/dashboard/tenders')}
+              className="btn-primary"
+            >
+              Explorar licitaciones
+            </button>
+            <button
+              onClick={() => router.push('/dashboard/orders')}
+              className="btn-accent"
+            >
+              Explorar órdenes de compra
+            </button>
+          </div>
         </div>
       ) : (
         <div className="space-y-4">

@@ -246,9 +246,9 @@ export default function DocumentosPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold text-text">Documentos</h1>
+          <h1 className="text-2xl font-semibold text-text sm:text-3xl">Documentos</h1>
           {estadoHabil && (
             <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${
               estadoHabil === 'habil'

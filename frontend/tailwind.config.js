@@ -33,6 +33,7 @@ module.exports = {
         warningLight: 'rgb(var(--color-warning-light) / <alpha-value>)',
         success: 'rgb(var(--color-success) / <alpha-value>)',
         successLight: 'rgb(var(--color-success-light) / <alpha-value>)',
+        'brand-navy': 'rgb(var(--color-brand-navy) / <alpha-value>)',
       },
       fontFamily: {
         sans: ['var(--font-dm-sans)', 'system-ui', 'sans-serif'],
