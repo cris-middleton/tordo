@@ -6,18 +6,18 @@ import { useAuth } from '@/contexts/AuthContext';
 import TordoLogo from '@/components/TordoLogo';
 import {
   LayoutDashboard,
-  FileText,
   Bell,
   Settings,
   LogOut,
   Menu,
   X,
-  BarChart3,
   Star,
   ClipboardList,
   ChevronRight,
   Users,
-  ShoppingCart,
+  Briefcase,
+  Receipt,
+  Radar,
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -41,15 +41,15 @@ const navSections: NavSection[] = [
     label: 'Operaciones',
     items: [
       { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-      { name: 'Licitaciones', href: '/dashboard/tenders', icon: FileText },
-      { name: 'Órdenes de compra', href: '/dashboard/orders', icon: ShoppingCart },
+      { name: 'Licitaciones', href: '/dashboard/tenders', icon: Briefcase },
+      { name: 'Órdenes de compra', href: '/dashboard/orders', icon: Receipt },
       { name: 'Postulaciones', href: '/dashboard/postulaciones', icon: ClipboardList },
     ],
   },
   {
     label: 'Análisis',
     items: [
-      { name: 'Inteligencia BI', href: '/dashboard/bi', icon: BarChart3, badge: 'Pro' },
+      { name: 'Inteligencia de Mercado', href: '/dashboard/bi', icon: Radar, badge: 'Pro' },
     ],
   },
   {
@@ -63,6 +63,7 @@ const navSections: NavSection[] = [
 
 export default function Layout({ children }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [avatar, setAvatar] = useState<string | null>(null);
   const router = useRouter();
   const pathname = usePathname();
   const { user, logout } = useAuth();
@@ -81,7 +82,28 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   const allNavItems = navSections.flatMap((s) => s.items);
-  const currentPage = allNavItems.find((n) => isActive(n.href))?.name ?? 'Dashboard';
+
+  useEffect(() => {
+    // Read avatar on mount and listen for changes from the profile page
+    setAvatar(localStorage.getItem('user_avatar'));
+    const handleAvatarChange = () => setAvatar(localStorage.getItem('user_avatar'));
+    window.addEventListener('avatar_changed', handleAvatarChange);
+    return () => window.removeEventListener('avatar_changed', handleAvatarChange);
+  }, []);
+
+  // Routes that exist but are not listed in the sidebar nav
+  const extraRouteNames: Record<string, string> = {
+    '/dashboard/alerts': 'Alertas',
+    '/dashboard/billing': 'Facturación',
+    '/dashboard/calendario': 'Calendario',
+    '/dashboard/analytics': 'Analítica',
+    '/dashboard/documentos': 'Documentos',
+  };
+
+  const currentPage =
+    allNavItems.find((n) => isActive(n.href))?.name ??
+    Object.entries(extraRouteNames).find(([path]) => pathname.startsWith(path))?.[1] ??
+    'Dashboard';
 
   const initials = user?.full_name
     ? user.full_name.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()
@@ -190,9 +212,13 @@ export default function Layout({ children }: LayoutProps) {
           )}
 
           <div className="flex items-center gap-3 mb-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-white text-sm font-bold font-display">
-              {initials}
-            </div>
+            <button
+              onClick={() => navigate('/dashboard/empresa')}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-white text-sm font-medium hover:ring-2 hover:ring-primary/40 hover:ring-offset-1 hover:ring-offset-background transition-all"
+              title="Mi perfil"
+            >
+              {avatar ? <span className="text-xl leading-none">{avatar}</span> : initials}
+            </button>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-text">
                 {user?.full_name || user?.username}
@@ -226,7 +252,12 @@ export default function Layout({ children }: LayoutProps) {
             </button>
             {/* Breadcrumb */}
             <div className="flex items-center gap-2 text-sm">
-              <span className="font-brand font-bold text-subtle hidden sm:block tracking-tighter">TORDO</span>
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="font-brand font-bold text-subtle hidden sm:block tracking-tighter hover:text-primary transition-colors"
+              >
+                TORDO
+              </button>
               <ChevronRight className="h-3.5 w-3.5 text-subtle hidden sm:block" />
               <span className="font-semibold text-text">{currentPage}</span>
             </div>

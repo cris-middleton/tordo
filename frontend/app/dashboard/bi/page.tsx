@@ -19,7 +19,25 @@ import {
   Settings2,
   X,
   Check,
+  Activity,
+  Award,
+  Clock
 } from 'lucide-react';
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+  ScatterChart,
+  Scatter,
+  ZAxis,
+  Cell
+} from 'recharts';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -426,6 +444,45 @@ export default function BIPage() {
     finally { setLoadingDesc(false); }
   };
 
+  // ── Ventana de presión ───────────────────────────────────────────────────
+  const [codigoExterno, setCodigoExterno] = useState('');
+  const [ventanaResult, setVentanaResult] = useState<any>(null);
+  const [loadingVentana, setLoadingVentana] = useState(false);
+
+  const checkVentana = async () => {
+    if (!codigoExterno.trim()) return;
+    setLoadingVentana(true);
+    setVentanaResult(null);
+    try {
+      const res = await apiClient.getBIVentana(codigoExterno.trim());
+      setVentanaResult(res);
+    } catch (err: any) {
+      setVentanaResult({
+        disponible: false,
+        motivo: err.response?.data?.detail || 'Error comprobando ventana.',
+      });
+    } finally {
+      setLoadingVentana(false);
+    }
+  };
+
+  // ── Auto-load inicial ────────────────────────────────────────────────────
+  useEffect(() => {
+    if (initialized && biEnabled && !loadingOp && !loadingTend && tendencias.length === 0) {
+      if (perfilData?.rubros_usados && perfilData.rubros_usados.length > 0) {
+        const topRubro = perfilData.rubros_usados[0];
+        if (!rubroFiltro) setRubroFiltro(topRubro);
+        if (!tendRubroFiltro) setTendRubroFiltro(topRubro);
+      }
+      loadOportunidades();
+      loadTendencias();
+      if (!organismoInput) {
+        setOrganismoInput('7485'); // Municipalidad default demo
+        loadOrganismoData();
+      }
+    }
+  }, [initialized, biEnabled, perfilData]);
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   if (loadingInit || !initialized) {
@@ -439,744 +496,368 @@ export default function BIPage() {
   if (biEnabled === false) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-semibold text-text">Inteligencia BI</h1>
+        <h1 className="text-2xl font-semibold text-text flex items-center gap-2">
+          <BarChart3 className="h-6 w-6 text-primary" />
+          Command Center: Inteligencia de Mercado
+        </h1>
         <BIDisabledBanner />
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold text-text">Inteligencia BI</h1>
-        <p className="text-sm text-muted mt-1">
-          Benchmarks históricos de precios, análisis de competidores y detección de oportunidades.
-        </p>
-      </div>
-
-      {/* ── Oportunidades ─────────────────────────────────────────────── */}
-      <section className="card space-y-4">
-        <div className="flex items-center gap-3">
-          <Target className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-semibold text-text">Oportunidades de mercado</h2>
+    <div className="space-y-6 pb-12">
+      {/* HEADER & GLOBAL FILTERS */}
+      <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-4 bg-surface p-5 rounded-2xl border border-border shadow-sm">
+        <div>
+          <h1 className="text-2xl font-semibold text-text flex items-center gap-2">
+            <BarChart3 className="h-6 w-6 text-primary" />
+            Command Center: Inteligencia de Mercado
+          </h1>
+          <p className="text-sm text-muted mt-1">
+            Perspectiva ejecutiva de tendencias y competencia para {perfilData?.rubros_usados?.[0] || 'tu industria'}.
+          </p>
         </div>
-
-        <div className="flex flex-wrap gap-3">
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-muted shrink-0">Score mín.</label>
-            <SelectField
-              value={minScore}
-              onChange={setMinScore}
-              options={['4', '5', '6', '7', '8', '9'].map((s) => ({ value: s, label: `${s}+` }))}
-              className="w-24"
+        
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
+            <input
+              className="pl-9 pr-3 py-2 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none w-full sm:w-64"
+              placeholder="Filtro global (Rubro/Industria)"
+              value={rubroFiltro}
+              onChange={(e) => {
+                setRubroFiltro(e.target.value);
+                setTendRubroFiltro(e.target.value);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  loadOportunidades();
+                  loadTendencias();
+                }
+              }}
             />
           </div>
-          <input
-            className="input-field flex-1 min-w-0 sm:min-w-[180px]"
-            placeholder="Filtrar por rubro (opcional)"
-            value={rubroFiltro}
-            onChange={(e) => setRubroFiltro(e.target.value)}
-          />
           <button
-            onClick={loadOportunidades}
-            disabled={loadingOp}
-            className="btn-primary flex items-center gap-2"
+            onClick={() => {
+              loadOportunidades();
+              loadTendencias();
+            }}
+            disabled={loadingOp || loadingTend}
+            className="btn-primary"
           >
-            {loadingOp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-            Buscar
+            {(loadingOp || loadingTend) ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Actualizar Dashboards'}
           </button>
         </div>
+      </div>
 
-        {oportunidades.length > 0 && (
-          <div className="overflow-x-auto">
+      {/* KPI LEVEL 1: AT A GLANCE */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="card shadow-sm border border-border bg-surface p-5 rounded-2xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-4 opacity-10">
+            <Activity className="w-16 h-16" />
+          </div>
+          <div className="flex justify-between items-start relative z-10">
+            <div>
+              <p className="text-sm font-medium text-muted uppercase tracking-wider">Volumen Creado Relevante</p>
+              <h3 className="text-3xl font-bold text-text mt-2">
+                {oportunidades.length > 0 ? `${(oportunidades.reduce((acc, curr) => acc + curr.n_transacciones, 0) / 1000).toFixed(1)}k` : '—'} <span className="text-lg text-muted font-medium">txs</span>
+              </h3>
+            </div>
+          </div>
+          <p className="text-xs text-accent mt-4 font-medium flex items-center gap-1 z-10 relative">
+            <TrendingUp className="h-3.5 w-3.5" /> Sector Activo
+          </p>
+        </div>
+        
+        <div className="card shadow-sm border border-border bg-surface p-5 rounded-2xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-4 opacity-10">
+            <Target className="w-16 h-16 text-gold" />
+          </div>
+          <div className="flex justify-between items-start relative z-10">
+            <div>
+              <p className="text-sm font-medium text-muted uppercase tracking-wider">Hot Leads Detectados</p>
+              <h3 className="text-3xl font-bold text-text mt-2">
+                {oportunidades.filter(o => o.opportunity_score >= 8).length || '0'}
+              </h3>
+            </div>
+          </div>
+          <p className="text-xs text-muted mt-4 z-10 relative">Oportunidades con Score Predictivo ≥ 8</p>
+        </div>
+
+        <div className="card shadow-sm border border-border bg-surface p-5 rounded-2xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-4 opacity-10">
+            <Clock className="w-16 h-16 text-danger" />
+          </div>
+          <div className="flex justify-between items-start relative z-10">
+            <div>
+               <div className="flex items-center gap-2">
+                 <p className="text-sm font-medium text-muted uppercase tracking-wider">Días Promedio Pago</p>
+               </div>
+              <h3 className="text-3xl font-bold text-text mt-2">
+                {compradorResult?.pago?.mediana_dias_pago || '—'} <span className="text-lg font-medium text-muted">días</span>
+              </h3>
+            </div>
+          </div>
+          <div className="text-xs text-muted mt-4 z-10 relative flex items-center justify-between w-full">
+            <span className="truncate max-w-[200px]">Organismo: {compradorResult?.nombre || organismoInput || '—'}</span>
+            <button onClick={() => {
+                 const newOrg = prompt('Ingresa el código de organismo para analizar sus pagos (Ej: 7485):');
+                 if (newOrg) {
+                    setOrganismoInput(newOrg);
+                    loadOrganismoData(); // Fetch implicitly takes new state next cycle, so better direct set or trigger again
+                 }
+                }} className="text-primary hover:underline font-medium">Analizar otro
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* DASHBOARDS ROW MAPPED */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        {/* CHART 1: Market Trends Line Chart (CAGR Bar) */}
+        <div className="card flex flex-col space-y-4 shadow-sm border border-border h-[420px] rounded-2xl p-5">
+          <div className="flex justify-between items-center bg-transparent m-0 p-0 shadow-none border-0">
+            <div>
+              <h2 className="text-lg font-semibold text-text flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-primary" />
+                Crecimiento de Categorías (CAGR)
+              </h2>
+            </div>
+          </div>
+          {emergentes.length > 0 && (
+             <div className="flex flex-wrap gap-1.5 pt-1">
+                {emergentes.slice(0, 3).map((t, i) => (
+                  <span key={i} className="rounded-full bg-accent/10 border border-accent/20 text-accent px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-widest">
+                    🔥 {t.RubroN2?.substring(0,20)} ({t.cagr != null ? `+${(t.cagr * 100).toFixed(0)}%` : '—'})
+                  </span>
+                ))}
+            </div>
+          )}
+          <div className="flex-1 w-full relative">
+            {tendencias.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={tendencias.slice(0, 7).map(t => ({ name: t.RubroN2?.substring(0, 20) + '...', cagr: (t.cagr || 0) * 100 }))} margin={{ top: 20, right: 30, left: -20, bottom: 25 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} opacity={0.5} />
+                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'var(--color-muted)' }} tickLine={false} axisLine={false} dx={0} dy={10} width={200} />
+                  <YAxis tick={{ fontSize: 11, fill: 'var(--color-muted)' }} tickLine={false} axisLine={false} unit="%" />
+                  <RechartsTooltip cursor={{fill: 'var(--color-surface)'}} contentStyle={{ backgroundColor: 'var(--color-background)', borderColor: 'var(--color-border)', borderRadius: '8px' }} />
+                  <Bar dataKey="cagr" fill="var(--color-primary)" radius={[4, 4, 0, 0]}>
+                    {tendencias.slice(0, 7).map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={(entry.cagr || 0) > 0 ? 'var(--color-accent)' : 'var(--color-danger)'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                 <Loader2 className={`h-8 w-8 ${loadingTend ? 'animate-spin text-primary' : 'hidden'}`} />
+                 {!loadingTend && (
+                   <span className="text-muted text-sm mt-3">No hay suficientes datos de tendencias para este rubro.</span>
+                 )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* CHART 2: Competitor Radar (Scatter) */}
+        <div className="card flex flex-col space-y-4 shadow-sm border border-border h-[420px] rounded-2xl p-5">
+          <div className="flex justify-between items-center bg-transparent m-0 p-0 shadow-none border-0">
+            <div>
+              <h2 className="text-lg font-semibold text-text flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" />
+                Radar de Competencia
+              </h2>
+            </div>
+             <button onClick={() => setExpandedComp(!expandedComp)} className="text-xs text-primary font-medium hover:underline bg-primary/10 px-3 py-1.5 rounded-full transition-colors hover:bg-primary/20">
+               {expandedComp ? 'Ver Gráfico' : 'Ver Tabla'}
+             </button>
+          </div>
+          <div className="flex-1 w-full relative">
+             {competidores.length > 0 ? (
+                expandedComp ? (
+                  <div className="overflow-auto h-[320px] pr-2">
+                    <ul className="space-y-3">
+                      {competidores.slice(0, 15).map((c, i) => (
+                        <li key={i} className="flex flex-col gap-1 border-b border-border/50 pb-2">
+                          <span className="truncate text-sm font-medium text-text">
+                            {c.NombreProveedor || c.CodigoProveedor}
+                          </span>
+                          <div className="flex items-center justify-between text-xs text-muted">
+                            <span>Share: {c.market_share_pct?.toFixed(1)}%</span>
+                            <span>WR: {(c.win_rate_pct! * 100).toFixed(1)}%</span>
+                            <span className="px-1.5 py-0.5 bg-surface rounded text-[10px]">Rank: #{c.rank_monto}</span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ScatterChart margin={{ top: 10, right: 10, bottom: 20, left: -20 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.5} />
+                      <XAxis type="number" dataKey="win_rate" name="Win Rate" unit="%" tick={{ fontSize: 11, fill: 'var(--color-muted)' }} axisLine={false} tickLine={false} domain={[0, 'auto']} dx={0} dy={10} />
+                      <YAxis type="number" dataKey="share" name="Market Share" unit="%" tick={{ fontSize: 11, fill: 'var(--color-muted)' }} axisLine={false} tickLine={false} domain={[0, 'auto']} />
+                      <ZAxis type="number" dataKey="ranking" range={[80, 500]} />
+                      <RechartsTooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ backgroundColor: 'var(--color-background)', borderColor: 'var(--color-border)', borderRadius: '8px' }} />
+                      <Scatter name="Competidores" data={competidores.filter(c => c.win_rate_pct != null).map(c => ({
+                        win_rate: (c.win_rate_pct! * 100).toFixed(1),
+                        share: c.market_share_pct?.toFixed(1),
+                        ranking: Math.max(10, 150 - (c.rank_monto * 5)), // Bigger bubble = better rank
+                        name: c.NombreProveedor || c.CodigoProveedor
+                      }))} fill="var(--color-primary)" opacity={0.65} />
+                    </ScatterChart>
+                  </ResponsiveContainer>
+                )
+             ) : (
+               <div className="absolute inset-0 flex flex-col items-center justify-center space-y-3">
+                 <Loader2 className={`h-8 w-8 ${loadingComp ? 'animate-spin text-primary' : 'hidden'}`} />
+                 {!loadingComp && (
+                   <>
+                     <span className="text-muted text-sm">Carga un organismo para visualizar su distribución competitiva.</span>
+                     <button onClick={loadOrganismoData} className="btn-secondary text-xs">
+                        Refrescar Análisis
+                     </button>
+                   </>
+                 )}
+               </div>
+             )}
+          </div>
+        </div>
+
+      </div>
+
+      {/* ACTION CENTER: HOT LEADS */}
+      <section className="card shadow-sm space-y-4 border border-border rounded-2xl p-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-gold/10 rounded-xl text-gold">
+              <Award className="h-6 w-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-text">Hot Leads Detectados</h2>
+              <p className="text-xs text-muted mt-0.5">Basado en tu compatibilidad histórica y puntaje predictivo.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted hidden sm:inline-block">Score Mín.</span>
+            <select 
+              value={minScore} 
+              onChange={(e) => setMinScore(e.target.value)} 
+              className="bg-background border border-border rounded-lg text-xs py-1.5 px-2 text-text outline-none focus:ring-1 focus:ring-primary/30"
+            >
+              {['4', '5', '6', '7', '8', '9'].map(s => <option key={s} value={s}>{s}+</option>)}
+            </select>
+          </div>
+        </div>
+
+        {oportunidades.length > 0 ? (
+          <div className="overflow-x-auto mt-4 rounded-xl border border-border">
             <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-xs text-muted">
-                  <th className="pb-2 pr-4">Organismo</th>
-                  <th className="pb-2 pr-4">Rubro</th>
-                  <th className="pb-2 pr-4">Score</th>
-                  <th className="pb-2 pr-4">Txs</th>
-                  <th className="pb-2 pr-4">Proveedores</th>
-                  <th className="pb-2">CAGR</th>
+              <thead className="bg-surface">
+                <tr className="border-b border-border text-left text-[11px] text-muted uppercase tracking-wider font-semibold">
+                  <th className="py-4 px-5">Organismo</th>
+                  <th className="py-4 px-5">Rubro / Dominio</th>
+                  <th className="py-4 px-5">Match Score</th>
+                  <th className="py-4 px-5">Txs Histo.</th>
+                  <th className="py-4 px-5">Competitividad</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
-                {oportunidades.map((op, i) => (
-                  <tr key={i} className="hover:bg-background transition-colors">
-                    <td className="py-2 pr-4 font-mono text-xs">{op.CodigoOrganismoPublico}</td>
-                    <td className="py-2 pr-4 max-w-[200px] truncate text-xs">{op.RubroN2}</td>
-                    <td className="py-2 pr-4 w-32">
+              <tbody className="divide-y divide-border bg-background">
+                {oportunidades.sort((a,b) => b.opportunity_score - a.opportunity_score).slice(0, 10).map((op, i) => (
+                  <tr key={i} className="hover:bg-active/20 transition-colors group">
+                    <td className="py-4 px-5 font-mono text-xs font-semibold text-text group-hover:text-primary transition-colors">{op.CodigoOrganismoPublico}</td>
+                    <td className="py-4 px-5 max-w-[200px] truncate text-xs text-muted font-medium">{op.RubroN2}</td>
+                    <td className="py-4 px-5 w-48">
                       <ScoreBar value={op.opportunity_score} max={10} />
                     </td>
-                    <td className="py-2 pr-4 text-xs">{op.n_transacciones.toLocaleString()}</td>
-                    <td className="py-2 pr-4 text-xs">{op.n_proveedores}</td>
-                    <td className="py-2 text-xs">
-                      {op.cagr != null
-                        ? `${(op.cagr * 100).toFixed(1)}%`
-                        : '—'}
+                    <td className="py-4 px-5 text-xs font-medium text-text">{op.n_transacciones.toLocaleString()} <span className="text-muted text-[10px]">oc's</span></td>
+                    <td className="py-4 px-5">
+                      <div className="flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-muted" />
+                        <span className="text-xs font-medium">{op.n_proveedores}</span> 
+                        {op.n_proveedores < 3 && <span className="ml-1 text-[10px] bg-accent/10 border border-accent/20 text-accent px-1.5 py-0.5 rounded-md uppercase tracking-wider font-bold">Baja</span>}
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        )}
-
-        {oportunidades.length === 0 && !loadingOp && (
-          <p className="text-sm text-muted">
-            No hay oportunidades con score ≥ {minScore} para los filtros seleccionados.
-          </p>
-        )}
-      </section>
-
-      {/* ── Análisis de comprador ──────────────────────────────────────── */}
-      <section className="card space-y-4">
-        <div className="flex items-center gap-3">
-          <Users className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-semibold text-text">Análisis de comprador</h2>
-        </div>
-        <p className="text-sm text-muted">
-          Ingresa el código de organismo (ej. <code>7485</code>) para ver su score de confiabilidad, tiempos de pago y top competidores.
-        </p>
-
-        <div className="flex gap-3">
-          <input
-            className="input-field flex-1"
-            placeholder="Código organismo (CodigoOrganismoPublico)"
-            value={organismoInput}
-            onChange={(e) => setOrganismoInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && loadOrganismoData()}
-          />
-          <button
-            onClick={loadOrganismoData}
-            disabled={loadingComp}
-            className="btn-primary flex items-center gap-2"
-          >
-            {loadingComp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-            Analizar
-          </button>
-        </div>
-
-        {compradorResult && (
-          <div className="space-y-4">
-            {!compradorResult.disponible ? (
-              <p className="text-sm text-muted">{compradorResult.motivo}</p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Buyer score */}
-                <div className="rounded-lg border border-border bg-background p-4 space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="font-semibold text-text truncate max-w-[180px]">
-                        {compradorResult.nombre || organismoInput}
-                      </p>
-                      <p className="text-xs text-muted mt-0.5">{compradorResult.clasificacion}</p>
-                    </div>
-                    <div
-                      className={`rounded-full px-2 py-1 text-xs font-bold ${
-                        (compradorResult.buyer_score || 0) >= 0.7
-                          ? 'bg-accent/15 text-accent'
-                          : (compradorResult.buyer_score || 0) >= 0.4
-                            ? 'bg-gold/15 text-gold'
-                            : 'bg-danger/15 text-danger'
-                      }`}
-                    >
-                      {compradorResult.buyer_score != null
-                        ? (compradorResult.buyer_score * 10).toFixed(1)
-                        : '—'}
-                      /10
-                    </div>
-                  </div>
-                  <div className="space-y-1 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-muted">Mediana días pago</span>
-                      <span className="font-medium">{compradorResult.pago?.mediana_dias_pago ?? '—'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted">Tasa cancelación</span>
-                      <span className="font-medium">
-                        {compradorResult.pago?.tasa_cancelacion != null
-                          ? `${(compradorResult.pago.tasa_cancelacion * 100).toFixed(1)}%`
-                          : '—'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted">Tasa adjudicación</span>
-                      <span className="font-medium">
-                        {compradorResult.pago?.tasa_adjudicacion != null
-                          ? `${(compradorResult.pago.tasa_adjudicacion * 100).toFixed(1)}%`
-                          : '—'}
-                      </span>
-                    </div>
-                  </div>
-                  {/* Risk flags */}
-                  {compradorResult.risk_flags && compradorResult.risk_flags.n_flags > 0 && (
-                    <div className="flex flex-wrap gap-1 pt-1">
-                      {compradorResult.risk_flags.pago_lento && (
-                        <span className="rounded-full bg-danger/15 px-2 py-0.5 text-xs text-danger">Pago lento</span>
-                      )}
-                      {compradorResult.risk_flags.cancelaciones && (
-                        <span className="rounded-full bg-danger/15 px-2 py-0.5 text-xs text-danger">Alta cancelación</span>
-                      )}
-                      {compradorResult.risk_flags.baja_calificacion && (
-                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">Baja calificación</span>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Top competidores */}
-                <div className="rounded-lg border border-border bg-background p-4 space-y-2">
-                  <button
-                    className="flex w-full items-center justify-between text-sm font-medium text-text"
-                    onClick={() => setExpandedComp((p) => !p)}
-                  >
-                    <span>Top competidores ({competidores.length})</span>
-                    {expandedComp ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </button>
-                  {expandedComp && (
-                    <ul className="space-y-2 max-h-48 overflow-y-auto">
-                      {competidores.slice(0, 10).map((c, i) => (
-                        <li key={i} className="flex items-center justify-between text-xs">
-                          <span className="truncate max-w-[160px] text-text">
-                            {c.NombreProveedor || c.CodigoProveedor}
-                          </span>
-                          <div className="flex items-center gap-2 shrink-0 ml-2">
-                            <span className="text-muted">
-                              {c.market_share_pct?.toFixed(1)}%
-                            </span>
-                            <div
-                              className="h-1.5 w-16 rounded-full bg-border overflow-hidden"
-                            >
-                              <div
-                                className="h-full rounded-full bg-primary"
-                                style={{ width: `${Math.min(100, c.market_share_pct || 0)}%` }}
-                              />
-                            </div>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </div>
-            )}
+        ) : (
+          <div className="flex flex-col items-center justify-center py-12 border border-dashed border-border rounded-xl bg-surface/30">
+             {loadingOp ? (
+                <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
+             ) : (
+               <>
+                 <Target className="h-10 w-10 text-muted opacity-30 mb-3" />
+                 <p className="text-sm text-text font-medium">No se encontraron Leads Relevantes con Score ≥ {minScore}</p>
+                 <p className="text-xs text-muted mt-1 max-w-sm text-center">Intenta ajustar tu filtro global de Rubro en la parte superior o baja tu exigencia de Score actual.</p>
+               </>
+             )}
           </div>
         )}
       </section>
 
-      {/* ── Matching semántico — Proveedores similares ─────────────────── */}
-      {tfidfEnabled !== false && (
-        <section className="card space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Sparkles className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold text-text">Proveedores similares</h2>
+      {/* TF-IDF SETTINGS MODAL / TOGGLE (Clean profile widget) */}
+      <section className="flex flex-col sm:flex-row sm:items-center justify-between bg-surface border border-border p-5 rounded-2xl shadow-sm mt-6 gap-4">
+         <div className="flex items-center gap-4">
+            <div className="p-3 bg-primary/10 rounded-xl text-primary shrink-0">
+              <Settings2 className="h-6 w-6" />
             </div>
-            {tfidfEnabled === null && (
-              <span className="text-xs text-muted rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-amber-700">
-                Requiere FEATURE_TFIDF=true
-              </span>
-            )}
-          </div>
-          <p className="text-sm text-muted">
-            Busca proveedores que históricamente vendieron productos similares. Tolerante a variantes
-            ortográficas y acentos — escribe como quieras.
-          </p>
-
-          <div className="flex gap-3">
-            <input
-              className="input-field flex-1"
-              placeholder='Ej: "servicio limpieza hospitalaria", "notebooks computadores", "medicamentos insumos"'
-              value={matchingQuery}
-              onChange={(e) => setMatchingQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && runMatching()}
-            />
-            <button
-              onClick={runMatching}
-              disabled={loadingMatching || !matchingQuery.trim()}
-              className="btn-primary flex items-center gap-2 shrink-0"
-            >
-              {loadingMatching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-              Buscar
-            </button>
-          </div>
-
-          {matchingResults.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border text-left text-xs text-muted">
-                    <th className="pb-2 pr-4">Proveedor</th>
-                    <th className="pb-2 pr-4">Código</th>
-                    <th className="pb-2 pr-4">OCs históricas</th>
-                    <th className="pb-2 w-40">Similitud</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {matchingResults.map((r, i) => (
-                    <tr key={i} className="hover:bg-background transition-colors">
-                      <td className="py-2 pr-4 font-medium text-text truncate max-w-[220px]">
-                        {r.NombreProveedor || '—'}
-                      </td>
-                      <td className="py-2 pr-4 font-mono text-xs text-muted">{r.CodigoProveedor}</td>
-                      <td className="py-2 pr-4 text-xs">{r.n_oc?.toLocaleString() ?? '—'}</td>
-                      <td className="py-2">
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 h-2 rounded-full bg-border overflow-hidden">
-                            <div
-                              className={`h-full rounded-full ${
-                                r.similarity_score >= 0.15
-                                  ? 'bg-accent'
-                                  : r.similarity_score >= 0.05
-                                    ? 'bg-gold'
-                                    : 'bg-subtle'
-                              }`}
-                              style={{ width: `${Math.min(100, r.similarity_score * 400)}%` }}
-                            />
-                          </div>
-                          <span className="text-xs font-mono text-muted w-10 text-right">
-                            {(r.similarity_score * 100).toFixed(0)}%
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {matchingResults.length === 0 && !loadingMatching && matchingQuery && (
-            <p className="text-sm text-muted">
-              No se encontraron proveedores con similitud suficiente para «{matchingQuery}».
-            </p>
-          )}
-        </section>
-      )}
-
-      {/* ── Perfil TF-IDF de la empresa ────────────────────────────────── */}
-      {tfidfEnabled !== false && firstEmpresaId && (
-        <section className="card space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Settings2 className="h-5 w-5 text-primary" />
-              <div>
-                <h2 className="text-lg font-semibold text-text">Perfil semántico de tu empresa</h2>
-                <p className="text-xs text-muted mt-0.5">
-                  Define qué productos/servicios ofrece tu empresa para activar «¿Tu perfil encaja?» en cada licitación.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {perfilSaved && (
-                <span className="flex items-center gap-1 text-xs text-accent bg-accent/10 border border-accent/20 rounded-full px-2 py-0.5">
-                  <Check className="h-3 w-3" /> Guardado
-                </span>
-              )}
-              {perfilData?.tiene_vector && !showPerfilEditor && (
-                <button
-                  onClick={() => setShowPerfilEditor(true)}
-                  className="btn-secondary text-xs py-1.5 px-3"
-                >
-                  Editar perfil
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Current profile summary */}
-          {perfilData?.tiene_vector && !showPerfilEditor && (
-            <div className="rounded-lg bg-background border border-border p-3 space-y-2">
-              <p className="text-xs text-muted">Rubros/productos configurados:</p>
-              <div className="flex flex-wrap gap-1.5">
-                {(perfilData.rubros_usados || []).map((r, i) => (
-                  <span
-                    key={i}
-                    className="rounded-full bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 text-xs"
-                  >
-                    {r}
-                  </span>
-                ))}
-              </div>
-              {perfilData.actualizado_en && (
-                <p className="text-xs text-muted">
-                  Actualizado: {new Date(perfilData.actualizado_en).toLocaleDateString('es-CL')}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Editor */}
-          {(showPerfilEditor || !perfilData?.tiene_vector) && (
-            <div className="space-y-4">
-              {/* Selected rubros */}
-              {selectedClusters.length > 0 && (
-                <div>
-                  <p className="text-xs text-muted mb-2">Seleccionados ({selectedClusters.length}):</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedClusters.map((r) => (
-                      <button
-                        key={r}
-                        onClick={() => setSelectedClusters((prev) => prev.filter((x) => x !== r))}
-                        className="flex items-center gap-1 rounded-full bg-primary text-white px-2.5 py-0.5 text-xs hover:bg-primaryDark transition-colors"
-                      >
-                        {r}
-                        <X className="h-3 w-3" />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Custom rubro input */}
-              <div className="flex gap-2">
-                <input
-                  className="input-field flex-1 text-sm"
-                  placeholder="Agregar rubro o producto personalizado (Enter)"
-                  value={customRubro}
-                  onChange={(e) => setCustomRubro(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') { e.preventDefault(); addCustomRubro(); }
-                  }}
-                />
-                <button onClick={addCustomRubro} className="btn-secondary text-xs py-2 px-3">
-                  Agregar
-                </button>
-              </div>
-
-              {/* Cluster suggestions */}
-              {clusters.length > 0 && (
-                <div>
-                  <p className="text-xs text-muted mb-2">
-                    Sugerencias basadas en el historial de compras del Estado:
-                  </p>
-                  <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
-                    {clusters.map((c) => {
-                      const isSelected = selectedClusters.includes(c.label);
-                      return (
-                        <button
-                          key={c.cluster_id}
-                          onClick={() => toggleCluster(c.label)}
-                          title={c.keywords || c.label}
-                          className={`rounded-full border px-2.5 py-0.5 text-xs transition-colors ${
-                            isSelected
-                              ? 'bg-primary/10 border-primary/30 text-primary'
-                              : 'bg-background border-border text-muted hover:border-primary/50 hover:text-text'
-                          }`}
-                        >
-                          {c.label}
-                          {c.rubro_dominante && (
-                            <span className="ml-1 opacity-60">· {c.rubro_dominante}</span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex gap-2 pt-1">
-                <button
-                  onClick={savePerfil}
-                  disabled={savingPerfil || selectedClusters.length === 0}
-                  className="btn-primary flex items-center gap-2"
-                >
-                  {savingPerfil ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                  Guardar perfil
-                </button>
-                {showPerfilEditor && (
-                  <button onClick={() => setShowPerfilEditor(false)} className="btn-secondary">
-                    Cancelar
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {!perfilData?.tiene_vector && !showPerfilEditor && (
-            <div className="rounded-lg bg-background border border-border p-4 text-sm text-muted">
-              <p>
-                Sin perfil configurado. Selecciona los rubros o productos que ofrece tu empresa para
-                activar el análisis «¿Tu perfil encaja?» en cada licitación.
-              </p>
-              <button
-                onClick={() => setShowPerfilEditor(true)}
-                className="btn-primary mt-3 text-xs"
-              >
-                Configurar perfil
-              </button>
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* ── Estacionalidad ─────────────────────────────────────────────── */}
-      {biEnabled && (
-        <section className="card space-y-4">
-          <div className="flex items-center gap-3">
-            <BarChart3 className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold text-text">Estacionalidad de compras</h2>
-          </div>
-          <p className="text-sm text-muted">
-            ¿En qué meses compra más este organismo? Detecta picos estacionales para anticipar licitaciones.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <input
-              className="input-field flex-1 min-w-0 sm:min-w-[180px]"
-              placeholder="CodigoOrganismo (ej. 1234)"
-              value={estacOrganismo}
-              onChange={(e) => setEstacOrganismo(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && loadEstacionalidad()}
-            />
-            <input
-              className="input-field flex-1 min-w-0 sm:min-w-[180px]"
-              placeholder="Rubro (opcional)"
-              value={estacRubro}
-              onChange={(e) => setEstacRubro(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && loadEstacionalidad()}
-            />
-            <button
-              onClick={loadEstacionalidad}
-              disabled={loadingEstac}
-              className="btn-primary flex items-center gap-2"
-            >
-              {loadingEstac ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-              Analizar
-            </button>
-          </div>
-
-          {estacResult && (
-            <div className="overflow-x-auto">
-              <div className="grid grid-cols-12 gap-1.5 min-w-[560px]">
-                {(['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']).map((name, idx) => {
-                  const mes = idx + 1;
-                  const data = estacResult.find((m) => m.mes === mes);
-                  const prob = data?.prob_mes ?? 0;
-                  const isPico = data?.es_pico_estacional;
-                  const intensity = Math.round(prob * 9);
-                  const bg = isPico
-                    ? 'bg-primary text-white'
-                    : intensity >= 7 ? 'bg-primary/60 text-white'
-                    : intensity >= 4 ? 'bg-primary/30 text-text'
-                    : 'bg-background text-muted border border-border';
-                  return (
-                    <div
-                      key={mes}
-                      title={`${name}: prob ${(prob * 100).toFixed(0)}%${isPico ? ' — PICO' : ''}`}
-                      className={`rounded-lg p-2 text-center text-xs transition-colors ${bg}`}
-                    >
-                      <p className="font-medium">{name}</p>
-                      <p className="mt-0.5 font-mono">{(prob * 100).toFixed(0)}%</p>
-                      {isPico && <p className="mt-0.5 font-bold">↑</p>}
-                    </div>
-                  );
-                })}
-              </div>
-              <p className="mt-2 text-xs text-muted">
-                Intensidad de color = probabilidad de compra. ↑ = pico estacional histórico.
-              </p>
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* ── Tendencias de mercado ───────────────────────────────────────── */}
-      {biEnabled && (
-        <section className="card space-y-4">
-          <div className="flex items-center gap-3">
-            <TrendingUp className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold text-text">Tendencias de mercado</h2>
-          </div>
-          <p className="text-sm text-muted">
-            Mercados con mayor crecimiento histórico (CAGR). Los mercados emergentes tienen CAGR &gt; 20%.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <input
-              className="input-field flex-1 min-w-[200px]"
-              placeholder="Rubro (opcional, deja vacío para todos)"
-              value={tendRubroFiltro}
-              onChange={(e) => setTendRubroFiltro(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && loadTendencias()}
-            />
-            <button
-              onClick={loadTendencias}
-              disabled={loadingTend}
-              className="btn-primary flex items-center gap-2"
-            >
-              {loadingTend ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-              Cargar
-            </button>
-          </div>
-
-          {emergentes.length > 0 && (
             <div>
-              <p className="text-xs font-medium text-amber-700 mb-2 flex items-center gap-1">
-                <Sparkles className="h-3.5 w-3.5" /> Mercados emergentes (CAGR &gt; 20%)
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {emergentes.slice(0, 10).map((t, i) => (
-                  <span key={i} className="rounded-full bg-amber-50 border border-amber-200 text-amber-800 px-2.5 py-0.5 text-xs">
-                    {t.RubroN2} · {t.cagr != null ? `+${(t.cagr * 100).toFixed(0)}%` : '—'}
-                  </span>
-                ))}
-              </div>
+              <p className="text-base font-bold text-text flex items-center gap-2">Calibrar Radar Semántico <span className="px-2 py-0.5 bg-background border border-border rounded text-[10px] text-muted tracking-wide font-mono">TF-IDF</span></p>
+              <p className="text-sm text-muted mt-0.5 max-w-xl leading-relaxed">Personaliza los Rubros detectados ({perfilData?.rubros_usados?.length || 0}) para mejorar las recomendaciones del dashboard y optimizar el cálculo de similitud.</p>
             </div>
-          )}
+         </div>
+         <button onClick={() => setShowPerfilEditor(!showPerfilEditor)} className="btn-secondary whitespace-nowrap">
+            {showPerfilEditor ? 'Cerrar Ajustes' : 'Configurar Perfil'}
+         </button>
+      </section>
 
-          {tendencias.length > 0 && (
-            <div className="overflow-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-left text-muted border-b border-border">
-                    <th className="pb-2 font-medium">Organismo</th>
-                    <th className="pb-2 font-medium">Rubro</th>
-                    <th className="pb-2 font-medium text-right">CAGR</th>
-                    <th className="pb-2 font-medium text-right">Tendencia</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tendencias.slice(0, 20).map((t, i) => (
-                    <tr key={i} className="border-b border-border/40 hover:bg-surface/50">
-                      <td className="py-1.5 pr-2 text-muted font-mono">{t.CodigoOrganismoPublico ?? '—'}</td>
-                      <td className="py-1.5 pr-2">{t.RubroN2 ?? '—'}</td>
-                      <td className="py-1.5 text-right font-mono font-medium">
-                        {t.cagr != null ? (
-                          <span className={t.cagr > 0 ? 'text-accent' : 'text-danger'}>
-                            {t.cagr > 0 ? '+' : ''}{(t.cagr * 100).toFixed(1)}%
-                          </span>
-                        ) : '—'}
-                      </td>
-                      <td className="py-1.5 text-right capitalize">{t.tendencia ?? '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {!loadingTend && tendencias.length === 0 && emergentes.length === 0 && (
-            <p className="text-sm text-muted">Haz clic en «Cargar» para obtener las tendencias de mercado.</p>
-          )}
-        </section>
+      {/* Perfil Editor Slide-down */}
+      {showPerfilEditor && (
+        <div className="card shadow-md border border-border mt-0 p-5 rounded-2xl animate-in slide-in-from-top-4 fade-in duration-300">
+           <div className="flex gap-3 mb-4">
+              <input
+                className="input-field flex-1"
+                placeholder="Escribe un rubro exacto o palabras clave y presiona Enter..."
+                value={customRubro}
+                onChange={(e) => setCustomRubro(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustomRubro(); } }}
+              />
+              <button onClick={addCustomRubro} className="btn-secondary">Añadir Rubro</button>
+           </div>
+           
+           <div className="bg-surface p-4 rounded-xl border border-border flex flex-col gap-3">
+             <p className="text-xs font-bold text-muted uppercase tracking-wider">Tu Matriz de Referencia ({selectedClusters.length})</p>
+             {selectedClusters.length > 0 ? (
+               <div className="flex flex-wrap gap-2">
+                 {selectedClusters.map((r) => (
+                    <span key={r} onClick={() => setSelectedClusters(prev => prev.filter(x => x !== r))} className="cursor-pointer flex items-center gap-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20 px-3 py-1.5 text-xs font-medium hover:bg-danger/10 hover:text-danger hover:border-danger/30 transition-all group">
+                      {r} <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
+                    </span>
+                 ))}
+               </div>
+             ) : (
+                <p className="text-sm text-muted italic">No hay rúbros seleccionados. Agrega para alimentar el modelo.</p>
+             )}
+           </div>
+           
+           <div className="pt-4 flex justify-end gap-3 mt-2">
+             <button onClick={() => setShowPerfilEditor(false)} className="btn-secondary">Cancelar</button>
+             <button onClick={() => { savePerfil(); setShowPerfilEditor(false); }} disabled={savingPerfil} className="btn-primary flex items-center gap-2 shadow-sm shadow-primary/20">
+                {savingPerfil ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                Guardar y Recalibrar Dashboard
+             </button>
+           </div>
+        </div>
       )}
 
-      {/* ── Descuento óptimo ───────────────────────────────────────────── */}
-      {biEnabled && (
-        <section className="card space-y-4">
-          <div className="flex items-center gap-3">
-            <Target className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold text-text">Descuento óptimo por contexto</h2>
-          </div>
-          <p className="text-sm text-muted">
-            Bandas de descuento observadas en licitaciones similares, segmentadas por tipo y rubro.
-            Útil para calibrar tu oferta según la competencia esperada.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <input
-              className="input-field flex-1 min-w-[160px]"
-              placeholder="Tipo licitación (CodigoTipo, ej. LP)"
-              value={descTipo}
-              onChange={(e) => setDescTipo(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && loadDescuento()}
-            />
-            <input
-              className="input-field flex-1 min-w-[160px]"
-              placeholder="Rubro (opcional)"
-              value={descRubro}
-              onChange={(e) => setDescRubro(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && loadDescuento()}
-            />
-            <button
-              onClick={loadDescuento}
-              disabled={loadingDesc}
-              className="btn-primary flex items-center gap-2"
-            >
-              {loadingDesc ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-              Consultar
-            </button>
-          </div>
-
-          {descResult.length > 0 && (
-            <div className="space-y-3">
-              {descResult.slice(0, 10).map((d, i) => (
-                <div key={i} className="rounded-lg border border-border bg-background p-3 space-y-2">
-                  <div className="flex flex-wrap items-center gap-2 text-xs">
-                    <span className="font-medium text-text">{d.Rubro2 || d.CodigoTipo || '—'}</span>
-                    {d.n_oferentes_rango && (
-                      <span className="rounded-full bg-surface border border-border px-2 py-0.5 text-muted">
-                        {d.n_oferentes_rango} oferentes
-                      </span>
-                    )}
-                    {d.senial_competencia && (
-                      <span className={`rounded-full px-2 py-0.5 border text-xs ${
-                        d.senial_competencia === 'alta'
-                          ? 'bg-danger/10 border-danger/20 text-danger'
-                          : d.senial_competencia === 'media'
-                          ? 'bg-gold/10 border-gold/20 text-gold'
-                          : 'bg-accent/10 border-accent/20 text-accent'
-                      }`}>
-                        competencia {d.senial_competencia}
-                      </span>
-                    )}
-                    {d.n != null && <span className="text-muted">n={d.n}</span>}
-                  </div>
-                  <div className="grid grid-cols-4 gap-2 text-xs">
-                    {[['P10', d.p10], ['Media', d.media], ['P50', d.p50], ['P90', d.p90]].map(([label, val]) => (
-                      <div key={label as string}>
-                        <p className="text-muted">{label}</p>
-                        <p className="font-mono font-medium text-text">
-                          {val != null ? `${(val as number * 100).toFixed(1)}%` : '—'}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {!loadingDesc && descResult.length === 0 && (
-            <p className="text-sm text-muted">
-              Ingresa el tipo de licitación y/o rubro para ver los descuentos históricos típicos.
-            </p>
-          )}
-        </section>
-      )}
-
-      {/* ── Ventana de presión ─────────────────────────────────────────── */}
-      <section className="card space-y-4">
-        <div className="flex items-center gap-3">
-          <TrendingUp className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-semibold text-text">Presión de ventana de preparación</h2>
-        </div>
-        <p className="text-sm text-muted">
-          Compara la ventana de una licitación contra la norma histórica de su tipo/sector para detectar plazos inusualmente cortos.
-        </p>
-
-        <div className="flex gap-3">
-          <input
-            className="input-field flex-1"
-            placeholder="Código externo de la licitación (ej. 750001-23-LP14)"
-            value={codigoExterno}
-            onChange={(e) => setCodigoExterno(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && checkVentana()}
-          />
-          <button
-            onClick={checkVentana}
-            disabled={loadingVentana}
-            className="btn-primary flex items-center gap-2"
-          >
-            {loadingVentana ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Search className="h-4 w-4" />
-            )}
-            Analizar
-          </button>
-        </div>
-
-        {ventanaResult && (
+    </div>
+  );
+}Result && (
           <div className="rounded-lg border border-border bg-background p-4 space-y-3">
             {!ventanaResult.disponible ? (
               <div className="flex items-center gap-2 text-sm text-muted">

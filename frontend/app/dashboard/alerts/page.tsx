@@ -37,6 +37,7 @@ export default function AlertsPage() {
   const [loading, setLoading] = useState(false);
   const [prefsLoading, setPrefsLoading] = useState(false);
   const [total, setTotal] = useState(0);
+  const [totalAll, setTotalAll] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
@@ -77,6 +78,10 @@ export default function AlertsPage() {
       setTotal(response.total || 0);
       setUnreadCount(response.unread_count || 0);
       setPages(response.pages || 1);
+      // When viewed with no filter, update the total-all count as well
+      if (filter === 'all') {
+        setTotalAll(response.total || 0);
+      }
     } catch (err) {
       console.error('Error loading alerts:', err);
       setError('No se pudieron cargar las alertas.');
@@ -84,6 +89,18 @@ export default function AlertsPage() {
       setLoading(false);
     }
   }, [filter, page]);
+
+  // Fetch the real total count of ALL alerts (irrespective of current filter)
+  // so that "Todas (N)" always shows the correct number even before the user
+  // has clicked it.
+  const loadTotalAll = useCallback(async () => {
+    try {
+      const response = await apiClient.getAlerts({ offset: 0, limit: 1, unread_only: false });
+      setTotalAll(response.total || 0);
+    } catch (err) {
+      console.error('Error fetching total alert count:', err);
+    }
+  }, []);
 
   const loadPreferences = useCallback(async () => {
     setError(null);
@@ -102,6 +119,12 @@ export default function AlertsPage() {
   useEffect(() => {
     loadAlerts();
   }, [loadAlerts]);
+
+  // Fetch the global alert count once on mount so the tab label is accurate
+  // from the very first render, regardless of which filter is active.
+  useEffect(() => {
+    loadTotalAll();
+  }, [loadTotalAll]);
 
   useEffect(() => {
     loadPreferences();
@@ -234,7 +257,7 @@ export default function AlertsPage() {
                 : 'border border-border bg-surface text-muted hover:border-primary/40 hover:text-primary'
             }`}
           >
-            Todas ({total})
+            Todas ({totalAll})
           </button>
         </div>
       </div>

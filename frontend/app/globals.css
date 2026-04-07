@@ -287,11 +287,15 @@
   }
 
   .nav-item-active {
-    @apply nav-item bg-primary/10 text-primary font-semibold;
-    box-shadow: inset 3px 0 0 theme('colors.primary');
-    border-radius: 0 8px 8px 0;
-    margin-left: -1rem;
-    padding-left: calc(1rem + 1rem - 3px);
+    @apply nav-item bg-primary/8 text-primary font-semibold;
+    position: relative;
+  }
+
+  .nav-item-active::before {
+    content: '';
+    @apply absolute left-0 h-5 w-0.5 rounded-full bg-primary;
+    top: 50%;
+    transform: translateY(-50%);
   }
 
   /* ──────────────────────────────────────────────

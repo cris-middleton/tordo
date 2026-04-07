@@ -40,6 +40,24 @@ export default function EmpresaPage() {
   const [inviting, setInviting]         = useState(false)
   const [error, setError]               = useState<string | null>(null)
   const [success, setSuccess]           = useState<string | null>(null)
+  const [avatar, setAvatar]             = useState<string | null>(null)
+
+  const AVATARS = ['🦅', '🦉', '🕊️', '🐧', '🐦', '🐥', '🦆', '🦚', '🦜', '🦢', '🦩', '🐓', '🦃', '🦇', '🦋'];
+
+  useEffect(() => {
+    setAvatar(localStorage.getItem('user_avatar'))
+  }, [])
+
+  const handleAvatarChange = (emp: string) => {
+    const val = emp || '';
+    setAvatar(val);
+    if (val) {
+      localStorage.setItem('user_avatar', val);
+    } else {
+      localStorage.removeItem('user_avatar');
+    }
+    window.dispatchEvent(new Event('avatar_changed'));
+  }
 
   const canManage = selected?.rol === 'owner' || selected?.rol === 'admin'
 
@@ -122,6 +140,46 @@ export default function EmpresaPage() {
           <FolderOpen size={15} />
           Documentos
         </Link>
+      </div>
+
+      <div className="bg-surface rounded-2xl border border-border shadow-sm p-5 mb-6 flex flex-col sm:flex-row sm:items-center gap-5">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary text-white font-medium shadow-sm ring-4 ring-background">
+          {avatar ? (
+            <span className="text-3xl leading-none">{avatar}</span>
+          ) : (
+            <span className="text-xl">
+              {user?.full_name
+                ? user.full_name.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()
+                : user?.username?.slice(0, 2).toUpperCase() || 'U'}
+            </span>
+          )}
+        </div>
+        <div className="flex-1">
+          <h2 className="text-sm font-semibold text-text mb-0.5">Mi Perfil</h2>
+          <p className="text-xs text-muted mb-3">Elige tu avatar animal (visible en tu menú)</p>
+          <div className="flex flex-wrap gap-1.5">
+            {AVATARS.map((a) => (
+              <button
+                key={a}
+                onClick={() => handleAvatarChange(a)}
+                className={`flex h-8 w-8 items-center justify-center rounded-full transition-all hover:scale-110 ${
+                  avatar === a ? 'bg-primary/20 ring-2 ring-primary ring-offset-1 ring-offset-surface' : 'bg-background hover:bg-border/50'
+                }`}
+                title={`Elegir ${a}`}
+              >
+                {a}
+              </button>
+            ))}
+            {avatar && (
+              <button
+                onClick={() => handleAvatarChange('')}
+                className="flex h-8 px-3 items-center justify-center rounded-full bg-background hover:bg-danger/10 text-xs font-medium text-danger transition-all ml-1"
+              >
+                Quitar
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {empresas.length > 1 && (
