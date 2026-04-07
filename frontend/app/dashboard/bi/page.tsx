@@ -444,27 +444,6 @@ export default function BIPage() {
     finally { setLoadingDesc(false); }
   };
 
-  // ── Ventana de presión ───────────────────────────────────────────────────
-  const [codigoExterno, setCodigoExterno] = useState('');
-  const [ventanaResult, setVentanaResult] = useState<any>(null);
-  const [loadingVentana, setLoadingVentana] = useState(false);
-
-  const checkVentana = async () => {
-    if (!codigoExterno.trim()) return;
-    setLoadingVentana(true);
-    setVentanaResult(null);
-    try {
-      const res = await apiClient.getBIVentana(codigoExterno.trim());
-      setVentanaResult(res);
-    } catch (err: any) {
-      setVentanaResult({
-        disponible: false,
-        motivo: err.response?.data?.detail || 'Error comprobando ventana.',
-      });
-    } finally {
-      setLoadingVentana(false);
-    }
-  };
 
   // ── Auto-load inicial ────────────────────────────────────────────────────
   useEffect(() => {
@@ -855,61 +834,6 @@ export default function BIPage() {
         </div>
       )}
 
-    </div>
-  );
-}Result && (
-          <div className="rounded-lg border border-border bg-background p-4 space-y-3">
-            {!ventanaResult.disponible ? (
-              <div className="flex items-center gap-2 text-sm text-muted">
-                <Info className="h-4 w-4 shrink-0" />
-                {ventanaResult.motivo}
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center gap-3">
-                  {ventanaResult.alerta_ventana_corta ? (
-                    <div className="alert-warning">
-                      <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-                      <span className="font-medium">Ventana inusualmente corta — acción urgente recomendada</span>
-                    </div>
-                  ) : (
-                    <div className="alert-success">
-                      <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
-                      <span>Ventana normal para este tipo de licitación</span>
-                    </div>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                  <div>
-                    <p className="text-muted">Días ventana</p>
-                    <p className="text-lg font-bold text-text">{ventanaResult.window_days ?? '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted">% del típico</p>
-                    <p className="text-lg font-bold text-text">
-                      {ventanaResult.pct_del_tipico != null
-                        ? `${(ventanaResult.pct_del_tipico * 100).toFixed(0)}%`
-                        : '—'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-muted">Presión score</p>
-                    <p className="text-lg font-bold text-text">
-                      {ventanaResult.presion_score != null
-                        ? ventanaResult.presion_score.toFixed(2)
-                        : '—'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-muted">Clasificación</p>
-                    <p className="font-medium text-text">{ventanaResult.clasificacion_ventana ?? '—'}</p>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </section>
     </div>
   );
 }
