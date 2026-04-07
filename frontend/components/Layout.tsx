@@ -111,18 +111,13 @@ export default function Layout({ children }: LayoutProps) {
             onClick={() => navigate('/dashboard')}
             className="group flex items-center gap-3.5 focus-visible:outline-none"
           >
-            <TordoLogo size={30} />
-            <div className="leading-none">
-              <span
-                className="font-brand font-bold text-primary block transition-colors group-hover:text-primaryLight leading-none tracking-tight"
-                style={{ fontSize: '2.4rem' }}
-              >
-                TORDO
-              </span>
-              <p className="text-[11px] font-medium tracking-widest text-muted uppercase mt-1">
-                Mercado Público
-              </p>
-            </div>
+            <TordoLogo size={28} />
+            <span
+              className="font-brand font-bold text-primary block transition-colors group-hover:text-primaryLight leading-none tracking-tight"
+              style={{ fontSize: '1.15rem' }}
+            >
+              TORDO
+            </span>
           </button>
           <button
             onClick={() => setSidebarOpen(false)}
