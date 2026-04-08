@@ -37,7 +37,7 @@ module.exports = {
       },
       fontFamily: {
         sans: ['var(--font-dm-sans)', 'system-ui', 'sans-serif'],
-        display: ['var(--font-varien)', 'system-ui', 'sans-serif'],
+        display: ['var(--font-outfit)', 'system-ui', 'sans-serif'],
         brand: ['var(--font-varien)', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
