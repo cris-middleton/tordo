@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api';
-import SelectField from '@/components/SelectField';
 import {
   BarChart3,
   Search,
@@ -13,19 +12,15 @@ import {
   CheckCircle2,
   Loader2,
   Info,
-  ChevronDown,
-  ChevronUp,
   Sparkles,
   Settings2,
   X,
   Check,
   Activity,
   Award,
-  Clock
+  Clock,
 } from 'lucide-react';
 import {
-  LineChart,
-  Line,
   BarChart,
   Bar,
   XAxis,
@@ -36,7 +31,7 @@ import {
   ScatterChart,
   Scatter,
   ZAxis,
-  Cell
+  Cell,
 } from 'recharts';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -62,11 +57,6 @@ interface TFIDFPerfilData {
   modelo_version?: string;
   actualizado_en?: string;
   tiene_vector: boolean;
-}
-
-interface BINotAvailable {
-  disponible: false;
-  motivo: string;
 }
 
 interface OportunidadItem {
@@ -151,7 +141,8 @@ interface DescuentoItem {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function ScoreBar({ value, max = 10 }: { value: number; max?: number }) {
-  const pct = Math.min(100, (value / max) * 100);
+  const raw = (value / max) * 100;
+  const pct = Number.isFinite(raw) ? Math.min(100, raw) : 0;
   const color =
     pct >= 70 ? 'bg-accent' : pct >= 40 ? 'bg-gold' : 'bg-danger';
   return (
@@ -197,6 +188,9 @@ export default function BIPage() {
   const [loadingInit, setLoadingInit] = useState(false);
   const [initialized, setInitialized] = useState(false);
 
+  // Error feedback
+  const [errorMsg, setErrorMsg] = useState('');
+
   // Oportunidades
   const [oportunidades, setOportunidades] = useState<OportunidadItem[]>([]);
   const [loadingOp, setLoadingOp] = useState(false);
@@ -239,9 +233,6 @@ export default function BIPage() {
     try {
       const res = await apiClient.getBIOportunidades({ min_score: 0, limit: 1 });
       setBiEnabled(res.disponible !== false);
-      if (res.disponible) {
-        loadOportunidades();
-      }
     } catch (err: any) {
       setBiEnabled(err?.response?.status !== 503 ? null : false);
     } finally {
@@ -291,36 +282,36 @@ export default function BIPage() {
     setLoadingOp(true);
     try {
       const res = await apiClient.getBIOportunidades({
-        min_score: parseFloat(minScore) || 6,
+        min_score: minScore ? parseFloat(minScore) : 6,
         rubro: rubroFiltro || undefined,
         limit: 30,
       });
       if (res.disponible) setOportunidades(res.oportunidades || []);
     } catch {
-      // ignore
+      setErrorMsg('Error cargando oportunidades. Intenta refrescar.');
     } finally {
       setLoadingOp(false);
     }
   };
 
   // ── Load organismo data ──────────────────────────────────────────────────
-  const loadOrganismoData = async () => {
-    if (!organismoInput.trim()) return;
+  const loadOrganismoData = async (orgOverride?: string) => {
+    const org = (orgOverride || organismoInput).trim();
+    if (!org) return;
     setLoadingComp(true);
     setCompetidores([]);
     setCompradorResult(null);
     try {
       const [compRes, buyerRes] = await Promise.all([
-        apiClient.getBICompetidores(organismoInput.trim(), { top_n: 15 }),
-        apiClient.getBIComprador(organismoInput.trim()),
+        apiClient.getBICompetidores(org, { top_n: 15 }),
+        apiClient.getBIComprador(org),
       ]);
       if (compRes.disponible) setCompetidores(compRes.competidores || []);
-      setCompradorResult(buyerRes);
+      if (buyerRes?.disponible !== false) setCompradorResult(buyerRes);
     } catch {
-      // ignore
+      setErrorMsg('Error cargando datos del organismo.');
     } finally {
       setLoadingComp(false);
-      setExpandedComp(true);
     }
   };
 
@@ -333,9 +324,12 @@ export default function BIPage() {
       const res = await apiClient.getBIVentana(codigoExterno.trim());
       setVentanaResult(res);
     } catch (err: any) {
-      if (err?.response?.status === 503) {
-        setVentanaResult({ disponible: false, motivo: 'BI no habilitado.' });
-      }
+      setVentanaResult({
+        disponible: false,
+        motivo: err?.response?.status === 503
+          ? 'BI no habilitado.'
+          : err?.response?.data?.detail || 'Error al analizar la ventana.',
+      });
     } finally {
       setLoadingVentana(false);
     }
@@ -357,12 +351,6 @@ export default function BIPage() {
   };
 
   // ── Perfil TF-IDF ────────────────────────────────────────────────────────
-  const toggleCluster = (label: string) => {
-    setSelectedClusters((prev) =>
-      prev.includes(label) ? prev.filter((l) => l !== label) : [...prev, label],
-    );
-  };
-
   const addCustomRubro = () => {
     const val = customRubro.trim();
     if (val && !selectedClusters.includes(val)) {
@@ -401,7 +389,7 @@ export default function BIPage() {
     try {
       const res = await apiClient.getBIEstacionalidad(estacOrganismo.trim(), { rubro: estacRubro || undefined });
       if (res.disponible) setEstacResult(res.patrones || []);
-    } catch { /* ignore */ }
+    } catch { setErrorMsg('Error cargando estacionalidad.'); }
     finally { setLoadingEstac(false); }
   };
 
@@ -440,27 +428,34 @@ export default function BIPage() {
         rubro: descRubro || undefined,
       });
       if (res.disponible) setDescResult(res.descuentos || []);
-    } catch { /* ignore */ }
+    } catch { setErrorMsg('Error cargando descuentos.'); }
     finally { setLoadingDesc(false); }
   };
 
 
   // ── Auto-load inicial ────────────────────────────────────────────────────
   useEffect(() => {
-    if (initialized && biEnabled && !loadingOp && !loadingTend && tendencias.length === 0) {
-      if (perfilData?.rubros_usados && perfilData.rubros_usados.length > 0) {
-        const topRubro = perfilData.rubros_usados[0];
-        if (!rubroFiltro) setRubroFiltro(topRubro);
-        if (!tendRubroFiltro) setTendRubroFiltro(topRubro);
-      }
-      loadOportunidades();
-      loadTendencias();
-      if (!organismoInput) {
-        setOrganismoInput('7485'); // Municipalidad default demo
-        loadOrganismoData();
-      }
+    if (!initialized || !biEnabled) return;
+    // Run only once after BI is confirmed enabled
+    loadOportunidades();
+    loadTendencias();
+    if (!organismoInput) {
+      const defaultOrg = '7485';
+      setOrganismoInput(defaultOrg);
+      loadOrganismoData(defaultOrg);
     }
-  }, [initialized, biEnabled, perfilData]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialized, biEnabled]);
+
+  // Pre-fill rubro filters from perfil when it loads
+  useEffect(() => {
+    if (perfilData?.rubros_usados && perfilData.rubros_usados.length > 0) {
+      const topRubro = perfilData.rubros_usados[0];
+      if (!rubroFiltro) setRubroFiltro(topRubro);
+      if (!tendRubroFiltro) setTendRubroFiltro(topRubro);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [perfilData]);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -502,6 +497,7 @@ export default function BIPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
             <input
+              aria-label="Filtro global por rubro o industria"
               className="pl-9 pr-3 py-2 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none w-full sm:w-64"
               placeholder="Filtro global (Rubro/Industria)"
               value={rubroFiltro}
@@ -523,6 +519,7 @@ export default function BIPage() {
               loadTendencias();
             }}
             disabled={loadingOp || loadingTend}
+            aria-label="Actualizar dashboards"
             className="btn-primary"
           >
             {(loadingOp || loadingTend) ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Actualizar Dashboards'}
@@ -540,7 +537,7 @@ export default function BIPage() {
             <div>
               <p className="text-sm font-medium text-muted uppercase tracking-wider">Volumen Creado Relevante</p>
               <h3 className="text-3xl font-bold text-text mt-2">
-                {oportunidades.length > 0 ? `${(oportunidades.reduce((acc, curr) => acc + curr.n_transacciones, 0) / 1000).toFixed(1)}k` : '—'} <span className="text-lg text-muted font-medium">txs</span>
+                {oportunidades.length > 0 ? `${(oportunidades.reduce((acc, curr) => acc + (curr.n_transacciones || 0), 0) / 1000).toFixed(1)}k` : '—'} <span className="text-lg text-muted font-medium">txs</span>
               </h3>
             </div>
           </div>
@@ -574,23 +571,81 @@ export default function BIPage() {
                  <p className="text-sm font-medium text-muted uppercase tracking-wider">Días Promedio Pago</p>
                </div>
               <h3 className="text-3xl font-bold text-text mt-2">
-                {compradorResult?.pago?.mediana_dias_pago || '—'} <span className="text-lg font-medium text-muted">días</span>
+                {compradorResult?.pago?.mediana_dias_pago ?? '—'} <span className="text-lg font-medium text-muted">días</span>
               </h3>
             </div>
           </div>
-          <div className="text-xs text-muted mt-4 z-10 relative flex items-center justify-between w-full">
-            <span className="truncate max-w-[200px]">Organismo: {compradorResult?.nombre || organismoInput || '—'}</span>
-            <button onClick={() => {
-                 const newOrg = prompt('Ingresa el código de organismo para analizar sus pagos (Ej: 7485):');
-                 if (newOrg) {
-                    setOrganismoInput(newOrg);
-                    loadOrganismoData(); // Fetch implicitly takes new state next cycle, so better direct set or trigger again
-                 }
-                }} className="text-primary hover:underline font-medium">Analizar otro
+          <div className="text-xs text-muted mt-4 z-10 relative flex items-center gap-2 w-full">
+            <span className="shrink-0">Organismo:</span>
+            <input
+              aria-label="Código de organismo público"
+              className="flex-1 min-w-0 bg-transparent border-b border-border text-text text-xs font-mono py-0.5 outline-none focus:border-primary transition-colors"
+              value={organismoInput}
+              onChange={(e) => setOrganismoInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') loadOrganismoData(); }}
+              placeholder="Ej: 7485"
+            />
+            <button onClick={() => loadOrganismoData()} className="text-primary hover:underline font-medium shrink-0">
+              {loadingComp ? <Loader2 className="h-3 w-3 animate-spin inline" /> : 'Analizar'}
             </button>
           </div>
         </div>
       </div>
+
+      {/* Error banner */}
+      {errorMsg && (
+        <div className="alert-warning flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span className="text-sm">{errorMsg}</span>
+          </div>
+          <button onClick={() => setErrorMsg('')} className="text-muted hover:text-text"><X className="h-4 w-4" /></button>
+        </div>
+      )}
+
+      {/* BUYER PROFILE CARD */}
+      {compradorResult?.disponible !== false && compradorResult?.buyer_score != null && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 bg-surface border border-border rounded-2xl p-4 shadow-sm">
+          <div className="col-span-2 sm:col-span-4 lg:col-span-6 flex items-center gap-2 mb-1">
+            <Users className="h-4 w-4 text-primary" />
+            <span className="text-sm font-semibold text-text truncate">Perfil: {compradorResult.nombre || organismoInput}</span>
+            {compradorResult.clasificacion && (
+              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                compradorResult.clasificacion === 'excelente' ? 'bg-accent/10 text-accent border border-accent/20' :
+                compradorResult.clasificacion === 'bueno' ? 'bg-info/10 text-info border border-info/20' :
+                compradorResult.clasificacion === 'regular' ? 'bg-gold/10 text-gold border border-gold/20' :
+                'bg-danger/10 text-danger border border-danger/20'
+              }`}>
+                {compradorResult.clasificacion}
+              </span>
+            )}
+          </div>
+          <div>
+            <p className="text-[10px] text-muted uppercase tracking-wider">Score</p>
+            <p className="text-lg font-bold text-text">{compradorResult.buyer_score?.toFixed(1) ?? '—'}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-muted uppercase tracking-wider">Mediana pago</p>
+            <p className="text-lg font-bold text-text">{compradorResult.pago?.mediana_dias_pago ?? '—'} <span className="text-xs font-normal text-muted">días</span></p>
+          </div>
+          <div>
+            <p className="text-[10px] text-muted uppercase tracking-wider">Adjudicación</p>
+            <p className="text-lg font-bold text-text">{compradorResult.pago?.tasa_adjudicacion != null ? `${(compradorResult.pago.tasa_adjudicacion * 100).toFixed(0)}%` : '—'}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-muted uppercase tracking-wider">Cancelación</p>
+            <p className="text-lg font-bold text-text">{compradorResult.pago?.tasa_cancelacion != null ? `${(compradorResult.pago.tasa_cancelacion * 100).toFixed(0)}%` : '—'}</p>
+          </div>
+          {compradorResult.risk_flags && compradorResult.risk_flags.n_flags > 0 && (
+            <div className="col-span-2 flex items-center gap-2 flex-wrap">
+              <p className="text-[10px] text-muted uppercase tracking-wider w-full">Riesgos</p>
+              {compradorResult.risk_flags.pago_lento && <span className="text-[10px] bg-danger/10 text-danger border border-danger/20 px-2 py-0.5 rounded-md font-bold uppercase tracking-wider">Pago lento</span>}
+              {compradorResult.risk_flags.cancelaciones && <span className="text-[10px] bg-gold/10 text-gold border border-gold/20 px-2 py-0.5 rounded-md font-bold uppercase tracking-wider">Cancelaciones</span>}
+              {compradorResult.risk_flags.baja_calificacion && <span className="text-[10px] bg-danger/10 text-danger border border-danger/20 px-2 py-0.5 rounded-md font-bold uppercase tracking-wider">Baja calificación</span>}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* DASHBOARDS ROW MAPPED */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -617,7 +672,7 @@ export default function BIPage() {
           <div className="flex-1 w-full relative">
             {tendencias.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={tendencias.slice(0, 7).map(t => ({ name: t.RubroN2?.substring(0, 20) + '...', cagr: (t.cagr || 0) * 100 }))} margin={{ top: 20, right: 30, left: -20, bottom: 25 }}>
+                <BarChart data={tendencias.slice(0, 7).map(t => ({ name: t.RubroN2?.substring(0, 20) + '...', cagr: (t.cagr || 0) * 100 }))} margin={{ top: 20, right: 30, left: 0, bottom: 25 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} opacity={0.5} />
                   <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'var(--color-muted)' }} tickLine={false} axisLine={false} dx={0} dy={10} width={200} />
                   <YAxis tick={{ fontSize: 11, fill: 'var(--color-muted)' }} tickLine={false} axisLine={false} unit="%" />
@@ -649,7 +704,7 @@ export default function BIPage() {
                 Radar de Competencia
               </h2>
             </div>
-             <button onClick={() => setExpandedComp(!expandedComp)} className="text-xs text-primary font-medium hover:underline bg-primary/10 px-3 py-1.5 rounded-full transition-colors hover:bg-primary/20">
+             <button onClick={() => setExpandedComp(!expandedComp)} aria-pressed={expandedComp} className="text-xs text-primary font-medium hover:underline bg-primary/10 px-3 py-1.5 rounded-full transition-colors hover:bg-primary/20">
                {expandedComp ? 'Ver Gráfico' : 'Ver Tabla'}
              </button>
           </div>
@@ -664,8 +719,8 @@ export default function BIPage() {
                             {c.NombreProveedor || c.CodigoProveedor}
                           </span>
                           <div className="flex items-center justify-between text-xs text-muted">
-                            <span>Share: {c.market_share_pct?.toFixed(1)}%</span>
-                            <span>WR: {(c.win_rate_pct! * 100).toFixed(1)}%</span>
+                            <span>Share: {c.market_share_pct != null ? c.market_share_pct.toFixed(1) : '—'}%</span>
+                            <span>WR: {c.win_rate_pct != null ? (c.win_rate_pct * 100).toFixed(1) : '—'}%</span>
                             <span className="px-1.5 py-0.5 bg-surface rounded text-[10px]">Rank: #{c.rank_monto}</span>
                           </div>
                         </li>
@@ -681,9 +736,9 @@ export default function BIPage() {
                       <ZAxis type="number" dataKey="ranking" range={[80, 500]} />
                       <RechartsTooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ backgroundColor: 'var(--color-background)', borderColor: 'var(--color-border)', borderRadius: '8px' }} />
                       <Scatter name="Competidores" data={competidores.filter(c => c.win_rate_pct != null).map(c => ({
-                        win_rate: (c.win_rate_pct! * 100).toFixed(1),
-                        share: c.market_share_pct?.toFixed(1),
-                        ranking: Math.max(10, 150 - (c.rank_monto * 5)), // Bigger bubble = better rank
+                        win_rate: +(c.win_rate_pct! * 100).toFixed(1),
+                        share: +(c.market_share_pct ?? 0).toFixed(1),
+                        ranking: Math.max(10, 150 - (c.rank_monto * 5)),
                         name: c.NombreProveedor || c.CodigoProveedor
                       }))} fill="var(--color-primary)" opacity={0.65} />
                     </ScatterChart>
@@ -695,7 +750,7 @@ export default function BIPage() {
                  {!loadingComp && (
                    <>
                      <span className="text-muted text-sm">Carga un organismo para visualizar su distribución competitiva.</span>
-                     <button onClick={loadOrganismoData} className="btn-secondary text-xs">
+                     <button onClick={() => loadOrganismoData()} className="btn-secondary text-xs">
                         Refrescar Análisis
                      </button>
                    </>
@@ -720,10 +775,11 @@ export default function BIPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted hidden sm:inline-block">Score Mín.</span>
-            <select 
-              value={minScore} 
-              onChange={(e) => setMinScore(e.target.value)} 
+            <label htmlFor="bi-min-score" className="text-xs text-muted hidden sm:inline-block">Score Mín.</label>
+            <select
+              id="bi-min-score"
+              value={minScore}
+              onChange={(e) => setMinScore(e.target.value)}
               className="bg-background border border-border rounded-lg text-xs py-1.5 px-2 text-text outline-none focus:ring-1 focus:ring-primary/30"
             >
               {['4', '5', '6', '7', '8', '9'].map(s => <option key={s} value={s}>{s}+</option>)}
@@ -744,14 +800,14 @@ export default function BIPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border bg-background">
-                {oportunidades.sort((a,b) => b.opportunity_score - a.opportunity_score).slice(0, 10).map((op, i) => (
+                {[...oportunidades].sort((a,b) => b.opportunity_score - a.opportunity_score).slice(0, 10).map((op, i) => (
                   <tr key={i} className="hover:bg-active/20 transition-colors group">
                     <td className="py-4 px-5 font-mono text-xs font-semibold text-text group-hover:text-primary transition-colors">{op.CodigoOrganismoPublico}</td>
                     <td className="py-4 px-5 max-w-[200px] truncate text-xs text-muted font-medium">{op.RubroN2}</td>
                     <td className="py-4 px-5 w-48">
                       <ScoreBar value={op.opportunity_score} max={10} />
                     </td>
-                    <td className="py-4 px-5 text-xs font-medium text-text">{op.n_transacciones.toLocaleString()} <span className="text-muted text-[10px]">oc's</span></td>
+                    <td className="py-4 px-5 text-xs font-medium text-text">{op.n_transacciones.toLocaleString()} <span className="text-muted text-[10px]">oc&apos;s</span></td>
                     <td className="py-4 px-5">
                       <div className="flex items-center gap-1.5">
                         <Users className="w-3.5 h-3.5 text-muted" />
@@ -779,6 +835,311 @@ export default function BIPage() {
         )}
       </section>
 
+      {/* ESTACIONALIDAD + VENTANA DE PRESIÓN */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        {/* Estacionalidad */}
+        <section className="card flex flex-col space-y-4 shadow-sm border border-border h-[440px] rounded-2xl p-5">
+          <div>
+            <h2 className="text-lg font-semibold text-text flex items-center gap-2">
+              <Activity className="h-5 w-5 text-primary" />
+              Estacionalidad de Compras
+            </h2>
+            <p className="text-xs text-muted mt-1">Patrones mensuales de compra por organismo.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              aria-label="Organismo para estacionalidad"
+              className="input-field text-xs flex-1 min-w-[120px]"
+              placeholder="Código organismo (Ej: 7485)"
+              value={estacOrganismo}
+              onChange={(e) => setEstacOrganismo(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') loadEstacionalidad(); }}
+            />
+            <input
+              aria-label="Rubro para estacionalidad"
+              className="input-field text-xs flex-1 min-w-[120px]"
+              placeholder="Rubro (opcional)"
+              value={estacRubro}
+              onChange={(e) => setEstacRubro(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') loadEstacionalidad(); }}
+            />
+            <button onClick={loadEstacionalidad} disabled={loadingEstac || !estacOrganismo.trim()} className="btn-primary text-xs px-3 py-1.5">
+              {loadingEstac ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Consultar'}
+            </button>
+          </div>
+          <div className="flex-1 w-full relative">
+            {estacResult && estacResult.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={estacResult.map(m => ({ mes: ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][(m.mes || 1) - 1] || `M${m.mes}`, compras: m.compras_mes || 0 }))} margin={{ top: 10, right: 10, bottom: 20, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} opacity={0.5} />
+                  <XAxis dataKey="mes" tick={{ fontSize: 11, fill: 'var(--color-muted)' }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: 'var(--color-muted)' }} tickLine={false} axisLine={false} />
+                  <RechartsTooltip contentStyle={{ backgroundColor: 'var(--color-background)', borderColor: 'var(--color-border)', borderRadius: '8px' }} />
+                  <Bar dataKey="compras" fill="var(--color-primary)" radius={[4, 4, 0, 0]} name="Compras">
+                    {estacResult.map((m, idx) => (
+                      <Cell key={idx} fill={m.es_pico_estacional ? 'var(--color-accent)' : 'var(--color-primary)'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                {loadingEstac ? (
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                ) : (
+                  <>
+                    <Activity className="h-10 w-10 text-muted opacity-30 mb-2" />
+                    <span className="text-muted text-sm">Ingresa un organismo para ver sus patrones estacionales.</span>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Ventana de presión */}
+        <section className="card flex flex-col space-y-4 shadow-sm border border-border rounded-2xl p-5">
+          <div>
+            <h2 className="text-lg font-semibold text-text flex items-center gap-2">
+              <Clock className="h-5 w-5 text-primary" />
+              Ventana de Presión
+            </h2>
+            <p className="text-xs text-muted mt-1">Analiza si una licitación tiene un plazo de preparación inusual.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              aria-label="Código externo de licitación"
+              className="input-field text-xs flex-1"
+              placeholder="Código externo licitación (Ej: 1234-56-LP78)"
+              value={codigoExterno}
+              onChange={(e) => setCodigoExterno(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') checkVentana(); }}
+            />
+            <button onClick={checkVentana} disabled={loadingVentana || !codigoExterno.trim()} className="btn-primary text-xs px-3 py-1.5">
+              {loadingVentana ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Analizar'}
+            </button>
+          </div>
+
+          {ventanaResult ? (
+            <div className="rounded-lg border border-border bg-background p-4 space-y-3">
+              {!ventanaResult.disponible ? (
+                <div className="flex items-center gap-2 text-sm text-muted">
+                  <Info className="h-4 w-4 shrink-0" />
+                  {ventanaResult.motivo}
+                </div>
+              ) : (
+                <>
+                  <div>
+                    {ventanaResult.alerta_ventana_corta ? (
+                      <div className="alert-warning">
+                        <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                        <span className="font-medium">Ventana inusualmente corta — acción urgente</span>
+                      </div>
+                    ) : (
+                      <div className="alert-success">
+                        <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
+                        <span>Ventana normal para este tipo de licitación</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    <div>
+                      <p className="text-muted">Días ventana</p>
+                      <p className="text-lg font-bold text-text">{ventanaResult.window_days ?? '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted">% del típico</p>
+                      <p className="text-lg font-bold text-text">
+                        {ventanaResult.pct_del_tipico != null ? `${(ventanaResult.pct_del_tipico * 100).toFixed(0)}%` : '—'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted">Presión score</p>
+                      <p className="text-lg font-bold text-text">
+                        {ventanaResult.presion_score != null ? ventanaResult.presion_score.toFixed(2) : '—'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted">Clasificación</p>
+                      <p className="font-medium text-text">{ventanaResult.clasificacion_ventana ?? '—'}</p>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            !loadingVentana && (
+              <div className="flex-1 flex flex-col items-center justify-center py-8">
+                <Clock className="h-10 w-10 text-muted opacity-30 mb-2" />
+                <span className="text-muted text-sm">Ingresa un código de licitación para evaluar su ventana.</span>
+              </div>
+            )
+          )}
+        </section>
+      </div>
+
+      {/* DESCUENTO ÓPTIMO */}
+      <section className="card shadow-sm space-y-4 border border-border rounded-2xl p-5">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-primary/10 rounded-xl text-primary">
+              <Sparkles className="h-6 w-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-text">Bandas de Descuento Óptimo</h2>
+              <p className="text-xs text-muted mt-0.5">Referencia de rangos de precio por contexto competitivo.</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              aria-label="Tipo de licitación para descuento"
+              className="input-field text-xs w-36"
+              placeholder="Tipo (Ej: L1, LE...)"
+              value={descTipo}
+              onChange={(e) => setDescTipo(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') loadDescuento(); }}
+            />
+            <input
+              aria-label="Rubro para descuento"
+              className="input-field text-xs w-36"
+              placeholder="Rubro (opcional)"
+              value={descRubro}
+              onChange={(e) => setDescRubro(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') loadDescuento(); }}
+            />
+            <button onClick={loadDescuento} disabled={loadingDesc} className="btn-primary text-xs">
+              {loadingDesc ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Consultar'}
+            </button>
+          </div>
+        </div>
+
+        {descResult.length > 0 ? (
+          <div className="overflow-x-auto rounded-xl border border-border">
+            <table className="w-full text-sm">
+              <thead className="bg-surface">
+                <tr className="border-b border-border text-left text-[11px] text-muted uppercase tracking-wider font-semibold">
+                  <th className="py-3 px-4">Tipo</th>
+                  <th className="py-3 px-4">Rubro</th>
+                  <th className="py-3 px-4">Oferentes</th>
+                  <th className="py-3 px-4">P10</th>
+                  <th className="py-3 px-4">Mediana</th>
+                  <th className="py-3 px-4">P90</th>
+                  <th className="py-3 px-4">Señal</th>
+                  <th className="py-3 px-4">N</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border bg-background">
+                {descResult.slice(0, 15).map((d, i) => (
+                  <tr key={i} className="hover:bg-active/20 transition-colors">
+                    <td className="py-3 px-4 text-xs font-mono text-text">{d.CodigoTipo || '—'}</td>
+                    <td className="py-3 px-4 text-xs text-muted max-w-[160px] truncate">{d.Rubro2 || '—'}</td>
+                    <td className="py-3 px-4 text-xs text-muted">{d.n_oferentes_rango || '—'}</td>
+                    <td className="py-3 px-4 text-xs font-medium text-accent">{d.p10 != null ? `${(d.p10 * 100).toFixed(1)}%` : '—'}</td>
+                    <td className="py-3 px-4 text-xs font-bold text-text">{d.p50 != null ? `${(d.p50 * 100).toFixed(1)}%` : '—'}</td>
+                    <td className="py-3 px-4 text-xs font-medium text-danger">{d.p90 != null ? `${(d.p90 * 100).toFixed(1)}%` : '—'}</td>
+                    <td className="py-3 px-4">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                        d.senial_competencia === 'alta' ? 'bg-danger/10 text-danger border border-danger/20' :
+                        d.senial_competencia === 'media' ? 'bg-gold/10 text-gold border border-gold/20' :
+                        'bg-accent/10 text-accent border border-accent/20'
+                      }`}>
+                        {d.senial_competencia || '—'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-xs text-muted">{d.n || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-10 border border-dashed border-border rounded-xl bg-surface/30">
+            {loadingDesc ? (
+              <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
+            ) : (
+              <>
+                <Sparkles className="h-10 w-10 text-muted opacity-30 mb-3" />
+                <p className="text-sm text-muted">Consulta bandas de descuento por tipo de licitación y rubro.</p>
+              </>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* TF-IDF SEMANTIC MATCHING */}
+      <section className="card shadow-sm space-y-4 border border-border rounded-2xl p-5">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-primary/10 rounded-xl text-primary">
+            <Search className="h-6 w-6" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-text">Matching Semántico de Proveedores</h2>
+            <p className="text-xs text-muted mt-0.5">Busca proveedores similares a una descripción libre usando TF-IDF.</p>
+          </div>
+        </div>
+
+        {tfidfEnabled === false ? (
+          <div className="flex items-center gap-2 text-sm text-muted bg-surface rounded-lg p-3 border border-border">
+            <Info className="h-4 w-4 shrink-0" />
+            <span>El módulo TF-IDF no está habilitado. Activa <code className="text-xs bg-background px-1 py-0.5 rounded">FEATURE_TFIDF=true</code> y ejecuta el pipeline de analytics.</span>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
+                <input
+                  aria-label="Buscar proveedores por descripción"
+                  className="pl-9 pr-3 py-2.5 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none w-full"
+                  placeholder="Describe el producto o servicio (Ej: mantención de ascensores)"
+                  value={matchingQuery}
+                  onChange={(e) => setMatchingQuery(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') runMatching(); }}
+                />
+              </div>
+              <button onClick={runMatching} disabled={loadingMatching || !matchingQuery.trim()} className="btn-primary">
+                {loadingMatching ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Buscar'}
+              </button>
+            </div>
+
+            {matchingResults.length > 0 ? (
+              <div className="overflow-x-auto rounded-xl border border-border">
+                <table className="w-full text-sm">
+                  <thead className="bg-surface">
+                    <tr className="border-b border-border text-left text-[11px] text-muted uppercase tracking-wider font-semibold">
+                      <th className="py-3 px-4">Proveedor</th>
+                      <th className="py-3 px-4">Código</th>
+                      <th className="py-3 px-4">OCs</th>
+                      <th className="py-3 px-4 w-48">Similitud</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border bg-background">
+                    {matchingResults.map((m, i) => (
+                      <tr key={i} className="hover:bg-active/20 transition-colors">
+                        <td className="py-3 px-4 text-xs font-medium text-text">{m.NombreProveedor || '—'}</td>
+                        <td className="py-3 px-4 text-xs font-mono text-muted">{m.CodigoProveedor}</td>
+                        <td className="py-3 px-4 text-xs text-muted">{m.n_oc?.toLocaleString() || '—'}</td>
+                        <td className="py-3 px-4 w-48">
+                          <ScoreBar value={m.similarity_score * 10} max={10} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              !loadingMatching && matchingQuery.trim() ? (
+                <div className="flex flex-col items-center py-8 border border-dashed border-border rounded-xl bg-surface/30">
+                  <Search className="h-8 w-8 text-muted opacity-30 mb-2" />
+                  <p className="text-sm text-muted">Sin resultados. Intenta con otra descripción.</p>
+                </div>
+              ) : null
+            )}
+          </>
+        )}
+      </section>
+
       {/* TF-IDF SETTINGS MODAL / TOGGLE (Clean profile widget) */}
       <section className="flex flex-col sm:flex-row sm:items-center justify-between bg-surface border border-border p-5 rounded-2xl shadow-sm mt-6 gap-4">
          <div className="flex items-center gap-4">
@@ -800,6 +1161,7 @@ export default function BIPage() {
         <div className="card shadow-md border border-border mt-0 p-5 rounded-2xl animate-in slide-in-from-top-4 fade-in duration-300">
            <div className="flex gap-3 mb-4">
               <input
+                aria-label="Agregar rubro personalizado"
                 className="input-field flex-1"
                 placeholder="Escribe un rubro exacto o palabras clave y presiona Enter..."
                 value={customRubro}
@@ -814,9 +1176,9 @@ export default function BIPage() {
              {selectedClusters.length > 0 ? (
                <div className="flex flex-wrap gap-2">
                  {selectedClusters.map((r) => (
-                    <span key={r} onClick={() => setSelectedClusters(prev => prev.filter(x => x !== r))} className="cursor-pointer flex items-center gap-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20 px-3 py-1.5 text-xs font-medium hover:bg-danger/10 hover:text-danger hover:border-danger/30 transition-all group">
+                    <button key={r} type="button" onClick={() => setSelectedClusters(prev => prev.filter(x => x !== r))} aria-label={`Eliminar rubro ${r}`} className="flex items-center gap-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20 px-3 py-1.5 text-xs font-medium hover:bg-danger/10 hover:text-danger hover:border-danger/30 transition-all group">
                       {r} <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
-                    </span>
+                    </button>
                  ))}
                </div>
              ) : (
