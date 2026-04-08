@@ -437,7 +437,16 @@ async def get_licitacion_match(
             motivo="La empresa no tiene perfil TF-IDF configurado. Configura tus rubros en Inteligencia BI.",
         )
 
-    score, nivel = tfidf_matcher.score_empresa_licitacion(perfil.vector_bytes, texto)
+    try:
+        score, nivel = tfidf_matcher.score_empresa_licitacion(perfil.vector_bytes, texto)
+    except Exception:
+        return PerfilMatchResponse(
+            disponible=True,
+            codigo_externo=codigo_externo,
+            licitacion_nombre=texto[:120],
+            nivel="error",
+            motivo="Error al calcular similitud — el perfil puede necesitar recalibración.",
+        )
     return PerfilMatchResponse(
         disponible=True,
         codigo_externo=codigo_externo,

@@ -4,7 +4,7 @@ import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/lib/api';
-import { UserPlus, Loader2, ArrowLeft, Search, BarChart2, FileCheck } from 'lucide-react';
+import { UserPlus, Loader2, ArrowLeft, Search, BarChart2, FileCheck, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
 import TordoLogo from '@/components/TordoLogo';
 
@@ -18,6 +18,8 @@ export default function RegisterPage() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { isAuthenticated } = useAuth();
   const router = useRouter();
 
@@ -180,32 +182,57 @@ export default function RegisterPage() {
 
             <div>
               <label htmlFor="password" className="label">Contraseña <span className="text-danger text-xs">*</span></label>
-              <input
-                id="password"
-                type="password"
-                required
-                value={formData.password}
-                onChange={update('password')}
-                className="input-field"
-                placeholder="Mínimo 6 caracteres"
-                disabled={loading}
-                autoComplete="new-password"
-              />
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={formData.password}
+                  onChange={update('password')}
+                  className="input-field pr-10"
+                  placeholder="Mínimo 6 caracteres"
+                  disabled={loading}
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-subtle hover:text-muted transition-colors"
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
 
             <div>
               <label htmlFor="confirmPassword" className="label">Confirmar contraseña <span className="text-danger text-xs">*</span></label>
-              <input
-                id="confirmPassword"
-                type="password"
-                required
-                value={formData.confirmPassword}
-                onChange={update('confirmPassword')}
-                className="input-field"
-                placeholder="Repite tu contraseña"
-                disabled={loading}
-                autoComplete="new-password"
-              />
+              <div className="relative">
+                <input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  required
+                  value={formData.confirmPassword}
+                  onChange={update('confirmPassword')}
+                  className={`input-field pr-10 ${formData.confirmPassword && formData.password !== formData.confirmPassword ? 'border-danger focus:ring-danger/30' : ''}`}
+                  placeholder="Repite tu contraseña"
+                  disabled={loading}
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-subtle hover:text-muted transition-colors"
+                  aria-label={showConfirmPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  tabIndex={-1}
+                >
+                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              {formData.confirmPassword && formData.password !== formData.confirmPassword && (
+                <p className="mt-1.5 text-xs text-danger">Las contraseñas no coinciden</p>
+              )}
             </div>
 
             <button type="submit" disabled={loading} className="btn-primary w-full mt-2">

@@ -274,18 +274,18 @@ def get_oportunidades(
         .head(limit)
     )
 
-    result = rows.select(
-        [
-            "CodigoOrganismoPublico",
-            "RubroN2",
-            "opportunity_score",
-            "n_transacciones",
-            "coef_variacion",
-            "hhi",
-            "n_proveedores",
-            "cagr",
-        ]
-    ).to_dicts()
+    wanted = [
+        "CodigoOrganismoPublico",
+        "RubroN2",
+        "opportunity_score",
+        "n_transacciones",
+        "coef_variacion",
+        "hhi",
+        "n_proveedores",
+        "cagr",
+    ]
+    available = [c for c in wanted if c in rows.columns]
+    result = rows.select(available).to_dicts()
 
     return {
         "disponible": True,
