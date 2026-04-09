@@ -62,7 +62,7 @@ export default function TordoLogo({ size = 40, className = '' }: TordoLogoProps)
         width={w}
         height={size}
         style={{ display: 'block' }}
-        aria-label="TORDO"
+        aria-label="Tordo"
         role="img"
       >
         {/* Body (shared across all 4 SVG frames) */}

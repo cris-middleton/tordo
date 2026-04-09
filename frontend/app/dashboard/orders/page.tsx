@@ -1,22 +1,19 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { KeyboardEvent } from 'react';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api';
 import SelectField from '@/components/SelectField';
 import {
   Search,
-  Loader2,
-  Calendar,
-  DollarSign,
   MapPin,
-  Building2,
   BookmarkPlus,
   BookmarkCheck,
   Send,
   CheckCircle2,
   X,
+  ExternalLink,
 } from 'lucide-react';
 
 const REGIONES_CHILE = [
@@ -46,10 +43,10 @@ const ESTADOS_OC = [
   'No aceptada',
   'Recepción Conforme',
 ];
+
 import { format } from 'date-fns';
 import { useDashboardCollections } from '@/hooks/useDashboardCollections';
 
-// Normalize text to Title Case (first letter uppercase, rest lowercase)
 const normalizeText = (text: string | undefined): string => {
   if (!text) return '';
   return text
@@ -114,7 +111,6 @@ export default function OrdersPage() {
         sort_by: sortBy,
         sort_order: sortOrder,
       };
-
       if (filters.estado) params.estado = filters.estado;
       if (filters.region) params.region = filters.region;
       if (filters.codigo_organismo) params.codigo_organismo = filters.codigo_organismo;
@@ -130,28 +126,23 @@ export default function OrdersPage() {
     }
   }, [filters.codigo_organismo, filters.codigo_proveedor, filters.estado, filters.region, keywords, page, limit, sortBy, sortOrder]);
 
-  useEffect(() => {
-    loadOrders();
-  }, [loadOrders]);
+  useEffect(() => { loadOrders(); }, [loadOrders]);
 
   const handleFilterChange = (key: string, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
     setPage(1);
   };
 
-  const addKeyword = useCallback(
-    (value: string) => {
-      const normalized = value.trim();
-      if (!normalized) return;
-      setKeywords((prev) => {
-        if (prev.some((k) => k.toLowerCase() === normalized.toLowerCase())) return prev;
-        return [...prev, normalized];
-      });
-      setSearchInput('');
-      setPage(1);
-    },
-    [],
-  );
+  const addKeyword = useCallback((value: string) => {
+    const normalized = value.trim();
+    if (!normalized) return;
+    setKeywords((prev) => {
+      if (prev.some((k) => k.toLowerCase() === normalized.toLowerCase())) return prev;
+      return [...prev, normalized];
+    });
+    setSearchInput('');
+    setPage(1);
+  }, []);
 
   const handleKeywordKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
@@ -166,18 +157,15 @@ export default function OrdersPage() {
   };
 
   const removeKeyword = useCallback((value: string) => {
-    setKeywords((prev) =>
-      prev.filter((keyword) => keyword.toLowerCase() !== value.toLowerCase()),
-    );
+    setKeywords((prev) => prev.filter((keyword) => keyword.toLowerCase() !== value.toLowerCase()));
     setPage(1);
   }, []);
 
   const formatCurrency = (amount: number, currency: string = 'CLP') => {
-    return new Intl.NumberFormat('es-CL', {
-      style: 'currency',
-      currency: currency,
-      minimumFractionDigits: 0,
-    }).format(amount);
+    if (amount >= 1_000_000_000) return `$${(amount / 1_000_000_000).toFixed(1)}B`;
+    if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
+    if (amount >= 1_000) return `$${(amount / 1_000).toFixed(0)}K`;
+    return new Intl.NumberFormat('es-CL', { style: 'currency', currency, minimumFractionDigits: 0 }).format(amount);
   };
 
   const getEstadoOCCls = (estado?: string | null) => {
@@ -190,38 +178,47 @@ export default function OrdersPage() {
   };
 
   const getEstadoOCAccent = (estado?: string | null) => {
-    if (!estado) return 'bg-primary';
+    if (!estado) return 'bg-primary/30';
     const e = estado.toLowerCase();
     if (e.includes('aceptada') || e.includes('conforme')) return 'bg-accent';
     if (e.includes('proceso') || e.includes('enviada')) return 'bg-info';
     if (e.includes('cancelada') || e.includes('no aceptada')) return 'bg-danger';
-    return 'bg-primary';
+    return 'bg-primary/30';
+  };
+
+  const shortRegion = (region?: string) => {
+    if (!region) return '';
+    return normalizeText(region)
+      .replace(/^Región (Metropolitana.*)$/i, 'RM')
+      .replace(/^Región (del Libertador.*)$/i, "O'Higgins")
+      .replace(/^Región (Aysén.*)$/i, 'Aysén')
+      .replace(/^Región (de |del |de la )?/i, '')
+      .trim();
   };
 
   const pages = Math.ceil(total / limit);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
-        <h1 className="mb-2 text-2xl font-semibold text-text sm:text-3xl">Órdenes de Compra</h1>
-        <p className="text-muted">Explora órdenes de compra públicas</p>
+        <h1 className="text-2xl font-bold text-text">Órdenes de Compra</h1>
+        <p className="text-sm text-muted mt-0.5">Explora órdenes de compra públicas</p>
       </div>
 
       {/* Search + Filters */}
-      <div className="card space-y-3">
+      <div className="card space-y-3 py-3 px-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted pointer-events-none" />
           <input
             type="text"
-            placeholder="Buscar por nombre, organismo o proveedor — presiona Enter..."
+            placeholder="Nombre, organismo o proveedor — Enter para buscar"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={handleKeywordKeyDown}
-            className="input-field pl-9"
+            className="input-field pl-9 text-sm"
             autoComplete="off"
           />
         </div>
-
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           <SelectField
             value={filters.estado}
@@ -244,12 +241,11 @@ export default function OrdersPage() {
             placeholder="Organismo (nombre o código)"
             value={filters.codigo_organismo}
             onChange={(e) => handleFilterChange('codigo_organismo', e.target.value)}
-            className="input-field col-span-2 sm:col-span-1"
+            className="input-field text-sm col-span-2 sm:col-span-1"
           />
         </div>
-
         {keywords.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {keywords.map((keyword) => (
               <span key={keyword} className="flex items-center gap-1 rounded-full border border-primary/30 bg-primary/8 px-2.5 py-0.5 text-xs font-medium text-primary">
                 {keyword}
@@ -259,205 +255,217 @@ export default function OrdersPage() {
               </span>
             ))}
             <button type="button" onClick={() => { setKeywords([]); setPage(1); }} className="text-xs text-muted hover:text-danger transition-colors">
-              Limpiar todo
+              Limpiar
             </button>
           </div>
         )}
       </div>
 
-      {/* Results */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between rounded-lg border border-border bg-surface px-3 py-2">
-          <p className="text-xs text-muted whitespace-nowrap">
-            {total.toLocaleString()} resultado{total !== 1 ? 's' : ''}
-          </p>
-          <div className="flex items-center gap-1.5">
-            <select
-              value={sortBy}
-              onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
-              className="rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
-            >
-              <option value="fecha_publicacion">Fecha publicación</option>
-              <option value="monto_total">Monto</option>
-              <option value="nombre">Nombre</option>
-            </select>
-            <select
-              value={sortOrder}
-              onChange={(e) => { setSortOrder(e.target.value as 'asc' | 'desc'); setPage(1); }}
-              className="rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
-            >
-              <option value="desc">↓ Mayor a menor</option>
-              <option value="asc">↑ Menor a mayor</option>
-            </select>
-            <select
-              value={String(limit)}
-              onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
-              className="rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
-            >
-              <option value="10">10 / pág</option>
-              <option value="20">20 / pág</option>
-              <option value="50">50 / pág</option>
-              <option value="100">100 / pág</option>
-            </select>
-          </div>
+      {/* Sort bar */}
+      <div className="flex items-center justify-between rounded-lg border border-border bg-surface px-3 py-1.5">
+        <p className="text-xs text-muted">
+          <span className="font-semibold text-text">{total.toLocaleString()}</span> resultado{total !== 1 ? 's' : ''}
+        </p>
+        <div className="flex items-center gap-1.5">
+          <select
+            value={sortBy}
+            onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
+            className="rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
+          >
+            <option value="fecha_publicacion">Publicación</option>
+            <option value="monto_total">Monto</option>
+            <option value="nombre">Nombre</option>
+          </select>
+          <select
+            value={sortOrder}
+            onChange={(e) => { setSortOrder(e.target.value as 'asc' | 'desc'); setPage(1); }}
+            className="rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
+          >
+            <option value="desc">↓ Mayor</option>
+            <option value="asc">↑ Menor</option>
+          </select>
+          <select
+            value={String(limit)}
+            onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+            className="rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
+          >
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
         </div>
+      </div>
 
-        {loading ? (
-          <div className="space-y-4">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="card animate-pulse">
-                <div className="space-y-4">
-                  <div className="h-6 w-3/4 bg-surface rounded"></div>
-                  <div className="h-4 w-1/2 bg-surface rounded"></div>
-                  <div className="flex gap-4">
-                    <div className="h-4 w-24 bg-surface rounded"></div>
-                    <div className="h-4 w-32 bg-surface rounded"></div>
-                    <div className="h-4 w-20 bg-surface rounded"></div>
+      {/* Cards */}
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="rounded-xl border border-border bg-surface overflow-hidden animate-pulse">
+              <div className="flex">
+                <div className="w-1 bg-border shrink-0" />
+                <div className="flex-1 p-4 space-y-2.5">
+                  <div className="flex justify-between items-center">
+                    <div className="h-5 w-20 rounded-full bg-border" />
+                    <div className="h-3.5 w-16 rounded bg-border" />
                   </div>
-                  <div className="h-20 bg-surface rounded"></div>
+                  <div className="h-4 w-full rounded bg-border" />
+                  <div className="h-4 w-4/5 rounded bg-border" />
+                  <div className="h-3 w-3/5 rounded bg-border" />
+                  <div className="h-3 w-2/5 rounded bg-border" />
+                  <div className="pt-2 border-t border-border flex items-center justify-between">
+                    <div className="h-5 w-24 rounded bg-border" />
+                    <div className="flex gap-1">
+                      <div className="h-7 w-7 rounded-lg bg-border" />
+                      <div className="h-7 w-7 rounded-lg bg-border" />
+                      <div className="h-7 w-7 rounded-lg bg-border" />
+                    </div>
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-        ) : orders.length === 0 ? (
-          <div className="card text-center py-12">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-surface">
-              <Search className="h-8 w-8 text-muted" />
             </div>
-            <p className="mb-2 text-lg font-medium text-text">No se encontraron órdenes de compra</p>
-            <p className="text-sm text-muted">Intenta ajustar tus filtros o términos de búsqueda</p>
+          ))}
+        </div>
+      ) : orders.length === 0 ? (
+        <div className="card text-center py-12">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-surface">
+            <Search className="h-7 w-7 text-muted" />
           </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {orders.map((order) => {
-                const isSaved = hydrated && isOrderStored('saved', order.id);
-                const isApplied = hydrated && isOrderStored('applied', order.id);
-                const estadoCls = getEstadoOCCls(order.estado);
-                const accentCls = getEstadoOCAccent(order.estado);
+          <p className="font-medium text-text">No se encontraron órdenes de compra</p>
+          <p className="text-sm text-muted mt-1">Ajusta tus filtros o términos de búsqueda</p>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {orders.map((order) => {
+              const isSaved = hydrated && isOrderStored('saved', order.id);
+              const isApplied = hydrated && isOrderStored('applied', order.id);
+              const estadoCls = getEstadoOCCls(order.estado);
+              const accentCls = getEstadoOCAccent(order.estado);
 
-                return (
-                  <div key={order.id} className="relative flex flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-card transition-all duration-200 hover:border-primary/25 hover:shadow-card-md hover:-translate-y-0.5">
-                    {/* Status accent line */}
-                    <div className={`h-0.5 w-full ${accentCls}`} />
+              return (
+                <div
+                  key={order.id}
+                  className="relative flex overflow-hidden rounded-xl border border-border bg-surface transition-all duration-150 hover:-translate-y-0.5 hover:shadow-card-md hover:border-primary/20"
+                >
+                  {/* Left accent bar */}
+                  <div className={`w-1 shrink-0 ${accentCls}`} />
 
-                    <div className="flex flex-col flex-1 p-5">
-                      {/* Top row: estado badge + region */}
-                      <div className="flex items-center justify-between gap-2 mb-3">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {order.estado && (
-                            <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${estadoCls}`}>
-                              {normalizeText(order.estado)}
-                            </span>
-                          )}
-                        </div>
-                        {order.region && (
-                          <span className="flex items-center gap-1 text-xs text-muted shrink-0">
-                            <MapPin className="h-3 w-3" />
-                            {normalizeText(order.region).replace(/Región (de |del |Aysén.*|Metropolitana.*|del Libertador.*)/i, '').trim() || normalizeText(order.region)}
-                          </span>
-                        )}
-                      </div>
+                  <div className="flex flex-col flex-1 min-w-0 px-4 pt-3.5 pb-3">
+                    {/* Row 1: badge + region */}
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      {order.estado ? (
+                        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold leading-none ${estadoCls}`}>
+                          {normalizeText(order.estado)}
+                        </span>
+                      ) : <span />}
+                      {order.region && (
+                        <span className="flex items-center gap-0.5 text-[11px] text-muted shrink-0">
+                          <MapPin className="h-2.5 w-2.5" />
+                          {shortRegion(order.region)}
+                        </span>
+                      )}
+                    </div>
 
-                      {/* Title */}
-                      <Link
-                        href={`/dashboard/orders/${encodeURIComponent(order.codigo_oc)}`}
-                        className="text-sm font-semibold text-text leading-snug line-clamp-2 hover:text-primary transition-colors mb-1"
-                        style={{ fontFamily: 'var(--font-outfit, system-ui)' }}
-                      >
-                        {normalizeText(order.nombre)}
-                      </Link>
+                    {/* Title */}
+                    <Link
+                      href={`/dashboard/orders/${encodeURIComponent(order.codigo_oc)}`}
+                      className="text-sm font-semibold text-text leading-snug line-clamp-2 hover:text-primary transition-colors mb-0.5"
+                    >
+                      {normalizeText(order.nombre)}
+                    </Link>
 
-                      {/* Organismo + Proveedor */}
-                      <div className="space-y-1 mb-2">
-                        {order.nombre_organismo && (
-                          <p className="text-xs text-muted truncate">
-                            <span className="text-subtle">Organismo: </span>{normalizeText(order.nombre_organismo)}
-                          </p>
-                        )}
-                        {order.nombre_proveedor && (
-                          <p className="text-xs text-muted truncate">
-                            <span className="text-subtle">Proveedor: </span>{normalizeText(order.nombre_proveedor)}
-                          </p>
-                        )}
-                      </div>
+                    {/* Organismo + Proveedor */}
+                    <div className="mb-3 space-y-0.5">
+                      {order.nombre_organismo && (
+                        <p className="text-[11px] text-muted truncate">
+                          <span className="text-subtle">Org: </span>{normalizeText(order.nombre_organismo)}
+                        </p>
+                      )}
+                      {order.nombre_proveedor && (
+                        <p className="text-[11px] text-muted truncate">
+                          <span className="text-subtle">Prov: </span>{normalizeText(order.nombre_proveedor)}
+                        </p>
+                      )}
+                    </div>
 
-                      {/* Spacer */}
-                      <div className="flex-1 min-h-[0.5rem]" />
-
-                      {/* Monto + date */}
-                      <div className="flex items-end justify-between mt-4 pt-3 border-t border-border">
-                        <div>
-                          <p className="text-xs text-muted leading-none mb-0.5">Monto</p>
-                          <p className="text-base font-bold text-primary" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>
-                            {formatCurrency(order.monto_total, order.moneda)}
-                          </p>
+                    {/* Footer: monto + date + actions */}
+                    <div className="flex items-center gap-2 pt-2.5 border-t border-border mt-auto">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-primary tabular-nums leading-none">
+                          {formatCurrency(order.monto_total, order.moneda)}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
                           {order.fecha_publicacion && (
-                            <p className="text-xs text-subtle mt-0.5">
-                              Publicada {format(new Date(order.fecha_publicacion), 'dd MMM yyyy')}
+                            <p className="text-[11px] text-subtle">
+                              {format(new Date(order.fecha_publicacion), 'dd MMM yy')}
                             </p>
                           )}
+                          <p className="text-[11px] text-subtle">· OC {order.codigo_oc}</p>
                         </div>
-                        <p className="text-xs text-subtle">OC {order.codigo_oc}</p>
                       </div>
-
-                      {/* Action bar */}
-                      <div className="flex items-center gap-1.5 mt-3">
+                      <div className="flex items-center gap-1 shrink-0">
                         <button
                           type="button"
                           disabled={!hydrated}
                           onClick={() => toggleOrder('saved', order)}
-                          className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-semibold transition-all ${
+                          title={isSaved ? 'Quitar guardada' : 'Guardar'}
+                          className={`flex items-center justify-center rounded-lg border p-1.5 transition-all ${
                             isSaved ? 'border-primary/30 bg-primary/8 text-primary' : 'border-border bg-background text-muted hover:border-primary/25 hover:text-primary'
                           } ${!hydrated ? 'opacity-50' : ''}`}
                         >
                           {isSaved ? <BookmarkCheck className="h-3.5 w-3.5" /> : <BookmarkPlus className="h-3.5 w-3.5" />}
-                          {isSaved ? 'Guardada' : 'Guardar'}
                         </button>
                         <button
                           type="button"
                           disabled={!hydrated}
                           onClick={() => toggleOrder('applied', order)}
-                          className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-semibold transition-all ${
+                          title={isApplied ? 'Quitar postulación' : 'Postular'}
+                          className={`flex items-center justify-center rounded-lg border p-1.5 transition-all ${
                             isApplied ? 'border-accent/30 bg-accent/8 text-accent' : 'border-border bg-background text-muted hover:border-accent/25 hover:text-accent'
                           } ${!hydrated ? 'opacity-50' : ''}`}
                         >
                           {isApplied ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}
-                          {isApplied ? 'Aplicada' : 'Aplicar'}
                         </button>
+                        <Link
+                          href={`/dashboard/orders/${encodeURIComponent(order.codigo_oc)}`}
+                          title="Ver detalle"
+                          className="flex items-center justify-center rounded-lg border border-border bg-background p-1.5 text-muted hover:border-primary/25 hover:text-primary transition-all"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </Link>
                       </div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })}
+          </div>
 
-            {/* Pagination */}
-            {pages > 1 && (
-              <div className="flex items-center justify-center gap-2 pt-4">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="btn-secondary disabled:opacity-50"
-                >
-                  Anterior
-                </button>
-                <span className="px-4 text-sm text-muted">
-                  Página {page} de {pages}
-                </span>
-                <button
-                  onClick={() => setPage((p) => Math.min(pages, p + 1))}
-                  disabled={page === pages}
-                  className="btn-secondary disabled:opacity-50"
-                >
-                  Siguiente
-                </button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
+          {/* Pagination */}
+          {pages > 1 && (
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="btn-secondary text-sm disabled:opacity-40"
+              >
+                Anterior
+              </button>
+              <span className="px-3 text-xs text-muted">
+                {page} / {pages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(pages, p + 1))}
+                disabled={page === pages}
+                className="btn-secondary text-sm disabled:opacity-40"
+              >
+                Siguiente
+              </button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
-

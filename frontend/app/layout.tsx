@@ -19,7 +19,7 @@ const dmSans = DM_Sans({
   weight: ['400', '500', '600', '700'],
 });
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'TORDO';
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
 
 export const metadata: Metadata = {
   title: {
