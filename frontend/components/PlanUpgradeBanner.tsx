@@ -43,7 +43,7 @@ export default function PlanUpgradeBanner() {
 
   return (
     <div className="fixed bottom-5 right-5 z-50 w-full max-w-sm animate-slide-up">
-      <div className="rounded-xl border border-gold/30 bg-white shadow-card-lg overflow-hidden">
+      <div className="rounded-xl border border-gold/30 bg-surface shadow-card-lg overflow-hidden">
         <div className="h-0.5 bg-gradient-to-r from-gold to-gold/40" />
         <div className="flex items-start gap-3 p-4">
           <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-goldLight">

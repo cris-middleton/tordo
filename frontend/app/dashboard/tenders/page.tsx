@@ -10,7 +10,6 @@ import {
   Loader2,
   ExternalLink,
   Calendar,
-  DollarSign,
   MapPin,
   BookmarkPlus,
   BookmarkCheck,
@@ -18,7 +17,6 @@ import {
   CheckCircle2,
   X,
   ArrowRight,
-  TrendingUp,
   AlertTriangle,
 } from 'lucide-react';
 
@@ -50,10 +48,10 @@ const ESTADOS_LICITACION = [
   'Revocada',
   'Suspendida',
 ];
+
 import { format } from 'date-fns';
 import { useDashboardCollections } from '@/hooks/useDashboardCollections';
 
-// Normalize text to Title Case (first letter uppercase, rest lowercase)
 const normalizeText = (text: string | undefined): string => {
   if (!text) return '';
   return text
@@ -164,9 +162,7 @@ export default function TendersPage() {
   const [firstEmpresaId, setFirstEmpresaId] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<'filtros' | 'lista' | 'detalle'>('lista');
 
-  // Load empresa ID once for BI calls
   useEffect(() => {
-    // TODO: migrar a React Query
     apiClient.getEmpresas().then((empresas: any[]) => {
       if (empresas?.[0]?.id) setFirstEmpresaId(String(empresas[0].id));
     }).catch(() => {});
@@ -182,7 +178,6 @@ export default function TendersPage() {
     setBiLoading(true);
     setBiError(false);
     setBiPanel(null);
-    // TODO: migrar a React Query
     apiClient
       .getBIPanel(selectedTender.codigo_externo, firstEmpresaId ?? undefined)
       .then((data: any) => { if (active) setBiPanel(data); })
@@ -201,7 +196,6 @@ export default function TendersPage() {
         sort_by: sortBy,
         sort_order: sortOrder,
       };
-
       if (filters.estado) params.estado = filters.estado;
       if (filters.region) params.region = filters.region;
       if (filters.min_amount) params.min_amount = parseFloat(filters.min_amount);
@@ -218,28 +212,23 @@ export default function TendersPage() {
     }
   }, [filters.estado, filters.max_amount, filters.min_amount, filters.region, keywords, page, limit, sortBy, sortOrder]);
 
-  useEffect(() => {
-    loadTenders();
-  }, [loadTenders]);
+  useEffect(() => { loadTenders(); }, [loadTenders]);
 
   const handleFilterChange = (key: string, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
     setPage(1);
   };
 
-  const addKeyword = useCallback(
-    (value: string) => {
-      const normalized = value.trim();
-      if (!normalized) return;
-      setKeywords((prev) => {
-        if (prev.some((k) => k.toLowerCase() === normalized.toLowerCase())) return prev;
-        return [...prev, normalized];
-      });
-      setSearchInput('');
-      setPage(1);
-    },
-    [],
-  );
+  const addKeyword = useCallback((value: string) => {
+    const normalized = value.trim();
+    if (!normalized) return;
+    setKeywords((prev) => {
+      if (prev.some((k) => k.toLowerCase() === normalized.toLowerCase())) return prev;
+      return [...prev, normalized];
+    });
+    setSearchInput('');
+    setPage(1);
+  }, []);
 
   const handleKeywordKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
@@ -253,23 +242,17 @@ export default function TendersPage() {
     }
   };
 
-  const removeKeyword = useCallback(
-    (value: string) => {
-      setKeywords((prev) =>
-        prev.filter((keyword) => keyword.toLowerCase() !== value.toLowerCase()),
-      );
-      setPage(1);
-    },
-    [],
-  );
+  const removeKeyword = useCallback((value: string) => {
+    setKeywords((prev) => prev.filter((keyword) => keyword.toLowerCase() !== value.toLowerCase()));
+    setPage(1);
+  }, []);
 
   const formatCurrency = (amount?: number) => {
     if (amount == null) return null;
-    return new Intl.NumberFormat('es-CL', {
-      style: 'currency',
-      currency: 'CLP',
-      minimumFractionDigits: 0,
-    }).format(amount);
+    if (amount >= 1_000_000_000) return `$${(amount / 1_000_000_000).toFixed(1)}B`;
+    if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
+    if (amount >= 1_000) return `$${(amount / 1_000).toFixed(0)}K`;
+    return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 0 }).format(amount);
   };
 
   const getEstadoCls = (estado?: string | null) => {
@@ -285,7 +268,7 @@ export default function TendersPage() {
   };
 
   const getEstadoAccent = (estado?: string | null) => {
-    if (!estado) return 'bg-primary';
+    if (!estado) return 'bg-primary/30';
     const e = estado.toLowerCase();
     if (e.includes('public')) return 'bg-accent';
     if (e.includes('adjudic')) return 'bg-info';
@@ -293,7 +276,7 @@ export default function TendersPage() {
     if (e.includes('desierta') || e.includes('suspend')) return 'bg-subtle';
     if (e.includes('revocad') || e.includes('cancel')) return 'bg-danger';
     if (e.includes('cerrada')) return 'bg-gold';
-    return 'bg-primary';
+    return 'bg-primary/30';
   };
 
   const getClosingUrgency = (fechaCierre?: string | null) => {
@@ -303,43 +286,48 @@ export default function TendersPage() {
     const daysLeft = Math.ceil((closing.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     if (daysLeft < 0) return null;
     if (daysLeft === 0) return { label: 'Cierra hoy', cls: 'text-danger font-bold' };
-    if (daysLeft <= 2) return { label: `${daysLeft}d restantes`, cls: 'text-danger font-semibold' };
-    if (daysLeft <= 7) return { label: `${daysLeft}d restantes`, cls: 'text-gold font-medium' };
-    return { label: format(closing, 'dd MMM yyyy'), cls: 'text-muted' };
+    if (daysLeft <= 2) return { label: `${daysLeft}d`, cls: 'text-danger font-semibold' };
+    if (daysLeft <= 7) return { label: `${daysLeft}d`, cls: 'text-gold font-medium' };
+    return { label: format(closing, 'dd MMM'), cls: 'text-muted' };
   };
 
+  const shortRegion = (region?: string) => {
+    if (!region) return '';
+    return normalizeText(region)
+      .replace(/^Región (Metropolitana.*)$/i, 'RM')
+      .replace(/^Región (del Libertador.*)$/i, "O'Higgins")
+      .replace(/^Región (Aysén.*)$/i, 'Aysén')
+      .replace(/^Región (de |del |de la )?/i, '')
+      .trim();
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between">
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="mb-2 text-2xl font-semibold text-text sm:text-3xl">Licitaciones</h1>
-          <p className="text-muted">Busca y explora licitaciones públicas</p>
+          <h1 className="text-2xl font-bold text-text">Licitaciones</h1>
+          <p className="text-sm text-muted mt-0.5">Busca y explora licitaciones públicas</p>
         </div>
-        <Link
-          href="/dashboard/calendario"
-          className="btn-secondary gap-2 text-sm hidden sm:inline-flex"
-        >
+        <Link href="/dashboard/calendario" className="btn-secondary gap-2 text-sm hidden sm:inline-flex">
           <Calendar size={15} />
           Calendario
         </Link>
       </div>
 
       {/* Search + Filters */}
-      <div className="card space-y-3">
+      <div className="card space-y-3 py-3 px-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted pointer-events-none" />
           <input
             type="text"
-            placeholder="Buscar por nombre, organismo o descripción — presiona Enter..."
+            placeholder="Nombre, organismo o descripción — Enter para buscar"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={handleKeywordKeyDown}
-            className="input-field pl-9"
+            className="input-field pl-9 text-sm"
             autoComplete="off"
           />
         </div>
-
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <SelectField
             value={filters.estado}
@@ -362,19 +350,18 @@ export default function TendersPage() {
             placeholder="Monto mínimo"
             value={filters.min_amount}
             onChange={(e) => handleFilterChange('min_amount', e.target.value)}
-            className="input-field"
+            className="input-field text-sm"
           />
           <input
             type="number"
             placeholder="Monto máximo"
             value={filters.max_amount}
             onChange={(e) => handleFilterChange('max_amount', e.target.value)}
-            className="input-field"
+            className="input-field text-sm"
           />
         </div>
-
         {keywords.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {keywords.map((keyword) => (
               <span key={keyword} className="flex items-center gap-1 rounded-full border border-primary/30 bg-primary/8 px-2.5 py-0.5 text-xs font-medium text-primary">
                 {keyword}
@@ -384,248 +371,244 @@ export default function TendersPage() {
               </span>
             ))}
             <button type="button" onClick={() => { setKeywords([]); setPage(1); }} className="text-xs text-muted hover:text-danger transition-colors">
-              Limpiar todo
+              Limpiar
             </button>
           </div>
         )}
       </div>
 
-      {/* Results */}
-      <div className="space-y-4">
-        <div className={`space-y-4`}>
-          {/* Sort controls + result count */}
-          <div className="flex items-center justify-between rounded-lg border border-border bg-surface px-3 py-2">
-            <p className="text-xs text-muted whitespace-nowrap">
-              {total.toLocaleString()} resultado{total !== 1 ? 's' : ''}
-            </p>
-            <div className="flex items-center gap-1.5">
-              <select
-                value={sortBy}
-                onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
-                className="rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
-              >
-                <option value="fecha_publicacion">Fecha publicación</option>
-                <option value="fecha_cierre">Fecha cierre</option>
-                <option value="monto_estimado">Monto</option>
-                <option value="nombre">Nombre</option>
-              </select>
-              <select
-                value={sortOrder}
-                onChange={(e) => { setSortOrder(e.target.value as 'asc' | 'desc'); setPage(1); }}
-                className="rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
-              >
-                <option value="desc">↓ Mayor a menor</option>
-                <option value="asc">↑ Menor a mayor</option>
-              </select>
-              <select
-                value={String(limit)}
-                onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
-                className="rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
-              >
-                <option value="10">10 / pág</option>
-                <option value="20">20 / pág</option>
-                <option value="50">50 / pág</option>
-                <option value="100">100 / pág</option>
-              </select>
-            </div>
-          </div>
-
-          {loading ? (
-            <div className="space-y-4">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="card animate-pulse">
-                  <div className="space-y-4">
-                    <div className="h-6 w-3/4 bg-surface rounded"></div>
-                    <div className="h-4 w-1/2 bg-surface rounded"></div>
-                    <div className="flex gap-4">
-                      <div className="h-4 w-24 bg-surface rounded"></div>
-                      <div className="h-4 w-32 bg-surface rounded"></div>
-                      <div className="h-4 w-20 bg-surface rounded"></div>
-                    </div>
-                    <div className="h-20 bg-surface rounded"></div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : tenders.length === 0 ? (
-            <div className="card text-center py-12">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-surface">
-                <Search className="h-8 w-8 text-muted" />
-              </div>
-              <p className="mb-2 text-lg font-medium text-text">No se encontraron licitaciones</p>
-              <p className="text-sm text-muted">Intenta ajustar tus filtros o términos de búsqueda</p>
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {tenders.map((tender) => {
-                  const isSaved = hydrated && isTenderStored('saved', tender.id);
-                  const isApplied = hydrated && isTenderStored('applied', tender.id);
-                  const urgency = getClosingUrgency(tender.fecha_cierre);
-                  const estadoDisplay = tender.estado ?? tender.detalle?.estado_actual;
-                  const estadoCls = getEstadoCls(estadoDisplay);
-                  const accentCls = getEstadoAccent(estadoDisplay);
-                  const isSelected = selectedTender?.id === tender.id;
-
-                  return (
-                    <div
-                      key={tender.id}
-                      onClick={() => { setSelectedTender(tender); setMobileTab('detalle'); }}
-                      className={`relative flex flex-col overflow-hidden rounded-xl border bg-surface shadow-card transition-all duration-200 hover:border-primary/25 hover:shadow-card-md hover:-translate-y-0.5 cursor-pointer ${
-                        isSelected ? 'border-primary/40 bg-primary/5' : 'border-border'
-                      }`}
-                    >
-                      {/* Status accent line */}
-                      <div className={`h-0.5 w-full ${accentCls}`} />
-
-                      <div className="flex flex-col flex-1 p-5">
-                        {/* Top row: estado badge + región */}
-                        <div className="flex items-center justify-between gap-2 mb-3">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            {estadoDisplay && (
-                              <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${estadoCls}`}>
-                                {normalizeText(estadoDisplay)}
-                              </span>
-                            )}
-                          </div>
-                          {tender.region && (
-                            <span className="flex items-center gap-1 text-xs text-muted shrink-0">
-                              <MapPin className="h-3 w-3" />
-                              {normalizeText(tender.region).replace(/Región (de |del |Aysén.*|Metropolitana.*|del Libertador.*)/i, '').trim() || normalizeText(tender.region)}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Title */}
-                        <Link
-                          href={`/dashboard/tenders/${encodeURIComponent(tender.codigo_externo)}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-sm font-semibold text-text leading-snug line-clamp-2 hover:text-primary transition-colors mb-1"
-                          style={{ fontFamily: 'var(--font-outfit, system-ui)' }}
-                        >
-                          {normalizeText(tender.nombre)}
-                        </Link>
-
-                        {/* Organismo */}
-                        <p className="text-xs text-muted truncate mb-1">
-                          {tender.nombre_organismo ? normalizeText(tender.nombre_organismo) : tender.codigo_externo}
-                        </p>
-
-                        {/* Spacer */}
-                        <div className="flex-1 min-h-[0.5rem]" />
-
-                        {/* Monto + cierre */}
-                        <div className="flex items-end justify-between mt-4 pt-3 border-t border-border">
-                          <div>
-                            {tender.monto_estimado ? (
-                              <>
-                                <p className="text-xs text-muted leading-none mb-0.5">Monto estimado</p>
-                                <p className="text-base font-bold text-primary" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>
-                                  {formatCurrency(tender.monto_estimado)}
-                                </p>
-                              </>
-                            ) : (
-                              <p className="text-xs text-subtle">Monto no especificado</p>
-                            )}
-                            {tender.fecha_publicacion && (
-                              <p className="text-xs text-subtle mt-0.5">
-                                Publicada {format(new Date(tender.fecha_publicacion), 'dd MMM yyyy')}
-                              </p>
-                            )}
-                          </div>
-                          {urgency && (
-                            <div className="text-right">
-                              <p className="text-xs text-muted leading-none mb-0.5">Cierre</p>
-                              <p className={`text-xs ${urgency.cls}`}>{urgency.label}</p>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Action bar */}
-                        <div className="flex items-center gap-1.5 mt-3">
-                          <button
-                            type="button"
-                            disabled={!hydrated}
-                            onClick={(e) => { e.stopPropagation(); toggleTender('saved', tender); }}
-                            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-semibold transition-all ${
-                              isSaved ? 'border-primary/30 bg-primary/8 text-primary' : 'border-border bg-background text-muted hover:border-primary/25 hover:text-primary'
-                            } ${!hydrated ? 'opacity-50' : ''}`}
-                          >
-                            {isSaved ? <BookmarkCheck className="h-3.5 w-3.5" /> : <BookmarkPlus className="h-3.5 w-3.5" />}
-                            {isSaved ? 'Guardada' : 'Guardar'}
-                          </button>
-                          <button
-                            type="button"
-                            disabled={!hydrated}
-                            onClick={(e) => { e.stopPropagation(); toggleTender('applied', tender); }}
-                            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-semibold transition-all ${
-                              isApplied ? 'border-accent/30 bg-accent/8 text-accent' : 'border-border bg-background text-muted hover:border-accent/25 hover:text-accent'
-                            } ${!hydrated ? 'opacity-50' : ''}`}
-                          >
-                            {isApplied ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}
-                            {isApplied ? 'Aplicada' : 'Aplicar'}
-                          </button>
-                          {tender.url_licitacion ? (
-                            <a
-                              href={tender.url_licitacion}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="flex items-center justify-center rounded-lg border border-border bg-background p-1.5 text-muted hover:border-primary/25 hover:text-primary transition-all"
-                              title="Ver en Mercado Público"
-                            >
-                              <ExternalLink className="h-3.5 w-3.5" />
-                            </a>
-                          ) : (
-                            <Link
-                              href={`/dashboard/tenders/${encodeURIComponent(tender.codigo_externo)}`}
-                              onClick={(e) => e.stopPropagation()}
-                              className="flex items-center justify-center rounded-lg border border-border bg-background p-1.5 text-muted hover:border-primary/25 hover:text-primary transition-all"
-                              title="Ver detalle"
-                            >
-                              <ExternalLink className="h-3.5 w-3.5" />
-                            </Link>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Pagination */}
-              {pages > 1 && (
-                <div className="flex items-center justify-center gap-2 pt-4">
-                  <button
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                    className="btn-secondary disabled:opacity-50"
-                  >
-                    Anterior
-                  </button>
-                  <span className="px-4 text-sm text-muted">
-                    Página {page} de {pages}
-                  </span>
-                  <button
-                    onClick={() => setPage((p) => Math.min(pages, p + 1))}
-                    disabled={page === pages}
-                    className="btn-secondary disabled:opacity-50"
-                  >
-                    Siguiente
-                  </button>
-                </div>
-              )}
-            </>
-          )}
+      {/* Sort bar */}
+      <div className="flex items-center justify-between rounded-lg border border-border bg-surface px-3 py-1.5">
+        <p className="text-xs text-muted">
+          <span className="font-semibold text-text">{total.toLocaleString()}</span> resultado{total !== 1 ? 's' : ''}
+        </p>
+        <div className="flex items-center gap-1.5">
+          <select
+            value={sortBy}
+            onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
+            className="rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
+          >
+            <option value="fecha_publicacion">Publicación</option>
+            <option value="fecha_cierre">Cierre</option>
+            <option value="monto_estimado">Monto</option>
+            <option value="nombre">Nombre</option>
+          </select>
+          <select
+            value={sortOrder}
+            onChange={(e) => { setSortOrder(e.target.value as 'asc' | 'desc'); setPage(1); }}
+            className="rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
+          >
+            <option value="desc">↓ Mayor</option>
+            <option value="asc">↑ Menor</option>
+          </select>
+          <select
+            value={String(limit)}
+            onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+            className="rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
+          >
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
         </div>
       </div>
 
-      {/* BI Panel — shown when a tender is selected */}
+      {/* Cards */}
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="rounded-xl border border-border bg-surface overflow-hidden animate-pulse">
+              <div className="flex">
+                <div className="w-1 bg-border shrink-0" />
+                <div className="flex-1 p-4 space-y-2.5">
+                  <div className="flex justify-between items-center">
+                    <div className="h-5 w-20 rounded-full bg-border" />
+                    <div className="h-3.5 w-16 rounded bg-border" />
+                  </div>
+                  <div className="h-4 w-full rounded bg-border" />
+                  <div className="h-4 w-4/5 rounded bg-border" />
+                  <div className="h-3 w-2/5 rounded bg-border" />
+                  <div className="pt-2 border-t border-border flex items-center justify-between">
+                    <div className="h-5 w-24 rounded bg-border" />
+                    <div className="flex gap-1">
+                      <div className="h-7 w-7 rounded-lg bg-border" />
+                      <div className="h-7 w-7 rounded-lg bg-border" />
+                      <div className="h-7 w-7 rounded-lg bg-border" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : tenders.length === 0 ? (
+        <div className="card text-center py-12">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-surface">
+            <Search className="h-7 w-7 text-muted" />
+          </div>
+          <p className="font-medium text-text">No se encontraron licitaciones</p>
+          <p className="text-sm text-muted mt-1">Ajusta tus filtros o términos de búsqueda</p>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {tenders.map((tender) => {
+              const isSaved = hydrated && isTenderStored('saved', tender.id);
+              const isApplied = hydrated && isTenderStored('applied', tender.id);
+              const urgency = getClosingUrgency(tender.fecha_cierre);
+              const estadoDisplay = tender.estado ?? tender.detalle?.estado_actual;
+              const estadoCls = getEstadoCls(estadoDisplay);
+              const accentCls = getEstadoAccent(estadoDisplay);
+              const isSelected = selectedTender?.id === tender.id;
+
+              return (
+                <div
+                  key={tender.id}
+                  onClick={() => { setSelectedTender(tender); setMobileTab('detalle'); }}
+                  className={`relative flex overflow-hidden rounded-xl border transition-all duration-150 hover:-translate-y-0.5 hover:shadow-card-md cursor-pointer ${
+                    isSelected
+                      ? 'border-primary/40 bg-primary/3 shadow-card-md'
+                      : 'border-border bg-surface hover:border-primary/20'
+                  }`}
+                >
+                  {/* Left accent bar */}
+                  <div className={`w-1 shrink-0 ${accentCls}`} />
+
+                  <div className="flex flex-col flex-1 min-w-0 px-4 pt-3.5 pb-3">
+                    {/* Row 1: badge + region */}
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      {estadoDisplay ? (
+                        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold leading-none ${estadoCls}`}>
+                          {normalizeText(estadoDisplay)}
+                        </span>
+                      ) : <span />}
+                      {tender.region && (
+                        <span className="flex items-center gap-0.5 text-[11px] text-muted shrink-0">
+                          <MapPin className="h-2.5 w-2.5" />
+                          {shortRegion(tender.region)}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Title */}
+                    <Link
+                      href={`/dashboard/tenders/${encodeURIComponent(tender.codigo_externo)}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-sm font-semibold text-text leading-snug line-clamp-2 hover:text-primary transition-colors mb-0.5"
+                    >
+                      {normalizeText(tender.nombre)}
+                    </Link>
+
+                    {/* Organismo */}
+                    <p className="text-[11px] text-muted truncate mb-3">
+                      {tender.nombre_organismo ? normalizeText(tender.nombre_organismo) : tender.codigo_externo}
+                    </p>
+
+                    {/* Footer: monto + urgency + actions */}
+                    <div className="flex items-center gap-2 pt-2.5 border-t border-border mt-auto">
+                      <div className="flex-1 min-w-0">
+                        {tender.monto_estimado ? (
+                          <p className="text-sm font-bold text-primary tabular-nums leading-none">
+                            {formatCurrency(tender.monto_estimado)}
+                          </p>
+                        ) : (
+                          <p className="text-[11px] text-subtle leading-none">Sin monto</p>
+                        )}
+                        <div className="flex items-center gap-2 mt-1">
+                          {tender.fecha_publicacion && (
+                            <p className="text-[11px] text-subtle">
+                              {format(new Date(tender.fecha_publicacion), 'dd MMM yy')}
+                            </p>
+                          )}
+                          {urgency && (
+                            <p className={`text-[11px] ${urgency.cls}`}>· {urgency.label}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          disabled={!hydrated}
+                          onClick={(e) => { e.stopPropagation(); toggleTender('saved', tender); }}
+                          title={isSaved ? 'Quitar guardada' : 'Guardar'}
+                          className={`flex items-center justify-center rounded-lg border p-1.5 transition-all ${
+                            isSaved ? 'border-primary/30 bg-primary/8 text-primary' : 'border-border bg-background text-muted hover:border-primary/25 hover:text-primary'
+                          } ${!hydrated ? 'opacity-50' : ''}`}
+                        >
+                          {isSaved ? <BookmarkCheck className="h-3.5 w-3.5" /> : <BookmarkPlus className="h-3.5 w-3.5" />}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!hydrated}
+                          onClick={(e) => { e.stopPropagation(); toggleTender('applied', tender); }}
+                          title={isApplied ? 'Quitar postulación' : 'Postular'}
+                          className={`flex items-center justify-center rounded-lg border p-1.5 transition-all ${
+                            isApplied ? 'border-accent/30 bg-accent/8 text-accent' : 'border-border bg-background text-muted hover:border-accent/25 hover:text-accent'
+                          } ${!hydrated ? 'opacity-50' : ''}`}
+                        >
+                          {isApplied ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}
+                        </button>
+                        {tender.url_licitacion ? (
+                          <a
+                            href={tender.url_licitacion}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            title="Ver en Mercado Público"
+                            className="flex items-center justify-center rounded-lg border border-border bg-background p-1.5 text-muted hover:border-primary/25 hover:text-primary transition-all"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
+                        ) : (
+                          <Link
+                            href={`/dashboard/tenders/${encodeURIComponent(tender.codigo_externo)}`}
+                            onClick={(e) => e.stopPropagation()}
+                            title="Ver detalle"
+                            className="flex items-center justify-center rounded-lg border border-border bg-background p-1.5 text-muted hover:border-primary/25 hover:text-primary transition-all"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Pagination */}
+          {pages > 1 && (
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="btn-secondary text-sm disabled:opacity-40"
+              >
+                Anterior
+              </button>
+              <span className="px-3 text-xs text-muted">
+                {page} / {pages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(pages, p + 1))}
+                disabled={page === pages}
+                className="btn-secondary text-sm disabled:opacity-40"
+              >
+                Siguiente
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* BI Panel */}
       {selectedTender && (
         <div className="card space-y-3">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-text line-clamp-2 leading-snug">
+              <p className="text-sm font-semibold text-text line-clamp-1 leading-snug">
                 {normalizeText(selectedTender.nombre)}
               </p>
               <p className="text-xs text-muted mt-0.5 truncate">
@@ -655,7 +638,6 @@ export default function TendersPage() {
 
           {!biLoading && !biError && biPanel && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {/* Comprador */}
               <div className="rounded-lg border border-border bg-background px-3 py-2 space-y-1">
                 <p className="text-[10px] font-semibold text-muted uppercase tracking-wide">Comprador</p>
                 {biPanel.comprador.disponible ? (
@@ -678,7 +660,6 @@ export default function TendersPage() {
                 )}
               </div>
 
-              {/* Price reference */}
               {biPanel.precios.length > 0 && biPanel.precios[0].disponible && biPanel.precios[0].p50 != null && (
                 <div className="rounded-lg border border-border bg-background px-3 py-2 space-y-1">
                   <p className="text-[10px] font-semibold text-muted uppercase tracking-wide">Precio referencia</p>
@@ -700,7 +681,6 @@ export default function TendersPage() {
                 </div>
               )}
 
-              {/* Competitors */}
               {biPanel.competidores.disponible && (biPanel.competidores.top5?.length ?? 0) > 0 && (
                 <div className="rounded-lg border border-border bg-background px-3 py-2 space-y-1">
                   <p className="text-[10px] font-semibold text-muted uppercase tracking-wide">
@@ -717,7 +697,6 @@ export default function TendersPage() {
                 </div>
               )}
 
-              {/* Window alert */}
               {biPanel.ventana.disponible && biPanel.ventana.alerta_ventana_corta && (
                 <div className="flex items-center gap-1.5 rounded-lg border border-danger/20 bg-danger/5 px-3 py-2 text-xs text-danger">
                   <AlertTriangle className="h-3.5 w-3.5 shrink-0" />

@@ -32,11 +32,10 @@ export function DataFreshnessBar({ lastUpdated }: DataFreshnessBarProps) {
   if (hoursAgo <= 48) return null;
 
   return (
-    <div className="flex items-center gap-2 rounded-xl border border-gold/30 bg-gold/8 px-4 py-3 animate-slide-up">
-      <span className="text-sm shrink-0">⚠️</span>
+    <div className="flex items-center gap-2.5 rounded-xl border border-gold/30 bg-gold/8 px-4 py-3 animate-slide-up">
+      <span className="status-dot-warn shrink-0" />
       <p className="text-sm text-gold">
-        Los datos de BI pueden estar desactualizados. Última sincronización:{' '}
-        {formatRelativeTime(lastUpdated)}.
+        Datos de BI desactualizados — última sincronización {formatRelativeTime(lastUpdated)}
       </p>
     </div>
   );

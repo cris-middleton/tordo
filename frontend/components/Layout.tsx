@@ -128,17 +128,17 @@ export default function Layout({ children }: LayoutProps) {
         style={{ background: 'linear-gradient(180deg, var(--color-sidebar-from) 0%, var(--color-sidebar-to) 35%)' }}
       >
         {/* Logo */}
-        <div className="flex items-center justify-between px-5 py-5 border-b border-borderLight">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-borderLight">
           <button
             onClick={() => navigate('/dashboard')}
-            className="group flex items-center gap-3.5 focus-visible:outline-none"
+            className="group flex items-center gap-2.5 focus-visible:outline-none"
           >
-            <TordoLogo size={28} />
+            <TordoLogo size={24} />
             <span
               className="font-brand font-bold text-primary block transition-colors group-hover:text-primaryLight leading-none tracking-tight"
-              style={{ fontSize: '1.15rem' }}
+              style={{ fontSize: '1.375rem' }}
             >
-              TORDO
+              Tordo
             </span>
           </button>
           <button
@@ -165,13 +165,16 @@ export default function Layout({ children }: LayoutProps) {
                       key={item.name}
                       onClick={() => navigate(item.href)}
                       style={{ animationDelay: `${(sIdx * 3 + idx) * 40}ms` }}
-                      className={`group flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-150 animate-slide-in-left ${
+                      className={`relative group flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-150 animate-slide-in-left ${
                         active
-                          ? 'bg-primary/8 text-primary font-semibold shadow-nav-active'
+                          ? 'bg-primary/8 text-primary font-semibold'
                           : 'text-muted font-medium hover:bg-primary/6 hover:text-primary'
                       }`}
                     >
-                      <div className="flex items-center gap-3">
+                      {active && (
+                        <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-r-full bg-primary" />
+                      )}
+                      <div className="flex min-w-0 items-center gap-3">
                         <Icon
                           className={`shrink-0 transition-colors ${
                             active ? 'text-primary' : 'text-subtle group-hover:text-primary'
@@ -179,15 +182,13 @@ export default function Layout({ children }: LayoutProps) {
                           strokeWidth={active ? 2.5 : 2}
                           size={17}
                         />
-                        <span>{item.name}</span>
+                        <span className="truncate">{item.name}</span>
                       </div>
                       {item.badge ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-gold px-1.5 py-0.5 text-[10px] font-bold text-white">
+                        <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-gold px-1.5 py-0.5 text-[10px] font-bold text-white">
                           <Star size={9} />
                           {item.badge}
                         </span>
-                      ) : active ? (
-                        <ChevronRight className="h-3.5 w-3.5 text-primary/50" />
                       ) : null}
                     </button>
                   );
@@ -256,17 +257,12 @@ export default function Layout({ children }: LayoutProps) {
                 onClick={() => navigate('/dashboard')}
                 className="font-brand font-bold text-subtle hidden sm:block tracking-tighter hover:text-primary transition-colors"
               >
-                TORDO
+                Tordo
               </button>
               <ChevronRight className="h-3.5 w-3.5 text-subtle hidden sm:block" />
               <span className="font-semibold text-text">{currentPage}</span>
             </div>
             <div className="flex-1" />
-            {/* Live system status pill */}
-            <div className="hidden sm:flex items-center gap-1.5 rounded-full border border-accent/20 bg-accent/5 px-2.5 py-1">
-              <span className="status-dot-live" />
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-accent">En línea</span>
-            </div>
             <button
               onClick={() => navigate('/dashboard/alerts')}
               className="relative rounded-lg p-2 text-muted transition-colors hover:bg-primary/8 hover:text-primary"

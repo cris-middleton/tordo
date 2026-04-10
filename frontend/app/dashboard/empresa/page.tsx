@@ -42,7 +42,7 @@ export default function EmpresaPage() {
   const [success, setSuccess]           = useState<string | null>(null)
   const [avatar, setAvatar]             = useState<string | null>(null)
 
-  const AVATARS = ['🦅', '🦉', '🕊️', '🐧', '🐦', '🐥', '🦆', '🦚', '🦜', '🦢', '🦩', '🐓', '🦃', '🦇', '🦋'];
+  const AVATARS = ['🦅', '🦉', '🕊️', '🐧', '🐦', '🐥', '🦆', '🦚', '🦜', '🦢', '🦩', '🐓', '🦃'];
 
   useEffect(() => {
     setAvatar(localStorage.getItem('user_avatar'))

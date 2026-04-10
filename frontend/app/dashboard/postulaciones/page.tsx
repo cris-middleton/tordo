@@ -301,7 +301,7 @@ export default function PostulacionesPage() {
       <div className="space-y-4">
         <h1 className="text-2xl font-semibold text-text">Postulaciones</h1>
         <div className="card flex flex-col items-center gap-3 py-12 text-center">
-          <Building2 className="h-12 w-12 text-muted" />
+          <Building2 className="h-10 w-10 text-subtle" />
           <p className="text-muted">Registra tu empresa primero para gestionar postulaciones.</p>
           <button onClick={() => router.push('/onboarding')} className="btn-primary">
             Registrar empresa
@@ -315,8 +315,8 @@ export default function PostulacionesPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="mb-1 text-2xl font-semibold text-text sm:text-3xl">Postulaciones</h1>
-          <p className="text-sm text-muted">Gestiona tus postulaciones a licitaciones activas</p>
+          <h1 className="text-2xl font-bold text-text">Postulaciones</h1>
+          <p className="text-sm text-muted mt-0.5">Gestiona tus postulaciones a licitaciones activas</p>
         </div>
       </div>
 
@@ -348,7 +348,7 @@ export default function PostulacionesPage() {
         </div>
       ) : postulaciones.length === 0 ? (
         <div className="card flex flex-col items-center gap-3 py-12 text-center">
-          <ClipboardList className="h-12 w-12 text-muted" />
+          <ClipboardList className="h-10 w-10 text-subtle" />
           <p className="text-muted">No hay postulaciones aún.</p>
           <p className="text-sm text-muted">
             Desde una licitación, haz clic en «Postular» para crear una postulación con checklist automático.

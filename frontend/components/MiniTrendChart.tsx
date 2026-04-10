@@ -79,7 +79,7 @@ export function MiniTrendChart() {
               <XAxis
                 dataKey="name"
                 stroke="transparent"
-                tick={{ fill: '#94A3B8', fontSize: 9, fontFamily: 'var(--font-dm-sans)' }}
+                tick={{ fill: 'var(--color-text-hex)', fontSize: 9, fontFamily: 'var(--font-dm-sans)', opacity: 0.5 }}
                 axisLine={false}
                 tickLine={false}
               />
@@ -88,10 +88,10 @@ export function MiniTrendChart() {
                 cursor={{ fill: 'rgba(0,200,150,0.05)', radius: 4 }}
                 contentStyle={{
                   borderRadius: '8px',
-                  border: '1px solid #1A1F2C',
-                  background: '#0F1117',
+                  border: `1px solid var(--color-border-hex)`,
+                  background: 'var(--color-surface-elevated-hex)',
                   fontSize: '11px',
-                  color: '#E2E8F0',
+                  color: 'var(--color-text-hex)',
                   fontFamily: 'var(--font-dm-sans)',
                 }}
               />

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
@@ -9,32 +9,16 @@ import {
   Bell,
   Bookmark,
   Send,
-  Calendar,
   DollarSign,
-  MapPin,
-  Building2,
   Trash2,
-  ChevronDown,
-  ChevronUp,
   ClipboardList,
   FolderOpen,
   AlertTriangle,
-  TrendingUp,
   ArrowRight,
-  Star,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useDashboardCollections } from '@/hooks/useDashboardCollections';
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-} from 'recharts';
 import { TopOpportunities } from '@/components/TopOpportunities';
 import { MiniTrendChart } from '@/components/MiniTrendChart';
 import { MiniActivityBars } from '@/components/MiniActivityBars';
@@ -114,7 +98,6 @@ export default function DashboardPage() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [topScore, setTopScore] = useState<number | null>(null);
   const [topOrganism, setTopOrganism] = useState<string | null>(null);
   const [biLastUpdated, setBiLastUpdated] = useState<string | null>(null);
   const [estadoHabil, setEstadoHabil] = useState<{
@@ -122,27 +105,7 @@ export default function DashboardPage() {
     rut_empresa: string
     estado_habil_updated_at: string | null
   } | null>(null);
-  const [expandedSections, setExpandedSections] = useState({
-    tenders: { saved: false, applied: false },
-    orders: { saved: false, applied: false },
-  });
   const { collections, counts, hydrated, toggleTender, toggleOrder } = useDashboardCollections();
-
-  const savedChartData = useMemo(
-    () => [
-      { name: 'Licitaciones', value: counts.tenders.saved },
-      { name: 'Órdenes', value: counts.orders.saved },
-    ],
-    [counts],
-  );
-
-  const appliedChartData = useMemo(
-    () => [
-      { name: 'Licitaciones', value: counts.tenders.applied },
-      { name: 'Órdenes', value: counts.orders.applied },
-    ],
-    [counts],
-  );
 
   const normalizeText = (text: string | undefined): string => {
     if (!text) return '';
@@ -152,21 +115,12 @@ export default function DashboardPage() {
       .join(' ');
   };
 
-  const formatStoredDate = (iso: string) => {
-    try {
-      return format(new Date(iso), 'dd MMM yyyy HH:mm', { locale: es });
-    } catch {
-      return '';
-    }
-  };
-
   const formatCurrency = (amount?: number, currency: string = 'CLP') => {
-    if (typeof amount !== 'number') return 'N/A';
-    return new Intl.NumberFormat('es-CL', {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: 0,
-    }).format(amount);
+    if (typeof amount !== 'number') return '';
+    if (amount >= 1_000_000_000) return `$${(amount / 1_000_000_000).toFixed(1)}B`;
+    if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
+    if (amount >= 1_000) return `$${(amount / 1_000).toFixed(0)}K`;
+    return new Intl.NumberFormat('es-CL', { style: 'currency', currency, minimumFractionDigits: 0 }).format(amount);
   };
 
   useEffect(() => {
@@ -186,12 +140,10 @@ export default function DashboardPage() {
       }
     });
 
-    // TODO: migrar a React Query
     apiClient.getBIOportunidades({ min_score: 0, limit: 1 })
       .then((res: any) => {
         if (res.disponible !== false && res.oportunidades?.length > 0) {
           const top = res.oportunidades[0];
-          setTopScore(top.opportunity_score ?? null);
           setTopOrganism(top.CodigoOrganismoPublico ?? null);
         }
         if (res.last_updated) setBiLastUpdated(res.last_updated);
@@ -206,14 +158,14 @@ export default function DashboardPage() {
           <div className="h-8 w-52 bg-border rounded-lg" />
           <div className="h-4 w-40 bg-border/60 rounded-lg" />
         </div>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-28 rounded-xl bg-surface border border-border shadow-card" />
+            <div key={i} className="h-24 rounded-xl bg-surface border border-border shadow-card" />
           ))}
         </div>
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           {[...Array(2)].map((_, i) => (
-            <div key={i} className="h-64 rounded-xl bg-surface border border-border shadow-card" />
+            <div key={i} className="h-48 rounded-xl bg-surface border border-border shadow-card" />
           ))}
         </div>
       </div>
@@ -221,8 +173,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6 animate-fade-in">
-      {/* ── Data freshness warning ── */}
+    <div className="space-y-4 sm:space-y-5 animate-fade-in">
       <DataFreshnessBar lastUpdated={biLastUpdated} />
 
       {error && (
@@ -234,8 +185,8 @@ export default function DashboardPage() {
       {/* Page header */}
       <div>
         <h1 className="page-title">Dashboard</h1>
-        <p className="mt-1 text-sm text-muted capitalize">
-          {format(new Date(), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}
+        <p className="mt-0.5 text-sm text-muted capitalize">
+          {format(new Date(), "EEEE d 'de' MMMM", { locale: es })}
         </p>
       </div>
 
@@ -256,7 +207,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── KPI Cards ── */}
+      {/* KPI Cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
         {kpiConfig.map((cfg, idx) => {
           const Icon = cfg.icon;
@@ -271,27 +222,22 @@ export default function DashboardPage() {
             >
               <div className="flex items-start justify-between mb-3">
                 <div className={`rounded-lg p-2.5 ${isUrgent ? 'bg-danger/10' : cfg.iconBg} transition-transform group-hover:scale-110`}>
-                  <Icon
-                    size={18}
-                    className={isUrgent ? 'text-danger' : cfg.iconColor}
-                    strokeWidth={2}
-                  />
+                  <Icon size={18} className={isUrgent ? 'text-danger' : cfg.iconColor} strokeWidth={2} />
                 </div>
                 <ArrowRight size={14} className="text-subtle opacity-0 group-hover:opacity-100 transition-opacity mt-1" />
               </div>
               <p className="text-[11px] font-semibold uppercase tracking-wider text-muted mb-1">
                 {cfg.title}
               </p>
-              <p className={`font-display text-3xl font-bold leading-none ${isUrgent ? 'text-danger' : 'text-text'}`}>
-                {value}
+              <p className={`font-display text-2xl font-bold leading-none ${isUrgent ? 'text-danger' : 'text-text'}`}>
+                {value.toLocaleString()}
               </p>
             </button>
           );
         })}
-
       </div>
 
-      {/* ── Estado Hábil Banner ── */}
+      {/* Estado Hábil Banner */}
       {estadoHabil && (
         <div className={`rounded-xl border p-4 ${
           estadoHabil.estado_habil === 'habil'
@@ -337,403 +283,161 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── Collections ── */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        {/* Órdenes de Compra */}
-        <CollectionCard
-          title="Órdenes de Compra"
-          savedCount={counts.orders.saved}
-          appliedCount={counts.orders.applied}
-          savedItems={collections.orders.saved}
-          appliedItems={collections.orders.applied}
-          hydrated={hydrated}
-          expandedSaved={expandedSections.orders.saved}
-          expandedApplied={expandedSections.orders.applied}
-          onToggleSaved={() =>
-            setExpandedSections((prev) => ({
-              ...prev,
-              orders: { ...prev.orders, saved: !prev.orders.saved },
-            }))
-          }
-          onToggleApplied={() =>
-            setExpandedSections((prev) => ({
-              ...prev,
-              orders: { ...prev.orders, applied: !prev.orders.applied },
-            }))
-          }
-          onRemoveSaved={(item) => toggleOrder('saved', item)}
-          onRemoveApplied={(item) => toggleOrder('applied', item)}
-          renderItem={(item, type) => (
-            <div className="rounded-lg border border-border bg-background p-3 transition-all hover:border-primary/25 hover:shadow-card-md">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <Link
-                    href={`/dashboard/orders/${encodeURIComponent(item.codigo_oc)}`}
-                    className={`text-sm font-semibold hover:underline underline-offset-2 transition-colors ${type === 'applied' ? 'text-accent' : 'text-primary'}`}
-                  >
-                    {normalizeText(item.nombre)}
-                  </Link>
-                  <p className="text-xs text-subtle mt-0.5">Código OC: {item.codigo_oc}</p>
-                </div>
-                <button
-                  type="button"
-                  className="shrink-0 rounded-md p-1.5 text-subtle hover:bg-danger/10 hover:text-danger transition-colors"
-                  onClick={() => type === 'saved' ? toggleOrder('saved', item) : toggleOrder('applied', item)}
-                >
-                  <Trash2 size={13} />
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-3 mt-2 text-xs text-muted">
-                {item.region && (
-                  <span className="flex items-center gap-1">
-                    <MapPin size={11} />{normalizeText(item.region)}
-                  </span>
-                )}
-                <span className="flex items-center gap-1">
-                  <DollarSign size={11} />{formatCurrency(item.monto_total, item.moneda || 'CLP')}
-                </span>
-                {item.nombre_proveedor && (
-                  <span className="flex items-center gap-1">
-                    <Building2 size={11} />{normalizeText(item.nombre_proveedor)}
-                  </span>
-                )}
-                <span className="flex items-center gap-1 text-subtle">
-                  <Calendar size={11} />{formatStoredDate(item.storedAt)}
-                </span>
-              </div>
-            </div>
-          )}
-        />
-
-        {/* Licitaciones */}
-        <CollectionCard
+      {/* Collections — compact table */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <CompactCollection
           title="Licitaciones"
-          savedCount={counts.tenders.saved}
-          appliedCount={counts.tenders.applied}
           savedItems={collections.tenders.saved}
           appliedItems={collections.tenders.applied}
           hydrated={hydrated}
-          expandedSaved={expandedSections.tenders.saved}
-          expandedApplied={expandedSections.tenders.applied}
-          onToggleSaved={() =>
-            setExpandedSections((prev) => ({
-              ...prev,
-              tenders: { ...prev.tenders, saved: !prev.tenders.saved },
-            }))
-          }
-          onToggleApplied={() =>
-            setExpandedSections((prev) => ({
-              ...prev,
-              tenders: { ...prev.tenders, applied: !prev.tenders.applied },
-            }))
-          }
-          onRemoveSaved={(item) => toggleTender('saved', item)}
-          onRemoveApplied={(item) => toggleTender('applied', item)}
-          renderItem={(item, type) => (
-            <div className="rounded-lg border border-border bg-background p-3 transition-all hover:border-primary/25 hover:shadow-card-md">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <Link
-                    href={item.codigo_externo ? `/dashboard/tenders/${encodeURIComponent(item.codigo_externo)}` : '#'}
-                    className={`text-sm font-semibold hover:underline underline-offset-2 transition-colors ${type === 'applied' ? 'text-accent' : 'text-primary'}`}
-                  >
-                    {normalizeText(item.nombre)}
-                  </Link>
-                  <p className="text-xs text-subtle mt-0.5">Código: {item.codigo_externo}</p>
-                </div>
-                <button
-                  type="button"
-                  className="shrink-0 rounded-md p-1.5 text-subtle hover:bg-danger/10 hover:text-danger transition-colors"
-                  onClick={() => type === 'saved' ? toggleTender('saved', item) : toggleTender('applied', item)}
-                >
-                  <Trash2 size={13} />
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-3 mt-2 text-xs text-muted">
-                {item.region && (
-                  <span className="flex items-center gap-1">
-                    <MapPin size={11} />{normalizeText(item.region)}
-                  </span>
-                )}
-                {typeof item.monto_estimado === 'number' && (
-                  <span className="flex items-center gap-1">
-                    <DollarSign size={11} />{formatCurrency(item.monto_estimado)}
-                  </span>
-                )}
-                <span className="flex items-center gap-1 text-subtle">
-                  <Calendar size={11} />{formatStoredDate(item.storedAt)}
-                </span>
-              </div>
-            </div>
-          )}
+          onRemove={(item, type) => toggleTender(type, item)}
+          getHref={(item) => item.codigo_externo ? `/dashboard/tenders/${encodeURIComponent(item.codigo_externo)}` : '#'}
+          getName={(item) => normalizeText(item.nombre)}
+          getDetail={(item) => formatCurrency(item.monto_estimado)}
+          getCode={(item) => item.codigo_externo}
+        />
+        <CompactCollection
+          title="Órdenes de Compra"
+          savedItems={collections.orders.saved}
+          appliedItems={collections.orders.applied}
+          hydrated={hydrated}
+          onRemove={(item, type) => toggleOrder(type, item)}
+          getHref={(item) => `/dashboard/orders/${encodeURIComponent(item.codigo_oc)}`}
+          getName={(item) => normalizeText(item.nombre)}
+          getDetail={(item) => formatCurrency(item.monto_total, item.moneda || 'CLP')}
+          getCode={(item) => item.codigo_oc}
         />
       </div>
 
-      {/* ── Top BI Opportunities ── */}
+      {/* Top BI Opportunities */}
       <TopOpportunities />
 
-      {/* ── BI Mini Charts ── */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      {/* BI Mini Charts */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <MiniTrendChart />
         <MiniActivityBars organismoId={topOrganism} />
-      </div>
-
-      {/* ── Charts ── */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="section-title">Guardados</h2>
-              <p className="text-xs text-muted mt-0.5">Total de items guardados por tipo</p>
-            </div>
-            <div className="rounded-lg bg-primary/10 p-2">
-              <Bookmark size={16} className="text-primary" />
-            </div>
-          </div>
-          <div className="h-48">
-            {!hydrated ? (
-              <div className="flex h-full items-center justify-center text-sm text-muted">
-                Cargando datos…
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={savedChartData} barSize={40}>
-                  <CartesianGrid stroke="#1A1F2C" strokeDasharray="3 3" vertical={false} />
-                  <XAxis
-                    dataKey="name"
-                    stroke="transparent"
-                    tick={{ fill: '#94A3B8', fontSize: 12, fontFamily: 'var(--font-dm-sans)' }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    allowDecimals={false}
-                    stroke="transparent"
-                    tick={{ fill: '#94A3B8', fontSize: 12, fontFamily: 'var(--font-dm-sans)' }}
-                    axisLine={false}
-                    tickLine={false}
-                    width={30}
-                  />
-                  <Tooltip
-                    formatter={(value: number) => [`${value}`, 'Total']}
-                    cursor={{ fill: 'rgba(0, 200, 150, 0.05)', radius: 6 }}
-                    contentStyle={{
-                      borderRadius: '10px',
-                      border: '1px solid #1A1F2C',
-                      background: '#0F1117',
-                      boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
-                      fontFamily: 'var(--font-dm-sans)',
-                      fontSize: '13px',
-                      color: '#E2E8F0',
-                    }}
-                  />
-                  <Bar dataKey="value" fill="#00C896" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="section-title">Aplicados</h2>
-              <p className="text-xs text-muted mt-0.5">Total de items con postulación enviada</p>
-            </div>
-            <div className="rounded-lg bg-accent/10 p-2">
-              <TrendingUp size={16} className="text-accent" />
-            </div>
-          </div>
-          <div className="h-48">
-            {!hydrated ? (
-              <div className="flex h-full items-center justify-center text-sm text-muted">
-                Cargando datos…
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={appliedChartData} barSize={40}>
-                  <CartesianGrid stroke="#1A1F2C" strokeDasharray="3 3" vertical={false} />
-                  <XAxis
-                    dataKey="name"
-                    stroke="transparent"
-                    tick={{ fill: '#94A3B8', fontSize: 12, fontFamily: 'var(--font-dm-sans)' }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    allowDecimals={false}
-                    stroke="transparent"
-                    tick={{ fill: '#94A3B8', fontSize: 12, fontFamily: 'var(--font-dm-sans)' }}
-                    axisLine={false}
-                    tickLine={false}
-                    width={30}
-                  />
-                  <Tooltip
-                    formatter={(value: number) => [`${value}`, 'Total']}
-                    cursor={{ fill: 'rgba(0, 200, 150, 0.05)', radius: 6 }}
-                    contentStyle={{
-                      borderRadius: '10px',
-                      border: '1px solid #1A1F2C',
-                      background: '#0F1117',
-                      boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
-                      fontFamily: 'var(--font-dm-sans)',
-                      fontSize: '13px',
-                      color: '#E2E8F0',
-                    }}
-                  />
-                  <Bar dataKey="value" fill="#00C896" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
       </div>
     </div>
   );
 }
 
 /* ──────────────────────────────────────────────
-   Collection Card component
+   Compact Collection — tab-based, always visible
 ────────────────────────────────────────────── */
-interface CollectionCardProps {
-  title: string;
-  savedCount: number;
-  appliedCount: number;
-  savedItems: any[];
-  appliedItems: any[];
-  hydrated: boolean;
-  expandedSaved: boolean;
-  expandedApplied: boolean;
-  onToggleSaved: () => void;
-  onToggleApplied: () => void;
-  onRemoveSaved: (item: any) => void;
-  onRemoveApplied: (item: any) => void;
-  renderItem: (item: any, type: 'saved' | 'applied') => React.ReactNode;
-}
-
-function CollectionCard({
+function CompactCollection({
   title,
-  savedCount,
-  appliedCount,
   savedItems,
   appliedItems,
   hydrated,
-  expandedSaved,
-  expandedApplied,
-  onToggleSaved,
-  onToggleApplied,
-  renderItem,
-}: CollectionCardProps) {
+  onRemove,
+  getHref,
+  getName,
+  getDetail,
+  getCode,
+}: {
+  title: string;
+  savedItems: any[];
+  appliedItems: any[];
+  hydrated: boolean;
+  onRemove: (item: any, type: 'saved' | 'applied') => void;
+  getHref: (item: any) => string;
+  getName: (item: any) => string;
+  getDetail: (item: any) => string;
+  getCode: (item: any) => string;
+}) {
+  const [tab, setTab] = useState<'saved' | 'applied'>('saved');
+  const items = tab === 'saved' ? savedItems : appliedItems;
+
   return (
-    <div className="card space-y-3">
-      <div className="flex items-center justify-between pb-3 border-b border-borderLight">
-        <h3 className="section-title">{title}</h3>
-        <div className="flex gap-2">
-          <span className="badge-primary text-[11px]">
-            <Bookmark size={10} />
-            {savedCount}
+    <div className="card p-0 overflow-hidden">
+      {/* Header with tabs */}
+      <div className="flex items-center justify-between px-4 pt-3.5 pb-0">
+        <h3 className="text-sm font-semibold text-text">{title}</h3>
+      </div>
+      <div className="flex gap-0 px-4 mt-2 border-b border-border">
+        <button
+          type="button"
+          onClick={() => setTab('saved')}
+          className={`flex items-center gap-1.5 px-3 pb-2.5 text-xs font-medium border-b-2 transition-colors ${
+            tab === 'saved'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted hover:text-text'
+          }`}
+        >
+          <Bookmark size={12} />
+          Guardadas
+          <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${
+            tab === 'saved' ? 'bg-primary/10 text-primary' : 'bg-border text-muted'
+          }`}>
+            {savedItems.length}
           </span>
-          <span className="badge-accent text-[11px]">
-            <Send size={10} />
-            {appliedCount}
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('applied')}
+          className={`flex items-center gap-1.5 px-3 pb-2.5 text-xs font-medium border-b-2 transition-colors ${
+            tab === 'applied'
+              ? 'border-accent text-accent'
+              : 'border-transparent text-muted hover:text-text'
+          }`}
+        >
+          <Send size={12} />
+          Aplicadas
+          <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${
+            tab === 'applied' ? 'bg-accent/10 text-accent' : 'bg-border text-muted'
+          }`}>
+            {appliedItems.length}
           </span>
-        </div>
+        </button>
       </div>
 
-      {/* Saved */}
-      <CollectionSection
-        label="Guardadas"
-        count={savedItems.length}
-        icon={<Bookmark size={14} className="text-primary" />}
-        expanded={expandedSaved}
-        onToggle={onToggleSaved}
-        hydrated={hydrated}
-        items={savedItems}
-        emptyMessage="No hay items guardados aún."
-        renderItem={(item) => renderItem(item, 'saved')}
-        accentColor="primary"
-      />
-
-      {/* Applied */}
-      <CollectionSection
-        label="Aplicadas"
-        count={appliedItems.length}
-        icon={<Send size={14} className="text-accent" />}
-        expanded={expandedApplied}
-        onToggle={onToggleApplied}
-        hydrated={hydrated}
-        items={appliedItems}
-        emptyMessage="No hay items aplicados aún."
-        renderItem={(item) => renderItem(item, 'applied')}
-        accentColor="accent"
-      />
-    </div>
-  );
-}
-
-function CollectionSection({
-  label,
-  count,
-  icon,
-  expanded,
-  onToggle,
-  hydrated,
-  items,
-  emptyMessage,
-  renderItem,
-  accentColor,
-}: {
-  label: string;
-  count: number;
-  icon: React.ReactNode;
-  expanded: boolean;
-  onToggle: () => void;
-  hydrated: boolean;
-  items: any[];
-  emptyMessage: string;
-  renderItem: (item: any) => React.ReactNode;
-  accentColor: 'primary' | 'accent';
-}) {
-  return (
-    <div className="space-y-2">
-      <button
-        type="button"
-        onClick={onToggle}
-        className={`flex w-full items-center justify-between rounded-lg border px-3 py-2.5 transition-all ${
-          expanded
-            ? `border-${accentColor}/30 bg-${accentColor}/5`
-            : 'border-border bg-background hover:border-primary/20'
-        }`}
-      >
-        <div className="flex items-center gap-2">
-          {icon}
-          <span className="text-sm font-medium text-text">
-            {label} ({count})
-          </span>
-        </div>
-        {expanded ? (
-          <ChevronUp size={15} className="text-muted" />
+      {/* Items */}
+      <div className="max-h-64 overflow-y-auto scrollbar-thin">
+        {!hydrated ? (
+          <div className="px-4 py-6 text-center text-xs text-muted">Cargando...</div>
+        ) : items.length === 0 ? (
+          <div className="px-4 py-8 text-center">
+            <p className="text-xs text-muted">
+              {tab === 'saved' ? 'Sin items guardados' : 'Sin items aplicados'}
+            </p>
+          </div>
         ) : (
-          <ChevronDown size={15} className="text-muted" />
+          <div className="divide-y divide-border">
+            {items.map((item: any, i: number) => (
+              <div
+                key={item.id || i}
+                className="flex items-center gap-3 px-4 py-2.5 hover:bg-primary/3 transition-colors group"
+              >
+                <div className="flex-1 min-w-0">
+                  <Link
+                    href={getHref(item)}
+                    className="text-sm font-medium text-text truncate block hover:text-primary transition-colors leading-snug"
+                  >
+                    {getName(item)}
+                  </Link>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-[11px] text-subtle">{getCode(item)}</span>
+                    {getDetail(item) && (
+                      <>
+                        <span className="text-[11px] text-subtle">·</span>
+                        <span className="text-[11px] font-medium text-muted">{getDetail(item)}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onRemove(item, tab)}
+                  className="shrink-0 rounded-md p-1 text-subtle opacity-0 group-hover:opacity-100 hover:bg-danger/10 hover:text-danger transition-all"
+                  title="Quitar"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            ))}
+          </div>
         )}
-      </button>
-
-      {expanded && (
-        <div className="max-h-80 space-y-2 overflow-y-auto pl-1 pr-1 scrollbar-thin animate-slide-up">
-          {!hydrated ? (
-            <p className="text-sm text-muted px-2">Cargando datos locales…</p>
-          ) : items.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border bg-background p-6 text-center">
-              <div className="opacity-30">{icon}</div>
-              <p className="text-sm text-muted">{emptyMessage}</p>
-            </div>
-          ) : (
-            items.map((item, i) => (
-              <div key={item.id || i}>{renderItem(item)}</div>
-            ))
-          )}
-        </div>
-      )}
+      </div>
     </div>
   );
 }
