@@ -169,18 +169,13 @@ def run_etl_ordenes_compra_v2(fecha_desde: Optional[str] = None, fecha_hasta: Op
 
 def run_etl_extraer_detalles_nuevos_licitaciones(limit: Optional[int] = None) -> bool:
     """
-    Extract initial detailed information for licitaciones without detalle records
-    
-    Args:
-        limit: Maximum number of records to process
-    
-    Returns:
-        True if successful
+    Extract initial detailed information for ACTIVE licitaciones without detalle records.
+    Only fetches detail for licitaciones in active states (Publicada).
     """
     logger.info("=" * 60)
-    logger.info("Extracting initial detailed info for NEW licitaciones")
+    logger.info("Extracting initial detailed info for ACTIVE licitaciones")
     logger.info("=" * 60)
-    
+
     try:
         extractor_config = {
             "MERCADO_PUBLICO_URL": config.MERCADO_PUBLICO_URL,
@@ -188,20 +183,19 @@ def run_etl_extraer_detalles_nuevos_licitaciones(limit: Optional[int] = None) ->
             "MAX_RETRIES": config.MAX_RETRIES,
             "RETRY_DELAY": config.RETRY_DELAY
         }
-        
+
         extractor = MercadoPublicoLicitacionesExtractor(extractor_config)
         loader = DatabaseLoaderV2({"DATABASE_URL": config.DATABASE_URL})
-        
-        # Query licitaciones without detalle
+
         loader.connect()
-        registros_sin_detalle = loader.query_licitaciones_sin_detalle(limit=limit)
-        
+        registros_sin_detalle = loader.query_licitaciones_para_detalle(limit=limit)
+
         if not registros_sin_detalle:
-            logger.info("No licitaciones found without detailed info")
+            logger.info("No active licitaciones found needing detail extraction")
             loader.disconnect()
             return True
-        
-        logger.info(f"Found {len(registros_sin_detalle)} licitaciones without detailed info")
+
+        logger.info(f"Found {len(registros_sin_detalle)} active licitaciones needing detail")
         
         # Extract and load details for each
         success_count = 0
@@ -265,18 +259,15 @@ def run_etl_extraer_detalles_nuevos_licitaciones(limit: Optional[int] = None) ->
 
 def run_etl_extraer_detalles_nuevos_ordenes(limit: Optional[int] = None) -> bool:
     """
-    Extract initial detailed information for órdenes without detalle records
-    
-    Args:
-        limit: Maximum number of records to process
-    
-    Returns:
-        True if successful
+    Extract initial detailed information for ACTIVE or potentially-active órdenes
+    without detalle records. Filters by:
+    - Known active estado (Enviada a proveedor, En proceso)
+    - Potentially active: recent records with CodigoEstado 4 or 5
     """
     logger.info("=" * 60)
-    logger.info("Extracting initial detailed info for NEW órdenes de compra")
+    logger.info("Extracting initial detailed info for ACTIVE órdenes de compra")
     logger.info("=" * 60)
-    
+
     try:
         extractor_config = {
             "MERCADO_PUBLICO_URL": config.MERCADO_PUBLICO_URL,
@@ -284,20 +275,19 @@ def run_etl_extraer_detalles_nuevos_ordenes(limit: Optional[int] = None) -> bool
             "MAX_RETRIES": config.MAX_RETRIES,
             "RETRY_DELAY": config.RETRY_DELAY
         }
-        
+
         extractor = MercadoPublicoOrdenesExtractor(extractor_config)
         loader = DatabaseLoaderV2({"DATABASE_URL": config.DATABASE_URL})
-        
-        # Query órdenes without detalle
+
         loader.connect()
-        registros_sin_detalle = loader.query_ordenes_sin_detalle(limit=limit)
-        
+        registros_sin_detalle = loader.query_ordenes_para_detalle(limit=limit)
+
         if not registros_sin_detalle:
-            logger.info("No órdenes found without detailed info")
+            logger.info("No active órdenes found needing detail extraction")
             loader.disconnect()
             return True
-        
-        logger.info(f"Found {len(registros_sin_detalle)} órdenes without detailed info")
+
+        logger.info(f"Found {len(registros_sin_detalle)} active/potentially-active órdenes needing detail")
         
         # Extract and load details for each
         success_count = 0
@@ -360,25 +350,18 @@ def run_etl_extraer_detalles_nuevos_ordenes(limit: Optional[int] = None) -> bool
 
 
 def run_etl_actualizar_detalles_licitaciones(
-    dias_sin_actualizar: int = 7,
-    solo_activos: bool = True,
-    limit: Optional[int] = None
+    dias_sin_actualizar: int = 1,
+    limit: Optional[int] = None,
+    **_kwargs,
 ) -> bool:
     """
-    Update existing detailed information and detect changes for licitaciones
-    
-    Args:
-        dias_sin_actualizar: Days since last update to trigger refresh
-        solo_activos: Only update records not in final states
-        limit: Maximum number of records to process
-    
-    Returns:
-        True if successful
+    Update existing detailed information and detect changes for active licitaciones.
+    Only updates records in active states (Publicada).
     """
     logger.info("=" * 60)
-    logger.info("Updating detailed info for EXISTING licitaciones")
+    logger.info("Updating detailed info for ACTIVE licitaciones")
     logger.info("=" * 60)
-    
+
     try:
         extractor_config = {
             "MERCADO_PUBLICO_URL": config.MERCADO_PUBLICO_URL,
@@ -386,17 +369,13 @@ def run_etl_actualizar_detalles_licitaciones(
             "MAX_RETRIES": config.MAX_RETRIES,
             "RETRY_DELAY": config.RETRY_DELAY
         }
-        
+
         extractor = MercadoPublicoLicitacionesExtractor(extractor_config)
         loader = DatabaseLoaderV2({"DATABASE_URL": config.DATABASE_URL})
-        
-        # Query licitaciones that need updating
+
         loader.connect()
-        
-        excluir_estados = ['Cerrada', 'Desierta', 'Adjudicada', 'Cancelada'] if solo_activos else None
         registros_actualizar = loader.query_licitaciones_para_actualizar(
             dias_sin_actualizar=dias_sin_actualizar,
-            excluir_estados_finales=excluir_estados,
             limit=limit
         )
         
@@ -475,25 +454,18 @@ def run_etl_actualizar_detalles_licitaciones(
 
 
 def run_etl_actualizar_detalles_ordenes(
-    dias_sin_actualizar: int = 7,
-    solo_activos: bool = True,
-    limit: Optional[int] = None
+    dias_sin_actualizar: int = 1,
+    limit: Optional[int] = None,
+    **_kwargs,
 ) -> bool:
     """
-    Update existing detailed information and detect changes for órdenes de compra
-    
-    Args:
-        dias_sin_actualizar: Days since last update to trigger refresh
-        solo_activos: Only update records not in final states
-        limit: Maximum number of records to process
-    
-    Returns:
-        True if successful
+    Update existing detailed information and detect changes for active órdenes de compra.
+    Only updates records in active states (Enviada a proveedor, En proceso).
     """
     logger.info("=" * 60)
-    logger.info("Updating detailed info for EXISTING órdenes de compra")
+    logger.info("Updating detailed info for ACTIVE órdenes de compra")
     logger.info("=" * 60)
-    
+
     try:
         extractor_config = {
             "MERCADO_PUBLICO_URL": config.MERCADO_PUBLICO_URL,
@@ -501,17 +473,13 @@ def run_etl_actualizar_detalles_ordenes(
             "MAX_RETRIES": config.MAX_RETRIES,
             "RETRY_DELAY": config.RETRY_DELAY
         }
-        
+
         extractor = MercadoPublicoOrdenesExtractor(extractor_config)
         loader = DatabaseLoaderV2({"DATABASE_URL": config.DATABASE_URL})
-        
-        # Query órdenes that need updating
+
         loader.connect()
-        
-        excluir_estados = ['Cerrada', 'Finalizada', 'Cancelada'] if solo_activos else None
         registros_actualizar = loader.query_ordenes_para_actualizar(
             dias_sin_actualizar=dias_sin_actualizar,
-            excluir_estados_finales=excluir_estados,
             limit=limit
         )
         
@@ -634,40 +602,32 @@ def run_etl_pipeline_v2(
         if not run_etl_ordenes_compra_v2(fecha_desde, fecha_hasta):
             success = False
     
-    # Step 2: Extract details for NEW records
+    # Step 2: Extract details for ACTIVE records without detalle
     if extract_detalles_nuevos and success:
         logger.info("\n" + "=" * 60)
-        logger.info("Step 2: Extracting details for NEW records")
+        logger.info("Step 2: Extracting details for ACTIVE records")
         logger.info("=" * 60)
-        
+
         if extract_licitaciones:
             if not run_etl_extraer_detalles_nuevos_licitaciones(limit=detalles_limit):
                 success = False
-        
+
         if extract_ordenes:
             if not run_etl_extraer_detalles_nuevos_ordenes(limit=detalles_limit):
                 success = False
-    
-    # Step 3: Update EXISTING details
+
+    # Step 3: Update EXISTING details for active records
     if actualizar_detalles and success:
         logger.info("\n" + "=" * 60)
-        logger.info("Step 3: Updating EXISTING details")
+        logger.info("Step 3: Updating EXISTING active details")
         logger.info("=" * 60)
-        
+
         if extract_licitaciones:
-            if not run_etl_actualizar_detalles_licitaciones(
-                dias_sin_actualizar=dias_sin_actualizar,
-                solo_activos=True,
-                limit=detalles_limit
-            ):
+            if not run_etl_actualizar_detalles_licitaciones(limit=detalles_limit):
                 success = False
-        
+
         if extract_ordenes:
-            if not run_etl_actualizar_detalles_ordenes(
-                dias_sin_actualizar=dias_sin_actualizar,
-                solo_activos=True,
-                limit=detalles_limit
-            ):
+            if not run_etl_actualizar_detalles_ordenes(limit=detalles_limit):
                 success = False
     
     if success:
@@ -741,20 +701,12 @@ def main():
         logger.info("")
         
         if not args.skip_licitaciones:
-            if not run_etl_actualizar_detalles_licitaciones(
-                dias_sin_actualizar=args.dias_sin_actualizar,
-                solo_activos=args.solo_activos,
-                limit=args.detalles_limit
-            ):
+            if not run_etl_actualizar_detalles_licitaciones(limit=args.detalles_limit):
                 success = False
             logger.info("")
-        
+
         if not args.skip_ordenes:
-            if not run_etl_actualizar_detalles_ordenes(
-                dias_sin_actualizar=args.dias_sin_actualizar,
-                solo_activos=args.solo_activos,
-                limit=args.detalles_limit
-            ):
+            if not run_etl_actualizar_detalles_ordenes(limit=args.detalles_limit):
                 success = False
         
         # Final summary

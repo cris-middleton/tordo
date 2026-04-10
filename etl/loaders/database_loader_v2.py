@@ -6,9 +6,10 @@ from __future__ import annotations
 import sys
 import os
 from typing import List, Dict, Any, Optional
-from sqlalchemy import create_engine, or_
+from sqlalchemy import create_engine, or_, text, func
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from datetime import datetime, timedelta
 from contextlib import contextmanager
 from etl.loaders.base import BaseLoader
@@ -117,67 +118,73 @@ class DatabaseLoaderV2(BaseLoader):
     
     def load_licitaciones(self, data: List[Dict[str, Any]]) -> int:
         """
-        Load licitaciones into basic table (daily snapshot data)
-        
-        Args:
-            data: List of transformed licitacion records
-            
-        Returns:
-            Number of records successfully loaded
+        Load licitaciones into basic table using bulk upsert (INSERT ... ON CONFLICT DO UPDATE).
+        Processes in batches to avoid PostgreSQL lock limits.
         """
         if not self.session:
             self.connect()
-        
-        loaded_count = 0
-        updated_count = 0
-        error_count = 0
-        new_record_ids = []
-        
-        for record in data:
+
+        BATCH_SIZE = 500
+        table = Licitacion.__table__
+        # Columns to update on conflict (exclude PK, unique key, and server-set timestamps)
+        skip_on_update = {'id', 'codigo_externo', 'fecha_extraccion'}
+        total_loaded = 0
+        total_updated = 0
+        total_errors = 0
+        all_new_ids = []
+
+        for batch_start in range(0, len(data), BATCH_SIZE):
+            batch = data[batch_start:batch_start + BATCH_SIZE]
+            batch_num = batch_start // BATCH_SIZE + 1
             try:
-                self.session.begin_nested()  # SAVEPOINT
-                existing = self.session.query(Licitacion).filter_by(
-                    codigo_externo=record.get("codigo_externo")
-                ).first()
+                # Identify which codes already exist so we can count new vs updated
+                codes = [r.get('codigo_externo') for r in batch]
+                existing_codes = set(
+                    row[0] for row in self.session.execute(
+                        text("SELECT codigo_externo FROM licitaciones WHERE codigo_externo = ANY(:codes)"),
+                        {'codes': codes}
+                    )
+                )
 
-                if existing:
-                    # Update existing record
-                    for key, value in record.items():
-                        if hasattr(existing, key):
-                            setattr(existing, key, value)
-                    updated_count += 1
-                else:
-                    # Create new record
-                    licitacion = Licitacion(**record)
-                    self.session.add(licitacion)
-                    self.session.flush()
-                    new_record_ids.append(licitacion.id)
-                    loaded_count += 1
+                stmt = pg_insert(table).values(batch)
+                update_dict = {
+                    col.name: stmt.excluded[col.name]
+                    for col in table.columns
+                    if col.name not in skip_on_update
+                }
+                update_dict['fecha_actualizacion'] = func.now()
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=['codigo_externo'],
+                    set_=update_dict
+                ).returning(table.c.id)
 
-            except IntegrityError as e:
-                self.session.rollback()  # Rolls back to savepoint
-                self.logger.warning(f"Integrity error loading licitacion {record.get('codigo_externo')}: {str(e)}")
-                error_count += 1
+                result = self.session.execute(stmt)
+                returned_ids = [row[0] for row in result]
+                self.session.commit()
+
+                new_count = sum(1 for r in batch if r.get('codigo_externo') not in existing_codes)
+                updated_count = len(batch) - new_count
+                total_loaded += new_count
+                total_updated += updated_count
+                # Collect IDs of new records for alert triggering
+                all_new_ids.extend(returned_ids[:new_count])
+
+                self.logger.info(
+                    f"Licitaciones batch {batch_num}: {new_count} new, {updated_count} updated"
+                    f" ({batch_start + len(batch)}/{len(data)})"
+                )
             except Exception as e:
-                self.session.rollback()  # Rolls back to savepoint
-                self.logger.error(f"Error loading licitacion {record.get('codigo_externo')}: {str(e)}")
-                error_count += 1
-        
-        try:
-            self.session.commit()
-            self.logger.info(
-                f"Licitaciones loaded: {loaded_count} new, {updated_count} updated, {error_count} errors"
-            )
-            
-            # Trigger alerts for new records (optional)
-            if new_record_ids:
-                self._trigger_licitacion_alerts(new_record_ids)
-        except Exception as e:
-            self.session.rollback()
-            self.logger.error(f"Failed to commit licitaciones: {str(e)}")
-            raise
-        
-        return loaded_count + updated_count
+                self.session.rollback()
+                self.logger.error(f"Error in licitaciones batch {batch_num}: {str(e)}", exc_info=True)
+                total_errors += len(batch)
+
+        self.logger.info(
+            f"Licitaciones loaded: {total_loaded} new, {total_updated} updated, {total_errors} errors"
+        )
+        if all_new_ids:
+            self._trigger_licitacion_alerts(all_new_ids)
+
+        return total_loaded + total_updated
     
     def load_licitacion_detalle_inicial(self, licitacion_id: int, codigo_externo: str, datos_api: Dict[str, Any]) -> Optional[int]:
         """
@@ -337,67 +344,73 @@ class DatabaseLoaderV2(BaseLoader):
     
     def load_ordenes_compra(self, data: List[Dict[str, Any]]) -> int:
         """
-        Load órdenes de compra into basic table (daily snapshot data)
-        
-        Args:
-            data: List of transformed orden de compra records
-            
-        Returns:
-            Number of records successfully loaded
+        Load órdenes de compra into basic table using bulk upsert (INSERT ... ON CONFLICT DO UPDATE).
+        Processes in batches to avoid PostgreSQL lock limits.
         """
         if not self.session:
             self.connect()
-        
-        loaded_count = 0
-        updated_count = 0
-        error_count = 0
-        new_record_ids = []
-        
-        for record in data:
+
+        BATCH_SIZE = 500
+        table = OrdenCompra.__table__
+        # Columns to update on conflict (exclude PK, unique key, and server-set timestamps)
+        skip_on_update = {'id', 'codigo_oc', 'fecha_extraccion'}
+        total_loaded = 0
+        total_updated = 0
+        total_errors = 0
+        all_new_ids = []
+
+        for batch_start in range(0, len(data), BATCH_SIZE):
+            batch = data[batch_start:batch_start + BATCH_SIZE]
+            batch_num = batch_start // BATCH_SIZE + 1
             try:
-                self.session.begin_nested()  # SAVEPOINT
-                existing = self.session.query(OrdenCompra).filter_by(
-                    codigo_oc=record.get("codigo_oc")
-                ).first()
+                # Identify which codes already exist so we can count new vs updated
+                codes = [r.get('codigo_oc') for r in batch]
+                existing_codes = set(
+                    row[0] for row in self.session.execute(
+                        text("SELECT codigo_oc FROM ordenes_compra WHERE codigo_oc = ANY(:codes)"),
+                        {'codes': codes}
+                    )
+                )
 
-                if existing:
-                    # Update existing record
-                    for key, value in record.items():
-                        if hasattr(existing, key):
-                            setattr(existing, key, value)
-                    updated_count += 1
-                else:
-                    # Create new record
-                    orden = OrdenCompra(**record)
-                    self.session.add(orden)
-                    self.session.flush()
-                    new_record_ids.append(orden.id)
-                    loaded_count += 1
+                stmt = pg_insert(table).values(batch)
+                update_dict = {
+                    col.name: stmt.excluded[col.name]
+                    for col in table.columns
+                    if col.name not in skip_on_update
+                }
+                update_dict['fecha_actualizacion'] = func.now()
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=['codigo_oc'],
+                    set_=update_dict
+                ).returning(table.c.id)
 
-            except IntegrityError as e:
-                self.session.rollback()  # Rolls back to savepoint
-                self.logger.warning(f"Integrity error loading orden {record.get('codigo_oc')}: {str(e)}")
-                error_count += 1
+                result = self.session.execute(stmt)
+                returned_ids = [row[0] for row in result]
+                self.session.commit()
+
+                new_count = sum(1 for r in batch if r.get('codigo_oc') not in existing_codes)
+                updated_count = len(batch) - new_count
+                total_loaded += new_count
+                total_updated += updated_count
+                # Collect IDs of new records for alert triggering
+                all_new_ids.extend(returned_ids[:new_count])
+
+                self.logger.info(
+                    f"Órdenes batch {batch_num}: {new_count} new, {updated_count} updated"
+                    f" ({batch_start + len(batch)}/{len(data)})"
+                )
             except Exception as e:
-                self.session.rollback()  # Rolls back to savepoint
-                self.logger.error(f"Error loading orden {record.get('codigo_oc')}: {str(e)}")
-                error_count += 1
-        
-        try:
-            self.session.commit()
-            self.logger.info(
-                f"Órdenes de compra loaded: {loaded_count} new, {updated_count} updated, {error_count} errors"
-            )
-            
-            # Trigger alerts for new records (optional)
-            if new_record_ids:
-                self._trigger_orden_compra_alerts(new_record_ids)
-        except Exception as e:
-            self.session.rollback()
-            self.logger.error(f"Failed to commit órdenes de compra: {str(e)}")
-            raise
-        
-        return loaded_count + updated_count
+                self.session.rollback()
+                self.logger.error(f"Error in órdenes batch {batch_num}: {str(e)}", exc_info=True)
+                total_errors += len(batch)
+
+        self.logger.info(
+            f"Órdenes de compra loaded: {total_loaded} new, {total_updated} updated, {total_errors} errors"
+        )
+        if all_new_ids:
+            self._trigger_orden_compra_alerts(all_new_ids)
+
+        return total_loaded + total_updated
     
     def load_orden_compra_detalle_inicial(self, orden_compra_id: int, codigo_oc: str, datos_api: Dict[str, Any]) -> Optional[int]:
         """
@@ -738,64 +751,97 @@ class DatabaseLoaderV2(BaseLoader):
             self.logger.error(f"Error updating detalle for {codigo_oc}: {str(e)}")
             return False
     
-    def query_licitaciones_sin_detalle(self, limit: Optional[int] = None) -> List[tuple]:
+    # ── Active-state queries for detail fetching ──────────────────────────
+
+    # Licitaciones: clean 1:1 CodigoEstado mapping, so estado is always populated.
+    # Only "Publicada" can still change.
+    LICITACION_ESTADOS_ACTIVOS = ['Publicada']
+
+    # Órdenes de compra: text estado only comes from the detail API.
+    # These are the non-terminal states worth tracking.
+    OC_ESTADOS_ACTIVOS = ['Enviada a proveedor', 'En proceso']
+    # CodigoEstado values that *might* contain active OCs (for first-time detail fetch)
+    OC_CODIGO_ESTADO_POTENCIALMENTE_ACTIVOS = ['4', '5']
+
+    def query_licitaciones_para_detalle(self, limit: Optional[int] = None) -> List[tuple]:
         """
-        Query licitaciones that don't have detalle records yet
-        
+        Query licitaciones that need detail fetching:
+        - Active estado ("Publicada") without detalle yet
+
         Returns:
             List of tuples (id, codigo_externo)
         """
         if not self.session:
             self.connect()
-        
+
         query = self.session.query(Licitacion.id, Licitacion.codigo_externo)\
             .outerjoin(LicitacionDetalle, Licitacion.id == LicitacionDetalle.licitacion_id)\
-            .filter(LicitacionDetalle.id.is_(None))
-        
+            .filter(LicitacionDetalle.id.is_(None))\
+            .filter(Licitacion.estado.in_(self.LICITACION_ESTADOS_ACTIVOS))
+
         if limit:
             query = query.limit(limit)
-        
+
         return query.all()
-    
-    def query_ordenes_sin_detalle(self, limit: Optional[int] = None) -> List[tuple]:
+
+    def query_ordenes_para_detalle(self, limit: Optional[int] = None) -> List[tuple]:
         """
-        Query órdenes de compra that don't have detalle records yet
-        
+        Query órdenes de compra that need detail fetching:
+        1. Known active: text estado IN ('Enviada a proveedor', 'En proceso') without detalle
+        2. Potentially active: estado IS NULL, CodigoEstado IN (4, 5), extracted recently
+           (these need one detail fetch to determine their real text estado)
+
         Returns:
             List of tuples (id, codigo_oc)
         """
         if not self.session:
             self.connect()
-        
-        query = self.session.query(OrdenCompra.id, OrdenCompra.codigo_oc)\
+
+        cutoff = now_santiago() - timedelta(days=3)
+
+        # Known active by text estado
+        known_active = self.session.query(OrdenCompra.id, OrdenCompra.codigo_oc)\
             .outerjoin(OrdenCompraDetalle, OrdenCompra.id == OrdenCompraDetalle.orden_compra_id)\
-            .filter(OrdenCompraDetalle.id.is_(None))
-        
+            .filter(OrdenCompraDetalle.id.is_(None))\
+            .filter(OrdenCompra.estado.in_(self.OC_ESTADOS_ACTIVOS))
+
+        # Potentially active: new records with null estado and CodigoEstado 4 or 5
+        # informacion_adicional is JSON (not JSONB), so use ->> operator via text()
+        potentially_active = self.session.query(OrdenCompra.id, OrdenCompra.codigo_oc)\
+            .outerjoin(OrdenCompraDetalle, OrdenCompra.id == OrdenCompraDetalle.orden_compra_id)\
+            .filter(OrdenCompraDetalle.id.is_(None))\
+            .filter(OrdenCompra.estado.is_(None))\
+            .filter(OrdenCompra.fecha_extraccion >= cutoff)\
+            .filter(
+                text("informacion_adicional->>'CodigoEstado' IN :codes").bindparams(
+                    codes=tuple(self.OC_CODIGO_ESTADO_POTENCIALMENTE_ACTIVOS)
+                )
+            )
+
+        query = known_active.union(potentially_active)
+
         if limit:
             query = query.limit(limit)
-        
+
         return query.all()
     
     def query_licitaciones_para_actualizar(
         self,
-        dias_sin_actualizar: int = 7,
-        excluir_estados_finales: List[str] = None,
+        dias_sin_actualizar: int = 1,
         limit: Optional[int] = None
     ) -> List[tuple]:
         """
-        Query licitaciones that need updating
-        
+        Query licitaciones with detalle that need updating.
+        Only returns records in active states (Publicada).
+
         Returns:
             List of tuples (id, codigo_externo, detalle_id)
         """
         if not self.session:
             self.connect()
-        
-        if excluir_estados_finales is None:
-            excluir_estados_finales = ['Cerrada', 'Desierta', 'Adjudicada', 'Cancelada']
-        
+
         fecha_limite = now_santiago() - timedelta(days=dias_sin_actualizar)
-        
+
         query = self.session.query(
             Licitacion.id,
             Licitacion.codigo_externo,
@@ -807,41 +853,37 @@ class DatabaseLoaderV2(BaseLoader):
                     LicitacionDetalle.fecha_ultima_actualizacion < fecha_limite,
                     LicitacionDetalle.fecha_ultima_actualizacion.is_(None)
                 )
-            )
-        
-        if excluir_estados_finales:
-            query = query.filter(
+            )\
+            .filter(
                 or_(
-                    LicitacionDetalle.estado_actual.notin_(excluir_estados_finales),
-                    LicitacionDetalle.estado_actual.is_(None)
+                    Licitacion.estado.in_(self.LICITACION_ESTADOS_ACTIVOS),
+                    LicitacionDetalle.estado_actual.in_(self.LICITACION_ESTADOS_ACTIVOS),
                 )
             )
-        
+
         if limit:
             query = query.limit(limit)
-        
+
         return query.all()
-    
+
     def query_ordenes_para_actualizar(
         self,
-        dias_sin_actualizar: int = 7,
-        excluir_estados_finales: List[str] = None,
+        dias_sin_actualizar: int = 1,
         limit: Optional[int] = None
     ) -> List[tuple]:
         """
-        Query órdenes de compra that need updating
-        
+        Query órdenes de compra with detalle that need updating.
+        Only returns records in active states (Enviada a proveedor, En proceso).
+
         Returns:
             List of tuples (id, codigo_oc, detalle_id)
         """
         if not self.session:
             self.connect()
-        
-        if excluir_estados_finales is None:
-            excluir_estados_finales = ['Cerrada', 'Finalizada', 'Cancelada']
-        
+
+        OC_ESTADOS_FINALES = ['Aceptada', 'Recepción Conforme', 'Cancelada', 'No aceptada']
         fecha_limite = now_santiago() - timedelta(days=dias_sin_actualizar)
-        
+
         query = self.session.query(
             OrdenCompra.id,
             OrdenCompra.codigo_oc,
@@ -853,19 +895,12 @@ class DatabaseLoaderV2(BaseLoader):
                     OrdenCompraDetalle.fecha_ultima_actualizacion < fecha_limite,
                     OrdenCompraDetalle.fecha_ultima_actualizacion.is_(None)
                 )
-            )
-        
-        if excluir_estados_finales:
-            query = query.filter(
-                or_(
-                    OrdenCompraDetalle.estado_actual.notin_(excluir_estados_finales),
-                    OrdenCompraDetalle.estado_actual.is_(None)
-                )
-            )
-        
+            )\
+            .filter(OrdenCompraDetalle.estado_actual.notin_(OC_ESTADOS_FINALES))
+
         if limit:
             query = query.limit(limit)
-        
+
         return query.all()
     
     def _trigger_licitacion_alerts(self, licitacion_ids: List[int]):

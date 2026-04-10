@@ -10,7 +10,17 @@ from etl.transformers.base import BaseTransformer
 
 class LicitacionTransformer(BaseTransformer):
     """Transform Licitaciones data from API format to database schema"""
-    
+
+    # Mercado Público CodigoEstado → text mapping for licitaciones
+    ESTADO_MAP = {
+        "5": "Publicada",
+        "6": "Cerrada",
+        "7": "Desierta",
+        "8": "Adjudicada",
+        "15": "Revocada",
+        "16": "Suspendida",
+    }
+
     def _parse_date(self, date_str: Any) -> Any:
         """Parse date string to datetime object"""
         if not date_str:
@@ -134,7 +144,10 @@ class LicitacionTransformer(BaseTransformer):
             "monto_total": monto_total,
             "moneda": data.get("Moneda") or data.get("moneda") or "CLP",
             "tipo_moneda": data.get("TipoMoneda") or data.get("tipoMoneda") or "CLP",
-            "estado": data.get("Estado") or data.get("estado") or data.get("EstadoPublicacion"),
+            "estado": (
+                data.get("Estado") or data.get("estado") or data.get("EstadoPublicacion")
+                or self.ESTADO_MAP.get(str(data.get("CodigoEstado", "")))
+            ),
             "tipo_licitacion": data.get("TipoLicitacion") or data.get("tipoLicitacion") or data.get("Tipo"),
             "codigo_organismo": codigo_organismo,
             "nombre_organismo": nombre_organismo,
