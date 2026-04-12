@@ -31,6 +31,7 @@ from app.schemas.bi import (
     OportunidadesResponse,
     PerfilMatchResponse,
     PrecioResponse,
+    RubrosResponse,
     SectorResponse,
     TendenciaResponse,
     TFIDFPerfilResponse,
@@ -552,6 +553,26 @@ async def update_tfidf_perfil(
         actualizado_en=perfil.updated_at.isoformat() if perfil.updated_at else None,
         tiene_vector=True,
     )
+
+
+@router.get(
+    "/rubros",
+    response_model=RubrosResponse,
+    summary="Lista de rubros estandarizados de ChileCompra (RubroN2)",
+    description=(
+        "Retorna los rubros RubroN2 de la taxonomía oficial de ChileCompra, "
+        "ordenados por frecuencia de oportunidades. Usar para el selector de rubros en la UI."
+    ),
+)
+def get_rubros(
+    limit: int = Query(354, ge=1, le=500),
+    current_user: User = Depends(get_current_active_user),
+):
+    _require_analytics()
+    from app.services import bi_service
+
+    result = bi_service.get_rubros(limit=limit)
+    return result
 
 
 @router.get(

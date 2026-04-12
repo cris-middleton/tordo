@@ -201,6 +201,12 @@ class ClustersResponse(BaseModel):
     motivo: Optional[str] = None
 
 
+class RubrosResponse(BaseModel):
+    disponible: bool
+    rubros: Optional[list[str]] = None
+    total: Optional[int] = None
+
+
 class TFIDFPerfilResponse(BaseModel):
     empresa_id: str
     rubros_usados: Optional[list[str]] = None

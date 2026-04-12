@@ -67,8 +67,8 @@ class ApiClient {
     return res.data;
   }
 
-  async getCurrentUser() {
-    const res = await this.client.get('/api/auth/me');
+  async getCurrentUser(signal?: AbortSignal) {
+    const res = await this.client.get('/api/auth/me', { signal });
     return res.data;
   }
 
@@ -314,6 +314,11 @@ class ApiClient {
 
   async getBIDescuento(params: Record<string, unknown> = {}) {
     const res = await this.client.get('/api/bi/descuento', { params });
+    return res.data;
+  }
+
+  async getBIRubros(limit: number = 354) {
+    const res = await this.client.get('/api/bi/rubros', { params: { limit } });
     return res.data;
   }
 

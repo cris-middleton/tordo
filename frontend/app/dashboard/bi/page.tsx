@@ -8,7 +8,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   OportunidadItem,
   TendenciaItem,
-  ClusterItem,
   TFIDFPerfilData,
   PlanTier,
   isPaidPlan,
@@ -52,7 +51,7 @@ export default function BIPage() {
   // ── Empresa / perfil state ─────────────────────────────────────────────────
   const [firstEmpresaId, setFirstEmpresaId] = useState<string | null>(null);
   const [perfil, setPerfil] = useState<TFIDFPerfilData | null>(null);
-  const [clusters, setClusters] = useState<ClusterItem[]>([]);
+  const [allRubros, setAllRubros] = useState<string[]>([]);
 
   // ── Rubro state ────────────────────────────────────────────────────────────
   const [availableRubros, setAvailableRubros] = useState<string[]>([]);
@@ -199,9 +198,9 @@ export default function BIPage() {
 
     init();
 
-    // Load clusters for edit modal non-blocking
-    apiClient.getBIClusters(100)
-      .then((res: any) => { if (res.disponible) setClusters(res.clusters ?? []); })
+    // Load standardized ChileCompra rubros for edit modal non-blocking
+    apiClient.getBIRubros()
+      .then((res: any) => { if (res.disponible) setAllRubros(res.rubros ?? []); })
       .catch(() => {});
 
     return () => { cancelled = true; };
@@ -246,7 +245,7 @@ export default function BIPage() {
         selectedRubro={selectedRubro}
         onRubroChange={handleRubroChange}
         plan={plan}
-        clusters={clusters}
+        allRubros={allRubros}
         perfil={perfil}
         empresaId={firstEmpresaId}
         onSavePerfil={handleSavePerfil}

@@ -767,3 +767,32 @@ def get_sector(
         "sectores": rows.select(cols).to_dicts(),
         "total": len(rows),
     }
+
+
+def get_rubros(limit: int = 354) -> dict:
+    """
+    Return the standardized RubroN2 list from ChileCompra taxonomy,
+    sorted by frequency (number of market opportunities) descending.
+    Excludes null / 'NA' entries.
+    """
+    df = _load("opportunity_scores.parquet")
+    if df is None:
+        return {"disponible": False, "motivo": "parquet no generado"}
+
+    rubros = (
+        df.filter(
+            df["RubroN2"].is_not_null() & (df["RubroN2"] != "NA") & (df["RubroN2"] != "")
+        )
+        .group_by("RubroN2")
+        .len()
+        .sort("len", descending=True)
+        .head(limit)
+        .get_column("RubroN2")
+        .to_list()
+    )
+
+    return {
+        "disponible": True,
+        "rubros": rubros,
+        "total": len(rubros),
+    }
