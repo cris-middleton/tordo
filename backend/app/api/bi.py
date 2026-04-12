@@ -517,18 +517,19 @@ async def update_tfidf_perfil(
         raise HTTPException(status_code=403, detail="Se requiere rol owner o admin")
 
     # Try to build TF-IDF vector — best-effort, don't block saving rubros if unavailable
-    vector_bytes: bytes | None = None
+    # Use b'' as placeholder to satisfy NOT NULL constraint when model is unavailable
+    vector_bytes: bytes = b''
     if tfidf_matcher.is_available():
         rubros_text = " ".join(body.rubros_usados)
         try:
             vector_bytes = tfidf_matcher.build_empresa_vector(rubros_text)
         except (ValueError, Exception):
-            pass  # Vector can be rebuilt later; rubros_usados is the primary data
+            pass  # Keep b'' placeholder; vector can be rebuilt later
 
     # Upsert TFIDFPerfil — always save rubros regardless of vector availability
     perfil = (await db.execute(select(TFIDFPerfil).where(TFIDFPerfil.empresa_id == empresa_id))).scalar_one_or_none()
     if perfil:
-        if vector_bytes is not None:
+        if vector_bytes:  # Only overwrite existing vector if we built a real one
             perfil.vector_bytes = vector_bytes
         perfil.rubros_usados = body.rubros_usados
         perfil.modelo_version = "v1"
