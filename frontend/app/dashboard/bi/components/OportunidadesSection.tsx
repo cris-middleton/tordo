@@ -188,12 +188,12 @@ export function OportunidadesSection({ oportunidades, loading }: OportunidadesSe
               <th className="px-4 py-2.5 text-xs font-medium text-muted">Organismo</th>
               <th className="px-4 py-2.5 text-xs font-medium text-muted">Rubro</th>
               <th className="px-4 py-2.5 text-xs font-medium text-muted w-40 whitespace-nowrap">
-                <span
-                  title="Score 0-10 que combina volumen de compras, nivel de competencia, estacionalidad y tendencia de crecimiento. Mayor score = mejor oportunidad."
-                  className="cursor-help border-b border-dashed border-muted/50 inline-flex items-center gap-1"
-                >
+                <span className="group relative inline-flex items-center gap-1 cursor-help">
                   Score de oportunidad
                   <span className="text-muted/60 font-normal">ℹ</span>
+                  <span className="pointer-events-none absolute bottom-full left-0 mb-1.5 w-64 rounded-lg border border-border bg-surface px-3 py-2 text-xs text-text shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 font-normal leading-relaxed">
+                    Score 0–10 que combina volumen de compras, nivel de competencia, estacionalidad y tendencia de crecimiento. Mayor score = mejor oportunidad.
+                  </span>
                 </span>
               </th>
               <th className="px-4 py-2.5 text-xs font-medium text-muted">Transacciones históricas</th>
@@ -211,7 +211,19 @@ export function OportunidadesSection({ oportunidades, loading }: OportunidadesSe
                     className="border-b border-border last:border-0 hover:bg-primary/5 cursor-pointer"
                     onClick={() => setExpandedRow(isExpanded ? null : rowKey)}
                   >
-                    <td className="px-4 py-3 font-mono text-xs text-muted">{op.CodigoOrganismoPublico}</td>
+                    <td className="px-4 py-3 max-w-[160px]">
+                      {op.NombreOrganismo ? (
+                        <span
+                          title={op.NombreOrganismo}
+                          className="block truncate text-xs text-text capitalize-words"
+                          style={{ textTransform: 'capitalize' }}
+                        >
+                          {op.NombreOrganismo.toLowerCase()}
+                        </span>
+                      ) : (
+                        <span className="font-mono text-xs text-muted">{op.CodigoOrganismoPublico}</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-text max-w-[180px] truncate">{op.RubroN2}</td>
                     <td className="px-4 py-3 w-40">
                       <ScoreBar value={op.opportunity_score} />

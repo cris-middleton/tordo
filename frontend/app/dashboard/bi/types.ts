@@ -2,6 +2,7 @@
 
 export interface OportunidadItem {
   CodigoOrganismoPublico: string;
+  NombreOrganismo?: string;
   RubroN2: string;
   opportunity_score: number;
   n_transacciones: number;

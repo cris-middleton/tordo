@@ -287,6 +287,19 @@ def get_oportunidades(
     available = [c for c in wanted if c in rows.columns]
     result = rows.select(available).to_dicts()
 
+    # Enrich with NombreOrganismo from buyer_scores
+    bs_df = _load("buyer_scores.parquet")
+    if bs_df is not None:
+        name_map = dict(
+            zip(
+                bs_df["CodigoOrganismoPublico"].cast(str).to_list(),
+                bs_df["NombreOrganismo"].to_list(),
+            )
+        )
+        for row in result:
+            code = str(row.get("CodigoOrganismoPublico", ""))
+            row["NombreOrganismo"] = name_map.get(code)
+
     return {
         "disponible": True,
         "oportunidades": result,
