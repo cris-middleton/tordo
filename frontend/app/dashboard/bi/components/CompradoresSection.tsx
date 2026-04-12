@@ -102,8 +102,10 @@ function CompradorCard({ organismoId, rubro }: { organismoId: string; rubro: str
     </div>
   );
 
-  const scoreColorClass = data.buyer_score != null ? scoreColor(data.buyer_score) : 'text-muted';
-  const scoreClass = data.buyer_score != null ? scoreBg(data.buyer_score) : '';
+  // buyer_score is 0-1 scale; scoreColor/scoreBg use 0-10 thresholds
+  const scoreDisplay = data.buyer_score != null ? data.buyer_score * 10 : null;
+  const scoreColorClass = scoreDisplay != null ? scoreColor(scoreDisplay) : 'text-muted';
+  const scoreClass = scoreDisplay != null ? scoreBg(scoreDisplay) : '';
 
   return (
     <div className="rounded-xl border border-border overflow-hidden">
@@ -116,8 +118,8 @@ function CompradorCard({ organismoId, rubro }: { organismoId: string; rubro: str
           <span className="font-medium text-text text-sm truncate">{data.nombre ?? organismoId}</span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {data.buyer_score != null && (
-            <span className={`text-sm font-bold ${scoreColorClass}`}>{data.buyer_score.toFixed(1)}</span>
+          {scoreDisplay != null && (
+            <span className={`text-sm font-bold ${scoreColorClass}`}>{scoreDisplay.toFixed(1)}</span>
           )}
           {data.clasificacion && (
             <span className={`text-xs rounded-full border px-2 py-0.5 ${scoreClass}`}>
@@ -134,7 +136,9 @@ function CompradorCard({ organismoId, rubro }: { organismoId: string; rubro: str
             <div className="rounded-lg bg-surface border border-border p-3">
               <p className="text-xs text-muted">Pago promedio</p>
               <p className="text-base font-semibold text-text mt-0.5">
-                {data.pago?.mediana_dias_pago ?? '—'} días
+                {data.pago?.mediana_dias_pago != null
+                  ? `${Math.round(data.pago.mediana_dias_pago)} días`
+                  : '—'}
               </p>
             </div>
             <div className="rounded-lg bg-surface border border-border p-3">

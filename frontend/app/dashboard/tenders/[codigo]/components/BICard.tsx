@@ -73,7 +73,8 @@ export function BICard({ codigoExterno, empresaId, plan = 'basico' }: BICardProp
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [codigoExterno]);
 
-  const buyerScore = data?.comprador?.buyer_score;
+  // buyer_score is 0-1; ×10 for display and color thresholds
+  const buyerScore = data?.comprador?.buyer_score != null ? data.comprador.buyer_score * 10 : undefined;
   const ventanaClasif = data?.ventana?.clasificacion_ventana ?? '—';
   const nProveedores = data?.competidores?.n_proveedores;
   const hasAlert = data?.ventana?.alerta_ventana_corta;
@@ -165,20 +166,20 @@ export function BICard({ codigoExterno, empresaId, plan = 'basico' }: BICardProp
                 </div>
                 {data.comprador.disponible ? (
                   <>
-                    {data.comprador.buyer_score != null && (
+                    {buyerScore != null && (
                       <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-base font-bold ${scoreColor(data.comprador.buyer_score)}`}>
-                          {data.comprador.buyer_score.toFixed(1)}
+                        <span className={`text-base font-bold ${scoreColor(buyerScore)}`}>
+                          {buyerScore.toFixed(1)}
                         </span>
                         {data.comprador.clasificacion && (
-                          <span className={`text-xs rounded-full border px-2 py-0.5 ${scoreBg(data.comprador.buyer_score)}`}>
+                          <span className={`text-xs rounded-full border px-2 py-0.5 ${scoreBg(buyerScore)}`}>
                             {data.comprador.clasificacion}
                           </span>
                         )}
                       </div>
                     )}
                     {data.comprador.mediana_dias_pago != null && (
-                      <p className="text-xs text-muted">Pago: {data.comprador.mediana_dias_pago} días</p>
+                      <p className="text-xs text-muted">Pago: {Math.round(data.comprador.mediana_dias_pago)} días</p>
                     )}
                   </>
                 ) : (

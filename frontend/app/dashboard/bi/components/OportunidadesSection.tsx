@@ -64,15 +64,17 @@ function ExpandedRow({ organismo }: { organismo: string }) {
     <div className="p-4 text-sm text-muted">Sin datos de este comprador.</div>
   );
 
-  const scoreClass = data.buyer_score != null ? scoreBg(data.buyer_score) : '';
+  // buyer_score is 0-1; multiply ×10 for display and color thresholds
+  const scoreDisplay = data.buyer_score != null ? data.buyer_score * 10 : null;
+  const scoreClass = scoreDisplay != null ? scoreBg(scoreDisplay) : '';
 
   return (
     <div className="p-4 bg-surface/60 border-t border-border grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
       <div>
         <p className="text-xs text-muted mb-1">Score comprador</p>
-        {data.buyer_score != null ? (
-          <span className={`font-bold text-base ${scoreColor(data.buyer_score)}`}>
-            {data.buyer_score.toFixed(1)}/10
+        {scoreDisplay != null ? (
+          <span className={`font-bold text-base ${scoreColor(scoreDisplay)}`}>
+            {scoreDisplay.toFixed(1)}/10
           </span>
         ) : <span className="text-muted">—</span>}
         {data.clasificacion && (
@@ -83,7 +85,11 @@ function ExpandedRow({ organismo }: { organismo: string }) {
       </div>
       <div>
         <p className="text-xs text-muted mb-1">Pago promedio</p>
-        <p className="font-medium text-text">{data.pago?.mediana_dias_pago ?? '—'} días</p>
+        <p className="font-medium text-text">
+          {data.pago?.mediana_dias_pago != null
+            ? `${Math.round(data.pago.mediana_dias_pago)} días`
+            : '—'}
+        </p>
       </div>
       <div>
         <p className="text-xs text-muted mb-1">Tasa adjudicación</p>
