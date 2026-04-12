@@ -132,8 +132,35 @@ export function RubroFilter({
                 onChange={(e) => setModalSearch(e.target.value)}
               />
             </div>
-            <div className="flex-1 overflow-y-auto space-y-0.5 min-h-0 max-h-64">
-              {allRubros
+            {/* Active rubros pinned at top */}
+            {selectedClusters.length > 0 && !modalSearch && (
+              <div>
+                <p className="text-xs font-semibold text-muted mb-1.5">Activos ({selectedClusters.length})</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {[...selectedClusters].sort((a, b) => a.localeCompare(b, 'es')).map((r) => (
+                    <span
+                      key={r}
+                      className="flex items-center gap-1 rounded-full bg-primary/10 border border-primary/20 px-2.5 py-1 text-xs font-medium text-primary"
+                    >
+                      {r}
+                      <button
+                        onClick={() => toggleCluster(r)}
+                        aria-label={`Eliminar ${r}`}
+                        className="hover:text-danger transition-colors"
+                      >
+                        <X className="h-2.5 w-2.5" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="border-t border-border mt-3 mb-1" />
+              </div>
+            )}
+
+            {/* Full A-Z list */}
+            <div className="flex-1 overflow-y-auto space-y-0.5 min-h-0 max-h-56">
+              {[...allRubros]
+                .sort((a, b) => a.localeCompare(b, 'es'))
                 .filter((r) => !modalSearch || r.toLowerCase().includes(modalSearch.toLowerCase()))
                 .map((r) => (
                   <button
@@ -147,7 +174,7 @@ export function RubroFilter({
                   >
                     <span>{r}</span>
                     {selectedClusters.includes(r) && (
-                      <Check className="h-3.5 w-3.5 shrink-0" />
+                      <Check className="h-3.5 w-3.5 shrink-0 text-primary" />
                     )}
                   </button>
                 ))}
@@ -155,22 +182,6 @@ export function RubroFilter({
                 <p className="text-xs text-muted px-3 py-4 text-center">Sin resultados para "{modalSearch}"</p>
               )}
             </div>
-            {/* Selected chips */}
-            {selectedClusters.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {selectedClusters.map((r) => (
-                  <span
-                    key={r}
-                    className="flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs text-primary"
-                  >
-                    {r}
-                    <button onClick={() => toggleCluster(r)}>
-                      <X className="h-2.5 w-2.5" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
             <button
               onClick={handleSave}
               disabled={saving || selectedClusters.length === 0}
