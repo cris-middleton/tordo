@@ -28,6 +28,7 @@ export function RubroFilter({
   onSavePerfil,
 }: RubroFilterProps) {
   const [open, setOpen] = useState(false);
+  const [dropdownSearch, setDropdownSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [selectedClusters, setSelectedClusters] = useState<string[]>(
     perfil?.rubros_usados ?? []
@@ -35,6 +36,8 @@ export function RubroFilter({
   const [modalSearch, setModalSearch] = useState('');
   const [saving, setSaving] = useState(false);
   const locked = !isPaidPlan(plan);
+
+  const misRubros = perfil?.rubros_usados ?? [];
 
   const handleSave = async () => {
     if (selectedClusters.length === 0) return;
@@ -59,34 +62,93 @@ export function RubroFilter({
       {/* Title */}
       <span className="text-sm font-semibold text-text shrink-0">Mercado:</span>
 
-      {/* Dropdown */}
+      {/* Dropdown with search */}
       <div className="relative">
+        {/* Trigger button */}
         <button
-          onClick={() => !locked && setOpen((o) => !o)}
+          onClick={() => { if (!locked) { setOpen((o) => !o); setDropdownSearch(''); } }}
           disabled={locked}
           className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-text hover:border-primary/40 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
         >
-          <span className="max-w-[200px] truncate">
+          <span className="max-w-[220px] truncate">
             {selectedRubro || 'Seleccionar rubro'}
           </span>
           <ChevronDown className="h-3.5 w-3.5 text-muted shrink-0" />
         </button>
 
         {open && (
-          <div className="absolute top-full left-0 mt-1 w-72 rounded-xl border border-border bg-surface shadow-lg z-30 max-h-64 overflow-y-auto">
-            {[...rubros].sort((a, b) => a.localeCompare(b, 'es')).map((r) => (
-              <button
-                key={r}
-                onClick={() => { onRubroChange(r); setOpen(false); }}
-                className={`w-full text-left flex items-center justify-between gap-3 px-4 py-2.5 text-sm hover:bg-primary/5 transition-colors ${
-                  r === selectedRubro ? 'text-primary font-medium' : 'text-text'
-                }`}
-              >
-                <span className="truncate">{r}</span>
-                {r === selectedRubro && <Check className="h-3.5 w-3.5 shrink-0" />}
-              </button>
-            ))}
-          </div>
+          <>
+            {/* Backdrop */}
+            <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
+
+            <div className="absolute top-full left-0 mt-1 w-80 rounded-xl border border-border bg-surface shadow-xl z-30 flex flex-col overflow-hidden max-h-96">
+              {/* Search input */}
+              <div className="p-2 border-b border-border">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted" />
+                  <input
+                    autoFocus
+                    type="text"
+                    className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none"
+                    placeholder="Buscar rubro..."
+                    value={dropdownSearch}
+                    onChange={(e) => setDropdownSearch(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+              </div>
+
+              <div className="overflow-y-auto flex-1">
+                {/* Mis rubros — pinned at top when no search */}
+                {misRubros.length > 0 && !dropdownSearch && (
+                  <>
+                    <div className="px-3 pt-2 pb-1">
+                      <span className="text-xs font-semibold text-muted">Mis rubros</span>
+                    </div>
+                    {misRubros
+                      .filter((r) => rubros.includes(r))
+                      .sort((a, b) => a.localeCompare(b, 'es'))
+                      .map((r) => (
+                        <button
+                          key={`mis-${r}`}
+                          onClick={() => { onRubroChange(r); setOpen(false); }}
+                          className={`w-full text-left flex items-center justify-between gap-3 px-4 py-2 text-sm hover:bg-primary/5 transition-colors ${
+                            r === selectedRubro ? 'text-primary font-semibold' : 'text-primary/80'
+                          }`}
+                        >
+                          <span className="truncate">{r}</span>
+                          {r === selectedRubro && <Check className="h-3.5 w-3.5 shrink-0" />}
+                        </button>
+                      ))}
+                    <div className="mx-3 border-t border-border my-1" />
+                    <div className="px-3 pb-1">
+                      <span className="text-xs font-semibold text-muted">Todos los rubros</span>
+                    </div>
+                  </>
+                )}
+
+                {/* Full list */}
+                {rubros
+                  .filter((r) => !dropdownSearch || r.toLowerCase().includes(dropdownSearch.toLowerCase()))
+                  .map((r) => (
+                    <button
+                      key={r}
+                      onClick={() => { onRubroChange(r); setOpen(false); }}
+                      className={`w-full text-left flex items-center justify-between gap-3 px-4 py-2 text-sm hover:bg-primary/5 transition-colors ${
+                        r === selectedRubro ? 'text-primary font-semibold' : 'text-text'
+                      }`}
+                    >
+                      <span className="truncate">{r}</span>
+                      {r === selectedRubro && <Check className="h-3.5 w-3.5 shrink-0" />}
+                    </button>
+                  ))}
+
+                {dropdownSearch && rubros.filter((r) => r.toLowerCase().includes(dropdownSearch.toLowerCase())).length === 0 && (
+                  <p className="text-xs text-muted px-4 py-4 text-center">Sin resultados para "{dropdownSearch}"</p>
+                )}
+              </div>
+            </div>
+          </>
         )}
       </div>
 
