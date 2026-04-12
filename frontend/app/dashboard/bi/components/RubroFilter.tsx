@@ -130,18 +130,28 @@ export function RubroFilter({
                 {/* Full list */}
                 {rubros
                   .filter((r) => !dropdownSearch || r.toLowerCase().includes(dropdownSearch.toLowerCase()))
-                  .map((r) => (
-                    <button
-                      key={r}
-                      onClick={() => { onRubroChange(r); setOpen(false); }}
-                      className={`w-full text-left flex items-center justify-between gap-3 px-4 py-2 text-sm hover:bg-primary/5 transition-colors ${
-                        r === selectedRubro ? 'text-primary font-semibold' : 'text-text'
-                      }`}
-                    >
-                      <span className="truncate">{r}</span>
-                      {r === selectedRubro && <Check className="h-3.5 w-3.5 shrink-0" />}
-                    </button>
-                  ))}
+                  .map((r) => {
+                    const esMio = misRubros.includes(r);
+                    return (
+                      <button
+                        key={r}
+                        onClick={() => { onRubroChange(r); setOpen(false); }}
+                        className={`w-full text-left flex items-center justify-between gap-2 px-4 py-2 text-sm hover:bg-primary/5 transition-colors ${
+                          r === selectedRubro ? 'text-primary font-semibold' : 'text-text'
+                        }`}
+                      >
+                        <span className="truncate flex-1">{r}</span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {esMio && dropdownSearch && (
+                            <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary leading-none">
+                              tu perfil
+                            </span>
+                          )}
+                          {r === selectedRubro && <Check className="h-3.5 w-3.5" />}
+                        </div>
+                      </button>
+                    );
+                  })}
 
                 {dropdownSearch && rubros.filter((r) => r.toLowerCase().includes(dropdownSearch.toLowerCase())).length === 0 && (
                   <p className="text-xs text-muted px-4 py-4 text-center">Sin resultados para "{dropdownSearch}"</p>
@@ -159,15 +169,50 @@ export function RubroFilter({
         </span>
       )}
 
-      {/* Edit button */}
+      {/* Mis rubros — chips + gear icon */}
       {empresaId && (
-        <button
-          onClick={() => setShowModal(true)}
-          className="ml-auto flex items-center gap-1.5 text-xs text-muted hover:text-primary transition-colors"
-        >
-          <Settings2 className="h-3.5 w-3.5" />
-          Editar mis rubros
-        </button>
+        <div className="ml-auto flex items-center gap-1.5 flex-wrap">
+          {misRubros.length === 0 ? (
+            /* Nothing configured yet — subtle hint */
+            <button
+              onClick={() => setShowModal(true)}
+              className="flex items-center gap-1.5 text-xs text-muted hover:text-primary transition-colors"
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+              <span>Configurar mis rubros</span>
+            </button>
+          ) : (
+            <>
+              {/* Chips: show first 2, then +N */}
+              {misRubros.slice(0, 2).map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setShowModal(true)}
+                  title={r}
+                  className="flex items-center gap-1 rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-xs font-medium text-primary hover:bg-primary/15 transition-colors max-w-[130px]"
+                >
+                  <span className="truncate">{r}</span>
+                </button>
+              ))}
+              {misRubros.length > 2 && (
+                <button
+                  onClick={() => setShowModal(true)}
+                  className="rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-xs font-medium text-primary hover:bg-primary/15 transition-colors"
+                >
+                  +{misRubros.length - 2}
+                </button>
+              )}
+              {/* Gear icon */}
+              <button
+                onClick={() => setShowModal(true)}
+                aria-label="Configurar mis rubros"
+                className="p-1 text-muted hover:text-primary transition-colors"
+              >
+                <Settings2 className="h-3.5 w-3.5" />
+              </button>
+            </>
+          )}
+        </div>
       )}
 
       {/* Edit modal */}
