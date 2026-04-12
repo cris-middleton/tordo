@@ -158,7 +158,7 @@ export function RubroFilter({
                   })}
 
                 {dropdownSearch && rubros.filter((r) => r.toLowerCase().includes(dropdownSearch.toLowerCase())).length === 0 && (
-                  <p className="text-xs text-muted px-4 py-4 text-center">Sin resultados para "{dropdownSearch}"</p>
+                  <p className="text-xs text-muted px-4 py-4 text-center">Sin resultados para &ldquo;{dropdownSearch}&rdquo;</p>
                 )}
               </div>
             </div>
@@ -291,7 +291,7 @@ export function RubroFilter({
                   </button>
                 ))}
               {allRubros.filter((r) => !modalSearch || r.toLowerCase().includes(modalSearch.toLowerCase())).length === 0 && (
-                <p className="text-xs text-muted px-3 py-4 text-center">Sin resultados para "{modalSearch}"</p>
+                <p className="text-xs text-muted px-3 py-4 text-center">Sin resultados para &ldquo;{modalSearch}&rdquo;</p>
               )}
             </div>
             {saveError && (
