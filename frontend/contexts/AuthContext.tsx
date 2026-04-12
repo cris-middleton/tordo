@@ -48,8 +48,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
       if (token) {
-        const userData = await apiClient.getCurrentUser();
-        setUser(userData);
+        // Timeout after 5 seconds to avoid hanging on "Verificando sesión…"
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        try {
+          const userData = await apiClient.getCurrentUser(controller.signal);
+          setUser(userData);
+        } finally {
+          clearTimeout(timeout);
+        }
       }
     } catch (error) {
       apiClient.clearToken();
