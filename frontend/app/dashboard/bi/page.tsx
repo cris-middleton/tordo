@@ -136,12 +136,19 @@ export default function BIPage() {
     const init = async () => {
       setLoadingInit(true);
       try {
-        // Load empresa context
+        // Load empresa context + standardized rubros list in parallel
         let empresaRubros: string[] = [];
-        try {
-          const empresas = await apiClient.getEmpresas();
-          if (!cancelled && empresas.length > 0) {
-            const emp = empresas[0];
+        let perfilRubros: string[] = [];
+
+        const [empresasRes, rubrosRes] = await Promise.allSettled([
+          apiClient.getEmpresas(),
+          apiClient.getBIRubros(),
+        ]);
+
+        if (!cancelled) {
+          // Empresa context
+          if (empresasRes.status === 'fulfilled' && empresasRes.value.length > 0) {
+            const emp = empresasRes.value[0];
             setFirstEmpresaId(emp.id);
             if (emp.rubros_cpv?.length) empresaRubros = emp.rubros_cpv;
 
@@ -150,16 +157,26 @@ export default function BIPage() {
               .then((p: TFIDFPerfilData) => {
                 if (cancelled) return;
                 setPerfil(p);
-                if (empresaRubros.length === 0 && p.rubros_usados?.length) {
-                  empresaRubros = p.rubros_usados;
-                }
+                perfilRubros = p.rubros_usados ?? [];
               })
               .catch(() => {});
           }
-        } catch { /* no empresa */ }
 
-        // Probe BI + load initial oportunidades in one call
-        const firstRubro = empresaRubros[0] ?? '';
+          // Standardized rubros — A-Z, no NA
+          if (rubrosRes.status === 'fulfilled' && rubrosRes.value.disponible) {
+            const sorted = [...(rubrosRes.value.rubros ?? [])].sort((a: string, b: string) =>
+              a.localeCompare(b, 'es')
+            );
+            setAllRubros(sorted);
+            // Use as the main dropdown source too
+            setAvailableRubros(sorted);
+          }
+        }
+        if (cancelled) return;
+
+        // Probe BI + load initial oportunidades
+        // Default rubro: empresa > perfil > none (shows all)
+        const firstRubro = empresaRubros[0] ?? perfilRubros[0] ?? '';
         const res = await apiClient.getBIOportunidades({
           rubro: firstRubro || undefined,
           min_score: 4,
@@ -173,12 +190,7 @@ export default function BIPage() {
         if (enabled) {
           const opData: OportunidadItem[] = res.oportunidades ?? [];
           setOportunidades(opData);
-
-          // Build available rubros: empresa rubros + top rubros from results
-          const dataRubros = [...new Set(opData.map((o) => o.RubroN2))].slice(0, 8);
-          const merged = [...new Set([...empresaRubros, ...dataRubros])].slice(0, 15);
-          setAvailableRubros(merged.length > 0 ? merged : dataRubros);
-          setSelectedRubro(firstRubro || merged[0] || '');
+          setSelectedRubro(firstRubro);
 
           // Load tendencias in parallel
           loadTendencias(firstRubro);
@@ -198,11 +210,6 @@ export default function BIPage() {
 
     init();
 
-    // Load standardized ChileCompra rubros for edit modal non-blocking
-    apiClient.getBIRubros()
-      .then((res: any) => { if (res.disponible) setAllRubros(res.rubros ?? []); })
-      .catch(() => {});
-
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -212,8 +219,7 @@ export default function BIPage() {
     if (!firstEmpresaId) return;
     const updated = await apiClient.updateTFIDFPerfil(firstEmpresaId, { rubros_usados: rubros });
     setPerfil(updated);
-    const merged = [...new Set([...rubros, ...availableRubros])].slice(0, 15);
-    setAvailableRubros(merged);
+    // availableRubros stays as the full standardized A-Z list — no change needed
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────

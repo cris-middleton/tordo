@@ -74,7 +74,7 @@ export function RubroFilter({
 
         {open && (
           <div className="absolute top-full left-0 mt-1 w-72 rounded-xl border border-border bg-surface shadow-lg z-30 max-h-64 overflow-y-auto">
-            {rubros.map((r) => (
+            {[...rubros].sort((a, b) => a.localeCompare(b, 'es')).map((r) => (
               <button
                 key={r}
                 onClick={() => { onRubroChange(r); setOpen(false); }}
