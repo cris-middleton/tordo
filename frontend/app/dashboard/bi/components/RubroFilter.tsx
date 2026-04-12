@@ -187,6 +187,7 @@ export function RubroFilter({
             </button>
           ) : (
             <>
+              <span className="text-xs font-semibold text-muted shrink-0">Rubros:</span>
               {/* Chips: show first 2, then +N */}
               {misRubros.slice(0, 2).map((r) => (
                 <button
