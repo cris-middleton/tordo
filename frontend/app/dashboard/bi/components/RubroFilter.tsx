@@ -85,7 +85,7 @@ export function RubroFilter({
               <button
                 key={r}
                 onClick={() => { onRubroChange(r); setOpen(false); }}
-                className={`w-full text-left flex items-center justify-between gap-3 px-4 py-2.5 text-sm hover:bg-hover transition-colors ${
+                className={`w-full text-left flex items-center justify-between gap-3 px-4 py-2.5 text-sm hover:bg-primary/5 transition-colors ${
                   r === selectedRubro ? 'text-primary font-medium' : 'text-text'
                 }`}
               >
@@ -136,7 +136,7 @@ export function RubroFilter({
                   className={`w-full text-left flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
                     selectedClusters.includes(c.label)
                       ? 'bg-primary/10 text-primary font-medium'
-                      : 'hover:bg-hover text-text'
+                      : 'hover:bg-primary/5 text-text'
                   }`}
                 >
                   <span>{c.label}</span>

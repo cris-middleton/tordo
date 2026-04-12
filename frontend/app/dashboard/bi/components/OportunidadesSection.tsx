@@ -1,7 +1,7 @@
 // frontend/app/dashboard/bi/components/OportunidadesSection.tsx
 'use client';
 
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp, Loader2, Target } from 'lucide-react';
 import { OportunidadItem, CompradorResult, scoreColor, scoreBg } from '../types';
 import { apiClient } from '@/lib/api';
@@ -27,7 +27,7 @@ function ScoreBar({ value, max = 10 }: { value: number; max?: number }) {
 }
 
 function CompetitionBadge({ n }: { n: number }) {
-  if (n < 5) return <span className="badge-success text-xs">Baja ({n})</span>;
+  if (n < 5) return <span className="badge-accent text-xs">Baja ({n})</span>;
   if (n <= 15) return <span className="badge-warning text-xs">Media ({n})</span>;
   return <span className="badge-error text-xs">Alta ({n})</span>;
 }
@@ -52,7 +52,7 @@ function ExpandedRow({ organismo }: { organismo: string }) {
   };
 
   // Auto-load on mount
-  useState(() => { load(); });
+  useEffect(() => { load(); }, []);
 
   if (loading) return (
     <div className="p-4 flex items-center gap-2 text-sm text-muted">
@@ -196,10 +196,9 @@ export function OportunidadesSection({ oportunidades, loading }: OportunidadesSe
               const rowKey = `${op.CodigoOrganismoPublico}-${op.RubroN2}-${i}`;
               const isExpanded = expandedRow === rowKey;
               return (
-                <>
+                <React.Fragment key={rowKey}>
                   <tr
-                    key={rowKey}
-                    className="border-b border-border last:border-0 hover:bg-hover cursor-pointer"
+                    className="border-b border-border last:border-0 hover:bg-primary/5 cursor-pointer"
                     onClick={() => setExpandedRow(isExpanded ? null : rowKey)}
                   >
                     <td className="px-4 py-3 font-mono text-xs text-muted">{op.CodigoOrganismoPublico}</td>
@@ -224,7 +223,7 @@ export function OportunidadesSection({ oportunidades, loading }: OportunidadesSe
                       </td>
                     </tr>
                   )}
-                </>
+                </React.Fragment>
               );
             })}
           </tbody>

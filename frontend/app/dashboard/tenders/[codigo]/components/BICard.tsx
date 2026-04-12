@@ -93,7 +93,7 @@ export function BICard({ codigoExterno, empresaId, plan = 'basico' }: BICardProp
           if (!open) load();
           setOpen((o) => !o);
         }}
-        className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-hover transition-colors text-left"
+        className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-primary/5 transition-colors text-left"
       >
         <div className="flex items-center gap-2.5">
           <BarChart3 className="h-4 w-4 text-primary shrink-0" />

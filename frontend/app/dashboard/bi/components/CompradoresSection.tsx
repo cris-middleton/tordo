@@ -109,7 +109,7 @@ function CompradorCard({ organismoId, rubro }: { organismoId: string; rubro: str
     <div className="rounded-xl border border-border overflow-hidden">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-surface/60 hover:bg-hover transition-colors text-left"
+        className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-surface/60 hover:bg-primary/5 transition-colors text-left"
       >
         <div className="flex items-center gap-3 min-w-0">
           <Building2 className="h-4 w-4 text-muted shrink-0" />
