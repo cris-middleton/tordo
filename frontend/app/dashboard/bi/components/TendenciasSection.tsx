@@ -89,27 +89,27 @@ export function TendenciasSection({ tendencias, emergentes, loading }: Tendencia
             layout="vertical"
             margin={{ top: 0, right: 40, left: 8, bottom: 0 }}
           >
-            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--color-border)" />
+            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
             <XAxis
               type="number"
               tickFormatter={(v) => `${v > 0 ? '+' : ''}${v.toFixed(0)}%`}
-              tick={{ fontSize: 11, fill: 'var(--color-muted)' }}
-              label={{ value: 'Crecimiento anual (%)', position: 'insideBottom', offset: -2, fontSize: 11, fill: 'var(--color-muted)' }}
+              tick={{ fontSize: 11, fill: '#94a3b8' }}
+              label={{ value: 'Crecimiento anual (%)', position: 'insideBottom', offset: -2, fontSize: 11, fill: '#94a3b8' }}
             />
             <YAxis
               type="category"
               dataKey="label"
               width={200}
-              tick={{ fontSize: 11, fill: 'var(--color-text)' }}
+              tick={{ fontSize: 11, fill: '#64748b' }}
             />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--color-hover)' }} />
-            <ReferenceLine x={0} stroke="var(--color-border)" strokeWidth={1.5} />
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f1f5f9' }} />
+            <ReferenceLine x={0} stroke="#cbd5e1" strokeWidth={1.5} />
             <Bar dataKey="cagr" radius={[0, 4, 4, 0]} maxBarSize={20}>
               {chartData.map((entry, i) => (
                 <Cell
                   key={`cell-${i}`}
-                  fill={entry.cagr >= 0 ? 'var(--color-accent)' : 'var(--color-danger)'}
-                  fillOpacity={0.8}
+                  fill={entry.cagr >= 0 ? '#00A87A' : '#EF4444'}
+                  fillOpacity={0.85}
                 />
               ))}
             </Bar>

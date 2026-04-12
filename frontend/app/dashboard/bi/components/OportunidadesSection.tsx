@@ -187,14 +187,14 @@ export function OportunidadesSection({ oportunidades, loading }: OportunidadesSe
             <tr className="border-b border-border bg-surface/60 text-left">
               <th className="px-4 py-2.5 text-xs font-medium text-muted">Organismo</th>
               <th className="px-4 py-2.5 text-xs font-medium text-muted">Rubro</th>
-              <th className="px-4 py-2.5 text-xs font-medium text-muted w-40 whitespace-nowrap">
-                <span className="group relative inline-flex items-center gap-1 cursor-help">
+              <th className="px-4 py-2.5 text-xs font-medium text-muted w-40 whitespace-nowrap overflow-visible">
+                <div className="group relative inline-flex items-center gap-1 cursor-help">
                   Score de oportunidad
                   <span className="text-muted/60 font-normal">ℹ</span>
-                  <span className="pointer-events-none absolute bottom-full left-0 mb-1.5 w-64 rounded-lg border border-border bg-surface px-3 py-2 text-xs text-text shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 font-normal leading-relaxed">
+                  <div className="pointer-events-none absolute bottom-[calc(100%+6px)] left-0 w-64 rounded-lg border border-border bg-surface px-3 py-2 text-xs text-text shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-[100] font-normal leading-relaxed whitespace-normal">
                     Score 0–10 que combina volumen de compras, nivel de competencia, estacionalidad y tendencia de crecimiento. Mayor score = mejor oportunidad.
-                  </span>
-                </span>
+                  </div>
+                </div>
               </th>
               <th className="px-4 py-2.5 text-xs font-medium text-muted">Transacciones históricas</th>
               <th className="px-4 py-2.5 text-xs font-medium text-muted">Proveedores activos</th>
