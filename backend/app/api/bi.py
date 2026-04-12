@@ -516,22 +516,20 @@ async def update_tfidf_perfil(
     if not membership:
         raise HTTPException(status_code=403, detail="Se requiere rol owner o admin")
 
-    if not tfidf_matcher.is_available():
-        raise HTTPException(
-            status_code=503,
-            detail="Modelo TF-IDF no entrenado. No se puede calcular el vector.",
-        )
+    # Try to build TF-IDF vector — best-effort, don't block saving rubros if unavailable
+    vector_bytes: bytes | None = None
+    if tfidf_matcher.is_available():
+        rubros_text = " ".join(body.rubros_usados)
+        try:
+            vector_bytes = tfidf_matcher.build_empresa_vector(rubros_text)
+        except (ValueError, Exception):
+            pass  # Vector can be rebuilt later; rubros_usados is the primary data
 
-    rubros_text = " ".join(body.rubros_usados)
-    try:
-        vector_bytes = tfidf_matcher.build_empresa_vector(rubros_text)
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc))
-
-    # Upsert TFIDFPerfil
+    # Upsert TFIDFPerfil — always save rubros regardless of vector availability
     perfil = (await db.execute(select(TFIDFPerfil).where(TFIDFPerfil.empresa_id == empresa_id))).scalar_one_or_none()
     if perfil:
-        perfil.vector_bytes = vector_bytes
+        if vector_bytes is not None:
+            perfil.vector_bytes = vector_bytes
         perfil.rubros_usados = body.rubros_usados
         perfil.modelo_version = "v1"
     else:

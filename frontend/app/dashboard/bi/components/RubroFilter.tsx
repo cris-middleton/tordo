@@ -35,6 +35,7 @@ export function RubroFilter({
   );
   const [modalSearch, setModalSearch] = useState('');
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const locked = !isPaidPlan(plan);
 
   const misRubros = perfil?.rubros_usados ?? [];
@@ -42,9 +43,12 @@ export function RubroFilter({
   const handleSave = async () => {
     if (selectedClusters.length === 0) return;
     setSaving(true);
+    setSaveError('');
     try {
       await onSavePerfil(selectedClusters);
       setShowModal(false);
+    } catch (err: any) {
+      setSaveError(err?.response?.data?.detail || 'Error al guardar. Intenta de nuevo.');
     } finally {
       setSaving(false);
     }
@@ -289,6 +293,9 @@ export function RubroFilter({
                 <p className="text-xs text-muted px-3 py-4 text-center">Sin resultados para "{modalSearch}"</p>
               )}
             </div>
+            {saveError && (
+              <p className="text-xs text-danger text-center">{saveError}</p>
+            )}
             <button
               onClick={handleSave}
               disabled={saving || selectedClusters.length === 0}

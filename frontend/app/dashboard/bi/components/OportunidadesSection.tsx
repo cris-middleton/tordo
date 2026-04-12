@@ -187,9 +187,13 @@ export function OportunidadesSection({ oportunidades, loading }: OportunidadesSe
             <tr className="border-b border-border bg-surface/60 text-left">
               <th className="px-4 py-2.5 text-xs font-medium text-muted">Organismo</th>
               <th className="px-4 py-2.5 text-xs font-medium text-muted">Rubro</th>
-              <th className="px-4 py-2.5 text-xs font-medium text-muted w-40">
-                <span title="Score 0-10 que combina volumen de compras, nivel de competencia, estacionalidad y tendencia de crecimiento. Mayor score = mejor oportunidad." className="cursor-help underline decoration-dotted">
-                  Score de oportunidad ℹ
+              <th className="px-4 py-2.5 text-xs font-medium text-muted w-40 whitespace-nowrap">
+                <span
+                  title="Score 0-10 que combina volumen de compras, nivel de competencia, estacionalidad y tendencia de crecimiento. Mayor score = mejor oportunidad."
+                  className="cursor-help border-b border-dashed border-muted/50 inline-flex items-center gap-1"
+                >
+                  Score de oportunidad
+                  <span className="text-muted/60 font-normal">ℹ</span>
                 </span>
               </th>
               <th className="px-4 py-2.5 text-xs font-medium text-muted">Transacciones históricas</th>
