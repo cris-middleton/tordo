@@ -87,7 +87,7 @@ export function TendenciasSection({ tendencias, emergentes, loading }: Tendencia
           <BarChart
             data={chartData}
             layout="vertical"
-            margin={{ top: 0, right: 40, left: 8, bottom: 0 }}
+            margin={{ top: 0, right: 40, left: 8, bottom: 24 }}
           >
             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
             <XAxis
