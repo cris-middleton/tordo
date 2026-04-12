@@ -34,6 +34,8 @@ import { OpportunityScoreCard } from '@/components/OpportunityScoreCard';
 import { PriceBandChart } from '@/components/PriceBandChart';
 import { CompetitorsList } from '@/components/CompetitorsList';
 import { BuyerProfilePanel } from '@/components/BuyerProfilePanel';
+import { BICard } from './components/BICard';
+import type { PlanTier } from '../../bi/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -562,6 +564,7 @@ function BIPanelSection({ panel, tender }: { panel: BIPanel; tender?: TenderDeta
 
 export default function TenderDetailPage({ params }: PageParams) {
   const router = useRouter();
+  const { user } = useAuth();
   const [tender, setTender] = useState<TenderDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -898,6 +901,13 @@ export default function TenderDetailPage({ params }: PageParams) {
 
           {/* ── ¿Tu perfil encaja? ──────────────────────────────── */}
           <PerfilEncajeWidget loading={loadingMatch} result={perfilMatch} />
+
+          {/* ── Inteligencia de mercado (collapsible summary) ─── */}
+          <BICard
+            codigoExterno={tenderData.codigo_externo}
+            empresaId={firstEmpresaId ?? undefined}
+            plan={(user?.plan_tier ?? 'basico') as PlanTier}
+          />
         </div>
       )}
     </div>
