@@ -127,15 +127,15 @@ export function EstacionalidadSection({ topOrganismos, rubro }: EstacionalidadSe
           <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
             <defs>
               <linearGradient id="bandGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.15} />
-                <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0.02} />
+                <stop offset="5%" stopColor="#3B5BDB" stopOpacity={0.15} />
+                <stop offset="95%" stopColor="#3B5BDB" stopOpacity={0.02} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-            <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'var(--color-muted)' }} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+            <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} />
             <YAxis
               tickFormatter={(v) => `${(v).toFixed(0)}%`}
-              tick={{ fontSize: 11, fill: 'var(--color-muted)' }}
+              tick={{ fontSize: 11, fill: '#94a3b8' }}
               domain={[0, 'auto']}
             />
             <Tooltip content={<CustomTooltip />} />
@@ -153,20 +153,20 @@ export function EstacionalidadSection({ topOrganismos, rubro }: EstacionalidadSe
               type="monotone"
               dataKey="bandLow"
               stroke="none"
-              fill="var(--color-background)"
+              fill="#ffffff"
               isAnimationActive={false}
             />
             {/* Main line */}
             <Area
               type="monotone"
               dataKey="probPct"
-              stroke="var(--color-primary)"
+              stroke="#3B5BDB"
               strokeWidth={2}
               fill="none"
               dot={(props: any) => {
                 const d = props.payload;
                 if (!d.es_pico_estacional) {
-                  return <circle key={props.key} cx={props.cx} cy={props.cy} r={3} fill="var(--color-primary)" opacity={0.5} />;
+                  return <circle key={props.key} cx={props.cx} cy={props.cy} r={3} fill="#3B5BDB" opacity={0.5} />;
                 }
                 return (
                   <circle
@@ -174,8 +174,8 @@ export function EstacionalidadSection({ topOrganismos, rubro }: EstacionalidadSe
                     cx={props.cx}
                     cy={props.cy}
                     r={6}
-                    fill="var(--color-accent)"
-                    stroke="var(--color-background)"
+                    fill="#00A87A"
+                    stroke="#ffffff"
                     strokeWidth={2}
                   />
                 );

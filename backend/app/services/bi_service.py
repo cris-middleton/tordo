@@ -590,19 +590,26 @@ def get_tendencia(
     if df is None:
         return {"disponible": False, "motivo": "parquet no generado"}
 
-    mask = df["cagr"].is_not_null()
+    # Require minimum data quality: at least 3 years and 15 transactions
+    # to avoid CAGR blowups from near-zero base values or tiny samples
+    min_anios = df["n_anios"] >= 3 if "n_anios" in df.columns else df["cagr"].is_not_null()
+    min_oc = df["total_oc"] >= 15 if "total_oc" in df.columns else df["cagr"].is_not_null()
+
+    mask = df["cagr"].is_not_null() & min_anios & min_oc
     if rubro:
         mask = mask & (df["RubroN2"] == rubro)
     if tendencia:
         mask = mask & (df["tendencia"] == tendencia)
 
-    cols = [c for c in ["CodigoOrganismoPublico", "RubroN2", "slope_mensual", "r_squared", "cagr", "tendencia"] if c in df.columns]
+    cols = [c for c in ["CodigoOrganismoPublico", "RubroN2", "slope_mensual", "r_squared", "cagr", "tendencia", "n_anios", "total_oc"] if c in df.columns]
     rows = df.filter(mask).sort("cagr", descending=True).head(limit)
     tendencias = rows.select(cols).to_dicts()
 
     emergentes: list = []
     if em_df is not None:
-        em_mask = em_df["cagr"].is_not_null()
+        em_min_anios = em_df["n_anios"] >= 3 if "n_anios" in em_df.columns else em_df["cagr"].is_not_null()
+        em_min_oc = em_df["total_oc"] >= 15 if "total_oc" in em_df.columns else em_df["cagr"].is_not_null()
+        em_mask = em_df["cagr"].is_not_null() & em_min_anios & em_min_oc
         if rubro:
             em_mask = em_mask & (em_df["RubroN2"] == rubro)
         em_cols = [c for c in cols if c in em_df.columns]
