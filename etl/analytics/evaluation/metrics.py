@@ -107,3 +107,89 @@ def hit_at_k(
     # Queries with no predictions contribute 0
     hits = per_query.filter(pl.col("hit"))["query_id"].n_unique()
     return hits / len(all_queries)
+
+
+def mrr(preds: pl.DataFrame, truth: pl.DataFrame, k: int = 100) -> float:
+    """Mean Reciprocal Rank: average of 1/rank of first relevant item (rel>=1) in top-k.
+
+    Query contributes 0 if no relevant item appears in its top-k.
+    """
+    if preds.is_empty():
+        return 0.0
+
+    joined = _join_preds_with_relevance(preds, truth, k)
+    relevants = (
+        joined.filter(pl.col("relevance") >= 1)
+        .sort(["query_id", "rank"])
+        .group_by("query_id", maintain_order=True)
+        .agg(pl.col("rank").first().alias("first_rel_rank"))
+    )
+    all_queries = set(preds["query_id"].unique().to_list()) | set(truth["query_id"].unique().to_list())
+    if not all_queries:
+        return 0.0
+    rr_sum = float((1.0 / relevants["first_rel_rank"]).sum())
+    return rr_sum / len(all_queries)
+
+
+def coverage_at_k(
+    preds: pl.DataFrame,
+    k: int,
+    catalog_size: int,
+    truth: pl.DataFrame | None = None,  # unused; kept for signature compat
+) -> float:
+    """Catalog coverage: distinct items appearing in any top-k list / catalog_size.
+
+    Note: `truth` argument accepted for uniform call signature but not used.
+    """
+    if preds.is_empty() or catalog_size <= 0:
+        return 0.0
+    distinct_items = preds.filter(pl.col("rank") <= k)["item_id"].n_unique()
+    return distinct_items / catalog_size
+
+
+# ─── G2 stubs ────────────────────────────────────────────────────────────────
+
+
+def spearman(score, proxy) -> float:
+    raise NotImplementedError(
+        "spearman is a stub — implemented in spec G2 (Weighted scores v2)."
+    )
+
+
+def reliability_diagram(score, binary_outcome, n_bins: int = 10) -> dict:
+    raise NotImplementedError(
+        "reliability_diagram is a stub — implemented in spec G2 (Weighted scores v2)."
+    )
+
+
+def brier_score(prob, binary_outcome) -> float:
+    raise NotImplementedError(
+        "brier_score is a stub — implemented in spec G2 (Weighted scores v2)."
+    )
+
+
+def calibration_error(score_bins, observed_rates) -> float:
+    raise NotImplementedError(
+        "calibration_error is a stub — implemented in spec G2 (Weighted scores v2)."
+    )
+
+
+# ─── G3 stubs ────────────────────────────────────────────────────────────────
+
+
+def mae(pred, actual) -> float:
+    raise NotImplementedError(
+        "mae is a stub — implemented in spec G3 (Predictive analytics v2)."
+    )
+
+
+def mape(pred, actual, epsilon: float = 1.0) -> float:
+    raise NotImplementedError(
+        "mape is a stub — implemented in spec G3 (Predictive analytics v2)."
+    )
+
+
+def interval_coverage(low, high, actual) -> float:
+    raise NotImplementedError(
+        "interval_coverage is a stub — implemented in spec G3 (Predictive analytics v2)."
+    )

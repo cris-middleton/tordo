@@ -74,3 +74,44 @@ def test_hit_at_1_participant(preds_two_queries, truth_graded):
     # Average = 0.5
     value = metrics.hit_at_k(preds_two_queries, truth_graded, k=1, relevance_min=1)
     assert value == pytest.approx(0.5)
+
+
+def test_mrr_winner_at_rank_2(preds_two_queries, truth_graded):
+    # q1: first relevant (rel>=1) is A at rank 1 → 1/1 = 1.0
+    # q2: first relevant (rel>=1) is Y at rank 2 → 1/2 = 0.5
+    # Average = 0.75
+    value = metrics.mrr(preds_two_queries, truth_graded, k=100)
+    assert value == pytest.approx(0.75)
+
+
+def test_mrr_no_relevant_in_topk():
+    preds = pl.DataFrame({
+        "query_id": ["q1"] * 3, "item_id": ["A", "B", "C"],
+        "rank": [1, 2, 3], "score": [0.9, 0.7, 0.5],
+    })
+    truth = pl.DataFrame({"query_id": ["q1"], "item_id": ["Z"], "relevance": [2]})
+    # No relevant in top-3 → 0
+    assert metrics.mrr(preds, truth, k=3) == 0.0
+
+
+def test_coverage_at_k_all_distinct(preds_two_queries):
+    # 6 distinct items across both queries top-3: A,B,C,X,Y,Z
+    # If catalog is exactly these 6, coverage = 1.0
+    value = metrics.coverage_at_k(preds_two_queries, k=3, catalog_size=6)
+    assert value == pytest.approx(1.0)
+
+
+def test_coverage_at_k_half_catalog(preds_two_queries):
+    # 6 items retrieved in top-3; catalog of 12
+    value = metrics.coverage_at_k(preds_two_queries, k=3, catalog_size=12)
+    assert value == pytest.approx(0.5)
+
+
+def test_g2_stub_raises():
+    with pytest.raises(NotImplementedError, match="spec G2"):
+        metrics.spearman([], [])
+
+
+def test_g3_stub_raises():
+    with pytest.raises(NotImplementedError, match="spec G3"):
+        metrics.mae([], [])
