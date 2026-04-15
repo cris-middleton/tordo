@@ -16,7 +16,6 @@ import {
   Users,
   DollarSign,
 } from 'lucide-react';
-import { BrowserChrome } from '@/components/landing/BrowserChrome';
 import { MockupPrecio } from '@/components/landing/MockupPrecio';
 import { MockupScore } from '@/components/landing/MockupScore';
 import { MockupMatching } from '@/components/landing/MockupMatching';
@@ -177,147 +176,13 @@ function RotatingRubro() {
 }
 
 /* ─────────────────────────────────────────────
-   CSS MOCKUP COMPONENTS
-   ───────────────────────────────────────────── */
-
-function MockupBIPanel() {
-  const rows = [
-    { org: 'Hospital X', rubro: 'Aseo', score: 82, label: '8.2', cagr: '+3%', color: '#00C896' },
-    { org: 'Municipio Y', rubro: 'Tecn.', score: 65, label: '6.5', cagr: '+7%', color: '#00C896' },
-    { org: 'SERVIU', rubro: 'Constr.', score: 41, label: '4.1', cagr: '-2%', color: '#F59E0B' },
-  ];
-  const kpis = [
-    { value: '47', label: 'Oport.', accent: '#00C896' },
-    { value: '12', label: 'Alert.', accent: '#4A8FE7' },
-    { value: '3', label: 'Pend.', accent: '#F59E0B' },
-  ];
-
-  return (
-    <BrowserChrome url="tordo.cl/dashboard/bi">
-      <div className="flex gap-2 mb-4">
-        {kpis.map((k) => (
-          <div key={k.label} className="flex-1 rounded-lg bg-[#0F1117] border border-[#1A1F2C] p-2.5 text-center">
-            <p className="text-lg font-bold text-[#E2E8F0]" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>{k.value}</p>
-            <p className="text-[9px] text-[#94A3B8] mt-0.5">{k.label}</p>
-            <div className="mt-1.5 h-0.5 rounded-full mx-auto w-8" style={{ background: k.accent }} />
-          </div>
-        ))}
-      </div>
-      <div className="rounded-lg bg-[#0F1117] border border-[#1A1F2C] overflow-hidden">
-        <div className="grid grid-cols-[1fr_0.7fr_1fr_0.5fr] gap-2 px-3 py-2 text-[9px] font-semibold text-[#94A3B8] uppercase tracking-wider border-b border-[#1A1F2C]">
-          <span>Organismo</span><span>Rubro</span><span>Score</span><span>CAGR</span>
-        </div>
-        {rows.map((r) => (
-          <div key={r.org} className="grid grid-cols-[1fr_0.7fr_1fr_0.5fr] gap-2 px-3 py-2 items-center border-b border-[#1A1F2C] last:border-0">
-            <span className="text-[11px] text-[#E2E8F0] truncate">{r.org}</span>
-            <span className="text-[10px] text-[#94A3B8]">{r.rubro}</span>
-            <div className="flex items-center gap-2">
-              <div className="h-1.5 flex-1 rounded-full bg-[#1A1F2C] overflow-hidden">
-                <div className="h-full rounded-full" style={{ width: `${r.score}%`, background: `linear-gradient(90deg, ${r.color}88, ${r.color})` }} />
-              </div>
-              <span className="text-[10px] font-semibold text-[#E2E8F0] tabular-nums w-6 text-right">{r.label}</span>
-            </div>
-            <span className={`text-[10px] font-medium ${r.cagr.startsWith('+') ? 'text-[#00C896]' : 'text-[#F85149]'}`}>{r.cagr}</span>
-          </div>
-        ))}
-      </div>
-    </BrowserChrome>
-  );
-}
-
-function MockupDashboard() {
-  const kpis = [
-    { value: '23', label: 'Licit.', color: '#00C896' },
-    { value: '5', label: 'Alert.', color: '#4A8FE7' },
-    { value: '8', label: 'Post.', color: '#F59E0B' },
-    { value: '2', label: 'Docs', color: '#F85149' },
-  ];
-  const bars = [85, 92, 78, 65, 88, 45, 72];
-
-  return (
-    <BrowserChrome url="tordo.cl/dashboard">
-      <p className="text-xs font-semibold text-[#E2E8F0] mb-3" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>Dashboard</p>
-      <div className="grid grid-cols-4 gap-2 mb-4">
-        {kpis.map((k) => (
-          <div key={k.label} className="rounded-lg bg-[#0F1117] border border-[#1A1F2C] overflow-hidden">
-            <div className="h-1" style={{ background: k.color }} />
-            <div className="p-2 text-center">
-              <p className="text-base font-bold text-[#E2E8F0]" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>{k.value}</p>
-              <p className="text-[9px] text-[#94A3B8]">{k.label}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="flex items-center gap-2 mb-4 rounded-lg bg-[#0F1117] border border-[#1A1F2C] px-3 py-2">
-        <span className="text-[10px] text-[#94A3B8]">Estado Hábil:</span>
-        <span className="inline-flex items-center gap-1 rounded-full bg-[#00C896]/15 px-2 py-0.5 text-[10px] font-semibold text-[#00C896]">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#00C896]" /> Hábil
-        </span>
-      </div>
-      <div className="rounded-lg bg-[#0F1117] border border-[#1A1F2C] p-3">
-        <div className="flex items-end gap-1.5 h-12">
-          {bars.map((h, i) => (
-            <div key={i} className="flex-1 rounded-sm" style={{ height: `${h}%`, background: 'linear-gradient(180deg, #00C896, #00C89644)' }} />
-          ))}
-        </div>
-      </div>
-    </BrowserChrome>
-  );
-}
-
-function MockupPostulaciones() {
-  const items = [
-    { label: 'Garantía de seriedad', checked: true },
-    { label: 'Certificado tributario', checked: true },
-    { label: 'Póliza de seguro', checked: false },
-    { label: 'Propuesta técnica', checked: false },
-  ];
-
-  return (
-    <BrowserChrome url="tordo.cl/dashboard/postulaciones">
-      <div className="mb-3">
-        <p className="text-[11px] font-semibold text-[#E2E8F0]">Licitación: Servicio de aseo Hospital X</p>
-        <div className="flex items-center gap-2 mt-1">
-          <span className="text-[9px] text-[#94A3B8]">Estado:</span>
-          <span className="inline-flex items-center rounded-full bg-[#F59E0B]/15 px-2 py-0.5 text-[9px] font-semibold text-[#F59E0B]">En preparación</span>
-        </div>
-      </div>
-      <div className="mb-3">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-[9px] text-[#94A3B8]">Progreso</span>
-          <span className="text-[10px] font-semibold text-[#00C896]">50%</span>
-        </div>
-        <div className="h-2 rounded-full bg-[#1A1F2C] overflow-hidden">
-          <div className="h-full rounded-full bg-[#00C896]" style={{ width: '50%' }} />
-        </div>
-      </div>
-      <div className="rounded-lg bg-[#0F1117] border border-[#1A1F2C] overflow-hidden">
-        {items.map((item, i) => (
-          <div key={i} className={`flex items-center justify-between px-3 py-2 ${i < items.length - 1 ? 'border-b border-[#1A1F2C]' : ''}`}>
-            <div className="flex items-center gap-2">
-              {item.checked ? (
-                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#00C896]/20 text-[#00C896] text-[10px]">&#10003;</span>
-              ) : (
-                <span className="h-4 w-4 rounded-full border border-[#1A1F2C]" />
-              )}
-              <span className={`text-[11px] ${item.checked ? 'text-[#E2E8F0]' : 'text-[#94A3B8]'}`}>{item.label}</span>
-            </div>
-            <span className="text-[8px] font-medium text-[#F85149]/70 uppercase tracking-wider">Oblig.</span>
-          </div>
-        ))}
-      </div>
-    </BrowserChrome>
-  );
-}
-
-/* ─────────────────────────────────────────────
    PRODUCT DEMO TABS
    ───────────────────────────────────────────── */
 
 const productTabs = [
-  { id: 'bi', label: 'Inteligencia BI' },
-  { id: 'dashboard', label: 'Dashboard' },
-  { id: 'postulaciones', label: 'Postulaciones' },
+  { id: 'precio', label: 'Precio de mercado' },
+  { id: 'score', label: 'Score de oportunidad' },
+  { id: 'matching', label: 'Matching semántico' },
 ] as const;
 
 type TabId = (typeof productTabs)[number]['id'];
@@ -327,7 +192,7 @@ type TabId = (typeof productTabs)[number]['id'];
    ───────────────────────────────────────────── */
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<TabId>('bi');
+  const [activeTab, setActiveTab] = useState<TabId>('precio');
   const [userClicked, setUserClicked] = useState(false);
   const [showMobileCta, setShowMobileCta] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -576,9 +441,9 @@ export default function Home() {
             </div>
 
             <div className="max-w-2xl mx-auto">
-              {activeTab === 'bi' && <MockupBIPanel />}
-              {activeTab === 'dashboard' && <MockupDashboard />}
-              {activeTab === 'postulaciones' && <MockupPostulaciones />}
+              {activeTab === 'precio' && <MockupPrecio />}
+              {activeTab === 'score' && <MockupScore />}
+              {activeTab === 'matching' && <MockupMatching />}
             </div>
 
             <div className="mt-10 text-center">
