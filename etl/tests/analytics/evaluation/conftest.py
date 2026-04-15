@@ -62,3 +62,51 @@ def empty_preds() -> pl.DataFrame:
         "rank":     [],
         "score":    [],
     }, schema={"query_id": pl.Utf8, "item_id": pl.Utf8, "rank": pl.Int64, "score": pl.Float64})
+
+
+# ─── Synthetic OC/LIC parquets for integration tests ──────────────────────────
+
+@pytest.fixture
+def synthetic_oc_parquets(tmp_path, monkeypatch):
+    """Write 3 tiny OC parquets to a tmp dir and point OC_PARQUET_DIR to it."""
+    from analytics import config as analytics_config
+
+    oc_dir = tmp_path / "oc"
+    oc_dir.mkdir()
+
+    pl.DataFrame({
+        "Codigo": ["OC-001", "OC-002", "OC-003"],
+        "FechaCreacion": [
+            datetime(2024, 1, 5), datetime(2024, 1, 15), datetime(2024, 1, 28),
+        ],
+        "CodigoProveedor": ["P1", "P2", "P1"],
+        "NombreProveedor": ["Prov1", "Prov2", "Prov1"],
+        "NombreroductoGenerico": ["papel", "limpieza", "papel higienico"],
+        "Nombre": ["resma papel A4", "detergente industrial", "papel higienico"],
+        "CodigoLicitacion": ["L-001", None, "L-002"],
+    }).write_parquet(oc_dir / "2024-1.parquet")
+
+    pl.DataFrame({
+        "Codigo": ["OC-004", "OC-005"],
+        "FechaCreacion": [datetime(2024, 2, 10), datetime(2024, 2, 20)],
+        "CodigoProveedor": ["P3", "P2"],
+        "NombreProveedor": ["Prov3", "Prov2"],
+        "NombreroductoGenerico": ["computadores", "limpieza"],
+        "Nombre": ["notebooks oficina", "servicio aseo"],
+        "CodigoLicitacion": ["L-003", "L-004"],
+    }).write_parquet(oc_dir / "2024-2.parquet")
+
+    pl.DataFrame({
+        "Codigo": ["OC-006"],
+        "FechaCreacion": [datetime(2024, 3, 15)],
+        "CodigoProveedor": ["P1"],
+        "NombreProveedor": ["Prov1"],
+        "NombreroductoGenerico": ["papel"],
+        "Nombre": ["resma"],
+        "CodigoLicitacion": [None],
+    }).write_parquet(oc_dir / "2024-3.parquet")
+
+    monkeypatch.setattr(analytics_config, "OC_PARQUET_DIR", oc_dir)
+    from analytics import data_loader as _dl
+    monkeypatch.setattr(_dl, "OC_PARQUET_DIR", oc_dir)
+    return oc_dir

@@ -6,6 +6,7 @@ Procesa archivo por archivo para controlar memoria.
 """
 
 import logging
+from datetime import date
 from pathlib import Path
 from typing import Optional
 
@@ -34,6 +35,7 @@ def _parse_periodo(periodo_str: str) -> tuple[int, int]:
 def scan_oc(
     columns: Optional[list[str]] = None,
     min_year: int = MIN_YEAR,
+    max_date: Optional[date] = None,
 ) -> pl.LazyFrame:
     """
     Carga lazy de todas las OC históricas, filtrando por año mínimo.
@@ -62,7 +64,10 @@ def scan_oc(
             # Seleccionar solo columnas disponibles en este archivo
             file_schema = pl.read_parquet_schema(p)
             file_cols = [c for c in available if c in file_schema]
-            frames.append(lf.select(file_cols))
+            lf = lf.select(file_cols)
+            if max_date is not None and "FechaCreacion" in file_schema:
+                lf = lf.filter(pl.col("FechaCreacion").cast(pl.Date) <= pl.lit(max_date))
+            frames.append(lf)
         except Exception as e:
             logger.warning(f"Skip {p.name}: {e}")
 
@@ -72,6 +77,7 @@ def scan_oc(
 def scan_lic(
     columns: Optional[list[str]] = None,
     min_year: int = MIN_YEAR,
+    max_date: Optional[date] = None,
 ) -> pl.LazyFrame:
     """Carga lazy de todas las licitaciones históricas."""
     cols = columns or LIC_COLS_CORE
@@ -95,7 +101,10 @@ def scan_lic(
             lf = pl.scan_parquet(p)
             file_schema = pl.read_parquet_schema(p)
             file_cols = [c for c in available if c in file_schema]
-            frames.append(lf.select(file_cols))
+            lf = lf.select(file_cols)
+            if max_date is not None and "FechaCreacion" in file_schema:
+                lf = lf.filter(pl.col("FechaCreacion").cast(pl.Date) <= pl.lit(max_date))
+            frames.append(lf)
         except Exception as e:
             logger.warning(f"Skip {p.name}: {e}")
 
@@ -105,12 +114,18 @@ def scan_lic(
 def iter_oc_parquets(
     columns: Optional[list[str]] = None,
     min_year: int = MIN_YEAR,
+    max_date: Optional[date] = None,
 ):
     """
     Iterador que yield un DataFrame a la vez (para procesamiento batch
     cuando no se puede materializar todo en memoria).
+
+    Si `max_date` está seteado, filtra in-place cada DF a FechaCreacion <= max_date.
     """
     cols = columns or OC_COLS_CORE
+    if max_date is not None and "FechaCreacion" not in cols:
+        cols = list(cols) + ["FechaCreacion"]
+
     for p in sorted(OC_PARQUET_DIR.glob("*.parquet")):
         year, _ = _parse_periodo(p.stem)
         if year < min_year:
@@ -119,6 +134,8 @@ def iter_oc_parquets(
             schema = pl.read_parquet_schema(p)
             avail = [c for c in cols if c in schema]
             df = pl.read_parquet(p, columns=avail)
+            if max_date is not None and "FechaCreacion" in df.columns:
+                df = df.filter(pl.col("FechaCreacion").cast(pl.Date) <= max_date)
             yield p.stem, df
         except Exception as e:
             logger.warning(f"Skip {p.name}: {e}")
@@ -127,9 +144,13 @@ def iter_oc_parquets(
 def iter_lic_parquets(
     columns: Optional[list[str]] = None,
     min_year: int = MIN_YEAR,
+    max_date: Optional[date] = None,
 ):
     """Iterador de LIC parquets uno a la vez."""
     cols = columns or LIC_COLS_CORE
+    if max_date is not None and "FechaCreacion" not in cols:
+        cols = list(cols) + ["FechaCreacion"]
+
     for p in sorted(LIC_PARQUET_DIR.glob("*.parquet")):
         year, _ = _parse_periodo(p.stem)
         if year < min_year:
@@ -138,6 +159,8 @@ def iter_lic_parquets(
             schema = pl.read_parquet_schema(p)
             avail = [c for c in cols if c in schema]
             df = pl.read_parquet(p, columns=avail)
+            if max_date is not None and "FechaCreacion" in df.columns:
+                df = df.filter(pl.col("FechaCreacion").cast(pl.Date) <= max_date)
             yield p.stem, df
         except Exception as e:
             logger.warning(f"Skip {p.name}: {e}")
