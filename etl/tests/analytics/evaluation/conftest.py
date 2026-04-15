@@ -110,3 +110,67 @@ def synthetic_oc_parquets(tmp_path, monkeypatch):
     from analytics import data_loader as _dl
     monkeypatch.setattr(_dl, "OC_PARQUET_DIR", oc_dir)
     return oc_dir
+
+
+@pytest.fixture
+def synthetic_lic_parquets(tmp_path, monkeypatch):
+    """Write 2 tiny LIC parquets with winners + losers."""
+    from analytics import config as analytics_config
+    import analytics.data_loader as _dl
+
+    lic_dir = tmp_path / "lic"
+    lic_dir.mkdir()
+
+    # 2026-3: L-100 with 2 offers (winner + loser), L-101 winner only
+    pl.DataFrame({
+        "CodigoExterno":       ["L-100", "L-100", "L-101"],
+        "Nombre":              ["servicio limpieza oficinas", "servicio limpieza oficinas", "notebooks"],
+        "FechaCreacion":       [datetime(2026, 3, 5)] * 3,
+        "CodigoProveedor":     ["P2", "P1", "P3"],
+        "NombreProveedor":     ["Prov2", "Prov1", "Prov3"],
+        "Oferta seleccionada": [True, False, True],
+    }).write_parquet(lic_dir / "2026-3.parquet")
+
+    # 2026-4: L-200 with 3 offers
+    pl.DataFrame({
+        "CodigoExterno":       ["L-200", "L-200", "L-200"],
+        "Nombre":              ["papel oficina"] * 3,
+        "FechaCreacion":       [datetime(2026, 4, 1)] * 3,
+        "CodigoProveedor":     ["P1", "P2", "P3"],
+        "NombreProveedor":     ["Prov1", "Prov2", "Prov3"],
+        "Oferta seleccionada": [True, False, False],
+    }).write_parquet(lic_dir / "2026-4.parquet")
+
+    monkeypatch.setattr(analytics_config, "LIC_PARQUET_DIR", lic_dir)
+    monkeypatch.setattr(_dl, "LIC_PARQUET_DIR", lic_dir)
+    return lic_dir
+
+
+@pytest.fixture
+def synthetic_test_window_ocs(tmp_path, synthetic_oc_parquets, monkeypatch):
+    """Add OCs in the test window (Mar-Apr 2026) that link to the synthetic LICs."""
+    import analytics.data_loader as _dl
+    from analytics import config as analytics_config
+
+    oc_dir = synthetic_oc_parquets
+    # 2026-3
+    pl.DataFrame({
+        "Codigo": ["OC-100", "OC-101"],
+        "FechaCreacion": [datetime(2026, 3, 10), datetime(2026, 3, 12)],
+        "CodigoProveedor": ["P2", "P3"],
+        "NombreProveedor": ["Prov2", "Prov3"],
+        "NombreroductoGenerico": ["limpieza", "notebooks"],
+        "Nombre": ["servicio aseo", "notebook hp"],
+        "CodigoLicitacion": ["L-100", "L-101"],
+    }).write_parquet(oc_dir / "2026-3.parquet")
+    # 2026-4
+    pl.DataFrame({
+        "Codigo": ["OC-200"],
+        "FechaCreacion": [datetime(2026, 4, 5)],
+        "CodigoProveedor": ["P1"],
+        "NombreProveedor": ["Prov1"],
+        "NombreroductoGenerico": ["papel"],
+        "Nombre": ["resma"],
+        "CodigoLicitacion": ["L-200"],
+    }).write_parquet(oc_dir / "2026-4.parquet")
+    return oc_dir
