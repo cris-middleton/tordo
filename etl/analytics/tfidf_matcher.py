@@ -21,6 +21,7 @@ Output:
 
 import logging
 import re
+from datetime import date
 from pathlib import Path
 
 import numpy as np
@@ -44,12 +45,15 @@ def _clean_text(text: str) -> str:
     return " ".join(tokens)
 
 
-def build_provider_corpus() -> pl.DataFrame:
+def build_provider_corpus(max_date: "date | None" = None) -> pl.DataFrame:
     """
     Construye corpus de texto por proveedor, concatenando los nombres
     de productos/servicios de todas sus OC.
 
     Usa operaciones vectorizadas de Polars (no iter_rows).
+
+    `max_date`: si está seteado, solo usa OCs con FechaCreacion <= max_date
+    (usado por el harness de evaluación para evitar data leakage).
 
     Retorna DataFrame con columnas:
     - CodigoProveedor, NombreProveedor
@@ -61,13 +65,14 @@ def build_provider_corpus() -> pl.DataFrame:
     cols_needed = [
         "CodigoProveedor", "NombreProveedor",
         "Nombre", "NombreroductoGenerico", "Categoria",
+        "FechaCreacion",  # needed for max_date filter in iter_oc_parquets
     ]
 
     # Paso 1: recolectar nombres de producto ÚNICOS por proveedor (no repetir)
     # Esto reduce el volumen de texto de ~100M a ~2-5M únicos
     prov_products: dict[str, dict] = {}
 
-    for periodo, df in iter_oc_parquets(columns=cols_needed, min_year=2018):
+    for periodo, df in iter_oc_parquets(columns=cols_needed, min_year=2018, max_date=max_date):
         if "CodigoProveedor" not in df.columns:
             continue
 
@@ -120,19 +125,35 @@ def build_provider_corpus() -> pl.DataFrame:
     return corpus_df
 
 
-def train_tfidf_model(corpus_df: pl.DataFrame) -> dict:
+def train_tfidf_model(
+    corpus_df: pl.DataFrame,
+    output_dir: "Path | None" = None,
+    *,
+    max_features: int = 20000,
+    ngram_range: tuple = (1, 2),
+    min_df: int = 5,
+    max_df: float = 0.8,
+    sublinear_tf: bool = True,
+    strip_accents: str = "unicode",
+    token_pattern: str = r"(?u)\b\w{3,}\b",
+) -> dict:
     """
     Entrena TF-IDF Vectorizer y genera vectores por proveedor.
 
-    Parámetros tuneados para este dominio:
-    - max_features=20000: vocabulario limitado (dominio específico)
-    - ngram_range=(1,2): unigramas y bigramas para captar "servicio limpieza"
-    - min_df=5: mínimo 5 proveedores para que un término sea relevante
-    - max_df=0.8: excluir términos que aparecen en >80% de proveedores
-    - sublinear_tf=True: log(TF) para suavizar frecuencias altas
+    Hyperparameters passed as keyword args with defaults equal to the
+    historical production values.
+
+    `output_dir`: directorio donde persistir artefactos. Default = OUTPUT_DIR (producción).
+    Llamadores del harness de eval pasan un tempdir para no contaminar.
     """
     from scipy import sparse
     from sklearn.feature_extraction.text import TfidfVectorizer
+
+    if output_dir is None:
+        output_dir = OUTPUT_DIR
+    else:
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
 
     logger.info("Entrenando modelo TF-IDF...")
 
@@ -140,13 +161,13 @@ def train_tfidf_model(corpus_df: pl.DataFrame) -> dict:
     provider_ids = corpus_df["CodigoProveedor"].to_list()
 
     vectorizer = TfidfVectorizer(
-        max_features=20000,
-        ngram_range=(1, 2),
-        min_df=5,
-        max_df=0.8,
-        sublinear_tf=True,
-        strip_accents="unicode",
-        token_pattern=r"(?u)\b\w{3,}\b",
+        max_features=max_features,
+        ngram_range=tuple(ngram_range),
+        min_df=min_df,
+        max_df=max_df,
+        sublinear_tf=sublinear_tf,
+        strip_accents=strip_accents,
+        token_pattern=token_pattern,
     )
 
     tfidf_matrix = vectorizer.fit_transform(texts)
@@ -157,12 +178,12 @@ def train_tfidf_model(corpus_df: pl.DataFrame) -> dict:
 
     # Guardar modelo
     import joblib
-    model_path = OUTPUT_DIR / "tfidf_model.joblib"
+    model_path = output_dir / "tfidf_model.joblib"
     joblib.dump(vectorizer, model_path)
     logger.info(f"Modelo guardado: {model_path.name}")
 
     # Guardar vectores sparse
-    vectors_path = OUTPUT_DIR / "tfidf_provider_vectors.npz"
+    vectors_path = output_dir / "tfidf_provider_vectors.npz"
     sparse.save_npz(vectors_path, tfidf_matrix)
     logger.info(f"Vectores guardados: {vectors_path.name}")
 
@@ -173,7 +194,7 @@ def train_tfidf_model(corpus_df: pl.DataFrame) -> dict:
         "n_oc": corpus_df["n_oc"].to_list(),
         "matrix_row": list(range(len(provider_ids))),
     })
-    index_path = OUTPUT_DIR / "tfidf_provider_index.parquet"
+    index_path = output_dir / "tfidf_provider_index.parquet"
     index_df.write_parquet(index_path, compression="snappy")
 
     # Estadísticas de vocabulario (top términos)
@@ -184,7 +205,7 @@ def train_tfidf_model(corpus_df: pl.DataFrame) -> dict:
         "idf": idf_scores,
         "n_docs": [int(tfidf_matrix.shape[0] / np.exp(idf - 1)) for idf in idf_scores],
     }).sort("idf")
-    vocab_path = OUTPUT_DIR / "tfidf_vocabulary_stats.parquet"
+    vocab_path = output_dir / "tfidf_vocabulary_stats.parquet"
     vocab_stats.write_parquet(vocab_path, compression="snappy")
 
     return {
