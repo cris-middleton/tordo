@@ -81,25 +81,36 @@ Se reemplazan los 3 mockups actuales (`MockupBIPanel`, `MockupDashboard`, `Mocku
 
 **6 ejemplos rotativos** (5s cada uno):
 
-| # | Producto | Mediana | Rango |
-|---|---|---|---|
-| 1 | Servicio aseo terminal recinto salud | $2.8M / mes | $2.1M–$3.6M |
-| 2 | Notebook corporativo Intel i5 | $680.000 / u | $580K–$820K |
-| 3 | Resma papel carta 75g | $2.450 / u | $2.100–$2.900 |
-| 4 | Uniforme escolar kit básico | $18.000 / kit | $15K–$22K |
-| 5 | Reparación de veredas municipales | $12M / proyecto | $9M–$16M |
-| 6 | Suministro alimentación JUNAEB | $1.850 / ración | $1.650–$2.200 |
+| # | Producto | Mediana | Rango | Cotización ejemplo (P75) | Target "baja a" |
+|---|---|---|---|---|---|
+| 1 | Servicio aseo terminal recinto salud | $2.8M / mes | $2.1M–$3.6M | $3.2M | $2.9M |
+| 2 | Notebook corporativo Intel i5 | $680.000 / u | $580K–$820K | $760.000 | $695.000 |
+| 3 | Resma papel carta 75g | $2.450 / u | $2.100–$2.900 | $2.700 | $2.500 |
+| 4 | Uniforme escolar kit básico | $18.000 / kit | $15K–$22K | $20.000 | $18.500 |
+| 5 | Reparación de veredas municipales | $12M / proyecto | $9M–$16M | $14M | $12.5M |
+| 6 | Suministro alimentación JUNAEB | $1.850 / ración | $1.650–$2.200 | $2.050 | $1.900 |
+
+Template del callout del simulador (se aplica a los 6 con los valores correspondientes):
+
+> 💡 *"Tu cotización de **[cotización ejemplo]** está sobre 3 de cada 4 adjudicaciones. Si bajas a **[target]**, te acercas al precio que suele ganar."*
 
 **Elementos visuales del mockup (ejemplo #1 para referencia):**
 
 - Header: nombre del producto
 - Mediana en tamaño XL con badge de tendencia al lado: *"↑ 3% vs hace 12 meses"*
 - Barra visual del rango con 4 marcas: Mín / Mediana / Cotización ejemplo / Máx
-- Callout destacado (caja con borde suave, bg diferenciado):
-  > 💡 *"Tu cotización de $3.2M está sobre 3 de cada 4 adjudicaciones. Si bajas a $2.9M, te acercas al precio que suele ganar."*
+- Callout destacado (caja con borde suave, bg diferenciado) — ver template arriba
 - Tabla compacta: 3 adjudicaciones recientes (comprador · fecha · monto · ganador)
-- Footer con insight del comprador (muted, pequeño):
-  > 📌 *"Este comprador adjudica típicamente en el rango medio. Puedes ganar sin ofrecer el precio más bajo."*
+- Footer con insight del comprador (muted, pequeño) — rota con cada ejemplo:
+
+| # | Comprador de referencia | Footer insight |
+|---|---|---|
+| 1 | Hospital San Juan de Dios | *"Este comprador adjudica típicamente en el rango medio. Puedes ganar sin ofrecer el precio más bajo."* |
+| 2 | Ministerio de Hacienda | *"Este comprador adjudica casi siempre cerca del precio mínimo. Conviene afilar la cotización al máximo."* |
+| 3 | Municipalidad de La Florida | *"Este comprador adjudica casi siempre al precio más bajo. Compite en costo o mira mejores licitaciones."* |
+| 4 | Junta Nacional de Auxilio Escolar y Becas | *"Este comprador adjudica en un rango amplio. Hay margen para no ser el más barato."* |
+| 5 | SERVIU Región del Maule | *"Este comprador adjudica en el rango alto. No tienes que ser el más barato para ganar acá."* |
+| 6 | JUNAEB | *"Este comprador adjudica típicamente en el rango medio-alto. No bajes al mínimo solo por ganar."* |
 
 **Jerarquía visual:** Mediana (XL) > Callout simulador (M destacado) > Barra y labels (S) > Tabla y footer (XS muted).
 
@@ -109,7 +120,7 @@ Se reemplazan los 3 mockups actuales (`MockupBIPanel`, `MockupDashboard`, `Mocku
 
 **Headline:** *"Postula donde tienes chance real"*
 
-**Bajada:** *"Creamos un score que combina precio, similitud de rubro y tu historial de ventas, para que priorices lo que realmente te conviene."*
+**Bajada:** *"Te entregamos un score que combina precio, similitud de rubro y calidad del comprador, para que priorices lo que realmente te conviene."*
 
 **3 ejemplos rotativos** (6s cada uno — más denso, necesita más tiempo de lectura):
 
@@ -134,10 +145,10 @@ Se reemplazan los 3 mockups actuales (`MockupBIPanel`, `MockupDashboard`, `Mocku
   - Ejemplo 2: *"Este comprador adjudicó 4 contratos similares en el último año."*
   - Ejemplo 3: *"Solo 1 de cada 3 licitaciones de este tipo se adjudican."*
 
-**Thresholds de color del score:**
-- `>= 70`: verde (hero TORDO green, `#0EAD69` o equivalente)
-- `40-69`: amarillo (el mismo amarillo usado en status badges)
-- `< 40`: rojo suave (no alarmante)
+**Thresholds de color del score** (usar tokens de color del brand ya existentes en el landing, no hardcodear hex nuevos):
+- `>= 70`: verde primario (mismo token que ya usa el landing para acentos positivos)
+- `40-69`: amarillo / warning (mismo token de status badges)
+- `< 40`: rojo suave / danger muted (mismo token de estados de error)
 
 **Jerarquía visual:** Score XL > Verdict tag M > Barras del desglose S > Meta-info e insight XS.
 
@@ -205,7 +216,7 @@ Reemplaza los 3 bullets actuales:
 
 - **DollarSign** — *Precio de mercado* · "Mediana y rango de adjudicación de los productos que vendes."
 - **Target** — *Score de oportunidad* · "Qué licitaciones valen tu tiempo, ordenadas."
-- **Sparkles** (o Search/Zap) — *Matching semántico* · "Detectamos licitaciones afines aunque usen otras palabras."
+- **Sparkles** — *Matching semántico* · "Detectamos licitaciones afines aunque usen otras palabras."
 
 "Mapa de competidores" se saca del landing (sigue existiendo en `/dashboard/bi`).
 
@@ -262,7 +273,7 @@ Todo el copy del landing debe respetar:
 
 1. **Calibrar cifras reales** antes del deploy: correr un script contra los Parquets de `etl/data/analytics/` para verificar que las medianas y rangos de los 6 ejemplos del Mockup 1 son consistentes con la data real. No bloqueante para primer release si las cifras están dentro de rangos plausibles.
 2. **Sed data para PlantillaChecklist L1/LE/LP** (si no existe aún): cargar las plantillas de documentos por tipo, para que el bullet del checklist no mienta.
-3. **Iconografía:** confirmar que `FileClock` existe en `lucide-react` (debería, pero verificar); alternativamente usar `Clock` o `Calendar`. Confirmar que `Sparkles` o el ícono elegido para "Matching semántico" tenga suficiente peso visual.
+3. **Iconografía:** confirmar que `FileClock` y `Sparkles` existen en `lucide-react` (deberían, pero verificar). Si `FileClock` no está disponible, fallback a `Clock` o `Calendar`.
 
 ---
 
