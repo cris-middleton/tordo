@@ -1,6 +1,7 @@
 // frontend/components/landing/BrowserChrome.tsx
+import type { ReactNode } from 'react';
 
-export function BrowserChrome({ url, children }: { url: string; children: React.ReactNode }) {
+export function BrowserChrome({ url, children }: { url: string; children: ReactNode }) {
   return (
     <div className="rounded-xl overflow-hidden border border-[#1A1F2C] bg-[#0A0C10] shadow-2xl">
       <div className="flex items-center gap-2 px-4 py-2.5 bg-[#0F1117] border-b border-[#1A1F2C]">
