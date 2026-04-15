@@ -63,6 +63,12 @@ python main.py --only-actualizar                   # Update existing details onl
 python -m etl.analytics.run_all                    # Rebuild all 15 analytics modules
 python -m etl.analytics.run_all --modulo seasonality  # Run single analytics module
 python scripts/descargar_datos_masivos.py --tipo ambos --desde 2025-01 --hasta 2026-03  # Bulk ZIP download
+
+# Scoring evaluation harness
+cd etl && python -m analytics.evaluation --model tfidf_matcher --variant baseline         # holdout baseline
+cd etl && python -m analytics.evaluation --model tfidf_matcher --walk-forward              # walk-forward (4 folds)
+cd etl && python -m analytics.evaluation --model tfidf_matcher --compare baseline:baseline path/to/variant.yaml
+cd etl && python -m pytest tests/analytics/evaluation/ -v                                  # run eval tests
 ```
 
 ## Architecture
