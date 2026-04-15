@@ -17,6 +17,9 @@ import {
   DollarSign,
 } from 'lucide-react';
 import { BrowserChrome } from '@/components/landing/BrowserChrome';
+import { MockupPrecio } from '@/components/landing/MockupPrecio';
+import { MockupScore } from '@/components/landing/MockupScore';
+import { MockupMatching } from '@/components/landing/MockupMatching';
 
 /* ─────────────────────────────────────────────
    DATA
@@ -419,7 +422,7 @@ export default function Home() {
                 </h1>
 
                 <p className="mb-8 max-w-xl text-lg text-white/65 leading-relaxed">
-                  Precios históricos, mapa de competidores y checklist de documentos — todo lo que necesitas para decidir si conviene postular, antes de invertir tiempo.
+                  Sabes a qué precio cotizar, cuáles licitaciones valen la pena postular y qué nuevas calzan con lo que vende tu empresa — sin adivinar.
                 </p>
 
                 <p className="mb-8 max-w-lg text-sm text-white/40 leading-relaxed">
@@ -435,6 +438,11 @@ export default function Home() {
                     Ver el producto
                   </Link>
                 </div>
+
+                {/* Trust line */}
+                <p className="text-xs text-white/35 mb-6">
+                  Datos públicos de ChileCompra · Sin tarjeta · Cancelas cuando quieras
+                </p>
 
                 {/* Stats */}
                 <div className="grid grid-cols-3 gap-6 sm:gap-10">
@@ -453,7 +461,7 @@ export default function Home() {
 
               <div className="lg:col-span-2 flex flex-col items-center justify-center gap-3">
                 <div className="w-full max-w-md animate-float rounded-xl" style={{ boxShadow: '0 20px 60px rgba(14,173,105,0.15)' }}>
-                  <MockupBIPanel />
+                  <MockupPrecio />
                 </div>
                 <p className="flex items-center gap-1.5 text-xs text-white/35 self-end pr-1">
                   <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#0EAD69]" />
