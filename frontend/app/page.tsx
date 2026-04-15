@@ -4,17 +4,16 @@ import { useState, useEffect, useCallback } from 'react';
 import TordoLogo from '@/components/TordoLogo';
 import Link from 'next/link';
 import {
-  BarChart3,
   CheckCircle2,
-  ShieldCheck,
   Bell,
   ArrowRight,
   ChevronDown,
   Menu,
   X,
   Target,
-  Users,
   DollarSign,
+  Sparkles,
+  FileClock,
 } from 'lucide-react';
 import { MockupPrecio } from '@/components/landing/MockupPrecio';
 import { MockupScore } from '@/components/landing/MockupScore';
@@ -362,9 +361,9 @@ export default function Home() {
                 </div>
                 <div className="space-y-5">
                   {[
-                    { icon: DollarSign, title: 'Rangos de precio reales', desc: '¿A cuánto se ha adjudicado este tipo de producto? Dato concreto para calibrar tu oferta.' },
-                    { icon: Users, title: 'Mapa de competidores', desc: 'Cuántos proveedores compiten en tu rubro y quiénes ganan más seguido.' },
-                    { icon: Target, title: 'Score de oportunidad', desc: 'Un puntaje que resume si la licitación calza con tu perfil y vale la pena el esfuerzo.' },
+                    { icon: DollarSign, title: 'Precio de mercado', desc: 'Mediana y rango de adjudicación de los productos que vendes.' },
+                    { icon: Target, title: 'Score de oportunidad', desc: 'Qué licitaciones valen tu tiempo, ordenadas.' },
+                    { icon: Sparkles, title: 'Matching semántico', desc: 'Detectamos licitaciones afines aunque usen otras palabras.' },
                   ].map((item) => {
                     const Icon = item.icon;
                     return (
@@ -391,9 +390,9 @@ export default function Home() {
                 </div>
                 <div className="space-y-5">
                   {[
-                    { icon: CheckCircle2, title: 'Checklist de documentos', desc: 'Qué documentos necesitas según el tipo de licitación. Sin adivinar.' },
-                    { icon: ShieldCheck, title: 'Monitor de estado hábil', desc: 'Revisión diaria automática. Si tu habilitación cambia, te avisa de inmediato.' },
-                    { icon: Bell, title: 'Alertas de plazo', desc: 'Notificaciones 48h y 24h antes del cierre. Filtradas por rubro y región.' },
+                    { icon: Bell, title: 'Alertas cuando aparece algo que te conviene', desc: 'Te avisamos por correo o WhatsApp cuando hay nuevas licitaciones u órdenes de compra que hacen match con tu perfil, y también 48h y 24h antes del cierre.' },
+                    { icon: CheckCircle2, title: 'Papeles al día sin adivinar', desc: 'Plantilla de documentos según el tipo de licitación (L1, LE, LP). Así no revisas Bases de 40 páginas para saber qué declaraciones pedir.' },
+                    { icon: FileClock, title: 'No pierdas postulaciones por un documento vencido', desc: 'Te avisamos cuando un certificado, garantía o boleta está próximo a vencer. Renuevas a tiempo y no te descartan por papel caducado.' },
                   ].map((item) => {
                     const Icon = item.icon;
                     return (
