@@ -1,0 +1,13 @@
+# Baseline variant for tfidf_matcher.
+# Loaded by CLI via --variant-file.
+# See spec §4.3.
+
+name: baseline
+params:
+  ngram_range: [1, 2]
+  max_features: 20000
+  min_df: 5
+  max_df: 0.8
+  sublinear_tf: true
+  strip_accents: unicode
+  token_pattern: "(?u)\\b\\w{3,}\\b"
