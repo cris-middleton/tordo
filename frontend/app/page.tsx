@@ -286,7 +286,7 @@ export default function Home() {
                 </h1>
 
                 <p className="mb-8 max-w-xl text-lg text-white/65 leading-relaxed">
-                  Sabes a qué precio cotizar, cuáles licitaciones valen la pena postular y qué nuevas calzan con lo que vende tu empresa — sin adivinar.
+                  Descubre a qué precio cotizar, en qué licitaciones vale la pena participar y cuáles se ajustan a lo que vendes — sin adivinar.
                 </p>
 
                 <p className="mb-8 max-w-lg text-sm text-white/40 leading-relaxed">
@@ -347,7 +347,7 @@ export default function Home() {
                 Inteligencia para decidir. Orden para postular.
               </h2>
               <p className="mt-4 max-w-2xl mx-auto text-[#64748B] leading-relaxed">
-                Antes de invertir tiempo en una licitación, TORDO te muestra si tu precio es competitivo y qué tan confiable es el organismo comprador. Cuando postulas, te asegura que no te descarten sin siquiera ser evaluado.
+                Antes de invertir tiempo en una licitación, TORDO te muestra si tu precio es competitivo y qué tan confiable es el comprador. Cuando postulas, te asegura que no te descarten antes de ser evaluado.
               </p>
             </div>
 
@@ -362,7 +362,7 @@ export default function Home() {
                 <div className="space-y-5">
                   {[
                     { icon: DollarSign, title: 'Precio de mercado', desc: 'Mediana y rango de adjudicación de los productos que vendes.' },
-                    { icon: Target, title: 'Score de oportunidad', desc: 'Qué licitaciones valen tu tiempo, ordenadas.' },
+                    { icon: Target, title: 'Score de oportunidad', desc: 'Las licitaciones que valen tu tiempo, ordenadas por probabilidad de éxito.' },
                     { icon: Sparkles, title: 'Matching semántico', desc: 'Detectamos licitaciones afines aunque usen otras palabras.' },
                   ].map((item) => {
                     const Icon = item.icon;
@@ -390,9 +390,9 @@ export default function Home() {
                 </div>
                 <div className="space-y-5">
                   {[
-                    { icon: Bell, title: 'Alertas cuando aparece algo que te conviene', desc: 'Te avisamos por correo o WhatsApp cuando hay nuevas licitaciones u órdenes de compra que hacen match con tu perfil, y también 48h y 24h antes del cierre.' },
+                    { icon: Bell, title: 'Alertas cuando aparece algo que te conviene', desc: 'Te avisamos por correo o WhatsApp cuando aparecen licitaciones u órdenes de compra que calzan con tu perfil, y también 48 y 24 horas antes del cierre.' },
                     { icon: CheckCircle2, title: 'Papeles al día sin adivinar', desc: 'Plantilla de documentos según el tipo de licitación (L1, LE, LP). Así no revisas Bases de 40 páginas para saber qué declaraciones pedir.' },
-                    { icon: FileClock, title: 'No pierdas postulaciones por un documento vencido', desc: 'Te avisamos cuando un certificado, garantía o boleta está próximo a vencer. Renuevas a tiempo y no te descartan por papel caducado.' },
+                    { icon: FileClock, title: 'No pierdas postulaciones por un documento vencido', desc: 'Te avisamos cuando un certificado, garantía o boleta está por vencer. Así renuevas a tiempo y no te descartan por un papel caducado.' },
                   ].map((item) => {
                     const Icon = item.icon;
                     return (
@@ -468,7 +468,7 @@ export default function Home() {
               <div className="hidden md:block absolute top-6 left-[calc(16.67%+24px)] right-[calc(16.67%+24px)] h-px bg-gradient-to-r from-[#0F2942]/20 via-[#0EAD69]/30 to-[#0F2942]/20" />
               {[
                 { step: '01', title: 'Registra tu empresa', desc: 'Ingresa tu RUT y rubros. TORDO verifica tu estado hábil automáticamente. (Necesitas estar registrado como proveedor en ChileCompra.)' },
-                { step: '02', title: 'Explora oportunidades', desc: 'Recibes licitaciones que calzan con tu perfil, cada una con un score de oportunidad.' },
+                { step: '02', title: 'Explora oportunidades', desc: 'Encuentra las licitaciones que calzan con tu perfil, cada una con su score de oportunidad.' },
                 { step: '03', title: 'Postula informado', desc: 'Revisa precios históricos, competidores, y prepara tu documentación con el checklist.' },
               ].map((s) => (
                 <div key={s.step} className="relative">
@@ -615,7 +615,7 @@ export default function Home() {
               Tu próxima licitación, con mejor información
             </h2>
             <p className="mb-8 text-white/65 leading-relaxed">
-              Cuenta gratis en 2 minutos. Sin tarjeta. Sin experiencia previa necesaria.
+              Cuenta gratis en 2 minutos. Sin tarjeta de crédito. No necesitas experiencia previa en licitaciones.
             </p>
             <Link href="/register" className="inline-flex items-center gap-2 rounded-lg bg-[#0EAD69] px-8 py-4 text-base font-bold text-white shadow-lg transition-all hover:bg-[#09895B] hover:shadow-xl">
               Crear cuenta gratis
