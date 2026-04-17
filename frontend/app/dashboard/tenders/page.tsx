@@ -72,6 +72,8 @@ interface TenderDetalle {
   participantes?: any[];
 }
 
+type NivelEncaje = 'alto' | 'medio' | 'bajo' | 'sin_encaje';
+
 interface Tender {
   id: number;
   codigo_externo: string;
@@ -86,6 +88,9 @@ interface Tender {
   nombre_organismo?: string;
   url_licitacion?: string;
   detalle?: TenderDetalle;
+  similarity_score?: number | null;
+  score_encaje?: number | null;
+  nivel_encaje?: NivelEncaje | null;
 }
 
 interface BIPanel {
@@ -201,6 +206,7 @@ export default function TendersPage() {
       if (filters.min_amount) params.min_amount = parseFloat(filters.min_amount);
       if (filters.max_amount) params.max_amount = parseFloat(filters.max_amount);
       if (keywords.length) params.search = keywords.join(' ');
+      if (firstEmpresaId) params.empresa_id = firstEmpresaId;
       const response = await apiClient.getTenders(params);
       setTenders(response.items || []);
       setTotal(response.total || 0);
@@ -210,7 +216,7 @@ export default function TendersPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters.estado, filters.max_amount, filters.min_amount, filters.region, keywords, page, limit, sortBy, sortOrder]);
+  }, [filters.estado, filters.max_amount, filters.min_amount, filters.region, keywords, page, limit, sortBy, sortOrder, firstEmpresaId]);
 
   useEffect(() => { loadTenders(); }, [loadTenders]);
 
@@ -226,6 +232,9 @@ export default function TendersPage() {
       if (prev.some((k) => k.toLowerCase() === normalized.toLowerCase())) return prev;
       return [...prev, normalized];
     });
+    // On first keyword, switch to relevance ranking if the user is still on
+    // the default sort. They can override via the dropdown afterward.
+    setSortBy((prev) => (prev === 'fecha_publicacion' ? 'relevance' : prev));
     setSearchInput('');
     setPage(1);
   }, []);
@@ -289,6 +298,25 @@ export default function TendersPage() {
     if (daysLeft <= 2) return { label: `${daysLeft}d`, cls: 'text-danger font-semibold' };
     if (daysLeft <= 7) return { label: `${daysLeft}d`, cls: 'text-gold font-medium' };
     return { label: format(closing, 'dd MMM'), cls: 'text-muted' };
+  };
+
+  const getEncajeBadge = (nivel?: NivelEncaje | null) => {
+    if (!nivel || nivel === 'sin_encaje') return null;
+    const map: Record<string, { label: string; cls: string }> = {
+      alto: { label: 'Encaje alto', cls: 'bg-accent/10 text-accent border-accent/20' },
+      medio: { label: 'Encaje medio', cls: 'bg-primary/10 text-primary border-primary/20' },
+      bajo: { label: 'Encaje bajo', cls: 'bg-border/50 text-subtle border-border' },
+    };
+    const config = map[nivel];
+    if (!config) return null;
+    return (
+      <span
+        title="Afinidad con el perfil de tu empresa (TF-IDF)"
+        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold leading-none ${config.cls}`}
+      >
+        {config.label}
+      </span>
+    );
   };
 
   const shortRegion = (region?: string) => {
@@ -370,7 +398,15 @@ export default function TendersPage() {
                 </button>
               </span>
             ))}
-            <button type="button" onClick={() => { setKeywords([]); setPage(1); }} className="text-xs text-muted hover:text-danger transition-colors">
+            <button
+              type="button"
+              onClick={() => {
+                setKeywords([]);
+                setSortBy((prev) => (prev === 'relevance' ? 'fecha_publicacion' : prev));
+                setPage(1);
+              }}
+              className="text-xs text-muted hover:text-danger transition-colors"
+            >
               Limpiar
             </button>
           </div>
@@ -388,6 +424,8 @@ export default function TendersPage() {
             onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
             className="rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
           >
+            {keywords.length > 0 && <option value="relevance">Relevancia</option>}
+            {firstEmpresaId && <option value="score_encaje">Encaje</option>}
             <option value="fecha_publicacion">Publicación</option>
             <option value="fecha_cierre">Cierre</option>
             <option value="monto_estimado">Monto</option>
@@ -476,13 +514,16 @@ export default function TendersPage() {
                   <div className={`w-1 shrink-0 ${accentCls}`} />
 
                   <div className="flex flex-col flex-1 min-w-0 px-4 pt-3.5 pb-3">
-                    {/* Row 1: badge + region */}
+                    {/* Row 1: badge(s) + region */}
                     <div className="flex items-center justify-between gap-2 mb-2">
-                      {estadoDisplay ? (
-                        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold leading-none ${estadoCls}`}>
-                          {normalizeText(estadoDisplay)}
-                        </span>
-                      ) : <span />}
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {estadoDisplay && (
+                          <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold leading-none ${estadoCls}`}>
+                            {normalizeText(estadoDisplay)}
+                          </span>
+                        )}
+                        {getEncajeBadge(tender.nivel_encaje)}
+                      </div>
                       {tender.region && (
                         <span className="flex items-center gap-0.5 text-[11px] text-muted shrink-0">
                           <MapPin className="h-2.5 w-2.5" />

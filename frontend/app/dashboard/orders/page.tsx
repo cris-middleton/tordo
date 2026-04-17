@@ -67,6 +67,8 @@ interface OrderDetalle {
   items?: any[];
 }
 
+type NivelEncaje = 'alto' | 'medio' | 'bajo' | 'sin_encaje';
+
 interface Order {
   id: number;
   codigo_oc: string;
@@ -81,6 +83,9 @@ interface Order {
   nombre_proveedor?: string;
   moneda?: string;
   detalle?: OrderDetalle;
+  similarity_score?: number | null;
+  score_encaje?: number | null;
+  nivel_encaje?: NivelEncaje | null;
 }
 
 export default function OrdersPage() {
@@ -101,6 +106,13 @@ export default function OrdersPage() {
   const [limit, setLimit] = useState(20);
   const [sortBy, setSortBy] = useState('fecha_publicacion');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [firstEmpresaId, setFirstEmpresaId] = useState<string | null>(null);
+
+  useEffect(() => {
+    apiClient.getEmpresas().then((empresas: any[]) => {
+      if (empresas?.[0]?.id) setFirstEmpresaId(String(empresas[0].id));
+    }).catch(() => {});
+  }, []);
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
@@ -116,6 +128,7 @@ export default function OrdersPage() {
       if (filters.codigo_organismo) params.codigo_organismo = filters.codigo_organismo;
       if (filters.codigo_proveedor) params.codigo_proveedor = filters.codigo_proveedor;
       if (keywords.length) params.search = keywords.join(' ');
+      if (firstEmpresaId) params.empresa_id = firstEmpresaId;
       const response = await apiClient.getOrders(params);
       setOrders(response.data || []);
       setTotal(response.total_count || 0);
@@ -124,7 +137,7 @@ export default function OrdersPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters.codigo_organismo, filters.codigo_proveedor, filters.estado, filters.region, keywords, page, limit, sortBy, sortOrder]);
+  }, [filters.codigo_organismo, filters.codigo_proveedor, filters.estado, filters.region, keywords, page, limit, sortBy, sortOrder, firstEmpresaId]);
 
   useEffect(() => { loadOrders(); }, [loadOrders]);
 
@@ -140,6 +153,7 @@ export default function OrdersPage() {
       if (prev.some((k) => k.toLowerCase() === normalized.toLowerCase())) return prev;
       return [...prev, normalized];
     });
+    setSortBy((prev) => (prev === 'fecha_publicacion' ? 'relevance' : prev));
     setSearchInput('');
     setPage(1);
   }, []);
@@ -184,6 +198,25 @@ export default function OrdersPage() {
     if (e.includes('proceso') || e.includes('enviada')) return 'bg-info';
     if (e.includes('cancelada') || e.includes('no aceptada')) return 'bg-danger';
     return 'bg-primary/30';
+  };
+
+  const getEncajeBadge = (nivel?: NivelEncaje | null) => {
+    if (!nivel || nivel === 'sin_encaje') return null;
+    const map: Record<string, { label: string; cls: string }> = {
+      alto: { label: 'Encaje alto', cls: 'bg-accent/10 text-accent border-accent/20' },
+      medio: { label: 'Encaje medio', cls: 'bg-primary/10 text-primary border-primary/20' },
+      bajo: { label: 'Encaje bajo', cls: 'bg-border/50 text-subtle border-border' },
+    };
+    const config = map[nivel];
+    if (!config) return null;
+    return (
+      <span
+        title="Afinidad con el perfil de tu empresa (TF-IDF)"
+        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold leading-none ${config.cls}`}
+      >
+        {config.label}
+      </span>
+    );
   };
 
   const shortRegion = (region?: string) => {
@@ -254,7 +287,15 @@ export default function OrdersPage() {
                 </button>
               </span>
             ))}
-            <button type="button" onClick={() => { setKeywords([]); setPage(1); }} className="text-xs text-muted hover:text-danger transition-colors">
+            <button
+              type="button"
+              onClick={() => {
+                setKeywords([]);
+                setSortBy((prev) => (prev === 'relevance' ? 'fecha_publicacion' : prev));
+                setPage(1);
+              }}
+              className="text-xs text-muted hover:text-danger transition-colors"
+            >
               Limpiar
             </button>
           </div>
@@ -272,6 +313,8 @@ export default function OrdersPage() {
             onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
             className="rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
           >
+            {keywords.length > 0 && <option value="relevance">Relevancia</option>}
+            {firstEmpresaId && <option value="score_encaje">Encaje</option>}
             <option value="fecha_publicacion">Publicación</option>
             <option value="monto_total">Monto</option>
             <option value="nombre">Nombre</option>
@@ -352,13 +395,16 @@ export default function OrdersPage() {
                   <div className={`w-1 shrink-0 ${accentCls}`} />
 
                   <div className="flex flex-col flex-1 min-w-0 px-4 pt-3.5 pb-3">
-                    {/* Row 1: badge + region */}
+                    {/* Row 1: badge(s) + region */}
                     <div className="flex items-center justify-between gap-2 mb-2">
-                      {order.estado ? (
-                        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold leading-none ${estadoCls}`}>
-                          {normalizeText(order.estado)}
-                        </span>
-                      ) : <span />}
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {order.estado && (
+                          <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold leading-none ${estadoCls}`}>
+                            {normalizeText(order.estado)}
+                          </span>
+                        )}
+                        {getEncajeBadge(order.nivel_encaje)}
+                      </div>
                       {order.region && (
                         <span className="flex items-center gap-0.5 text-[11px] text-muted shrink-0">
                           <MapPin className="h-2.5 w-2.5" />

@@ -165,9 +165,10 @@ function RotatingRubro() {
 
   return (
     <span
-      className={`inline-block text-[#0EAD69] bg-[#0EAD69]/15 px-3 py-0.5 rounded-lg transition-all duration-300 ${
+      className={`inline text-[#0EAD69] bg-[#0EAD69]/15 px-3 py-0.5 rounded-lg transition-all duration-300 ${
         isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
       }`}
+      style={{ WebkitBoxDecorationBreak: 'clone', boxDecorationBreak: 'clone' }}
     >
       {rotatingRubros[index]}
     </span>
@@ -277,7 +278,7 @@ export default function Home() {
           <div className="relative mx-auto max-w-6xl">
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-12 lg:gap-8 items-center">
               <div className="lg:col-span-3">
-                <h1 className="mb-6 text-4xl font-bold leading-[1.15] text-white sm:text-5xl xl:text-[3.5rem]" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>
+                <h1 className="mb-6 text-3xl font-bold leading-[1.15] text-white sm:text-5xl xl:text-[3.5rem]" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>
                   <span className="block">Postula con ventaja</span>
                   <span className="block">en licitaciones de</span>
                   <span className="block" style={{ minHeight: '1.1em' }}>

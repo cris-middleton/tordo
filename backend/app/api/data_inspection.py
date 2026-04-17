@@ -1,17 +1,58 @@
 """API endpoints for inspecting ETL data"""
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import func, inspect, select, or_, asc, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from typing import Optional, List, Dict, Any
+from uuid import UUID
 from datetime import datetime
 
+from app.config import settings
+from app.core.security import decode_access_token
 from app.db import get_db
+from app.models.empresa import EmpresaUsuario, TFIDFPerfil
 from app.models.licitacion import Licitacion
 from app.models.orden_compra import OrdenCompra
+from app.models.user import User
 
 router = APIRouter(prefix="/api/data", tags=["data-inspection"])
+
+# Optional-auth scheme: returns None on missing token rather than 401, so the
+# public endpoints below keep working for unauthenticated callers.
+_oauth2_optional = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
+
+_SEMANTIC_POOL = 200
+
+
+async def _current_user_optional(
+    token: Optional[str] = Depends(_oauth2_optional),
+    db: AsyncSession = Depends(get_db),
+) -> Optional[User]:
+    if not token:
+        return None
+    payload = decode_access_token(token)
+    if not payload:
+        return None
+    sub = payload.get("sub")
+    try:
+        user_id = int(sub) if sub is not None else None
+    except (TypeError, ValueError):
+        return None
+    if user_id is None:
+        return None
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    return user if user and user.is_active else None
+
+
+def _orden_text(orden: OrdenCompra) -> str:
+    return " ".join(
+        filter(
+            None,
+            [orden.nombre, orden.nombre_organismo, orden.nombre_proveedor],
+        )
+    ).strip()
 
 
 def model_to_dict(record, model_class) -> Dict[str, Any]:
@@ -117,8 +158,10 @@ async def get_ordenes_compra(
     codigo_organismo: Optional[str] = Query(None),
     codigo_proveedor: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
+    empresa_id: Optional[UUID] = Query(None, description="UUID empresa — habilita score_encaje por fila"),
     sort_by: Optional[str] = Query(None),
     sort_order: Optional[str] = Query("desc"),
+    current_user: Optional[User] = Depends(_current_user_optional),
 ):
     stmt = select(OrdenCompra).options(selectinload(OrdenCompra.detalle))
     if codigo_oc:
@@ -131,8 +174,11 @@ async def get_ordenes_compra(
         stmt = stmt.where(OrdenCompra.codigo_organismo == codigo_organismo)
     if codigo_proveedor:
         stmt = stmt.where(OrdenCompra.codigo_proveedor == codigo_proveedor)
-    if search:
-        terms = [t.strip() for t in search.split() if t.strip()]
+
+    terms = [t.strip() for t in (search or "").split() if t.strip()]
+    want_relevance = sort_by == "relevance" and bool(terms)
+
+    if terms and not want_relevance:
         for term in terms:
             stmt = stmt.where(
                 or_(
@@ -142,6 +188,111 @@ async def get_ordenes_compra(
                 )
             )
 
+    # Empresa fit scoring requires authentication + membership verification.
+    perfil_bytes: Optional[bytes] = None
+    if empresa_id:
+        if current_user is None:
+            raise HTTPException(status_code=401, detail="Autenticación requerida para empresa_id")
+        membership = (
+            await db.execute(
+                select(EmpresaUsuario).where(
+                    EmpresaUsuario.empresa_id == empresa_id,
+                    EmpresaUsuario.user_id == current_user.id,
+                )
+            )
+        ).scalar_one_or_none()
+        if not membership:
+            raise HTTPException(status_code=403, detail="Sin acceso a esta empresa")
+        if settings.feature_tfidf:
+            perfil = (
+                await db.execute(
+                    select(TFIDFPerfil).where(TFIDFPerfil.empresa_id == empresa_id)
+                )
+            ).scalar_one_or_none()
+            if perfil and perfil.vector_bytes:
+                perfil_bytes = perfil.vector_bytes
+
+    def _payload(orden, *, similarity=None, encaje=None):
+        d = model_to_dict(orden, OrdenCompra)
+        if similarity is not None:
+            d["similarity_score"] = similarity
+        if encaje is not None:
+            d["score_encaje"] = encaje[0]
+            d["nivel_encaje"] = encaje[1]
+        return d
+
+    # Semantic relevance re-ranking.
+    if want_relevance and settings.feature_tfidf:
+        from app.services import tfidf_matcher
+
+        if tfidf_matcher.is_available():
+            term_clauses = [
+                or_(
+                    OrdenCompra.nombre.ilike(f"%{t}%"),
+                    OrdenCompra.nombre_organismo.ilike(f"%{t}%"),
+                    OrdenCompra.nombre_proveedor.ilike(f"%{t}%"),
+                )
+                for t in terms
+            ]
+            pool_stmt = stmt.where(or_(*term_clauses)) if term_clauses else stmt
+            pool_stmt = pool_stmt.order_by(desc(OrdenCompra.fecha_publicacion)).limit(_SEMANTIC_POOL)
+            pool = (await db.execute(pool_stmt)).scalars().all()
+
+            texts = [_orden_text(o) for o in pool]
+            sims = tfidf_matcher.score_texts(" ".join(terms), texts)
+            encaje = (
+                tfidf_matcher.score_empresa_texts(perfil_bytes, texts)
+                if perfil_bytes is not None
+                else [None] * len(pool)
+            )
+
+            ranked = sorted(
+                zip(pool, sims, encaje),
+                key=lambda row: row[1],
+                reverse=sort_order != "asc",
+            )
+            total_count = len(ranked)
+            page_rows = ranked[offset : offset + limit] if limit else ranked
+            data = [
+                _payload(o, similarity=round(float(sim), 4), encaje=enc)
+                for o, sim, enc in page_rows
+            ]
+            return {
+                "table": "ordenes_compra",
+                "total_count": total_count,
+                "returned_count": len(data),
+                "limit": limit,
+                "offset": offset,
+                "data": data,
+            }
+
+    # Empresa-fit sort.
+    if sort_by == "score_encaje" and perfil_bytes is not None:
+        from app.services import tfidf_matcher
+
+        if tfidf_matcher.is_available():
+            pool_stmt = stmt.order_by(desc(OrdenCompra.fecha_publicacion)).limit(_SEMANTIC_POOL)
+            pool = (await db.execute(pool_stmt)).scalars().all()
+            texts = [_orden_text(o) for o in pool]
+            encaje = tfidf_matcher.score_empresa_texts(perfil_bytes, texts)
+            ranked = sorted(
+                zip(pool, encaje),
+                key=lambda row: row[1][0],
+                reverse=sort_order != "asc",
+            )
+            total_count = len(ranked)
+            page_rows = ranked[offset : offset + limit] if limit else ranked
+            data = [_payload(o, encaje=enc) for o, enc in page_rows]
+            return {
+                "table": "ordenes_compra",
+                "total_count": total_count,
+                "returned_count": len(data),
+                "limit": limit,
+                "offset": offset,
+                "data": data,
+            }
+
+    # Default path.
     total_count = (await db.execute(select(func.count()).select_from(stmt.subquery()))).scalar() or 0
 
     sort_col_map = {
@@ -149,12 +300,33 @@ async def get_ordenes_compra(
         "monto_total": OrdenCompra.monto_total,
         "nombre": OrdenCompra.nombre,
     }
-    sort_col = sort_col_map.get(sort_by or "fecha_publicacion", OrdenCompra.fecha_publicacion)
+    sort_col = sort_col_map.get(sort_by or "", OrdenCompra.fecha_publicacion)
     order_fn = desc if sort_order == "desc" else asc
     stmt = stmt.order_by(order_fn(sort_col)).offset(offset).limit(limit)
 
     records = (await db.execute(stmt)).scalars().all()
-    return {"table": "ordenes_compra", "total_count": total_count, "returned_count": len(records), "limit": limit, "offset": offset, "data": [model_to_dict(r, OrdenCompra) for r in records]}
+
+    if perfil_bytes is not None and records:
+        from app.services import tfidf_matcher
+
+        if tfidf_matcher.is_available():
+            encaje = tfidf_matcher.score_empresa_texts(
+                perfil_bytes, [_orden_text(r) for r in records]
+            )
+            data = [_payload(r, encaje=enc) for r, enc in zip(records, encaje)]
+        else:
+            data = [model_to_dict(r, OrdenCompra) for r in records]
+    else:
+        data = [model_to_dict(r, OrdenCompra) for r in records]
+
+    return {
+        "table": "ordenes_compra",
+        "total_count": total_count,
+        "returned_count": len(records),
+        "limit": limit,
+        "offset": offset,
+        "data": data,
+    }
 
 
 @router.get("/ordenes_compra/stats")

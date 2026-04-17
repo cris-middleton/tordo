@@ -10,6 +10,8 @@ Expone:
   match(query_text, top_n)               → proveedores más afines al texto
   build_empresa_vector(rubros_text)      → vector serializado del perfil empresa
   score_empresa_licitacion(vec, texto)   → (score, nivel) encaje empresa-licitación
+  score_texts(query, texts)              → cosine sim batch query vs lista de textos
+  score_empresa_texts(vec, texts)        → [(score, nivel)] batch para un perfil
   get_clusters(limit)                    → taxonomía de clusters para UI perfil
   is_available()                         → True si el modelo está entrenado
 
@@ -208,17 +210,69 @@ def score_empresa_licitacion(vector_bytes: bytes, licitacion_text: str) -> tuple
 
     lic_vec = model["vectorizer"].transform([clean_lic])
     score = float(cosine_similarity(empresa_vec, lic_vec)[0][0])
+    return round(score, 4), _nivel_from_score(score)
 
+
+def _nivel_from_score(score: float) -> str:
     if score >= 0.15:
-        nivel = "alto"
-    elif score >= 0.05:
-        nivel = "medio"
-    elif score >= 0.01:
-        nivel = "bajo"
-    else:
-        nivel = "sin_encaje"
+        return "alto"
+    if score >= 0.05:
+        return "medio"
+    if score >= 0.01:
+        return "bajo"
+    return "sin_encaje"
 
-    return round(score, 4), nivel
+
+def score_texts(query_text: str, texts: list[str]) -> list[float]:
+    """
+    Vectoriza `query_text` y cada elemento de `texts`, retorna cosine similarity
+    en el mismo orden. Útil para re-rankear una lista de candidatos contra una
+    consulta de búsqueda.
+
+    Retorna [0.0] * len(texts) si el modelo no está disponible o la consulta
+    queda vacía tras normalización.
+    """
+    from sklearn.metrics.pairwise import cosine_similarity
+
+    try:
+        model = _require_tfidf()
+    except ValueError:
+        return [0.0] * len(texts)
+
+    clean_query = _clean_text(query_text)
+    if not clean_query:
+        return [0.0] * len(texts)
+
+    cleaned = [_clean_text(t or "") for t in texts]
+    vectorizer = model["vectorizer"]
+    query_vec = vectorizer.transform([clean_query])
+    # transform handles empty strings gracefully — resulting row is all zeros.
+    doc_vecs = vectorizer.transform(cleaned)
+    sims = cosine_similarity(query_vec, doc_vecs).flatten()
+    return [float(s) for s in sims]
+
+
+def score_empresa_texts(vector_bytes: bytes, texts: list[str]) -> list[tuple[float, str]]:
+    """
+    Para un perfil TF-IDF serializado, retorna [(score, nivel)] para cada texto
+    en el orden dado. Batch-eficiente: vectoriza todos los textos con una sola
+    llamada al vectorizador.
+    """
+    from scipy import sparse
+    from sklearn.metrics.pairwise import cosine_similarity
+
+    try:
+        model = _require_tfidf()
+    except ValueError:
+        return [(0.0, "sin_encaje")] * len(texts)
+
+    buf = io.BytesIO(vector_bytes)
+    empresa_vec = sparse.load_npz(buf)
+
+    cleaned = [_clean_text(t or "") for t in texts]
+    doc_vecs = model["vectorizer"].transform(cleaned)
+    sims = cosine_similarity(empresa_vec, doc_vecs).flatten()
+    return [(round(float(s), 4), _nivel_from_score(float(s))) for s in sims]
 
 
 def get_clusters(limit: int = 100) -> list[dict]:

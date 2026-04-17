@@ -74,7 +74,12 @@ class TenderResponse(TenderBase):
     fecha_extraccion: datetime
     fecha_actualizacion: Optional[datetime] = None
     detalle: Optional[LicitacionDetalleResponse] = None
-    
+
+    # Populated only when TF-IDF re-ranking or empresa-fit scoring is applied.
+    similarity_score: Optional[float] = None
+    score_encaje: Optional[float] = None
+    nivel_encaje: Optional[str] = None
+
     model_config = ConfigDict(from_attributes=True)
 
 
