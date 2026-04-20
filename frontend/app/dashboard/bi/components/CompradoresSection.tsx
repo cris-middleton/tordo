@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp, Loader2, Building2 } from 'lucide-react';
-import { CompradorResult, DescuentoItem, OrganismoConNombre, scoreColor, scoreBg } from '../types';
+import { CompradorResult, OrganismoConNombre, scoreColor, scoreBg } from '../types';
 import { apiClient } from '@/lib/api';
 
 interface CompradorSectionProps {
@@ -11,74 +11,7 @@ interface CompradorSectionProps {
   rubro: string;
 }
 
-function DescuentosInline({ rubro }: { rubro: string }) {
-  const [data, setData] = useState<DescuentoItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-  const [open, setOpen] = useState(false);
-
-  const load = async () => {
-    if (loaded) return;
-    setLoading(true);
-    try {
-      const res = await apiClient.getBIDescuento({ rubro: rubro || undefined });
-      if (res.disponible) setData(res.descuentos ?? []);
-      setLoaded(true);
-    } catch {
-      setLoaded(true);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div>
-      <button
-        onClick={() => { if (!open) load(); setOpen((o) => !o); }}
-        className="flex items-center gap-1.5 text-xs text-primary hover:underline"
-      >
-        {open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-        Ver descuentos típicos
-      </button>
-      {open && (
-        <div className="mt-3">
-          {loading ? (
-            <Loader2 className="h-4 w-4 animate-spin text-primary" />
-          ) : data.length === 0 ? (
-            <p className="text-xs text-muted">Sin datos de descuento para este rubro.</p>
-          ) : (
-            <div className="overflow-x-auto rounded-lg border border-border">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-border bg-surface/60 text-left">
-                    <th className="px-3 py-2 text-muted">N° oferentes</th>
-                    <th className="px-3 py-2 text-muted">P10</th>
-                    <th className="px-3 py-2 text-muted">P50</th>
-                    <th className="px-3 py-2 text-muted">P90</th>
-                    <th className="px-3 py-2 text-muted">Señal</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.slice(0, 5).map((d, i) => (
-                    <tr key={i} className="border-b border-border last:border-0">
-                      <td className="px-3 py-2">{d.n_oferentes_rango ?? '—'}</td>
-                      <td className="px-3 py-2">{d.p10 != null ? `${d.p10.toFixed(1)}%` : '—'}</td>
-                      <td className="px-3 py-2 font-medium">{d.p50 != null ? `${d.p50.toFixed(1)}%` : '—'}</td>
-                      <td className="px-3 py-2">{d.p90 != null ? `${d.p90.toFixed(1)}%` : '—'}</td>
-                      <td className="px-3 py-2">{d.senial_competencia ?? '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function CompradorCard({ organismoId, rubro }: { organismoId: string; rubro: string }) {
+function CompradorCard({ organismoId }: { organismoId: string }) {
   const [data, setData] = useState<CompradorResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -172,8 +105,6 @@ function CompradorCard({ organismoId, rubro }: { organismoId: string; rubro: str
               )}
             </div>
           )}
-
-          <DescuentosInline rubro={rubro} />
         </div>
       )}
     </div>
@@ -193,7 +124,7 @@ export function CompradoresSection({ topOrganismos, rubro }: CompradorSectionPro
 
       <div className="space-y-3">
         {topOrganismos.slice(0, 3).map((org) => (
-          <CompradorCard key={org.codigo} organismoId={org.codigo} rubro={rubro} />
+          <CompradorCard key={org.codigo} organismoId={org.codigo} />
         ))}
       </div>
     </section>
