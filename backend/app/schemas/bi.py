@@ -305,10 +305,17 @@ class TendenciaItem(BaseModel):
     tendencia: Optional[str] = None
 
 
+class SerieAnualPunto(BaseModel):
+    anio: int
+    monto_total: float
+    n_oc: Optional[int] = None
+
+
 class TendenciaResponse(BaseModel):
     disponible: bool
     tendencias: Optional[list[TendenciaItem]] = None
     emergentes: Optional[list[TendenciaItem]] = None
+    serie_anual: Optional[list[SerieAnualPunto]] = None  # YoY sparkline when rubro is filtered
     total: Optional[int] = None
     motivo: Optional[str] = None
 

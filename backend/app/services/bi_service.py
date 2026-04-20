@@ -617,10 +617,38 @@ def get_tendencia(
         if not em_rows.is_empty():
             emergentes = em_rows.select(em_cols).to_dicts()
 
+    # serie_anual: YoY sparkline — only computed when a rubro is filtered
+    serie_anual = None
+    if rubro:
+        import polars as pl  # noqa: PLC0415 — lazy import kept consistent with _load()
+        ts_df = _load("time_series.parquet")
+        if ts_df is not None and "RubroN2" in ts_df.columns:
+            year_agg = (
+                ts_df
+                .filter(ts_df["RubroN2"] == rubro)
+                .group_by("anio")
+                .agg([
+                    pl.col("monto_total").sum().alias("monto_total"),
+                    pl.col("n_oc").sum().alias("n_oc"),
+                ])
+                .sort("anio", descending=False)
+                .tail(6)  # últimos 6 años (5 completos + año en curso si aplica)
+            )
+            if len(year_agg) > 0:
+                serie_anual = [
+                    {
+                        "anio": int(r["anio"]),
+                        "monto_total": float(r["monto_total"] or 0),
+                        "n_oc": int(r["n_oc"]) if r.get("n_oc") is not None else None,
+                    }
+                    for r in year_agg.to_dicts()
+                ]
+
     return {
         "disponible": True,
         "tendencias": tendencias,
         "emergentes": emergentes,
+        "serie_anual": serie_anual,
         "total": len(tendencias),
     }
 

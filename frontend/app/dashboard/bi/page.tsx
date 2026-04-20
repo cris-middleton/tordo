@@ -8,7 +8,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   OportunidadItem,
   OrganismoConNombre,
+  SerieAnualPunto,
   TendenciaItem,
+  TendenciaApiResponse,
   TFIDFPerfilData,
   PlanTier,
   isPaidPlan,
@@ -64,6 +66,7 @@ export default function BIPage() {
   const [loadingOp, setLoadingOp] = useState(false);
   const [tendencias, setTendencias] = useState<TendenciaItem[]>([]);
   const [emergentes, setEmergentes] = useState<TendenciaItem[]>([]);
+  const [serieAnual, setSerieAnual] = useState<SerieAnualPunto[] | null>(null);
   const [loadingTend, setLoadingTend] = useState(false);
 
   // Derived: top 3 unique organismos con nombre resuelto
@@ -113,20 +116,23 @@ export default function BIPage() {
   const loadTendencias = useCallback(async (rubro: string) => {
     setLoadingTend(true);
     try {
-      const res = await apiClient.getBITendencia({
+      const res: TendenciaApiResponse = await apiClient.getBITendencia({
         rubro: rubro || undefined,
         limit: 15,
       });
       if (res.disponible) {
         setTendencias(res.tendencias ?? []);
         setEmergentes(res.emergentes ?? []);
+        setSerieAnual(res.serie_anual ?? null);
       } else {
         setTendencias([]);
         setEmergentes([]);
+        setSerieAnual(null);
       }
     } catch {
       setTendencias([]);
       setEmergentes([]);
+      setSerieAnual(null);
     } finally {
       setLoadingTend(false);
     }
@@ -138,6 +144,7 @@ export default function BIPage() {
     setOportunidades([]);
     setTendencias([]);
     setEmergentes([]);
+    setSerieAnual(null);
     setSelectedCompOrg('');
     loadOportunidades(rubro);
     loadTendencias(rubro);
@@ -282,7 +289,7 @@ export default function BIPage() {
         <OportunidadesSection oportunidades={oportunidades} loading={loadingOp} />
 
         {/* § 2 — Always visible */}
-        <TendenciasSection tendencias={tendencias} emergentes={emergentes} loading={loadingTend} selectedRubro={selectedRubro} />
+        <TendenciasSection tendencias={tendencias} emergentes={emergentes} loading={loadingTend} selectedRubro={selectedRubro} serieAnual={serieAnual} />
 
         {/* § 3 — Locked for basico */}
         <PlanGate locked={!paid} label="Análisis de competencia — plan PYME o superior">

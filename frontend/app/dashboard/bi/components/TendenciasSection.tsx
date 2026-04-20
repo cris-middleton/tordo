@@ -13,13 +13,15 @@ import {
   Cell,
   ReferenceLine,
 } from 'recharts';
-import { TendenciaItem } from '../types';
+import { TendenciaItem, SerieAnualPunto } from '../types';
+import { Sparkline } from './Sparkline';
 
 interface TendenciasSectionProps {
   tendencias: TendenciaItem[];
   emergentes: TendenciaItem[];
   loading: boolean;
   selectedRubro: string;
+  serieAnual?: SerieAnualPunto[] | null;
 }
 
 const CustomTooltip = ({ active, payload }: any) => {
@@ -42,7 +44,7 @@ const CustomTooltip = ({ active, payload }: any) => {
   );
 };
 
-export function TendenciasSection({ tendencias, emergentes, loading, selectedRubro }: TendenciasSectionProps) {
+export function TendenciasSection({ tendencias, emergentes, loading, selectedRubro, serieAnual }: TendenciasSectionProps) {
   if (loading) return (
     <div className="card flex items-center justify-center py-12">
       <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -63,14 +65,31 @@ export function TendenciasSection({ tendencias, emergentes, loading, selectedRub
         </div>
 
         {found ? (
-          <div className="rounded-xl border border-border bg-surface p-5 flex items-center justify-between gap-4">
-            <div>
+          <div className="rounded-xl border border-border bg-surface p-5 flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex-1 min-w-[200px]">
               <p className="text-sm text-muted">{selectedRubro}</p>
               <p className={`text-3xl font-bold mt-1 ${found.cagr >= 0 ? 'text-accent' : 'text-danger'}`}>
                 {found.cagr > 0 ? '+' : ''}{found.cagr.toFixed(1)}%
                 <span className="text-sm font-normal text-muted ml-2">anual</span>
               </p>
             </div>
+
+            {/* YoY sparkline — only shown when serie_anual data is available */}
+            {serieAnual && serieAnual.length >= 2 && (
+              <div className="flex flex-col items-center gap-1">
+                <Sparkline
+                  data={serieAnual}
+                  width={200}
+                  height={56}
+                  color={found.cagr >= 0 ? '#00A87A' : '#EF4444'}
+                />
+                <div className="flex justify-between w-[200px] text-[10px] text-muted px-1">
+                  <span>{serieAnual[0].anio}</span>
+                  <span>{serieAnual[serieAnual.length - 1].anio}</span>
+                </div>
+              </div>
+            )}
+
             <div className="text-right text-xs text-muted">
               {found.total_oc && <p>{found.total_oc.toLocaleString('es-CL')} OC</p>}
               {found.n_anios && <p>{found.n_anios} años de historia</p>}

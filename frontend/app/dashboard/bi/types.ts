@@ -125,3 +125,18 @@ export interface OrganismoConNombre {
   codigo: string;
   nombre: string;
 }
+
+export interface SerieAnualPunto {
+  anio: number;
+  monto_total: number;
+  n_oc?: number | null;
+}
+
+export interface TendenciaApiResponse {
+  disponible: boolean;
+  tendencias?: TendenciaItem[];
+  emergentes?: TendenciaItem[];
+  serie_anual?: SerieAnualPunto[] | null;
+  total?: number;
+  motivo?: string;
+}
