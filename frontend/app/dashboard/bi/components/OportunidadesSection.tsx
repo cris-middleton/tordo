@@ -1,7 +1,7 @@
 // frontend/app/dashboard/bi/components/OportunidadesSection.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, Loader2, Target } from 'lucide-react';
 import { OportunidadItem, CompradorResult, scoreColor, scoreBg } from '../types';
 import { useCompradorCache } from '../hooks/useCompradorCache';
@@ -52,8 +52,16 @@ function ExpandedRow({ organismo }: { organismo: string }) {
     }
   };
 
-  // Auto-load on mount
-  useEffect(() => { load(); }, []);
+  if (!loaded && !loading) return (
+    <div className="p-4 bg-surface/60 border-t border-border">
+      <button
+        onClick={load}
+        className="text-sm text-primary hover:underline font-medium"
+      >
+        Ver perfil del comprador →
+      </button>
+    </div>
+  );
 
   if (loading) return (
     <div className="p-4 flex items-center gap-2 text-sm text-muted">
