@@ -1,42 +1,62 @@
-// frontend/app/dashboard/bi/components/PlanGate.tsx
 'use client';
 
 import { Lock } from 'lucide-react';
 import Link from 'next/link';
+import { ReactNode } from 'react';
 
 interface PlanGateProps {
-  children: React.ReactNode;
+  children: ReactNode;
   locked: boolean;
-  label?: string; // e.g. "Análisis de competencia"
+  label?: string;
+  preview?: ReactNode;
+  placeholder?: ReactNode;
 }
 
-export function PlanGate({ children, locked, label }: PlanGateProps) {
+/**
+ * Gate a section behind the paid plan.
+ *
+ * When `locked=true`:
+ *   - Children are NOT mounted (no fetches executed, no quota spent)
+ *   - `preview` renders crisp, legible text/visuals above
+ *   - `placeholder` renders a decorative skeleton (optional)
+ *   - CTA shows "Ver planes" linking to billing
+ *
+ * When `locked=false`:
+ *   - Children render as usual
+ */
+export function PlanGate({ children, locked, label, preview, placeholder }: PlanGateProps) {
   if (!locked) return <>{children}</>;
 
   return (
-    <div className="relative rounded-2xl overflow-hidden">
-      {/* Blurred children */}
-      <div className="pointer-events-none select-none blur-sm opacity-50">
-        {children}
-      </div>
-
-      {/* Overlay */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background/60 backdrop-blur-[2px]">
-        <div className="rounded-full bg-surface border border-border p-3">
-          <Lock className="h-5 w-5 text-muted" />
+    <section className="card space-y-4 relative overflow-hidden">
+      {preview && (
+        <div className="relative z-10 text-sm text-text leading-relaxed">
+          {preview}
         </div>
-        <div className="text-center">
+      )}
+
+      {placeholder && (
+        <div className="pointer-events-none select-none opacity-40">
+          {placeholder}
+        </div>
+      )}
+
+      <div className="rounded-xl border border-border bg-surface/70 p-4 flex items-center gap-3">
+        <div className="rounded-full bg-surface border border-border p-2 shrink-0">
+          <Lock className="h-4 w-4 text-muted" />
+        </div>
+        <div className="flex-1">
           <p className="text-sm font-semibold text-text">
             {label || 'Disponible en plan PYME'}
           </p>
           <p className="text-xs text-muted mt-0.5">
-            Actualiza tu plan para desbloquear esta sección
+            Actualiza tu plan para ver el detalle completo
           </p>
         </div>
-        <Link href="/dashboard/billing" className="btn-primary text-sm">
+        <Link href="/dashboard/billing" className="btn-primary text-sm shrink-0">
           Ver planes
         </Link>
       </div>
-    </div>
+    </section>
   );
 }
