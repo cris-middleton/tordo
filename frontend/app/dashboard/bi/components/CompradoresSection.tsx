@@ -3,11 +3,11 @@
 
 import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp, Loader2, Building2 } from 'lucide-react';
-import { CompradorResult, DescuentoItem, scoreColor, scoreBg } from '../types';
+import { CompradorResult, DescuentoItem, OrganismoConNombre, scoreColor, scoreBg } from '../types';
 import { apiClient } from '@/lib/api';
 
 interface CompradorSectionProps {
-  topOrganismos: string[];
+  topOrganismos: OrganismoConNombre[];
   rubro: string;
 }
 
@@ -193,7 +193,7 @@ export function CompradoresSection({ topOrganismos, rubro }: CompradorSectionPro
 
       <div className="space-y-3">
         {topOrganismos.slice(0, 3).map((org) => (
-          <CompradorCard key={org} organismoId={org} rubro={rubro} />
+          <CompradorCard key={org.codigo} organismoId={org.codigo} rubro={rubro} />
         ))}
       </div>
     </section>

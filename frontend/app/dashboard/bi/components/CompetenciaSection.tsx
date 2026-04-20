@@ -14,11 +14,11 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
-import { CompetidorItem, ConcentracionItem } from '../types';
+import { CompetidorItem, ConcentracionItem, OrganismoConNombre } from '../types';
 import { apiClient } from '@/lib/api';
 
 interface CompetenciaSectionProps {
-  topOrganismos: string[];
+  topOrganismos: OrganismoConNombre[];
   selectedOrganismo: string;
   onOrganismoChange: (o: string) => void;
   rubro: string;
@@ -93,7 +93,9 @@ export function CompetenciaSection({
             className="text-sm rounded-lg border border-border bg-surface px-3 py-1.5 text-text"
           >
             {topOrganismos.map((o) => (
-              <option key={o} value={o}>{o}</option>
+              <option key={o.codigo} value={o.codigo} title={o.nombre}>
+                {o.nombre.length > 40 ? `${o.nombre.slice(0, 40)}…` : o.nombre}
+              </option>
             ))}
           </select>
         )}

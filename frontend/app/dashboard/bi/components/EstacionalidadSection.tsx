@@ -12,11 +12,11 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { EstacionalidadMes, MESES } from '../types';
+import { EstacionalidadMes, MESES, OrganismoConNombre } from '../types';
 import { apiClient } from '@/lib/api';
 
 interface EstacionalidadSectionProps {
-  topOrganismos: string[];
+  topOrganismos: OrganismoConNombre[];
   rubro: string;
 }
 
@@ -43,7 +43,7 @@ const CustomTooltip = ({ active, payload }: any) => {
 };
 
 export function EstacionalidadSection({ topOrganismos, rubro }: EstacionalidadSectionProps) {
-  const [selectedOrg, setSelectedOrg] = useState(topOrganismos[0] ?? '');
+  const [selectedOrg, setSelectedOrg] = useState(topOrganismos[0]?.codigo ?? '');
   const [patrones, setPatrones] = useState<EstacionalidadMes[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -100,7 +100,9 @@ export function EstacionalidadSection({ topOrganismos, rubro }: EstacionalidadSe
             className="text-sm rounded-lg border border-border bg-surface px-3 py-1.5 text-text"
           >
             {topOrganismos.map((o) => (
-              <option key={o} value={o}>{o}</option>
+              <option key={o.codigo} value={o.codigo} title={o.nombre}>
+                {o.nombre.length > 40 ? `${o.nombre.slice(0, 40)}…` : o.nombre}
+              </option>
             ))}
           </select>
         )}

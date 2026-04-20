@@ -120,3 +120,8 @@ export type PlanTier = 'basico' | 'pyme' | 'pro' | 'enterprise';
 export function isPaidPlan(tier: PlanTier | undefined): boolean {
   return tier === 'pyme' || tier === 'pro' || tier === 'enterprise';
 }
+
+export interface OrganismoConNombre {
+  codigo: string;
+  nombre: string;
+}

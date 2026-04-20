@@ -7,6 +7,7 @@ import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   OportunidadItem,
+  OrganismoConNombre,
   TendenciaItem,
   TFIDFPerfilData,
   PlanTier,
@@ -64,18 +65,29 @@ export default function BIPage() {
   const [emergentes, setEmergentes] = useState<TendenciaItem[]>([]);
   const [loadingTend, setLoadingTend] = useState(false);
 
-  // Derived: top 3 unique organismos from oportunidades
-  const topOrganismos = [
-    ...new Set(oportunidades.slice(0, 5).map((o) => o.CodigoOrganismoPublico)),
-  ].slice(0, 3);
+  // Derived: top 3 unique organismos con nombre resuelto
+  const topOrganismos: OrganismoConNombre[] = (() => {
+    const seen = new Set<string>();
+    const out: OrganismoConNombre[] = [];
+    for (const o of oportunidades.slice(0, 10)) {
+      if (seen.has(o.CodigoOrganismoPublico)) continue;
+      seen.add(o.CodigoOrganismoPublico);
+      out.push({
+        codigo: o.CodigoOrganismoPublico,
+        nombre: o.NombreOrganismo || o.CodigoOrganismoPublico,
+      });
+      if (out.length >= 3) break;
+    }
+    return out;
+  })();
 
   const [selectedCompOrg, setSelectedCompOrg] = useState('');
   useEffect(() => {
     if (topOrganismos.length > 0 && !selectedCompOrg) {
-      setSelectedCompOrg(topOrganismos[0]);
+      setSelectedCompOrg(topOrganismos[0].codigo);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topOrganismos.join(',')]);
+  }, [topOrganismos.map((o) => o.codigo).join(',')]);
 
   // ── Load oportunidades ─────────────────────────────────────────────────────
   const loadOportunidades = useCallback(async (rubro: string) => {
