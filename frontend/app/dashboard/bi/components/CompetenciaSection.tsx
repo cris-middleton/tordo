@@ -17,6 +17,7 @@ import {
 import { CompetidorItem, ConcentracionItem, OrganismoConNombre } from '../types';
 import { apiClient } from '@/lib/api';
 import { InfoTooltip } from './InfoTooltip';
+import { FocusedHeader } from './FocusedHeader';
 
 interface CompetenciaSectionProps {
   topOrganismos: OrganismoConNombre[];
@@ -25,6 +26,7 @@ interface CompetenciaSectionProps {
   rubro: string;
   disabled?: boolean;
   focused?: boolean; // when true, hide the organismo dropdown (filter is shown in filter bar chip)
+  focusedNombre?: string; // NEW: display name of the focused organismo
 }
 
 // Hex values — CSS vars don't resolve inside Recharts SVG fill props
@@ -52,6 +54,7 @@ export function CompetenciaSection({
   rubro,
   disabled,
   focused,
+  focusedNombre,
 }: CompetenciaSectionProps) {
   const [competidores, setCompetidores] = useState<CompetidorItem[]>([]);
   const [concentracion, setConcentracion] = useState<ConcentracionItem[]>([]);
@@ -117,6 +120,10 @@ export function CompetenciaSection({
         )}
       </div>
 
+      {focused && focusedNombre && (
+        <FocusedHeader nombre={focusedNombre} />
+      )}
+
       {tipoMercado && (
         <div className="rounded-xl border border-border bg-surface/60 px-4 py-3 text-sm flex items-center gap-3 flex-wrap">
           <span className="font-medium text-text">
@@ -168,7 +175,7 @@ export function CompetenciaSection({
 
           {!showTable ? (
             <ResponsiveContainer width="100%" height={320}>
-              <ScatterChart margin={{ top: 10, right: 20, left: 0, bottom: 20 }}>
+              <ScatterChart margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis
                   dataKey="win_rate_pct"
@@ -181,8 +188,15 @@ export function CompetenciaSection({
                   dataKey="market_share_pct"
                   name="Participación"
                   type="number"
-                  label={{ value: 'Participación de mercado (%)', angle: -90, position: 'insideLeft', fontSize: 11, fill: '#94a3b8' }}
+                  width={70}
                   tick={{ fontSize: 11, fill: '#94a3b8' }}
+                  label={{
+                    value: 'Participación de mercado (%)',
+                    angle: -90,
+                    position: 'insideLeft',
+                    offset: 0,
+                    style: { fontSize: 11, fill: '#64748b', textAnchor: 'middle' },
+                  }}
                 />
                 <ZAxis dataKey="n_oc" range={[40, 400]} />
                 <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3' }} />

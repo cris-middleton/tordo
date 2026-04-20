@@ -477,6 +477,7 @@ export default function BIPage() {
                   rubro={selectedRubro}
                   disabled={!!focusedOrganismo}
                   focused={!!focusedOrganismo}
+                  focusedNombre={focusedOrganismo?.nombre}
                 />
               </PlanGate>
             </div>
@@ -492,6 +493,7 @@ export default function BIPage() {
                   topOrganismos={topOrganismos}
                   rubro={selectedRubro}
                   focusedOrganismo={focusedOrganismo}
+                  focusedNombre={focusedOrganismo?.nombre}
                 />
               )}
             </PlanGate>
@@ -508,6 +510,7 @@ export default function BIPage() {
                   rubro={selectedRubro}
                   focusedOrganismo={focusedOrganismo}
                   focused={!!focusedOrganismo}
+                  focusedNombre={focusedOrganismo?.nombre}
                 />
               )}
             </PlanGate>

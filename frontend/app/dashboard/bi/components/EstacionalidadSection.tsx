@@ -15,12 +15,14 @@ import {
 import { EstacionalidadMes, MESES, OrganismoConNombre } from '../types';
 import { apiClient } from '@/lib/api';
 import { InfoTooltip } from './InfoTooltip';
+import { FocusedHeader } from './FocusedHeader';
 
 interface EstacionalidadSectionProps {
   topOrganismos: OrganismoConNombre[];
   rubro: string;
   focusedOrganismo?: OrganismoConNombre | null;
   focused?: boolean; // when true, hide the organismo dropdown (filter is shown in filter bar chip)
+  focusedNombre?: string; // NEW: display name of the focused organismo
 }
 
 const CustomTooltip = ({ active, payload }: any) => {
@@ -45,7 +47,7 @@ const CustomTooltip = ({ active, payload }: any) => {
   );
 };
 
-export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, focused }: EstacionalidadSectionProps) {
+export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, focused, focusedNombre }: EstacionalidadSectionProps) {
   const [selectedOrg, setSelectedOrg] = useState(topOrganismos[0]?.codigo ?? '');
   const [patrones, setPatrones] = useState<EstacionalidadMes[]>([]);
   const [loading, setLoading] = useState(false);
@@ -119,14 +121,9 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
             <InfoTooltip
               content={
                 <div className="space-y-1.5">
-                  <p className="font-semibold">¿Qué muestra este gráfico?</p>
-                  <p>
-                    La <b>probabilidad de compra por mes</b> (eje Y) de este organismo en este rubro.
-                    Si un mes tiene 60%, significa que el 60% de los años el organismo compra en ese mes.
-                  </p>
-                  <p>
-                    Los <b>picos estacionales</b> (marcados con dot verde más grande) son meses consistentemente activos.
-                  </p>
+                  <p><b>Probabilidad de compra:</b> % de los años en que este comprador compra en ese mes.</p>
+                  <p><b>Consistencia:</b> qué tan repetible es el patrón. 100% = siempre los mismos meses; 0% = errático.</p>
+                  <p><b>Picos</b> (dot grande): meses consistentemente activos.</p>
                 </div>
               }
               side="bottom"
@@ -150,6 +147,10 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
           </select>
         )}
       </div>
+
+      {focused && focusedNombre && (
+        <FocusedHeader nombre={focusedNombre} />
+      )}
 
       {picoMeses.length > 0 && (
         <div className="rounded-xl border border-accent/25 bg-accent/10 px-4 py-2.5 text-sm text-accent flex flex-wrap items-center gap-1">
@@ -188,7 +189,7 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={260}>
-          <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+          <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
             <defs>
               <linearGradient id="bandGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#3B5BDB" stopOpacity={0.15} />
@@ -201,7 +202,14 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
               tickFormatter={(v) => `${(v).toFixed(0)}%`}
               tick={{ fontSize: 11, fill: '#94a3b8' }}
               domain={[0, 'auto']}
-              label={{ value: 'Prob. de compra', angle: -90, position: 'insideLeft', fontSize: 10, fill: '#94a3b8', offset: 10 }}
+              width={70}
+              label={{
+                value: 'Probabilidad de compra (%)',
+                angle: -90,
+                position: 'insideLeft',
+                offset: 0,
+                style: { fontSize: 11, fill: '#64748b', textAnchor: 'middle' },
+              }}
             />
             <Tooltip content={<CustomTooltip />} />
 

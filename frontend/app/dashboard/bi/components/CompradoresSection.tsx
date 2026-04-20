@@ -5,11 +5,13 @@ import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp, Loader2, Building2 } from 'lucide-react';
 import { CompradorResult, OrganismoConNombre, scoreColor, scoreBg } from '../types';
 import { useCompradorCache } from '../hooks/useCompradorCache';
+import { FocusedHeader } from './FocusedHeader';
 
 interface CompradorSectionProps {
   topOrganismos: OrganismoConNombre[];
   rubro: string;
   focusedOrganismo?: OrganismoConNombre | null;
+  focusedNombre?: string; // NEW: display name of the focused organismo
 }
 
 function CompradorCard({ organismoId }: { organismoId: string }) {
@@ -113,7 +115,7 @@ function CompradorCard({ organismoId }: { organismoId: string }) {
   );
 }
 
-export function CompradoresSection({ topOrganismos, rubro, focusedOrganismo }: CompradorSectionProps) {
+export function CompradoresSection({ topOrganismos, rubro, focusedOrganismo, focusedNombre }: CompradorSectionProps) {
   const orgsAMostrar = focusedOrganismo ? [focusedOrganismo] : topOrganismos.slice(0, 3);
 
   // Dynamic title and subtitle based on focus state and count
@@ -133,6 +135,10 @@ export function CompradoresSection({ topOrganismos, rubro, focusedOrganismo }: C
         </h2>
         <p className="text-xs text-muted mt-0.5">{subtituloDinamico}</p>
       </div>
+
+      {focusedOrganismo && focusedNombre && (
+        <FocusedHeader nombre={focusedNombre} />
+      )}
 
       <div className="space-y-3">
         {orgsAMostrar.map((org) => (
