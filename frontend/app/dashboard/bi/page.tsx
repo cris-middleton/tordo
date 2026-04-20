@@ -20,6 +20,7 @@ import { TendenciasSection } from './components/TendenciasSection';
 import { CompetenciaSection } from './components/CompetenciaSection';
 import { CompradoresSection } from './components/CompradoresSection';
 import { EstacionalidadSection } from './components/EstacionalidadSection';
+import { CompradorCacheProvider } from './hooks/useCompradorCache';
 
 function BIDisabledBanner() {
   return (
@@ -257,6 +258,7 @@ export default function BIPage() {
   }
 
   return (
+    <CompradorCacheProvider>
     <div className="flex flex-col min-h-screen">
       {/* Sticky filter bar */}
       <RubroFilter
@@ -307,5 +309,6 @@ export default function BIPage() {
         </PlanGate>
       </div>
     </div>
+    </CompradorCacheProvider>
   );
 }

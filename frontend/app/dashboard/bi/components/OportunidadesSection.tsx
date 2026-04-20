@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp, Loader2, Target } from 'lucide-react';
 import { OportunidadItem, CompradorResult, scoreColor, scoreBg } from '../types';
-import { apiClient } from '@/lib/api';
+import { useCompradorCache } from '../hooks/useCompradorCache';
 
 interface OportunidadesSectionProps {
   oportunidades: OportunidadItem[];
@@ -33,6 +33,7 @@ function CompetitionBadge({ n }: { n: number }) {
 }
 
 function ExpandedRow({ organismo }: { organismo: string }) {
+  const { get } = useCompradorCache();
   const [data, setData] = useState<CompradorResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -41,7 +42,7 @@ function ExpandedRow({ organismo }: { organismo: string }) {
     if (loaded) return;
     setLoading(true);
     try {
-      const res = await apiClient.getBIComprador(organismo);
+      const res = await get(organismo);
       setData(res);
       setLoaded(true);
     } catch {

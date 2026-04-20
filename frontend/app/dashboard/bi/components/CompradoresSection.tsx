@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp, Loader2, Building2 } from 'lucide-react';
 import { CompradorResult, OrganismoConNombre, scoreColor, scoreBg } from '../types';
-import { apiClient } from '@/lib/api';
+import { useCompradorCache } from '../hooks/useCompradorCache';
 
 interface CompradorSectionProps {
   topOrganismos: OrganismoConNombre[];
@@ -12,12 +12,13 @@ interface CompradorSectionProps {
 }
 
 function CompradorCard({ organismoId }: { organismoId: string }) {
+  const { get } = useCompradorCache();
   const [data, setData] = useState<CompradorResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    apiClient.getBIComprador(organismoId)
+    get(organismoId)
       .then((res) => setData(res))
       .catch(() => setData(null))
       .finally(() => setLoading(false));
