@@ -47,6 +47,9 @@ export function EstacionalidadSection({ topOrganismos, rubro }: EstacionalidadSe
   const [patrones, setPatrones] = useState<EstacionalidadMes[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const selectedOrgNombre = topOrganismos.find((o) => o.codigo === selectedOrg)?.nombre
+    || selectedOrg;
+
   // Reset selectedOrg whenever the organismo list is replaced (e.g. after a rubro change)
   useEffect(() => {
     if (topOrganismos.length > 0) {
@@ -119,7 +122,8 @@ export function EstacionalidadSection({ topOrganismos, rubro }: EstacionalidadSe
 
       {picoMeses.length > 0 && (
         <div className="rounded-xl border border-accent/25 bg-accent/10 px-4 py-2.5 text-sm text-accent">
-          Este organismo suele comprar más en <span className="font-semibold">{picoMeses.join(', ')}</span>.
+          <span className="font-semibold">{selectedOrgNombre.length > 50 ? selectedOrgNombre.slice(0, 50) + '…' : selectedOrgNombre}</span>
+          {' '}suele comprar más en <span className="font-semibold">{picoMeses.join(', ')}</span>.
           {avgConsist && ` Consistencia promedio: ${avgConsist}%.`}
         </div>
       )}

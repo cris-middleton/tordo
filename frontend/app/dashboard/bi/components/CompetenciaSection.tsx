@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import { CompetidorItem, ConcentracionItem, OrganismoConNombre } from '../types';
 import { apiClient } from '@/lib/api';
+import { InfoTooltip } from './InfoTooltip';
 
 interface CompetenciaSectionProps {
   topOrganismos: OrganismoConNombre[];
@@ -69,11 +70,21 @@ export function CompetenciaSection({
 
   const tipoMercado = concentracion[0]?.tipo_mercado;
   const nProveedores = concentracion[0]?.n_proveedores;
-  const tipoLabel: Record<string, string> = {
-    concentrado: 'Concentrado — pocos proveedores dominan',
-    moderado: 'Moderado — competencia normal',
-    fragmentado: 'Fragmentado — muchos proveedores compiten',
-  };
+
+  // Normaliza tipo_mercado del backend a una sola palabra capitalizada
+  function tipoLabelCorto(tipo: string | null | undefined): string {
+    if (!tipo) return '';
+    const lower = tipo.toLowerCase().trim();
+    const known: Record<string, string> = {
+      concentrado: 'Concentrado',
+      moderado: 'Moderado',
+      fragmentado: 'Fragmentado',
+      competitivo: 'Competitivo',
+    };
+    if (known[lower]) return known[lower];
+    // Fallback: capitaliza primera letra del string raw del backend
+    return lower.charAt(0).toUpperCase() + lower.slice(1);
+  }
 
   return (
     <section className="card space-y-4">
@@ -102,16 +113,15 @@ export function CompetenciaSection({
       </div>
 
       {tipoMercado && (
-        <div className="rounded-xl border border-border bg-surface/60 px-4 py-3 text-sm flex items-center gap-3">
+        <div className="rounded-xl border border-border bg-surface/60 px-4 py-3 text-sm flex items-center gap-3 flex-wrap">
           <span className="font-medium text-text">
             {nProveedores != null ? `${nProveedores} proveedores activos.` : ''}
           </span>
-          <span
-            className="text-muted"
-            title="Fragmentado = muchos proveedores compiten. Concentrado = pocos dominan el mercado."
-          >
-            {tipoLabel[tipoMercado] ?? tipoMercado}{' '}
-            <span className="cursor-help underline decoration-dotted">ℹ</span>
+          <span className="text-muted">
+            Mercado{' '}
+            <InfoTooltip content="Fragmentado = muchos proveedores compiten. Concentrado = pocos dominan el mercado.">
+              <span className="font-medium text-text">{tipoLabelCorto(tipoMercado)}</span>
+            </InfoTooltip>
           </span>
         </div>
       )}

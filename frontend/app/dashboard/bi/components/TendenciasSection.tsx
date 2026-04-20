@@ -142,7 +142,7 @@ export function TendenciasSection({ tendencias, emergentes, loading, selectedRub
             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
             <XAxis
               type="number"
-              tickFormatter={(v) => `${v > 0 ? '+' : ''}${v.toFixed(0)}%`}
+              tickFormatter={(v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%`}
               tick={{ fontSize: 11, fill: '#94a3b8' }}
               label={{ value: 'Crecimiento anual (%)', position: 'insideBottom', offset: -2, fontSize: 11, fill: '#94a3b8' }}
             />
