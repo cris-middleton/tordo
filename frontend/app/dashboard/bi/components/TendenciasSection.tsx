@@ -19,6 +19,7 @@ interface TendenciasSectionProps {
   tendencias: TendenciaItem[];
   emergentes: TendenciaItem[];
   loading: boolean;
+  selectedRubro: string;
 }
 
 const CustomTooltip = ({ active, payload }: any) => {
@@ -41,12 +42,61 @@ const CustomTooltip = ({ active, payload }: any) => {
   );
 };
 
-export function TendenciasSection({ tendencias, emergentes, loading }: TendenciasSectionProps) {
+export function TendenciasSection({ tendencias, emergentes, loading, selectedRubro }: TendenciasSectionProps) {
   if (loading) return (
     <div className="card flex items-center justify-center py-12">
       <Loader2 className="h-6 w-6 animate-spin text-primary" />
     </div>
   );
+
+  // Vista comprimida cuando hay rubro filtrado
+  if (selectedRubro && !loading) {
+    const found = tendencias.find((t) => t.RubroN2 === selectedRubro);
+    return (
+      <section className="card space-y-4">
+        <div>
+          <h2 className="section-title flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary" />
+            Tendencias del mercado
+          </h2>
+          <p className="text-xs text-muted mt-0.5">¿Este mercado está creciendo o contrayéndose?</p>
+        </div>
+
+        {found ? (
+          <div className="rounded-xl border border-border bg-surface p-5 flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm text-muted">{selectedRubro}</p>
+              <p className={`text-3xl font-bold mt-1 ${found.cagr >= 0 ? 'text-accent' : 'text-danger'}`}>
+                {found.cagr > 0 ? '+' : ''}{found.cagr.toFixed(1)}%
+                <span className="text-sm font-normal text-muted ml-2">anual</span>
+              </p>
+            </div>
+            <div className="text-right text-xs text-muted">
+              {found.total_oc && <p>{found.total_oc.toLocaleString('es-CL')} OC</p>}
+              {found.n_anios && <p>{found.n_anios} años de historia</p>}
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-muted">Sin datos de tendencia para este rubro.</p>
+        )}
+
+        {emergentes.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            <span className="text-xs font-semibold text-muted self-center">En alza (contexto):</span>
+            {emergentes.slice(0, 3).map((e) => (
+              <span
+                key={e.RubroN2}
+                className="flex items-center gap-1.5 rounded-full bg-accent/15 border border-accent/25 px-3 py-1 text-xs font-semibold text-accent"
+              >
+                ↗ {e.RubroN2} {e.cagr > 0 ? '+' : ''}{e.cagr.toFixed(0)}% anual
+              </span>
+            ))}
+          </div>
+        )}
+      </section>
+    );
+  }
+  // Vista completa (sin rubro) — render original continúa abajo
 
   const chartData = [...tendencias]
     .sort((a, b) => b.cagr - a.cagr)

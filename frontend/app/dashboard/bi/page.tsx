@@ -282,7 +282,7 @@ export default function BIPage() {
         <OportunidadesSection oportunidades={oportunidades} loading={loadingOp} />
 
         {/* § 2 — Always visible */}
-        <TendenciasSection tendencias={tendencias} emergentes={emergentes} loading={loadingTend} />
+        <TendenciasSection tendencias={tendencias} emergentes={emergentes} loading={loadingTend} selectedRubro={selectedRubro} />
 
         {/* § 3 — Locked for basico */}
         <PlanGate locked={!paid} label="Análisis de competencia — plan PYME o superior">
