@@ -100,7 +100,11 @@ export function CompetenciaSection({
             <Users className="h-5 w-5 text-primary" />
             Competencia
           </h2>
-          <p className="text-xs text-muted mt-0.5">¿Contra quién compites en este mercado?</p>
+          <p className="text-xs text-muted mt-0.5">
+            {focused && focusedNombre
+              ? <>¿Contra quién compites para vender a <span className="font-medium text-text">{focusedNombre.length > 45 ? `${focusedNombre.slice(0, 45)}…` : focusedNombre}</span>?</>
+              : '¿Contra quién compites en este mercado?'}
+          </p>
         </div>
 
         {!focused && topOrganismos.length > 1 && (

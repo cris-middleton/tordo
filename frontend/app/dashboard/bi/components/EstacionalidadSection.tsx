@@ -128,7 +128,11 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
               side="bottom"
             />
           </h2>
-          <p className="text-xs text-muted mt-0.5">¿En qué meses compran más?</p>
+          <p className="text-xs text-muted mt-0.5">
+            {focused && focusedNombre
+              ? <>¿En qué meses compra <span className="font-medium text-text">{focusedNombre.length > 45 ? `${focusedNombre.slice(0, 45)}…` : focusedNombre}</span>?</>
+              : '¿En qué meses compran más?'}
+          </p>
         </div>
 
         {!focused && optionsOrganismos.length > 1 && (
