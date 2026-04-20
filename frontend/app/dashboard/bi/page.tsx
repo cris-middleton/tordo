@@ -557,7 +557,7 @@ export default function BIPage() {
                 </PlanGate>
 
                 {/* Herramientas avanzadas — colapsible al pie */}
-                <HerramientasAvanzadas rubro={selectedRubro} />
+                <HerramientasAvanzadas rubro={selectedRubro} topOrganismos={topOrganismos} />
               </>
             )}
           </>

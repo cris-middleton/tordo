@@ -1,21 +1,22 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ChevronDown, ChevronUp, Wrench, Loader2, Search } from 'lucide-react';
+import { ChevronDown, ChevronUp, Wrench, Loader2, Search, Info } from 'lucide-react';
 import { apiClient } from '@/lib/api';
+import { OrganismoConNombre } from '../types';
 
 type Tab = 'matching' | 'precio' | 'descuento' | 'forecast';
 
 interface HerramientasAvanzadasProps {
   rubro: string;
+  topOrganismos?: OrganismoConNombre[];
 }
 
 interface MatchingResult {
   CodigoProveedor?: string;
   NombreProveedor?: string;
-  score?: number;
+  similarity_score?: number;
   n_oc?: number;
-  monto_total?: number;
 }
 
 interface PrecioBanda {
@@ -102,8 +103,7 @@ function TabMatching() {
               <tr className="border-b border-border bg-surface/60 text-left">
                 <th className="px-3 py-2 text-xs font-medium text-muted">Proveedor</th>
                 <th className="px-3 py-2 text-xs font-medium text-muted">Afinidad</th>
-                <th className="px-3 py-2 text-xs font-medium text-muted">OC</th>
-                <th className="px-3 py-2 text-xs font-medium text-muted">Monto total</th>
+                <th className="px-3 py-2 text-xs font-medium text-muted">OC históricas</th>
               </tr>
             </thead>
             <tbody>
@@ -111,13 +111,10 @@ function TabMatching() {
                 <tr key={r.CodigoProveedor} className="border-b border-border last:border-0 hover:bg-primary/5">
                   <td className="px-3 py-2 font-medium text-text">{r.NombreProveedor || '—'}</td>
                   <td className="px-3 py-2 text-text">
-                    {r.score != null ? `${(r.score * 100).toFixed(0)}%` : '—'}
+                    {r.similarity_score != null ? `${(r.similarity_score * 100).toFixed(0)}%` : '—'}
                   </td>
                   <td className="px-3 py-2 text-text">
                     {r.n_oc?.toLocaleString('es-CL') ?? '—'}
-                  </td>
-                  <td className="px-3 py-2 text-text">
-                    {r.monto_total ? `CLP ${(r.monto_total / 1e6).toFixed(1)}M` : '—'}
                   </td>
                 </tr>
               ))}
@@ -179,7 +176,24 @@ function TabDescuento({ rubro }: { rubro: string }) {
   }
 
   if (error) {
-    return <p className="text-xs text-danger">{error}</p>;
+    const isMissingParquet = error.toLowerCase().includes('parquet') || error.toLowerCase().includes('sin datos');
+    return (
+      <div className={`rounded-xl border p-3 text-sm flex items-start gap-2 ${
+        isMissingParquet ? 'border-border bg-surface/60 text-muted' : 'border-danger/30 bg-danger/5 text-danger'
+      }`}>
+        <Info className="h-4 w-4 shrink-0 mt-0.5" />
+        <div className="flex-1">
+          {isMissingParquet ? (
+            <>
+              <p className="font-medium text-text">Datos aún no procesados</p>
+              <p className="text-xs mt-0.5">
+                Esta herramienta requiere que el ETL genere el parquet de descuentos. Contacta al administrador.
+              </p>
+            </>
+          ) : error}
+        </div>
+      </div>
+    );
   }
 
   if (data.length === 0) {
@@ -225,18 +239,21 @@ function TabDescuento({ rubro }: { rubro: string }) {
   );
 }
 
-interface ForecastPrediccion {
-  min_esperado?: number;
-  max_esperado?: number;
-  promedio?: number;
-  confianza?: string;
-  n_casos?: number;
+interface ForecastDataRow {
+  n?: number;
+  p10?: number;
+  p50?: number;
+  p90?: number;
+  media?: number;
+  pct_sin_competencia?: number;
+  pct_baja_competencia?: number;
 }
 
 interface ForecastResultado {
   disponible: boolean;
-  prediccion?: ForecastPrediccion;
   nivel_usado?: string;
+  fallback?: boolean;
+  data?: ForecastDataRow[];
   motivo?: string;
 }
 
@@ -247,7 +264,7 @@ function formatCLPShort(v: number): string {
   return `CLP ${Math.round(v).toLocaleString('es-CL')}`;
 }
 
-function TabPrecio() {
+function TabPrecio({ organismosConNombre }: { organismosConNombre?: OrganismoConNombre[] }) {
   const [codigo, setCodigo] = useState('');
   const [organismo, setOrganismo] = useState('');
   const [resultado, setResultado] = useState<PrecioResultado | null>(null);
@@ -284,9 +301,15 @@ function TabPrecio() {
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-muted">
-        Ingresa el <b>código ONU</b> del producto (8 dígitos). Opcionalmente filtra por un organismo.
-      </p>
+      <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 text-xs text-muted space-y-1">
+        <p>
+          <b className="text-text">¿Qué es el código ONU?</b> Es el código de 8 dígitos que identifica un producto en el
+          catálogo de Mercado Público (ej: <code>41115802</code> para &quot;Reactivos PCR&quot;).
+        </p>
+        <p>
+          Puedes encontrarlo en las bases técnicas de licitaciones o en el catálogo oficial de ChileCompra.
+        </p>
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2">
         <input
           value={codigo}
@@ -295,13 +318,28 @@ function TabPrecio() {
           placeholder="Código ONU (ej: 41115802)"
           className="input-field text-sm"
         />
-        <input
-          value={organismo}
-          onChange={(e) => setOrganismo(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && consultar()}
-          placeholder="Organismo (opcional)"
-          className="input-field text-sm"
-        />
+        {organismosConNombre && organismosConNombre.length > 0 ? (
+          <select
+            value={organismo}
+            onChange={(e) => setOrganismo(e.target.value)}
+            className="input-field text-sm"
+          >
+            <option value="">Todos los organismos (opcional)</option>
+            {organismosConNombre.map((o) => (
+              <option key={o.codigo} value={o.codigo} title={o.nombre}>
+                {o.nombre.length > 45 ? `${o.nombre.slice(0, 45)}…` : o.nombre}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            value={organismo}
+            onChange={(e) => setOrganismo(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && consultar()}
+            placeholder="Organismo (opcional)"
+            className="input-field text-sm"
+          />
+        )}
         <button
           onClick={consultar}
           disabled={loading || codigo.trim().length < 3}
@@ -364,11 +402,10 @@ function TabForecast({ rubro }: { rubro: string }) {
     }
   };
 
-  const p = resultado?.prediccion;
   const nivelLabel = (nivel?: string) =>
-    nivel === 'L1' ? 'datos del organismo y rubro específico'
-      : nivel === 'L2' ? 'datos del rubro a nivel nacional'
-      : nivel === 'L3' ? 'datos nacionales agregados'
+    nivel === 'L1' ? 'datos del organismo + rubro + tipo'
+      : nivel === 'L2' ? 'datos del rubro + tipo a nivel nacional'
+      : nivel === 'L3' ? 'datos del tipo de licitación nivel nacional'
       : nivel || '';
 
   return (
@@ -408,22 +445,57 @@ function TabForecast({ rubro }: { rubro: string }) {
         </p>
       )}
 
-      {error && !p && <p className="text-xs text-danger">{error}</p>}
+      {error && !resultado?.data?.[0] && (() => {
+        const isMissingParquet = error.toLowerCase().includes('parquet') || error.toLowerCase().includes('sin datos');
+        return (
+          <div className={`rounded-xl border p-3 text-sm flex items-start gap-2 ${
+            isMissingParquet ? 'border-border bg-surface/60 text-muted' : 'border-danger/30 bg-danger/5 text-danger'
+          }`}>
+            <Info className="h-4 w-4 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              {isMissingParquet ? (
+                <>
+                  <p className="font-medium text-text">Datos aún no procesados</p>
+                  <p className="text-xs mt-0.5">
+                    Esta herramienta requiere que el ETL genere los parquets de pronóstico. Contacta al administrador.
+                  </p>
+                </>
+              ) : error}
+            </div>
+          </div>
+        );
+      })()}
 
-      {p && p.min_esperado != null && p.max_esperado != null && (
-        <div className="rounded-xl border border-border bg-surface p-4 text-sm space-y-2">
-          <p className="text-text">
-            Este tipo de licitación suele atraer entre{' '}
-            <b>{p.min_esperado}</b> y <b>{p.max_esperado}</b> competidores
-            {p.promedio != null && <> (promedio: {p.promedio.toFixed(1)})</>}.
-          </p>
-          <p className="text-xs text-muted">
-            {p.confianza && <>Confianza: <b>{p.confianza}</b></>}
-            {p.n_casos != null && <> · Basado en {p.n_casos.toLocaleString('es-CL')} casos históricos</>}
-            {resultado?.nivel_usado && <> · Fuente: {nivelLabel(resultado.nivel_usado)}</>}
-          </p>
-        </div>
-      )}
+      {(() => {
+        const row = resultado?.data?.[0];
+        if (!row) return null;
+        const p10 = row.p10 != null ? Math.round(row.p10) : null;
+        const p90 = row.p90 != null ? Math.round(row.p90) : null;
+        const media = row.media != null ? row.media.toFixed(1) : null;
+        const nCasos = row.n != null ? row.n.toLocaleString('es-CL') : null;
+
+        return (
+          <div className="rounded-xl border border-border bg-surface p-4 text-sm space-y-2">
+            {p10 != null && p90 != null ? (
+              <p className="text-text">
+                Este tipo de licitación suele atraer entre <b>{p10}</b> y <b>{p90}</b> competidores
+                {media != null && <> (promedio: {media})</>}.
+              </p>
+            ) : media != null ? (
+              <p className="text-text">
+                Promedio de competidores para esta combinación: <b>{media}</b>.
+              </p>
+            ) : (
+              <p className="text-muted">Resultado sin rangos disponibles.</p>
+            )}
+            <p className="text-xs text-muted">
+              {nCasos && <>Basado en {nCasos} casos históricos</>}
+              {resultado?.nivel_usado && <> · Fuente: {nivelLabel(resultado.nivel_usado)}</>}
+              {resultado?.fallback && <> · <span className="italic">fallback a nivel más general</span></>}
+            </p>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -435,7 +507,7 @@ const TABS: Array<[Tab, string]> = [
   ['forecast', 'Competencia esperada'],
 ];
 
-export function HerramientasAvanzadas({ rubro }: HerramientasAvanzadasProps) {
+export function HerramientasAvanzadas({ rubro, topOrganismos }: HerramientasAvanzadasProps) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('matching');
 
@@ -476,7 +548,7 @@ export function HerramientasAvanzadas({ rubro }: HerramientasAvanzadasProps) {
           </div>
           <div className="min-h-[120px]">
             {tab === 'matching' && <TabMatching />}
-            {tab === 'precio' && <TabPrecio />}
+            {tab === 'precio' && <TabPrecio organismosConNombre={topOrganismos} />}
             {tab === 'descuento' && <TabDescuento rubro={rubro} />}
             {tab === 'forecast' && <TabForecast rubro={rubro} />}
           </div>
