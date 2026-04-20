@@ -28,6 +28,7 @@ from app.schemas.bi import (
     ForecastCompetidoresResponse,
     LicitacionBIPanel,
     MatchingResponse,
+    MiPosicionResponse,
     OportunidadesResponse,
     PerfilMatchResponse,
     PrecioResponse,
@@ -626,3 +627,47 @@ def get_clusters(
         clusters=clusters,
         total=len(clusters),
     )
+
+
+@router.get(
+    "/mi_posicion",
+    response_model=MiPosicionResponse,
+    summary="Posición de la empresa del usuario en un rubro (personalización)",
+    description=(
+        "Cruza el RUT de la empresa con los parquets de competencia + diversificación. "
+        "Devuelve ranking, participación, diversificación y alerta de dependencia. "
+        "Requiere acceso a la empresa (EmpresaUsuario)."
+    ),
+)
+async def get_mi_posicion(
+    empresa_id: UUID = Query(..., description="UUID de la empresa del usuario"),
+    rubro: str = Query(..., min_length=1, description="RubroN2 a analizar"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(check_bi_quota_dep),
+):
+    _require_analytics()
+    from app.models.empresa import Empresa
+    from app.services import bi_service
+
+    # Verificar membership a la empresa
+    membership = (await db.execute(
+        select(EmpresaUsuario).where(
+            EmpresaUsuario.empresa_id == empresa_id,
+            EmpresaUsuario.user_id == current_user.id,
+        )
+    )).scalar_one_or_none()
+    if not membership:
+        raise HTTPException(status_code=403, detail="Sin acceso a esta empresa")
+
+    empresa = (await db.execute(
+        select(Empresa).where(Empresa.id == empresa_id)
+    )).scalar_one_or_none()
+
+    if not empresa or not empresa.rut:
+        return {
+            "disponible": False,
+            "tiene_historial": False,
+            "motivo": "La empresa no tiene RUT registrado",
+        }
+
+    return bi_service.get_mi_posicion(empresa.rut, rubro)

@@ -435,3 +435,24 @@ class ResumenResponse(BaseModel):
     teaser_competencia: Optional[ResumenTeaserCompetencia] = None
     teaser_estacionalidad: Optional[ResumenTeaserEstacionalidad] = None
     motivo: Optional[str] = None
+
+
+# ─── Mi Posición (personalización por empresa) ───────────────────────────────
+
+class MiPosicionTopOrganismo(BaseModel):
+    nombre: Optional[str] = None
+    porcentaje_oc: Optional[float] = None
+
+
+class MiPosicionResponse(BaseModel):
+    disponible: bool
+    tiene_historial: bool = False
+    participacion_pct: Optional[float] = None
+    rank: Optional[int] = None
+    total_proveedores: Optional[int] = None
+    n_organismos_atendidos: Optional[int] = None
+    n_organismos_promedio_sector: Optional[float] = None
+    diversificacion_pct: Optional[float] = None
+    alerta_dependencia: Optional[bool] = None
+    top_organismo_empresa: Optional[MiPosicionTopOrganismo] = None
+    motivo: Optional[str] = None

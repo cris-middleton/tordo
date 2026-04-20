@@ -1072,6 +1072,168 @@ def get_resumen(rubro: Optional[str] = None) -> dict:
     }
 
 
+def _normalize_rut(rut: Optional[str]) -> str:
+    """Normaliza RUT chileno al formato esperado por CodigoProveedor del parquet.
+    ChileCompra típicamente usa '12345678-9' (sin puntos, con guión).
+    Retorna cadena vacía si el input es inválido o None."""
+    if not rut:
+        return ""
+    cleaned = str(rut).replace(".", "").replace(" ", "").upper()
+    if not cleaned:
+        return ""
+    # Si no tiene guión, insertar uno antes del último char (DV)
+    if "-" not in cleaned and len(cleaned) > 1:
+        cleaned = f"{cleaned[:-1]}-{cleaned[-1]}"
+    return cleaned
+
+
+def get_mi_posicion(empresa_rut: str, rubro: str) -> dict:
+    """
+    Posición del proveedor (empresa del usuario) en un rubro específico.
+    Combina market_concentration / competitors_by_market para participación + rank,
+    y provider_diversification para score de diversificación y alerta.
+    """
+    import polars as pl
+    if not empresa_rut or not rubro:
+        return {
+            "disponible": False,
+            "tiene_historial": False,
+            "motivo": "rut y rubro requeridos",
+        }
+
+    rut_norm = _normalize_rut(empresa_rut)
+
+    # ── Competencia en el rubro: buscar al proveedor ─────────────────────────
+    # Preferir competitor_analysis; fallback a competitors_by_market
+    df_comp = _load("competitor_analysis.parquet")
+    if df_comp is None:
+        df_comp = _load("competitors_by_market.parquet")
+
+    if df_comp is None:
+        return {
+            "disponible": False,
+            "tiene_historial": False,
+            "motivo": "parquets de competencia no disponibles",
+        }
+
+    if "RubroN2" not in df_comp.columns or "CodigoProveedor" not in df_comp.columns:
+        return {
+            "disponible": False,
+            "tiene_historial": False,
+            "motivo": "schema de parquet no esperado",
+        }
+
+    subset = df_comp.filter(df_comp["RubroN2"] == rubro)
+    if len(subset) == 0:
+        return {
+            "disponible": True,
+            "tiene_historial": False,
+            "motivo": f"sin datos para el rubro '{rubro}'",
+        }
+
+    # Ranking: preferir market_share_pct, fallback a monto_total
+    if "market_share_pct" in subset.columns:
+        ranked = subset.sort("market_share_pct", descending=True)
+    elif "monto_total" in subset.columns:
+        ranked = subset.sort("monto_total", descending=True)
+    else:
+        ranked = subset
+    ranked_rows = ranked.to_dicts()
+    total_prov = len(ranked_rows)
+
+    empresa_row = None
+    rank = None
+    for i, row in enumerate(ranked_rows):
+        if str(row.get("CodigoProveedor")) == rut_norm:
+            empresa_row = row
+            rank = i + 1
+            break
+
+    if empresa_row is None:
+        return {
+            "disponible": True,
+            "tiene_historial": False,
+            "total_proveedores": total_prov,
+            "motivo": f"El RUT {rut_norm} no tiene historial de OC en '{rubro}'",
+        }
+
+    participacion_pct = float(empresa_row.get("market_share_pct") or 0) if "market_share_pct" in empresa_row else None
+
+    # ── n_organismos atendidos (del row de la empresa si existe) ─────────────
+    n_org_atendidos = None
+    for key in ("n_organismos", "n_organismos_atendidos", "organismos_distintos"):
+        if key in empresa_row and empresa_row[key] is not None:
+            try:
+                n_org_atendidos = int(empresa_row[key])
+                break
+            except (TypeError, ValueError):
+                pass
+
+    # ── n_organismos promedio del sector (heurística simple) ─────────────────
+    # Promedio de n_organismos entre proveedores del mismo rubro, si la columna existe
+    n_org_prom = None
+    org_col = None
+    for key in ("n_organismos", "n_organismos_atendidos", "organismos_distintos"):
+        if key in ranked.columns:
+            org_col = key
+            break
+    if org_col is not None:
+        try:
+            avg_val = ranked.select(pl.col(org_col).mean()).item()
+            if avg_val is not None:
+                n_org_prom = round(avg_val, 1)
+        except Exception:
+            n_org_prom = None
+
+    # ── Diversificación (desde provider_diversification.parquet) ─────────────
+    diversificacion_pct = None
+    alerta_dependencia = False
+    top_org_nombre = None
+    top_org_pct = None
+    df_div = _load("provider_diversification.parquet")
+    if df_div is not None and "CodigoProveedor" in df_div.columns:
+        row = df_div.filter(df_div["CodigoProveedor"] == rut_norm)
+        if len(row) > 0:
+            d = row.to_dicts()[0]
+            # score_diversificacion suele estar en 0-1
+            score = d.get("score_diversificacion")
+            if score is not None:
+                try:
+                    diversificacion_pct = float(score) * 100
+                except (TypeError, ValueError):
+                    pass
+            alerta_dependencia = bool(d.get("alerta_dependencia") or False)
+            top_org_nombre = d.get("top_comprador_nombre") or d.get("top_organismo_nombre")
+            top_org_pct_raw = d.get("top_comprador_pct") or d.get("top_organismo_pct")
+            if top_org_pct_raw is not None:
+                try:
+                    # Puede estar en fracción (0-1) o porcentaje
+                    val = float(top_org_pct_raw)
+                    top_org_pct = val * 100 if val <= 1.0 else val
+                except (TypeError, ValueError):
+                    pass
+
+    top_organismo_empresa = None
+    if top_org_nombre:
+        top_organismo_empresa = {
+            "nombre": top_org_nombre,
+            "porcentaje_oc": top_org_pct,
+        }
+
+    return {
+        "disponible": True,
+        "tiene_historial": True,
+        "participacion_pct": participacion_pct,
+        "rank": rank,
+        "total_proveedores": total_prov,
+        "n_organismos_atendidos": n_org_atendidos,
+        "n_organismos_promedio_sector": n_org_prom,
+        "diversificacion_pct": diversificacion_pct,
+        "alerta_dependencia": alerta_dependencia,
+        "top_organismo_empresa": top_organismo_empresa,
+    }
+
+
 def get_rubros(limit: int = 354) -> dict:
     """
     Return the standardized RubroN2 list from ChileCompra taxonomy,
