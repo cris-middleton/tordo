@@ -17,6 +17,7 @@ import {
   PlanTier,
   isPaidPlan,
 } from './types';
+import { BIOnboarding } from './components/BIOnboarding';
 import { MarketSummaryCard } from './components/MarketSummaryCard';
 import { MyPositionCard } from './components/MyPositionCard';
 import { RubroFilter } from './components/RubroFilter';
@@ -356,6 +357,13 @@ export default function BIPage() {
     </p>
   ) : null;
 
+  // Determine if user needs onboarding: new user with no rubros configured
+  const necesitaOnboarding =
+    initialized &&
+    biEnabled !== false &&
+    !perfil?.rubros_usados?.length &&
+    !selectedRubro;
+
   if (loadingInit || !initialized) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -399,77 +407,91 @@ export default function BIPage() {
           Inteligencia de Mercado
         </h1>
 
-        {/* Sector overview banner — dismissible once per day */}
-        <SectorOverview />
+        {necesitaOnboarding ? (
+          <BIOnboarding
+            onConfigurarRubros={() => {
+              window.dispatchEvent(new CustomEvent('bi:open-rubros-modal'));
+            }}
+            onExplorarSinConfigurar={() => {
+              const primer = allRubros[0];
+              if (primer) handleRubroChange(primer);
+            }}
+          />
+        ) : (
+          <>
+            {/* Sector overview banner — dismissible once per day */}
+            <SectorOverview />
 
-        {/* Narrative market summary + MyPositionCard en grid 2-col */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <MarketSummaryCard resumen={resumen} loading={loadingResumen} />
-          <MyPositionCard posicion={miPosicion} plan={plan} loading={loadingMiPosicion} />
-        </div>
+            {/* Narrative market summary + MyPositionCard en grid 2-col */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <MarketSummaryCard resumen={resumen} loading={loadingResumen} />
+              <MyPositionCard posicion={miPosicion} plan={plan} loading={loadingMiPosicion} />
+            </div>
 
-        {/* § 1 — Always visible */}
-        <OportunidadesSection
-          oportunidades={oportunidades}
-          loading={loadingOp}
-          onFocusOrganismo={(o) => {
-            setFocusedOrganismo(o);
-            setTimeout(() => {
-              const el = document.querySelector('[data-section="competencia"]') as HTMLElement | null;
-              el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }, 100);
-          }}
-        />
-
-        {/* § 2 — Always visible */}
-        <TendenciasSection tendencias={tendencias} emergentes={emergentes} loading={loadingTend} selectedRubro={selectedRubro} serieAnual={serieAnual} cagrRubro={cagrRubro} />
-
-        {/* § 3 — Locked for basico */}
-        <div data-section="competencia">
-          <PlanGate
-            locked={!paid}
-            label="Análisis de competencia — plan PYME o superior"
-            preview={previewCompetencia}
-          >
-            <CompetenciaSection
-              topOrganismos={topOrganismos}
-              selectedOrganismo={focusedOrganismo?.codigo || selectedCompOrg}
-              onOrganismoChange={setSelectedCompOrg}
-              rubro={selectedRubro}
-              disabled={!!focusedOrganismo}
+            {/* § 1 — Always visible */}
+            <OportunidadesSection
+              oportunidades={oportunidades}
+              loading={loadingOp}
+              onFocusOrganismo={(o) => {
+                setFocusedOrganismo(o);
+                setTimeout(() => {
+                  const el = document.querySelector('[data-section="competencia"]') as HTMLElement | null;
+                  el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
+              }}
             />
-          </PlanGate>
-        </div>
 
-        {/* § 4 — Locked for basico */}
-        <PlanGate
-          locked={!paid}
-          label="Perfil de compradores — plan PYME o superior"
-          preview={previewCompradores}
-        >
-          {(topOrganismos.length > 0 || focusedOrganismo) && (
-            <CompradoresSection
-              topOrganismos={topOrganismos}
-              rubro={selectedRubro}
-              focusedOrganismo={focusedOrganismo}
-            />
-          )}
-        </PlanGate>
+            {/* § 2 — Always visible */}
+            <TendenciasSection tendencias={tendencias} emergentes={emergentes} loading={loadingTend} selectedRubro={selectedRubro} serieAnual={serieAnual} cagrRubro={cagrRubro} />
 
-        {/* § 5 — Locked for basico */}
-        <PlanGate
-          locked={!paid}
-          label="Estacionalidad — plan PYME o superior"
-          preview={previewEstacionalidad}
-        >
-          {(topOrganismos.length > 0 || focusedOrganismo) && (
-            <EstacionalidadSection
-              topOrganismos={topOrganismos}
-              rubro={selectedRubro}
-              focusedOrganismo={focusedOrganismo}
-            />
-          )}
-        </PlanGate>
+            {/* § 3 — Locked for basico */}
+            <div data-section="competencia">
+              <PlanGate
+                locked={!paid}
+                label="Análisis de competencia — plan PYME o superior"
+                preview={previewCompetencia}
+              >
+                <CompetenciaSection
+                  topOrganismos={topOrganismos}
+                  selectedOrganismo={focusedOrganismo?.codigo || selectedCompOrg}
+                  onOrganismoChange={setSelectedCompOrg}
+                  rubro={selectedRubro}
+                  disabled={!!focusedOrganismo}
+                />
+              </PlanGate>
+            </div>
+
+            {/* § 4 — Locked for basico */}
+            <PlanGate
+              locked={!paid}
+              label="Perfil de compradores — plan PYME o superior"
+              preview={previewCompradores}
+            >
+              {(topOrganismos.length > 0 || focusedOrganismo) && (
+                <CompradoresSection
+                  topOrganismos={topOrganismos}
+                  rubro={selectedRubro}
+                  focusedOrganismo={focusedOrganismo}
+                />
+              )}
+            </PlanGate>
+
+            {/* § 5 — Locked for basico */}
+            <PlanGate
+              locked={!paid}
+              label="Estacionalidad — plan PYME o superior"
+              preview={previewEstacionalidad}
+            >
+              {(topOrganismos.length > 0 || focusedOrganismo) && (
+                <EstacionalidadSection
+                  topOrganismos={topOrganismos}
+                  rubro={selectedRubro}
+                  focusedOrganismo={focusedOrganismo}
+                />
+              )}
+            </PlanGate>
+          </>
+        )}
       </div>
     </div>
     </CompradorCacheProvider>

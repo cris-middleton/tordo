@@ -1,7 +1,7 @@
 // frontend/app/dashboard/bi/components/RubroFilter.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronDown, Settings2, X, Check, Loader2, Search } from 'lucide-react';
 import { TFIDFPerfilData, PlanTier, isPaidPlan } from '../types';
 
@@ -44,6 +44,13 @@ export function RubroFilter({
   const locked = !isPaidPlan(plan);
 
   const misRubros = perfil?.rubros_usados ?? [];
+
+  // Listen for custom event to open modal from BIOnboarding
+  useEffect(() => {
+    const handler = () => setShowModal(true);
+    window.addEventListener('bi:open-rubros-modal', handler);
+    return () => window.removeEventListener('bi:open-rubros-modal', handler);
+  }, []);
 
   const handleSave = async () => {
     if (selectedClusters.length === 0) return;
