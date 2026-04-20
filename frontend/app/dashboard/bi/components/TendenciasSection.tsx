@@ -15,6 +15,7 @@ import {
 } from 'recharts';
 import { TendenciaItem, SerieAnualPunto } from '../types';
 import { TrendChart } from './TrendChart';
+import { InfoTooltip } from './InfoTooltip';
 
 interface TendenciasSectionProps {
   tendencias: TendenciaItem[];
@@ -68,6 +69,23 @@ export function TendenciasSection({ tendencias, emergentes, loading, selectedRub
           <h2 className="section-title flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-primary" />
             Tendencias del mercado
+            <InfoTooltip
+              content={
+                <div className="space-y-1.5">
+                  <p className="font-semibold">¿Qué estoy viendo?</p>
+                  <p>
+                    El <b>monto total anual</b> adjudicado en Órdenes de Compra
+                    tramitadas vía Mercado Público para este rubro.
+                  </p>
+                  <p>
+                    Suma de todas las transacciones del año (todos los organismos compradores).
+                    No incluye licitaciones no adjudicadas.
+                  </p>
+                  <p className="text-subtle">Fuente: datos abiertos de ChileCompra.</p>
+                </div>
+              }
+              side="bottom"
+            />
           </h2>
           <p className="text-xs text-muted mt-0.5">¿Este mercado está creciendo o contrayéndose?</p>
         </div>
@@ -76,17 +94,55 @@ export function TendenciasSection({ tendencias, emergentes, loading, selectedRub
           <div className="rounded-xl border border-border bg-surface p-5">
             <div className="grid grid-cols-1 md:grid-cols-[minmax(180px,1fr)_2fr] gap-5 items-center">
               {/* Columna izquierda: métricas */}
-              <div>
-                <p className="text-sm text-muted">{selectedRubro}</p>
-                <p className={`text-3xl font-bold mt-1 ${cagrToShow >= 0 ? 'text-accent' : 'text-danger'}`}>
-                  {cagrToShow > 0 ? '+' : ''}{cagrToShow.toFixed(1)}%
-                  <span className="text-sm font-normal text-muted ml-2">anual</span>
-                </p>
-                <div className="mt-3 text-xs text-muted space-y-0.5">
-                  {found?.total_oc && <p>{found.total_oc.toLocaleString('es-CL')} OC</p>}
-                  {found?.n_anios && <p>{found.n_anios} años de historia</p>}
-                </div>
-              </div>
+              {(() => {
+                // Computar YoY del último año desde serieAnual
+                let yoyPct: number | null = null;
+                let yoyFromYear: number | null = null;
+                let yoyToYear: number | null = null;
+                if (serieAnual && serieAnual.length >= 2) {
+                  const last = serieAnual[serieAnual.length - 1];
+                  const prev = serieAnual[serieAnual.length - 2];
+                  if (prev.monto_total > 0) {
+                    yoyPct = ((last.monto_total / prev.monto_total) - 1) * 100;
+                    yoyFromYear = prev.anio;
+                    yoyToYear = last.anio;
+                  }
+                }
+
+                const firstYear = serieAnual?.[0]?.anio;
+                const lastYear = serieAnual?.[serieAnual.length - 1]?.anio;
+                const cagrLabel = firstYear && lastYear ? `promedio anual ${firstYear}–${lastYear}` : 'promedio anual';
+
+                return (
+                  <div>
+                    <p className="text-sm text-muted">{selectedRubro}</p>
+
+                    {/* CAGR grande */}
+                    <p className={`text-3xl font-bold mt-1 ${(cagrToShow ?? 0) >= 0 ? 'text-accent' : 'text-danger'}`}>
+                      {(cagrToShow ?? 0) > 0 ? '+' : ''}{(cagrToShow ?? 0).toFixed(1)}%
+                    </p>
+                    <p className="text-xs text-muted mt-0.5">{cagrLabel}</p>
+
+                    {/* YoY */}
+                    {yoyPct !== null && (
+                      <div className="mt-3 flex items-baseline gap-2">
+                        <span className={`text-sm font-semibold ${yoyPct >= 0 ? 'text-accent' : 'text-danger'}`}>
+                          {yoyPct > 0 ? '+' : ''}{yoyPct.toFixed(1)}%
+                        </span>
+                        <span className="text-xs text-muted">
+                          en {yoyToYear} vs. {yoyFromYear}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Stats pequeños */}
+                    <div className="mt-3 text-xs text-muted space-y-0.5">
+                      {found?.total_oc && <p>{found.total_oc.toLocaleString('es-CL')} OC totales</p>}
+                      {serieAnual && <p>{serieAnual.length} años completos</p>}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Columna derecha: chart que expande */}
               {serieAnual && serieAnual.length >= 2 ? (
@@ -126,6 +182,23 @@ export function TendenciasSection({ tendencias, emergentes, loading, selectedRub
         <h2 className="section-title flex items-center gap-2">
           <TrendingUp className="h-5 w-5 text-primary" />
           Tendencias del mercado
+          <InfoTooltip
+            content={
+              <div className="space-y-1.5">
+                <p className="font-semibold">¿Qué estoy viendo?</p>
+                <p>
+                  El <b>monto total anual</b> adjudicado en Órdenes de Compra
+                  tramitadas vía Mercado Público para este rubro.
+                </p>
+                <p>
+                  Suma de todas las transacciones del año (todos los organismos compradores).
+                  No incluye licitaciones no adjudicadas.
+                </p>
+                <p className="text-subtle">Fuente: datos abiertos de ChileCompra.</p>
+              </div>
+            }
+            side="bottom"
+          />
         </h2>
         <p className="text-xs text-muted mt-0.5">¿Este mercado está creciendo o contrayéndose?</p>
       </div>
