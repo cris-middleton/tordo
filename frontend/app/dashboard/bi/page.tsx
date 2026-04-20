@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Loader2, BarChart3, Target } from 'lucide-react';
+import { Loader2, BarChart3, Target, Columns } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -415,20 +415,31 @@ export default function BIPage() {
         onSavePerfil={handleSavePerfil}
         focusedOrganismo={focusedOrganismo}
         onClearFocus={() => setFocusedOrganismo(null)}
-        onToggleCompare={() => setCompareMode(true)}
       />
 
       <div className="flex-1 space-y-6 p-4 pb-12">
-        <h1 className="text-2xl font-semibold text-text flex items-center gap-2">
-          <BarChart3 className="h-6 w-6 text-primary" />
-          Inteligencia de Mercado
-        </h1>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h1 className="text-2xl font-semibold text-text flex items-center gap-2">
+            <BarChart3 className="h-6 w-6 text-primary" />
+            Inteligencia de Mercado
+          </h1>
+          {!compareMode && selectedRubro && (
+            <button
+              onClick={() => setCompareMode(true)}
+              className="hidden md:flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-text hover:border-primary hover:text-primary transition-colors"
+            >
+              <Columns className="h-4 w-4" />
+              Comparar con otro rubro
+            </button>
+          )}
+        </div>
 
         {compareMode ? (
           <CompareMode
             rubroA={selectedRubro}
             rubroB={rubroB}
             allRubros={allRubros}
+            onChangeRubroA={(r) => setSelectedRubro(r)}
             onChangeRubroB={setRubroB}
             onClose={() => { setCompareMode(false); setRubroB(''); }}
           />

@@ -9,6 +9,7 @@ interface CompareModeProps {
   rubroA: string;
   rubroB: string;
   allRubros: string[];
+  onChangeRubroA: (r: string) => void;
   onChangeRubroB: (r: string) => void;
   onClose: () => void;
 }
@@ -126,7 +127,7 @@ function RubroColumn({ rubro, data }: { rubro: string; data: RubroData }) {
   );
 }
 
-export function CompareMode({ rubroA, rubroB, allRubros, onChangeRubroB, onClose }: CompareModeProps) {
+export function CompareMode({ rubroA, rubroB, allRubros, onChangeRubroA, onChangeRubroB, onClose }: CompareModeProps) {
   const [dataA, setDataA] = useState<RubroData>({
     resumen: null, oportunidades: [], tendencia: null, loading: true,
   });
@@ -153,9 +154,15 @@ export function CompareMode({ rubroA, rubroB, allRubros, onChangeRubroB, onClose
     <div className="space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-sm font-semibold text-text">Comparando:</span>
-        <span className="rounded-full bg-primary/10 border border-primary/20 px-3 py-1 text-xs font-medium text-primary">
-          {rubroA}
-        </span>
+        <select
+          value={rubroA}
+          onChange={(e) => onChangeRubroA(e.target.value)}
+          className="input-field text-sm max-w-xs"
+        >
+          {allRubros.filter((r) => r !== rubroB).map((r) => (
+            <option key={r} value={r}>{r}</option>
+          ))}
+        </select>
         <span className="text-muted text-xs">vs.</span>
         <select
           value={rubroB}
