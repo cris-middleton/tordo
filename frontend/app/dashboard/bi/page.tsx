@@ -274,6 +274,53 @@ export default function BIPage() {
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Previews para el paywall de secciones gated ─────────────────────────
+  const previewCompetencia = resumen?.teaser_competencia && resumen.teaser_competencia.lider_nombre ? (
+    <p>
+      {resumen.n_proveedores_actual != null && (
+        <>
+          En este mercado compites contra <b>{resumen.n_proveedores_actual.toLocaleString('es-CL')}</b> proveedores.{' '}
+        </>
+      )}
+      {resumen.teaser_competencia.lider_share_pct != null && (
+        <>
+          El líder, <b>{resumen.teaser_competencia.lider_nombre}</b>, captura el{' '}
+          <b>{resumen.teaser_competencia.lider_share_pct.toFixed(0)}%</b>.{' '}
+        </>
+      )}
+      {resumen.teaser_competencia.tipo_mercado && (
+        <>Mercado <b>{resumen.teaser_competencia.tipo_mercado}</b>.</>
+      )}
+    </p>
+  ) : null;
+
+  const previewCompradores = resumen?.top_comprador?.nombre ? (
+    <p>
+      El comprador más activo es <b>{resumen.top_comprador.nombre}</b>
+      {resumen.top_comprador.pago_mediana_dias != null && (
+        <>
+          , que paga en promedio en <b>{resumen.top_comprador.pago_mediana_dias} día
+          {resumen.top_comprador.pago_mediana_dias === 1 ? '' : 's'}</b>
+          {resumen.top_comprador.clasificacion_pago && (
+            <> ({resumen.top_comprador.clasificacion_pago})</>
+          )}
+        </>
+      )}.
+      {resumen.n_organismos != null && (
+        <> Este mercado atiende a <b>{resumen.n_organismos.toLocaleString('es-CL')}</b> organismos en total.</>
+      )}
+    </p>
+  ) : null;
+
+  const previewEstacionalidad = resumen?.teaser_estacionalidad?.mes_pico_mayor ? (
+    <p>
+      El pico de compras suele ser en <b>{resumen.teaser_estacionalidad.mes_pico_mayor}</b>.
+      {resumen.teaser_estacionalidad.consistencia_avg_pct != null && (
+        <> Consistencia promedio del patrón: <b>{resumen.teaser_estacionalidad.consistencia_avg_pct}%</b>.</>
+      )}
+    </p>
+  ) : null;
+
   if (loadingInit || !initialized) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -325,7 +372,11 @@ export default function BIPage() {
         <TendenciasSection tendencias={tendencias} emergentes={emergentes} loading={loadingTend} selectedRubro={selectedRubro} serieAnual={serieAnual} cagrRubro={cagrRubro} />
 
         {/* § 3 — Locked for basico */}
-        <PlanGate locked={!paid} label="Análisis de competencia — plan PYME o superior">
+        <PlanGate
+          locked={!paid}
+          label="Análisis de competencia — plan PYME o superior"
+          preview={previewCompetencia}
+        >
           <CompetenciaSection
             topOrganismos={topOrganismos}
             selectedOrganismo={selectedCompOrg}
@@ -335,14 +386,22 @@ export default function BIPage() {
         </PlanGate>
 
         {/* § 4 — Locked for basico */}
-        <PlanGate locked={!paid} label="Perfil de compradores — plan PYME o superior">
+        <PlanGate
+          locked={!paid}
+          label="Perfil de compradores — plan PYME o superior"
+          preview={previewCompradores}
+        >
           {topOrganismos.length > 0 && (
             <CompradoresSection topOrganismos={topOrganismos} rubro={selectedRubro} />
           )}
         </PlanGate>
 
         {/* § 5 — Locked for basico */}
-        <PlanGate locked={!paid} label="Estacionalidad — plan PYME o superior">
+        <PlanGate
+          locked={!paid}
+          label="Estacionalidad — plan PYME o superior"
+          preview={previewEstacionalidad}
+        >
           {topOrganismos.length > 0 && (
             <EstacionalidadSection topOrganismos={topOrganismos} rubro={selectedRubro} />
           )}
