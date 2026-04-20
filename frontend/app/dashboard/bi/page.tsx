@@ -30,6 +30,7 @@ import { EstacionalidadSection } from './components/EstacionalidadSection';
 import { HerramientasAvanzadas } from './components/HerramientasAvanzadas';
 import { SectorOverview } from './components/SectorOverview';
 import { CompradorCacheProvider } from './hooks/useCompradorCache';
+import { CompareMode } from './components/CompareMode';
 
 function BIDisabledBanner() {
   return (
@@ -84,6 +85,10 @@ export default function BIPage() {
   // ── Mi posición state ──────────────────────────────────────────────────────
   const [miPosicion, setMiPosicion] = useState<MiPosicion | null>(null);
   const [loadingMiPosicion, setLoadingMiPosicion] = useState(false);
+
+  // ── Compare mode ───────────────────────────────────────────────────────────
+  const [compareMode, setCompareMode] = useState(false);
+  const [rubroB, setRubroB] = useState('');
 
   // ── Focused organismo (cross-link §1 → §3/§4/§5) ──────────────────────────
   const [focusedOrganismo, setFocusedOrganismo] = useState<OrganismoConNombre | null>(null);
@@ -190,6 +195,8 @@ export default function BIPage() {
 
   // ── Rubro change handler ───────────────────────────────────────────────────
   const handleRubroChange = useCallback((rubro: string) => {
+    setCompareMode(false);
+    setRubroB('');
     setSelectedRubro(rubro);
     setOportunidades([]);
     setTendencias([]);
@@ -408,6 +415,7 @@ export default function BIPage() {
         onSavePerfil={handleSavePerfil}
         focusedOrganismo={focusedOrganismo}
         onClearFocus={() => setFocusedOrganismo(null)}
+        onToggleCompare={() => setCompareMode(true)}
       />
 
       <div className="flex-1 space-y-6 p-4 pb-12">
@@ -416,130 +424,142 @@ export default function BIPage() {
           Inteligencia de Mercado
         </h1>
 
-        {necesitaOnboarding ? (
-          <BIOnboarding
-            onConfigurarRubros={() => {
-              window.dispatchEvent(new CustomEvent('bi:open-rubros-modal'));
-            }}
-            onExplorarSinConfigurar={() => {
-              const primer = allRubros[0];
-              if (primer) handleRubroChange(primer);
-            }}
+        {compareMode ? (
+          <CompareMode
+            rubroA={selectedRubro}
+            rubroB={rubroB}
+            allRubros={allRubros}
+            onChangeRubroB={setRubroB}
+            onClose={() => { setCompareMode(false); setRubroB(''); }}
           />
         ) : (
           <>
-            {/* Sector overview banner — dismissible once per day */}
-            <SectorOverview />
+            {necesitaOnboarding ? (
+              <BIOnboarding
+                onConfigurarRubros={() => {
+                  window.dispatchEvent(new CustomEvent('bi:open-rubros-modal'));
+                }}
+                onExplorarSinConfigurar={() => {
+                  const primer = allRubros[0];
+                  if (primer) handleRubroChange(primer);
+                }}
+              />
+            ) : (
+              <>
+                {/* Sector overview banner — dismissible once per day */}
+                <SectorOverview />
 
-            {/* Narrative market summary + MyPositionCard en grid 2-col */}
-            {(() => {
-              // showMyPosition: true si hay respuesta del backend (con o sin historial)
-              // miPosicion será null solo si el fetch aún no corrió o falló
-              const showMyPosition = !!miPosicion;
-              if (showMyPosition) {
-                return (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <MarketSummaryCard resumen={resumen} loading={loadingResumen} />
-                    <MyPositionCard posicion={miPosicion} plan={plan} loading={loadingMiPosicion} />
+                {/* Narrative market summary + MyPositionCard en grid 2-col */}
+                {(() => {
+                  // showMyPosition: true si hay respuesta del backend (con o sin historial)
+                  // miPosicion será null solo si el fetch aún no corrió o falló
+                  const showMyPosition = !!miPosicion;
+                  if (showMyPosition) {
+                    return (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <MarketSummaryCard resumen={resumen} loading={loadingResumen} />
+                        <MyPositionCard posicion={miPosicion} plan={plan} loading={loadingMiPosicion} />
+                      </div>
+                    );
+                  }
+                  // Solo MarketSummary — full width (fetch pendiente o falló)
+                  return <MarketSummaryCard resumen={resumen} loading={loadingResumen} />;
+                })()}
+
+                {/* Focused organismo banner — single prominent banner between narrative and data */}
+                {focusedOrganismo && (
+                  <div className="rounded-xl border-l-4 border-accent bg-accent/10 px-4 py-3 flex items-center gap-3">
+                    <Target className="h-5 w-5 text-accent shrink-0" />
+                    <div className="flex-1 text-sm">
+                      <p className="text-text">
+                        <span className="text-muted">Filtrando análisis a:</span>{' '}
+                        <span className="font-semibold">{focusedOrganismo.nombre}</span>
+                      </p>
+                      <p className="text-xs text-muted mt-0.5">
+                        Las secciones de Competencia, Compradores y Estacionalidad muestran datos de este comprador.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setFocusedOrganismo(null)}
+                      className="text-xs text-muted hover:text-danger transition-colors font-medium shrink-0"
+                    >
+                      Quitar filtro
+                    </button>
                   </div>
-                );
-              }
-              // Solo MarketSummary — full width (fetch pendiente o falló)
-              return <MarketSummaryCard resumen={resumen} loading={loadingResumen} />;
-            })()}
+                )}
 
-            {/* Focused organismo banner — single prominent banner between narrative and data */}
-            {focusedOrganismo && (
-              <div className="rounded-xl border-l-4 border-accent bg-accent/10 px-4 py-3 flex items-center gap-3">
-                <Target className="h-5 w-5 text-accent shrink-0" />
-                <div className="flex-1 text-sm">
-                  <p className="text-text">
-                    <span className="text-muted">Filtrando análisis a:</span>{' '}
-                    <span className="font-semibold">{focusedOrganismo.nombre}</span>
-                  </p>
-                  <p className="text-xs text-muted mt-0.5">
-                    Las secciones de Competencia, Compradores y Estacionalidad muestran datos de este comprador.
-                  </p>
+                {/* § 1 — Always visible */}
+                <OportunidadesSection
+                  oportunidades={oportunidades}
+                  loading={loadingOp}
+                  onFocusOrganismo={(o) => {
+                    setFocusedOrganismo(o);
+                    setTimeout(() => {
+                      const el = document.querySelector('[data-section="competencia"]') as HTMLElement | null;
+                      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 100);
+                  }}
+                />
+
+                {/* § 2 — Always visible */}
+                <TendenciasSection tendencias={tendencias} emergentes={emergentes} loading={loadingTend} selectedRubro={selectedRubro} serieAnual={serieAnual} cagrRubro={cagrRubro} />
+
+                {/* § 3 — Locked for basico */}
+                <div data-section="competencia">
+                  <PlanGate
+                    locked={!paid}
+                    label="Análisis de competencia — plan PYME o superior"
+                    preview={previewCompetencia}
+                  >
+                    <CompetenciaSection
+                      topOrganismos={topOrganismos}
+                      selectedOrganismo={focusedOrganismo?.codigo || selectedCompOrg}
+                      onOrganismoChange={setSelectedCompOrg}
+                      rubro={selectedRubro}
+                      disabled={!!focusedOrganismo}
+                      focused={!!focusedOrganismo}
+                      focusedNombre={focusedOrganismo?.nombre}
+                    />
+                  </PlanGate>
                 </div>
-                <button
-                  onClick={() => setFocusedOrganismo(null)}
-                  className="text-xs text-muted hover:text-danger transition-colors font-medium shrink-0"
+
+                {/* § 4 — Locked for basico */}
+                <PlanGate
+                  locked={!paid}
+                  label="Perfil de compradores — plan PYME o superior"
+                  preview={previewCompradores}
                 >
-                  Quitar filtro
-                </button>
-              </div>
+                  {(topOrganismos.length > 0 || focusedOrganismo) && (
+                    <CompradoresSection
+                      topOrganismos={topOrganismos}
+                      rubro={selectedRubro}
+                      focusedOrganismo={focusedOrganismo}
+                      focusedNombre={focusedOrganismo?.nombre}
+                    />
+                  )}
+                </PlanGate>
+
+                {/* § 5 — Locked for basico */}
+                <PlanGate
+                  locked={!paid}
+                  label="Estacionalidad — plan PYME o superior"
+                  preview={previewEstacionalidad}
+                >
+                  {(topOrganismos.length > 0 || focusedOrganismo) && (
+                    <EstacionalidadSection
+                      topOrganismos={topOrganismos}
+                      rubro={selectedRubro}
+                      focusedOrganismo={focusedOrganismo}
+                      focused={!!focusedOrganismo}
+                      focusedNombre={focusedOrganismo?.nombre}
+                    />
+                  )}
+                </PlanGate>
+
+                {/* Herramientas avanzadas — colapsible al pie */}
+                <HerramientasAvanzadas rubro={selectedRubro} />
+              </>
             )}
-
-            {/* § 1 — Always visible */}
-            <OportunidadesSection
-              oportunidades={oportunidades}
-              loading={loadingOp}
-              onFocusOrganismo={(o) => {
-                setFocusedOrganismo(o);
-                setTimeout(() => {
-                  const el = document.querySelector('[data-section="competencia"]') as HTMLElement | null;
-                  el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }, 100);
-              }}
-            />
-
-            {/* § 2 — Always visible */}
-            <TendenciasSection tendencias={tendencias} emergentes={emergentes} loading={loadingTend} selectedRubro={selectedRubro} serieAnual={serieAnual} cagrRubro={cagrRubro} />
-
-            {/* § 3 — Locked for basico */}
-            <div data-section="competencia">
-              <PlanGate
-                locked={!paid}
-                label="Análisis de competencia — plan PYME o superior"
-                preview={previewCompetencia}
-              >
-                <CompetenciaSection
-                  topOrganismos={topOrganismos}
-                  selectedOrganismo={focusedOrganismo?.codigo || selectedCompOrg}
-                  onOrganismoChange={setSelectedCompOrg}
-                  rubro={selectedRubro}
-                  disabled={!!focusedOrganismo}
-                  focused={!!focusedOrganismo}
-                  focusedNombre={focusedOrganismo?.nombre}
-                />
-              </PlanGate>
-            </div>
-
-            {/* § 4 — Locked for basico */}
-            <PlanGate
-              locked={!paid}
-              label="Perfil de compradores — plan PYME o superior"
-              preview={previewCompradores}
-            >
-              {(topOrganismos.length > 0 || focusedOrganismo) && (
-                <CompradoresSection
-                  topOrganismos={topOrganismos}
-                  rubro={selectedRubro}
-                  focusedOrganismo={focusedOrganismo}
-                  focusedNombre={focusedOrganismo?.nombre}
-                />
-              )}
-            </PlanGate>
-
-            {/* § 5 — Locked for basico */}
-            <PlanGate
-              locked={!paid}
-              label="Estacionalidad — plan PYME o superior"
-              preview={previewEstacionalidad}
-            >
-              {(topOrganismos.length > 0 || focusedOrganismo) && (
-                <EstacionalidadSection
-                  topOrganismos={topOrganismos}
-                  rubro={selectedRubro}
-                  focusedOrganismo={focusedOrganismo}
-                  focused={!!focusedOrganismo}
-                  focusedNombre={focusedOrganismo?.nombre}
-                />
-              )}
-            </PlanGate>
-
-            {/* Herramientas avanzadas — colapsible al pie */}
-            <HerramientasAvanzadas rubro={selectedRubro} />
           </>
         )}
       </div>

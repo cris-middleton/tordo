@@ -18,6 +18,8 @@ interface RubroFilterProps {
   // Cross-link focus
   focusedOrganismo?: { codigo: string; nombre: string } | null;
   onClearFocus?: () => void;
+  // Compare mode toggle
+  onToggleCompare?: () => void;
 }
 
 export function RubroFilter({
@@ -31,6 +33,7 @@ export function RubroFilter({
   onSavePerfil,
   focusedOrganismo,
   onClearFocus,
+  onToggleCompare,
 }: RubroFilterProps) {
   const [open, setOpen] = useState(false);
   const [dropdownSearch, setDropdownSearch] = useState('');
@@ -256,6 +259,16 @@ export function RubroFilter({
             </>
           )}
         </div>
+      )}
+
+      {/* Compare mode toggle — desktop only */}
+      {onToggleCompare && selectedRubro && (
+        <button
+          onClick={onToggleCompare}
+          className="hidden md:flex items-center gap-1.5 text-xs text-muted hover:text-primary transition-colors ml-2"
+        >
+          Comparar 2 rubros
+        </button>
       )}
 
       {/* Edit modal */}
