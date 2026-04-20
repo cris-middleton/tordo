@@ -855,21 +855,24 @@ def get_sector(
     }
 
 
-def _compute_cagr_rubro_desde_time_series(rubro: str) -> "tuple[Optional[float], Optional[list[dict]]]":
-    """Helper: computa CAGR rubro-level + serie anual completa desde time_series.parquet.
+def _compute_cagr_rubro_desde_time_series(rubro: str) -> "tuple[Optional[float], Optional[float], Optional[list[dict]]]":
+    """Helper: computa CAGR rubro-level + YoY + serie anual completa desde time_series.parquet.
 
-    Excluye años incompletos (max(mes) < 12). Retorna (cagr_pct, serie_anual_dicts).
-    Si no hay data suficiente, retorna (None, None).
+    Excluye años incompletos (max(mes) < 12).
+    Retorna (cagr_pct, yoy_pct, serie_anual_dicts).
+      - cagr_pct: CAGR histórico sobre todos los años completos disponibles (hasta 6)
+      - yoy_pct: variación del último año completo vs el anterior
+    Si no hay data suficiente, retorna (None, None, None).
     """
     import polars as pl
 
     ts_df = _load("time_series.parquet")
     if ts_df is None or "RubroN2" not in ts_df.columns:
-        return None, None
+        return None, None, None
 
     rubro_ts = ts_df.filter(ts_df["RubroN2"] == rubro)
     if len(rubro_ts) == 0 or "mes" not in rubro_ts.columns:
-        return None, None
+        return None, None, None
 
     # Años con 12 meses de data
     years_coverage = rubro_ts.group_by("anio").agg(pl.col("mes").max().alias("max_mes"))
@@ -877,7 +880,7 @@ def _compute_cagr_rubro_desde_time_series(rubro: str) -> "tuple[Optional[float],
         years_coverage.filter(pl.col("max_mes") == 12).select("anio").to_series().to_list()
     )
     if not complete_years:
-        return None, None
+        return None, None, None
 
     year_agg = (
         rubro_ts
@@ -892,7 +895,7 @@ def _compute_cagr_rubro_desde_time_series(rubro: str) -> "tuple[Optional[float],
     )
 
     if len(year_agg) < 2:
-        return None, None
+        return None, None, None
 
     rows = year_agg.to_dicts()
     first = rows[0]["monto_total"]
@@ -908,7 +911,19 @@ def _compute_cagr_rubro_desde_time_series(rubro: str) -> "tuple[Optional[float],
         except (ValueError, ZeroDivisionError, OverflowError):
             cagr_pct = None
 
-    return cagr_pct, rows
+    # YoY: último año completo vs el anterior
+    yoy_pct = None
+    if len(rows) >= 2:
+        prev_monto = rows[-2]["monto_total"]
+        if prev_monto and prev_monto > 0:
+            try:
+                yoy_pct = ((rows[-1]["monto_total"] / prev_monto) - 1) * 100
+                if yoy_pct > 1000 or yoy_pct < -99:
+                    yoy_pct = None
+            except (ValueError, ZeroDivisionError, OverflowError):
+                yoy_pct = None
+
+    return cagr_pct, yoy_pct, rows
 
 
 def get_resumen(rubro: Optional[str] = None) -> dict:
@@ -924,8 +939,8 @@ def get_resumen(rubro: Optional[str] = None) -> dict:
     if not rubro:
         return {"disponible": False, "motivo": "rubro requerido"}
 
-    # ── CAGR + serie anual desde time_series ─────────────────────────────────
-    cagr_pct, serie_rows = _compute_cagr_rubro_desde_time_series(rubro)
+    # ── CAGR + YoY + serie anual desde time_series ───────────────────────────
+    cagr_pct, yoy_pct, serie_rows = _compute_cagr_rubro_desde_time_series(rubro)
 
     # ── Monto anual + n_organismos desde time_series ─────────────────────────
     monto_anual: Optional[float] = None
@@ -1048,6 +1063,7 @@ def get_resumen(rubro: Optional[str] = None) -> dict:
         "monto_anual_clp": monto_anual,
         "n_organismos": n_organismos,
         "cagr_pct": cagr_pct,
+        "yoy_pct": yoy_pct,
         "n_proveedores_actual": n_prov_actual,
         "n_proveedores_hace_3_anios": None,  # not computable without temporal provider data
         "top_comprador": top_comprador,

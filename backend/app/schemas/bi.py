@@ -428,6 +428,7 @@ class ResumenResponse(BaseModel):
     monto_anual_clp: Optional[float] = None
     n_organismos: Optional[int] = None
     cagr_pct: Optional[float] = None
+    yoy_pct: Optional[float] = None  # último año completo vs año anterior
     n_proveedores_actual: Optional[int] = None
     n_proveedores_hace_3_anios: Optional[int] = None
     top_comprador: Optional[ResumenTopComprador] = None

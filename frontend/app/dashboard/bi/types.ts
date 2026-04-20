@@ -148,6 +148,7 @@ export interface ResumenMercado {
   monto_anual_clp?: number | null;
   n_organismos?: number | null;
   cagr_pct?: number | null;
+  yoy_pct?: number | null;  // último año completo vs año anterior
   n_proveedores_actual?: number | null;
   n_proveedores_hace_3_anios?: number | null;
   top_comprador?: {
