@@ -225,6 +225,21 @@ function TabDescuento({ rubro }: { rubro: string }) {
   );
 }
 
+interface ForecastPrediccion {
+  min_esperado?: number;
+  max_esperado?: number;
+  promedio?: number;
+  confianza?: string;
+  n_casos?: number;
+}
+
+interface ForecastResultado {
+  disponible: boolean;
+  prediccion?: ForecastPrediccion;
+  nivel_usado?: string;
+  motivo?: string;
+}
+
 function formatCLPShort(v: number): string {
   if (v >= 1e9) return `CLP ${(v / 1e9).toFixed(1)} mil M`;
   if (v >= 1e6) return `CLP ${(v / 1e6).toFixed(1)} M`;
@@ -321,6 +336,98 @@ function TabPrecio() {
   );
 }
 
+function TabForecast({ rubro }: { rubro: string }) {
+  const [tipo, setTipo] = useState('LP');
+  const [organismo, setOrganismo] = useState('');
+  const [resultado, setResultado] = useState<ForecastResultado | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const consultar = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res: ForecastResultado = await apiClient.getBIForecastCompetidores({
+        tipo,
+        rubro: rubro || undefined,
+        organismo_id: organismo.trim() || undefined,
+      });
+      setResultado(res);
+      if (!res.disponible) {
+        setError(res.motivo || 'Sin datos para esta combinación.');
+      }
+    } catch {
+      setError('Error al consultar. Intenta de nuevo.');
+      setResultado(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const p = resultado?.prediccion;
+  const nivelLabel = (nivel?: string) =>
+    nivel === 'L1' ? 'datos del organismo y rubro específico'
+      : nivel === 'L2' ? 'datos del rubro a nivel nacional'
+      : nivel === 'L3' ? 'datos nacionales agregados'
+      : nivel || '';
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted">
+        ¿Cuántos competidores esperar si postulo a una licitación de este tipo en este rubro/organismo?
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr_auto] gap-2">
+        <select
+          value={tipo}
+          onChange={(e) => setTipo(e.target.value)}
+          className="input-field text-sm"
+        >
+          <option value="L1">L1 — menor cuantía</option>
+          <option value="LE">LE — mediana cuantía</option>
+          <option value="LP">LP — pública</option>
+        </select>
+        <input
+          value={organismo}
+          onChange={(e) => setOrganismo(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && consultar()}
+          placeholder="Organismo (opcional)"
+          className="input-field text-sm"
+        />
+        <button
+          onClick={consultar}
+          disabled={loading}
+          className="btn-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Pronosticar'}
+        </button>
+      </div>
+
+      {!rubro && (
+        <p className="text-xs text-muted">
+          Tip: si tienes un rubro seleccionado en el filtro superior, el pronóstico será más preciso.
+        </p>
+      )}
+
+      {error && !p && <p className="text-xs text-danger">{error}</p>}
+
+      {p && p.min_esperado != null && p.max_esperado != null && (
+        <div className="rounded-xl border border-border bg-surface p-4 text-sm space-y-2">
+          <p className="text-text">
+            Este tipo de licitación suele atraer entre{' '}
+            <b>{p.min_esperado}</b> y <b>{p.max_esperado}</b> competidores
+            {p.promedio != null && <> (promedio: {p.promedio.toFixed(1)})</>}.
+          </p>
+          <p className="text-xs text-muted">
+            {p.confianza && <>Confianza: <b>{p.confianza}</b></>}
+            {p.n_casos != null && <> · Basado en {p.n_casos.toLocaleString('es-CL')} casos históricos</>}
+            {resultado?.nivel_usado && <> · Fuente: {nivelLabel(resultado.nivel_usado)}</>}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const TABS: Array<[Tab, string]> = [
   ['matching', 'Buscador semántico'],
   ['precio', 'Precio histórico'],
@@ -371,7 +478,7 @@ export function HerramientasAvanzadas({ rubro }: HerramientasAvanzadasProps) {
             {tab === 'matching' && <TabMatching />}
             {tab === 'precio' && <TabPrecio />}
             {tab === 'descuento' && <TabDescuento rubro={rubro} />}
-            {tab === 'forecast' && <p className="text-sm text-muted">Próximamente — Task 3.5 agrega el pronóstico de competencia.</p>}
+            {tab === 'forecast' && <TabForecast rubro={rubro} />}
           </div>
         </div>
       )}

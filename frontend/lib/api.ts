@@ -381,6 +381,11 @@ class ApiClient {
     return res.data
   }
 
+  async getBIForecastCompetidores(params: { organismo_id?: string; rubro?: string; tipo?: string } = {}) {
+    const res = await this.client.get('/api/bi/forecast_competidores', { params });
+    return res.data;
+  }
+
   // ── WhatsApp test ──────────────────────────────────────────────────────────
 
   async sendTestWhatsApp() {
