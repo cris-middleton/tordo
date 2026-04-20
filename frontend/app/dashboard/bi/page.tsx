@@ -67,6 +67,7 @@ export default function BIPage() {
   const [tendencias, setTendencias] = useState<TendenciaItem[]>([]);
   const [emergentes, setEmergentes] = useState<TendenciaItem[]>([]);
   const [serieAnual, setSerieAnual] = useState<SerieAnualPunto[] | null>(null);
+  const [cagrRubro, setCagrRubro] = useState<number | null>(null);
   const [loadingTend, setLoadingTend] = useState(false);
 
   // Derived: top 3 unique organismos con nombre resuelto
@@ -124,15 +125,18 @@ export default function BIPage() {
         setTendencias(res.tendencias ?? []);
         setEmergentes(res.emergentes ?? []);
         setSerieAnual(res.serie_anual ?? null);
+        setCagrRubro(res.cagr_rubro ?? null);
       } else {
         setTendencias([]);
         setEmergentes([]);
         setSerieAnual(null);
+        setCagrRubro(null);
       }
     } catch {
       setTendencias([]);
       setEmergentes([]);
       setSerieAnual(null);
+      setCagrRubro(null);
     } finally {
       setLoadingTend(false);
     }
@@ -145,6 +149,7 @@ export default function BIPage() {
     setTendencias([]);
     setEmergentes([]);
     setSerieAnual(null);
+    setCagrRubro(null);
     setSelectedCompOrg('');
     loadOportunidades(rubro);
     loadTendencias(rubro);
@@ -289,7 +294,7 @@ export default function BIPage() {
         <OportunidadesSection oportunidades={oportunidades} loading={loadingOp} />
 
         {/* § 2 — Always visible */}
-        <TendenciasSection tendencias={tendencias} emergentes={emergentes} loading={loadingTend} selectedRubro={selectedRubro} serieAnual={serieAnual} />
+        <TendenciasSection tendencias={tendencias} emergentes={emergentes} loading={loadingTend} selectedRubro={selectedRubro} serieAnual={serieAnual} cagrRubro={cagrRubro} />
 
         {/* § 3 — Locked for basico */}
         <PlanGate locked={!paid} label="Análisis de competencia — plan PYME o superior">

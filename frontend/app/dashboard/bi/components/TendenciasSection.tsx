@@ -22,6 +22,7 @@ interface TendenciasSectionProps {
   loading: boolean;
   selectedRubro: string;
   serieAnual?: SerieAnualPunto[] | null;
+  cagrRubro?: number | null;
 }
 
 const CustomTooltip = ({ active, payload }: any) => {
@@ -44,7 +45,7 @@ const CustomTooltip = ({ active, payload }: any) => {
   );
 };
 
-export function TendenciasSection({ tendencias, emergentes, loading, selectedRubro, serieAnual }: TendenciasSectionProps) {
+export function TendenciasSection({ tendencias, emergentes, loading, selectedRubro, serieAnual, cagrRubro }: TendenciasSectionProps) {
   if (loading) return (
     <div className="card flex items-center justify-center py-12">
       <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -54,6 +55,13 @@ export function TendenciasSection({ tendencias, emergentes, loading, selectedRub
   // Vista comprimida cuando hay rubro filtrado
   if (selectedRubro && !loading) {
     const found = tendencias.find((t) => t.RubroN2 === selectedRubro);
+
+    // CAGR a mostrar: prefiere cagr_rubro (computed from serie_anual, complete years only),
+    // fallback a found.cagr si cagr_rubro no está disponible
+    const cagrToShow = cagrRubro !== null && cagrRubro !== undefined
+      ? cagrRubro
+      : found?.cagr;
+
     return (
       <section className="card space-y-4">
         <div>
@@ -64,19 +72,19 @@ export function TendenciasSection({ tendencias, emergentes, loading, selectedRub
           <p className="text-xs text-muted mt-0.5">¿Este mercado está creciendo o contrayéndose?</p>
         </div>
 
-        {found ? (
+        {cagrToShow !== undefined && cagrToShow !== null ? (
           <div className="rounded-xl border border-border bg-surface p-5">
             <div className="grid grid-cols-1 md:grid-cols-[minmax(180px,1fr)_2fr] gap-5 items-center">
               {/* Columna izquierda: métricas */}
               <div>
                 <p className="text-sm text-muted">{selectedRubro}</p>
-                <p className={`text-3xl font-bold mt-1 ${found.cagr >= 0 ? 'text-accent' : 'text-danger'}`}>
-                  {found.cagr > 0 ? '+' : ''}{found.cagr.toFixed(1)}%
+                <p className={`text-3xl font-bold mt-1 ${cagrToShow >= 0 ? 'text-accent' : 'text-danger'}`}>
+                  {cagrToShow > 0 ? '+' : ''}{cagrToShow.toFixed(1)}%
                   <span className="text-sm font-normal text-muted ml-2">anual</span>
                 </p>
                 <div className="mt-3 text-xs text-muted space-y-0.5">
-                  {found.total_oc && <p>{found.total_oc.toLocaleString('es-CL')} OC</p>}
-                  {found.n_anios && <p>{found.n_anios} años de historia</p>}
+                  {found?.total_oc && <p>{found.total_oc.toLocaleString('es-CL')} OC</p>}
+                  {found?.n_anios && <p>{found.n_anios} años de historia</p>}
                 </div>
               </div>
 
@@ -85,7 +93,7 @@ export function TendenciasSection({ tendencias, emergentes, loading, selectedRub
                 <div className="w-full h-[140px]">
                   <TrendChart
                     data={serieAnual}
-                    color={found.cagr >= 0 ? '#00A87A' : '#EF4444'}
+                    color={cagrToShow >= 0 ? '#00A87A' : '#EF4444'}
                   />
                 </div>
               ) : (

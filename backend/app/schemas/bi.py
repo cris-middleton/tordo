@@ -316,6 +316,7 @@ class TendenciaResponse(BaseModel):
     tendencias: Optional[list[TendenciaItem]] = None
     emergentes: Optional[list[TendenciaItem]] = None
     serie_anual: Optional[list[SerieAnualPunto]] = None  # YoY sparkline when rubro is filtered
+    cagr_rubro: Optional[float] = None  # CAGR rubro-level computed from serie_anual (complete years only)
     total: Optional[int] = None
     motivo: Optional[str] = None
 

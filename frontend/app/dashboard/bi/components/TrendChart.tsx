@@ -35,7 +35,7 @@ export function TrendChart({ data, color = '#00A87A' }: TrendChartProps) {
 
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+      <LineChart data={data} margin={{ top: 8, right: 24, left: 8, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
         <XAxis
           dataKey="anio"
@@ -44,6 +44,7 @@ export function TrendChart({ data, color = '#00A87A' }: TrendChartProps) {
           tickLine={false}
           axisLine={{ stroke: '#e2e8f0' }}
           interval={0}
+          padding={{ left: 8, right: 8 }}
         />
         <YAxis
           tick={{ fontSize: 10, fill: '#94a3b8' }}

@@ -617,38 +617,76 @@ def get_tendencia(
         if not em_rows.is_empty():
             emergentes = em_rows.select(em_cols).to_dicts()
 
-    # serie_anual: YoY sparkline — only computed when a rubro is filtered
+    # serie_anual + cagr_rubro: solo cuando hay rubro filtrado
     serie_anual = None
+    cagr_rubro = None
     if rubro:
         import polars as pl  # noqa: PLC0415 — lazy import kept consistent with _load()
         ts_df = _load("time_series.parquet")
         if ts_df is not None and "RubroN2" in ts_df.columns:
+            # Filtrar por rubro
+            rubro_ts = ts_df.filter(ts_df["RubroN2"] == rubro)
+
+            # Determinar qué años están completos: max(mes) == 12
+            if "mes" in rubro_ts.columns and len(rubro_ts) > 0:
+                years_coverage = (
+                    rubro_ts
+                    .group_by("anio")
+                    .agg(pl.col("mes").max().alias("max_mes"))
+                )
+                complete_years = set(
+                    years_coverage
+                    .filter(pl.col("max_mes") == 12)
+                    .select("anio")
+                    .to_series()
+                    .to_list()
+                )
+            else:
+                complete_years = set()
+
+            # Agregar por año, filtrar a solo años completos, quedarse con los últimos 6
             year_agg = (
-                ts_df
-                .filter(ts_df["RubroN2"] == rubro)
+                rubro_ts
                 .group_by("anio")
                 .agg([
                     pl.col("monto_total").sum().alias("monto_total"),
                     pl.col("n_oc").sum().alias("n_oc"),
                 ])
+                .filter(pl.col("anio").is_in(list(complete_years)))
                 .sort("anio", descending=False)
-                .tail(6)  # últimos 6 años (5 completos + año en curso si aplica)
+                .tail(6)
             )
-            if len(year_agg) > 0:
+
+            if len(year_agg) >= 2:
+                rows = year_agg.to_dicts()
                 serie_anual = [
                     {
                         "anio": int(r["anio"]),
                         "monto_total": float(r["monto_total"] or 0),
                         "n_oc": int(r["n_oc"]) if r.get("n_oc") is not None else None,
                     }
-                    for r in year_agg.to_dicts()
+                    for r in rows
                 ]
+
+                # CAGR rubro-level: (last / first) ^ (1 / (n-1)) - 1
+                first_monto = rows[0]["monto_total"]
+                last_monto = rows[-1]["monto_total"]
+                n_points = len(rows)
+                if first_monto and first_monto > 0 and n_points >= 2:
+                    try:
+                        cagr_rubro = ((last_monto / first_monto) ** (1 / (n_points - 1)) - 1) * 100
+                        # Clamp a rango razonable para evitar valores de outliers extremos
+                        if cagr_rubro > 1000 or cagr_rubro < -99:
+                            cagr_rubro = None
+                    except (ValueError, ZeroDivisionError, OverflowError):
+                        cagr_rubro = None
 
     return {
         "disponible": True,
         "tendencias": tendencias,
         "emergentes": emergentes,
         "serie_anual": serie_anual,
+        "cagr_rubro": cagr_rubro,  # CAGR rubro-level computed from serie_anual (complete years only)
         "total": len(tendencias),
     }
 

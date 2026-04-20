@@ -137,6 +137,7 @@ export interface TendenciaApiResponse {
   tendencias?: TendenciaItem[];
   emergentes?: TendenciaItem[];
   serie_anual?: SerieAnualPunto[] | null;
+  cagr_rubro?: number | null;
   total?: number;
   motivo?: string;
 }
