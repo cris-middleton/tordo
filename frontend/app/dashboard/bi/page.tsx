@@ -24,6 +24,7 @@ import { TendenciasSection } from './components/TendenciasSection';
 import { CompetenciaSection } from './components/CompetenciaSection';
 import { CompradoresSection } from './components/CompradoresSection';
 import { EstacionalidadSection } from './components/EstacionalidadSection';
+import { SectorOverview } from './components/SectorOverview';
 import { CompradorCacheProvider } from './hooks/useCompradorCache';
 
 function BIDisabledBanner() {
@@ -361,6 +362,9 @@ export default function BIPage() {
           <BarChart3 className="h-6 w-6 text-primary" />
           Inteligencia de Mercado
         </h1>
+
+        {/* Sector overview banner — dismissible once per day */}
+        <SectorOverview />
 
         {/* Narrative market summary */}
         <MarketSummaryCard resumen={resumen} loading={loadingResumen} />
