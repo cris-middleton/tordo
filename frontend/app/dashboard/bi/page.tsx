@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Loader2, BarChart3 } from 'lucide-react';
+import { Loader2, BarChart3, Target } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -446,6 +446,28 @@ export default function BIPage() {
               // Solo MarketSummary — full width (fetch pendiente o falló)
               return <MarketSummaryCard resumen={resumen} loading={loadingResumen} />;
             })()}
+
+            {/* Focused organismo banner — single prominent banner between narrative and data */}
+            {focusedOrganismo && (
+              <div className="rounded-xl border-l-4 border-accent bg-accent/10 px-4 py-3 flex items-center gap-3">
+                <Target className="h-5 w-5 text-accent shrink-0" />
+                <div className="flex-1 text-sm">
+                  <p className="text-text">
+                    <span className="text-muted">Filtrando análisis a:</span>{' '}
+                    <span className="font-semibold">{focusedOrganismo.nombre}</span>
+                  </p>
+                  <p className="text-xs text-muted mt-0.5">
+                    Las secciones de Competencia, Compradores y Estacionalidad muestran datos de este comprador.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setFocusedOrganismo(null)}
+                  className="text-xs text-muted hover:text-danger transition-colors font-medium shrink-0"
+                >
+                  Quitar filtro
+                </button>
+              </div>
+            )}
 
             {/* § 1 — Always visible */}
             <OportunidadesSection

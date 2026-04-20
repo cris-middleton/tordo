@@ -17,7 +17,6 @@ import {
 import { CompetidorItem, ConcentracionItem, OrganismoConNombre } from '../types';
 import { apiClient } from '@/lib/api';
 import { InfoTooltip } from './InfoTooltip';
-import { FocusedHeader } from './FocusedHeader';
 
 interface CompetenciaSectionProps {
   topOrganismos: OrganismoConNombre[];
@@ -119,10 +118,6 @@ export function CompetenciaSection({
           </select>
         )}
       </div>
-
-      {focused && focusedNombre && (
-        <FocusedHeader nombre={focusedNombre} />
-      )}
 
       {tipoMercado && (
         <div className="rounded-xl border border-border bg-surface/60 px-4 py-3 text-sm flex items-center gap-3 flex-wrap">

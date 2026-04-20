@@ -15,7 +15,6 @@ import {
 import { EstacionalidadMes, MESES, OrganismoConNombre } from '../types';
 import { apiClient } from '@/lib/api';
 import { InfoTooltip } from './InfoTooltip';
-import { FocusedHeader } from './FocusedHeader';
 
 interface EstacionalidadSectionProps {
   topOrganismos: OrganismoConNombre[];
@@ -147,10 +146,6 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
           </select>
         )}
       </div>
-
-      {focused && focusedNombre && (
-        <FocusedHeader nombre={focusedNombre} />
-      )}
 
       {picoMeses.length > 0 && (
         <div className="rounded-xl border border-accent/25 bg-accent/10 px-4 py-2.5 text-sm text-accent flex flex-wrap items-center gap-1">

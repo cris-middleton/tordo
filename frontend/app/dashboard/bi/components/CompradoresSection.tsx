@@ -5,7 +5,6 @@ import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp, Loader2, Building2 } from 'lucide-react';
 import { CompradorResult, OrganismoConNombre, scoreColor, scoreBg } from '../types';
 import { useCompradorCache } from '../hooks/useCompradorCache';
-import { FocusedHeader } from './FocusedHeader';
 
 interface CompradorSectionProps {
   topOrganismos: OrganismoConNombre[];
@@ -135,10 +134,6 @@ export function CompradoresSection({ topOrganismos, rubro, focusedOrganismo, foc
         </h2>
         <p className="text-xs text-muted mt-0.5">{subtituloDinamico}</p>
       </div>
-
-      {focusedOrganismo && focusedNombre && (
-        <FocusedHeader nombre={focusedNombre} />
-      )}
 
       <div className="space-y-3">
         {orgsAMostrar.map((org) => (
