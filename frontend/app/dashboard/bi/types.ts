@@ -142,6 +142,23 @@ export interface TendenciaApiResponse {
   motivo?: string;
 }
 
+export interface MiPosicion {
+  disponible: boolean;
+  tiene_historial: boolean;
+  participacion_pct?: number | null;
+  rank?: number | null;
+  total_proveedores?: number | null;
+  n_organismos_atendidos?: number | null;
+  n_organismos_promedio_sector?: number | null;
+  diversificacion_pct?: number | null;
+  alerta_dependencia?: boolean | null;
+  top_organismo_empresa?: {
+    nombre?: string | null;
+    porcentaje_oc?: number | null;
+  } | null;
+  motivo?: string;
+}
+
 export interface ResumenMercado {
   disponible: boolean;
   rubro?: string;

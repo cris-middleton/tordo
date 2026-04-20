@@ -334,6 +334,11 @@ class ApiClient {
     return res.data;
   }
 
+  async getBIMiPosicion(params: { empresa_id: string; rubro: string }) {
+    const res = await this.client.get('/api/bi/mi_posicion', { params });
+    return res.data;
+  }
+
   async getBIClusters(topN: number = 80) {
     const res = await this.client.get('/api/bi/clusters', { params: { top_n: topN } });
     return res.data;

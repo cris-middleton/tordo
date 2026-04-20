@@ -9,6 +9,7 @@ import {
   OportunidadItem,
   OrganismoConNombre,
   ResumenMercado,
+  MiPosicion,
   SerieAnualPunto,
   TendenciaItem,
   TendenciaApiResponse,
@@ -17,6 +18,7 @@ import {
   isPaidPlan,
 } from './types';
 import { MarketSummaryCard } from './components/MarketSummaryCard';
+import { MyPositionCard } from './components/MyPositionCard';
 import { RubroFilter } from './components/RubroFilter';
 import { PlanGate } from './components/PlanGate';
 import { OportunidadesSection } from './components/OportunidadesSection';
@@ -76,6 +78,10 @@ export default function BIPage() {
   // ── Resumen state ──────────────────────────────────────────────────────────
   const [resumen, setResumen] = useState<ResumenMercado | null>(null);
   const [loadingResumen, setLoadingResumen] = useState(false);
+
+  // ── Mi posición state ──────────────────────────────────────────────────────
+  const [miPosicion, setMiPosicion] = useState<MiPosicion | null>(null);
+  const [loadingMiPosicion, setLoadingMiPosicion] = useState(false);
 
   // Derived: top 3 unique organismos con nombre resuelto
   // useMemo gives a stable reference so children don't get unnecessary new prop arrays
@@ -149,6 +155,20 @@ export default function BIPage() {
     }
   }, []);
 
+  // ── Load mi posición ───────────────────────────────────────────────────────
+  const loadMiPosicion = useCallback(async (empresaId: string, rubro: string) => {
+    if (!empresaId || !rubro) { setMiPosicion(null); return; }
+    setLoadingMiPosicion(true);
+    try {
+      const res = await apiClient.getBIMiPosicion({ empresa_id: empresaId, rubro });
+      setMiPosicion(res);
+    } catch {
+      setMiPosicion(null);
+    } finally {
+      setLoadingMiPosicion(false);
+    }
+  }, []);
+
   // ── Load resumen ───────────────────────────────────────────────────────────
   const loadResumen = useCallback(async (rubro: string) => {
     if (!rubro) { setResumen(null); return; }
@@ -173,10 +193,12 @@ export default function BIPage() {
     setCagrRubro(null);
     setSelectedCompOrg('');
     setResumen(null);
+    setMiPosicion(null);
     loadOportunidades(rubro);
     loadTendencias(rubro);
     loadResumen(rubro);
-  }, [loadOportunidades, loadTendencias, loadResumen]);
+    if (firstEmpresaId) loadMiPosicion(firstEmpresaId, rubro);
+  }, [loadOportunidades, loadTendencias, loadResumen, loadMiPosicion, firstEmpresaId]);
 
   // ── Init: load empresa + probe BI + seed rubros ────────────────────────────
   useEffect(() => {
@@ -265,6 +287,14 @@ export default function BIPage() {
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Fire mi_posicion when firstEmpresaId or selectedRubro becomes available ─
+  useEffect(() => {
+    if (firstEmpresaId && selectedRubro) {
+      loadMiPosicion(firstEmpresaId, selectedRubro);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firstEmpresaId, selectedRubro]);
 
   // ── Save perfil handler ────────────────────────────────────────────────────
   const handleSavePerfil = async (rubros: string[]) => {
@@ -366,8 +396,11 @@ export default function BIPage() {
         {/* Sector overview banner — dismissible once per day */}
         <SectorOverview />
 
-        {/* Narrative market summary */}
-        <MarketSummaryCard resumen={resumen} loading={loadingResumen} />
+        {/* Narrative market summary + MyPositionCard en grid 2-col */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <MarketSummaryCard resumen={resumen} loading={loadingResumen} />
+          <MyPositionCard posicion={miPosicion} plan={plan} loading={loadingMiPosicion} />
+        </div>
 
         {/* § 1 — Always visible */}
         <OportunidadesSection oportunidades={oportunidades} loading={loadingOp} />
