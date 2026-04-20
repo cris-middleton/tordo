@@ -19,6 +19,7 @@ import { InfoTooltip } from './InfoTooltip';
 interface EstacionalidadSectionProps {
   topOrganismos: OrganismoConNombre[];
   rubro: string;
+  focusedOrganismo?: OrganismoConNombre | null;
 }
 
 const CustomTooltip = ({ active, payload }: any) => {
@@ -43,12 +44,17 @@ const CustomTooltip = ({ active, payload }: any) => {
   );
 };
 
-export function EstacionalidadSection({ topOrganismos, rubro }: EstacionalidadSectionProps) {
+export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo }: EstacionalidadSectionProps) {
   const [selectedOrg, setSelectedOrg] = useState(topOrganismos[0]?.codigo ?? '');
   const [patrones, setPatrones] = useState<EstacionalidadMes[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const selectedOrgNombre = topOrganismos.find((o) => o.codigo === selectedOrg)?.nombre
+  // Combine topOrganismos with focusedOrganismo if it's not already in the list
+  const optionsOrganismos = focusedOrganismo && !topOrganismos.find((o) => o.codigo === focusedOrganismo.codigo)
+    ? [focusedOrganismo, ...topOrganismos]
+    : topOrganismos;
+
+  const selectedOrgNombre = optionsOrganismos.find((o) => o.codigo === selectedOrg)?.nombre
     || selectedOrg;
 
   // Reset selectedOrg whenever the organismo list is replaced (e.g. after a rubro change)
@@ -59,6 +65,13 @@ export function EstacionalidadSection({ topOrganismos, rubro }: EstacionalidadSe
       setSelectedOrg('');
     }
   }, [topOrganismos]);
+
+  // Prioritize focusedOrganismo when set
+  useEffect(() => {
+    if (focusedOrganismo) {
+      setSelectedOrg(focusedOrganismo.codigo);
+    }
+  }, [focusedOrganismo?.codigo]);
 
   useEffect(() => {
     if (!selectedOrg) return;
@@ -106,13 +119,14 @@ export function EstacionalidadSection({ topOrganismos, rubro }: EstacionalidadSe
           <p className="text-xs text-muted mt-0.5">¿En qué meses compran más?</p>
         </div>
 
-        {topOrganismos.length > 1 && (
+        {optionsOrganismos.length > 1 && (
           <select
             value={selectedOrg}
             onChange={(e) => setSelectedOrg(e.target.value)}
-            className="text-sm rounded-lg border border-border bg-surface px-3 py-1.5 text-text"
+            disabled={!!focusedOrganismo}
+            className="text-sm rounded-lg border border-border bg-surface px-3 py-1.5 text-text disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {topOrganismos.map((o) => (
+            {optionsOrganismos.map((o) => (
               <option key={o.codigo} value={o.codigo} title={o.nombre}>
                 {o.nombre.length > 40 ? `${o.nombre.slice(0, 40)}…` : o.nombre}
               </option>

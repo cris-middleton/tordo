@@ -9,6 +9,7 @@ import { useCompradorCache } from '../hooks/useCompradorCache';
 interface OportunidadesSectionProps {
   oportunidades: OportunidadItem[];
   loading: boolean;
+  onFocusOrganismo?: (o: { codigo: string; nombre: string }) => void;
 }
 
 function ScoreBar({ value, max = 10 }: { value: number; max?: number }) {
@@ -51,7 +52,15 @@ function CompetitionBadge({ n }: { n: number }) {
   );
 }
 
-function ExpandedRow({ organismo }: { organismo: string }) {
+function ExpandedRow({
+  organismo,
+  nombre,
+  onFocus,
+}: {
+  organismo: string;
+  nombre: string;
+  onFocus?: (o: { codigo: string; nombre: string }) => void;
+}) {
   const { get } = useCompradorCache();
   const [data, setData] = useState<CompradorResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -139,11 +148,21 @@ function ExpandedRow({ organismo }: { organismo: string }) {
           )}
         </div>
       )}
+      {onFocus && (
+        <div className="col-span-full mt-4 pt-3 border-t border-border flex justify-end">
+          <button
+            onClick={() => onFocus({ codigo: organismo, nombre })}
+            className="text-sm text-primary hover:underline font-medium"
+          >
+            Analizar este comprador en todo el panel →
+          </button>
+        </div>
+      )}
     </div>
   );
 }
 
-export function OportunidadesSection({ oportunidades, loading }: OportunidadesSectionProps) {
+export function OportunidadesSection({ oportunidades, loading, onFocusOrganismo }: OportunidadesSectionProps) {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
   const maxScore = oportunidades.length > 0
@@ -260,7 +279,11 @@ export function OportunidadesSection({ oportunidades, loading }: OportunidadesSe
                   {isExpanded && (
                     <tr key={`${rowKey}-expanded`}>
                       <td colSpan={6} className="p-0">
-                        <ExpandedRow organismo={op.CodigoOrganismoPublico} />
+                        <ExpandedRow
+                          organismo={op.CodigoOrganismoPublico}
+                          nombre={op.NombreOrganismo || op.CodigoOrganismoPublico}
+                          onFocus={onFocusOrganismo}
+                        />
                       </td>
                     </tr>
                   )}

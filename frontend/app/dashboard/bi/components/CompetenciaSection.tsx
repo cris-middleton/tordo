@@ -23,6 +23,7 @@ interface CompetenciaSectionProps {
   selectedOrganismo: string;
   onOrganismoChange: (o: string) => void;
   rubro: string;
+  disabled?: boolean;
 }
 
 // Hex values — CSS vars don't resolve inside Recharts SVG fill props
@@ -48,6 +49,7 @@ export function CompetenciaSection({
   selectedOrganismo,
   onOrganismoChange,
   rubro,
+  disabled,
 }: CompetenciaSectionProps) {
   const [competidores, setCompetidores] = useState<CompetidorItem[]>([]);
   const [concentracion, setConcentracion] = useState<ConcentracionItem[]>([]);
@@ -101,7 +103,8 @@ export function CompetenciaSection({
           <select
             value={selectedOrganismo}
             onChange={(e) => onOrganismoChange(e.target.value)}
-            className="text-sm rounded-lg border border-border bg-surface px-3 py-1.5 text-text"
+            disabled={disabled}
+            className="text-sm rounded-lg border border-border bg-surface px-3 py-1.5 text-text disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {topOrganismos.map((o) => (
               <option key={o.codigo} value={o.codigo} title={o.nombre}>

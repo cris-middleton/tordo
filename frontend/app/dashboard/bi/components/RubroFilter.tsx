@@ -15,6 +15,9 @@ interface RubroFilterProps {
   perfil: TFIDFPerfilData | null;
   empresaId: string | null;
   onSavePerfil: (rubros: string[]) => Promise<void>;
+  // Cross-link focus
+  focusedOrganismo?: { codigo: string; nombre: string } | null;
+  onClearFocus?: () => void;
 }
 
 export function RubroFilter({
@@ -26,6 +29,8 @@ export function RubroFilter({
   perfil,
   empresaId,
   onSavePerfil,
+  focusedOrganismo,
+  onClearFocus,
 }: RubroFilterProps) {
   const [open, setOpen] = useState(false);
   const [dropdownSearch, setDropdownSearch] = useState('');
@@ -170,6 +175,20 @@ export function RubroFilter({
       {locked && (
         <span className="text-xs text-muted bg-surface border border-border rounded-full px-2.5 py-0.5">
           Desbloquea más rubros con plan PYME
+        </span>
+      )}
+
+      {/* Focused organismo chip */}
+      {focusedOrganismo && (
+        <span className="flex items-center gap-1.5 rounded-full bg-accent/15 border border-accent/30 px-3 py-1 text-xs font-medium text-accent">
+          Enfocado: {focusedOrganismo.nombre.length > 32 ? `${focusedOrganismo.nombre.slice(0, 32)}…` : focusedOrganismo.nombre}
+          <button
+            onClick={onClearFocus}
+            aria-label="Desfijar organismo"
+            className="hover:text-danger transition-colors"
+          >
+            <X className="h-3 w-3" />
+          </button>
         </span>
       )}
 

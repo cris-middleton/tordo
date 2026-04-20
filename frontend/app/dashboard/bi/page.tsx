@@ -83,6 +83,9 @@ export default function BIPage() {
   const [miPosicion, setMiPosicion] = useState<MiPosicion | null>(null);
   const [loadingMiPosicion, setLoadingMiPosicion] = useState(false);
 
+  // ── Focused organismo (cross-link §1 → §3/§4/§5) ──────────────────────────
+  const [focusedOrganismo, setFocusedOrganismo] = useState<OrganismoConNombre | null>(null);
+
   // Derived: top 3 unique organismos con nombre resuelto
   // useMemo gives a stable reference so children don't get unnecessary new prop arrays
   const topOrganismos = useMemo<OrganismoConNombre[]>(() => {
@@ -194,6 +197,7 @@ export default function BIPage() {
     setSelectedCompOrg('');
     setResumen(null);
     setMiPosicion(null);
+    setFocusedOrganismo(null);
     loadOportunidades(rubro);
     loadTendencias(rubro);
     loadResumen(rubro);
@@ -385,6 +389,8 @@ export default function BIPage() {
         perfil={perfil}
         empresaId={firstEmpresaId}
         onSavePerfil={handleSavePerfil}
+        focusedOrganismo={focusedOrganismo}
+        onClearFocus={() => setFocusedOrganismo(null)}
       />
 
       <div className="flex-1 space-y-6 p-4 pb-12">
@@ -403,24 +409,37 @@ export default function BIPage() {
         </div>
 
         {/* § 1 — Always visible */}
-        <OportunidadesSection oportunidades={oportunidades} loading={loadingOp} />
+        <OportunidadesSection
+          oportunidades={oportunidades}
+          loading={loadingOp}
+          onFocusOrganismo={(o) => {
+            setFocusedOrganismo(o);
+            setTimeout(() => {
+              const el = document.querySelector('[data-section="competencia"]') as HTMLElement | null;
+              el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
+          }}
+        />
 
         {/* § 2 — Always visible */}
         <TendenciasSection tendencias={tendencias} emergentes={emergentes} loading={loadingTend} selectedRubro={selectedRubro} serieAnual={serieAnual} cagrRubro={cagrRubro} />
 
         {/* § 3 — Locked for basico */}
-        <PlanGate
-          locked={!paid}
-          label="Análisis de competencia — plan PYME o superior"
-          preview={previewCompetencia}
-        >
-          <CompetenciaSection
-            topOrganismos={topOrganismos}
-            selectedOrganismo={selectedCompOrg}
-            onOrganismoChange={setSelectedCompOrg}
-            rubro={selectedRubro}
-          />
-        </PlanGate>
+        <div data-section="competencia">
+          <PlanGate
+            locked={!paid}
+            label="Análisis de competencia — plan PYME o superior"
+            preview={previewCompetencia}
+          >
+            <CompetenciaSection
+              topOrganismos={topOrganismos}
+              selectedOrganismo={focusedOrganismo?.codigo || selectedCompOrg}
+              onOrganismoChange={setSelectedCompOrg}
+              rubro={selectedRubro}
+              disabled={!!focusedOrganismo}
+            />
+          </PlanGate>
+        </div>
 
         {/* § 4 — Locked for basico */}
         <PlanGate
@@ -428,8 +447,12 @@ export default function BIPage() {
           label="Perfil de compradores — plan PYME o superior"
           preview={previewCompradores}
         >
-          {topOrganismos.length > 0 && (
-            <CompradoresSection topOrganismos={topOrganismos} rubro={selectedRubro} />
+          {(topOrganismos.length > 0 || focusedOrganismo) && (
+            <CompradoresSection
+              topOrganismos={topOrganismos}
+              rubro={selectedRubro}
+              focusedOrganismo={focusedOrganismo}
+            />
           )}
         </PlanGate>
 
@@ -439,8 +462,12 @@ export default function BIPage() {
           label="Estacionalidad — plan PYME o superior"
           preview={previewEstacionalidad}
         >
-          {topOrganismos.length > 0 && (
-            <EstacionalidadSection topOrganismos={topOrganismos} rubro={selectedRubro} />
+          {(topOrganismos.length > 0 || focusedOrganismo) && (
+            <EstacionalidadSection
+              topOrganismos={topOrganismos}
+              rubro={selectedRubro}
+              focusedOrganismo={focusedOrganismo}
+            />
           )}
         </PlanGate>
       </div>

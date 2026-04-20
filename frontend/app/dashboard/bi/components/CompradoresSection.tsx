@@ -9,6 +9,7 @@ import { useCompradorCache } from '../hooks/useCompradorCache';
 interface CompradorSectionProps {
   topOrganismos: OrganismoConNombre[];
   rubro: string;
+  focusedOrganismo?: OrganismoConNombre | null;
 }
 
 function CompradorCard({ organismoId }: { organismoId: string }) {
@@ -112,7 +113,9 @@ function CompradorCard({ organismoId }: { organismoId: string }) {
   );
 }
 
-export function CompradoresSection({ topOrganismos, rubro }: CompradorSectionProps) {
+export function CompradoresSection({ topOrganismos, rubro, focusedOrganismo }: CompradorSectionProps) {
+  const orgsAMostrar = focusedOrganismo ? [focusedOrganismo] : topOrganismos.slice(0, 3);
+
   return (
     <section className="card space-y-4">
       <div>
@@ -124,7 +127,7 @@ export function CompradoresSection({ topOrganismos, rubro }: CompradorSectionPro
       </div>
 
       <div className="space-y-3">
-        {topOrganismos.slice(0, 3).map((org) => (
+        {orgsAMostrar.map((org) => (
           <CompradorCard key={org.codigo} organismoId={org.codigo} />
         ))}
       </div>
