@@ -155,8 +155,10 @@ export default function BIPage() {
     setLoadingResumen(true);
     try {
       const res = await apiClient.getBIResumen(rubro);
+      console.debug('[BI] resumen fetched for', rubro, '→', res);
       setResumen(res);
-    } catch {
+    } catch (err) {
+      console.error('[BI] resumen fetch failed for', rubro, err);
       setResumen(null);
     } finally {
       setLoadingResumen(false);
