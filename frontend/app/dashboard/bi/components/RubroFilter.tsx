@@ -115,6 +115,18 @@ export function RubroFilter({
               </div>
 
               <div className="overflow-y-auto flex-1">
+                {/* Clear selection — "Todos los rubros" */}
+                {!dropdownSearch && (
+                  <button
+                    onClick={() => { onRubroChange(''); setOpen(false); }}
+                    className={`w-full text-left flex items-center gap-2 px-4 py-2 text-sm border-b border-border hover:bg-primary/5 transition-colors ${
+                      !selectedRubro ? 'text-primary font-semibold' : 'text-muted'
+                    }`}
+                  >
+                    🌐 Todos los rubros
+                  </button>
+                )}
+
                 {/* Mis rubros — pinned at top when no search */}
                 {misRubros.length > 0 && !dropdownSearch && (
                   <>

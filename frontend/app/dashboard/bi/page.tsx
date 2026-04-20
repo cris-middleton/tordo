@@ -199,10 +199,14 @@ export default function BIPage() {
     setResumen(null);
     setMiPosicion(null);
     setFocusedOrganismo(null);
+    // loadOportunidades and loadTendencias work with rubro='' (no filter / show all)
     loadOportunidades(rubro);
     loadTendencias(rubro);
-    loadResumen(rubro);
-    if (firstEmpresaId) loadMiPosicion(firstEmpresaId, rubro);
+    // resumen and miPosicion require a specific rubro — skip if empty
+    if (rubro) {
+      loadResumen(rubro);
+      if (firstEmpresaId) loadMiPosicion(firstEmpresaId, rubro);
+    }
   }, [loadOportunidades, loadTendencias, loadResumen, loadMiPosicion, firstEmpresaId]);
 
   // ── Init: load empresa + probe BI + seed rubros ────────────────────────────
@@ -358,6 +362,10 @@ export default function BIPage() {
   ) : null;
 
   // Determine if user needs onboarding: new user with no rubros configured
+  // - If empresa has rubros_cpv: selectedRubro is seeded from empresaRubros[0] → false → no onboarding (correct)
+  // - If empresa has no rubros_cpv AND perfil.rubros_usados is empty → true → show onboarding (correct)
+  // - If selectedRubro is '' but user chose "Todos los rubros": perfil.rubros_usados will still be populated
+  //   from a prior save, so necesitaOnboarding stays false (correct)
   const necesitaOnboarding =
     initialized &&
     biEnabled !== false &&
@@ -423,10 +431,21 @@ export default function BIPage() {
             <SectorOverview />
 
             {/* Narrative market summary + MyPositionCard en grid 2-col */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <MarketSummaryCard resumen={resumen} loading={loadingResumen} />
-              <MyPositionCard posicion={miPosicion} plan={plan} loading={loadingMiPosicion} />
-            </div>
+            {(() => {
+              // showMyPosition: true si hay respuesta del backend (con o sin historial)
+              // miPosicion será null solo si el fetch aún no corrió o falló
+              const showMyPosition = !!miPosicion;
+              if (showMyPosition) {
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <MarketSummaryCard resumen={resumen} loading={loadingResumen} />
+                    <MyPositionCard posicion={miPosicion} plan={plan} loading={loadingMiPosicion} />
+                  </div>
+                );
+              }
+              // Solo MarketSummary — full width (fetch pendiente o falló)
+              return <MarketSummaryCard resumen={resumen} loading={loadingResumen} />;
+            })()}
 
             {/* § 1 — Always visible */}
             <OportunidadesSection
@@ -457,6 +476,7 @@ export default function BIPage() {
                   onOrganismoChange={setSelectedCompOrg}
                   rubro={selectedRubro}
                   disabled={!!focusedOrganismo}
+                  focused={!!focusedOrganismo}
                 />
               </PlanGate>
             </div>
@@ -487,6 +507,7 @@ export default function BIPage() {
                   topOrganismos={topOrganismos}
                   rubro={selectedRubro}
                   focusedOrganismo={focusedOrganismo}
+                  focused={!!focusedOrganismo}
                 />
               )}
             </PlanGate>

@@ -116,14 +116,22 @@ function CompradorCard({ organismoId }: { organismoId: string }) {
 export function CompradoresSection({ topOrganismos, rubro, focusedOrganismo }: CompradorSectionProps) {
   const orgsAMostrar = focusedOrganismo ? [focusedOrganismo] : topOrganismos.slice(0, 3);
 
+  // Dynamic title and subtitle based on focus state and count
+  const tituloDinamico = focusedOrganismo || orgsAMostrar.length === 1
+    ? 'Perfil del comprador'
+    : 'Perfil de compradores';
+  const subtituloDinamico = focusedOrganismo
+    ? '¿Es confiable este comprador?'
+    : '¿Son confiables los organismos que más compran?';
+
   return (
     <section className="card space-y-4">
       <div>
         <h2 className="section-title flex items-center gap-2">
           <Building2 className="h-5 w-5 text-primary" />
-          Perfil de compradores
+          {tituloDinamico}
         </h2>
-        <p className="text-xs text-muted mt-0.5">¿Son confiables los organismos que más compran?</p>
+        <p className="text-xs text-muted mt-0.5">{subtituloDinamico}</p>
       </div>
 
       <div className="space-y-3">

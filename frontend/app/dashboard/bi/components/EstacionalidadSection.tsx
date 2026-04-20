@@ -20,6 +20,7 @@ interface EstacionalidadSectionProps {
   topOrganismos: OrganismoConNombre[];
   rubro: string;
   focusedOrganismo?: OrganismoConNombre | null;
+  focused?: boolean; // when true, hide the organismo dropdown (filter is shown in filter bar chip)
 }
 
 const CustomTooltip = ({ active, payload }: any) => {
@@ -44,7 +45,7 @@ const CustomTooltip = ({ active, payload }: any) => {
   );
 };
 
-export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo }: EstacionalidadSectionProps) {
+export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, focused }: EstacionalidadSectionProps) {
   const [selectedOrg, setSelectedOrg] = useState(topOrganismos[0]?.codigo ?? '');
   const [patrones, setPatrones] = useState<EstacionalidadMes[]>([]);
   const [loading, setLoading] = useState(false);
@@ -115,11 +116,26 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo }
           <h2 className="section-title flex items-center gap-2">
             <Calendar className="h-5 w-5 text-primary" />
             Estacionalidad de compras
+            <InfoTooltip
+              content={
+                <div className="space-y-1.5">
+                  <p className="font-semibold">¿Qué muestra este gráfico?</p>
+                  <p>
+                    La <b>probabilidad de compra por mes</b> (eje Y) de este organismo en este rubro.
+                    Si un mes tiene 60%, significa que el 60% de los años el organismo compra en ese mes.
+                  </p>
+                  <p>
+                    Los <b>picos estacionales</b> (marcados con dot verde más grande) son meses consistentemente activos.
+                  </p>
+                </div>
+              }
+              side="bottom"
+            />
           </h2>
           <p className="text-xs text-muted mt-0.5">¿En qué meses compran más?</p>
         </div>
 
-        {optionsOrganismos.length > 1 && (
+        {!focused && optionsOrganismos.length > 1 && (
           <select
             value={selectedOrg}
             onChange={(e) => setSelectedOrg(e.target.value)}
@@ -185,6 +201,7 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo }
               tickFormatter={(v) => `${(v).toFixed(0)}%`}
               tick={{ fontSize: 11, fill: '#94a3b8' }}
               domain={[0, 'auto']}
+              label={{ value: 'Prob. de compra', angle: -90, position: 'insideLeft', fontSize: 10, fill: '#94a3b8', offset: 10 }}
             />
             <Tooltip content={<CustomTooltip />} />
 

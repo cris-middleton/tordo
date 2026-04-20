@@ -35,8 +35,11 @@ export function MyPositionCard({ posicion, plan, loading }: MyPositionCardProps)
           <div className="flex-1 text-sm">
             <p className="font-semibold text-text mb-1">Tu posición</p>
             <p className="text-muted">
-              Aún no tienes historial de ventas a Mercado Público en este rubro.
-              Esta card cobrará vida cuando completes tu primera orden de compra.
+              Aún no tienes OC en este rubro. Cuando tu empresa venda en este mercado,
+              aquí verás tu <b>ranking</b>, tu <b>participación</b> y <b>alertas de concentración</b>.
+            </p>
+            <p className="text-xs text-subtle mt-2">
+              Mientras tanto, revisa las oportunidades y compradores de abajo.
             </p>
           </div>
         </div>
@@ -44,8 +47,24 @@ export function MyPositionCard({ posicion, plan, loading }: MyPositionCardProps)
     );
   }
 
-  // Si el backend dice no-disponible (por ej. empresa sin RUT), no renderear
-  if (!posicion.disponible) return null;
+  // Si el backend dice no-disponible (por ej. empresa sin RUT), renderear mensaje útil
+  if (!posicion.disponible) {
+    return (
+      <section className="card border-border/60 bg-surface/60">
+        <div className="flex items-start gap-3">
+          <div className="rounded-full bg-surface border border-border p-2 shrink-0">
+            <User className="h-4 w-4 text-muted" />
+          </div>
+          <div className="flex-1 text-sm">
+            <p className="font-semibold text-text mb-1">Tu posición</p>
+            <p className="text-muted">
+              {(posicion as any).motivo || 'Falta información para mostrar tu posición. Verifica que tu empresa tenga RUT registrado.'}
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   // ── Estado: teaser para plan básico ────────────────────────────────────────
   if (!paid) {

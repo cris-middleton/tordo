@@ -149,12 +149,13 @@ function ExpandedRow({
         </div>
       )}
       {onFocus && (
-        <div className="col-span-full mt-4 pt-3 border-t border-border flex justify-end">
+        <div className="col-span-full mt-4 pt-3 border-t border-border flex">
           <button
             onClick={() => onFocus({ codigo: organismo, nombre })}
-            className="text-sm text-primary hover:underline font-medium"
+            className="btn-primary text-sm flex items-center gap-2"
           >
-            Analizar este comprador en todo el panel →
+            <Target className="h-4 w-4" />
+            Analizar este comprador en todo el panel
           </button>
         </div>
       )}

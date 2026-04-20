@@ -24,6 +24,7 @@ interface CompetenciaSectionProps {
   onOrganismoChange: (o: string) => void;
   rubro: string;
   disabled?: boolean;
+  focused?: boolean; // when true, hide the organismo dropdown (filter is shown in filter bar chip)
 }
 
 // Hex values — CSS vars don't resolve inside Recharts SVG fill props
@@ -50,6 +51,7 @@ export function CompetenciaSection({
   onOrganismoChange,
   rubro,
   disabled,
+  focused,
 }: CompetenciaSectionProps) {
   const [competidores, setCompetidores] = useState<CompetidorItem[]>([]);
   const [concentracion, setConcentracion] = useState<ConcentracionItem[]>([]);
@@ -99,7 +101,7 @@ export function CompetenciaSection({
           <p className="text-xs text-muted mt-0.5">¿Contra quién compites en este mercado?</p>
         </div>
 
-        {topOrganismos.length > 1 && (
+        {!focused && topOrganismos.length > 1 && (
           <select
             value={selectedOrganismo}
             onChange={(e) => onOrganismoChange(e.target.value)}
