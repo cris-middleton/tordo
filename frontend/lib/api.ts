@@ -371,6 +371,11 @@ class ApiClient {
     return res.data
   }
 
+  async getBIProductos(params: { q: string; limit?: number }) {
+    const res = await this.client.get('/api/bi/productos', { params });
+    return res.data;
+  }
+
   async getBIPrecio(codigoProducto: string, params: { organismo_id?: string; unidad_medida?: string } = {}) {
     const res = await this.client.get(`/api/bi/precio/${encodeURIComponent(codigoProducto)}`, { params });
     return res.data;

@@ -1261,3 +1261,43 @@ def get_rubros(limit: int = 354) -> dict:
         "rubros": rubros,
         "total": len(rubros),
     }
+
+
+def get_productos(q: str, limit: int = 20) -> dict:
+    """
+    Busca productos por nombre en product_price_bands_L3.
+    Retorna lista de {codigo, nombre, n} ordenada por frecuencia (n).
+    """
+    import polars as pl
+    if not q or len(q.strip()) < 2:
+        return {"disponible": True, "resultados": []}
+
+    df = _load("product_price_bands_L3.parquet")
+    if df is None:
+        return {"disponible": False, "motivo": "parquet no generado"}
+
+    # El nombre en el parquet está como NombreroductoGenerico (sin 'P' — typo histórico)
+    nombre_col = None
+    for c in ("NombreroductoGenerico", "NombreProductoGenerico"):
+        if c in df.columns:
+            nombre_col = c
+            break
+    if nombre_col is None:
+        return {"disponible": False, "motivo": "columna de nombre no encontrada"}
+
+    q_norm = q.strip().lower()
+    # Filtrar por contains, case-insensitive
+    matches = (
+        df
+        .filter(pl.col(nombre_col).str.to_lowercase().str.contains(q_norm, literal=True))
+        .select(["codigoProductoONU", pl.col(nombre_col).alias("nombre"), "n"])
+        .unique(subset=["codigoProductoONU"])
+        .sort("n", descending=True)
+        .head(limit)
+    )
+
+    return {
+        "disponible": True,
+        "resultados": matches.to_dicts(),
+        "total": len(matches),
+    }

@@ -456,3 +456,16 @@ class MiPosicionResponse(BaseModel):
     alerta_dependencia: Optional[bool] = None
     top_organismo_empresa: Optional[MiPosicionTopOrganismo] = None
     motivo: Optional[str] = None
+
+
+class ProductoItem(BaseModel):
+    codigoProductoONU: Optional[str] = None
+    nombre: Optional[str] = None
+    n: Optional[int] = None
+
+
+class ProductosResponse(BaseModel):
+    disponible: bool
+    resultados: Optional[list[ProductoItem]] = None
+    total: Optional[int] = None
+    motivo: Optional[str] = None

@@ -32,6 +32,7 @@ from app.schemas.bi import (
     OportunidadesResponse,
     PerfilMatchResponse,
     PrecioResponse,
+    ProductosResponse,
     ResumenResponse,
     RubrosResponse,
     SectorResponse,
@@ -671,3 +672,19 @@ async def get_mi_posicion(
         }
 
     return bi_service.get_mi_posicion(empresa.rut, rubro)
+
+
+@router.get(
+    "/productos",
+    response_model=ProductosResponse,
+    summary="Buscar productos por nombre (autocomplete)",
+    description="Busca en product_price_bands_L3 por substring en el nombre del producto.",
+)
+def get_productos(
+    q: str = Query(..., min_length=2, description="Texto a buscar en el nombre del producto"),
+    limit: int = Query(20, ge=1, le=50),
+    current_user: User = Depends(get_current_active_user),
+):
+    _require_analytics()
+    from app.services import bi_service
+    return bi_service.get_productos(q, limit)
