@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   OportunidadItem,
   OrganismoConNombre,
+  ResumenMercado,
   SerieAnualPunto,
   TendenciaItem,
   TendenciaApiResponse,
@@ -15,6 +16,7 @@ import {
   PlanTier,
   isPaidPlan,
 } from './types';
+import { MarketSummaryCard } from './components/MarketSummaryCard';
 import { RubroFilter } from './components/RubroFilter';
 import { PlanGate } from './components/PlanGate';
 import { OportunidadesSection } from './components/OportunidadesSection';
@@ -69,6 +71,10 @@ export default function BIPage() {
   const [serieAnual, setSerieAnual] = useState<SerieAnualPunto[] | null>(null);
   const [cagrRubro, setCagrRubro] = useState<number | null>(null);
   const [loadingTend, setLoadingTend] = useState(false);
+
+  // ── Resumen state ──────────────────────────────────────────────────────────
+  const [resumen, setResumen] = useState<ResumenMercado | null>(null);
+  const [loadingResumen, setLoadingResumen] = useState(false);
 
   // Derived: top 3 unique organismos con nombre resuelto
   // useMemo gives a stable reference so children don't get unnecessary new prop arrays
@@ -142,6 +148,20 @@ export default function BIPage() {
     }
   }, []);
 
+  // ── Load resumen ───────────────────────────────────────────────────────────
+  const loadResumen = useCallback(async (rubro: string) => {
+    if (!rubro) { setResumen(null); return; }
+    setLoadingResumen(true);
+    try {
+      const res = await apiClient.getBIResumen(rubro);
+      setResumen(res);
+    } catch {
+      setResumen(null);
+    } finally {
+      setLoadingResumen(false);
+    }
+  }, []);
+
   // ── Rubro change handler ───────────────────────────────────────────────────
   const handleRubroChange = useCallback((rubro: string) => {
     setSelectedRubro(rubro);
@@ -151,9 +171,11 @@ export default function BIPage() {
     setSerieAnual(null);
     setCagrRubro(null);
     setSelectedCompOrg('');
+    setResumen(null);
     loadOportunidades(rubro);
     loadTendencias(rubro);
-  }, [loadOportunidades, loadTendencias]);
+    loadResumen(rubro);
+  }, [loadOportunidades, loadTendencias, loadResumen]);
 
   // ── Init: load empresa + probe BI + seed rubros ────────────────────────────
   useEffect(() => {
@@ -218,8 +240,11 @@ export default function BIPage() {
           setOportunidades(opData);
           setSelectedRubro(firstRubro);
 
-          // Load tendencias in parallel
+          // Load tendencias and resumen in parallel
           loadTendencias(firstRubro);
+          if (firstRubro) {
+            loadResumen(firstRubro);
+          }
         }
       } catch (err: unknown) {
         if (!cancelled) {
@@ -289,6 +314,9 @@ export default function BIPage() {
           <BarChart3 className="h-6 w-6 text-primary" />
           Inteligencia de Mercado
         </h1>
+
+        {/* Narrative market summary */}
+        <MarketSummaryCard resumen={resumen} loading={loadingResumen} />
 
         {/* § 1 — Always visible */}
         <OportunidadesSection oportunidades={oportunidades} loading={loadingOp} />

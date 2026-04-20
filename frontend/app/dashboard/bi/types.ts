@@ -141,3 +141,29 @@ export interface TendenciaApiResponse {
   total?: number;
   motivo?: string;
 }
+
+export interface ResumenMercado {
+  disponible: boolean;
+  rubro?: string;
+  monto_anual_clp?: number | null;
+  n_organismos?: number | null;
+  cagr_pct?: number | null;
+  n_proveedores_actual?: number | null;
+  n_proveedores_hace_3_anios?: number | null;
+  top_comprador?: {
+    codigo?: string | null;
+    nombre?: string | null;
+    pago_mediana_dias?: number | null;
+    clasificacion_pago?: 'bueno' | 'medio' | 'lento' | null;
+  } | null;
+  teaser_competencia?: {
+    lider_nombre?: string | null;
+    lider_share_pct?: number | null;
+    tipo_mercado?: 'concentrado' | 'moderado' | 'fragmentado' | 'competitivo' | null;
+  } | null;
+  teaser_estacionalidad?: {
+    mes_pico_mayor?: string | null;
+    consistencia_avg_pct?: number | null;
+  } | null;
+  motivo?: string;
+}
