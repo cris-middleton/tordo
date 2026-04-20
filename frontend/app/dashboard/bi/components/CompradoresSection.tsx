@@ -96,13 +96,13 @@ function CompradorCard({ organismoId }: { organismoId: string }) {
           {data.risk_flags && data.risk_flags.n_flags > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {data.risk_flags.pago_lento && (
-                <span title="Este organismo tarda más de 45 días en pagar en promedio" className="badge-error text-xs cursor-help">⚠ Pago lento</span>
+                <span title="Este organismo tarda más de 45 días en pagar en promedio" className="badge-danger text-xs cursor-help">⚠ Pago lento</span>
               )}
               {data.risk_flags.cancelaciones && (
-                <span title="Alta tasa de órdenes canceladas" className="badge-error text-xs cursor-help">⚠ Cancelaciones frecuentes</span>
+                <span title="Alta tasa de órdenes canceladas" className="badge-danger text-xs cursor-help">⚠ Cancelaciones frecuentes</span>
               )}
               {data.risk_flags.baja_calificacion && (
-                <span title="Calificación promedio de proveedores baja" className="badge-error text-xs cursor-help">⚠ Baja calificación</span>
+                <span title="Calificación promedio de proveedores baja" className="badge-danger text-xs cursor-help">⚠ Baja calificación</span>
               )}
             </div>
           )}

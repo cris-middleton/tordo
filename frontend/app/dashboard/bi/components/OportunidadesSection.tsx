@@ -1,7 +1,7 @@
 // frontend/app/dashboard/bi/components/OportunidadesSection.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp, Loader2, Target } from 'lucide-react';
 import { OportunidadItem, CompradorResult, scoreColor, scoreBg } from '../types';
 import { useCompradorCache } from '../hooks/useCompradorCache';
@@ -27,9 +27,28 @@ function ScoreBar({ value, max = 10 }: { value: number; max?: number }) {
 }
 
 function CompetitionBadge({ n }: { n: number }) {
-  if (n < 5) return <span className="badge-accent text-xs">Baja ({n})</span>;
-  if (n <= 15) return <span className="badge-warning text-xs">Media ({n})</span>;
-  return <span className="badge-error text-xs">Alta ({n})</span>;
+  if (n < 5) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-surface border border-border px-2 py-0.5 text-xs font-medium text-text">
+        <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+        Baja ({n})
+      </span>
+    );
+  }
+  if (n <= 15) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-surface border border-border px-2 py-0.5 text-xs font-medium text-text">
+        <span className="h-1.5 w-1.5 rounded-full bg-gold" />
+        Media ({n})
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-surface border border-border px-2 py-0.5 text-xs font-medium text-text">
+      <span className="h-1.5 w-1.5 rounded-full bg-danger" />
+      Alta ({n})
+    </span>
+  );
 }
 
 function ExpandedRow({ organismo }: { organismo: string }) {
@@ -52,16 +71,7 @@ function ExpandedRow({ organismo }: { organismo: string }) {
     }
   };
 
-  if (!loaded && !loading) return (
-    <div className="p-4 bg-surface/60 border-t border-border">
-      <button
-        onClick={load}
-        className="text-sm text-primary hover:underline font-medium"
-      >
-        Ver perfil del comprador →
-      </button>
-    </div>
-  );
+  useEffect(() => { load(); }, []);
 
   if (loading) return (
     <div className="p-4 flex items-center gap-2 text-sm text-muted">
@@ -119,13 +129,13 @@ function ExpandedRow({ organismo }: { organismo: string }) {
       {data.risk_flags && data.risk_flags.n_flags > 0 && (
         <div className="col-span-full flex flex-wrap gap-1.5">
           {data.risk_flags.pago_lento && (
-            <span title="Este organismo tarda más de 45 días en pagar en promedio" className="badge-error text-xs cursor-help">⚠ Pago lento</span>
+            <span title="Este organismo tarda más de 45 días en pagar en promedio" className="badge-danger text-xs cursor-help">⚠ Pago lento</span>
           )}
           {data.risk_flags.cancelaciones && (
-            <span title="Alta tasa de órdenes canceladas" className="badge-error text-xs cursor-help">⚠ Cancelaciones frecuentes</span>
+            <span title="Alta tasa de órdenes canceladas" className="badge-danger text-xs cursor-help">⚠ Cancelaciones frecuentes</span>
           )}
           {data.risk_flags.baja_calificacion && (
-            <span title="Calificación promedio de proveedores baja" className="badge-error text-xs cursor-help">⚠ Baja calificación</span>
+            <span title="Calificación promedio de proveedores baja" className="badge-danger text-xs cursor-help">⚠ Baja calificación</span>
           )}
         </div>
       )}

@@ -64,6 +64,7 @@ class CompetidoresResponse(BaseModel):
 
 class Oportunidad(BaseModel):
     CodigoOrganismoPublico: Optional[str] = None
+    NombreOrganismo: Optional[str] = None
     RubroN2: Optional[str] = None
     opportunity_score: Optional[float] = None
     n_transacciones: Optional[int] = None

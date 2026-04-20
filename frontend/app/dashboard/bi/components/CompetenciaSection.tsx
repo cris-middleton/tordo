@@ -119,7 +119,16 @@ export function CompetenciaSection({
           </span>
           <span className="text-muted">
             Mercado{' '}
-            <InfoTooltip content="Fragmentado = muchos proveedores compiten. Concentrado = pocos dominan el mercado.">
+            <InfoTooltip
+              content={
+                <div className="space-y-1.5">
+                  <p><b>Concentrado:</b> pocos proveedores dominan.</p>
+                  <p><b>Moderado:</b> competencia equilibrada con varios actores.</p>
+                  <p><b>Fragmentado:</b> muchos proveedores compiten.</p>
+                  <p><b>Competitivo:</b> alta rotación entre proveedores.</p>
+                </div>
+              }
+            >
               <span className="font-medium text-text">{tipoLabelCorto(tipoMercado)}</span>
             </InfoTooltip>
           </span>

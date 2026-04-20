@@ -14,6 +14,7 @@ import {
 } from 'recharts';
 import { EstacionalidadMes, MESES, OrganismoConNombre } from '../types';
 import { apiClient } from '@/lib/api';
+import { InfoTooltip } from './InfoTooltip';
 
 interface EstacionalidadSectionProps {
   topOrganismos: OrganismoConNombre[];
@@ -121,10 +122,28 @@ export function EstacionalidadSection({ topOrganismos, rubro }: EstacionalidadSe
       </div>
 
       {picoMeses.length > 0 && (
-        <div className="rounded-xl border border-accent/25 bg-accent/10 px-4 py-2.5 text-sm text-accent">
+        <div className="rounded-xl border border-accent/25 bg-accent/10 px-4 py-2.5 text-sm text-accent flex flex-wrap items-center gap-1">
           <span className="font-semibold">{selectedOrgNombre.length > 50 ? selectedOrgNombre.slice(0, 50) + '…' : selectedOrgNombre}</span>
-          {' '}suele comprar más en <span className="font-semibold">{picoMeses.join(', ')}</span>.
-          {avgConsist && ` Consistencia promedio: ${avgConsist}%.`}
+          <span>suele comprar más en</span>
+          <span className="font-semibold">{picoMeses.join(', ')}.</span>
+          {avgConsist && (
+            <span className="flex items-center gap-1">
+              <span>Consistencia promedio:</span>
+              <InfoTooltip
+                content={
+                  <div>
+                    Qué tan repetible es el patrón año a año.
+                    <br />
+                    <b>100%</b> = compran siempre en los mismos meses.
+                    <br />
+                    <b>0%</b> = patrón errático.
+                  </div>
+                }
+              >
+                <span className="font-semibold">{avgConsist}%</span>
+              </InfoTooltip>
+            </span>
+          )}
         </div>
       )}
 

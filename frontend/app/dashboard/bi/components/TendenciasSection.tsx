@@ -80,19 +80,6 @@ export function TendenciasSection({ tendencias, emergentes, loading, selectedRub
           <p className="text-sm text-muted">Sin datos de tendencia para este rubro.</p>
         )}
 
-        {emergentes.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            <span className="text-xs font-semibold text-muted self-center">En alza (contexto):</span>
-            {emergentes.slice(0, 3).map((e) => (
-              <span
-                key={e.RubroN2}
-                className="flex items-center gap-1.5 rounded-full bg-accent/15 border border-accent/25 px-3 py-1 text-xs font-semibold text-accent"
-              >
-                ↗ {e.RubroN2} {e.cagr > 0 ? '+' : ''}{e.cagr.toFixed(0)}% anual
-              </span>
-            ))}
-          </div>
-        )}
       </section>
     );
   }
