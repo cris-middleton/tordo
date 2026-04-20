@@ -308,7 +308,7 @@ export default function BIPage() {
         </>
       )}.
       {resumen.n_organismos != null && (
-        <> Este mercado atiende a <b>{resumen.n_organismos.toLocaleString('es-CL')}</b> organismos en total.</>
+        <> Este mercado atiende a <b>{resumen.n_organismos.toLocaleString('es-CL')}</b> compradores en total.</>
       )}
     </p>
   ) : null;

@@ -21,9 +21,9 @@ export function frase1(r: ResumenMercado): string | null {
 
   if (r.n_organismos != null) {
     if (r.monto_anual_clp != null) {
-      parts.push(`entre <b>${r.n_organismos.toLocaleString('es-CL')} organismos</b>`);
+      parts.push(`entre <b>${r.n_organismos.toLocaleString('es-CL')} compradores</b>`);
     } else {
-      parts.push(`tiene <b>${r.n_organismos.toLocaleString('es-CL')} organismos compradores activos</b>`);
+      parts.push(`tiene <b>${r.n_organismos.toLocaleString('es-CL')} compradores activos</b>`);
     }
   }
 
