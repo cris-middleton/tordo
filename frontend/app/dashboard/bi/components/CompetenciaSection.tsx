@@ -108,7 +108,7 @@ export function CompetenciaSection({
           </span>
           <span
             className="text-muted"
-            title="El HHI (índice Herfindahl-Hirschman) mide qué tan concentrado está un mercado. Un valor alto significa que pocos proveedores controlan la mayoría de las compras."
+            title="Fragmentado = muchos proveedores compiten. Concentrado = pocos dominan el mercado."
           >
             {tipoLabel[tipoMercado] ?? tipoMercado}{' '}
             <span className="cursor-help underline decoration-dotted">ℹ</span>
