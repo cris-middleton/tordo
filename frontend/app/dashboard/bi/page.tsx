@@ -98,7 +98,7 @@ export default function BIPage() {
       const res = await apiClient.getBIOportunidades({
         rubro: rubro || undefined,
         min_score: 4,
-        limit: 20,
+        limit: 50,
       });
       if (res.disponible) setOportunidades(res.oportunidades ?? []);
       else setOportunidades([]);
@@ -194,7 +194,7 @@ export default function BIPage() {
         const res = await apiClient.getBIOportunidades({
           rubro: firstRubro || undefined,
           min_score: 4,
-          limit: 20,
+          limit: 50,
         });
         if (cancelled) return;
 
