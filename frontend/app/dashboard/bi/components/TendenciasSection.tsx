@@ -14,7 +14,7 @@ import {
   ReferenceLine,
 } from 'recharts';
 import { TendenciaItem, SerieAnualPunto } from '../types';
-import { Sparkline } from './Sparkline';
+import { TrendChart } from './TrendChart';
 
 interface TendenciasSectionProps {
   tendencias: TendenciaItem[];
@@ -65,34 +65,34 @@ export function TendenciasSection({ tendencias, emergentes, loading, selectedRub
         </div>
 
         {found ? (
-          <div className="rounded-xl border border-border bg-surface p-5 flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex-1 min-w-[200px]">
-              <p className="text-sm text-muted">{selectedRubro}</p>
-              <p className={`text-3xl font-bold mt-1 ${found.cagr >= 0 ? 'text-accent' : 'text-danger'}`}>
-                {found.cagr > 0 ? '+' : ''}{found.cagr.toFixed(1)}%
-                <span className="text-sm font-normal text-muted ml-2">anual</span>
-              </p>
-            </div>
-
-            {/* YoY sparkline — only shown when serie_anual data is available */}
-            {serieAnual && serieAnual.length >= 2 && (
-              <div className="flex flex-col items-center gap-1">
-                <Sparkline
-                  data={serieAnual}
-                  width={200}
-                  height={56}
-                  color={found.cagr >= 0 ? '#00A87A' : '#EF4444'}
-                />
-                <div className="flex justify-between w-[200px] text-[10px] text-muted px-1">
-                  <span>{serieAnual[0].anio}</span>
-                  <span>{serieAnual[serieAnual.length - 1].anio}</span>
+          <div className="rounded-xl border border-border bg-surface p-5">
+            <div className="grid grid-cols-1 md:grid-cols-[minmax(180px,1fr)_2fr] gap-5 items-center">
+              {/* Columna izquierda: métricas */}
+              <div>
+                <p className="text-sm text-muted">{selectedRubro}</p>
+                <p className={`text-3xl font-bold mt-1 ${found.cagr >= 0 ? 'text-accent' : 'text-danger'}`}>
+                  {found.cagr > 0 ? '+' : ''}{found.cagr.toFixed(1)}%
+                  <span className="text-sm font-normal text-muted ml-2">anual</span>
+                </p>
+                <div className="mt-3 text-xs text-muted space-y-0.5">
+                  {found.total_oc && <p>{found.total_oc.toLocaleString('es-CL')} OC</p>}
+                  {found.n_anios && <p>{found.n_anios} años de historia</p>}
                 </div>
               </div>
-            )}
 
-            <div className="text-right text-xs text-muted">
-              {found.total_oc && <p>{found.total_oc.toLocaleString('es-CL')} OC</p>}
-              {found.n_anios && <p>{found.n_anios} años de historia</p>}
+              {/* Columna derecha: chart que expande */}
+              {serieAnual && serieAnual.length >= 2 ? (
+                <div className="w-full h-[140px]">
+                  <TrendChart
+                    data={serieAnual}
+                    color={found.cagr >= 0 ? '#00A87A' : '#EF4444'}
+                  />
+                </div>
+              ) : (
+                <div className="w-full h-[140px] flex items-center justify-center text-xs text-muted">
+                  Sin serie anual disponible
+                </div>
+              )}
             </div>
           </div>
         ) : (
