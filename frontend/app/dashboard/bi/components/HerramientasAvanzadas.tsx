@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp, Wrench, Loader2, Search } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 
@@ -32,6 +32,15 @@ interface PrecioResultado {
   resultado?: PrecioBanda[];
   nivel_usado?: string;
   motivo?: string;
+}
+
+interface DescuentoItem {
+  n_oferentes_rango?: string;
+  p10?: number;
+  p50?: number;
+  p90?: number;
+  senial_competencia?: string;
+  n?: number;
 }
 
 function TabMatching() {
@@ -119,6 +128,99 @@ function TabMatching() {
       {!loading && !error && results.length === 0 && texto.trim().length >= 3 && (
         <p className="text-xs text-muted">No se encontraron resultados para &quot;{texto}&quot;.</p>
       )}
+    </div>
+  );
+}
+
+function TabDescuento({ rubro }: { rubro: string }) {
+  const [data, setData] = useState<DescuentoItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!rubro) {
+      setData([]);
+      return;
+    }
+    setLoading(true);
+    setError('');
+    apiClient
+      .getBIDescuento({ rubro })
+      .then((res) => {
+        if (res.disponible) {
+          setData(res.descuentos ?? []);
+        } else {
+          setError(res.motivo || 'Sin datos de descuento para este rubro.');
+          setData([]);
+        }
+      })
+      .catch(() => {
+        setError('Error al cargar descuentos.');
+        setData([]);
+      })
+      .finally(() => setLoading(false));
+  }, [rubro]);
+
+  if (!rubro) {
+    return (
+      <p className="text-xs text-muted">
+        Selecciona un rubro en el filtro superior para ver descuentos típicos.
+      </p>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-muted">
+        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+        Cargando descuentos...
+      </div>
+    );
+  }
+
+  if (error) {
+    return <p className="text-xs text-danger">{error}</p>;
+  }
+
+  if (data.length === 0) {
+    return <p className="text-xs text-muted">Sin datos de descuento para este rubro.</p>;
+  }
+
+  // Ordenar por rango de oferentes para mostrar progresión competitiva
+  const sortOrder: Record<string, number> = { '1': 1, '2-3': 2, '4-5': 3, '4+': 4, '5+': 5, '6+': 6 };
+  const ordered = [...data].sort((a, b) => {
+    const oa = sortOrder[a.n_oferentes_rango || ''] ?? 99;
+    const ob = sortOrder[b.n_oferentes_rango || ''] ?? 99;
+    return oa - ob;
+  });
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted">
+        Descuento típico observado según cuántos oferentes compiten por la licitación:
+      </p>
+      <ul className="space-y-2 text-sm">
+        {ordered.slice(0, 6).map((d, i) => (
+          <li key={`${d.n_oferentes_rango}-${i}`} className="flex items-center gap-2 flex-wrap">
+            <span className="rounded-full bg-primary/10 text-primary text-xs px-2 py-0.5 font-medium shrink-0">
+              {d.n_oferentes_rango} oferente{d.n_oferentes_rango !== '1' ? 's' : ''}
+            </span>
+            <span className="text-text">
+              descuento típico{' '}
+              <b>{d.p50 != null ? `${d.p50.toFixed(1)}%` : '—'}</b>
+              {d.p90 != null && (
+                <span className="text-muted"> (hasta {d.p90.toFixed(0)}% en casos competitivos)</span>
+              )}
+              {d.n != null && (
+                <span className="text-xs text-subtle"> · {d.n.toLocaleString('es-CL')} casos</span>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="text-xs text-subtle">
+        Interpreta así: a mayor número de oferentes, mayor presión competitiva y mayor descuento típico.
+      </p>
     </div>
   );
 }
@@ -268,7 +370,7 @@ export function HerramientasAvanzadas({ rubro }: HerramientasAvanzadasProps) {
           <div className="min-h-[120px]">
             {tab === 'matching' && <TabMatching />}
             {tab === 'precio' && <TabPrecio />}
-            {tab === 'descuento' && <p className="text-sm text-muted">Próximamente — Task 3.4 agrega la tabla narrativa de descuentos.</p>}
+            {tab === 'descuento' && <TabDescuento rubro={rubro} />}
             {tab === 'forecast' && <p className="text-sm text-muted">Próximamente — Task 3.5 agrega el pronóstico de competencia.</p>}
           </div>
         </div>
