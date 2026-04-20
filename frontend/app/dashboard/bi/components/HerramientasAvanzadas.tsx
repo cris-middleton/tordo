@@ -18,6 +18,22 @@ interface MatchingResult {
   monto_total?: number;
 }
 
+interface PrecioBanda {
+  p10?: number;
+  p50?: number;
+  p90?: number;
+  n?: number;
+  confianza?: string;
+  NombreProductoGenerico?: string;
+}
+
+interface PrecioResultado {
+  disponible: boolean;
+  resultado?: PrecioBanda[];
+  nivel_usado?: string;
+  motivo?: string;
+}
+
 function TabMatching() {
   const [texto, setTexto] = useState('');
   const [results, setResults] = useState<MatchingResult[]>([]);
@@ -107,6 +123,102 @@ function TabMatching() {
   );
 }
 
+function formatCLPShort(v: number): string {
+  if (v >= 1e9) return `CLP ${(v / 1e9).toFixed(1)} mil M`;
+  if (v >= 1e6) return `CLP ${(v / 1e6).toFixed(1)} M`;
+  if (v >= 1e3) return `CLP ${(v / 1e3).toFixed(0)}K`;
+  return `CLP ${Math.round(v).toLocaleString('es-CL')}`;
+}
+
+function TabPrecio() {
+  const [codigo, setCodigo] = useState('');
+  const [organismo, setOrganismo] = useState('');
+  const [resultado, setResultado] = useState<PrecioResultado | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const consultar = async () => {
+    const codigoTrim = codigo.trim();
+    if (codigoTrim.length < 3) return;
+    setLoading(true);
+    setError('');
+    try {
+      const res: PrecioResultado = await apiClient.getBIPrecio(codigoTrim, {
+        organismo_id: organismo.trim() || undefined,
+      });
+      setResultado(res);
+      if (!res.disponible) {
+        setError(res.motivo || 'Sin datos para este código de producto.');
+      }
+    } catch {
+      setError('Error al consultar. Verifica el código ONU y vuelve a intentar.');
+      setResultado(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const banda = resultado?.resultado?.[0];
+  const nivelLabel = (nivel?: string) =>
+    nivel === 'L1' ? 'datos del organismo específico'
+      : nivel === 'L2' ? 'datos del sector'
+      : nivel === 'L3' ? 'datos a nivel nacional'
+      : nivel || '';
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted">
+        Ingresa el <b>código ONU</b> del producto (8 dígitos). Opcionalmente filtra por un organismo.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2">
+        <input
+          value={codigo}
+          onChange={(e) => setCodigo(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && consultar()}
+          placeholder="Código ONU (ej: 41115802)"
+          className="input-field text-sm"
+        />
+        <input
+          value={organismo}
+          onChange={(e) => setOrganismo(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && consultar()}
+          placeholder="Organismo (opcional)"
+          className="input-field text-sm"
+        />
+        <button
+          onClick={consultar}
+          disabled={loading || codigo.trim().length < 3}
+          className="btn-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Consultar'}
+        </button>
+      </div>
+
+      {error && !banda && <p className="text-xs text-danger">{error}</p>}
+
+      {banda && banda.p50 != null && (
+        <div className="rounded-xl border border-border bg-surface p-4 text-sm space-y-2">
+          {banda.NombreProductoGenerico && (
+            <p className="font-semibold text-text">{banda.NombreProductoGenerico}</p>
+          )}
+          <p className="text-text">
+            Precio típico: <b>{formatCLPShort(banda.p50)}</b>
+            {banda.p10 != null && banda.p90 != null && (
+              <> · rango habitual: <b>{formatCLPShort(banda.p10)}</b> a <b>{formatCLPShort(banda.p90)}</b></>
+            )}
+            {'.'}
+          </p>
+          <p className="text-xs text-muted">
+            {banda.n != null && <>Basado en <b>{banda.n.toLocaleString('es-CL')}</b> transacciones</>}
+            {resultado?.nivel_usado && <> · Fuente: {nivelLabel(resultado.nivel_usado)}</>}
+            {banda.confianza && <> · Confianza: {banda.confianza}</>}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const TABS: Array<[Tab, string]> = [
   ['matching', 'Buscador semántico'],
   ['precio', 'Precio histórico'],
@@ -155,7 +267,7 @@ export function HerramientasAvanzadas({ rubro }: HerramientasAvanzadasProps) {
           </div>
           <div className="min-h-[120px]">
             {tab === 'matching' && <TabMatching />}
-            {tab === 'precio' && <p className="text-sm text-muted">Próximamente — Task 3.3 agrega la calculadora de precio histórico.</p>}
+            {tab === 'precio' && <TabPrecio />}
             {tab === 'descuento' && <p className="text-sm text-muted">Próximamente — Task 3.4 agrega la tabla narrativa de descuentos.</p>}
             {tab === 'forecast' && <p className="text-sm text-muted">Próximamente — Task 3.5 agrega el pronóstico de competencia.</p>}
           </div>
