@@ -47,6 +47,16 @@ export function EstacionalidadSection({ topOrganismos, rubro }: EstacionalidadSe
   const [patrones, setPatrones] = useState<EstacionalidadMes[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // Reset selectedOrg when topOrganismos changes (e.g. rubro change in parent rebuilds the list)
+  useEffect(() => {
+    if (topOrganismos.length > 0) {
+      setSelectedOrg(topOrganismos[0].codigo);
+    } else {
+      setSelectedOrg('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topOrganismos.map((o) => o.codigo).join(',')]);
+
   useEffect(() => {
     if (!selectedOrg) return;
     setLoading(true);

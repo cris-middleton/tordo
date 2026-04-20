@@ -1,7 +1,7 @@
 // frontend/app/dashboard/bi/page.tsx
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Loader2, BarChart3 } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
@@ -66,9 +66,11 @@ export default function BIPage() {
   const [loadingTend, setLoadingTend] = useState(false);
 
   // Derived: top 3 unique organismos con nombre resuelto
-  const topOrganismos: OrganismoConNombre[] = (() => {
+  // useMemo gives a stable reference so children don't get unnecessary new prop arrays
+  const topOrganismos = useMemo<OrganismoConNombre[]>(() => {
     const seen = new Set<string>();
     const out: OrganismoConNombre[] = [];
+    // Sample up to 10 items to ensure we find 3 distinct organismos even with duplicates
     for (const o of oportunidades.slice(0, 10)) {
       if (seen.has(o.CodigoOrganismoPublico)) continue;
       seen.add(o.CodigoOrganismoPublico);
@@ -79,15 +81,14 @@ export default function BIPage() {
       if (out.length >= 3) break;
     }
     return out;
-  })();
+  }, [oportunidades]);
 
   const [selectedCompOrg, setSelectedCompOrg] = useState('');
   useEffect(() => {
     if (topOrganismos.length > 0 && !selectedCompOrg) {
       setSelectedCompOrg(topOrganismos[0].codigo);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topOrganismos.map((o) => o.codigo).join(',')]);
+  }, [topOrganismos, selectedCompOrg]);
 
   // ── Load oportunidades ─────────────────────────────────────────────────────
   const loadOportunidades = useCallback(async (rubro: string) => {
