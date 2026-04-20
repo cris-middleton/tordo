@@ -31,6 +31,7 @@ from app.schemas.bi import (
     OportunidadesResponse,
     PerfilMatchResponse,
     PrecioResponse,
+    ResumenResponse,
     RubrosResponse,
     SectorResponse,
     TendenciaResponse,
@@ -572,6 +573,26 @@ def get_rubros(
 
     result = bi_service.get_rubros(limit=limit)
     return result
+
+
+@router.get(
+    "/resumen",
+    response_model=ResumenResponse,
+    summary="Resumen narrativo de un rubro (para MarketSummaryCard + teasers paywall)",
+    description=(
+        "Combina time_series + market_concentration + buyer_scores + opportunity_scores + "
+        "seasonality_patterns en una sola respuesta liviana. Incluye teasers para las "
+        "secciones gated que el plan básico ve sin gastar quota."
+    ),
+)
+def get_resumen(
+    rubro: str = Query(..., min_length=1, description="RubroN2 a resumir"),
+    current_user: User = Depends(check_bi_quota_dep),
+):
+    _require_analytics()
+    from app.services import bi_service
+
+    return bi_service.get_resumen(rubro)
 
 
 @router.get(

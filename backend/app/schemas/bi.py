@@ -400,3 +400,37 @@ class SectorResponse(BaseModel):
     sectores: Optional[list[SectorItem]] = None
     total: Optional[int] = None
     motivo: Optional[str] = None
+
+
+# ─── Resumen narrativo (MarketSummaryCard + paywall teasers) ──────────────────
+
+class ResumenTopComprador(BaseModel):
+    codigo: Optional[str] = None
+    nombre: Optional[str] = None
+    pago_mediana_dias: Optional[int] = None
+    clasificacion_pago: Optional[str] = None  # "bueno" | "medio" | "lento"
+
+
+class ResumenTeaserCompetencia(BaseModel):
+    lider_nombre: Optional[str] = None
+    lider_share_pct: Optional[float] = None
+    tipo_mercado: Optional[str] = None  # "concentrado" | "moderado" | "fragmentado" | "competitivo"
+
+
+class ResumenTeaserEstacionalidad(BaseModel):
+    mes_pico_mayor: Optional[str] = None
+    consistencia_avg_pct: Optional[int] = None
+
+
+class ResumenResponse(BaseModel):
+    disponible: bool
+    rubro: Optional[str] = None
+    monto_anual_clp: Optional[float] = None
+    n_organismos: Optional[int] = None
+    cagr_pct: Optional[float] = None
+    n_proveedores_actual: Optional[int] = None
+    n_proveedores_hace_3_anios: Optional[int] = None
+    top_comprador: Optional[ResumenTopComprador] = None
+    teaser_competencia: Optional[ResumenTeaserCompetencia] = None
+    teaser_estacionalidad: Optional[ResumenTeaserEstacionalidad] = None
+    motivo: Optional[str] = None
