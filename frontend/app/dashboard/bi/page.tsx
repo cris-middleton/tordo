@@ -27,6 +27,7 @@ import { TendenciasSection } from './components/TendenciasSection';
 import { CompetenciaSection } from './components/CompetenciaSection';
 import { CompradoresSection } from './components/CompradoresSection';
 import { EstacionalidadSection } from './components/EstacionalidadSection';
+import { HerramientasAvanzadas } from './components/HerramientasAvanzadas';
 import { SectorOverview } from './components/SectorOverview';
 import { CompradorCacheProvider } from './hooks/useCompradorCache';
 
@@ -536,6 +537,9 @@ export default function BIPage() {
                 />
               )}
             </PlanGate>
+
+            {/* Herramientas avanzadas — colapsible al pie */}
+            <HerramientasAvanzadas rubro={selectedRubro} />
           </>
         )}
       </div>
