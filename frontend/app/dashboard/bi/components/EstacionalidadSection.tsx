@@ -153,8 +153,7 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
 
       {picoMeses.length > 0 && (
         <div className="rounded-xl border border-accent/25 bg-accent/10 px-4 py-2.5 text-sm text-accent flex flex-wrap items-center gap-1">
-          <span className="font-semibold">{selectedOrgNombre.length > 50 ? selectedOrgNombre.slice(0, 50) + '…' : selectedOrgNombre}</span>
-          <span>suele comprar más en</span>
+          <span>Suele comprar más en</span>
           <span className="font-semibold">{picoMeses.join(', ')}.</span>
           {avgConsist && (
             <span className="flex items-center gap-1">
