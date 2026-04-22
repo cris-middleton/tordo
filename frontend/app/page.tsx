@@ -290,10 +290,6 @@ export default function Home() {
                   Descubre a qué precio cotizar, en qué licitaciones vale la pena participar y cuáles se ajustan a lo que vendes — sin adivinar.
                 </p>
 
-                <p className="mb-8 max-w-lg text-sm text-white/40 leading-relaxed">
-                  No importa el tamaño de tu empresa ni tu experiencia en licitaciones. TORDO te ayuda a entender cada oportunidad y mejorar tus probabilidades.
-                </p>
-
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-10 sm:mb-12">
                   <Link href="/register" className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0EAD69] px-6 py-3.5 text-sm font-bold text-white shadow-lg transition-all hover:bg-[#09895B] hover:shadow-xl">
                     Probar Pro 14 días
@@ -306,22 +302,8 @@ export default function Home() {
 
                 {/* Trust line */}
                 <p className="text-xs text-white/35 mb-6">
-                  Datos públicos de ChileCompra · Sin tarjeta · Cancelas cuando quieras
+                  Sin tarjeta · Cancela cuando quieras
                 </p>
-
-                {/* Stats */}
-                <div className="grid grid-cols-3 gap-6 sm:gap-10">
-                  {[
-                    { value: '$17.6B USD', label: 'en compras públicas (2024)' },
-                    { value: '110.000+', label: 'proveedores en el mercado' },
-                    { value: '+3.2M', label: 'transacciones analizadas' },
-                  ].map((item) => (
-                    <div key={item.value}>
-                      <p className="text-xl sm:text-2xl font-bold text-white" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>{item.value}</p>
-                      <p className="mt-0.5 text-xs sm:text-sm text-white/45">{item.label}</p>
-                    </div>
-                  ))}
-                </div>
               </div>
 
               <div className="lg:col-span-2 flex flex-col items-center justify-center gap-3">
