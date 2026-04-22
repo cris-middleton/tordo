@@ -450,9 +450,9 @@ export default function Home() {
             <div className="grid gap-8 md:grid-cols-3 relative">
               <div className="hidden md:block absolute top-6 left-[calc(16.67%+24px)] right-[calc(16.67%+24px)] h-px bg-gradient-to-r from-[#0F2942]/20 via-[#0EAD69]/30 to-[#0F2942]/20" />
               {[
-                { step: '01', title: 'Registra tu empresa', desc: 'Ingresa tu RUT y rubros. TORDO verifica tu estado hábil automáticamente. (Necesitas estar registrado como proveedor en ChileCompra.)' },
-                { step: '02', title: 'Explora oportunidades', desc: 'Encuentra las licitaciones que calzan con tu perfil, cada una con su score de oportunidad.' },
-                { step: '03', title: 'Postula informado', desc: 'Revisa precios históricos, competidores, y prepara tu documentación con el checklist.' },
+                { step: '01', title: 'Registra tu empresa', desc: 'Ingresa tu RUT y rubros. Verificamos tu estado hábil automáticamente.' },
+                { step: '02', title: 'Explora oportunidades', desc: 'Encuentra licitaciones que calzan con tu perfil, cada una con su score de oportunidad.' },
+                { step: '03', title: 'Postula informado', desc: 'Revisa precios históricos, competidores y prepara tu documentación con el checklist.' },
               ].map((s) => (
                 <div key={s.step} className="relative">
                   <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[#0F2942] text-white font-bold text-lg relative z-10" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>
