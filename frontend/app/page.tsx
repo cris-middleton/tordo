@@ -66,73 +66,36 @@ const faqs = [
   },
 ];
 
-const plans = [
-  {
-    name: 'Free',
-    price: '$0',
-    period: '',
-    daily: '',
-    description: 'Para explorar sin compromiso',
-    features: [
-      'Exploración de licitaciones',
-      'Panel básico',
-      'Sin tarjeta de crédito',
-    ],
-    highlight: false,
-    cta: 'Comenzar gratis',
-    href: '/register',
-  },
-  {
-    name: 'Starter',
-    price: '$5.900',
-    period: '/mes',
-    daily: '~$197/día',
-    description: 'Para quien quiere estar al día',
-    features: [
-      '10 alertas segmentadas por mes',
-      'Filtros por región y rubro',
-      'Monitor de estado hábil',
-      'Soporte por correo',
-    ],
-    highlight: false,
-    cta: 'Elegir Starter',
-    href: '/register',
-  },
-  {
-    name: 'Pro',
-    price: '$11.900',
-    period: '/mes',
-    daily: '~$397/día',
-    description: 'Inteligencia completa para ganar más',
-    features: [
-      'Alertas ilimitadas',
-      'Inteligencia BI completa',
-      'Benchmarks de precio por producto',
-      'Análisis de competidores',
-      'Checklist por tipo de licitación',
-      'Matching semántico',
-    ],
-    highlight: true,
-    cta: 'Elegir Pro',
-    href: '/register',
-  },
-  {
-    name: 'Enterprise',
-    price: 'A consultar',
-    period: '',
-    daily: '',
-    description: 'Para equipos y múltiples RUTs',
-    features: [
-      'Todo lo del plan Pro',
-      'Usuarios múltiples con roles',
-      'Integraciones API',
-      'Soporte prioritario',
-    ],
-    highlight: false,
-    cta: 'Contactar',
-    href: '#contacto',
-  },
-];
+const FREE_PLAN = {
+  name: 'Free',
+  description: 'Para explorar sin compromiso',
+  features: [
+    'Exploración de licitaciones',
+    '3 alertas al mes',
+    'Monitor de estado hábil',
+    'Sin tarjeta de crédito',
+  ],
+  cta: 'Crear cuenta gratis',
+  href: '/register',
+};
+
+const PRO_PLAN = {
+  name: 'Pro',
+  description: 'Inteligencia completa para ganar más',
+  monthly: { price: '$11.900', period: '/mes', note: '' },
+  annual: { price: '$9.900', period: '/mes', note: 'Facturado anual · ahorras 2 meses' },
+  features: [
+    'Alertas ilimitadas',
+    'Benchmarks de precio por producto',
+    'Análisis de competidores',
+    'Score de oportunidad',
+    'Matching semántico',
+    'Checklist por tipo de licitación',
+    'Alertas de vencimiento de documentos',
+  ],
+  cta: 'Probar 14 días gratis',
+  href: '/register',
+};
 
 /* ─────────────────────────────────────────────
    ROTATING TEXT COMPONENT
@@ -187,6 +150,7 @@ export default function Home() {
   const [showMobileCta, setShowMobileCta] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
 
   useEffect(() => {
     if (userClicked) return;
@@ -491,57 +455,98 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              {plans.map((plan) => (
-                <div
-                  key={plan.name}
-                  className={`relative flex flex-col rounded-xl border p-6 transition-all ${
-                    plan.highlight
-                      ? 'border-[#0F2942] bg-[#0F2942] text-white shadow-xl'
-                      : 'border-[#E2E6EF] bg-white shadow-sm hover:shadow-md hover:border-[#0F2942]/25'
-                  }`}
+            <div className="mx-auto grid max-w-3xl gap-5 sm:grid-cols-2">
+              {/* Free card */}
+              <div className="relative flex flex-col rounded-xl border border-[#E2E6EF] bg-white p-6 shadow-sm transition-all hover:shadow-md hover:border-[#0F2942]/25">
+                <div className="mb-4">
+                  <h3 className="text-lg font-bold mb-1 text-[#0D1B2A]" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>{FREE_PLAN.name}</h3>
+                  <p className="text-xs text-[#64748B]">{FREE_PLAN.description}</p>
+                </div>
+                <div className="mb-1">
+                  <span className="font-bold text-3xl text-[#0D1B2A]" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>$0</span>
+                </div>
+                <div className="mb-4 h-4" />
+                <ul className="mb-6 flex-1 space-y-2.5">
+                  {FREE_PLAN.features.map((f) => (
+                    <li key={f} className="flex items-start gap-2 text-sm">
+                      <span className="mt-0.5 text-xs text-[#0EAD69]">&#10003;</span>
+                      <span className="text-[#64748B]">{f}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  href={FREE_PLAN.href}
+                  className="block rounded-lg py-2.5 text-center text-sm font-bold transition-all border border-[#0F2942] text-[#0F2942] hover:bg-[#0F2942] hover:text-white"
                 >
-                  {plan.highlight && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[#0EAD69] px-3 py-1 text-[11px] font-bold text-white whitespace-nowrap">Más popular</span>
-                    </div>
-                  )}
-                  <div className="mb-4">
-                    <h3 className={`text-lg font-bold mb-1 ${plan.highlight ? 'text-white' : 'text-[#0D1B2A]'}`} style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>{plan.name}</h3>
-                    <p className={`text-xs ${plan.highlight ? 'text-white/60' : 'text-[#64748B]'}`}>{plan.description}</p>
-                  </div>
-                  <div className="mb-1">
-                    <span className={`font-bold text-3xl ${plan.highlight ? 'text-white' : 'text-[#0D1B2A]'}`} style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>{plan.price}</span>
-                    {plan.period && <span className={`text-sm ${plan.highlight ? 'text-white/60' : 'text-[#64748B]'}`}>{plan.period}</span>}
-                  </div>
-                  {plan.daily ? (
-                    <p className={`text-xs mb-4 ${plan.highlight ? 'text-white/50' : 'text-[#94A3B8]'}`}>{plan.daily}</p>
-                  ) : (
-                    <div className="mb-4" />
-                  )}
-                  <ul className="mb-6 flex-1 space-y-2.5">
-                    {plan.features.map((f) => (
-                      <li key={f} className="flex items-start gap-2 text-sm">
-                        <span className="mt-0.5 text-xs text-[#0EAD69]">&#10003;</span>
-                        <span className={plan.highlight ? 'text-white/80' : 'text-[#64748B]'}>{f}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <Link
-                    href={plan.href}
-                    className={`block rounded-lg py-2.5 text-center text-sm font-bold transition-all ${
-                      plan.highlight
-                        ? 'bg-[#0EAD69] text-white hover:bg-[#09895B]'
-                        : 'border border-[#0F2942] text-[#0F2942] hover:bg-[#0F2942] hover:text-white'
+                  {FREE_PLAN.cta}
+                </Link>
+              </div>
+
+              {/* Pro card */}
+              <div className="relative flex flex-col rounded-xl border border-[#0F2942] bg-[#0F2942] p-6 text-white shadow-xl">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#0EAD69] px-3 py-1 text-[11px] font-bold text-white whitespace-nowrap">Más elegido</span>
+                </div>
+
+                <div className="mb-4">
+                  <h3 className="text-lg font-bold mb-1 text-white" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>{PRO_PLAN.name}</h3>
+                  <p className="text-xs text-white/60">{PRO_PLAN.description}</p>
+                </div>
+
+                {/* Monthly / Annual toggle */}
+                <div className="mb-4 inline-flex self-start rounded-lg bg-white/10 p-1 text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setBillingPeriod('monthly')}
+                    className={`rounded-md px-3 py-1.5 transition-all ${
+                      billingPeriod === 'monthly' ? 'bg-white text-[#0F2942]' : 'text-white/70 hover:text-white'
                     }`}
                   >
-                    {plan.cta}
-                  </Link>
+                    Mensual
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBillingPeriod('annual')}
+                    className={`rounded-md px-3 py-1.5 transition-all ${
+                      billingPeriod === 'annual' ? 'bg-white text-[#0F2942]' : 'text-white/70 hover:text-white'
+                    }`}
+                  >
+                    Anual <span className="ml-1 text-[10px] text-[#0EAD69]">−17%</span>
+                  </button>
                 </div>
-              ))}
+
+                <div className="mb-1">
+                  <span className="font-bold text-3xl text-white" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>
+                    {PRO_PLAN[billingPeriod].price}
+                  </span>
+                  <span className="text-sm text-white/60">{PRO_PLAN[billingPeriod].period}</span>
+                </div>
+                <p className="mb-4 text-xs text-white/50 min-h-[1rem]">
+                  {PRO_PLAN[billingPeriod].note}
+                </p>
+
+                <ul className="mb-6 flex-1 space-y-2.5">
+                  {PRO_PLAN.features.map((f) => (
+                    <li key={f} className="flex items-start gap-2 text-sm">
+                      <span className="mt-0.5 text-xs text-[#0EAD69]">&#10003;</span>
+                      <span className="text-white/80">{f}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  href={PRO_PLAN.href}
+                  className="block rounded-lg py-2.5 text-center text-sm font-bold transition-all bg-[#0EAD69] text-white hover:bg-[#09895B]"
+                >
+                  {PRO_PLAN.cta}
+                </Link>
+              </div>
             </div>
-            <p className="mt-8 text-center text-sm text-[#94A3B8]">
-              El plan Free no tiene límite de tiempo. Explora todo lo que necesites.
+
+            <p className="mt-6 text-center text-sm text-[#64748B]">
+              ¿Equipos o múltiples RUTs?{' '}
+              <Link href="#contacto" className="font-semibold text-[#0F2942] hover:text-[#0EAD69] transition-colors">
+                Hablemos →
+              </Link>
             </p>
           </div>
         </section>
