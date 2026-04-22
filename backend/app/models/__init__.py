@@ -18,6 +18,7 @@ from app.models.reference import (
 from app.models.empresa import Empresa, EmpresaUsuario, DocumentoEmpresa, EstadoHabilLog, TFIDFPerfil
 from app.models.postulacion import Postulacion, PlantillaChecklist, ChecklistPostulacion
 from app.models.task_failure import TaskFailure
+from app.models.dashboard_cache import DashboardHomeCache
 
 __all__ = [
     "Base",
@@ -49,5 +50,6 @@ __all__ = [
     "PlantillaChecklist",
     "ChecklistPostulacion",
     "TaskFailure",
+    "DashboardHomeCache",
 ]
 
