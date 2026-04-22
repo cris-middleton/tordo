@@ -330,7 +330,7 @@ export default function Home() {
                 Inteligencia para decidir. Orden para postular.
               </h2>
               <p className="mt-4 max-w-2xl mx-auto text-[#64748B] leading-relaxed">
-                Antes de invertir tiempo en una licitación, TORDO te muestra si tu precio es competitivo y qué tan confiable es el comprador. Cuando postulas, te asegura que no te descarten antes de ser evaluado.
+                Te mostramos si tu precio es competitivo y qué tan confiable es el comprador — antes de que inviertas tiempo postulando.
               </p>
             </div>
 
