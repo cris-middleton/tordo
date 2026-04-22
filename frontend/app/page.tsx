@@ -247,7 +247,7 @@ export default function Home() {
               Iniciar sesión
             </Link>
             <Link href="/register" className="hidden sm:inline-flex rounded-lg bg-[#0EAD69] px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-[#09895B] hover:shadow-md">
-              Prueba gratis
+              Probar Pro 14 días
             </Link>
             <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="rounded-lg p-2 text-[#64748B] hover:text-[#0F2942] md:hidden">
               {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -262,7 +262,7 @@ export default function Home() {
                 <Link key={item.name} href={item.href} onClick={() => setMobileMenuOpen(false)} className="text-sm font-medium text-[#64748B] hover:text-[#0F2942]">{item.name}</Link>
               ))}
               <Link href="/register" onClick={() => setMobileMenuOpen(false)} className="inline-flex items-center justify-center rounded-lg bg-[#0EAD69] px-4 py-2.5 text-sm font-bold text-white transition-all hover:bg-[#09895B]">
-                Prueba gratis
+                Probar Pro 14 días
               </Link>
             </nav>
           </div>
@@ -296,7 +296,7 @@ export default function Home() {
 
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-10 sm:mb-12">
                   <Link href="/register" className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0EAD69] px-6 py-3.5 text-sm font-bold text-white shadow-lg transition-all hover:bg-[#09895B] hover:shadow-xl">
-                    Prueba gratis — sin tarjeta
+                    Probar Pro 14 días
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                   <Link href="#producto" className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/[0.08] px-6 py-3.5 text-sm font-semibold text-white/90 backdrop-blur-sm transition-all hover:bg-white/15">
@@ -619,7 +619,7 @@ export default function Home() {
               Cuenta gratis en 2 minutos. Sin tarjeta de crédito. No necesitas experiencia previa en licitaciones.
             </p>
             <Link href="/register" className="inline-flex items-center gap-2 rounded-lg bg-[#0EAD69] px-8 py-4 text-base font-bold text-white shadow-lg transition-all hover:bg-[#09895B] hover:shadow-xl">
-              Crear cuenta gratis
+              Probar Pro 14 días
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
@@ -650,7 +650,7 @@ export default function Home() {
       {showMobileCta && (
         <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#E2E6EF] bg-white px-4 py-3 lg:hidden">
           <Link href="/register" className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0EAD69] px-6 py-3 text-sm font-bold text-white transition-all hover:bg-[#09895B]">
-            Prueba gratis
+            Probar Pro 14 días
             <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
