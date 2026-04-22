@@ -45,19 +45,14 @@ const rotatingRubros = [
 
 const faqs = [
   {
-    question: '¿Necesito estar registrado en ChileCompra?',
+    question: '¿Necesito algo de ChileCompra antes de usar TORDO?',
     answer:
-      'Sí. Para postular a licitaciones en Mercado Público necesitas estar inscrito como proveedor en el Registro de Proveedores de ChileCompra. TORDO no reemplaza ese registro — te ayuda a usar mejor la información disponible una vez que ya eres proveedor.',
+      'Sí. Para postular en Mercado Público tu empresa debe estar inscrita como proveedor en ChileCompra y mantener el "estado hábil" al día. TORDO no reemplaza ese registro — te ayuda a usar mejor la información una vez que ya eres proveedor, y revisa tu estado hábil diariamente para avisarte si algo cambia.',
   },
   {
     question: '¿Necesito experiencia en licitaciones?',
     answer:
       'No. TORDO está diseñado para que cualquier empresa pueda entender una licitación y evaluar si le conviene postular, sin conocimiento previo del proceso.',
-  },
-  {
-    question: '¿Qué es el "estado hábil"?',
-    answer:
-      'Para postular en Mercado Público tu empresa debe estar "hábil" en ChileCompra. Si pierdes la habilitación, quedas fuera. TORDO revisa tu estado diariamente y te avisa si algo cambia.',
   },
   {
     question: '¿De dónde vienen los datos?',
@@ -68,11 +63,6 @@ const faqs = [
     question: '¿En qué se diferencia de otras herramientas?',
     answer:
       'La mayoría de las herramientas están diseñadas para equipos grandes con analistas dedicados. TORDO está pensado para el dueño de PYME que toma decisiones solo: simplifica la información para que entiendas rápido si conviene postular.',
-  },
-  {
-    question: '¿Puedo cancelar cuando quiera?',
-    answer:
-      'Sí. Sin penalidades, sin preguntas. Tu plan sigue activo hasta el fin del período.',
   },
 ];
 
