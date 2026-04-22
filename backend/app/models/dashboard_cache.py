@@ -23,7 +23,7 @@ class DashboardHomeCache(Base):
     )
     matches = Column(JsonType, nullable=False, default=list)
     matches_count = Column(Integer(), nullable=False, default=0)
-    cached_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    cached_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
     updated_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),
