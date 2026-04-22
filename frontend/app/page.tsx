@@ -588,7 +588,7 @@ export default function Home() {
               Tu próxima licitación, con mejor información
             </h2>
             <p className="mb-8 text-white/65 leading-relaxed">
-              Cuenta gratis en 2 minutos. Sin tarjeta de crédito. No necesitas experiencia previa en licitaciones.
+              Cuenta gratis en 2 minutos. Sin tarjeta.
             </p>
             <Link href="/register" className="inline-flex items-center gap-2 rounded-lg bg-[#0EAD69] px-8 py-4 text-base font-bold text-white shadow-lg transition-all hover:bg-[#09895B] hover:shadow-xl">
               Probar Pro 14 días
