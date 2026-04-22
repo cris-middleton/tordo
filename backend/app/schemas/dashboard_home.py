@@ -73,12 +73,18 @@ class TrendStats(BaseModel):
 
 
 class PlanInfo(BaseModel):
+    """Plan context for the home dashboard.
+
+    `tier` is a binary projection of the user's `plan_tier`: `basico` → `free`,
+    everything else (`pyme`, `pro`, `enterprise`) → `paid`.
+    """
+
     tier: Literal["free", "paid"]
     matches_visibles: int
 
 
 class DashboardHomeResponse(BaseModel):
-    empresa: Optional[EmpresaSummary]
+    empresa: Optional[EmpresaSummary] = None
     resumen: ResumenStats
     urgencias: list[UrgenciaItem]
     matches: list[MatchItem]
