@@ -327,9 +327,9 @@ export default function Home() {
                 </div>
                 <div className="space-y-5">
                   {[
-                    { icon: Bell, title: 'Alertas cuando aparece algo que te conviene', desc: 'Te avisamos por correo o WhatsApp cuando aparecen licitaciones u órdenes de compra que calzan con tu perfil, y también 48 y 24 horas antes del cierre.' },
-                    { icon: CheckCircle2, title: 'Papeles al día sin adivinar', desc: 'Plantilla de documentos según el tipo de licitación (L1, LE, LP). Así no revisas Bases de 40 páginas para saber qué declaraciones pedir.' },
-                    { icon: FileClock, title: 'No pierdas postulaciones por un documento vencido', desc: 'Te avisamos cuando un certificado, garantía o boleta está por vencer. Así renuevas a tiempo y no te descartan por un papel caducado.' },
+                    { icon: Bell, title: 'Alertas cuando aparece algo que te conviene', desc: 'Por correo o WhatsApp cuando calzan con tu perfil, y 48 y 24 h antes del cierre.' },
+                    { icon: CheckCircle2, title: 'Papeles al día sin adivinar', desc: 'Plantilla de documentos según el tipo de licitación (L1, LE, LP).' },
+                    { icon: FileClock, title: 'No pierdas por un documento vencido', desc: 'Te avisamos antes de que caduque un certificado, garantía o boleta.' },
                   ].map((item) => {
                     const Icon = item.icon;
                     return (
