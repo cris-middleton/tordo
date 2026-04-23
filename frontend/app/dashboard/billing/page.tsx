@@ -16,9 +16,11 @@ import {
 interface Plan {
   id: string;
   nombre: string;
-  precio_clp: number | null;
   descripcion: string;
   features: string[];
+  precio_mensual_clp?: number | null;
+  precio_anual_mensualizado_clp?: number | null;
+  precio_anual_total_clp?: number | null;
 }
 
 interface BillingStatus {
@@ -30,24 +32,28 @@ interface BillingStatus {
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  active: { label: 'Activa', color: 'text-accent bg-accent/10' },
+  active:   { label: 'Activa', color: 'text-accent bg-accent/10' },
   trialing: { label: 'Prueba gratuita', color: 'text-info bg-info/10' },
   past_due: { label: 'Pago vencido', color: 'text-danger bg-danger/10' },
   canceled: { label: 'Cancelada', color: 'text-muted bg-surface border border-border' },
   inactive: { label: 'Gratuito', color: 'text-muted bg-surface border border-border' },
 };
 
+const formatCLP = (n: number) => `$${n.toLocaleString('es-CL')}`;
+
 export default function BillingPage() {
   const { user, refreshUser } = useAuth();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
   const [error, setError] = useState('');
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadData = async () => {
@@ -58,217 +64,192 @@ export default function BillingPage() {
       ]);
       setPlans(plansData);
       setBillingStatus(statusData);
-    } catch (err: any) {
+    } catch {
       setError('No se pudo cargar la información de facturación.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCheckout = async (planId: string) => {
+  const handleCheckout = async () => {
     if (!billingStatus?.billing_enabled) return;
-    setCheckoutLoading(planId);
+    setCheckoutLoading(true);
     setError('');
     try {
       const origin = window.location.origin;
       const res = await apiClient.createCheckoutSession({
-        plan_tier: planId,
+        plan_tier: 'pro',
+        billing_period: billingPeriod,
         success_url: `${origin}/dashboard/billing?success=1`,
         cancel_url: `${origin}/dashboard/billing`,
       });
       window.location.href = res.checkout_url;
-    } catch (err: any) {
-      setError(
-        err?.response?.data?.detail ||
-          'No se pudo iniciar el proceso de pago. Verifica que Stripe esté configurado.',
-      );
-    } finally {
-      setCheckoutLoading(null);
+    } catch {
+      setError('No se pudo iniciar el checkout.');
+      setCheckoutLoading(false);
     }
   };
 
   const handlePortal = async () => {
     setPortalLoading(true);
-    setError('');
     try {
       const res = await apiClient.createBillingPortal();
       window.location.href = res.portal_url;
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || 'No se pudo abrir el portal de facturación.');
-    } finally {
+    } catch {
+      setError('No se pudo abrir el portal de facturación.');
       setPortalLoading(false);
     }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16">
-        <Loader2 className="h-6 w-6 animate-spin text-muted" />
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="animate-spin text-muted" size={24} />
       </div>
     );
   }
 
-  const currentPlanId = billingStatus?.plan_tier || 'basico';
-  const subStatus = billingStatus?.subscription_status || 'inactive';
-  const statusCfg = STATUS_LABELS[subStatus] || STATUS_LABELS.inactive;
-  const hasActiveSubscription = ['active', 'trialing'].includes(subStatus);
-  const billingEnabled = billingStatus?.billing_enabled ?? false;
+  const freePlan = plans.find((p) => p.id === 'free');
+  const proPlan = plans.find((p) => p.id === 'pro');
+  const status = billingStatus?.subscription_status ?? 'inactive';
+  const statusBadge = STATUS_LABELS[status] ?? STATUS_LABELS.inactive;
 
   return (
-    <div className="space-y-8 max-w-3xl">
-      <div>
-        <h1 className="text-2xl font-semibold text-text">Facturación</h1>
-        <p className="text-sm text-muted mt-1">Gestiona tu plan y suscripción.</p>
-      </div>
-
-      {/* Current status card */}
-      <div className="card flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <p className="text-xs text-muted font-medium uppercase tracking-wide">Plan actual</p>
-          <div className="flex items-center gap-2 mt-1">
-            <p className="text-2xl font-bold text-text capitalize">{currentPlanId}</p>
-            <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusCfg.color}`}>
-              {statusCfg.label}
-            </span>
+    <div className="max-w-5xl mx-auto space-y-8">
+      {/* Current subscription status */}
+      <div className="rounded-xl border border-border bg-surface p-5">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-subtle">
+              Tu suscripción
+            </p>
+            <p className="mt-1 text-lg font-bold text-text">
+              Plan {billingStatus?.plan_tier === 'pro' ? 'Pro' : 'Free'}
+            </p>
           </div>
+          <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${statusBadge.color}`}>
+            {statusBadge.label}
+          </span>
+          {billingStatus?.stripe_customer_id && (
+            <button
+              onClick={handlePortal}
+              disabled={portalLoading}
+              className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium text-text hover:bg-background"
+            >
+              {portalLoading ? <Loader2 className="animate-spin" size={14} /> : <CreditCard size={14} />}
+              Gestionar suscripción
+              <ExternalLink size={12} />
+            </button>
+          )}
         </div>
-        {hasActiveSubscription && billingStatus?.stripe_customer_id && (
-          <button
-            onClick={handlePortal}
-            disabled={portalLoading}
-            className="btn-secondary flex items-center gap-2"
-          >
-            {portalLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <ExternalLink className="h-4 w-4" />
-            )}
-            Gestionar suscripción
-          </button>
-        )}
       </div>
-
-      {/* Success banner */}
-      {typeof window !== 'undefined' &&
-        new URLSearchParams(window.location.search).get('success') && (
-          <div className="alert-success flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
-            ¡Suscripción activada correctamente! Bienvenido al plan{' '}
-            <span className="font-semibold capitalize">{currentPlanId}</span>.
-          </div>
-        )}
 
       {error && (
-        <div className="alert-error flex items-center gap-2">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
+        <div className="flex items-center gap-2 rounded-lg border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
+          <AlertTriangle size={16} />
           {error}
         </div>
       )}
 
-      {!billingEnabled && (
-        <div className="alert-warning flex items-center gap-3">
-          <Lock className="h-4 w-4 shrink-0" />
-          <span>
-            El módulo de facturación está desactivado. Actívalo con{' '}
-            <code>FEATURE_BILLING=true</code> y configura las claves de Stripe.
-          </span>
+      {!billingStatus?.billing_enabled && (
+        <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-3 text-sm text-muted">
+          <Lock size={16} />
+          El módulo de facturación está deshabilitado en este entorno.
         </div>
       )}
 
-      {/* Plans grid */}
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-text">Planes disponibles</h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {plans.map((plan) => {
-            const isCurrent = plan.id === currentPlanId;
-            const isDowngrade =
-              (plan.id === 'basico' && currentPlanId !== 'basico') ||
-              (plan.id === 'pro' && currentPlanId === 'enterprise');
+      {/* Two-card grid */}
+      <div className="grid gap-5 sm:grid-cols-2">
+        {/* Free card */}
+        {freePlan && (
+          <div className="flex flex-col rounded-xl border border-border bg-surface p-6">
+            <h3 className="text-lg font-bold text-text">{freePlan.nombre}</h3>
+            <p className="mt-1 text-xs text-muted">{freePlan.descripcion}</p>
+            <p className="mt-4 text-3xl font-bold text-text">$0</p>
+            <div className="mt-4 h-4" />
+            <ul className="flex-1 space-y-2.5">
+              {freePlan.features.map((f) => (
+                <li key={f} className="flex items-start gap-2 text-sm text-muted">
+                  <CheckCircle2 className="mt-0.5 shrink-0 text-accent" size={14} />
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-6 rounded-lg border border-dashed border-border px-3 py-2 text-center text-xs text-subtle">
+              Plan actual si no activas Pro
+            </div>
+          </div>
+        )}
 
-            return (
-              <div
-                key={plan.id}
-                className={`flex flex-col rounded-xl border p-5 ${
-                  isCurrent
-                    ? 'border-primary bg-primary/5'
-                    : plan.id === 'pro'
-                      ? 'border-primary/30 shadow-sm'
-                      : 'border-border'
+        {/* Pro card */}
+        {proPlan && (
+          <div className="relative flex flex-col rounded-xl border border-primary bg-primary p-6 text-white shadow-xl">
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+              <span className="inline-flex items-center gap-1 rounded-full bg-gold px-3 py-1 text-[11px] font-bold text-white">
+                <Star size={10} /> Más elegido
+              </span>
+            </div>
+
+            <h3 className="text-lg font-bold">{proPlan.nombre}</h3>
+            <p className="mt-1 text-xs text-white/70">{proPlan.descripcion}</p>
+
+            {/* Monthly / Annual toggle */}
+            <div className="mt-4 inline-flex self-start rounded-lg bg-white/10 p-1 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setBillingPeriod('monthly')}
+                className={`rounded-md px-3 py-1.5 transition-all ${
+                  billingPeriod === 'monthly' ? 'bg-white text-primary' : 'text-white/70 hover:text-white'
                 }`}
               >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-semibold text-text">{plan.nombre}</span>
-                  {plan.id === 'pro' && (
-                    <span className="flex items-center gap-1 rounded-full bg-gold/10 px-2 py-0.5 text-xs font-semibold text-gold">
-                      <Star className="h-3 w-3" />
-                      Popular
-                    </span>
-                  )}
-                  {isCurrent && (
-                    <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-white">
-                      Actual
-                    </span>
-                  )}
-                </div>
+                Mensual
+              </button>
+              <button
+                type="button"
+                onClick={() => setBillingPeriod('annual')}
+                className={`rounded-md px-3 py-1.5 transition-all ${
+                  billingPeriod === 'annual' ? 'bg-white text-primary' : 'text-white/70 hover:text-white'
+                }`}
+              >
+                Anual <span className="ml-1 text-[10px] text-accent">−17%</span>
+              </button>
+            </div>
 
-                <p className="text-2xl font-bold text-text mb-1">
-                  {plan.precio_clp ? (
-                    <>
-                      ${plan.precio_clp.toLocaleString('es-CL')}
-                      <span className="text-sm font-normal text-muted">/mes</span>
-                    </>
-                  ) : (
-                    'Gratis'
-                  )}
-                </p>
-                <p className="text-xs text-muted mb-4">{plan.descripcion}</p>
+            <p className="mt-3 text-3xl font-bold">
+              {billingPeriod === 'monthly'
+                ? formatCLP(proPlan.precio_mensual_clp ?? 0)
+                : formatCLP(proPlan.precio_anual_mensualizado_clp ?? 0)}
+              <span className="ml-1 text-sm font-normal text-white/70">/mes</span>
+            </p>
+            <p className="mt-1 min-h-[1rem] text-xs text-white/60">
+              {billingPeriod === 'annual' && proPlan.precio_anual_total_clp
+                ? `Facturado anual · ${formatCLP(proPlan.precio_anual_total_clp)}/año`
+                : ''}
+            </p>
 
-                <ul className="flex-1 space-y-1.5 mb-5">
-                  {plan.features.map((f) => (
-                    <li key={f} className="flex items-start gap-1.5 text-xs">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-accent shrink-0 mt-0.5" />
-                      <span className="text-muted">{f}</span>
-                    </li>
-                  ))}
-                </ul>
+            <ul className="mt-4 flex-1 space-y-2.5">
+              {proPlan.features.map((f) => (
+                <li key={f} className="flex items-start gap-2 text-sm text-white/85">
+                  <CheckCircle2 className="mt-0.5 shrink-0 text-accent" size={14} />
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
 
-                {isCurrent ? (
-                  <button disabled className="btn-secondary w-full opacity-60 cursor-default">
-                    Plan actual
-                  </button>
-                ) : isDowngrade ? (
-                  <button
-                    onClick={handlePortal}
-                    disabled={!billingEnabled || portalLoading}
-                    className="btn-secondary w-full text-sm"
-                  >
-                    Cambiar plan
-                  </button>
-                ) : plan.precio_clp ? (
-                  <button
-                    onClick={() => handleCheckout(plan.id)}
-                    disabled={!billingEnabled || checkoutLoading === plan.id}
-                    className="btn-primary w-full flex items-center justify-center gap-2"
-                  >
-                    {checkoutLoading === plan.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        <CreditCard className="h-4 w-4" />
-                        Suscribirse
-                      </>
-                    )}
-                  </button>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
+            <button
+              onClick={handleCheckout}
+              disabled={checkoutLoading || !billingStatus?.billing_enabled}
+              className="mt-6 inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-bold text-white hover:bg-accent/90 disabled:opacity-60"
+            >
+              {checkoutLoading ? <Loader2 className="animate-spin" size={14} /> : null}
+              {status === 'active' ? 'Ya tienes Pro' : 'Activar Pro'}
+            </button>
+          </div>
+        )}
       </div>
 
-      <p className="text-xs text-muted">
-        Los pagos son procesados de forma segura por Stripe. Al suscribirte aceptas nuestros
-        términos de servicio. Puedes cancelar en cualquier momento desde el portal de facturación.
+      <p className="text-center text-xs text-subtle">
+        Precios en CLP. Cancela cuando quieras desde el portal de facturación.
       </p>
     </div>
   );

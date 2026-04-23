@@ -1,14 +1,14 @@
 """Add trial tracking columns to users.
 
-Revision ID: 009
-Revises: 008
+Revision ID: 010
+Revises: 009
 Create Date: 2026-04-23
 """
 from alembic import op
 import sqlalchemy as sa
 
-revision = "009"
-down_revision = "008"
+revision = "010"
+down_revision = "009"
 branch_labels = None
 depends_on = None
 
