@@ -15,12 +15,29 @@ Redis keys:
 from __future__ import annotations
 
 import logging
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any
 
 from fastapi import Depends, HTTPException
 
 logger = logging.getLogger(__name__)
+
+
+def effective_plan_tier(user) -> str:
+    """
+    Return the user's *effective* plan tier right now.
+
+    Rule: if the user is in an unexpired trial (subscription_status='trialing'
+    AND trial_ends_at is in the future), they get full 'pro' access regardless
+    of the stored plan_tier. Otherwise return plan_tier as-is.
+    """
+    trial_ends = getattr(user, "trial_ends_at", None)
+    status = getattr(user, "subscription_status", None)
+    if status == "trialing" and trial_ends is not None:
+        now = datetime.now(timezone.utc)
+        if trial_ends > now:
+            return "pro"
+    return (user.plan_tier or "basico").lower()
 
 # ── Tier ordering ─────────────────────────────────────────────────────────────
 
@@ -155,13 +172,13 @@ def require_plan(min_tier: str):
     from app.models.user import User
 
     def _check(current_user: User = Depends(get_current_active_user)) -> User:
-        if not meets_min_tier(current_user.plan_tier, min_tier):
+        if not meets_min_tier(effective_plan_tier(current_user), min_tier):
             label = _TIER_LABEL.get(min_tier, min_tier.title())
             raise HTTPException(
                 status_code=402,
                 detail=_quota_error(
                     "plan_tier",
-                    current_user.plan_tier,
+                    effective_plan_tier(current_user),
                     None,
                     None,
                     f"Esta función requiere el plan {label} o superior. "
@@ -190,7 +207,8 @@ def _make_bi_quota_dep():
     from app.models.user import User
 
     def _check(current_user: User = Depends(get_current_active_user)) -> User:
-        quota = get_quota(current_user.plan_tier)
+        tier = effective_plan_tier(current_user)
+        quota = get_quota(tier)
         daily_limit: int | None = quota["bi_queries_per_day"]
 
         if daily_limit is _UNLIMITED:
@@ -200,12 +218,12 @@ def _make_bi_quota_dep():
         # Increment first (atomic), then check — avoids a separate GET+SET
         new_count = increment_bi_query(current_user.id)
         if new_count > daily_limit:
-            label = _TIER_LABEL.get(current_user.plan_tier, current_user.plan_tier.title())
+            label = _TIER_LABEL.get(tier, tier.title())
             raise HTTPException(
                 status_code=402,
                 detail=_quota_error(
                     "bi_queries_per_day",
-                    current_user.plan_tier,
+                    tier,
                     daily_limit,
                     new_count,
                     f"Has alcanzado el límite de {daily_limit} consultas BI por día "
@@ -234,7 +252,8 @@ def _make_alert_quota_dep_real():
     ) -> User:
         from app.models.alert import AlertPreference
 
-        quota = get_quota(current_user.plan_tier)
+        tier = effective_plan_tier(current_user)
+        quota = get_quota(tier)
         max_alerts: int | None = quota["max_active_alerts"]
         if max_alerts is _UNLIMITED:
             return current_user
@@ -248,12 +267,12 @@ def _make_alert_quota_dep_real():
             )
         ).scalar() or 0
         if active_count >= max_alerts:
-            label = _TIER_LABEL.get(current_user.plan_tier, current_user.plan_tier.title())
+            label = _TIER_LABEL.get(tier, tier.title())
             raise HTTPException(
                 status_code=402,
                 detail=_quota_error(
                     "max_active_alerts",
-                    current_user.plan_tier,
+                    tier,
                     max_alerts,
                     active_count,
                     f"Has alcanzado el límite de {max_alerts} alertas activas "
@@ -270,27 +289,24 @@ check_alert_quota_dep = _make_alert_quota_dep_real()
 
 # ── Document quota helper (called inline, not as Depends) ─────────────────────
 
-def enforce_doc_quota(user_tier: str, existing_docs: list, new_file_bytes: int) -> None:
+def enforce_doc_quota(user, existing_docs: list, new_file_bytes: int) -> None:
     """
     Raise HTTP 402 if adding new_file_bytes would exceed plan document quotas.
 
-    Call this AFTER reading the file bytes, BEFORE persisting to storage.
-
-    :param user_tier:      current_user.plan_tier
-    :param existing_docs:  list of DocumentoEmpresa ORM objects (non-deleted)
-    :param new_file_bytes: byte length of the file about to be uploaded
+    Accepts the full User ORM object so trial status is considered.
     """
-    quota = get_quota(user_tier)
+    tier = effective_plan_tier(user)
+    quota = get_quota(tier)
     max_docs: int | None = quota["max_docs"]
     max_mb: float | None = quota["max_docs_mb"]
-    label = _TIER_LABEL.get(user_tier, user_tier.title())
+    label = _TIER_LABEL.get(tier, tier.title())
 
     if max_docs is not _UNLIMITED and len(existing_docs) >= max_docs:
         raise HTTPException(
             status_code=402,
             detail=_quota_error(
                 "max_docs",
-                user_tier,
+                tier,
                 max_docs,
                 len(existing_docs),
                 f"Has alcanzado el límite de {max_docs} documentos del plan {label}. "
@@ -306,7 +322,7 @@ def enforce_doc_quota(user_tier: str, existing_docs: list, new_file_bytes: int) 
                 status_code=402,
                 detail=_quota_error(
                     "max_docs_mb",
-                    user_tier,
+                    tier,
                     max_mb,
                     round(total_mb_used, 1),
                     f"Has superado el límite de almacenamiento de {max_mb} MB "
