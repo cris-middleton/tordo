@@ -32,6 +32,11 @@ class User(Base):
     stripe_customer_id = Column(String(255))
     stripe_subscription_id = Column(String(255))
 
+    # Trial tracking
+    trial_ends_at = Column(DateTime(timezone=True), nullable=True)
+    trial_reminder_day7_sent_at = Column(DateTime(timezone=True), nullable=True)
+    trial_reminder_day12_sent_at = Column(DateTime(timezone=True), nullable=True)
+
     # OAuth
     google_id = Column(String(100), unique=True, nullable=True, index=True)
 

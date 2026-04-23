@@ -38,6 +38,7 @@ class UserResponse(UserBase):
     notification_whatsapp: bool = False
     plan_tier: str = "basico"
     subscription_status: str = "inactive"
+    trial_ends_at: Optional[datetime] = None
     onboarding_completed: bool = False
     onboarding_step: int = 0
     webhook_url: Optional[str] = None
