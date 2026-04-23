@@ -16,6 +16,7 @@ interface User {
   notification_whatsapp?: boolean;
   plan_tier?: string;
   subscription_status?: string;
+  trial_ends_at?: string | null;
   onboarding_completed?: boolean;
   onboarding_step?: number;
   whatsapp_number?: string;
