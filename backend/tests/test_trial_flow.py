@@ -59,3 +59,33 @@ def test_meets_min_tier_respects_active_trial():
 
 def meets_min_tier_for_user(user, required):
     return meets_min_tier(effective_plan_tier(user), required)
+
+
+from app.api.auth import _apply_trial_defaults
+
+
+def test_apply_trial_defaults_sets_14_day_window():
+    user = _FakeUser(subscription_status="inactive", trial_ends_at=None)
+    before = datetime.now(timezone.utc)
+    _apply_trial_defaults(user)
+    after = datetime.now(timezone.utc)
+
+    assert user.subscription_status == "trialing"
+    assert user.trial_ends_at is not None
+    expected_min = before + timedelta(days=14) - timedelta(seconds=2)
+    expected_max = after + timedelta(days=14) + timedelta(seconds=2)
+    assert expected_min <= user.trial_ends_at <= expected_max
+
+
+def test_apply_trial_defaults_is_noop_when_already_trialing():
+    existing_end = _future(10)
+    user = _FakeUser(subscription_status="trialing", trial_ends_at=existing_end)
+    _apply_trial_defaults(user)
+    assert user.trial_ends_at == existing_end
+
+
+def test_apply_trial_defaults_is_noop_for_paying_user():
+    user = _FakeUser(plan_tier="pro", subscription_status="active")
+    _apply_trial_defaults(user)
+    assert user.subscription_status == "active"
+    assert user.trial_ends_at is None
