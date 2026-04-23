@@ -92,7 +92,8 @@ class Settings(BaseSettings):
     stripe_secret_key: Optional[str] = None
     stripe_publishable_key: Optional[str] = None
     stripe_webhook_secret: Optional[str] = None
-    stripe_price_pro: Optional[str] = None        # Stripe price ID for Pro plan
+    stripe_price_pro: Optional[str] = None         # Stripe price ID for Pro monthly
+    stripe_price_pro_annual: Optional[str] = None  # Stripe price ID for Pro annual
     stripe_price_enterprise: Optional[str] = None  # Stripe price ID for Enterprise plan
 
     # Google OAuth

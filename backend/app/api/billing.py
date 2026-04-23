@@ -9,10 +9,34 @@ from app.schemas.billing import BillingStatus, CheckoutRequest, CheckoutResponse
 router = APIRouter(prefix="/api/billing", tags=["billing"])
 
 PLANS: list[Plan] = [
-    Plan(id="basico", nombre="Básico", precio_clp=None, descripcion="Para comenzar a explorar licitaciones públicas.", features=["Búsqueda de licitaciones", "Alertas básicas", "1 empresa", "Documentos (hasta 10)"]),
-    Plan(id="pyme", nombre="Pyme", precio_clp=5900, descripcion="Para pymes que quieren más alcance.", features=["Todo lo de Básico", "50 BI queries/día", "Alertas ilimitadas", "Documentos (hasta 50)"]),
-    Plan(id="pro", nombre="Pro", precio_clp=11900, descripcion="Para proveedores activos en Mercado Público.", features=["Todo lo de Pyme", "BI ilimitado", "Documentos ilimitados", "Estado hábil automático cada 6h", "Alertas avanzadas + WhatsApp", "Postulaciones ilimitadas"]),
-    Plan(id="enterprise", nombre="Enterprise", precio_clp=29990, descripcion="Para equipos y empresas con múltiples RUTs.", features=["Todo lo de Pro", "Múltiples empresas", "API access", "SLA de soporte prioritario", "Onboarding asistido"]),
+    Plan(
+        id="free",
+        nombre="Free",
+        descripcion="Para explorar sin compromiso.",
+        features=[
+            "Exploración de licitaciones",
+            "3 alertas al mes",
+            "Monitor de estado hábil",
+            "Sin tarjeta de crédito",
+        ],
+    ),
+    Plan(
+        id="pro",
+        nombre="Pro",
+        descripcion="Inteligencia completa para ganar más licitaciones.",
+        features=[
+            "Alertas ilimitadas",
+            "Benchmarks de precio por producto",
+            "Análisis de competidores",
+            "Score de oportunidad",
+            "Matching semántico",
+            "Checklist por tipo de licitación",
+            "Alertas de vencimiento de documentos",
+        ],
+        precio_mensual_clp=11900,
+        precio_anual_mensualizado_clp=9900,
+        precio_anual_total_clp=118800,
+    ),
 ]
 
 
@@ -45,7 +69,13 @@ async def create_checkout_session(
         current_user.stripe_customer_id = customer_id
         await db.commit()
         await db.refresh(current_user)
-    url = create_checkout_session(current_user, payload.plan_tier, payload.success_url, payload.cancel_url)
+    url = create_checkout_session(
+        current_user,
+        payload.plan_tier,
+        payload.success_url,
+        payload.cancel_url,
+        billing_period=payload.billing_period,
+    )
     return CheckoutResponse(checkout_url=url)
 
 

@@ -1,14 +1,16 @@
 """Pydantic schemas for Billing API."""
-from typing import Optional
+from typing import Literal, Optional
 from pydantic import BaseModel
 
 
 class Plan(BaseModel):
     id: str
     nombre: str
-    precio_clp: Optional[int] = None  # None = free
     descripcion: str
     features: list[str]
+    precio_mensual_clp: Optional[int] = None
+    precio_anual_mensualizado_clp: Optional[int] = None  # monthly-equivalent of the annual plan
+    precio_anual_total_clp: Optional[int] = None         # one-time annual charge amount
 
 
 class BillingStatus(BaseModel):
@@ -21,6 +23,7 @@ class BillingStatus(BaseModel):
 
 class CheckoutRequest(BaseModel):
     plan_tier: str
+    billing_period: Literal["monthly", "annual"] = "monthly"
     success_url: str
     cancel_url: str
 
