@@ -66,6 +66,16 @@ celery_app.conf.update(
             "task": "app.tasks.etl_tasks.watchdog",
             "schedule": crontab(minute="*/30"),
         },
+        # 03:00 SCL daily: downgrade expired reverse-trials
+        "trial-downgrade": {
+            "task": "app.tasks.trial_tasks.downgrade_expired_trials",
+            "schedule": crontab(hour=3, minute=0),
+        },
+        # 09:00 SCL daily: reverse-trial day-7 / day-12 reminder emails
+        "trial-reminders": {
+            "task": "app.tasks.trial_tasks.send_trial_reminders",
+            "schedule": crontab(hour=9, minute=0),
+        },
     },
 )
 
@@ -74,3 +84,4 @@ from app.tasks import alert_tasks       # noqa
 from app.tasks import etl_tasks         # noqa
 from app.tasks import estado_habil_tasks  # noqa
 from app.tasks import dashboard_tasks   # noqa
+from app.tasks import trial_tasks       # noqa

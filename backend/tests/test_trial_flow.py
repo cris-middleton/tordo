@@ -89,3 +89,36 @@ def test_apply_trial_defaults_is_noop_for_paying_user():
     _apply_trial_defaults(user)
     assert user.subscription_status == "active"
     assert user.trial_ends_at is None
+
+
+from app.tasks.trial_tasks import _pick_reminder_kind
+
+
+def test_pick_reminder_kind_day7_window():
+    trial_end = datetime.now(timezone.utc) + timedelta(days=7, hours=-1)
+    kind = _pick_reminder_kind(trial_end, day7_sent=None, day12_sent=None)
+    assert kind == "day7"
+
+
+def test_pick_reminder_kind_day12_window():
+    trial_end = datetime.now(timezone.utc) + timedelta(days=2, hours=-1)
+    kind = _pick_reminder_kind(trial_end, day7_sent=_past(5), day12_sent=None)
+    assert kind == "day12"
+
+
+def test_pick_reminder_kind_returns_none_after_day7_sent():
+    trial_end = datetime.now(timezone.utc) + timedelta(days=7, hours=-1)
+    kind = _pick_reminder_kind(trial_end, day7_sent=_past(0.007), day12_sent=None)
+    assert kind is None
+
+
+def test_pick_reminder_kind_skips_outside_windows():
+    trial_end = datetime.now(timezone.utc) + timedelta(days=10)
+    kind = _pick_reminder_kind(trial_end, day7_sent=None, day12_sent=None)
+    assert kind is None
+
+
+def test_pick_reminder_kind_none_after_both_sent():
+    trial_end = datetime.now(timezone.utc) + timedelta(days=2, hours=-1)
+    kind = _pick_reminder_kind(trial_end, day7_sent=_past(5), day12_sent=_past(0.01))
+    assert kind is None
