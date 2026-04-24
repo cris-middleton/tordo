@@ -172,12 +172,24 @@ def send_trial_reminders() -> dict:
             logger.warning("Trial reminder %s failed for user_id=%s", kind, row.id)
             continue
 
+        # Conditional stamp: only write NOW() if another worker hasn't already.
+        # Guarantees one reminder per user per kind even under concurrent runs.
         column = f"trial_reminder_{kind}_sent_at"
         with engine.begin() as conn:
-            conn.execute(
-                text(f"UPDATE users SET {column} = NOW() WHERE id = :uid"),
+            result = conn.execute(
+                text(
+                    f"UPDATE users SET {column} = NOW() "
+                    f"WHERE id = :uid AND {column} IS NULL"
+                ),
                 {"uid": row.id},
             )
+        if (result.rowcount or 0) == 0:
+            # Another worker already stamped this row between our SELECT and UPDATE.
+            logger.info(
+                "Trial reminder %s for user_id=%s already stamped by another worker; skipping count",
+                kind, row.id,
+            )
+            continue
         if kind == "day7":
             sent_day7 += 1
         else:
