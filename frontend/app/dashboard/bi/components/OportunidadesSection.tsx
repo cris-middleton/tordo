@@ -4,11 +4,12 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp, Loader2, Target } from 'lucide-react';
 import { OportunidadItem, CompradorResult, scoreColor, scoreBg } from '../types';
-import { apiClient } from '@/lib/api';
+import { useCompradorCache } from '../hooks/useCompradorCache';
 
 interface OportunidadesSectionProps {
   oportunidades: OportunidadItem[];
   loading: boolean;
+  onFocusOrganismo?: (o: { codigo: string; nombre: string }) => void;
 }
 
 function ScoreBar({ value, max = 10 }: { value: number; max?: number }) {
@@ -27,12 +28,40 @@ function ScoreBar({ value, max = 10 }: { value: number; max?: number }) {
 }
 
 function CompetitionBadge({ n }: { n: number }) {
-  if (n < 5) return <span className="badge-accent text-xs">Baja ({n})</span>;
-  if (n <= 15) return <span className="badge-warning text-xs">Media ({n})</span>;
-  return <span className="badge-error text-xs">Alta ({n})</span>;
+  if (n < 5) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-surface border border-border px-2 py-0.5 text-xs font-medium text-text">
+        <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+        Baja ({n})
+      </span>
+    );
+  }
+  if (n <= 15) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-surface border border-border px-2 py-0.5 text-xs font-medium text-text">
+        <span className="h-1.5 w-1.5 rounded-full bg-gold" />
+        Media ({n})
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-surface border border-border px-2 py-0.5 text-xs font-medium text-text">
+      <span className="h-1.5 w-1.5 rounded-full bg-danger" />
+      Alta ({n})
+    </span>
+  );
 }
 
-function ExpandedRow({ organismo }: { organismo: string }) {
+function ExpandedRow({
+  organismo,
+  nombre,
+  onFocus,
+}: {
+  organismo: string;
+  nombre: string;
+  onFocus?: (o: { codigo: string; nombre: string }) => void;
+}) {
+  const { get } = useCompradorCache();
   const [data, setData] = useState<CompradorResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -41,7 +70,7 @@ function ExpandedRow({ organismo }: { organismo: string }) {
     if (loaded) return;
     setLoading(true);
     try {
-      const res = await apiClient.getBIComprador(organismo);
+      const res = await get(organismo);
       setData(res);
       setLoaded(true);
     } catch {
@@ -51,7 +80,6 @@ function ExpandedRow({ organismo }: { organismo: string }) {
     }
   };
 
-  // Auto-load on mount
   useEffect(() => { load(); }, []);
 
   if (loading) return (
@@ -110,21 +138,32 @@ function ExpandedRow({ organismo }: { organismo: string }) {
       {data.risk_flags && data.risk_flags.n_flags > 0 && (
         <div className="col-span-full flex flex-wrap gap-1.5">
           {data.risk_flags.pago_lento && (
-            <span title="Este organismo tarda más de 45 días en pagar en promedio" className="badge-error text-xs cursor-help">⚠ Pago lento</span>
+            <span title="Este organismo tarda más de 45 días en pagar en promedio" className="badge-danger text-xs cursor-help">⚠ Pago lento</span>
           )}
           {data.risk_flags.cancelaciones && (
-            <span title="Alta tasa de órdenes canceladas" className="badge-error text-xs cursor-help">⚠ Cancelaciones frecuentes</span>
+            <span title="Alta tasa de órdenes canceladas" className="badge-danger text-xs cursor-help">⚠ Cancelaciones frecuentes</span>
           )}
           {data.risk_flags.baja_calificacion && (
-            <span title="Calificación promedio de proveedores baja" className="badge-error text-xs cursor-help">⚠ Baja calificación</span>
+            <span title="Calificación promedio de proveedores baja" className="badge-danger text-xs cursor-help">⚠ Baja calificación</span>
           )}
+        </div>
+      )}
+      {onFocus && (
+        <div className="col-span-full mt-4 pt-3 border-t border-border flex">
+          <button
+            onClick={() => onFocus({ codigo: organismo, nombre })}
+            className="btn-primary text-sm flex items-center gap-2"
+          >
+            <Target className="h-4 w-4" />
+            Analizar este comprador en todo el panel
+          </button>
         </div>
       )}
     </div>
   );
 }
 
-export function OportunidadesSection({ oportunidades, loading }: OportunidadesSectionProps) {
+export function OportunidadesSection({ oportunidades, loading, onFocusOrganismo }: OportunidadesSectionProps) {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
   const maxScore = oportunidades.length > 0
@@ -241,7 +280,11 @@ export function OportunidadesSection({ oportunidades, loading }: OportunidadesSe
                   {isExpanded && (
                     <tr key={`${rowKey}-expanded`}>
                       <td colSpan={6} className="p-0">
-                        <ExpandedRow organismo={op.CodigoOrganismoPublico} />
+                        <ExpandedRow
+                          organismo={op.CodigoOrganismoPublico}
+                          nombre={op.NombreOrganismo || op.CodigoOrganismoPublico}
+                          onFocus={onFocusOrganismo}
+                        />
                       </td>
                     </tr>
                   )}

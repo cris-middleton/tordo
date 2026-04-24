@@ -329,6 +329,16 @@ class ApiClient {
     return res.data;
   }
 
+  async getBIResumen(rubro: string) {
+    const res = await this.client.get('/api/bi/resumen', { params: { rubro } });
+    return res.data;
+  }
+
+  async getBIMiPosicion(params: { empresa_id: string; rubro: string }) {
+    const res = await this.client.get('/api/bi/mi_posicion', { params });
+    return res.data;
+  }
+
   async getBIClusters(topN: number = 80) {
     const res = await this.client.get('/api/bi/clusters', { params: { top_n: topN } });
     return res.data;
@@ -361,14 +371,24 @@ class ApiClient {
     return res.data
   }
 
-  async getBIPrecio(codigoProducto: string) {
-    const res = await this.client.get(`/api/bi/precio/${encodeURIComponent(codigoProducto)}`);
+  async getBIProductos(params: { q: string; limit?: number }) {
+    const res = await this.client.get('/api/bi/productos', { params });
+    return res.data;
+  }
+
+  async getBIPrecio(codigoProducto: string, params: { organismo_id?: string; unidad_medida?: string } = {}) {
+    const res = await this.client.get(`/api/bi/precio/${encodeURIComponent(codigoProducto)}`, { params });
     return res.data;
   }
 
   async getDataSummary() {
     const res = await this.client.get('/api/data/summary')
     return res.data
+  }
+
+  async getBIForecastCompetidores(params: { organismo_id?: string; rubro?: string; tipo?: string } = {}) {
+    const res = await this.client.get('/api/bi/forecast_competidores', { params });
+    return res.data;
   }
 
   // ── WhatsApp test ──────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 // frontend/app/dashboard/bi/components/RubroFilter.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronDown, Settings2, X, Check, Loader2, Search } from 'lucide-react';
 import { TFIDFPerfilData, PlanTier, isPaidPlan } from '../types';
 
@@ -15,6 +15,9 @@ interface RubroFilterProps {
   perfil: TFIDFPerfilData | null;
   empresaId: string | null;
   onSavePerfil: (rubros: string[]) => Promise<void>;
+  // Cross-link focus
+  focusedOrganismo?: { codigo: string; nombre: string } | null;
+  onClearFocus?: () => void;
 }
 
 export function RubroFilter({
@@ -26,6 +29,8 @@ export function RubroFilter({
   perfil,
   empresaId,
   onSavePerfil,
+  focusedOrganismo,
+  onClearFocus,
 }: RubroFilterProps) {
   const [open, setOpen] = useState(false);
   const [dropdownSearch, setDropdownSearch] = useState('');
@@ -39,6 +44,13 @@ export function RubroFilter({
   const locked = !isPaidPlan(plan);
 
   const misRubros = perfil?.rubros_usados ?? [];
+
+  // Listen for custom event to open modal from BIOnboarding
+  useEffect(() => {
+    const handler = () => setShowModal(true);
+    window.addEventListener('bi:open-rubros-modal', handler);
+    return () => window.removeEventListener('bi:open-rubros-modal', handler);
+  }, []);
 
   const handleSave = async () => {
     if (selectedClusters.length === 0) return;
@@ -103,6 +115,18 @@ export function RubroFilter({
               </div>
 
               <div className="overflow-y-auto flex-1">
+                {/* Clear selection — "Todos los rubros" */}
+                {!dropdownSearch && (
+                  <button
+                    onClick={() => { onRubroChange(''); setOpen(false); }}
+                    className={`w-full text-left flex items-center gap-2 px-4 py-2 text-sm border-b border-border hover:bg-primary/5 transition-colors ${
+                      !selectedRubro ? 'text-primary font-semibold' : 'text-muted'
+                    }`}
+                  >
+                    🌐 Todos los rubros
+                  </button>
+                )}
+
                 {/* Mis rubros — pinned at top when no search */}
                 {misRubros.length > 0 && !dropdownSearch && (
                   <>
@@ -170,6 +194,20 @@ export function RubroFilter({
       {locked && (
         <span className="text-xs text-muted bg-surface border border-border rounded-full px-2.5 py-0.5">
           Desbloquea más rubros con plan PYME
+        </span>
+      )}
+
+      {/* Focused organismo chip */}
+      {focusedOrganismo && (
+        <span className="flex items-center gap-1.5 rounded-full bg-accent/15 border border-accent/30 px-3 py-1 text-xs font-medium text-accent">
+          Enfocado: {focusedOrganismo.nombre.length > 32 ? `${focusedOrganismo.nombre.slice(0, 32)}…` : focusedOrganismo.nombre}
+          <button
+            onClick={onClearFocus}
+            aria-label="Desfijar organismo"
+            className="hover:text-danger transition-colors"
+          >
+            <X className="h-3 w-3" />
+          </button>
         </span>
       )}
 

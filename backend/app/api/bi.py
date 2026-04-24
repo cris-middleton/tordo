@@ -28,9 +28,12 @@ from app.schemas.bi import (
     ForecastCompetidoresResponse,
     LicitacionBIPanel,
     MatchingResponse,
+    MiPosicionResponse,
     OportunidadesResponse,
     PerfilMatchResponse,
     PrecioResponse,
+    ProductosResponse,
+    ResumenResponse,
     RubrosResponse,
     SectorResponse,
     TendenciaResponse,
@@ -575,6 +578,26 @@ def get_rubros(
 
 
 @router.get(
+    "/resumen",
+    response_model=ResumenResponse,
+    summary="Resumen narrativo de un rubro (para MarketSummaryCard + teasers paywall)",
+    description=(
+        "Combina time_series + market_concentration + buyer_scores + opportunity_scores + "
+        "seasonality_patterns en una sola respuesta liviana. Incluye teasers para las "
+        "secciones gated que el plan básico ve sin gastar quota."
+    ),
+)
+def get_resumen(
+    rubro: str = Query(..., min_length=1, description="RubroN2 a resumir"),
+    current_user: User = Depends(check_bi_quota_dep),
+):
+    _require_analytics()
+    from app.services import bi_service
+
+    return bi_service.get_resumen(rubro)
+
+
+@router.get(
     "/clusters",
     response_model=ClustersResponse,
     summary="Taxonomía de clusters de productos (para UI de perfil TF-IDF)",
@@ -605,3 +628,63 @@ def get_clusters(
         clusters=clusters,
         total=len(clusters),
     )
+
+
+@router.get(
+    "/mi_posicion",
+    response_model=MiPosicionResponse,
+    summary="Posición de la empresa del usuario en un rubro (personalización)",
+    description=(
+        "Cruza el RUT de la empresa con los parquets de competencia + diversificación. "
+        "Devuelve ranking, participación, diversificación y alerta de dependencia. "
+        "Requiere acceso a la empresa (EmpresaUsuario)."
+    ),
+)
+async def get_mi_posicion(
+    empresa_id: UUID = Query(..., description="UUID de la empresa del usuario"),
+    rubro: str = Query(..., min_length=1, description="RubroN2 a analizar"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(check_bi_quota_dep),
+):
+    _require_analytics()
+    from app.models.empresa import Empresa
+    from app.services import bi_service
+
+    # Verificar membership a la empresa
+    membership = (await db.execute(
+        select(EmpresaUsuario).where(
+            EmpresaUsuario.empresa_id == empresa_id,
+            EmpresaUsuario.user_id == current_user.id,
+        )
+    )).scalar_one_or_none()
+    if not membership:
+        raise HTTPException(status_code=403, detail="Sin acceso a esta empresa")
+
+    empresa = (await db.execute(
+        select(Empresa).where(Empresa.id == empresa_id)
+    )).scalar_one_or_none()
+
+    if not empresa or not empresa.rut:
+        return {
+            "disponible": False,
+            "tiene_historial": False,
+            "motivo": "La empresa no tiene RUT registrado",
+        }
+
+    return bi_service.get_mi_posicion(empresa.rut, rubro)
+
+
+@router.get(
+    "/productos",
+    response_model=ProductosResponse,
+    summary="Buscar productos por nombre (autocomplete)",
+    description="Busca en product_price_bands_L3 por substring en el nombre del producto.",
+)
+def get_productos(
+    q: str = Query(..., min_length=2, description="Texto a buscar en el nombre del producto"),
+    limit: int = Query(20, ge=1, le=50),
+    current_user: User = Depends(get_current_active_user),
+):
+    _require_analytics()
+    from app.services import bi_service
+    return bi_service.get_productos(q, limit)

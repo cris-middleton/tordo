@@ -14,14 +14,18 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
-import { CompetidorItem, ConcentracionItem } from '../types';
+import { CompetidorItem, ConcentracionItem, OrganismoConNombre } from '../types';
 import { apiClient } from '@/lib/api';
+import { InfoTooltip } from './InfoTooltip';
 
 interface CompetenciaSectionProps {
-  topOrganismos: string[];
+  topOrganismos: OrganismoConNombre[];
   selectedOrganismo: string;
   onOrganismoChange: (o: string) => void;
   rubro: string;
+  disabled?: boolean;
+  focused?: boolean; // when true, hide the organismo dropdown (filter is shown in filter bar chip)
+  focusedNombre?: string; // NEW: display name of the focused organismo
 }
 
 // Hex values — CSS vars don't resolve inside Recharts SVG fill props
@@ -47,6 +51,9 @@ export function CompetenciaSection({
   selectedOrganismo,
   onOrganismoChange,
   rubro,
+  disabled,
+  focused,
+  focusedNombre,
 }: CompetenciaSectionProps) {
   const [competidores, setCompetidores] = useState<CompetidorItem[]>([]);
   const [concentracion, setConcentracion] = useState<ConcentracionItem[]>([]);
@@ -69,11 +76,21 @@ export function CompetenciaSection({
 
   const tipoMercado = concentracion[0]?.tipo_mercado;
   const nProveedores = concentracion[0]?.n_proveedores;
-  const tipoLabel: Record<string, string> = {
-    concentrado: 'Concentrado — pocos proveedores dominan',
-    moderado: 'Moderado — competencia normal',
-    fragmentado: 'Fragmentado — muchos proveedores compiten',
-  };
+
+  // Normaliza tipo_mercado del backend a una sola palabra capitalizada
+  function tipoLabelCorto(tipo: string | null | undefined): string {
+    if (!tipo) return '';
+    const lower = tipo.toLowerCase().trim();
+    const known: Record<string, string> = {
+      concentrado: 'Concentrado',
+      moderado: 'Moderado',
+      fragmentado: 'Fragmentado',
+      competitivo: 'Competitivo',
+    };
+    if (known[lower]) return known[lower];
+    // Fallback: capitaliza primera letra del string raw del backend
+    return lower.charAt(0).toUpperCase() + lower.slice(1);
+  }
 
   return (
     <section className="card space-y-4">
@@ -83,33 +100,48 @@ export function CompetenciaSection({
             <Users className="h-5 w-5 text-primary" />
             Competencia
           </h2>
-          <p className="text-xs text-muted mt-0.5">¿Contra quién compites en este mercado?</p>
+          <p className="text-xs text-muted mt-0.5">
+            {focused && focusedNombre
+              ? <>¿Contra quién compites para vender a <span className="font-medium text-text">{focusedNombre.length > 45 ? `${focusedNombre.slice(0, 45)}…` : focusedNombre}</span>?</>
+              : '¿Contra quién compites en este mercado?'}
+          </p>
         </div>
 
-        {topOrganismos.length > 1 && (
+        {!focused && topOrganismos.length > 1 && (
           <select
             value={selectedOrganismo}
             onChange={(e) => onOrganismoChange(e.target.value)}
-            className="text-sm rounded-lg border border-border bg-surface px-3 py-1.5 text-text"
+            disabled={disabled}
+            className="text-sm rounded-lg border border-border bg-surface px-3 py-1.5 text-text disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {topOrganismos.map((o) => (
-              <option key={o} value={o}>{o}</option>
+              <option key={o.codigo} value={o.codigo} title={o.nombre}>
+                {o.nombre.length > 40 ? `${o.nombre.slice(0, 40)}…` : o.nombre}
+              </option>
             ))}
           </select>
         )}
       </div>
 
       {tipoMercado && (
-        <div className="rounded-xl border border-border bg-surface/60 px-4 py-3 text-sm flex items-center gap-3">
+        <div className="rounded-xl border border-border bg-surface/60 px-4 py-3 text-sm flex items-center gap-3 flex-wrap">
           <span className="font-medium text-text">
             {nProveedores != null ? `${nProveedores} proveedores activos.` : ''}
           </span>
-          <span
-            className="text-muted"
-            title="El HHI (índice Herfindahl-Hirschman) mide qué tan concentrado está un mercado. Un valor alto significa que pocos proveedores controlan la mayoría de las compras."
-          >
-            {tipoLabel[tipoMercado] ?? tipoMercado}{' '}
-            <span className="cursor-help underline decoration-dotted">ℹ</span>
+          <span className="text-muted">
+            Mercado{' '}
+            <InfoTooltip
+              content={
+                <div className="space-y-1.5">
+                  <p><b>Concentrado:</b> pocos proveedores dominan.</p>
+                  <p><b>Moderado:</b> competencia equilibrada con varios actores.</p>
+                  <p><b>Fragmentado:</b> muchos proveedores compiten.</p>
+                  <p><b>Competitivo:</b> alta rotación entre proveedores.</p>
+                </div>
+              }
+            >
+              <span className="font-medium text-text">{tipoLabelCorto(tipoMercado)}</span>
+            </InfoTooltip>
           </span>
         </div>
       )}
@@ -142,7 +174,7 @@ export function CompetenciaSection({
 
           {!showTable ? (
             <ResponsiveContainer width="100%" height={320}>
-              <ScatterChart margin={{ top: 10, right: 20, left: 0, bottom: 20 }}>
+              <ScatterChart margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis
                   dataKey="win_rate_pct"
@@ -155,8 +187,15 @@ export function CompetenciaSection({
                   dataKey="market_share_pct"
                   name="Participación"
                   type="number"
-                  label={{ value: 'Participación de mercado (%)', angle: -90, position: 'insideLeft', fontSize: 11, fill: '#94a3b8' }}
+                  width={70}
                   tick={{ fontSize: 11, fill: '#94a3b8' }}
+                  label={{
+                    value: 'Participación de mercado (%)',
+                    angle: -90,
+                    position: 'insideLeft',
+                    offset: 0,
+                    style: { fontSize: 11, fill: '#64748b', textAnchor: 'middle' },
+                  }}
                 />
                 <ZAxis dataKey="n_oc" range={[40, 400]} />
                 <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3' }} />

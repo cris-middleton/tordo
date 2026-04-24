@@ -64,6 +64,7 @@ class CompetidoresResponse(BaseModel):
 
 class Oportunidad(BaseModel):
     CodigoOrganismoPublico: Optional[str] = None
+    NombreOrganismo: Optional[str] = None
     RubroN2: Optional[str] = None
     opportunity_score: Optional[float] = None
     n_transacciones: Optional[int] = None
@@ -304,10 +305,18 @@ class TendenciaItem(BaseModel):
     tendencia: Optional[str] = None
 
 
+class SerieAnualPunto(BaseModel):
+    anio: int
+    monto_total: float
+    n_oc: Optional[int] = None
+
+
 class TendenciaResponse(BaseModel):
     disponible: bool
     tendencias: Optional[list[TendenciaItem]] = None
     emergentes: Optional[list[TendenciaItem]] = None
+    serie_anual: Optional[list[SerieAnualPunto]] = None  # YoY sparkline when rubro is filtered
+    cagr_rubro: Optional[float] = None  # CAGR rubro-level computed from serie_anual (complete years only)
     total: Optional[int] = None
     motivo: Optional[str] = None
 
@@ -389,5 +398,74 @@ class SectorItem(BaseModel):
 class SectorResponse(BaseModel):
     disponible: bool
     sectores: Optional[list[SectorItem]] = None
+    total: Optional[int] = None
+    motivo: Optional[str] = None
+
+
+# ─── Resumen narrativo (MarketSummaryCard + paywall teasers) ──────────────────
+
+class ResumenTopComprador(BaseModel):
+    codigo: Optional[str] = None
+    nombre: Optional[str] = None
+    pago_mediana_dias: Optional[int] = None
+    clasificacion_pago: Optional[str] = None  # "bueno" | "medio" | "lento"
+
+
+class ResumenTeaserCompetencia(BaseModel):
+    lider_nombre: Optional[str] = None
+    lider_share_pct: Optional[float] = None
+    tipo_mercado: Optional[str] = None  # "concentrado" | "moderado" | "fragmentado" | "competitivo"
+
+
+class ResumenTeaserEstacionalidad(BaseModel):
+    mes_pico_mayor: Optional[str] = None
+    consistencia_avg_pct: Optional[int] = None
+
+
+class ResumenResponse(BaseModel):
+    disponible: bool
+    rubro: Optional[str] = None
+    monto_anual_clp: Optional[float] = None
+    n_organismos: Optional[int] = None
+    cagr_pct: Optional[float] = None
+    yoy_pct: Optional[float] = None  # último año completo vs año anterior
+    n_proveedores_actual: Optional[int] = None
+    n_proveedores_hace_3_anios: Optional[int] = None
+    top_comprador: Optional[ResumenTopComprador] = None
+    teaser_competencia: Optional[ResumenTeaserCompetencia] = None
+    teaser_estacionalidad: Optional[ResumenTeaserEstacionalidad] = None
+    motivo: Optional[str] = None
+
+
+# ─── Mi Posición (personalización por empresa) ───────────────────────────────
+
+class MiPosicionTopOrganismo(BaseModel):
+    nombre: Optional[str] = None
+    porcentaje_oc: Optional[float] = None
+
+
+class MiPosicionResponse(BaseModel):
+    disponible: bool
+    tiene_historial: bool = False
+    participacion_pct: Optional[float] = None
+    rank: Optional[int] = None
+    total_proveedores: Optional[int] = None
+    n_organismos_atendidos: Optional[int] = None
+    n_organismos_promedio_sector: Optional[float] = None
+    diversificacion_pct: Optional[float] = None
+    alerta_dependencia: Optional[bool] = None
+    top_organismo_empresa: Optional[MiPosicionTopOrganismo] = None
+    motivo: Optional[str] = None
+
+
+class ProductoItem(BaseModel):
+    codigoProductoONU: Optional[str] = None
+    nombre: Optional[str] = None
+    n: Optional[int] = None
+
+
+class ProductosResponse(BaseModel):
+    disponible: bool
+    resultados: Optional[list[ProductoItem]] = None
     total: Optional[int] = None
     motivo: Optional[str] = None

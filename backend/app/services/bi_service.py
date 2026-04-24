@@ -617,10 +617,76 @@ def get_tendencia(
         if not em_rows.is_empty():
             emergentes = em_rows.select(em_cols).to_dicts()
 
+    # serie_anual + cagr_rubro: solo cuando hay rubro filtrado
+    serie_anual = None
+    cagr_rubro = None
+    if rubro:
+        import polars as pl  # noqa: PLC0415 — lazy import kept consistent with _load()
+        ts_df = _load("time_series.parquet")
+        if ts_df is not None and "RubroN2" in ts_df.columns:
+            # Filtrar por rubro
+            rubro_ts = ts_df.filter(ts_df["RubroN2"] == rubro)
+
+            # Determinar qué años están completos: max(mes) == 12
+            if "mes" in rubro_ts.columns and len(rubro_ts) > 0:
+                years_coverage = (
+                    rubro_ts
+                    .group_by("anio")
+                    .agg(pl.col("mes").max().alias("max_mes"))
+                )
+                complete_years = set(
+                    years_coverage
+                    .filter(pl.col("max_mes") == 12)
+                    .select("anio")
+                    .to_series()
+                    .to_list()
+                )
+            else:
+                complete_years = set()
+
+            # Agregar por año, filtrar a solo años completos, quedarse con los últimos 6
+            year_agg = (
+                rubro_ts
+                .group_by("anio")
+                .agg([
+                    pl.col("monto_total").sum().alias("monto_total"),
+                    pl.col("n_oc").sum().alias("n_oc"),
+                ])
+                .filter(pl.col("anio").is_in(list(complete_years)))
+                .sort("anio", descending=False)
+                .tail(6)
+            )
+
+            if len(year_agg) >= 2:
+                rows = year_agg.to_dicts()
+                serie_anual = [
+                    {
+                        "anio": int(r["anio"]),
+                        "monto_total": float(r["monto_total"] or 0),
+                        "n_oc": int(r["n_oc"]) if r.get("n_oc") is not None else None,
+                    }
+                    for r in rows
+                ]
+
+                # CAGR rubro-level: (last / first) ^ (1 / (n-1)) - 1
+                first_monto = rows[0]["monto_total"]
+                last_monto = rows[-1]["monto_total"]
+                n_points = len(rows)
+                if first_monto and first_monto > 0 and n_points >= 2:
+                    try:
+                        cagr_rubro = ((last_monto / first_monto) ** (1 / (n_points - 1)) - 1) * 100
+                        # Clamp a rango razonable para evitar valores de outliers extremos
+                        if cagr_rubro > 1000 or cagr_rubro < -99:
+                            cagr_rubro = None
+                    except (ValueError, ZeroDivisionError, OverflowError):
+                        cagr_rubro = None
+
     return {
         "disponible": True,
         "tendencias": tendencias,
         "emergentes": emergentes,
+        "serie_anual": serie_anual,
+        "cagr_rubro": cagr_rubro,  # CAGR rubro-level computed from serie_anual (complete years only)
         "total": len(tendencias),
     }
 
@@ -789,6 +855,385 @@ def get_sector(
     }
 
 
+def _compute_cagr_rubro_desde_time_series(rubro: str) -> "tuple[Optional[float], Optional[float], Optional[list[dict]]]":
+    """Helper: computa CAGR rubro-level + YoY + serie anual completa desde time_series.parquet.
+
+    Excluye años incompletos (max(mes) < 12).
+    Retorna (cagr_pct, yoy_pct, serie_anual_dicts).
+      - cagr_pct: CAGR histórico sobre todos los años completos disponibles (hasta 6)
+      - yoy_pct: variación del último año completo vs el anterior
+    Si no hay data suficiente, retorna (None, None, None).
+    """
+    import polars as pl
+
+    ts_df = _load("time_series.parquet")
+    if ts_df is None or "RubroN2" not in ts_df.columns:
+        return None, None, None
+
+    rubro_ts = ts_df.filter(ts_df["RubroN2"] == rubro)
+    if len(rubro_ts) == 0 or "mes" not in rubro_ts.columns:
+        return None, None, None
+
+    # Años con 12 meses de data
+    years_coverage = rubro_ts.group_by("anio").agg(pl.col("mes").max().alias("max_mes"))
+    complete_years = set(
+        years_coverage.filter(pl.col("max_mes") == 12).select("anio").to_series().to_list()
+    )
+    if not complete_years:
+        return None, None, None
+
+    year_agg = (
+        rubro_ts
+        .group_by("anio")
+        .agg([
+            pl.col("monto_total").sum().alias("monto_total"),
+            pl.col("n_oc").sum().alias("n_oc"),
+        ])
+        .filter(pl.col("anio").is_in(list(complete_years)))
+        .sort("anio")
+        .tail(6)
+    )
+
+    if len(year_agg) < 2:
+        return None, None, None
+
+    rows = year_agg.to_dicts()
+    first = rows[0]["monto_total"]
+    last = rows[-1]["monto_total"]
+    n_points = len(rows)
+
+    cagr_pct = None
+    if first and first > 0:
+        try:
+            cagr_pct = ((last / first) ** (1 / (n_points - 1)) - 1) * 100
+            if cagr_pct > 1000 or cagr_pct < -99:
+                cagr_pct = None
+        except (ValueError, ZeroDivisionError, OverflowError):
+            cagr_pct = None
+
+    # YoY: último año completo vs el anterior
+    yoy_pct = None
+    if len(rows) >= 2:
+        prev_monto = rows[-2]["monto_total"]
+        if prev_monto and prev_monto > 0:
+            try:
+                yoy_pct = ((rows[-1]["monto_total"] / prev_monto) - 1) * 100
+                if yoy_pct > 1000 or yoy_pct < -99:
+                    yoy_pct = None
+            except (ValueError, ZeroDivisionError, OverflowError):
+                yoy_pct = None
+
+    return cagr_pct, yoy_pct, rows
+
+
+def get_resumen(rubro: Optional[str] = None) -> dict:
+    """
+    Resumen narrativo de un rubro. Combina:
+    - time_series (monto_anual, n_organismos, CAGR rubro-level, n proveedores)
+    - market_concentration (teaser competencia: líder, share, tipo_mercado)
+    - buyer_scores + opportunity_scores (top comprador con clasificación de pago)
+    - seasonality_patterns (teaser estacionalidad: mes pico, consistencia avg)
+    """
+    import polars as pl
+
+    if not rubro:
+        return {"disponible": False, "motivo": "rubro requerido"}
+
+    # ── CAGR + YoY + serie anual desde time_series ───────────────────────────
+    cagr_pct, yoy_pct, serie_rows = _compute_cagr_rubro_desde_time_series(rubro)
+
+    # ── Monto anual + n_organismos desde time_series ─────────────────────────
+    monto_anual: Optional[float] = None
+    n_organismos: Optional[int] = None
+    if serie_rows:
+        monto_anual = float(serie_rows[-1]["monto_total"])
+
+    ts_df = _load("time_series.parquet")
+    if ts_df is not None and "RubroN2" in ts_df.columns and serie_rows:
+        years = [r["anio"] for r in serie_rows]
+        last_year = years[-1]
+        rubro_last = ts_df.filter((ts_df["RubroN2"] == rubro) & (ts_df["anio"] == last_year))
+        if "CodigoOrganismoPublico" in rubro_last.columns and len(rubro_last) > 0:
+            n_organismos = rubro_last.select("CodigoOrganismoPublico").n_unique()
+
+    # ── N proveedores desde competitors_by_market ────────────────────────────
+    n_prov_actual: Optional[int] = None
+    df_comp = _load("competitors_by_market.parquet")
+    if df_comp is not None and "CodigoProveedor" in df_comp.columns and "RubroN2" in df_comp.columns:
+        subset = df_comp.filter(df_comp["RubroN2"] == rubro)
+        if len(subset) > 0:
+            n_prov_actual = subset.select("CodigoProveedor").n_unique()
+
+    # ── Top comprador: organismo más activo del rubro en opportunity_scores ──
+    top_comprador: Optional[dict] = None
+    top_organismo_code: Optional[str] = None
+    df_opp = _load("opportunity_scores.parquet")
+    df_buyers = _load("buyer_scores.parquet")
+    if df_opp is not None and "RubroN2" in df_opp.columns and df_buyers is not None:
+        opps_rubro = (
+            df_opp.filter(df_opp["RubroN2"] == rubro)
+            .sort("n_transacciones", descending=True)
+            .head(10)
+        )
+        if len(opps_rubro) > 0:
+            codes = opps_rubro.select("CodigoOrganismoPublico").to_series().cast(str).to_list()
+            for code in codes:
+                row = df_buyers.filter(df_buyers["CodigoOrganismoPublico"].cast(str) == code)
+                if len(row) > 0:
+                    b = row.to_dicts()[0]
+                    pago_dias = b.get("mediana_dias_pago")
+                    if pago_dias and pago_dias > 45:
+                        clasif = "lento"
+                    elif pago_dias and pago_dias > 30:
+                        clasif = "medio"
+                    else:
+                        clasif = "bueno"
+                    top_comprador = {
+                        "codigo": code,
+                        "nombre": b.get("NombreOrganismo"),
+                        "pago_mediana_dias": int(pago_dias) if pago_dias is not None else None,
+                        "clasificacion_pago": clasif,
+                    }
+                    top_organismo_code = code
+                    break  # el primero con datos en buyer_scores
+
+    # ── Teaser competencia desde market_concentration ────────────────────────
+    teaser_competencia: Optional[dict] = None
+    df_mc = _load("market_concentration.parquet")
+    if df_mc is not None and "RubroN2" in df_mc.columns:
+        mc_subset = df_mc.filter(df_mc["RubroN2"] == rubro)
+        if len(mc_subset) > 0:
+            # Agregar por rubro: líder global (mayor top_share_pct acumulado), HHI promedio
+            # Buscar el registro con mayor monto_total_mercado para representar el mercado
+            if "monto_total_mercado" in mc_subset.columns:
+                mc_top = mc_subset.sort("monto_total_mercado", descending=True).head(1).to_dicts()[0]
+            else:
+                mc_top = mc_subset.sort("hhi", descending=True).head(1).to_dicts()[0]
+
+            lider_nombre = mc_top.get("top_proveedor")
+            lider_share = float(mc_top.get("top_share_pct") or 0)
+            tipo_mercado = mc_top.get("tipo_mercado")
+            # Fallback tipo_mercado desde HHI si no está
+            if not tipo_mercado:
+                hhi = mc_top.get("hhi")
+                if hhi:
+                    if hhi > 2500:
+                        tipo_mercado = "concentrado"
+                    elif hhi > 1500:
+                        tipo_mercado = "moderado"
+                    else:
+                        tipo_mercado = "fragmentado"
+
+            if lider_nombre:
+                teaser_competencia = {
+                    "lider_nombre": lider_nombre,
+                    "lider_share_pct": lider_share,
+                    "tipo_mercado": tipo_mercado,
+                }
+
+    # ── Teaser estacionalidad: mes pico + consistencia avg ──────────────────
+    teaser_estacionalidad: Optional[dict] = None
+    meses_es = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+    if top_organismo_code:
+        df_seas = _load("seasonality_patterns.parquet")
+        if df_seas is not None and "CodigoOrganismoPublico" in df_seas.columns:
+            seas_rows = df_seas.filter(
+                (df_seas["CodigoOrganismoPublico"].cast(str) == top_organismo_code)
+                & (df_seas["RubroN2"] == rubro)
+            )
+            if len(seas_rows) == 0:
+                # Fallback: cualquier rubro del organismo
+                seas_rows = df_seas.filter(df_seas["CodigoOrganismoPublico"].cast(str) == top_organismo_code)
+            if len(seas_rows) > 0:
+                dicts = seas_rows.to_dicts()
+                pico = max(dicts, key=lambda r: r.get("prob_mes") or 0)
+                mes_num = pico.get("mes")
+                mes_pico = meses_es[mes_num - 1] if mes_num and 1 <= mes_num <= 12 else None
+                consistencias = [r.get("consistencia") for r in dicts if r.get("consistencia") is not None]
+                consistencia_avg = int(sum(consistencias) / len(consistencias) * 100) if consistencias else None
+                if mes_pico or consistencia_avg is not None:
+                    teaser_estacionalidad = {
+                        "mes_pico_mayor": mes_pico,
+                        "consistencia_avg_pct": consistencia_avg,
+                    }
+
+    return {
+        "disponible": True,
+        "rubro": rubro,
+        "monto_anual_clp": monto_anual,
+        "n_organismos": n_organismos,
+        "cagr_pct": cagr_pct,
+        "yoy_pct": yoy_pct,
+        "n_proveedores_actual": n_prov_actual,
+        "n_proveedores_hace_3_anios": None,  # not computable without temporal provider data
+        "top_comprador": top_comprador,
+        "teaser_competencia": teaser_competencia,
+        "teaser_estacionalidad": teaser_estacionalidad,
+    }
+
+
+def _normalize_rut(rut: Optional[str]) -> str:
+    """Normaliza RUT chileno al formato esperado por CodigoProveedor del parquet.
+    ChileCompra típicamente usa '12345678-9' (sin puntos, con guión).
+    Retorna cadena vacía si el input es inválido o None."""
+    if not rut:
+        return ""
+    cleaned = str(rut).replace(".", "").replace(" ", "").upper()
+    if not cleaned:
+        return ""
+    # Si no tiene guión, insertar uno antes del último char (DV)
+    if "-" not in cleaned and len(cleaned) > 1:
+        cleaned = f"{cleaned[:-1]}-{cleaned[-1]}"
+    return cleaned
+
+
+def get_mi_posicion(empresa_rut: str, rubro: str) -> dict:
+    """
+    Posición del proveedor (empresa del usuario) en un rubro específico.
+    Combina market_concentration / competitors_by_market para participación + rank,
+    y provider_diversification para score de diversificación y alerta.
+    """
+    import polars as pl
+    if not empresa_rut or not rubro:
+        return {
+            "disponible": False,
+            "tiene_historial": False,
+            "motivo": "rut y rubro requeridos",
+        }
+
+    rut_norm = _normalize_rut(empresa_rut)
+
+    # ── Competencia en el rubro: buscar al proveedor ─────────────────────────
+    # Preferir competitor_analysis; fallback a competitors_by_market
+    df_comp = _load("competitor_analysis.parquet")
+    if df_comp is None:
+        df_comp = _load("competitors_by_market.parquet")
+
+    if df_comp is None:
+        return {
+            "disponible": False,
+            "tiene_historial": False,
+            "motivo": "parquets de competencia no disponibles",
+        }
+
+    if "RubroN2" not in df_comp.columns or "CodigoProveedor" not in df_comp.columns:
+        return {
+            "disponible": False,
+            "tiene_historial": False,
+            "motivo": "schema de parquet no esperado",
+        }
+
+    subset = df_comp.filter(df_comp["RubroN2"] == rubro)
+    if len(subset) == 0:
+        return {
+            "disponible": True,
+            "tiene_historial": False,
+            "motivo": f"sin datos para el rubro '{rubro}'",
+        }
+
+    # Ranking: preferir market_share_pct, fallback a monto_total
+    if "market_share_pct" in subset.columns:
+        ranked = subset.sort("market_share_pct", descending=True)
+    elif "monto_total" in subset.columns:
+        ranked = subset.sort("monto_total", descending=True)
+    else:
+        ranked = subset
+    ranked_rows = ranked.to_dicts()
+    total_prov = len(ranked_rows)
+
+    empresa_row = None
+    rank = None
+    for i, row in enumerate(ranked_rows):
+        if str(row.get("CodigoProveedor")) == rut_norm:
+            empresa_row = row
+            rank = i + 1
+            break
+
+    if empresa_row is None:
+        return {
+            "disponible": True,
+            "tiene_historial": False,
+            "total_proveedores": total_prov,
+            "motivo": f"El RUT {rut_norm} no tiene historial de OC en '{rubro}'",
+        }
+
+    participacion_pct = float(empresa_row.get("market_share_pct") or 0) if "market_share_pct" in empresa_row else None
+
+    # ── n_organismos atendidos (del row de la empresa si existe) ─────────────
+    n_org_atendidos = None
+    for key in ("n_organismos", "n_organismos_atendidos", "organismos_distintos"):
+        if key in empresa_row and empresa_row[key] is not None:
+            try:
+                n_org_atendidos = int(empresa_row[key])
+                break
+            except (TypeError, ValueError):
+                pass
+
+    # ── n_organismos promedio del sector (heurística simple) ─────────────────
+    # Promedio de n_organismos entre proveedores del mismo rubro, si la columna existe
+    n_org_prom = None
+    org_col = None
+    for key in ("n_organismos", "n_organismos_atendidos", "organismos_distintos"):
+        if key in ranked.columns:
+            org_col = key
+            break
+    if org_col is not None:
+        try:
+            avg_val = ranked.select(pl.col(org_col).mean()).item()
+            if avg_val is not None:
+                n_org_prom = round(avg_val, 1)
+        except Exception:
+            n_org_prom = None
+
+    # ── Diversificación (desde provider_diversification.parquet) ─────────────
+    diversificacion_pct = None
+    alerta_dependencia = False
+    top_org_nombre = None
+    top_org_pct = None
+    df_div = _load("provider_diversification.parquet")
+    if df_div is not None and "CodigoProveedor" in df_div.columns:
+        row = df_div.filter(df_div["CodigoProveedor"] == rut_norm)
+        if len(row) > 0:
+            d = row.to_dicts()[0]
+            # score_diversificacion suele estar en 0-1
+            score = d.get("score_diversificacion")
+            if score is not None:
+                try:
+                    diversificacion_pct = float(score) * 100
+                except (TypeError, ValueError):
+                    pass
+            alerta_dependencia = bool(d.get("alerta_dependencia") or False)
+            top_org_nombre = d.get("top_comprador_nombre") or d.get("top_organismo_nombre")
+            top_org_pct_raw = d.get("top_comprador_pct") or d.get("top_organismo_pct")
+            if top_org_pct_raw is not None:
+                try:
+                    # Puede estar en fracción (0-1) o porcentaje
+                    val = float(top_org_pct_raw)
+                    top_org_pct = val * 100 if val <= 1.0 else val
+                except (TypeError, ValueError):
+                    pass
+
+    top_organismo_empresa = None
+    if top_org_nombre:
+        top_organismo_empresa = {
+            "nombre": top_org_nombre,
+            "porcentaje_oc": top_org_pct,
+        }
+
+    return {
+        "disponible": True,
+        "tiene_historial": True,
+        "participacion_pct": participacion_pct,
+        "rank": rank,
+        "total_proveedores": total_prov,
+        "n_organismos_atendidos": n_org_atendidos,
+        "n_organismos_promedio_sector": n_org_prom,
+        "diversificacion_pct": diversificacion_pct,
+        "alerta_dependencia": alerta_dependencia,
+        "top_organismo_empresa": top_organismo_empresa,
+    }
+
+
 def get_rubros(limit: int = 354) -> dict:
     """
     Return the standardized RubroN2 list from ChileCompra taxonomy,
@@ -815,4 +1260,44 @@ def get_rubros(limit: int = 354) -> dict:
         "disponible": True,
         "rubros": rubros,
         "total": len(rubros),
+    }
+
+
+def get_productos(q: str, limit: int = 20) -> dict:
+    """
+    Busca productos por nombre en product_price_bands_L3.
+    Retorna lista de {codigo, nombre, n} ordenada por frecuencia (n).
+    """
+    import polars as pl
+    if not q or len(q.strip()) < 2:
+        return {"disponible": True, "resultados": []}
+
+    df = _load("product_price_bands_L3.parquet")
+    if df is None:
+        return {"disponible": False, "motivo": "parquet no generado"}
+
+    # El nombre en el parquet está como NombreroductoGenerico (sin 'P' — typo histórico)
+    nombre_col = None
+    for c in ("NombreroductoGenerico", "NombreProductoGenerico"):
+        if c in df.columns:
+            nombre_col = c
+            break
+    if nombre_col is None:
+        return {"disponible": False, "motivo": "columna de nombre no encontrada"}
+
+    q_norm = q.strip().lower()
+    # Filtrar por contains, case-insensitive
+    matches = (
+        df
+        .filter(pl.col(nombre_col).str.to_lowercase().str.contains(q_norm, literal=True))
+        .select(["codigoProductoONU", pl.col(nombre_col).alias("nombre"), "n"])
+        .unique(subset=["codigoProductoONU"])
+        .sort("n", descending=True)
+        .head(limit)
+    )
+
+    return {
+        "disponible": True,
+        "resultados": matches.to_dicts(),
+        "total": len(matches),
     }

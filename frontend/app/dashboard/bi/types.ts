@@ -120,3 +120,68 @@ export type PlanTier = 'basico' | 'pyme' | 'pro' | 'enterprise';
 export function isPaidPlan(tier: PlanTier | undefined): boolean {
   return tier === 'pyme' || tier === 'pro' || tier === 'enterprise';
 }
+
+export interface OrganismoConNombre {
+  codigo: string;
+  nombre: string;
+}
+
+export interface SerieAnualPunto {
+  anio: number;
+  monto_total: number;
+  n_oc?: number | null;
+}
+
+export interface TendenciaApiResponse {
+  disponible: boolean;
+  tendencias?: TendenciaItem[];
+  emergentes?: TendenciaItem[];
+  serie_anual?: SerieAnualPunto[] | null;
+  cagr_rubro?: number | null;
+  total?: number;
+  motivo?: string;
+}
+
+export interface MiPosicion {
+  disponible: boolean;
+  tiene_historial: boolean;
+  participacion_pct?: number | null;
+  rank?: number | null;
+  total_proveedores?: number | null;
+  n_organismos_atendidos?: number | null;
+  n_organismos_promedio_sector?: number | null;
+  diversificacion_pct?: number | null;
+  alerta_dependencia?: boolean | null;
+  top_organismo_empresa?: {
+    nombre?: string | null;
+    porcentaje_oc?: number | null;
+  } | null;
+  motivo?: string;
+}
+
+export interface ResumenMercado {
+  disponible: boolean;
+  rubro?: string;
+  monto_anual_clp?: number | null;
+  n_organismos?: number | null;
+  cagr_pct?: number | null;
+  yoy_pct?: number | null;  // último año completo vs año anterior
+  n_proveedores_actual?: number | null;
+  n_proveedores_hace_3_anios?: number | null;
+  top_comprador?: {
+    codigo?: string | null;
+    nombre?: string | null;
+    pago_mediana_dias?: number | null;
+    clasificacion_pago?: 'bueno' | 'medio' | 'lento' | null;
+  } | null;
+  teaser_competencia?: {
+    lider_nombre?: string | null;
+    lider_share_pct?: number | null;
+    tipo_mercado?: 'concentrado' | 'moderado' | 'fragmentado' | 'competitivo' | null;
+  } | null;
+  teaser_estacionalidad?: {
+    mes_pico_mayor?: string | null;
+    consistencia_avg_pct?: number | null;
+  } | null;
+  motivo?: string;
+}
