@@ -12,7 +12,6 @@ from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.models.alert import Alert, AlertStatus, AlertType
 from app.models.empresa import DocumentoEmpresa, Empresa
@@ -38,6 +37,16 @@ def _severity_for_hours(hours: float) -> str:
     if hours < 168:  # 7 days
         return "naranja"
     return "amarillo"
+
+
+def _ensure_utc(dt: datetime) -> datetime:
+    """Coerce a possibly-naive datetime into tz-aware UTC.
+
+    SQLAlchemy + SQLite returns naive datetimes for TIMESTAMPTZ columns; in
+    production Postgres they arrive tz-aware. Normalize at source boundaries
+    so `now - dt` arithmetic and `(sev_rank, dt)` sort tuples never mix.
+    """
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
 
 
 async def _checklist_completion(db: AsyncSession, postulacion_id: UUID) -> Optional[float]:
@@ -80,7 +89,7 @@ async def compose_urgencias(
         )
     ).all()
     for postulacion, licitacion in rows:
-        delta = licitacion.fecha_cierre - now
+        delta = _ensure_utc(licitacion.fecha_cierre) - now
         hours = delta.total_seconds() / 3600
         severidad = _severity_for_hours(hours)
         completion = await _checklist_completion(db, postulacion.id)
@@ -105,7 +114,7 @@ async def compose_urgencias(
             cta_href=f"/dashboard/postulaciones/{postulacion.id}",
         )
         sev_rank = {"rojo": 0, "naranja": 1, "amarillo": 2}[severidad]
-        items.append((sev_rank, licitacion.fecha_cierre, item))
+        items.append((sev_rank, _ensure_utc(licitacion.fecha_cierre), item))
 
     # ── 2. Documentos vencen en próximos 30 días ─────────────────────────────
     doc_cutoff = today + timedelta(days=30)
@@ -184,7 +193,8 @@ async def compose_urgencias(
         )
     ).scalars().all()
     for alert in alerts:
-        delta = now - alert.created_at
+        created_at = _ensure_utc(alert.created_at)
+        delta = now - created_at
         days_old = max(int(delta.total_seconds() // 86400), 0)
         item = UrgenciaItem(
             id=f"alert_{alert.id}",
@@ -196,7 +206,7 @@ async def compose_urgencias(
             cta_label="Revisar",
             cta_href=f"/dashboard/tenders/{alert.entity_id}",
         )
-        items.append((1, alert.created_at, item))
+        items.append((1, created_at, item))
 
     items.sort(key=lambda t: (t[0], t[1]))
     return [it for _, _, it in items[:5]]

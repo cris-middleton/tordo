@@ -90,3 +90,30 @@ async def test_compose_urgencias_returns_empty_when_nothing_urgent(
 ):
     items = await compose_urgencias(async_db, sample_user.id, sample_empresa.id)
     assert items == []
+
+
+@pytest.mark.asyncio
+async def test_compose_urgencias_includes_match_alto_alert(
+    async_db, sample_user, sample_empresa,
+):
+    """An unread NUEVA_LICITACION_MATCH alert in the last 5 days must produce a match_alto urgencia."""
+    from app.models.alert import Alert, AlertStatus, AlertType
+
+    alert = Alert(
+        user_id=sample_user.id,
+        alert_type=AlertType.NUEVA_LICITACION_MATCH,
+        status=AlertStatus.SENT,
+        entity_type="licitacion",
+        entity_id=42,
+        title="Nueva licitación con match 87%: Suministro de computadores MINEDUC",
+        message="Match score 87. Cierre en 8 días.",
+        notification_channels=["in_app"],
+    )
+    async_db.add(alert)
+    await async_db.commit()
+
+    items = await compose_urgencias(async_db, sample_user.id, sample_empresa.id)
+    assert any(
+        u.tipo == "match_alto" and u.severidad == "naranja"
+        for u in items
+    )
