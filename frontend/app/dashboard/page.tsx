@@ -22,7 +22,21 @@ export default function DashboardPage() {
     setError(null);
     apiClient.getDashboardHome(empresaId)
       .then(setData)
-      .catch(() => setError('No pudimos cargar el dashboard. Reintenta en un momento.'));
+      .catch((err) => {
+        const e = err as { response?: { status?: number; data?: { detail?: string } }; message?: string };
+        const status = e?.response?.status;
+        const detail = e?.response?.data?.detail;
+        console.error('[Dashboard] getDashboardHome failed:', { status, detail, err });
+        if (status === 500 && detail) {
+          setError(`Error del servidor: ${detail}`);
+        } else if (detail) {
+          setError(detail);
+        } else if (e?.message) {
+          setError(`No pudimos cargar el dashboard — ${e.message}. Reintenta en un momento.`);
+        } else {
+          setError('No pudimos cargar el dashboard. Reintenta en un momento.');
+        }
+      });
   }
 
   useEffect(() => {
