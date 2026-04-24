@@ -264,6 +264,7 @@ class ApiClient {
 
   async createCheckoutSession(data: {
     plan_tier: string;
+    billing_period?: 'monthly' | 'annual';
     success_url: string;
     cancel_url: string;
   }) {

@@ -199,17 +199,42 @@ export default function Layout({ children }: LayoutProps) {
 
         {/* User section */}
         <div className="border-t border-borderLight px-4 py-4">
-          {user?.plan_tier && (
-            <div className="mb-3 flex items-center gap-2 rounded-lg bg-background px-3 py-2">
-              <div className="h-1.5 w-1.5 rounded-full bg-accent" />
-              <span className="text-xs font-medium text-muted">
-                Plan{' '}
-                <span className="font-bold text-text capitalize">
-                  {user.plan_tier === 'pro' ? 'Pro' : user.plan_tier === 'starter' ? 'Starter' : 'Free'}
+          {user && (() => {
+            const isTrial =
+              user.subscription_status === 'trialing' && !!user.trial_ends_at;
+            const daysLeft = isTrial
+              ? Math.max(
+                  0,
+                  Math.ceil(
+                    (new Date(user.trial_ends_at as string).getTime() - Date.now())
+                      / (1000 * 60 * 60 * 24)
+                  )
+                )
+              : 0;
+            const planLabel =
+              user.plan_tier === 'pro' || user.subscription_status === 'active'
+                ? 'Pro'
+                : 'Free';
+            return (
+              <div className="mb-3 flex items-center gap-2 rounded-lg bg-background px-3 py-2">
+                <div className={`h-1.5 w-1.5 rounded-full ${isTrial ? 'bg-gold' : 'bg-accent'}`} />
+                <span className="text-xs font-medium text-muted">
+                  {isTrial ? (
+                    <>
+                      Prueba Pro ·{' '}
+                      <span className="font-bold text-text">
+                        {daysLeft === 1 ? '1 día' : `${daysLeft} días`} restantes
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      Plan <span className="font-bold text-text">{planLabel}</span>
+                    </>
+                  )}
                 </span>
-              </span>
-            </div>
-          )}
+              </div>
+            );
+          })()}
 
           <div className="flex items-center gap-3 mb-3">
             <button

@@ -23,10 +23,11 @@ from fastapi import HTTPException, status
 
 logger = logging.getLogger(__name__)
 
-# Map plan tier → Stripe price ID (read at call time from settings)
-PLAN_PRICE_ENV: dict[str, str] = {
-    "pro": "stripe_price_pro",
-    "enterprise": "stripe_price_enterprise",
+# Map (plan_tier, billing_period) → settings attribute name
+PLAN_PRICE_ENV: dict[tuple[str, str], str] = {
+    ("pro", "monthly"):        "stripe_price_pro",
+    ("pro", "annual"):         "stripe_price_pro_annual",
+    ("enterprise", "monthly"): "stripe_price_enterprise",
 }
 
 
@@ -81,27 +82,39 @@ def get_or_create_customer(user) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def create_checkout_session(user, plan_tier: str, success_url: str, cancel_url: str) -> str:
+def create_checkout_session(
+    user,
+    plan_tier: str,
+    success_url: str,
+    cancel_url: str,
+    billing_period: str = "monthly",
+) -> str:
     """
-    Create a Stripe Checkout session for the given plan.
+    Create a Stripe Checkout session for the given plan and billing period.
     Returns the session URL.
     """
     _require_billing()
     s = _stripe()
     from app.config import settings
 
-    price_attr = PLAN_PRICE_ENV.get(plan_tier)
+    if billing_period not in ("monthly", "annual"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid billing_period '{billing_period}'. Use 'monthly' or 'annual'.",
+        )
+
+    price_attr = PLAN_PRICE_ENV.get((plan_tier, billing_period))
     if not price_attr:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Plan '{plan_tier}' does not require payment.",
+            detail=f"Plan '{plan_tier}' with billing '{billing_period}' is not available.",
         )
 
     price_id = getattr(settings, price_attr, None)
     if not price_id:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Stripe price ID for plan '{plan_tier}' is not configured.",
+            detail=f"Stripe price ID for plan '{plan_tier}' ({billing_period}) is not configured.",
         )
 
     customer_id = get_or_create_customer(user)
@@ -112,8 +125,18 @@ def create_checkout_session(user, plan_tier: str, success_url: str, cancel_url: 
         line_items=[{"price": price_id, "quantity": 1}],
         success_url=success_url,
         cancel_url=cancel_url,
-        metadata={"user_id": str(user.id), "plan_tier": plan_tier},
-        subscription_data={"metadata": {"user_id": str(user.id), "plan_tier": plan_tier}},
+        metadata={
+            "user_id": str(user.id),
+            "plan_tier": plan_tier,
+            "billing_period": billing_period,
+        },
+        subscription_data={
+            "metadata": {
+                "user_id": str(user.id),
+                "plan_tier": plan_tier,
+                "billing_period": billing_period,
+            }
+        },
     )
     return session.url
 

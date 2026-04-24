@@ -6,6 +6,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.plan_limits import effective_plan_tier
 from app.core.security import get_current_active_user
 from app.db import get_db
 from app.models.alert import Alert, AlertStatus
@@ -118,7 +119,10 @@ async def get_dashboard_home(
         )
     ).scalars().all()
 
-    plan_tier = "paid" if (current_user.plan_tier or "free") != "free" else "free"
+    # Trial-aware: active reverse-trials resolve to 'pro' even though the stored
+    # plan_tier may still be 'basico'/'free'. Anything at pyme or above counts as paid.
+    resolved_tier = effective_plan_tier(current_user)
+    plan_tier = "paid" if resolved_tier not in ("free", "basico") else "free"
     matches_visibles = 3 if plan_tier == "paid" else 1
 
     if not memberships:

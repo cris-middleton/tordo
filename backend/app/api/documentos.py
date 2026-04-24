@@ -52,7 +52,7 @@ async def upload_documento(
             )
         )
     ).scalars().all()
-    enforce_doc_quota(current_user.plan_tier, existing_docs, len(file_bytes))
+    enforce_doc_quota(current_user, existing_docs, len(file_bytes))
 
     display_name = nombre or file.filename or "sin_nombre"
     key = make_document_key(str(empresa_id), file.filename or display_name)

@@ -3,6 +3,8 @@
 Uses the async SQLite fixtures plus FastAPI dependency overrides to exercise
 the full async stack without a live Postgres.
 """
+from datetime import datetime, timedelta, timezone
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
@@ -66,6 +68,52 @@ async def test_home_endpoint_rejects_empresa_user_is_not_member_of(
 @pytest.mark.asyncio
 async def test_home_endpoint_free_tier_caps_matches_visible_at_1(async_db, sample_user):
     sample_user.plan_tier = "free"
+    await async_db.commit()
+
+    _override(async_db, sample_user)
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            res = await ac.get("/api/dashboard/home")
+    finally:
+        _clear_overrides()
+
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["plan"]["tier"] == "free"
+    assert body["plan"]["matches_visibles"] == 1
+
+
+@pytest.mark.asyncio
+async def test_home_endpoint_active_trial_unlocks_paid_tier(async_db, sample_user):
+    """During an active reverse-trial, the stored plan_tier may be 'basico' but
+    the user must see the Pro experience (3 matches visible, plan.tier = 'paid').
+    """
+    sample_user.plan_tier = "basico"
+    sample_user.subscription_status = "trialing"
+    sample_user.trial_ends_at = datetime.now(timezone.utc) + timedelta(days=7)
+    await async_db.commit()
+
+    _override(async_db, sample_user)
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            res = await ac.get("/api/dashboard/home")
+    finally:
+        _clear_overrides()
+
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["plan"]["tier"] == "paid"
+    assert body["plan"]["matches_visibles"] == 3
+
+
+@pytest.mark.asyncio
+async def test_home_endpoint_expired_trial_falls_back_to_free(async_db, sample_user):
+    """After trial_ends_at passes, user drops back to free-plan UX."""
+    sample_user.plan_tier = "basico"
+    sample_user.subscription_status = "trialing"
+    sample_user.trial_ends_at = datetime.now(timezone.utc) - timedelta(days=1)
     await async_db.commit()
 
     _override(async_db, sample_user)

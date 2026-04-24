@@ -156,6 +156,8 @@ async def find_or_create_user(db: AsyncSession, google_user: dict):
         is_verified=True,
         last_login=datetime.now(timezone.utc),
     )
+    from app.api.auth import _apply_trial_defaults
+    _apply_trial_defaults(user)
     db.add(user)
     await db.commit()
     await db.refresh(user)
