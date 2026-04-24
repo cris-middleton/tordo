@@ -172,6 +172,13 @@ _ASYNC_DDL = [
         documento_id CHAR(32) REFERENCES documentos_empresa(id) ON DELETE SET NULL,
         orden SMALLINT NOT NULL DEFAULT 0
     )""",
+    """CREATE TABLE IF NOT EXISTS dashboard_home_cache (
+        empresa_id CHAR(32) PRIMARY KEY REFERENCES empresas(id) ON DELETE CASCADE,
+        matches TEXT NOT NULL DEFAULT '[]',
+        matches_count INTEGER NOT NULL DEFAULT 0,
+        cached_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL
+    )""",
     """CREATE TABLE IF NOT EXISTS alerts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL REFERENCES users(id),
@@ -203,9 +210,9 @@ async def async_engine():
     async with eng.begin() as conn:
         # Drop all in reverse dependency order
         for tbl in [
-            "checklist_postulacion", "alerts", "documentos_empresa",
-            "postulaciones", "empresas_usuario", "empresas",
-            "licitaciones", "buyer_organizations", "users",
+            "checklist_postulacion", "alerts", "dashboard_home_cache",
+            "documentos_empresa", "postulaciones", "empresas_usuario",
+            "empresas", "licitaciones", "buyer_organizations", "users",
         ]:
             await conn.execute(text(f"DROP TABLE IF EXISTS {tbl}"))
     await eng.dispose()

@@ -117,3 +117,83 @@ async def test_compose_urgencias_includes_match_alto_alert(
         u.tipo == "match_alto" and u.severidad == "naranja"
         for u in items
     )
+
+
+from app.services.dashboard_home_service import (
+    compose_pipeline,
+    compose_resumen,
+    compose_trend,
+    load_matches,
+)
+
+
+def _new_licitacion(codigo: str, now: datetime) -> Licitacion:
+    return Licitacion(
+        codigo_externo=codigo,
+        nombre=f"Licitación {codigo}",
+        fecha_publicacion=now - timedelta(days=30),
+        fecha_cierre=now + timedelta(days=10),
+        estado="Publicada",
+        activo=True,
+    )
+
+
+@pytest.mark.asyncio
+async def test_compose_pipeline_counts_by_estado(
+    async_db, sample_user, sample_empresa,
+):
+    """Pipeline counts must reflect the 5 displayed estados over the last 90 days."""
+    now = datetime.now(timezone.utc)
+    for idx, estado in enumerate(
+        ("en_seguimiento", "en_preparacion", "enviada", "adjudicada")
+    ):
+        lic = _new_licitacion(f"LIC-PIPE-{idx}", now)
+        async_db.add(lic)
+        await async_db.flush()
+        async_db.add(
+            Postulacion(
+                empresa_id=sample_empresa.id,
+                licitacion_id=lic.id,
+                estado=estado,
+            )
+        )
+        await async_db.flush()
+    await async_db.commit()
+
+    pipeline = await compose_pipeline(async_db, sample_empresa.id)
+    assert pipeline.en_seguimiento == 1
+    assert pipeline.en_preparacion == 1
+    assert pipeline.enviada == 1
+    assert pipeline.adjudicada == 1
+    assert pipeline.no_adjudicada == 0
+
+
+@pytest.mark.asyncio
+async def test_compose_resumen_aggregates_counts(
+    async_db, sample_user, sample_empresa,
+):
+    resumen = await compose_resumen(async_db, sample_user.id, sample_empresa.id)
+    assert resumen.matches_semana == 0
+    assert resumen.postulaciones_activas == 0
+    assert resumen.postulaciones_cierran_72h == 0
+    assert resumen.docs_por_vencer_30d == 0
+    assert resumen.adjudicaciones_mes == 0
+
+
+@pytest.mark.asyncio
+async def test_compose_trend_unavailable_with_short_history(
+    async_db, sample_user, sample_empresa,
+):
+    trend = await compose_trend(async_db, sample_empresa.id)
+    assert trend.disponible is False
+    assert trend.postulaciones_semana == []
+
+
+@pytest.mark.asyncio
+async def test_load_matches_returns_empty_when_no_cache(
+    async_db, sample_user, sample_empresa,
+):
+    matches, cached_at, total = await load_matches(async_db, sample_empresa.id)
+    assert matches == []
+    assert cached_at is None
+    assert total == 0
