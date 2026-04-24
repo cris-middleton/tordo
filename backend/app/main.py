@@ -78,6 +78,52 @@ app.include_router(billing.router)
 app.include_router(webhooks.router)
 
 
+@app.on_event("startup")
+async def prewarm_bi_artifacts():
+    """
+    Pre-load heavy BI artifacts in background so the first request doesn't
+    blow up the worker with a cold load (71MB TF-IDF npz + 60MB price parquets).
+    Runs non-blocking — the app becomes responsive immediately; pre-warm
+    continues in background and the first /matching or /precio request just
+    waits a bit longer if it hits before pre-warm finishes.
+    """
+    import asyncio
+
+    if not settings.feature_analytics:
+        logger.info("prewarm_bi_artifacts: feature_analytics off, skipping")
+        return
+
+    async def _warm():
+        try:
+            from app.services import bi_service
+            # Parquets grandes usados por precio (L1 es 60MB)
+            heavy_parquets = [
+                "product_price_bands_L1.parquet",
+                "product_price_bands_L2.parquet",
+                "product_price_bands_L3.parquet",
+                "tfidf_provider_index.parquet",
+            ]
+            for name in heavy_parquets:
+                await asyncio.to_thread(bi_service._load, name)
+                logger.info("prewarm_bi_artifacts: loaded %s", name)
+
+            # TF-IDF model (joblib + npz) — requires feature_tfidf
+            if settings.feature_tfidf:
+                from app.services import tfidf_matcher
+                await asyncio.to_thread(tfidf_matcher._load_model)
+                logger.info("prewarm_bi_artifacts: TF-IDF model loaded")
+            else:
+                logger.info("prewarm_bi_artifacts: feature_tfidf off, skipping TF-IDF")
+
+            logger.info("prewarm_bi_artifacts: done — BI artifacts cached in memory")
+        except Exception as exc:
+            logger.error("prewarm_bi_artifacts failed: %s", exc, exc_info=True)
+
+    # Fire-and-forget — no bloquea el startup
+    asyncio.create_task(_warm())
+    logger.info("prewarm_bi_artifacts: scheduled background warm-up")
+
+
 @app.get("/")
 async def root():
     """Root endpoint"""
