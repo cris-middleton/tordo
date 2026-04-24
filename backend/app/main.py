@@ -60,6 +60,23 @@ class BIRateLimitMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(BIRateLimitMiddleware)
 
+
+@app.exception_handler(Exception)
+async def catch_all_exception_handler(request: Request, exc: Exception):
+    """Return 500 JSON with CORS headers so browsers don't mask the real error as 'Network Error'."""
+    logger.exception("Unhandled exception on %s: %s", request.url.path, exc)
+    origin = request.headers.get("origin", "")
+    headers = {}
+    if origin in settings.cors_origins:
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Error interno: {type(exc).__name__}: {exc}"},
+        headers=headers,
+    )
+
+
 # Include routers
 app.include_router(health.router)
 app.include_router(data_inspection.router)
