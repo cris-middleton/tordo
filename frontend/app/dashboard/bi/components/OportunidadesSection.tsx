@@ -1,10 +1,11 @@
 // frontend/app/dashboard/bi/components/OportunidadesSection.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ChevronDown, ChevronUp, Loader2, Target } from 'lucide-react';
 import { OportunidadItem, CompradorResult, scoreColor, scoreBg } from '../types';
 import { useCompradorCache } from '../hooks/useCompradorCache';
+import { ShareMenu } from './ShareMenu';
 
 interface OportunidadesSectionProps {
   oportunidades: OportunidadItem[];
@@ -165,6 +166,7 @@ function ExpandedRow({
 
 export function OportunidadesSection({ oportunidades, loading, onFocusOrganismo }: OportunidadesSectionProps) {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const rootRef = useRef<HTMLElement>(null);
 
   const maxScore = oportunidades.length > 0
     ? Math.max(...oportunidades.map((o) => o.opportunity_score))
@@ -172,6 +174,16 @@ export function OportunidadesSection({ oportunidades, loading, onFocusOrganismo 
   const avgCompetidores = oportunidades.length > 0
     ? oportunidades.reduce((s, o) => s + o.n_proveedores, 0) / oportunidades.length
     : 0;
+
+  const summaryText = (() => {
+    const parts: string[] = [];
+    parts.push(`Oportunidades destacadas: ${oportunidades.length} encontradas`);
+    if (oportunidades.length > 0) {
+      parts.push(`mejor score ${maxScore.toFixed(1)}`);
+      parts.push(`competencia promedio ${Math.round(avgCompetidores)} proveedores`);
+    }
+    return parts.join(' · ') + '.';
+  })();
 
   if (loading) return (
     <div className="card flex items-center justify-center py-12">
@@ -188,13 +200,20 @@ export function OportunidadesSection({ oportunidades, loading, onFocusOrganismo 
   );
 
   return (
-    <section className="card space-y-4">
-      <div>
-        <h2 className="section-title flex items-center gap-2">
-          <Target className="h-5 w-5 text-primary" />
-          Oportunidades destacadas
-        </h2>
-        <p className="text-xs text-muted mt-0.5">¿Dónde hay oportunidad de negocio en este mercado?</p>
+    <section ref={rootRef} className="card space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="section-title flex items-center gap-2">
+            <Target className="h-5 w-5 text-primary" />
+            Oportunidades destacadas
+          </h2>
+          <p className="text-xs text-muted mt-0.5">¿Dónde hay oportunidad de negocio en este mercado?</p>
+        </div>
+        <ShareMenu
+          targetRef={rootRef}
+          summaryText={summaryText}
+          filename="tordo-bi-oportunidades"
+        />
       </div>
 
       {/* KPI Cards */}

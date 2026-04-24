@@ -263,10 +263,16 @@ export default function BIPage() {
         if (cancelled) return;
 
         // Probe BI + load initial oportunidades
-        // Default rubro: empresa > perfil > none (shows all)
+        // Default rubro: URL param > empresa > perfil > none (shows all)
+        const urlParams = new URLSearchParams(window.location.search);
+        const rubroParam = urlParams.get('rubro');
+        const compareParam = urlParams.get('compare');
+
         const firstRubro = empresaRubros[0] ?? perfilRubros[0] ?? '';
+        const effectiveRubro = rubroParam || firstRubro;
+
         const res = await apiClient.getBIOportunidades({
-          rubro: firstRubro || undefined,
+          rubro: effectiveRubro || undefined,
           min_score: 4,
           limit: 50,
         });
@@ -278,12 +284,18 @@ export default function BIPage() {
         if (enabled) {
           const opData: OportunidadItem[] = res.oportunidades ?? [];
           setOportunidades(opData);
-          setSelectedRubro(firstRubro);
+          setSelectedRubro(effectiveRubro);
+
+          // Restaurar compare mode si viene en URL
+          if (compareParam) {
+            setCompareMode(true);
+            setRubroB(compareParam);
+          }
 
           // Load tendencias and resumen in parallel
-          loadTendencias(firstRubro);
-          if (firstRubro) {
-            loadResumen(firstRubro);
+          loadTendencias(effectiveRubro);
+          if (effectiveRubro) {
+            loadResumen(effectiveRubro);
           }
         }
       } catch (err: unknown) {
@@ -312,6 +324,34 @@ export default function BIPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firstEmpresaId, selectedRubro]);
+
+  // ── URL sync — escribir ?rubro=X&focus=Y&compare=Z en base al estado ───────
+  useEffect(() => {
+    if (!initialized) return;
+    const params = new URLSearchParams();
+    if (selectedRubro) params.set('rubro', selectedRubro);
+    if (focusedOrganismo) params.set('focus', focusedOrganismo.codigo);
+    if (compareMode && rubroB) params.set('compare', rubroB);
+    const qs = params.toString();
+    const newUrl = qs ? `?${qs}` : window.location.pathname;
+    window.history.replaceState({}, '', newUrl);
+  }, [initialized, selectedRubro, focusedOrganismo, compareMode, rubroB]);
+
+  // ── Restaurar focus desde URL cuando oportunidades ya cargaron ─────────────
+  useEffect(() => {
+    if (!initialized || oportunidades.length === 0 || focusedOrganismo) return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const focusParam = urlParams.get('focus');
+    if (!focusParam) return;
+    const op = oportunidades.find((o) => o.CodigoOrganismoPublico === focusParam);
+    if (op) {
+      setFocusedOrganismo({
+        codigo: op.CodigoOrganismoPublico,
+        nombre: op.NombreOrganismo || op.CodigoOrganismoPublico,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialized, oportunidades]);
 
   // ── Save perfil handler ────────────────────────────────────────────────────
   const handleSavePerfil = async (rubros: string[]) => {

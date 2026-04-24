@@ -1,6 +1,7 @@
 // frontend/app/dashboard/bi/components/TendenciasSection.tsx
 'use client';
 
+import { useRef } from 'react';
 import { Loader2, TrendingUp } from 'lucide-react';
 import {
   BarChart,
@@ -16,6 +17,7 @@ import {
 import { TendenciaItem, SerieAnualPunto } from '../types';
 import { TrendChart } from './TrendChart';
 import { InfoTooltip } from './InfoTooltip';
+import { ShareMenu } from './ShareMenu';
 
 interface TendenciasSectionProps {
   tendencias: TendenciaItem[];
@@ -47,6 +49,17 @@ const CustomTooltip = ({ active, payload }: any) => {
 };
 
 export function TendenciasSection({ tendencias, emergentes, loading, selectedRubro, serieAnual, cagrRubro }: TendenciasSectionProps) {
+  const rootRef = useRef<HTMLElement>(null);
+
+  const summaryText = (() => {
+    if (selectedRubro && cagrRubro != null) {
+      return `Tendencias — ${selectedRubro}: ${cagrRubro > 0 ? '+' : ''}${cagrRubro.toFixed(1)}% anual promedio.`;
+    }
+    return `Tendencias del mercado: ${emergentes.length} rubros emergentes identificados.`;
+  })();
+
+  const shareFilename = `tordo-bi-tendencias-${selectedRubro ? selectedRubro.replace(/\s+/g, '-').toLowerCase() : 'mercado'}`;
+
   if (loading) return (
     <div className="card flex items-center justify-center py-12">
       <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -64,7 +77,8 @@ export function TendenciasSection({ tendencias, emergentes, loading, selectedRub
       : found?.cagr;
 
     return (
-      <section className="card space-y-4">
+      <section ref={rootRef} className="card space-y-4">
+        <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="section-title flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-primary" />
@@ -88,6 +102,12 @@ export function TendenciasSection({ tendencias, emergentes, loading, selectedRub
             />
           </h2>
           <p className="text-xs text-muted mt-0.5">¿Este mercado está creciendo o contrayéndose?</p>
+        </div>
+        <ShareMenu
+          targetRef={rootRef}
+          summaryText={summaryText}
+          filename={shareFilename}
+        />
         </div>
 
         {cagrToShow !== undefined && cagrToShow !== null ? (
@@ -177,30 +197,37 @@ export function TendenciasSection({ tendencias, emergentes, loading, selectedRub
     }));
 
   return (
-    <section className="card space-y-4">
-      <div>
-        <h2 className="section-title flex items-center gap-2">
-          <TrendingUp className="h-5 w-5 text-primary" />
-          Tendencias del mercado
-          <InfoTooltip
-            content={
-              <div className="space-y-1.5">
-                <p className="font-semibold">¿Qué estoy viendo?</p>
-                <p>
-                  El <b>monto total anual</b> adjudicado en Órdenes de Compra
-                  tramitadas vía Mercado Público para este rubro.
-                </p>
-                <p>
-                  Suma de todas las transacciones del año (todos los organismos compradores).
-                  No incluye licitaciones no adjudicadas.
-                </p>
-                <p className="text-subtle">Fuente: datos abiertos de ChileCompra.</p>
-              </div>
-            }
-            side="bottom"
-          />
-        </h2>
-        <p className="text-xs text-muted mt-0.5">¿Este mercado está creciendo o contrayéndose?</p>
+    <section ref={rootRef} className="card space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="section-title flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary" />
+            Tendencias del mercado
+            <InfoTooltip
+              content={
+                <div className="space-y-1.5">
+                  <p className="font-semibold">¿Qué estoy viendo?</p>
+                  <p>
+                    El <b>monto total anual</b> adjudicado en Órdenes de Compra
+                    tramitadas vía Mercado Público para este rubro.
+                  </p>
+                  <p>
+                    Suma de todas las transacciones del año (todos los organismos compradores).
+                    No incluye licitaciones no adjudicadas.
+                  </p>
+                  <p className="text-subtle">Fuente: datos abiertos de ChileCompra.</p>
+                </div>
+              }
+              side="bottom"
+            />
+          </h2>
+          <p className="text-xs text-muted mt-0.5">¿Este mercado está creciendo o contrayéndose?</p>
+        </div>
+        <ShareMenu
+          targetRef={rootRef}
+          summaryText={summaryText}
+          filename={shareFilename}
+        />
       </div>
 
       {/* Emergentes badges */}

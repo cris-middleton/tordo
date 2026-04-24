@@ -1,8 +1,10 @@
 'use client';
 
+import { useRef } from 'react';
 import { Loader2, Sparkles, Info } from 'lucide-react';
 import { ResumenMercado } from '../types';
 import { buildFrases } from '../narrative/templates';
+import { ShareMenu } from './ShareMenu';
 
 interface MarketSummaryCardProps {
   resumen: ResumenMercado | null;
@@ -10,6 +12,9 @@ interface MarketSummaryCardProps {
 }
 
 export function MarketSummaryCard({ resumen, loading }: MarketSummaryCardProps) {
+  // Must be declared before any early returns (hooks rules)
+  const rootRef = useRef<HTMLElement>(null);
+
   // Loading state
   if (loading) {
     return (
@@ -56,8 +61,13 @@ export function MarketSummaryCard({ resumen, loading }: MarketSummaryCardProps) 
   }
 
   // Happy path: render la card narrativa
+  const summaryText = frases
+    .map((f) => f.replace(/<[^>]*>/g, ''))
+    .join(' ');
+  const filename = `tordo-bi-resumen-${resumen.rubro?.replace(/\s+/g, '-').toLowerCase() || 'mercado'}`;
+
   return (
-    <section className="card bg-gradient-to-br from-primary/5 via-background to-accent/5 border-primary/20">
+    <section ref={rootRef} className="card bg-gradient-to-br from-primary/5 via-background to-accent/5 border-primary/20">
       <div className="flex items-start gap-3">
         <div className="rounded-full bg-primary/15 p-2 shrink-0">
           <Sparkles className="h-4 w-4 text-primary" />
@@ -71,6 +81,11 @@ export function MarketSummaryCard({ resumen, loading }: MarketSummaryCardProps) 
             />
           ))}
         </div>
+        <ShareMenu
+          targetRef={rootRef}
+          summaryText={summaryText}
+          filename={filename}
+        />
       </div>
     </section>
   );
