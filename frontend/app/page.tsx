@@ -45,19 +45,14 @@ const rotatingRubros = [
 
 const faqs = [
   {
-    question: '¿Necesito estar registrado en ChileCompra?',
+    question: '¿Necesito algo de ChileCompra antes de usar TORDO?',
     answer:
-      'Sí. Para postular a licitaciones en Mercado Público necesitas estar inscrito como proveedor en el Registro de Proveedores de ChileCompra. TORDO no reemplaza ese registro — te ayuda a usar mejor la información disponible una vez que ya eres proveedor.',
+      'Sí. Para postular en Mercado Público tu empresa debe estar inscrita como proveedor en ChileCompra y mantener el "estado hábil" al día. TORDO no reemplaza ese registro — te ayuda a usar mejor la información una vez que ya eres proveedor, y revisa tu estado hábil diariamente para avisarte si algo cambia.',
   },
   {
     question: '¿Necesito experiencia en licitaciones?',
     answer:
       'No. TORDO está diseñado para que cualquier empresa pueda entender una licitación y evaluar si le conviene postular, sin conocimiento previo del proceso.',
-  },
-  {
-    question: '¿Qué es el "estado hábil"?',
-    answer:
-      'Para postular en Mercado Público tu empresa debe estar "hábil" en ChileCompra. Si pierdes la habilitación, quedas fuera. TORDO revisa tu estado diariamente y te avisa si algo cambia.',
   },
   {
     question: '¿De dónde vienen los datos?',
@@ -69,80 +64,38 @@ const faqs = [
     answer:
       'La mayoría de las herramientas están diseñadas para equipos grandes con analistas dedicados. TORDO está pensado para el dueño de PYME que toma decisiones solo: simplifica la información para que entiendas rápido si conviene postular.',
   },
-  {
-    question: '¿Puedo cancelar cuando quiera?',
-    answer:
-      'Sí. Sin penalidades, sin preguntas. Tu plan sigue activo hasta el fin del período.',
-  },
 ];
 
-const plans = [
-  {
-    name: 'Free',
-    price: '$0',
-    period: '',
-    daily: '',
-    description: 'Para explorar sin compromiso',
-    features: [
-      'Exploración de licitaciones',
-      'Panel básico',
-      'Sin tarjeta de crédito',
-    ],
-    highlight: false,
-    cta: 'Comenzar gratis',
-    href: '/register',
-  },
-  {
-    name: 'Starter',
-    price: '$5.900',
-    period: '/mes',
-    daily: '~$197/día',
-    description: 'Para quien quiere estar al día',
-    features: [
-      '10 alertas segmentadas por mes',
-      'Filtros por región y rubro',
-      'Monitor de estado hábil',
-      'Soporte por correo',
-    ],
-    highlight: false,
-    cta: 'Elegir Starter',
-    href: '/register',
-  },
-  {
-    name: 'Pro',
-    price: '$11.900',
-    period: '/mes',
-    daily: '~$397/día',
-    description: 'Inteligencia completa para ganar más',
-    features: [
-      'Alertas ilimitadas',
-      'Inteligencia BI completa',
-      'Benchmarks de precio por producto',
-      'Análisis de competidores',
-      'Checklist por tipo de licitación',
-      'Matching semántico',
-    ],
-    highlight: true,
-    cta: 'Elegir Pro',
-    href: '/register',
-  },
-  {
-    name: 'Enterprise',
-    price: 'A consultar',
-    period: '',
-    daily: '',
-    description: 'Para equipos y múltiples RUTs',
-    features: [
-      'Todo lo del plan Pro',
-      'Usuarios múltiples con roles',
-      'Integraciones API',
-      'Soporte prioritario',
-    ],
-    highlight: false,
-    cta: 'Contactar',
-    href: '#contacto',
-  },
-];
+const FREE_PLAN = {
+  name: 'Free',
+  description: 'Para explorar sin compromiso',
+  features: [
+    'Exploración de licitaciones',
+    '3 alertas al mes',
+    'Monitor de estado hábil',
+    'Sin tarjeta de crédito',
+  ],
+  cta: 'Crear cuenta gratis',
+  href: '/register',
+};
+
+const PRO_PLAN = {
+  name: 'Pro',
+  description: 'Inteligencia completa para ganar más',
+  monthly: { price: '$11.900', period: '/mes', note: '' },
+  annual: { price: '$9.900', period: '/mes', note: 'Facturado anual · ahorras 2 meses' },
+  features: [
+    'Alertas ilimitadas',
+    'Benchmarks de precio por producto',
+    'Análisis de competidores',
+    'Score de oportunidad',
+    'Matching semántico',
+    'Checklist por tipo de licitación',
+    'Alertas de vencimiento de documentos',
+  ],
+  cta: 'Probar 14 días gratis',
+  href: '/register',
+};
 
 /* ─────────────────────────────────────────────
    ROTATING TEXT COMPONENT
@@ -197,6 +150,7 @@ export default function Home() {
   const [showMobileCta, setShowMobileCta] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
 
   useEffect(() => {
     if (userClicked) return;
@@ -247,7 +201,7 @@ export default function Home() {
               Iniciar sesión
             </Link>
             <Link href="/register" className="hidden sm:inline-flex rounded-lg bg-[#0EAD69] px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-[#09895B] hover:shadow-md">
-              Prueba gratis
+              Probar Pro 14 días
             </Link>
             <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="rounded-lg p-2 text-[#64748B] hover:text-[#0F2942] md:hidden">
               {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -262,7 +216,7 @@ export default function Home() {
                 <Link key={item.name} href={item.href} onClick={() => setMobileMenuOpen(false)} className="text-sm font-medium text-[#64748B] hover:text-[#0F2942]">{item.name}</Link>
               ))}
               <Link href="/register" onClick={() => setMobileMenuOpen(false)} className="inline-flex items-center justify-center rounded-lg bg-[#0EAD69] px-4 py-2.5 text-sm font-bold text-white transition-all hover:bg-[#09895B]">
-                Prueba gratis
+                Probar Pro 14 días
               </Link>
             </nav>
           </div>
@@ -290,13 +244,9 @@ export default function Home() {
                   Descubre a qué precio cotizar, en qué licitaciones vale la pena participar y cuáles se ajustan a lo que vendes — sin adivinar.
                 </p>
 
-                <p className="mb-8 max-w-lg text-sm text-white/40 leading-relaxed">
-                  No importa el tamaño de tu empresa ni tu experiencia en licitaciones. TORDO te ayuda a entender cada oportunidad y mejorar tus probabilidades.
-                </p>
-
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-10 sm:mb-12">
                   <Link href="/register" className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0EAD69] px-6 py-3.5 text-sm font-bold text-white shadow-lg transition-all hover:bg-[#09895B] hover:shadow-xl">
-                    Prueba gratis — sin tarjeta
+                    Probar Pro 14 días
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                   <Link href="#producto" className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/[0.08] px-6 py-3.5 text-sm font-semibold text-white/90 backdrop-blur-sm transition-all hover:bg-white/15">
@@ -306,22 +256,8 @@ export default function Home() {
 
                 {/* Trust line */}
                 <p className="text-xs text-white/35 mb-6">
-                  Datos públicos de ChileCompra · Sin tarjeta · Cancelas cuando quieras
+                  Sin tarjeta · Cancela cuando quieras
                 </p>
-
-                {/* Stats */}
-                <div className="grid grid-cols-3 gap-6 sm:gap-10">
-                  {[
-                    { value: '$17.6B USD', label: 'en compras públicas (2024)' },
-                    { value: '110.000+', label: 'proveedores en el mercado' },
-                    { value: '+3.2M', label: 'transacciones analizadas' },
-                  ].map((item) => (
-                    <div key={item.value}>
-                      <p className="text-xl sm:text-2xl font-bold text-white" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>{item.value}</p>
-                      <p className="mt-0.5 text-xs sm:text-sm text-white/45">{item.label}</p>
-                    </div>
-                  ))}
-                </div>
               </div>
 
               <div className="lg:col-span-2 flex flex-col items-center justify-center gap-3">
@@ -348,7 +284,7 @@ export default function Home() {
                 Inteligencia para decidir. Orden para postular.
               </h2>
               <p className="mt-4 max-w-2xl mx-auto text-[#64748B] leading-relaxed">
-                Antes de invertir tiempo en una licitación, TORDO te muestra si tu precio es competitivo y qué tan confiable es el comprador. Cuando postulas, te asegura que no te descarten antes de ser evaluado.
+                Te mostramos si tu precio es competitivo y qué tan confiable es el comprador — antes de que inviertas tiempo postulando.
               </p>
             </div>
 
@@ -391,9 +327,9 @@ export default function Home() {
                 </div>
                 <div className="space-y-5">
                   {[
-                    { icon: Bell, title: 'Alertas cuando aparece algo que te conviene', desc: 'Te avisamos por correo o WhatsApp cuando aparecen licitaciones u órdenes de compra que calzan con tu perfil, y también 48 y 24 horas antes del cierre.' },
-                    { icon: CheckCircle2, title: 'Papeles al día sin adivinar', desc: 'Plantilla de documentos según el tipo de licitación (L1, LE, LP). Así no revisas Bases de 40 páginas para saber qué declaraciones pedir.' },
-                    { icon: FileClock, title: 'No pierdas postulaciones por un documento vencido', desc: 'Te avisamos cuando un certificado, garantía o boleta está por vencer. Así renuevas a tiempo y no te descartan por un papel caducado.' },
+                    { icon: Bell, title: 'Alertas cuando aparece algo que te conviene', desc: 'Por correo o WhatsApp cuando calzan con tu perfil, y 48 y 24 h antes del cierre.' },
+                    { icon: CheckCircle2, title: 'Papeles al día sin adivinar', desc: 'Plantilla de documentos según el tipo de licitación (L1, LE, LP).' },
+                    { icon: FileClock, title: 'No pierdas por un documento vencido', desc: 'Te avisamos antes de que caduque un certificado, garantía o boleta.' },
                   ].map((item) => {
                     const Icon = item.icon;
                     return (
@@ -468,9 +404,9 @@ export default function Home() {
             <div className="grid gap-8 md:grid-cols-3 relative">
               <div className="hidden md:block absolute top-6 left-[calc(16.67%+24px)] right-[calc(16.67%+24px)] h-px bg-gradient-to-r from-[#0F2942]/20 via-[#0EAD69]/30 to-[#0F2942]/20" />
               {[
-                { step: '01', title: 'Registra tu empresa', desc: 'Ingresa tu RUT y rubros. TORDO verifica tu estado hábil automáticamente. (Necesitas estar registrado como proveedor en ChileCompra.)' },
-                { step: '02', title: 'Explora oportunidades', desc: 'Encuentra las licitaciones que calzan con tu perfil, cada una con su score de oportunidad.' },
-                { step: '03', title: 'Postula informado', desc: 'Revisa precios históricos, competidores, y prepara tu documentación con el checklist.' },
+                { step: '01', title: 'Registra tu empresa', desc: 'Ingresa tu RUT y rubros. Verificamos tu estado hábil automáticamente.' },
+                { step: '02', title: 'Explora oportunidades', desc: 'Encuentra licitaciones que calzan con tu perfil, cada una con su score de oportunidad.' },
+                { step: '03', title: 'Postula informado', desc: 'Revisa precios históricos, competidores y prepara tu documentación con el checklist.' },
               ].map((s) => (
                 <div key={s.step} className="relative">
                   <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[#0F2942] text-white font-bold text-lg relative z-10" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>
@@ -519,57 +455,98 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              {plans.map((plan) => (
-                <div
-                  key={plan.name}
-                  className={`relative flex flex-col rounded-xl border p-6 transition-all ${
-                    plan.highlight
-                      ? 'border-[#0F2942] bg-[#0F2942] text-white shadow-xl'
-                      : 'border-[#E2E6EF] bg-white shadow-sm hover:shadow-md hover:border-[#0F2942]/25'
-                  }`}
+            <div className="mx-auto grid max-w-3xl gap-5 sm:grid-cols-2">
+              {/* Free card */}
+              <div className="relative flex flex-col rounded-xl border border-[#E2E6EF] bg-white p-6 shadow-sm transition-all hover:shadow-md hover:border-[#0F2942]/25">
+                <div className="mb-4">
+                  <h3 className="text-lg font-bold mb-1 text-[#0D1B2A]" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>{FREE_PLAN.name}</h3>
+                  <p className="text-xs text-[#64748B]">{FREE_PLAN.description}</p>
+                </div>
+                <div className="mb-1">
+                  <span className="font-bold text-3xl text-[#0D1B2A]" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>$0</span>
+                </div>
+                <div className="mb-4 h-4" />
+                <ul className="mb-6 flex-1 space-y-2.5">
+                  {FREE_PLAN.features.map((f) => (
+                    <li key={f} className="flex items-start gap-2 text-sm">
+                      <span className="mt-0.5 text-xs text-[#0EAD69]">&#10003;</span>
+                      <span className="text-[#64748B]">{f}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  href={FREE_PLAN.href}
+                  className="block rounded-lg py-2.5 text-center text-sm font-bold transition-all border border-[#0F2942] text-[#0F2942] hover:bg-[#0F2942] hover:text-white"
                 >
-                  {plan.highlight && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[#0EAD69] px-3 py-1 text-[11px] font-bold text-white whitespace-nowrap">Más popular</span>
-                    </div>
-                  )}
-                  <div className="mb-4">
-                    <h3 className={`text-lg font-bold mb-1 ${plan.highlight ? 'text-white' : 'text-[#0D1B2A]'}`} style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>{plan.name}</h3>
-                    <p className={`text-xs ${plan.highlight ? 'text-white/60' : 'text-[#64748B]'}`}>{plan.description}</p>
-                  </div>
-                  <div className="mb-1">
-                    <span className={`font-bold text-3xl ${plan.highlight ? 'text-white' : 'text-[#0D1B2A]'}`} style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>{plan.price}</span>
-                    {plan.period && <span className={`text-sm ${plan.highlight ? 'text-white/60' : 'text-[#64748B]'}`}>{plan.period}</span>}
-                  </div>
-                  {plan.daily ? (
-                    <p className={`text-xs mb-4 ${plan.highlight ? 'text-white/50' : 'text-[#94A3B8]'}`}>{plan.daily}</p>
-                  ) : (
-                    <div className="mb-4" />
-                  )}
-                  <ul className="mb-6 flex-1 space-y-2.5">
-                    {plan.features.map((f) => (
-                      <li key={f} className="flex items-start gap-2 text-sm">
-                        <span className="mt-0.5 text-xs text-[#0EAD69]">&#10003;</span>
-                        <span className={plan.highlight ? 'text-white/80' : 'text-[#64748B]'}>{f}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <Link
-                    href={plan.href}
-                    className={`block rounded-lg py-2.5 text-center text-sm font-bold transition-all ${
-                      plan.highlight
-                        ? 'bg-[#0EAD69] text-white hover:bg-[#09895B]'
-                        : 'border border-[#0F2942] text-[#0F2942] hover:bg-[#0F2942] hover:text-white'
+                  {FREE_PLAN.cta}
+                </Link>
+              </div>
+
+              {/* Pro card */}
+              <div className="relative flex flex-col rounded-xl border border-[#0F2942] bg-[#0F2942] p-6 text-white shadow-xl">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#0EAD69] px-3 py-1 text-[11px] font-bold text-white whitespace-nowrap">Más elegido</span>
+                </div>
+
+                <div className="mb-4">
+                  <h3 className="text-lg font-bold mb-1 text-white" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>{PRO_PLAN.name}</h3>
+                  <p className="text-xs text-white/60">{PRO_PLAN.description}</p>
+                </div>
+
+                {/* Monthly / Annual toggle */}
+                <div className="mb-4 inline-flex self-start rounded-lg bg-white/10 p-1 text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setBillingPeriod('monthly')}
+                    className={`rounded-md px-3 py-1.5 transition-all ${
+                      billingPeriod === 'monthly' ? 'bg-white text-[#0F2942]' : 'text-white/70 hover:text-white'
                     }`}
                   >
-                    {plan.cta}
-                  </Link>
+                    Mensual
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBillingPeriod('annual')}
+                    className={`rounded-md px-3 py-1.5 transition-all ${
+                      billingPeriod === 'annual' ? 'bg-white text-[#0F2942]' : 'text-white/70 hover:text-white'
+                    }`}
+                  >
+                    Anual <span className="ml-1 text-[10px] text-[#0EAD69]">−17%</span>
+                  </button>
                 </div>
-              ))}
+
+                <div className="mb-1">
+                  <span className="font-bold text-3xl text-white" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>
+                    {PRO_PLAN[billingPeriod].price}
+                  </span>
+                  <span className="text-sm text-white/60">{PRO_PLAN[billingPeriod].period}</span>
+                </div>
+                <p className="mb-4 text-xs text-white/50 min-h-[1rem]">
+                  {PRO_PLAN[billingPeriod].note}
+                </p>
+
+                <ul className="mb-6 flex-1 space-y-2.5">
+                  {PRO_PLAN.features.map((f) => (
+                    <li key={f} className="flex items-start gap-2 text-sm">
+                      <span className="mt-0.5 text-xs text-[#0EAD69]">&#10003;</span>
+                      <span className="text-white/80">{f}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  href={PRO_PLAN.href}
+                  className="block rounded-lg py-2.5 text-center text-sm font-bold transition-all bg-[#0EAD69] text-white hover:bg-[#09895B]"
+                >
+                  {PRO_PLAN.cta}
+                </Link>
+              </div>
             </div>
-            <p className="mt-8 text-center text-sm text-[#94A3B8]">
-              El plan Free no tiene límite de tiempo. Explora todo lo que necesites.
+
+            <p className="mt-6 text-center text-sm text-[#64748B]">
+              ¿Equipos o múltiples RUTs?{' '}
+              <Link href="#contacto" className="font-semibold text-[#0F2942] hover:text-[#0EAD69] transition-colors">
+                Hablemos →
+              </Link>
             </p>
           </div>
         </section>
@@ -616,10 +593,10 @@ export default function Home() {
               Tu próxima licitación, con mejor información
             </h2>
             <p className="mb-8 text-white/65 leading-relaxed">
-              Cuenta gratis en 2 minutos. Sin tarjeta de crédito. No necesitas experiencia previa en licitaciones.
+              Cuenta gratis en 2 minutos. Sin tarjeta.
             </p>
             <Link href="/register" className="inline-flex items-center gap-2 rounded-lg bg-[#0EAD69] px-8 py-4 text-base font-bold text-white shadow-lg transition-all hover:bg-[#09895B] hover:shadow-xl">
-              Crear cuenta gratis
+              Probar Pro 14 días
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
@@ -650,7 +627,7 @@ export default function Home() {
       {showMobileCta && (
         <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#E2E6EF] bg-white px-4 py-3 lg:hidden">
           <Link href="/register" className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0EAD69] px-6 py-3 text-sm font-bold text-white transition-all hover:bg-[#09895B]">
-            Prueba gratis
+            Probar Pro 14 días
             <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
