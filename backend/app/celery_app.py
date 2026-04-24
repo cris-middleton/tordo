@@ -54,6 +54,13 @@ celery_app.conf.update(
             "task": "app.tasks.estado_habil_tasks.check_document_expiry",
             "schedule": crontab(hour=9, minute=30),
         },
+        # 06:00 SCL daily: pre-compute TF-IDF matches for the operational home.
+        # Reads TFIDFPerfil per empresa, scores all open licitaciones, stores
+        # top-20 in dashboard_home_cache. Home endpoint reads from cache only.
+        "precompute-dashboard-matches": {
+            "task": "app.tasks.dashboard_tasks.precompute_dashboard_matches",
+            "schedule": crontab(hour=6, minute=0),
+        },
         # Every 30 min: watchdog checks for unresolved task failures
         "watchdog": {
             "task": "app.tasks.etl_tasks.watchdog",
@@ -66,3 +73,4 @@ celery_app.conf.update(
 from app.tasks import alert_tasks       # noqa
 from app.tasks import etl_tasks         # noqa
 from app.tasks import estado_habil_tasks  # noqa
+from app.tasks import dashboard_tasks   # noqa

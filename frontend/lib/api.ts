@@ -98,6 +98,12 @@ class ApiClient {
     return res.data;
   }
 
+  async getDashboardHome(empresaId?: string) {
+    const params = empresaId ? { empresa_id: empresaId } : {};
+    const res = await this.client.get('/api/dashboard/home', { params });
+    return res.data as import('@/types/dashboardHome').DashboardHomeResponse;
+  }
+
   // ── Tenders ────────────────────────────────────────────────────────────────
 
   async getTenders(params: Record<string, unknown> = {}) {

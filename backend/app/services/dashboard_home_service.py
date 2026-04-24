@@ -10,15 +10,21 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.models.alert import Alert, AlertStatus, AlertType
+from app.models.dashboard_cache import DashboardHomeCache
 from app.models.empresa import DocumentoEmpresa, Empresa
 from app.models.licitacion import Licitacion
 from app.models.postulacion import ChecklistPostulacion, Postulacion
-from app.schemas.dashboard_home import UrgenciaItem
+from app.schemas.dashboard_home import (
+    MatchItem,
+    PipelineCounts,
+    ResumenStats,
+    TrendStats,
+    UrgenciaItem,
+)
 
 
 def _hours_label(delta: timedelta) -> str:
@@ -38,6 +44,16 @@ def _severity_for_hours(hours: float) -> str:
     if hours < 168:  # 7 days
         return "naranja"
     return "amarillo"
+
+
+def _ensure_utc(dt: datetime) -> datetime:
+    """Coerce a possibly-naive datetime into tz-aware UTC.
+
+    SQLAlchemy + SQLite returns naive datetimes for TIMESTAMPTZ columns; in
+    production Postgres they arrive tz-aware. Normalize at source boundaries
+    so `now - dt` arithmetic and `(sev_rank, dt)` sort tuples never mix.
+    """
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
 
 
 async def _checklist_completion(db: AsyncSession, postulacion_id: UUID) -> Optional[float]:
@@ -80,7 +96,7 @@ async def compose_urgencias(
         )
     ).all()
     for postulacion, licitacion in rows:
-        delta = licitacion.fecha_cierre - now
+        delta = _ensure_utc(licitacion.fecha_cierre) - now
         hours = delta.total_seconds() / 3600
         severidad = _severity_for_hours(hours)
         completion = await _checklist_completion(db, postulacion.id)
@@ -105,7 +121,7 @@ async def compose_urgencias(
             cta_href=f"/dashboard/postulaciones/{postulacion.id}",
         )
         sev_rank = {"rojo": 0, "naranja": 1, "amarillo": 2}[severidad]
-        items.append((sev_rank, licitacion.fecha_cierre, item))
+        items.append((sev_rank, _ensure_utc(licitacion.fecha_cierre), item))
 
     # ── 2. Documentos vencen en próximos 30 días ─────────────────────────────
     doc_cutoff = today + timedelta(days=30)
@@ -184,7 +200,8 @@ async def compose_urgencias(
         )
     ).scalars().all()
     for alert in alerts:
-        delta = now - alert.created_at
+        created_at = _ensure_utc(alert.created_at)
+        delta = now - created_at
         days_old = max(int(delta.total_seconds() // 86400), 0)
         item = UrgenciaItem(
             id=f"alert_{alert.id}",
@@ -196,7 +213,233 @@ async def compose_urgencias(
             cta_label="Revisar",
             cta_href=f"/dashboard/tenders/{alert.entity_id}",
         )
-        items.append((1, alert.created_at, item))
+        items.append((1, created_at, item))
 
     items.sort(key=lambda t: (t[0], t[1]))
     return [it for _, _, it in items[:5]]
+
+
+PIPELINE_ESTADOS = (
+    "en_seguimiento",
+    "en_preparacion",
+    "enviada",
+    "adjudicada",
+    "no_adjudicada",
+)
+
+
+async def compose_pipeline(db: AsyncSession, empresa_id: UUID) -> PipelineCounts:
+    """Counts per estado over the last 90 days + tasa de adjudicación."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=90)
+    rows = (
+        await db.execute(
+            select(Postulacion.estado, func.count(Postulacion.id))
+            .where(
+                Postulacion.empresa_id == empresa_id,
+                Postulacion.created_at >= cutoff,
+                Postulacion.estado.in_(PIPELINE_ESTADOS),
+            )
+            .group_by(Postulacion.estado)
+        )
+    ).all()
+    counts = {estado: 0 for estado in PIPELINE_ESTADOS}
+    for estado, n in rows:
+        counts[estado] = n
+    decididas = counts["adjudicada"] + counts["no_adjudicada"]
+    tasa = (counts["adjudicada"] / decididas) if decididas >= 3 else None
+    return PipelineCounts(
+        en_seguimiento=counts["en_seguimiento"],
+        en_preparacion=counts["en_preparacion"],
+        enviada=counts["enviada"],
+        adjudicada=counts["adjudicada"],
+        no_adjudicada=counts["no_adjudicada"],
+        tasa_adjudicacion_90d=round(tasa, 4) if tasa is not None else None,
+        decididas_90d=decididas,
+    )
+
+
+async def compose_resumen(
+    db: AsyncSession, user_id: int, empresa_id: UUID
+) -> ResumenStats:
+    """Counts used by the narrative template + secondary KPIs."""
+    now = datetime.now(timezone.utc)
+    today = date.today()
+    week_ago = now - timedelta(days=7)
+    cutoff_72h = now + timedelta(hours=72)
+    month_start = today.replace(day=1)
+    month_start_dt = datetime.combine(month_start, datetime.min.time()).replace(
+        tzinfo=timezone.utc
+    )
+
+    matches_week = (
+        await db.execute(
+            select(func.count(Alert.id)).where(
+                Alert.user_id == user_id,
+                Alert.alert_type == AlertType.NUEVA_LICITACION_MATCH,
+                Alert.created_at >= week_ago,
+            )
+        )
+    ).scalar() or 0
+
+    postulaciones_72h = (
+        await db.execute(
+            select(func.count(Postulacion.id))
+            .join(Licitacion, Postulacion.licitacion_id == Licitacion.id)
+            .where(
+                Postulacion.empresa_id == empresa_id,
+                Postulacion.estado.in_(("en_seguimiento", "en_preparacion")),
+                Licitacion.fecha_cierre.isnot(None),
+                Licitacion.fecha_cierre > now,
+                Licitacion.fecha_cierre <= cutoff_72h,
+            )
+        )
+    ).scalar() or 0
+
+    postulaciones_activas = (
+        await db.execute(
+            select(func.count(Postulacion.id)).where(
+                Postulacion.empresa_id == empresa_id,
+                Postulacion.estado.in_(("en_seguimiento", "en_preparacion", "enviada")),
+            )
+        )
+    ).scalar() or 0
+
+    docs_30d = (
+        await db.execute(
+            select(func.count(DocumentoEmpresa.id)).where(
+                DocumentoEmpresa.empresa_id == empresa_id,
+                DocumentoEmpresa.eliminado.is_(False),
+                DocumentoEmpresa.fecha_vencimiento.isnot(None),
+                DocumentoEmpresa.fecha_vencimiento >= today,
+                DocumentoEmpresa.fecha_vencimiento <= today + timedelta(days=30),
+            )
+        )
+    ).scalar() or 0
+
+    docs_7d = (
+        await db.execute(
+            select(func.count(DocumentoEmpresa.id)).where(
+                DocumentoEmpresa.empresa_id == empresa_id,
+                DocumentoEmpresa.eliminado.is_(False),
+                DocumentoEmpresa.fecha_vencimiento.isnot(None),
+                DocumentoEmpresa.fecha_vencimiento >= today,
+                DocumentoEmpresa.fecha_vencimiento <= today + timedelta(days=7),
+            )
+        )
+    ).scalar() or 0
+
+    adjudicaciones_mes = (
+        await db.execute(
+            select(func.count(Postulacion.id)).where(
+                Postulacion.empresa_id == empresa_id,
+                Postulacion.estado == "adjudicada",
+                Postulacion.created_at >= month_start_dt,
+            )
+        )
+    ).scalar() or 0
+
+    enviadas_mes = (
+        await db.execute(
+            select(func.count(Postulacion.id)).where(
+                Postulacion.empresa_id == empresa_id,
+                Postulacion.estado == "enviada",
+                Postulacion.created_at >= month_start_dt,
+            )
+        )
+    ).scalar() or 0
+
+    return ResumenStats(
+        matches_semana=int(matches_week),
+        matches_72h=0,
+        postulaciones_activas=int(postulaciones_activas),
+        postulaciones_cierran_72h=int(postulaciones_72h),
+        docs_por_vencer_30d=int(docs_30d),
+        docs_por_vencer_7d=int(docs_7d),
+        adjudicaciones_mes=int(adjudicaciones_mes),
+        enviadas_mes=int(enviadas_mes),
+    )
+
+
+async def _tasa_window(
+    db: AsyncSession, empresa_id: UUID, start: datetime, end: datetime
+) -> Optional[float]:
+    rows = (
+        await db.execute(
+            select(Postulacion.estado).where(
+                Postulacion.empresa_id == empresa_id,
+                Postulacion.created_at >= start,
+                Postulacion.created_at < end,
+                Postulacion.estado.in_(("adjudicada", "no_adjudicada")),
+            )
+        )
+    ).scalars().all()
+    if len(rows) < 3:
+        return None
+    decididas = len(rows)
+    adjudicadas = sum(1 for e in rows if e == "adjudicada")
+    return round(adjudicadas / decididas, 4)
+
+
+async def compose_trend(db: AsyncSession, empresa_id: UUID) -> TrendStats:
+    """7-bucket weekly histogram + tasa change. Disabled if <30 days history."""
+    earliest = (
+        await db.execute(
+            select(func.min(Postulacion.created_at)).where(
+                Postulacion.empresa_id == empresa_id
+            )
+        )
+    ).scalar()
+    if earliest is None:
+        return TrendStats(disponible=False)
+
+    now = datetime.now(timezone.utc)
+    earliest_utc = _ensure_utc(earliest)
+    if (now - earliest_utc).days < 30:
+        return TrendStats(disponible=False)
+
+    buckets: list[int] = []
+    for i in range(6, -1, -1):
+        start = now - timedelta(days=(i + 1) * 7)
+        end = now - timedelta(days=i * 7)
+        n = (
+            await db.execute(
+                select(func.count(Postulacion.id)).where(
+                    Postulacion.empresa_id == empresa_id,
+                    Postulacion.estado == "enviada",
+                    Postulacion.created_at >= start,
+                    Postulacion.created_at < end,
+                )
+            )
+        ).scalar() or 0
+        buckets.append(int(n))
+
+    tasa_cur = await _tasa_window(db, empresa_id, now - timedelta(days=30), now)
+    tasa_prev = await _tasa_window(
+        db, empresa_id, now - timedelta(days=60), now - timedelta(days=30)
+    )
+
+    return TrendStats(
+        disponible=True,
+        postulaciones_semana=buckets,
+        tasa_adjudicacion_actual=tasa_cur,
+        tasa_adjudicacion_anterior=tasa_prev,
+        delta_enviadas_pp=buckets[-1] - buckets[-2] if len(buckets) >= 2 else None,
+    )
+
+
+async def load_matches(
+    db: AsyncSession, empresa_id: UUID
+) -> tuple[list[MatchItem], Optional[datetime], int]:
+    """Read pre-computed matches from dashboard_home_cache."""
+    cache = (
+        await db.execute(
+            select(DashboardHomeCache).where(
+                DashboardHomeCache.empresa_id == empresa_id
+            )
+        )
+    ).scalar_one_or_none()
+    if cache is None:
+        return [], None, 0
+    items = [MatchItem.model_validate(m) for m in (cache.matches or [])]
+    cached_at = _ensure_utc(cache.cached_at) if cache.cached_at else None
+    return items, cached_at, int(cache.matches_count or 0)

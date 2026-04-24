@@ -96,7 +96,6 @@ export default function Layout({ children }: LayoutProps) {
     '/dashboard/alerts': 'Alertas',
     '/dashboard/billing': 'Facturación',
     '/dashboard/calendario': 'Calendario',
-    '/dashboard/analytics': 'Analítica',
     '/dashboard/documentos': 'Documentos',
   };
 
