@@ -55,7 +55,9 @@ class Alert(Base):
     # Alert content
     title = Column(String(500), nullable=False)
     message = Column(Text)
-    alert_metadata = Column(JSON)  # Additional data about the alert
+    # Python attribute renamed to avoid clash with SQLAlchemy's reserved `metadata`
+    # — the DB column stays named `metadata` (original schema from migration 001).
+    alert_metadata = Column("metadata", JSON)
     
     # Notification tracking
     notification_channels = Column(JSON)  # List of channels used: ["email", "in_app", "webhook"]
