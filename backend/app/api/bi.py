@@ -33,6 +33,7 @@ from app.schemas.bi import (
     PerfilMatchResponse,
     PrecioResponse,
     ProductosResponse,
+    RadarResponse,
     ResumenResponse,
     RubrosResponse,
     SectorResponse,
@@ -688,3 +689,40 @@ def get_productos(
     _require_analytics()
     from app.services import bi_service
     return bi_service.get_productos(q, limit)
+
+
+@router.get(
+    "/radar_semanal",
+    response_model=RadarResponse,
+    summary="Radar semanal de movimientos para una empresa",
+    description=(
+        "Detecta los 3 movimientos más relevantes en los rubros de la empresa: "
+        "nueva licitación con score TF-IDF alto, oportunidad destacada, comprador activo. "
+        "Computado on-demand. Misma data que el email semanal del lunes."
+    ),
+)
+async def get_radar_semanal(
+    empresa_id: UUID = Query(..., description="UUID de la empresa"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    _require_analytics()
+    from app.services import radar_service
+
+    # Verificar membership
+    membership = (await db.execute(
+        select(EmpresaUsuario).where(
+            EmpresaUsuario.empresa_id == empresa_id,
+            EmpresaUsuario.user_id == current_user.id,
+        )
+    )).scalar_one_or_none()
+    if not membership:
+        raise HTTPException(status_code=403, detail="Sin acceso a esta empresa")
+
+    # radar_service usa session síncrona → abrir una sesión sync para esto
+    from app.db import SyncSessionLocal
+    sync_db = SyncSessionLocal()
+    try:
+        return radar_service.compute_radar_for_empresa(sync_db, empresa_id)
+    finally:
+        sync_db.close()

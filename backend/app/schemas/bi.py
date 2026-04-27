@@ -469,3 +469,21 @@ class ProductosResponse(BaseModel):
     resultados: Optional[list[ProductoItem]] = None
     total: Optional[int] = None
     motivo: Optional[str] = None
+
+
+# ─── Radar semanal ────────────────────────────────────────────────────────────
+
+class RadarMovimiento(BaseModel):
+    tipo: str  # "nueva_licitacion" | "oportunidad_top" | "comprador_activo"
+    titulo: str
+    detalle: str
+    accion_url: Optional[str] = None  # link relativo (ej: /dashboard/tenders/XYZ)
+
+
+class RadarResponse(BaseModel):
+    disponible: bool
+    empresa_id: Optional[str] = None
+    empresa_nombre: Optional[str] = None
+    semana_inicio: Optional[str] = None  # ISO date lunes
+    movimientos: Optional[list[RadarMovimiento]] = None
+    motivo: Optional[str] = None

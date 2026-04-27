@@ -76,6 +76,11 @@ celery_app.conf.update(
             "task": "app.tasks.trial_tasks.send_trial_reminders",
             "schedule": crontab(hour=9, minute=0),
         },
+        # Lunes 09:00 SCL: enviar radar semanal a empresas con perfil TF-IDF
+        "radar-semanal": {
+            "task": "send_radar_semanal",
+            "schedule": crontab(day_of_week=1, hour=9, minute=0),
+        },
     },
 )
 
@@ -85,3 +90,4 @@ from app.tasks import etl_tasks         # noqa
 from app.tasks import estado_habil_tasks  # noqa
 from app.tasks import dashboard_tasks   # noqa
 from app.tasks import trial_tasks       # noqa
+from app.tasks import radar_tasks       # noqa
