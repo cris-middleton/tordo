@@ -391,6 +391,11 @@ class ApiClient {
     return res.data;
   }
 
+  async getBIRadarSemanal(empresaId: string) {
+    const res = await this.client.get('/api/bi/radar_semanal', { params: { empresa_id: empresaId } });
+    return res.data as import('@/types/dashboardHome').RadarResponse;
+  }
+
   // ── WhatsApp test ──────────────────────────────────────────────────────────
 
   async sendTestWhatsApp() {

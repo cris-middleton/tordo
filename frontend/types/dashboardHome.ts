@@ -83,3 +83,19 @@ export interface DashboardHomeResponse {
   trend: TrendStats;
   plan: PlanInfo;
 }
+
+export interface RadarMovimiento {
+  tipo: 'nueva_licitacion' | 'oportunidad_top' | 'comprador_activo';
+  titulo: string;
+  detalle: string;
+  accion_url?: string | null;
+}
+
+export interface RadarResponse {
+  disponible: boolean;
+  empresa_id?: string | null;
+  empresa_nombre?: string | null;
+  semana_inicio?: string | null;
+  movimientos?: RadarMovimiento[] | null;
+  motivo?: string | null;
+}

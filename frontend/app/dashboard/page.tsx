@@ -12,6 +12,7 @@ import { MatchesZone } from '@/components/dashboard/MatchesZone';
 import { PipelineZone } from '@/components/dashboard/PipelineZone';
 import { TrendWidget } from '@/components/dashboard/TrendWidget';
 import { QuickActions } from '@/components/dashboard/QuickActions';
+import { RadarWidget } from '@/components/dashboard/RadarWidget';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -83,6 +84,8 @@ export default function DashboardPage() {
       </div>
 
       <PipelineZone pipeline={data.pipeline} />
+
+      <RadarWidget empresaId={data.empresa?.id} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-1">
