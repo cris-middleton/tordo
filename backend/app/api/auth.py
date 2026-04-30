@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
@@ -14,6 +15,8 @@ from app.core.security import (
 )
 from app.schemas.user import UserCreate, UserLogin, Token, UserResponse
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
 
@@ -113,10 +116,19 @@ async def google_callback(
     from app.services.oauth_service import exchange_code, find_or_create_user, get_userinfo
     try:
         tokens = await exchange_code(code)
+    except Exception:
+        logger.exception("Google OAuth: token exchange failed")
+        return RedirectResponse(f"{settings.frontend_url}/login?error=google_token_exchange_failed")
+    try:
         user_info = await get_userinfo(tokens["access_token"])
+    except Exception:
+        logger.exception("Google OAuth: userinfo fetch failed")
+        return RedirectResponse(f"{settings.frontend_url}/login?error=google_userinfo_failed")
+    try:
         user = await find_or_create_user(db, user_info)
     except Exception:
-        return RedirectResponse(f"{settings.frontend_url}/login?error=google_failed")
+        logger.exception("Google OAuth: find_or_create_user failed (email=%s)", user_info.get("email"))
+        return RedirectResponse(f"{settings.frontend_url}/login?error=google_db_error")
 
     access_token = create_access_token(
         data={"sub": str(user.id)},
