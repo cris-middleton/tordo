@@ -1,11 +1,7 @@
 import json
-from datetime import date, datetime
-from pathlib import Path
 
-import pytest
-
-from analytics.evaluation.base import EvaluationResult, SplitWindow, VariantConfig
 from analytics.evaluation import reporter
+from analytics.evaluation.base import EvaluationResult, VariantConfig
 
 
 def _fake_result() -> EvaluationResult:
@@ -28,9 +24,7 @@ def _fake_result() -> EvaluationResult:
 
 
 def test_write_result_json_produces_parseable_json(tmp_path):
-    path = reporter.write_result_json(
-        [_fake_result()], base_dir=tmp_path, split_strategy="holdout"
-    )
+    path = reporter.write_result_json([_fake_result()], base_dir=tmp_path, split_strategy="holdout")
     data = json.loads(path.read_text(encoding="utf-8"))
     assert data["model_name"] == "tfidf_matcher"
     assert data["variant"]["name"] == "baseline"
@@ -38,9 +32,7 @@ def test_write_result_json_produces_parseable_json(tmp_path):
 
 
 def test_write_result_json_serializes_tuples_as_arrays(tmp_path):
-    path = reporter.write_result_json(
-        [_fake_result()], base_dir=tmp_path, split_strategy="holdout"
-    )
+    path = reporter.write_result_json([_fake_result()], base_dir=tmp_path, split_strategy="holdout")
     data = json.loads(path.read_text(encoding="utf-8"))
     assert data["variant"]["params"]["ngram_range"] == [1, 2]
 
@@ -65,7 +57,8 @@ def test_write_comparison_markdown_highlights_winner(tmp_path):
         metadata=baseline.metadata,
     )
     path = reporter.write_comparison_markdown(
-        [baseline], [variant],
+        [baseline],
+        [variant],
         primary_metric="ndcg_at_10",
         base_dir=tmp_path,
     )

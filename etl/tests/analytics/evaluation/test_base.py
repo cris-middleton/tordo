@@ -1,7 +1,6 @@
 from datetime import date
 
 import pytest
-
 from analytics.evaluation.base import (
     Evaluable,
     EvaluationResult,
@@ -49,10 +48,17 @@ def test_evaluable_subclass_with_all_methods_works():
         primary_metric = "score"
         secondary_metrics = []
 
-        def train(self, window, variant): return {}
-        def predict(self, artifact, window): return None
-        def ground_truth(self, window): return None
-        def compute_metrics(self, predictions, truth): return {"score": 1.0}
+        def train(self, window, variant):
+            return {}
+
+        def predict(self, artifact, window):
+            return None
+
+        def ground_truth(self, window):
+            return None
+
+        def compute_metrics(self, predictions, truth):
+            return {"score": 1.0}
 
     d = Dummy()
     assert d.name == "dummy"

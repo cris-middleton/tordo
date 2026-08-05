@@ -16,12 +16,9 @@ Uso:
 import argparse
 import io
 import logging
-import os
-import sys
 import zipfile
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import polars as pl
 import requests
@@ -35,10 +32,10 @@ BASE_URLS = {
     "lic": "https://transparenciachc.blob.core.windows.net/lic-da",
 }
 
-MIN_YEAR_KNOWN = 2007          # Año mínimo conocido con datos
-MIN_YEAR_PROBE = 2004          # Probar desde aquí para detectar datos anteriores
-CHUNK_SIZE = 8192              # Bytes por chunk en streaming download
-REQUEST_TIMEOUT = 120          # Segundos
+MIN_YEAR_KNOWN = 2007  # Año mínimo conocido con datos
+MIN_YEAR_PROBE = 2004  # Probar desde aquí para detectar datos anteriores
+CHUNK_SIZE = 8192  # Bytes por chunk en streaming download
+REQUEST_TIMEOUT = 120  # Segundos
 CSV_ENCODINGS = ["latin-1", "utf-8", "cp1252"]  # Encodings a intentar
 
 # Paths relativos a la raíz del proyecto
@@ -58,6 +55,7 @@ logger = logging.getLogger("descargar_datos_masivos")
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def generar_periodos(desde: str, hasta: str) -> list[tuple[int, int]]:
     """Genera lista de (año, mes) entre desde y hasta inclusive."""
@@ -138,7 +136,7 @@ def descargar_zip(url: str, destino: Path) -> bool:
         return False
 
 
-def leer_csv_desde_zip(zip_path: Path) -> Optional[pl.DataFrame]:
+def leer_csv_desde_zip(zip_path: Path) -> pl.DataFrame | None:
     """Extrae y lee el primer CSV dentro de un ZIP usando Polars.
 
     Polars requiere UTF-8, así que decodificamos con el encoding del archivo
@@ -153,6 +151,7 @@ def leer_csv_desde_zip(zip_path: Path) -> Optional[pl.DataFrame]:
 
             raw_bytes = zf.read(csv_files[0])
 
+            fallos: list[str] = []
             for enc in CSV_ENCODINGS:
                 for sep in [";", ",", "\t"]:
                     try:
@@ -161,16 +160,29 @@ def leer_csv_desde_zip(zip_path: Path) -> Optional[pl.DataFrame]:
                         df = pl.read_csv(
                             io.BytesIO(utf8_bytes),
                             separator=sep,
-                            infer_schema=False,       # todo strings → sin conflictos de tipos entre años
+                            # Todo como string: evita conflictos de tipos entre años.
+                            # OJO: es `infer_schema_length=0`, no `infer_schema=False`.
+                            # Ese segundo parámetro sólo existe desde Polars 1.x y aquí
+                            # el pin es 0.20.x: lanzaba TypeError en cada intento, el
+                            # `except` se lo tragaba, y el script reportaba un problema
+                            # de encoding que no existía. Los 6 ZIPs "no parseables"
+                            # eran en realidad este TypeError.
+                            infer_schema_length=0,
                             truncate_ragged_lines=True,
                             ignore_errors=True,
                         )
                         if len(df.columns) > 1:
                             return df
-                    except Exception:
+                        fallos.append(f"{enc}/{sep!r}: sólo {len(df.columns)} columna(s)")
+                    except Exception as e:
+                        # Registrar el motivo. Tragarse la excepción en silencio fue
+                        # justamente lo que ocultó el error durante meses.
+                        fallos.append(f"{enc}/{sep!r}: {type(e).__name__}: {e}")
                         continue
 
-            logger.error(f"  No se pudo parsear {zip_path.name} con ningún encoding/separador")
+            logger.error(f"  No se pudo parsear {zip_path.name}. Intentos:")
+            for f in fallos:
+                logger.error(f"    - {f}")
             return None
 
     except zipfile.BadZipFile:
@@ -181,6 +193,7 @@ def leer_csv_desde_zip(zip_path: Path) -> Optional[pl.DataFrame]:
 # ---------------------------------------------------------------------------
 # Descarga
 # ---------------------------------------------------------------------------
+
 
 def descargar_tipo(tipo: str, periodos: list[tuple[int, int]]) -> dict:
     """Descarga todos los ZIPs de un tipo para los periodos dados."""
@@ -216,7 +229,8 @@ def descargar_tipo(tipo: str, periodos: list[tuple[int, int]]) -> dict:
 # Consolidación
 # ---------------------------------------------------------------------------
 
-def consolidar_tipo(tipo: str) -> Optional[Path]:
+
+def consolidar_tipo(tipo: str) -> Path | None:
     """
     Escribe un parquet por mes en consolidated/{tipo}/YYYY-M.parquet (Polars).
 
@@ -275,6 +289,7 @@ def consolidar_tipo(tipo: str) -> Optional[Path]:
 # Main
 # ---------------------------------------------------------------------------
 
+
 def main():
     parser = argparse.ArgumentParser(
         description="Descarga masiva de datos ChileCompra (OC y Licitaciones)"
@@ -314,9 +329,9 @@ def main():
     hasta = args.hasta or f"{now.year}-{now.month:02d}"
 
     for tipo in tipos:
-        logger.info(f"{'='*60}")
+        logger.info(f"{'=' * 60}")
         logger.info(f"Procesando: {tipo.upper()}")
-        logger.info(f"{'='*60}")
+        logger.info(f"{'=' * 60}")
 
         if not args.solo_consolidar:
             # Detectar año mínimo real

@@ -17,6 +17,7 @@ Expone:
 
 Lazy-loads con TTL de 24h igual que BIService.
 """
+
 from __future__ import annotations
 
 import io
@@ -36,20 +37,23 @@ _MODEL_TTL = 86_400  # 24h
 
 # ─── Text normalization (identical to ETL for vocabulary consistency) ─────────
 
+
 def _clean_text(text: str) -> str:
     if not text or text in ("null", "None"):
         return ""
     text = text.lower()
-    text = re.sub(r'[^\w\sáéíóúñü]', ' ', text)
-    text = re.sub(r'\s+', ' ', text).strip()
+    text = re.sub(r"[^\w\sáéíóúñü]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
     tokens = [t for t in text.split() if len(t) > 2]
     return " ".join(tokens)
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
+
 def _analytics_path() -> Path:
     from app.config import settings  # avoid circular import at module level
+
     return Path(settings.analytics_data_path)
 
 
@@ -94,6 +98,7 @@ def _load_model() -> dict[str, Any] | None:
 def _require_tfidf() -> dict[str, Any]:
     """Lanza ValueError si el modelo no está disponible."""
     from app.config import settings
+
     if not settings.feature_tfidf:
         raise ValueError("feature_tfidf deshabilitado")
     model = _load_model()
@@ -103,6 +108,7 @@ def _require_tfidf() -> dict[str, Any]:
 
 
 # ─── Public API ───────────────────────────────────────────────────────────────
+
 
 def match(query_text: str, top_n: int = 20) -> list[dict]:
     """
@@ -146,12 +152,14 @@ def match(query_text: str, top_n: int = 20) -> list[dict]:
         if rows.is_empty():
             continue
         row = rows.row(0, named=True)
-        results.append({
-            "CodigoProveedor": row["CodigoProveedor"],
-            "NombreProveedor": row.get("NombreProveedor") or "",
-            "n_oc": int(row.get("n_oc") or 0),
-            "similarity_score": round(score, 4),
-        })
+        results.append(
+            {
+                "CodigoProveedor": row["CodigoProveedor"],
+                "NombreProveedor": row.get("NombreProveedor") or "",
+                "n_oc": int(row.get("n_oc") or 0),
+                "similarity_score": round(score, 4),
+            }
+        )
 
     return results
 
@@ -295,10 +303,15 @@ def get_clusters(limit: int = 100) -> list[dict]:
 def is_available() -> bool:
     """True si los tres artefactos del modelo TF-IDF existen en disco."""
     from app.config import settings
+
     if not settings.feature_tfidf:
         return False
     base = _analytics_path()
     return all(
         (base / name).exists()
-        for name in ("tfidf_model.joblib", "tfidf_provider_vectors.npz", "tfidf_provider_index.parquet")
+        for name in (
+            "tfidf_model.joblib",
+            "tfidf_provider_vectors.npz",
+            "tfidf_provider_index.parquet",
+        )
     )

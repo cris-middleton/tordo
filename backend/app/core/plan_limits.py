@@ -12,10 +12,11 @@ Quotas:
 Redis keys:
   bi_queries:{user_id}:{YYYY-MM-DD}  — TTL 48h, INCR per analytics call
 """
+
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Any
 
 from fastapi import Depends, HTTPException
@@ -34,10 +35,11 @@ def effective_plan_tier(user) -> str:
     trial_ends = getattr(user, "trial_ends_at", None)
     status = getattr(user, "subscription_status", None)
     if status == "trialing" and trial_ends is not None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if trial_ends > now:
             return "pro"
     return (user.plan_tier or "basico").lower()
+
 
 # ── Tier ordering ─────────────────────────────────────────────────────────────
 
@@ -61,42 +63,42 @@ def meets_min_tier(user_tier: str, required_tier: str) -> bool:
 
 PLAN_QUOTAS: dict[str, dict[str, Any]] = {
     "basico": {
-        "max_docs":           5,
-        "max_docs_mb":        5,
+        "max_docs": 5,
+        "max_docs_mb": 5,
         "bi_queries_per_day": 3,
-        "max_active_alerts":  5,
+        "max_active_alerts": 5,
     },
     "pyme": {
-        "max_docs":           50,
-        "max_docs_mb":        25,
+        "max_docs": 50,
+        "max_docs_mb": 25,
         "bi_queries_per_day": 50,
-        "max_active_alerts":  _UNLIMITED,
+        "max_active_alerts": _UNLIMITED,
     },
     "pro": {
-        "max_docs":           200,
-        "max_docs_mb":        _UNLIMITED,
+        "max_docs": 200,
+        "max_docs_mb": _UNLIMITED,
         "bi_queries_per_day": _UNLIMITED,
-        "max_active_alerts":  _UNLIMITED,
+        "max_active_alerts": _UNLIMITED,
     },
     "enterprise": {
-        "max_docs":           _UNLIMITED,
-        "max_docs_mb":        _UNLIMITED,
+        "max_docs": _UNLIMITED,
+        "max_docs_mb": _UNLIMITED,
         "bi_queries_per_day": _UNLIMITED,
-        "max_active_alerts":  _UNLIMITED,
+        "max_active_alerts": _UNLIMITED,
     },
 }
 
 _UPGRADE_MAP: dict[str, str | None] = {
     "basico": "pyme",
-    "pyme":   "pro",
-    "pro":    "enterprise",
+    "pyme": "pro",
+    "pro": "enterprise",
     "enterprise": None,
 }
 
 _TIER_LABEL: dict[str, str] = {
-    "basico":     "Básico",
-    "pyme":       "PYME",
-    "pro":        "Pro",
+    "basico": "Básico",
+    "pyme": "PYME",
+    "pro": "Pro",
     "enterprise": "Enterprise",
 }
 
@@ -124,9 +126,12 @@ def _quota_error(
 
 # ── Redis helpers ─────────────────────────────────────────────────────────────
 
+
 def _redis_client():
     import redis as _redis
+
     from app.config import settings
+
     return _redis.from_url(settings.redis_url, decode_responses=True, socket_connect_timeout=1)
 
 
@@ -159,6 +164,7 @@ def increment_bi_query(user_id: int) -> int:
 
 
 # ── FastAPI dependencies ──────────────────────────────────────────────────────
+
 
 def require_plan(min_tier: str):
     """
@@ -240,11 +246,12 @@ check_bi_quota_dep = _make_bi_quota_dep()
 
 
 def _make_alert_quota_dep_real():
+    from sqlalchemy import func, select
+    from sqlalchemy.ext.asyncio import AsyncSession
+
     from app.core.security import get_current_active_user
     from app.db import get_db
     from app.models.user import User
-    from sqlalchemy import select, func
-    from sqlalchemy.ext.asyncio import AsyncSession
 
     async def _check(
         db: AsyncSession = Depends(get_db),
@@ -260,7 +267,9 @@ def _make_alert_quota_dep_real():
 
         active_count: int = (
             await db.execute(
-                select(func.count()).select_from(AlertPreference).where(
+                select(func.count())
+                .select_from(AlertPreference)
+                .where(
                     AlertPreference.user_id == current_user.id,
                     AlertPreference.is_active.is_(True),
                 )
@@ -289,6 +298,7 @@ check_alert_quota_dep = _make_alert_quota_dep_real()
 
 # ── Document quota helper (called inline, not as Depends) ─────────────────────
 
+
 def enforce_doc_quota(user, existing_docs: list, new_file_bytes: int) -> None:
     """
     Raise HTTP 402 if adding new_file_bytes would exceed plan document quotas.
@@ -315,7 +325,9 @@ def enforce_doc_quota(user, existing_docs: list, new_file_bytes: int) -> None:
         )
 
     if max_mb is not _UNLIMITED:
-        total_bytes = sum(getattr(d, "tamano_bytes", 0) or 0 for d in existing_docs) + new_file_bytes
+        total_bytes = (
+            sum(getattr(d, "tamano_bytes", 0) or 0 for d in existing_docs) + new_file_bytes
+        )
         total_mb_used = total_bytes / (1024 * 1024)
         if total_mb_used > max_mb:
             raise HTTPException(

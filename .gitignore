@@ -28,8 +28,10 @@ env/
 ENV/
 .venv
 
-# Environment variables
+# Environment variables — NEVER commit these. Rotate immediately if one lands in a commit.
 .env
+.env.*
+!.env.example
 .env.local
 .env.*.local
 backend/.env
@@ -69,7 +71,8 @@ dist/
 build/
 
 # Docker
-.dockerignore
+# NOTA: .dockerignore SÍ se versiona — define el contexto de build y sin él las
+# imágenes recibirían node_modules y etl/data enteros. Antes estaba ignorado.
 
 # Alembic
 alembic/versions/*.pyc
@@ -84,8 +87,17 @@ etl/data/
 
 .DS_Store
 
+# Celery runtime state
+celerybeat-schedule
+celerybeat-schedule.*
+celerybeat.pid
+
 # Git worktrees
 .worktrees/
 
-# Tooling session data
+# Tooling session data — planes y specs de sesión, no documentación del producto.
+# Lo ya commiteado vive en docs/_archive/superpowers/.
 .superpowers/
+docs/superpowers/
+frontend/docs/superpowers/
+.claude/settings.local.json

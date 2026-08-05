@@ -8,11 +8,10 @@ Procesa archivo por archivo para controlar memoria.
 import logging
 from datetime import date
 from pathlib import Path
-from typing import Optional
 
 import polars as pl
 
-from .config import OC_PARQUET_DIR, LIC_PARQUET_DIR, OC_COLS_CORE, LIC_COLS_CORE, MIN_YEAR
+from .config import LIC_COLS_CORE, LIC_PARQUET_DIR, MIN_YEAR, OC_COLS_CORE, OC_PARQUET_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +32,9 @@ def _parse_periodo(periodo_str: str) -> tuple[int, int]:
 
 
 def scan_oc(
-    columns: Optional[list[str]] = None,
+    columns: list[str] | None = None,
     min_year: int = MIN_YEAR,
-    max_date: Optional[date] = None,
+    max_date: date | None = None,
 ) -> pl.LazyFrame:
     """
     Carga lazy de todas las OC históricas, filtrando por año mínimo.
@@ -75,9 +74,9 @@ def scan_oc(
 
 
 def scan_lic(
-    columns: Optional[list[str]] = None,
+    columns: list[str] | None = None,
     min_year: int = MIN_YEAR,
-    max_date: Optional[date] = None,
+    max_date: date | None = None,
 ) -> pl.LazyFrame:
     """Carga lazy de todas las licitaciones históricas."""
     cols = columns or LIC_COLS_CORE
@@ -112,9 +111,9 @@ def scan_lic(
 
 
 def iter_oc_parquets(
-    columns: Optional[list[str]] = None,
+    columns: list[str] | None = None,
     min_year: int = MIN_YEAR,
-    max_date: Optional[date] = None,
+    max_date: date | None = None,
 ):
     """
     Iterador que yield un DataFrame a la vez (para procesamiento batch
@@ -142,9 +141,9 @@ def iter_oc_parquets(
 
 
 def iter_lic_parquets(
-    columns: Optional[list[str]] = None,
+    columns: list[str] | None = None,
     min_year: int = MIN_YEAR,
-    max_date: Optional[date] = None,
+    max_date: date | None = None,
 ):
     """Iterador de LIC parquets uno a la vez."""
     cols = columns or LIC_COLS_CORE

@@ -1,46 +1,67 @@
 """
-BIService — reads pre-computed Polars parquets from the analytics pipeline.
+BIService — consulta los resultados del pipeline de analytics materializados en
+PostgreSQL (esquema `analytics`).
 
-Files are lazy-loaded on first access and cached for 24h.  Each method
-returns plain Python dicts/lists ready for Pydantic serialisation.
+Antes leía los parquets desde disco y los cacheaba en memoria del proceso. Eso
+implicaba una copia por worker de uvicorn (el L1 pesa 60 MB), exigía sistema de
+archivos compartido entre el ETL y la API —que en Railway no existe, y por eso
+FEATURE_ANALYTICS estaba en false— y resolvía cada consulta con un scan lineal
+en Python. Ver docs/decisiones/0006-analytics-en-postgres.md.
 
-Parquet files live at settings.analytics_data_path (default: etl/data/analytics/).
+Cada función sigue devolviendo dicts y listas listos para Pydantic: el contrato
+hacia los endpoints no cambió. Hay un golden master en
+`backend/tests/golden/bi_golden.json` que lo verifica contra la implementación
+anterior sobre datos reales.
 """
+
 from __future__ import annotations
 
+import contextlib
 import logging
-import os
-import time
-from pathlib import Path
-from typing import Any, Optional
+from typing import Any
+
+from app.repositories import analytics_sync as repo
 
 logger = logging.getLogger(__name__)
 
-# Cache: {filename: (loaded_at_unix, polars.DataFrame)}
-_cache: dict[str, tuple[float, Any]] = {}
-_CACHE_TTL = 86_400  # 24h
+
+def _tabla(filename: str) -> str:
+    """Nombre de tabla a partir del nombre del parquet.
+
+    La convención la fija el materializador (etl/loaders/analytics_catalog.py):
+    el archivo sin extensión, en minúsculas.
+    `product_price_bands_L1.parquet` → `analytics.product_price_bands_l1`.
+
+    Se deriva en vez de duplicar el catálogo, que vive en el ETL: dos listas se
+    desincronizarían.
+    """
+    return filename.removesuffix(".parquet").lower()
 
 
-def _load(filename: str) -> Any:
-    """Return a Polars DataFrame, using in-process cache with TTL."""
-    import polars as pl  # lazy import — not installed in base env during tests
+def _load(
+    filename: str,
+    *,
+    filtros: dict[str, Any] | None = None,
+    columnas: list[str] | None = None,
+    orden: str | None = None,
+    descendente: bool = True,
+    limite: int | None = None,
+) -> Any:
+    """Devuelve un DataFrame de Polars con las filas pedidas, o None si la tabla
+    no existe todavía.
 
-    from app.config import settings  # avoid circular import at module level
-
-    now = time.time()
-    if filename in _cache:
-        loaded_at, df = _cache[filename]
-        if now - loaded_at < _CACHE_TTL:
-            return df
-
-    path = Path(settings.analytics_data_path) / filename
-    if not path.exists():
-        return None
-
-    df = pl.read_parquet(path)
-    _cache[filename] = (now, df)
-    logger.info("Loaded %s (%d rows)", filename, len(df))
-    return df
+    `filtros` viaja a la cláusula WHERE. Empujar el filtro es el punto: la tabla
+    de bandas L1 tiene cientos de miles de filas y antes se traían todas a
+    memoria para descartarlas en Polars.
+    """
+    return repo.consultar(
+        _tabla(filename),
+        filtros=filtros,
+        columnas=columnas,
+        orden=orden,
+        descendente=descendente,
+        limite=limite,
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -50,8 +71,8 @@ def _load(filename: str) -> Any:
 
 def get_precio_producto(
     codigo_producto: str,
-    organismo_id: Optional[str] = None,
-    unidad_medida: Optional[str] = None,
+    organismo_id: str | None = None,
+    unidad_medida: str | None = None,
 ) -> dict:
     """
     Price bands for a given product (codigoProductoONU).
@@ -67,17 +88,49 @@ def get_precio_producto(
     # COLS lists use the typo'd name so _sel finds it; _to_dicts renames to the
     # canonical API name "NombreProductoGenerico" before Pydantic serialisation.
     COLS_L1 = [
-        "codigoProductoONU", "NombreroductoGenerico",
-        "CodigoOrganismoPublico", "OrganismoPublico", "UnidadMedida",
-        "p10", "p25", "p50", "p75", "p90", "pu_mean", "cv", "confianza", "n",
+        "codigoProductoONU",
+        "NombreroductoGenerico",
+        "CodigoOrganismoPublico",
+        "OrganismoPublico",
+        "UnidadMedida",
+        "p10",
+        "p25",
+        "p50",
+        "p75",
+        "p90",
+        "pu_mean",
+        "cv",
+        "confianza",
+        "n",
     ]
     COLS_L2 = [
-        "codigoProductoONU", "NombreroductoGenerico", "sector", "UnidadMedida",
-        "p10", "p25", "p50", "p75", "p90", "pu_mean", "cv", "confianza", "n",
+        "codigoProductoONU",
+        "NombreroductoGenerico",
+        "sector",
+        "UnidadMedida",
+        "p10",
+        "p25",
+        "p50",
+        "p75",
+        "p90",
+        "pu_mean",
+        "cv",
+        "confianza",
+        "n",
     ]
     COLS_L3 = [
-        "codigoProductoONU", "NombreroductoGenerico", "UnidadMedida",
-        "p10", "p25", "p50", "p75", "p90", "pu_mean", "cv", "confianza", "n",
+        "codigoProductoONU",
+        "NombreroductoGenerico",
+        "UnidadMedida",
+        "p10",
+        "p25",
+        "p50",
+        "p75",
+        "p90",
+        "pu_mean",
+        "cv",
+        "confianza",
+        "n",
     ]
 
     def _sel(df, cols):
@@ -94,13 +147,27 @@ def get_precio_producto(
             return df["UnidadMedida"] == unidad_medida
         return None
 
+    def _filtros(**kv) -> dict:
+        """Descarta las claves sin valor.
+
+        En el repositorio un valor None significa `IS NULL`, no "no filtrar":
+        incluirlo sin querer devolvería cero filas.
+        """
+        return {k: v for k, v in kv.items() if v is not None}
+
     # ── Level 1: producto + organismo ────────────────────────────────────────
     if organismo_id:
-        df1 = _load("product_price_bands_L1.parquet")
+        df1 = _load(
+            "product_price_bands_L1.parquet",
+            filtros=_filtros(
+                codigoProductoONU=str(codigo_producto),
+                CodigoOrganismoPublico=str(organismo_id),
+                UnidadMedida=unidad_medida,
+            ),
+        )
         if df1 is not None:
-            mask = (
-                (df1["codigoProductoONU"].cast(str) == str(codigo_producto)) &
-                (df1["CodigoOrganismoPublico"].cast(str) == str(organismo_id))
+            mask = (df1["codigoProductoONU"].cast(str) == str(codigo_producto)) & (
+                df1["CodigoOrganismoPublico"].cast(str) == str(organismo_id)
             )
             um = _unit_mask(df1)
             if um is not None:
@@ -117,7 +184,10 @@ def get_precio_producto(
                 }
 
     # ── Level 2: producto + sector ───────────────────────────────────────────
-    df2 = _load("product_price_bands_L2.parquet")
+    df2 = _load(
+        "product_price_bands_L2.parquet",
+        filtros=_filtros(codigoProductoONU=str(codigo_producto), UnidadMedida=unidad_medida),
+    )
     if df2 is not None:
         mask = df2["codigoProductoONU"].cast(str) == str(codigo_producto)
         um = _unit_mask(df2)
@@ -136,7 +206,10 @@ def get_precio_producto(
             }
 
     # ── Level 3: producto nacional ───────────────────────────────────────────
-    df3 = _load("product_price_bands_L3.parquet")
+    df3 = _load(
+        "product_price_bands_L3.parquet",
+        filtros=_filtros(codigoProductoONU=str(codigo_producto), UnidadMedida=unidad_medida),
+    )
     if df3 is not None:
         mask = df3["codigoProductoONU"].cast(str) == str(codigo_producto)
         um = _unit_mask(df3)
@@ -156,7 +229,7 @@ def get_precio_producto(
 
     # ── Level 4: organismo-level price bands (general context) ───────────────
     if organismo_id:
-        df4 = _load("price_bands.parquet")
+        df4 = _load("price_bands.parquet", filtros={"CodigoOrganismoPublico": str(organismo_id)})
         if df4 is not None:
             mask4 = df4["CodigoOrganismoPublico"].cast(str) == str(organismo_id)
             rows4 = df4.filter(mask4).head(5)
@@ -164,18 +237,20 @@ def get_precio_producto(
                 # Map price_bands columns to PrecioBanda layout
                 mapped = []
                 for r in rows4.to_dicts():
-                    mapped.append({
-                        "p10": r.get("p10"),
-                        "p25": r.get("p25"),
-                        "p50": r.get("precio_mediana"),
-                        "p75": r.get("p75"),
-                        "p90": r.get("p90"),
-                        "pu_mean": r.get("precio_promedio"),
-                        "cv": r.get("coef_variacion"),
-                        "NombreProductoGenerico": r.get("RubroN2"),
-                        "n": r.get("n_transacciones"),
-                        "confianza": "referencial" if r.get("precio_predecible") else "baja",
-                    })
+                    mapped.append(
+                        {
+                            "p10": r.get("p10"),
+                            "p25": r.get("p25"),
+                            "p50": r.get("precio_mediana"),
+                            "p75": r.get("p75"),
+                            "p90": r.get("p90"),
+                            "pu_mean": r.get("precio_promedio"),
+                            "cv": r.get("coef_variacion"),
+                            "NombreProductoGenerico": r.get("RubroN2"),
+                            "n": r.get("n_transacciones"),
+                            "confianza": "referencial" if r.get("precio_predecible") else "baja",
+                        }
+                    )
                 return {
                     "disponible": True,
                     "codigo_producto": codigo_producto,
@@ -191,7 +266,7 @@ def get_precio_producto(
 
 def get_competidores(
     organismo_id: str,
-    rubro: Optional[str] = None,
+    rubro: str | None = None,
     top_n: int = 20,
 ) -> dict:
     """
@@ -206,11 +281,7 @@ def get_competidores(
     if rubro:
         mask = mask & (df["RubroN2"] == rubro)
 
-    rows = (
-        df.filter(mask)
-        .sort("rank_monto")
-        .head(top_n)
-    )
+    rows = df.filter(mask).sort("rank_monto").head(top_n)
 
     if rows.is_empty():
         return {"disponible": False, "motivo": "organismo no encontrado en histórico"}
@@ -238,7 +309,11 @@ def get_competidores(
         mc_mask = mc_df["CodigoOrganismoPublico"].cast(str) == str(organismo_id)
         if rubro:
             mc_mask = mc_mask & (mc_df["RubroN2"] == rubro)
-        hhi_rows = mc_df.filter(mc_mask).select(["RubroN2", "hhi", "tipo_mercado", "n_proveedores"]).to_dicts()
+        hhi_rows = (
+            mc_df.filter(mc_mask)
+            .select(["RubroN2", "hhi", "tipo_mercado", "n_proveedores"])
+            .to_dicts()
+        )
 
     return {
         "disponible": True,
@@ -249,8 +324,8 @@ def get_competidores(
 
 
 def get_oportunidades(
-    organismo_id: Optional[str] = None,
-    rubro: Optional[str] = None,
+    organismo_id: str | None = None,
+    rubro: str | None = None,
     min_score: float = 6.0,
     limit: int = 50,
 ) -> dict:
@@ -268,11 +343,7 @@ def get_oportunidades(
     if rubro:
         mask = mask & (df["RubroN2"] == rubro)
 
-    rows = (
-        df.filter(mask)
-        .sort("opportunity_score", descending=True)
-        .head(limit)
-    )
+    rows = df.filter(mask).sort("opportunity_score", descending=True).head(limit)
 
     wanted = [
         "CodigoOrganismoPublico",
@@ -434,7 +505,9 @@ def get_comprador(organismo_id: str) -> dict:
             "tasa_fracaso": transp.get("tasa_fracaso"),
             "hhi": transp.get("hhi"),
             "n_lic_total": transp.get("n_lic_total"),
-        } if transp else None,
+        }
+        if transp
+        else None,
     }
 
 
@@ -445,8 +518,8 @@ def get_comprador(organismo_id: str) -> dict:
 
 def get_licitacion_panel(
     codigo_externo: str,
-    organismo_id: Optional[str] = None,
-    product_codes: Optional[list] = None,
+    organismo_id: str | None = None,
+    product_codes: list | None = None,
 ) -> dict:
     """
     Composite BI snapshot for the licitación detail page.
@@ -511,19 +584,21 @@ def get_licitacion_panel(
             p = get_precio_producto(code, organismo_id)
             if p["disponible"] and p.get("resultado"):
                 first = p["resultado"][0]
-                precios.append({
-                    "disponible": True,
-                    "codigo_producto": code,
-                    "nivel_usado": p.get("nivel_usado"),
-                    "fallback": p.get("fallback", False),
-                    "p10": first.get("p10"),
-                    "p25": first.get("p25"),
-                    "p50": first.get("p50"),
-                    "p75": first.get("p75"),
-                    "p90": first.get("p90"),
-                    "confianza": first.get("confianza"),
-                    "n": first.get("n"),
-                })
+                precios.append(
+                    {
+                        "disponible": True,
+                        "codigo_producto": code,
+                        "nivel_usado": p.get("nivel_usado"),
+                        "fallback": p.get("fallback", False),
+                        "p10": first.get("p10"),
+                        "p25": first.get("p25"),
+                        "p50": first.get("p50"),
+                        "p75": first.get("p75"),
+                        "p90": first.get("p90"),
+                        "confianza": first.get("confianza"),
+                        "n": first.get("n"),
+                    }
+                )
             else:
                 precios.append({"disponible": False, "codigo_producto": code})
 
@@ -547,7 +622,7 @@ def get_licitacion_panel(
 
 def get_estacionalidad(
     organismo_id: str,
-    rubro: Optional[str] = None,
+    rubro: str | None = None,
 ) -> dict:
     """
     Monthly seasonality patterns for an organismo (+ optional rubro filter).
@@ -563,9 +638,16 @@ def get_estacionalidad(
 
     rows = df.filter(mask).sort("mes")
     if rows.is_empty():
-        return {"disponible": False, "motivo": "organismo no encontrado en histórico de estacionalidad"}
+        return {
+            "disponible": False,
+            "motivo": "organismo no encontrado en histórico de estacionalidad",
+        }
 
-    cols = [c for c in ["mes", "compras_mes", "prob_mes", "consistencia", "z_score", "es_pico_estacional"] if c in rows.columns]
+    cols = [
+        c
+        for c in ["mes", "compras_mes", "prob_mes", "consistencia", "z_score", "es_pico_estacional"]
+        if c in rows.columns
+    ]
     return {
         "disponible": True,
         "organismo_id": organismo_id,
@@ -575,8 +657,8 @@ def get_estacionalidad(
 
 
 def get_tendencia(
-    rubro: Optional[str] = None,
-    tendencia: Optional[str] = None,
+    rubro: str | None = None,
+    tendencia: str | None = None,
     solo_emergentes: bool = False,
     limit: int = 50,
 ) -> dict:
@@ -601,14 +683,31 @@ def get_tendencia(
     if tendencia:
         mask = mask & (df["tendencia"] == tendencia)
 
-    cols = [c for c in ["CodigoOrganismoPublico", "RubroN2", "slope_mensual", "r_squared", "cagr", "tendencia", "n_anios", "total_oc"] if c in df.columns]
+    cols = [
+        c
+        for c in [
+            "CodigoOrganismoPublico",
+            "RubroN2",
+            "slope_mensual",
+            "r_squared",
+            "cagr",
+            "tendencia",
+            "n_anios",
+            "total_oc",
+        ]
+        if c in df.columns
+    ]
     rows = df.filter(mask).sort("cagr", descending=True).head(limit)
     tendencias = rows.select(cols).to_dicts()
 
     emergentes: list = []
     if em_df is not None:
-        em_min_anios = em_df["n_anios"] >= 3 if "n_anios" in em_df.columns else em_df["cagr"].is_not_null()
-        em_min_oc = em_df["total_oc"] >= 15 if "total_oc" in em_df.columns else em_df["cagr"].is_not_null()
+        em_min_anios = (
+            em_df["n_anios"] >= 3 if "n_anios" in em_df.columns else em_df["cagr"].is_not_null()
+        )
+        em_min_oc = (
+            em_df["total_oc"] >= 15 if "total_oc" in em_df.columns else em_df["cagr"].is_not_null()
+        )
         em_mask = em_df["cagr"].is_not_null() & em_min_anios & em_min_oc
         if rubro:
             em_mask = em_mask & (em_df["RubroN2"] == rubro)
@@ -622,6 +721,7 @@ def get_tendencia(
     cagr_rubro = None
     if rubro:
         import polars as pl  # noqa: PLC0415 — lazy import kept consistent with _load()
+
         ts_df = _load("time_series.parquet")
         if ts_df is not None and "RubroN2" in ts_df.columns:
             # Filtrar por rubro
@@ -629,14 +729,9 @@ def get_tendencia(
 
             # Determinar qué años están completos: max(mes) == 12
             if "mes" in rubro_ts.columns and len(rubro_ts) > 0:
-                years_coverage = (
-                    rubro_ts
-                    .group_by("anio")
-                    .agg(pl.col("mes").max().alias("max_mes"))
-                )
+                years_coverage = rubro_ts.group_by("anio").agg(pl.col("mes").max().alias("max_mes"))
                 complete_years = set(
-                    years_coverage
-                    .filter(pl.col("max_mes") == 12)
+                    years_coverage.filter(pl.col("max_mes") == 12)
                     .select("anio")
                     .to_series()
                     .to_list()
@@ -646,12 +741,13 @@ def get_tendencia(
 
             # Agregar por año, filtrar a solo años completos, quedarse con los últimos 6
             year_agg = (
-                rubro_ts
-                .group_by("anio")
-                .agg([
-                    pl.col("monto_total").sum().alias("monto_total"),
-                    pl.col("n_oc").sum().alias("n_oc"),
-                ])
+                rubro_ts.group_by("anio")
+                .agg(
+                    [
+                        pl.col("monto_total").sum().alias("monto_total"),
+                        pl.col("n_oc").sum().alias("n_oc"),
+                    ]
+                )
                 .filter(pl.col("anio").is_in(list(complete_years)))
                 .sort("anio", descending=False)
                 .tail(6)
@@ -692,9 +788,9 @@ def get_tendencia(
 
 
 def get_descuento(
-    tipo: Optional[str] = None,
-    rubro: Optional[str] = None,
-    n_oferentes_rango: Optional[str] = None,
+    tipo: str | None = None,
+    rubro: str | None = None,
+    n_oferentes_rango: str | None = None,
 ) -> dict:
     """
     Optimal discount recommendations by competitive context (type + rubro + n_oferentes band).
@@ -715,9 +811,25 @@ def get_descuento(
     if rows.is_empty():
         return {"disponible": False, "motivo": "sin datos para los filtros solicitados"}
 
-    # Rename señal_competencia → senial_competencia for clean JSON keys
-    rename_map = {"señal_competencia": "senial_competencia"}
-    select_cols = [c for c in ["CodigoTipo", "Rubro2", "n_oferentes_rango", "n", "p10", "p25", "p50", "p75", "p90", "media", "cv_descuento"] if c in rows.columns]
+    # El renombrado señal_competencia → senial_competencia se hace más abajo,
+    # de forma explícita sobre las filas ya seleccionadas.
+    select_cols = [
+        c
+        for c in [
+            "CodigoTipo",
+            "Rubro2",
+            "n_oferentes_rango",
+            "n",
+            "p10",
+            "p25",
+            "p50",
+            "p75",
+            "p90",
+            "media",
+            "cv_descuento",
+        ]
+        if c in rows.columns
+    ]
     result = rows.select(select_cols).to_dicts()
     if "señal_competencia" in rows.columns:
         sc = rows.select(["señal_competencia"]).to_dicts()
@@ -734,9 +846,9 @@ def get_descuento(
 
 
 def get_forecast_competidores(
-    organismo_id: Optional[str] = None,
-    rubro: Optional[str] = None,
-    tipo: Optional[str] = None,
+    organismo_id: str | None = None,
+    rubro: str | None = None,
+    tipo: str | None = None,
 ) -> dict:
     """
     Competitor count forecast with hierarchical fallback L1 → L2 → L3.
@@ -744,9 +856,21 @@ def get_forecast_competidores(
       L2: rubro + tipo              (competitor_forecast_l2.parquet)
       L3: tipo only                 (competitor_forecast_l3.parquet)
     """
-    STAT_COLS = ["n", "p10", "p25", "p50", "p75", "p90", "media", "std",
-                 "n_sin_competencia", "n_baja_competencia",
-                 "pct_sin_competencia", "pct_baja_competencia", "nivel"]
+    STAT_COLS = [
+        "n",
+        "p10",
+        "p25",
+        "p50",
+        "p75",
+        "p90",
+        "media",
+        "std",
+        "n_sin_competencia",
+        "n_baja_competencia",
+        "pct_sin_competencia",
+        "pct_baja_competencia",
+        "nivel",
+    ]
 
     def _select(df, extra_cols):
         all_cols = extra_cols + STAT_COLS
@@ -764,9 +888,15 @@ def get_forecast_competidores(
             rows1 = df1.filter(m)
             if not rows1.is_empty():
                 return {
-                    "disponible": True, "nivel_usado": "L1", "fallback": False,
-                    "organismo_id": organismo_id, "rubro": rubro, "tipo": tipo,
-                    "data": rows1.select(_select(df1, ["CodigoOrganismo", "NombreOrganismo", "Rubro2", "CodigoTipo"])).to_dicts(),
+                    "disponible": True,
+                    "nivel_usado": "L1",
+                    "fallback": False,
+                    "organismo_id": organismo_id,
+                    "rubro": rubro,
+                    "tipo": tipo,
+                    "data": rows1.select(
+                        _select(df1, ["CodigoOrganismo", "NombreOrganismo", "Rubro2", "CodigoTipo"])
+                    ).to_dicts(),
                 }
 
     # L2: rubro + tipo
@@ -780,8 +910,12 @@ def get_forecast_competidores(
         rows2 = df2.filter(m2)
         if not rows2.is_empty():
             return {
-                "disponible": True, "nivel_usado": "L2", "fallback": True,
-                "organismo_id": organismo_id, "rubro": rubro, "tipo": tipo,
+                "disponible": True,
+                "nivel_usado": "L2",
+                "fallback": True,
+                "organismo_id": organismo_id,
+                "rubro": rubro,
+                "tipo": tipo,
                 "data": rows2.select(_select(df2, ["Rubro2", "CodigoTipo"])).to_dicts(),
             }
 
@@ -792,8 +926,12 @@ def get_forecast_competidores(
             rows3 = df3.filter(df3["CodigoTipo"].cast(str) == str(tipo))
             if not rows3.is_empty():
                 return {
-                    "disponible": True, "nivel_usado": "L3", "fallback": True,
-                    "organismo_id": organismo_id, "rubro": rubro, "tipo": tipo,
+                    "disponible": True,
+                    "nivel_usado": "L3",
+                    "fallback": True,
+                    "organismo_id": organismo_id,
+                    "rubro": rubro,
+                    "tipo": tipo,
                     "data": rows3.select(_select(df3, ["CodigoTipo"])).to_dicts(),
                 }
 
@@ -828,7 +966,7 @@ def get_diversificacion(codigo_proveedor: str) -> dict:
 
 
 def get_sector(
-    sector: Optional[str] = None,
+    sector: str | None = None,
     limit: int = 50,
 ) -> dict:
     """
@@ -847,7 +985,18 @@ def get_sector(
     if rows.is_empty():
         return {"disponible": False, "motivo": "sector no encontrado"}
 
-    cols = [c for c in ["sector", "n_oc", "monto_total", "ticket_mediana", "n_organismos", "n_proveedores"] if c in rows.columns]
+    cols = [
+        c
+        for c in [
+            "sector",
+            "n_oc",
+            "monto_total",
+            "ticket_mediana",
+            "n_organismos",
+            "n_proveedores",
+        ]
+        if c in rows.columns
+    ]
     return {
         "disponible": True,
         "sectores": rows.select(cols).to_dicts(),
@@ -855,7 +1004,9 @@ def get_sector(
     }
 
 
-def _compute_cagr_rubro_desde_time_series(rubro: str) -> "tuple[Optional[float], Optional[float], Optional[list[dict]]]":
+def _compute_cagr_rubro_desde_time_series(
+    rubro: str,
+) -> tuple[float | None, float | None, list[dict] | None]:
     """Helper: computa CAGR rubro-level + YoY + serie anual completa desde time_series.parquet.
 
     Excluye años incompletos (max(mes) < 12).
@@ -866,7 +1017,9 @@ def _compute_cagr_rubro_desde_time_series(rubro: str) -> "tuple[Optional[float],
     """
     import polars as pl
 
-    ts_df = _load("time_series.parquet")
+    # Filtro empujado a SQL: time_series tiene decenas de miles de filas y de
+    # todas ellas sólo interesan las de un rubro.
+    ts_df = _load("time_series.parquet", filtros={"RubroN2": rubro})
     if ts_df is None or "RubroN2" not in ts_df.columns:
         return None, None, None
 
@@ -883,12 +1036,13 @@ def _compute_cagr_rubro_desde_time_series(rubro: str) -> "tuple[Optional[float],
         return None, None, None
 
     year_agg = (
-        rubro_ts
-        .group_by("anio")
-        .agg([
-            pl.col("monto_total").sum().alias("monto_total"),
-            pl.col("n_oc").sum().alias("n_oc"),
-        ])
+        rubro_ts.group_by("anio")
+        .agg(
+            [
+                pl.col("monto_total").sum().alias("monto_total"),
+                pl.col("n_oc").sum().alias("n_oc"),
+            ]
+        )
         .filter(pl.col("anio").is_in(list(complete_years)))
         .sort("anio")
         .tail(6)
@@ -926,7 +1080,7 @@ def _compute_cagr_rubro_desde_time_series(rubro: str) -> "tuple[Optional[float],
     return cagr_pct, yoy_pct, rows
 
 
-def get_resumen(rubro: Optional[str] = None) -> dict:
+def get_resumen(rubro: str | None = None) -> dict:
     """
     Resumen narrativo de un rubro. Combina:
     - time_series (monto_anual, n_organismos, CAGR rubro-level, n proveedores)
@@ -934,7 +1088,6 @@ def get_resumen(rubro: Optional[str] = None) -> dict:
     - buyer_scores + opportunity_scores (top comprador con clasificación de pago)
     - seasonality_patterns (teaser estacionalidad: mes pico, consistencia avg)
     """
-    import polars as pl
 
     if not rubro:
         return {"disponible": False, "motivo": "rubro requerido"}
@@ -943,12 +1096,12 @@ def get_resumen(rubro: Optional[str] = None) -> dict:
     cagr_pct, yoy_pct, serie_rows = _compute_cagr_rubro_desde_time_series(rubro)
 
     # ── Monto anual + n_organismos desde time_series ─────────────────────────
-    monto_anual: Optional[float] = None
-    n_organismos: Optional[int] = None
+    monto_anual: float | None = None
+    n_organismos: int | None = None
     if serie_rows:
         monto_anual = float(serie_rows[-1]["monto_total"])
 
-    ts_df = _load("time_series.parquet")
+    ts_df = _load("time_series.parquet", filtros={"RubroN2": rubro})
     if ts_df is not None and "RubroN2" in ts_df.columns and serie_rows:
         years = [r["anio"] for r in serie_rows]
         last_year = years[-1]
@@ -957,17 +1110,21 @@ def get_resumen(rubro: Optional[str] = None) -> dict:
             n_organismos = rubro_last.select("CodigoOrganismoPublico").n_unique()
 
     # ── N proveedores desde competitors_by_market ────────────────────────────
-    n_prov_actual: Optional[int] = None
-    df_comp = _load("competitors_by_market.parquet")
-    if df_comp is not None and "CodigoProveedor" in df_comp.columns and "RubroN2" in df_comp.columns:
+    n_prov_actual: int | None = None
+    df_comp = _load("competitors_by_market.parquet", filtros={"RubroN2": rubro})
+    if (
+        df_comp is not None
+        and "CodigoProveedor" in df_comp.columns
+        and "RubroN2" in df_comp.columns
+    ):
         subset = df_comp.filter(df_comp["RubroN2"] == rubro)
         if len(subset) > 0:
             n_prov_actual = subset.select("CodigoProveedor").n_unique()
 
     # ── Top comprador: organismo más activo del rubro en opportunity_scores ──
-    top_comprador: Optional[dict] = None
-    top_organismo_code: Optional[str] = None
-    df_opp = _load("opportunity_scores.parquet")
+    top_comprador: dict | None = None
+    top_organismo_code: str | None = None
+    df_opp = _load("opportunity_scores.parquet", filtros={"RubroN2": rubro})
     df_buyers = _load("buyer_scores.parquet")
     if df_opp is not None and "RubroN2" in df_opp.columns and df_buyers is not None:
         opps_rubro = (
@@ -998,7 +1155,7 @@ def get_resumen(rubro: Optional[str] = None) -> dict:
                     break  # el primero con datos en buyer_scores
 
     # ── Teaser competencia desde market_concentration ────────────────────────
-    teaser_competencia: Optional[dict] = None
+    teaser_competencia: dict | None = None
     df_mc = _load("market_concentration.parquet")
     if df_mc is not None and "RubroN2" in df_mc.columns:
         mc_subset = df_mc.filter(df_mc["RubroN2"] == rubro)
@@ -1006,7 +1163,9 @@ def get_resumen(rubro: Optional[str] = None) -> dict:
             # Agregar por rubro: líder global (mayor top_share_pct acumulado), HHI promedio
             # Buscar el registro con mayor monto_total_mercado para representar el mercado
             if "monto_total_mercado" in mc_subset.columns:
-                mc_top = mc_subset.sort("monto_total_mercado", descending=True).head(1).to_dicts()[0]
+                mc_top = (
+                    mc_subset.sort("monto_total_mercado", descending=True).head(1).to_dicts()[0]
+                )
             else:
                 mc_top = mc_subset.sort("hhi", descending=True).head(1).to_dicts()[0]
 
@@ -1032,7 +1191,7 @@ def get_resumen(rubro: Optional[str] = None) -> dict:
                 }
 
     # ── Teaser estacionalidad: mes pico + consistencia avg ──────────────────
-    teaser_estacionalidad: Optional[dict] = None
+    teaser_estacionalidad: dict | None = None
     meses_es = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
     if top_organismo_code:
         df_seas = _load("seasonality_patterns.parquet")
@@ -1043,14 +1202,20 @@ def get_resumen(rubro: Optional[str] = None) -> dict:
             )
             if len(seas_rows) == 0:
                 # Fallback: cualquier rubro del organismo
-                seas_rows = df_seas.filter(df_seas["CodigoOrganismoPublico"].cast(str) == top_organismo_code)
+                seas_rows = df_seas.filter(
+                    df_seas["CodigoOrganismoPublico"].cast(str) == top_organismo_code
+                )
             if len(seas_rows) > 0:
                 dicts = seas_rows.to_dicts()
                 pico = max(dicts, key=lambda r: r.get("prob_mes") or 0)
                 mes_num = pico.get("mes")
                 mes_pico = meses_es[mes_num - 1] if mes_num and 1 <= mes_num <= 12 else None
-                consistencias = [r.get("consistencia") for r in dicts if r.get("consistencia") is not None]
-                consistencia_avg = int(sum(consistencias) / len(consistencias) * 100) if consistencias else None
+                consistencias = [
+                    r.get("consistencia") for r in dicts if r.get("consistencia") is not None
+                ]
+                consistencia_avg = (
+                    int(sum(consistencias) / len(consistencias) * 100) if consistencias else None
+                )
                 if mes_pico or consistencia_avg is not None:
                     teaser_estacionalidad = {
                         "mes_pico_mayor": mes_pico,
@@ -1072,7 +1237,7 @@ def get_resumen(rubro: Optional[str] = None) -> dict:
     }
 
 
-def _normalize_rut(rut: Optional[str]) -> str:
+def _normalize_rut(rut: str | None) -> str:
     """Normaliza RUT chileno al formato esperado por CodigoProveedor del parquet.
     ChileCompra típicamente usa '12345678-9' (sin puntos, con guión).
     Retorna cadena vacía si el input es inválido o None."""
@@ -1094,6 +1259,7 @@ def get_mi_posicion(empresa_rut: str, rubro: str) -> dict:
     y provider_diversification para score de diversificación y alerta.
     """
     import polars as pl
+
     if not empresa_rut or not rubro:
         return {
             "disponible": False,
@@ -1157,7 +1323,11 @@ def get_mi_posicion(empresa_rut: str, rubro: str) -> dict:
             "motivo": f"El RUT {rut_norm} no tiene historial de OC en '{rubro}'",
         }
 
-    participacion_pct = float(empresa_row.get("market_share_pct") or 0) if "market_share_pct" in empresa_row else None
+    participacion_pct = (
+        float(empresa_row.get("market_share_pct") or 0)
+        if "market_share_pct" in empresa_row
+        else None
+    )
 
     # ── n_organismos atendidos (del row de la empresa si existe) ─────────────
     n_org_atendidos = None
@@ -1198,10 +1368,8 @@ def get_mi_posicion(empresa_rut: str, rubro: str) -> dict:
             # score_diversificacion suele estar en 0-1
             score = d.get("score_diversificacion")
             if score is not None:
-                try:
+                with contextlib.suppress(TypeError, ValueError):
                     diversificacion_pct = float(score) * 100
-                except (TypeError, ValueError):
-                    pass
             alerta_dependencia = bool(d.get("alerta_dependencia") or False)
             top_org_nombre = d.get("top_comprador_nombre") or d.get("top_organismo_nombre")
             top_org_pct_raw = d.get("top_comprador_pct") or d.get("top_organismo_pct")
@@ -1245,12 +1413,15 @@ def get_rubros(limit: int = 354) -> dict:
         return {"disponible": False, "motivo": "parquet no generado"}
 
     rubros = (
-        df.filter(
-            df["RubroN2"].is_not_null() & (df["RubroN2"] != "NA") & (df["RubroN2"] != "")
-        )
+        df.filter(df["RubroN2"].is_not_null() & (df["RubroN2"] != "NA") & (df["RubroN2"] != ""))
         .group_by("RubroN2")
         .len()
-        .sort("len", descending=True)
+        # El desempate por nombre no es cosmético: muchos rubros comparten el
+        # mismo conteo, y con `head(limit)` el empate decide QUÉ rubros entran en
+        # la respuesta, no sólo en qué orden. Sin él, dos llamadas sobre los
+        # mismos datos podían devolver listas distintas según el orden físico de
+        # las filas.
+        .sort(["len", "RubroN2"], descending=[True, False])
         .head(limit)
         .get_column("RubroN2")
         .to_list()
@@ -1269,6 +1440,7 @@ def get_productos(q: str, limit: int = 20) -> dict:
     Retorna lista de {codigo, nombre, n} ordenada por frecuencia (n).
     """
     import polars as pl
+
     if not q or len(q.strip()) < 2:
         return {"disponible": True, "resultados": []}
 
@@ -1288,11 +1460,12 @@ def get_productos(q: str, limit: int = 20) -> dict:
     q_norm = q.strip().lower()
     # Filtrar por contains, case-insensitive
     matches = (
-        df
-        .filter(pl.col(nombre_col).str.to_lowercase().str.contains(q_norm, literal=True))
+        df.filter(pl.col(nombre_col).str.to_lowercase().str.contains(q_norm, literal=True))
         .select(["codigoProductoONU", pl.col(nombre_col).alias("nombre"), "n"])
         .unique(subset=["codigoProductoONU"])
-        .sort("n", descending=True)
+        # Mismo motivo que en get_rubros: con `head(limit)` el empate en `n`
+        # decide qué productos entran. Se desempata por código, que es único.
+        .sort(["n", "codigoProductoONU"], descending=[True, False])
         .head(limit)
     )
 

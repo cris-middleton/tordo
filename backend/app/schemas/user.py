@@ -1,12 +1,12 @@
-from pydantic import BaseModel, EmailStr, ConfigDict
-from typing import Optional
 from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict, EmailStr
 
 
 class UserBase(BaseModel):
     email: EmailStr
     username: str
-    full_name: Optional[str] = None
+    full_name: str | None = None
 
 
 class UserCreate(UserBase):
@@ -14,18 +14,18 @@ class UserCreate(UserBase):
 
 
 class UserUpdate(BaseModel):
-    email: Optional[EmailStr] = None
-    username: Optional[str] = None
-    full_name: Optional[str] = None
-    notification_email: Optional[bool] = None
-    notification_in_app: Optional[bool] = None
-    notification_webhook: Optional[bool] = None
-    notification_whatsapp: Optional[bool] = None
-    webhook_url: Optional[str] = None
-    onboarding_completed: Optional[bool] = None
-    onboarding_step: Optional[int] = None
-    plan_tier: Optional[str] = None
-    whatsapp_number: Optional[str] = None
+    email: EmailStr | None = None
+    username: str | None = None
+    full_name: str | None = None
+    notification_email: bool | None = None
+    notification_in_app: bool | None = None
+    notification_webhook: bool | None = None
+    notification_whatsapp: bool | None = None
+    webhook_url: str | None = None
+    onboarding_completed: bool | None = None
+    onboarding_step: int | None = None
+    plan_tier: str | None = None
+    whatsapp_number: str | None = None
 
 
 class UserResponse(UserBase):
@@ -38,14 +38,14 @@ class UserResponse(UserBase):
     notification_whatsapp: bool = False
     plan_tier: str = "basico"
     subscription_status: str = "inactive"
-    trial_ends_at: Optional[datetime] = None
+    trial_ends_at: datetime | None = None
     onboarding_completed: bool = False
     onboarding_step: int = 0
-    webhook_url: Optional[str] = None
-    whatsapp_number: Optional[str] = None
+    webhook_url: str | None = None
+    whatsapp_number: str | None = None
     has_google: bool = False  # derived: google_id is not None
     created_at: datetime
-    last_login: Optional[datetime] = None
+    last_login: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -69,5 +69,4 @@ class Token(BaseModel):
 
 
 class TokenData(BaseModel):
-    user_id: Optional[int] = None
-
+    user_id: int | None = None

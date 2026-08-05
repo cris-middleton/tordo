@@ -6,6 +6,7 @@ Usage:
   python -m analytics.evaluation --model tfidf_matcher --variant-file path/to/v.yaml
   python -m analytics.evaluation --model tfidf_matcher --compare baseline:baseline other.yaml
 """
+
 from __future__ import annotations
 
 import argparse
@@ -16,8 +17,12 @@ from pathlib import Path
 
 import yaml
 
-from analytics.evaluation import evaluators  # noqa: F401 — triggers registration
-from analytics.evaluation import registry, reporter, runner
+from analytics.evaluation import (
+    evaluators,  # noqa: F401 — triggers registration
+    registry,
+    reporter,
+    runner,
+)
 from analytics.evaluation.base import VariantConfig
 
 logger = logging.getLogger(__name__)
@@ -31,7 +36,9 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="analytics.evaluation")
     p.add_argument("--model", required=True, help="Registered model name")
     p.add_argument("--variant", default="baseline", help="Named variant (default: baseline)")
-    p.add_argument("--variant-file", type=Path, dest="variant_file", help="YAML with {name, params}")
+    p.add_argument(
+        "--variant-file", type=Path, dest="variant_file", help="YAML with {name, params}"
+    )
     p.add_argument("--walk-forward", action="store_true", help="Use walk-forward split")
     p.add_argument("--test-months", type=int, default=12, dest="test_months")
     p.add_argument("--n-folds", type=int, default=4, dest="n_folds")
@@ -60,8 +67,7 @@ def resolve_variant(
     if candidate.exists():
         return load_variant_yaml(candidate)
     raise FileNotFoundError(
-        f"Variant '{variant_arg}' not found; looked for "
-        f"{candidate} and no --variant-file passed."
+        f"Variant '{variant_arg}' not found; looked for {candidate} and no --variant-file passed."
     )
 
 
@@ -94,12 +100,22 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[dry-run] would compare {variant_a.name} vs {variant_b.name}")
             return 0
         res_a = runner.run_evaluation(
-            args.model, variant_a, split_strategy, today,
-            n_folds=args.n_folds, fold_months=args.fold_months, test_months=args.test_months,
+            args.model,
+            variant_a,
+            split_strategy,
+            today,
+            n_folds=args.n_folds,
+            fold_months=args.fold_months,
+            test_months=args.test_months,
         )
         res_b = runner.run_evaluation(
-            args.model, variant_b, split_strategy, today,
-            n_folds=args.n_folds, fold_months=args.fold_months, test_months=args.test_months,
+            args.model,
+            variant_b,
+            split_strategy,
+            today,
+            n_folds=args.n_folds,
+            fold_months=args.fold_months,
+            test_months=args.test_months,
         )
         reporter.write_result_json(res_a, EVAL_OUTPUT_JSON_BASE, split_strategy)
         reporter.write_result_json(res_b, EVAL_OUTPUT_JSON_BASE, split_strategy)
@@ -107,7 +123,8 @@ def main(argv: list[str] | None = None) -> int:
         reporter.write_result_markdown(res_b, EVAL_OUTPUT_MD_BASE, split_strategy)
         cls = registry.get(args.model)
         md_path = reporter.write_comparison_markdown(
-            res_a, res_b,
+            res_a,
+            res_b,
             primary_metric=cls.primary_metric,
             base_dir=EVAL_OUTPUT_MD_BASE,
         )
@@ -122,8 +139,13 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     results = runner.run_evaluation(
-        args.model, variant, split_strategy, today,
-        n_folds=args.n_folds, fold_months=args.fold_months, test_months=args.test_months,
+        args.model,
+        variant,
+        split_strategy,
+        today,
+        n_folds=args.n_folds,
+        fold_months=args.fold_months,
+        test_months=args.test_months,
     )
     json_path = reporter.write_result_json(results, EVAL_OUTPUT_JSON_BASE, split_strategy)
     md_path = reporter.write_result_markdown(results, EVAL_OUTPUT_MD_BASE, split_strategy)

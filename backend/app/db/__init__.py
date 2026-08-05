@@ -6,6 +6,7 @@ Exports:
   SyncSessionLocal,  sync_engine,  get_sync_db — for Celery tasks + Stripe webhook (psycopg2)
   Base                                       — shared declarative base
 """
+
 from __future__ import annotations
 
 from typing import AsyncGenerator
@@ -46,6 +47,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 # ── Sync engine (Celery tasks + Stripe webhook / psycopg2) ───────────────────
 # Uses DATABASE_URL_SYNC when set, otherwise strips the +asyncpg driver prefix.
+
 
 def _sync_url() -> str:
     if settings.database_url_sync:

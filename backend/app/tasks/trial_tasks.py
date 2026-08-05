@@ -8,11 +8,11 @@
 Both tasks use synchronous SQL via psycopg2 because Celery workers don't run
 inside an asyncio loop.
 """
+
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from sqlalchemy import create_engine, text
 
@@ -58,7 +58,7 @@ def _downgrade_expired_trials_sync() -> int:
 def downgrade_expired_trials() -> dict:
     """Beat-scheduled task — runs daily at 03:00 America/Santiago."""
     count = _downgrade_expired_trials_sync()
-    return {"downgraded": count, "ran_at": datetime.now(timezone.utc).isoformat()}
+    return {"downgraded": count, "ran_at": datetime.now(UTC).isoformat()}
 
 
 # ── Reminder emails ────────────────────────────────────────────────────────────
@@ -66,9 +66,9 @@ def downgrade_expired_trials() -> dict:
 
 def _pick_reminder_kind(
     trial_ends_at: datetime,
-    day7_sent: Optional[datetime],
-    day12_sent: Optional[datetime],
-) -> Optional[str]:
+    day7_sent: datetime | None,
+    day12_sent: datetime | None,
+) -> str | None:
     """
     Decide which (if any) reminder to send for this trial right now.
 
@@ -76,7 +76,7 @@ def _pick_reminder_kind(
     Day 7 window: between 3 and 8 days remaining.
     Priority goes to day12 (closer to end).
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     remaining = trial_ends_at - now
     days_remaining = remaining.total_seconds() / 86400
 
@@ -90,7 +90,7 @@ def _pick_reminder_kind(
 
 
 REMINDER_SUBJECTS = {
-    "day7":  "Vas por la mitad de tu prueba de TORDO",
+    "day7": "Vas por la mitad de tu prueba de TORDO",
     "day12": "Te quedan 2 días de prueba en TORDO",
 }
 
@@ -177,17 +177,15 @@ def send_trial_reminders() -> dict:
         column = f"trial_reminder_{kind}_sent_at"
         with engine.begin() as conn:
             result = conn.execute(
-                text(
-                    f"UPDATE users SET {column} = NOW() "
-                    f"WHERE id = :uid AND {column} IS NULL"
-                ),
+                text(f"UPDATE users SET {column} = NOW() WHERE id = :uid AND {column} IS NULL"),
                 {"uid": row.id},
             )
         if (result.rowcount or 0) == 0:
             # Another worker already stamped this row between our SELECT and UPDATE.
             logger.info(
                 "Trial reminder %s for user_id=%s already stamped by another worker; skipping count",
-                kind, row.id,
+                kind,
+                row.id,
             )
             continue
         if kind == "day7":
@@ -199,7 +197,7 @@ def send_trial_reminders() -> dict:
         "sent_day7": sent_day7,
         "sent_day12": sent_day12,
         "failures": failures,
-        "ran_at": datetime.now(timezone.utc).isoformat(),
+        "ran_at": datetime.now(UTC).isoformat(),
     }
     logger.info("Trial reminders: %s", result)
     return result

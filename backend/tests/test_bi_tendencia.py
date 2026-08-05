@@ -1,5 +1,4 @@
 """Tests for /api/bi/tendencia serie_anual extension."""
-import pytest
 
 
 def test_tendencia_sin_rubro_no_serie_anual():
@@ -15,11 +14,14 @@ def test_tendencia_sin_rubro_no_serie_anual():
 def test_tendencia_con_rubro_serie_anual_definida_o_none(monkeypatch, tmp_path):
     """With rubro filtered, serie_anual may exist or be None (no parquet).
     The endpoint must not raise regardless."""
+    # Sin tablas materializadas: el repositorio devuelve None, que es lo que
+    # hace el real cuando el pipeline todavía no corrió.
+    from app.repositories import analytics_sync
     from app.services import bi_service
-    from app import config
 
-    monkeypatch.setattr(config.settings, "analytics_data_path", str(tmp_path))
-    bi_service._cache.clear()
+    monkeypatch.setattr(analytics_sync, "consultar", lambda *a, **k: None)
+    monkeypatch.setattr(analytics_sync, "buscar_texto", lambda *a, **k: None)
+    monkeypatch.setattr(analytics_sync, "existe_tabla", lambda *a, **k: False)
 
     result = bi_service.get_tendencia(
         rubro="Algún rubro", tendencia=None, solo_emergentes=False, limit=10
@@ -30,7 +32,7 @@ def test_tendencia_con_rubro_serie_anual_definida_o_none(monkeypatch, tmp_path):
 
 def test_tendencia_response_schema_includes_serie_anual():
     """TendenciaResponse Pydantic schema must include the serie_anual field."""
-    from app.schemas.bi import TendenciaResponse, SerieAnualPunto
+    from app.schemas.bi import SerieAnualPunto, TendenciaResponse
 
     # Instantiate with all fields to confirm no ValidationError
     resp = TendenciaResponse(
@@ -59,6 +61,7 @@ def test_cagr_rubro_compound_growth():
     # Verificación de lógica sin parquet: simular el cálculo
     # (2021: 100, 2025: 200) → CAGR = (200/100)^(1/4) - 1 = 18.92%
     import math
+
     monto_first = 100.0
     monto_last = 200.0
     n_points = 5  # 2021, 2022, 2023, 2024, 2025
@@ -68,10 +71,14 @@ def test_cagr_rubro_compound_growth():
 
 def test_cagr_rubro_none_when_no_rubro(monkeypatch, tmp_path):
     """Sin rubro filtrado, cagr_rubro debe ser None."""
+    # Sin tablas materializadas: el repositorio devuelve None, que es lo que
+    # hace el real cuando el pipeline todavía no corrió.
+    from app.repositories import analytics_sync
     from app.services import bi_service
-    from app import config
-    monkeypatch.setattr(config.settings, "analytics_data_path", str(tmp_path))
-    bi_service._cache.clear()
+
+    monkeypatch.setattr(analytics_sync, "consultar", lambda *a, **k: None)
+    monkeypatch.setattr(analytics_sync, "buscar_texto", lambda *a, **k: None)
+    monkeypatch.setattr(analytics_sync, "existe_tabla", lambda *a, **k: False)
     result = bi_service.get_tendencia(rubro=None, tendencia=None, solo_emergentes=False, limit=10)
     if result.get("disponible"):
         assert result.get("cagr_rubro") is None

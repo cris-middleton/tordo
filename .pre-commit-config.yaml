@@ -1,0 +1,61 @@
+# Configuración de pre-commit — refleja exactamente lo que valida CI.
+#
+# Los hooks son POR CLONE y POR WORKTREE: en cualquier checkout donde falte
+# .git/hooks/pre-commit hay que correr `make hooks` (o `pre-commit install`).
+#
+# Nunca saltar con `--no-verify`. Si un hook falla, se arregla la causa.
+
+repos:
+  # Ruff — linter y formateador
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.21
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^(backend/app|backend/tests|etl)/
+      - id: ruff-format
+        files: ^(backend/app|backend/tests|etl)/
+
+  # Higiene básica de archivos
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^docs/_archive/
+      - id: end-of-file-fixer
+        exclude: ^docs/_archive/
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-case-conflict
+
+  # Secretos: la causa raíz del incidente de F0 fue commitear backend/.env.
+  # Este hook corta la reincidencia en seco.
+  - repo: local
+    hooks:
+      - id: no-env-files
+        name: Bloquear archivos .env (usa .env.example)
+        entry: |
+          bash -c 'echo "
+          BLOQUEADO: intentas commitear un archivo .env.
+          Los secretos nunca van al repo. Usa .env.example con valores vacíos.
+          Si una credencial ya llegó a un commit, RÓTALA — quitarla no la invalida.
+          "; exit 1'
+        language: system
+        files: (^|/)\.env($|\..*$)
+        exclude: (^|/)\.env\.example$
+        pass_filenames: false
+
+  # El lockfile debe ir sincronizado con pyproject.toml, o `uv sync --frozen`
+  # falla en CI y en los builds de Docker.
+  - repo: local
+    hooks:
+      - id: uv-lock-check
+        name: uv.lock sincronizado con pyproject.toml
+        entry: uv lock --check
+        language: system
+        files: ^(pyproject\.toml|uv\.lock)$
+        pass_filenames: false

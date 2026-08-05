@@ -1,5 +1,5 @@
 """Pydantic schemas for BI API responses."""
-from typing import Any, Optional
+
 from pydantic import BaseModel
 
 
@@ -9,113 +9,117 @@ class BINotAvailable(BaseModel):
 
 
 class PrecioBanda(BaseModel):
-    codigoProductoONU: Optional[str] = None
-    NombreProductoGenerico: Optional[str] = None
-    p10: Optional[float] = None
-    p25: Optional[float] = None
-    p50: Optional[float] = None
-    p75: Optional[float] = None
-    p90: Optional[float] = None
-    pu_mean: Optional[float] = None
-    cv: Optional[float] = None
-    confianza: Optional[str] = None
-    n: Optional[int] = None
+    codigoProductoONU: str | None = None
+    NombreProductoGenerico: str | None = None
+    p10: float | None = None
+    p25: float | None = None
+    p50: float | None = None
+    p75: float | None = None
+    p90: float | None = None
+    pu_mean: float | None = None
+    cv: float | None = None
+    # El pipeline produce confianza como Float64 (0–1), no como texto.
+    # Declararla `str` hacía que /api/bi/precio devolviera siempre 500 con
+    # ResponseValidationError en cuanto había datos. Nunca se detectó porque
+    # FEATURE_ANALYTICS=false cortaba con 503 antes de llegar aquí.
+    confianza: float | None = None
+    n: int | None = None
 
 
 class PrecioResponse(BaseModel):
     disponible: bool
-    codigo_producto: Optional[str] = None
-    resultado: Optional[list[PrecioBanda]] = None
-    total_registros: Optional[int] = None
-    nivel_usado: Optional[str] = None  # "L1", "L2", "L3"
+    codigo_producto: str | None = None
+    resultado: list[PrecioBanda] | None = None
+    total_registros: int | None = None
+    nivel_usado: str | None = None  # "L1", "L2", "L3"
     fallback: bool = False
-    fallback_motivo: Optional[str] = None
-    motivo: Optional[str] = None
+    fallback_motivo: str | None = None
+    motivo: str | None = None
 
 
 class Competidor(BaseModel):
-    CodigoOrganismoPublico: Optional[str] = None
-    OrganismoPublico: Optional[str] = None
-    RubroN2: Optional[str] = None
-    CodigoProveedor: Optional[str] = None
-    NombreProveedor: Optional[str] = None
-    market_share_pct: Optional[float] = None
-    win_rate_pct: Optional[float] = None
-    rank_monto: Optional[int] = None
-    n_oc: Optional[int] = None
-    monto_total: Optional[float] = None
-    n_proveedores: Optional[int] = None
+    CodigoOrganismoPublico: str | None = None
+    OrganismoPublico: str | None = None
+    RubroN2: str | None = None
+    CodigoProveedor: str | None = None
+    NombreProveedor: str | None = None
+    market_share_pct: float | None = None
+    win_rate_pct: float | None = None
+    rank_monto: int | None = None
+    n_oc: int | None = None
+    monto_total: float | None = None
+    n_proveedores: int | None = None
 
 
 class Concentracion(BaseModel):
-    RubroN2: Optional[str] = None
-    hhi: Optional[float] = None
-    tipo_mercado: Optional[str] = None
-    n_proveedores: Optional[int] = None
+    RubroN2: str | None = None
+    hhi: float | None = None
+    tipo_mercado: str | None = None
+    n_proveedores: int | None = None
 
 
 class CompetidoresResponse(BaseModel):
     disponible: bool
-    organismo_id: Optional[str] = None
-    competidores: Optional[list[Competidor]] = None
-    concentracion: Optional[list[Concentracion]] = None
-    motivo: Optional[str] = None
+    organismo_id: str | None = None
+    competidores: list[Competidor] | None = None
+    concentracion: list[Concentracion] | None = None
+    motivo: str | None = None
 
 
 class Oportunidad(BaseModel):
-    CodigoOrganismoPublico: Optional[str] = None
-    NombreOrganismo: Optional[str] = None
-    RubroN2: Optional[str] = None
-    opportunity_score: Optional[float] = None
-    n_transacciones: Optional[int] = None
-    coef_variacion: Optional[float] = None
-    hhi: Optional[float] = None
-    n_proveedores: Optional[int] = None
-    cagr: Optional[float] = None
+    CodigoOrganismoPublico: str | None = None
+    NombreOrganismo: str | None = None
+    RubroN2: str | None = None
+    opportunity_score: float | None = None
+    n_transacciones: int | None = None
+    coef_variacion: float | None = None
+    hhi: float | None = None
+    n_proveedores: int | None = None
+    cagr: float | None = None
 
 
 class FiltrosOportunidades(BaseModel):
-    organismo_id: Optional[str] = None
-    rubro: Optional[str] = None
+    organismo_id: str | None = None
+    rubro: str | None = None
     min_score: float
 
 
 class OportunidadesResponse(BaseModel):
     disponible: bool
-    oportunidades: Optional[list[Oportunidad]] = None
-    total: Optional[int] = None
-    filtros: Optional[FiltrosOportunidades] = None
-    motivo: Optional[str] = None
+    oportunidades: list[Oportunidad] | None = None
+    total: int | None = None
+    filtros: FiltrosOportunidades | None = None
+    motivo: str | None = None
 
 
 class VentanaResponse(BaseModel):
     disponible: bool
-    codigo_externo: Optional[str] = None
-    alerta_ventana_corta: Optional[bool] = None
-    presion_score: Optional[float] = None
-    clasificacion_ventana: Optional[str] = None
-    pct_del_tipico: Optional[float] = None
-    window_days: Optional[int] = None
-    motivo: Optional[str] = None
+    codigo_externo: str | None = None
+    alerta_ventana_corta: bool | None = None
+    presion_score: float | None = None
+    clasificacion_ventana: str | None = None
+    pct_del_tipico: float | None = None
+    window_days: int | None = None
+    motivo: str | None = None
 
 
 class PagoStats(BaseModel):
-    mediana_dias_pago: Optional[float] = None
-    p75_dias_pago: Optional[float] = None
-    p90_dias_pago: Optional[float] = None
-    tasa_aceptacion: Optional[float] = None
-    tasa_cancelacion: Optional[float] = None
-    tasa_adjudicacion: Optional[float] = None
+    mediana_dias_pago: float | None = None
+    p75_dias_pago: float | None = None
+    p90_dias_pago: float | None = None
+    tasa_aceptacion: float | None = None
+    tasa_cancelacion: float | None = None
+    tasa_adjudicacion: float | None = None
 
 
 class ScoresDetalle(BaseModel):
-    velocidad_pago: Optional[float] = None
-    tasa_aceptacion: Optional[float] = None
-    no_cancelacion: Optional[float] = None
-    adjudicacion: Optional[float] = None
-    regularidad: Optional[float] = None
-    volumen: Optional[float] = None
-    satisfaccion: Optional[float] = None
+    velocidad_pago: float | None = None
+    tasa_aceptacion: float | None = None
+    no_cancelacion: float | None = None
+    adjudicacion: float | None = None
+    regularidad: float | None = None
+    volumen: float | None = None
+    satisfaccion: float | None = None
 
 
 class RiskFlags(BaseModel):
@@ -129,90 +133,91 @@ class RiskFlags(BaseModel):
 
 
 class VolumenComprador(BaseModel):
-    n_oc_total: Optional[int] = None
-    n_meses_activo: Optional[int] = None
-    prom_calificacion: Optional[float] = None
-    prom_oferentes: Optional[float] = None
+    n_oc_total: int | None = None
+    n_meses_activo: int | None = None
+    prom_calificacion: float | None = None
+    prom_oferentes: float | None = None
 
 
 class TransparenciaComprador(BaseModel):
-    transparencia_score: Optional[float] = None
+    transparencia_score: float | None = None
     # muy_transparente | transparente | moderado | poco_transparente | opaco
-    clasificacion: Optional[str] = None
-    pct_trato_directo: Optional[float] = None
-    tasa_fracaso: Optional[float] = None
-    hhi: Optional[float] = None
-    n_lic_total: Optional[int] = None
+    clasificacion: str | None = None
+    pct_trato_directo: float | None = None
+    tasa_fracaso: float | None = None
+    hhi: float | None = None
+    n_lic_total: int | None = None
 
 
 class CompradorResponse(BaseModel):
     disponible: bool
-    organismo_id: Optional[str] = None
-    nombre: Optional[str] = None
-    buyer_score: Optional[float] = None
-    clasificacion: Optional[str] = None
-    pago: Optional[PagoStats] = None
-    scores_detalle: Optional[ScoresDetalle] = None
-    risk_flags: Optional[RiskFlags] = None
-    volumen: Optional[VolumenComprador] = None
-    transparencia: Optional[TransparenciaComprador] = None
-    motivo: Optional[str] = None
+    organismo_id: str | None = None
+    nombre: str | None = None
+    buyer_score: float | None = None
+    clasificacion: str | None = None
+    pago: PagoStats | None = None
+    scores_detalle: ScoresDetalle | None = None
+    risk_flags: RiskFlags | None = None
+    volumen: VolumenComprador | None = None
+    transparencia: TransparenciaComprador | None = None
+    motivo: str | None = None
 
 
 # ─── TF-IDF Matching schemas ─────────────────────────────────────────────────
 
+
 class ProveedorMatch(BaseModel):
     CodigoProveedor: str
-    NombreProveedor: Optional[str] = None
-    n_oc: Optional[int] = None
+    NombreProveedor: str | None = None
+    n_oc: int | None = None
     similarity_score: float
 
 
 class MatchingResponse(BaseModel):
     disponible: bool
-    query: Optional[str] = None
-    resultados: Optional[list[ProveedorMatch]] = None
-    total: Optional[int] = None
-    motivo: Optional[str] = None
+    query: str | None = None
+    resultados: list[ProveedorMatch] | None = None
+    total: int | None = None
+    motivo: str | None = None
 
 
 class PerfilMatchResponse(BaseModel):
     disponible: bool
-    codigo_externo: Optional[str] = None
-    licitacion_nombre: Optional[str] = None
-    score_encaje: Optional[float] = None
+    codigo_externo: str | None = None
+    licitacion_nombre: str | None = None
+    score_encaje: float | None = None
     # nivel ∈ {alto, medio, bajo, sin_encaje, sin_perfil}
-    nivel: Optional[str] = None
-    motivo: Optional[str] = None
+    nivel: str | None = None
+    motivo: str | None = None
 
 
 class ClusterItem(BaseModel):
-    cluster_id: Optional[int] = None
-    label: Optional[str] = None
-    keywords: Optional[str] = None
-    n_productos: Optional[int] = None
-    frecuencia_total: Optional[int] = None
-    rubro_dominante: Optional[str] = None
+    cluster_id: int | None = None
+    label: str | None = None
+    keywords: str | None = None
+    n_productos: int | None = None
+    frecuencia_total: int | None = None
+    rubro_dominante: str | None = None
 
 
 class ClustersResponse(BaseModel):
     disponible: bool
-    clusters: Optional[list[ClusterItem]] = None
-    total: Optional[int] = None
-    motivo: Optional[str] = None
+    clusters: list[ClusterItem] | None = None
+    total: int | None = None
+    motivo: str | None = None
 
 
 class RubrosResponse(BaseModel):
     disponible: bool
-    rubros: Optional[list[str]] = None
-    total: Optional[int] = None
+    rubros: list[str] | None = None
+    total: int | None = None
 
 
 class TFIDFPerfilResponse(BaseModel):
     empresa_id: str
-    rubros_usados: Optional[list[str]] = None
-    modelo_version: Optional[str] = None
-    actualizado_en: Optional[str] = None
+    rubros_usados: list[str] | None = None
+    modelo_version: str | None = None
+    actualizado_en: str | None = None
     tiene_vector: bool = False
 
 
@@ -222,268 +227,283 @@ class TFIDFPerfilUpdate(BaseModel):
 
 # ─── Licitación BI Panel schemas ─────────────────────────────────────────────
 
+
 class CompradorPanel(BaseModel):
     disponible: bool
-    nombre: Optional[str] = None
-    buyer_score: Optional[float] = None
-    clasificacion: Optional[str] = None
-    mediana_dias_pago: Optional[float] = None
-    tasa_adjudicacion: Optional[float] = None
+    nombre: str | None = None
+    buyer_score: float | None = None
+    clasificacion: str | None = None
+    mediana_dias_pago: float | None = None
+    tasa_adjudicacion: float | None = None
     n_flags: int = 0
-    transparencia: Optional[TransparenciaComprador] = None
-    motivo: Optional[str] = None
+    transparencia: TransparenciaComprador | None = None
+    motivo: str | None = None
 
 
 class VentanaPanel(BaseModel):
     disponible: bool
-    alerta_ventana_corta: Optional[bool] = None
-    presion_score: Optional[float] = None
-    clasificacion_ventana: Optional[str] = None
-    pct_del_tipico: Optional[float] = None
-    window_days: Optional[int] = None
-    motivo: Optional[str] = None
+    alerta_ventana_corta: bool | None = None
+    presion_score: float | None = None
+    clasificacion_ventana: str | None = None
+    pct_del_tipico: float | None = None
+    window_days: int | None = None
+    motivo: str | None = None
 
 
 class CompetidoresPanel(BaseModel):
     disponible: bool
-    top5: Optional[list[Competidor]] = None
-    hhi: Optional[float] = None
-    tipo_mercado: Optional[str] = None
-    motivo: Optional[str] = None
+    top5: list[Competidor] | None = None
+    hhi: float | None = None
+    tipo_mercado: str | None = None
+    motivo: str | None = None
 
 
 class PrecioFallback(BaseModel):
     disponible: bool
-    codigo_producto: Optional[str] = None
-    nivel_usado: Optional[str] = None  # "L1", "L2", "L3"
+    codigo_producto: str | None = None
+    nivel_usado: str | None = None  # "L1", "L2", "L3"
     fallback: bool = False
-    p10: Optional[float] = None
-    p25: Optional[float] = None
-    p50: Optional[float] = None
-    p75: Optional[float] = None
-    p90: Optional[float] = None
-    confianza: Optional[str] = None
-    n: Optional[int] = None
+    p10: float | None = None
+    p25: float | None = None
+    p50: float | None = None
+    p75: float | None = None
+    p90: float | None = None
+    # El pipeline produce confianza como Float64 (0–1), no como texto.
+    # Declararla `str` hacía que /api/bi/precio devolviera siempre 500 con
+    # ResponseValidationError en cuanto había datos. Nunca se detectó porque
+    # FEATURE_ANALYTICS=false cortaba con 503 antes de llegar aquí.
+    confianza: float | None = None
+    n: int | None = None
 
 
 class LicitacionBIPanel(BaseModel):
     codigo_externo: str
-    organismo_id: Optional[str] = None
+    organismo_id: str | None = None
     comprador: CompradorPanel
     ventana: VentanaPanel
     competidores: CompetidoresPanel
     precios: list[PrecioFallback] = []
-    postulacion_id: Optional[str] = None
-    estado_habil: Optional[str] = None
+    postulacion_id: str | None = None
+    estado_habil: str | None = None
 
 
 # ─── Paso D: extended BI schemas ─────────────────────────────────────────────
 
+
 class EstacionalidadMes(BaseModel):
-    mes: Optional[int] = None
-    compras_mes: Optional[float] = None
-    prob_mes: Optional[float] = None
-    consistencia: Optional[float] = None
-    z_score: Optional[float] = None
-    es_pico_estacional: Optional[bool] = None
+    mes: int | None = None
+    compras_mes: float | None = None
+    prob_mes: float | None = None
+    consistencia: float | None = None
+    z_score: float | None = None
+    es_pico_estacional: bool | None = None
 
 
 class EstacionalidadResponse(BaseModel):
     disponible: bool
-    organismo_id: Optional[str] = None
-    rubro: Optional[str] = None
-    patrones: Optional[list[EstacionalidadMes]] = None
-    motivo: Optional[str] = None
+    organismo_id: str | None = None
+    rubro: str | None = None
+    patrones: list[EstacionalidadMes] | None = None
+    motivo: str | None = None
 
 
 class TendenciaItem(BaseModel):
-    CodigoOrganismoPublico: Optional[str] = None
-    RubroN2: Optional[str] = None
-    slope_mensual: Optional[float] = None
-    r_squared: Optional[float] = None
-    cagr: Optional[float] = None
-    tendencia: Optional[str] = None
+    CodigoOrganismoPublico: str | None = None
+    RubroN2: str | None = None
+    slope_mensual: float | None = None
+    r_squared: float | None = None
+    cagr: float | None = None
+    tendencia: str | None = None
 
 
 class SerieAnualPunto(BaseModel):
     anio: int
     monto_total: float
-    n_oc: Optional[int] = None
+    n_oc: int | None = None
 
 
 class TendenciaResponse(BaseModel):
     disponible: bool
-    tendencias: Optional[list[TendenciaItem]] = None
-    emergentes: Optional[list[TendenciaItem]] = None
-    serie_anual: Optional[list[SerieAnualPunto]] = None  # YoY sparkline when rubro is filtered
-    cagr_rubro: Optional[float] = None  # CAGR rubro-level computed from serie_anual (complete years only)
-    total: Optional[int] = None
-    motivo: Optional[str] = None
+    tendencias: list[TendenciaItem] | None = None
+    emergentes: list[TendenciaItem] | None = None
+    serie_anual: list[SerieAnualPunto] | None = None  # YoY sparkline when rubro is filtered
+    cagr_rubro: float | None = (
+        None  # CAGR rubro-level computed from serie_anual (complete years only)
+    )
+    total: int | None = None
+    motivo: str | None = None
 
 
 class DescuentoItem(BaseModel):
-    CodigoTipo: Optional[str] = None
-    Rubro2: Optional[str] = None
-    n_oferentes_rango: Optional[str] = None
-    n: Optional[int] = None
-    p10: Optional[float] = None
-    p25: Optional[float] = None
-    p50: Optional[float] = None
-    p75: Optional[float] = None
-    p90: Optional[float] = None
-    media: Optional[float] = None
-    cv_descuento: Optional[float] = None
-    senial_competencia: Optional[str] = None  # señal_competencia mapped for JSON
+    CodigoTipo: str | None = None
+    Rubro2: str | None = None
+    n_oferentes_rango: str | None = None
+    n: int | None = None
+    p10: float | None = None
+    p25: float | None = None
+    p50: float | None = None
+    p75: float | None = None
+    p90: float | None = None
+    media: float | None = None
+    cv_descuento: float | None = None
+    senial_competencia: str | None = None  # señal_competencia mapped for JSON
 
 
 class DescuentoResponse(BaseModel):
     disponible: bool
-    tipo: Optional[str] = None
-    rubro: Optional[str] = None
-    descuentos: Optional[list[DescuentoItem]] = None
-    total: Optional[int] = None
-    motivo: Optional[str] = None
+    tipo: str | None = None
+    rubro: str | None = None
+    descuentos: list[DescuentoItem] | None = None
+    total: int | None = None
+    motivo: str | None = None
 
 
 class ForecastCompetidoresItem(BaseModel):
-    CodigoOrganismo: Optional[str] = None
-    NombreOrganismo: Optional[str] = None
-    Rubro2: Optional[str] = None
-    CodigoTipo: Optional[str] = None
-    n: Optional[int] = None
-    p10: Optional[float] = None
-    p25: Optional[float] = None
-    p50: Optional[float] = None
-    p75: Optional[float] = None
-    p90: Optional[float] = None
-    media: Optional[float] = None
-    pct_sin_competencia: Optional[float] = None
-    pct_baja_competencia: Optional[float] = None
-    nivel: Optional[str] = None
+    CodigoOrganismo: str | None = None
+    NombreOrganismo: str | None = None
+    Rubro2: str | None = None
+    CodigoTipo: str | None = None
+    n: int | None = None
+    p10: float | None = None
+    p25: float | None = None
+    p50: float | None = None
+    p75: float | None = None
+    p90: float | None = None
+    media: float | None = None
+    pct_sin_competencia: float | None = None
+    pct_baja_competencia: float | None = None
+    # El pipeline emite el nivel de fallback como Int32 (1, 2, 3), no como texto.
+    # Declararlo `str` hacía que /api/bi/forecast_competidores devolviera 500 en
+    # cuanto había datos. No confundir con PerfilMatchResponse.nivel, que sí es
+    # texto ("alto"/"medio"/"bajo").
+    nivel: int | None = None
 
 
 class ForecastCompetidoresResponse(BaseModel):
     disponible: bool
-    nivel_usado: Optional[str] = None  # "L1", "L2", "L3"
+    nivel_usado: str | None = None  # "L1", "L2", "L3"
     fallback: bool = False
-    organismo_id: Optional[str] = None
-    rubro: Optional[str] = None
-    tipo: Optional[str] = None
-    data: Optional[list[ForecastCompetidoresItem]] = None
-    motivo: Optional[str] = None
+    organismo_id: str | None = None
+    rubro: str | None = None
+    tipo: str | None = None
+    data: list[ForecastCompetidoresItem] | None = None
+    motivo: str | None = None
 
 
 class DiversificacionResponse(BaseModel):
     disponible: bool
-    codigo_proveedor: Optional[str] = None
-    nombre_proveedor: Optional[str] = None
-    hhi_org: Optional[float] = None
-    score_diversificacion: Optional[float] = None
-    clasificacion: Optional[str] = None
-    n_oc: Optional[int] = None
-    n_organismos: Optional[int] = None
-    alerta_dependencia: Optional[bool] = None
-    motivo: Optional[str] = None
+    codigo_proveedor: str | None = None
+    nombre_proveedor: str | None = None
+    hhi_org: float | None = None
+    score_diversificacion: float | None = None
+    clasificacion: str | None = None
+    n_oc: int | None = None
+    n_organismos: int | None = None
+    alerta_dependencia: bool | None = None
+    motivo: str | None = None
 
 
 class SectorItem(BaseModel):
-    sector: Optional[str] = None
-    n_oc: Optional[int] = None
-    monto_total: Optional[float] = None
-    ticket_mediana: Optional[float] = None
-    n_organismos: Optional[int] = None
-    n_proveedores: Optional[int] = None
+    sector: str | None = None
+    n_oc: int | None = None
+    monto_total: float | None = None
+    ticket_mediana: float | None = None
+    n_organismos: int | None = None
+    n_proveedores: int | None = None
 
 
 class SectorResponse(BaseModel):
     disponible: bool
-    sectores: Optional[list[SectorItem]] = None
-    total: Optional[int] = None
-    motivo: Optional[str] = None
+    sectores: list[SectorItem] | None = None
+    total: int | None = None
+    motivo: str | None = None
 
 
 # ─── Resumen narrativo (MarketSummaryCard + paywall teasers) ──────────────────
 
+
 class ResumenTopComprador(BaseModel):
-    codigo: Optional[str] = None
-    nombre: Optional[str] = None
-    pago_mediana_dias: Optional[int] = None
-    clasificacion_pago: Optional[str] = None  # "bueno" | "medio" | "lento"
+    codigo: str | None = None
+    nombre: str | None = None
+    pago_mediana_dias: int | None = None
+    clasificacion_pago: str | None = None  # "bueno" | "medio" | "lento"
 
 
 class ResumenTeaserCompetencia(BaseModel):
-    lider_nombre: Optional[str] = None
-    lider_share_pct: Optional[float] = None
-    tipo_mercado: Optional[str] = None  # "concentrado" | "moderado" | "fragmentado" | "competitivo"
+    lider_nombre: str | None = None
+    lider_share_pct: float | None = None
+    tipo_mercado: str | None = None  # "concentrado" | "moderado" | "fragmentado" | "competitivo"
 
 
 class ResumenTeaserEstacionalidad(BaseModel):
-    mes_pico_mayor: Optional[str] = None
-    consistencia_avg_pct: Optional[int] = None
+    mes_pico_mayor: str | None = None
+    consistencia_avg_pct: int | None = None
 
 
 class ResumenResponse(BaseModel):
     disponible: bool
-    rubro: Optional[str] = None
-    monto_anual_clp: Optional[float] = None
-    n_organismos: Optional[int] = None
-    cagr_pct: Optional[float] = None
-    yoy_pct: Optional[float] = None  # último año completo vs año anterior
-    n_proveedores_actual: Optional[int] = None
-    n_proveedores_hace_3_anios: Optional[int] = None
-    top_comprador: Optional[ResumenTopComprador] = None
-    teaser_competencia: Optional[ResumenTeaserCompetencia] = None
-    teaser_estacionalidad: Optional[ResumenTeaserEstacionalidad] = None
-    motivo: Optional[str] = None
+    rubro: str | None = None
+    monto_anual_clp: float | None = None
+    n_organismos: int | None = None
+    cagr_pct: float | None = None
+    yoy_pct: float | None = None  # último año completo vs año anterior
+    n_proveedores_actual: int | None = None
+    n_proveedores_hace_3_anios: int | None = None
+    top_comprador: ResumenTopComprador | None = None
+    teaser_competencia: ResumenTeaserCompetencia | None = None
+    teaser_estacionalidad: ResumenTeaserEstacionalidad | None = None
+    motivo: str | None = None
 
 
 # ─── Mi Posición (personalización por empresa) ───────────────────────────────
 
+
 class MiPosicionTopOrganismo(BaseModel):
-    nombre: Optional[str] = None
-    porcentaje_oc: Optional[float] = None
+    nombre: str | None = None
+    porcentaje_oc: float | None = None
 
 
 class MiPosicionResponse(BaseModel):
     disponible: bool
     tiene_historial: bool = False
-    participacion_pct: Optional[float] = None
-    rank: Optional[int] = None
-    total_proveedores: Optional[int] = None
-    n_organismos_atendidos: Optional[int] = None
-    n_organismos_promedio_sector: Optional[float] = None
-    diversificacion_pct: Optional[float] = None
-    alerta_dependencia: Optional[bool] = None
-    top_organismo_empresa: Optional[MiPosicionTopOrganismo] = None
-    motivo: Optional[str] = None
+    participacion_pct: float | None = None
+    rank: int | None = None
+    total_proveedores: int | None = None
+    n_organismos_atendidos: int | None = None
+    n_organismos_promedio_sector: float | None = None
+    diversificacion_pct: float | None = None
+    alerta_dependencia: bool | None = None
+    top_organismo_empresa: MiPosicionTopOrganismo | None = None
+    motivo: str | None = None
 
 
 class ProductoItem(BaseModel):
-    codigoProductoONU: Optional[str] = None
-    nombre: Optional[str] = None
-    n: Optional[int] = None
+    codigoProductoONU: str | None = None
+    nombre: str | None = None
+    n: int | None = None
 
 
 class ProductosResponse(BaseModel):
     disponible: bool
-    resultados: Optional[list[ProductoItem]] = None
-    total: Optional[int] = None
-    motivo: Optional[str] = None
+    resultados: list[ProductoItem] | None = None
+    total: int | None = None
+    motivo: str | None = None
 
 
 # ─── Radar semanal ────────────────────────────────────────────────────────────
+
 
 class RadarMovimiento(BaseModel):
     tipo: str  # "nueva_licitacion" | "oportunidad_top" | "comprador_activo"
     titulo: str
     detalle: str
-    accion_url: Optional[str] = None  # link relativo (ej: /dashboard/tenders/XYZ)
+    accion_url: str | None = None  # link relativo (ej: /dashboard/tenders/XYZ)
 
 
 class RadarResponse(BaseModel):
     disponible: bool
-    empresa_id: Optional[str] = None
-    empresa_nombre: Optional[str] = None
-    semana_inicio: Optional[str] = None  # ISO date lunes
-    movimientos: Optional[list[RadarMovimiento]] = None
-    motivo: Optional[str] = None
+    empresa_id: str | None = None
+    empresa_nombre: str | None = None
+    semana_inicio: str | None = None  # ISO date lunes
+    movimientos: list[RadarMovimiento] | None = None
+    motivo: str | None = None

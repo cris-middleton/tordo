@@ -24,7 +24,7 @@ import logging
 
 import polars as pl
 
-from .config import OUTPUT_DIR, MIN_OBSERVATIONS
+from .config import MIN_OBSERVATIONS, OUTPUT_DIR
 from .data_loader import iter_oc_parquets
 
 logger = logging.getLogger(__name__)
@@ -37,9 +37,15 @@ def build_competitor_aggregates() -> tuple[pl.DataFrame, pl.DataFrame]:
     logger.info("Construyendo agregados de competidores...")
 
     cols_needed = [
-        "CodigoOrganismoPublico", "OrganismoPublico", "RubroN2",
-        "CodigoProveedor", "NombreProveedor", "MontoTotalOC_PesosChilenos",
-        "RegionUnidadCompra", "FechaCreacion", "_periodo_archivo",
+        "CodigoOrganismoPublico",
+        "OrganismoPublico",
+        "RubroN2",
+        "CodigoProveedor",
+        "NombreProveedor",
+        "MontoTotalOC_PesosChilenos",
+        "RegionUnidadCompra",
+        "FechaCreacion",
+        "_periodo_archivo",
     ]
 
     market_frames = []
@@ -49,64 +55,72 @@ def build_competitor_aggregates() -> tuple[pl.DataFrame, pl.DataFrame]:
         if "CodigoProveedor" not in df.columns:
             continue
 
-        base = df.with_columns([
-            pl.col("MontoTotalOC_PesosChilenos").cast(pl.Float64, strict=False).alias("monto"),
-        ]).filter(
-            pl.col("monto").is_not_null() &
-            (pl.col("monto") > 0) &
-            pl.col("CodigoProveedor").is_not_null()
+        base = df.with_columns(
+            [
+                pl.col("MontoTotalOC_PesosChilenos").cast(pl.Float64, strict=False).alias("monto"),
+            ]
+        ).filter(
+            pl.col("monto").is_not_null()
+            & (pl.col("monto") > 0)
+            & pl.col("CodigoProveedor").is_not_null()
         )
 
         # Agregado por mercado (organismo + rubro + proveedor)
-        market_agg = (
-            base
-            .group_by(["CodigoOrganismoPublico", "OrganismoPublico",
-                       "RubroN2", "CodigoProveedor", "NombreProveedor"])
-            .agg([
+        market_agg = base.group_by(
+            [
+                "CodigoOrganismoPublico",
+                "OrganismoPublico",
+                "RubroN2",
+                "CodigoProveedor",
+                "NombreProveedor",
+            ]
+        ).agg(
+            [
                 pl.len().alias("n_oc"),
                 pl.col("monto").sum().alias("monto_total"),
-            ])
+            ]
         )
         market_frames.append(market_agg)
 
         # Agregado por proveedor (perfil general)
-        prov_agg = (
-            base
-            .group_by(["CodigoProveedor", "NombreProveedor"])
-            .agg([
+        prov_agg = base.group_by(["CodigoProveedor", "NombreProveedor"]).agg(
+            [
                 pl.len().alias("n_oc"),
                 pl.col("monto").sum().alias("monto_total"),
                 pl.col("CodigoOrganismoPublico").n_unique().alias("n_organismos"),
                 pl.col("RubroN2").n_unique().alias("n_rubros"),
                 pl.col("RegionUnidadCompra").n_unique().alias("n_regiones"),
-            ])
+            ]
         )
         provider_frames.append(prov_agg)
 
     # Combinar mercados
     markets = pl.concat(market_frames, how="diagonal_relaxed")
-    markets = (
-        markets
-        .group_by(["CodigoOrganismoPublico", "OrganismoPublico",
-                   "RubroN2", "CodigoProveedor", "NombreProveedor"])
-        .agg([
+    markets = markets.group_by(
+        [
+            "CodigoOrganismoPublico",
+            "OrganismoPublico",
+            "RubroN2",
+            "CodigoProveedor",
+            "NombreProveedor",
+        ]
+    ).agg(
+        [
             pl.col("n_oc").sum(),
             pl.col("monto_total").sum(),
-        ])
+        ]
     )
 
     # Combinar proveedores
     providers = pl.concat(provider_frames, how="diagonal_relaxed")
-    providers = (
-        providers
-        .group_by(["CodigoProveedor", "NombreProveedor"])
-        .agg([
+    providers = providers.group_by(["CodigoProveedor", "NombreProveedor"]).agg(
+        [
             pl.col("n_oc").sum(),
             pl.col("monto_total").sum(),
             pl.col("n_organismos").max(),  # approx: max across batches
             pl.col("n_rubros").max(),
             pl.col("n_regiones").max(),
-        ])
+        ]
     )
 
     logger.info(f"Mercados: {len(markets):,} combinaciones | Proveedores: {len(providers):,}")
@@ -121,30 +135,34 @@ def compute_market_shares(markets: pl.DataFrame) -> pl.DataFrame:
 
     # Total por mercado
     market_totals = (
-        markets
-        .group_by(["CodigoOrganismoPublico", "RubroN2"])
-        .agg([
-            pl.col("monto_total").sum().alias("monto_mercado"),
-            pl.col("n_oc").sum().alias("oc_mercado"),
-            pl.col("CodigoProveedor").n_unique().alias("n_proveedores"),
-        ])
+        markets.group_by(["CodigoOrganismoPublico", "RubroN2"])
+        .agg(
+            [
+                pl.col("monto_total").sum().alias("monto_mercado"),
+                pl.col("n_oc").sum().alias("oc_mercado"),
+                pl.col("CodigoProveedor").n_unique().alias("n_proveedores"),
+            ]
+        )
         .filter(pl.col("oc_mercado") >= MIN_OBSERVATIONS)
     )
 
     result = (
-        markets
-        .join(market_totals, on=["CodigoOrganismoPublico", "RubroN2"], how="inner")
-        .with_columns([
-            (pl.col("monto_total") / pl.col("monto_mercado") * 100).alias("market_share_pct"),
-            (pl.col("n_oc") / pl.col("oc_mercado") * 100).alias("win_rate_pct"),
-        ])
+        markets.join(market_totals, on=["CodigoOrganismoPublico", "RubroN2"], how="inner")
+        .with_columns(
+            [
+                (pl.col("monto_total") / pl.col("monto_mercado") * 100).alias("market_share_pct"),
+                (pl.col("n_oc") / pl.col("oc_mercado") * 100).alias("win_rate_pct"),
+            ]
+        )
         # Ranking dentro de cada mercado
-        .with_columns([
-            pl.col("monto_total")
-            .rank(descending=True)
-            .over(["CodigoOrganismoPublico", "RubroN2"])
-            .alias("rank_monto"),
-        ])
+        .with_columns(
+            [
+                pl.col("monto_total")
+                .rank(descending=True)
+                .over(["CodigoOrganismoPublico", "RubroN2"])
+                .alias("rank_monto"),
+            ]
+        )
         .sort(["CodigoOrganismoPublico", "RubroN2", "rank_monto"])
     )
 
@@ -166,26 +184,36 @@ def compute_market_concentration(market_shares: pl.DataFrame) -> pl.DataFrame:
     logger.info("Calculando concentración de mercados (HHI)...")
 
     hhi = (
-        market_shares
-        .with_columns([
-            (pl.col("market_share_pct").pow(2)).alias("share_sq"),
-        ])
+        market_shares.with_columns(
+            [
+                (pl.col("market_share_pct").pow(2)).alias("share_sq"),
+            ]
+        )
         .group_by(["CodigoOrganismoPublico", "OrganismoPublico", "RubroN2"])
-        .agg([
-            pl.col("share_sq").sum().alias("hhi"),
-            pl.col("CodigoProveedor").n_unique().alias("n_proveedores"),
-            pl.col("oc_mercado").first().alias("n_transacciones"),
-            pl.col("monto_mercado").first().alias("monto_total_mercado"),
-            # Top proveedor
-            pl.col("NombreProveedor").sort_by("rank_monto").first().alias("top_proveedor"),
-            pl.col("market_share_pct").sort_by("rank_monto", descending=True).first().alias("top_share_pct"),
-        ])
-        .with_columns([
-            pl.when(pl.col("hhi") < 1500).then(pl.lit("competitivo"))
-            .when(pl.col("hhi") < 2500).then(pl.lit("moderado"))
-            .otherwise(pl.lit("concentrado"))
-            .alias("tipo_mercado"),
-        ])
+        .agg(
+            [
+                pl.col("share_sq").sum().alias("hhi"),
+                pl.col("CodigoProveedor").n_unique().alias("n_proveedores"),
+                pl.col("oc_mercado").first().alias("n_transacciones"),
+                pl.col("monto_mercado").first().alias("monto_total_mercado"),
+                # Top proveedor
+                pl.col("NombreProveedor").sort_by("rank_monto").first().alias("top_proveedor"),
+                pl.col("market_share_pct")
+                .sort_by("rank_monto", descending=True)
+                .first()
+                .alias("top_share_pct"),
+            ]
+        )
+        .with_columns(
+            [
+                pl.when(pl.col("hhi") < 1500)
+                .then(pl.lit("competitivo"))
+                .when(pl.col("hhi") < 2500)
+                .then(pl.lit("moderado"))
+                .otherwise(pl.lit("concentrado"))
+                .alias("tipo_mercado"),
+            ]
+        )
         .sort("hhi", descending=True)
     )
 
@@ -199,11 +227,12 @@ def compute_market_concentration(market_shares: pl.DataFrame) -> pl.DataFrame:
 def build_provider_profiles(providers: pl.DataFrame) -> pl.DataFrame:
     """Enriquece perfiles de proveedores con métricas calculadas."""
     return (
-        providers
-        .filter(pl.col("n_oc") >= 3)
-        .with_columns([
-            (pl.col("monto_total") / pl.col("n_oc")).alias("ticket_promedio"),
-        ])
+        providers.filter(pl.col("n_oc") >= 3)
+        .with_columns(
+            [
+                (pl.col("monto_total") / pl.col("n_oc")).alias("ticket_promedio"),
+            ]
+        )
         .sort("monto_total", descending=True)
     )
 

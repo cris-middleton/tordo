@@ -1,13 +1,16 @@
 """Estado hábil read endpoints."""
+
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException
+
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.empresas import _get_empresa_or_404, _get_membership_or_403
 from app.core.security import get_current_active_user
 from app.db import get_db
 from app.models.user import User
 from app.services.estado_habil_service import get_estado_habil_history
-from app.api.empresas import _get_empresa_or_404, _get_membership_or_403
 
 router = APIRouter(tags=["estado_habil"])
 
@@ -17,6 +20,7 @@ class EstadoHabilLogOut(BaseModel):
     estado_nuevo: str
     fuente: str | None
     checked_at: str
+
     class Config:
         from_attributes = True
 
@@ -42,7 +46,9 @@ async def get_estado_habil(
         empresa_id=str(empresa.id),
         rut_empresa=empresa.rut_empresa,
         estado_habil=empresa.estado_habil,
-        estado_habil_updated_at=(empresa.estado_habil_updated_at.isoformat() if empresa.estado_habil_updated_at else None),
+        estado_habil_updated_at=(
+            empresa.estado_habil_updated_at.isoformat() if empresa.estado_habil_updated_at else None
+        ),
         historial=[
             EstadoHabilLogOut(
                 estado_anterior=log.estado_anterior,

@@ -16,11 +16,9 @@ For q2 with preds [X, Y, Z], rel={Y:2}:
 
 Average NDCG@3 = (0.7967 + 0.631) / 2 = 0.7138
 """
-import math
 
 import polars as pl
 import pytest
-
 from analytics.evaluation import metrics
 
 
@@ -30,19 +28,26 @@ def test_ndcg_at_3_graded_relevance(preds_two_queries, truth_graded):
 
 
 def test_ndcg_at_1_perfect(preds_two_queries):
-    truth = pl.DataFrame({
-        "query_id":  ["q1", "q2"],
-        "item_id":   ["A",  "X"],  # predicted #1 for both
-        "relevance": [2,    2],
-    })
+    truth = pl.DataFrame(
+        {
+            "query_id": ["q1", "q2"],
+            "item_id": ["A", "X"],  # predicted #1 for both
+            "relevance": [2, 2],
+        }
+    )
     value = metrics.ndcg_at_k(preds_two_queries, truth, k=1)
     assert value == pytest.approx(1.0)
 
 
 def test_ndcg_with_no_relevant_items_in_topk():
-    preds = pl.DataFrame({
-        "query_id": ["q1"], "item_id": ["Z"], "rank": [1], "score": [1.0],
-    })
+    preds = pl.DataFrame(
+        {
+            "query_id": ["q1"],
+            "item_id": ["Z"],
+            "rank": [1],
+            "score": [1.0],
+        }
+    )
     truth = pl.DataFrame({"query_id": ["q1"], "item_id": ["A"], "relevance": [2]})
     assert metrics.ndcg_at_k(preds, truth, k=3) == 0.0
 
@@ -85,10 +90,14 @@ def test_mrr_winner_at_rank_2(preds_two_queries, truth_graded):
 
 
 def test_mrr_no_relevant_in_topk():
-    preds = pl.DataFrame({
-        "query_id": ["q1"] * 3, "item_id": ["A", "B", "C"],
-        "rank": [1, 2, 3], "score": [0.9, 0.7, 0.5],
-    })
+    preds = pl.DataFrame(
+        {
+            "query_id": ["q1"] * 3,
+            "item_id": ["A", "B", "C"],
+            "rank": [1, 2, 3],
+            "score": [0.9, 0.7, 0.5],
+        }
+    )
     truth = pl.DataFrame({"query_id": ["q1"], "item_id": ["Z"], "relevance": [2]})
     # No relevant in top-3 → 0
     assert metrics.mrr(preds, truth, k=3) == 0.0

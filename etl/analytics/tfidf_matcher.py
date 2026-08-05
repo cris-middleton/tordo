@@ -38,8 +38,8 @@ def _clean_text(text: str) -> str:
     if not text or text == "null" or text == "None":
         return ""
     text = text.lower()
-    text = re.sub(r'[^\w\sáéíóúñü]', ' ', text)
-    text = re.sub(r'\s+', ' ', text).strip()
+    text = re.sub(r"[^\w\sáéíóúñü]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
     # Remover tokens muy cortos
     tokens = [t for t in text.split() if len(t) > 2]
     return " ".join(tokens)
@@ -63,8 +63,11 @@ def build_provider_corpus(max_date: "date | None" = None) -> pl.DataFrame:
     logger.info("Construyendo corpus de texto por proveedor...")
 
     cols_needed = [
-        "CodigoProveedor", "NombreProveedor",
-        "Nombre", "NombreroductoGenerico", "Categoria",
+        "CodigoProveedor",
+        "NombreProveedor",
+        "Nombre",
+        "NombreroductoGenerico",
+        "Categoria",
         "FechaCreacion",  # needed for max_date filter in iter_oc_parquets
     ]
 
@@ -82,12 +85,11 @@ def build_provider_corpus(max_date: "date | None" = None) -> pl.DataFrame:
 
         # Extraer pares únicos (proveedor, producto) por archivo
         pairs = (
-            df
-            .filter(
-                pl.col("CodigoProveedor").is_not_null() &
-                (pl.col("CodigoProveedor") != "null") &
-                pl.col(text_col).is_not_null() &
-                (pl.col(text_col) != "null")
+            df.filter(
+                pl.col("CodigoProveedor").is_not_null()
+                & (pl.col("CodigoProveedor") != "null")
+                & pl.col(text_col).is_not_null()
+                & (pl.col(text_col) != "null")
             )
             .select(["CodigoProveedor", "NombreProveedor", text_col])
             .unique(subset=["CodigoProveedor", text_col])
@@ -112,12 +114,14 @@ def build_provider_corpus(max_date: "date | None" = None) -> pl.DataFrame:
             continue
         corpus = _clean_text(" ".join(data["products"]))
         if len(corpus) > 20:
-            records.append({
-                "CodigoProveedor": prov_id,
-                "NombreProveedor": data["nombre"],
-                "corpus_text": corpus[:10000],  # Truncar
-                "n_oc": data["n_oc"],
-            })
+            records.append(
+                {
+                    "CodigoProveedor": prov_id,
+                    "NombreProveedor": data["nombre"],
+                    "corpus_text": corpus[:10000],  # Truncar
+                    "n_oc": data["n_oc"],
+                }
+            )
 
     corpus_df = pl.DataFrame(records)
     del prov_products  # Liberar memoria
@@ -173,11 +177,16 @@ def train_tfidf_model(
     tfidf_matrix = vectorizer.fit_transform(texts)
 
     logger.info(f"  Vocabulario: {len(vectorizer.vocabulary_):,} términos")
-    logger.info(f"  Matriz: {tfidf_matrix.shape[0]:,} proveedores × {tfidf_matrix.shape[1]:,} features")
-    logger.info(f"  Sparsity: {1 - tfidf_matrix.nnz / (tfidf_matrix.shape[0] * tfidf_matrix.shape[1]):.4f}")
+    logger.info(
+        f"  Matriz: {tfidf_matrix.shape[0]:,} proveedores × {tfidf_matrix.shape[1]:,} features"
+    )
+    logger.info(
+        f"  Sparsity: {1 - tfidf_matrix.nnz / (tfidf_matrix.shape[0] * tfidf_matrix.shape[1]):.4f}"
+    )
 
     # Guardar modelo
     import joblib
+
     model_path = output_dir / "tfidf_model.joblib"
     joblib.dump(vectorizer, model_path)
     logger.info(f"Modelo guardado: {model_path.name}")
@@ -188,23 +197,27 @@ def train_tfidf_model(
     logger.info(f"Vectores guardados: {vectors_path.name}")
 
     # Guardar índice proveedor → fila
-    index_df = pl.DataFrame({
-        "CodigoProveedor": provider_ids,
-        "NombreProveedor": corpus_df["NombreProveedor"].to_list(),
-        "n_oc": corpus_df["n_oc"].to_list(),
-        "matrix_row": list(range(len(provider_ids))),
-    })
+    index_df = pl.DataFrame(
+        {
+            "CodigoProveedor": provider_ids,
+            "NombreProveedor": corpus_df["NombreProveedor"].to_list(),
+            "n_oc": corpus_df["n_oc"].to_list(),
+            "matrix_row": list(range(len(provider_ids))),
+        }
+    )
     index_path = output_dir / "tfidf_provider_index.parquet"
     index_df.write_parquet(index_path, compression="snappy")
 
     # Estadísticas de vocabulario (top términos)
     feature_names = vectorizer.get_feature_names_out()
     idf_scores = vectorizer.idf_
-    vocab_stats = pl.DataFrame({
-        "termino": feature_names,
-        "idf": idf_scores,
-        "n_docs": [int(tfidf_matrix.shape[0] / np.exp(idf - 1)) for idf in idf_scores],
-    }).sort("idf")
+    vocab_stats = pl.DataFrame(
+        {
+            "termino": feature_names,
+            "idf": idf_scores,
+            "n_docs": [int(tfidf_matrix.shape[0] / np.exp(idf - 1)) for idf in idf_scores],
+        }
+    ).sort("idf")
     vocab_path = output_dir / "tfidf_vocabulary_stats.parquet"
     vocab_stats.write_parquet(vocab_path, compression="snappy")
 
@@ -249,12 +262,14 @@ def match_text_to_providers(
         if score > 0.01:  # Umbral mínimo de relevancia
             row = index_df.filter(pl.col("matrix_row") == int(idx))
             if len(row) > 0:
-                results.append({
-                    "CodigoProveedor": row["CodigoProveedor"][0],
-                    "NombreProveedor": row["NombreProveedor"][0],
-                    "n_oc": row["n_oc"][0],
-                    "similarity_score": round(float(score), 4),
-                })
+                results.append(
+                    {
+                        "CodigoProveedor": row["CodigoProveedor"][0],
+                        "NombreProveedor": row["NombreProveedor"][0],
+                        "n_oc": row["n_oc"][0],
+                        "similarity_score": round(float(score), 4),
+                    }
+                )
 
     return pl.DataFrame(results)
 
@@ -295,6 +310,8 @@ def run_tfidf() -> dict:
         )
         if len(results) > 0:
             top = results[0]
-            logger.info(f"  '{query}' → {top['NombreProveedor'][0]} (score={top['similarity_score'][0]})")
+            logger.info(
+                f"  '{query}' → {top['NombreProveedor'][0]} (score={top['similarity_score'][0]})"
+            )
 
     return model

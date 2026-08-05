@@ -3,7 +3,8 @@
 Uses the async SQLite fixtures plus FastAPI dependency overrides to exercise
 the full async stack without a live Postgres.
 """
-from datetime import datetime, timedelta, timezone
+
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -91,7 +92,7 @@ async def test_home_endpoint_active_trial_unlocks_paid_tier(async_db, sample_use
     """
     sample_user.plan_tier = "basico"
     sample_user.subscription_status = "trialing"
-    sample_user.trial_ends_at = datetime.now(timezone.utc) + timedelta(days=7)
+    sample_user.trial_ends_at = datetime.now(UTC) + timedelta(days=7)
     await async_db.commit()
 
     _override(async_db, sample_user)
@@ -113,7 +114,7 @@ async def test_home_endpoint_expired_trial_falls_back_to_free(async_db, sample_u
     """After trial_ends_at passes, user drops back to free-plan UX."""
     sample_user.plan_tier = "basico"
     sample_user.subscription_status = "trialing"
-    sample_user.trial_ends_at = datetime.now(timezone.utc) - timedelta(days=1)
+    sample_user.trial_ends_at = datetime.now(UTC) - timedelta(days=1)
     await async_db.commit()
 
     _override(async_db, sample_user)

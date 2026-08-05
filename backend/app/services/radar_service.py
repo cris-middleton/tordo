@@ -8,10 +8,11 @@ Movimientos detectados (MVP):
 
 Si algún movimiento no se puede calcular, se omite — el radar tiene 1-3 items.
 """
+
 from __future__ import annotations
+
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -23,9 +24,9 @@ from app.services import bi_service, tfidf_matcher
 logger = logging.getLogger(__name__)
 
 
-def _semana_lunes_iso(now: Optional[datetime] = None) -> str:
+def _semana_lunes_iso(now: datetime | None = None) -> str:
     """Lunes de la semana actual en ISO date (YYYY-MM-DD)."""
-    n = now or datetime.now(timezone.utc)
+    n = now or datetime.now(UTC)
     monday = n - timedelta(days=n.weekday())
     return monday.date().isoformat()
 
@@ -46,7 +47,7 @@ def compute_radar_for_empresa(db: Session, empresa_id: UUID) -> dict:
     # ── 1. Nueva licitación de score alto (últimos 7 días) ─────────────────
     try:
         if perfil and perfil.vector_bytes and tfidf_matcher.is_available():
-            since = datetime.now(timezone.utc) - timedelta(days=7)
+            since = datetime.now(UTC) - timedelta(days=7)
             recent_lics = (
                 db.query(Licitacion)
                 .filter(
@@ -70,12 +71,16 @@ def compute_radar_for_empresa(db: Session, empresa_id: UUID) -> dict:
                     best = lic
                     best_score = score
             if best:
-                movimientos.append({
-                    "tipo": "nueva_licitacion",
-                    "titulo": f"Nueva licitación con encaje alto ({int(best_score * 100)}%)",
-                    "detalle": (best.nombre or "")[:140],
-                    "accion_url": f"/dashboard/tenders/{best.codigo_externo}" if best.codigo_externo else None,
-                })
+                movimientos.append(
+                    {
+                        "tipo": "nueva_licitacion",
+                        "titulo": f"Nueva licitación con encaje alto ({int(best_score * 100)}%)",
+                        "detalle": (best.nombre or "")[:140],
+                        "accion_url": f"/dashboard/tenders/{best.codigo_externo}"
+                        if best.codigo_externo
+                        else None,
+                    }
+                )
     except Exception as exc:
         logger.warning("radar.nueva_licitacion failed for %s: %s", empresa_id, exc)
 
@@ -83,17 +88,24 @@ def compute_radar_for_empresa(db: Session, empresa_id: UUID) -> dict:
     try:
         if rubros:
             for rubro in rubros[:3]:
-                opp = bi_service.get_oportunidades(organismo_id=None, rubro=rubro, min_score=6.0, limit=1)
+                opp = bi_service.get_oportunidades(
+                    organismo_id=None, rubro=rubro, min_score=6.0, limit=1
+                )
                 if opp.get("disponible") and opp.get("oportunidades"):
                     top = opp["oportunidades"][0]
                     score = top.get("opportunity_score", 0)
-                    nombre_org = top.get("NombreOrganismo") or f"organismo {top.get('CodigoOrganismoPublico', '')}"
-                    movimientos.append({
-                        "tipo": "oportunidad_top",
-                        "titulo": f"Oportunidad destacada en {rubro}",
-                        "detalle": f"{nombre_org} — score {score:.1f}/10",
-                        "accion_url": f"/dashboard/bi?rubro={rubro}",
-                    })
+                    nombre_org = (
+                        top.get("NombreOrganismo")
+                        or f"organismo {top.get('CodigoOrganismoPublico', '')}"
+                    )
+                    movimientos.append(
+                        {
+                            "tipo": "oportunidad_top",
+                            "titulo": f"Oportunidad destacada en {rubro}",
+                            "detalle": f"{nombre_org} — score {score:.1f}/10",
+                            "accion_url": f"/dashboard/bi?rubro={rubro}",
+                        }
+                    )
                     break
     except Exception as exc:
         logger.warning("radar.oportunidad_top failed for %s: %s", empresa_id, exc)
@@ -106,15 +118,17 @@ def compute_radar_for_empresa(db: Session, empresa_id: UUID) -> dict:
             if resumen.get("disponible") and resumen.get("top_comprador"):
                 tc = resumen["top_comprador"]
                 if tc.get("nombre"):
-                    movimientos.append({
-                        "tipo": "comprador_activo",
-                        "titulo": f"Comprador más activo en {primer_rubro}",
-                        "detalle": (
-                            f"{tc['nombre']} — paga en ~{tc.get('pago_mediana_dias', '?')} días"
-                            f" ({tc.get('clasificacion_pago', 'sin clasificar')})"
-                        ),
-                        "accion_url": f"/dashboard/bi?rubro={primer_rubro}",
-                    })
+                    movimientos.append(
+                        {
+                            "tipo": "comprador_activo",
+                            "titulo": f"Comprador más activo en {primer_rubro}",
+                            "detalle": (
+                                f"{tc['nombre']} — paga en ~{tc.get('pago_mediana_dias', '?')} días"
+                                f" ({tc.get('clasificacion_pago', 'sin clasificar')})"
+                            ),
+                            "accion_url": f"/dashboard/bi?rubro={primer_rubro}",
+                        }
+                    )
     except Exception as exc:
         logger.warning("radar.comprador_activo failed for %s: %s", empresa_id, exc)
 
@@ -146,7 +160,11 @@ def render_radar_email_html(radar: dict, app_url: str = "https://tordo.cl") -> t
     items_html = ""
     for m in movimientos:
         url = f"{app_url}{m.get('accion_url', '')}" if m.get("accion_url") else ""
-        link_html = f'<a href="{url}" style="color:#3B5BDB;text-decoration:none;">Ver &rarr;</a>' if url else ""
+        link_html = (
+            f'<a href="{url}" style="color:#3B5BDB;text-decoration:none;">Ver &rarr;</a>'
+            if url
+            else ""
+        )
         items_html += (
             f'<li style="margin-bottom:14px;">'
             f'<div style="font-weight:600;color:#1a1a1a;">{m["titulo"]}</div>'

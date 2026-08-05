@@ -47,17 +47,16 @@ Output:
 
 import logging
 
-import numpy as np
 import polars as pl
 
-from .config import OUTPUT_DIR, MIN_YEAR
-from .data_loader import iter_oc_parquets, iter_lic_parquets
+from .config import OUTPUT_DIR
+from .data_loader import iter_lic_parquets, iter_oc_parquets
 
 logger = logging.getLogger(__name__)
 
 # Pesos de cada componente
 WEIGHTS = {
-    "transparencia": 0.25,       # % Trato Directo — reemplaza velocidad_pago
+    "transparencia": 0.25,  # % Trato Directo — reemplaza velocidad_pago
     "tasa_aceptacion": 0.20,
     "tasa_no_cancelacion": 0.15,
     "tasa_adjudicacion": 0.15,
@@ -70,6 +69,7 @@ WEIGHTS = {
 # ─────────────────────────────────────────────────────────────────────
 # Paso 1: Métricas de OC por comprador
 # ─────────────────────────────────────────────────────────────────────
+
 
 def build_oc_buyer_metrics() -> pl.DataFrame:
     """
@@ -84,11 +84,19 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
     logger.info("Calculando métricas de OC por comprador...")
 
     cols_needed = [
-        "CodigoOrganismoPublico", "OrganismoPublico", "sector",
-        "RegionUnidadCompra", "FechaEnvio", "FechaAceptacion",
-        "Estado", "codigoEstado", "FechaCancelacion",
-        "PromedioCalificacion", "CantidadEvaluacion",
-        "MontoTotalOC_PesosChilenos", "_periodo_archivo",
+        "CodigoOrganismoPublico",
+        "OrganismoPublico",
+        "sector",
+        "RegionUnidadCompra",
+        "FechaEnvio",
+        "FechaAceptacion",
+        "Estado",
+        "codigoEstado",
+        "FechaCancelacion",
+        "PromedioCalificacion",
+        "CantidadEvaluacion",
+        "MontoTotalOC_PesosChilenos",
+        "_periodo_archivo",
     ]
 
     # Acumuladores por organismo
@@ -105,56 +113,75 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
         # --- Velocidad de pago: días entre FechaEnvio y FechaAceptacion ---
         if "FechaEnvio" in df.columns and "FechaAceptacion" in df.columns:
             pay = (
-                df
-                .filter(
-                    (pl.col("FechaEnvio").str.len_chars() >= 10) &
-                    (pl.col("FechaAceptacion").str.len_chars() >= 10) &
-                    (pl.col("FechaEnvio") != "NA") &
-                    (pl.col("FechaAceptacion") != "NA")
+                df.filter(
+                    (pl.col("FechaEnvio").str.len_chars() >= 10)
+                    & (pl.col("FechaAceptacion").str.len_chars() >= 10)
+                    & (pl.col("FechaEnvio") != "NA")
+                    & (pl.col("FechaAceptacion") != "NA")
                 )
-                .with_columns([
-                    pl.col("FechaEnvio").str.slice(0, 10).str.to_date("%Y-%m-%d", strict=False).alias("dt_envio"),
-                    pl.col("FechaAceptacion").str.slice(0, 10).str.to_date("%Y-%m-%d", strict=False).alias("dt_aceptacion"),
-                ])
+                .with_columns(
+                    [
+                        pl.col("FechaEnvio")
+                        .str.slice(0, 10)
+                        .str.to_date("%Y-%m-%d", strict=False)
+                        .alias("dt_envio"),
+                        pl.col("FechaAceptacion")
+                        .str.slice(0, 10)
+                        .str.to_date("%Y-%m-%d", strict=False)
+                        .alias("dt_aceptacion"),
+                    ]
+                )
                 .filter(pl.col("dt_envio").is_not_null() & pl.col("dt_aceptacion").is_not_null())
-                .with_columns([
-                    (pl.col("dt_aceptacion") - pl.col("dt_envio")).dt.total_days().alias("dias_pago"),
-                ])
+                .with_columns(
+                    [
+                        (pl.col("dt_aceptacion") - pl.col("dt_envio"))
+                        .dt.total_days()
+                        .alias("dias_pago"),
+                    ]
+                )
                 .filter((pl.col("dias_pago") >= 0) & (pl.col("dias_pago") <= 365))
                 .group_by(org_col)
-                .agg([
-                    pl.col("dias_pago").median().alias("mediana_dias_pago"),
-                    pl.col("dias_pago").quantile(0.75).alias("p75_dias_pago"),
-                    pl.col("dias_pago").quantile(0.90).alias("p90_dias_pago"),
-                    pl.col("dias_pago").mean().alias("promedio_dias_pago"),
-                    pl.len().alias("n_con_fecha_pago"),
-                ])
+                .agg(
+                    [
+                        pl.col("dias_pago").median().alias("mediana_dias_pago"),
+                        pl.col("dias_pago").quantile(0.75).alias("p75_dias_pago"),
+                        pl.col("dias_pago").quantile(0.90).alias("p90_dias_pago"),
+                        pl.col("dias_pago").mean().alias("promedio_dias_pago"),
+                        pl.len().alias("n_con_fecha_pago"),
+                    ]
+                )
             )
             payment_frames.append(pay)
 
         # --- Estados: aceptación y cancelación ---
         if "Estado" in df.columns:
             estados = (
-                df
-                .filter(pl.col(org_col).is_not_null())
-                .with_columns([
-                    pl.col("Estado").str.to_lowercase().alias("estado_lower"),
-                ])
+                df.filter(pl.col(org_col).is_not_null())
+                .with_columns(
+                    [
+                        pl.col("Estado").str.to_lowercase().alias("estado_lower"),
+                    ]
+                )
                 .group_by(org_col)
-                .agg([
-                    pl.len().alias("n_oc_estado"),
-                    (pl.col("estado_lower").str.contains("recepcion conforme|aceptada")).sum().alias("n_aceptadas"),
-                    (pl.col("estado_lower").str.contains("cancel")).sum().alias("n_canceladas"),
-                    (pl.col("estado_lower").str.contains("enviada|proceso|nueva")).sum().alias("n_pendientes"),
-                ])
+                .agg(
+                    [
+                        pl.len().alias("n_oc_estado"),
+                        (pl.col("estado_lower").str.contains("recepcion conforme|aceptada"))
+                        .sum()
+                        .alias("n_aceptadas"),
+                        (pl.col("estado_lower").str.contains("cancel")).sum().alias("n_canceladas"),
+                        (pl.col("estado_lower").str.contains("enviada|proceso|nueva"))
+                        .sum()
+                        .alias("n_pendientes"),
+                    ]
+                )
             )
             status_frames.append(estados)
 
         # --- Volumen mensual (para regularidad) ---
         if "_periodo_archivo" in df.columns:
             vol = (
-                df
-                .filter(pl.col(org_col).is_not_null())
+                df.filter(pl.col(org_col).is_not_null())
                 .group_by([org_col, "_periodo_archivo"])
                 .agg(pl.len().alias("oc_mes"))
             )
@@ -163,24 +190,27 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
         # --- Calificación de proveedores ---
         if "PromedioCalificacion" in df.columns:
             rat = (
-                df
-                .filter(
-                    pl.col("PromedioCalificacion").is_not_null() &
-                    (pl.col("PromedioCalificacion") != "0") &
-                    (pl.col("PromedioCalificacion") != "null")
+                df.filter(
+                    pl.col("PromedioCalificacion").is_not_null()
+                    & (pl.col("PromedioCalificacion") != "0")
+                    & (pl.col("PromedioCalificacion") != "null")
                 )
-                .with_columns([
-                    pl.col("PromedioCalificacion")
-                    .str.replace(",", ".")
-                    .cast(pl.Float64, strict=False)
-                    .alias("calif"),
-                ])
+                .with_columns(
+                    [
+                        pl.col("PromedioCalificacion")
+                        .str.replace(",", ".")
+                        .cast(pl.Float64, strict=False)
+                        .alias("calif"),
+                    ]
+                )
                 .filter(pl.col("calif").is_not_null() & (pl.col("calif") > 0))
                 .group_by(org_col)
-                .agg([
-                    pl.col("calif").mean().alias("prom_calificacion"),
-                    pl.len().alias("n_calificaciones"),
-                ])
+                .agg(
+                    [
+                        pl.col("calif").mean().alias("prom_calificacion"),
+                        pl.len().alias("n_calificaciones"),
+                    ]
+                )
             )
             rating_frames.append(rat)
 
@@ -192,23 +222,38 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
     if payment_frames:
         payments = pl.concat(payment_frames, how="diagonal_relaxed")
         payments = (
-            payments
-            .group_by(org_col)
-            .agg([
-                (pl.col("mediana_dias_pago") * pl.col("n_con_fecha_pago")).sum().alias("_wt_med"),
-                (pl.col("p75_dias_pago") * pl.col("n_con_fecha_pago")).sum().alias("_wt_p75"),
-                (pl.col("p90_dias_pago") * pl.col("n_con_fecha_pago")).sum().alias("_wt_p90"),
-                (pl.col("promedio_dias_pago") * pl.col("n_con_fecha_pago")).sum().alias("_wt_avg"),
-                pl.col("n_con_fecha_pago").sum(),
-            ])
-            .with_columns([
-                (pl.col("_wt_med") / pl.col("n_con_fecha_pago")).alias("mediana_dias_pago"),
-                (pl.col("_wt_p75") / pl.col("n_con_fecha_pago")).alias("p75_dias_pago"),
-                (pl.col("_wt_p90") / pl.col("n_con_fecha_pago")).alias("p90_dias_pago"),
-                (pl.col("_wt_avg") / pl.col("n_con_fecha_pago")).alias("promedio_dias_pago"),
-            ])
-            .select([org_col, "mediana_dias_pago", "p75_dias_pago", "p90_dias_pago",
-                     "promedio_dias_pago", "n_con_fecha_pago"])
+            payments.group_by(org_col)
+            .agg(
+                [
+                    (pl.col("mediana_dias_pago") * pl.col("n_con_fecha_pago"))
+                    .sum()
+                    .alias("_wt_med"),
+                    (pl.col("p75_dias_pago") * pl.col("n_con_fecha_pago")).sum().alias("_wt_p75"),
+                    (pl.col("p90_dias_pago") * pl.col("n_con_fecha_pago")).sum().alias("_wt_p90"),
+                    (pl.col("promedio_dias_pago") * pl.col("n_con_fecha_pago"))
+                    .sum()
+                    .alias("_wt_avg"),
+                    pl.col("n_con_fecha_pago").sum(),
+                ]
+            )
+            .with_columns(
+                [
+                    (pl.col("_wt_med") / pl.col("n_con_fecha_pago")).alias("mediana_dias_pago"),
+                    (pl.col("_wt_p75") / pl.col("n_con_fecha_pago")).alias("p75_dias_pago"),
+                    (pl.col("_wt_p90") / pl.col("n_con_fecha_pago")).alias("p90_dias_pago"),
+                    (pl.col("_wt_avg") / pl.col("n_con_fecha_pago")).alias("promedio_dias_pago"),
+                ]
+            )
+            .select(
+                [
+                    org_col,
+                    "mediana_dias_pago",
+                    "p75_dias_pago",
+                    "p90_dias_pago",
+                    "promedio_dias_pago",
+                    "n_con_fecha_pago",
+                ]
+            )
         )
     else:
         payments = pl.DataFrame({org_col: [], "mediana_dias_pago": []})
@@ -217,18 +262,21 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
     if status_frames:
         statuses = pl.concat(status_frames, how="diagonal_relaxed")
         statuses = (
-            statuses
-            .group_by(org_col)
-            .agg([
-                pl.col("n_oc_estado").sum(),
-                pl.col("n_aceptadas").sum(),
-                pl.col("n_canceladas").sum(),
-                pl.col("n_pendientes").sum(),
-            ])
-            .with_columns([
-                (pl.col("n_aceptadas") / pl.col("n_oc_estado")).alias("tasa_aceptacion"),
-                (pl.col("n_canceladas") / pl.col("n_oc_estado")).alias("tasa_cancelacion"),
-            ])
+            statuses.group_by(org_col)
+            .agg(
+                [
+                    pl.col("n_oc_estado").sum(),
+                    pl.col("n_aceptadas").sum(),
+                    pl.col("n_canceladas").sum(),
+                    pl.col("n_pendientes").sum(),
+                ]
+            )
+            .with_columns(
+                [
+                    (pl.col("n_aceptadas") / pl.col("n_oc_estado")).alias("tasa_aceptacion"),
+                    (pl.col("n_canceladas") / pl.col("n_oc_estado")).alias("tasa_cancelacion"),
+                ]
+            )
         )
     else:
         statuses = pl.DataFrame({org_col: []})
@@ -236,23 +284,24 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
     # Regularidad mensual
     if volume_frames:
         volumes = pl.concat(volume_frames, how="diagonal_relaxed")
-        volumes = (
-            volumes
-            .group_by([org_col, "_periodo_archivo"])
-            .agg(pl.col("oc_mes").sum())
-        )
+        volumes = volumes.group_by([org_col, "_periodo_archivo"]).agg(pl.col("oc_mes").sum())
         regularity = (
-            volumes
-            .group_by(org_col)
-            .agg([
-                pl.col("oc_mes").sum().alias("n_oc_total"),
-                pl.col("oc_mes").mean().alias("promedio_oc_mes"),
-                pl.col("oc_mes").std().alias("std_oc_mes"),
-                pl.col("_periodo_archivo").n_unique().alias("n_meses_activo"),
-            ])
-            .with_columns([
-                (pl.col("std_oc_mes") / pl.col("promedio_oc_mes").clip(lower_bound=0.01)).alias("cv_mensual"),
-            ])
+            volumes.group_by(org_col)
+            .agg(
+                [
+                    pl.col("oc_mes").sum().alias("n_oc_total"),
+                    pl.col("oc_mes").mean().alias("promedio_oc_mes"),
+                    pl.col("oc_mes").std().alias("std_oc_mes"),
+                    pl.col("_periodo_archivo").n_unique().alias("n_meses_activo"),
+                ]
+            )
+            .with_columns(
+                [
+                    (pl.col("std_oc_mes") / pl.col("promedio_oc_mes").clip(lower_bound=0.01)).alias(
+                        "cv_mensual"
+                    ),
+                ]
+            )
         )
     else:
         regularity = pl.DataFrame({org_col: []})
@@ -261,15 +310,20 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
     if rating_frames:
         ratings = pl.concat(rating_frames, how="diagonal_relaxed")
         ratings = (
-            ratings
-            .group_by(org_col)
-            .agg([
-                (pl.col("prom_calificacion") * pl.col("n_calificaciones")).sum().alias("_wt_calif"),
-                pl.col("n_calificaciones").sum(),
-            ])
-            .with_columns([
-                (pl.col("_wt_calif") / pl.col("n_calificaciones")).alias("prom_calificacion"),
-            ])
+            ratings.group_by(org_col)
+            .agg(
+                [
+                    (pl.col("prom_calificacion") * pl.col("n_calificaciones"))
+                    .sum()
+                    .alias("_wt_calif"),
+                    pl.col("n_calificaciones").sum(),
+                ]
+            )
+            .with_columns(
+                [
+                    (pl.col("_wt_calif") / pl.col("n_calificaciones")).alias("prom_calificacion"),
+                ]
+            )
             .select([org_col, "prom_calificacion", "n_calificaciones"])
         )
     else:
@@ -279,8 +333,7 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
 
     # Usar regularity como base (tiene n_oc_total)
     result = (
-        regularity
-        .join(payments, on=org_col, how="left")
+        regularity.join(payments, on=org_col, how="left")
         .join(statuses, on=org_col, how="left")
         .join(ratings, on=org_col, how="left")
     )
@@ -293,6 +346,7 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
 # Paso 2: Métricas de Licitaciones por comprador
 # ─────────────────────────────────────────────────────────────────────
 
+
 def build_lic_buyer_metrics() -> pl.DataFrame:
     """
     Agrega métricas de licitaciones por organismo:
@@ -303,8 +357,12 @@ def build_lic_buyer_metrics() -> pl.DataFrame:
     logger.info("Calculando métricas de LIC por comprador...")
 
     cols_needed = [
-        "CodigoOrganismo", "NombreOrganismo", "Estado",
-        "NumeroOferentes", "CantidadReclamos", "CodigoTipo",
+        "CodigoOrganismo",
+        "NombreOrganismo",
+        "Estado",
+        "NumeroOferentes",
+        "CantidadReclamos",
+        "CodigoTipo",
     ]
     org_col = "CodigoOrganismo"
 
@@ -317,24 +375,29 @@ def build_lic_buyer_metrics() -> pl.DataFrame:
         # Deduplicar por licitación (cada LIC tiene múltiples líneas)
         # Usar CodigoOrganismo + Estado como proxy de licitación única por batch
         agg = (
-            df
-            .filter(pl.col(org_col).is_not_null() & (pl.col(org_col) != "null"))
-            .with_columns([
-                pl.col("Estado").str.to_lowercase().alias("estado_lower"),
-                pl.col("NumeroOferentes").cast(pl.Float64, strict=False).alias("n_oferentes"),
-                pl.col("CantidadReclamos").cast(pl.Float64, strict=False).alias("n_reclamos"),
-                (pl.col("CodigoTipo") == "TD").cast(pl.Int8).alias("es_td"),
-            ])
+            df.filter(pl.col(org_col).is_not_null() & (pl.col(org_col) != "null"))
+            .with_columns(
+                [
+                    pl.col("Estado").str.to_lowercase().alias("estado_lower"),
+                    pl.col("NumeroOferentes").cast(pl.Float64, strict=False).alias("n_oferentes"),
+                    pl.col("CantidadReclamos").cast(pl.Float64, strict=False).alias("n_reclamos"),
+                    (pl.col("CodigoTipo") == "TD").cast(pl.Int8).alias("es_td"),
+                ]
+            )
             .group_by([org_col, "NombreOrganismo"])
-            .agg([
-                pl.len().alias("n_lineas_lic"),
-                (pl.col("estado_lower").str.contains("adjudicada")).sum().alias("n_adjudicadas"),
-                (pl.col("estado_lower").str.contains("revocada")).sum().alias("n_revocadas"),
-                (pl.col("estado_lower").str.contains("desierta")).sum().alias("n_desiertas"),
-                pl.col("n_oferentes").mean().alias("prom_oferentes"),
-                pl.col("n_reclamos").mean().alias("prom_reclamos"),
-                pl.col("es_td").sum().alias("n_trato_directo"),
-            ])
+            .agg(
+                [
+                    pl.len().alias("n_lineas_lic"),
+                    (pl.col("estado_lower").str.contains("adjudicada"))
+                    .sum()
+                    .alias("n_adjudicadas"),
+                    (pl.col("estado_lower").str.contains("revocada")).sum().alias("n_revocadas"),
+                    (pl.col("estado_lower").str.contains("desierta")).sum().alias("n_desiertas"),
+                    pl.col("n_oferentes").mean().alias("prom_oferentes"),
+                    pl.col("n_reclamos").mean().alias("prom_reclamos"),
+                    pl.col("es_td").sum().alias("n_trato_directo"),
+                ]
+            )
         )
         lic_frames.append(agg)
 
@@ -343,28 +406,46 @@ def build_lic_buyer_metrics() -> pl.DataFrame:
 
     combined = pl.concat(lic_frames, how="diagonal_relaxed")
     result = (
-        combined
-        .group_by([org_col, "NombreOrganismo"])
-        .agg([
-            pl.col("n_lineas_lic").sum(),
-            pl.col("n_adjudicadas").sum(),
-            pl.col("n_revocadas").sum(),
-            pl.col("n_desiertas").sum(),
-            pl.col("n_trato_directo").sum(),
-            (pl.col("prom_oferentes") * pl.col("n_lineas_lic")).sum().alias("_wt_ofer"),
-            (pl.col("prom_reclamos") * pl.col("n_lineas_lic")).sum().alias("_wt_recl"),
-        ])
-        .with_columns([
-            (pl.col("n_adjudicadas") /
-             (pl.col("n_adjudicadas") + pl.col("n_revocadas") + pl.col("n_desiertas")).clip(lower_bound=1)
-            ).alias("tasa_adjudicacion"),
-            (pl.col("_wt_ofer") / pl.col("n_lineas_lic")).alias("prom_oferentes"),
-            (pl.col("_wt_recl") / pl.col("n_lineas_lic")).alias("prom_reclamos"),
-            (pl.col("n_trato_directo") / pl.col("n_lineas_lic").clip(lower_bound=1)).alias("pct_trato_directo"),
-        ])
-        .select([org_col, "NombreOrganismo", "n_lineas_lic",
-                 "tasa_adjudicacion", "n_revocadas", "n_desiertas",
-                 "prom_oferentes", "prom_reclamos", "pct_trato_directo"])
+        combined.group_by([org_col, "NombreOrganismo"])
+        .agg(
+            [
+                pl.col("n_lineas_lic").sum(),
+                pl.col("n_adjudicadas").sum(),
+                pl.col("n_revocadas").sum(),
+                pl.col("n_desiertas").sum(),
+                pl.col("n_trato_directo").sum(),
+                (pl.col("prom_oferentes") * pl.col("n_lineas_lic")).sum().alias("_wt_ofer"),
+                (pl.col("prom_reclamos") * pl.col("n_lineas_lic")).sum().alias("_wt_recl"),
+            ]
+        )
+        .with_columns(
+            [
+                (
+                    pl.col("n_adjudicadas")
+                    / (
+                        pl.col("n_adjudicadas") + pl.col("n_revocadas") + pl.col("n_desiertas")
+                    ).clip(lower_bound=1)
+                ).alias("tasa_adjudicacion"),
+                (pl.col("_wt_ofer") / pl.col("n_lineas_lic")).alias("prom_oferentes"),
+                (pl.col("_wt_recl") / pl.col("n_lineas_lic")).alias("prom_reclamos"),
+                (pl.col("n_trato_directo") / pl.col("n_lineas_lic").clip(lower_bound=1)).alias(
+                    "pct_trato_directo"
+                ),
+            ]
+        )
+        .select(
+            [
+                org_col,
+                "NombreOrganismo",
+                "n_lineas_lic",
+                "tasa_adjudicacion",
+                "n_revocadas",
+                "n_desiertas",
+                "prom_oferentes",
+                "prom_reclamos",
+                "pct_trato_directo",
+            ]
+        )
     )
 
     logger.info(f"Métricas LIC: {len(result):,} organismos")
@@ -374,6 +455,7 @@ def build_lic_buyer_metrics() -> pl.DataFrame:
 # ─────────────────────────────────────────────────────────────────────
 # Paso 3: Calcular scores
 # ─────────────────────────────────────────────────────────────────────
+
 
 def compute_buyer_scores(oc_metrics: pl.DataFrame, lic_metrics: pl.DataFrame) -> pl.DataFrame:
     """
@@ -405,77 +487,102 @@ def compute_buyer_scores(oc_metrics: pl.DataFrame, lic_metrics: pl.DataFrame) ->
 
     max_log_oc = combined["n_oc_total"].log().max() or 1.0
 
-    scored = combined.with_columns([
-        # --- Transparencia: 0=compra todo por TD (40%+), 1=0% TD ---
-        (1 - (pl.col("pct_trato_directo").fill_null(0.20) / 0.40).clip(0, 1))
-        .round(4)
-        .alias("score_transparencia"),
-
-        # --- Tasa de aceptación: 0=50% o menos, 1=100% ---
-        ((pl.col("tasa_aceptacion").fill_null(0.7) - 0.5) / 0.5).clip(0, 1)
-        .round(4)
-        .alias("score_tasa_aceptacion"),
-
-        # --- Tasa de NO cancelación: 0=20%+ cancelaciones, 1=0% ---
-        (1 - (pl.col("tasa_cancelacion").fill_null(0.05) / 0.20).clip(0, 1))
-        .round(4)
-        .alias("score_tasa_no_cancelacion"),
-
-        # --- Adjudicación LIC: 0=50% o menos, 1=100% ---
-        ((pl.col("tasa_adjudicacion").fill_null(0.7) - 0.5) / 0.5).clip(0, 1)
-        .round(4)
-        .alias("score_tasa_adjudicacion"),
-
-        # --- Regularidad: 0=CV>1.5, 1=CV≈0 ---
-        (1 - (pl.col("cv_mensual").fill_null(0.75) / 1.5).clip(0, 1))
-        .round(4)
-        .alias("score_regularidad"),
-
-        # --- Volumen: normalizado por log ---
-        (pl.col("n_oc_total").log() / max_log_oc).clip(0, 1)
-        .round(4)
-        .alias("score_volumen"),
-
-        # --- Satisfacción: calificación / 5 ---
-        (pl.col("prom_calificacion").fill_null(2.5) / 5.0).clip(0, 1)
-        .round(4)
-        .alias("score_satisfaccion"),
-    ])
+    scored = combined.with_columns(
+        [
+            # --- Transparencia: 0=compra todo por TD (40%+), 1=0% TD ---
+            (1 - (pl.col("pct_trato_directo").fill_null(0.20) / 0.40).clip(0, 1))
+            .round(4)
+            .alias("score_transparencia"),
+            # --- Tasa de aceptación: 0=50% o menos, 1=100% ---
+            ((pl.col("tasa_aceptacion").fill_null(0.7) - 0.5) / 0.5)
+            .clip(0, 1)
+            .round(4)
+            .alias("score_tasa_aceptacion"),
+            # --- Tasa de NO cancelación: 0=20%+ cancelaciones, 1=0% ---
+            (1 - (pl.col("tasa_cancelacion").fill_null(0.05) / 0.20).clip(0, 1))
+            .round(4)
+            .alias("score_tasa_no_cancelacion"),
+            # --- Adjudicación LIC: 0=50% o menos, 1=100% ---
+            ((pl.col("tasa_adjudicacion").fill_null(0.7) - 0.5) / 0.5)
+            .clip(0, 1)
+            .round(4)
+            .alias("score_tasa_adjudicacion"),
+            # --- Regularidad: 0=CV>1.5, 1=CV≈0 ---
+            (1 - (pl.col("cv_mensual").fill_null(0.75) / 1.5).clip(0, 1))
+            .round(4)
+            .alias("score_regularidad"),
+            # --- Volumen: normalizado por log ---
+            (pl.col("n_oc_total").log() / max_log_oc).clip(0, 1).round(4).alias("score_volumen"),
+            # --- Satisfacción: calificación / 5 ---
+            (pl.col("prom_calificacion").fill_null(2.5) / 5.0)
+            .clip(0, 1)
+            .round(4)
+            .alias("score_satisfaccion"),
+        ]
+    )
 
     # Score final ponderado
-    scored = scored.with_columns([
-        (
-            pl.col("score_transparencia") * WEIGHTS["transparencia"] +
-            pl.col("score_tasa_aceptacion") * WEIGHTS["tasa_aceptacion"] +
-            pl.col("score_tasa_no_cancelacion") * WEIGHTS["tasa_no_cancelacion"] +
-            pl.col("score_tasa_adjudicacion") * WEIGHTS["tasa_adjudicacion"] +
-            pl.col("score_regularidad") * WEIGHTS["regularidad"] +
-            pl.col("score_volumen") * WEIGHTS["volumen"] +
-            pl.col("score_satisfaccion") * WEIGHTS["satisfaccion"]
-        ).round(4).alias("buyer_score"),
-    ])
+    scored = scored.with_columns(
+        [
+            (
+                pl.col("score_transparencia") * WEIGHTS["transparencia"]
+                + pl.col("score_tasa_aceptacion") * WEIGHTS["tasa_aceptacion"]
+                + pl.col("score_tasa_no_cancelacion") * WEIGHTS["tasa_no_cancelacion"]
+                + pl.col("score_tasa_adjudicacion") * WEIGHTS["tasa_adjudicacion"]
+                + pl.col("score_regularidad") * WEIGHTS["regularidad"]
+                + pl.col("score_volumen") * WEIGHTS["volumen"]
+                + pl.col("score_satisfaccion") * WEIGHTS["satisfaccion"]
+            )
+            .round(4)
+            .alias("buyer_score"),
+        ]
+    )
 
     # Clasificación
-    scored = scored.with_columns([
-        pl.when(pl.col("buyer_score") >= 0.8).then(pl.lit("excelente"))
-        .when(pl.col("buyer_score") >= 0.6).then(pl.lit("bueno"))
-        .when(pl.col("buyer_score") >= 0.4).then(pl.lit("regular"))
-        .when(pl.col("buyer_score") >= 0.2).then(pl.lit("riesgoso"))
-        .otherwise(pl.lit("alto_riesgo"))
-        .alias("clasificacion"),
-    ])
+    scored = scored.with_columns(
+        [
+            pl.when(pl.col("buyer_score") >= 0.8)
+            .then(pl.lit("excelente"))
+            .when(pl.col("buyer_score") >= 0.6)
+            .then(pl.lit("bueno"))
+            .when(pl.col("buyer_score") >= 0.4)
+            .then(pl.lit("regular"))
+            .when(pl.col("buyer_score") >= 0.2)
+            .then(pl.lit("riesgoso"))
+            .otherwise(pl.lit("alto_riesgo"))
+            .alias("clasificacion"),
+        ]
+    )
 
-    result = scored.select([
-        "CodigoOrganismoPublico", "NombreOrganismo", "buyer_score", "clasificacion",
-        "n_oc_total", "n_meses_activo",
-        # Desglose de scores
-        "score_transparencia", "score_tasa_aceptacion", "score_tasa_no_cancelacion",
-        "score_tasa_adjudicacion", "score_regularidad", "score_volumen", "score_satisfaccion",
-        # Métricas raw
-        "pct_trato_directo", "mediana_dias_pago", "p75_dias_pago", "p90_dias_pago",
-        "tasa_aceptacion", "tasa_cancelacion", "tasa_adjudicacion",
-        "cv_mensual", "prom_calificacion", "prom_oferentes",
-    ]).sort("buyer_score", descending=True)
+    result = scored.select(
+        [
+            "CodigoOrganismoPublico",
+            "NombreOrganismo",
+            "buyer_score",
+            "clasificacion",
+            "n_oc_total",
+            "n_meses_activo",
+            # Desglose de scores
+            "score_transparencia",
+            "score_tasa_aceptacion",
+            "score_tasa_no_cancelacion",
+            "score_tasa_adjudicacion",
+            "score_regularidad",
+            "score_volumen",
+            "score_satisfaccion",
+            # Métricas raw
+            "pct_trato_directo",
+            "mediana_dias_pago",
+            "p75_dias_pago",
+            "p90_dias_pago",
+            "tasa_aceptacion",
+            "tasa_cancelacion",
+            "tasa_adjudicacion",
+            "cv_mensual",
+            "prom_calificacion",
+            "prom_oferentes",
+        ]
+    ).sort("buyer_score", descending=True)
 
     # Log distribución
     for cat in ["excelente", "bueno", "regular", "riesgoso", "alto_riesgo"]:
@@ -491,6 +598,7 @@ def compute_buyer_scores(oc_metrics: pl.DataFrame, lic_metrics: pl.DataFrame) ->
 # Paso 4: Flags de riesgo
 # ─────────────────────────────────────────────────────────────────────
 
+
 def compute_risk_flags(buyer_scores: pl.DataFrame) -> pl.DataFrame:
     """
     Genera alertas de riesgo específicas por comprador.
@@ -498,43 +606,53 @@ def compute_risk_flags(buyer_scores: pl.DataFrame) -> pl.DataFrame:
     """
     logger.info("Generando flags de riesgo...")
 
-    flags = buyer_scores.with_columns([
-        # Pago muy lento (mediana > 30 días)
-        (pl.col("mediana_dias_pago") > 30).fill_null(False).alias("flag_pago_lento"),
-
-        # Alta variabilidad en pago (p90 > 60 días)
-        (pl.col("p90_dias_pago") > 60).fill_null(False).alias("flag_pago_impredecible"),
-
-        # Alta tasa de cancelación (> 5%)
-        (pl.col("tasa_cancelacion") > 0.05).fill_null(False).alias("flag_cancelaciones"),
-
-        # Baja tasa de adjudicación en licitaciones (< 70%)
-        (pl.col("tasa_adjudicacion") < 0.70).fill_null(False).alias("flag_licitaciones_fallidas"),
-
-        # Baja calificación (< 3.0 en escala 1-5)
-        (pl.col("prom_calificacion") < 3.0).fill_null(False).alias("flag_baja_calificacion"),
-
-        # Compras irregulares (CV > 1.0)
-        (pl.col("cv_mensual") > 1.0).fill_null(False).alias("flag_compras_irregulares"),
-    ])
+    flags = buyer_scores.with_columns(
+        [
+            # Pago muy lento (mediana > 30 días)
+            (pl.col("mediana_dias_pago") > 30).fill_null(False).alias("flag_pago_lento"),
+            # Alta variabilidad en pago (p90 > 60 días)
+            (pl.col("p90_dias_pago") > 60).fill_null(False).alias("flag_pago_impredecible"),
+            # Alta tasa de cancelación (> 5%)
+            (pl.col("tasa_cancelacion") > 0.05).fill_null(False).alias("flag_cancelaciones"),
+            # Baja tasa de adjudicación en licitaciones (< 70%)
+            (pl.col("tasa_adjudicacion") < 0.70)
+            .fill_null(False)
+            .alias("flag_licitaciones_fallidas"),
+            # Baja calificación (< 3.0 en escala 1-5)
+            (pl.col("prom_calificacion") < 3.0).fill_null(False).alias("flag_baja_calificacion"),
+            # Compras irregulares (CV > 1.0)
+            (pl.col("cv_mensual") > 1.0).fill_null(False).alias("flag_compras_irregulares"),
+        ]
+    )
 
     # Contar flags activos
     flag_cols = [c for c in flags.columns if c.startswith("flag_")]
-    flags = flags.with_columns([
-        sum(pl.col(c).cast(pl.Int32) for c in flag_cols).alias("n_flags"),
-    ])
+    flags = flags.with_columns(
+        [
+            sum(pl.col(c).cast(pl.Int32) for c in flag_cols).alias("n_flags"),
+        ]
+    )
 
     # Solo organismos con al menos un flag
     flagged = (
-        flags
-        .filter(pl.col("n_flags") > 0)
-        .select([
-            "CodigoOrganismoPublico", "NombreOrganismo", "buyer_score",
-            "clasificacion", "n_flags",
-        ] + flag_cols + [
-            "mediana_dias_pago", "tasa_cancelacion", "tasa_adjudicacion",
-            "prom_calificacion", "cv_mensual",
-        ])
+        flags.filter(pl.col("n_flags") > 0)
+        .select(
+            [
+                "CodigoOrganismoPublico",
+                "NombreOrganismo",
+                "buyer_score",
+                "clasificacion",
+                "n_flags",
+            ]
+            + flag_cols
+            + [
+                "mediana_dias_pago",
+                "tasa_cancelacion",
+                "tasa_adjudicacion",
+                "prom_calificacion",
+                "cv_mensual",
+            ]
+        )
         .sort("n_flags", descending=True)
     )
 
@@ -549,6 +667,7 @@ def compute_risk_flags(buyer_scores: pl.DataFrame) -> pl.DataFrame:
 # ─────────────────────────────────────────────────────────────────────
 # Runner
 # ─────────────────────────────────────────────────────────────────────
+
 
 def run_buyer_scoring() -> dict[str, pl.DataFrame]:
     """Ejecuta pipeline completo de scoring de compradores."""
@@ -579,13 +698,17 @@ def run_buyer_scoring() -> dict[str, pl.DataFrame]:
     # Top 10 mejores y peores
     logger.info("\nTop 10 mejores compradores:")
     for row in scores.head(10).iter_rows(named=True):
-        logger.info(f"  [{row['buyer_score']:.3f}] {row['NombreOrganismo']} "
-                     f"(pago: {row['mediana_dias_pago']:.0f}d, OC: {row['n_oc_total']:,})")
+        logger.info(
+            f"  [{row['buyer_score']:.3f}] {row['NombreOrganismo']} "
+            f"(pago: {row['mediana_dias_pago']:.0f}d, OC: {row['n_oc_total']:,})"
+        )
 
     logger.info("\nTop 10 peores compradores (con >50 OC):")
     worst = scores.filter(pl.col("n_oc_total") > 50).sort("buyer_score").head(10)
     for row in worst.iter_rows(named=True):
-        logger.info(f"  [{row['buyer_score']:.3f}] {row['NombreOrganismo']} "
-                     f"(pago: {row['mediana_dias_pago']:.0f}d, cancel: {row['tasa_cancelacion']:.1%})")
+        logger.info(
+            f"  [{row['buyer_score']:.3f}] {row['NombreOrganismo']} "
+            f"(pago: {row['mediana_dias_pago']:.0f}d, cancel: {row['tasa_cancelacion']:.1%})"
+        )
 
     return {"scores": scores, "risk": risk, "oc_metrics": oc_metrics}

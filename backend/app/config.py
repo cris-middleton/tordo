@@ -1,6 +1,7 @@
-from pydantic_settings import BaseSettings
+from typing import List
+
 from pydantic import field_validator
-from typing import Optional, List, Union
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -8,7 +9,13 @@ class Settings(BaseSettings):
     app_name: str = "Tordo"
     app_version: str = "1.0.0"
     debug: bool = False
-    
+    environment: str = "development"  # development | staging | production
+
+    # Observabilidad
+    sentry_dsn: str | None = None  # vacío = Sentry desactivado
+    log_level: str = "INFO"
+    log_json: bool = True  # False = texto plano legible en local
+
     # Database settings
     # Supports local PostgreSQL, AWS RDS, or Google Cloud SQL
     # For AWS RDS: postgresql://<usuario>:<contraseña>@<host>:5432/dbname
@@ -16,68 +23,69 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://postgres:postgres@localhost:5432/licitaciones"
     # Sync URL for Alembic (psycopg2). When unset, database_url is used.
     # Required once FastAPI migrates to asyncpg (postgresql+asyncpg://...).
-    database_url_sync: Optional[str] = None
+    database_url_sync: str | None = None
     database_echo: bool = False
-    
+
     # Redis settings
     redis_url: str = "redis://redis:6379/0"
-    
+
     # Security settings
     secret_key: str
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
-    
+
     # CORS settings
-    cors_origins: Union[List[str], str] = ["http://localhost:3000", "http://localhost:3001"]
-    
-    @field_validator('cors_origins', mode='before')
+    cors_origins: List[str] | str = ["http://localhost:3000", "http://localhost:3001"]
+
+    @field_validator("cors_origins", mode="before")
     @classmethod
     def parse_cors_origins(cls, v):
         """Parse CORS_ORIGINS from env (can be comma-separated string or JSON list)"""
         if isinstance(v, str):
             # Try to parse as JSON first
             import json
+
             try:
                 return json.loads(v)
             except (json.JSONDecodeError, ValueError):
                 # Fall back to comma-separated
-                return [origin.strip() for origin in v.split(',') if origin.strip()]
+                return [origin.strip() for origin in v.split(",") if origin.strip()]
         return v
 
-    @field_validator('database_url', mode='before')
+    @field_validator("database_url", mode="before")
     @classmethod
     def ensure_asyncpg_driver(cls, v: str) -> str:
         """Auto-upgrade postgresql:// → postgresql+asyncpg:// for async SQLAlchemy."""
         if isinstance(v, str):
-            if v.startswith('postgresql://'):
-                return v.replace('postgresql://', 'postgresql+asyncpg://', 1)
-            if v.startswith('postgres://'):
-                return v.replace('postgres://', 'postgresql+asyncpg://', 1)
+            if v.startswith("postgresql://"):
+                return v.replace("postgresql://", "postgresql+asyncpg://", 1)
+            if v.startswith("postgres://"):
+                return v.replace("postgres://", "postgresql+asyncpg://", 1)
         return v
-    
+
     # ETL settings
     etl_schedule_interval: int = 3600  # seconds
-    
+
     # Email settings (for alert notifications)
-    smtp_host: Optional[str] = None
+    smtp_host: str | None = None
     smtp_port: int = 587
-    smtp_user: Optional[str] = None
-    smtp_password: Optional[str] = None
-    smtp_from_email: Optional[str] = None
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    smtp_from_email: str | None = None
     smtp_use_tls: bool = True
-    
+
     # Frontend URL (for alert links in emails)
-    frontend_url: Optional[str] = "http://localhost:3000"
+    frontend_url: str | None = "http://localhost:3000"
 
     # Storage (documents)
-    storage_backend: str = "local"          # "local" | "s3"
+    storage_backend: str = "local"  # "local" | "s3"
     local_storage_path: str = "./documents"
-    aws_bucket: Optional[str] = None
+    aws_bucket: str | None = None
     aws_region: str = "us-east-1"
     # S3-compatible endpoint (MinIO in dev, leave blank for real AWS)
-    s3_endpoint_url: Optional[str] = None
+    s3_endpoint_url: str | None = None
     # Public-facing endpoint for presigned URLs (may differ from internal Docker URL)
-    s3_endpoint_url_public: Optional[str] = None
+    s3_endpoint_url_public: str | None = None
 
     # Estado hábil CSV URL (ChileCompra open data)
     estado_habil_csv_url: str = ""
@@ -89,32 +97,32 @@ class Settings(BaseSettings):
     analytics_data_path: str = "etl/data/analytics"
 
     # Stripe billing
-    stripe_secret_key: Optional[str] = None
-    stripe_publishable_key: Optional[str] = None
-    stripe_webhook_secret: Optional[str] = None
-    stripe_price_pro: Optional[str] = None         # Stripe price ID for Pro monthly
-    stripe_price_pro_annual: Optional[str] = None  # Stripe price ID for Pro annual
-    stripe_price_enterprise: Optional[str] = None  # Stripe price ID for Enterprise plan
+    stripe_secret_key: str | None = None
+    stripe_publishable_key: str | None = None
+    stripe_webhook_secret: str | None = None
+    stripe_price_pro: str | None = None  # Stripe price ID for Pro monthly
+    stripe_price_pro_annual: str | None = None  # Stripe price ID for Pro annual
+    stripe_price_enterprise: str | None = None  # Stripe price ID for Enterprise plan
 
     # Google OAuth
-    google_client_id: Optional[str] = None
-    google_client_secret: Optional[str] = None
+    google_client_id: str | None = None
+    google_client_secret: str | None = None
     google_redirect_uri: str = "http://localhost:8000/api/auth/google/callback"
 
     # Twilio WhatsApp
-    twilio_account_sid: Optional[str] = None
-    twilio_auth_token: Optional[str] = None
+    twilio_account_sid: str | None = None
+    twilio_auth_token: str | None = None
     twilio_whatsapp_from: str = "whatsapp:+14155238886"  # Twilio sandbox number
 
     # Feature flags — disable unreleased features without code changes
-    feature_analytics: bool = False       # BI pre-postulación (requires parquet pipeline)
-    feature_billing: bool = False         # Stripe billing (requires Stripe keys)
-    feature_estado_habil: bool = True     # Estado hábil monitoring
-    feature_documentos: bool = True       # Document management
-    feature_checklist: bool = True        # Postulation checklists
-    feature_tfidf: bool = False           # TF-IDF semantic matching (requires trained model)
-    feature_whatsapp: bool = False        # WhatsApp notifications via Twilio
-    analytics_enabled: bool = True        # Legacy /dashboard/analytics page visibility
+    feature_analytics: bool = False  # BI pre-postulación (requires parquet pipeline)
+    feature_billing: bool = False  # Stripe billing (requires Stripe keys)
+    feature_estado_habil: bool = True  # Estado hábil monitoring
+    feature_documentos: bool = True  # Document management
+    feature_checklist: bool = True  # Postulation checklists
+    feature_tfidf: bool = False  # TF-IDF semantic matching (requires trained model)
+    feature_whatsapp: bool = False  # WhatsApp notifications via Twilio
+    analytics_enabled: bool = True  # Legacy /dashboard/analytics page visibility
 
     class Config:
         env_file = ".env"
@@ -123,4 +131,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-

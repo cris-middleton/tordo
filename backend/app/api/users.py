@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from typing import List
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
+
+from app.core.security import get_current_active_user, get_current_superuser
 from app.db import get_db
 from app.models.user import User
-from app.core.security import get_current_active_user, get_current_superuser
 from app.schemas.user import UserResponse, UserUpdate
 
 router = APIRouter(prefix="/api/users", tags=["users"])

@@ -1,5 +1,4 @@
 import pytest
-
 from analytics.evaluation import registry
 from analytics.evaluation.base import Evaluable, VariantConfig
 
@@ -11,10 +10,17 @@ class _FakeEvaluable(Evaluable):
     primary_metric = "x"
     secondary_metrics = []
 
-    def train(self, window, variant): return {}
-    def predict(self, artifact, window): return None
-    def ground_truth(self, window): return None
-    def compute_metrics(self, predictions, truth): return {"x": 0.5}
+    def train(self, window, variant):
+        return {}
+
+    def predict(self, artifact, window):
+        return None
+
+    def ground_truth(self, window):
+        return None
+
+    def compute_metrics(self, predictions, truth):
+        return {"x": 0.5}
 
 
 def test_register_and_retrieve():

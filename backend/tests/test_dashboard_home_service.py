@@ -1,13 +1,13 @@
 """Unit tests for dashboard_home_service composers."""
-from datetime import datetime, timedelta, timezone
-from uuid import uuid4
+
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.empresa import Empresa, EmpresaUsuario
+from app.models.empresa import Empresa
 from app.models.licitacion import Licitacion
-from app.models.postulacion import ChecklistPostulacion, Postulacion
+from app.models.postulacion import Postulacion
 from app.models.user import User
 from app.services.dashboard_home_service import compose_urgencias
 
@@ -19,7 +19,7 @@ async def test_compose_urgencias_includes_postulacion_closing_in_36h(
     sample_empresa: Empresa,
 ):
     """A postulación whose licitación closes in <48h must produce a red urgencia."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cierre = now + timedelta(hours=36, minutes=30)
 
     licitacion = Licitacion(
@@ -53,10 +53,14 @@ async def test_compose_urgencias_includes_postulacion_closing_in_36h(
 
 @pytest.mark.asyncio
 async def test_compose_urgencias_includes_documento_vence_orange(
-    async_db, sample_user, sample_empresa,
+    async_db,
+    sample_user,
+    sample_empresa,
 ):
     from datetime import date as _date
+
     from app.models.empresa import DocumentoEmpresa
+
     doc = DocumentoEmpresa(
         empresa_id=sample_empresa.id,
         nombre="Certificado de antecedentes",
@@ -68,17 +72,17 @@ async def test_compose_urgencias_includes_documento_vence_orange(
     async_db.add(doc)
     await async_db.commit()
     items = await compose_urgencias(async_db, sample_user.id, sample_empresa.id)
-    assert any(
-        u.tipo == "documento_vence" and u.severidad == "naranja" for u in items
-    )
+    assert any(u.tipo == "documento_vence" and u.severidad == "naranja" for u in items)
 
 
 @pytest.mark.asyncio
 async def test_compose_urgencias_includes_estado_inhabil(
-    async_db, sample_user, sample_empresa,
+    async_db,
+    sample_user,
+    sample_empresa,
 ):
     sample_empresa.estado_habil = "inhabil"
-    sample_empresa.estado_habil_updated_at = datetime.now(timezone.utc) - timedelta(days=4)
+    sample_empresa.estado_habil_updated_at = datetime.now(UTC) - timedelta(days=4)
     await async_db.commit()
     items = await compose_urgencias(async_db, sample_user.id, sample_empresa.id)
     assert any(u.tipo == "estado_inhabil" and u.severidad == "amarillo" for u in items)
@@ -86,7 +90,9 @@ async def test_compose_urgencias_includes_estado_inhabil(
 
 @pytest.mark.asyncio
 async def test_compose_urgencias_returns_empty_when_nothing_urgent(
-    async_db, sample_user, sample_empresa,
+    async_db,
+    sample_user,
+    sample_empresa,
 ):
     items = await compose_urgencias(async_db, sample_user.id, sample_empresa.id)
     assert items == []
@@ -94,7 +100,9 @@ async def test_compose_urgencias_returns_empty_when_nothing_urgent(
 
 @pytest.mark.asyncio
 async def test_compose_urgencias_includes_match_alto_alert(
-    async_db, sample_user, sample_empresa,
+    async_db,
+    sample_user,
+    sample_empresa,
 ):
     """An unread NUEVA_LICITACION_MATCH alert in the last 5 days must produce a match_alto urgencia."""
     from app.models.alert import Alert, AlertStatus, AlertType
@@ -113,10 +121,7 @@ async def test_compose_urgencias_includes_match_alto_alert(
     await async_db.commit()
 
     items = await compose_urgencias(async_db, sample_user.id, sample_empresa.id)
-    assert any(
-        u.tipo == "match_alto" and u.severidad == "naranja"
-        for u in items
-    )
+    assert any(u.tipo == "match_alto" and u.severidad == "naranja" for u in items)
 
 
 from app.services.dashboard_home_service import (
@@ -140,13 +145,13 @@ def _new_licitacion(codigo: str, now: datetime) -> Licitacion:
 
 @pytest.mark.asyncio
 async def test_compose_pipeline_counts_by_estado(
-    async_db, sample_user, sample_empresa,
+    async_db,
+    sample_user,
+    sample_empresa,
 ):
     """Pipeline counts must reflect the 5 displayed estados over the last 90 days."""
-    now = datetime.now(timezone.utc)
-    for idx, estado in enumerate(
-        ("en_seguimiento", "en_preparacion", "enviada", "adjudicada")
-    ):
+    now = datetime.now(UTC)
+    for idx, estado in enumerate(("en_seguimiento", "en_preparacion", "enviada", "adjudicada")):
         lic = _new_licitacion(f"LIC-PIPE-{idx}", now)
         async_db.add(lic)
         await async_db.flush()
@@ -170,7 +175,9 @@ async def test_compose_pipeline_counts_by_estado(
 
 @pytest.mark.asyncio
 async def test_compose_resumen_aggregates_counts(
-    async_db, sample_user, sample_empresa,
+    async_db,
+    sample_user,
+    sample_empresa,
 ):
     resumen = await compose_resumen(async_db, sample_user.id, sample_empresa.id)
     assert resumen.matches_semana == 0
@@ -182,7 +189,9 @@ async def test_compose_resumen_aggregates_counts(
 
 @pytest.mark.asyncio
 async def test_compose_trend_unavailable_with_short_history(
-    async_db, sample_user, sample_empresa,
+    async_db,
+    sample_user,
+    sample_empresa,
 ):
     trend = await compose_trend(async_db, sample_empresa.id)
     assert trend.disponible is False
@@ -191,7 +200,9 @@ async def test_compose_trend_unavailable_with_short_history(
 
 @pytest.mark.asyncio
 async def test_load_matches_returns_empty_when_no_cache(
-    async_db, sample_user, sample_empresa,
+    async_db,
+    sample_user,
+    sample_empresa,
 ):
     matches, cached_at, total = await load_matches(async_db, sample_empresa.id)
     assert matches == []

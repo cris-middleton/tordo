@@ -5,8 +5,9 @@ Compliance periodic Celery tasks.
   send_deadline_reminders — 09:00 SCL: alert postulaciones closing in ≤48h / ≤24h
   check_document_expiry  — 09:30 SCL: alert documents expiring within 30 days
 """
+
 import logging
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 
 from app.celery_app import celery_app
 from app.config import settings
@@ -49,7 +50,7 @@ def send_deadline_reminders() -> dict:
     created = 0
     skipped = 0
     try:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         cutoff_48h = now + timedelta(hours=48)
         cutoff_24h = now + timedelta(hours=24)
 
@@ -84,9 +85,7 @@ def send_deadline_reminders() -> dict:
             )
             for m in memberships:
                 # Idempotency: one alert per postulacion per day per type PER USER
-                idempotency_key = (
-                    f"{alert_type.value}_{p.id}_{fecha_str}_{m.user_id}"
-                )
+                idempotency_key = f"{alert_type.value}_{p.id}_{fecha_str}_{m.user_id}"
                 if db.query(Alert).filter(Alert.idempotency_key == idempotency_key).first():
                     skipped += 1
                     continue
@@ -96,7 +95,8 @@ def send_deadline_reminders() -> dict:
                     alert_type=alert_type,
                     status=AlertStatus.PENDING,
                     entity_type="postulacion",
-                    entity_id=int(str(p.id).replace('-', ''), 16) % (2**31 - 1),  # UUID → positive int for legacy column
+                    entity_id=int(str(p.id).replace("-", ""), 16)
+                    % (2**31 - 1),  # UUID → positive int for legacy column
                     title=f"Cierre en {hours_label}h: {licitacion.nombre[:80]}",
                     message=(
                         f"La licitación '{licitacion.nombre}' "
@@ -168,7 +168,8 @@ def check_document_expiry() -> dict:
                     alert_type=AlertType.DOCUMENTO_VENCIDO,
                     status=AlertStatus.PENDING,
                     entity_type="documento",
-                    entity_id=int(str(doc.id).replace('-', ''), 16) % (2**31 - 1),  # UUID → positive int for legacy column
+                    entity_id=int(str(doc.id).replace("-", ""), 16)
+                    % (2**31 - 1),  # UUID → positive int for legacy column
                     title=f"Documento por vencer: {doc.nombre}",
                     message=(
                         f"El documento '{doc.nombre}' vence el {fecha_str} "

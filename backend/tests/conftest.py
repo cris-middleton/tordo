@@ -2,19 +2,18 @@ import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from app.main import app
+
 from app.db import Base, get_db
-from app.models.user import User
+from app.main import app
 from app.models.empresa import Empresa, EmpresaUsuario
+from app.models.user import User
 
 # Use in-memory SQLite for testing
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
+engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
@@ -33,6 +32,7 @@ def db():
 @pytest.fixture(scope="function")
 def client(db):
     """Create a test client with database override"""
+
     def override_get_db():
         try:
             yield db
@@ -191,7 +191,12 @@ _ASYNC_DDL = [
         entity_id INTEGER NOT NULL,
         title VARCHAR(500) NOT NULL,
         message TEXT,
-        alert_metadata TEXT,
+        -- El modelo mapea el atributo Python `alert_metadata` a la columna `metadata`
+        -- (Alert.alert_metadata = Column("metadata", JSON)). Este DDL a mano decía
+        -- `alert_metadata` y por eso 5 tests fallaban con "no such column".
+        -- Es el síntoma de mantener un esquema paralelo al de los modelos — ver
+        -- docs/ARQUITECTURA_REVISION_2026-08.md §F1 (migrar a Postgres efímero).
+        metadata TEXT,
         notification_channels TEXT,
         sent_at DATETIME,
         read_at DATETIME,
@@ -213,9 +218,16 @@ async def async_engine():
     async with eng.begin() as conn:
         # Drop all in reverse dependency order
         for tbl in [
-            "checklist_postulacion", "alerts", "dashboard_home_cache",
-            "documentos_empresa", "postulaciones", "empresas_usuario",
-            "empresas", "licitaciones", "buyer_organizations", "users",
+            "checklist_postulacion",
+            "alerts",
+            "dashboard_home_cache",
+            "documentos_empresa",
+            "postulaciones",
+            "empresas_usuario",
+            "empresas",
+            "licitaciones",
+            "buyer_organizations",
+            "users",
         ]:
             await conn.execute(text(f"DROP TABLE IF EXISTS {tbl}"))
     await eng.dispose()
@@ -262,4 +274,3 @@ async def sample_empresa(async_db: AsyncSession, sample_user: User) -> Empresa:
     await async_db.commit()
     await async_db.refresh(empresa)
     return empresa
-

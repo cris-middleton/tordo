@@ -1,49 +1,36 @@
-"""API endpoints for inspecting ETL data"""
-from datetime import datetime, timezone
+"""
+API endpoints for inspecting ETL data.
+
+**Authentication is required on every route in this router.** The consolidated
+Mercado Público dataset is the product's core asset; it is not public. The
+router-level dependency below is the guarantee — do not add a route here that
+bypasses it.
+"""
+
+from datetime import UTC, datetime
+from typing import Any, Dict, List
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy import func, inspect, select, or_, asc, desc
+from sqlalchemy import asc, desc, func, inspect, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from typing import Optional, List, Dict, Any
-from uuid import UUID
-from datetime import datetime
 
 from app.config import settings
-from app.core.security import decode_access_token
+from app.core.security import get_current_active_user
 from app.db import get_db
 from app.models.empresa import EmpresaUsuario, TFIDFPerfil
 from app.models.licitacion import Licitacion
 from app.models.orden_compra import OrdenCompra
 from app.models.user import User
 
-router = APIRouter(prefix="/api/data", tags=["data-inspection"])
-
-# Optional-auth scheme: returns None on missing token rather than 401, so the
-# public endpoints below keep working for unauthenticated callers.
-_oauth2_optional = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
+router = APIRouter(
+    prefix="/api/data",
+    tags=["data-inspection"],
+    dependencies=[Depends(get_current_active_user)],
+)
 
 _SEMANTIC_POOL = 200
-
-
-async def _current_user_optional(
-    token: Optional[str] = Depends(_oauth2_optional),
-    db: AsyncSession = Depends(get_db),
-) -> Optional[User]:
-    if not token:
-        return None
-    payload = decode_access_token(token)
-    if not payload:
-        return None
-    sub = payload.get("sub")
-    try:
-        user_id = int(sub) if sub is not None else None
-    except (TypeError, ValueError):
-        return None
-    if user_id is None:
-        return None
-    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
-    return user if user and user.is_active else None
 
 
 def _orden_text(orden: OrdenCompra) -> str:
@@ -61,21 +48,25 @@ def model_to_dict(record, model_class) -> Dict[str, Any]:
         value = getattr(record, column.name)
         if isinstance(value, datetime):
             result[column.name] = value.isoformat()
-        elif hasattr(value, '__float__') and not isinstance(value, (int, float, str, bool, type(None))):
+        elif hasattr(value, "__float__") and not isinstance(
+            value, (int, float, str, bool, type(None))
+        ):
             result[column.name] = float(value)
         else:
             result[column.name] = value
-    if hasattr(record, 'detalle') and record.detalle:
+    if hasattr(record, "detalle") and record.detalle:
         detalle_dict = {}
         for column in record.detalle.__table__.columns:
             value = getattr(record.detalle, column.name)
             if isinstance(value, datetime):
                 detalle_dict[column.name] = value.isoformat()
-            elif hasattr(value, '__float__') and not isinstance(value, (int, float, str, bool, type(None))):
+            elif hasattr(value, "__float__") and not isinstance(
+                value, (int, float, str, bool, type(None))
+            ):
                 detalle_dict[column.name] = float(value)
             else:
                 detalle_dict[column.name] = value
-        result['detalle'] = detalle_dict
+        result["detalle"] = detalle_dict
     return result
 
 
@@ -84,11 +75,13 @@ def get_table_structure(model_class) -> List[Dict[str, Any]]:
     inspector = inspect(model_class)
     return [
         {
-            'name': col.name,
-            'type': str(col.type),
-            'nullable': col.nullable,
-            'primary_key': col.primary_key,
-            'default': str(col.default.arg) if col.default and hasattr(col.default, 'arg') else None,
+            "name": col.name,
+            "type": str(col.type),
+            "nullable": col.nullable,
+            "primary_key": col.primary_key,
+            "default": str(col.default.arg)
+            if col.default and hasattr(col.default, "arg")
+            else None,
         }
         for col in inspector.columns
     ]
@@ -96,7 +89,20 @@ def get_table_structure(model_class) -> List[Dict[str, Any]]:
 
 @router.get("/tables")
 async def list_tables():
-    return {"tables": [{"name": "licitaciones", "description": "Public tenders", "endpoint": "/api/data/licitaciones"}, {"name": "ordenes_compra", "description": "Purchase orders", "endpoint": "/api/data/ordenes_compra"}]}
+    return {
+        "tables": [
+            {
+                "name": "licitaciones",
+                "description": "Public tenders",
+                "endpoint": "/api/data/licitaciones",
+            },
+            {
+                "name": "ordenes_compra",
+                "description": "Purchase orders",
+                "endpoint": "/api/data/ordenes_compra",
+            },
+        ]
+    }
 
 
 @router.get("/licitaciones/structure")
@@ -107,11 +113,11 @@ async def get_licitaciones_structure():
 @router.get("/licitaciones")
 async def get_licitaciones(
     db: AsyncSession = Depends(get_db),
-    limit: Optional[int] = Query(None, ge=1, le=1000),
-    offset: Optional[int] = Query(0, ge=0),
-    codigo_externo: Optional[str] = Query(None),
-    estado: Optional[str] = Query(None),
-    codigo_organismo: Optional[str] = Query(None),
+    limit: int | None = Query(None, ge=1, le=1000),
+    offset: int | None = Query(0, ge=0),
+    codigo_externo: str | None = Query(None),
+    estado: str | None = Query(None),
+    codigo_organismo: str | None = Query(None),
 ):
     stmt = select(Licitacion)
     if codigo_externo:
@@ -121,7 +127,9 @@ async def get_licitaciones(
     if codigo_organismo:
         stmt = stmt.where(Licitacion.codigo_organismo == codigo_organismo)
 
-    total_count = (await db.execute(select(func.count()).select_from(stmt.subquery()))).scalar() or 0
+    total_count = (
+        await db.execute(select(func.count()).select_from(stmt.subquery()))
+    ).scalar() or 0
 
     if limit:
         stmt = stmt.limit(limit)
@@ -129,17 +137,53 @@ async def get_licitaciones(
         stmt = stmt.offset(offset)
 
     records = (await db.execute(stmt)).scalars().all()
-    return {"table": "licitaciones", "total_count": total_count, "returned_count": len(records), "limit": limit, "offset": offset, "data": [model_to_dict(r, Licitacion) for r in records]}
+    return {
+        "table": "licitaciones",
+        "total_count": total_count,
+        "returned_count": len(records),
+        "limit": limit,
+        "offset": offset,
+        "data": [model_to_dict(r, Licitacion) for r in records],
+    }
 
 
 @router.get("/licitaciones/stats")
 async def get_licitaciones_stats(db: AsyncSession = Depends(get_db)):
     total_count = (await db.execute(select(func.count(Licitacion.id)))).scalar() or 0
-    estado_counts = (await db.execute(select(Licitacion.estado, func.count(Licitacion.id).label('count')).group_by(Licitacion.estado))).all()
-    organismo_counts = (await db.execute(select(Licitacion.codigo_organismo, func.count(Licitacion.id).label('count')).group_by(Licitacion.codigo_organismo).limit(10))).all()
-    date_range = (await db.execute(select(func.min(Licitacion.fecha_publicacion).label('min_date'), func.max(Licitacion.fecha_publicacion).label('max_date')))).one_or_none()
+    estado_counts = (
+        await db.execute(
+            select(Licitacion.estado, func.count(Licitacion.id).label("count")).group_by(
+                Licitacion.estado
+            )
+        )
+    ).all()
+    organismo_counts = (
+        await db.execute(
+            select(Licitacion.codigo_organismo, func.count(Licitacion.id).label("count"))
+            .group_by(Licitacion.codigo_organismo)
+            .limit(10)
+        )
+    ).all()
+    date_range = (
+        await db.execute(
+            select(
+                func.min(Licitacion.fecha_publicacion).label("min_date"),
+                func.max(Licitacion.fecha_publicacion).label("max_date"),
+            )
+        )
+    ).one_or_none()
     total_amount = (await db.execute(select(func.sum(Licitacion.monto_total)))).scalar() or 0
-    return {"table": "licitaciones", "total_count": total_count, "estado_distribution": {e: c for e, c in estado_counts}, "top_organismos": {o: c for o, c in organismo_counts}, "date_range": {"min": date_range.min_date.isoformat() if date_range and date_range.min_date else None, "max": date_range.max_date.isoformat() if date_range and date_range.max_date else None}, "total_amount": float(total_amount)}
+    return {
+        "table": "licitaciones",
+        "total_count": total_count,
+        "estado_distribution": dict(estado_counts),
+        "top_organismos": dict(organismo_counts),
+        "date_range": {
+            "min": date_range.min_date.isoformat() if date_range and date_range.min_date else None,
+            "max": date_range.max_date.isoformat() if date_range and date_range.max_date else None,
+        },
+        "total_amount": float(total_amount),
+    }
 
 
 @router.get("/ordenes_compra/structure")
@@ -150,18 +194,20 @@ async def get_ordenes_compra_structure():
 @router.get("/ordenes_compra")
 async def get_ordenes_compra(
     db: AsyncSession = Depends(get_db),
-    limit: Optional[int] = Query(20, ge=1, le=1000),
-    offset: Optional[int] = Query(0, ge=0),
-    codigo_oc: Optional[str] = Query(None),
-    estado: Optional[str] = Query(None),
-    region: Optional[str] = Query(None),
-    codigo_organismo: Optional[str] = Query(None),
-    codigo_proveedor: Optional[str] = Query(None),
-    search: Optional[str] = Query(None),
-    empresa_id: Optional[UUID] = Query(None, description="UUID empresa — habilita score_encaje por fila"),
-    sort_by: Optional[str] = Query(None),
-    sort_order: Optional[str] = Query("desc"),
-    current_user: Optional[User] = Depends(_current_user_optional),
+    limit: int | None = Query(20, ge=1, le=1000),
+    offset: int | None = Query(0, ge=0),
+    codigo_oc: str | None = Query(None),
+    estado: str | None = Query(None),
+    region: str | None = Query(None),
+    codigo_organismo: str | None = Query(None),
+    codigo_proveedor: str | None = Query(None),
+    search: str | None = Query(None),
+    empresa_id: UUID | None = Query(
+        None, description="UUID empresa — habilita score_encaje por fila"
+    ),
+    sort_by: str | None = Query(None),
+    sort_order: str | None = Query("desc"),
+    current_user: User = Depends(get_current_active_user),
 ):
     stmt = select(OrdenCompra).options(selectinload(OrdenCompra.detalle))
     if codigo_oc:
@@ -188,11 +234,9 @@ async def get_ordenes_compra(
                 )
             )
 
-    # Empresa fit scoring requires authentication + membership verification.
-    perfil_bytes: Optional[bytes] = None
+    # Empresa fit scoring requires membership verification.
+    perfil_bytes: bytes | None = None
     if empresa_id:
-        if current_user is None:
-            raise HTTPException(status_code=401, detail="Autenticación requerida para empresa_id")
         membership = (
             await db.execute(
                 select(EmpresaUsuario).where(
@@ -205,9 +249,7 @@ async def get_ordenes_compra(
             raise HTTPException(status_code=403, detail="Sin acceso a esta empresa")
         if settings.feature_tfidf:
             perfil = (
-                await db.execute(
-                    select(TFIDFPerfil).where(TFIDFPerfil.empresa_id == empresa_id)
-                )
+                await db.execute(select(TFIDFPerfil).where(TFIDFPerfil.empresa_id == empresa_id))
             ).scalar_one_or_none()
             if perfil and perfil.vector_bytes:
                 perfil_bytes = perfil.vector_bytes
@@ -235,7 +277,9 @@ async def get_ordenes_compra(
                 for t in terms
             ]
             pool_stmt = stmt.where(or_(*term_clauses)) if term_clauses else stmt
-            pool_stmt = pool_stmt.order_by(desc(OrdenCompra.fecha_publicacion)).limit(_SEMANTIC_POOL)
+            pool_stmt = pool_stmt.order_by(desc(OrdenCompra.fecha_publicacion)).limit(
+                _SEMANTIC_POOL
+            )
             pool = (await db.execute(pool_stmt)).scalars().all()
 
             texts = [_orden_text(o) for o in pool]
@@ -293,7 +337,9 @@ async def get_ordenes_compra(
             }
 
     # Default path.
-    total_count = (await db.execute(select(func.count()).select_from(stmt.subquery()))).scalar() or 0
+    total_count = (
+        await db.execute(select(func.count()).select_from(stmt.subquery()))
+    ).scalar() or 0
 
     sort_col_map = {
         "fecha_publicacion": OrdenCompra.fecha_publicacion,
@@ -332,12 +378,49 @@ async def get_ordenes_compra(
 @router.get("/ordenes_compra/stats")
 async def get_ordenes_compra_stats(db: AsyncSession = Depends(get_db)):
     total_count = (await db.execute(select(func.count(OrdenCompra.id)))).scalar() or 0
-    estado_counts = (await db.execute(select(OrdenCompra.estado, func.count(OrdenCompra.id).label('count')).group_by(OrdenCompra.estado))).all()
-    organismo_counts = (await db.execute(select(OrdenCompra.codigo_organismo, func.count(OrdenCompra.id).label('count')).group_by(OrdenCompra.codigo_organismo).limit(10))).all()
-    proveedor_counts = (await db.execute(select(OrdenCompra.codigo_proveedor, func.count(OrdenCompra.id).label('count')).group_by(OrdenCompra.codigo_proveedor).limit(10))).all()
-    date_range = (await db.execute(select(func.min(OrdenCompra.fecha_publicacion).label('min_date'), func.max(OrdenCompra.fecha_publicacion).label('max_date')))).one_or_none()
+    estado_counts = (
+        await db.execute(
+            select(OrdenCompra.estado, func.count(OrdenCompra.id).label("count")).group_by(
+                OrdenCompra.estado
+            )
+        )
+    ).all()
+    organismo_counts = (
+        await db.execute(
+            select(OrdenCompra.codigo_organismo, func.count(OrdenCompra.id).label("count"))
+            .group_by(OrdenCompra.codigo_organismo)
+            .limit(10)
+        )
+    ).all()
+    proveedor_counts = (
+        await db.execute(
+            select(OrdenCompra.codigo_proveedor, func.count(OrdenCompra.id).label("count"))
+            .group_by(OrdenCompra.codigo_proveedor)
+            .limit(10)
+        )
+    ).all()
+    date_range = (
+        await db.execute(
+            select(
+                func.min(OrdenCompra.fecha_publicacion).label("min_date"),
+                func.max(OrdenCompra.fecha_publicacion).label("max_date"),
+            )
+        )
+    ).one_or_none()
     total_amount = (await db.execute(select(func.sum(OrdenCompra.monto_total)))).scalar() or 0
-    return {"table": "ordenes_compra", "total_count": total_count, "returned_count": 0, "estado_distribution": {e: c for e, c in estado_counts}, "top_organismos": {o: c for o, c in organismo_counts}, "top_proveedores": {p: c for p, c in proveedor_counts}, "date_range": {"min": date_range.min_date.isoformat() if date_range and date_range.min_date else None, "max": date_range.max_date.isoformat() if date_range and date_range.max_date else None}, "total_amount": float(total_amount)}
+    return {
+        "table": "ordenes_compra",
+        "total_count": total_count,
+        "returned_count": 0,
+        "estado_distribution": dict(estado_counts),
+        "top_organismos": dict(organismo_counts),
+        "top_proveedores": dict(proveedor_counts),
+        "date_range": {
+            "min": date_range.min_date.isoformat() if date_range and date_range.min_date else None,
+            "max": date_range.max_date.isoformat() if date_range and date_range.max_date else None,
+        },
+        "total_amount": float(total_amount),
+    }
 
 
 @router.get("/summary")
@@ -346,4 +429,13 @@ async def get_data_summary(db: AsyncSession = Depends(get_db)):
     ordenes_count = (await db.execute(select(func.count(OrdenCompra.id)))).scalar() or 0
     licitaciones_total = (await db.execute(select(func.sum(Licitacion.monto_total)))).scalar() or 0
     ordenes_total = (await db.execute(select(func.sum(OrdenCompra.monto_total)))).scalar() or 0
-    return {"summary": {"licitaciones": {"count": licitaciones_count, "total_amount": float(licitaciones_total)}, "ordenes_compra": {"count": ordenes_count, "total_amount": float(ordenes_total)}}, "last_updated": datetime.now(timezone.utc).isoformat()}
+    return {
+        "summary": {
+            "licitaciones": {
+                "count": licitaciones_count,
+                "total_amount": float(licitaciones_total),
+            },
+            "ordenes_compra": {"count": ordenes_count, "total_amount": float(ordenes_total)},
+        },
+        "last_updated": datetime.now(UTC).isoformat(),
+    }

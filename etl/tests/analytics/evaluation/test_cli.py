@@ -1,7 +1,3 @@
-from pathlib import Path
-
-import pytest
-
 from analytics.evaluation import cli
 
 
@@ -14,9 +10,13 @@ def test_parser_defaults():
 
 
 def test_parser_walk_forward_flag():
-    args = cli.build_parser().parse_args([
-        "--model", "tfidf_matcher", "--walk-forward",
-    ])
+    args = cli.build_parser().parse_args(
+        [
+            "--model",
+            "tfidf_matcher",
+            "--walk-forward",
+        ]
+    )
     assert args.walk_forward is True
 
 
@@ -35,6 +35,9 @@ def test_load_variant_from_yaml(tmp_path):
 def test_load_default_variant_of_registered_model():
     # Import evaluators to trigger registration
     import analytics.evaluation.evaluators  # noqa
-    variant = cli.resolve_variant(model_name="tfidf_matcher", variant_arg="baseline", variant_file=None)
+
+    variant = cli.resolve_variant(
+        model_name="tfidf_matcher", variant_arg="baseline", variant_file=None
+    )
     assert variant.name == "baseline"
     assert variant.params["ngram_range"] == (1, 2)

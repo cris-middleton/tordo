@@ -21,7 +21,7 @@ import logging
 import numpy as np
 import polars as pl
 
-from .config import OUTPUT_DIR, MIN_OBSERVATIONS, MIN_YEAR
+from .config import MIN_OBSERVATIONS, MIN_YEAR, OUTPUT_DIR
 from .data_loader import iter_oc_parquets
 
 logger = logging.getLogger(__name__)
@@ -32,8 +32,12 @@ def build_time_series() -> pl.DataFrame:
     logger.info("Construyendo series temporales de gasto...")
 
     cols_needed = [
-        "CodigoOrganismoPublico", "OrganismoPublico", "RubroN2",
-        "sector", "MontoTotalOC_PesosChilenos", "_periodo_archivo",
+        "CodigoOrganismoPublico",
+        "OrganismoPublico",
+        "RubroN2",
+        "sector",
+        "MontoTotalOC_PesosChilenos",
+        "_periodo_archivo",
     ]
 
     frames = []
@@ -43,21 +47,38 @@ def build_time_series() -> pl.DataFrame:
 
         # Usar _periodo_archivo como proxy de año-mes (más confiable que parsear fechas)
         agg = (
-            df
-            .with_columns([
-                pl.col("MontoTotalOC_PesosChilenos").cast(pl.Float64, strict=False).alias("monto"),
-            ])
+            df.with_columns(
+                [
+                    pl.col("MontoTotalOC_PesosChilenos")
+                    .cast(pl.Float64, strict=False)
+                    .alias("monto"),
+                ]
+            )
             .filter(pl.col("monto").is_not_null() & (pl.col("monto") > 0))
-            .with_columns([
-                pl.col("_periodo_archivo").str.split("-").list.get(0).cast(pl.Int32).alias("anio"),
-                pl.col("_periodo_archivo").str.split("-").list.get(1).cast(pl.Int32).alias("mes"),
-            ])
-            .group_by(["CodigoOrganismoPublico", "OrganismoPublico", "RubroN2", "sector", "anio", "mes"])
-            .agg([
-                pl.len().alias("n_oc"),
-                pl.col("monto").sum().alias("monto_total"),
-                pl.col("monto").mean().alias("ticket_promedio"),
-            ])
+            .with_columns(
+                [
+                    pl.col("_periodo_archivo")
+                    .str.split("-")
+                    .list.get(0)
+                    .cast(pl.Int32)
+                    .alias("anio"),
+                    pl.col("_periodo_archivo")
+                    .str.split("-")
+                    .list.get(1)
+                    .cast(pl.Int32)
+                    .alias("mes"),
+                ]
+            )
+            .group_by(
+                ["CodigoOrganismoPublico", "OrganismoPublico", "RubroN2", "sector", "anio", "mes"]
+            )
+            .agg(
+                [
+                    pl.len().alias("n_oc"),
+                    pl.col("monto").sum().alias("monto_total"),
+                    pl.col("monto").mean().alias("ticket_promedio"),
+                ]
+            )
         )
         frames.append(agg)
 
@@ -66,12 +87,15 @@ def build_time_series() -> pl.DataFrame:
 
     combined = pl.concat(frames, how="diagonal_relaxed")
     result = (
-        combined
-        .group_by(["CodigoOrganismoPublico", "OrganismoPublico", "RubroN2", "sector", "anio", "mes"])
-        .agg([
-            pl.col("n_oc").sum(),
-            pl.col("monto_total").sum(),
-        ])
+        combined.group_by(
+            ["CodigoOrganismoPublico", "OrganismoPublico", "RubroN2", "sector", "anio", "mes"]
+        )
+        .agg(
+            [
+                pl.col("n_oc").sum(),
+                pl.col("monto_total").sum(),
+            ]
+        )
         .sort(["CodigoOrganismoPublico", "RubroN2", "anio", "mes"])
     )
 
@@ -93,26 +117,26 @@ def compute_market_trends(ts: pl.DataFrame) -> pl.DataFrame:
     logger.info("Calculando tendencias de mercado...")
 
     # Agregar índice temporal numérico (meses desde inicio)
-    ts_indexed = ts.with_columns([
-        ((pl.col("anio") - MIN_YEAR) * 12 + pl.col("mes")).alias("t"),
-    ])
+    ts_indexed = ts.with_columns(
+        [
+            ((pl.col("anio") - MIN_YEAR) * 12 + pl.col("mes")).alias("t"),
+        ]
+    )
 
     # Agrupar por mercado y calcular regresión
     markets = (
-        ts_indexed
-        .group_by(["CodigoOrganismoPublico", "OrganismoPublico", "RubroN2"])
-        .agg([
-            pl.col("t").alias("ts"),
-            pl.col("monto_total").alias("montos"),
-            pl.col("n_oc").sum().alias("total_oc"),
-            pl.col("monto_total").sum().alias("monto_acumulado"),
-            pl.col("anio").n_unique().alias("n_anios"),
-            pl.col("anio").max().alias("ultimo_anio"),
-        ])
-        .filter(
-            (pl.col("total_oc") >= MIN_OBSERVATIONS) &
-            (pl.col("n_anios") >= 2)
+        ts_indexed.group_by(["CodigoOrganismoPublico", "OrganismoPublico", "RubroN2"])
+        .agg(
+            [
+                pl.col("t").alias("ts"),
+                pl.col("monto_total").alias("montos"),
+                pl.col("n_oc").sum().alias("total_oc"),
+                pl.col("monto_total").sum().alias("monto_acumulado"),
+                pl.col("anio").n_unique().alias("n_anios"),
+                pl.col("anio").max().alias("ultimo_anio"),
+            ]
         )
+        .filter((pl.col("total_oc") >= MIN_OBSERVATIONS) & (pl.col("n_anios") >= 2))
     )
 
     # Calcular regresión lineal para cada mercado
@@ -141,20 +165,49 @@ def compute_market_trends(ts: pl.DataFrame) -> pl.DataFrame:
         else:
             cagr = 0
 
-        results.append({
-            "CodigoOrganismoPublico": row["CodigoOrganismoPublico"],
-            "OrganismoPublico": row["OrganismoPublico"],
-            "RubroN2": row["RubroN2"],
-            "slope_mensual": round(slope, 2),
-            "r_squared": round(r_sq, 4),
-            "cagr": round(cagr, 4),
-            "monto_acumulado": row["monto_acumulado"],
-            "total_oc": row["total_oc"],
-            "n_anios": row["n_anios"],
-            "tendencia": "crecimiento" if slope > 0 and r_sq > 0.1 else
-                         "decrecimiento" if slope < 0 and r_sq > 0.1 else
-                         "estable",
-        })
+        results.append(
+            {
+                "CodigoOrganismoPublico": row["CodigoOrganismoPublico"],
+                "OrganismoPublico": row["OrganismoPublico"],
+                "RubroN2": row["RubroN2"],
+                "slope_mensual": round(slope, 2),
+                "r_squared": round(r_sq, 4),
+                "cagr": round(cagr, 4),
+                "monto_acumulado": row["monto_acumulado"],
+                "total_oc": row["total_oc"],
+                "n_anios": row["n_anios"],
+                "tendencia": "crecimiento"
+                if slope > 0 and r_sq > 0.1
+                else "decrecimiento"
+                if slope < 0 and r_sq > 0.1
+                else "estable",
+            }
+        )
+
+    # Con poca historia (p. ej. sólo unos meses descargados) ningún mercado supera
+    # los mínimos y `results` queda vacío. `pl.DataFrame([])` no tiene columnas, así
+    # que el `.sort("cagr")` reventaba con ColumnNotFoundError y tumbaba el módulo
+    # entero. Es una limitación de datos, no un error: se devuelve vacío con el
+    # esquema correcto para que los módulos que dependen de esto sigan.
+    if not results:
+        logger.warning(
+            "Sin mercados con historia suficiente para calcular tendencia — "
+            "se devuelve vacío. Descarga más periodos si necesitas este módulo."
+        )
+        return pl.DataFrame(
+            schema={
+                "CodigoOrganismoPublico": pl.Utf8,
+                "OrganismoPublico": pl.Utf8,
+                "RubroN2": pl.Utf8,
+                "slope_mensual": pl.Float64,
+                "r_squared": pl.Float64,
+                "cagr": pl.Float64,
+                "monto_acumulado": pl.Float64,
+                "total_oc": pl.Int64,
+                "n_anios": pl.Int64,
+                "tendencia": pl.Utf8,
+            }
+        )
 
     trend_df = pl.DataFrame(results).sort("cagr", descending=True)
     for t in ["crecimiento", "estable", "decrecimiento"]:
@@ -169,29 +222,30 @@ def compute_sector_trends(ts: pl.DataFrame) -> pl.DataFrame:
     logger.info("Calculando tendencias por sector...")
 
     sector_annual = (
-        ts
-        .filter(pl.col("sector").is_not_null() & (pl.col("sector") != "null"))
+        ts.filter(pl.col("sector").is_not_null() & (pl.col("sector") != "null"))
         .group_by(["sector", "anio"])
-        .agg([
-            pl.col("monto_total").sum().alias("monto_anual"),
-            pl.col("n_oc").sum().alias("oc_anual"),
-        ])
+        .agg(
+            [
+                pl.col("monto_total").sum().alias("monto_anual"),
+                pl.col("n_oc").sum().alias("oc_anual"),
+            ]
+        )
         .sort(["sector", "anio"])
     )
 
     # Calcular crecimiento YoY
     sector_growth = (
-        sector_annual
-        .with_columns([
-            pl.col("monto_anual")
-            .shift(1)
-            .over("sector")
-            .alias("monto_prev"),
-        ])
+        sector_annual.with_columns(
+            [
+                pl.col("monto_anual").shift(1).over("sector").alias("monto_prev"),
+            ]
+        )
         .filter(pl.col("monto_prev").is_not_null() & (pl.col("monto_prev") > 0))
-        .with_columns([
-            ((pl.col("monto_anual") / pl.col("monto_prev")) - 1).alias("crecimiento_yoy"),
-        ])
+        .with_columns(
+            [
+                ((pl.col("monto_anual") / pl.col("monto_prev")) - 1).alias("crecimiento_yoy"),
+            ]
+        )
     )
 
     return sector_growth
@@ -204,15 +258,9 @@ def detect_emerging_markets(trends: pl.DataFrame) -> pl.DataFrame:
     """
     logger.info("Detectando mercados emergentes...")
 
-    emerging = (
-        trends
-        .filter(
-            (pl.col("cagr") > 0.20) &
-            (pl.col("r_squared") > 0.3) &
-            (pl.col("total_oc") >= 20)
-        )
-        .sort("cagr", descending=True)
-    )
+    emerging = trends.filter(
+        (pl.col("cagr") > 0.20) & (pl.col("r_squared") > 0.3) & (pl.col("total_oc") >= 20)
+    ).sort("cagr", descending=True)
 
     logger.info(f"Mercados emergentes (CAGR > 20%): {len(emerging):,}")
     return emerging

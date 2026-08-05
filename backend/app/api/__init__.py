@@ -1,4 +1,17 @@
 # API routes
-from app.api import health, data_inspection, auth, users, tenders, alerts, empresas
-from app.api import documentos, postulaciones, estado_habil, bi, dashboard, billing, webhooks
-
+from app.api import (
+    alerts,
+    auth,
+    bi,
+    billing,
+    dashboard,
+    data_inspection,
+    documentos,
+    empresas,
+    estado_habil,
+    health,
+    postulaciones,
+    tenders,
+    users,
+    webhooks,
+)

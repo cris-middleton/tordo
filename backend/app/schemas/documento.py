@@ -1,6 +1,6 @@
 from datetime import date, datetime
-from typing import Optional
 from uuid import UUID
+
 from pydantic import BaseModel
 
 
@@ -9,10 +9,10 @@ class DocumentoOut(BaseModel):
     empresa_id: UUID
     nombre: str
     tipo_documento: str
-    mime_type: Optional[str] = None
-    tamano_bytes: Optional[int] = None
-    fecha_emision: Optional[date] = None
-    fecha_vencimiento: Optional[date] = None
+    mime_type: str | None = None
+    tamano_bytes: int | None = None
+    fecha_emision: date | None = None
+    fecha_vencimiento: date | None = None
     esta_vigente: bool
     eliminado: bool
     created_at: datetime
@@ -24,4 +24,4 @@ class DocumentoOut(BaseModel):
 class DocumentoDownloadResponse(BaseModel):
     url: str
     nombre: str
-    mime_type: Optional[str] = None
+    mime_type: str | None = None

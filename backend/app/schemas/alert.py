@@ -1,23 +1,25 @@
-from pydantic import BaseModel, ConfigDict, HttpUrl, Field
-from typing import Optional, List, Dict, Any
 from datetime import datetime
-from app.models.alert import AlertStatus, AlertType, NotificationChannel
+from typing import Any, Dict, List
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.models.alert import AlertStatus, AlertType
 
 
 class AlertPreferenceBase(BaseModel):
     name: str
-    category_id: Optional[int] = None
-    organismo_ids: Optional[List[int]] = None
-    min_amount: Optional[int] = None
-    max_amount: Optional[int] = None
-    estados: Optional[List[str]] = None
-    regiones: Optional[List[str]] = None
-    comunas: Optional[List[str]] = None
-    keywords: Optional[List[str]] = None
+    category_id: int | None = None
+    organismo_ids: List[int] | None = None
+    min_amount: int | None = None
+    max_amount: int | None = None
+    estados: List[str] | None = None
+    regiones: List[str] | None = None
+    comunas: List[str] | None = None
+    keywords: List[str] | None = None
     notify_email: bool = True
     notify_in_app: bool = True
     notify_webhook: bool = False
-    webhook_url: Optional[str] = None
+    webhook_url: str | None = None
 
 
 class AlertPreferenceCreate(AlertPreferenceBase):
@@ -25,20 +27,20 @@ class AlertPreferenceCreate(AlertPreferenceBase):
 
 
 class AlertPreferenceUpdate(BaseModel):
-    name: Optional[str] = None
-    category_id: Optional[int] = None
-    organismo_ids: Optional[List[int]] = None
-    min_amount: Optional[int] = None
-    max_amount: Optional[int] = None
-    estados: Optional[List[str]] = None
-    regiones: Optional[List[str]] = None
-    comunas: Optional[List[str]] = None
-    keywords: Optional[List[str]] = None
-    notify_email: Optional[bool] = None
-    notify_in_app: Optional[bool] = None
-    notify_webhook: Optional[bool] = None
-    webhook_url: Optional[str] = None
-    is_active: Optional[bool] = None
+    name: str | None = None
+    category_id: int | None = None
+    organismo_ids: List[int] | None = None
+    min_amount: int | None = None
+    max_amount: int | None = None
+    estados: List[str] | None = None
+    regiones: List[str] | None = None
+    comunas: List[str] | None = None
+    keywords: List[str] | None = None
+    notify_email: bool | None = None
+    notify_in_app: bool | None = None
+    notify_webhook: bool | None = None
+    webhook_url: str | None = None
+    is_active: bool | None = None
 
 
 class AlertPreferenceResponse(AlertPreferenceBase):
@@ -46,8 +48,8 @@ class AlertPreferenceResponse(AlertPreferenceBase):
     user_id: int
     is_active: bool
     created_at: datetime
-    updated_at: Optional[datetime] = None
-    
+    updated_at: datetime | None = None
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -59,13 +61,15 @@ class AlertResponse(BaseModel):
     entity_type: str
     entity_id: int
     title: str
-    message: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = Field(None, alias='alert_metadata')  # Maps from alert_metadata in model
-    notification_channels: Optional[List[str]] = None
-    sent_at: Optional[datetime] = None
-    read_at: Optional[datetime] = None
+    message: str | None = None
+    metadata: Dict[str, Any] | None = Field(
+        None, alias="alert_metadata"
+    )  # Maps from alert_metadata in model
+    notification_channels: List[str] | None = None
+    sent_at: datetime | None = None
+    read_at: datetime | None = None
     created_at: datetime
-    
+
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
@@ -79,6 +83,5 @@ class AlertListResponse(BaseModel):
 
 
 class AlertUpdate(BaseModel):
-    status: Optional[AlertStatus] = None
-    read_at: Optional[datetime] = None
-
+    status: AlertStatus | None = None
+    read_at: datetime | None = None

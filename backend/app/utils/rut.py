@@ -1,5 +1,4 @@
 """Chilean RUT validation utilities."""
-import re
 
 
 def calcular_dv(rut_numero: str) -> str:

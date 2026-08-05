@@ -40,9 +40,15 @@ def extract_lic_competition() -> pl.DataFrame:
     logger.info("Extrayendo número de oferentes por licitación...")
 
     cols_needed = [
-        "CodigoExterno", "CodigoOrganismo", "NombreOrganismo",
-        "Rubro2", "CodigoTipo", "NumeroOferentes", "sector",
-        "MontoEstimado", "_periodo_archivo",
+        "CodigoExterno",
+        "CodigoOrganismo",
+        "NombreOrganismo",
+        "Rubro2",
+        "CodigoTipo",
+        "NumeroOferentes",
+        "sector",
+        "MontoEstimado",
+        "_periodo_archivo",
     ]
 
     frames = []
@@ -53,25 +59,28 @@ def extract_lic_competition() -> pl.DataFrame:
             continue
 
         batch = (
-            df
-            .filter(pl.col("CodigoExterno").is_not_null() & (pl.col("CodigoExterno") != "null"))
-            .with_columns([
-                pl.col("NumeroOferentes").cast(pl.Float64, strict=False).alias("n_ofer"),
-                pl.col("MontoEstimado").cast(pl.Float64, strict=False).alias("monto_est"),
-            ])
+            df.filter(pl.col("CodigoExterno").is_not_null() & (pl.col("CodigoExterno") != "null"))
+            .with_columns(
+                [
+                    pl.col("NumeroOferentes").cast(pl.Float64, strict=False).alias("n_ofer"),
+                    pl.col("MontoEstimado").cast(pl.Float64, strict=False).alias("monto_est"),
+                ]
+            )
             .filter(pl.col("n_ofer").is_not_null() & (pl.col("n_ofer") >= 0))
             # Una fila por licitación
             .group_by("CodigoExterno")
-            .agg([
-                pl.col("CodigoOrganismo").first(),
-                pl.col("NombreOrganismo").first(),
-                pl.col("Rubro2").first(),
-                pl.col("CodigoTipo").first(),
-                pl.col("n_ofer").first(),
-                pl.col("monto_est").first(),
-                pl.col("sector").first(),
-                pl.col("_periodo_archivo").first(),
-            ])
+            .agg(
+                [
+                    pl.col("CodigoOrganismo").first(),
+                    pl.col("NombreOrganismo").first(),
+                    pl.col("Rubro2").first(),
+                    pl.col("CodigoTipo").first(),
+                    pl.col("n_ofer").first(),
+                    pl.col("monto_est").first(),
+                    pl.col("sector").first(),
+                    pl.col("_periodo_archivo").first(),
+                ]
+            )
         )
 
         # Desduplicar cross-file
@@ -88,7 +97,9 @@ def extract_lic_competition() -> pl.DataFrame:
     result = pl.concat(frames, how="diagonal_relaxed")
     logger.info(f"Licitaciones con dato de oferentes: {len(result):,}")
     logger.info(f"  Oferentes mediano: {result['n_ofer'].median():.1f}")
-    logger.info(f"  Con 1 oferente: {(result['n_ofer'] == 1).sum():,} ({100*(result['n_ofer'] == 1).mean():.1f}%)")
+    logger.info(
+        f"  Con 1 oferente: {(result['n_ofer'] == 1).sum():,} ({100 * (result['n_ofer'] == 1).mean():.1f}%)"
+    )
     return result
 
 
@@ -105,30 +116,36 @@ def compute_competitor_forecast(lics: pl.DataFrame) -> pl.DataFrame:
 
     def _compute(df: pl.DataFrame, group_cols: list[str], level: int) -> pl.DataFrame:
         return (
-            df
-            .filter(all(
-                pl.col(c).is_not_null() & (pl.col(c) != "null")
-                for c in group_cols
-            ))
+            # Mismo caso que en preparation_window: `all()` de Python llama a
+            # bool() sobre cada expresión de Polars. Hay que usar pl.all_horizontal.
+            df.filter(
+                pl.all_horizontal(
+                    [pl.col(c).is_not_null() & (pl.col(c) != "null") for c in group_cols]
+                )
+            )
             .group_by(group_cols)
-            .agg([
-                pl.len().alias("n"),
-                pl.col("n_ofer").quantile(0.10).alias("p10"),
-                pl.col("n_ofer").quantile(0.25).alias("p25"),
-                pl.col("n_ofer").median().alias("p50"),
-                pl.col("n_ofer").quantile(0.75).alias("p75"),
-                pl.col("n_ofer").quantile(0.90).alias("p90"),
-                pl.col("n_ofer").mean().alias("media"),
-                pl.col("n_ofer").std().alias("std"),
-                (pl.col("n_ofer") <= 1).sum().alias("n_sin_competencia"),
-                (pl.col("n_ofer") <= 3).sum().alias("n_baja_competencia"),
-            ])
+            .agg(
+                [
+                    pl.len().alias("n"),
+                    pl.col("n_ofer").quantile(0.10).alias("p10"),
+                    pl.col("n_ofer").quantile(0.25).alias("p25"),
+                    pl.col("n_ofer").median().alias("p50"),
+                    pl.col("n_ofer").quantile(0.75).alias("p75"),
+                    pl.col("n_ofer").quantile(0.90).alias("p90"),
+                    pl.col("n_ofer").mean().alias("media"),
+                    pl.col("n_ofer").std().alias("std"),
+                    (pl.col("n_ofer") <= 1).sum().alias("n_sin_competencia"),
+                    (pl.col("n_ofer") <= 3).sum().alias("n_baja_competencia"),
+                ]
+            )
             .filter(pl.col("n") >= MIN_N)
-            .with_columns([
-                pl.lit(level).alias("nivel"),
-                (pl.col("n_sin_competencia") / pl.col("n")).alias("pct_sin_competencia"),
-                (pl.col("n_baja_competencia") / pl.col("n")).alias("pct_baja_competencia"),
-            ])
+            .with_columns(
+                [
+                    pl.lit(level).alias("nivel"),
+                    (pl.col("n_sin_competencia") / pl.col("n")).alias("pct_sin_competencia"),
+                    (pl.col("n_baja_competencia") / pl.col("n")).alias("pct_baja_competencia"),
+                ]
+            )
         )
 
     # L1: organismo + rubro + tipo
@@ -158,21 +175,25 @@ def compute_low_competition_markets(lics: pl.DataFrame) -> pl.DataFrame:
     logger.info("Identificando mercados de baja competencia...")
 
     result = (
-        lics
-        .filter(
-            pl.col("Rubro2").is_not_null() & (pl.col("Rubro2") != "null") &
-            pl.col("CodigoTipo").is_not_null()
+        lics.filter(
+            pl.col("Rubro2").is_not_null()
+            & (pl.col("Rubro2") != "null")
+            & pl.col("CodigoTipo").is_not_null()
         )
         .group_by(["CodigoOrganismo", "NombreOrganismo", "Rubro2", "CodigoTipo"])
-        .agg([
-            pl.len().alias("n"),
-            pl.col("n_ofer").median().alias("oferentes_mediano"),
-            (pl.col("n_ofer") <= 2).sum().alias("n_pocos_oferentes"),
-        ])
+        .agg(
+            [
+                pl.len().alias("n"),
+                pl.col("n_ofer").median().alias("oferentes_mediano"),
+                (pl.col("n_ofer") <= 2).sum().alias("n_pocos_oferentes"),
+            ]
+        )
         .filter(pl.col("n") >= 10)
-        .with_columns([
-            (pl.col("n_pocos_oferentes") / pl.col("n")).alias("pct_pocos_oferentes"),
-        ])
+        .with_columns(
+            [
+                (pl.col("n_pocos_oferentes") / pl.col("n")).alias("pct_pocos_oferentes"),
+            ]
+        )
         .filter(pl.col("pct_pocos_oferentes") >= 0.60)
         .sort("n", descending=True)
     )
@@ -207,10 +228,12 @@ def run_competitor_predictor() -> dict[str, pl.DataFrame]:
     logger.info("\nEjemplos de contextos con distribución conocida (L1):")
     top = forecasts["l1"].sort("n", descending=True).head(5)
     for row in top.iter_rows(named=True):
-        logger.info(f"  {(row.get('NombreOrganismo') or '')[:30]:30s} | "
-                    f"{(row.get('Rubro2') or '')[:25]:25s} | "
-                    f"{row['CodigoTipo']:4s} → "
-                    f"p25={row['p25']:.0f} p50={row['p50']:.0f} p75={row['p75']:.0f} ofer. "
-                    f"(n={row['n']:,})")
+        logger.info(
+            f"  {(row.get('NombreOrganismo') or '')[:30]:30s} | "
+            f"{(row.get('Rubro2') or '')[:25]:25s} | "
+            f"{row['CodigoTipo']:4s} → "
+            f"p25={row['p25']:.0f} p50={row['p50']:.0f} p75={row['p75']:.0f} ofer. "
+            f"(n={row['n']:,})"
+        )
 
     return {**forecasts, "low_competition": low_comp, "raw": lics}

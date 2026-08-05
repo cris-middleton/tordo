@@ -23,7 +23,6 @@ Output:
 
 import logging
 
-import numpy as np
 import polars as pl
 
 from .config import OUTPUT_DIR
@@ -37,9 +36,15 @@ def build_sector_dashboard() -> pl.DataFrame:
     logger.info("Construyendo dashboard por sector...")
 
     cols_needed = [
-        "CodigoOrganismoPublico", "OrganismoPublico", "sector",
-        "CodigoProveedor", "NombreProveedor", "RubroN2",
-        "MontoTotalOC_PesosChilenos", "FechaEnvio", "FechaAceptacion",
+        "CodigoOrganismoPublico",
+        "OrganismoPublico",
+        "sector",
+        "CodigoProveedor",
+        "NombreProveedor",
+        "RubroN2",
+        "MontoTotalOC_PesosChilenos",
+        "FechaEnvio",
+        "FechaAceptacion",
         "_periodo_archivo",
     ]
 
@@ -50,25 +55,30 @@ def build_sector_dashboard() -> pl.DataFrame:
             continue
 
         batch = (
-            df
-            .filter(
-                pl.col("sector").is_not_null() &
-                (pl.col("sector") != "null") &
-                (pl.col("sector") != "")
+            df.filter(
+                pl.col("sector").is_not_null()
+                & (pl.col("sector") != "null")
+                & (pl.col("sector") != "")
             )
-            .with_columns([
-                pl.col("MontoTotalOC_PesosChilenos").cast(pl.Float64, strict=False).alias("monto"),
-            ])
+            .with_columns(
+                [
+                    pl.col("MontoTotalOC_PesosChilenos")
+                    .cast(pl.Float64, strict=False)
+                    .alias("monto"),
+                ]
+            )
             .group_by("sector")
-            .agg([
-                pl.len().alias("n_oc"),
-                pl.col("monto").sum().alias("monto_total"),
-                pl.col("monto").median().alias("ticket_mediana"),
-                pl.col("monto").mean().alias("ticket_promedio"),
-                pl.col("CodigoOrganismoPublico").n_unique().alias("n_organismos"),
-                pl.col("CodigoProveedor").n_unique().alias("n_proveedores"),
-                pl.col("RubroN2").n_unique().alias("n_rubros"),
-            ])
+            .agg(
+                [
+                    pl.len().alias("n_oc"),
+                    pl.col("monto").sum().alias("monto_total"),
+                    pl.col("monto").median().alias("ticket_mediana"),
+                    pl.col("monto").mean().alias("ticket_promedio"),
+                    pl.col("CodigoOrganismoPublico").n_unique().alias("n_organismos"),
+                    pl.col("CodigoProveedor").n_unique().alias("n_proveedores"),
+                    pl.col("RubroN2").n_unique().alias("n_rubros"),
+                ]
+            )
         )
         frames.append(batch)
 
@@ -77,25 +87,32 @@ def build_sector_dashboard() -> pl.DataFrame:
 
     combined = pl.concat(frames, how="diagonal_relaxed")
     result = (
-        combined
-        .group_by("sector")
-        .agg([
-            pl.col("n_oc").sum(),
-            pl.col("monto_total").sum(),
-            (pl.col("ticket_mediana") * pl.col("n_oc")).sum().alias("_wt_med"),
-            (pl.col("ticket_promedio") * pl.col("n_oc")).sum().alias("_wt_avg"),
-            pl.col("n_organismos").max().alias("n_organismos"),
-            pl.col("n_proveedores").max().alias("n_proveedores"),
-            pl.col("n_rubros").max().alias("n_rubros"),
-        ])
-        .with_columns([
-            (pl.col("_wt_med") / pl.col("n_oc")).alias("ticket_mediana"),
-            (pl.col("_wt_avg") / pl.col("n_oc")).alias("ticket_promedio"),
-            # Accesibilidad: más proveedores por OC = más competitivo pero más accesible
-            (pl.col("n_proveedores") / pl.col("n_oc").clip(lower_bound=1)).alias("ratio_proveedores_oc"),
-            # Monto promedio por organismo (tamaño del comprador promedio)
-            (pl.col("monto_total") / pl.col("n_organismos").clip(lower_bound=1)).alias("monto_por_organismo"),
-        ])
+        combined.group_by("sector")
+        .agg(
+            [
+                pl.col("n_oc").sum(),
+                pl.col("monto_total").sum(),
+                (pl.col("ticket_mediana") * pl.col("n_oc")).sum().alias("_wt_med"),
+                (pl.col("ticket_promedio") * pl.col("n_oc")).sum().alias("_wt_avg"),
+                pl.col("n_organismos").max().alias("n_organismos"),
+                pl.col("n_proveedores").max().alias("n_proveedores"),
+                pl.col("n_rubros").max().alias("n_rubros"),
+            ]
+        )
+        .with_columns(
+            [
+                (pl.col("_wt_med") / pl.col("n_oc")).alias("ticket_mediana"),
+                (pl.col("_wt_avg") / pl.col("n_oc")).alias("ticket_promedio"),
+                # Accesibilidad: más proveedores por OC = más competitivo pero más accesible
+                (pl.col("n_proveedores") / pl.col("n_oc").clip(lower_bound=1)).alias(
+                    "ratio_proveedores_oc"
+                ),
+                # Monto promedio por organismo (tamaño del comprador promedio)
+                (pl.col("monto_total") / pl.col("n_organismos").clip(lower_bound=1)).alias(
+                    "monto_por_organismo"
+                ),
+            ]
+        )
         .drop(["_wt_med", "_wt_avg"])
         .sort("monto_total", descending=True)
     )
@@ -109,8 +126,11 @@ def build_region_dashboard() -> pl.DataFrame:
     logger.info("Construyendo dashboard por región...")
 
     cols_needed = [
-        "RegionUnidadCompra", "sector", "CodigoOrganismoPublico",
-        "CodigoProveedor", "MontoTotalOC_PesosChilenos",
+        "RegionUnidadCompra",
+        "sector",
+        "CodigoOrganismoPublico",
+        "CodigoProveedor",
+        "MontoTotalOC_PesosChilenos",
     ]
 
     frames = []
@@ -120,23 +140,28 @@ def build_region_dashboard() -> pl.DataFrame:
             continue
 
         batch = (
-            df
-            .filter(
-                pl.col("RegionUnidadCompra").is_not_null() &
-                (pl.col("RegionUnidadCompra") != "null") &
-                (pl.col("RegionUnidadCompra") != "")
+            df.filter(
+                pl.col("RegionUnidadCompra").is_not_null()
+                & (pl.col("RegionUnidadCompra") != "null")
+                & (pl.col("RegionUnidadCompra") != "")
             )
-            .with_columns([
-                pl.col("MontoTotalOC_PesosChilenos").cast(pl.Float64, strict=False).alias("monto"),
-            ])
+            .with_columns(
+                [
+                    pl.col("MontoTotalOC_PesosChilenos")
+                    .cast(pl.Float64, strict=False)
+                    .alias("monto"),
+                ]
+            )
             .group_by("RegionUnidadCompra")
-            .agg([
-                pl.len().alias("n_oc"),
-                pl.col("monto").sum().alias("monto_total"),
-                pl.col("monto").median().alias("ticket_mediana"),
-                pl.col("CodigoOrganismoPublico").n_unique().alias("n_organismos"),
-                pl.col("CodigoProveedor").n_unique().alias("n_proveedores"),
-            ])
+            .agg(
+                [
+                    pl.len().alias("n_oc"),
+                    pl.col("monto").sum().alias("monto_total"),
+                    pl.col("monto").median().alias("ticket_mediana"),
+                    pl.col("CodigoOrganismoPublico").n_unique().alias("n_organismos"),
+                    pl.col("CodigoProveedor").n_unique().alias("n_proveedores"),
+                ]
+            )
         )
         frames.append(batch)
 
@@ -145,18 +170,21 @@ def build_region_dashboard() -> pl.DataFrame:
 
     combined = pl.concat(frames, how="diagonal_relaxed")
     result = (
-        combined
-        .group_by("RegionUnidadCompra")
-        .agg([
-            pl.col("n_oc").sum(),
-            pl.col("monto_total").sum(),
-            (pl.col("ticket_mediana") * pl.col("n_oc")).sum().alias("_wt_med"),
-            pl.col("n_organismos").max().alias("n_organismos"),
-            pl.col("n_proveedores").max().alias("n_proveedores"),
-        ])
-        .with_columns([
-            (pl.col("_wt_med") / pl.col("n_oc")).alias("ticket_mediana"),
-        ])
+        combined.group_by("RegionUnidadCompra")
+        .agg(
+            [
+                pl.col("n_oc").sum(),
+                pl.col("monto_total").sum(),
+                (pl.col("ticket_mediana") * pl.col("n_oc")).sum().alias("_wt_med"),
+                pl.col("n_organismos").max().alias("n_organismos"),
+                pl.col("n_proveedores").max().alias("n_proveedores"),
+            ]
+        )
+        .with_columns(
+            [
+                (pl.col("_wt_med") / pl.col("n_oc")).alias("ticket_mediana"),
+            ]
+        )
         .drop("_wt_med")
         .sort("monto_total", descending=True)
     )
@@ -170,8 +198,10 @@ def build_sector_region_matrix() -> pl.DataFrame:
     logger.info("Construyendo matriz sector × región...")
 
     cols_needed = [
-        "sector", "RegionUnidadCompra",
-        "MontoTotalOC_PesosChilenos", "CodigoProveedor",
+        "sector",
+        "RegionUnidadCompra",
+        "MontoTotalOC_PesosChilenos",
+        "CodigoProveedor",
     ]
 
     frames = []
@@ -181,20 +211,27 @@ def build_sector_region_matrix() -> pl.DataFrame:
             continue
 
         batch = (
-            df
-            .filter(
-                pl.col("sector").is_not_null() & (pl.col("sector") != "null") &
-                pl.col("RegionUnidadCompra").is_not_null() & (pl.col("RegionUnidadCompra") != "null")
+            df.filter(
+                pl.col("sector").is_not_null()
+                & (pl.col("sector") != "null")
+                & pl.col("RegionUnidadCompra").is_not_null()
+                & (pl.col("RegionUnidadCompra") != "null")
             )
-            .with_columns([
-                pl.col("MontoTotalOC_PesosChilenos").cast(pl.Float64, strict=False).alias("monto"),
-            ])
+            .with_columns(
+                [
+                    pl.col("MontoTotalOC_PesosChilenos")
+                    .cast(pl.Float64, strict=False)
+                    .alias("monto"),
+                ]
+            )
             .group_by(["sector", "RegionUnidadCompra"])
-            .agg([
-                pl.len().alias("n_oc"),
-                pl.col("monto").sum().alias("monto_total"),
-                pl.col("CodigoProveedor").n_unique().alias("n_proveedores"),
-            ])
+            .agg(
+                [
+                    pl.len().alias("n_oc"),
+                    pl.col("monto").sum().alias("monto_total"),
+                    pl.col("CodigoProveedor").n_unique().alias("n_proveedores"),
+                ]
+            )
         )
         frames.append(batch)
 
@@ -203,13 +240,14 @@ def build_sector_region_matrix() -> pl.DataFrame:
 
     combined = pl.concat(frames, how="diagonal_relaxed")
     result = (
-        combined
-        .group_by(["sector", "RegionUnidadCompra"])
-        .agg([
-            pl.col("n_oc").sum(),
-            pl.col("monto_total").sum(),
-            pl.col("n_proveedores").max(),
-        ])
+        combined.group_by(["sector", "RegionUnidadCompra"])
+        .agg(
+            [
+                pl.col("n_oc").sum(),
+                pl.col("monto_total").sum(),
+                pl.col("n_proveedores").max(),
+            ]
+        )
         .sort(["sector", "monto_total"], descending=[False, True])
     )
 
@@ -242,6 +280,8 @@ def run_sector_intelligence() -> dict[str, pl.DataFrame]:
     logger.info("\nTop 10 sectores por monto:")
     for row in sector.head(10).iter_rows(named=True):
         monto_b = row["monto_total"] / 1e9 if row["monto_total"] else 0
-        logger.info(f"  {row['sector']:30s} — ${monto_b:,.1f}B CLP | {row['n_oc']:>10,} OC | {row['n_proveedores']:>6,} proveedores")
+        logger.info(
+            f"  {row['sector']:30s} — ${monto_b:,.1f}B CLP | {row['n_oc']:>10,} OC | {row['n_proveedores']:>6,} proveedores"
+        )
 
     return {"sector": sector, "region": region, "matrix": matrix}

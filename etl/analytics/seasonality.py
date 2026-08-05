@@ -19,10 +19,9 @@ Output:
 
 import logging
 
-import numpy as np
 import polars as pl
 
-from .config import OUTPUT_DIR, MIN_OBSERVATIONS
+from .config import MIN_OBSERVATIONS, OUTPUT_DIR
 from .data_loader import iter_oc_parquets
 
 logger = logging.getLogger(__name__)
@@ -37,8 +36,11 @@ def build_monthly_aggregates() -> pl.DataFrame:
     logger.info("Construyendo agregados mensuales de OC...")
 
     cols_needed = [
-        "FechaCreacion", "CodigoOrganismoPublico", "OrganismoPublico",
-        "RubroN2", "MontoTotalOC_PesosChilenos",
+        "FechaCreacion",
+        "CodigoOrganismoPublico",
+        "OrganismoPublico",
+        "RubroN2",
+        "MontoTotalOC_PesosChilenos",
     ]
     agg_frames = []
 
@@ -48,16 +50,23 @@ def build_monthly_aggregates() -> pl.DataFrame:
 
         # Extraer año y mes con str.slice nativo (formato YYYY-MM-DD)
         parsed = (
-            df
-            .filter(
-                pl.col("FechaCreacion").is_not_null() &
-                (pl.col("FechaCreacion").str.len_chars() >= 7) &
-                (pl.col("FechaCreacion") != "null")
+            df.filter(
+                pl.col("FechaCreacion").is_not_null()
+                & (pl.col("FechaCreacion").str.len_chars() >= 7)
+                & (pl.col("FechaCreacion") != "null")
             )
-            .with_columns([
-                pl.col("FechaCreacion").str.slice(0, 4).cast(pl.Int64, strict=False).alias("anio"),
-                pl.col("FechaCreacion").str.slice(5, 2).cast(pl.Int64, strict=False).alias("mes"),
-            ])
+            .with_columns(
+                [
+                    pl.col("FechaCreacion")
+                    .str.slice(0, 4)
+                    .cast(pl.Int64, strict=False)
+                    .alias("anio"),
+                    pl.col("FechaCreacion")
+                    .str.slice(5, 2)
+                    .cast(pl.Int64, strict=False)
+                    .alias("mes"),
+                ]
+            )
             .filter(pl.col("anio").is_not_null() & pl.col("mes").is_not_null())
         )
 
@@ -66,14 +75,14 @@ def build_monthly_aggregates() -> pl.DataFrame:
         else:
             monto_expr = pl.lit(0.0)
 
-        agg = (
-            parsed
-            .group_by(["CodigoOrganismoPublico", "OrganismoPublico", "RubroN2", "anio", "mes"])
-            .agg([
+        agg = parsed.group_by(
+            ["CodigoOrganismoPublico", "OrganismoPublico", "RubroN2", "anio", "mes"]
+        ).agg(
+            [
                 pl.len().alias("n_compras"),
                 monto_expr.sum().alias("monto_total"),
                 monto_expr.mean().alias("monto_promedio"),
-            ])
+            ]
         )
         agg_frames.append(agg)
         logger.debug(f"  {periodo}: {len(agg)} agregados")
@@ -84,13 +93,13 @@ def build_monthly_aggregates() -> pl.DataFrame:
 
     # Combinar y re-agregar (por si un organismo-rubro aparece en múltiples archivos del mismo mes)
     combined = pl.concat(agg_frames, how="diagonal_relaxed")
-    result = (
-        combined
-        .group_by(["CodigoOrganismoPublico", "OrganismoPublico", "RubroN2", "anio", "mes"])
-        .agg([
+    result = combined.group_by(
+        ["CodigoOrganismoPublico", "OrganismoPublico", "RubroN2", "anio", "mes"]
+    ).agg(
+        [
             pl.col("n_compras").sum(),
             pl.col("monto_total").sum(),
-        ])
+        ]
     )
     logger.info(f"Agregados mensuales: {len(result):,} filas")
     return result
@@ -108,68 +117,69 @@ def detect_seasonality_patterns(monthly_agg: pl.DataFrame) -> pl.DataFrame:
 
     # Calcular total por (organismo, rubro) para filtrar pares con pocas obs
     totals = (
-        monthly_agg
-        .group_by(["CodigoOrganismoPublico", "RubroN2"])
-        .agg([
-            pl.col("n_compras").sum().alias("total_compras"),
-            pl.col("anio").n_unique().alias("n_anios_activo"),
-        ])
-        .filter(
-            (pl.col("total_compras") >= MIN_OBSERVATIONS) &
-            (pl.col("n_anios_activo") >= 2)
+        monthly_agg.group_by(["CodigoOrganismoPublico", "RubroN2"])
+        .agg(
+            [
+                pl.col("n_compras").sum().alias("total_compras"),
+                pl.col("anio").n_unique().alias("n_anios_activo"),
+            ]
         )
+        .filter((pl.col("total_compras") >= MIN_OBSERVATIONS) & (pl.col("n_anios_activo") >= 2))
     )
 
     # Distribución mensual por (organismo, rubro)
-    monthly_dist = (
-        monthly_agg
-        .group_by(["CodigoOrganismoPublico", "RubroN2", "mes"])
-        .agg([
+    monthly_dist = monthly_agg.group_by(["CodigoOrganismoPublico", "RubroN2", "mes"]).agg(
+        [
             pl.col("n_compras").sum().alias("compras_mes"),
             pl.col("anio").n_unique().alias("anios_con_compra_en_mes"),
-        ])
+        ]
     )
 
     # Join para obtener totales y filtrar
-    patterns = (
-        monthly_dist
-        .join(totals, on=["CodigoOrganismoPublico", "RubroN2"], how="inner")
-        .with_columns([
+    patterns = monthly_dist.join(
+        totals, on=["CodigoOrganismoPublico", "RubroN2"], how="inner"
+    ).with_columns(
+        [
             (pl.col("compras_mes") / pl.col("total_compras")).alias("prob_mes"),
             (pl.col("anios_con_compra_en_mes") / pl.col("n_anios_activo")).alias("consistencia"),
-        ])
+        ]
     )
 
     # Calcular z-score mensual por grupo (qué tan por encima del promedio está cada mes)
-    avg_monthly = (
-        patterns
-        .group_by(["CodigoOrganismoPublico", "RubroN2"])
-        .agg([
+    avg_monthly = patterns.group_by(["CodigoOrganismoPublico", "RubroN2"]).agg(
+        [
             pl.col("prob_mes").mean().alias("prob_avg"),
             pl.col("prob_mes").std().alias("prob_std"),
-        ])
+        ]
     )
 
     patterns = (
-        patterns
-        .join(avg_monthly, on=["CodigoOrganismoPublico", "RubroN2"], how="left")
-        .with_columns([
-            pl.when(pl.col("prob_std") > 0)
-            .then((pl.col("prob_mes") - pl.col("prob_avg")) / pl.col("prob_std"))
-            .otherwise(0.0)
-            .alias("z_score"),
-        ])
-        .with_columns([
-            # Flag meses con pico significativo (z > 1.0 y consistencia > 50%)
-            ((pl.col("z_score") > 1.0) & (pl.col("consistencia") > 0.5)).alias("es_pico_estacional"),
-        ])
+        patterns.join(avg_monthly, on=["CodigoOrganismoPublico", "RubroN2"], how="left")
+        .with_columns(
+            [
+                pl.when(pl.col("prob_std") > 0)
+                .then((pl.col("prob_mes") - pl.col("prob_avg")) / pl.col("prob_std"))
+                .otherwise(0.0)
+                .alias("z_score"),
+            ]
+        )
+        .with_columns(
+            [
+                # Flag meses con pico significativo (z > 1.0 y consistencia > 50%)
+                ((pl.col("z_score") > 1.0) & (pl.col("consistencia") > 0.5)).alias(
+                    "es_pico_estacional"
+                ),
+            ]
+        )
         .drop(["prob_avg", "prob_std"])
         .sort(["CodigoOrganismoPublico", "RubroN2", "mes"])
     )
 
     n_picos = patterns.filter(pl.col("es_pico_estacional")).shape[0]
     n_pares = totals.shape[0]
-    logger.info(f"Patrones: {len(patterns):,} filas, {n_pares:,} pares organismo-rubro, {n_picos:,} picos estacionales")
+    logger.info(
+        f"Patrones: {len(patterns):,} filas, {n_pares:,} pares organismo-rubro, {n_picos:,} picos estacionales"
+    )
     return patterns
 
 
@@ -192,32 +202,34 @@ def generate_predictions(patterns: pl.DataFrame, months_ahead: int = 12) -> pl.D
         future_months.append((future.year, future.month))
 
     # Para cada par con picos, generar predicción
-    peak_pairs = (
-        patterns
-        .filter(pl.col("es_pico_estacional"))
-        .select(["CodigoOrganismoPublico", "RubroN2", "mes", "prob_mes",
-                 "consistencia", "total_compras", "n_anios_activo"])
+    peak_pairs = patterns.filter(pl.col("es_pico_estacional")).select(
+        [
+            "CodigoOrganismoPublico",
+            "RubroN2",
+            "mes",
+            "prob_mes",
+            "consistencia",
+            "total_compras",
+            "n_anios_activo",
+        ]
     )
 
     predictions = []
     for year, month in future_months:
-        month_preds = (
-            peak_pairs
-            .filter(pl.col("mes") == month)
-            .with_columns([
+        month_preds = peak_pairs.filter(pl.col("mes") == month).with_columns(
+            [
                 pl.lit(year).alias("pred_anio"),
                 pl.lit(month).alias("pred_mes"),
                 (pl.col("prob_mes") * pl.col("consistencia")).alias("score_prediccion"),
-            ])
+            ]
         )
         predictions.append(month_preds)
 
     if not predictions:
         return pl.DataFrame()
 
-    result = (
-        pl.concat(predictions, how="diagonal_relaxed")
-        .sort(["score_prediccion"], descending=True)
+    result = pl.concat(predictions, how="diagonal_relaxed").sort(
+        ["score_prediccion"], descending=True
     )
 
     logger.info(f"Predicciones generadas: {len(result):,} filas")

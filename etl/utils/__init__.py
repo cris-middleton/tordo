@@ -4,9 +4,9 @@ from etl.utils.change_detection import (
     detectar_cambios_licitacion,
     detectar_cambios_orden_compra,
     necesita_actualizacion,
-    priorizar_actualizaciones,
+    now_santiago,
     now_utc,
-    now_santiago
+    priorizar_actualizaciones,
 )
 
 __all__ = [
@@ -18,4 +18,3 @@ __all__ = [
     "priorizar_actualizaciones",
     "now_utc",
 ]
-

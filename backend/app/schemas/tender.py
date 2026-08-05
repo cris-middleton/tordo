@@ -1,84 +1,86 @@
-from pydantic import BaseModel, ConfigDict
-from typing import Optional, List, Dict, Any
 from datetime import datetime
 from decimal import Decimal
+from typing import Any, Dict, List
+
+from pydantic import BaseModel, ConfigDict
 
 
 class TenderBase(BaseModel):
     codigo_externo: str
     nombre: str
-    descripcion: Optional[str] = None
+    descripcion: str | None = None
     fecha_publicacion: datetime
-    fecha_cierre: Optional[datetime] = None
-    monto_estimado: Optional[Decimal] = None
-    estado: Optional[str] = None
-    tipo_licitacion: Optional[str] = None
-    region: Optional[str] = None
-    comuna: Optional[str] = None
+    fecha_cierre: datetime | None = None
+    monto_estimado: Decimal | None = None
+    estado: str | None = None
+    tipo_licitacion: str | None = None
+    region: str | None = None
+    comuna: str | None = None
 
 
 class TenderCreate(TenderBase):
-    codigo_interno: Optional[str] = None
-    organismo_id: Optional[int] = None
+    codigo_interno: str | None = None
+    organismo_id: int | None = None
 
 
 class TenderUpdate(BaseModel):
-    nombre: Optional[str] = None
-    descripcion: Optional[str] = None
-    fecha_cierre: Optional[datetime] = None
-    monto_estimado: Optional[Decimal] = None
-    estado: Optional[str] = None
-    organismo_id: Optional[int] = None
+    nombre: str | None = None
+    descripcion: str | None = None
+    fecha_cierre: datetime | None = None
+    monto_estimado: Decimal | None = None
+    estado: str | None = None
+    organismo_id: int | None = None
 
 
 class LicitacionDetalleResponse(BaseModel):
     """Schema for licitacion detalle information"""
+
     id: int
     licitacion_id: int
     codigo_externo: str
-    fecha_primera_extraccion: Optional[datetime] = None
-    fecha_ultima_actualizacion: Optional[datetime] = None
-    numero_actualizaciones: Optional[int] = None
-    hash_contenido: Optional[str] = None
-    datos_completos: Optional[Dict[str, Any]] = None
-    items: Optional[Any] = None
-    documentos: Optional[Any] = None
-    participantes: Optional[Any] = None
-    etapas: Optional[Any] = None
-    adjuntos: Optional[Any] = None
-    estado_actual: Optional[str] = None
-    fecha_cierre_real: Optional[datetime] = None
-    fecha_adjudicacion: Optional[datetime] = None
-    monto_adjudicado: Optional[str] = None
-    proveedor_adjudicado: Optional[str] = None
-    
+    fecha_primera_extraccion: datetime | None = None
+    fecha_ultima_actualizacion: datetime | None = None
+    numero_actualizaciones: int | None = None
+    hash_contenido: str | None = None
+    datos_completos: Dict[str, Any] | None = None
+    items: Any | None = None
+    documentos: Any | None = None
+    participantes: Any | None = None
+    etapas: Any | None = None
+    adjuntos: Any | None = None
+    estado_actual: str | None = None
+    fecha_cierre_real: datetime | None = None
+    fecha_adjudicacion: datetime | None = None
+    monto_adjudicado: str | None = None
+    proveedor_adjudicado: str | None = None
+
     model_config = ConfigDict(from_attributes=True)
 
 
 class TenderResponse(TenderBase):
     id: int
-    codigo_interno: Optional[str] = None
-    monto_total: Optional[Decimal] = None
-    moneda: Optional[str] = None
-    tipo_moneda: Optional[str] = None
-    codigo_organismo: Optional[str] = None
-    nombre_organismo: Optional[str] = None
-    rut_organismo: Optional[str] = None
-    organismo_id: Optional[int] = None
-    fecha_inicio: Optional[datetime] = None
-    fecha_final: Optional[datetime] = None
-    informacion_adicional: Optional[Dict[str, Any]] = None
-    items: Optional[List[Dict[str, Any]]] = None
-    url_acta: Optional[str] = None
-    url_licitacion: Optional[str] = None
+    codigo_interno: str | None = None
+    monto_total: Decimal | None = None
+    moneda: str | None = None
+    tipo_moneda: str | None = None
+    codigo_organismo: str | None = None
+    nombre_organismo: str | None = None
+    rut_organismo: str | None = None
+    organismo_id: int | None = None
+    fecha_inicio: datetime | None = None
+    fecha_final: datetime | None = None
+    informacion_adicional: Dict[str, Any] | None = None
+    items: List[Dict[str, Any]] | None = None
+    url_acta: str | None = None
+    url_licitacion: str | None = None
     fecha_extraccion: datetime
-    fecha_actualizacion: Optional[datetime] = None
-    detalle: Optional[LicitacionDetalleResponse] = None
+    fecha_actualizacion: datetime | None = None
+    detalle: LicitacionDetalleResponse | None = None
 
     # Populated only when TF-IDF re-ranking or empresa-fit scoring is applied.
-    similarity_score: Optional[float] = None
-    score_encaje: Optional[float] = None
-    nivel_encaje: Optional[str] = None
+    similarity_score: float | None = None
+    score_encaje: float | None = None
+    nivel_encaje: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -89,4 +91,3 @@ class TenderListResponse(BaseModel):
     page: int
     size: int
     pages: int
-

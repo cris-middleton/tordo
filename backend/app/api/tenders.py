@@ -1,16 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy import select, or_, func, asc, desc
-from sqlalchemy.orm import selectinload
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Optional
 from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import asc, desc, func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
 from app.config import settings
+from app.core.security import get_current_active_user
 from app.db import get_db
 from app.models.empresa import EmpresaUsuario, TFIDFPerfil
 from app.models.licitacion import Licitacion
-from app.core.security import get_current_active_user
 from app.models.user import User
-from app.schemas.tender import TenderResponse, TenderListResponse
+from app.schemas.tender import TenderListResponse, TenderResponse
 
 router = APIRouter(prefix="/api/tenders", tags=["tenders"])
 
@@ -34,22 +35,28 @@ def _to_response(lic: Licitacion, **extra) -> TenderResponse:
 async def list_tenders(
     skip: int = Query(0, ge=0, alias="offset"),
     limit: int = Query(20, ge=1, le=100, alias="limit"),
-    estado: Optional[str] = None,
-    codigo_organismo: Optional[str] = None,
-    region: Optional[str] = None,
-    min_amount: Optional[float] = None,
-    max_amount: Optional[float] = None,
-    search: Optional[str] = None,
-    empresa_id: Optional[UUID] = Query(None, description="UUID empresa — habilita score_encaje por fila"),
-    sort_by: Optional[str] = Query(
+    estado: str | None = None,
+    codigo_organismo: str | None = None,
+    region: str | None = None,
+    min_amount: float | None = None,
+    max_amount: float | None = None,
+    search: str | None = None,
+    empresa_id: UUID | None = Query(
+        None, description="UUID empresa — habilita score_encaje por fila"
+    ),
+    sort_by: str | None = Query(
         None,
         pattern="^(fecha_publicacion|fecha_cierre|monto_estimado|nombre|relevance|score_encaje)$",
     ),
-    sort_order: Optional[str] = Query("desc", pattern="^(asc|desc)$"),
+    sort_order: str | None = Query("desc", pattern="^(asc|desc)$"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    stmt = select(Licitacion).options(selectinload(Licitacion.detalle)).where(Licitacion.activo == True)
+    stmt = (
+        select(Licitacion)
+        .options(selectinload(Licitacion.detalle))
+        .where(Licitacion.activo == True)
+    )
     if estado:
         stmt = stmt.where(Licitacion.estado == estado)
     if codigo_organismo:
@@ -75,7 +82,7 @@ async def list_tenders(
 
     # Load empresa perfil upfront if requested — needed for both enrichment and
     # `sort_by=score_encaje`. Fail closed on unauthorized empresa access.
-    perfil_bytes: Optional[bytes] = None
+    perfil_bytes: bytes | None = None
     want_encaje = bool(empresa_id) and settings.feature_tfidf
     if empresa_id:
         membership = (
@@ -90,9 +97,7 @@ async def list_tenders(
             raise HTTPException(status_code=403, detail="Sin acceso a esta empresa")
         if want_encaje:
             perfil = (
-                await db.execute(
-                    select(TFIDFPerfil).where(TFIDFPerfil.empresa_id == empresa_id)
-                )
+                await db.execute(select(TFIDFPerfil).where(TFIDFPerfil.empresa_id == empresa_id))
             ).scalar_one_or_none()
             if perfil and perfil.vector_bytes:
                 perfil_bytes = perfil.vector_bytes
@@ -182,8 +187,10 @@ async def list_tenders(
     order_fn = desc if sort_order == "desc" else asc
 
     rows = (
-        await db.execute(stmt.order_by(order_fn(sort_col)).offset(skip).limit(limit))
-    ).scalars().all()
+        (await db.execute(stmt.order_by(order_fn(sort_col)).offset(skip).limit(limit)))
+        .scalars()
+        .all()
+    )
 
     # Enrich page rows with encaje when requested — purely informational, does
     # not affect ordering in the default path.
@@ -216,9 +223,9 @@ async def get_tender(
 ):
     tender = (
         await db.execute(
-            select(Licitacion).options(selectinload(Licitacion.detalle)).where(
-                Licitacion.id == tender_id, Licitacion.activo == True
-            )
+            select(Licitacion)
+            .options(selectinload(Licitacion.detalle))
+            .where(Licitacion.id == tender_id, Licitacion.activo == True)
         )
     ).scalar_one_or_none()
     if not tender:
@@ -234,9 +241,9 @@ async def get_tender_by_code(
 ):
     tender = (
         await db.execute(
-            select(Licitacion).options(selectinload(Licitacion.detalle)).where(
-                Licitacion.codigo_externo == codigo_externo, Licitacion.activo == True
-            )
+            select(Licitacion)
+            .options(selectinload(Licitacion.detalle))
+            .where(Licitacion.codigo_externo == codigo_externo, Licitacion.activo == True)
         )
     ).scalar_one_or_none()
     if not tender:

@@ -25,7 +25,7 @@ import warnings
 import numpy as np
 import polars as pl
 
-from .config import OUTPUT_DIR, MIN_OBSERVATIONS
+from .config import MIN_OBSERVATIONS, OUTPUT_DIR
 from .data_loader import iter_oc_parquets
 
 logger = logging.getLogger(__name__)
@@ -44,8 +44,11 @@ def build_price_aggregates() -> pl.DataFrame:
     logger.info("Construyendo agregados de precios...")
 
     cols_needed = [
-        "CodigoOrganismoPublico", "OrganismoPublico", "RubroN2",
-        "MontoTotalOC_PesosChilenos", "FechaCreacion",
+        "CodigoOrganismoPublico",
+        "OrganismoPublico",
+        "RubroN2",
+        "MontoTotalOC_PesosChilenos",
+        "FechaCreacion",
     ]
 
     # Primera pasada: estadísticas básicas
@@ -55,32 +58,37 @@ def build_price_aggregates() -> pl.DataFrame:
             continue
 
         agg = (
-            df
-            .with_columns([
-                pl.col("MontoTotalOC_PesosChilenos").cast(pl.Float64, strict=False).alias("monto"),
-            ])
+            df.with_columns(
+                [
+                    pl.col("MontoTotalOC_PesosChilenos")
+                    .cast(pl.Float64, strict=False)
+                    .alias("monto"),
+                ]
+            )
             .filter(
-                pl.col("monto").is_not_null() &
-                (pl.col("monto") > 0) &
-                pl.col("CodigoOrganismoPublico").is_not_null() &
-                pl.col("RubroN2").is_not_null()
+                pl.col("monto").is_not_null()
+                & (pl.col("monto") > 0)
+                & pl.col("CodigoOrganismoPublico").is_not_null()
+                & pl.col("RubroN2").is_not_null()
             )
             .group_by(["CodigoOrganismoPublico", "OrganismoPublico", "RubroN2"])
-            .agg([
-                pl.len().alias("n"),
-                pl.col("monto").sum().alias("sum_monto"),
-                (pl.col("monto").pow(2)).sum().alias("sum_sq_monto"),
-                pl.col("monto").min().alias("min_monto"),
-                pl.col("monto").max().alias("max_monto"),
-                pl.col("monto").median().alias("median_monto"),
-                pl.col("monto").quantile(0.10).alias("p10"),
-                pl.col("monto").quantile(0.25).alias("p25"),
-                pl.col("monto").quantile(0.75).alias("p75"),
-                pl.col("monto").quantile(0.90).alias("p90"),
-                # Log-normal params (para precios > 0)
-                pl.col("monto").log().mean().alias("log_mean"),
-                pl.col("monto").log().std().alias("log_std"),
-            ])
+            .agg(
+                [
+                    pl.len().alias("n"),
+                    pl.col("monto").sum().alias("sum_monto"),
+                    (pl.col("monto").pow(2)).sum().alias("sum_sq_monto"),
+                    pl.col("monto").min().alias("min_monto"),
+                    pl.col("monto").max().alias("max_monto"),
+                    pl.col("monto").median().alias("median_monto"),
+                    pl.col("monto").quantile(0.10).alias("p10"),
+                    pl.col("monto").quantile(0.25).alias("p25"),
+                    pl.col("monto").quantile(0.75).alias("p75"),
+                    pl.col("monto").quantile(0.90).alias("p90"),
+                    # Log-normal params (para precios > 0)
+                    pl.col("monto").log().mean().alias("log_mean"),
+                    pl.col("monto").log().std().alias("log_std"),
+                ]
+            )
         )
         stats_frames.append(agg)
 
@@ -92,64 +100,93 @@ def build_price_aggregates() -> pl.DataFrame:
 
     # Re-agregar por grupo (weighted stats)
     result = (
-        combined
-        .group_by(["CodigoOrganismoPublico", "OrganismoPublico", "RubroN2"])
-        .agg([
-            pl.col("n").sum().alias("n_transacciones"),
-            pl.col("sum_monto").sum().alias("sum_monto"),
-            pl.col("sum_sq_monto").sum().alias("sum_sq_monto"),
-            pl.col("min_monto").min().alias("min_monto"),
-            pl.col("max_monto").max().alias("max_monto"),
-            # Weighted median/percentiles (approximate — use weighted average of batch medians)
-            (pl.col("median_monto") * pl.col("n")).sum().alias("_wt_median"),
-            (pl.col("p10") * pl.col("n")).sum().alias("_wt_p10"),
-            (pl.col("p25") * pl.col("n")).sum().alias("_wt_p25"),
-            (pl.col("p75") * pl.col("n")).sum().alias("_wt_p75"),
-            (pl.col("p90") * pl.col("n")).sum().alias("_wt_p90"),
-            # Weighted log params
-            (pl.col("log_mean") * pl.col("n")).sum().alias("_wt_log_mean"),
-            (pl.col("log_std") * pl.col("n")).sum().alias("_wt_log_std"),
-        ])
+        combined.group_by(["CodigoOrganismoPublico", "OrganismoPublico", "RubroN2"])
+        .agg(
+            [
+                pl.col("n").sum().alias("n_transacciones"),
+                pl.col("sum_monto").sum().alias("sum_monto"),
+                pl.col("sum_sq_monto").sum().alias("sum_sq_monto"),
+                pl.col("min_monto").min().alias("min_monto"),
+                pl.col("max_monto").max().alias("max_monto"),
+                # Weighted median/percentiles (approximate — use weighted average of batch medians)
+                (pl.col("median_monto") * pl.col("n")).sum().alias("_wt_median"),
+                (pl.col("p10") * pl.col("n")).sum().alias("_wt_p10"),
+                (pl.col("p25") * pl.col("n")).sum().alias("_wt_p25"),
+                (pl.col("p75") * pl.col("n")).sum().alias("_wt_p75"),
+                (pl.col("p90") * pl.col("n")).sum().alias("_wt_p90"),
+                # Weighted log params
+                (pl.col("log_mean") * pl.col("n")).sum().alias("_wt_log_mean"),
+                (pl.col("log_std") * pl.col("n")).sum().alias("_wt_log_std"),
+            ]
+        )
         .filter(pl.col("n_transacciones") >= MIN_OBSERVATIONS)
-        .with_columns([
-            (pl.col("sum_monto") / pl.col("n_transacciones")).alias("precio_promedio"),
-            (pl.col("_wt_median") / pl.col("n_transacciones")).alias("precio_mediana"),
-            (pl.col("_wt_p10") / pl.col("n_transacciones")).alias("p10"),
-            (pl.col("_wt_p25") / pl.col("n_transacciones")).alias("p25"),
-            (pl.col("_wt_p75") / pl.col("n_transacciones")).alias("p75"),
-            (pl.col("_wt_p90") / pl.col("n_transacciones")).alias("p90"),
-            (pl.col("_wt_log_mean") / pl.col("n_transacciones")).alias("log_mean"),
-            (pl.col("_wt_log_std") / pl.col("n_transacciones")).alias("log_std"),
-        ])
+        .with_columns(
+            [
+                (pl.col("sum_monto") / pl.col("n_transacciones")).alias("precio_promedio"),
+                (pl.col("_wt_median") / pl.col("n_transacciones")).alias("precio_mediana"),
+                (pl.col("_wt_p10") / pl.col("n_transacciones")).alias("p10"),
+                (pl.col("_wt_p25") / pl.col("n_transacciones")).alias("p25"),
+                (pl.col("_wt_p75") / pl.col("n_transacciones")).alias("p75"),
+                (pl.col("_wt_p90") / pl.col("n_transacciones")).alias("p90"),
+                (pl.col("_wt_log_mean") / pl.col("n_transacciones")).alias("log_mean"),
+                (pl.col("_wt_log_std") / pl.col("n_transacciones")).alias("log_std"),
+            ]
+        )
     )
 
     # Calcular coeficiente de variación y rango intercuartil
-    result = result.with_columns([
-        # CV = std / mean, usando sum_sq y sum
-        (
-            ((pl.col("sum_sq_monto") / pl.col("n_transacciones")) -
-             (pl.col("precio_promedio").pow(2))).abs().sqrt()
-            / pl.col("precio_promedio").abs().clip(lower_bound=1)
-        ).alias("coef_variacion"),
-        (pl.col("p75") - pl.col("p25")).alias("rango_intercuartil"),
-        # Flag de predictibilidad (CV < 0.4 = precio predecible)
-        (
-            ((pl.col("sum_sq_monto") / pl.col("n_transacciones")) -
-             (pl.col("precio_promedio").pow(2))).abs().sqrt()
-            / pl.col("precio_promedio").abs().clip(lower_bound=1)
-            < 0.4
-        ).alias("precio_predecible"),
-    ]).select([
-        "CodigoOrganismoPublico", "OrganismoPublico", "RubroN2",
-        "n_transacciones", "precio_promedio", "precio_mediana",
-        "min_monto", "max_monto", "p10", "p25", "p75", "p90",
-        "coef_variacion", "rango_intercuartil", "precio_predecible",
-        "log_mean", "log_std",
-    ])
+    result = result.with_columns(
+        [
+            # CV = std / mean, usando sum_sq y sum
+            (
+                (
+                    (pl.col("sum_sq_monto") / pl.col("n_transacciones"))
+                    - (pl.col("precio_promedio").pow(2))
+                )
+                .abs()
+                .sqrt()
+                / pl.col("precio_promedio").abs().clip(lower_bound=1)
+            ).alias("coef_variacion"),
+            (pl.col("p75") - pl.col("p25")).alias("rango_intercuartil"),
+            # Flag de predictibilidad (CV < 0.4 = precio predecible)
+            (
+                (
+                    (pl.col("sum_sq_monto") / pl.col("n_transacciones"))
+                    - (pl.col("precio_promedio").pow(2))
+                )
+                .abs()
+                .sqrt()
+                / pl.col("precio_promedio").abs().clip(lower_bound=1)
+                < 0.4
+            ).alias("precio_predecible"),
+        ]
+    ).select(
+        [
+            "CodigoOrganismoPublico",
+            "OrganismoPublico",
+            "RubroN2",
+            "n_transacciones",
+            "precio_promedio",
+            "precio_mediana",
+            "min_monto",
+            "max_monto",
+            "p10",
+            "p25",
+            "p75",
+            "p90",
+            "coef_variacion",
+            "rango_intercuartil",
+            "precio_predecible",
+            "log_mean",
+            "log_std",
+        ]
+    )
 
     logger.info(f"Bandas de precio: {len(result):,} pares organismo-rubro")
     n_predecibles = result.filter(pl.col("precio_predecible")).shape[0]
-    logger.info(f"  Pares con precio predecible (CV < 0.4): {n_predecibles:,} ({100*n_predecibles/max(len(result),1):.1f}%)")
+    logger.info(
+        f"  Pares con precio predecible (CV < 0.4): {n_predecibles:,} ({100 * n_predecibles / max(len(result), 1):.1f}%)"
+    )
 
     return result
 
@@ -173,10 +210,10 @@ def build_price_probability_model(price_bands: pl.DataFrame) -> pl.DataFrame:
 
     # Filtrar pares con parámetros log-normal válidos
     valid = price_bands.filter(
-        pl.col("log_mean").is_not_null() &
-        pl.col("log_std").is_not_null() &
-        (pl.col("log_std") > 0) &
-        pl.col("precio_predecible")
+        pl.col("log_mean").is_not_null()
+        & pl.col("log_std").is_not_null()
+        & (pl.col("log_std") > 0)
+        & pl.col("precio_predecible")
     )
 
     if valid.is_empty():
@@ -197,16 +234,27 @@ def build_price_probability_model(price_bands: pl.DataFrame) -> pl.DataFrame:
         # Precio competitivo (percentil 30)
         precio_competitivo = np.exp(log_means + sp_stats.norm.ppf(0.30) * log_stds)
 
-    model_params = valid.with_columns([
-        pl.Series("precio_80pct_prob", precio_80pct),
-        pl.Series("precio_50pct_prob", precio_50pct),
-        pl.Series("precio_competitivo_30pct", precio_competitivo),
-    ]).select([
-        "CodigoOrganismoPublico", "OrganismoPublico", "RubroN2",
-        "n_transacciones", "log_mean", "log_std",
-        "precio_competitivo_30pct", "precio_50pct_prob", "precio_80pct_prob",
-        "precio_mediana", "coef_variacion",
-    ])
+    model_params = valid.with_columns(
+        [
+            pl.Series("precio_80pct_prob", precio_80pct),
+            pl.Series("precio_50pct_prob", precio_50pct),
+            pl.Series("precio_competitivo_30pct", precio_competitivo),
+        ]
+    ).select(
+        [
+            "CodigoOrganismoPublico",
+            "OrganismoPublico",
+            "RubroN2",
+            "n_transacciones",
+            "log_mean",
+            "log_std",
+            "precio_competitivo_30pct",
+            "precio_50pct_prob",
+            "precio_80pct_prob",
+            "precio_mediana",
+            "coef_variacion",
+        ]
+    )
 
     logger.info(f"Modelo de precios: {len(model_params):,} pares con modelo válido")
     return model_params

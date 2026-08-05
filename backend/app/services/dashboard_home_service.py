@@ -4,10 +4,10 @@ Single-roundtrip aggregator that reads from Postulacion, Licitacion, Alert,
 DocumentoEmpresa, Empresa, and dashboard_home_cache. All heavy lifting (TF-IDF
 matching) is pre-computed by the precompute_dashboard_matches Celery task.
 """
+
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -53,31 +53,33 @@ def _ensure_utc(dt: datetime) -> datetime:
     production Postgres they arrive tz-aware. Normalize at source boundaries
     so `now - dt` arithmetic and `(sev_rank, dt)` sort tuples never mix.
     """
-    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
 
 
-async def _checklist_completion(db: AsyncSession, postulacion_id: UUID) -> Optional[float]:
+async def _checklist_completion(db: AsyncSession, postulacion_id: UUID) -> float | None:
     """Return % of completed mandatory checklist items, or None if no checklist."""
     rows = (
-        await db.execute(
-            select(ChecklistPostulacion).where(
-                ChecklistPostulacion.postulacion_id == postulacion_id,
-                ChecklistPostulacion.es_obligatorio.is_(True),
+        (
+            await db.execute(
+                select(ChecklistPostulacion).where(
+                    ChecklistPostulacion.postulacion_id == postulacion_id,
+                    ChecklistPostulacion.es_obligatorio.is_(True),
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     if not rows:
         return None
     done = sum(1 for r in rows if r.completado)
     return done / len(rows)
 
 
-async def compose_urgencias(
-    db: AsyncSession, user_id: int, empresa_id: UUID
-) -> list[UrgenciaItem]:
+async def compose_urgencias(db: AsyncSession, user_id: int, empresa_id: UUID) -> list[UrgenciaItem]:
     """Compose the urgency list from 4 sources, sorted by severity then time."""
     items: list[tuple[int, datetime, UrgenciaItem]] = []
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     today = date.today()
 
     # ── 1. Postulaciones with fecha_cierre in the next 7 days ────────────────
@@ -100,16 +102,12 @@ async def compose_urgencias(
         hours = delta.total_seconds() / 3600
         severidad = _severity_for_hours(hours)
         completion = await _checklist_completion(db, postulacion.id)
-        subtitulo_parts = [
-            f"Cierre {licitacion.fecha_cierre.astimezone().strftime('%d %b %H:%M')}"
-        ]
+        subtitulo_parts = [f"Cierre {licitacion.fecha_cierre.astimezone().strftime('%d %b %H:%M')}"]
         if completion is not None:
             subtitulo_parts.append(f"Checklist {int(completion * 100)}%")
             cta_label = "Completar" if completion < 1 else "Postular"
         else:
-            cta_label = (
-                "Postular" if postulacion.estado == "en_seguimiento" else "Completar"
-            )
+            cta_label = "Postular" if postulacion.estado == "en_seguimiento" else "Completar"
         item = UrgenciaItem(
             id=f"postulacion_{postulacion.id}",
             tipo="postulacion_cierre",
@@ -126,16 +124,20 @@ async def compose_urgencias(
     # ── 2. Documentos vencen en próximos 30 días ─────────────────────────────
     doc_cutoff = today + timedelta(days=30)
     docs = (
-        await db.execute(
-            select(DocumentoEmpresa).where(
-                DocumentoEmpresa.empresa_id == empresa_id,
-                DocumentoEmpresa.eliminado.is_(False),
-                DocumentoEmpresa.fecha_vencimiento.isnot(None),
-                DocumentoEmpresa.fecha_vencimiento >= today,
-                DocumentoEmpresa.fecha_vencimiento <= doc_cutoff,
+        (
+            await db.execute(
+                select(DocumentoEmpresa).where(
+                    DocumentoEmpresa.empresa_id == empresa_id,
+                    DocumentoEmpresa.eliminado.is_(False),
+                    DocumentoEmpresa.fecha_vencimiento.isnot(None),
+                    DocumentoEmpresa.fecha_vencimiento >= today,
+                    DocumentoEmpresa.fecha_vencimiento <= doc_cutoff,
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     for doc in docs:
         days_left = (doc.fecha_vencimiento - today).days
         if days_left < 7:
@@ -152,8 +154,7 @@ async def compose_urgencias(
             tiempo_label=f"{days_left}d",
             titulo=f"Documento: {doc.nombre}",
             subtitulo=(
-                f"Vence el {doc.fecha_vencimiento.strftime('%d %b')} · "
-                f"Quedan {days_left} días"
+                f"Vence el {doc.fecha_vencimiento.strftime('%d %b')} · Quedan {days_left} días"
             ),
             cta_label=cta_label,
             cta_href="/dashboard/documentos",
@@ -161,9 +162,7 @@ async def compose_urgencias(
         items.append(
             (
                 sev_rank,
-                datetime.combine(doc.fecha_vencimiento, datetime.min.time()).replace(
-                    tzinfo=timezone.utc
-                ),
+                datetime.combine(doc.fecha_vencimiento, datetime.min.time()).replace(tzinfo=UTC),
                 item,
             )
         )
@@ -185,20 +184,24 @@ async def compose_urgencias(
             cta_label="Ver detalle",
             cta_href="/dashboard/empresa",
         )
-        items.append((2, datetime.max.replace(tzinfo=timezone.utc), item))
+        items.append((2, datetime.max.replace(tzinfo=UTC), item))
 
     # ── 4. Unread NUEVA_LICITACION_MATCH alerts (last 5 days) ────────────────
     cutoff_alert = now - timedelta(days=5)
     alerts = (
-        await db.execute(
-            select(Alert).where(
-                Alert.user_id == user_id,
-                Alert.alert_type == AlertType.NUEVA_LICITACION_MATCH,
-                Alert.status != AlertStatus.READ,
-                Alert.created_at >= cutoff_alert,
+        (
+            await db.execute(
+                select(Alert).where(
+                    Alert.user_id == user_id,
+                    Alert.alert_type == AlertType.NUEVA_LICITACION_MATCH,
+                    Alert.status != AlertStatus.READ,
+                    Alert.created_at >= cutoff_alert,
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     for alert in alerts:
         created_at = _ensure_utc(alert.created_at)
         delta = now - created_at
@@ -230,7 +233,7 @@ PIPELINE_ESTADOS = (
 
 async def compose_pipeline(db: AsyncSession, empresa_id: UUID) -> PipelineCounts:
     """Counts per estado over the last 90 days + tasa de adjudicación."""
-    cutoff = datetime.now(timezone.utc) - timedelta(days=90)
+    cutoff = datetime.now(UTC) - timedelta(days=90)
     rows = (
         await db.execute(
             select(Postulacion.estado, func.count(Postulacion.id))
@@ -242,7 +245,7 @@ async def compose_pipeline(db: AsyncSession, empresa_id: UUID) -> PipelineCounts
             .group_by(Postulacion.estado)
         )
     ).all()
-    counts = {estado: 0 for estado in PIPELINE_ESTADOS}
+    counts = dict.fromkeys(PIPELINE_ESTADOS, 0)
     for estado, n in rows:
         counts[estado] = n
     decididas = counts["adjudicada"] + counts["no_adjudicada"]
@@ -258,18 +261,14 @@ async def compose_pipeline(db: AsyncSession, empresa_id: UUID) -> PipelineCounts
     )
 
 
-async def compose_resumen(
-    db: AsyncSession, user_id: int, empresa_id: UUID
-) -> ResumenStats:
+async def compose_resumen(db: AsyncSession, user_id: int, empresa_id: UUID) -> ResumenStats:
     """Counts used by the narrative template + secondary KPIs."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     today = date.today()
     week_ago = now - timedelta(days=7)
     cutoff_72h = now + timedelta(hours=72)
     month_start = today.replace(day=1)
-    month_start_dt = datetime.combine(month_start, datetime.min.time()).replace(
-        tzinfo=timezone.utc
-    )
+    month_start_dt = datetime.combine(month_start, datetime.min.time()).replace(tzinfo=UTC)
 
     matches_week = (
         await db.execute(
@@ -362,17 +361,21 @@ async def compose_resumen(
 
 async def _tasa_window(
     db: AsyncSession, empresa_id: UUID, start: datetime, end: datetime
-) -> Optional[float]:
+) -> float | None:
     rows = (
-        await db.execute(
-            select(Postulacion.estado).where(
-                Postulacion.empresa_id == empresa_id,
-                Postulacion.created_at >= start,
-                Postulacion.created_at < end,
-                Postulacion.estado.in_(("adjudicada", "no_adjudicada")),
+        (
+            await db.execute(
+                select(Postulacion.estado).where(
+                    Postulacion.empresa_id == empresa_id,
+                    Postulacion.created_at >= start,
+                    Postulacion.created_at < end,
+                    Postulacion.estado.in_(("adjudicada", "no_adjudicada")),
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     if len(rows) < 3:
         return None
     decididas = len(rows)
@@ -384,15 +387,13 @@ async def compose_trend(db: AsyncSession, empresa_id: UUID) -> TrendStats:
     """7-bucket weekly histogram + tasa change. Disabled if <30 days history."""
     earliest = (
         await db.execute(
-            select(func.min(Postulacion.created_at)).where(
-                Postulacion.empresa_id == empresa_id
-            )
+            select(func.min(Postulacion.created_at)).where(Postulacion.empresa_id == empresa_id)
         )
     ).scalar()
     if earliest is None:
         return TrendStats(disponible=False)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     earliest_utc = _ensure_utc(earliest)
     if (now - earliest_utc).days < 30:
         return TrendStats(disponible=False)
@@ -429,13 +430,11 @@ async def compose_trend(db: AsyncSession, empresa_id: UUID) -> TrendStats:
 
 async def load_matches(
     db: AsyncSession, empresa_id: UUID
-) -> tuple[list[MatchItem], Optional[datetime], int]:
+) -> tuple[list[MatchItem], datetime | None, int]:
     """Read pre-computed matches from dashboard_home_cache."""
     cache = (
         await db.execute(
-            select(DashboardHomeCache).where(
-                DashboardHomeCache.empresa_id == empresa_id
-            )
+            select(DashboardHomeCache).where(DashboardHomeCache.empresa_id == empresa_id)
         )
     ).scalar_one_or_none()
     if cache is None:

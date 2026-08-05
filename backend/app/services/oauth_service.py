@@ -11,19 +11,18 @@ Flow:
 
 When feature_oauth=False or GOOGLE_CLIENT_ID is not set, build_auth_url raises 503.
 """
+
 from __future__ import annotations
 
 import logging
 import secrets
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 from urllib.parse import urlencode
 
 import httpx
+from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from fastapi import HTTPException, status
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +41,7 @@ def _require_oauth():
         )
 
 
-def build_auth_url(state: Optional[str] = None) -> str:
+def build_auth_url(state: str | None = None) -> str:
     """Build the Google OAuth2 authorization URL."""
     _require_oauth()
     from app.config import settings
@@ -126,7 +125,7 @@ async def find_or_create_user(db: AsyncSession, google_user: dict):
     # Check by google_id first
     user = (await db.execute(select(User).where(User.google_id == google_id))).scalar_one_or_none()
     if user:
-        user.last_login = datetime.now(timezone.utc)
+        user.last_login = datetime.now(UTC)
         await db.commit()
         return user
 
@@ -135,7 +134,7 @@ async def find_or_create_user(db: AsyncSession, google_user: dict):
     if user:
         user.google_id = google_id
         user.is_verified = True
-        user.last_login = datetime.now(timezone.utc)
+        user.last_login = datetime.now(UTC)
         await db.commit()
         return user
 
@@ -154,9 +153,10 @@ async def find_or_create_user(db: AsyncSession, google_user: dict):
         hashed_password=get_password_hash(secrets.token_hex(32)),  # unusable password
         google_id=google_id,
         is_verified=True,
-        last_login=datetime.now(timezone.utc),
+        last_login=datetime.now(UTC),
     )
     from app.api.auth import _apply_trial_defaults
+
     _apply_trial_defaults(user)
     db.add(user)
     await db.commit()

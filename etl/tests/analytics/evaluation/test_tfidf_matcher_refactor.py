@@ -1,9 +1,6 @@
 from datetime import date
-from pathlib import Path
 
 import polars as pl
-import pytest
-
 from analytics import tfidf_matcher
 
 
@@ -17,16 +14,18 @@ def test_build_provider_corpus_accepts_max_date(synthetic_oc_parquets):
 
 
 def test_train_tfidf_model_accepts_hyperparameter_kwargs(tmp_path):
-    corpus = pl.DataFrame({
-        "CodigoProveedor": ["P1", "P2", "P3"],
-        "NombreProveedor": ["Prov1", "Prov2", "Prov3"],
-        "corpus_text": [
-            "papel limpieza oficina escritorio cuaderno",
-            "computadores notebooks teclado mouse pantalla",
-            "servicio limpieza aseo detergente hospitalario",
-        ],
-        "n_oc": [5, 3, 4],
-    })
+    corpus = pl.DataFrame(
+        {
+            "CodigoProveedor": ["P1", "P2", "P3"],
+            "NombreProveedor": ["Prov1", "Prov2", "Prov3"],
+            "corpus_text": [
+                "papel limpieza oficina escritorio cuaderno",
+                "computadores notebooks teclado mouse pantalla",
+                "servicio limpieza aseo detergente hospitalario",
+            ],
+            "n_oc": [5, 3, 4],
+        }
+    )
     result = tfidf_matcher.train_tfidf_model(
         corpus,
         output_dir=tmp_path,
@@ -61,12 +60,14 @@ def test_train_tfidf_model_defaults_preserved(tmp_path):
         "insumos medicos guantes mascarilla",
         "mobiliario escritorios sillas oficina",
     ]
-    corpus = pl.DataFrame({
-        "CodigoProveedor": [f"P{i}" for i in range(15)],
-        "NombreProveedor": [f"Prov{i}" for i in range(15)],
-        "corpus_text": texts,
-        "n_oc": [5] * 15,
-    })
+    corpus = pl.DataFrame(
+        {
+            "CodigoProveedor": [f"P{i}" for i in range(15)],
+            "NombreProveedor": [f"Prov{i}" for i in range(15)],
+            "corpus_text": texts,
+            "n_oc": [5] * 15,
+        }
+    )
     result = tfidf_matcher.train_tfidf_model(corpus, output_dir=tmp_path)
     v = result["vectorizer"]
     assert v.ngram_range == (1, 2)

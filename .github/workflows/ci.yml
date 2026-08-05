@@ -1,0 +1,257 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_VERSION: "0.11.28"
+
+jobs:
+  # ───────────────────────────────────────────────────────────────────────────
+  lint:
+    name: 🔍 Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - name: Instalar dependencias
+        run: uv sync --frozen
+
+      - name: uv.lock sincronizado con pyproject.toml
+        run: uv lock --check
+
+      - name: ruff check
+        run: uv run ruff check backend/app backend/tests etl --output-format=github
+
+      - name: ruff format --check
+        run: uv run ruff format --check backend/app backend/tests etl
+
+  # ───────────────────────────────────────────────────────────────────────────
+  migrations:
+    name: 🗃️ Migraciones
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tordo_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - name: Instalar dependencias
+        run: uv sync --frozen
+
+      - name: Una sola cabeza de migración
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tordo_test
+          SECRET_KEY: ci-secret
+        run: |
+          heads=$(uv run --project .. alembic heads | grep -c '(head)' || true)
+          echo "cabezas encontradas: $heads"
+          if [ "$heads" -ne 1 ]; then
+            echo "::error::Se esperaba exactamente 1 cabeza de Alembic, hay $heads. Cadena de down_revision rota."
+            uv run --project .. alembic heads
+            exit 1
+          fi
+
+      # El ciclo completo, no sólo la ida. `upgrade -> downgrade` pasa aunque el
+      # downgrade deje basura (tipos ENUM huérfanos, secuencias, constraints);
+      # el segundo `upgrade` es el que lo destapa. Es además lo que hace un dev
+      # iterando sobre una migración.
+      - name: Ciclo upgrade → downgrade → upgrade sobre base vacía
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tordo_test
+          SECRET_KEY: ci-secret
+        run: |
+          uv run --project .. alembic upgrade head
+          uv run --project .. alembic downgrade base
+          uv run --project .. alembic upgrade head
+
+      # INFORMATIVO, todavía no bloqueante.
+      #
+      # Hoy `alembic check` reporta ~45 diferencias entre los modelos y el esquema
+      # que producen las migraciones. No es que falten migraciones recientes: es
+      # que durante mucho tiempo la base se provisionó con `Base.metadata.create_all()`
+      # (backend/scripts/init_production_db.py y etl/loaders/database_loader_v2.py),
+      # así que los modelos fueron la fuente de verdad y las migraciones sólo
+      # capturaron una parte. Hay diferencias reales, no sólo ruido — por ejemplo
+      # alerts.empresa_id: el modelo declara ondelete=CASCADE y la migración creó
+      # SET NULL.
+      #
+      # Volver esto bloqueante requiere primero una migración de reconciliación.
+      # Está planificado en F4 (ver docs/ARQUITECTURA_REVISION_2026-08.md).
+      # Cuando eso ocurra, quitar `continue-on-error` y este comentario.
+      - name: Deriva entre modelos y migraciones (informativo)
+        continue-on-error: true
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tordo_test
+          SECRET_KEY: ci-secret
+        run: |
+          echo "::notice::Deriva conocida modelos/migraciones — pendiente de reconciliar en F4"
+          uv run --project .. alembic check
+
+  # ───────────────────────────────────────────────────────────────────────────
+  test-backend:
+    name: 🧪 Tests backend
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tordo_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - name: Instalar dependencias
+        run: uv sync --frozen
+
+      - name: pytest
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tordo_test
+          REDIS_URL: redis://localhost:6379/0
+          SECRET_KEY: ci-secret
+        run: uv run --project .. pytest --cov=app --cov-report=term-missing
+
+  # ───────────────────────────────────────────────────────────────────────────
+  test-etl:
+    name: 🧪 Tests ETL
+    runs-on: ubuntu-latest
+    # El materializador de analytics usa COPY, swap atómico de tablas y
+    # renombrado de índices: necesita Postgres real, no se puede simular.
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tordo_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - name: Instalar dependencias
+        run: uv sync --frozen
+
+      - name: pytest
+        working-directory: etl
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tordo_test
+          SECRET_KEY: ci-secret
+        run: uv run --project .. pytest
+
+  # ───────────────────────────────────────────────────────────────────────────
+  frontend:
+    name: 🎨 Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests
+        run: npm test -- --run
+
+      - name: Build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+        run: npm run build
+
+  # ───────────────────────────────────────────────────────────────────────────
+  docker:
+    name: 🐳 Build de imágenes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # El contexto es la raíz del repo: pyproject.toml y uv.lock viven ahí.
+      - name: Build backend
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: false
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: Build ETL
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: etl/Dockerfile
+          push: false
+          cache-from: type=gha,scope=etl
+          cache-to: type=gha,mode=max,scope=etl

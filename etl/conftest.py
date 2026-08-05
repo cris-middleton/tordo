@@ -1,4 +1,5 @@
 """Ensure `etl/` is on sys.path so tests can import `analytics.evaluation.*`."""
+
 import sys
 from pathlib import Path
 

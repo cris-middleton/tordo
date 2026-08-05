@@ -1,0 +1,171 @@
+[project]
+name = "tordo"
+version = "0.0.0"  # placeholder — la versión del servicio vive en backend/app/config.py
+description = "TORDO — SaaS de inteligencia y compliance para licitaciones públicas de Chile"
+# Techo en 3.13: las imágenes son python:3.11-slim y numpy 1.26.2 / pandas 2.1.3
+# no compilan en 3.13. Subir el techo requiere subir esos dos pines primero.
+requires-python = ">=3.11,<3.13"
+# Sin dependencias a nivel de proyecto: cada componente declara las suyas en
+# [dependency-groups]. Ver el grupo `shared` para lo que backend y ETL comparten.
+dependencies = []
+
+[tool.uv]
+# Proyecto virtual: no se construye ni se instala como paquete. `backend/app` y
+# `etl` se ejecutan en su sitio (WORKDIR + PYTHONPATH), igual que hasta ahora.
+package = false
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Dependencias por componente (PEP 735)
+#
+#   uv sync --no-default-groups --group api    → imagen del backend
+#   uv sync --no-default-groups --group etl    → imagen del ETL
+#   uv sync                                    → desarrollo (api + etl + dev)
+#
+# Los pines son un traspaso fiel de los antiguos backend/requirements.txt y
+# etl/requirements.txt: se preservan exactos para no cambiar comportamiento en
+# runtime. Depurarlos es trabajo aparte, con tests corriendo.
+# ─────────────────────────────────────────────────────────────────────────────
+[dependency-groups]
+
+# Lo que backend y ETL comparten. Antes estaba duplicado en los dos
+# requirements.txt, con riesgo de divergencia silenciosa.
+shared = [
+    "sqlalchemy==2.0.23",
+    "psycopg2-binary==2.9.9",
+    "pydantic[email]==2.5.0",
+    "pydantic-settings==2.1.0",
+    "python-dotenv==1.0.0",
+    # 0.20.15 no tiene DataFrame.join(coalesce=...), que usa
+    # etl/analytics/evaluation/metrics.py — 5 tests del harness fallaban.
+    "polars>=0.20.31,<0.21",
+    "pyarrow==14.0.2",
+    "httpx==0.25.2",
+    "scikit-learn==1.4.0",
+    "scipy==1.12.0",
+    "joblib==1.3.2",
+]
+
+api = [
+    { include-group = "shared" },
+    # Web
+    "fastapi==0.104.1",
+    "uvicorn[standard]==0.24.0",
+    "python-multipart==0.0.6",
+    # Base de datos
+    "asyncpg==0.29.0",
+    "alembic==1.12.1",
+    "greenlet==3.0.3",
+    # Autenticación
+    "python-jose[cryptography]==3.3.0",
+    "passlib[bcrypt]==1.7.4",
+    "bcrypt==4.0.1",
+    # Tareas asíncronas
+    "celery==5.3.4",
+    "redis==5.0.1",
+    # Email
+    "aiosmtplib==3.0.1",
+    # 2.1.0 fue retirado de PyPI (yanked) — se sube al primer parche válido
+    "email-validator>=2.1.1,<3.0.0",
+    # Parseo de PDF (pypdf reemplaza a pypdf2, que tenía CVE)
+    "pypdf==4.2.0",
+    # Facturación (sólo con FEATURE_BILLING=true; el SDK se importa perezosamente)
+    "stripe>=7.0.0,<9.0.0",
+    # WhatsApp (sólo con FEATURE_WHATSAPP=true)
+    "twilio>=9.0.0,<10.0.0",
+    # Observabilidad
+    "sentry-sdk[fastapi]>=2.0.0,<3.0.0",
+    "python-json-logger>=2.0.7,<4.0.0",
+]
+
+etl = [
+    { include-group = "shared" },
+    "requests==2.31.0",
+    "beautifulsoup4==4.12.2",
+    "lxml==4.9.3",
+    "pandas==2.1.3",
+    "numpy==1.26.2",
+    "schedule==1.2.0",
+    "ratelimit==2.2.1",
+    "python-dateutil==2.8.2",
+    "pytz==2024.1",
+    "structlog==23.2.0",
+]
+
+dev = [
+    { include-group = "api" },
+    { include-group = "etl" },
+    "pytest==7.4.3",
+    "pytest-asyncio==0.21.1",
+    "pytest-cov>=4.1.0",
+    # Requerido por backend/tests/conftest.py — faltaba en ambos requirements.txt,
+    # por eso 14 tests erroraban al importar.
+    "aiosqlite>=0.19.0,<0.22.0",
+    "ruff>=0.8.4",
+    "pre-commit>=4.0.0",
+]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Ruff — misma configuración que los backends de ~/github
+# ─────────────────────────────────────────────────────────────────────────────
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".pytest_cache",
+    ".ruff_cache",
+    "backend/alembic/versions",
+    "docs/_archive",
+    "frontend",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "SIM", # flake8-simplify
+]
+ignore = [
+    # ── Decisiones permanentes ───────────────────────────────────────────────
+    "E501",   # línea larga — lo maneja el formateador
+    "E712",   # comparación con True/False — válido en filtros de SQLAlchemy
+    "B008",   # llamadas en defaults de argumentos — es el patrón de Depends() de FastAPI
+    "B904",   # raise sin from — a veces intencional
+    "UP006",  # Dict/List en anotaciones — migración aparte
+    "UP035",  # imports deprecados de typing — migración aparte
+    "SIM108", # ternarios forzados — daña la legibilidad en varios sitios
+
+    # ── Deuda registrada, NO permanente ──────────────────────────────────────
+    # Se silencian para que CI arranque en verde (un CI rojo desde el día uno se
+    # ignora para siempre). Cada una necesita criterio humano, no un autofix.
+    # Conteo al cierre de F1 (2026-08-05); revisar en F3 y bajarlos a cero.
+    "B007",   # 21 — variable de bucle sin usar; puede ocultar lógica incompleta
+    "SIM102", # 14 — ifs anidados colapsables; cosmético
+    "B905",   # 13 — zip() sin strict=; puede truncar en silencio si los largos difieren
+    "E722",   #  3 — except desnudo; se traga KeyboardInterrupt y SystemExit
+    "UP042",  #  3 — clases que deberían heredar de StrEnum
+    "E741",   #  2 — nombres de variable ambiguos (l, I, O)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]           # re-exports intencionales
+"backend/tests/**" = ["ARG", "S", "E402"]  # fixtures, asserts e imports a media altura
+# Estos módulos manipulan sys.path antes de importar (patrón de script suelto),
+# así que E402 es un falso positivo. Desaparece cuando el ETL consuma el backend
+# como paquete en vez de por sys.path.
+"etl/shared_imports.py" = ["E402"]
+"etl/analytics/run_all.py" = ["E402"]
+"etl/scripts/**" = ["E402"]
+# Celery exige registrar las tareas después de construir la app.
+"backend/app/celery_app.py" = ["E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "etl"]

@@ -4,14 +4,14 @@ The sync `db` fixture in conftest uses Base.metadata.create_all, which fails on
 SQLite for PostgreSQL-only ARRAY columns (Empresa.rubros_cpv, TFIDFPerfil.rubros_usados).
 We build a minimal sync SQLite fixture with raw DDL and patch SyncSessionLocal.
 """
-from datetime import datetime, timezone
+
+from datetime import UTC, datetime
 from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-
 
 SYNC_TASK_TEST_URL = "sqlite:///./test_sync_tasks.db"
 
@@ -87,9 +87,7 @@ def test_precompute_dashboard_matches_skips_when_feature_off(monkeypatch):
     assert result == {"skipped": True}
 
 
-def test_precompute_dashboard_matches_writes_cache_for_empresa(
-    sync_task_db, monkeypatch
-):
+def test_precompute_dashboard_matches_writes_cache_for_empresa(sync_task_db, monkeypatch):
     from app.models.dashboard_cache import DashboardHomeCache
     from app.models.empresa import Empresa, TFIDFPerfil
     from app.tasks import dashboard_tasks
@@ -121,7 +119,7 @@ def test_precompute_dashboard_matches_writes_cache_for_empresa(
             "organismo": "ORG",
             "monto_estimado": 100000.0,
             "moneda": "CLP",
-            "fecha_cierre": datetime.now(timezone.utc).isoformat(),
+            "fecha_cierre": datetime.now(UTC).isoformat(),
             "score": 80,
             "href": "/dashboard/tenders/LIC-X",
         }
@@ -130,18 +128,12 @@ def test_precompute_dashboard_matches_writes_cache_for_empresa(
     monkeypatch.setattr(dashboard_tasks.settings, "feature_tfidf", True)
     monkeypatch.setattr(dashboard_tasks, "SyncSessionLocal", SessionLocal)
 
-    with patch.object(
-        dashboard_tasks, "_compute_matches_for_empresa", return_value=fake_matches
-    ):
+    with patch.object(dashboard_tasks, "_compute_matches_for_empresa", return_value=fake_matches):
         result = dashboard_tasks.precompute_dashboard_matches()
 
     assert result["processed"] == 1
     assert result["failed"] == 0
 
-    cache = (
-        session.query(DashboardHomeCache)
-        .filter_by(empresa_id=empresa.id)
-        .one()
-    )
+    cache = session.query(DashboardHomeCache).filter_by(empresa_id=empresa.id).one()
     assert cache.matches_count == 1
     assert cache.matches[0]["codigo_externo"] == "LIC-X"

@@ -1,24 +1,35 @@
+# Pipeline ETL.
+#
+# IMPORTANTE: el contexto de build es la RAÍZ del repo (pyproject.toml y uv.lock
+# viven ahí):
+#   docker-compose: build: { context: .., dockerfile: etl/Dockerfile }
+#
+# El código se importa como paquete `etl.*`, así que vive bajo /workspace/etl y
+# PYTHONPATH apunta a /workspace. En desarrollo, compose monta el repo sobre
+# /workspace y el código de la imagen queda sombreado — es intencional.
 FROM python:3.11-slim
 
-WORKDIR /app
+COPY --from=ghcr.io/astral-sh/uv:0.11 /uv /usr/local/bin/uv
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=never \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/workspace \
+    PATH="/opt/venv/bin:$PATH"
 
-# Copy application code
-COPY . .
+# Capa de dependencias cacheable — sólo el grupo `etl`.
+WORKDIR /deps
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-default-groups --group etl
 
-# Set PYTHONPATH so imports work correctly
-# The code structure expects etl/ as a package, so we need to set PYTHONPATH to parent
-ENV PYTHONPATH=/workspace
+WORKDIR /workspace/etl
+COPY etl/ ./
 
-# Default command
 CMD ["python", "main.py"]
-

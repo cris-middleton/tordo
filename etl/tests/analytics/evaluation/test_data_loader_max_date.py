@@ -1,8 +1,5 @@
 from datetime import date
 
-import polars as pl
-import pytest
-
 from analytics.data_loader import iter_oc_parquets
 
 

@@ -2,199 +2,239 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
+> **Este documento describe el estado REAL del código, no el objetivo.** Lo que está
+> planificado pero no construido vive en "Hacia dónde va" y en
+> `docs/ARQUITECTURA_REVISION_2026-08.md`. Si encuentras una diferencia entre este
+> archivo y el código, **el código gana** — y corrige este archivo en el mismo PR.
 
-**TORDO** (placeholder name, use `APP_NAME`/`BRAND_NAME` env vars for easy renaming) — B2B SaaS for Chilean SME suppliers participating in public tenders (licitaciones) on Mercado Público. Two core value propositions:
+---
 
-1. **Pre-bid intelligence (BI)** — historical price benchmarking, competitor analysis, TF-IDF semantic matching, opportunity scoring, and buyer profiling to help decide whether to bid and at what price
-2. **Operational compliance** — estado hábil monitoring, document management with expiry tracking, postulation checklists, and deadline reminders
+## Qué es
 
-Desktop-first with responsive design. PWA planned for v3.
+**TORDO** — SaaS B2B para PYMES chilenas que licitan en Mercado Público. Dos propuestas de valor:
 
-See `docs/SPEC.md` (TORDO v1.1) for the full technical specification, `docs/tordo_plan_saas.md` for the SaaS business plan, and `docs/deploy_steps/` for the phased implementation roadmap (Fases 0–6).
+1. **Inteligencia pre-postulación** — bandas de precio históricas, análisis de competidores,
+   matching semántico TF-IDF, scoring de oportunidad y perfilado de compradores. Responde
+   *"¿me conviene postular, y a qué precio?"*
+2. **Compliance operativo** — monitoreo de estado hábil, vencimiento de documentos, checklist
+   de postulación, recordatorios de plazo. Responde *"¿me van a rechazar por forma?"*
 
-## Tech Stack
+Desktop-first, responsive, sólo español, sólo Chile.
 
-- **Backend**: FastAPI, SQLAlchemy 2.0 + asyncpg (async), Alembic (psycopg2 sync), Celery + Redis, JWT auth (python-jose + bcrypt + authlib for Google OAuth)
-- **Frontend**: Next.js 14 (App Router), TypeScript, Tailwind CSS, Axios, Recharts, Lucide Icons
-- **ETL**: Python pipelines — hourly licitaciones from API, daily backfill, weekly bulk OC+LIC ZIP downloads, estado hábil CSV every 6h
-- **Analytics**: Polars batch over Parquet files — 15 pre-computed analytics modules over historical OC + LIC data (78 columns OC, ~30 columns LIC)
-- **Matching**: TF-IDF semantic matching service (scikit-learn) over historical OC titles — no LLM
-- **Billing**: Stripe Checkout + Billing Portal, webhook-based subscription lifecycle
-- **Notifications**: In-app, email (SMTP), webhook, WhatsApp (Twilio)
-- **Storage**: Abstracted — local filesystem (dev) or S3/MinIO (prod), presigned URLs
-- **Infra**: Docker Compose (PostgreSQL 15, Redis 7, MinIO, backend, celery worker/beat, Flower, frontend)
+**El nombre se lee de `APP_NAME` / `BRAND_NAME`. Nunca hardcodear "TORDO" en el código.**
 
-## Common Commands
+---
 
-### Development (Docker)
-```bash
-cd infra && docker-compose up -d        # Start all services (10 containers)
-./start-dev.sh                           # Alternative: Docker services + local npm dev
-```
+## Reglas de trabajo (no negociables)
 
-### Backend
-```bash
-cd backend
-./scripts/setup_local.sh                 # First-time local setup (venv, deps, .env, migrations)
-uvicorn app.main:app --reload            # Dev server (port 8000)
-alembic upgrade head                     # Run migrations
-alembic revision --autogenerate -m "msg" # Create migration
-pytest --cov=app tests/                  # Run tests
-pytest tests/test_health.py              # Run single test file
-celery -A app.celery_app worker --loglevel=info  # Celery worker
-celery -A app.celery_app beat --loglevel=info    # Celery beat scheduler
-```
+### Ceremonia proporcional al tamaño
+Cambios chicos: sin brainstorming ni plan; evalúa y procede sólo con ≥95 % de confianza.
+Proyectos medianos o grandes: `grill-me` primero, sin cabos sueltos.
+
+### Ramas y promoción
+- **Toda feature en un worktree.** Nunca ramas en el checkout principal.
+  Raíz: `~/personal/tordo-worktrees/<feature>`.
+- **Flujo:** worktree → probar en localhost → PR a `main` → **CI en verde es la única
+  puerta** → merge → despliegue.
+- Los worktrees no heredan archivos gitignoreados: cada uno necesita su `.env` y `make hooks`.
+
+> **No hay rama `staging` ni entorno de staging, y es deliberado.** Este es un proyecto
+> personal de un solo desarrollador desplegando en Railway; el flujo de dos ramas de los
+> repos de otra empresa existe porque allá cada rama auto-despliega a un entorno GCP distinto.
+> Aquí sería ceremonia sin beneficio — y "ceremonia proporcional al tamaño" es justamente
+> la regla. **Cuando haya el primer usuario pagando**, crear entorno + rama de staging y
+> volver al flujo de dos etapas.
+
+### Python
+- `uv` y `python3`. **No hay `requirements.txt`**: un solo `pyproject.toml` en la raíz con
+  grupos `shared` / `api` / `etl` / `dev`, y un solo `uv.lock`.
+- Comandos desde `backend/` o `etl/`: `uv run --project .. <cmd>`.
+- **Los hooks de pre-commit son por clone Y por worktree.** Donde falte
+  `.git/hooks/pre-commit`, corre `make hooks`. **Nunca `--no-verify`** — arregla la causa.
+- Tras tocar `pyproject.toml`: `make lock` y commitea el `uv.lock`. CI falla si divergen.
+
+### Migraciones
+- **Siempre `make migrate-create MSG="descripción"`. Nunca `alembic revision` directo.**
+  Es la única forma de obtener IDs y cadenas de `down_revision` correctas. Este repo ya
+  se rompió una vez por esto (ver `011_fix_alerttype_enum_uppercase`).
+- CI valida que haya exactamente una cabeza y que `upgrade head` + `downgrade base` corran
+  limpios contra una base vacía. Una migración que no revierte no pasa.
+
+### Multi-tenancy — CRÍTICO PARA LA SEGURIDAD
+Todo endpoint que toque datos de una empresa **debe** verificar la membresía del usuario.
+Hoy eso se hace llamando a `_get_membership_or_403(empresa_id, current_user, db)` de
+`app/api/empresas.py`. **Un endpoint sin esa llamada es una fuga de datos entre empresas.**
+
+Ver el skill `.claude/skills/endpoint-empresa/` antes de añadir cualquier ruta con `empresa_id`.
+
+### Convenciones de código
+- **Imports a nivel de módulo.** Nada de imports dentro de funciones. El código heredado
+  los usa para diferir dependencias pesadas — es un síntoma del problema de servicio de
+  analytics (F2), no un patrón a copiar. **No añadas imports diferidos nuevos.**
+  Ya causó un bug real: `subscription_status_from_stripe` importado dentro de una función y
+  usado en otra rompía todos los webhooks `customer.subscription.updated`.
+- **Todos los schemas Pydantic en `app/schemas/`.** Nunca inline en endpoints o servicios.
+- **Toda tabla y columna nueva lleva `comment=`.** Es un producto de datos con 78 columnas
+  por orden de compra; sin comentarios se vuelve inusable en meses.
+- Los errores de negocio se devuelven con `HTTPException` y mensaje en español — los ve el usuario.
+
+### Secretos
+Nunca al repo. Un hook de pre-commit bloquea cualquier `.env`. Si una credencial llega a un
+commit, **rótala**: quitarla después no la invalida.
+
+### Skills del plugin `toolkit-de-usuario`
+
+El plugin está instalado a nivel de usuario, así que sus skills aparecen también aquí.
+**TORDO es un proyecto personal y no comparte nada con otra empresa**: ni infraestructura, ni tenant,
+ni Notion, ni Sentry, ni GCP.
+
+**Se pueden usar** (son genéricos, no tocan sistemas externos):
+
+| Skill | Para qué |
+|---|---|
+| `grill-me` | Estresar un plan antes de construirlo. Obligatorio en proyectos medianos o grandes. |
+| `handoff` | Comprimir la sesión para que otra continúe. Útil: estas sesiones se alargan. |
+| `feature` | Pipeline completo staff-engineer → dev → review por chunk → review de integración. Encaja bien con las fases F2–F5. |
+| `demo-video` | Grabar una demo con Playwright y editarla con Remotion. Relevante para competir de igual a igual con LicitaLab. |
+| agentes `staff-engineer`, `dev`, `chunk-reviewer`, `integration-reviewer`, `git-commit-generator` | Genéricos. |
+
+**NO usar aquí — apuntan a sistemas de otra empresa y modificarían infraestructura ajena:**
+
+`auth0` (tenant de otra empresa) · `customerio` · `grafana` (dashboard de otra empresa) ·
+`sentry-alerts` (organización `org-ajena`) · `pubsub`, `scheduler`, `tasks` (GCP de otra empresa,
+manifest-first sobre el repo `infra`) · `drd`, `crear-proyecto` (Notion de otra empresa) ·
+`setup` (instala el toolkit de otra empresa).
+
+TORDO usa su propio Sentry (`SENTRY_DSN`), su propio Celery beat en vez de Cloud Scheduler,
+y no tiene Pub/Sub ni Cloud Tasks.
 
 ### Frontend
+- Nunca hardcodear la URL del backend en un componente: usa `lib/api.ts`.
+- El estado de servidor se maneja con `useState`/`useEffect` (deuda conocida; el objetivo es
+  TanStack Query — ver F5).
+
+---
+
+## Comandos
+
+`make help` los lista todos.
+
 ```bash
-cd frontend
-npm install      # Install deps
-npm run dev      # Dev server (port 3000)
-npm run build    # Production build
-npm run lint     # ESLint
+make setup                       # deps + hooks (clone o worktree nuevo)
+make hooks                       # sólo hooks
+make lint / make lint-fix        # ruff check + format (idéntico a CI)
+make test                        # backend + ETL
+make dev-up-d / dev-logs / dev-down
+make migrate / make migrate-create MSG="..." / make migrate-status
+make db-shell
+make front-dev
 ```
 
-### ETL
+ETL (desde `etl/`):
 ```bash
-cd etl && python main.py                           # Run full ETL pipeline
-python main.py --only-extraer-nuevos               # Extract new details only
-python main.py --only-actualizar                   # Update existing details only
-python -m etl.analytics.run_all                    # Rebuild all 15 analytics modules
-python -m etl.analytics.run_all --modulo seasonality  # Run single analytics module
-python scripts/descargar_datos_masivos.py --tipo ambos --desde 2025-01 --hasta 2026-03  # Bulk ZIP download
-
-# Scoring evaluation harness
-cd etl && python -m analytics.evaluation --model tfidf_matcher --variant baseline         # holdout baseline
-cd etl && python -m analytics.evaluation --model tfidf_matcher --walk-forward              # walk-forward (4 folds)
-cd etl && python -m analytics.evaluation --model tfidf_matcher --compare baseline:baseline path/to/variant.yaml
-cd etl && python -m pytest tests/analytics/evaluation/ -v                                  # run eval tests
+uv run --project .. python main.py
+uv run --project .. python -m etl.analytics.run_all [--modulo seasonality]
+uv run --project .. python -m analytics.evaluation --model tfidf_matcher --walk-forward
 ```
 
-## Architecture
+**Cualquier cambio a un modelo de scoring pasa por el harness de evaluación**
+(`etl/analytics/evaluation/`: splits, walk-forward, métricas, variantes). No se toca un
+scorer sin correrlo.
 
-### Backend (`backend/app/`)
-- `main.py` — FastAPI app entry, mounts 13 routers, CORS + BI rate-limit middleware
-- `config.py` — Pydantic BaseSettings (env-driven), 8 feature flags, 60+ settings
-- `api/` — Route handlers:
-  - `auth.py` — Register, login, Google OAuth, change password
-  - `users.py` — CRUD (admin-only list/delete)
-  - `tenders.py` — List/detail with filters (estado, region, amount, search)
-  - `alerts.py` — Preferences CRUD, alert list/read/delete, test alerts (email + WhatsApp)
-  - `empresas.py` — Company CRUD with role-based access (owner/admin/viewer)
-  - `documentos.py` — Upload (25MB max), download (presigned URL), soft delete, quota enforcement
-  - `postulaciones.py` — Create with auto-checklist, status workflow, checklist toggle
-  - `estado_habil.py` — Estado hábil + 30-day history per empresa
-  - `bi.py` — 16 BI endpoints (precio, competidores, oportunidades, ventana, comprador, panel, estacionalidad, tendencia, descuento, forecast, diversificacion, sector, matching, perfil, clusters)
-  - `dashboard.py` — KPI aggregation (active tenders, unread alerts, active postulaciones, expiring docs)
-  - `billing.py` — Stripe checkout/portal, plan list
-  - `webhooks.py` — Stripe webhook (signature-verified)
-  - `health.py` — Health + readiness
-  - `data_inspection.py` — Public ETL data inspection
-- `models/` — SQLAlchemy: User, Licitacion, LicitacionDetalle, LicitacionHistorial, OrdenCompra (+ detalle/historial), Alert, AlertPreference, Empresa, EmpresaUsuario, DocumentoEmpresa, EstadoHabilLog, Postulacion, PlantillaChecklist, ChecklistPostulacion, TFIDFPerfil, BuyerOrganization, Supplier, Category
-- `schemas/` — Pydantic request/response for all entities + BI responses
-- `services/` — Business logic:
-  - `alert_engine.py` — Preference matching, idempotent alert creation, TF-IDF new-licitacion matching
-  - `bi_service.py` — 12 BI functions over cached Polars DataFrames (24h TTL)
-  - `estado_habil_service.py` — CSV download, RUT lookup, change detection + alerts
-  - `tfidf_matcher.py` — Model training, empresa vector building, licitacion-empresa scoring, clustering
-  - `stripe_service.py` — Checkout, portal, webhook event construction
-  - `oauth_service.py` — Google OAuth flow (auth URL, code exchange, user creation)
-  - `storage_service.py` — Abstract storage (LocalStorage / S3Storage), presigned URLs
-  - `twilio_service.py` — WhatsApp alert sending via Twilio
-- `tasks/` — Celery:
-  - `etl_tasks.py` — Hourly licitaciones, daily backfill, weekly bulk rebuild + analytics, 30-min watchdog
-  - `estado_habil_tasks.py` — 6h estado check, daily 9AM deadline reminders (48h/24h), daily 9:30AM doc expiry
-  - `alert_tasks.py` — Process new licitacion/OC alerts
-- `core/` — security.py (JWT, bcrypt, OAuth2 deps), plan_limits.py (tier quotas, Redis-backed BI rate limits), email.py
-- `db/` — Async (asyncpg) + sync (psycopg2) session management
+---
 
-### Frontend (`frontend/`)
-- **Pages** (App Router):
-  - `/` — Marketing landing (hero, benefits, pricing, FAQ, footer)
-  - `/login`, `/register` — Auth with Google OAuth button
-  - `/auth/callback` — Google OAuth callback handler
-  - `/onboarding` — Multi-step: RUT → company name → rubros → plan selection
-  - `/dashboard` — KPI cards + saved/applied collections (localStorage) + charts (Recharts)
-  - `/dashboard/tenders` — Search + advanced filters + pagination + save/apply + detail view
-  - `/dashboard/tenders/[codigo]` — Full tender detail
-  - `/dashboard/orders` — Purchase order browsing with filters
-  - `/dashboard/orders/[codigo]` — Order detail
-  - `/dashboard/alerts` — Alert list + preferences management + test alerts
-  - `/dashboard/documentos` — Multi-empresa doc upload/download/delete, estado hábil badge, expiry status
-  - `/dashboard/postulaciones` — Grouped by empresa, status workflow, checklist with progress bar
-  - `/dashboard/bi` — Semantic matching, competitors, buyer profiles, timing analysis, TF-IDF perfil
-  - `/dashboard/analytics` — Charts with mock data (pending real API integration)
-  - `/dashboard/billing` — Plan cards, Stripe checkout, billing portal
-  - `/dashboard/settings` — Profile, notification prefs (email/in-app/webhook/WhatsApp), password change
-- `components/Layout.tsx` — Responsive sidebar with collapsible nav, plan badge, mobile hamburger
-- `components/PlanUpgradeBanner.tsx` — Floating upgrade notification
-- `contexts/AuthContext.tsx` — JWT state, login/register/logout, token management, Google OAuth
-- `lib/api.ts` — Axios client with auth interceptor, 401 auto-logout, all API methods by feature
-- `hooks/useDashboardCollections.ts` — localStorage-based saved/applied items with SSR hydration
+## Arquitectura (estado real)
 
-### ETL (`etl/`)
-- `main.py` — Orchestrator with CLI args (date range, skip flags, standalone modes)
-- `extractors/` — MercadoPublicoLicitacionesExtractor, MercadoPublicoOrdenesExtractor (rate-limited, retry with backoff)
-- `transformers/` — LicitacionTransformer, OrdenCompraTransformer (field mapping, type normalization)
-- `loaders/` — DatabaseLoaderV2 (asyncpg batch insert, change detection, stale record refresh)
-- `analytics/` — 15 modules:
-  - **OC-based (11)**: seasonality, price_benchmarking, competitor_analysis, trend_analysis, tfidf_matcher, word_clustering, product_price_bands, buyer_scoring, sector_intelligence, discount_optimizer, provider_diversification, opportunity_scorer (runs last, aggregates all others)
-  - **LIC-based (3)**: buyer_transparency, preparation_window, competitor_predictor
-- `scripts/` — descargar_datos_masivos.py (bulk ZIP download), validar_entorno.py, debug tools
+### Backend — `backend/app/`
 
-### Database
-- **PostgreSQL 15** (transactional): 15+ tables — users, licitaciones (+detalle +historial), ordenes_compra (+detalle +historial), alertas (idempotency_key), alert_preferences, empresas, empresas_usuario, documentos_empresa, estado_habil_log, postulaciones, checklist_postulacion, plantillas_checklist, tfidf_perfiles, buyer_organizations, suppliers, categories, task_failures
-- **Parquet + Polars** (analytical): pre-computed outputs in `etl/data/analytics/`, cached in BIService (24h TTL)
-- Migrations in `backend/alembic/versions/` (001–008)
-- All cron jobs use `America/Santiago` timezone
+Monolito modular. **Todavía NO está en capas**: los routers contienen consultas SQLAlchemy
+y reglas de negocio. No existen `repositories/` ni `domain/`. Migrar a eso es F3.
 
-### Key Patterns
-- **Auth**: JWT (HS256, 30min) + Google OAuth + role-based (superuser, empresa owner/admin/viewer) + plan-based quotas
-- **Multi-tenancy**: Users ↔ Empresas (M2M via EmpresaUsuario with rol)
-- **Alerts**: User preferences → AlertEngine matches new entities → idempotent INSERT ON CONFLICT → multi-channel dispatch
-- **BI**: Pre-computed Parquet → Polars DataFrame cache (24h) → hierarchical fallback (L1→L2→L3) → plan-gated endpoints
-- **Rate limiting**: Redis-backed (60 req/min per IP on /api/bi/*, daily quota per plan tier)
-- **Feature flags**: 8 flags in config (analytics, billing, estado_habil, documentos, checklist, tfidf, whatsapp, analytics_enabled)
-- **Storage**: Abstract interface (local/S3), presigned URLs, quota enforcement per plan
+```
+api/            15 routers. Consultas y autorización inline (deuda).
+services/       Lógica de negocio como funciones de módulo.
+                bi_service.py son 1.300 líneas — se parte en F3.
+core/           security.py (JWT), plan_limits.py (cuotas), email.py
+observability/  logging JSON con request_id (contextvar) + Sentry opt-in
+db/             sesión async (asyncpg) y sync (psycopg2)
+models/         SQLAlchemy
+schemas/        Pydantic — todos van aquí
+tasks/          Celery
+```
 
-## Implementation Status
+**Routers**: auth, users, tenders, alerts, empresas, documentos, postulaciones, estado_habil,
+bi (22 endpoints), dashboard, billing, webhooks, health, data_inspection.
+`data_inspection` requiere auth a nivel de router — **no añadas rutas ahí que la salten**.
 
-Development followed phased plan in `docs/deploy_steps/`. **Fases 0–6 are ~90% implemented.** Remaining work:
+**Celery**: 11 jobs. ETL horario, backfill diario, bulk semanal + analytics, estado hábil
+cada 6 h, recordatorios de plazo y de vencimiento, precómputo nocturno de matches, watchdog
+cada 30 min, trials, radar semanal. Todo en `America/Santiago`.
 
-### Pending — Code
-- **Tests**: No comprehensive test suite yet — need unit tests for services, integration tests for API, E2E for critical flows
-- **Unified NotificationService**: Individual channels (email, webhook, WhatsApp) work but no orchestrator that dispatches across channels with fallback logic
-- **Calendar view**: No visual calendar for deadline tracking — currently list-based only
-- **PlantillaChecklist seed data**: Template records for L1/LE/LP checklist items may not be seeded
-- **React Query**: Frontend uses useState/useEffect instead of @tanstack/react-query as planned
-- **Drag-drop upload**: Uses basic file input, not react-dropzone as planned
-- **Multi-user UX**: Backend supports empresa roles (owner/admin/viewer) but frontend has no invite/manage members UI
-- **Automated market reports**: No scheduled PDF/email report generation for weekly summaries
-- **Analytics page**: Shows mock data, not yet wired to real BI API endpoints
+### Datos
 
-### Pending — External Services (see `docs/deploy_steps/tareas_manuales.md`)
-- **Stripe**: Need live keys + 4 product/price IDs configured
-- **Google OAuth**: Need CLIENT_ID + CLIENT_SECRET from Google Cloud Console
-- **Twilio WhatsApp**: WABA approval (4–8 week process)
-- **Production storage**: S3 or Cloudflare R2 bucket (MinIO works for dev)
-- **Domain + SSL**: Required before production
-- **Sentry**: Error monitoring not configured
-- **CI/CD**: No pipeline — need GitHub Actions or equivalent
+- **PostgreSQL** — transaccional.
+- **Parquet + Polars** — sólo cómputo batch. La API **no lee parquets**: el pipeline
+  materializa los resultados en el esquema `analytics` de Postgres con índices
+  (`etl/analytics/materialize.py`), y `bi_service` los consulta con SQL. Ver
+  `docs/decisiones/0006-analytics-en-postgres.md`.
+- Migraciones en `backend/alembic/versions/`.
 
-### Not Started (v2/v3 per roadmap)
-- **Transbank (webpay Chile)**: Plan mentions it but only Stripe is implemented
-- **PWA**: Planned for v3
-- **Alertas predictivas**: Score-based proactive opportunity alerts
-- **Plantillas por rubro**: Richer checklist templates per industry vertical
-- **Multi-idioma**: Currently Spanish-only (by design for Chilean market)
+### Frontend — `frontend/`
 
-## Environment
+Next.js 14 App Router + TypeScript + Tailwind + Recharts. Componentes propios (sin design
+system). Fetching con `useState`/`useEffect`, token JWT en `localStorage`, llamadas directas
+al backend vía `NEXT_PUBLIC_API_URL`.
 
-Copy `.env.example` to `.env`. Key variables: `DATABASE_URL`, `REDIS_URL`, `SECRET_KEY`, `MERCADO_PUBLICO_TICKET`, `NEXT_PUBLIC_API_URL`, `APP_NAME`.
+### ETL — `etl/`
 
-Feature flags control optional modules:
-- `FEATURE_ANALYTICS` / `FEATURE_TFIDF` — BI endpoints (off by default until analytics data is loaded)
-- `FEATURE_BILLING` — Stripe integration
-- `FEATURE_ESTADO_HABIL` / `FEATURE_DOCUMENTOS` / `FEATURE_CHECKLIST` — Compliance features (on by default)
-- `FEATURE_WHATSAPP` — Twilio WhatsApp notifications
+`main.py` orquesta → `extractors/` → `transformers/` → `loaders/DatabaseLoaderV2`.
+`analytics/` tiene 15 módulos Polars; `opportunity_scorer` corre último y agrega el resto.
+`analytics/evaluation/` es el harness de evaluación.
+
+### Patrones vigentes
+- **Auth**: JWT HS256 30 min (sin refresh token) + Google OAuth + roles empresa
+  (owner/admin/viewer) + cuotas por plan.
+- **Alertas**: preferencias → AlertEngine → `INSERT ON CONFLICT` idempotente → multicanal.
+- **BI**: batch en Polars → tablas materializadas en `analytics.*` → consulta con filtros
+  empujados a SQL → fallback jerárquico L1→L2→L3 con confianza y tamaño de muestra →
+  gating por plan. Hay un golden master (`backend/tests/golden/`) que fija el contrato.
+- **Rate limiting**: Redis, por IP en `/api/bi/*`, más cuota diaria por tier.
+- **Feature flags**: 8 en config; apagadas devuelven 503 con mensaje accionable.
+
+---
+
+## Deuda conocida — no la refuerces
+
+`docs/ARQUITECTURA_REVISION_2026-08.md` es la referencia. Si necesitas apoyarte en alguno de
+estos patrones, es señal de que hay que arreglar la causa, no de copiarlo:
+
+- ~~Analytics servido desde caché de parquet en el proceso de la API~~ — **resuelto en F2**: se sirve desde `analytics.*` en Postgres con índices.
+- Verificación de membresía repetida a mano en cada endpoint (F3).
+- `Column(JSON)` donde corresponde `JSONB` (F4).
+- Búsqueda con `ILIKE '%término%'`, que ningún índice puede servir (F4).
+- Suscripción y `plan_tier` colgando de `User` en vez de la empresa (F3).
+- `subprocess.run` desde Celery hacia el ETL (F2).
+- `conftest.py` mantiene a mano el DDL de 11 tablas en SQLite; **ya divergió de los modelos**.
+- 56 hallazgos de ruff silenciados en `pyproject.toml` con su conteo y motivo (F3).
+
+## Hacia dónde va
+
+Decisiones tomadas el 2026-08-05, con su ADR en `docs/decisiones/`:
+sólo Chile (sin multi-país), suscripción por empresa con planes por capacidades, nombre TORDO,
+LLM acotado a un servidor MCP sobre la base histórica, y pasarela de pago local en v1.
+
+Fases pendientes: **F2** plano de datos analítico → **F3** tenancy, capas y billing por
+empresa → **F4** modelo de datos → **F5** frontend → **F6** diferenciación.
+
+---
+
+## Entorno
+
+`cp .env.example .env`. Críticas: `DATABASE_URL`, `REDIS_URL`, `SECRET_KEY`,
+`MERCADO_PUBLICO_TICKET`, `NEXT_PUBLIC_API_URL`, `APP_NAME`.
+
+Observabilidad: `SENTRY_DSN` (vacío = desactivado), `LOG_JSON` (false en local),
+`LOG_LEVEL`, `ENVIRONMENT`.
+
+Feature flags: `FEATURE_ANALYTICS`, `FEATURE_TFIDF`, `FEATURE_BILLING`,
+`FEATURE_ESTADO_HABIL`, `FEATURE_DOCUMENTOS`, `FEATURE_CHECKLIST`, `FEATURE_WHATSAPP`.

@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String
+
 from app.db import Base
 
 
@@ -29,5 +30,3 @@ class FormaPagoRef(Base):
     id = Column(Integer, primary_key=True, index=True)
     codigo = Column(String(10), unique=True, nullable=False, index=True)
     descripcion = Column(String(255), nullable=False)
-
-

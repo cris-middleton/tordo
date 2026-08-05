@@ -2,10 +2,22 @@
 Celery configuration for background tasks.
 Timezone: America/Santiago (CLT/CLST)
 """
+
 from celery import Celery
 from celery.schedules import crontab
 
 from app.config import settings
+from app.observability import setup_logging, setup_sentry
+
+# El worker y el beat son procesos aparte del de la API: necesitan su propia
+# inicialización. Aquí es donde fallan los jobs de ETL, así que es justo lo que
+# hay que tener instrumentado.
+setup_logging(level=settings.log_level, json_output=settings.log_json)
+setup_sentry(
+    dsn=settings.sentry_dsn,
+    environment=settings.environment,
+    release=settings.app_version,
+)
 
 celery_app = Celery(
     "tordo",
@@ -20,7 +32,7 @@ celery_app.conf.update(
     timezone="America/Santiago",
     enable_utc=True,
     task_track_started=True,
-    task_time_limit=30 * 60,       # 30 min hard limit
+    task_time_limit=30 * 60,  # 30 min hard limit
     task_soft_time_limit=25 * 60,  # 25 min soft limit
     beat_schedule={
         # Hourly: fetch active licitaciones from Mercado Público API + TF-IDF matching
@@ -85,9 +97,9 @@ celery_app.conf.update(
 )
 
 # Register all tasks
-from app.tasks import alert_tasks       # noqa
-from app.tasks import etl_tasks         # noqa
+from app.tasks import alert_tasks  # noqa
+from app.tasks import etl_tasks  # noqa
 from app.tasks import estado_habil_tasks  # noqa
-from app.tasks import dashboard_tasks   # noqa
-from app.tasks import trial_tasks       # noqa
-from app.tasks import radar_tasks       # noqa
+from app.tasks import dashboard_tasks  # noqa
+from app.tasks import trial_tasks  # noqa
+from app.tasks import radar_tasks  # noqa

@@ -1,0 +1,46 @@
+# El contexto de build de backend/ y etl/ es la RAÍZ del repo (ahí viven
+# pyproject.toml y uv.lock). Sin este archivo el daemon recibiría node_modules,
+# .git y los parquets del ETL — cientos de MB por build.
+
+.git
+.gitignore
+.github
+
+# Entornos y cachés de Python
+.venv
+venv
+env
+**/__pycache__
+**/*.py[cod]
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.coverage
+htmlcov
+
+# Frontend (tiene su propio Dockerfile y su propio contexto)
+frontend/node_modules
+frontend/.next
+frontend/out
+
+# Datos del ETL — parquets y ZIPs, no van en la imagen
+etl/data
+
+# Secretos y estado local
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.local
+backend/celerybeat-schedule*
+.claude
+
+# Documentación
+docs
+*.md
+!README.md
+
+# Herramientas y worktrees
+.worktrees
+.superpowers
+infra

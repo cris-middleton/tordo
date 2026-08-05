@@ -12,13 +12,21 @@ Handled events:
 
 The endpoint verifies the Stripe-Signature header and ignores unrecognised events.
 """
+
 import asyncio
 import logging
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Request, status
+
+from app.db import SyncSessionLocal
+from app.services.stripe_service import (
+    construct_webhook_event,
+    subscription_status_from_stripe,
+)
 
 router = APIRouter(prefix="/api/webhooks", tags=["webhooks"])
 logger = logging.getLogger(__name__)
+
 
 # Map Stripe price IDs to plan tiers at runtime (from settings)
 def _price_to_tier(price_id: str) -> str:
@@ -37,12 +45,6 @@ async def stripe_webhook(request: Request):
     Stripe sends POST requests here for subscription lifecycle events.
     Must be publicly reachable (no auth header — Stripe signs the payload instead).
     """
-    from app.db import SyncSessionLocal
-    from app.services.stripe_service import (
-        construct_webhook_event,
-        subscription_status_from_stripe,
-    )
-
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature", "")
 
@@ -100,10 +102,14 @@ def _handle_checkout_completed(db, session):
     user = _get_user_by_customer(db, customer_id)
     if not user and metadata.get("user_id"):
         from app.models.user import User
+
         try:
             uid = int(metadata["user_id"])
         except (ValueError, KeyError):
-            logger.error("checkout.session.completed: invalid user_id in metadata: %s", metadata.get("user_id"))
+            logger.error(
+                "checkout.session.completed: invalid user_id in metadata: %s",
+                metadata.get("user_id"),
+            )
             return
         user = db.query(User).filter(User.id == uid).first()
 
@@ -139,7 +145,12 @@ def _handle_subscription_updated(db, subscription):
             user.plan_tier = _price_to_tier(price_id)
 
     db.commit()
-    logger.info("Subscription updated for user %s: %s / %s", user.id, user.plan_tier, user.subscription_status)
+    logger.info(
+        "Subscription updated for user %s: %s / %s",
+        user.id,
+        user.plan_tier,
+        user.subscription_status,
+    )
 
 
 def _handle_subscription_deleted(db, subscription):

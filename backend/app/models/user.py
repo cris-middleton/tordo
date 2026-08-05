@@ -1,11 +1,13 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text
+from sqlalchemy import Boolean, Column, DateTime, Integer, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+
 from app.db import Base
 
 
 class User(Base):
     """User model for authentication and user management"""
+
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -13,19 +15,19 @@ class User(Base):
     username = Column(String(100), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
     full_name = Column(String(255))
-    
+
     # User status
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)
     is_verified = Column(Boolean, default=False)
-    
+
     # Preferences
     notification_email = Column(Boolean, default=True)
     notification_in_app = Column(Boolean, default=True)
     notification_webhook = Column(Boolean, default=False)
     notification_whatsapp = Column(Boolean, default=False)
     webhook_url = Column(String(500))
-    
+
     # Plan / billing
     plan_tier = Column(String(20), nullable=False, default="basico")
     subscription_status = Column(String(20), nullable=False, default="inactive")
@@ -54,9 +56,10 @@ class User(Base):
 
     # Relationships
     alerts = relationship("Alert", back_populates="user", cascade="all, delete-orphan")
-    alert_preferences = relationship("AlertPreference", back_populates="user", cascade="all, delete-orphan")
+    alert_preferences = relationship(
+        "AlertPreference", back_populates="user", cascade="all, delete-orphan"
+    )
     empresas = relationship("EmpresaUsuario", back_populates="user", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<User(email='{self.email}', username='{self.username}')>"
-

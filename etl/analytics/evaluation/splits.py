@@ -2,6 +2,7 @@
 
 See spec §5 for rationale.
 """
+
 from __future__ import annotations
 
 from datetime import date, timedelta

@@ -1,0 +1,10 @@
+# Revisiones puramente mecánicas que hay que saltar en `git blame`.
+#
+# Activar en este clone (una vez):
+#     git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# GitHub las respeta automáticamente si el archivo está en la raíz del repo.
+
+# style(f1): barrido de ruff sobre todo el código Python (2026-08-05)
+# 1591 autofixes + 133 archivos reformateados. Sin cambios de comportamiento.
+7373356d83f98c6e58b4bd1ffb3ab9382240a1f3

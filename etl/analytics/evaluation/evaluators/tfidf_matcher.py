@@ -1,4 +1,5 @@
 """Evaluable implementation for the TF-IDF semantic matcher."""
+
 from __future__ import annotations
 
 import logging
@@ -37,23 +38,26 @@ class TfidfMatcherEvaluable(Evaluable):
     supported_splits = ["holdout", "walk_forward"]
     primary_metric = "ndcg_at_10"
     secondary_metrics = [
-        "hit_at_10_winner", "hit_at_10_participant",
-        "mrr", "ndcg_at_20", "coverage_at_10",
+        "hit_at_10_winner",
+        "hit_at_10_participant",
+        "mrr",
+        "ndcg_at_20",
+        "coverage_at_10",
     ]
 
     def train(self, window: SplitWindow, variant: VariantConfig) -> dict[str, Any]:
         corpus = model.build_provider_corpus(max_date=window.train_end)
         if corpus.is_empty():
-            raise RuntimeError(
-                f"Training corpus empty for window ending {window.train_end}"
-            )
+            raise RuntimeError(f"Training corpus empty for window ending {window.train_end}")
         tmpdir = Path(tempfile.mkdtemp(prefix="eval_tfidf_"))
         params = dict(variant.params)
         if "ngram_range" in params:
             params["ngram_range"] = tuple(params["ngram_range"])
         return model.train_tfidf_model(corpus, output_dir=tmpdir, **params)
 
-    def predict(self, artifact: dict[str, Any], window: SplitWindow, top_k: int = 50) -> pl.DataFrame:
+    def predict(
+        self, artifact: dict[str, Any], window: SplitWindow, top_k: int = 50
+    ) -> pl.DataFrame:
         """Batch retrieval: vectorize all test licitación names, compute cosine
         similarity against the provider matrix, emit top-k per query.
         """
@@ -66,8 +70,12 @@ class TfidfMatcherEvaluable(Evaluable):
         lics = self._load_test_licitaciones(window.test_start, window.test_end)
         if lics.is_empty():
             return pl.DataFrame(
-                schema={"query_id": pl.Utf8, "item_id": pl.Utf8,
-                        "rank": pl.Int64, "score": pl.Float64}
+                schema={
+                    "query_id": pl.Utf8,
+                    "item_id": pl.Utf8,
+                    "rank": pl.Int64,
+                    "score": pl.Float64,
+                }
             )
 
         query_ids = lics["CodigoExterno"].to_list()
@@ -78,8 +86,12 @@ class TfidfMatcherEvaluable(Evaluable):
         texts = [t for t, ok in zip(texts, mask) if ok]
         if not texts:
             return pl.DataFrame(
-                schema={"query_id": pl.Utf8, "item_id": pl.Utf8,
-                        "rank": pl.Int64, "score": pl.Float64}
+                schema={
+                    "query_id": pl.Utf8,
+                    "item_id": pl.Utf8,
+                    "rank": pl.Int64,
+                    "score": pl.Float64,
+                }
             )
 
         query_matrix = vectorizer.transform(texts)
@@ -95,16 +107,22 @@ class TfidfMatcherEvaluable(Evaluable):
                 s = float(scores[idx])
                 if s < 0.01:
                     break
-                rows.append({
-                    "query_id": qid,
-                    "item_id": prov_codes[int(idx)],
-                    "rank": rank,
-                    "score": s,
-                })
+                rows.append(
+                    {
+                        "query_id": qid,
+                        "item_id": prov_codes[int(idx)],
+                        "rank": rank,
+                        "score": s,
+                    }
+                )
         if not rows:
             return pl.DataFrame(
-                schema={"query_id": pl.Utf8, "item_id": pl.Utf8,
-                        "rank": pl.Int64, "score": pl.Float64}
+                schema={
+                    "query_id": pl.Utf8,
+                    "item_id": pl.Utf8,
+                    "rank": pl.Int64,
+                    "score": pl.Float64,
+                }
             )
         return pl.DataFrame(rows)
 
@@ -128,25 +146,25 @@ class TfidfMatcherEvaluable(Evaluable):
         winners_marked = winners.with_columns(pl.lit(2).alias("relevance"))
         participants_marked = participants.with_columns(pl.lit(1).alias("relevance"))
 
-        combined = pl.concat(
-            [winners_marked, participants_marked], how="vertical_relaxed"
-        ).unique(subset=["query_id", "item_id"], keep="first")
+        combined = pl.concat([winners_marked, participants_marked], how="vertical_relaxed").unique(
+            subset=["query_id", "item_id"], keep="first"
+        )
         return combined.select(["query_id", "item_id", "relevance"])
 
     def compute_metrics(self, preds: pl.DataFrame, truth: pl.DataFrame) -> dict[str, float]:
         if preds.is_empty():
-            return {m: 0.0 for m in [self.primary_metric] + self.secondary_metrics}
+            return dict.fromkeys([self.primary_metric] + self.secondary_metrics, 0.0)
 
         catalog_size = preds["item_id"].n_unique()
         return {
-            "ndcg_at_10":            metrics.ndcg_at_k(preds, truth, k=10),
-            "ndcg_at_20":            metrics.ndcg_at_k(preds, truth, k=20),
-            "hit_at_5_winner":       metrics.hit_at_k(preds, truth, k=5,  relevance_min=2),
-            "hit_at_10_winner":      metrics.hit_at_k(preds, truth, k=10, relevance_min=2),
-            "hit_at_20_winner":      metrics.hit_at_k(preds, truth, k=20, relevance_min=2),
+            "ndcg_at_10": metrics.ndcg_at_k(preds, truth, k=10),
+            "ndcg_at_20": metrics.ndcg_at_k(preds, truth, k=20),
+            "hit_at_5_winner": metrics.hit_at_k(preds, truth, k=5, relevance_min=2),
+            "hit_at_10_winner": metrics.hit_at_k(preds, truth, k=10, relevance_min=2),
+            "hit_at_20_winner": metrics.hit_at_k(preds, truth, k=20, relevance_min=2),
             "hit_at_10_participant": metrics.hit_at_k(preds, truth, k=10, relevance_min=1),
-            "mrr":                   metrics.mrr(preds, truth, k=100),
-            "coverage_at_10":        metrics.coverage_at_k(preds, k=10, catalog_size=catalog_size),
+            "mrr": metrics.mrr(preds, truth, k=100),
+            "coverage_at_10": metrics.coverage_at_k(preds, k=10, catalog_size=catalog_size),
         }
 
     def _winners_from_oc(self, start: date, end: date) -> pl.DataFrame:

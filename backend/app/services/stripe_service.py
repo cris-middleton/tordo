@@ -14,10 +14,10 @@ Checkout flow:
 Portal flow:
   POST /api/billing/portal  → create Billing Portal session → return URL
 """
+
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from fastapi import HTTPException, status
 
@@ -25,8 +25,8 @@ logger = logging.getLogger(__name__)
 
 # Map (plan_tier, billing_period) → settings attribute name
 PLAN_PRICE_ENV: dict[tuple[str, str], str] = {
-    ("pro", "monthly"):        "stripe_price_pro",
-    ("pro", "annual"):         "stripe_price_pro_annual",
+    ("pro", "monthly"): "stripe_price_pro",
+    ("pro", "annual"): "stripe_price_pro_annual",
     ("enterprise", "monthly"): "stripe_price_enterprise",
 }
 

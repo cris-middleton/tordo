@@ -1,4 +1,5 @@
 """Document management API."""
+
 from pathlib import Path
 from uuid import UUID
 
@@ -7,6 +8,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.empresas import _get_empresa_or_404, _get_membership_or_403
 from app.config import settings
 from app.core.security import get_current_active_user
 from app.db import get_db
@@ -14,7 +16,6 @@ from app.models.empresa import DocumentoEmpresa
 from app.models.user import User
 from app.schemas.documento import DocumentoDownloadResponse, DocumentoOut
 from app.services.storage_service import get_storage_service, make_document_key
-from app.api.empresas import _get_empresa_or_404, _get_membership_or_403
 
 router = APIRouter(tags=["documentos"])
 
@@ -41,17 +42,25 @@ async def upload_documento(
 
     file_bytes = await file.read()
     if len(file_bytes) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="El archivo supera el límite de 25 MB")
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="El archivo supera el límite de 25 MB",
+        )
 
     from app.core.plan_limits import enforce_doc_quota
+
     existing_docs = (
-        await db.execute(
-            select(DocumentoEmpresa).where(
-                DocumentoEmpresa.empresa_id == empresa_id,
-                DocumentoEmpresa.eliminado.is_(False),
+        (
+            await db.execute(
+                select(DocumentoEmpresa).where(
+                    DocumentoEmpresa.empresa_id == empresa_id,
+                    DocumentoEmpresa.eliminado.is_(False),
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     enforce_doc_quota(current_user, existing_docs, len(file_bytes))
 
     display_name = nombre or file.filename or "sin_nombre"
@@ -60,6 +69,7 @@ async def upload_documento(
     stored = storage.upload(file_bytes, key, file.content_type)
 
     from datetime import date as _date
+
     def _parse_date(s):
         if not s:
             return None
@@ -94,15 +104,24 @@ async def listar_documentos(
     await _get_empresa_or_404(empresa_id, db)
     await _get_membership_or_403(empresa_id, current_user, db)
     return (
-        await db.execute(
-            select(DocumentoEmpresa)
-            .where(DocumentoEmpresa.empresa_id == empresa_id, DocumentoEmpresa.eliminado.is_(False))
-            .order_by(DocumentoEmpresa.created_at.desc())
+        (
+            await db.execute(
+                select(DocumentoEmpresa)
+                .where(
+                    DocumentoEmpresa.empresa_id == empresa_id, DocumentoEmpresa.eliminado.is_(False)
+                )
+                .order_by(DocumentoEmpresa.created_at.desc())
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
 
-@router.get("/api/empresas/{empresa_id}/documentos/{doc_id}/download", response_model=DocumentoDownloadResponse)
+@router.get(
+    "/api/empresas/{empresa_id}/documentos/{doc_id}/download",
+    response_model=DocumentoDownloadResponse,
+)
 async def download_documento(
     empresa_id: UUID,
     doc_id: UUID,
@@ -125,10 +144,14 @@ async def download_documento(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Documento no encontrado")
 
     storage = get_storage_service()
-    return DocumentoDownloadResponse(url=storage.get_download_url(doc.s3_key), nombre=doc.nombre, mime_type=doc.mime_type)
+    return DocumentoDownloadResponse(
+        url=storage.get_download_url(doc.s3_key), nombre=doc.nombre, mime_type=doc.mime_type
+    )
 
 
-@router.delete("/api/empresas/{empresa_id}/documentos/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/api/empresas/{empresa_id}/documentos/{doc_id}", status_code=status.HTTP_204_NO_CONTENT
+)
 async def eliminar_documento(
     empresa_id: UUID,
     doc_id: UUID,
@@ -138,7 +161,9 @@ async def eliminar_documento(
     await _get_empresa_or_404(empresa_id, db)
     membership = await _get_membership_or_403(empresa_id, current_user, db)
     if membership.rol not in ("owner", "admin"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Se requiere rol owner o admin")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Se requiere rol owner o admin"
+        )
 
     doc = (
         await db.execute(

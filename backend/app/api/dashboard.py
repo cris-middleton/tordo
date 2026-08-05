@@ -1,11 +1,12 @@
 """Dashboard stats endpoint."""
+
 from datetime import date, timedelta
-from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.plan_limits import effective_plan_tier
 from app.core.security import get_current_active_user
 from app.db import get_db
@@ -66,8 +67,10 @@ async def get_dashboard_stats(
     ).scalar() or 0
 
     memberships = (
-        await db.execute(select(EmpresaUsuario).where(EmpresaUsuario.user_id == current_user.id))
-    ).scalars().all()
+        (await db.execute(select(EmpresaUsuario).where(EmpresaUsuario.user_id == current_user.id)))
+        .scalars()
+        .all()
+    )
     empresa_ids = [m.empresa_id for m in memberships]
     tiene_empresa = len(empresa_ids) > 0
 
@@ -108,16 +111,16 @@ async def get_dashboard_stats(
 
 @router.get("/home", response_model=DashboardHomeResponse)
 async def get_dashboard_home(
-    empresa_id: Optional[UUID] = None,
+    empresa_id: UUID | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ) -> DashboardHomeResponse:
     """Single-roundtrip aggregator for the operational home."""
     memberships = (
-        await db.execute(
-            select(EmpresaUsuario).where(EmpresaUsuario.user_id == current_user.id)
-        )
-    ).scalars().all()
+        (await db.execute(select(EmpresaUsuario).where(EmpresaUsuario.user_id == current_user.id)))
+        .scalars()
+        .all()
+    )
 
     # Trial-aware: active reverse-trials resolve to 'pro' even though the stored
     # plan_tier may still be 'basico'/'free'. Anything at pyme or above counts as paid.

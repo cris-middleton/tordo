@@ -6,10 +6,12 @@ Periodic ETL Celery tasks.
   run_etl_licitaciones_diario  — 02:00 SCL, fetch previous day by fecha_desde/hasta
   watchdog                     — every 30 min, verify critical tasks ran
 """
+
 import logging
 import os
 import subprocess
-from datetime import datetime, timedelta, timezone
+import sys
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from app.celery_app import celery_app
@@ -50,7 +52,7 @@ def run_etl_licitaciones_activas() -> dict:
 
     try:
         result = subprocess.run(
-            ["python", "main.py", "--only-extraer-nuevos"],
+            [sys.executable, "main.py", "--only-extraer-nuevos"],
             cwd=etl_dir,
             capture_output=True,
             text=True,
@@ -88,11 +90,7 @@ def _run_matching_for_new_licitaciones() -> None:
     db = SessionLocal()
     try:
         since = datetime.now(_SCL_TZ) - timedelta(hours=2)
-        new_lics = (
-            db.query(Licitacion)
-            .filter(Licitacion.fecha_extraccion >= since)
-            .all()
-        )
+        new_lics = db.query(Licitacion).filter(Licitacion.fecha_extraccion >= since).all()
         if not new_lics:
             logger.info("[Matching] No new licitaciones in last 2h — skipping")
             return
@@ -105,7 +103,8 @@ def _run_matching_for_new_licitaciones() -> None:
 
         logger.info(
             "[Matching] Processed %d new licitaciones, %d alerts created",
-            len(new_lics), total_created,
+            len(new_lics),
+            total_created,
         )
     except Exception as exc:
         logger.error("[Matching] Step failed: %s", exc)
@@ -134,9 +133,12 @@ def run_etl_licitaciones_diario() -> dict:
     try:
         result = subprocess.run(
             [
-                "python", "main.py",
-                "--fecha-desde", yesterday,
-                "--fecha-hasta", yesterday,
+                sys.executable,
+                "main.py",
+                "--fecha-desde",
+                yesterday,
+                "--fecha-hasta",
+                yesterday,
             ],
             cwd=etl_dir,
             capture_output=True,
@@ -242,10 +244,14 @@ def run_bulk_semanal() -> dict:
     try:
         dl_result = subprocess.run(
             [
-                "python", "descargar_datos_masivos.py",
-                "--tipo", "ambos",
-                "--desde", desde,
-                "--hasta", hasta,
+                sys.executable,
+                "descargar_datos_masivos.py",
+                "--tipo",
+                "ambos",
+                "--desde",
+                desde,
+                "--hasta",
+                hasta,
             ],
             cwd=scripts_dir,
             capture_output=True,
@@ -273,7 +279,7 @@ def run_bulk_semanal() -> dict:
     # ── Step 2: Rebuild analytics ─────────────────────────────────────────────
     try:
         analytics_result = subprocess.run(
-            ["python", "-m", "etl.analytics.run_all"],
+            [sys.executable, "-m", "etl.analytics.run_all"],
             cwd=analytics_dir,
             capture_output=True,
             text=True,
@@ -304,11 +310,7 @@ def watchdog() -> dict:
     """Every 30 min: check for unresolved task failures and log summary."""
     db = SessionLocal()
     try:
-        unresolved = (
-            db.query(TaskFailure)
-            .filter(TaskFailure.resolved.is_(False))
-            .count()
-        )
+        unresolved = db.query(TaskFailure).filter(TaskFailure.resolved.is_(False)).count()
         if unresolved > 0:
             logger.warning("[Watchdog] %d unresolved task failures", unresolved)
         else:

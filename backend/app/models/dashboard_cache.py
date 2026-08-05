@@ -1,4 +1,5 @@
 """Dashboard home cache — pre-computed TF-IDF matches per empresa."""
+
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
@@ -23,7 +24,9 @@ class DashboardHomeCache(Base):
     )
     matches = Column(JsonType, nullable=False, default=list)
     matches_count = Column(Integer(), nullable=False, default=0)
-    cached_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+    cached_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
     updated_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),

@@ -1,5 +1,6 @@
 import logging
-from datetime import datetime, timezone
+import uuid
+from datetime import UTC, datetime
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,17 +8,37 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
+from app.api import (
+    alerts,
+    auth,
+    bi,
+    billing,
+    dashboard,
+    data_inspection,
+    documentos,
+    empresas,
+    estado_habil,
+    health,
+    postulaciones,
+    tenders,
+    users,
+    webhooks,
+)
 from app.config import settings
-from app.api import health, data_inspection, auth, users, tenders, alerts, empresas
-from app.api import documentos, postulaciones, estado_habil, bi, dashboard, billing, webhooks
+from app.observability import request_id_ctx, setup_logging, setup_sentry
+
+# Antes de cualquier otra cosa: si el logging no está configurado, los mensajes
+# de arranque se pierden y Sentry no captura los fallos de inicialización.
+setup_logging(level=settings.log_level, json_output=settings.log_json)
+setup_sentry(
+    dsn=settings.sentry_dsn,
+    environment=settings.environment,
+    release=settings.app_version,
+)
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(
-    title=settings.app_name,
-    version=settings.app_version,
-    debug=settings.debug
-)
+app = FastAPI(title=settings.app_name, version=settings.app_version, debug=settings.debug)
 
 # CORS middleware
 app.add_middleware(
@@ -37,11 +58,12 @@ class BIRateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         ip = (request.client.host if request.client else None) or "unknown"
-        minute = datetime.now(timezone.utc).strftime("%Y%m%d%H%M")
+        minute = datetime.now(UTC).strftime("%Y%m%d%H%M")
         key = f"rl:bi:{ip}:{minute}"
 
         try:
             import redis as _redis
+
             r = _redis.from_url(settings.redis_url, decode_responses=True, socket_connect_timeout=1)
             count = r.incr(key)
             if count == 1:
@@ -61,18 +83,56 @@ class BIRateLimitMiddleware(BaseHTTPMiddleware):
 app.add_middleware(BIRateLimitMiddleware)
 
 
+class RequestIDMiddleware(BaseHTTPMiddleware):
+    """Propagate an inbound X-Request-ID or mint one, and echo it on the response.
+
+    The id is what correlates a user-facing error with the server-side traceback,
+    so it is the only error detail we hand back to the client.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex
+        request.state.request_id = request_id
+        # También al contexto de logging, para que todo log emitido durante esta
+        # petición lo lleve — incluso desde servicios que no ven el `request`.
+        token = request_id_ctx.set(request_id)
+        try:
+            response = await call_next(request)
+        finally:
+            request_id_ctx.reset(token)
+        response.headers["X-Request-ID"] = request_id
+        return response
+
+
+app.add_middleware(RequestIDMiddleware)
+
+
 @app.exception_handler(Exception)
 async def catch_all_exception_handler(request: Request, exc: Exception):
-    """Return 500 JSON with CORS headers so browsers don't mask the real error as 'Network Error'."""
-    logger.exception("Unhandled exception on %s: %s", request.url.path, exc)
+    """Return 500 JSON with CORS headers so browsers don't mask the real error as 'Network Error'.
+
+    The exception type and message stay in the logs — leaking them to the client
+    exposes SQL fragments, file paths and values. The client gets a request_id
+    to quote instead. In debug mode the detail is included for local development.
+    """
+    request_id = getattr(request.state, "request_id", None) or uuid.uuid4().hex
+    logger.exception(
+        "Unhandled exception on %s [request_id=%s]: %s", request.url.path, request_id, exc
+    )
+
     origin = request.headers.get("origin", "")
-    headers = {}
+    headers = {"X-Request-ID": request_id}
     if origin in settings.cors_origins:
         headers["Access-Control-Allow-Origin"] = origin
         headers["Access-Control-Allow-Credentials"] = "true"
+
+    detail = "Error interno del servidor."
+    if settings.debug:
+        detail = f"{detail} [debug] {type(exc).__name__}: {exc}"
+
     return JSONResponse(
         status_code=500,
-        content={"detail": f"Error interno: {type(exc).__name__}: {exc}"},
+        content={"detail": detail, "request_id": request_id},
         headers=headers,
     )
 
@@ -95,50 +155,14 @@ app.include_router(billing.router)
 app.include_router(webhooks.router)
 
 
-@app.on_event("startup")
-async def prewarm_bi_artifacts():
-    """
-    Pre-load heavy BI artifacts in background so the first request doesn't
-    blow up the worker with a cold load (71MB TF-IDF npz + 60MB price parquets).
-    Runs non-blocking — the app becomes responsive immediately; pre-warm
-    continues in background and the first /matching or /precio request just
-    waits a bit longer if it hits before pre-warm finishes.
-    """
-    import asyncio
-
-    if not settings.feature_analytics:
-        logger.info("prewarm_bi_artifacts: feature_analytics off, skipping")
-        return
-
-    async def _warm():
-        try:
-            from app.services import bi_service
-            # Parquets grandes usados por precio (L1 es 60MB)
-            heavy_parquets = [
-                "product_price_bands_L1.parquet",
-                "product_price_bands_L2.parquet",
-                "product_price_bands_L3.parquet",
-                "tfidf_provider_index.parquet",
-            ]
-            for name in heavy_parquets:
-                await asyncio.to_thread(bi_service._load, name)
-                logger.info("prewarm_bi_artifacts: loaded %s", name)
-
-            # TF-IDF model (joblib + npz) — requires feature_tfidf
-            if settings.feature_tfidf:
-                from app.services import tfidf_matcher
-                await asyncio.to_thread(tfidf_matcher._load_model)
-                logger.info("prewarm_bi_artifacts: TF-IDF model loaded")
-            else:
-                logger.info("prewarm_bi_artifacts: feature_tfidf off, skipping TF-IDF")
-
-            logger.info("prewarm_bi_artifacts: done — BI artifacts cached in memory")
-        except Exception as exc:
-            logger.error("prewarm_bi_artifacts failed: %s", exc, exc_info=True)
-
-    # Fire-and-forget — no bloquea el startup
-    asyncio.create_task(_warm())
-    logger.info("prewarm_bi_artifacts: scheduled background warm-up")
+# El pre-warm de artefactos de BI vivía aquí: cargaba en segundo plano 60 MB de
+# parquets de precios y un modelo TF-IDF de 71 MB para que la primera petición no
+# tumbara al worker. Ya no hace falta — el BI se sirve desde Postgres con índices
+# (docs/decisiones/0006-analytics-en-postgres.md), así que no hay nada pesado que
+# precargar y el arranque no depende del sistema de archivos.
+#
+# El TF-IDF sigue cargándose en el proceso bajo FEATURE_TFIDF; sacarlo a un job
+# nocturno es lo que queda de F2.
 
 
 @app.get("/")
@@ -149,5 +173,5 @@ async def root():
         "message": "Tordo API",
         "version": settings.app_version,
         "docs": "/docs",
-        "redoc": "/redoc"
+        "redoc": "/redoc",
     }

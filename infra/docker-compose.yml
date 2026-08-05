@@ -1,8 +1,14 @@
+# Nombre explícito del proyecto de Compose.
+# Sin esto Compose lo deriva del directorio ("infra") y COLISIONA con el repo
+# ~/github/infra de otra empresa: contenedores huérfanos, redes compartidas y `down`
+# apagando servicios del otro proyecto.
+name: tordo
+
 services:
   # PostgreSQL Database
   db:
     image: postgres:15-alpine
-    container_name: licitaciones_db
+    container_name: tordo_db
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
@@ -22,7 +28,7 @@ services:
   # Redis Cache/Queue
   redis:
     image: redis:7-alpine
-    container_name: licitaciones_redis
+    container_name: tordo_redis
     ports:
       - "${REDIS_PORT:-6379}:6379"
     volumes:
@@ -38,7 +44,7 @@ services:
   # MinIO — S3-compatible object store for local dev document storage
   minio:
     image: minio/minio:latest
-    container_name: licitaciones_minio
+    container_name: tordo_minio
     command: server /data --console-address ":9001"
     ports:
       - "${MINIO_PORT:-9000}:9000"
@@ -59,7 +65,7 @@ services:
   # MinIO setup — creates the default bucket on first start
   minio-setup:
     image: minio/mc:latest
-    container_name: licitaciones_minio_setup
+    container_name: tordo_minio_setup
     depends_on:
       minio:
         condition: service_healthy
@@ -76,9 +82,9 @@ services:
   # Backend API
   backend:
     build:
-      context: ../backend
-      dockerfile: Dockerfile
-    container_name: licitaciones_backend
+      context: ..
+      dockerfile: backend/Dockerfile
+    container_name: tordo_backend
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     environment:
@@ -86,6 +92,10 @@ services:
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
       DEBUG: ${DEBUG:-false}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_JSON: ${LOG_JSON:-false}
       STORAGE_BACKEND: s3
       AWS_BUCKET: ${AWS_BUCKET:-tordo-docs}
       AWS_REGION: ${AWS_REGION:-us-east-1}
@@ -93,7 +103,6 @@ services:
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
       S3_ENDPOINT_URL: http://minio:9000
       S3_ENDPOINT_URL_PUBLIC: ${S3_ENDPOINT_URL_PUBLIC:-http://localhost:9000}
-      ANALYTICS_DATA_PATH: /workspace/etl/data/analytics
       MERCADO_PUBLICO_TICKET: ${MERCADO_PUBLICO_TICKET:-}
       TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
       TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
@@ -104,7 +113,6 @@ services:
     volumes:
       - ../backend:/app
       - /app/__pycache__
-      - ../etl/data:/workspace/etl/data:ro
     depends_on:
       db:
         condition: service_healthy
@@ -124,14 +132,25 @@ services:
   # Celery Worker
   celery_worker:
     build:
-      context: ../backend
-      dockerfile: Dockerfile
-    container_name: licitaciones_celery_worker
+      context: ..
+      dockerfile: backend/Dockerfile
+      args:
+        # Este worker lanza el ETL como subproceso: necesita sus dependencias
+        # (pandas, numpy, pytz, structlog). La API no las lleva a propósito.
+        UV_GROUPS: "--group api --group etl"
+    container_name: tordo_celery_worker
     environment:
+      # Vacío = logs a stdout (etl/main.py usa StreamHandler). Escribir
+      # etl.log dentro del repo no sirve en contenedores.
+      LOG_FILE: ""
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-licitaciones}
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
       DEBUG: ${DEBUG:-false}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_JSON: ${LOG_JSON:-false}
       STORAGE_BACKEND: s3
       AWS_BUCKET: ${AWS_BUCKET:-tordo-docs}
       AWS_REGION: ${AWS_REGION:-us-east-1}
@@ -139,7 +158,6 @@ services:
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
       S3_ENDPOINT_URL: http://minio:9000
       S3_ENDPOINT_URL_PUBLIC: ${S3_ENDPOINT_URL_PUBLIC:-http://localhost:9000}
-      ANALYTICS_DATA_PATH: /workspace/etl/data/analytics
       MERCADO_PUBLICO_TICKET: ${MERCADO_PUBLICO_TICKET:-}
       TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
       TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
@@ -148,7 +166,10 @@ services:
     volumes:
       - ../backend:/app
       - /app/__pycache__
-      - ..:/workspace:ro
+      # Lectura Y ESCRITURA: la tarea run_bulk_semanal descarga ZIPs y genera
+      # parquets bajo etl/data. Con `:ro` fallaba con OSError read-only, así
+      # que el bulk semanal nunca pudo funcionar en Docker.
+      - ..:/workspace
     depends_on:
       db:
         condition: service_healthy
@@ -168,14 +189,18 @@ services:
   # Celery Beat (Scheduler)
   celery_beat:
     build:
-      context: ../backend
-      dockerfile: Dockerfile
-    container_name: licitaciones_celery_beat
+      context: ..
+      dockerfile: backend/Dockerfile
+    container_name: tordo_celery_beat
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-licitaciones}
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
       DEBUG: ${DEBUG:-false}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_JSON: ${LOG_JSON:-false}
     volumes:
       - ../backend:/app
       - /app/__pycache__
@@ -196,7 +221,7 @@ services:
   # Flower — Celery task monitoring UI
   flower:
     image: mher/flower:2.0.0
-    container_name: licitaciones_flower
+    container_name: tordo_flower
     command: celery --broker=redis://redis:6379/0 flower --port=5555
     ports:
       - "${FLOWER_PORT:-5555}:5555"
@@ -216,10 +241,13 @@ services:
   # ETL Service
   etl:
     build:
-      context: ../etl
-      dockerfile: Dockerfile
-    container_name: licitaciones_etl
+      context: ..
+      dockerfile: etl/Dockerfile
+    container_name: tordo_etl
     environment:
+      # Vacío = logs a stdout (etl/main.py usa StreamHandler). Escribir
+      # etl.log dentro del repo no sirve en contenedores.
+      LOG_FILE: ""
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-licitaciones}
       REDIS_URL: redis://redis:6379/0
       LOG_LEVEL: ${ETL_LOG_LEVEL:-INFO}
@@ -252,7 +280,7 @@ services:
     build:
       context: ../frontend
       dockerfile: Dockerfile
-    container_name: licitaciones_frontend
+    container_name: tordo_frontend
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     environment:

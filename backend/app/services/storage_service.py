@@ -7,9 +7,10 @@ Usage:
     url  = storage.get_download_url(key)
     storage.delete(key)
 """
+
 from __future__ import annotations
 
-import os
+import contextlib
 import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -20,8 +21,8 @@ from app.config import settings
 
 @dataclass
 class StoredFile:
-    key: str       # storage key (relative path or S3 object key)
-    bucket: str    # bucket name or LOCAL_STORAGE_PATH root
+    key: str  # storage key (relative path or S3 object key)
+    bucket: str  # bucket name or LOCAL_STORAGE_PATH root
     size_bytes: int
 
 
@@ -71,14 +72,21 @@ class S3StorageService(StorageService):
     reachable from the browser (may differ from the internal Docker hostname).
     """
 
-    def __init__(self, bucket: str, region: str, endpoint_url: str | None = None, endpoint_url_public: str | None = None) -> None:
+    def __init__(
+        self,
+        bucket: str,
+        region: str,
+        endpoint_url: str | None = None,
+        endpoint_url_public: str | None = None,
+    ) -> None:
         self.bucket = bucket
         self.region = region
-        self.endpoint_url = endpoint_url            # internal URL (used for upload/delete)
+        self.endpoint_url = endpoint_url  # internal URL (used for upload/delete)
         self.endpoint_url_public = endpoint_url_public or endpoint_url  # browser-facing URL
 
     def _client(self, public: bool = False):  # type: ignore[return]
         import boto3  # lazy import — not required in dev
+
         endpoint = self.endpoint_url_public if public else self.endpoint_url
         kwargs: dict = {"region_name": self.region}
         if endpoint:
@@ -87,6 +95,7 @@ class S3StorageService(StorageService):
 
     def upload(self, file_bytes: bytes, key: str, mime_type: str | None = None) -> StoredFile:
         import io
+
         extra = {"ContentType": mime_type} if mime_type else {}
         self._client().upload_fileobj(io.BytesIO(file_bytes), self.bucket, key, ExtraArgs=extra)
         return StoredFile(key=key, bucket=self.bucket, size_bytes=len(file_bytes))
@@ -99,10 +108,8 @@ class S3StorageService(StorageService):
         )
 
     def delete(self, key: str) -> None:
-        try:
+        with contextlib.suppress(Exception):
             self._client().delete_object(Bucket=self.bucket, Key=key)
-        except Exception:
-            pass
 
 
 def make_document_key(empresa_id: str, filename: str) -> str:

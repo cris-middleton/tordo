@@ -1,15 +1,17 @@
 from datetime import datetime
-from typing import Optional, List
+from typing import List
 from uuid import UUID
+
 from pydantic import BaseModel, ConfigDict, field_validator
-from app.utils.rut import validar_rut, formatear_rut
+
+from app.utils.rut import formatear_rut, validar_rut
 
 
 class EmpresaCreate(BaseModel):
     rut_empresa: str
     nombre_empresa: str
-    rubros_cpv: Optional[List[str]] = None
-    regiones: Optional[List[str]] = None
+    rubros_cpv: List[str] | None = None
+    regiones: List[str] | None = None
 
     @field_validator("rut_empresa")
     @classmethod
@@ -21,21 +23,21 @@ class EmpresaCreate(BaseModel):
 
 
 class EmpresaUpdate(BaseModel):
-    nombre_empresa: Optional[str] = None
-    rubros_cpv: Optional[List[str]] = None
-    regiones: Optional[List[str]] = None
-    activo: Optional[bool] = None
+    nombre_empresa: str | None = None
+    rubros_cpv: List[str] | None = None
+    regiones: List[str] | None = None
+    activo: bool | None = None
 
 
 class EmpresaOut(BaseModel):
     id: UUID
     rut_empresa: str
     nombre_empresa: str
-    rubros_cpv: Optional[List[str]] = None
-    regiones: Optional[List[str]] = None
+    rubros_cpv: List[str] | None = None
+    regiones: List[str] | None = None
     activo: bool
     estado_habil: str
-    estado_habil_updated_at: Optional[datetime] = None
+    estado_habil_updated_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -45,6 +47,7 @@ class EmpresaOut(BaseModel):
 
 class EmpresaConRol(EmpresaOut):
     """EmpresaOut enriched with the current user's role."""
+
     rol: str
 
 
@@ -60,7 +63,7 @@ class EmpresaUsuarioOut(BaseModel):
 class MiembroResponse(BaseModel):
     user_id: int
     email: str
-    full_name: Optional[str] = None
+    full_name: str | None = None
     rol: str
     joined_at: str  # ISO datetime
 

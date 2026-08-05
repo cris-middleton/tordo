@@ -1,29 +1,50 @@
+# Backend API (FastAPI) — también usada por celery_worker y celery_beat.
+#
+# IMPORTANTE: el contexto de build es la RAÍZ del repo, no backend/, porque
+# pyproject.toml y uv.lock viven en la raíz.
+#   docker-compose: build: { context: .., dockerfile: backend/Dockerfile }
+#   Railway:        root del servicio "/", dockerfilePath "backend/Dockerfile"
 FROM python:3.11-slim
 
-WORKDIR /app
+COPY --from=ghcr.io/astral-sh/uv:0.11 /uv /usr/local/bin/uv
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     postgresql-client \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=never \
+    PYTHONUNBUFFERED=1 \
+    PATH="/opt/venv/bin:$PATH"
 
-# Copy application code
-COPY . .
+# Capa de dependencias: sólo manifiesto + lock, para que Docker la cachee
+# mientras el código cambia.
+#
+# La API sólo necesita el grupo `api` (sin pandas/numpy/bs4: imagen más chica).
+# Pero el celery_worker lanza el ETL como subproceso, y ése sí necesita el grupo
+# `etl`. Por eso los grupos son un build arg en vez de estar fijos: en compose,
+# celery_worker construye con ambos.
+#
+# Sin esto el worker revienta con ModuleNotFoundError (pytz, pandas...) en cuanto
+# corre la tarea horaria, y el ETL deja de funcionar en silencio.
+ARG UV_GROUPS="--group api"
+WORKDIR /deps
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-default-groups ${UV_GROUPS}
 
-# Expose port (Railway injects $PORT at runtime)
+# Código de la aplicación
+WORKDIR /app
+COPY backend/ ./
+
 EXPOSE ${PORT:-8000}
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:${PORT:-8000}/health/ || exit 1
 
-# Default command — migrate then serve. Runs at container startup so the
-# Railway private network (postgres.railway.internal) is reachable.
-# Uses $PORT from Railway, falls back to 8000 for local Docker.
+# Migrar y servir. Corre al arrancar el contenedor para que la red privada de
+# Railway (postgres.railway.internal) sea alcanzable.
 CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

@@ -2,6 +2,7 @@
 
 See docs/superpowers/specs/2026-04-14-scoring-evaluation-framework-design.md §4.2.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

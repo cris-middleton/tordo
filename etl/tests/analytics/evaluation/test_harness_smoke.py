@@ -1,14 +1,13 @@
 """End-to-end smoke test: run the full harness against synthetic parquets
 and verify all output files are produced with valid structure.
 """
+
 import json
 import random
 from datetime import date, datetime
-from pathlib import Path
 
 import polars as pl
 import pytest
-
 from analytics.evaluation.base import VariantConfig
 
 
@@ -19,8 +18,8 @@ def rich_synthetic_data(tmp_path, monkeypatch):
     20 proveedores, each with 4-10 distinct products across 6 rubros,
     spanning 2022-2026.
     """
-    from analytics import config as analytics_config
     import analytics.data_loader as _dl
+    from analytics import config as analytics_config
 
     random.seed(42)
 
@@ -30,12 +29,12 @@ def rich_synthetic_data(tmp_path, monkeypatch):
     lic_dir.mkdir()
 
     rubros_productos = {
-        "01_agricultura":  ["semillas", "fertilizantes", "riego goteo", "maquinaria agricola"],
-        "14_mineria":      ["explosivos", "brocas", "cascos mineros", "equipos topografia"],
-        "43_tecnologia":   ["notebooks", "servidores", "switches red", "licencias software"],
-        "56_oficina":      ["papel bond", "resmas A4", "tinta impresora", "carpetas"],
-        "76_limpieza":     ["detergente industrial", "mopas", "bolsas basura", "desinfectante"],
-        "85_salud":        ["mascarillas", "guantes latex", "gasa esteril", "termometros"],
+        "01_agricultura": ["semillas", "fertilizantes", "riego goteo", "maquinaria agricola"],
+        "14_mineria": ["explosivos", "brocas", "cascos mineros", "equipos topografia"],
+        "43_tecnologia": ["notebooks", "servidores", "switches red", "licencias software"],
+        "56_oficina": ["papel bond", "resmas A4", "tinta impresora", "carpetas"],
+        "76_limpieza": ["detergente industrial", "mopas", "bolsas basura", "desinfectante"],
+        "85_salud": ["mascarillas", "guantes latex", "gasa esteril", "termometros"],
     }
     all_proveedores = [f"P{i:03d}" for i in range(20)]
 
@@ -77,24 +76,30 @@ def rich_synthetic_data(tmp_path, monkeypatch):
             winners = df.filter(pl.col("CodigoLicitacion").is_not_null())
             lic_rows = []
             for r in winners.iter_rows(named=True):
-                lic_rows.append({
-                    "CodigoExterno": r["CodigoLicitacion"],
-                    "Nombre": r["Nombre"],
-                    "FechaCreacion": r["FechaCreacion"],
-                    "CodigoProveedor": r["CodigoProveedor"],
-                    "NombreProveedor": r["NombreProveedor"],
-                    "Oferta seleccionada": True,
-                })
-                losers = [q for q in random.sample(all_proveedores, k=3) if q != r["CodigoProveedor"]][:2]
-                for lp in losers:
-                    lic_rows.append({
+                lic_rows.append(
+                    {
                         "CodigoExterno": r["CodigoLicitacion"],
                         "Nombre": r["Nombre"],
                         "FechaCreacion": r["FechaCreacion"],
-                        "CodigoProveedor": lp,
-                        "NombreProveedor": f"Prov {lp}",
-                        "Oferta seleccionada": False,
-                    })
+                        "CodigoProveedor": r["CodigoProveedor"],
+                        "NombreProveedor": r["NombreProveedor"],
+                        "Oferta seleccionada": True,
+                    }
+                )
+                losers = [
+                    q for q in random.sample(all_proveedores, k=3) if q != r["CodigoProveedor"]
+                ][:2]
+                for lp in losers:
+                    lic_rows.append(
+                        {
+                            "CodigoExterno": r["CodigoLicitacion"],
+                            "Nombre": r["Nombre"],
+                            "FechaCreacion": r["FechaCreacion"],
+                            "CodigoProveedor": lp,
+                            "NombreProveedor": f"Prov {lp}",
+                            "Oferta seleccionada": False,
+                        }
+                    )
             if lic_rows:
                 pl.DataFrame(lic_rows).write_parquet(lic_dir / f"{year}-{month}.parquet")
 
@@ -114,10 +119,13 @@ def test_end_to_end_tfidf_matcher_holdout(rich_synthetic_data, tmp_path):
 
     results = runner.run_evaluation(
         model_name="tfidf_matcher",
-        variant=VariantConfig(name="baseline", params={
-            **TfidfMatcherEvaluable.default_variant.params,
-            "min_df": 1,  # relax for sparse synthetic data
-        }),
+        variant=VariantConfig(
+            name="baseline",
+            params={
+                **TfidfMatcherEvaluable.default_variant.params,
+                "min_df": 1,  # relax for sparse synthetic data
+            },
+        ),
         split_strategy="holdout",
         today=date(2026, 4, 14),
         skip_leakage_check=True,
@@ -125,10 +133,14 @@ def test_end_to_end_tfidf_matcher_holdout(rich_synthetic_data, tmp_path):
     assert len(results) == 1
     r = results[0]
     expected = {
-        "ndcg_at_10", "ndcg_at_20",
-        "hit_at_5_winner", "hit_at_10_winner", "hit_at_20_winner",
+        "ndcg_at_10",
+        "ndcg_at_20",
+        "hit_at_5_winner",
+        "hit_at_10_winner",
+        "hit_at_20_winner",
         "hit_at_10_participant",
-        "mrr", "coverage_at_10",
+        "mrr",
+        "coverage_at_10",
     }
     assert set(r.metrics.keys()) == expected
     for k, v in r.metrics.items():

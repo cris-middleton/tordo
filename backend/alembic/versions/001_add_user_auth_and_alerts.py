@@ -1,7 +1,7 @@
 """Add user authentication, organizations, categories, and alert system
 
 Revision ID: 001
-Revises: 
+Revises:
 Create Date: 2024-01-01 00:00:00.000000
 
 """
@@ -11,7 +11,10 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = '001'
-down_revision = None
+# Antes era None. Ahora encadena con 000, la migración base que crea
+# licitaciones y ordenes_compra — tablas que esta migración altera y que
+# ninguna migración creaba.
+down_revision = '000'
 branch_labels = None
 depends_on = None
 
@@ -189,6 +192,12 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_alerts_user_id'), table_name='alerts')
     op.drop_table('alerts')
 
+    # Los tipos ENUM de Postgres NO se borran al hacer drop_table: quedan huérfanos
+    # y el siguiente `upgrade` falla con "type alerttype already exists". Es el
+    # ciclo normal de un dev iterando (upgrade -> downgrade -> upgrade).
+    sa.Enum(name='alerttype').drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name='alertstatus').drop(op.get_bind(), checkfirst=True)
+
     # Drop alert_preferences table
     op.drop_index(op.f('ix_alert_preferences_user_id'), table_name='alert_preferences')
     op.drop_table('alert_preferences')
@@ -211,4 +220,3 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_users_id'), table_name='users')
     op.drop_index(op.f('ix_users_email'), table_name='users')
     op.drop_table('users')
-

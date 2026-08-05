@@ -4,20 +4,20 @@ Estado hábil checker.
 Downloads the proveedores hábiles CSV from ChileCompra's open-data portal,
 looks up each registered empresa by RUT, and records any state changes.
 """
+
 from __future__ import annotations
 
 import csv
 import io
 import logging
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 import requests
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.models.alert import Alert, AlertStatus, AlertType
 from app.models.empresa import Empresa, EstadoHabilLog
-from app.models.alert import Alert, AlertType, AlertStatus
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +106,7 @@ def _create_estado_habil_alert(empresa: Empresa, db: Session) -> None:
     for m in memberships:
         idempotency_key = (
             f"estado_habil_{empresa.id}_{empresa.estado_habil}_"
-            f"{datetime.now(timezone.utc).strftime('%Y%m%d')}"
+            f"{datetime.now(UTC).strftime('%Y%m%d')}"
         )
         # Skip if already sent today
         existing = db.query(Alert).filter(Alert.idempotency_key == idempotency_key).first()
@@ -166,7 +166,9 @@ def run_estado_habil_check(db: Session) -> dict:
         old_state = empresa.estado_habil
         logger.info(
             "Estado hábil change: %s %s → %s",
-            empresa.rut_empresa, old_state, new_state,
+            empresa.rut_empresa,
+            old_state,
+            new_state,
         )
 
         # Persist log entry
@@ -181,7 +183,7 @@ def run_estado_habil_check(db: Session) -> dict:
 
         # Update empresa
         empresa.estado_habil = new_state
-        empresa.estado_habil_updated_at = datetime.now(timezone.utc)
+        empresa.estado_habil_updated_at = datetime.now(UTC)
 
         # Create alerts for empresa users
         _create_estado_habil_alert(empresa, db)
@@ -226,7 +228,7 @@ def check_empresa_now(empresa_id, db: Session) -> dict:
     old_state = empresa.estado_habil
 
     empresa.estado_habil = new_state
-    empresa.estado_habil_updated_at = datetime.now(timezone.utc)
+    empresa.estado_habil_updated_at = datetime.now(UTC)
 
     if new_state != old_state:
         log_entry = EstadoHabilLog(

@@ -1,6 +1,7 @@
 from datetime import datetime
-from typing import Optional, List
+from typing import List
 from uuid import UUID
+
 from pydantic import BaseModel
 
 
@@ -9,8 +10,8 @@ class ChecklistItemOut(BaseModel):
     descripcion: str
     es_obligatorio: bool
     completado: bool
-    completado_at: Optional[datetime] = None
-    documento_id: Optional[UUID] = None
+    completado_at: datetime | None = None
+    documento_id: UUID | None = None
     orden: int
 
     class Config:
@@ -19,18 +20,18 @@ class ChecklistItemOut(BaseModel):
 
 class ChecklistItemUpdate(BaseModel):
     completado: bool
-    documento_id: Optional[UUID] = None
+    documento_id: UUID | None = None
 
 
 class PostulacionCreate(BaseModel):
     empresa_id: UUID
     licitacion_id: int
-    notas: Optional[str] = None
+    notas: str | None = None
 
 
 class PostulacionUpdate(BaseModel):
-    estado: Optional[str] = None
-    notas: Optional[str] = None
+    estado: str | None = None
+    notas: str | None = None
 
 
 class PostulacionOut(BaseModel):
@@ -38,7 +39,7 @@ class PostulacionOut(BaseModel):
     empresa_id: UUID
     licitacion_id: int
     estado: str
-    notas: Optional[str] = None
+    notas: str | None = None
     created_at: datetime
     checklist: List[ChecklistItemOut] = []
 
@@ -48,8 +49,9 @@ class PostulacionOut(BaseModel):
 
 class LicitacionMini(BaseModel):
     """Minimal licitacion data for list views."""
-    nombre: Optional[str] = None
-    codigo_externo: Optional[str] = None
+
+    nombre: str | None = None
+    codigo_externo: str | None = None
 
     class Config:
         from_attributes = True
@@ -57,14 +59,15 @@ class LicitacionMini(BaseModel):
 
 class PostulacionListItem(BaseModel):
     """Full list item — includes checklist and licitacion for the frontend card."""
+
     id: UUID
     empresa_id: UUID
     licitacion_id: int
     estado: str
-    notas: Optional[str] = None
+    notas: str | None = None
     created_at: datetime
     checklist: List[ChecklistItemOut] = []
-    licitacion: Optional[LicitacionMini] = None
+    licitacion: LicitacionMini | None = None
 
     class Config:
         from_attributes = True

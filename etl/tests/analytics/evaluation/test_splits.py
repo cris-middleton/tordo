@@ -1,7 +1,5 @@
 from datetime import date
 
-import pytest
-
 from analytics.evaluation.splits import (
     build_holdout_split,
     build_walk_forward_splits,

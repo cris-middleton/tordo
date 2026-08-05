@@ -1,12 +1,15 @@
 import uuid
-from sqlalchemy import Column, String, Boolean, DateTime, Text, JSON
-from sqlalchemy.sql import func
+
+from sqlalchemy import JSON, Boolean, Column, DateTime, String, Text
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.sql import func
+
 from app.db import Base
 
 
 class TaskFailure(Base):
     """Dead-letter queue for failed Celery tasks."""
+
     __tablename__ = "task_failures"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

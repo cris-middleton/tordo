@@ -1,4 +1,5 @@
 """Writers for evaluation results (JSON + markdown)."""
+
 from __future__ import annotations
 
 import json
@@ -28,9 +29,7 @@ def _to_jsonable(obj: Any) -> Any:
 
 def _git_commit() -> str:
     try:
-        return subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"], text=True
-        ).strip()
+        return subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], text=True).strip()
     except Exception:
         return "unknown"
 
@@ -48,7 +47,7 @@ def _aggregate(results: list[EvaluationResult]) -> dict[str, dict[str, float | N
     """Compute mean and std per metric across splits."""
     if not results:
         return {}
-    all_keys = sorted({k for r in results for k in r.metrics.keys()})
+    all_keys = sorted({k for r in results for k in r.metrics})
     agg = {}
     for k in all_keys:
         values = [r.metrics[k] for r in results if k in r.metrics]
@@ -57,7 +56,7 @@ def _aggregate(results: list[EvaluationResult]) -> dict[str, dict[str, float | N
         mean = sum(values) / len(values)
         if len(values) > 1:
             var = sum((v - mean) ** 2 for v in values) / len(values)
-            std = var ** 0.5
+            std = var**0.5
         else:
             std = None
         agg[k] = {"mean": mean, "std": std}
@@ -93,9 +92,7 @@ def _build_payload(results: list[EvaluationResult], split_strategy: str) -> dict
     }
 
 
-def write_result_json(
-    results: list[EvaluationResult], base_dir: Path, split_strategy: str
-) -> Path:
+def write_result_json(results: list[EvaluationResult], base_dir: Path, split_strategy: str) -> Path:
     assert results, "results must be non-empty"
     first = results[0]
     today = datetime.now().strftime("%Y-%m-%d")
@@ -150,7 +147,7 @@ def write_result_markdown(
         lines.append("| Split | " + " | ".join(agg.keys()) + " |")
         lines.append("|---|" + "|".join(["---"] * len(agg)) + "|")
         for r in results:
-            cells = " | ".join(f"{r.metrics.get(k, float('nan')):.4f}" for k in agg.keys())
+            cells = " | ".join(f"{r.metrics.get(k, float('nan')):.4f}" for k in agg)
             lines.append(f"| {r.split_id} | {cells} |")
         lines.append("")
 

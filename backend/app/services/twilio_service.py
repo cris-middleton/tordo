@@ -10,6 +10,7 @@ In production, replace with the approved WABA number once approved.
 Mock mode is intentional — the service structure is production-ready so that
 enabling it only requires setting TWILIO_ACCOUNT_SID + FEATURE_WHATSAPP=true.
 """
+
 from __future__ import annotations
 
 import logging
@@ -21,9 +22,7 @@ def _is_live() -> bool:
     from app.config import settings
 
     return bool(
-        settings.feature_whatsapp
-        and settings.twilio_account_sid
-        and settings.twilio_auth_token
+        settings.feature_whatsapp and settings.twilio_account_sid and settings.twilio_auth_token
     )
 
 
@@ -60,6 +59,7 @@ def send_whatsapp_alert(to_number: str, message: str) -> bool:
 
     try:
         from twilio.rest import Client  # lazy import
+
         from app.config import settings
 
         client = Client(settings.twilio_account_sid, settings.twilio_auth_token)

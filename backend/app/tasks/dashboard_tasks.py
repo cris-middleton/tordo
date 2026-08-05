@@ -5,10 +5,11 @@ top-20 currently open licitaciones (TF-IDF semantic match) and upserts
 them into dashboard_home_cache. The home endpoint reads from this cache
 synchronously, so the home never calls BI live.
 """
+
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from app.celery_app import celery_app
@@ -31,7 +32,7 @@ def _compute_matches_for_empresa(
     """
     from app.services.tfidf_matcher import score_empresa_licitacion
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     licitaciones = (
         db.query(Licitacion)
         .filter(
@@ -66,9 +67,7 @@ def _compute_matches_for_empresa(
                     float(lic.monto_estimado) if lic.monto_estimado is not None else None
                 ),
                 "moneda": lic.moneda or "CLP",
-                "fecha_cierre": (
-                    lic.fecha_cierre.isoformat() if lic.fecha_cierre else None
-                ),
+                "fecha_cierre": (lic.fecha_cierre.isoformat() if lic.fecha_cierre else None),
                 "score": score_int,
                 "href": f"/dashboard/tenders/{lic.codigo_externo}",
             }
@@ -91,15 +90,13 @@ def precompute_dashboard_matches() -> dict:
         perfiles = db.query(TFIDFPerfil).all()
         for perfil in perfiles:
             try:
-                matches = _compute_matches_for_empresa(
-                    db, perfil.empresa_id, perfil.vector_bytes
-                )
+                matches = _compute_matches_for_empresa(db, perfil.empresa_id, perfil.vector_bytes)
                 cache = (
                     db.query(DashboardHomeCache)
                     .filter(DashboardHomeCache.empresa_id == perfil.empresa_id)
                     .one_or_none()
                 )
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
                 if cache is None:
                     cache = DashboardHomeCache(
                         empresa_id=perfil.empresa_id,
@@ -117,9 +114,7 @@ def precompute_dashboard_matches() -> dict:
                 processed += 1
             except Exception as exc:
                 failed += 1
-                logger.error(
-                    "[DashboardMatches] empresa=%s failed: %s", perfil.empresa_id, exc
-                )
+                logger.error("[DashboardMatches] empresa=%s failed: %s", perfil.empresa_id, exc)
         db.commit()
         logger.info(
             "[DashboardMatches] processed=%d skipped=%d failed=%d",

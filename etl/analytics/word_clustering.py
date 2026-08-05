@@ -17,7 +17,6 @@ import logging
 import re
 from collections import Counter
 
-import numpy as np
 import polars as pl
 
 from .config import OUTPUT_DIR
@@ -30,8 +29,8 @@ def _clean(text: str) -> str:
     if not text or text == "null":
         return ""
     text = text.lower()
-    text = re.sub(r'[^\w\sáéíóúñü]', ' ', text)
-    text = re.sub(r'\s+', ' ', text).strip()
+    text = re.sub(r"[^\w\sáéíóúñü]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
     return text
 
 
@@ -51,19 +50,21 @@ def build_product_vocabulary() -> pl.DataFrame:
             continue
 
         batch = (
-            df
-            .filter(
-                pl.col("NombreroductoGenerico").is_not_null() &
-                (pl.col("NombreroductoGenerico") != "null") &
-                (pl.col("NombreroductoGenerico").str.len_chars() > 5)
+            df.filter(
+                pl.col("NombreroductoGenerico").is_not_null()
+                & (pl.col("NombreroductoGenerico") != "null")
+                & (pl.col("NombreroductoGenerico").str.len_chars() > 5)
             )
-            .with_columns([
-                pl.col("NombreroductoGenerico").str.to_lowercase()
-                .str.replace_all(r'[^\w\sáéíóúñü]', ' ')
-                .str.replace_all(r'\s+', ' ')
-                .str.strip_chars()
-                .alias("producto"),
-            ])
+            .with_columns(
+                [
+                    pl.col("NombreroductoGenerico")
+                    .str.to_lowercase()
+                    .str.replace_all(r"[^\w\sáéíóúñü]", " ")
+                    .str.replace_all(r"\s+", " ")
+                    .str.strip_chars()
+                    .alias("producto"),
+                ]
+            )
             .filter(pl.col("producto").str.len_chars() > 5)
             .group_by(["producto", "RubroN2"])
             .agg(pl.len().alias("freq"))
@@ -77,15 +78,13 @@ def build_product_vocabulary() -> pl.DataFrame:
 
     # Agregar frecuencias y encontrar rubro dominante
     product_freq = (
-        combined
-        .group_by("producto")
+        combined.group_by("producto")
         .agg(pl.col("freq").sum().alias("frecuencia"))
         .filter(pl.col("frecuencia") >= 10)
     )
 
     product_rubro = (
-        combined
-        .group_by(["producto", "RubroN2"])
+        combined.group_by(["producto", "RubroN2"])
         .agg(pl.col("freq").sum().alias("rubro_freq"))
         .sort(["producto", "rubro_freq"], descending=[False, True])
         .group_by("producto")
@@ -93,17 +92,17 @@ def build_product_vocabulary() -> pl.DataFrame:
         .select(["producto", pl.col("RubroN2").alias("rubro_dominante")])
     )
 
-    vocab = (
-        product_freq
-        .join(product_rubro, on="producto", how="left")
-        .sort("frecuencia", descending=True)
+    vocab = product_freq.join(product_rubro, on="producto", how="left").sort(
+        "frecuencia", descending=True
     )
 
     logger.info(f"Vocabulario: {len(vocab):,} productos únicos (freq >= 10)")
     return vocab
 
 
-def cluster_products(vocab: pl.DataFrame, n_clusters: int = 100) -> tuple[pl.DataFrame, pl.DataFrame]:
+def cluster_products(
+    vocab: pl.DataFrame, n_clusters: int = 100
+) -> tuple[pl.DataFrame, pl.DataFrame]:
     """
     Agrupa productos usando TF-IDF + K-Means.
 
@@ -115,7 +114,6 @@ def cluster_products(vocab: pl.DataFrame, n_clusters: int = 100) -> tuple[pl.Dat
     logger.info(f"Clustering {len(vocab):,} productos en ~{n_clusters} clusters...")
 
     texts = vocab["producto"].to_list()
-    freqs = vocab["frecuencia"].to_numpy()
 
     # TF-IDF sobre nombres de productos
     vectorizer = TfidfVectorizer(
@@ -142,9 +140,11 @@ def cluster_products(vocab: pl.DataFrame, n_clusters: int = 100) -> tuple[pl.Dat
     labels = kmeans.fit_predict(tfidf)
 
     # Agregar labels al vocabulario
-    clustered = vocab.with_columns([
-        pl.Series("cluster_id", labels),
-    ])
+    clustered = vocab.with_columns(
+        [
+            pl.Series("cluster_id", labels),
+        ]
+    )
 
     # Construir taxonomía de clusters
     feature_names = vectorizer.get_feature_names_out()
@@ -173,21 +173,25 @@ def cluster_products(vocab: pl.DataFrame, n_clusters: int = 100) -> tuple[pl.Dat
         # Label descriptivo (top 3 keywords)
         label = " | ".join(keywords[:3]) if keywords else f"cluster_{cid}"
 
-        taxonomy_records.append({
-            "cluster_id": cid,
-            "label": label,
-            "keywords": ", ".join(keywords),
-            "n_productos": cluster_size,
-            "frecuencia_total": total_freq,
-            "rubro_dominante": top_rubro,
-        })
+        taxonomy_records.append(
+            {
+                "cluster_id": cid,
+                "label": label,
+                "keywords": ", ".join(keywords),
+                "n_productos": cluster_size,
+                "frecuencia_total": total_freq,
+                "rubro_dominante": top_rubro,
+            }
+        )
 
     taxonomy = pl.DataFrame(taxonomy_records).sort("frecuencia_total", descending=True)
 
     logger.info(f"Clusters generados: {actual_clusters}")
-    logger.info(f"Top 10 clusters por frecuencia:")
+    logger.info("Top 10 clusters por frecuencia:")
     for row in taxonomy.head(10).iter_rows(named=True):
-        logger.info(f"  [{row['cluster_id']}] {row['label']} — {row['n_productos']} productos, {row['frecuencia_total']:,} OC")
+        logger.info(
+            f"  [{row['cluster_id']}] {row['label']} — {row['n_productos']} productos, {row['frecuencia_total']:,} OC"
+        )
 
     return clustered, taxonomy
 

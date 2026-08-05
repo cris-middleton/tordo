@@ -44,8 +44,13 @@ def build_transparency_metrics() -> pl.DataFrame:
     logger.info("Calculando métricas de transparencia por comprador...")
 
     cols_needed = [
-        "CodigoExterno", "CodigoOrganismo", "NombreOrganismo", "sector",
-        "CodigoTipo", "Estado", "CodigoProveedor",
+        "CodigoExterno",
+        "CodigoOrganismo",
+        "NombreOrganismo",
+        "sector",
+        "CodigoTipo",
+        "Estado",
+        "CodigoProveedor",
     ]
 
     frames = []
@@ -59,25 +64,27 @@ def build_transparency_metrics() -> pl.DataFrame:
         tipo_col = "CodigoTipo" if "CodigoTipo" in df.columns else None
 
         batch = df.filter(
-            pl.col("CodigoExterno").is_not_null() & (pl.col("CodigoExterno") != "null") &
-            pl.col("CodigoOrganismo").is_not_null() & (pl.col("CodigoOrganismo") != "null")
+            pl.col("CodigoExterno").is_not_null()
+            & (pl.col("CodigoExterno") != "null")
+            & pl.col("CodigoOrganismo").is_not_null()
+            & (pl.col("CodigoOrganismo") != "null")
         )
 
         if len(batch) == 0:
             continue
 
         # Deduplicar por licitación (primera fila por CodigoExterno)
-        lic_dedup = (
-            batch
-            .group_by("CodigoExterno")
-            .agg([
+        lic_dedup = batch.group_by("CodigoExterno").agg(
+            [
                 pl.col("CodigoOrganismo").first(),
                 pl.col("NombreOrganismo").first(),
                 pl.col("sector").first(),
                 pl.col("CodigoTipo").first() if tipo_col else pl.lit(None).alias("CodigoTipo"),
-                pl.col("Estado").str.to_lowercase().first().alias("estado_lower") if estado_col else pl.lit("").alias("estado_lower"),
+                pl.col("Estado").str.to_lowercase().first().alias("estado_lower")
+                if estado_col
+                else pl.lit("").alias("estado_lower"),
                 pl.col("CodigoProveedor").first(),
-            ])
+            ]
         )
 
         # Filtrar ya vistos
@@ -97,86 +104,115 @@ def build_transparency_metrics() -> pl.DataFrame:
     # ─── Agregar por organismo ───
 
     result = (
-        all_lics
-        .with_columns([
-            (pl.col("CodigoTipo") == "TD").cast(pl.Int8).alias("es_td"),
-            pl.col("estado_lower").str.contains("revocad|desierta").cast(pl.Int8).alias("es_fracaso"),
-            pl.col("estado_lower").str.contains("adjudicad").cast(pl.Int8).alias("es_adjudicada"),
-        ])
+        all_lics.with_columns(
+            [
+                (pl.col("CodigoTipo") == "TD").cast(pl.Int8).alias("es_td"),
+                pl.col("estado_lower")
+                .str.contains("revocad|desierta")
+                .cast(pl.Int8)
+                .alias("es_fracaso"),
+                pl.col("estado_lower")
+                .str.contains("adjudicad")
+                .cast(pl.Int8)
+                .alias("es_adjudicada"),
+            ]
+        )
         .group_by(["CodigoOrganismo", "NombreOrganismo", "sector"])
-        .agg([
-            pl.len().alias("n_lic_total"),
-            pl.col("es_td").sum().alias("n_trato_directo"),
-            pl.col("es_fracaso").sum().alias("n_fracasos"),
-            pl.col("es_adjudicada").sum().alias("n_adjudicadas"),
-            # Para HHI: recopilar proveedores ganadores
-            pl.col("CodigoProveedor").filter(pl.col("es_adjudicada") == 1).alias("provs_ganadores"),
-        ])
+        .agg(
+            [
+                pl.len().alias("n_lic_total"),
+                pl.col("es_td").sum().alias("n_trato_directo"),
+                pl.col("es_fracaso").sum().alias("n_fracasos"),
+                pl.col("es_adjudicada").sum().alias("n_adjudicadas"),
+                # Para HHI: recopilar proveedores ganadores
+                pl.col("CodigoProveedor")
+                .filter(pl.col("es_adjudicada") == 1)
+                .alias("provs_ganadores"),
+            ]
+        )
         .filter(pl.col("n_lic_total") >= MIN_LIC)
-        .with_columns([
-            (pl.col("n_trato_directo") / pl.col("n_lic_total")).alias("pct_trato_directo"),
-            (pl.col("n_fracasos") / pl.col("n_lic_total")).alias("tasa_fracaso"),
-        ])
+        .with_columns(
+            [
+                (pl.col("n_trato_directo") / pl.col("n_lic_total")).alias("pct_trato_directo"),
+                (pl.col("n_fracasos") / pl.col("n_lic_total")).alias("tasa_fracaso"),
+            ]
+        )
     )
 
     # HHI de proveedores ganadores por organismo
     # Calculamos directamente con Polars: contar adjudicaciones por proveedor
     adjudicated = (
-        all_lics
-        .filter(pl.col("estado_lower").str.contains("adjudicad"))
+        all_lics.filter(pl.col("estado_lower").str.contains("adjudicad"))
         .filter(pl.col("CodigoProveedor").is_not_null() & (pl.col("CodigoProveedor") != "null"))
         .group_by(["CodigoOrganismo", "CodigoProveedor"])
         .agg(pl.len().alias("n_adj"))
     )
 
-    org_adj_totals = (
-        adjudicated
-        .group_by("CodigoOrganismo")
-        .agg(pl.col("n_adj").sum().alias("total_adj"))
+    org_adj_totals = adjudicated.group_by("CodigoOrganismo").agg(
+        pl.col("n_adj").sum().alias("total_adj")
     )
 
     hhi = (
-        adjudicated
-        .join(org_adj_totals, on="CodigoOrganismo")
-        .with_columns([
-            ((pl.col("n_adj") / pl.col("total_adj")) ** 2).alias("share_sq"),
-        ])
+        adjudicated.join(org_adj_totals, on="CodigoOrganismo")
+        .with_columns(
+            [
+                ((pl.col("n_adj") / pl.col("total_adj")) ** 2).alias("share_sq"),
+            ]
+        )
         .group_by("CodigoOrganismo")
         .agg(pl.col("share_sq").sum().alias("hhi"))
     )
 
     # Join con result
     result = (
-        result
-        .join(hhi, on="CodigoOrganismo", how="left")
-        .with_columns([
-            pl.col("hhi").fill_null(1.0),
-        ])
+        result.join(hhi, on="CodigoOrganismo", how="left")
+        .with_columns(
+            [
+                pl.col("hhi").fill_null(1.0),
+            ]
+        )
         .drop("provs_ganadores")
     )
 
     # Calcular score de transparencia
-    result = result.with_columns([
-        # 1 - pct_td: penaliza trato directo (0% TD → 1.0, 50%+ → 0.0)
-        (1 - (pl.col("pct_trato_directo") / 0.50).clip(0, 1)).alias("score_pct_td"),
-        # 1 - tasa_fracaso: penaliza licitaciones fallidas
-        (1 - (pl.col("tasa_fracaso") / 0.40).clip(0, 1)).alias("score_fracaso"),
-        # 1 - hhi: penaliza alta concentración (HHI=1 → siempre mismo proveedor)
-        (1 - pl.col("hhi")).clip(0, 1).alias("score_concentracion"),
-    ]).with_columns([
-        (
-            0.50 * pl.col("score_pct_td") +
-            0.25 * pl.col("score_fracaso") +
-            0.25 * pl.col("score_concentracion")
-        ).round(4).alias("transparencia_score"),
-    ]).with_columns([
-        pl.when(pl.col("transparencia_score") >= 0.75).then(pl.lit("muy_transparente"))
-        .when(pl.col("transparencia_score") >= 0.55).then(pl.lit("transparente"))
-        .when(pl.col("transparencia_score") >= 0.35).then(pl.lit("moderado"))
-        .when(pl.col("transparencia_score") >= 0.15).then(pl.lit("poco_transparente"))
-        .otherwise(pl.lit("opaco"))
-        .alias("clasificacion"),
-    ]).sort("transparencia_score", descending=True)
+    result = (
+        result.with_columns(
+            [
+                # 1 - pct_td: penaliza trato directo (0% TD → 1.0, 50%+ → 0.0)
+                (1 - (pl.col("pct_trato_directo") / 0.50).clip(0, 1)).alias("score_pct_td"),
+                # 1 - tasa_fracaso: penaliza licitaciones fallidas
+                (1 - (pl.col("tasa_fracaso") / 0.40).clip(0, 1)).alias("score_fracaso"),
+                # 1 - hhi: penaliza alta concentración (HHI=1 → siempre mismo proveedor)
+                (1 - pl.col("hhi")).clip(0, 1).alias("score_concentracion"),
+            ]
+        )
+        .with_columns(
+            [
+                (
+                    0.50 * pl.col("score_pct_td")
+                    + 0.25 * pl.col("score_fracaso")
+                    + 0.25 * pl.col("score_concentracion")
+                )
+                .round(4)
+                .alias("transparencia_score"),
+            ]
+        )
+        .with_columns(
+            [
+                pl.when(pl.col("transparencia_score") >= 0.75)
+                .then(pl.lit("muy_transparente"))
+                .when(pl.col("transparencia_score") >= 0.55)
+                .then(pl.lit("transparente"))
+                .when(pl.col("transparencia_score") >= 0.35)
+                .then(pl.lit("moderado"))
+                .when(pl.col("transparencia_score") >= 0.15)
+                .then(pl.lit("poco_transparente"))
+                .otherwise(pl.lit("opaco"))
+                .alias("clasificacion"),
+            ]
+        )
+        .sort("transparencia_score", descending=True)
+    )
 
     # Log distribución
     logger.info(f"Organismos evaluados: {len(result):,}")
@@ -204,15 +240,19 @@ def run_buyer_transparency() -> dict[str, pl.DataFrame]:
 
     logger.info("\nTop 10 compradores más transparentes:")
     for row in metrics.head(10).iter_rows(named=True):
-        logger.info(f"  [{row['transparencia_score']:.3f}] {(row['NombreOrganismo'] or '')[:40]:40s} "
-                    f"TD={row['pct_trato_directo']:.1%} fracaso={row['tasa_fracaso']:.1%} "
-                    f"HHI={row['hhi']:.3f}")
+        logger.info(
+            f"  [{row['transparencia_score']:.3f}] {(row['NombreOrganismo'] or '')[:40]:40s} "
+            f"TD={row['pct_trato_directo']:.1%} fracaso={row['tasa_fracaso']:.1%} "
+            f"HHI={row['hhi']:.3f}"
+        )
 
     logger.info("\nTop 10 compradores más opacos (>50 licitaciones):")
     opacos = metrics.filter(pl.col("n_lic_total") > 50).sort("transparencia_score").head(10)
     for row in opacos.iter_rows(named=True):
-        logger.info(f"  [{row['transparencia_score']:.3f}] {(row['NombreOrganismo'] or '')[:40]:40s} "
-                    f"TD={row['pct_trato_directo']:.1%} fracaso={row['tasa_fracaso']:.1%} "
-                    f"HHI={row['hhi']:.3f}")
+        logger.info(
+            f"  [{row['transparencia_score']:.3f}] {(row['NombreOrganismo'] or '')[:40]:40s} "
+            f"TD={row['pct_trato_directo']:.1%} fracaso={row['tasa_fracaso']:.1%} "
+            f"HHI={row['hhi']:.3f}"
+        )
 
     return {"transparency": metrics}

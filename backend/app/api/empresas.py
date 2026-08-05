@@ -1,19 +1,29 @@
 import asyncio
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.db import get_db, SyncSessionLocal
+
+from app.core.security import get_current_active_user
+from app.db import SyncSessionLocal, get_db
 from app.models.empresa import Empresa, EmpresaUsuario
 from app.models.user import User
-from app.schemas.empresa import EmpresaCreate, EmpresaUpdate, EmpresaConRol, MiembroResponse, AddMiembroRequest
-from app.core.security import get_current_active_user
+from app.schemas.empresa import (
+    AddMiembroRequest,
+    EmpresaConRol,
+    EmpresaCreate,
+    EmpresaUpdate,
+    MiembroResponse,
+)
 
 router = APIRouter(prefix="/api/empresas", tags=["empresas"])
 
 
 async def _get_empresa_or_404(empresa_id: UUID, db: AsyncSession) -> Empresa:
-    empresa = (await db.execute(select(Empresa).where(Empresa.id == empresa_id))).scalar_one_or_none()
+    empresa = (
+        await db.execute(select(Empresa).where(Empresa.id == empresa_id))
+    ).scalar_one_or_none()
     if not empresa:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Empresa no encontrada")
     return empresa
@@ -28,7 +38,9 @@ async def _get_membership_or_403(empresa_id: UUID, user: User, db: AsyncSession)
         )
     ).scalar_one_or_none()
     if not membership:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sin acceso a esta empresa")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Sin acceso a esta empresa"
+        )
     return membership
 
 
@@ -38,13 +50,18 @@ async def listar_empresas(
     current_user: User = Depends(get_current_active_user),
 ):
     from sqlalchemy.orm import selectinload
+
     memberships = (
-        await db.execute(
-            select(EmpresaUsuario)
-            .options(selectinload(EmpresaUsuario.empresa))
-            .where(EmpresaUsuario.user_id == current_user.id)
+        (
+            await db.execute(
+                select(EmpresaUsuario)
+                .options(selectinload(EmpresaUsuario.empresa))
+                .where(EmpresaUsuario.user_id == current_user.id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return [
         EmpresaConRol(
             id=m.empresa.id,
@@ -69,18 +86,26 @@ async def crear_empresa(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    existing = (await db.execute(select(Empresa).where(Empresa.rut_empresa == payload.rut_empresa))).scalar_one_or_none()
+    existing = (
+        await db.execute(select(Empresa).where(Empresa.rut_empresa == payload.rut_empresa))
+    ).scalar_one_or_none()
     if existing:
         membership = (
             await db.execute(
                 select(EmpresaUsuario).where(
-                    EmpresaUsuario.empresa_id == existing.id, EmpresaUsuario.user_id == current_user.id
+                    EmpresaUsuario.empresa_id == existing.id,
+                    EmpresaUsuario.user_id == current_user.id,
                 )
             )
         ).scalar_one_or_none()
         if membership:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Ya tienes acceso a esta empresa")
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Esta empresa ya está registrada por otro usuario")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="Ya tienes acceso a esta empresa"
+            )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Esta empresa ya está registrada por otro usuario",
+        )
 
     empresa = Empresa(
         rut_empresa=payload.rut_empresa,
@@ -132,7 +157,9 @@ async def actualizar_empresa(
     empresa = await _get_empresa_or_404(empresa_id, db)
     membership = await _get_membership_or_403(empresa_id, current_user, db)
     if membership.rol not in ("owner", "admin"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Se requiere rol owner o admin")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Se requiere rol owner o admin"
+        )
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(empresa, field, value)
     await db.commit()
@@ -169,7 +196,9 @@ async def eliminar_empresa(
     empresa = await _get_empresa_or_404(empresa_id, db)
     membership = await _get_membership_or_403(empresa_id, current_user, db)
     if membership.rol != "owner":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Solo el owner puede eliminar la empresa")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Solo el owner puede eliminar la empresa"
+        )
     empresa.activo = False
     await db.commit()
 
@@ -216,7 +245,9 @@ async def agregar_miembro(
         await db.execute(select(User).where(User.email == payload.email))
     ).scalar_one_or_none()
     if not target:
-        raise HTTPException(status_code=404, detail=f"No existe un usuario con email {payload.email!r}")
+        raise HTTPException(
+            status_code=404, detail=f"No existe un usuario con email {payload.email!r}"
+        )
     if target.id == current_user.id:
         raise HTTPException(status_code=400, detail="Ya eres miembro de esta empresa")
 

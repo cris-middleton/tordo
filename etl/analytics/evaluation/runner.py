@@ -1,11 +1,10 @@
 """Runner: dispatches Evaluable across temporal splits and aggregates results."""
+
 from __future__ import annotations
 
 import logging
 import time
 from datetime import date
-
-import polars as pl
 
 from .base import EvaluationResult, SplitWindow, VariantConfig
 from .registry import get as get_evaluable
@@ -17,17 +16,17 @@ logger = logging.getLogger(__name__)
 def _split_id(strategy: str, i: int, n: int, window: SplitWindow) -> str:
     if strategy == "holdout":
         return f"holdout_{window.test_start:%Y-%m-%d}_{window.test_end:%Y-%m-%d}"
-    return f"fold_{i+1}_of_{n}"
+    return f"fold_{i + 1}_of_{n}"
 
 
-def _assert_no_future_leakage(
-    evaluable, artifact, window: SplitWindow
-) -> None:
+def _assert_no_future_leakage(evaluable, artifact, window: SplitWindow) -> None:
     """Probe iter_oc_parquets and verify max FechaCreacion <= window.train_end."""
     from analytics.data_loader import iter_oc_parquets
 
     max_seen: date | None = None
-    for _p, df in iter_oc_parquets(columns=["FechaCreacion"], min_year=2018, max_date=window.train_end):
+    for _p, df in iter_oc_parquets(
+        columns=["FechaCreacion"], min_year=2018, max_date=window.train_end
+    ):
         if df.is_empty():
             continue
         m = df["FechaCreacion"].max()
@@ -66,9 +65,14 @@ def run_evaluation(
 
     results: list[EvaluationResult] = []
     for i, window in enumerate(windows):
-        logger.info("[split %d/%d] train→%s, test %s→%s",
-                    i + 1, len(windows), window.train_end,
-                    window.test_start, window.test_end)
+        logger.info(
+            "[split %d/%d] train→%s, test %s→%s",
+            i + 1,
+            len(windows),
+            window.train_end,
+            window.test_start,
+            window.test_end,
+        )
         t0 = time.time()
         artifact = evaluable.train(window, variant)
         train_s = time.time() - t0
@@ -90,10 +94,14 @@ def run_evaluation(
                 split_id=_split_id(split_strategy, i, len(windows), window),
                 metrics=metrics,
                 metadata={
-                    "train_window": {"start": window.train_start.isoformat(),
-                                     "end": window.train_end.isoformat()},
-                    "test_window":  {"start": window.test_start.isoformat(),
-                                     "end": window.test_end.isoformat()},
+                    "train_window": {
+                        "start": window.train_start.isoformat(),
+                        "end": window.train_end.isoformat(),
+                    },
+                    "test_window": {
+                        "start": window.test_start.isoformat(),
+                        "end": window.test_end.isoformat(),
+                    },
                     "train_duration_s": round(train_s, 2),
                     "predict_duration_s": round(predict_s, 2),
                     "n_predictions": 0 if preds is None else len(preds),

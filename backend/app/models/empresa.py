@@ -1,17 +1,30 @@
 import uuid
 from datetime import date
+
 from sqlalchemy import (
-    Column, String, Boolean, DateTime, Text, Date, BigInteger,
-    Integer, ForeignKey, CheckConstraint, UniqueConstraint, LargeBinary,
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    Column,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    LargeBinary,
+    String,
+    Text,
+    UniqueConstraint,
 )
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from sqlalchemy.dialects.postgresql import UUID, ARRAY
+
 from app.db import Base
 
 
 class Empresa(Base):
     """Empresa proveedora registrada en TORDO."""
+
     __tablename__ = "empresas"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -23,14 +36,26 @@ class Empresa(Base):
     estado_habil = Column(String(20), nullable=False, default="desconocido")
     estado_habil_updated_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
 
     # Relationships
-    usuarios = relationship("EmpresaUsuario", back_populates="empresa", cascade="all, delete-orphan")
-    documentos = relationship("DocumentoEmpresa", back_populates="empresa", cascade="all, delete-orphan")
-    estado_habil_logs = relationship("EstadoHabilLog", back_populates="empresa", cascade="all, delete-orphan")
-    postulaciones = relationship("Postulacion", back_populates="empresa", cascade="all, delete-orphan")
-    tfidf_perfil = relationship("TFIDFPerfil", back_populates="empresa", uselist=False, cascade="all, delete-orphan")
+    usuarios = relationship(
+        "EmpresaUsuario", back_populates="empresa", cascade="all, delete-orphan"
+    )
+    documentos = relationship(
+        "DocumentoEmpresa", back_populates="empresa", cascade="all, delete-orphan"
+    )
+    estado_habil_logs = relationship(
+        "EstadoHabilLog", back_populates="empresa", cascade="all, delete-orphan"
+    )
+    postulaciones = relationship(
+        "Postulacion", back_populates="empresa", cascade="all, delete-orphan"
+    )
+    tfidf_perfil = relationship(
+        "TFIDFPerfil", back_populates="empresa", uselist=False, cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
         CheckConstraint(
@@ -45,11 +70,14 @@ class Empresa(Base):
 
 class EmpresaUsuario(Base):
     """M2M: usuarios ↔ empresas con rol."""
+
     __tablename__ = "empresas_usuario"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(Integer(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    empresa_id = Column(UUID(as_uuid=True), ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False)
+    empresa_id = Column(
+        UUID(as_uuid=True), ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False
+    )
     rol = Column(String(20), nullable=False, default="owner")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
@@ -65,10 +93,16 @@ class EmpresaUsuario(Base):
 
 class DocumentoEmpresa(Base):
     """Documento de una empresa almacenado en S3."""
+
     __tablename__ = "documentos_empresa"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    empresa_id = Column(UUID(as_uuid=True), ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False, index=True)
+    empresa_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("empresas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     nombre = Column(String(255), nullable=False)
     tipo_documento = Column(String(50), nullable=False)
     s3_key = Column(String(500), nullable=False)
@@ -83,42 +117,57 @@ class DocumentoEmpresa(Base):
     def esta_vigente(self) -> bool:
         """True si el documento no tiene fecha de vencimiento o aún no venció."""
         return self.fecha_vencimiento is None or self.fecha_vencimiento >= date.today()
+
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relationships
     empresa = relationship("Empresa", back_populates="documentos")
     checklist_items = relationship("ChecklistPostulacion", back_populates="documento")
 
-    __table_args__ = (
-        CheckConstraint("tamano_bytes <= 26214400", name="ck_documentos_tamano"),
-    )
+    __table_args__ = (CheckConstraint("tamano_bytes <= 26214400", name="ck_documentos_tamano"),)
 
 
 class EstadoHabilLog(Base):
     """Historial de cambios de estado hábil por empresa."""
+
     __tablename__ = "estado_habil_log"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    empresa_id = Column(UUID(as_uuid=True), ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False, index=True)
+    empresa_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("empresas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     rut_empresa = Column(String(12), nullable=False)
     estado_anterior = Column(String(20), nullable=True)
     estado_nuevo = Column(String(20), nullable=False)
     fuente = Column(String(50), nullable=True, default="csv_datos_abiertos")
-    checked_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+    checked_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
 
     empresa = relationship("Empresa", back_populates="estado_habil_logs")
 
 
 class TFIDFPerfil(Base):
     """Perfil TF-IDF serializado para matching semántico."""
+
     __tablename__ = "tfidf_perfiles"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    empresa_id = Column(UUID(as_uuid=True), ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False, unique=True)
+    empresa_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("empresas.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
     vector_bytes = Column(LargeBinary(), nullable=False)
     rubros_usados = Column(ARRAY(Text()), nullable=True)
     modelo_version = Column(String(50), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
 
     empresa = relationship("Empresa", back_populates="tfidf_perfil")

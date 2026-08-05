@@ -1,20 +1,22 @@
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel
-from app.db import get_db
-from app.models.user import User
+
+from app.config import settings
 from app.core.security import (
-    verify_password,
-    get_password_hash,
     create_access_token,
     get_current_active_user,
+    get_password_hash,
+    verify_password,
 )
-from app.schemas.user import UserCreate, UserLogin, Token, UserResponse
-from app.config import settings
+from app.db import get_db
+from app.models.user import User
+from app.schemas.user import Token, UserCreate, UserLogin, UserResponse
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +39,7 @@ def _apply_trial_defaults(user: User) -> None:
     if user.trial_ends_at is not None:
         return
     user.subscription_status = "trialing"
-    user.trial_ends_at = datetime.now(timezone.utc) + timedelta(days=TRIAL_LENGTH_DAYS)
+    user.trial_ends_at = datetime.now(UTC) + timedelta(days=TRIAL_LENGTH_DAYS)
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -50,7 +52,9 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
         )
     ).scalar_one_or_none()
     if existing_user:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email or username already registered")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Email or username already registered"
+        )
 
     db_user = User(
         email=user_data.email,
@@ -67,7 +71,9 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
 
 @router.post("/login", response_model=Token)
 async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
-    user = (await db.execute(select(User).where(User.username == credentials.username))).scalar_one_or_none()
+    user = (
+        await db.execute(select(User).where(User.username == credentials.username))
+    ).scalar_one_or_none()
     if not user or not verify_password(credentials.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -75,9 +81,11 @@ async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
             headers={"WWW-Authenticate": "Bearer"},
         )
     if not user.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive"
+        )
 
-    user.last_login = datetime.now(timezone.utc)
+    user.last_login = datetime.now(UTC)
     await db.commit()
 
     access_token = create_access_token(
@@ -100,6 +108,7 @@ class PasswordChange(BaseModel):
 @router.get("/google")
 async def google_login():
     from app.services.oauth_service import build_auth_url
+
     return RedirectResponse(build_auth_url())
 
 
@@ -114,6 +123,7 @@ async def google_callback(
         return RedirectResponse(f"{settings.frontend_url}/login?error=google_denied")
 
     from app.services.oauth_service import exchange_code, find_or_create_user, get_userinfo
+
     try:
         tokens = await exchange_code(code)
     except Exception:
@@ -127,7 +137,9 @@ async def google_callback(
     try:
         user = await find_or_create_user(db, user_info)
     except Exception:
-        logger.exception("Google OAuth: find_or_create_user failed (email=%s)", user_info.get("email"))
+        logger.exception(
+            "Google OAuth: find_or_create_user failed (email=%s)", user_info.get("email")
+        )
         return RedirectResponse(f"{settings.frontend_url}/login?error=google_db_error")
 
     access_token = create_access_token(
@@ -144,7 +156,9 @@ async def change_password(
     current_user: User = Depends(get_current_active_user),
 ):
     if not verify_password(password_data.current_password, current_user.hashed_password):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect"
+        )
     current_user.hashed_password = get_password_hash(password_data.new_password)
     await db.commit()
     await db.refresh(current_user)

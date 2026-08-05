@@ -5,4 +5,3 @@ __all__ = [
     "trigger_licitacion_alert",
     "trigger_orden_compra_alert",
 ]
-

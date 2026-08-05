@@ -1,10 +1,12 @@
 """
 Celery tasks for alert processing
 """
+
+import logging
+
 from app.celery_app import celery_app
 from app.db import SyncSessionLocal as SessionLocal
 from app.services.alert_engine import AlertEngine
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -37,4 +39,3 @@ def process_new_orden_compra_alert(orden_compra_id: int):
         raise
     finally:
         db.close()
-

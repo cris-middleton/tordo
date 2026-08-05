@@ -1,5 +1,7 @@
 """Pydantic schemas for Billing API."""
-from typing import Literal, Optional
+
+from typing import Literal
+
 from pydantic import BaseModel
 
 
@@ -8,16 +10,16 @@ class Plan(BaseModel):
     nombre: str
     descripcion: str
     features: list[str]
-    precio_mensual_clp: Optional[int] = None
-    precio_anual_mensualizado_clp: Optional[int] = None  # monthly-equivalent of the annual plan
-    precio_anual_total_clp: Optional[int] = None         # one-time annual charge amount
+    precio_mensual_clp: int | None = None
+    precio_anual_mensualizado_clp: int | None = None  # monthly-equivalent of the annual plan
+    precio_anual_total_clp: int | None = None  # one-time annual charge amount
 
 
 class BillingStatus(BaseModel):
     plan_tier: str
     subscription_status: str
-    stripe_customer_id: Optional[str] = None
-    stripe_subscription_id: Optional[str] = None
+    stripe_customer_id: str | None = None
+    stripe_subscription_id: str | None = None
     billing_enabled: bool
 
 

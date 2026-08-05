@@ -1,4 +1,5 @@
 """Registry of Evaluable implementations."""
+
 from __future__ import annotations
 
 from .base import Evaluable

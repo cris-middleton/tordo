@@ -5,7 +5,8 @@ Analytics routes are gated behind `feature_analytics`.
 TF-IDF matching routes are gated behind `feature_tfidf`.
 When either flag is off (default in dev), the respective endpoints return 503.
 """
-from typing import Optional
+
+import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -13,15 +14,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.core.plan_limits import check_bi_quota_dep, require_plan
+from app.core.plan_limits import check_bi_quota_dep
 from app.core.security import get_current_active_user
 from app.db import get_db
 from app.models.empresa import EmpresaUsuario, TFIDFPerfil
 from app.models.user import User
 from app.schemas.bi import (
     ClustersResponse,
-    CompradorResponse,
     CompetidoresResponse,
+    CompradorResponse,
     DescuentoResponse,
     DiversificacionResponse,
     EstacionalidadResponse,
@@ -42,6 +43,8 @@ from app.schemas.bi import (
     TFIDFPerfilUpdate,
     VentanaResponse,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/bi", tags=["bi"])
 
@@ -76,8 +79,8 @@ def _require_tfidf_flag():
 )
 def get_precio_producto(
     codigo_producto: str,
-    organismo_id: Optional[str] = Query(None, description="Filtrar por CodigoOrganismoPublico"),
-    unidad_medida: Optional[str] = Query(None, description="Filtrar por UnidadMedida"),
+    organismo_id: str | None = Query(None, description="Filtrar por CodigoOrganismoPublico"),
+    unidad_medida: str | None = Query(None, description="Filtrar por UnidadMedida"),
     current_user: User = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
@@ -94,7 +97,7 @@ def get_precio_producto(
 )
 def get_competidores(
     organismo_id: str,
-    rubro: Optional[str] = Query(None, description="Filtrar por RubroN2"),
+    rubro: str | None = Query(None, description="Filtrar por RubroN2"),
     top_n: int = Query(20, ge=1, le=100),
     current_user: User = Depends(check_bi_quota_dep),
 ):
@@ -111,8 +114,8 @@ def get_competidores(
     summary="Mercados con mejor score de oportunidad (0–10)",
 )
 def get_oportunidades(
-    organismo_id: Optional[str] = Query(None),
-    rubro: Optional[str] = Query(None),
+    organismo_id: str | None = Query(None),
+    rubro: str | None = Query(None),
     min_score: float = Query(6.0, ge=0, le=10),
     limit: int = Query(50, ge=1, le=200),
     current_user: User = Depends(check_bi_quota_dep),
@@ -174,7 +177,9 @@ def get_comprador(
 )
 async def get_licitacion_panel(
     codigo_externo: str,
-    empresa_id: Optional[str] = Query(None, description="UUID empresa para postulación y estado hábil"),
+    empresa_id: str | None = Query(
+        None, description="UUID empresa para postulación y estado hábil"
+    ),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(check_bi_quota_dep),
 ):
@@ -186,7 +191,9 @@ async def get_licitacion_panel(
     from app.models.postulacion import Postulacion
     from app.services import bi_service
 
-    lic = (await db.execute(select(Licitacion).where(Licitacion.codigo_externo == codigo_externo))).scalar_one_or_none()
+    lic = (
+        await db.execute(select(Licitacion).where(Licitacion.codigo_externo == codigo_externo))
+    ).scalar_one_or_none()
     if not lic:
         raise HTTPException(status_code=404, detail="Licitación no encontrada")
 
@@ -223,12 +230,27 @@ async def get_licitacion_panel(
         except ValueError:
             raise HTTPException(status_code=422, detail="empresa_id inválido")
 
-        membership = (await db.execute(select(EmpresaUsuario).where(EmpresaUsuario.empresa_id == empresa_uuid, EmpresaUsuario.user_id == current_user.id))).scalar_one_or_none()
+        membership = (
+            await db.execute(
+                select(EmpresaUsuario).where(
+                    EmpresaUsuario.empresa_id == empresa_uuid,
+                    EmpresaUsuario.user_id == current_user.id,
+                )
+            )
+        ).scalar_one_or_none()
         if membership:
-            existing = (await db.execute(select(Postulacion).where(Postulacion.empresa_id == empresa_uuid, Postulacion.licitacion_id == lic.id))).scalar_one_or_none()
+            existing = (
+                await db.execute(
+                    select(Postulacion).where(
+                        Postulacion.empresa_id == empresa_uuid, Postulacion.licitacion_id == lic.id
+                    )
+                )
+            ).scalar_one_or_none()
             panel["postulacion_id"] = str(existing.id) if existing else None
 
-            empresa = (await db.execute(select(Empresa).where(Empresa.id == empresa_uuid))).scalar_one_or_none()
+            empresa = (
+                await db.execute(select(Empresa).where(Empresa.id == empresa_uuid))
+            ).scalar_one_or_none()
             if empresa:
                 panel["estado_habil"] = empresa.estado_habil
 
@@ -250,11 +272,12 @@ async def get_licitacion_panel(
 )
 def get_estacionalidad(
     organismo_id: str,
-    rubro: Optional[str] = Query(None, description="Filtrar por RubroN2"),
+    rubro: str | None = Query(None, description="Filtrar por RubroN2"),
     current_user: User = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
     from app.services import bi_service
+
     return bi_service.get_estacionalidad(organismo_id, rubro)
 
 
@@ -269,14 +292,15 @@ def get_estacionalidad(
     ),
 )
 def get_tendencia(
-    rubro: Optional[str] = Query(None, description="Filtrar por RubroN2"),
-    tendencia: Optional[str] = Query(None, description="creciente | decreciente | estable"),
+    rubro: str | None = Query(None, description="Filtrar por RubroN2"),
+    tendencia: str | None = Query(None, description="creciente | decreciente | estable"),
     solo_emergentes: bool = Query(False, description="Retornar solo mercados emergentes"),
     limit: int = Query(50, ge=1, le=200),
     current_user: User = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
     from app.services import bi_service
+
     return bi_service.get_tendencia(rubro, tendencia, solo_emergentes, limit)
 
 
@@ -291,13 +315,14 @@ def get_tendencia(
     ),
 )
 def get_descuento(
-    tipo: Optional[str] = Query(None, description="CodigoTipo de licitación"),
-    rubro: Optional[str] = Query(None, description="Filtrar por Rubro2"),
-    n_oferentes_rango: Optional[str] = Query(None, description="Ej: '1', '2-3', '4+'"),
+    tipo: str | None = Query(None, description="CodigoTipo de licitación"),
+    rubro: str | None = Query(None, description="Filtrar por Rubro2"),
+    n_oferentes_rango: str | None = Query(None, description="Ej: '1', '2-3', '4+'"),
     current_user: User = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
     from app.services import bi_service
+
     return bi_service.get_descuento(tipo, rubro, n_oferentes_rango)
 
 
@@ -312,13 +337,14 @@ def get_descuento(
     ),
 )
 def get_forecast_competidores(
-    organismo_id: Optional[str] = Query(None, description="CodigoOrganismo para L1"),
-    rubro: Optional[str] = Query(None, description="Rubro2 para L1/L2"),
-    tipo: Optional[str] = Query(None, description="CodigoTipo de licitación"),
+    organismo_id: str | None = Query(None, description="CodigoOrganismo para L1"),
+    rubro: str | None = Query(None, description="Rubro2 para L1/L2"),
+    tipo: str | None = Query(None, description="CodigoTipo de licitación"),
     current_user: User = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
     from app.services import bi_service
+
     return bi_service.get_forecast_competidores(organismo_id, rubro, tipo)
 
 
@@ -338,6 +364,7 @@ def get_diversificacion(
 ):
     _require_analytics()
     from app.services import bi_service
+
     return bi_service.get_diversificacion(codigo_proveedor)
 
 
@@ -352,12 +379,13 @@ def get_diversificacion(
     ),
 )
 def get_sector(
-    sector: Optional[str] = Query(None, description="Filtrar por sector específico"),
+    sector: str | None = Query(None, description="Filtrar por sector específico"),
     limit: int = Query(50, ge=1, le=200),
     current_user: User = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
     from app.services import bi_service
+
     return bi_service.get_sector(sector, limit)
 
 
@@ -376,7 +404,9 @@ def get_sector(
     ),
 )
 def get_matching(
-    texto: str = Query(..., min_length=3, description="Texto a buscar (nombre producto, servicio, etc.)"),
+    texto: str = Query(
+        ..., min_length=3, description="Texto a buscar (nombre producto, servicio, etc.)"
+    ),
     top_n: int = Query(20, ge=1, le=100, description="Número máximo de proveedores a retornar"),
     current_user: User = Depends(check_bi_quota_dep),
 ):
@@ -420,7 +450,13 @@ async def get_licitacion_match(
     from app.services import tfidf_matcher
 
     # Verify user membership in empresa
-    membership = (await db.execute(select(EmpresaUsuario).where(EmpresaUsuario.empresa_id == empresa_id, EmpresaUsuario.user_id == current_user.id))).scalar_one_or_none()
+    membership = (
+        await db.execute(
+            select(EmpresaUsuario).where(
+                EmpresaUsuario.empresa_id == empresa_id, EmpresaUsuario.user_id == current_user.id
+            )
+        )
+    ).scalar_one_or_none()
     if not membership:
         raise HTTPException(status_code=403, detail="Sin acceso a esta empresa")
 
@@ -432,7 +468,9 @@ async def get_licitacion_match(
         )
 
     # Load empresa TF-IDF profile
-    perfil = (await db.execute(select(TFIDFPerfil).where(TFIDFPerfil.empresa_id == empresa_id))).scalar_one_or_none()
+    perfil = (
+        await db.execute(select(TFIDFPerfil).where(TFIDFPerfil.empresa_id == empresa_id))
+    ).scalar_one_or_none()
     if not perfil or not perfil.vector_bytes:
         return PerfilMatchResponse(
             disponible=True,
@@ -473,11 +511,19 @@ async def get_tfidf_perfil(
 ):
     _require_tfidf_flag()
 
-    membership = (await db.execute(select(EmpresaUsuario).where(EmpresaUsuario.empresa_id == empresa_id, EmpresaUsuario.user_id == current_user.id))).scalar_one_or_none()
+    membership = (
+        await db.execute(
+            select(EmpresaUsuario).where(
+                EmpresaUsuario.empresa_id == empresa_id, EmpresaUsuario.user_id == current_user.id
+            )
+        )
+    ).scalar_one_or_none()
     if not membership:
         raise HTTPException(status_code=403, detail="Sin acceso a esta empresa")
 
-    perfil = (await db.execute(select(TFIDFPerfil).where(TFIDFPerfil.empresa_id == empresa_id))).scalar_one_or_none()
+    perfil = (
+        await db.execute(select(TFIDFPerfil).where(TFIDFPerfil.empresa_id == empresa_id))
+    ).scalar_one_or_none()
     if not perfil:
         return TFIDFPerfilResponse(
             empresa_id=str(empresa_id),
@@ -516,22 +562,40 @@ async def update_tfidf_perfil(
     from app.services import tfidf_matcher
 
     # Must be owner or admin
-    membership = (await db.execute(select(EmpresaUsuario).where(EmpresaUsuario.empresa_id == empresa_id, EmpresaUsuario.user_id == current_user.id, EmpresaUsuario.rol.in_(["owner", "admin"])))).scalar_one_or_none()
+    membership = (
+        await db.execute(
+            select(EmpresaUsuario).where(
+                EmpresaUsuario.empresa_id == empresa_id,
+                EmpresaUsuario.user_id == current_user.id,
+                EmpresaUsuario.rol.in_(["owner", "admin"]),
+            )
+        )
+    ).scalar_one_or_none()
     if not membership:
         raise HTTPException(status_code=403, detail="Se requiere rol owner o admin")
 
     # Try to build TF-IDF vector — best-effort, don't block saving rubros if unavailable
     # Use b'' as placeholder to satisfy NOT NULL constraint when model is unavailable
-    vector_bytes: bytes = b''
+    vector_bytes: bytes = b""
     if tfidf_matcher.is_available():
         rubros_text = " ".join(body.rubros_usados)
         try:
             vector_bytes = tfidf_matcher.build_empresa_vector(rubros_text)
-        except (ValueError, Exception):
-            pass  # Keep b'' placeholder; vector can be rebuilt later
+        except Exception:
+            # Se mantiene el placeholder b''; el vector se puede reconstruir después.
+            # `(ValueError, Exception)` era redundante — ValueError ya es Exception.
+            # Sin log, un fallo permanente del matcher era invisible.
+            logger.warning(
+                "No se pudo construir el vector TF-IDF para la empresa %s; "
+                "se guardan los rubros con vector vacío",
+                empresa_id,
+                exc_info=True,
+            )
 
     # Upsert TFIDFPerfil — always save rubros regardless of vector availability
-    perfil = (await db.execute(select(TFIDFPerfil).where(TFIDFPerfil.empresa_id == empresa_id))).scalar_one_or_none()
+    perfil = (
+        await db.execute(select(TFIDFPerfil).where(TFIDFPerfil.empresa_id == empresa_id))
+    ).scalar_one_or_none()
     if perfil:
         if vector_bytes:  # Only overwrite existing vector if we built a real one
             perfil.vector_bytes = vector_bytes
@@ -652,18 +716,20 @@ async def get_mi_posicion(
     from app.services import bi_service
 
     # Verificar membership a la empresa
-    membership = (await db.execute(
-        select(EmpresaUsuario).where(
-            EmpresaUsuario.empresa_id == empresa_id,
-            EmpresaUsuario.user_id == current_user.id,
+    membership = (
+        await db.execute(
+            select(EmpresaUsuario).where(
+                EmpresaUsuario.empresa_id == empresa_id,
+                EmpresaUsuario.user_id == current_user.id,
+            )
         )
-    )).scalar_one_or_none()
+    ).scalar_one_or_none()
     if not membership:
         raise HTTPException(status_code=403, detail="Sin acceso a esta empresa")
 
-    empresa = (await db.execute(
-        select(Empresa).where(Empresa.id == empresa_id)
-    )).scalar_one_or_none()
+    empresa = (
+        await db.execute(select(Empresa).where(Empresa.id == empresa_id))
+    ).scalar_one_or_none()
 
     if not empresa or not empresa.rut:
         return {
@@ -688,6 +754,7 @@ def get_productos(
 ):
     _require_analytics()
     from app.services import bi_service
+
     return bi_service.get_productos(q, limit)
 
 
@@ -710,17 +777,20 @@ async def get_radar_semanal(
     from app.services import radar_service
 
     # Verificar membership
-    membership = (await db.execute(
-        select(EmpresaUsuario).where(
-            EmpresaUsuario.empresa_id == empresa_id,
-            EmpresaUsuario.user_id == current_user.id,
+    membership = (
+        await db.execute(
+            select(EmpresaUsuario).where(
+                EmpresaUsuario.empresa_id == empresa_id,
+                EmpresaUsuario.user_id == current_user.id,
+            )
         )
-    )).scalar_one_or_none()
+    ).scalar_one_or_none()
     if not membership:
         raise HTTPException(status_code=403, detail="Sin acceso a esta empresa")
 
     # radar_service usa session síncrona → abrir una sesión sync para esto
     from app.db import SyncSessionLocal
+
     sync_db = SyncSessionLocal()
     try:
         return radar_service.compute_radar_for_empresa(sync_db, empresa_id)

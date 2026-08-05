@@ -20,7 +20,6 @@ Output:
 
 import logging
 
-import numpy as np
 import polars as pl
 
 from .config import OUTPUT_DIR
@@ -29,11 +28,11 @@ logger = logging.getLogger(__name__)
 
 # Pesos de cada componente en el score final
 WEIGHTS = {
-    "precio_predecible": 0.25,    # Ventaja informacional
-    "competencia_accesible": 0.20, # No dominado por un solo proveedor
+    "precio_predecible": 0.25,  # Ventaja informacional
+    "competencia_accesible": 0.20,  # No dominado por un solo proveedor
     "estacionalidad_clara": 0.15,  # Se puede anticipar y planificar
-    "tendencia_positiva": 0.20,    # Mercado en expansión
-    "volumen_alto": 0.20,          # Recurrencia de oportunidades
+    "tendencia_positiva": 0.20,  # Mercado en expansión
+    "volumen_alto": 0.20,  # Recurrencia de oportunidades
 }
 
 
@@ -60,110 +59,140 @@ def build_opportunity_scores(
 
     # Cargar datos de cada módulo
     price_bands = pl.read_parquet(price_bands_path or OUTPUT_DIR / "price_bands.parquet")
-    concentration = pl.read_parquet(concentration_path or OUTPUT_DIR / "market_concentration.parquet")
+    concentration = pl.read_parquet(
+        concentration_path or OUTPUT_DIR / "market_concentration.parquet"
+    )
     seasonality = pl.read_parquet(seasonality_path or OUTPUT_DIR / "seasonality_patterns.parquet")
     trends = pl.read_parquet(trends_path or OUTPUT_DIR / "trend_by_market.parquet")
 
     # === COMPONENTE 1: Predictibilidad de precio ===
     # CV bajo = más predecible → score alto
-    precio_score = (
-        price_bands
-        .select([
-            "CodigoOrganismoPublico", "RubroN2", "n_transacciones",
-            "coef_variacion", "precio_predecible",
-        ])
-        .with_columns([
+    precio_score = price_bands.select(
+        [
+            "CodigoOrganismoPublico",
+            "RubroN2",
+            "n_transacciones",
+            "coef_variacion",
+            "precio_predecible",
+        ]
+    ).with_columns(
+        [
             # Invertir CV: CV bajo = score alto
             (1 - pl.col("coef_variacion").clip(0, 2) / 2).clip(0, 1).alias("score_precio_raw"),
-        ])
+        ]
     )
 
     # === COMPONENTE 2: Competencia accesible ===
     # HHI intermedio (1000-2000) es ideal: no monopolio, no hiperfragmentado
-    comp_score = (
-        concentration
-        .select(["CodigoOrganismoPublico", "RubroN2", "hhi", "n_proveedores"])
-        .with_columns([
+    comp_score = concentration.select(
+        ["CodigoOrganismoPublico", "RubroN2", "hhi", "n_proveedores"]
+    ).with_columns(
+        [
             # Score máximo para HHI ~1500 (competencia moderada)
             (1 - ((pl.col("hhi") - 1500).abs() / 5000).clip(0, 1)).alias("score_competencia_raw"),
-        ])
+        ]
     )
 
     # === COMPONENTE 3: Estacionalidad clara ===
     # Mayor consistencia de picos = más predecible
     season_score = (
-        seasonality
-        .filter(pl.col("es_pico_estacional"))
+        seasonality.filter(pl.col("es_pico_estacional"))
         .group_by(["CodigoOrganismoPublico", "RubroN2"])
-        .agg([
-            pl.col("consistencia").max().alias("max_consistencia"),
-            pl.col("z_score").max().alias("max_z_score"),
-            pl.len().alias("n_picos"),
-        ])
-        .with_columns([
-            pl.col("max_consistencia").alias("score_estacionalidad_raw"),
-        ])
+        .agg(
+            [
+                pl.col("consistencia").max().alias("max_consistencia"),
+                pl.col("z_score").max().alias("max_z_score"),
+                pl.len().alias("n_picos"),
+            ]
+        )
+        .with_columns(
+            [
+                pl.col("max_consistencia").alias("score_estacionalidad_raw"),
+            ]
+        )
     )
 
     # === COMPONENTE 4: Tendencia de crecimiento ===
-    trend_score = (
-        trends
-        .select(["CodigoOrganismoPublico", "RubroN2", "cagr", "r_squared"])
-        .with_columns([
+    trend_score = trends.select(
+        ["CodigoOrganismoPublico", "RubroN2", "cagr", "r_squared"]
+    ).with_columns(
+        [
             # CAGR positivo con buen R² = crecimiento real
-            (pl.col("cagr").clip(-0.5, 1.0) * pl.col("r_squared").clip(0, 1))
-            .alias("score_tendencia_raw"),
-        ])
+            (pl.col("cagr").clip(-0.5, 1.0) * pl.col("r_squared").clip(0, 1)).alias(
+                "score_tendencia_raw"
+            ),
+        ]
     )
 
     # === COMBINAR todos los componentes ===
     # Join progresivo
     combined = (
-        precio_score
-        .join(comp_score, on=["CodigoOrganismoPublico", "RubroN2"], how="left")
+        precio_score.join(comp_score, on=["CodigoOrganismoPublico", "RubroN2"], how="left")
         .join(season_score, on=["CodigoOrganismoPublico", "RubroN2"], how="left")
         .join(trend_score, on=["CodigoOrganismoPublico", "RubroN2"], how="left")
     )
 
     # Normalizar cada componente a 0-10
-    for col_name in ["score_precio_raw", "score_competencia_raw",
-                      "score_estacionalidad_raw", "score_tendencia_raw"]:
+    for col_name in [
+        "score_precio_raw",
+        "score_competencia_raw",
+        "score_estacionalidad_raw",
+        "score_tendencia_raw",
+    ]:
         if col_name in combined.columns:
-            combined = combined.with_columns([
-                pl.col(col_name).fill_null(0.5).alias(col_name),
-            ])
+            combined = combined.with_columns(
+                [
+                    pl.col(col_name).fill_null(0.5).alias(col_name),
+                ]
+            )
 
     # Componente 5: Volumen (normalizado por log)
-    combined = combined.with_columns([
-        pl.col("n_transacciones").log().alias("log_volumen"),
-    ])
+    combined = combined.with_columns(
+        [
+            pl.col("n_transacciones").log().alias("log_volumen"),
+        ]
+    )
 
     # Score ponderado
-    combined = combined.with_columns([
-        (
-            _normalize_0_10(combined["score_precio_raw"]) * WEIGHTS["precio_predecible"] +
-            _normalize_0_10(combined["score_competencia_raw"]) * WEIGHTS["competencia_accesible"] +
-            _normalize_0_10(combined["score_estacionalidad_raw"]) * WEIGHTS["estacionalidad_clara"] +
-            _normalize_0_10(combined["score_tendencia_raw"]) * WEIGHTS["tendencia_positiva"] +
-            _normalize_0_10(combined["log_volumen"]) * WEIGHTS["volumen_alto"]
-        ).round(1).alias("opportunity_score"),
-    ])
-
-    result = (
-        combined
-        .select([
-            "CodigoOrganismoPublico", "RubroN2", "opportunity_score",
-            "n_transacciones", "coef_variacion", "hhi", "n_proveedores",
-            "max_consistencia", "n_picos", "cagr", "r_squared",
-            "score_precio_raw", "score_competencia_raw",
-            "score_estacionalidad_raw", "score_tendencia_raw",
-        ])
-        .sort("opportunity_score", descending=True)
+    combined = combined.with_columns(
+        [
+            (
+                _normalize_0_10(combined["score_precio_raw"]) * WEIGHTS["precio_predecible"]
+                + _normalize_0_10(combined["score_competencia_raw"])
+                * WEIGHTS["competencia_accesible"]
+                + _normalize_0_10(combined["score_estacionalidad_raw"])
+                * WEIGHTS["estacionalidad_clara"]
+                + _normalize_0_10(combined["score_tendencia_raw"]) * WEIGHTS["tendencia_positiva"]
+                + _normalize_0_10(combined["log_volumen"]) * WEIGHTS["volumen_alto"]
+            )
+            .round(1)
+            .alias("opportunity_score"),
+        ]
     )
+
+    result = combined.select(
+        [
+            "CodigoOrganismoPublico",
+            "RubroN2",
+            "opportunity_score",
+            "n_transacciones",
+            "coef_variacion",
+            "hhi",
+            "n_proveedores",
+            "max_consistencia",
+            "n_picos",
+            "cagr",
+            "r_squared",
+            "score_precio_raw",
+            "score_competencia_raw",
+            "score_estacionalidad_raw",
+            "score_tendencia_raw",
+        ]
+    ).sort("opportunity_score", descending=True)
 
     logger.info(f"Scores generados: {len(result):,} mercados")
     logger.info(f"  Score promedio: {result['opportunity_score'].mean():.1f}")
-    logger.info(f"  Top mercados (score > 7):")
+    logger.info("  Top mercados (score > 7):")
     top = result.filter(pl.col("opportunity_score") > 7).head(10)
     for row in top.iter_rows(named=True):
         logger.info(
