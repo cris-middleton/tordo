@@ -1,7 +1,7 @@
 import uuid
 
-from sqlalchemy import JSON, Boolean, Column, DateTime, Index, String, Text, text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Boolean, Column, DateTime, Index, String, Text, text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.sql import func
 
 from app.db import Base
@@ -14,7 +14,7 @@ class TaskFailure(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     task_name = Column(String(255), nullable=False)
-    task_args = Column(JSON(), nullable=True)
+    task_args = Column(JSONB, nullable=True)
     error_msg = Column(Text(), nullable=True)
     failed_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     resolved = Column(Boolean(), nullable=False, default=False)

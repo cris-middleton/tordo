@@ -21,7 +21,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 # ordenes_compra.codigo_oc y empresas.rut_empresa. No era deriva entre modelos y
 # migraciones: era un import que faltaba.
 #
-# `# noqa: F401` porque no se usa el nombre — se importa por el efecto.
+# Lleva supresión de "importado y sin usar": el nombre no se usa, se importa
+# por el efecto de poblar la metadata.
 import app.models  # noqa: F401
 from app.config import settings
 from app.db import Base

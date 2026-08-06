@@ -78,12 +78,18 @@ docker run -d --name "$CONTENEDOR" \
     exit 1
   }
 
-for _ in $(seq 1 40); do
+# 90s y no 40: con varios contenedores compitiendo por CPU, Postgres tarda más
+# en aceptar conexiones y el portón fallaba de forma intermitente. Un CI que a
+# veces no arranca se termina ignorando.
+for _ in $(seq 1 90); do
   docker exec "$CONTENEDOR" pg_isready -U postgres >/dev/null 2>&1 && break
   sleep 1
 done
-docker exec "$CONTENEDOR" pg_isready -U postgres >/dev/null 2>&1 \
-  || { printf "%sPostgres no arrancó%s\n" "$rojo" "$fin"; exit 1; }
+if ! docker exec "$CONTENEDOR" pg_isready -U postgres >/dev/null 2>&1; then
+  printf "%sPostgres no aceptó conexiones en 90s. Su log:%s\n" "$rojo" "$fin"
+  docker logs "$CONTENEDOR" 2>&1 | tail -15 | sed 's/^/     /'
+  exit 1
+fi
 ok "Postgres listo"
 
 # ── 🔍 Lint ──────────────────────────────────────────────────────────────────

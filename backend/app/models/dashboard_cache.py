@@ -1,6 +1,6 @@
 """Dashboard home cache — pre-computed TF-IDF matches per empresa."""
 
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer
+from sqlalchemy import Column, DateTime, ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -9,7 +9,10 @@ from app.db import Base
 
 # Use JSONB on PostgreSQL (production) and fall back to generic JSON
 # on SQLite (used by the test suite).
-JsonType = JSON().with_variant(JSONB(), "postgresql")
+# Antes era `JSON().with_variant(JSONB(), "postgresql")`, para que los tests
+# pudieran correr contra SQLite. Ya no hay SQLite: el proyecto es sólo Postgres
+# y los tests usan el mismo esquema que produce una migración.
+JsonType = JSONB
 
 
 class DashboardHomeCache(Base):

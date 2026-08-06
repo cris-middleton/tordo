@@ -1,4 +1,5 @@
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, Numeric, String
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -28,13 +29,13 @@ class OrdenCompraDetalle(Base):
     hash_contenido = Column(String(64), index=True)  # SHA256 hash of content
 
     # Complete detailed data (full API response)
-    datos_completos = Column(JSON)
+    datos_completos = Column(JSONB)
 
     # Extracted specific fields for quick queries
-    items = Column(JSON)  # List of items/products with details
-    documentos = Column(JSON)  # List of documents
-    comprador_detalle = Column(JSON)  # Detailed buyer information
-    proveedor_detalle = Column(JSON)  # Detailed supplier information
+    items = Column(JSONB)  # List of items/products with details
+    documentos = Column(JSONB)  # List of documents
+    comprador_detalle = Column(JSONB)  # Detailed buyer information
+    proveedor_detalle = Column(JSONB)  # Detailed supplier information
 
     # Current state fields (extracted from JSON for indexing)
     estado_actual = Column(String(50), index=True)

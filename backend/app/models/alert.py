@@ -1,8 +1,8 @@
 import enum
 
-from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy import Enum as SQLEnum
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -64,10 +64,10 @@ class Alert(Base):
     message = Column(Text)
     # Python attribute renamed to avoid clash with SQLAlchemy's reserved `metadata`
     # — the DB column stays named `metadata` (original schema from migration 001).
-    alert_metadata = Column("metadata", JSON)
+    alert_metadata = Column("metadata", JSONB)
 
     # Notification tracking
-    notification_channels = Column(JSON)  # List of channels used: ["email", "in_app", "webhook"]
+    notification_channels = Column(JSONB)  # List of channels used: ["email", "in_app", "webhook"]
     sent_at = Column(DateTime(timezone=True))
     read_at = Column(DateTime(timezone=True))
 
@@ -109,21 +109,21 @@ class AlertPreference(Base):
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
 
     # Organizations
-    organismo_ids = Column(JSON)  # List of organismo IDs to watch
+    organismo_ids = Column(JSONB)  # List of organismo IDs to watch
 
     # Financial filters
     min_amount = Column(Integer, nullable=True)  # Minimum tender/order amount
     max_amount = Column(Integer, nullable=True)  # Maximum tender/order amount
 
     # Status filters
-    estados = Column(JSON)  # List of estados to watch: ["Publicada", "Cerrada"]
+    estados = Column(JSONB)  # List of estados to watch: ["Publicada", "Cerrada"]
 
     # Region/Comuna filters
-    regiones = Column(JSON)  # List of regions to watch
-    comunas = Column(JSON)  # List of comunas to watch
+    regiones = Column(JSONB)  # List of regions to watch
+    comunas = Column(JSONB)  # List of comunas to watch
 
     # Keywords
-    keywords = Column(JSON)  # List of keywords to search in nombre/descripcion
+    keywords = Column(JSONB)  # List of keywords to search in nombre/descripcion
 
     # Notification settings
     notify_email = Column(Boolean, default=True)

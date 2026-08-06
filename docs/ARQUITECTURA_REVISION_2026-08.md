@@ -678,7 +678,9 @@ F3/F4/F5 pueden solaparse.
 - [x] **Causa raíz de la "deriva" encontrada**: `alembic/env.py` no importaba los modelos, así que autogenerate veía cero tablas. Con test de regresión.
 - [x] **Migración de reconciliación** (`da5fb1e45066`) y `alembic check` **bloqueante** en CI. De paso, 11 índices duplicados eliminados.
 - [x] **Retiradas las llamadas a `Base.metadata.create_all()`**: el ETL verifica el esquema en vez de crearlo, y `init_production_db.py` (que no creaba nada por el mismo import ausente) se eliminó
-- [ ] `JSON` → `JSONB` en todos los modelos + GIN donde se consulte
+- [x] `JSON` → `JSONB` en las 26 columnas (migración `8241c5e956f1`). **Sin GIN**: hoy ninguna
+      se consulta por contenido en SQL, se leen enteras y se procesan en Python o Polars. Un GIN
+      sobre una columna que nadie filtra sólo cuesta escritura en cada carga del ETL.
 - [ ] Índices compuestos para el listado de licitaciones
 - [ ] `tsvector` + GIN para búsqueda; retirar `ILIKE '%x%'`
 - [ ] `tipo_convocatoria` (licitacion | compra_agil | convenio_marco | trato_directo | cotizacion)

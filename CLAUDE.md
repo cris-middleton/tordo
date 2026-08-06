@@ -286,7 +286,9 @@ estos patrones, es señal de que hay que arreglar la causa, no de copiarlo:
 
 - ~~Analytics servido desde caché de parquet en el proceso de la API~~ — **resuelto en F2**: se sirve desde `analytics.*` en Postgres con índices.
 - ~~Verificación de membresía repetida a mano en cada endpoint~~ — **resuelto en F3**: `app/api/deps.py`, con test estructural.
-- `Column(JSON)` donde corresponde `JSONB` (F4).
+- ~~`Column(JSON)` donde corresponde `JSONB`~~ — **resuelto en F4**: las 26 columnas son JSONB.
+  **Toda columna JSON nueva se declara `JSONB`**; `JSON` guarda texto y lo reparsea en cada
+  lectura, y no se puede indexar.
 - Búsqueda con `ILIKE '%término%'`, que ningún índice puede servir (F4).
 - ~~Suscripción y `plan_tier` colgando de `User`~~ — **resuelto en F3**: pertenecen a la empresa.
 - `subprocess.run` desde Celery hacia el ETL (F2).

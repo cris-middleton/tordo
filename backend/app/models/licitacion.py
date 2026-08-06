@@ -1,4 +1,5 @@
-from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -51,8 +52,8 @@ class Licitacion(Base):
     comuna = Column(String(100))
 
     # Additional data
-    informacion_adicional = Column(JSON)
-    items = Column(JSON)  # List of items/products
+    informacion_adicional = Column(JSONB)
+    items = Column(JSONB)  # List of items/products
 
     # Metadata
     url_acta = Column(String(500))
