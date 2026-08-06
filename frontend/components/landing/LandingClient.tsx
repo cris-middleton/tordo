@@ -186,10 +186,10 @@ export default function LandingClient() {
       <header className="sticky top-0 z-50 border-b border-border bg-surface/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link href="/" className="flex items-center gap-2.5 shrink-0">
-            <TordoLogo size={26} />
+            <TordoLogo size={30} />
             <span
               className="font-bold text-primary leading-none tracking-tight"
-              style={{ fontFamily: 'var(--font-varien, system-ui)', fontSize: '2rem' }}
+              style={{ fontFamily: 'var(--font-varien, system-ui)', fontSize: '1.875rem' }}
             >
               TORDO
             </span>
@@ -292,7 +292,7 @@ export default function LandingClient() {
         </section>
 
         {/* ── Benefits ── */}
-        <section className="bg-surface-elevated px-6 py-16 sm:py-20" id="beneficios">
+        <section className="bg-band4 px-6 py-16 sm:py-20" id="beneficios">
           <div className="mx-auto max-w-5xl">
             <div className="mb-14 text-center">
               <p className="mb-3 text-xs font-bold uppercase tracking-widest text-accent">
@@ -369,7 +369,7 @@ export default function LandingClient() {
         </section>
 
         {/* ── Product Demo ── */}
-        <section id="producto" className="bg-surface-elevated px-6 py-16 sm:py-20 border-t border-border">
+        <section id="producto" className="bg-band3 px-6 py-16 sm:py-20">
           <div className="mx-auto max-w-5xl">
             <div className="mb-12 text-center">
               <p className="mb-3 text-xs font-bold uppercase tracking-widest text-accent">EL PRODUCTO</p>
@@ -426,7 +426,7 @@ export default function LandingClient() {
         </section>
 
         {/* ── How It Works ── */}
-        <section id="como-funciona" className="px-6 py-16 sm:py-20">
+        <section id="como-funciona" className="bg-band2 px-6 py-16 sm:py-20">
           <div className="mx-auto max-w-5xl">
             <div className="mb-12 text-center">
               <p className="mb-3 text-xs font-bold uppercase tracking-widest text-accent">CÓMO EMPEZAR</p>
@@ -455,12 +455,20 @@ export default function LandingClient() {
         </section>
 
         {/* ── Data Trust ── */}
-        <section className="bg-surface px-6 py-16 border-t border-border">
+        <section className="relative bg-band1 px-6 py-20 sm:py-24">
+          {/* La marca de la mediana. Un degradado de 1px se pierde sobre fondo
+              claro, así que se usa el lenguaje del propio PriceBandChart: la
+              línea del rango y el punto que marca el P50 encima. Cae justo
+              aquí a propósito — este bloque es la prueba del diferenciador. */}
+          <div aria-hidden="true" className="absolute top-0 left-0 right-0">
+            <div className="h-px bg-gradient-to-r from-transparent via-accent/45 to-transparent" />
+            <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-accent" />
+          </div>
           <div className="mx-auto max-w-5xl">
-            <p className="text-center text-xs font-bold uppercase tracking-widest text-subtle mb-8">
+            <p className="text-center text-xs font-bold uppercase tracking-widest text-accent mb-10">
               Construido sobre datos públicos de ChileCompra
             </p>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-6">
               {[
                 { value: '+3.2M', label: 'transacciones analizadas' },
                 { value: '8 años', label: 'de historial de compras' },
@@ -468,8 +476,8 @@ export default function LandingClient() {
                 { value: '97K', label: 'proveedores perfilados' },
               ].map((item) => (
                 <div key={item.value} className="text-center">
-                  <p className="text-2xl font-bold text-primary sm:text-3xl lg:text-4xl" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>{item.value}</p>
-                  <p className="mt-2 text-sm text-muted">{item.label}</p>
+                  <p className="text-3xl font-bold text-primary sm:text-4xl lg:text-5xl tabular-nums" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>{item.value}</p>
+                  <p className="mt-2 text-sm text-muted leading-snug">{item.label}</p>
                 </div>
               ))}
             </div>
@@ -477,7 +485,7 @@ export default function LandingClient() {
         </section>
 
         {/* ── Pricing ── */}
-        <section id="precios" className="bg-surface-elevated px-6 py-16 sm:py-20">
+        <section id="precios" className="bg-band2 px-6 py-16 sm:py-20">
           <div className="mx-auto max-w-5xl">
             <div className="mb-12 text-center">
               <p className="mb-3 text-xs font-bold uppercase tracking-widest text-accent">PLANES</p>
@@ -586,7 +594,7 @@ export default function LandingClient() {
         </section>
 
         {/* ── FAQ ── */}
-        <section id="faq" className="px-6 py-16 sm:py-20">
+        <section id="faq" className="bg-band3 px-6 py-16 sm:py-20">
           <div className="mx-auto max-w-2xl">
             <div className="mb-12 text-center">
               <h2 className="text-3xl font-bold text-text sm:text-4xl" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>
@@ -646,7 +654,7 @@ export default function LandingClient() {
       </main>
 
       {/* ── Footer ── */}
-      <footer className="border-t border-border bg-surface px-6 py-8 pb-20 lg:pb-8">
+      <footer className="border-t border-border bg-band4 px-6 py-8 pb-20 lg:pb-8">
         <div className="mx-auto max-w-6xl">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <div className="flex items-center gap-2.5">

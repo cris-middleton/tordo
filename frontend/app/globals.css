@@ -42,7 +42,8 @@
    defecto funcione aunque el JS de next-themes no haya corrido todavía.
    next-themes agrega class="dark" o class="light" en <html>.
 
-   Los 108 pares de contraste de este archivo están verificados contra WCAG AA.
+   Los 166 pares de contraste de este archivo están verificados contra WCAG AA,
+   incluyendo cada tinta sobre cada banda de la landing.
    Si cambias un valor, revalida — el bug de `.alert-info` (texto invisible en
    tema claro) nació exactamente de tocar uno de estos a ojo.
    ══════════════════════════════════════════════ */
@@ -51,7 +52,7 @@
   /* Tailwind colors — RGB channels for opacity modifier support */
   --color-primary: 16 40 88;           /* #102858 — navy del logo */
   --color-primary-dark: 10 27 61;      /* #0A1B3D */
-  --color-accent: 14 124 127;          /* #0E7C7F — teal, parada oscura */
+  --color-accent: 13 115 118;          /* #0D7376 — teal, parada oscura */
   --color-accent-dark: 10 98 101;      /* #0A6265 */
   --color-accent-light: 237 247 247;   /* #EDF7F7 — superficie tenue */
   --color-brand-navy: 16 40 88;        /* #102858 — theme-invariant */
@@ -59,10 +60,21 @@
   --color-gold-light: 251 246 228;    /* #FBF6E4 */
   --color-text: 10 22 38;             /* #0A1626 */
   --color-muted: 84 99 122;           /* #54637A */
-  --color-subtle: 95 112 137;         /* #5F7089 */
+  --color-subtle: 90 107 131;         /* #5A6B83 */
   --color-background: 246 248 251;    /* #F6F8FB */
   --color-surface: 255 255 255;       /* #FFFFFF */
   --color-surface-elevated: 241 244 249; /* #F1F4F9 */
+  /* Bandas de la landing. La página es una distribución: el tono se profundiza
+     hacia el centro, donde cae la mediana — el bloque de datos de ChileCompra.
+     Es el mismo gesto que P10·P25·P50·P75·P90 en PriceBandChart, que es la
+     primitiva visual del producto.
+     `accent` y `subtle` están elegidos para pasar AA hasta band-1 inclusive;
+     si profundizas más una banda, revalida contra los dos. */
+  --color-band-4: 255 255 255;        /* #FFFFFF — cola de la distribución */
+  --color-band-3: 247 249 252;        /* #F7F9FC */
+  --color-band-2: 239 243 249;        /* #EFF3F9 */
+  --color-band-1: 231 237 246;        /* #E7EDF6 — mediana */
+
   --color-border: 220 227 237;        /* #DCE3ED — decorativo: tarjetas, divisores */
   --color-border-light: 196 208 224;  /* #C4D0E0 */
   --color-border-input: 122 141 166;  /* #7A8DA6 — 3.39:1, exige WCAG 1.4.11 para controles */
@@ -70,9 +82,9 @@
   --color-info-light: 235 241 253;    /* #EBF1FD */
   --color-danger: 185 28 28;          /* #B91C1C */
   --color-danger-light: 252 237 237;  /* #FCEDED */
-  --color-warning: 180 83 9;          /* #B45309 */
+  --color-warning: 166 76 8;          /* #A64C08 */
   --color-warning-light: 253 244 232; /* #FDF4E8 */
-  --color-success: 21 128 61;         /* #15803D — verde inequívoco, ya no es la marca */
+  --color-success: 20 117 56;         /* #147538 — verde inequívoco, ya no es la marca */
   --color-success-light: 234 247 240; /* #EAF7F0 */
 
   /* Etiqueta que va ENCIMA de cada relleno de color. Nunca `text-white` a mano. */
@@ -120,6 +132,13 @@
   --color-background: 8 11 17;        /* #080B11 */
   --color-surface: 14 19 28;          /* #0E131C */
   --color-surface-elevated: 22 29 42; /* #161D2A */
+  /* En oscuro la distribución se expresa al revés: la mediana es la banda más
+     elevada, no la más profunda. */
+  --color-band-4: 8 11 17;            /* #080B11 */
+  --color-band-3: 14 19 28;           /* #0E131C */
+  --color-band-2: 19 26 38;           /* #131A26 */
+  --color-band-1: 26 35 51;           /* #1A2333 — mediana */
+
   --color-border: 30 39 54;           /* #1E2736 — decorativo */
   --color-border-light: 42 53 71;     /* #2A3547 */
   --color-border-input: 85 102 132;   /* #556684 — 3.21:1 */
