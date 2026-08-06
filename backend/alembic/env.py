@@ -8,10 +8,23 @@ from sqlalchemy import engine_from_config, pool
 # Add the parent directory to the path so we can import app
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
+# Import all models so Alembic can detect them.
+#
+# ESTE IMPORT ES LO QUE HACE FUNCIONAR autogenerate. `Base.metadata` se puebla
+# cuando se importan los módulos de modelos, no al importar Base. El comentario
+# de arriba llevaba tiempo sin nada debajo, así que `target_metadata` tenía CERO
+# tablas y autogenerate concluía, correctamente dado lo que veía, que sobraban
+# las 26 tablas de la base: 52 remove_table y 128 remove_index.
+#
+# De ahí salían los esqueletos destructivos que `make migrate-create` generó dos
+# veces, con drops de las restricciones únicas de licitaciones.codigo_externo,
+# ordenes_compra.codigo_oc y empresas.rut_empresa. No era deriva entre modelos y
+# migraciones: era un import que faltaba.
+#
+# `# noqa: F401` porque no se usa el nombre — se importa por el efecto.
+import app.models  # noqa: F401
 from app.config import settings
 from app.db import Base
-
-# Import all models so Alembic can detect them
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

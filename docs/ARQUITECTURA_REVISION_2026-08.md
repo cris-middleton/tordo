@@ -245,12 +245,21 @@ Consecuencias:
    desastre, ni un desarrollador nuevo, ni CI.
 2. **El esquema de las dos tablas principales no estaba versionado en ninguna parte** salvo
    los modelos. Lo que hay en producción no está registrado.
-3. **Los modelos y las migraciones divergieron.** `alembic check` reporta ~45 diferencias.
-   Parte es ruido de autogenerate (índices sobre claves primarias), pero hay diferencias
-   reales: `alerts.empresa_id` declara `ondelete=CASCADE` en el modelo y la migración creó
+3. **Los modelos y las migraciones divergieron.** Hay diferencias reales:
+   `alerts.empresa_id` declara `ondelete=CASCADE` en el modelo y la migración creó
    `SET NULL`; `users.onboarding_step` es `SMALLINT` en la base e `Integer` en el modelo;
    `users.notification_whatsapp` difiere en nulabilidad; varias restricciones únicas e
    índices están declarados de una forma y creados de otra.
+
+   > **Corrección del diagnóstico (2026-08-06).** Esta sección decía "~45 diferencias" y el
+   > job de CI las atribuía a que la base se provisionó con `create_all()`. **Las dos cosas
+   > estaban mal.** El número real era 180 (52 `remove_table` + 128 `remove_index`) y la
+   > causa era otra: `alembic/env.py` **nunca importaba los modelos**. Tenía el comentario
+   > `# Import all models so Alembic can detect them` con nada debajo, así que
+   > `target_metadata` tenía **cero tablas** y autogenerate concluía —correctamente, dado lo
+   > que veía— que sobraba la base entera. De ahí salieron los dos esqueletos destructivos
+   > que hubo que descartar a mano. Con el import puesto, el conjunto de tablas del modelo
+   > coincide **exacto** con el de la base, y la deriva restante es la que lista este punto.
 
 **Corregido en F1:** migración `000_baseline_licitaciones_ordenes` que crea ambas tablas en su
 forma anterior a la `001`, idempotente (inspecciona antes de crear, así que las bases
@@ -259,9 +268,26 @@ existentes no se ven afectadas y no hace falta `alembic stamp`). Se corrigió ad
 fallar el siguiente `upgrade`. Verificado: ciclo `upgrade → downgrade → upgrade` completo,
 12 migraciones en cada sentido, 27 tablas.
 
-**Pendiente en F4:** una migración de reconciliación que cierre las ~45 diferencias, y retirar
-las llamadas a `create_all()` — sobre todo la del ETL, que puede crear tablas silenciosamente
-saltándose las migraciones. Hasta entonces el job de deriva en CI es informativo, no bloqueante.
+**Corregido después:** el import que faltaba en `alembic/env.py`, con test de regresión
+(`backend/tests/test_alembic_metadata.py`) que falla si autogenerate vuelve a proponer borrar
+tablas. Era lo que hacía que `make migrate-create` produjera esqueletos destructivos.
+
+**Pendiente en F4:** una migración de reconciliación para la deriva que queda, que ahora sí se
+puede leer y son tres clases distintas:
+
+| clase | ejemplo | riesgo |
+|---|---|---|
+| índices redundantes sobre PKs | `ix_suppliers_id` | ninguno — el modelo declara `index=True` en una PK, que ya tiene índice |
+| restricción única vs índice único | `licitaciones.codigo_externo` | ninguno — ambas formas garantizan unicidad; sólo cambia cómo se declara |
+| **diferencias semánticas reales** | `alerts.empresa_id` SET NULL vs CASCADE, `users.onboarding_step` SMALLINT vs Integer, `users.notification_whatsapp` nulabilidad | **sí** — cambian el comportamiento |
+
+Ojo con dos índices que el modelo **no** declara y la base sí (`ix_empresas_usuario_empresa_id`,
+`ix_empresas_usuario_user_id`): son los de búsqueda de pertenencia a empresa. Una reconciliación
+que siga a autogenerate a ciegas los eliminaría y degradaría cada comprobación de tenancy.
+
+También queda retirar las llamadas a `create_all()` — sobre todo la del ETL, que puede crear
+tablas silenciosamente saltándose las migraciones. Hasta entonces el job de deriva en CI es
+informativo, no bloqueante.
 
 ### 5.1 Defectos concretos del esquema
 
@@ -628,7 +654,8 @@ F3/F4/F5 pueden solaparse.
 
 ### F4 — Modelo de datos para el alcance objetivo · 1–2 semanas
 
-- [ ] **Migración de reconciliación modelos↔migraciones** (~45 diferencias, ver §5.0), y quitar `continue-on-error` del job de deriva en CI
+- [x] **Causa raíz de la "deriva" encontrada**: `alembic/env.py` no importaba los modelos, así que autogenerate veía cero tablas. Con test de regresión.
+- [ ] **Migración de reconciliación** de la deriva real que queda (tres clases, ver §5.0), y quitar `continue-on-error` del job de deriva en CI
 - [ ] **Retirar las llamadas a `Base.metadata.create_all()`** — sobre todo `etl/loaders/database_loader_v2.py:99`, que crea tablas en cada carga saltándose Alembic
 - [ ] `JSON` → `JSONB` en todos los modelos + GIN donde se consulte
 - [ ] Índices compuestos para el listado de licitaciones

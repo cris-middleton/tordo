@@ -109,10 +109,13 @@ correr "Ciclo upgrade → downgrade → upgrade" bash -c \
    && uv run --project .. alembic downgrade base \
    && uv run --project .. alembic upgrade head'
 
-# Informativo, no bloqueante: hay ~45 diferencias conocidas porque la base se
-# provisionó durante mucho tiempo con create_all() en vez de migraciones. Se
-# cuenta en vez de volcarse — el diff completo es una sola línea de 40 KB que
-# entierra el resto del informe. Se reconcilia en F4.
+# Informativo, no bloqueante: queda deriva real entre modelos y migraciones, en
+# tres clases (índices redundantes sobre PKs, restricción única vs índice único, y
+# tres diferencias semánticas de verdad). Se reconcilia en F4; ver §5.0.
+#
+# El diff completo es una sola línea de 40 KB que entierra el resto del informe,
+# así que aquí sólo se señala. Lo que NO puede pasar desapercibido —que
+# autogenerate quiera borrar tablas— lo cubre backend/tests/test_alembic_metadata.py.
 if (cd backend && uv run --project .. alembic check) >/dev/null 2>&1; then
   ok "Sin deriva entre modelos y migraciones"
 else

@@ -97,6 +97,12 @@ y el build del frontend.
   se rompió una vez por esto (ver `011_fix_alerttype_enum_uppercase`).
 - CI valida que haya exactamente una cabeza y que `upgrade head` + `downgrade base` corran
   limpios contra una base vacía. Una migración que no revierte no pasa.
+- **Revisa siempre el esqueleto que genera autogenerate antes de commitearlo.** `env.py` ya
+  estuvo sin importar los modelos, y con `target_metadata` vacío autogenerate propone borrar
+  la base entera con toda naturalidad. Está corregido y hay test
+  (`tests/test_alembic_metadata.py`), pero la lección se mantiene: autogenerate propone,
+  no decide. Queda deriva real por reconciliar en F4 (§5.0), así que los esqueletos siguen
+  saliendo con operaciones que no quieres.
 
 ### Multi-tenancy — CRÍTICO PARA LA SEGURIDAD
 Todo endpoint que toque datos de una empresa **debe** resolver el contexto de empresa por
