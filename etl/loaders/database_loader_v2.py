@@ -95,13 +95,45 @@ class DatabaseLoaderV2(BaseLoader):
             self.session = SessionFactory()
             self._session_owner = True
 
-            # Create tables if they don't exist
-            Base.metadata.create_all(bind=self.engine)
+            self._verificar_esquema()
 
             self.logger.info("Connected to database successfully")
         except Exception as e:
             self.logger.error(f"Failed to connect to database: {str(e)}")
             raise
+
+    def _verificar_esquema(self) -> None:
+        """Comprueba que el esquema exista, en vez de crearlo.
+
+        Aquí había un `Base.metadata.create_all()` en cada conexión. Parecía una
+        comodidad y era un agujero: el ETL corre cada hora, así que **creaba en
+        producción cualquier tabla que faltara, sin migración y sin dejar rastro
+        en `alembic_version`**. Un modelo nuevo sin su migración llegaba a la base
+        por esta puerta, y el esquema quedaba en un estado que ninguna migración
+        sabe reproducir.
+
+        Ahora falla, y con instrucciones. Que el ETL no arranque es mucho más
+        barato que un esquema que sólo existe en un servidor.
+        """
+        esperadas = set(Base.metadata.tables)
+        with self.engine.connect() as conn:
+            existentes = {
+                fila[0]
+                for fila in conn.execute(
+                    text(
+                        "SELECT table_name FROM information_schema.tables "
+                        "WHERE table_schema = 'public'"
+                    )
+                )
+            }
+        faltan = sorted(esperadas - existentes)
+        if faltan:
+            raise RuntimeError(
+                f"Faltan {len(faltan)} tablas en la base: {', '.join(faltan[:5])}"
+                + (" …" if len(faltan) > 5 else "")
+                + ". Aplica las migraciones con `make migrate` "
+                "(antes el ETL las creaba solo, saltándose Alembic)."
+            )
 
     def disconnect(self):
         """Close database connection"""

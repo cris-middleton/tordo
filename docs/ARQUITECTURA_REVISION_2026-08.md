@@ -298,8 +298,17 @@ columna sólo cuesta disco y escritura en cada carga del ETL. `licitaciones` y `
 > `licitaciones_codigo_externo_key`. Por eso la migración de reconciliación es **condicional**:
 > comprueba el estado antes de cada operación y converge ambas. Verificado en las dos rutas.
 
-Queda por retirar las llamadas a `create_all()` — sobre todo la del ETL, que puede crear tablas
-silenciosamente saltándose las migraciones.
+**Las llamadas a `create_all()` ya no existen.** Eran dos, y no eran equivalentes:
+
+- `etl/loaders/database_loader_v2.py` — **esta era la de verdad**. El loader llamaba a
+  `create_all()` en cada conexión y el ETL corre cada hora, así que creaba en producción
+  cualquier tabla que faltara, sin migración y sin rastro en `alembic_version`. Ahora
+  **verifica** el esquema y falla con instrucciones si algo falta.
+- `backend/scripts/init_production_db.py` — **no hacía nada**. Tenía el comentario
+  `# Make sure all models are imported so Base.metadata knows about them` con nada debajo,
+  igual que `env.py`, así que `create_all` recibía cero tablas. Un script llamado "creación
+  forzada de base de datos de producción" que dejaba la base vacía y no daba error. Eliminado:
+  `make migrate` es el camino.
 
 ### 5.1 Defectos concretos del esquema
 
@@ -668,7 +677,7 @@ F3/F4/F5 pueden solaparse.
 
 - [x] **Causa raíz de la "deriva" encontrada**: `alembic/env.py` no importaba los modelos, así que autogenerate veía cero tablas. Con test de regresión.
 - [x] **Migración de reconciliación** (`da5fb1e45066`) y `alembic check` **bloqueante** en CI. De paso, 11 índices duplicados eliminados.
-- [ ] **Retirar las llamadas a `Base.metadata.create_all()`** — sobre todo `etl/loaders/database_loader_v2.py:99`, que crea tablas en cada carga saltándose Alembic
+- [x] **Retiradas las llamadas a `Base.metadata.create_all()`**: el ETL verifica el esquema en vez de crearlo, y `init_production_db.py` (que no creaba nada por el mismo import ausente) se eliminó
 - [ ] `JSON` → `JSONB` en todos los modelos + GIN donde se consulte
 - [ ] Índices compuestos para el listado de licitaciones
 - [ ] `tsvector` + GIN para búsqueda; retirar `ILIKE '%x%'`

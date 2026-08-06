@@ -290,6 +290,8 @@ estos patrones, es señal de que hay que arreglar la causa, no de copiarlo:
 - Búsqueda con `ILIKE '%término%'`, que ningún índice puede servir (F4).
 - ~~Suscripción y `plan_tier` colgando de `User`~~ — **resuelto en F3**: pertenecen a la empresa.
 - `subprocess.run` desde Celery hacia el ETL (F2).
+- ~~`Base.metadata.create_all()` en el loader del ETL~~ — **resuelto en F4**: verifica el
+  esquema y falla con instrucciones. **El esquema sólo lo crean las migraciones.**
 - ~~`conftest.py` mantiene a mano el DDL de 11 tablas en SQLite~~ — **resuelto**: el esquema
   lo crean las migraciones (`alembic upgrade head`) sobre Postgres real, y cada test corre
   en una transacción que se revierte.
