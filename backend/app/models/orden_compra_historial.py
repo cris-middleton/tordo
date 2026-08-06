@@ -10,7 +10,7 @@ class OrdenCompraHistorial(Base):
 
     __tablename__ = "ordenes_compra_historial"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
 
     # Foreign keys
     orden_compra_id = Column(Integer, ForeignKey("ordenes_compra.id"), nullable=False, index=True)

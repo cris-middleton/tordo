@@ -61,10 +61,10 @@ def test_autogenerate_no_propone_borrar_tablas():
     Da igual *cómo* se pueble la metadata: si autogenerate quiere eliminar una
     tabla que las migraciones acaban de crear, algo está mal en `env.py`.
 
-    Se comprueba sólo `remove_table` a propósito. Queda deriva real pendiente de
-    reconciliar (índices redundantes sobre PKs, restricción única vs índice
-    único, y tres diferencias semánticas de verdad — ver §5.0 de la revisión),
-    pero ninguna de ellas borra una tabla.
+    Desde la migración `da5fb1e45066` no queda deriva y `alembic check` es
+    bloqueante en CI, así que este test es la red de abajo: comprueba lo único
+    que nunca puede pasar desapercibido, aunque alguien vuelva a poner el check
+    en `continue-on-error`.
     """
     url = os.getenv("DATABASE_URL", "")
     if not url:

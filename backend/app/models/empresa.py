@@ -28,7 +28,7 @@ class Empresa(Base):
     __tablename__ = "empresas"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    rut_empresa = Column(String(12), unique=True, nullable=False, index=True)
+    rut_empresa = Column(String(12), unique=True, nullable=False)
     nombre_empresa = Column(String(255), nullable=False)
     rubros_cpv = Column(ARRAY(Text()), nullable=True)
     regiones = Column(ARRAY(Text()), nullable=True)
@@ -126,9 +126,17 @@ class EmpresaUsuario(Base):
     __tablename__ = "empresas_usuario"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(Integer(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    # Ambos índices existen en la base y son los que sirven CADA comprobación de
+    # pertenencia a empresa (app/api/deps.py). Declararlos aquí no es cosmético:
+    # sin ellos en el modelo, autogenerate propone eliminarlos.
+    user_id = Column(
+        Integer(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     empresa_id = Column(
-        UUID(as_uuid=True), ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("empresas.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     rol = Column(String(20), nullable=False, default="owner")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

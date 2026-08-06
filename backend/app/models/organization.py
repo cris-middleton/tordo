@@ -10,8 +10,8 @@ class BuyerOrganization(Base):
 
     __tablename__ = "buyer_organizations"
 
-    id = Column(Integer, primary_key=True, index=True)
-    codigo_organismo = Column(String(50), unique=True, index=True, nullable=False)
+    id = Column(Integer, primary_key=True)
+    codigo_organismo = Column(String(50), unique=True, nullable=False)
     nombre = Column(String(500), nullable=False)
     nombre_corto = Column(String(200))
     rut = Column(String(20), index=True)
@@ -50,8 +50,8 @@ class Supplier(Base):
 
     __tablename__ = "suppliers"
 
-    id = Column(Integer, primary_key=True, index=True)
-    codigo_proveedor = Column(String(50), unique=True, index=True, nullable=False)
+    id = Column(Integer, primary_key=True)
+    codigo_proveedor = Column(String(50), unique=True, nullable=False)
     nombre = Column(String(500), nullable=False)
     nombre_corto = Column(String(200))
     rut = Column(String(20), index=True)

@@ -9,11 +9,12 @@ class OrdenCompra(Base):
     """Model for purchase orders (Órdenes de Compra)"""
 
     __tablename__ = "ordenes_compra"
+    __table_args__ = {"comment": "Órdenes de compra de Mercado Público (listado diario)"}
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
 
     # Identifiers
-    codigo_oc = Column(String(100), unique=True, index=True, nullable=False)
+    codigo_oc = Column(String(100), unique=True, nullable=False)
     codigo_licitacion = Column(String(100), index=True)  # Link to licitacion if exists
 
     # Basic information

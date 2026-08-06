@@ -9,11 +9,12 @@ class Licitacion(Base):
     """Model for public tenders (Licitaciones)"""
 
     __tablename__ = "licitaciones"
+    __table_args__ = {"comment": "Licitaciones publicadas en Mercado Público (listado diario)"}
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
 
     # Identifiers
-    codigo_externo = Column(String(100), unique=True, index=True, nullable=False)
+    codigo_externo = Column(String(100), unique=True, nullable=False)
     codigo_interno = Column(String(100), index=True)
 
     # Basic information

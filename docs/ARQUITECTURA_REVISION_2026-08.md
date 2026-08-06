@@ -272,22 +272,34 @@ fallar el siguiente `upgrade`. Verificado: ciclo `upgrade → downgrade → upgr
 (`backend/tests/test_alembic_metadata.py`) que falla si autogenerate vuelve a proponer borrar
 tablas. Era lo que hacía que `make migrate-create` produjera esqueletos destructivos.
 
-**Pendiente en F4:** una migración de reconciliación para la deriva que queda, que ahora sí se
-puede leer y son tres clases distintas:
+**Reconciliado** en la migración `da5fb1e45066`. `alembic check` es **bloqueante** en CI desde
+entonces: si un modelo cambia sin su migración, el PR se detiene.
 
-| clase | ejemplo | riesgo |
-|---|---|---|
-| índices redundantes sobre PKs | `ix_suppliers_id` | ninguno — el modelo declara `index=True` en una PK, que ya tiene índice |
-| restricción única vs índice único | `licitaciones.codigo_externo` | ninguno — ambas formas garantizan unicidad; sólo cambia cómo se declara |
-| **diferencias semánticas reales** | `alerts.empresa_id` SET NULL vs CASCADE, `users.onboarding_step` SMALLINT vs Integer, `users.notification_whatsapp` nulabilidad | **sí** — cambian el comportamiento |
+Cómo se resolvió cada clase:
 
-Ojo con dos índices que el modelo **no** declara y la base sí (`ix_empresas_usuario_empresa_id`,
-`ix_empresas_usuario_user_id`): son los de búsqueda de pertenencia a empresa. Una reconciliación
-que siga a autogenerate a ciegas los eliminaría y degradaría cada comprobación de tenancy.
+| clase | resolución |
+|---|---|
+| índices redundantes sobre PKs | se quitó `index=True` de las 16 PKs y se eliminaron los 3 índices que sobraban en la base |
+| restricción única vs índice único | **una sola forma**: restricción `uq_<tabla>_<columna>`, con la convención de nombres en `app/db/__init__.py` |
+| `alerts.empresa_id` SET NULL vs CASCADE | gana el modelo (CASCADE). Sin riesgo: `Alert.empresa_id` no se consulta en ninguna parte del backend |
+| `users.onboarding_step` SMALLINT vs Integer | gana la base: `SmallInteger` en el modelo, sin migración de datos |
+| `users.notification_whatsapp` nulabilidad | gana la base, que es la estricta: `nullable=False` en el modelo |
+| índices que sólo existían en la base | se **declararon en el modelo**, no se borraron — incluidos los dos de `empresas_usuario` que sirven cada comprobación de tenancy |
 
-También queda retirar las llamadas a `create_all()` — sobre todo la del ETL, que puede crear
-tablas silenciosamente saltándose las migraciones. Hasta entonces el job de deriva en CI es
-informativo, no bloqueante.
+**Beneficio medible además de la coherencia:** se eliminaron **11 índices duplicados**. Una
+restricción UNIQUE en Postgres ya crea su índice, así que un segundo índice sobre la misma
+columna sólo cuesta disco y escritura en cada carga del ETL. `licitaciones` y `ordenes_compra`
+—las tablas grandes— tenían dos cada una.
+
+> **Trampa que dejó esto, y que hay que conocer antes de tocar `unique=True`.** La convención de
+> nombres vive en `Base.metadata`, y **Alembic se la pasa a `op.create_table`**. Es decir: cambia
+> retroactivamente lo que producen las migraciones **ya escritas**. Una base creada hoy desde
+> cero nace con `uq_licitaciones_codigo_externo`; la productiva, creada antes, tenía
+> `licitaciones_codigo_externo_key`. Por eso la migración de reconciliación es **condicional**:
+> comprueba el estado antes de cada operación y converge ambas. Verificado en las dos rutas.
+
+Queda por retirar las llamadas a `create_all()` — sobre todo la del ETL, que puede crear tablas
+silenciosamente saltándose las migraciones.
 
 ### 5.1 Defectos concretos del esquema
 
@@ -655,7 +667,7 @@ F3/F4/F5 pueden solaparse.
 ### F4 — Modelo de datos para el alcance objetivo · 1–2 semanas
 
 - [x] **Causa raíz de la "deriva" encontrada**: `alembic/env.py` no importaba los modelos, así que autogenerate veía cero tablas. Con test de regresión.
-- [ ] **Migración de reconciliación** de la deriva real que queda (tres clases, ver §5.0), y quitar `continue-on-error` del job de deriva en CI
+- [x] **Migración de reconciliación** (`da5fb1e45066`) y `alembic check` **bloqueante** en CI. De paso, 11 índices duplicados eliminados.
 - [ ] **Retirar las llamadas a `Base.metadata.create_all()`** — sobre todo `etl/loaders/database_loader_v2.py:99`, que crea tablas en cada carga saltándose Alembic
 - [ ] `JSON` → `JSONB` en todos los modelos + GIN donde se consulte
 - [ ] Índices compuestos para el listado de licitaciones

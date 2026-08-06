@@ -109,20 +109,11 @@ correr "Ciclo upgrade → downgrade → upgrade" bash -c \
    && uv run --project .. alembic downgrade base \
    && uv run --project .. alembic upgrade head'
 
-# Informativo, no bloqueante: queda deriva real entre modelos y migraciones, en
-# tres clases (índices redundantes sobre PKs, restricción única vs índice único, y
-# tres diferencias semánticas de verdad). Se reconcilia en F4; ver §5.0.
-#
-# El diff completo es una sola línea de 40 KB que entierra el resto del informe,
-# así que aquí sólo se señala. Lo que NO puede pasar desapercibido —que
-# autogenerate quiera borrar tablas— lo cubre backend/tests/test_alembic_metadata.py.
-if (cd backend && uv run --project .. alembic check) >/dev/null 2>&1; then
-  ok "Sin deriva entre modelos y migraciones"
-else
-  printf "%s   · deriva modelos↔migraciones conocida — informativo, se reconcilia en F4%s\n" \
-    "$gris" "$fin"
-  printf "%s     detalle: cd backend && uv run --project .. alembic check%s\n" "$gris" "$fin"
-fi
+# BLOQUEANTE desde la migración da5fb1e45066: los modelos y las migraciones ya
+# no divergen, así que un fallo aquí significa que alguien cambió un modelo sin
+# su migración.
+correr "Sin deriva entre modelos y migraciones" bash -c \
+  'cd backend && uv run --project .. alembic check'
 
 # ── 🧪 Tests ─────────────────────────────────────────────────────────────────
 paso "🧪 Tests backend"

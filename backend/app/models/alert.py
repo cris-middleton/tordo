@@ -48,7 +48,7 @@ class Alert(Base):
 
     __tablename__ = "alerts"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
 
     # Alert details
@@ -72,11 +72,14 @@ class Alert(Base):
     read_at = Column(DateTime(timezone=True))
 
     # Deduplication
-    idempotency_key = Column(String(255), unique=True, nullable=True, index=True)
+    idempotency_key = Column(String(255), unique=True, nullable=True)
 
     # Empresa association (for compliance alerts)
     empresa_id = Column(
-        UUID(as_uuid=True), ForeignKey("empresas.id", ondelete="CASCADE"), nullable=True
+        UUID(as_uuid=True),
+        ForeignKey("empresas.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
     )
 
     # Metadata
@@ -95,7 +98,7 @@ class AlertPreference(Base):
 
     __tablename__ = "alert_preferences"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
 
     # Preference name

@@ -133,18 +133,31 @@ dev-clean: ## Detiene y borra contenedores, redes y volúmenes
 # ── Migraciones ──────────────────────────────────────────────────────────────
 # NUNCA usar `alembic revision` directo: rompe las cadenas de down_revision.
 
+# Alembic corre en el host, no dentro del contenedor. Dentro fallaba desde
+# cualquier worktree: `docker compose exec` resuelve el cwd contra el montaje del
+# contenedor, que sólo cubre el checkout principal, y aborta con "current working
+# directory is outside of container mount namespace root". La regla de trabajar
+# en worktrees y la de crear migraciones con `make` se contradecían.
+#
+# Corriéndolo en el host sólo hace falta DATABASE_URL apuntando a la base; no
+# hace falta tener el stack levantado.
+ALEMBIC = cd backend && uv run --project .. alembic
+
 migrate: ## Aplica las migraciones pendientes
-	$(COMPOSE) exec backend alembic upgrade head
+	$(ALEMBIC) upgrade head
 
 migrate-create: ## Crea una migración — make migrate-create MSG="descripción"
 	@test -n "$(MSG)" || (echo "ERROR: falta MSG. Uso: make migrate-create MSG=\"descripción\"" && exit 1)
-	$(COMPOSE) exec backend alembic revision --autogenerate -m "$(MSG)"
+	@echo "OJO: revisa el esqueleto antes de commitearlo. Queda deriva conocida"
+	@echo "     entre modelos y migraciones, así que autogenerate incluirá"
+	@echo "     operaciones que no quieres. Ver docs/ARQUITECTURA_REVISION §5.0."
+	$(ALEMBIC) revision --autogenerate -m "$(MSG)"
 
 migrate-status: ## Revisión actual de la base
-	$(COMPOSE) exec backend alembic current
+	$(ALEMBIC) current
 
 downgrade: ## Revierte la última migración
-	$(COMPOSE) exec backend alembic downgrade -1
+	$(ALEMBIC) downgrade -1
 
 # ── Frontend ─────────────────────────────────────────────────────────────────
 

@@ -10,7 +10,7 @@ class LicitacionHistorial(Base):
 
     __tablename__ = "licitaciones_historial"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
 
     # Foreign keys
     licitacion_id = Column(Integer, ForeignKey("licitaciones.id"), nullable=False, index=True)

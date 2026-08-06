@@ -95,14 +95,24 @@ y el build del frontend.
 - **Siempre `make migrate-create MSG="descripción"`. Nunca `alembic revision` directo.**
   Es la única forma de obtener IDs y cadenas de `down_revision` correctas. Este repo ya
   se rompió una vez por esto (ver `011_fix_alerttype_enum_uppercase`).
+  Los targets `migrate*` corren alembic **en el host**, no dentro del contenedor: dentro
+  fallaban desde cualquier worktree, así que esta regla y la de trabajar en worktrees se
+  contradecían. Sólo hace falta `DATABASE_URL`; no hace falta levantar el stack.
 - CI valida que haya exactamente una cabeza y que `upgrade head` + `downgrade base` corran
   limpios contra una base vacía. Una migración que no revierte no pasa.
+- **`alembic check` es bloqueante.** Los modelos y las migraciones ya no divergen: si cambias
+  un modelo, la migración va en el mismo PR.
+- **La unicidad se declara UNA vez, como restricción.** `unique=True` en la columna basta —
+  la convención de `app/db/__init__.py` la nombra `uq_<tabla>_<columna>`. **Nunca
+  `unique=True, index=True`**: eso genera un índice único en vez de una restricción, y una
+  restricción UNIQUE ya trae su propio índice. `index=True` es sólo para búsquedas no únicas.
+- **La convención de nombres afecta a las migraciones ya escritas**, porque Alembic se la pasa
+  a `op.create_table`. Una base nueva y una antigua pueden salir con nombres distintos para la
+  misma restricción. Si tocas restricciones únicas, prueba la migración en las dos rutas (§5.0).
 - **Revisa siempre el esqueleto que genera autogenerate antes de commitearlo.** `env.py` ya
   estuvo sin importar los modelos, y con `target_metadata` vacío autogenerate propone borrar
-  la base entera con toda naturalidad. Está corregido y hay test
-  (`tests/test_alembic_metadata.py`), pero la lección se mantiene: autogenerate propone,
-  no decide. Queda deriva real por reconciliar en F4 (§5.0), así que los esqueletos siguen
-  saliendo con operaciones que no quieres.
+  la base entera con toda naturalidad. Corregido y con test (`tests/test_alembic_metadata.py`),
+  pero la lección se mantiene: autogenerate propone, no decide.
 
 ### Multi-tenancy — CRÍTICO PARA LA SEGURIDAD
 Todo endpoint que toque datos de una empresa **debe** resolver el contexto de empresa por

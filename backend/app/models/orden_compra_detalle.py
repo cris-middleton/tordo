@@ -10,14 +10,14 @@ class OrdenCompraDetalle(Base):
 
     __tablename__ = "ordenes_compra_detalle"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
 
     # Foreign key to main orden_compra
     orden_compra_id = Column(Integer, ForeignKey("ordenes_compra.id"), unique=True, nullable=False)
     orden_compra = relationship("OrdenCompra", back_populates="detalle")
 
     # Business key
-    codigo_oc = Column(String(100), unique=True, index=True, nullable=False)
+    codigo_oc = Column(String(100), unique=True, nullable=False)
 
     # Update metadata
     fecha_primera_extraccion = Column(DateTime(timezone=True), server_default=func.now())

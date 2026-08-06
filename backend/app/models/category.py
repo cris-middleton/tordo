@@ -10,8 +10,8 @@ class Category(Base):
 
     __tablename__ = "categories"
 
-    id = Column(Integer, primary_key=True, index=True)
-    code = Column(String(50), unique=True, index=True, nullable=False)  # CPV or UNSPSC code
+    id = Column(Integer, primary_key=True)
+    code = Column(String(50), unique=True, nullable=False)  # CPV or UNSPSC code
     name = Column(String(500), nullable=False)
     description = Column(Text)
 

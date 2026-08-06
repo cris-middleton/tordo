@@ -10,14 +10,14 @@ class LicitacionDetalle(Base):
 
     __tablename__ = "licitaciones_detalle"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
 
     # Foreign key to main licitacion
     licitacion_id = Column(Integer, ForeignKey("licitaciones.id"), unique=True, nullable=False)
     licitacion = relationship("Licitacion", back_populates="detalle")
 
     # Business key
-    codigo_externo = Column(String(100), unique=True, index=True, nullable=False)
+    codigo_externo = Column(String(100), unique=True, nullable=False)
 
     # Update metadata
     fecha_primera_extraccion = Column(DateTime(timezone=True), server_default=func.now())

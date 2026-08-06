@@ -96,33 +96,21 @@ jobs:
 
       # INFORMATIVO, todavía no bloqueante.
       #
-      # `alembic check` reporta deriva real entre los modelos y el esquema que
-      # producen las migraciones. Tres clases:
+      # BLOQUEANTE desde la migración da5fb1e45066.
       #
-      #   1. índices redundantes sobre PKs (el modelo pone index=True en una PK)
-      #   2. restricción única vs índice único — dos formas de declarar lo mismo
-      #   3. diferencias semánticas de verdad: alerts.empresa_id (SET NULL en la
-      #      base, CASCADE en el modelo), users.onboarding_step (SMALLINT vs
-      #      Integer), users.notification_whatsapp (nulabilidad)
+      # Estuvo en `continue-on-error` mientras los modelos y las migraciones
+      # divergían. Ya no divergen: si esto falla, es que un modelo cambió sin su
+      # migración (o al revés), y eso tiene que parar el PR.
       #
-      # Sólo la tercera cambia comportamiento. Este comentario decía antes que la
-      # causa era haber provisionado la base con create_all(): era falso. La causa
-      # de que el diff pareciera enorme (180 operaciones) era que alembic/env.py no
-      # importaba los modelos, así que target_metadata estaba VACÍO. Corregido, con
-      # test en backend/tests/test_alembic_metadata.py.
-      #
-      # Volver esto bloqueante requiere primero una migración de reconciliación.
-      # Está planificado en F4 (ver docs/ARQUITECTURA_REVISION_2026-08.md).
-      # Cuando eso ocurra, quitar `continue-on-error` y este comentario.
-      - name: Deriva entre modelos y migraciones (informativo)
-        continue-on-error: true
+      # Ojo con `unique=True`: `app/db/__init__.py` fija la convención
+      # `uq_<tabla>_<columna>` y Alembic se la pasa a `op.create_table`, así que
+      # afecta también a lo que producen las migraciones ya escritas.
+      - name: Deriva entre modelos y migraciones
         working-directory: backend
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tordo_test
           SECRET_KEY: ci-secret
-        run: |
-          echo "::notice::Deriva conocida modelos/migraciones — pendiente de reconciliar en F4"
-          uv run --project .. alembic check
+        run: uv run --project .. alembic check
 
   # ───────────────────────────────────────────────────────────────────────────
   test-backend:

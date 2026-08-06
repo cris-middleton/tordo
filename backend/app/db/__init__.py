@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import AsyncGenerator
 
-from sqlalchemy import create_engine
+from sqlalchemy import MetaData, create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
@@ -19,7 +19,22 @@ from app.config import settings
 
 
 class Base(DeclarativeBase):
-    pass
+    # Sólo se fija el nombre de las restricciones ÚNICAS. `unique=True` en una
+    # columna genera una restricción sin nombre, y Postgres le pone el suyo
+    # (`<tabla>_<col>_key`). Alembic entonces no puede casar la del modelo con la
+    # de la base y reporta deriva para siempre.
+    #
+    # Se deja fuera fk/ck/ix/pk a propósito: las que ya existen tienen nombres
+    # puestos a mano y una convención nueva las haría aparecer todas como deriva.
+    metadata = MetaData(
+        naming_convention={
+            # `ix` es la convención POR DEFECTO de SQLAlchemy. Hay que repetirla:
+            # pasar un diccionario propio la reemplaza entera, y sin ella los
+            # índices quedan sin nombre y autogenerate revienta al comparar.
+            "ix": "ix_%(column_0_label)s",
+            "uq": "uq_%(table_name)s_%(column_0_name)s",
+        }
+    )
 
 
 # ── Async engine (FastAPI / asyncpg) ─────────────────────────────────────────
