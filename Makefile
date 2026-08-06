@@ -26,8 +26,36 @@ install: ## Instala todas las dependencias Python (api + etl + dev) desde uv.loc
 lock: ## Regenera uv.lock tras editar pyproject.toml
 	uv lock
 
-hooks: ## Instala los hooks de pre-commit (hace falta por cada clone Y por cada worktree)
+hooks: ## Instala los hooks de pre-commit (una vez por clone; los worktrees los comparten)
 	uv run pre-commit install
+
+# ── Worktrees ────────────────────────────────────────────────────────────────
+# Toda feature se desarrolla en un worktree, nunca ramificando en el checkout
+# principal. Estos targets hacen el setup completo para que no haya excusa.
+#
+# La raíz se deriva del .git COMÚN, no de una ruta relativa: así `make worktree`
+# funciona igual desde el checkout principal que desde otro worktree. Con una
+# ruta relativa, invocarlo desde un worktree creaba tordo-worktrees/tordo-worktrees/.
+WORKTREE_ROOT := $(shell dirname $$(git rev-parse --path-format=absolute --git-common-dir))/../tordo-worktrees
+
+worktree: ## Crea un worktree listo para trabajar — make worktree NOMBRE=mi-feature
+	@test -n "$(NOMBRE)" || (echo "ERROR: falta NOMBRE. Uso: make worktree NOMBRE=mi-feature" && exit 1)
+	git worktree add $(WORKTREE_ROOT)/$(NOMBRE) -b feat/$(NOMBRE)
+	@cp .env $(WORKTREE_ROOT)/$(NOMBRE)/.env 2>/dev/null \
+		&& echo "  .env copiado (los worktrees no heredan archivos gitignoreados)" \
+		|| echo "  OJO: no hay .env que copiar — crea uno antes de levantar el stack"
+	cd $(WORKTREE_ROOT)/$(NOMBRE) && uv sync --frozen
+	@echo ""
+	@echo "✓ listo:  cd $(WORKTREE_ROOT)/$(NOMBRE)"
+	@echo "  Los hooks se comparten con este clone, no hay que reinstalarlos."
+
+worktree-list: ## Lista los worktrees activos
+	git worktree list
+
+worktree-clean: ## Elimina un worktree ya mergeado — make worktree-clean NOMBRE=mi-feature
+	@test -n "$(NOMBRE)" || (echo "ERROR: falta NOMBRE." && exit 1)
+	git worktree remove $(WORKTREE_ROOT)/$(NOMBRE)
+	@echo "✓ worktree eliminado. La rama feat/$(NOMBRE) sigue existiendo; bórrala si ya mergeaste."
 
 # ── Calidad ──────────────────────────────────────────────────────────────────
 

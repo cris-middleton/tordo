@@ -96,6 +96,11 @@ class Settings(BaseSettings):
     # Analytics — path where pre-computed parquets live (relative to repo root or absolute)
     analytics_data_path: str = "etl/data/analytics"
 
+    # Pasarela de pago. Ver app/domain/billing.py y app/infra/billing/.
+    # El ICP paga con medios locales, así que esto será configurable cuando entre
+    # la pasarela chilena (ADR 0005).
+    billing_provider: str = "stripe"
+
     # Stripe billing
     stripe_secret_key: str | None = None
     stripe_publishable_key: str | None = None

@@ -20,11 +20,14 @@ Celery + Next.js + un pipeline ETL/analytics en Polars. Monorepo: `backend/`, `f
 3. **Secretos.** Ningún `.env` al repo — hay un hook que lo bloquea. Si una credencial llega
    a un commit, hay que rotarla.
 4. **Pre-commit.** Nunca `git commit --no-verify`. Si un hook falla, arregla la causa.
-   Los hooks son por clone y por worktree: `make hooks`.
+   Los hooks son por clone (los worktrees comparten el .git): `make hooks`.
 5. **Imports a nivel de módulo.** Nada de imports dentro de funciones (ya causó un bug real
    en los webhooks de Stripe).
 6. **Schemas Pydantic** sólo en `backend/app/schemas/`.
-7. **Ramas.** Feature en worktree → PR a `main` → CI en verde → merge.
+7. **Ramas.** **Toda feature va en un worktree**, nunca ramificando en el checkout
+   principal: `make worktree NOMBRE=mi-feature` (crea la rama, copia el `.env` y
+   sincroniza dependencias). Luego PR a `main` → CI en verde → merge →
+   `make worktree-clean NOMBRE=mi-feature`.
    **No hay rama `staging` ni entorno de staging**: es deliberado (proyecto de un solo
    desarrollador). No inventes ese flujo.
 8. **Scoring.** Cualquier cambio a un modelo pasa por `etl/analytics/evaluation/`.

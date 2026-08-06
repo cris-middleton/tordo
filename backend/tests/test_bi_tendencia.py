@@ -3,7 +3,7 @@
 
 def test_tendencia_sin_rubro_no_serie_anual():
     """Without a rubro filter, serie_anual must be None regardless of data availability."""
-    from app.services import bi_service
+    from app.services import bi as bi_service
 
     result = bi_service.get_tendencia(rubro=None, tendencia=None, solo_emergentes=False, limit=10)
     # disponible depends on whether parquets exist; serie_anual must be None when no rubro filtered
@@ -17,7 +17,7 @@ def test_tendencia_con_rubro_serie_anual_definida_o_none(monkeypatch, tmp_path):
     # Sin tablas materializadas: el repositorio devuelve None, que es lo que
     # hace el real cuando el pipeline todavía no corrió.
     from app.repositories import analytics_sync
-    from app.services import bi_service
+    from app.services import bi as bi_service
 
     monkeypatch.setattr(analytics_sync, "consultar", lambda *a, **k: None)
     monkeypatch.setattr(analytics_sync, "buscar_texto", lambda *a, **k: None)
@@ -74,7 +74,7 @@ def test_cagr_rubro_none_when_no_rubro(monkeypatch, tmp_path):
     # Sin tablas materializadas: el repositorio devuelve None, que es lo que
     # hace el real cuando el pipeline todavía no corrió.
     from app.repositories import analytics_sync
-    from app.services import bi_service
+    from app.services import bi as bi_service
 
     monkeypatch.setattr(analytics_sync, "consultar", lambda *a, **k: None)
     monkeypatch.setattr(analytics_sync, "buscar_texto", lambda *a, **k: None)

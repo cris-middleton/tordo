@@ -613,7 +613,7 @@ F3/F4/F5 pueden solaparse.
 
 - [ ] `api/v1/deps.py` con `empresa_ctx` / `require_rol`; eliminar los 12+ chequeos manuales
 - [ ] Test estructural: toda ruta de empresa declara la dependencia
-- [ ] Partir `bi_service.py` (1 303 líneas) en `services/bi/*`
+- [x] Partir `bi_service.py` (1 476 líneas) en `services/bi/*` — 8 módulos por dominio, ninguno pasa de 332 líneas. Verificado con el golden master: 31/31, ni un resultado cambió.
 - [ ] Introducir `repositories/` y sacar SQLAlchemy de los routers
 - [ ] Versionado `/api/v1/`; documentar la decisión de envelope
 - [ ] **Suscripción por empresa** (decisión 2 — la pieza más grande de esta fase):

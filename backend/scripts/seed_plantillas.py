@@ -6,6 +6,7 @@ Run with:  python scripts/seed_plantillas.py
 
 Requires DATABASE_URL (or DATABASE_URL_SYNC) in environment / .env file.
 """
+
 import os
 import sys
 import uuid
@@ -14,6 +15,7 @@ import uuid
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from dotenv import load_dotenv
+
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 import psycopg2
@@ -21,10 +23,8 @@ from psycopg2.extras import execute_values
 
 DATABASE_URL = os.getenv("DATABASE_URL_SYNC") or os.getenv("DATABASE_URL", "")
 # Normalise asyncpg/postgresql+asyncpg URLs to plain postgresql
-DATABASE_URL = (
-    DATABASE_URL
-    .replace("postgresql+asyncpg://", "postgresql://")
-    .replace("postgresql+psycopg2://", "postgresql://")
+DATABASE_URL = DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://").replace(
+    "postgresql+psycopg2://", "postgresql://"
 )
 
 # ---------------------------------------------------------------------------
@@ -41,7 +41,6 @@ PLANTILLAS: dict[str, list[tuple[str, bool, int]]] = {
         ("Anotar fecha y hora exacta de cierre de la licitación", True, 4),
         ("Guardar comprobante de envío de oferta", True, 5),
     ],
-
     # ── L1 — Licitación Pública menor a 100 UTM (más comunes para PYMES pequeñas) ──
     "L1": [
         ("Formulario de postulación firmado", True, 1),
@@ -52,7 +51,6 @@ PLANTILLAS: dict[str, list[tuple[str, bool, int]]] = {
         ("Plazo de entrega confirmado", True, 6),
         ("Condiciones de garantía (si exigida en bases)", False, 7),
     ],
-
     # ── LE — Licitación Pública entre 100 y 1.000 UTM ──
     "LE": [
         ("Formulario de postulación firmado", True, 1),
@@ -66,7 +64,6 @@ PLANTILLAS: dict[str, list[tuple[str, bool, int]]] = {
         ("Garantía de seriedad de oferta (si exigida en bases)", False, 9),
         ("Certificado SII sin deuda (si exigido en bases)", False, 10),
     ],
-
     # ── LP — Licitación Pública mayor a 1.000 UTM ──
     "LP": [
         ("Formulario de postulación firmado y notariado", True, 1),
@@ -83,7 +80,6 @@ PLANTILLAS: dict[str, list[tuple[str, bool, int]]] = {
         ("Certificado Dirección del Trabajo sin deuda laboral", True, 12),
         ("Garantía de fiel cumplimiento del contrato (si adjudicado)", False, 13),
     ],
-
     # ── LQ — Licitación Pública mayor a 2.000 UTM ──
     "LQ": [
         ("Formulario de postulación firmado y notariado", True, 1),
@@ -101,7 +97,6 @@ PLANTILLAS: dict[str, list[tuple[str, bool, int]]] = {
         ("Balance y estados financieros del último año", False, 13),
         ("Garantía de fiel cumplimiento del contrato", True, 14),
     ],
-
     # ── CO — Convenio Marco ──
     "CO": [
         ("Formulario de adhesión al convenio marco firmado", True, 1),
@@ -113,7 +108,6 @@ PLANTILLAS: dict[str, list[tuple[str, bool, int]]] = {
         ("Plazo de despacho y condiciones de entrega", True, 7),
         ("Política de garantía y devoluciones", False, 8),
     ],
-
     # ── E2 — Trato o Contratación Directa ──
     "E2": [
         ("Formulario de cotización o propuesta directa firmada", True, 1),
@@ -131,7 +125,9 @@ def seed(conn) -> None:
     cur = conn.cursor()
 
     # Count existing records per tipo
-    cur.execute("SELECT tipo_licitacion, COUNT(*) FROM plantillas_checklist GROUP BY tipo_licitacion")
+    cur.execute(
+        "SELECT tipo_licitacion, COUNT(*) FROM plantillas_checklist GROUP BY tipo_licitacion"
+    )
     existing = {row[0]: row[1] for row in cur.fetchall()}
 
     inserted_total = 0
@@ -167,7 +163,7 @@ def main() -> None:
         print("ERROR: DATABASE_URL not set. Copy .env.example to .env first.", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Connecting to database...")
+    print("Connecting to database...")
     try:
         conn = psycopg2.connect(DATABASE_URL)
     except Exception as e:

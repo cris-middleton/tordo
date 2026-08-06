@@ -164,6 +164,7 @@ ignore = [
 "etl/shared_imports.py" = ["E402"]
 "etl/analytics/run_all.py" = ["E402"]
 "etl/scripts/**" = ["E402"]
+"backend/scripts/**" = ["E402"]
 # Celery exige registrar las tareas después de construir la app.
 "backend/app/celery_app.py" = ["E402"]
 

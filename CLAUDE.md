@@ -31,12 +31,31 @@ Desktop-first, responsive, sólo español, sólo Chile.
 Cambios chicos: sin brainstorming ni plan; evalúa y procede sólo con ≥95 % de confianza.
 Proyectos medianos o grandes: `grill-me` primero, sin cabos sueltos.
 
-### Ramas y promoción
-- **Toda feature en un worktree.** Nunca ramas en el checkout principal.
-  Raíz: `~/personal/tordo-worktrees/<feature>`.
+### Ramas y worktrees
+
+**Toda feature se desarrolla en un worktree. Nunca se ramifica en el checkout
+principal.** No es una preferencia de estilo: mantiene `main` siempre limpio y
+levantable, permite tener dos features a medias sin pisarse, y evita el `git stash`
+a medio camino cuando hay que revisar otra cosa.
+
+```bash
+make worktree NOMBRE=mi-feature   # crea la rama, copia el .env y sincroniza deps
+cd ../tordo-worktrees/mi-feature
+# ... trabajar, commitear, PR ...
+make worktree-clean NOMBRE=mi-feature   # tras mergear
+make worktree-list
+```
+
+`make worktree` hace el setup completo a propósito: una regla que exige cuatro pasos
+manuales se salta, un comando no.
+
 - **Flujo:** worktree → probar en localhost → PR a `main` → **CI en verde es la única
   puerta** → merge → despliegue.
-- Los worktrees no heredan archivos gitignoreados: cada uno necesita su `.env` y `make hooks`.
+- Los worktrees **no heredan archivos gitignoreados**: cada uno necesita su propio
+  `.env` (el target lo copia). Los hooks de pre-commit, en cambio, se comparten con el
+  checkout principal.
+- Los contenedores y volúmenes de Docker son compartidos: no levantes el stack desde dos
+  worktrees a la vez.
 
 > **No hay rama `staging` ni entorno de staging, y es deliberado.** Este es un proyecto
 > personal de un solo desarrollador desplegando en Railway; el flujo de dos ramas de los
@@ -49,8 +68,10 @@ Proyectos medianos o grandes: `grill-me` primero, sin cabos sueltos.
 - `uv` y `python3`. **No hay `requirements.txt`**: un solo `pyproject.toml` en la raíz con
   grupos `shared` / `api` / `etl` / `dev`, y un solo `uv.lock`.
 - Comandos desde `backend/` o `etl/`: `uv run --project .. <cmd>`.
-- **Los hooks de pre-commit son por clone Y por worktree.** Donde falte
-  `.git/hooks/pre-commit`, corre `make hooks`. **Nunca `--no-verify`** — arregla la causa.
+- **Los hooks de pre-commit son por clone.** Los *worktrees* de git comparten el directorio
+  de hooks con el checkout principal (`git rev-parse --git-path hooks` resuelve al `.git`
+  común), así que basta instalarlos una vez por clone. En un clone nuevo: `make hooks`.
+  **Nunca `--no-verify`** — arregla la causa.
 - Tras tocar `pyproject.toml`: `make lock` y commitea el `uv.lock`. CI falla si divergen.
 
 ### Migraciones
@@ -158,13 +179,19 @@ scorer sin correrlo.
 
 ### Backend — `backend/app/`
 
-Monolito modular. **Todavía NO está en capas**: los routers contienen consultas SQLAlchemy
-y reglas de negocio. No existen `repositories/` ni `domain/`. Migrar a eso es F3.
+Monolito modular, **en migración a capas** (F3). Ya existen `repositories/`, `domain/` e
+`infra/`, pero muchos routers todavía llevan consultas SQLAlchemy inline: eso se va
+moviendo agregado por agregado.
 
 ```
-api/            15 routers. Consultas y autorización inline (deuda).
+api/            15 routers. HTTP y autorización por dependencia (deps.py).
+domain/         Reglas puras, sin IO. Hoy: el puerto de cobro.
+infra/          Adaptadores externos. Hoy: billing/ (Stripe).
+repositories/   Acceso a datos. Hoy: analytics (sync y async).
 services/       Lógica de negocio como funciones de módulo.
-                bi_service.py son 1.300 líneas — se parte en F3.
+                services/bi/ está partido por dominio (precio, competencia,
+                comprador, oportunidad, temporal, mercado, panel), con _base.py
+                como único punto de acceso a las tablas de analytics.
 core/           security.py (JWT), plan_limits.py (cuotas), email.py
 observability/  logging JSON con request_id (contextvar) + Sentry opt-in
 db/             sesión async (asyncpg) y sync (psycopg2)
@@ -208,7 +235,8 @@ al backend vía `NEXT_PUBLIC_API_URL`.
 - **Alertas**: preferencias → AlertEngine → `INSERT ON CONFLICT` idempotente → multicanal.
 - **BI**: batch en Polars → tablas materializadas en `analytics.*` → consulta con filtros
   empujados a SQL → fallback jerárquico L1→L2→L3 con confianza y tamaño de muestra →
-  gating por plan. Hay un golden master (`backend/tests/golden/`) que fija el contrato.
+  gating por plan (de la empresa). Hay un golden master (`backend/tests/golden/`) que fija
+  el contrato: **cualquier cambio a `services/bi/` tiene que pasarlo.**
 - **Rate limiting**: Redis, por IP en `/api/bi/*`, más cuota diaria por tier.
 - **Feature flags**: 8 en config; apagadas devuelven 503 con mensaje accionable.
 

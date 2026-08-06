@@ -85,7 +85,7 @@ def get_precio_producto(
     current_user: User = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
-    from app.services import bi_service
+    from app.services import bi as bi_service
 
     result = bi_service.get_precio_producto(codigo_producto, organismo_id, unidad_medida)
     return result
@@ -103,7 +103,7 @@ def get_competidores(
     current_user: User = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
-    from app.services import bi_service
+    from app.services import bi as bi_service
 
     result = bi_service.get_competidores(organismo_id, rubro, top_n)
     return result
@@ -122,7 +122,7 @@ def get_oportunidades(
     current_user: User = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
-    from app.services import bi_service
+    from app.services import bi as bi_service
 
     result = bi_service.get_oportunidades(organismo_id, rubro, min_score, limit)
     return result
@@ -143,7 +143,7 @@ def get_ventana(
     current_user: User = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
-    from app.services import bi_service
+    from app.services import bi as bi_service
 
     result = bi_service.get_ventana(codigo_externo)
     return result
@@ -159,7 +159,7 @@ def get_comprador(
     current_user: User = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
-    from app.services import bi_service
+    from app.services import bi as bi_service
 
     result = bi_service.get_comprador(organismo_id)
     return result
@@ -190,7 +190,7 @@ async def get_licitacion_panel(
     from app.models.empresa import Empresa
     from app.models.licitacion import Licitacion
     from app.models.postulacion import Postulacion
-    from app.services import bi_service
+    from app.services import bi as bi_service
 
     lic = (
         await db.execute(select(Licitacion).where(Licitacion.codigo_externo == codigo_externo))
@@ -279,7 +279,7 @@ def get_estacionalidad(
     current_user: User = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
-    from app.services import bi_service
+    from app.services import bi as bi_service
 
     return bi_service.get_estacionalidad(organismo_id, rubro)
 
@@ -302,7 +302,7 @@ def get_tendencia(
     current_user: User = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
-    from app.services import bi_service
+    from app.services import bi as bi_service
 
     return bi_service.get_tendencia(rubro, tendencia, solo_emergentes, limit)
 
@@ -324,7 +324,7 @@ def get_descuento(
     current_user: User = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
-    from app.services import bi_service
+    from app.services import bi as bi_service
 
     return bi_service.get_descuento(tipo, rubro, n_oferentes_rango)
 
@@ -346,7 +346,7 @@ def get_forecast_competidores(
     current_user: User = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
-    from app.services import bi_service
+    from app.services import bi as bi_service
 
     return bi_service.get_forecast_competidores(organismo_id, rubro, tipo)
 
@@ -366,7 +366,7 @@ def get_diversificacion(
     current_user: User = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
-    from app.services import bi_service
+    from app.services import bi as bi_service
 
     return bi_service.get_diversificacion(codigo_proveedor)
 
@@ -387,7 +387,7 @@ def get_sector(
     current_user: User = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
-    from app.services import bi_service
+    from app.services import bi as bi_service
 
     return bi_service.get_sector(sector, limit)
 
@@ -609,7 +609,7 @@ def get_rubros(
     current_user: User = Depends(get_current_active_user),
 ):
     _require_analytics()
-    from app.services import bi_service
+    from app.services import bi as bi_service
 
     result = bi_service.get_rubros(limit=limit)
     return result
@@ -630,7 +630,7 @@ def get_resumen(
     current_user: User = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
-    from app.services import bi_service
+    from app.services import bi as bi_service
 
     return bi_service.get_resumen(rubro)
 
@@ -686,7 +686,7 @@ async def get_mi_posicion(
 ):
     _require_analytics()
     from app.models.empresa import Empresa
-    from app.services import bi_service
+    from app.services import bi as bi_service
 
     # Verificar membership a la empresa
     await verificar_acceso_empresa(empresa_id, current_user, db)
@@ -717,7 +717,7 @@ def get_productos(
     current_user: User = Depends(get_current_active_user),
 ):
     _require_analytics()
-    from app.services import bi_service
+    from app.services import bi as bi_service
 
     return bi_service.get_productos(q, limit)
 

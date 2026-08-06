@@ -1,189 +1,115 @@
-"""
-Stripe webhook handler.
+"""Webhooks de la pasarela de pago.
 
 Endpoint: POST /api/webhooks/stripe
-Stripe sends signed events here after payment/subscription changes.
 
-Handled events:
-  - checkout.session.completed        → link subscription_id to user
-  - customer.subscription.updated     → sync plan_tier + subscription_status
-  - customer.subscription.deleted     → downgrade to basico
-  - invoice.payment_failed            → mark as past_due
+El proveedor verifica la firma y traduce el evento al dominio; aquí sólo se
+aplica el efecto sobre la empresa. **Este archivo no sabe de Stripe**: cambiar de
+pasarela no lo toca (ver `app/domain/billing.py` y `app/infra/billing/`).
 
-The endpoint verifies the Stripe-Signature header and ignores unrecognised events.
+El sujeto es la EMPRESA, no el usuario: la suscripción le pertenece a ella y los
+usuarios son asientos (ADR 0002).
 """
 
 import asyncio
 import logging
+from uuid import UUID
 
-from fastapi import APIRouter, Request, status
+from fastapi import APIRouter, HTTPException, Request, status
 
 from app.db import SyncSessionLocal
-from app.services.stripe_service import (
-    construct_webhook_event,
-    subscription_status_from_stripe,
-)
+from app.domain.billing import ErrorDeCobro, EventoDeSuscripcion
+from app.infra.billing import obtener_proveedor
+from app.models.empresa import Empresa
 
 router = APIRouter(prefix="/api/webhooks", tags=["webhooks"])
 logger = logging.getLogger(__name__)
 
 
-# Map Stripe price IDs to plan tiers at runtime (from settings)
-def _price_to_tier(price_id: str) -> str:
-    from app.config import settings
-
-    mapping = {
-        settings.stripe_price_pro: "pro",
-        settings.stripe_price_enterprise: "enterprise",
-    }
-    return mapping.get(price_id, "basico")
-
-
 @router.post("/stripe", status_code=status.HTTP_200_OK)
-async def stripe_webhook(request: Request):
-    """
-    Stripe sends POST requests here for subscription lifecycle events.
-    Must be publicly reachable (no auth header — Stripe signs the payload instead).
+async def webhook_pasarela(request: Request):
+    """Recibe los eventos de la pasarela.
+
+    Debe ser alcanzable sin autenticación: la garantía es la firma del payload,
+    que verifica el proveedor.
+
+    La ruta conserva el sufijo `/stripe` porque es la registrada en el dashboard
+    de Stripe; cambiarla exige actualizarla allá.
     """
     payload = await request.body()
-    sig_header = request.headers.get("stripe-signature", "")
+    proveedor = obtener_proveedor()
 
-    event = construct_webhook_event(payload, sig_header)
-    event_type: str = event["type"]
-    data = event["data"]["object"]
+    try:
+        evento = proveedor.interpretar_webhook(payload, dict(request.headers))
+    except ErrorDeCobro as exc:
+        logger.warning("Webhook rechazado: %s", exc)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
-    logger.info("Stripe webhook received: %s", event_type)
+    if evento is None:
+        return {"status": "ignorado"}
 
-    def _sync_db_work():
-        db = SyncSessionLocal()
-        try:
-            if event_type == "checkout.session.completed":
-                _handle_checkout_completed(db, data)
-
-            elif event_type in ("customer.subscription.updated", "customer.subscription.created"):
-                _handle_subscription_updated(db, data)
-
-            elif event_type == "customer.subscription.deleted":
-                _handle_subscription_deleted(db, data)
-
-            elif event_type == "invoice.payment_failed":
-                _handle_payment_failed(db, data)
-
-            else:
-                logger.debug("Unhandled Stripe event: %s", event_type)
-
-        except Exception as exc:
-            logger.error("Error processing Stripe event %s: %s", event_type, exc)
-            # Return 200 to prevent Stripe from retrying for non-critical errors
-        finally:
-            db.close()
-
-    loop = asyncio.get_running_loop()
-    await loop.run_in_executor(None, _sync_db_work)
-
-    return {"received": True}
+    logger.info("Evento de cobro: %s (customer=%s)", evento.tipo, evento.customer_id)
+    await asyncio.to_thread(aplicar_evento_de_suscripcion, evento)
+    return {"status": "ok"}
 
 
-# ─── Event handlers ───────────────────────────────────────────────────────────
+def aplicar_evento_de_suscripcion(evento: EventoDeSuscripcion) -> None:
+    """Aplica el evento sobre la empresa. Síncrono: corre en un thread.
 
-
-def _empresa_por_customer(db, customer_id: str):
-    """La empresa dueña de ese customer de Stripe.
-
-    El sujeto de la facturación es la empresa (ADR 0002). Antes se buscaba un
-    usuario, lo que con varios asientos habría aplicado el cobro a la persona
-    que hizo el checkout en vez de a la cuenta.
+    Público a propósito para poder testearlo sin montar el endpoint.
     """
-    from app.models.empresa import Empresa
-
-    return db.query(Empresa).filter(Empresa.stripe_customer_id == customer_id).first()
-
-
-def _handle_checkout_completed(db, session):
-    customer_id = session.get("customer")
-    subscription_id = session.get("subscription")
-    metadata = session.get("metadata", {})
-    plan_tier = metadata.get("plan_tier", "pro")
-
-    empresa = _empresa_por_customer(db, customer_id)
-    if not empresa and metadata.get("empresa_id"):
-        # Primer checkout: el customer todavía no está guardado en la empresa,
-        # así que se recupera del metadata que se envió al crear la sesión.
-        from uuid import UUID
-
-        from app.models.empresa import Empresa
-
-        try:
-            eid = UUID(metadata["empresa_id"])
-        except (ValueError, KeyError):
-            logger.error(
-                "checkout.session.completed: empresa_id inválido en metadata: %s",
-                metadata.get("empresa_id"),
+    db = SyncSessionLocal()
+    try:
+        empresa = buscar_empresa_del_evento(db, evento)
+        if empresa is None:
+            logger.warning(
+                "Evento %s sin empresa asociada (customer=%s)", evento.tipo, evento.customer_id
             )
             return
-        empresa = db.query(Empresa).filter(Empresa.id == eid).first()
 
-    if not empresa:
-        logger.warning(
-            "checkout.session.completed: ninguna empresa para el customer %s", customer_id
+        if evento.tipo == "activada":
+            empresa.stripe_customer_id = evento.customer_id
+            empresa.stripe_subscription_id = evento.subscription_id
+            empresa.plan_tier = evento.plan_tier or "pro"
+            empresa.subscription_status = "active"
+
+        elif evento.tipo == "actualizada":
+            empresa.subscription_status = evento.estado or "inactive"
+            if evento.subscription_id:
+                empresa.stripe_subscription_id = evento.subscription_id
+            if evento.plan_tier:
+                empresa.plan_tier = evento.plan_tier
+
+        elif evento.tipo == "cancelada":
+            empresa.plan_tier = "basico"
+            empresa.subscription_status = "canceled"
+            empresa.stripe_subscription_id = None
+
+        elif evento.tipo == "pago_fallido":
+            empresa.subscription_status = "past_due"
+
+        db.commit()
+        logger.info(
+            "Empresa %s → %s / %s", empresa.id, empresa.plan_tier, empresa.subscription_status
         )
-        return
-
-    empresa.stripe_customer_id = customer_id
-    empresa.stripe_subscription_id = subscription_id
-    empresa.plan_tier = plan_tier
-    empresa.subscription_status = "active"
-    db.commit()
-    logger.info("Empresa %s activó el plan %s", empresa.id, plan_tier)
+    finally:
+        db.close()
 
 
-def _handle_subscription_updated(db, subscription):
-    customer_id = subscription.get("customer")
-    subscription_id = subscription.get("id")
-    stripe_status = subscription.get("status", "inactive")
+def buscar_empresa_del_evento(db, evento: EventoDeSuscripcion):
+    """Localiza la empresa del evento.
 
-    empresa = _empresa_por_customer(db, customer_id)
-    if not empresa:
-        return
+    Normalmente por `stripe_customer_id`. En el PRIMER pago la empresa todavía no
+    lo tiene guardado, así que se recurre al `empresa_id` que el proveedor extrae
+    del metadata enviado al iniciar el cobro.
+    """
+    if evento.customer_id:
+        empresa = db.query(Empresa).filter(Empresa.stripe_customer_id == evento.customer_id).first()
+        if empresa:
+            return empresa
 
-    empresa.subscription_status = subscription_status_from_stripe(stripe_status)
-    empresa.stripe_subscription_id = subscription_id
-
-    # El plan sale del primer price del item
-    items = subscription.get("items", {}).get("data", [])
-    if items:
-        price_id = items[0].get("price", {}).get("id")
-        if price_id:
-            empresa.plan_tier = _price_to_tier(price_id)
-
-    db.commit()
-    logger.info(
-        "Suscripción actualizada para la empresa %s: %s / %s",
-        empresa.id,
-        empresa.plan_tier,
-        empresa.subscription_status,
-    )
-
-
-def _handle_subscription_deleted(db, subscription):
-    customer_id = subscription.get("customer")
-    empresa = _empresa_por_customer(db, customer_id)
-    if not empresa:
-        return
-
-    empresa.plan_tier = "basico"
-    empresa.subscription_status = "canceled"
-    empresa.stripe_subscription_id = None
-    db.commit()
-    logger.info("Suscripción cancelada para la empresa %s → baja a basico", empresa.id)
-
-
-def _handle_payment_failed(db, invoice):
-    customer_id = invoice.get("customer")
-    empresa = _empresa_por_customer(db, customer_id)
-    if not empresa:
-        return
-
-    empresa.subscription_status = "past_due"
-    db.commit()
-    logger.warning("Pago fallido de la empresa %s → suscripción en past_due", empresa.id)
+    if evento.empresa_id:
+        try:
+            return db.query(Empresa).filter(Empresa.id == UUID(evento.empresa_id)).first()
+        except ValueError:
+            logger.error("empresa_id inválido en el evento: %s", evento.empresa_id)
+    return None

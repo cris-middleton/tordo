@@ -47,8 +47,9 @@ tordo/
    make setup
    ```
 
-   > Los hooks de pre-commit son **por clone y por worktree**. En cualquier
-   > checkout nuevo hay que correr `make hooks`.
+   > Los hooks de pre-commit son **por clone**. Los worktrees comparten el
+   > directorio de hooks con el checkout principal, así que basta instalarlos
+   > una vez. En un clone nuevo: `make hooks`.
 
 3. **Crear archivo de entorno**
    ```bash
@@ -84,8 +85,16 @@ tordo/
 4. **Revisar** `docs/deploy_steps/tareas_manuales.md` — servicios externos aún pendientes
    (Stripe live, Google OAuth, Twilio WABA, dominio + SSL)
 
-Toda feature se desarrolla en un worktree, con PR a `main`; CI en verde es la única
-puerta. No hay rama ni entorno de staging — es deliberado, ver `CLAUDE.md`.
+**Toda feature se desarrolla en un worktree**, nunca ramificando en el checkout
+principal:
+
+```bash
+make worktree NOMBRE=mi-feature   # rama + .env + dependencias, en un paso
+cd ../tordo-worktrees/mi-feature
+```
+
+Luego PR a `main`; CI en verde es la única puerta. No hay rama ni entorno de staging
+— es deliberado, ver `CLAUDE.md`.
 `docs/deploy_steps/fase_*.md` es el roadmap original (fases 0–6, ~90 % ejecutado); se conserva
 como referencia histórica del alcance, no como plan vigente.
 
@@ -95,7 +104,7 @@ como referencia histórica del alcance, no como plan vigente.
 
 ```bash
 make install       # dependencias Python desde uv.lock
-make hooks         # instalar hooks de pre-commit (por clone y por worktree)
+make hooks         # instalar hooks de pre-commit (una vez por clone)
 make lint          # ruff check + format --check (lo mismo que CI)
 make lint-fix      # autocorregir
 make test          # backend + ETL

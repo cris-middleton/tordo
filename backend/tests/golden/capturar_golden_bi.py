@@ -21,7 +21,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from app.services import bi_service  # noqa: E402
+from app.services import bi as bi_service  # noqa: E402
 
 SALIDA = Path(__file__).parent / "bi_golden.json"
 

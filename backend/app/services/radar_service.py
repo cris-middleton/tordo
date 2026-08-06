@@ -19,7 +19,8 @@ from sqlalchemy.orm import Session
 
 from app.models.empresa import Empresa, TFIDFPerfil
 from app.models.licitacion import Licitacion
-from app.services import bi_service, tfidf_matcher
+from app.services import bi as bi_service
+from app.services import tfidf_matcher
 
 logger = logging.getLogger(__name__)
 

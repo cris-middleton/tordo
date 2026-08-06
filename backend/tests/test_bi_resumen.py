@@ -28,7 +28,7 @@ def sin_datos(monkeypatch):
 
 
 def test_resumen_sin_rubro_retorna_no_disponible():
-    from app.services import bi_service
+    from app.services import bi as bi_service
 
     assert bi_service.get_resumen(None)["disponible"] is False
     assert bi_service.get_resumen("")["disponible"] is False
@@ -36,7 +36,7 @@ def test_resumen_sin_rubro_retorna_no_disponible():
 
 def test_resumen_sin_datos_retorna_disponible_con_campos_none(sin_datos):
     """Sin tablas materializadas el service no explota: disponible=True y campos None."""
-    from app.services import bi_service
+    from app.services import bi as bi_service
 
     result = bi_service.get_resumen("Algún rubro inexistente")
     assert result["disponible"] is True
@@ -50,9 +50,9 @@ def test_resumen_sin_datos_retorna_disponible_con_campos_none(sin_datos):
 
 
 def test_cagr_helper_sin_data_retorna_none_tuple(sin_datos):
-    from app.services import bi_service
+    from app.services.bi import temporal
 
-    cagr, yoy, rows = bi_service._compute_cagr_rubro_desde_time_series("X")
+    cagr, yoy, rows = temporal._compute_cagr_rubro_desde_time_series("X")
     assert cagr is None
     assert yoy is None
     assert rows is None
@@ -60,7 +60,7 @@ def test_cagr_helper_sin_data_retorna_none_tuple(sin_datos):
 
 def test_resumen_estructura_completa(sin_datos):
     """El dict de retorno siempre trae las claves que exige ResumenResponse."""
-    from app.services import bi_service
+    from app.services import bi as bi_service
 
     result = bi_service.get_resumen("Transporte de pasajeros")
     assert {
@@ -78,7 +78,7 @@ def test_resumen_estructura_completa(sin_datos):
 
 
 def test_resumen_rubro_vacio_retorna_no_disponible():
-    from app.services import bi_service
+    from app.services import bi as bi_service
 
     # Una cadena de sólo espacios es truthy: el service la deja pasar como
     # "rubro no encontrado" (disponible=True, todo None). Cualquiera de los dos

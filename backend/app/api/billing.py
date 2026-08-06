@@ -6,6 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import empresa_facturable
 from app.core.security import get_current_active_user
 from app.db import get_db
+from app.domain.billing import ErrorDeCobro
+from app.infra.billing import obtener_proveedor
 from app.models.empresa import Empresa
 from app.models.user import User
 from app.schemas.billing import (
@@ -80,23 +82,30 @@ async def create_checkout_session(
     current_user: User = Depends(get_current_active_user),
     empresa: Empresa = Depends(empresa_facturable),
 ):
-    from app.services.stripe_service import create_checkout_session, get_or_create_customer
+    proveedor = obtener_proveedor()
 
-    # El customer de Stripe representa a la EMPRESA. El email del usuario que
-    # inicia el checkout se pasa sólo como contacto.
-    customer_id = get_or_create_customer(empresa, email_contacto=current_user.email)
-    if customer_id != empresa.stripe_customer_id:
-        empresa.stripe_customer_id = customer_id
-        await db.commit()
-        await db.refresh(empresa)
-    url = create_checkout_session(
-        empresa,
-        payload.plan_tier,
-        payload.success_url,
-        payload.cancel_url,
-        billing_period=payload.billing_period,
-    )
-    return CheckoutResponse(checkout_url=url)
+    # El cliente del proveedor representa a la EMPRESA. El correo del usuario que
+    # inicia el pago va sólo como contacto.
+    try:
+        customer_id = proveedor.crear_o_recuperar_cliente(
+            empresa, email_contacto=current_user.email
+        )
+        if customer_id != empresa.stripe_customer_id:
+            empresa.stripe_customer_id = customer_id
+            await db.commit()
+            await db.refresh(empresa)
+
+        sesion = proveedor.iniciar_pago(
+            empresa,
+            plan_tier=payload.plan_tier,
+            periodo=payload.billing_period,
+            url_exito=payload.success_url,
+            url_cancelacion=payload.cancel_url,
+        )
+    except ErrorDeCobro as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return CheckoutResponse(checkout_url=sesion.url)
 
 
 @router.post("/portal", response_model=PortalResponse)
@@ -104,17 +113,30 @@ async def create_billing_portal(
     empresa: Empresa = Depends(empresa_facturable),
 ):
     from app.config import settings
-    from app.services.stripe_service import create_portal_session
 
     if not settings.feature_billing:
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Billing module is disabled."
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="El módulo de cobro está apagado.",
         )
     if not empresa.stripe_customer_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No Stripe customer found. Complete a checkout first.",
+            detail="La empresa no tiene un cliente de cobro. Completa un pago primero.",
         )
-    return_url = f"{settings.frontend_url}/dashboard/billing"
-    url = create_portal_session(empresa.stripe_customer_id, return_url)
+
+    proveedor = obtener_proveedor()
+    if not proveedor.tiene_portal_de_gestion:
+        # Las pasarelas locales no hospedan portal: hay que ofrecer UI propia.
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail=(
+                f"El proveedor '{proveedor.nombre}' no tiene portal de gestión. "
+                "Usa la pantalla de planes para cambiar o cancelar."
+            ),
+        )
+
+    url = proveedor.url_portal_de_gestion(
+        empresa.stripe_customer_id, f"{settings.frontend_url}/dashboard/billing"
+    )
     return PortalResponse(portal_url=url)

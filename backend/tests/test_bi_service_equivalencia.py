@@ -26,7 +26,7 @@ from pathlib import Path
 import pytest
 
 from app.repositories import analytics_sync as repo
-from app.services import bi_service
+from app.services import bi as bi_service
 
 IN_CI = os.getenv("CI", "").lower() in ("1", "true")
 GOLDEN = Path(__file__).parent / "golden" / "bi_golden.json"
