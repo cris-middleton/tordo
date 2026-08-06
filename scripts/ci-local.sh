@@ -12,6 +12,9 @@
 # Levanta su propio Postgres en un contenedor efímero y lo destruye al terminar,
 # así que no toca la base de desarrollo.
 #
+# Cubre los seis trabajos del workflow: lint, migraciones, tests backend, tests
+# ETL, frontend y build de imágenes.
+#
 # Uso:  make ci
 #
 # Diferencia conocida con GitHub Actions: allí `alembic check` es informativo
@@ -114,6 +117,17 @@ if [ -d frontend/node_modules ]; then
   correr "npm run build" bash -c 'cd frontend && npm run build'
 else
   malo "frontend/node_modules no existe — corre 'cd frontend && npm ci'"
+fi
+
+# ── 🐳 Imágenes ──────────────────────────────────────────────────────────────
+# El contexto es la raíz del repo: pyproject.toml y uv.lock viven ahí.
+# Se puede saltar con SIN_DOCKER=1 cuando el PR no toca los Dockerfile.
+paso "🐳 Build de imágenes"
+if [ "${SIN_DOCKER:-0}" = "1" ]; then
+  printf "%s   · saltado (SIN_DOCKER=1)%s\n" "$gris" "$fin"
+else
+  correr "Build backend" docker build -f backend/Dockerfile -t tordo-backend:ci-local .
+  correr "Build ETL"     docker build -f etl/Dockerfile     -t tordo-etl:ci-local .
 fi
 
 # ── Informe ──────────────────────────────────────────────────────────────────

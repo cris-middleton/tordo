@@ -19,6 +19,13 @@ ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
     UV_LINK_MODE=copy \
     UV_PYTHON_DOWNLOADS=never \
     PYTHONUNBUFFERED=1 \
+    # Los contenedores corren como root y montan el código del host. Sin esto,
+    # Python deja __pycache__/ de root dentro del árbol de trabajo, y entonces
+    # `git worktree remove` (y `make worktree-clean`) fallan con Permission
+    # denied — el worktree queda anclado con cientos de MB en disco. El bytecode
+    # de las dependencias ya lo precompiló uv con UV_COMPILE_BYTECODE, así que
+    # aquí no se pierde arranque: sólo se deja de cachear el código propio.
+    PYTHONDONTWRITEBYTECODE=1 \
     PATH="/opt/venv/bin:$PATH"
 
 # Capa de dependencias: sólo manifiesto + lock, para que Docker la cachee

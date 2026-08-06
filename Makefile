@@ -58,7 +58,19 @@ worktree-list: ## Lista los worktrees activos
 
 worktree-clean: ## Elimina un worktree ya mergeado — make worktree-clean NOMBRE=mi-feature
 	@test -n "$(NOMBRE)" || (echo "ERROR: falta NOMBRE." && exit 1)
-	git worktree remove $(WORKTREE_ROOT)/$(NOMBRE)
+	@# Los contenedores dejaban __pycache__/ de root en el árbol montado y
+	@# `git worktree remove` moría con Permission denied. Ya se corrigió en los
+	@# Dockerfile (PYTHONDONTWRITEBYTECODE), pero un worktree anterior a esa
+	@# corrección sigue teniéndolos, así que el error hay que explicarlo.
+	@git worktree remove $(WORKTREE_ROOT)/$(NOMBRE) || { \
+		echo ""; \
+		echo "No se pudo eliminar. Si el error es 'Permission denied', son archivos"; \
+		echo "de root que dejaron los contenedores. Míralos y bórralos con:"; \
+		echo "  find $(WORKTREE_ROOT)/$(NOMBRE) -user root"; \
+		echo "  sudo find $(WORKTREE_ROOT)/$(NOMBRE) -user root -delete"; \
+		echo "  make worktree-clean NOMBRE=$(NOMBRE)"; \
+		exit 1; \
+	}
 	@echo "✓ worktree eliminado. La rama feat/$(NOMBRE) sigue existiendo; bórrala si ya mergeaste."
 
 # ── Calidad ──────────────────────────────────────────────────────────────────
