@@ -1,4 +1,11 @@
-"""Billing API — subscription management via Stripe."""
+"""API de cobro.
+
+No conoce la pasarela: todo pasa por el puerto (`app/domain/billing.py`). Las
+llamadas al proveedor van a un thread porque hacen red de forma síncrona y
+bloquearían el bucle de eventos.
+"""
+
+import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -69,9 +76,10 @@ async def get_billing_status(empresa: Empresa = Depends(empresa_facturable)):
     return BillingStatus(
         plan_tier=empresa.plan_tier,
         subscription_status=empresa.subscription_status,
-        stripe_customer_id=empresa.stripe_customer_id,
-        stripe_subscription_id=empresa.stripe_subscription_id,
+        billing_customer_id=empresa.billing_customer_id,
+        billing_subscription_id=empresa.billing_subscription_id,
         billing_enabled=settings.feature_billing,
+        tiene_portal_de_gestion=obtener_proveedor().tiene_portal_de_gestion,
     )
 
 
@@ -87,20 +95,28 @@ async def create_checkout_session(
     # El cliente del proveedor representa a la EMPRESA. El correo del usuario que
     # inicia el pago va sólo como contacto.
     try:
-        customer_id = proveedor.crear_o_recuperar_cliente(
-            empresa, email_contacto=current_user.email
+        customer_id = await asyncio.to_thread(
+            proveedor.crear_o_recuperar_cliente, empresa, email_contacto=current_user.email
         )
-        if customer_id != empresa.stripe_customer_id:
-            empresa.stripe_customer_id = customer_id
+        if (
+            customer_id != empresa.billing_customer_id
+            or empresa.billing_provider != proveedor.nombre
+        ):
+            empresa.billing_customer_id = customer_id
+            # Se registra QUÉ pasarela tiene esta empresa: con más de una activa,
+            # el webhook y el portal tienen que saber a cuál preguntar.
+            empresa.billing_provider = proveedor.nombre
             await db.commit()
             await db.refresh(empresa)
 
-        sesion = proveedor.iniciar_pago(
+        sesion = await asyncio.to_thread(
+            proveedor.iniciar_pago,
             empresa,
             plan_tier=payload.plan_tier,
             periodo=payload.billing_period,
             url_exito=payload.success_url,
             url_cancelacion=payload.cancel_url,
+            email_contacto=current_user.email,
         )
     except ErrorDeCobro as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
@@ -119,7 +135,7 @@ async def create_billing_portal(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="El módulo de cobro está apagado.",
         )
-    if not empresa.stripe_customer_id:
+    if not empresa.billing_customer_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="La empresa no tiene un cliente de cobro. Completa un pago primero.",
@@ -136,7 +152,9 @@ async def create_billing_portal(
             ),
         )
 
-    url = proveedor.url_portal_de_gestion(
-        empresa.stripe_customer_id, f"{settings.frontend_url}/dashboard/billing"
+    url = await asyncio.to_thread(
+        proveedor.url_portal_de_gestion,
+        empresa.billing_customer_id,
+        f"{settings.frontend_url}/dashboard/billing",
     )
     return PortalResponse(portal_url=url)

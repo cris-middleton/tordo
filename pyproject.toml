@@ -97,9 +97,6 @@ dev = [
     "pytest==7.4.3",
     "pytest-asyncio==0.21.1",
     "pytest-cov>=4.1.0",
-    # Requerido por backend/tests/conftest.py — faltaba en ambos requirements.txt,
-    # por eso 14 tests erroraban al importar.
-    "aiosqlite>=0.19.0,<0.22.0",
     "ruff>=0.8.4",
     "pre-commit>=4.0.0",
 ]

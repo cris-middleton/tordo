@@ -50,6 +50,7 @@ class ProveedorFalso:
         periodo: Literal["monthly", "annual"],
         url_exito: str,
         url_cancelacion: str,
+        email_contacto: str | None = None,
     ) -> SesionDePago:
         self.pagos_iniciados.append((plan_tier, periodo))
         return SesionDePago(url=f"https://pasarela.cl/pagar/{plan_tier}", referencia="tok_123")
@@ -72,7 +73,9 @@ class _EmpresaFalsa:
         self.id = uuid.uuid4()
         self.rut_empresa = "76543210-K"
         self.nombre_empresa = "Empresa Falsa"
-        self.stripe_customer_id = None
+        self.billing_provider = None
+        self.billing_customer_id = None
+        self.billing_subscription_id = None
 
 
 # ── El contrato ──────────────────────────────────────────────────────────────
@@ -205,7 +208,7 @@ def test_cada_evento_deja_la_empresa_en_el_estado_correcto(
     empresa = _EmpresaFalsa()
     empresa.plan_tier = "pro" if tipo == "pago_fallido" else "basico"
     empresa.subscription_status = "active"
-    empresa.stripe_subscription_id = "sub_1"
+    empresa.billing_subscription_id = "sub_1"
 
     class _Sesion:
         def query(self, _m):
@@ -239,4 +242,58 @@ def test_cada_evento_deja_la_empresa_en_el_estado_correcto(
     if plan_esperado is not None:
         assert empresa.plan_tier == plan_esperado
     if tipo == "cancelada":
-        assert empresa.stripe_subscription_id is None
+        assert empresa.billing_subscription_id is None
+
+
+# ── Identificadores agnósticos al proveedor ──────────────────────────────────
+
+
+def test_la_empresa_registra_que_pasarela_tiene_su_suscripcion(monkeypatch):
+    """Con más de una pasarela activa, el webhook y el portal necesitan saber a
+    cuál preguntar. Sin `billing_provider` habría que adivinarlo."""
+    from app.api import webhooks
+
+    empresa = _EmpresaFalsa()
+    empresa.plan_tier = "basico"
+    empresa.subscription_status = "inactive"
+
+    class _Sesion:
+        def query(self, _m):
+            return self
+
+        def filter(self, _c):
+            return self
+
+        def first(self):
+            return empresa
+
+        def commit(self):
+            pass
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(webhooks, "SyncSessionLocal", lambda: _Sesion())
+
+    webhooks.aplicar_evento_de_suscripcion(
+        EventoDeSuscripcion(
+            tipo="activada", customer_id="cli_MP", subscription_id="sub_MP", plan_tier="pro"
+        ),
+        proveedor_nombre="mercadopago",
+    )
+
+    assert empresa.billing_provider == "mercadopago"
+    assert empresa.billing_customer_id == "cli_MP"
+    assert empresa.subscription_status == "active"
+
+
+def test_los_identificadores_no_llevan_el_nombre_de_un_proveedor():
+    """Regresión: `stripe_customer_id` obligaba a Stripe a nivel de esquema."""
+    from app.models.empresa import Empresa
+
+    columnas = {c.name for c in Empresa.__table__.columns}
+    assert {"billing_provider", "billing_customer_id", "billing_subscription_id"} <= columnas
+    assert not any("stripe" in c for c in columnas), (
+        "Los identificadores de cobro no deben llevar el nombre de un proveedor: "
+        f"{sorted(c for c in columnas if 'stripe' in c)}"
+    )

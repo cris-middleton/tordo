@@ -49,13 +49,30 @@ make worktree-list
 `make worktree` hace el setup completo a propósito: una regla que exige cuatro pasos
 manuales se salta, un comando no.
 
-- **Flujo:** worktree → probar en localhost → PR a `main` → **CI en verde es la única
-  puerta** → merge → despliegue.
+- **Flujo:** worktree → `make ci` en verde → PR a `main` → merge → despliegue.
 - Los worktrees **no heredan archivos gitignoreados**: cada uno necesita su propio
-  `.env` (el target lo copia). Los hooks de pre-commit, en cambio, se comparten con el
-  checkout principal.
+  `.env` y su propio `node_modules` (el target copia el primero e instala el segundo).
+  Los hooks de pre-commit, en cambio, se comparten con el checkout principal.
+
+#### `make ci` es la puerta, porque GitHub Actions no está habilitado
+
+La cuenta no tiene Actions habilitado (requiere tarjeta), así que **`.github/workflows/ci.yml`
+no corre**. No es que CI esté en verde: es que no corre. `make ci` levanta un Postgres
+efímero y ejecuta exactamente lo mismo — lint, ciclo de migraciones, ambas suites, lint,
+tests y build del frontend — y se destruye al terminar.
+
+Correrlo antes de cada PR **no es opcional**: sin él, "pasar CI" es una lista de comandos
+en la cabeza de alguien, y lo que se olvida siempre es lo mismo — el ciclo de migraciones
+y el build del frontend.
 - Los contenedores y volúmenes de Docker son compartidos: no levantes el stack desde dos
   worktrees a la vez.
+- **`etl/data/` tampoco se hereda** (está gitignoreado). Si necesitas los parquets de
+  analytics en un worktree, materializa apuntando al checkout principal en vez de
+  redescargarlos:
+  ```bash
+  uv run --project .. python -m analytics.materialize \
+      --data-dir ~/personal/tordo/etl/data/analytics
+  ```
 
 > **No hay rama `staging` ni entorno de staging, y es deliberado.** Este es un proyecto
 > personal de un solo desarrollador desplegando en Railway; el flujo de dos ramas de los
@@ -186,7 +203,7 @@ moviendo agregado por agregado.
 ```
 api/            15 routers. HTTP y autorización por dependencia (deps.py).
 domain/         Reglas puras, sin IO. Hoy: el puerto de cobro.
-infra/          Adaptadores externos. Hoy: billing/ (Stripe).
+infra/          Adaptadores externos. Hoy: billing/ (MercadoPago + Stripe).
 repositories/   Acceso a datos. Hoy: analytics (sync y async).
 services/       Lógica de negocio como funciones de módulo.
                 services/bi/ está partido por dominio (precio, competencia,
@@ -248,12 +265,16 @@ al backend vía `NEXT_PUBLIC_API_URL`.
 estos patrones, es señal de que hay que arreglar la causa, no de copiarlo:
 
 - ~~Analytics servido desde caché de parquet en el proceso de la API~~ — **resuelto en F2**: se sirve desde `analytics.*` en Postgres con índices.
-- Verificación de membresía repetida a mano en cada endpoint (F3).
+- ~~Verificación de membresía repetida a mano en cada endpoint~~ — **resuelto en F3**: `app/api/deps.py`, con test estructural.
 - `Column(JSON)` donde corresponde `JSONB` (F4).
 - Búsqueda con `ILIKE '%término%'`, que ningún índice puede servir (F4).
-- Suscripción y `plan_tier` colgando de `User` en vez de la empresa (F3).
+- ~~Suscripción y `plan_tier` colgando de `User`~~ — **resuelto en F3**: pertenecen a la empresa.
 - `subprocess.run` desde Celery hacia el ETL (F2).
-- `conftest.py` mantiene a mano el DDL de 11 tablas en SQLite; **ya divergió de los modelos**.
+- **`conftest.py` mantiene a mano el DDL de 11 tablas en SQLite, y hay un tercer DDL en
+  `test_dashboard_tasks.py`.** Es la deuda que más veces ha mordido: columna `alert_metadata`
+  que en el modelo es `metadata`, archivos `.db` viejos que sombrean el esquema, timestamps
+  sin zona horaria, y cada columna nueva hay que añadirla a mano en dos sitios. **El arreglo
+  es usar el Postgres que CI ya provisiona** en vez de un esquema paralelo.
 - 56 hallazgos de ruff silenciados en `pyproject.toml` con su conteo y motivo (F3).
 
 ## Hacia dónde va

@@ -1,244 +1,153 @@
+"""Fixtures de test, contra PostgreSQL real.
+
+Por qué ya no hay SQLite
+------------------------
+Este archivo mantenía a mano el DDL de 11 tablas para SQLite, y
+`test_dashboard_tasks.py` tenía un tercero. Era un esquema paralelo al de los
+modelos, y divergió una y otra vez:
+
+- La columna `alert_metadata` del DDL, que en el modelo es `metadata`
+  (`Alert.alert_metadata = Column("metadata", JSON)`) — 5 tests rotos.
+- Archivos `.db` de corridas anteriores que sombreaban el esquema nuevo, porque
+  `CREATE TABLE IF NOT EXISTS` no altera una tabla existente.
+- Timestamps sin zona horaria: Postgres los devuelve con `tzinfo`, SQLite no, y
+  compararlos lanzaba `TypeError`.
+- Los tipos `ARRAY` de Postgres no existen en SQLite, así que había que
+  sustituirlos por `TEXT` y perder la semántica.
+- Cada columna nueva había que añadirla a mano en dos o tres sitios.
+
+Ahora el esquema lo crean **las migraciones**, que es lo mismo que corre en
+producción. Un test de aislamiento entre inquilinos que sólo puede correr contra
+SQLite no prueba lo que hace falta probar.
+
+Aislamiento
+-----------
+El esquema se crea una vez por sesión de pytest. Cada test corre dentro de una
+transacción que se revierte al terminar, así que no se pisan entre sí y no hace
+falta recrear tablas.
+
+En local se salta si no hay Postgres (`make dev-up-d` lo levanta). En CI es
+obligatorio.
+"""
+
+from __future__ import annotations
+
+import os
+import subprocess
+from pathlib import Path
+
 import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import sessionmaker
 
 from app.api.empresas import aplicar_trial_inicial
-from app.db import Base, get_db
+from app.db import get_db
 from app.main import app
 from app.models.empresa import Empresa, EmpresaUsuario
 from app.models.user import User
 
-# Use in-memory SQLite for testing
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
-
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+IN_CI = os.getenv("CI", "").lower() in ("1", "true")
+BACKEND = Path(__file__).resolve().parents[1]
 
 
-@pytest.fixture(scope="function")
-def db():
-    """Create a fresh database for each test"""
-    Base.metadata.create_all(bind=engine)
-    db = TestingSessionLocal()
+# Los tests ESCRIBEN en la base que apunte DATABASE_URL. El rollback por test la
+# deja limpia, pero un puntero equivocado sigue siendo un accidente caro.
+_NOMBRES_PROHIBIDOS = ("prod", "produccion", "production", "live")
+
+
+def url_base() -> str:
+    url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/licitaciones")
+    nombre_db = url.rsplit("/", 1)[-1].split("?")[0].lower()
+    if any(p in nombre_db for p in _NOMBRES_PROHIBIDOS):
+        raise RuntimeError(
+            f"Los tests apuntan a una base que parece productiva ({nombre_db!r}). "
+            "Aplican migraciones y escriben datos: revisa DATABASE_URL."
+        )
+    return url
+
+
+def _url_async(url: str) -> str:
+    if url.startswith("postgresql://"):
+        return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    return url
+
+
+def _url_sync(url: str) -> str:
+    return url.replace("postgresql+asyncpg://", "postgresql://", 1)
+
+
+@pytest.fixture(scope="session")
+def esquema_migrado() -> str:
+    """Aplica las migraciones sobre la base de test. Devuelve la URL.
+
+    Se usa `alembic upgrade head` y no `Base.metadata.create_all()` a propósito:
+    así los tests corren contra el MISMO esquema que produce una migración en
+    producción. `create_all` esconde la deriva entre modelos y migraciones que
+    ya documenta la revisión (§5.0), justamente la que se quiere detectar.
+    """
+    url = url_base()
+    entorno = {**os.environ, "DATABASE_URL": _url_sync(url), "SECRET_KEY": "test"}
     try:
-        yield db
+        resultado = subprocess.run(
+            ["alembic", "upgrade", "head"],
+            cwd=BACKEND,
+            env=entorno,
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        if IN_CI:
+            raise
+        pytest.skip(f"no se pudieron aplicar las migraciones ({type(exc).__name__})")
+
+    if resultado.returncode != 0:
+        if IN_CI:
+            raise RuntimeError(f"alembic upgrade head falló:\n{resultado.stderr[-2000:]}")
+        pytest.skip(
+            "sin base de datos disponible — levanta el stack con `make dev-up-d`\n"
+            f"{resultado.stderr[-400:]}"
+        )
+    return url
+
+
+@pytest_asyncio.fixture
+async def async_db(esquema_migrado) -> AsyncSession:
+    """Sesión async dentro de una transacción que se revierte al terminar.
+
+    El rollback es lo que da aislamiento entre tests sin recrear el esquema.
+    """
+    engine = create_async_engine(_url_async(esquema_migrado))
+    conexion = await engine.connect()
+    transaccion = await conexion.begin()
+    sesion = async_sessionmaker(bind=conexion, class_=AsyncSession, expire_on_commit=False)()
+    try:
+        yield sesion
     finally:
-        db.close()
-        Base.metadata.drop_all(bind=engine)
+        await sesion.close()
+        await transaccion.rollback()
+        await conexion.close()
+        await engine.dispose()
 
 
-@pytest.fixture(scope="function")
-def client(db):
-    """Create a test client with database override"""
+@pytest.fixture
+def client(async_db):
+    """Cliente HTTP con la sesión de test inyectada."""
 
-    def override_get_db():
-        try:
-            yield db
-        finally:
-            db.close()
+    async def _get_db():
+        yield async_db
 
-    app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as test_client:
-        yield test_client
+    app.dependency_overrides[get_db] = _get_db
+    with TestClient(app) as c:
+        yield c
     app.dependency_overrides.clear()
 
 
-# ── Async fixtures (SQLite + aiosqlite) ──────────────────────────────────────
-# Note: PostgreSQL-specific ARRAY columns (Empresa.rubros_cpv, Empresa.regiones,
-# TFIDFPerfil.rubros_usados) are not supported by SQLite. We bypass
-# Base.metadata.create_all and use raw DDL to create only the tables needed,
-# with TEXT substituted for ARRAY columns.
-
-ASYNC_TEST_URL = "sqlite+aiosqlite:///./test_async.db"
-
-_ASYNC_DDL = [
-    """CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        username VARCHAR(100) UNIQUE NOT NULL,
-        hashed_password VARCHAR(255) NOT NULL,
-        full_name VARCHAR(255),
-        is_active BOOLEAN DEFAULT 1,
-        is_superuser BOOLEAN DEFAULT 0,
-        is_verified BOOLEAN DEFAULT 0,
-        notification_email BOOLEAN DEFAULT 1,
-        notification_in_app BOOLEAN DEFAULT 1,
-        notification_webhook BOOLEAN DEFAULT 0,
-        notification_whatsapp BOOLEAN DEFAULT 0,
-        webhook_url VARCHAR(500),
-        google_id VARCHAR(100) UNIQUE,
-        whatsapp_number VARCHAR(20),
-        onboarding_completed BOOLEAN DEFAULT 0 NOT NULL,
-        onboarding_step INTEGER DEFAULT 0 NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME,
-        last_login DATETIME
-    )""",
-    """CREATE TABLE IF NOT EXISTS buyer_organizations (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        codigo_organismo VARCHAR(50) UNIQUE NOT NULL,
-        nombre VARCHAR(500),
-        rut VARCHAR(20),
-        region VARCHAR(100),
-        tipo VARCHAR(100)
-    )""",
-    """CREATE TABLE IF NOT EXISTS licitaciones (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        codigo_externo VARCHAR(100) UNIQUE NOT NULL,
-        codigo_interno VARCHAR(100),
-        nombre VARCHAR(500) NOT NULL,
-        descripcion TEXT,
-        fecha_publicacion DATETIME NOT NULL,
-        fecha_cierre DATETIME,
-        fecha_inicio DATETIME,
-        fecha_final DATETIME,
-        monto_estimado NUMERIC(15,2),
-        monto_total NUMERIC(15,2),
-        moneda VARCHAR(10) DEFAULT 'CLP',
-        estado VARCHAR(50),
-        tipo_licitacion VARCHAR(100),
-        tipo_moneda VARCHAR(10),
-        codigo_organismo VARCHAR(50),
-        nombre_organismo VARCHAR(500),
-        rut_organismo VARCHAR(20),
-        organismo_id INTEGER REFERENCES buyer_organizations(id),
-        region VARCHAR(100),
-        comuna VARCHAR(100),
-        informacion_adicional TEXT,
-        items TEXT,
-        url_acta VARCHAR(500),
-        url_licitacion VARCHAR(500),
-        fecha_extraccion DATETIME DEFAULT CURRENT_TIMESTAMP,
-        fecha_actualizacion DATETIME,
-        activo BOOLEAN DEFAULT 1
-    )""",
-    # ARRAY columns (rubros_cpv, regiones) replaced with TEXT for SQLite compatibility
-    """CREATE TABLE IF NOT EXISTS empresas (
-        id CHAR(32) PRIMARY KEY,
-        rut_empresa VARCHAR(12) UNIQUE NOT NULL,
-        nombre_empresa VARCHAR(255) NOT NULL,
-        rubros_cpv TEXT,
-        regiones TEXT,
-        activo BOOLEAN NOT NULL DEFAULT 1,
-        estado_habil VARCHAR(20) NOT NULL DEFAULT 'desconocido',
-        estado_habil_updated_at DATETIME,
-        plan_tier VARCHAR(20) NOT NULL DEFAULT 'basico',
-        subscription_status VARCHAR(20) NOT NULL DEFAULT 'inactive',
-        stripe_customer_id VARCHAR(255),
-        stripe_subscription_id VARCHAR(255),
-        trial_ends_at DATETIME,
-        trial_reminder_day7_sent_at DATETIME,
-        trial_reminder_day12_sent_at DATETIME,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL
-    )""",
-    """CREATE TABLE IF NOT EXISTS empresas_usuario (
-        id CHAR(32) PRIMARY KEY,
-        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        empresa_id CHAR(32) NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-        rol VARCHAR(20) NOT NULL DEFAULT 'owner',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
-        UNIQUE(user_id, empresa_id)
-    )""",
-    """CREATE TABLE IF NOT EXISTS postulaciones (
-        id CHAR(32) PRIMARY KEY,
-        empresa_id CHAR(32) NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-        licitacion_id INTEGER NOT NULL REFERENCES licitaciones(id) ON DELETE CASCADE,
-        estado VARCHAR(30) NOT NULL DEFAULT 'en_seguimiento',
-        notas TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
-        UNIQUE(empresa_id, licitacion_id)
-    )""",
-    """CREATE TABLE IF NOT EXISTS documentos_empresa (
-        id CHAR(32) PRIMARY KEY,
-        empresa_id CHAR(32) NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-        nombre VARCHAR(255) NOT NULL,
-        tipo_documento VARCHAR(50) NOT NULL,
-        s3_key VARCHAR(500) NOT NULL,
-        s3_bucket VARCHAR(100) NOT NULL,
-        mime_type VARCHAR(100),
-        tamano_bytes BIGINT,
-        fecha_emision DATE,
-        fecha_vencimiento DATE,
-        eliminado BOOLEAN NOT NULL DEFAULT 0,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL
-    )""",
-    """CREATE TABLE IF NOT EXISTS checklist_postulacion (
-        id CHAR(32) PRIMARY KEY,
-        postulacion_id CHAR(32) NOT NULL REFERENCES postulaciones(id) ON DELETE CASCADE,
-        descripcion VARCHAR(500) NOT NULL,
-        es_obligatorio BOOLEAN NOT NULL DEFAULT 1,
-        completado BOOLEAN NOT NULL DEFAULT 0,
-        completado_at DATETIME,
-        documento_id CHAR(32) REFERENCES documentos_empresa(id) ON DELETE SET NULL,
-        orden SMALLINT NOT NULL DEFAULT 0
-    )""",
-    """CREATE TABLE IF NOT EXISTS dashboard_home_cache (
-        empresa_id CHAR(32) PRIMARY KEY REFERENCES empresas(id) ON DELETE CASCADE,
-        matches TEXT NOT NULL DEFAULT '[]',
-        matches_count INTEGER NOT NULL DEFAULT 0,
-        cached_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL
-    )""",
-    """CREATE TABLE IF NOT EXISTS alerts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL REFERENCES users(id),
-        alert_type VARCHAR(50) NOT NULL,
-        status VARCHAR(20) DEFAULT 'pending',
-        entity_type VARCHAR(50) NOT NULL,
-        entity_id INTEGER NOT NULL,
-        title VARCHAR(500) NOT NULL,
-        message TEXT,
-        -- El modelo mapea el atributo Python `alert_metadata` a la columna `metadata`
-        -- (Alert.alert_metadata = Column("metadata", JSON)). Este DDL a mano decía
-        -- `alert_metadata` y por eso 5 tests fallaban con "no such column".
-        -- Es el síntoma de mantener un esquema paralelo al de los modelos — ver
-        -- docs/ARQUITECTURA_REVISION_2026-08.md §F1 (migrar a Postgres efímero).
-        metadata TEXT,
-        notification_channels TEXT,
-        sent_at DATETIME,
-        read_at DATETIME,
-        idempotency_key VARCHAR(255) UNIQUE,
-        empresa_id CHAR(32),
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME
-    )""",
-]
-
-
-@pytest_asyncio.fixture(scope="function")
-async def async_engine():
-    eng = create_async_engine(ASYNC_TEST_URL, future=True)
-    async with eng.begin() as conn:
-        for ddl in _ASYNC_DDL:
-            await conn.execute(text(ddl))
-    yield eng
-    async with eng.begin() as conn:
-        # Drop all in reverse dependency order
-        for tbl in [
-            "checklist_postulacion",
-            "alerts",
-            "dashboard_home_cache",
-            "documentos_empresa",
-            "postulaciones",
-            "empresas_usuario",
-            "empresas",
-            "licitaciones",
-            "buyer_organizations",
-            "users",
-        ]:
-            await conn.execute(text(f"DROP TABLE IF EXISTS {tbl}"))
-    await eng.dispose()
-
-
-@pytest_asyncio.fixture(scope="function")
-async def async_db(async_engine) -> AsyncSession:
-    SessionLocal = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
-    async with SessionLocal() as session:
-        yield session
+# Alias histórico: varios tests piden `db`.
+@pytest.fixture
+def db(async_db):
+    return async_db
 
 
 @pytest_asyncio.fixture
@@ -251,7 +160,7 @@ async def sample_user(async_db: AsyncSession) -> User:
         is_active=True,
     )
     async_db.add(user)
-    await async_db.commit()
+    await async_db.flush()
     await async_db.refresh(user)
     return user
 
@@ -269,12 +178,7 @@ async def sample_empresa(async_db: AsyncSession, sample_user: User) -> Empresa:
     aplicar_trial_inicial(empresa)
     async_db.add(empresa)
     await async_db.flush()
-    membership = EmpresaUsuario(
-        user_id=sample_user.id,
-        empresa_id=empresa.id,
-        rol="owner",
-    )
-    async_db.add(membership)
-    await async_db.commit()
+    async_db.add(EmpresaUsuario(user_id=sample_user.id, empresa_id=empresa.id, rol="owner"))
+    await async_db.flush()
     await async_db.refresh(empresa)
     return empresa

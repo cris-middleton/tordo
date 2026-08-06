@@ -98,8 +98,17 @@ class ProveedorDePago(Protocol):
         periodo: Literal["monthly", "annual"],
         url_exito: str,
         url_cancelacion: str,
+        email_contacto: str | None = None,
     ) -> SesionDePago:
-        """Arranca un cobro y devuelve a dónde mandar al usuario."""
+        """Arranca un cobro y devuelve a dónde mandar al usuario.
+
+        `email_contacto` es el correo de quien inicia el pago. Stripe no lo
+        necesita — el cliente ya lo lleva — pero MercadoPago sí: su `preapproval`
+        identifica al pagador por correo en cada creación, no por un id de
+        cliente. Sin este parámetro, una empresa que cancela y vuelve a
+        suscribirse falla, porque para entonces el identificador guardado es el
+        `payer_id` numérico y ya no sirve como correo.
+        """
         ...
 
     def url_portal_de_gestion(self, customer_id: str, url_retorno: str) -> str | None:

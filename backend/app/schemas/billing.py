@@ -18,9 +18,12 @@ class Plan(BaseModel):
 class BillingStatus(BaseModel):
     plan_tier: str
     subscription_status: str
-    stripe_customer_id: str | None = None
-    stripe_subscription_id: str | None = None
+    billing_customer_id: str | None = None
+    billing_subscription_id: str | None = None
     billing_enabled: bool
+    # MercadoPago no hospeda portal de gestión y Stripe sí. Sin este dato el
+    # frontend muestra un botón "Gestionar suscripción" que responde 501.
+    tiene_portal_de_gestion: bool = False
 
 
 class CheckoutRequest(BaseModel):

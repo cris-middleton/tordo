@@ -3,8 +3,9 @@
 Endpoint: POST /api/webhooks/stripe
 
 El proveedor verifica la firma y traduce el evento al dominio; aquí sólo se
-aplica el efecto sobre la empresa. **Este archivo no sabe de Stripe**: cambiar de
-pasarela no lo toca (ver `app/domain/billing.py` y `app/infra/billing/`).
+aplica el efecto sobre la empresa. **Este archivo no sabe de ninguna pasarela**:
+cambiar de MercadoPago a Stripe no lo toca (ver `app/domain/billing.py` y
+`app/infra/billing/`).
 
 El sujeto es la EMPRESA, no el usuario: la suscripción le pertenece a ella y los
 usuarios son asientos (ADR 0002).
@@ -32,14 +33,21 @@ async def webhook_pasarela(request: Request):
     Debe ser alcanzable sin autenticación: la garantía es la firma del payload,
     que verifica el proveedor.
 
-    La ruta conserva el sufijo `/stripe` porque es la registrada en el dashboard
-    de Stripe; cambiarla exige actualizarla allá.
+    La ruta conserva el sufijo `/stripe` por compatibilidad: es la ya registrada
+    en el dashboard de Stripe. Sirve para cualquier pasarela — la URL de
+    notificación de MercadoPago se configura apuntando aquí.
     """
     payload = await request.body()
     proveedor = obtener_proveedor()
 
     try:
-        evento = proveedor.interpretar_webhook(payload, dict(request.headers))
+        # A un thread porque con MercadoPago esto hace red: su notificación trae
+        # sólo el id del recurso y hay que ir a buscarlo (con Stripe era
+        # criptografía pura, y por eso no se notaba). Bloquear el bucle de
+        # eventos aquí frena TODAS las peticiones del proceso.
+        evento = await asyncio.to_thread(
+            proveedor.interpretar_webhook, payload, dict(request.headers)
+        )
     except ErrorDeCobro as exc:
         logger.warning("Webhook rechazado: %s", exc)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
@@ -48,11 +56,13 @@ async def webhook_pasarela(request: Request):
         return {"status": "ignorado"}
 
     logger.info("Evento de cobro: %s (customer=%s)", evento.tipo, evento.customer_id)
-    await asyncio.to_thread(aplicar_evento_de_suscripcion, evento)
+    await asyncio.to_thread(aplicar_evento_de_suscripcion, evento, proveedor.nombre)
     return {"status": "ok"}
 
 
-def aplicar_evento_de_suscripcion(evento: EventoDeSuscripcion) -> None:
+def aplicar_evento_de_suscripcion(
+    evento: EventoDeSuscripcion, proveedor_nombre: str = "mercadopago"
+) -> None:
     """Aplica el evento sobre la empresa. Síncrono: corre en un thread.
 
     Público a propósito para poder testearlo sin montar el endpoint.
@@ -67,22 +77,23 @@ def aplicar_evento_de_suscripcion(evento: EventoDeSuscripcion) -> None:
             return
 
         if evento.tipo == "activada":
-            empresa.stripe_customer_id = evento.customer_id
-            empresa.stripe_subscription_id = evento.subscription_id
+            empresa.billing_provider = proveedor_nombre
+            empresa.billing_customer_id = evento.customer_id
+            empresa.billing_subscription_id = evento.subscription_id
             empresa.plan_tier = evento.plan_tier or "pro"
             empresa.subscription_status = "active"
 
         elif evento.tipo == "actualizada":
             empresa.subscription_status = evento.estado or "inactive"
             if evento.subscription_id:
-                empresa.stripe_subscription_id = evento.subscription_id
+                empresa.billing_subscription_id = evento.subscription_id
             if evento.plan_tier:
                 empresa.plan_tier = evento.plan_tier
 
         elif evento.tipo == "cancelada":
             empresa.plan_tier = "basico"
             empresa.subscription_status = "canceled"
-            empresa.stripe_subscription_id = None
+            empresa.billing_subscription_id = None
 
         elif evento.tipo == "pago_fallido":
             empresa.subscription_status = "past_due"
@@ -98,12 +109,14 @@ def aplicar_evento_de_suscripcion(evento: EventoDeSuscripcion) -> None:
 def buscar_empresa_del_evento(db, evento: EventoDeSuscripcion):
     """Localiza la empresa del evento.
 
-    Normalmente por `stripe_customer_id`. En el PRIMER pago la empresa todavía no
+    Normalmente por `billing_customer_id`. En el PRIMER pago la empresa todavía no
     lo tiene guardado, así que se recurre al `empresa_id` que el proveedor extrae
     del metadata enviado al iniciar el cobro.
     """
     if evento.customer_id:
-        empresa = db.query(Empresa).filter(Empresa.stripe_customer_id == evento.customer_id).first()
+        empresa = (
+            db.query(Empresa).filter(Empresa.billing_customer_id == evento.customer_id).first()
+        )
         if empresa:
             return empresa
 

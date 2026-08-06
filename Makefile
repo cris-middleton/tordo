@@ -45,6 +45,10 @@ worktree: ## Crea un worktree listo para trabajar — make worktree NOMBRE=mi-fe
 		&& echo "  .env copiado (los worktrees no heredan archivos gitignoreados)" \
 		|| echo "  OJO: no hay .env que copiar — crea uno antes de levantar el stack"
 	cd $(WORKTREE_ROOT)/$(NOMBRE) && uv sync --frozen
+	@# node_modules está gitignoreado, así que el worktree nace sin él y
+	@# `tsc --noEmit` no puede correr. Un cambio de frontend sin typecheck es
+	@# justo el que se cuela.
+	cd $(WORKTREE_ROOT)/$(NOMBRE)/frontend && npm ci --silent
 	@echo ""
 	@echo "✓ listo:  cd $(WORKTREE_ROOT)/$(NOMBRE)"
 	@echo "  Los hooks se comparten con este clone, no hay que reinstalarlos."
@@ -58,6 +62,9 @@ worktree-clean: ## Elimina un worktree ya mergeado — make worktree-clean NOMBR
 	@echo "✓ worktree eliminado. La rama feat/$(NOMBRE) sigue existiendo; bórrala si ya mergeaste."
 
 # ── Calidad ──────────────────────────────────────────────────────────────────
+
+ci: ## Corre TODO lo que corre CI, en local (Actions no está habilitado)
+	./scripts/ci-local.sh
 
 lint: ## Lint + chequeo de formato (lo mismo que corre CI)
 	uv run ruff check backend/app backend/tests etl

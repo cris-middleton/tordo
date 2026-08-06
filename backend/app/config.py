@@ -96,10 +96,11 @@ class Settings(BaseSettings):
     # Analytics — path where pre-computed parquets live (relative to repo root or absolute)
     analytics_data_path: str = "etl/data/analytics"
 
-    # Pasarela de pago. Ver app/domain/billing.py y app/infra/billing/.
-    # El ICP paga con medios locales, así que esto será configurable cuando entre
-    # la pasarela chilena (ADR 0005).
-    billing_provider: str = "stripe"
+    # Pasarela de pago: "mercadopago" | "stripe". Ver app/domain/billing.py y
+    # app/infra/billing/. El ICP paga con medios locales, por eso la principal es
+    # MercadoPago (ADR 0008); Stripe se conserva y es el que mantiene honesto al
+    # puerto — un puerto con una sola implementación no demuestra nada.
+    billing_provider: str = "mercadopago"
 
     # Stripe billing
     stripe_secret_key: str | None = None
@@ -108,6 +109,16 @@ class Settings(BaseSettings):
     stripe_price_pro: str | None = None  # Stripe price ID for Pro monthly
     stripe_price_pro_annual: str | None = None  # Stripe price ID for Pro annual
     stripe_price_enterprise: str | None = None  # Stripe price ID for Enterprise plan
+
+    # MercadoPago (ADR 0008). Los planes se crean una vez en MercadoPago
+    # (`POST /preapproval_plan`) y aquí se guardan sus ids, igual que los price
+    # ids de Stripe. El token de acceso es el de producción o el de prueba según
+    # el entorno; MercadoPago distingue por el propio token.
+    mercadopago_access_token: str | None = None
+    mercadopago_webhook_secret: str | None = None
+    mercadopago_plan_pro: str | None = None  # preapproval_plan_id — Pro mensual
+    mercadopago_plan_pro_annual: str | None = None  # preapproval_plan_id — Pro anual
+    mercadopago_plan_enterprise: str | None = None  # preapproval_plan_id — Enterprise
 
     # Google OAuth
     google_client_id: str | None = None
@@ -121,7 +132,7 @@ class Settings(BaseSettings):
 
     # Feature flags — disable unreleased features without code changes
     feature_analytics: bool = False  # BI pre-postulación (requires parquet pipeline)
-    feature_billing: bool = False  # Stripe billing (requires Stripe keys)
+    feature_billing: bool = False  # Cobro (requiere credenciales de la pasarela)
     feature_estado_habil: bool = True  # Estado hábil monitoring
     feature_documentos: bool = True  # Document management
     feature_checklist: bool = True  # Postulation checklists

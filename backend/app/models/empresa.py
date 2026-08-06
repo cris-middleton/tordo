@@ -53,11 +53,23 @@ class Empresa(Base):
         server_default="inactive",
         comment="Estado de la suscripción: inactive | trialing | active | past_due | canceled",
     )
-    stripe_customer_id = Column(
-        String(255), nullable=True, index=True, comment="ID del customer en Stripe"
+    billing_provider = Column(
+        String(30),
+        nullable=True,
+        index=True,
+        comment=(
+            "Pasarela que tiene la suscripción: stripe | mercadopago | khipu. "
+            "NULL mientras no haya suscripción."
+        ),
     )
-    stripe_subscription_id = Column(
-        String(255), nullable=True, comment="ID de la suscripción en Stripe"
+    billing_customer_id = Column(
+        String(255),
+        nullable=True,
+        index=True,
+        comment="ID del cliente en la pasarela. El formato depende del proveedor.",
+    )
+    billing_subscription_id = Column(
+        String(255), nullable=True, comment="ID de la suscripción en la pasarela."
     )
     trial_ends_at = Column(
         DateTime(timezone=True),

@@ -26,9 +26,11 @@ interface Plan {
 interface BillingStatus {
   plan_tier: string;
   subscription_status: string;
-  stripe_customer_id: string | null;
-  stripe_subscription_id: string | null;
+  billing_customer_id: string | null;
+  billing_subscription_id: string | null;
   billing_enabled: boolean;
+  // No todas las pasarelas hospedan un portal de gestión: MercadoPago no.
+  tiene_portal_de_gestion: boolean;
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -130,7 +132,7 @@ export default function BillingPage() {
           <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${statusBadge.color}`}>
             {statusBadge.label}
           </span>
-          {billingStatus?.stripe_customer_id && (
+          {billingStatus?.billing_customer_id && billingStatus?.tiene_portal_de_gestion && (
             <button
               onClick={handlePortal}
               disabled={portalLoading}

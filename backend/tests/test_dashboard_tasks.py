@@ -1,8 +1,9 @@
-"""Tests for dashboard Celery tasks.
+"""Tests de las tareas Celery del dashboard.
 
-The sync `db` fixture in conftest uses Base.metadata.create_all, which fails on
-SQLite for PostgreSQL-only ARRAY columns (Empresa.rubros_cpv, TFIDFPerfil.rubros_usados).
-We build a minimal sync SQLite fixture with raw DDL and patch SyncSessionLocal.
+Estas tareas son SÍNCRONAS (usan `SyncSessionLocal`), así que necesitan una
+sesión sync. El esquema lo aplican las migraciones, igual que el resto de los
+tests: este archivo mantenía su propio DDL de SQLite —el tercero del repo— y se
+desincronizaba con cada columna nueva.
 """
 
 from datetime import UTC, datetime
@@ -10,79 +11,25 @@ from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-
-SYNC_TASK_TEST_URL = "sqlite:///./test_sync_tasks.db"
-
-_SYNC_DDL = [
-    """CREATE TABLE IF NOT EXISTS empresas (
-        id CHAR(32) PRIMARY KEY,
-        rut_empresa VARCHAR(12) UNIQUE NOT NULL,
-        nombre_empresa VARCHAR(255) NOT NULL,
-        rubros_cpv TEXT,
-        regiones TEXT,
-        activo BOOLEAN NOT NULL DEFAULT 1,
-        estado_habil VARCHAR(20) NOT NULL DEFAULT 'desconocido',
-        plan_tier VARCHAR(20) NOT NULL DEFAULT 'basico',
-        subscription_status VARCHAR(20) NOT NULL DEFAULT 'inactive',
-        stripe_customer_id VARCHAR(255),
-        stripe_subscription_id VARCHAR(255),
-        trial_ends_at DATETIME,
-        trial_reminder_day7_sent_at DATETIME,
-        trial_reminder_day12_sent_at DATETIME,
-        estado_habil_updated_at DATETIME,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL
-    )""",
-    """CREATE TABLE IF NOT EXISTS tfidf_perfiles (
-        id CHAR(32) PRIMARY KEY,
-        empresa_id CHAR(32) NOT NULL UNIQUE REFERENCES empresas(id) ON DELETE CASCADE,
-        vector_bytes BLOB NOT NULL,
-        rubros_usados TEXT,
-        modelo_version VARCHAR(50) NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL
-    )""",
-    """CREATE TABLE IF NOT EXISTS dashboard_home_cache (
-        empresa_id CHAR(32) PRIMARY KEY REFERENCES empresas(id) ON DELETE CASCADE,
-        matches TEXT NOT NULL DEFAULT '[]',
-        matches_count INTEGER NOT NULL DEFAULT 0,
-        cached_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL
-    )""",
-    """CREATE TABLE IF NOT EXISTS licitaciones (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        codigo_externo VARCHAR(100) UNIQUE NOT NULL,
-        nombre VARCHAR(500) NOT NULL,
-        descripcion TEXT,
-        fecha_publicacion DATETIME NOT NULL,
-        fecha_cierre DATETIME,
-        monto_estimado NUMERIC(15,2),
-        moneda VARCHAR(10) DEFAULT 'CLP',
-        estado VARCHAR(50),
-        codigo_organismo VARCHAR(50),
-        nombre_organismo VARCHAR(500),
-        activo BOOLEAN DEFAULT 1
-    )""",
-]
 
 
 @pytest.fixture
-def sync_task_db():
-    engine = create_engine(SYNC_TASK_TEST_URL, future=True)
-    with engine.begin() as conn:
-        for ddl in _SYNC_DDL:
-            conn.execute(text(ddl))
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+def sync_task_db(esquema_migrado):
+    """Sesión síncrona sobre una transacción que se revierte al terminar."""
+    url = esquema_migrado.replace("postgresql+asyncpg://", "postgresql://", 1)
+    engine = create_engine(url, future=True)
+    conexion = engine.connect()
+    transaccion = conexion.begin()
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=conexion)
     session = SessionLocal()
     try:
         yield session, SessionLocal
     finally:
         session.close()
-        with engine.begin() as conn:
-            for tbl in ("tfidf_perfiles", "dashboard_home_cache", "licitaciones", "empresas"):
-                conn.execute(text(f"DROP TABLE IF EXISTS {tbl}"))
+        transaccion.rollback()
+        conexion.close()
         engine.dispose()
 
 
@@ -117,7 +64,7 @@ def test_precompute_dashboard_matches_writes_cache_for_empresa(sync_task_db, mon
             modelo_version="v1",
         )
     )
-    session.commit()
+    session.flush()
 
     fake_matches = [
         {

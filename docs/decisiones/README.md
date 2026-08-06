@@ -15,3 +15,4 @@ cambia, se escribe un ADR nuevo que **supersede** al anterior y se anota en el v
 | [0005](0005-pasarela-local-v1.md) | Pasarela de pago local en v1 | Aceptada | 2026-08-05 |
 | [0006](0006-analytics-en-postgres.md) | Analytics servido desde Postgres, no desde parquet en proceso | Propuesta | 2026-08-05 |
 | [0007](0007-no-migrar-a-supabase.md) | No migrar a Supabase; se mantiene la arquitectura actual | Aceptada | 2026-08-05 |
+| [0008](0008-mercadopago-como-pasarela.md) | MercadoPago como pasarela principal, y sólo una para empezar | Aceptada | 2026-08-06 |

@@ -86,8 +86,8 @@ class StripeAdapter:
     # ── Puerto ───────────────────────────────────────────────────────────────
 
     def crear_o_recuperar_cliente(self, empresa, *, email_contacto: str | None = None) -> str:
-        if empresa.stripe_customer_id:
-            return empresa.stripe_customer_id
+        if empresa.billing_customer_id:
+            return empresa.billing_customer_id
 
         cliente = self._sdk().Customer.create(
             email=email_contacto,
@@ -104,7 +104,9 @@ class StripeAdapter:
         periodo: Literal["monthly", "annual"],
         url_exito: str,
         url_cancelacion: str,
+        email_contacto: str | None = None,
     ) -> SesionDePago:
+        # `email_contacto` no se usa: el customer de Stripe ya lleva el correo.
         if periodo not in ("monthly", "annual"):
             raise ErrorDeCobro(f"Periodo inválido '{periodo}': usa 'monthly' o 'annual'")
 
