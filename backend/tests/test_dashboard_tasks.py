@@ -24,6 +24,13 @@ _SYNC_DDL = [
         regiones TEXT,
         activo BOOLEAN NOT NULL DEFAULT 1,
         estado_habil VARCHAR(20) NOT NULL DEFAULT 'desconocido',
+        plan_tier VARCHAR(20) NOT NULL DEFAULT 'basico',
+        subscription_status VARCHAR(20) NOT NULL DEFAULT 'inactive',
+        stripe_customer_id VARCHAR(255),
+        stripe_subscription_id VARCHAR(255),
+        trial_ends_at DATETIME,
+        trial_reminder_day7_sent_at DATETIME,
+        trial_reminder_day12_sent_at DATETIME,
         estado_habil_updated_at DATETIME,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL

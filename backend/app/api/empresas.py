@@ -1,10 +1,12 @@
 import asyncio
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import EmpresaContext, empresa_ctx, require_rol
 from app.core.security import get_current_active_user
 from app.db import SyncSessionLocal, get_db
 from app.models.empresa import Empresa, EmpresaUsuario
@@ -19,6 +21,26 @@ from app.schemas.empresa import (
 
 router = APIRouter(prefix="/api/empresas", tags=["empresas"])
 
+TRIAL_LENGTH_DAYS = 14
+
+
+def aplicar_trial_inicial(empresa: Empresa) -> None:
+    """Arranca el reverse-trial de 14 días sobre una empresa recién creada.
+
+    Es idempotente: una empresa que ya paga o que ya tuvo trial no se toca, así
+    que se puede llamar sin comprobar antes.
+
+    Vive aquí y no en el registro del usuario porque la suscripción es de la
+    empresa (ADR 0002). Antes se fijaba al registrarse, cuando todavía no
+    existía ninguna empresa a la que asociarla.
+    """
+    if empresa.subscription_status and empresa.subscription_status != "inactive":
+        return
+    if empresa.trial_ends_at is not None:
+        return
+    empresa.subscription_status = "trialing"
+    empresa.trial_ends_at = datetime.now(UTC) + timedelta(days=TRIAL_LENGTH_DAYS)
+
 
 async def _get_empresa_or_404(empresa_id: UUID, db: AsyncSession) -> Empresa:
     empresa = (
@@ -27,21 +49,6 @@ async def _get_empresa_or_404(empresa_id: UUID, db: AsyncSession) -> Empresa:
     if not empresa:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Empresa no encontrada")
     return empresa
-
-
-async def _get_membership_or_403(empresa_id: UUID, user: User, db: AsyncSession) -> EmpresaUsuario:
-    membership = (
-        await db.execute(
-            select(EmpresaUsuario).where(
-                EmpresaUsuario.empresa_id == empresa_id, EmpresaUsuario.user_id == user.id
-            )
-        )
-    ).scalar_one_or_none()
-    if not membership:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Sin acceso a esta empresa"
-        )
-    return membership
 
 
 @router.get("/", response_model=list[EmpresaConRol])
@@ -113,6 +120,7 @@ async def crear_empresa(
         rubros_cpv=payload.rubros_cpv,
         regiones=payload.regiones,
     )
+    aplicar_trial_inicial(empresa)
     db.add(empresa)
     await db.flush()
 
@@ -138,49 +146,39 @@ async def crear_empresa(
 
 @router.get("/{empresa_id}", response_model=EmpresaConRol)
 async def obtener_empresa(
-    empresa_id: UUID,
+    ctx: EmpresaContext = Depends(empresa_ctx),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
 ):
-    empresa = await _get_empresa_or_404(empresa_id, db)
-    membership = await _get_membership_or_403(empresa_id, current_user, db)
-    return EmpresaConRol(**empresa.__dict__, rol=membership.rol)
+    empresa = await _get_empresa_or_404(ctx.empresa_id, db)
+    return EmpresaConRol(**empresa.__dict__, rol=ctx.rol)
 
 
 @router.put("/{empresa_id}", response_model=EmpresaConRol)
 async def actualizar_empresa(
-    empresa_id: UUID,
     payload: EmpresaUpdate,
+    ctx: EmpresaContext = Depends(require_rol("owner", "admin")),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
 ):
-    empresa = await _get_empresa_or_404(empresa_id, db)
-    membership = await _get_membership_or_403(empresa_id, current_user, db)
-    if membership.rol not in ("owner", "admin"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Se requiere rol owner o admin"
-        )
+    empresa = await _get_empresa_or_404(ctx.empresa_id, db)
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(empresa, field, value)
     await db.commit()
     await db.refresh(empresa)
-    return EmpresaConRol(**empresa.__dict__, rol=membership.rol)
+    return EmpresaConRol(**empresa.__dict__, rol=ctx.rol)
 
 
 @router.post("/{empresa_id}/check-estado-habil-now")
 async def check_estado_habil_now(
-    empresa_id: UUID,
+    ctx: EmpresaContext = Depends(empresa_ctx),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
 ):
-    await _get_empresa_or_404(empresa_id, db)
-    await _get_membership_or_403(empresa_id, current_user, db)
+    await _get_empresa_or_404(ctx.empresa_id, db)
     from app.services.estado_habil_service import check_empresa_now
 
     def _run_sync():
         sync_db = SyncSessionLocal()
         try:
-            return check_empresa_now(empresa_id, sync_db)
+            return check_empresa_now(ctx.empresa_id, sync_db)
         finally:
             sync_db.close()
 
@@ -189,32 +187,24 @@ async def check_estado_habil_now(
 
 @router.delete("/{empresa_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def eliminar_empresa(
-    empresa_id: UUID,
+    ctx: EmpresaContext = Depends(require_rol("owner")),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
 ):
-    empresa = await _get_empresa_or_404(empresa_id, db)
-    membership = await _get_membership_or_403(empresa_id, current_user, db)
-    if membership.rol != "owner":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Solo el owner puede eliminar la empresa"
-        )
+    empresa = await _get_empresa_or_404(ctx.empresa_id, db)
     empresa.activo = False
     await db.commit()
 
 
 @router.get("/{empresa_id}/members", response_model=list[MiembroResponse])
 async def listar_miembros(
-    empresa_id: UUID,
+    ctx: EmpresaContext = Depends(empresa_ctx),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
 ):
-    await _get_membership_or_403(empresa_id, current_user, db)
     rows = (
         await db.execute(
             select(EmpresaUsuario, User)
             .join(User, EmpresaUsuario.user_id == User.id)
-            .where(EmpresaUsuario.empresa_id == empresa_id)
+            .where(EmpresaUsuario.empresa_id == ctx.empresa_id)
             .order_by(EmpresaUsuario.created_at)
         )
     ).all()
@@ -232,15 +222,11 @@ async def listar_miembros(
 
 @router.post("/{empresa_id}/members", status_code=201)
 async def agregar_miembro(
-    empresa_id: UUID,
     payload: AddMiembroRequest,
+    ctx: EmpresaContext = Depends(require_rol("owner", "admin")),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    membership = await _get_membership_or_403(empresa_id, current_user, db)
-    if membership.rol == "viewer":
-        raise HTTPException(status_code=403, detail="Solo owner/admin puede añadir miembros")
-
     target = (
         await db.execute(select(User).where(User.email == payload.email))
     ).scalar_one_or_none()
@@ -254,7 +240,7 @@ async def agregar_miembro(
     existing = (
         await db.execute(
             select(EmpresaUsuario).where(
-                EmpresaUsuario.empresa_id == empresa_id,
+                EmpresaUsuario.empresa_id == ctx.empresa_id,
                 EmpresaUsuario.user_id == target.id,
             )
         )
@@ -262,26 +248,22 @@ async def agregar_miembro(
     if existing:
         raise HTTPException(status_code=409, detail="Este usuario ya es miembro")
 
-    db.add(EmpresaUsuario(empresa_id=empresa_id, user_id=target.id, rol=payload.rol))
+    db.add(EmpresaUsuario(empresa_id=ctx.empresa_id, user_id=target.id, rol=payload.rol))
     await db.commit()
     return {"ok": True, "user_id": target.id, "email": target.email, "rol": payload.rol}
 
 
 @router.delete("/{empresa_id}/members/{user_id}", status_code=200)
 async def eliminar_miembro(
-    empresa_id: UUID,
     user_id: int,
+    ctx: EmpresaContext = Depends(require_rol("owner", "admin")),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
 ):
-    membership = await _get_membership_or_403(empresa_id, current_user, db)
-    if membership.rol == "viewer":
-        raise HTTPException(status_code=403, detail="Solo owner/admin puede eliminar miembros")
 
     target = (
         await db.execute(
             select(EmpresaUsuario).where(
-                EmpresaUsuario.empresa_id == empresa_id,
+                EmpresaUsuario.empresa_id == ctx.empresa_id,
                 EmpresaUsuario.user_id == user_id,
             )
         )

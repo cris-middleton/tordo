@@ -28,16 +28,9 @@ class User(Base):
     notification_whatsapp = Column(Boolean, default=False)
     webhook_url = Column(String(500))
 
-    # Plan / billing
-    plan_tier = Column(String(20), nullable=False, default="basico")
-    subscription_status = Column(String(20), nullable=False, default="inactive")
-    stripe_customer_id = Column(String(255))
-    stripe_subscription_id = Column(String(255))
-
-    # Trial tracking
-    trial_ends_at = Column(DateTime(timezone=True), nullable=True)
-    trial_reminder_day7_sent_at = Column(DateTime(timezone=True), nullable=True)
-    trial_reminder_day12_sent_at = Column(DateTime(timezone=True), nullable=True)
+    # La suscripción y el trial NO viven aquí: pertenecen a la empresa.
+    # Un usuario es un asiento, no una cuenta de facturación.
+    # Ver docs/decisiones/0002-suscripcion-por-empresa.md.
 
     # OAuth
     google_id = Column(String(100), unique=True, nullable=True, index=True)

@@ -23,30 +23,36 @@ red de seguridad.
 > Si el endpoint recibe un `empresa_id`, o devuelve algo que pertenece a una empresa,
 > **verifica la membresía antes de tocar la base**. Sin excepciones.
 
-## Cómo se hace hoy
+## Cómo se hace
+
+Por dependencia. No escribas la comprobación a mano.
 
 ```python
-from app.api.empresas import _get_empresa_or_404, _get_membership_or_403
-from app.core.security import get_current_active_user
+from app.api.deps import EmpresaContext, empresa_ctx, require_rol
 
+# Lectura: basta con ser miembro
 @router.get("/api/algo/{empresa_id}")
-async def mi_endpoint(
-    empresa_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
-):
-    # 1. ¿Existe? (404 si no)      — sólo si necesitas la entidad
-    empresa = await _get_empresa_or_404(empresa_id, db)
+async def leer(ctx: EmpresaContext = Depends(empresa_ctx), db=Depends(get_db)):
+    ...  # ctx.empresa_id ya está autorizado
 
-    # 2. ¿El usuario pertenece?  (403 si no) — SIEMPRE
-    membership = await _get_membership_or_403(empresa_id, current_user, db)
-
-    # 3. ¿El rol alcanza? — sólo para escrituras
-    if membership.rol not in ("owner", "admin"):
-        raise HTTPException(status_code=403, detail="Se requiere rol owner o admin")
-
+# Escritura: exige rol
+@router.post("/api/algo/{empresa_id}")
+async def escribir(ctx: EmpresaContext = Depends(require_rol("owner", "admin"))):
     ...
 ```
+
+Si el `empresa_id` **no viene por path** —llega en el cuerpo, o sale de una entidad que
+acabas de cargar— no puede resolverse como dependencia. Usa la misma función que usan las
+dependencias por dentro:
+
+```python
+from app.api.deps import verificar_acceso_empresa
+
+ctx = await verificar_acceso_empresa(payload.empresa_id, current_user, db)
+```
+
+`EmpresaContext` expone `empresa_id`, `rol`, `puede_escribir` y `es_owner`. Que exista una
+instancia significa que la membresía ya se verificó: los servicios pueden confiar en ella.
 
 ### Qué rol pedir
 

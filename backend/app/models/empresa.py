@@ -35,6 +35,46 @@ class Empresa(Base):
     activo = Column(Boolean(), nullable=False, default=True)
     estado_habil = Column(String(20), nullable=False, default="desconocido")
     estado_habil_updated_at = Column(DateTime(timezone=True), nullable=True)
+
+    # ── Suscripción ──────────────────────────────────────────────────────────
+    # La suscripción pertenece a la EMPRESA, no al usuario: los usuarios son
+    # asientos. Ver docs/decisiones/0002-suscripcion-por-empresa.md.
+    plan_tier = Column(
+        String(20),
+        nullable=False,
+        default="basico",
+        server_default="basico",
+        comment="Plan contratado: basico | pyme | pro | enterprise",
+    )
+    subscription_status = Column(
+        String(20),
+        nullable=False,
+        default="inactive",
+        server_default="inactive",
+        comment="Estado de la suscripción: inactive | trialing | active | past_due | canceled",
+    )
+    stripe_customer_id = Column(
+        String(255), nullable=True, index=True, comment="ID del customer en Stripe"
+    )
+    stripe_subscription_id = Column(
+        String(255), nullable=True, comment="ID de la suscripción en Stripe"
+    )
+    trial_ends_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        index=True,
+        comment="Fin del reverse-trial. Se fija al crear la empresa, no al registrarse el usuario",
+    )
+    trial_reminder_day7_sent_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Cuándo se envió el recordatorio de trial del día 7",
+    )
+    trial_reminder_day12_sent_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Cuándo se envió el recordatorio de trial del día 12",
+    )
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False

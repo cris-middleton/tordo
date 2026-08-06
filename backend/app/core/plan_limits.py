@@ -10,7 +10,8 @@ Quotas:
   enterprise : unlimited everything
 
 Redis keys:
-  bi_queries:{user_id}:{YYYY-MM-DD}  — TTL 48h, INCR per analytics call
+  bi_queries:{empresa_id}:{YYYY-MM-DD}  — TTL 48h, INCR por consulta de BI.
+  Se cuenta por EMPRESA: la cuota es del plan, y el plan es de la empresa.
 """
 
 from __future__ import annotations
@@ -24,21 +25,29 @@ from fastapi import Depends, HTTPException
 logger = logging.getLogger(__name__)
 
 
-def effective_plan_tier(user) -> str:
+def effective_plan_tier(empresa) -> str:
     """
     Return the user's *effective* plan tier right now.
 
     Rule: if the user is in an unexpired trial (subscription_status='trialing'
     AND trial_ends_at is in the future), they get full 'pro' access regardless
     of the stored plan_tier. Otherwise return plan_tier as-is.
+
+    Opera sobre la EMPRESA: la suscripción y el trial son de ella, no del
+    usuario (ADR 0002). Acepta cualquier objeto con `plan_tier`,
+    `subscription_status` y `trial_ends_at`.
     """
-    trial_ends = getattr(user, "trial_ends_at", None)
-    status = getattr(user, "subscription_status", None)
+    trial_ends = getattr(empresa, "trial_ends_at", None)
+    status = getattr(empresa, "subscription_status", None)
     if status == "trialing" and trial_ends is not None:
-        now = datetime.now(UTC)
-        if trial_ends > now:
+        # Postgres devuelve el timestamp con zona; otros drivers (SQLite en los
+        # tests) lo devuelven sin ella, y comparar ambos lanza TypeError. Un
+        # valor sin zona se interpreta como UTC, que es como se guarda.
+        if trial_ends.tzinfo is None:
+            trial_ends = trial_ends.replace(tzinfo=UTC)
+        if trial_ends > datetime.now(UTC):
             return "pro"
-    return (user.plan_tier or "basico").lower()
+    return (empresa.plan_tier or "basico").lower()
 
 
 # ── Tier ordering ─────────────────────────────────────────────────────────────
@@ -135,25 +144,25 @@ def _redis_client():
     return _redis.from_url(settings.redis_url, decode_responses=True, socket_connect_timeout=1)
 
 
-def _bi_redis_key(user_id: int) -> str:
-    return f"bi_queries:{user_id}:{date.today().isoformat()}"
+def _bi_redis_key(empresa_id) -> str:
+    return f"bi_queries:{empresa_id}:{date.today().isoformat()}"
 
 
-def get_bi_query_count(user_id: int) -> int:
-    """Return today's BI query count for user_id. Fails open (returns 0) if Redis unavailable."""
+def get_bi_query_count(empresa_id) -> int:
+    """Consultas de BI de hoy para la empresa. Falla abierto (0) si Redis no responde."""
     try:
         r = _redis_client()
-        return int(r.get(_bi_redis_key(user_id)) or 0)
+        return int(r.get(_bi_redis_key(empresa_id)) or 0)
     except Exception as exc:
         logger.warning("Redis unavailable (get_bi_query_count): %s", exc)
         return 0
 
 
-def increment_bi_query(user_id: int) -> int:
+def increment_bi_query(empresa_id) -> int:
     """Increment and return new count. Sets 48h TTL on first use. Fails open (returns 0)."""
     try:
         r = _redis_client()
-        key = _bi_redis_key(user_id)
+        key = _bi_redis_key(empresa_id)
         count = r.incr(key)
         if count == 1:
             r.expire(key, 172_800)  # 48h — survives timezone edge cases
@@ -174,24 +183,25 @@ def require_plan(min_tier: str):
         def endpoint(user=Depends(require_plan("pyme"))):
             ...
     """
-    from app.core.security import get_current_active_user
-    from app.models.user import User
+    from app.api.deps import empresa_facturable
+    from app.models.empresa import Empresa
 
-    def _check(current_user: User = Depends(get_current_active_user)) -> User:
-        if not meets_min_tier(effective_plan_tier(current_user), min_tier):
+    def _check(empresa: Empresa = Depends(empresa_facturable)) -> Empresa:
+        tier = effective_plan_tier(empresa)
+        if not meets_min_tier(tier, min_tier):
             label = _TIER_LABEL.get(min_tier, min_tier.title())
             raise HTTPException(
                 status_code=402,
                 detail=_quota_error(
                     "plan_tier",
-                    effective_plan_tier(current_user),
+                    tier,
                     None,
                     None,
                     f"Esta función requiere el plan {label} o superior. "
                     f"Actualiza tu suscripción para acceder.",
                 ),
             )
-        return current_user
+        return empresa
 
     return _check
 
@@ -209,20 +219,20 @@ def check_bi_quota(
 
 
 def _make_bi_quota_dep():
-    from app.core.security import get_current_active_user
-    from app.models.user import User
+    from app.api.deps import empresa_facturable
+    from app.models.empresa import Empresa
 
-    def _check(current_user: User = Depends(get_current_active_user)) -> User:
-        tier = effective_plan_tier(current_user)
+    def _check(empresa: Empresa = Depends(empresa_facturable)) -> Empresa:
+        tier = effective_plan_tier(empresa)
         quota = get_quota(tier)
         daily_limit: int | None = quota["bi_queries_per_day"]
 
         if daily_limit is _UNLIMITED:
-            increment_bi_query(current_user.id)
-            return current_user
+            increment_bi_query(empresa.id)
+            return empresa
 
-        # Increment first (atomic), then check — avoids a separate GET+SET
-        new_count = increment_bi_query(current_user.id)
+        # Se incrementa primero (atómico) y luego se comprueba: evita un GET+SET
+        new_count = increment_bi_query(empresa.id)
         if new_count > daily_limit:
             label = _TIER_LABEL.get(tier, tier.title())
             raise HTTPException(
@@ -236,7 +246,7 @@ def _make_bi_quota_dep():
                     f"del plan {label}. Actualiza tu plan para continuar.",
                 ),
             )
-        return current_user
+        return empresa
 
     return _check
 
@@ -249,17 +259,27 @@ def _make_alert_quota_dep_real():
     from sqlalchemy import func, select
     from sqlalchemy.ext.asyncio import AsyncSession
 
+    from app.api.deps import empresa_facturable
     from app.core.security import get_current_active_user
     from app.db import get_db
+    from app.models.empresa import Empresa
     from app.models.user import User
 
     async def _check(
         db: AsyncSession = Depends(get_db),
         current_user: User = Depends(get_current_active_user),
+        empresa: Empresa = Depends(empresa_facturable),
     ) -> User:
         from app.models.alert import AlertPreference
 
-        tier = effective_plan_tier(current_user)
+        # El LÍMITE sale del plan, que es de la empresa. El CONTEO sigue siendo
+        # por usuario, porque AlertPreference es una preferencia personal y no
+        # tiene empresa_id.
+        #
+        # Matiz pendiente de decisión de producto: con varios asientos, el
+        # límite se multiplica de hecho por el número de usuarios. Hacerlo un
+        # entitlement de la cuenta exige darle empresa_id a AlertPreference.
+        tier = effective_plan_tier(empresa)
         quota = get_quota(tier)
         max_alerts: int | None = quota["max_active_alerts"]
         if max_alerts is _UNLIMITED:

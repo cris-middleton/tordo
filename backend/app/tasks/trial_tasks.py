@@ -29,18 +29,18 @@ def _sync_engine():
 
 
 def _downgrade_expired_trials_sync() -> int:
-    """
-    UPDATE users SET subscription_status='inactive', trial_ends_at=NULL
-    WHERE subscription_status='trialing' AND trial_ends_at < NOW().
+    """Baja a inactive las EMPRESAS con el trial vencido.
 
-    Returns the number of rows updated.
+    El trial es de la empresa, no del usuario (ADR 0002).
+
+    Devuelve cuántas filas se actualizaron.
     """
     engine = _sync_engine()
     with engine.begin() as conn:
         result = conn.execute(
             text(
                 """
-                UPDATE users
+                UPDATE empresas
                 SET subscription_status = 'inactive',
                     trial_ends_at = NULL
                 WHERE subscription_status = 'trialing'
@@ -50,7 +50,7 @@ def _downgrade_expired_trials_sync() -> int:
             )
         )
         count = result.rowcount or 0
-    logger.info("Downgraded %d expired trial(s) to inactive.", count)
+    logger.info("Bajadas %d empresa(s) con trial vencido a inactive.", count)
     return count
 
 
@@ -133,9 +133,12 @@ def _send_reminder_email(email: str, kind: str) -> bool:
 @celery_app.task(name="app.tasks.trial_tasks.send_trial_reminders")
 def send_trial_reminders() -> dict:
     """
-    Beat-scheduled daily at 09:00 SCL. For every user with an active trial,
-    send a day-7 or day-12 reminder if the window applies and we haven't
-    already sent one. Stamp the *_sent_at column so we never double-send.
+    Agendada a diario a las 09:00 SCL. Por cada EMPRESA con trial activo manda
+    el recordatorio de día 7 o 12 si toca y no se envió ya, y marca la columna
+    *_sent_at para no duplicar.
+
+    El correo va al owner de la empresa: el trial es de ella, y quien decide
+    contratar es quien la creó.
     """
     engine = _sync_engine()
     sent_day7 = 0
@@ -146,13 +149,17 @@ def send_trial_reminders() -> dict:
         rows = conn.execute(
             text(
                 """
-                SELECT id, email, trial_ends_at,
-                       trial_reminder_day7_sent_at,
-                       trial_reminder_day12_sent_at
-                FROM users
-                WHERE subscription_status = 'trialing'
-                  AND trial_ends_at IS NOT NULL
-                  AND trial_ends_at > NOW()
+                SELECT DISTINCT ON (e.id)
+                       e.id, u.email, e.trial_ends_at,
+                       e.trial_reminder_day7_sent_at,
+                       e.trial_reminder_day12_sent_at
+                FROM empresas e
+                JOIN empresas_usuario eu ON eu.empresa_id = e.id AND eu.rol = 'owner'
+                JOIN users u ON u.id = eu.user_id
+                WHERE e.subscription_status = 'trialing'
+                  AND e.trial_ends_at IS NOT NULL
+                  AND e.trial_ends_at > NOW()
+                ORDER BY e.id, eu.created_at ASC
                 """
             )
         ).fetchall()
@@ -169,21 +176,21 @@ def send_trial_reminders() -> dict:
         ok = _send_reminder_email(row.email, kind)
         if not ok:
             failures += 1
-            logger.warning("Trial reminder %s failed for user_id=%s", kind, row.id)
+            logger.warning("Falló el recordatorio %s de la empresa %s", kind, row.id)
             continue
 
-        # Conditional stamp: only write NOW() if another worker hasn't already.
-        # Guarantees one reminder per user per kind even under concurrent runs.
+        # Marca condicional: sólo escribe NOW() si otro worker no lo hizo ya.
+        # Garantiza un recordatorio por empresa y tipo aunque haya concurrencia.
         column = f"trial_reminder_{kind}_sent_at"
         with engine.begin() as conn:
             result = conn.execute(
-                text(f"UPDATE users SET {column} = NOW() WHERE id = :uid AND {column} IS NULL"),
-                {"uid": row.id},
+                text(f"UPDATE empresas SET {column} = NOW() WHERE id = :eid AND {column} IS NULL"),
+                {"eid": row.id},
             )
         if (result.rowcount or 0) == 0:
             # Another worker already stamped this row between our SELECT and UPDATE.
             logger.info(
-                "Trial reminder %s for user_id=%s already stamped by another worker; skipping count",
+                "El recordatorio %s de la empresa %s ya lo marcó otro worker; no se cuenta",
                 kind,
                 row.id,
             )

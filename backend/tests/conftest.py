@@ -5,6 +5,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
+from app.api.empresas import aplicar_trial_inicial
 from app.db import Base, get_db
 from app.main import app
 from app.models.empresa import Empresa, EmpresaUsuario
@@ -68,13 +69,6 @@ _ASYNC_DDL = [
         notification_webhook BOOLEAN DEFAULT 0,
         notification_whatsapp BOOLEAN DEFAULT 0,
         webhook_url VARCHAR(500),
-        plan_tier VARCHAR(20) NOT NULL DEFAULT 'basico',
-        subscription_status VARCHAR(20) NOT NULL DEFAULT 'inactive',
-        stripe_customer_id VARCHAR(255),
-        stripe_subscription_id VARCHAR(255),
-        trial_ends_at DATETIME,
-        trial_reminder_day7_sent_at DATETIME,
-        trial_reminder_day12_sent_at DATETIME,
         google_id VARCHAR(100) UNIQUE,
         whatsapp_number VARCHAR(20),
         onboarding_completed BOOLEAN DEFAULT 0 NOT NULL,
@@ -131,6 +125,13 @@ _ASYNC_DDL = [
         activo BOOLEAN NOT NULL DEFAULT 1,
         estado_habil VARCHAR(20) NOT NULL DEFAULT 'desconocido',
         estado_habil_updated_at DATETIME,
+        plan_tier VARCHAR(20) NOT NULL DEFAULT 'basico',
+        subscription_status VARCHAR(20) NOT NULL DEFAULT 'inactive',
+        stripe_customer_id VARCHAR(255),
+        stripe_subscription_id VARCHAR(255),
+        trial_ends_at DATETIME,
+        trial_reminder_day7_sent_at DATETIME,
+        trial_reminder_day12_sent_at DATETIME,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL
     )""",
@@ -248,7 +249,6 @@ async def sample_user(async_db: AsyncSession) -> User:
         hashed_password="x",
         full_name="Test User",
         is_active=True,
-        plan_tier="paid",
     )
     async_db.add(user)
     await async_db.commit()
@@ -263,6 +263,10 @@ async def sample_empresa(async_db: AsyncSession, sample_user: User) -> Empresa:
         nombre_empresa="Constructora Test",
         estado_habil="habil",
     )
+    # Igual que en producción: crear una empresa arranca el reverse-trial de 14
+    # días (app/api/empresas.py::aplicar_trial_inicial). Sin esto el fixture
+    # representaría un estado que la aplicación nunca produce.
+    aplicar_trial_inicial(empresa)
     async_db.add(empresa)
     await async_db.flush()
     membership = EmpresaUsuario(

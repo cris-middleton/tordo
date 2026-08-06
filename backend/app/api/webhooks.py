@@ -87,10 +87,16 @@ async def stripe_webhook(request: Request):
 # ─── Event handlers ───────────────────────────────────────────────────────────
 
 
-def _get_user_by_customer(db, customer_id: str):
-    from app.models.user import User
+def _empresa_por_customer(db, customer_id: str):
+    """La empresa dueña de ese customer de Stripe.
 
-    return db.query(User).filter(User.stripe_customer_id == customer_id).first()
+    El sujeto de la facturación es la empresa (ADR 0002). Antes se buscaba un
+    usuario, lo que con varios asientos habría aplicado el cobro a la persona
+    que hizo el checkout en vez de a la cuenta.
+    """
+    from app.models.empresa import Empresa
+
+    return db.query(Empresa).filter(Empresa.stripe_customer_id == customer_id).first()
 
 
 def _handle_checkout_completed(db, session):
@@ -99,30 +105,36 @@ def _handle_checkout_completed(db, session):
     metadata = session.get("metadata", {})
     plan_tier = metadata.get("plan_tier", "pro")
 
-    user = _get_user_by_customer(db, customer_id)
-    if not user and metadata.get("user_id"):
-        from app.models.user import User
+    empresa = _empresa_por_customer(db, customer_id)
+    if not empresa and metadata.get("empresa_id"):
+        # Primer checkout: el customer todavía no está guardado en la empresa,
+        # así que se recupera del metadata que se envió al crear la sesión.
+        from uuid import UUID
+
+        from app.models.empresa import Empresa
 
         try:
-            uid = int(metadata["user_id"])
+            eid = UUID(metadata["empresa_id"])
         except (ValueError, KeyError):
             logger.error(
-                "checkout.session.completed: invalid user_id in metadata: %s",
-                metadata.get("user_id"),
+                "checkout.session.completed: empresa_id inválido en metadata: %s",
+                metadata.get("empresa_id"),
             )
             return
-        user = db.query(User).filter(User.id == uid).first()
+        empresa = db.query(Empresa).filter(Empresa.id == eid).first()
 
-    if not user:
-        logger.warning("checkout.session.completed: no user found for customer %s", customer_id)
+    if not empresa:
+        logger.warning(
+            "checkout.session.completed: ninguna empresa para el customer %s", customer_id
+        )
         return
 
-    user.stripe_customer_id = customer_id
-    user.stripe_subscription_id = subscription_id
-    user.plan_tier = plan_tier
-    user.subscription_status = "active"
+    empresa.stripe_customer_id = customer_id
+    empresa.stripe_subscription_id = subscription_id
+    empresa.plan_tier = plan_tier
+    empresa.subscription_status = "active"
     db.commit()
-    logger.info("User %s upgraded to %s", user.id, plan_tier)
+    logger.info("Empresa %s activó el plan %s", empresa.id, plan_tier)
 
 
 def _handle_subscription_updated(db, subscription):
@@ -130,48 +142,48 @@ def _handle_subscription_updated(db, subscription):
     subscription_id = subscription.get("id")
     stripe_status = subscription.get("status", "inactive")
 
-    user = _get_user_by_customer(db, customer_id)
-    if not user:
+    empresa = _empresa_por_customer(db, customer_id)
+    if not empresa:
         return
 
-    user.subscription_status = subscription_status_from_stripe(stripe_status)
-    user.stripe_subscription_id = subscription_id
+    empresa.subscription_status = subscription_status_from_stripe(stripe_status)
+    empresa.stripe_subscription_id = subscription_id
 
-    # Update plan tier from first price item
+    # El plan sale del primer price del item
     items = subscription.get("items", {}).get("data", [])
     if items:
         price_id = items[0].get("price", {}).get("id")
         if price_id:
-            user.plan_tier = _price_to_tier(price_id)
+            empresa.plan_tier = _price_to_tier(price_id)
 
     db.commit()
     logger.info(
-        "Subscription updated for user %s: %s / %s",
-        user.id,
-        user.plan_tier,
-        user.subscription_status,
+        "Suscripción actualizada para la empresa %s: %s / %s",
+        empresa.id,
+        empresa.plan_tier,
+        empresa.subscription_status,
     )
 
 
 def _handle_subscription_deleted(db, subscription):
     customer_id = subscription.get("customer")
-    user = _get_user_by_customer(db, customer_id)
-    if not user:
+    empresa = _empresa_por_customer(db, customer_id)
+    if not empresa:
         return
 
-    user.plan_tier = "basico"
-    user.subscription_status = "canceled"
-    user.stripe_subscription_id = None
+    empresa.plan_tier = "basico"
+    empresa.subscription_status = "canceled"
+    empresa.stripe_subscription_id = None
     db.commit()
-    logger.info("Subscription canceled for user %s → downgraded to basico", user.id)
+    logger.info("Suscripción cancelada para la empresa %s → baja a basico", empresa.id)
 
 
 def _handle_payment_failed(db, invoice):
     customer_id = invoice.get("customer")
-    user = _get_user_by_customer(db, customer_id)
-    if not user:
+    empresa = _empresa_por_customer(db, customer_id)
+    if not empresa:
         return
 
-    user.subscription_status = "past_due"
+    empresa.subscription_status = "past_due"
     db.commit()
-    logger.warning("Payment failed for user %s → subscription past_due", user.id)
+    logger.warning("Pago fallido de la empresa %s → suscripción en past_due", empresa.id)

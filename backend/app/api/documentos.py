@@ -8,7 +8,8 @@ from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.empresas import _get_empresa_or_404, _get_membership_or_403
+from app.api.deps import EmpresaContext, empresa_ctx, require_rol
+from app.api.empresas import _get_empresa_or_404
 from app.config import settings
 from app.core.security import get_current_active_user
 from app.db import get_db
@@ -28,17 +29,17 @@ MAX_UPLOAD_BYTES = 26_214_400  # 25 MB
     status_code=status.HTTP_201_CREATED,
 )
 async def upload_documento(
-    empresa_id: UUID,
     file: UploadFile = File(...),
     tipo_documento: str = Form(...),
     nombre: str = Form(None),
     fecha_emision: str = Form(None),
     fecha_vencimiento: str = Form(None),
+    ctx: EmpresaContext = Depends(require_rol("owner", "admin")),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
+    empresa_id = ctx.empresa_id
     await _get_empresa_or_404(empresa_id, db)
-    await _get_membership_or_403(empresa_id, current_user, db)
 
     file_bytes = await file.read()
     if len(file_bytes) > MAX_UPLOAD_BYTES:
@@ -97,12 +98,11 @@ async def upload_documento(
 
 @router.get("/api/empresas/{empresa_id}/documentos", response_model=list[DocumentoOut])
 async def listar_documentos(
-    empresa_id: UUID,
+    ctx: EmpresaContext = Depends(empresa_ctx),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
 ):
+    empresa_id = ctx.empresa_id
     await _get_empresa_or_404(empresa_id, db)
-    await _get_membership_or_403(empresa_id, current_user, db)
     return (
         (
             await db.execute(
@@ -123,13 +123,12 @@ async def listar_documentos(
     response_model=DocumentoDownloadResponse,
 )
 async def download_documento(
-    empresa_id: UUID,
     doc_id: UUID,
+    ctx: EmpresaContext = Depends(empresa_ctx),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
 ):
+    empresa_id = ctx.empresa_id
     await _get_empresa_or_404(empresa_id, db)
-    await _get_membership_or_403(empresa_id, current_user, db)
 
     doc = (
         await db.execute(
@@ -153,17 +152,12 @@ async def download_documento(
     "/api/empresas/{empresa_id}/documentos/{doc_id}", status_code=status.HTTP_204_NO_CONTENT
 )
 async def eliminar_documento(
-    empresa_id: UUID,
     doc_id: UUID,
+    ctx: EmpresaContext = Depends(require_rol("owner", "admin")),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
 ):
+    empresa_id = ctx.empresa_id
     await _get_empresa_or_404(empresa_id, db)
-    membership = await _get_membership_or_403(empresa_id, current_user, db)
-    if membership.rol not in ("owner", "admin"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Se requiere rol owner o admin"
-        )
 
     doc = (
         await db.execute(

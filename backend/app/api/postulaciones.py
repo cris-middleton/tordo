@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.api.empresas import _get_membership_or_403
+from app.api.deps import EmpresaContext, empresa_ctx, verificar_acceso_empresa
 from app.core.security import get_current_active_user
 from app.db import get_db
 from app.models.licitacion import Licitacion
@@ -67,7 +67,9 @@ async def crear_postulacion(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    await _get_membership_or_403(payload.empresa_id, current_user, db)
+    # El empresa_id llega en el cuerpo, así que no puede resolverse como
+    # dependencia: se verifica con la misma función que usan las dependencias.
+    await verificar_acceso_empresa(payload.empresa_id, current_user, db)
     licitacion = (
         await db.execute(select(Licitacion).where(Licitacion.id == payload.licitacion_id))
     ).scalar_one_or_none()
@@ -110,12 +112,11 @@ async def crear_postulacion(
 
 @router.get("/api/empresas/{empresa_id}/postulaciones", response_model=list[PostulacionListItem])
 async def listar_postulaciones(
-    empresa_id: UUID,
     estado: str | None = Query(None),
+    ctx: EmpresaContext = Depends(empresa_ctx),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
 ):
-    await _get_membership_or_403(empresa_id, current_user, db)
+    empresa_id = ctx.empresa_id
     stmt = (
         select(Postulacion)
         .options(selectinload(Postulacion.checklist), selectinload(Postulacion.licitacion))
@@ -146,7 +147,8 @@ async def obtener_postulacion(
     ).scalar_one_or_none()
     if not p:
         raise HTTPException(status_code=404, detail="Postulación no encontrada")
-    await _get_membership_or_403(p.empresa_id, current_user, db)
+    # El empresa_id sale de la entidad recién cargada, no del request.
+    await verificar_acceso_empresa(p.empresa_id, current_user, db)
     return p
 
 
@@ -166,7 +168,8 @@ async def actualizar_postulacion(
     ).scalar_one_or_none()
     if not p:
         raise HTTPException(status_code=404, detail="Postulación no encontrada")
-    await _get_membership_or_403(p.empresa_id, current_user, db)
+    # El empresa_id sale de la entidad recién cargada, no del request.
+    await verificar_acceso_empresa(p.empresa_id, current_user, db)
     if payload.estado is not None:
         if payload.estado not in VALID_ESTADOS:
             raise HTTPException(
@@ -193,7 +196,8 @@ async def toggle_checklist_item(
     ).scalar_one_or_none()
     if not p:
         raise HTTPException(status_code=404, detail="Postulación no encontrada")
-    await _get_membership_or_403(p.empresa_id, current_user, db)
+    # El empresa_id sale de la entidad recién cargada, no del request.
+    await verificar_acceso_empresa(p.empresa_id, current_user, db)
     item = (
         await db.execute(
             select(ChecklistPostulacion).where(

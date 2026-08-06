@@ -122,13 +122,10 @@ async def get_dashboard_home(
         .all()
     )
 
-    # Trial-aware: active reverse-trials resolve to 'pro' even though the stored
-    # plan_tier may still be 'basico'/'free'. Anything at pyme or above counts as paid.
-    resolved_tier = effective_plan_tier(current_user)
-    plan_tier = "paid" if resolved_tier not in ("free", "basico") else "free"
-    matches_visibles = 3 if plan_tier == "paid" else 1
-
     if not memberships:
+        # Sin empresa no hay plan que aplicar: la suscripción es de la empresa
+        # (ADR 0002). Se responde el mínimo.
+        plan_tier, matches_visibles = "free", 1
         return DashboardHomeResponse(
             empresa=None,
             resumen=ResumenStats(),
@@ -152,6 +149,13 @@ async def get_dashboard_home(
     ).scalar_one_or_none()
     if empresa is None:
         raise HTTPException(status_code=404, detail="Empresa no encontrada")
+
+    # El plan sale de la EMPRESA resuelta, no del usuario. Un trial activo
+    # resuelve a 'pro' aunque el plan_tier guardado siga en 'basico'; de pyme
+    # hacia arriba cuenta como de pago.
+    resolved_tier = effective_plan_tier(empresa)
+    plan_tier = "paid" if resolved_tier not in ("free", "basico") else "free"
+    matches_visibles = 3 if plan_tier == "paid" else 1
 
     resumen = await compose_resumen(db, current_user.id, empresa_id)
     urgencias = await compose_urgencias(db, current_user.id, empresa_id)

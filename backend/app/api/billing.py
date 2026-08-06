@@ -3,8 +3,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import empresa_facturable
 from app.core.security import get_current_active_user
 from app.db import get_db
+from app.models.empresa import Empresa
 from app.models.user import User
 from app.schemas.billing import (
     BillingStatus,
@@ -54,14 +56,19 @@ async def list_plans():
 
 
 @router.get("/status", response_model=BillingStatus)
-async def get_billing_status(current_user: User = Depends(get_current_active_user)):
+async def get_billing_status(empresa: Empresa = Depends(empresa_facturable)):
+    """Estado de la suscripción de la empresa.
+
+    El sujeto es la empresa, no el usuario (ADR 0002). Si el usuario pertenece a
+    varias, tiene que decir de cuál con `empresa_id`.
+    """
     from app.config import settings
 
     return BillingStatus(
-        plan_tier=current_user.plan_tier,
-        subscription_status=current_user.subscription_status,
-        stripe_customer_id=current_user.stripe_customer_id,
-        stripe_subscription_id=current_user.stripe_subscription_id,
+        plan_tier=empresa.plan_tier,
+        subscription_status=empresa.subscription_status,
+        stripe_customer_id=empresa.stripe_customer_id,
+        stripe_subscription_id=empresa.stripe_subscription_id,
         billing_enabled=settings.feature_billing,
     )
 
@@ -71,16 +78,19 @@ async def create_checkout_session(
     payload: CheckoutRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
+    empresa: Empresa = Depends(empresa_facturable),
 ):
     from app.services.stripe_service import create_checkout_session, get_or_create_customer
 
-    customer_id = get_or_create_customer(current_user)
-    if customer_id != current_user.stripe_customer_id:
-        current_user.stripe_customer_id = customer_id
+    # El customer de Stripe representa a la EMPRESA. El email del usuario que
+    # inicia el checkout se pasa sólo como contacto.
+    customer_id = get_or_create_customer(empresa, email_contacto=current_user.email)
+    if customer_id != empresa.stripe_customer_id:
+        empresa.stripe_customer_id = customer_id
         await db.commit()
-        await db.refresh(current_user)
+        await db.refresh(empresa)
     url = create_checkout_session(
-        current_user,
+        empresa,
         payload.plan_tier,
         payload.success_url,
         payload.cancel_url,
@@ -91,8 +101,7 @@ async def create_checkout_session(
 
 @router.post("/portal", response_model=PortalResponse)
 async def create_billing_portal(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    empresa: Empresa = Depends(empresa_facturable),
 ):
     from app.config import settings
     from app.services.stripe_service import create_portal_session
@@ -101,11 +110,11 @@ async def create_billing_portal(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Billing module is disabled."
         )
-    if not current_user.stripe_customer_id:
+    if not empresa.stripe_customer_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No Stripe customer found. Complete a checkout first.",
         )
     return_url = f"{settings.frontend_url}/dashboard/billing"
-    url = create_portal_session(current_user.stripe_customer_id, return_url)
+    url = create_portal_session(empresa.stripe_customer_id, return_url)
     return PortalResponse(portal_url=url)

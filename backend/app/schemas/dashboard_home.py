@@ -76,7 +76,7 @@ class TrendStats(BaseModel):
 class PlanInfo(BaseModel):
     """Plan context for the home dashboard.
 
-    `tier` is a binary projection of the user's `plan_tier`: `basico` → `free`,
+    `tier` es una proyección binaria del `plan_tier` de la EMPRESA: `basico` → `free`,
     everything else (`pyme`, `pro`, `enterprise`) → `paid`.
     """
 

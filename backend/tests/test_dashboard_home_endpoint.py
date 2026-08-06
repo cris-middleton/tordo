@@ -67,8 +67,14 @@ async def test_home_endpoint_rejects_empresa_user_is_not_member_of(
 
 
 @pytest.mark.asyncio
-async def test_home_endpoint_free_tier_caps_matches_visible_at_1(async_db, sample_user):
-    sample_user.plan_tier = "free"
+async def test_home_endpoint_free_tier_caps_matches_visible_at_1(
+    async_db, sample_user, sample_empresa
+):
+    # "Free" significa sin trial: un trial activo resuelve a pro y taparía el
+    # caso que este test quiere cubrir.
+    sample_empresa.plan_tier = "free"
+    sample_empresa.subscription_status = "inactive"
+    sample_empresa.trial_ends_at = None
     await async_db.commit()
 
     _override(async_db, sample_user)
@@ -86,13 +92,15 @@ async def test_home_endpoint_free_tier_caps_matches_visible_at_1(async_db, sampl
 
 
 @pytest.mark.asyncio
-async def test_home_endpoint_active_trial_unlocks_paid_tier(async_db, sample_user):
-    """During an active reverse-trial, the stored plan_tier may be 'basico' but
-    the user must see the Pro experience (3 matches visible, plan.tier = 'paid').
+async def test_home_endpoint_active_trial_unlocks_paid_tier(async_db, sample_user, sample_empresa):
+    """Con un reverse-trial activo, el plan_tier guardado puede seguir en
+    'basico' pero se debe ver la experiencia Pro (3 matches, plan.tier='paid').
+
+    El sujeto es la EMPRESA: la suscripción le pertenece a ella (ADR 0002).
     """
-    sample_user.plan_tier = "basico"
-    sample_user.subscription_status = "trialing"
-    sample_user.trial_ends_at = datetime.now(UTC) + timedelta(days=7)
+    sample_empresa.plan_tier = "basico"
+    sample_empresa.subscription_status = "trialing"
+    sample_empresa.trial_ends_at = datetime.now(UTC) + timedelta(days=7)
     await async_db.commit()
 
     _override(async_db, sample_user)
@@ -110,11 +118,13 @@ async def test_home_endpoint_active_trial_unlocks_paid_tier(async_db, sample_use
 
 
 @pytest.mark.asyncio
-async def test_home_endpoint_expired_trial_falls_back_to_free(async_db, sample_user):
+async def test_home_endpoint_expired_trial_falls_back_to_free(
+    async_db, sample_user, sample_empresa
+):
     """After trial_ends_at passes, user drops back to free-plan UX."""
-    sample_user.plan_tier = "basico"
-    sample_user.subscription_status = "trialing"
-    sample_user.trial_ends_at = datetime.now(UTC) - timedelta(days=1)
+    sample_empresa.plan_tier = "basico"
+    sample_empresa.subscription_status = "trialing"
+    sample_empresa.trial_ends_at = datetime.now(UTC) - timedelta(days=1)
     await async_db.commit()
 
     _override(async_db, sample_user)

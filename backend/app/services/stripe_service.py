@@ -61,18 +61,23 @@ def _stripe():
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def get_or_create_customer(user) -> str:
-    """Return the Stripe customer ID for the user, creating one if needed."""
+def get_or_create_customer(empresa, *, email_contacto: str | None = None) -> str:
+    """Devuelve el customer de Stripe de la EMPRESA, creándolo si hace falta.
+
+    El customer representa a la empresa, no al usuario: la suscripción es de
+    ella y los usuarios son asientos (ADR 0002). `email_contacto` es el correo
+    de quien inicia el checkout, sólo para que Stripe tenga a quién escribir.
+    """
     _require_billing()
     s = _stripe()
 
-    if user.stripe_customer_id:
-        return user.stripe_customer_id
+    if empresa.stripe_customer_id:
+        return empresa.stripe_customer_id
 
     customer = s.Customer.create(
-        email=user.email,
-        name=user.full_name or user.username,
-        metadata={"user_id": str(user.id)},
+        email=email_contacto,
+        name=empresa.nombre_empresa,
+        metadata={"empresa_id": str(empresa.id), "rut_empresa": empresa.rut_empresa},
     )
     return customer.id
 
@@ -83,7 +88,7 @@ def get_or_create_customer(user) -> str:
 
 
 def create_checkout_session(
-    user,
+    empresa,
     plan_tier: str,
     success_url: str,
     cancel_url: str,
@@ -117,7 +122,7 @@ def create_checkout_session(
             detail=f"Stripe price ID for plan '{plan_tier}' ({billing_period}) is not configured.",
         )
 
-    customer_id = get_or_create_customer(user)
+    customer_id = get_or_create_customer(empresa)
 
     session = s.checkout.Session.create(
         customer=customer_id,
@@ -126,13 +131,13 @@ def create_checkout_session(
         success_url=success_url,
         cancel_url=cancel_url,
         metadata={
-            "user_id": str(user.id),
+            "empresa_id": str(empresa.id),
             "plan_tier": plan_tier,
             "billing_period": billing_period,
         },
         subscription_data={
             "metadata": {
-                "user_id": str(user.id),
+                "empresa_id": str(empresa.id),
                 "plan_tier": plan_tier,
                 "billing_period": billing_period,
             }

@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import EmpresaContext, empresa_ctx, require_rol, verificar_acceso_empresa
 from app.config import settings
 from app.core.plan_limits import check_bi_quota_dep
 from app.core.security import get_current_active_user
@@ -230,6 +231,8 @@ async def get_licitacion_panel(
         except ValueError:
             raise HTTPException(status_code=422, detail="empresa_id inválido")
 
+        # Chequeo blando a propósito: si no es miembro simplemente no se enriquece
+        # la respuesta, no se rechaza la petición.
         membership = (
             await db.execute(
                 select(EmpresaUsuario).where(
@@ -450,15 +453,7 @@ async def get_licitacion_match(
     from app.services import tfidf_matcher
 
     # Verify user membership in empresa
-    membership = (
-        await db.execute(
-            select(EmpresaUsuario).where(
-                EmpresaUsuario.empresa_id == empresa_id, EmpresaUsuario.user_id == current_user.id
-            )
-        )
-    ).scalar_one_or_none()
-    if not membership:
-        raise HTTPException(status_code=403, detail="Sin acceso a esta empresa")
+    await verificar_acceso_empresa(empresa_id, current_user, db)
 
     if not tfidf_matcher.is_available():
         return PerfilMatchResponse(
@@ -505,21 +500,11 @@ async def get_licitacion_match(
     summary="Obtener perfil TF-IDF de una empresa",
 )
 async def get_tfidf_perfil(
-    empresa_id: UUID,
+    ctx: EmpresaContext = Depends(empresa_ctx),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
 ):
     _require_tfidf_flag()
-
-    membership = (
-        await db.execute(
-            select(EmpresaUsuario).where(
-                EmpresaUsuario.empresa_id == empresa_id, EmpresaUsuario.user_id == current_user.id
-            )
-        )
-    ).scalar_one_or_none()
-    if not membership:
-        raise HTTPException(status_code=403, detail="Sin acceso a esta empresa")
+    empresa_id = ctx.empresa_id
 
     perfil = (
         await db.execute(select(TFIDFPerfil).where(TFIDFPerfil.empresa_id == empresa_id))
@@ -553,26 +538,14 @@ async def get_tfidf_perfil(
     ),
 )
 async def update_tfidf_perfil(
-    empresa_id: UUID,
     body: TFIDFPerfilUpdate,
+    ctx: EmpresaContext = Depends(require_rol("owner", "admin")),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
 ):
     _require_tfidf_flag()
     from app.services import tfidf_matcher
 
-    # Must be owner or admin
-    membership = (
-        await db.execute(
-            select(EmpresaUsuario).where(
-                EmpresaUsuario.empresa_id == empresa_id,
-                EmpresaUsuario.user_id == current_user.id,
-                EmpresaUsuario.rol.in_(["owner", "admin"]),
-            )
-        )
-    ).scalar_one_or_none()
-    if not membership:
-        raise HTTPException(status_code=403, detail="Se requiere rol owner o admin")
+    empresa_id = ctx.empresa_id
 
     # Try to build TF-IDF vector — best-effort, don't block saving rubros if unavailable
     # Use b'' as placeholder to satisfy NOT NULL constraint when model is unavailable
@@ -716,16 +689,7 @@ async def get_mi_posicion(
     from app.services import bi_service
 
     # Verificar membership a la empresa
-    membership = (
-        await db.execute(
-            select(EmpresaUsuario).where(
-                EmpresaUsuario.empresa_id == empresa_id,
-                EmpresaUsuario.user_id == current_user.id,
-            )
-        )
-    ).scalar_one_or_none()
-    if not membership:
-        raise HTTPException(status_code=403, detail="Sin acceso a esta empresa")
+    await verificar_acceso_empresa(empresa_id, current_user, db)
 
     empresa = (
         await db.execute(select(Empresa).where(Empresa.id == empresa_id))
@@ -777,16 +741,7 @@ async def get_radar_semanal(
     from app.services import radar_service
 
     # Verificar membership
-    membership = (
-        await db.execute(
-            select(EmpresaUsuario).where(
-                EmpresaUsuario.empresa_id == empresa_id,
-                EmpresaUsuario.user_id == current_user.id,
-            )
-        )
-    ).scalar_one_or_none()
-    if not membership:
-        raise HTTPException(status_code=403, detail="Sin acceso a esta empresa")
+    await verificar_acceso_empresa(empresa_id, current_user, db)
 
     # radar_service usa session síncrona → abrir una sesión sync para esto
     from app.db import SyncSessionLocal

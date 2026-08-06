@@ -154,6 +154,17 @@ jobs:
       - name: Instalar dependencias
         run: uv sync --frozen
 
+      # Las migraciones ANTES de los tests: varios comprueban el aislamiento
+      # entre empresas y el flujo de suscripción contra tablas reales. Sin
+      # esquema fallaban con "relation users does not exist" — y un test que
+      # sólo puede correr contra SQLite no prueba lo que hace falta probar.
+      - name: Aplicar migraciones
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tordo_test
+          SECRET_KEY: ci-secret
+        run: uv run --project .. alembic upgrade head
+
       - name: pytest
         working-directory: backend
         env:

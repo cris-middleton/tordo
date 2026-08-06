@@ -24,7 +24,6 @@ class UserUpdate(BaseModel):
     webhook_url: str | None = None
     onboarding_completed: bool | None = None
     onboarding_step: int | None = None
-    plan_tier: str | None = None
     whatsapp_number: str | None = None
 
 
@@ -36,9 +35,8 @@ class UserResponse(UserBase):
     notification_in_app: bool
     notification_webhook: bool
     notification_whatsapp: bool = False
-    plan_tier: str = "basico"
-    subscription_status: str = "inactive"
-    trial_ends_at: datetime | None = None
+    # El plan y el trial NO se exponen aquí: son de la empresa, no del usuario
+    # (ADR 0002). El frontend los obtiene de /api/billing/status.
     onboarding_completed: bool = False
     onboarding_step: int = 0
     webhook_url: str | None = None

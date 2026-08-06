@@ -61,11 +61,22 @@ Proyectos medianos o grandes: `grill-me` primero, sin cabos sueltos.
   limpios contra una base vacía. Una migración que no revierte no pasa.
 
 ### Multi-tenancy — CRÍTICO PARA LA SEGURIDAD
-Todo endpoint que toque datos de una empresa **debe** verificar la membresía del usuario.
-Hoy eso se hace llamando a `_get_membership_or_403(empresa_id, current_user, db)` de
-`app/api/empresas.py`. **Un endpoint sin esa llamada es una fuga de datos entre empresas.**
+Todo endpoint que toque datos de una empresa **debe** resolver el contexto de empresa por
+dependencia, no a mano:
 
-Ver el skill `.claude/skills/endpoint-empresa/` antes de añadir cualquier ruta con `empresa_id`.
+```python
+from app.api.deps import EmpresaContext, empresa_ctx, require_rol
+
+async def leer(ctx: EmpresaContext = Depends(empresa_ctx)): ...
+async def escribir(ctx: EmpresaContext = Depends(require_rol("owner", "admin"))): ...
+```
+
+Cuando el `empresa_id` no viene por path (cuerpo del request, o de una entidad ya cargada)
+se usa `verificar_acceso_empresa(...)`, que es **la misma implementación**. Nunca escribas
+una consulta propia de membresía en un router.
+
+`backend/tests/test_tenancy_estructural.py` falla en CI si una ruta con `{empresa_id}` no
+declara la dependencia. Ver `.claude/skills/endpoint-empresa/`.
 
 ### Convenciones de código
 - **Imports a nivel de módulo.** Nada de imports dentro de funciones. El código heredado

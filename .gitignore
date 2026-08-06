@@ -101,3 +101,8 @@ celerybeat.pid
 docs/superpowers/
 frontend/docs/superpowers/
 .claude/settings.local.json
+
+# Bases SQLite de test: persisten entre corridas y `CREATE TABLE IF NOT EXISTS`
+# no altera una tabla existente, así que un archivo viejo sombrea el esquema
+# nuevo en silencio.
+backend/test*.db

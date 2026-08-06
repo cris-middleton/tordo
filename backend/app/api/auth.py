@@ -23,23 +23,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
 
 
-TRIAL_LENGTH_DAYS = 14
-
-
-def _apply_trial_defaults(user: User) -> None:
-    """
-    Idempotently initialise a 14-day Pro trial on a fresh user.
-
-    Only runs if the user has no existing subscription and no trial deadline.
-    Paying users and already-provisioned trial users are left alone — callers
-    may invoke this without checking.
-    """
-    if user.subscription_status and user.subscription_status != "inactive":
-        return
-    if user.trial_ends_at is not None:
-        return
-    user.subscription_status = "trialing"
-    user.trial_ends_at = datetime.now(UTC) + timedelta(days=TRIAL_LENGTH_DAYS)
+# El reverse-trial ya no arranca aquí: pertenece a la empresa, y la empresa
+# se crea en el onboarding. Ver app/api/empresas.py::aplicar_trial_inicial
+# y docs/decisiones/0002-suscripcion-por-empresa.md.
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -62,7 +48,6 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
         full_name=user_data.full_name,
         hashed_password=get_password_hash(user_data.password),
     )
-    _apply_trial_defaults(db_user)
     db.add(db_user)
     await db.commit()
     await db.refresh(db_user)

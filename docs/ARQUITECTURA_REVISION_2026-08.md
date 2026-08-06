@@ -498,7 +498,10 @@ F3/F4/F5 pueden solaparse.
 
 ### F0 — Sanitización · EJECUTADO 2026-08-05 (rama `chore/f0-sanitizacion`)
 
-- [ ] **Rotar Twilio auth token, `SECRET_KEY`, credenciales de BD** ← requiere acción humana, pendiente
+- [x] ~~Rotar credenciales~~ — **decisión del 2026-08-06: no se rota.** El dueño confirmó que
+      el token de Twilio no es productivo y no genera cargos. Además, `DB_URL` y `JWT_SECRET` del
+      `.env` filtrado nunca los leyó la aplicación: `config.py` declara `DATABASE_URL` y
+      `SECRET_KEY`, y `extra="ignore"` los descartaba. Riesgo aceptado y cerrado.
 - [x] `git rm --cached` de `.env`, `.env.local`, `celerybeat-schedule`, `settings.local.json`; `.gitignore` ampliado
 - [x] `/api/data/*` cerrado con dependencia de auth a nivel de router (se conserva funcional: alimenta las páginas de Orders)
 - [x] Handler global: detalle sólo al log, `request_id` al cliente, middleware `X-Request-ID`
