@@ -169,7 +169,7 @@ export function TendenciasSection({ tendencias, emergentes, loading, selectedRub
                 <div className="w-full h-[140px]">
                   <TrendChart
                     data={serieAnual}
-                    color={cagrToShow >= 0 ? '#00A87A' : '#EF4444'}
+                    color={cagrToShow >= 0 ? '#0E7C7F' : '#B91C1C'}
                   />
                 </div>
               ) : (
@@ -253,26 +253,26 @@ export function TendenciasSection({ tendencias, emergentes, loading, selectedRub
             layout="vertical"
             margin={{ top: 0, right: 40, left: 8, bottom: 24 }}
           >
-            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#DCE3ED" />
             <XAxis
               type="number"
               tickFormatter={(v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%`}
-              tick={{ fontSize: 11, fill: '#94a3b8' }}
-              label={{ value: 'Crecimiento anual (%)', position: 'insideBottom', offset: -2, fontSize: 11, fill: '#94a3b8' }}
+              tick={{ fontSize: 11, fill: '#5F7089' }}
+              label={{ value: 'Crecimiento anual (%)', position: 'insideBottom', offset: -2, fontSize: 11, fill: '#5F7089' }}
             />
             <YAxis
               type="category"
               dataKey="label"
               width={200}
-              tick={{ fontSize: 11, fill: '#64748b' }}
+              tick={{ fontSize: 11, fill: '#54637A' }}
             />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f1f5f9' }} />
-            <ReferenceLine x={0} stroke="#cbd5e1" strokeWidth={1.5} />
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F1F4F9' }} />
+            <ReferenceLine x={0} stroke="#C4D0E0" strokeWidth={1.5} />
             <Bar dataKey="cagr" radius={[0, 4, 4, 0]} maxBarSize={20}>
               {chartData.map((entry, i) => (
                 <Cell
                   key={`cell-${i}`}
-                  fill={entry.cagr >= 0 ? '#00A87A' : '#EF4444'}
+                  fill={entry.cagr >= 0 ? '#0E7C7F' : '#B91C1C'}
                   fillOpacity={0.85}
                 />
               ))}

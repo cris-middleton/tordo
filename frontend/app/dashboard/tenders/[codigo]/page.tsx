@@ -738,7 +738,7 @@ export default function TenderDetailPage({ params }: PageParams) {
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                       isTracked
                         ? 'btn-secondary'
-                        : 'bg-primary text-white hover:bg-primaryDark'
+                        : 'bg-primary text-onPrimary hover:bg-primaryDark'
                     }`}
                   >
                     {creatingPost ? (

@@ -316,7 +316,7 @@ export default function OnboardingPage() {
                             onClick={() => toggleRubro(rubro)}
                             className={`rounded-full px-3 py-1 text-xs font-medium transition-colors border ${
                               selected
-                                ? 'bg-primary text-white border-primary'
+                                ? 'bg-primary text-onPrimary border-primary'
                                 : 'border-border text-muted hover:border-primary/40 hover:text-primary'
                             }`}
                           >

@@ -69,9 +69,9 @@ const SCORE_EXAMPLES: ScoreExample[] = [
 ];
 
 function scoreColor(score: number): string {
-  if (score >= 70) return '#00C896';
-  if (score >= 40) return '#F59E0B';
-  return '#F85149';
+  if (score >= 70) return '#3DB9BB';
+  if (score >= 40) return '#96590A';
+  return '#B91C1C';
 }
 
 export function MockupScore() {
@@ -90,16 +90,16 @@ export function MockupScore() {
       <BrowserChrome url="tordo.cl/dashboard/bi">
         <div key={activeIndex} className="animate-fade-in">
           {/* Header: licitación title */}
-          <p className="text-[11px] font-semibold text-[#E2E8F0] mb-0.5 truncate">
+          <p className="text-[11px] font-semibold text-[#DCE3ED] mb-0.5 truncate">
             {ex.licitacion}
           </p>
           {/* Meta-info */}
-          <div className="flex items-center gap-2 text-[8px] text-[#94A3B8] mb-3">
+          <div className="flex items-center gap-2 text-[8px] text-[#5F7089] mb-3">
             <span className="truncate">{ex.comprador}</span>
             <span>·</span>
             <span>{ex.monto}</span>
             <span>·</span>
-            <span className="text-[#F59E0B]">Cierra en {ex.diasCierre}d</span>
+            <span className="text-[#96590A]">Cierra en {ex.diasCierre}d</span>
           </div>
 
           {/* Score XL + verdict */}
@@ -119,7 +119,7 @@ export function MockupScore() {
               </span>
             </div>
             <div>
-              <p className="text-[8px] text-[#94A3B8] uppercase tracking-wider">Score</p>
+              <p className="text-[8px] text-[#5F7089] uppercase tracking-wider">Score</p>
               <p
                 className="text-sm font-bold"
                 style={{ color, fontFamily: 'var(--font-outfit, system-ui)' }}
@@ -133,10 +133,10 @@ export function MockupScore() {
           <div className="space-y-2 mb-3">
             {ex.components.map((comp) => (
               <div key={comp.label} className="flex items-center gap-2">
-                <span className="w-[120px] flex-shrink-0 text-[9px] text-[#94A3B8] truncate">
+                <span className="w-[120px] flex-shrink-0 text-[9px] text-[#5F7089] truncate">
                   {comp.label}
                 </span>
-                <div className="flex-1 h-1.5 bg-[#1A1F2C] rounded-full overflow-hidden">
+                <div className="flex-1 h-1.5 bg-[#1E2736] rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full"
                     style={{
@@ -156,8 +156,8 @@ export function MockupScore() {
           </div>
 
           {/* Insight */}
-          <div className="rounded-lg bg-[#0F1117] border border-[#1A1F2C] px-3 py-2">
-            <p className="text-[10px] text-[#E2E8F0]">💡 {ex.insight}</p>
+          <div className="rounded-lg bg-[#0E131C] border border-[#1E2736] px-3 py-2">
+            <p className="text-[10px] text-[#DCE3ED]">💡 {ex.insight}</p>
           </div>
         </div>
       </BrowserChrome>
@@ -175,8 +175,8 @@ export function MockupScore() {
             aria-selected={i === activeIndex}
             aria-label={`Ejemplo ${i + 1}: ${SCORE_EXAMPLES[i].licitacion}`}
             onClick={() => setActiveIndex(i)}
-            className={`h-1.5 rounded-full transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0EAD69] ${
-              i === activeIndex ? 'w-4 bg-[#0EAD69]' : 'w-1.5 bg-[#94A3B8]/40 hover:bg-[#94A3B8]'
+            className={`h-1.5 rounded-full transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0E7C7F] ${
+              i === activeIndex ? 'w-4 bg-[#0E7C7F]' : 'w-1.5 bg-[#5F7089]/40 hover:bg-[#5F7089]'
             }`}
           />
         ))}
@@ -188,17 +188,17 @@ export function MockupScore() {
           onClick={() =>
             setActiveIndex((activeIndex - 1 + SCORE_EXAMPLES.length) % SCORE_EXAMPLES.length)
           }
-          className="text-[#94A3B8] hover:text-[#E2E8F0] px-2 py-1 text-lg leading-none"
+          className="text-[#5F7089] hover:text-[#DCE3ED] px-2 py-1 text-lg leading-none"
           aria-label="Ejemplo anterior"
         >
           ‹
         </button>
-        <span className="text-[10px] text-[#94A3B8]">
+        <span className="text-[10px] text-[#5F7089]">
           {activeIndex + 1} / {SCORE_EXAMPLES.length}
         </span>
         <button
           onClick={() => setActiveIndex((activeIndex + 1) % SCORE_EXAMPLES.length)}
-          className="text-[#94A3B8] hover:text-[#E2E8F0] px-2 py-1 text-lg leading-none"
+          className="text-[#5F7089] hover:text-[#DCE3ED] px-2 py-1 text-lg leading-none"
           aria-label="Siguiente ejemplo"
         >
           ›

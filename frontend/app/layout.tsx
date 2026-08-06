@@ -22,6 +22,8 @@ const dmSans = DM_Sans({
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
 
 export const metadata: Metadata = {
+  // Sin metadataBase, Next no puede resolver las URLs relativas de openGraph.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://tordo.cl'),
   title: {
     default: APP_NAME,
     template: `%s · ${APP_NAME}`,

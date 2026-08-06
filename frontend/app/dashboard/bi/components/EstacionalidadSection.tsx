@@ -190,15 +190,15 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
           <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
             <defs>
               <linearGradient id="bandGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3B5BDB" stopOpacity={0.15} />
-                <stop offset="95%" stopColor="#3B5BDB" stopOpacity={0.02} />
+                <stop offset="5%" stopColor="#102858" stopOpacity={0.15} />
+                <stop offset="95%" stopColor="#102858" stopOpacity={0.02} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-            <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#DCE3ED" />
+            <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#5F7089' }} />
             <YAxis
               tickFormatter={(v) => `${(v).toFixed(0)}%`}
-              tick={{ fontSize: 11, fill: '#94a3b8' }}
+              tick={{ fontSize: 11, fill: '#5F7089' }}
               domain={[0, 'auto']}
               width={70}
               label={{
@@ -206,7 +206,7 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
                 angle: -90,
                 position: 'insideLeft',
                 offset: 0,
-                style: { fontSize: 11, fill: '#64748b', textAnchor: 'middle' },
+                style: { fontSize: 11, fill: '#54637A', textAnchor: 'middle' },
               }}
             />
             <Tooltip content={<CustomTooltip />} />
@@ -231,13 +231,13 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
             <Area
               type="monotone"
               dataKey="probPct"
-              stroke="#3B5BDB"
+              stroke="#102858"
               strokeWidth={2}
               fill="none"
               dot={(props: any) => {
                 const d = props.payload;
                 if (!d.es_pico_estacional) {
-                  return <circle key={props.key} cx={props.cx} cy={props.cy} r={3} fill="#3B5BDB" opacity={0.5} />;
+                  return <circle key={props.key} cx={props.cx} cy={props.cy} r={3} fill="#102858" opacity={0.5} />;
                 }
                 return (
                   <circle
@@ -245,7 +245,7 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
                     cx={props.cx}
                     cy={props.cy}
                     r={6}
-                    fill="#00A87A"
+                    fill="#0E7C7F"
                     stroke="#ffffff"
                     strokeWidth={2}
                   />

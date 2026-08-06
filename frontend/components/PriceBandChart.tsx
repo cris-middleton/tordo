@@ -75,16 +75,16 @@ function ProductPriceSection({ p, isPro }: { p: PrecioFallback; isPro: boolean }
   // For non-Pro: show only P25/P50/P75; P10 and P90 are blurred with upgrade CTA
   const chartData = isPro
     ? [
-        { label: 'P10', value: p.p10, color: '#64748B' },
-        { label: 'P25', value: p.p25, color: '#94A3B8' },
-        { label: 'P50', value: p.p50, color: '#00C896' },
-        { label: 'P75', value: p.p75, color: '#94A3B8' },
-        { label: 'P90', value: p.p90, color: '#64748B' },
+        { label: 'P10', value: p.p10, color: '#54637A' },
+        { label: 'P25', value: p.p25, color: '#5F7089' },
+        { label: 'P50', value: p.p50, color: '#3DB9BB' },
+        { label: 'P75', value: p.p75, color: '#5F7089' },
+        { label: 'P90', value: p.p90, color: '#54637A' },
       ]
     : [
-        { label: 'P25', value: p.p25, color: '#94A3B8' },
-        { label: 'P50', value: p.p50, color: '#00C896' },
-        { label: 'P75', value: p.p75, color: '#94A3B8' },
+        { label: 'P25', value: p.p25, color: '#5F7089' },
+        { label: 'P50', value: p.p50, color: '#3DB9BB' },
+        { label: 'P75', value: p.p75, color: '#5F7089' },
       ];
 
   const nivelDesc = p.nivel_usado ? nivelLabel[p.nivel_usado] ?? p.nivel_usado : null;
@@ -102,14 +102,14 @@ function ProductPriceSection({ p, isPro }: { p: PrecioFallback; isPro: boolean }
           <BarChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
             <XAxis
               dataKey="label"
-              tick={{ fontSize: 11, fill: 'var(--color-muted, #94A3B8)' }}
+              tick={{ fontSize: 11, fill: 'var(--color-muted, #5F7089)' }}
               axisLine={false}
               tickLine={false}
             />
             <YAxis
               tickFormatter={(v) => fmtCLP(v)}
               width={80}
-              tick={{ fontSize: 10, fill: 'var(--color-muted, #94A3B8)' }}
+              tick={{ fontSize: 10, fill: 'var(--color-muted, #5F7089)' }}
               axisLine={false}
               tickLine={false}
             />
@@ -121,8 +121,8 @@ function ProductPriceSection({ p, isPro }: { p: PrecioFallback; isPro: boolean }
                 borderRadius: 6,
                 fontSize: 12,
               }}
-              labelStyle={{ color: 'var(--color-text, #F1F5F9)', fontWeight: 600 }}
-              itemStyle={{ color: 'var(--color-text, #F1F5F9)' }}
+              labelStyle={{ color: 'var(--color-text, #F1F4F9)', fontWeight: 600 }}
+              itemStyle={{ color: 'var(--color-text, #F1F4F9)' }}
             />
             <Bar dataKey="value" radius={[4, 4, 0, 0]}>
               {chartData.map((d, i) => (

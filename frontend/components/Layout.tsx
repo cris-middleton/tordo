@@ -134,7 +134,7 @@ export default function Layout({ children }: LayoutProps) {
           >
             <TordoLogo size={24} />
             <span
-              className="font-brand font-bold text-primary block transition-colors group-hover:text-primaryLight leading-none tracking-tight"
+              className="font-brand font-bold text-primary block transition-colors group-hover:text-accent leading-none tracking-tight"
               style={{ fontSize: '1.375rem' }}
             >
               Tordo
@@ -184,7 +184,7 @@ export default function Layout({ children }: LayoutProps) {
                         <span className="truncate">{item.name}</span>
                       </div>
                       {item.badge ? (
-                        <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-gold px-1.5 py-0.5 text-[10px] font-bold text-white">
+                        <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-gold px-1.5 py-0.5 text-[10px] font-bold text-onGold">
                           <Star size={9} />
                           {item.badge}
                         </span>
@@ -239,7 +239,7 @@ export default function Layout({ children }: LayoutProps) {
           <div className="flex items-center gap-3 mb-3">
             <button
               onClick={() => navigate('/dashboard/empresa')}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-white text-sm font-medium hover:ring-2 hover:ring-primary/40 hover:ring-offset-1 hover:ring-offset-background transition-all"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-onPrimary text-sm font-medium hover:ring-2 hover:ring-primary/40 hover:ring-offset-1 hover:ring-offset-background transition-all"
               title="Mi perfil"
             >
               {avatar ? <span className="text-xl leading-none">{avatar}</span> : initials}

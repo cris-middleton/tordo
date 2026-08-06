@@ -30,31 +30,31 @@ const CustomTooltip = ({ active, payload }: any) => {
   );
 };
 
-export function TrendChart({ data, color = '#00A87A' }: TrendChartProps) {
+export function TrendChart({ data, color = '#0E7C7F' }: TrendChartProps) {
   if (!data || data.length < 2) return null;
 
   return (
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={data} margin={{ top: 8, right: 24, left: 8, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="#DCE3ED" vertical={false} />
         <XAxis
           dataKey="anio"
           type="category"
-          tick={{ fontSize: 11, fill: '#94a3b8' }}
+          tick={{ fontSize: 11, fill: '#5F7089' }}
           tickLine={false}
-          axisLine={{ stroke: '#e2e8f0' }}
+          axisLine={{ stroke: '#DCE3ED' }}
           interval={0}
           padding={{ left: 8, right: 8 }}
         />
         <YAxis
-          tick={{ fontSize: 10, fill: '#94a3b8' }}
+          tick={{ fontSize: 10, fill: '#5F7089' }}
           tickFormatter={(v) => formatCLPShort(v)}
           tickLine={false}
           axisLine={false}
           width={60}
           tickCount={3}
         />
-        <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3', stroke: '#cbd5e1' }} />
+        <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3', stroke: '#C4D0E0' }} />
         <Line
           type="monotone"
           dataKey="monto_total"

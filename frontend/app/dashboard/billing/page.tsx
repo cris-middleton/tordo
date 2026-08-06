@@ -181,11 +181,14 @@ export default function BillingPage() {
           </div>
         )}
 
-        {/* Pro card */}
+        {/* Pro card — superficie siempre-oscura: la clase `dark` invierte los
+            tokens dentro de la tarjeta, así el teal y el dorado se aclaran
+            solos sobre el navy. `bg-primary` no sirve acá: en tema oscuro
+            primary se alza y la tarjeta, que asume texto blanco, se rompía. */}
         {proPlan && (
-          <div className="relative flex flex-col rounded-xl border border-primary bg-primary p-6 text-white shadow-xl">
+          <div className="dark relative flex flex-col rounded-xl border border-brand-navy bg-brand-navy p-6 text-white shadow-xl">
             <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-              <span className="inline-flex items-center gap-1 rounded-full bg-gold px-3 py-1 text-[11px] font-bold text-white">
+              <span className="inline-flex items-center gap-1 rounded-full bg-gold px-3 py-1 text-[11px] font-bold text-onGold">
                 <Star size={10} /> Más elegido
               </span>
             </div>
@@ -199,7 +202,7 @@ export default function BillingPage() {
                 type="button"
                 onClick={() => setBillingPeriod('monthly')}
                 className={`rounded-md px-3 py-1.5 transition-all ${
-                  billingPeriod === 'monthly' ? 'bg-white text-primary' : 'text-white/70 hover:text-white'
+                  billingPeriod === 'monthly' ? 'bg-white text-brand-navy' : 'text-white/70 hover:text-white'
                 }`}
               >
                 Mensual
@@ -208,7 +211,7 @@ export default function BillingPage() {
                 type="button"
                 onClick={() => setBillingPeriod('annual')}
                 className={`rounded-md px-3 py-1.5 transition-all ${
-                  billingPeriod === 'annual' ? 'bg-white text-primary' : 'text-white/70 hover:text-white'
+                  billingPeriod === 'annual' ? 'bg-white text-brand-navy' : 'text-white/70 hover:text-white'
                 }`}
               >
                 Anual <span className="ml-1 text-[10px] text-accent">−17%</span>
@@ -239,7 +242,7 @@ export default function BillingPage() {
             <button
               onClick={handleCheckout}
               disabled={checkoutLoading || !billingStatus?.billing_enabled}
-              className="mt-6 inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-bold text-white hover:bg-accent/90 disabled:opacity-60"
+              className="mt-6 inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-bold text-onAccent hover:bg-accent/90 disabled:opacity-60"
             >
               {checkoutLoading ? <Loader2 className="animate-spin" size={14} /> : null}
               {status === 'active' ? 'Ya tienes Pro' : 'Activar Pro'}
