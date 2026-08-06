@@ -218,7 +218,7 @@ export function BICard({ codigoExterno, empresaId, plan = 'basico' }: BICardProp
                     {data.precios.slice(0, 2).map((p, i) => (
                       <div key={i} className="flex items-center justify-between text-xs">
                         <span className="text-muted truncate max-w-[80px]">{p.codigo_producto ?? `Ítem ${i + 1}`}</span>
-                        <span className="font-medium text-text">
+                        <span className="cifra font-medium text-text">
                           {p.p50 != null ? `$${p.p50.toLocaleString('es-CL')}` : '—'}
                         </span>
                       </div>

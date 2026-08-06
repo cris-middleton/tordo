@@ -221,11 +221,11 @@ export function CompetenciaSection({
                 <tbody>
                   {competidores.map((c, i) => (
                     <tr key={c.CodigoProveedor} className="border-b border-border last:border-0 hover:bg-primary/5">
-                      <td className="px-4 py-2.5 text-muted text-xs">{i + 1}</td>
+                      <td className="cifra px-4 py-2.5 text-muted text-xs">{i + 1}</td>
                       <td className="px-4 py-2.5 font-medium text-text">{c.NombreProveedor}</td>
-                      <td className="px-4 py-2.5">{c.market_share_pct.toFixed(1)}%</td>
-                      <td className="px-4 py-2.5">{c.win_rate_pct.toFixed(1)}%</td>
-                      <td className="px-4 py-2.5 text-muted">{c.n_oc.toLocaleString('es-CL')}</td>
+                      <td className="cifra px-4 py-2.5">{c.market_share_pct.toFixed(1)}%</td>
+                      <td className="cifra px-4 py-2.5">{c.win_rate_pct.toFixed(1)}%</td>
+                      <td className="cifra px-4 py-2.5 text-muted">{c.n_oc.toLocaleString('es-CL')}</td>
                     </tr>
                   ))}
                 </tbody>

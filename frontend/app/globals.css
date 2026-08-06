@@ -422,6 +422,15 @@
     font-feature-settings: "tnum";
   }
 
+  /* Los ticks de eje de Recharts son, por definición, una columna de valores
+     alineados: van con las mismas cifras tabulares que `.cifra`. Es una regla
+     global a propósito — aplica a todo gráfico, presente y futuro. */
+  .recharts-cartesian-axis-tick text {
+    font-family: var(--font-display), system-ui, sans-serif;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
   /* ──────────────────────────────────────────────
      SCROLLBAR
   ────────────────────────────────────────────── */
