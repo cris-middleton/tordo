@@ -243,7 +243,7 @@ export default function LandingClient() {
           <div className="relative mx-auto max-w-6xl">
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-12 lg:gap-8 items-center">
               <div className="lg:col-span-3">
-                <h1 className="mb-6 text-3xl font-bold leading-[1.15] text-white sm:text-5xl xl:text-[3.5rem]" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>
+                <h1 className="mb-6 text-3xl font-bold leading-[1.15] text-white sm:text-5xl xl:text-[3.5rem]" style={{ fontFamily: 'var(--font-display, system-ui)' }}>
                   <span className="block">Postula con ventaja</span>
                   <span className="block">en licitaciones de</span>
                   <span className="block" style={{ minHeight: '1.1em' }}>
@@ -298,7 +298,7 @@ export default function LandingClient() {
               <p className="mb-3 text-xs font-bold uppercase tracking-widest text-accent">
                 QUÉ HACE TORDO
               </p>
-              <h2 className="text-3xl font-bold text-text sm:text-4xl" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>
+              <h2 className="text-3xl font-bold text-text sm:text-4xl" style={{ fontFamily: 'var(--font-display, system-ui)' }}>
                 Inteligencia para decidir. Orden para postular.
               </h2>
               <p className="mt-4 max-w-2xl mx-auto text-muted leading-relaxed">
@@ -310,7 +310,7 @@ export default function LandingClient() {
               <div className="lg:pr-10 lg:border-r lg:border-border">
                 <div className="mb-6">
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-accent mb-1">ANTES DE POSTULAR</p>
-                  <h3 className="text-xl font-bold text-text" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>
+                  <h3 className="text-xl font-bold text-text" style={{ fontFamily: 'var(--font-display, system-ui)' }}>
                     Entiende si conviene
                   </h3>
                 </div>
@@ -327,7 +327,7 @@ export default function LandingClient() {
                           <Icon className="h-4 w-4 text-primary group-hover:text-accent transition-colors" />
                         </div>
                         <div>
-                          <h4 className="text-sm font-bold text-text" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>{item.title}</h4>
+                          <h4 className="text-sm font-bold text-text" style={{ fontFamily: 'var(--font-display, system-ui)' }}>{item.title}</h4>
                           <p className="text-sm text-muted leading-relaxed">{item.desc}</p>
                         </div>
                       </div>
@@ -339,7 +339,7 @@ export default function LandingClient() {
               <div className="lg:pl-10">
                 <div className="mb-6">
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-accent mb-1">AL POSTULAR</p>
-                  <h3 className="text-xl font-bold text-text" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>
+                  <h3 className="text-xl font-bold text-text" style={{ fontFamily: 'var(--font-display, system-ui)' }}>
                     No pierdas por forma
                   </h3>
                 </div>
@@ -356,7 +356,7 @@ export default function LandingClient() {
                           <Icon className="h-4 w-4 text-primary group-hover:text-accent transition-colors" />
                         </div>
                         <div>
-                          <h4 className="text-sm font-bold text-text" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>{item.title}</h4>
+                          <h4 className="text-sm font-bold text-text" style={{ fontFamily: 'var(--font-display, system-ui)' }}>{item.title}</h4>
                           <p className="text-sm text-muted leading-relaxed">{item.desc}</p>
                         </div>
                       </div>
@@ -373,7 +373,7 @@ export default function LandingClient() {
           <div className="mx-auto max-w-5xl">
             <div className="mb-12 text-center">
               <p className="mb-3 text-xs font-bold uppercase tracking-widest text-accent">EL PRODUCTO</p>
-              <h2 className="text-3xl font-bold text-text sm:text-4xl" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>
+              <h2 className="text-3xl font-bold text-text sm:text-4xl" style={{ fontFamily: 'var(--font-display, system-ui)' }}>
                 Así se ve tomar mejores decisiones
               </h2>
             </div>
@@ -430,7 +430,7 @@ export default function LandingClient() {
           <div className="mx-auto max-w-5xl">
             <div className="mb-12 text-center">
               <p className="mb-3 text-xs font-bold uppercase tracking-widest text-accent">CÓMO EMPEZAR</p>
-              <h2 className="text-3xl font-bold text-text sm:text-4xl" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>
+              <h2 className="text-3xl font-bold text-text sm:text-4xl" style={{ fontFamily: 'var(--font-display, system-ui)' }}>
                 Tu primera licitación analizada en minutos
               </h2>
             </div>
@@ -443,10 +443,10 @@ export default function LandingClient() {
                 { step: '03', title: 'Postula informado', desc: 'Revisa precios históricos, competidores y prepara tu documentación con el checklist.' },
               ].map((s) => (
                 <div key={s.step} className="relative">
-                  <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-white font-bold text-lg relative z-10" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>
+                  <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-white font-bold text-lg relative z-10" style={{ fontFamily: 'var(--font-display, system-ui)' }}>
                     {s.step}
                   </div>
-                  <h3 className="mb-2 text-xl font-bold text-text" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>{s.title}</h3>
+                  <h3 className="mb-2 text-xl font-bold text-text" style={{ fontFamily: 'var(--font-display, system-ui)' }}>{s.title}</h3>
                   <p className="text-sm text-muted leading-relaxed">{s.desc}</p>
                 </div>
               ))}
@@ -476,7 +476,7 @@ export default function LandingClient() {
                 { value: '97K', label: 'proveedores perfilados' },
               ].map((item) => (
                 <div key={item.value} className="text-center">
-                  <p className="text-3xl font-bold text-primary sm:text-4xl lg:text-5xl tabular-nums" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>{item.value}</p>
+                  <p className="cifra text-3xl font-bold text-primary sm:text-4xl lg:text-5xl">{item.value}</p>
                   <p className="mt-2 text-sm text-muted leading-snug">{item.label}</p>
                 </div>
               ))}
@@ -489,7 +489,7 @@ export default function LandingClient() {
           <div className="mx-auto max-w-5xl">
             <div className="mb-12 text-center">
               <p className="mb-3 text-xs font-bold uppercase tracking-widest text-accent">PLANES</p>
-              <h2 className="text-3xl font-bold text-text sm:text-4xl" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>
+              <h2 className="text-3xl font-bold text-text sm:text-4xl" style={{ fontFamily: 'var(--font-display, system-ui)' }}>
                 Empieza gratis. Crece cuando quieras.
               </h2>
               <p className="mt-4 text-muted">
@@ -501,11 +501,11 @@ export default function LandingClient() {
               {/* Free card */}
               <div className="relative flex flex-col rounded-xl border border-border bg-surface p-6 shadow-sm transition-all hover:shadow-md hover:border-primary/25">
                 <div className="mb-4">
-                  <h3 className="text-lg font-bold mb-1 text-text" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>{FREE_PLAN.name}</h3>
+                  <h3 className="text-lg font-bold mb-1 text-text" style={{ fontFamily: 'var(--font-display, system-ui)' }}>{FREE_PLAN.name}</h3>
                   <p className="text-xs text-muted">{FREE_PLAN.description}</p>
                 </div>
                 <div className="mb-1">
-                  <span className="font-bold text-3xl text-text" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>$0</span>
+                  <span className="font-bold text-3xl text-text" style={{ fontFamily: 'var(--font-display, system-ui)' }}>$0</span>
                 </div>
                 <div className="mb-4 h-4" />
                 <ul className="mb-6 flex-1 space-y-2.5">
@@ -531,7 +531,7 @@ export default function LandingClient() {
                 </div>
 
                 <div className="mb-4">
-                  <h3 className="text-lg font-bold mb-1 text-white" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>{PRO_PLAN.name}</h3>
+                  <h3 className="text-lg font-bold mb-1 text-white" style={{ fontFamily: 'var(--font-display, system-ui)' }}>{PRO_PLAN.name}</h3>
                   <p className="text-xs text-white/60">{PRO_PLAN.description}</p>
                 </div>
 
@@ -558,7 +558,7 @@ export default function LandingClient() {
                 </div>
 
                 <div className="mb-1">
-                  <span className="font-bold text-3xl text-white" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>
+                  <span className="font-bold text-3xl text-white" style={{ fontFamily: 'var(--font-display, system-ui)' }}>
                     {PRO_PLAN[billingPeriod].price}
                   </span>
                   <span className="text-sm text-white/60">{PRO_PLAN[billingPeriod].period}</span>
@@ -597,7 +597,7 @@ export default function LandingClient() {
         <section id="faq" className="bg-band3 px-6 py-16 sm:py-20">
           <div className="mx-auto max-w-2xl">
             <div className="mb-12 text-center">
-              <h2 className="text-3xl font-bold text-text sm:text-4xl" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>
+              <h2 className="text-3xl font-bold text-text sm:text-4xl" style={{ fontFamily: 'var(--font-display, system-ui)' }}>
                 Preguntas frecuentes
               </h2>
             </div>
@@ -639,7 +639,7 @@ export default function LandingClient() {
             <div className="mb-6 flex justify-center">
               <TordoLogo size={40} variant="blanco" />
             </div>
-            <h2 className="mb-4 text-3xl font-bold text-white sm:text-4xl" style={{ fontFamily: 'var(--font-outfit, system-ui)' }}>
+            <h2 className="mb-4 text-3xl font-bold text-white sm:text-4xl" style={{ fontFamily: 'var(--font-display, system-ui)' }}>
               Tu próxima licitación, con mejor información
             </h2>
             <p className="mb-8 text-white/65 leading-relaxed">

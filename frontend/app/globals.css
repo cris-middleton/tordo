@@ -404,6 +404,25 @@
   }
 
   /* ──────────────────────────────────────────────
+     CIFRAS QUE SE COMPARAN EN COLUMNA
+     montos en CLP, percentiles, contadores, montos de OC
+
+     No es decorativo. DM Sans no trae cifras tabulares: medido a 24px, seis
+     "1" ocupan 42px y seis "0" ocupan 96px, y `font-variant-numeric` no le
+     hace nada porque la fuente no tiene el feature. En una tabla de
+     adjudicaciones eso hace que la columna de montos baile y deja de poder
+     leerse de un vistazo — que es justo lo que el producto vende.
+
+     Archivo sí las trae (84px vs 84px con `tnum`), así que las cifras que se
+     comparan van en la familia display, no en la de cuerpo.
+  ────────────────────────────────────────────── */
+  .cifra {
+    font-family: var(--font-display), system-ui, sans-serif;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* ──────────────────────────────────────────────
      SCROLLBAR
   ────────────────────────────────────────────── */
   .scrollbar-thin {

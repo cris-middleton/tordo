@@ -1,15 +1,19 @@
 import React from 'react';
 import type { Metadata } from 'next';
-import { Outfit, DM_Sans } from 'next/font/google';
+import { Archivo, DM_Sans } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { Providers } from './providers';
 
-const outfit = Outfit({
+// Archivo en vez de Outfit: es una grotesca institucional, estructuralmente
+// distinta de DM Sans (geométrica-humanista), así que por primera vez hay
+// contraste real entre display y cuerpo. Y —lo que decidió la elección—
+// trae cifras tabulares, que DM Sans no tiene. Ver `.cifra` en globals.css.
+const display = Archivo({
   subsets: ['latin'],
-  variable: '--font-outfit',
+  variable: '--font-display',
   display: 'swap',
-  weight: ['400', '500', '600', '700', '800'],
+  weight: ['400', '500', '600', '700'],
 });
 
 const dmSans = DM_Sans({
@@ -46,7 +50,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es" className={`${outfit.variable} ${dmSans.variable}`} suppressHydrationWarning>
+    <html lang="es" className={`${display.variable} ${dmSans.variable}`} suppressHydrationWarning>
       <body className="font-sans bg-background text-text">
         <Providers>
           <AuthProvider>{children}</AuthProvider>
