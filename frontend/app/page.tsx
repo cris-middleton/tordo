@@ -39,20 +39,20 @@ export const metadata: Metadata = {
     description: DESCRIPTION,
     images: [
       {
-        // Pendiente: una imagen 1200×630 propia. Esta es cuadrada, así que la
-        // tarjeta se muestra en formato `summary`, no `summary_large_image`.
-        url: '/web-app-manifest-512x512.png',
-        width: 512,
-        height: 512,
-        alt: APP_NAME,
+        url: '/og.png',
+        width: 1200,
+        height: 630,
+        alt: `${APP_NAME} — inteligencia de precios y plazos para Mercado Público`,
       },
     ],
   },
   twitter: {
-    card: 'summary',
+    // `summary_large_image` necesita una imagen 1200×630; con el ícono
+    // cuadrado que había antes, la tarjeta caía al formato chico.
+    card: 'summary_large_image',
     title: TITLE,
     description: DESCRIPTION,
-    images: ['/web-app-manifest-512x512.png'],
+    images: ['/og.png'],
   },
 };
 
