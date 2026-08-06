@@ -52,12 +52,31 @@ correr() {
 limpiar() { docker rm -f "$CONTENEDOR" >/dev/null 2>&1 || true; }
 trap limpiar EXIT
 
+# `docker rm -f` devuelve antes de que el nombre quede libre, y el `docker run`
+# siguiente fallaba con "name already in use". Una carrera que aparecía sólo al
+# encadenar dos corridas.
+esperar_nombre_libre() {
+  for _ in $(seq 1 30); do
+    docker container inspect "$CONTENEDOR" >/dev/null 2>&1 || return 0
+    sleep 1
+  done
+  printf "%sEl contenedor %s no terminó de eliminarse%s\n" "$rojo" "$CONTENEDOR" "$fin"
+  exit 1
+}
+
 # ── Postgres efímero ─────────────────────────────────────────────────────────
 paso "Levantando Postgres de test (puerto $PUERTO)"
 limpiar
+esperar_nombre_libre
+# Sin `|| exit` el fallo de docker se perdía y el mensaje era "Postgres no
+# arrancó", que no dice nada de la causa real.
 docker run -d --name "$CONTENEDOR" \
   -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=tordo_test \
-  -p "${PUERTO}:5432" postgres:15-alpine >/dev/null
+  -p "${PUERTO}:5432" postgres:15-alpine >/dev/null || {
+    printf "%sNo se pudo crear el contenedor de Postgres (ver el error de docker arriba)%s\n" \
+      "$rojo" "$fin"
+    exit 1
+  }
 
 for _ in $(seq 1 40); do
   docker exec "$CONTENEDOR" pg_isready -U postgres >/dev/null 2>&1 && break

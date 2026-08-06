@@ -33,6 +33,15 @@ interface BillingStatus {
   tiene_portal_de_gestion: boolean;
 }
 
+// Mismos tiers que app/core/plan_limits.py. Antes se colapsaba todo lo que no
+// fuera 'pro' en "Free", así que una empresa PYME o Enterprise se veía como Free.
+const TIER_LABELS: Record<string, string> = {
+  basico: 'Free',
+  pyme: 'PYME',
+  pro: 'Pro',
+  enterprise: 'Enterprise',
+};
+
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   active:   { label: 'Activa', color: 'text-accent bg-accent/10' },
   trialing: { label: 'Prueba gratuita', color: 'text-info bg-info/10' },
@@ -111,7 +120,7 @@ export default function BillingPage() {
     );
   }
 
-  const freePlan = plans.find((p) => p.id === 'free');
+  const freePlan = plans.find((p) => p.id === 'basico');
   const proPlan = plans.find((p) => p.id === 'pro');
   const status = billingStatus?.subscription_status ?? 'inactive';
   const statusBadge = STATUS_LABELS[status] ?? STATUS_LABELS.inactive;
@@ -126,7 +135,7 @@ export default function BillingPage() {
               Tu suscripción
             </p>
             <p className="mt-1 text-lg font-bold text-text">
-              Plan {billingStatus?.plan_tier === 'pro' ? 'Pro' : 'Free'}
+              Plan {TIER_LABELS[billingStatus?.plan_tier ?? ''] ?? 'Free'}
             </p>
           </div>
           <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${statusBadge.color}`}>

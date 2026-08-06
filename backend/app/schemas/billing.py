@@ -6,10 +6,14 @@ from pydantic import BaseModel
 
 
 class Plan(BaseModel):
+    # El id es el `plan_tier` que se guarda en la empresa y contra el que resuelve
+    # el gating: basico | pyme | pro | enterprise. `nombre` es lo que se muestra,
+    # y puede diferir ("Free" para basico).
     id: str
     nombre: str
     descripcion: str
     features: list[str]
+    max_usuarios: int | None = None  # None = sin tope
     precio_mensual_clp: int | None = None
     precio_anual_mensualizado_clp: int | None = None  # monthly-equivalent of the annual plan
     precio_anual_total_clp: int | None = None  # one-time annual charge amount

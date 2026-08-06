@@ -69,6 +69,18 @@ def meets_min_tier(user_tier: str, required_tier: str) -> bool:
 
 
 # ── Quota table ───────────────────────────────────────────────────────────────
+#
+# `max_usuarios` son ASIENTOS. La suscripción es de la empresa y los planes se
+# diferencian por capacidades, no por asiento (ADR 0002): por eso el número vive
+# aquí, junto al resto de límites del plan, y no en un precio por usuario.
+#
+# Sin este límite, una empresa podía sumar usuarios sin tope sobre un plan de
+# CLP 11.900/mes — vender por empresa y no contar asientos es regalar el producto.
+#
+# Los números son una decisión de producto, y cambiarlos es editar esta tabla.
+# `basico` tiene 1 porque el asiento único ES la palanca de conversión: durante
+# el trial de 14 días `effective_plan_tier` devuelve "pro", así que el equipo
+# puede probarse completo antes de decidir.
 
 PLAN_QUOTAS: dict[str, dict[str, Any]] = {
     "basico": {
@@ -76,24 +88,28 @@ PLAN_QUOTAS: dict[str, dict[str, Any]] = {
         "max_docs_mb": 5,
         "bi_queries_per_day": 3,
         "max_active_alerts": 5,
+        "max_usuarios": 1,
     },
     "pyme": {
         "max_docs": 50,
         "max_docs_mb": 25,
         "bi_queries_per_day": 50,
         "max_active_alerts": _UNLIMITED,
+        "max_usuarios": 3,
     },
     "pro": {
         "max_docs": 200,
         "max_docs_mb": _UNLIMITED,
         "bi_queries_per_day": _UNLIMITED,
         "max_active_alerts": _UNLIMITED,
+        "max_usuarios": 5,
     },
     "enterprise": {
         "max_docs": _UNLIMITED,
         "max_docs_mb": _UNLIMITED,
         "bi_queries_per_day": _UNLIMITED,
         "max_active_alerts": _UNLIMITED,
+        "max_usuarios": _UNLIMITED,
     },
 }
 
@@ -170,6 +186,34 @@ def increment_bi_query(empresa_id) -> int:
     except Exception as exc:
         logger.warning("Redis unavailable (increment_bi_query): %s", exc)
         return 0
+
+
+def verificar_asiento_disponible(empresa, usuarios_actuales: int) -> None:
+    """Lanza 402 si la empresa ya agotó los asientos de su plan.
+
+    No se comprueba al *listar* ni al iniciar sesión, sólo al AÑADIR. Un
+    downgrade (o una cancelación, que deja la empresa en `basico`) puede dejar
+    más usuarios que asientos, y expulsar gente automáticamente por un impago
+    sería peor que el problema: se bloquea sumar más y ya.
+    """
+    tier = effective_plan_tier(empresa)
+    limite = get_quota(tier)["max_usuarios"]
+    if limite is _UNLIMITED or usuarios_actuales < limite:
+        return
+
+    label = _TIER_LABEL.get(tier, tier.title())
+    plural = "usuario" if limite == 1 else "usuarios"
+    raise HTTPException(
+        status_code=402,
+        detail=_quota_error(
+            "max_usuarios",
+            tier,
+            limite,
+            usuarios_actuales,
+            f"El plan {label} incluye {limite} {plural}. "
+            "Actualiza la suscripción para sumar más miembros al equipo.",
+        ),
+    )
 
 
 # ── FastAPI dependencies ──────────────────────────────────────────────────────

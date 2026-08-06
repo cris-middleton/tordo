@@ -611,19 +611,20 @@ F3/F4/F5 pueden solaparse.
 
 ### F3 — Tenancy, capas y contratos · 1–2 semanas
 
-- [ ] `api/v1/deps.py` con `empresa_ctx` / `require_rol`; eliminar los 12+ chequeos manuales
-- [ ] Test estructural: toda ruta de empresa declara la dependencia
+- [x] `api/deps.py` con `empresa_ctx` / `require_rol`; eliminados los chequeos manuales
+- [x] Test estructural: toda ruta de empresa declara la dependencia (detectó 2 rutas sin ella)
 - [x] Partir `bi_service.py` (1 476 líneas) en `services/bi/*` — 8 módulos por dominio, ninguno pasa de 332 líneas. Verificado con el golden master: 31/31, ni un resultado cambió.
-- [ ] Introducir `repositories/` y sacar SQLAlchemy de los routers
+- [~] `repositories/` introducido (analytics, sync y async); **falta sacar SQLAlchemy del resto
+      de los routers** — es lo único de F3 que sigue abierto junto al versionado
 - [ ] Versionado `/api/v1/`; documentar la decisión de envelope
 - [ ] **Suscripción por empresa** (decisión 2 — la pieza más grande de esta fase):
-  - [ ] Mover `plan_tier`, `subscription_status`, `stripe_customer_id`, `stripe_subscription_id`, `trial_*` de `User` a la entidad de cuenta/empresa
-  - [ ] Usuarios pasan a ser asientos; definir límite de asientos por plan
-  - [ ] `require_plan` y `check_bi_quota_dep` resuelven contra la empresa activa, no contra el usuario
-  - [ ] Cuotas de BI y de alertas contabilizadas por empresa en Redis
+  - [x] Mover `plan_tier`, `subscription_status`, `billing_*`, `trial_*` de `User` a la empresa
+  - [x] Usuarios pasan a ser asientos; límite por plan en `PLAN_QUOTAS.max_usuarios` (1/3/5/∞)
+  - [x] `require_plan` y `check_bi_quota_dep` resuelven contra la empresa activa
+  - [x] Cuotas de BI contabilizadas por empresa en Redis
   - [ ] Migración de datos de los usuarios existentes a su empresa owner
-- [ ] Puerto `BillingProvider` en `domain/`, Stripe como adaptador en `infra/` (decisión 5 — **v1**)
-- [ ] Adaptador de pasarela local (Transbank / Flow / Khipu), en el mismo bloque
+- [x] Puerto `ProveedorDePago` en `domain/`, Stripe como adaptador en `infra/`
+- [x] Adaptador de pasarela local: **MercadoPago** (ADR 0008). Sin probar aún contra la API real.
 
 ### F4 — Modelo de datos para el alcance objetivo · 1–2 semanas
 

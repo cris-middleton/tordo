@@ -3,10 +3,11 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import EmpresaContext, empresa_ctx, require_rol
+from app.core.plan_limits import verificar_asiento_disponible
 from app.core.security import get_current_active_user
 from app.db import SyncSessionLocal, get_db
 from app.models.empresa import Empresa, EmpresaUsuario
@@ -247,6 +248,19 @@ async def agregar_miembro(
     ).scalar_one_or_none()
     if existing:
         raise HTTPException(status_code=409, detail="Este usuario ya es miembro")
+
+    # Los asientos son una capacidad del plan (ADR 0002). Se comprueba DESPUÉS de
+    # descartar que ya sea miembro: reañadir a alguien que ya está dentro no
+    # consume un asiento nuevo, y devolver 402 ahí confundiría.
+    empresa = await db.get(Empresa, ctx.empresa_id)
+    usuarios_actuales = (
+        await db.execute(
+            select(func.count())
+            .select_from(EmpresaUsuario)
+            .where(EmpresaUsuario.empresa_id == ctx.empresa_id)
+        )
+    ).scalar_one()
+    verificar_asiento_disponible(empresa, usuarios_actuales)
 
     db.add(EmpresaUsuario(empresa_id=ctx.empresa_id, user_id=target.id, rol=payload.rol))
     await db.commit()

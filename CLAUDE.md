@@ -250,6 +250,10 @@ al backend vía `NEXT_PUBLIC_API_URL`.
 - **Auth**: JWT HS256 30 min (sin refresh token) + Google OAuth + roles empresa
   (owner/admin/viewer) + cuotas por plan.
 - **Alertas**: preferencias → AlertEngine → `INSERT ON CONFLICT` idempotente → multicanal.
+- **Planes**: el `id` del plan que devuelve `/api/billing/plans` **es** el `plan_tier` que se
+  guarda en la empresa (`basico | pyme | pro | enterprise`); `nombre` es sólo lo que se
+  muestra. Los límites — documentos, consultas BI, alertas y **asientos** — viven todos en
+  `PLAN_QUOTAS` (`core/plan_limits.py`), que es la única tabla que hay que editar.
 - **BI**: batch en Polars → tablas materializadas en `analytics.*` → consulta con filtros
   empujados a SQL → fallback jerárquico L1→L2→L3 con confianza y tamaño de muestra →
   gating por plan (de la empresa). Hay un golden master (`backend/tests/golden/`) que fija
@@ -270,11 +274,13 @@ estos patrones, es señal de que hay que arreglar la causa, no de copiarlo:
 - Búsqueda con `ILIKE '%término%'`, que ningún índice puede servir (F4).
 - ~~Suscripción y `plan_tier` colgando de `User`~~ — **resuelto en F3**: pertenecen a la empresa.
 - `subprocess.run` desde Celery hacia el ETL (F2).
-- **`conftest.py` mantiene a mano el DDL de 11 tablas en SQLite, y hay un tercer DDL en
-  `test_dashboard_tasks.py`.** Es la deuda que más veces ha mordido: columna `alert_metadata`
-  que en el modelo es `metadata`, archivos `.db` viejos que sombrean el esquema, timestamps
-  sin zona horaria, y cada columna nueva hay que añadirla a mano en dos sitios. **El arreglo
-  es usar el Postgres que CI ya provisiona** en vez de un esquema paralelo.
+- ~~`conftest.py` mantiene a mano el DDL de 11 tablas en SQLite~~ — **resuelto**: el esquema
+  lo crean las migraciones (`alembic upgrade head`) sobre Postgres real, y cada test corre
+  en una transacción que se revierte.
+- **El golden master de BI no corre en `make ci` ni en GitHub Actions**: necesita las tablas
+  de `analytics` materializadas, y ahí están vacías. Se salta en silencio. Hasta que se
+  resuelva, **un cambio a `services/bi/` sólo está verificado si corres el golden en local**
+  con los parquets materializados.
 - 56 hallazgos de ruff silenciados en `pyproject.toml` con su conteo y motivo (F3).
 
 ## Hacia dónde va

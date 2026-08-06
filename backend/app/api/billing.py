@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import empresa_facturable
+from app.core.plan_limits import get_quota
 from app.core.security import get_current_active_user
 from app.db import get_db
 from app.domain.billing import ErrorDeCobro
@@ -28,16 +29,21 @@ from app.schemas.billing import (
 router = APIRouter(prefix="/api/billing", tags=["billing"])
 
 PLANS: list[Plan] = [
+    # El id ES el plan_tier almacenado. Se llamaba "free" mientras la base
+    # guardaba "basico": el gating funcionaba de casualidad, porque un tier
+    # desconocido cae al índice 0, que resulta ser basico.
     Plan(
-        id="free",
+        id="basico",
         nombre="Free",
         descripcion="Para explorar sin compromiso.",
         features=[
             "Exploración de licitaciones",
             "3 alertas al mes",
             "Monitor de estado hábil",
+            "1 usuario",
             "Sin tarjeta de crédito",
         ],
+        max_usuarios=get_quota("basico")["max_usuarios"],
     ),
     Plan(
         id="pro",
@@ -51,7 +57,9 @@ PLANS: list[Plan] = [
             "Matching semántico",
             "Checklist por tipo de licitación",
             "Alertas de vencimiento de documentos",
+            "Hasta 5 usuarios en el equipo",
         ],
+        max_usuarios=get_quota("pro")["max_usuarios"],
         precio_mensual_clp=11900,
         precio_anual_mensualizado_clp=9900,
         precio_anual_total_clp=118800,
