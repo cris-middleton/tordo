@@ -333,7 +333,7 @@ export default function TendersPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text">Licitaciones</h1>
+          <h1 className="page-title">Licitaciones</h1>
           <p className="text-sm text-muted mt-0.5">Busca y explora licitaciones públicas</p>
         </div>
         <Link href="/dashboard/calendario" className="btn-secondary gap-2 text-sm hidden sm:inline-flex">

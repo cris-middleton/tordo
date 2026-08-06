@@ -263,7 +263,7 @@ export default function OrderDetailPage({ params }: PageParams) {
           <ArrowLeft className="h-4 w-4" />
           Volver
         </button>
-        <h1 className="text-2xl font-semibold text-text sm:text-3xl">
+        <h1 className="page-title">
           Detalle Orden de Compra
         </h1>
       </div>
@@ -532,5 +532,3 @@ export default function OrderDetailPage({ params }: PageParams) {
     </div>
   );
 }
-
-

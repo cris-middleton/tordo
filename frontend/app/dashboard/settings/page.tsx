@@ -123,7 +123,7 @@ export default function SettingsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-text">Configuración</h1>
+        <h1 className="page-title">Configuración</h1>
         <p className="text-sm text-muted mt-0.5">Perfil, apariencia y preferencias</p>
       </div>
 

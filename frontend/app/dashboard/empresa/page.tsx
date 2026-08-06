@@ -130,7 +130,7 @@ export default function EmpresaPage() {
     <div className="p-6 max-w-2xl mx-auto">
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-text mb-1">Mi Empresa</h1>
+          <h1 className="page-title mb-1">Mi Empresa</h1>
           <p className="text-sm text-muted">Gestiona el equipo de tu empresa</p>
         </div>
         <Link

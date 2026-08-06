@@ -232,7 +232,7 @@ export default function DocumentosPage() {
   if (empresas.length === 0) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-semibold text-text">Documentos</h1>
+        <h1 className="page-title">Documentos</h1>
         <div className="card flex flex-col items-center gap-3 py-12 text-center">
           <Building2 className="h-12 w-12 text-muted" />
           <p className="text-muted">No tienes ninguna empresa registrada.</p>
@@ -248,7 +248,7 @@ export default function DocumentosPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold text-text sm:text-3xl">Documentos</h1>
+          <h1 className="page-title">Documentos</h1>
           {estadoHabil && (
             <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${
               estadoHabil === 'habil'

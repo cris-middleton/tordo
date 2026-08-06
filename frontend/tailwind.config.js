@@ -62,7 +62,6 @@ module.exports = {
         'slide-up': 'slideUp 0.4s ease-out both',
         'slide-in-left': 'slideInLeft 0.3s ease-out both',
         'scale-in': 'scaleIn 0.25s ease-out both',
-        'pulse-subtle': 'pulseSubtle 2s ease-in-out infinite',
       },
       keyframes: {
         fadeIn: {
@@ -80,10 +79,6 @@ module.exports = {
         scaleIn: {
           from: { opacity: '0', transform: 'scale(0.96)' },
           to: { opacity: '1', transform: 'scale(1)' },
-        },
-        pulseSubtle: {
-          '0%, 100%': { opacity: '1' },
-          '50%': { opacity: '0.7' },
         },
       },
     },

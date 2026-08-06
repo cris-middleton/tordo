@@ -431,7 +431,7 @@ export default function BIPage() {
   if (biEnabled === false) {
     return (
       <div className="space-y-4 p-4">
-        <h1 className="text-2xl font-semibold text-text flex items-center gap-2">
+        <h1 className="page-title flex items-center gap-2">
           <BarChart3 className="h-6 w-6 text-primary" />
           Inteligencia de Mercado
         </h1>
@@ -459,7 +459,7 @@ export default function BIPage() {
 
       <div className="flex-1 space-y-6 p-4 pb-12">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h1 className="text-2xl font-semibold text-text flex items-center gap-2">
+          <h1 className="page-title flex items-center gap-2">
             <BarChart3 className="h-6 w-6 text-primary" />
             Inteligencia de Mercado
           </h1>
