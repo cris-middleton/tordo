@@ -15,6 +15,7 @@ import {
   Sparkles,
   FileClock,
 } from 'lucide-react';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import { MockupPrecio } from '@/components/landing/MockupPrecio';
 import { MockupScore } from '@/components/landing/MockupScore';
 import { MockupMatching } from '@/components/landing/MockupMatching';
@@ -104,8 +105,10 @@ const PRO_PLAN = {
 function RotatingRubro() {
   const [index, setIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
+  const reducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
+    if (reducedMotion) return;
     const interval = setInterval(() => {
       setIsVisible(false);
       setTimeout(() => {
@@ -114,7 +117,7 @@ function RotatingRubro() {
       }, 300);
     }, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [reducedMotion]);
 
   return (
     <span
@@ -152,8 +155,10 @@ export default function LandingClient() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
 
+  const reducedMotion = usePrefersReducedMotion();
+
   useEffect(() => {
-    if (userClicked) return;
+    if (userClicked || reducedMotion) return;
     const interval = setInterval(() => {
       setActiveTab((prev) => {
         const idx = productTabs.findIndex((t) => t.id === prev);
@@ -161,7 +166,7 @@ export default function LandingClient() {
       });
     }, 5000);
     return () => clearInterval(interval);
-  }, [userClicked]);
+  }, [userClicked, reducedMotion]);
 
   const handleTabClick = useCallback((id: TabId) => {
     setActiveTab(id);
@@ -203,14 +208,20 @@ export default function LandingClient() {
             <Link href="/register" className="hidden sm:inline-flex rounded-lg bg-[#0E7C7F] px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-[#0A6265] hover:shadow-md">
               Probar Pro 14 días
             </Link>
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="rounded-lg p-2 text-[#54637A] hover:text-[#102858] md:hidden">
-              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="rounded-lg p-2 text-[#54637A] hover:text-[#102858] md:hidden"
+              aria-label={mobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
+              aria-expanded={mobileMenuOpen}
+              aria-controls="menu-movil"
+            >
+              {mobileMenuOpen ? <X className="h-5 w-5" aria-hidden="true" /> : <Menu className="h-5 w-5" aria-hidden="true" />}
             </button>
           </div>
         </div>
 
         {mobileMenuOpen && (
-          <div className="border-t border-[#DCE3ED] bg-white px-6 py-4 md:hidden">
+          <div id="menu-movil" className="border-t border-[#DCE3ED] bg-white px-6 py-4 md:hidden">
             <nav className="flex flex-col gap-3">
               {navItems.map((item) => (
                 <Link key={item.name} href={item.href} onClick={() => setMobileMenuOpen(false)} className="text-sm font-medium text-[#54637A] hover:text-[#102858]">{item.name}</Link>
@@ -236,7 +247,14 @@ export default function LandingClient() {
                   <span className="block">Postula con ventaja</span>
                   <span className="block">en licitaciones de</span>
                   <span className="block" style={{ minHeight: '1.1em' }}>
-                    <RotatingRubro />
+                    {/* El rubro rota cada 3 s. Sin esto, el encabezado principal
+                        que ven crawlers y lectores de pantalla era una frase
+                        incompleta con un rubro al azar de diez. El texto estable
+                        va al árbol de accesibilidad; la rotación es decorativa. */}
+                    <span className="sr-only">Mercado Público</span>
+                    <span aria-hidden="true">
+                      <RotatingRubro />
+                    </span>
                   </span>
                 </h1>
 
@@ -360,10 +378,16 @@ export default function LandingClient() {
               </h2>
             </div>
 
-            <div className="flex flex-wrap justify-center gap-3 mb-10">
+            <div className="flex flex-wrap justify-center gap-3 mb-10" role="tablist" aria-label="Funcionalidades del producto">
               {productTabs.map((tab) => (
                 <button
                   key={tab.id}
+                  id={`tab-${tab.id}`}
+                  role="tab"
+                  type="button"
+                  aria-selected={activeTab === tab.id}
+                  aria-controls={`panel-${tab.id}`}
+                  tabIndex={activeTab === tab.id ? 0 : -1}
                   onClick={() => handleTabClick(tab.id)}
                   className={`rounded-full px-5 py-2.5 text-sm font-semibold transition-all ${
                     activeTab === tab.id
@@ -377,9 +401,19 @@ export default function LandingClient() {
             </div>
 
             <div className="max-w-2xl mx-auto">
-              {activeTab === 'precio' && <MockupPrecio />}
-              {activeTab === 'score' && <MockupScore />}
-              {activeTab === 'matching' && <MockupMatching />}
+              {productTabs.map((tab) => (
+                <div
+                  key={tab.id}
+                  id={`panel-${tab.id}`}
+                  role="tabpanel"
+                  aria-labelledby={`tab-${tab.id}`}
+                  hidden={activeTab !== tab.id}
+                >
+                  {tab.id === 'precio' && <MockupPrecio />}
+                  {tab.id === 'score' && <MockupScore />}
+                  {tab.id === 'matching' && <MockupMatching />}
+                </div>
+              ))}
             </div>
 
             <div className="mt-10 text-center">
@@ -563,17 +597,25 @@ export default function LandingClient() {
               {faqs.map((faq, i) => (
                 <div key={i} className={`rounded-xl border border-[#DCE3ED] bg-white transition-shadow ${openFaq === i ? 'shadow-md' : ''}`}>
                   <button
+                    type="button"
+                    id={`faq-boton-${i}`}
+                    aria-expanded={openFaq === i}
+                    aria-controls={`faq-panel-${i}`}
                     onClick={() => setOpenFaq(openFaq === i ? null : i)}
                     className="flex w-full cursor-pointer items-center justify-between gap-4 px-5 py-4 text-left text-sm font-semibold text-[#0A1626] hover:text-[#102858]"
                   >
                     <span>{faq.question}</span>
-                    <ChevronDown className={`h-4 w-4 shrink-0 text-[#5F7089] transition-transform duration-200 ${openFaq === i ? 'rotate-180' : ''}`} />
+                    <ChevronDown aria-hidden="true" className={`h-4 w-4 shrink-0 text-[#5F7089] transition-transform duration-200 ${openFaq === i ? 'rotate-180' : ''}`} />
                   </button>
-                  {openFaq === i && (
-                    <div className="border-t border-[#E7EDF5] px-5 py-4">
-                      <p className="text-sm text-[#54637A] leading-relaxed">{faq.answer}</p>
-                    </div>
-                  )}
+                  <div
+                    id={`faq-panel-${i}`}
+                    role="region"
+                    aria-labelledby={`faq-boton-${i}`}
+                    hidden={openFaq !== i}
+                    className="border-t border-[#E7EDF5] px-5 py-4"
+                  >
+                    <p className="text-sm text-[#54637A] leading-relaxed">{faq.answer}</p>
+                  </div>
                 </div>
               ))}
             </div>

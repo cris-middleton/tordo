@@ -114,6 +114,7 @@ export default function Layout({ children }: LayoutProps) {
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-40 bg-primary/20 backdrop-blur-sm lg:hidden animate-fade-in"
+          aria-hidden="true"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -121,6 +122,8 @@ export default function Layout({ children }: LayoutProps) {
       {/* ─── Sidebar ─── */}
       {/* Sidebar — deep background with subtle top accent glow for brand identity */}
       <aside
+        id="nav-lateral"
+        aria-label="Navegación principal"
         className={`fixed top-0 left-0 z-50 flex h-full w-64 flex-col border-r border-border shadow-sidebar transition-transform duration-300 ease-in-out lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
@@ -143,8 +146,9 @@ export default function Layout({ children }: LayoutProps) {
           <button
             onClick={() => setSidebarOpen(false)}
             className="rounded-lg p-1.5 text-muted transition-colors hover:bg-background hover:text-primary lg:hidden"
+            aria-label="Cerrar menú de navegación"
           >
-            <X className="h-5 w-5" />
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 
@@ -240,7 +244,7 @@ export default function Layout({ children }: LayoutProps) {
             <button
               onClick={() => navigate('/dashboard/empresa')}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-onPrimary text-sm font-medium hover:ring-2 hover:ring-primary/40 hover:ring-offset-1 hover:ring-offset-background transition-all"
-              title="Mi perfil"
+              aria-label="Mi perfil"
             >
               {avatar ? <span className="text-xl leading-none">{avatar}</span> : initials}
             </button>
@@ -272,8 +276,11 @@ export default function Layout({ children }: LayoutProps) {
             <button
               onClick={() => setSidebarOpen(true)}
               className="rounded-lg p-2 text-muted transition-colors hover:bg-primary/8 hover:text-primary lg:hidden"
+              aria-label="Abrir menú de navegación"
+              aria-expanded={sidebarOpen}
+              aria-controls="nav-lateral"
             >
-              <Menu className="h-5 w-5" />
+              <Menu className="h-5 w-5" aria-hidden="true" />
             </button>
             {/* Breadcrumb */}
             <div className="flex items-center gap-2 text-sm">
@@ -290,9 +297,9 @@ export default function Layout({ children }: LayoutProps) {
             <button
               onClick={() => navigate('/dashboard/alerts')}
               className="relative rounded-lg p-2 text-muted transition-colors hover:bg-primary/8 hover:text-primary"
-              title="Alertas"
+              aria-label="Alertas"
             >
-              <Bell size={17} />
+              <Bell size={17} aria-hidden="true" />
             </button>
           </div>
         </header>

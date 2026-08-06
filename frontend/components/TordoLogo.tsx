@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 
 interface TordoLogoProps {
   size?: number;
@@ -20,6 +21,7 @@ export default function TordoLogo({ size = 40, className = '' }: TordoLogoProps)
   const [frame, setFrame] = useState(0);
   const [hovered, setHovered] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const reducedMotion = usePrefersReducedMotion();
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
@@ -30,6 +32,8 @@ export default function TordoLogo({ size = 40, className = '' }: TordoLogoProps)
 
   useEffect(() => {
     clearTimer();
+    // El aleteo son 4 frames por setInterval: la media query de CSS no lo alcanza.
+    if (reducedMotion) return;
     const target = hovered ? 3 : 0;
     if (frame === target) return;
 
@@ -43,7 +47,7 @@ export default function TordoLogo({ size = 40, className = '' }: TordoLogoProps)
     }, FRAME_MS);
 
     return clearTimer;
-  }, [hovered, clearTimer]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [hovered, reducedMotion, clearTimer]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Tight crop around the bird body (y:141–481, x:77–476) with 2-unit margin
   const vbW = 403, vbH = 344;
