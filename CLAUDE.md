@@ -108,6 +108,9 @@ Dos cosas que sí conviene saber:
   limpios contra una base vacía. Una migración que no revierte no pasa.
 - **`alembic check` es bloqueante.** Los modelos y las migraciones ya no divergen: si cambias
   un modelo, la migración va en el mismo PR.
+- **Nada de índices por expresión.** Alembic los compara mal y con el check bloqueante eso es
+  deriva perpetua. Si necesitas indexar `f(columna)`, añade una **columna generada** y ponle
+  un índice normal — es lo que hacen `licitaciones.busqueda` y `nombre_norm`.
 - **La unicidad se declara UNA vez, como restricción.** `unique=True` en la columna basta —
   la convención de `app/db/__init__.py` la nombra `uq_<tabla>_<columna>`. **Nunca
   `unique=True, index=True`**: eso genera un índice único en vez de una restricción, y una
@@ -343,8 +346,9 @@ estos patrones, es señal de que hay que arreglar la causa, no de copiarlo:
   lectura, y no se puede indexar.
 - ~~Búsqueda con `ILIKE '%término%'`~~ — **resuelto en F4**: columna generada `busqueda`
   (tsvector español) + GIN, más trigrama sobre `nombre`. **La búsqueda no se escribe a mano**:
-  usa `_coincide_termino()` en `api/tenders.py`, que combina las dos vías. Pendiente:
-  insensibilidad a tildes (exige una función IMMUTABLE propia).
+  usa `_coincide_termino()` en `api/tenders.py`, que combina las dos vías.
+  **Ignora las tildes** en los dos sentidos: el texto se indexa normalizado con
+  `inmutable_unaccent` y el término se normaliza igual antes de comparar.
 - ~~Suscripción y `plan_tier` colgando de `User`~~ — **resuelto en F3**: pertenecen a la empresa.
 - `subprocess.run` desde Celery hacia el ETL (F2).
 - ~~`Base.metadata.create_all()` en el loader del ETL~~ — **resuelto en F4**: verifica el

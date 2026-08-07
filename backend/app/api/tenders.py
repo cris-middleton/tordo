@@ -38,8 +38,12 @@ def _coincide_termino(termino: str):
 
     - `busqueda @@ plainto_tsquery('spanish', t)` — palabras, con stemming.
       Encuentra "servicio" buscando "servicios". Cubre nombre y descripcion.
-    - `nombre ILIKE '%t%'` — fragmentos dentro de una palabra, apoyado en el
+    - `nombre_norm ILIKE '%t%'` — fragmentos dentro de una palabra, apoyado en el
       índice de trigramas. Es lo que hacía antes toda la búsqueda.
+
+    Las dos ignoran las tildes: el texto se indexa normalizado y el término se
+    normaliza igual antes de comparar. En Chile se escribe sin tildes más veces
+    que con ellas, así que sin esto la búsqueda falla en el caso normal.
 
     `plainto_tsquery` trata la entrada como texto plano, así que un usuario no
     puede colar sintaxis de tsquery (`&`, `|`, `!`) escribiendo en el buscador.
@@ -49,9 +53,12 @@ def _coincide_termino(termino: str):
     sólo aparecían en `descripcion` — no lleva trigrama porque es texto largo y
     sería el índice más caro de mantener en cada carga del ETL.
     """
+    # El término se normaliza igual que el texto indexado. Si sólo se normalizara
+    # un lado, buscar con tilde dejaría de encontrar lo que se indexó sin ella.
+    sin_tildes = func.inmutable_unaccent(termino)
     return or_(
-        Licitacion.busqueda.op("@@")(func.plainto_tsquery("spanish", termino)),
-        Licitacion.nombre.ilike(f"%{termino}%"),
+        Licitacion.busqueda.op("@@")(func.plainto_tsquery("spanish", sin_tildes)),
+        Licitacion.nombre_norm.ilike(func.inmutable_unaccent(f"%{termino}%")),
     )
 
 

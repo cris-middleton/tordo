@@ -322,7 +322,14 @@ columna sólo cuesta disco y escritura en cada carga del ETL. `licitaciones` y `
    siempre lleva `WHERE activo = true` y un índice normal sobre un booleano casi siempre verdadero
    no sirve. Verificado con `EXPLAIN ANALYZE` sobre 200 000 filas: el planificador usa los
    compuestos cuando el filtro es selectivo y cae al de fecha cuando no lo es, que es lo correcto.
-3. ~~**Búsqueda por `ILIKE '%término%'`**~~ — **resuelto** con columna generada `busqueda`
+3. ~~**Búsqueda por `ILIKE '%término%'`**~~ — **resuelto**, y además **insensible a tildes**:
+   en Chile se teclea sin ellas más veces que con ellas, así que la búsqueda fallaba en el caso
+   normal, no en el raro. Se logra con `inmutable_unaccent`, que envuelve a `unaccent` pasando
+   el diccionario explícito — sin eso la función es STABLE (resuelve el diccionario por
+   `search_path`) y no sirve ni para una columna generada ni para un índice. La única salvedad
+   real: si una actualización de PostgreSQL cambiara `unaccent.rules`, habría que `REINDEX`.
+
+   Implementado con columna generada `busqueda`
    (`to_tsvector('spanish', …)`) + GIN, y trigrama sobre `nombre`. Se usaron **las dos** opciones
    que planteaba este punto, no una: el tsvector cubre las palabras y el trigrama los fragmentos.
    Lo que se pierde son los fragmentos a mitad de palabra que sólo estaban en `descripcion` —

@@ -36,9 +36,9 @@ class Licitacion(Base):
         # —que ya cubre el tsvector— no fragmentos.
         Index(
             "ix_licitaciones_nombre_trgm",
-            "nombre",
+            "nombre_norm",
             postgresql_using="gin",
-            postgresql_ops={"nombre": "gin_trgm_ops"},
+            postgresql_ops={"nombre_norm": "gin_trgm_ops"},
         ),
         # ── Listado ─────────────────────────────────────────────────────────
         # Todos los filtros del listado son PARCIALES sobre `activo`: la consulta
@@ -83,17 +83,32 @@ class Licitacion(Base):
     # descripcion. Se usa la configuración 'spanish', que aporta stemming
     # ("servicios" encuentra "servicio") y descarta palabras vacías.
     #
-    # No lleva unaccent: exigiría una función marcada IMMUTABLE a mano, y
-    # mentirle a Postgres sobre la inmutabilidad de una función que depende de un
-    # diccionario es una forma conocida de corromper un índice. La
-    # insensibilidad a tildes queda pendiente y anotada.
+    # Pasa por `inmutable_unaccent` para que "valvulas" encuentre "Válvulas".
+    # En Chile se escribe sin tildes más veces que con ellas, así que sin esto la
+    # búsqueda falla en el caso normal, no en el raro.
+    #
+    # `unaccent(text)` es STABLE, no IMMUTABLE, porque resuelve el diccionario por
+    # search_path — y una columna generada exige IMMUTABLE. `inmutable_unaccent`
+    # (migración 5a6e2f9d1c04) lo envuelve pasando el diccionario explícito, con
+    # lo que el resultado sí es determinista.
     busqueda = Column(
         TSVECTOR,
         Computed(
-            "to_tsvector('spanish', coalesce(nombre, '') || ' ' || coalesce(descripcion, ''))",
+            "to_tsvector('spanish', inmutable_unaccent("
+            "coalesce(nombre, '') || ' ' || coalesce(descripcion, '')))",
             persisted=True,
         ),
-        comment="Vector de búsqueda generado desde nombre + descripcion.",
+        comment="Vector de búsqueda generado desde nombre + descripcion, sin tildes.",
+    )
+
+    # El trigrama va sobre esta columna y no sobre un índice funcional a
+    # propósito: alembic compara mal los índices por expresión, y con
+    # `alembic check` bloqueante eso sería deriva perpetua. Una columna generada
+    # más un índice normal se comparan sin problema.
+    nombre_norm = Column(
+        String(500),
+        Computed("inmutable_unaccent(nombre)", persisted=True),
+        comment="`nombre` sin tildes. Sostiene la búsqueda por fragmento.",
     )
 
     # Dates

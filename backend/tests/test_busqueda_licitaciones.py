@@ -120,6 +120,35 @@ async def test_el_fragmento_solo_en_descripcion_ya_no_coincide(async_db, licitac
 
 
 @pytest.mark.asyncio
+async def test_encuentra_sin_escribir_las_tildes(async_db, licitaciones):
+    """El caso normal en Chile, no el raro.
+
+    T-2 se llama "Construcción de hospital regional". Escribir "construccion" sin
+    tilde tiene que encontrarlo: es como se teclea la mayoría de las veces.
+    """
+    assert await _buscar(async_db, "construccion") == {"T-2"}
+    assert await _buscar(async_db, "construcción") == {"T-2"}
+
+
+@pytest.mark.asyncio
+async def test_tambien_al_reves(async_db, licitaciones):
+    """Buscar CON tilde algo escrito sin ella.
+
+    Se normalizan los dos lados —el texto indexado y el término—, así que la
+    correspondencia funciona en ambos sentidos. Normalizar sólo uno habría roto
+    esta mitad.
+    """
+    assert await _buscar(async_db, "mantencion") == {"T-3"}
+    assert await _buscar(async_db, "mantención") == {"T-3"}
+
+
+@pytest.mark.asyncio
+async def test_las_tildes_tampoco_importan_en_el_fragmento(async_db, licitaciones):
+    """La otra vía de coincidencia, la del trigrama sobre `nombre_norm`."""
+    assert await _buscar(async_db, "onstruccion") == {"T-2"}
+
+
+@pytest.mark.asyncio
 async def test_la_sintaxis_de_tsquery_no_se_interpreta(async_db, licitaciones):
     """`plainto_tsquery` trata la entrada como texto plano.
 
