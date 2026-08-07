@@ -14,11 +14,15 @@ from app.models.empresa import Empresa, EmpresaUsuario
 from app.models.user import User
 from app.schemas.empresa import (
     AddMiembroRequest,
+    ApiKeyCreada,
+    ApiKeyCrear,
+    ApiKeyResumen,
     EmpresaConRol,
     EmpresaCreate,
     EmpresaUpdate,
     MiembroResponse,
 )
+from app.services import api_keys
 
 router = APIRouter(prefix="/api/empresas", tags=["empresas"])
 
@@ -290,3 +294,52 @@ async def eliminar_miembro(
     await db.delete(target)
     await db.commit()
     return {"ok": True}
+
+
+# ── Claves de API ────────────────────────────────────────────────────────────
+#
+# Son de la EMPRESA, no del usuario: lo que consuman se descuenta de su plan
+# (ADR 0002). Crearlas y revocarlas exige rol de escritura — una clave es una
+# credencial de larga vida, no una preferencia.
+
+
+@router.post("/{empresa_id}/api-keys", response_model=ApiKeyCreada, status_code=201)
+async def crear_api_key(
+    payload: ApiKeyCrear,
+    ctx: EmpresaContext = Depends(require_rol("owner", "admin")),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Emite una clave. **El secreto sólo se devuelve aquí.**"""
+    clave, fila = await api_keys.crear(
+        db,
+        empresa_id=ctx.empresa_id,
+        nombre=payload.nombre,
+        creada_por=current_user.id,
+        expira_en=payload.expira_en,
+    )
+    await db.commit()
+    await db.refresh(fila)
+    return ApiKeyCreada(**ApiKeyResumen.model_validate(fila).model_dump(), clave=clave)
+
+
+@router.get("/{empresa_id}/api-keys", response_model=list[ApiKeyResumen])
+async def listar_api_keys(
+    ctx: EmpresaContext = Depends(empresa_ctx),
+    db: AsyncSession = Depends(get_db),
+):
+    """Las claves de la empresa, vigentes y revocadas. Nunca el secreto."""
+    return await api_keys.listar(db, ctx.empresa_id)
+
+
+@router.delete("/{empresa_id}/api-keys/{clave_id}", status_code=200)
+async def revocar_api_key(
+    clave_id: UUID,
+    ctx: EmpresaContext = Depends(require_rol("owner", "admin")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Revoca una clave. Irreversible: para volver a integrar, se emite otra."""
+    if not await api_keys.revocar(db, clave_id, ctx.empresa_id):
+        raise HTTPException(status_code=404, detail="La clave no existe o ya estaba revocada")
+    await db.commit()
+    return {"message": "Clave revocada"}

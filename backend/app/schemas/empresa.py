@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import List
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.utils.rut import formatear_rut, validar_rut
 
@@ -80,3 +80,37 @@ class AddMiembroRequest(BaseModel):
         if v not in ("admin", "viewer"):
             raise ValueError("rol must be 'admin' or 'viewer'")
         return v
+
+
+class ApiKeyCrear(BaseModel):
+    """Petición de creación de una clave de API."""
+
+    nombre: str = Field(..., min_length=1, max_length=100)
+    expira_en: datetime | None = Field(
+        None, description="Caducidad opcional. Sin valor, la clave no caduca."
+    )
+
+
+class ApiKeyResumen(BaseModel):
+    """Una clave, SIN el secreto. Es lo que devuelve el listado."""
+
+    id: UUID
+    nombre: str
+    prefijo: str
+    creada_por: int | None
+    ultimo_uso_en: datetime | None
+    expira_en: datetime | None
+    revocada_en: datetime | None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ApiKeyCreada(ApiKeyResumen):
+    """La única respuesta que incluye el secreto, y sólo al crearla.
+
+    Después no se puede recuperar: la base guarda el hash. Si se pierde, se
+    revoca y se emite otra.
+    """
+
+    clave: str = Field(..., description="Guárdala ahora: no se vuelve a mostrar.")

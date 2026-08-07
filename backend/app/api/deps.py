@@ -28,7 +28,7 @@ from fastapi import Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import get_current_active_user
+from app.core.security import empresa_fijada_por_clave, get_current_active_user
 from app.db import get_db
 from app.models.empresa import Empresa, EmpresaUsuario
 from app.models.user import User
@@ -211,7 +211,21 @@ async def resolver_empresa_facturable(
 async def empresa_facturable(
     empresa_id: UUID | None = Query(None, description="Empresa cuyo plan aplica"),
     current_user: User = Depends(get_current_active_user),
+    empresa_de_clave: UUID | None = Depends(empresa_fijada_por_clave),
     db: AsyncSession = Depends(get_db),
 ) -> Empresa:
-    """Versión-dependencia de `resolver_empresa_facturable`."""
+    """Versión-dependencia de `resolver_empresa_facturable`.
+
+    Con una **clave de API** la empresa viene fijada por la clave. Si la petición
+    nombra otra, se responde 403 en vez de atender: una credencial de integración
+    no debería poder saltar de empresa, aunque quien la creó pertenezca a varias.
+    """
+    if empresa_de_clave is not None:
+        if empresa_id is not None and empresa_id != empresa_de_clave:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Esta clave de API pertenece a otra empresa.",
+            )
+        empresa_id = empresa_de_clave
+
     return await resolver_empresa_facturable(empresa_id, current_user, db)

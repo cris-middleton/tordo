@@ -1,5 +1,6 @@
 from app.db import Base
 from app.models.alert import Alert, AlertPreference, AlertStatus, AlertType, NotificationChannel
+from app.models.api_key import ApiKey
 from app.models.category import Category
 from app.models.dashboard_cache import DashboardHomeCache
 from app.models.empresa import (
@@ -28,6 +29,7 @@ from app.models.task_failure import TaskFailure
 from app.models.user import User
 
 __all__ = [
+    "ApiKey",
     "Base",
     "RefreshToken",
     "Licitacion",

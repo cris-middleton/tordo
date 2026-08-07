@@ -334,8 +334,17 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
 `analytics/evaluation/` es el harness de evaluación.
 
 ### Patrones vigentes
-- **Auth**: JWT HS256 de 30 min **+ token de refresco con rotación** + Google OAuth +
-  roles empresa (owner/admin/viewer) + cuotas por plan.
+- **Auth**: dos vías por el mismo `Authorization: Bearer`, distinguidas por el prefijo
+  `tordo_` sin tocar la base.
+  - **JWT de sesión** (30 min) **+ token de refresco con rotación** + Google OAuth. Para el
+    navegador.
+  - **Clave de API** (`tordo_<prefijo>_<secreto>`). Para clientes sin navegador: MCP, ERP,
+    scripts. **Pertenece a la empresa y la fija**: nombrar otra da 403, aunque quien la creó
+    pertenezca a las dos. Se guarda el hash; el prefijo queda en claro para poder
+    identificarla. Se emite en `POST /api/empresas/{id}/api-keys` con rol de escritura, y
+    **el secreto sólo se devuelve ahí**.
+
+  Roles empresa (owner/admin/viewer) + cuotas por plan aplican igual por las dos vías.
   El acceso es un JWT y no se puede revocar; lo que sostiene la sesión es el refresco, que
   vive en `refresh_tokens` y sí se revoca. **Rota en cada uso**, y presentar uno ya canjeado
   revoca la familia entera: sin eso, quien roba un token se queda dentro para siempre.

@@ -772,6 +772,10 @@ Reordenado según las decisiones del 2026-08-05:
 2. **Compra Ágil + Convenio Marco.** Volumen de mercado chileno que hoy no se ve. Requiere F4.
 3. **Alertas de cambio de precio** (lo que hace Falconsoft) — los datos ya están; falta el disparador.
 4. **API pública + API keys.** El ángulo de integración ERP de Falconsoft. Habilita el segmento gremios.
+   **Las claves de API ya están hechas** — y hubo que adelantarlas: el orden del plan estaba
+   invertido. El MCP (punto 1) necesita una credencial que un cliente sin navegador pueda usar,
+   y la única autenticación era un JWT de 30 minutos. Falta la superficie pública en sí
+   (documentación, versionado, límites por clave).
 5. **Reportes semanales automáticos** en PDF/email.
 6. **Extracción de bases con LLM** — reevaluar después de F3, no antes. Ver §14: es el único uso de
    LLM con valor claro acá, y sólo se puede vender bien una vez que el plan sea por empresa.
