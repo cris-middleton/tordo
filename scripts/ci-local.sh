@@ -91,7 +91,13 @@ for _ in $(seq 1 90); do
   sleep 1
 done
 if ! docker exec "$CONTENEDOR" pg_isready -U postgres >/dev/null 2>&1; then
-  printf "%sPostgres no aceptó conexiones en 90s. Su log:%s\n" "$rojo" "$fin"
+  printf "%sPostgres no aceptó conexiones en 90s.%s\n" "$rojo" "$fin"
+  # El estado va ANTES que el log: el log siempre termina en "ready for start
+  # up" y no distingue "sigue arrancando, lento" de "lo mataron". Eso último
+  # sale aquí, en OOMKilled y el código de salida.
+  printf "     estado: %s\n" \
+    "$(docker inspect -f 'status={{.State.Status}} oom={{.State.OOMKilled}} exit={{.State.ExitCode}}' \
+       "$CONTENEDOR" 2>&1)"
   docker logs "$CONTENEDOR" 2>&1 | tail -15 | sed 's/^/     /'
   exit 1
 fi

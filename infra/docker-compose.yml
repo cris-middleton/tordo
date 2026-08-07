@@ -280,6 +280,13 @@ services:
     build:
       context: ../frontend
       dockerfile: Dockerfile
+      # Van como ARG y no en `environment` porque Next inlinea todo lo
+      # NEXT_PUBLIC_* durante el build: en ejecución ya es tarde.
+      args:
+        NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+        NEXT_PUBLIC_ENVIRONMENT: ${NEXT_PUBLIC_ENVIRONMENT:-development}
+        NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-Tordo}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://tordo.cl}
     container_name: tordo_frontend
     ports:
       - "${FRONTEND_PORT:-3000}:3000"

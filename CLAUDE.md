@@ -268,6 +268,27 @@ y no tiene Pub/Sub ni Cloud Tasks.
   desde cuatro sitios y uno de ellos son los 22 endpoints de BI. **El banner llevaba
   escuchando ese evento sin que nadie lo emitiera**: cada tope de plan se topaba en silencio.
   Lo fija `__tests__/cuota-402.test.ts`, contra el interceptor real.
+- **Sentry cubre los tres runtimes** (navegador, Node y edge) y las opciones salen de un solo
+  sitio, `lib/sentry-comun.ts`. Ponerlas en dos de los tres es la forma fácil de equivocarse,
+  así que hay un test estructural que exige que las tres partan de `OPCIONES_COMUNES`.
+  - **`sendDefaultPii: false`**, como el backend: por aquí pasan RUTs, montos y documentos.
+    Cambiarlo no rompe nada y empieza a mandar datos de clientes a un tercero —
+    `__tests__/sentry-privacidad.test.ts` lo fija.
+  - **Sin replay de sesión**, a propósito: graba la pantalla. Un `maskAllText` es una
+    salvaguarda que hay que acertar; no grabar no hay que acertarlo.
+  - `AbortError` y los 401 se descartan: cancelar peticiones es el comportamiento **correcto**
+    (el proxy renueva, TanStack Query cancela lo obsoleto) y reportarlo convierte lo normal
+    en alarma.
+  - **`app/error.tsx` y `app/global-error.tsx`.** No existía ninguna frontera de error: un
+    fallo al renderizar dejaba una página en blanco y **nada registrado**. `global-error`
+    lleva sus estilos en línea porque si lo que falló es el layout, las hojas de estilo
+    pueden no haber llegado.
+- **`NEXT_PUBLIC_*` se inlinea en el BUILD, no en ejecución.** Ponerlo en el `environment`
+  del contenedor no llega al navegador: van como `ARG` en el Dockerfile y como `build.args`
+  en el compose. Es el motivo por el que `API_URL` **no** lleva ese prefijo, y por el que el
+  DSN de Sentry **sí** lo lleva (para reportar un error del navegador, el navegador tiene que
+  saber a dónde mandarlo; un DSN sólo permite escribir eventos, no leerlos).
+  `SENTRY_AUTH_TOKEN` es `ARG` y nunca `ENV`: un `ENV` lo deja escrito en los metadatos.
 - **Nunca hardcodear un color.** La paleta vive en tokens (`app/globals.css`) y se consume por
   Tailwind. Los componentes tenían 112 hexes; hoy tienen cero.
 - **Nunca `text-white` sobre un fondo de token.** Los rellenos se invierten con el tema: en
@@ -498,8 +519,10 @@ empresa → **F4** modelo de datos → **F5** frontend → **F6** diferenciació
 lleve se inlinea en el bundle del navegador, y la URL del backend ya no tiene por qué estar
 ahí: quien habla con él es el proxy de Next.
 
-Observabilidad: `SENTRY_DSN` (vacío = desactivado), `LOG_JSON` (false en local),
-`LOG_LEVEL`, `ENVIRONMENT`.
+Observabilidad: `SENTRY_DSN` (backend, vacío = desactivado), `NEXT_PUBLIC_SENTRY_DSN`
+(frontend, se inlinea en el build), `LOG_JSON` (false en local), `LOG_LEVEL`, `ENVIRONMENT`.
+`SENTRY_ORG` / `SENTRY_PROJECT` / `SENTRY_AUTH_TOKEN` son **sólo de build**: sin ellas el
+build funciona igual, pero las trazas del navegador llegan minificadas.
 
 Feature flags: `FEATURE_ANALYTICS`, `FEATURE_TFIDF`, `FEATURE_BILLING`,
 `FEATURE_ESTADO_HABIL`, `FEATURE_DOCUMENTOS`, `FEATURE_CHECKLIST`, `FEATURE_WHATSAPP`.
