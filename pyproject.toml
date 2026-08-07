@@ -30,19 +30,19 @@ package = false
 # Lo que backend y ETL comparten. Antes estaba duplicado en los dos
 # requirements.txt, con riesgo de divergencia silenciosa.
 shared = [
-    "sqlalchemy==2.0.23",
-    "psycopg2-binary==2.9.9",
+    "sqlalchemy>=2.0.36,<2.1",
+    "psycopg2-binary>=2.9.10,<3",
     "pydantic[email]>=2.12,<3",
     "pydantic-settings>=2.6,<3",
-    "python-dotenv==1.0.0",
+    "python-dotenv>=1.2,<2",
     # 0.20.15 no tiene DataFrame.join(coalesce=...), que usa
     # etl/analytics/evaluation/metrics.py — 5 tests del harness fallaban.
     "polars>=0.20.31,<0.21",
-    "pyarrow==14.0.2",
-    "httpx==0.25.2",
-    "scikit-learn==1.4.0",
-    "scipy==1.12.0",
-    "joblib==1.3.2",
+    "pyarrow>=18,<26",
+    "httpx>=0.27,<1",
+    "scikit-learn>=1.5,<2",
+    "scipy>=1.14,<2",
+    "joblib>=1.4,<2",
 ]
 
 api = [
@@ -52,22 +52,32 @@ api = [
     "uvicorn[standard]>=0.32,<1",
     "python-multipart>=0.0.9",
     # Base de datos
-    "asyncpg==0.29.0",
-    "alembic==1.12.1",
-    "greenlet==3.0.3",
+    "asyncpg>=0.30,<1",
+    "alembic>=1.14,<2",
+    "greenlet>=3.1,<4",
     # Autenticación
-    "python-jose[cryptography]==3.3.0",
-    "passlib[bcrypt]==1.7.4",
-    "bcrypt==4.0.1",
+    # PyJWT en vez de python-jose, que era lo que había. Dos razones:
+    #
+    # 1. python-jose arrastra `ecdsa`, con un ataque de temporización Minerva
+    #    sobre P-256 (GHSA-wj6h-64fc-37mp) que **no tiene versión que lo
+    #    arregle**: sus mantenedores consideran los canales laterales fuera del
+    #    alcance de una librería en Python puro. No nos afecta —firmamos con
+    #    HS256, que es HMAC simétrico— pero es una alerta permanente que nadie
+    #    puede cerrar.
+    # 2. python-jose 3.3.0 tuvo confusión de algoritmos (GHSA-6c5p-j8vq-pqhj) en
+    #    la librería que valida NUESTROS JWT, y tardó en arreglarlo.
+    #
+    # La superficie era una línea de import. PyJWT es el estándar de facto, se
+    # mantiene, y para HS256 no necesita nada más que la stdlib.
+    "pyjwt>=2.10,<3",
+    # Sin passlib: no publica desde 2020 y era lo que obligaba a clavar bcrypt
+    # en 4.0.1 (las 4.1+ rompieron su detección de versión).
+    "bcrypt>=4.2,<6",
     # Tareas asíncronas
-    "celery==5.3.4",
-    "redis==5.0.1",
-    # Email
-    "aiosmtplib==3.0.1",
+    "celery>=5.4,<6",
+    "redis>=5.2,<7",
     # 2.1.0 fue retirado de PyPI (yanked) — se sube al primer parche válido
     "email-validator>=2.1.1,<3.0.0",
-    # Parseo de PDF (pypdf reemplaza a pypdf2, que tenía CVE)
-    "pypdf==4.2.0",
     # Facturación (sólo con FEATURE_BILLING=true; el SDK se importa perezosamente)
     "stripe>=7.0.0,<9.0.0",
     # WhatsApp (sólo con FEATURE_WHATSAPP=true)
@@ -79,23 +89,21 @@ api = [
 
 etl = [
     { include-group = "shared" },
-    "requests==2.31.0",
-    "beautifulsoup4==4.12.2",
-    "lxml==4.9.3",
+    # 2.31 filtraba credenciales de .netrc con URLs maliciosas
+    # (GHSA-9hjg-9r4m-mvj7). El ETL llama a Mercado Público con ticket.
+    "requests>=2.34,<3",
     "pandas==2.1.3",
     "numpy==1.26.2",
-    "schedule==1.2.0",
-    "ratelimit==2.2.1",
-    "python-dateutil==2.8.2",
-    "pytz==2024.1",
-    "structlog==23.2.0",
+    "python-dateutil>=2.9,<3",
+    "pytz>=2025.2",
+    "structlog>=24.4,<27",
 ]
 
 dev = [
     { include-group = "api" },
     { include-group = "etl" },
-    "pytest==7.4.3",
-    "pytest-asyncio==0.21.1",
+    "pytest>=8.3,<10",
+    "pytest-asyncio>=0.24,<2",
     "pytest-cov>=4.1.0",
     "ruff>=0.8.4",
     "pre-commit>=4.0.0",

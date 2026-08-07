@@ -2,7 +2,7 @@
         dev-up dev-up-d dev-down dev-logs dev-build dev-restart dev-shell db-shell dev-clean \
         migrate migrate-create migrate-status downgrade merge \
         front-install front-dev front-build front-lint front-test \
-        hooks lock
+        hooks lock audit
 
 # Compose resuelve `.env` desde el directorio del archivo (infra/), no desde la
 # raíz del repo. Sin --env-file, el .env que documenta el README se ignora por
@@ -81,6 +81,9 @@ merge: ## Mergea un PR sólo con todos los checks en verde — make merge PR=33
 
 ci: ## Corre en local lo mismo que Actions, para no esperar al runner
 	./scripts/ci-local.sh
+
+audit: ## Vulnerabilidades y antigüedad de las dependencias (Python + frontend)
+	uv run python scripts/auditar-dependencias.py
 
 lint: ## Lint + chequeo de formato (lo mismo que corre CI)
 	uv run ruff check backend/app backend/tests etl

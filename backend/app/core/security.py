@@ -2,10 +2,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
+import bcrypt
+import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
-from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,7 +14,26 @@ from app.db import get_db
 from app.models.user import User
 
 # Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+#
+# bcrypt directo, sin passlib. passlib no publica una versión desde 2020 (70
+# meses) y era lo que obligaba a mantener bcrypt clavado en 4.0.1: las 4.1+
+# rompieron su detección de versión. Una librería sin mantenimiento en el camino
+# de las contraseñas es justo donde no conviene tenerla.
+#
+# El formato no cambia: passlib con `schemes=["bcrypt"]` produce hashes `$2b$`
+# estándar, que es lo que genera y verifica bcrypt. Los hashes ya guardados
+# siguen valiendo — hay test que lo fija con uno emitido por passlib.
+
+# bcrypt ignora todo lo que pase de 72 bytes. passlib truncaba en silencio; las
+# versiones nuevas de bcrypt LANZAN. Se trunca a mano para conservar el
+# comportamiento anterior: si no, quien tuviera una contraseña más larga se
+# quedaría fuera, porque su hash se calculó sobre los primeros 72 bytes.
+LIMITE_BCRYPT = 72
+
+
+def _recortar(password: str) -> bytes:
+    return password.encode()[:LIMITE_BCRYPT]
+
 
 # OAuth2 scheme
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -25,11 +44,16 @@ oauth2_opcional = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=Fa
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        return bcrypt.checkpw(_recortar(plain_password), hashed_password.encode())
+    except ValueError:
+        # Hash con formato inválido. passlib devolvía False; bcrypt lanza. Se
+        # conserva lo primero: un registro corrupto no debe tumbar el login.
+        return False
 
 
 def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(_recortar(password), bcrypt.gensalt()).decode()
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
@@ -44,7 +68,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
 def decode_access_token(token: str) -> dict | None:
     try:
         return jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
-    except JWTError as e:
+    except jwt.PyJWTError as e:
         import logging
 
         logging.getLogger(__name__).debug("JWT decode error: %s", e)

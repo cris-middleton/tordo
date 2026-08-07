@@ -108,6 +108,31 @@ Dos cosas que sí conviene saber:
   **Nunca `--no-verify`** — arregla la causa.
 - Tras tocar `pyproject.toml`: `make lock` y commitea el `uv.lock`. CI falla si divergen.
 
+### Dependencias — `make audit`
+
+**Córrelo cada cierto tiempo, y siempre antes de añadir una librería nueva.** Consulta OSV
+para cada paquete del `uv.lock`, corre `npm audit` sobre el frontend y avisa de lo que lleva
+más de 24 meses sin release.
+
+Hace falta porque **un pin no caduca y nadie lo mira**. La primera vez que se auditó, todo el
+conjunto de Python llevaba ~33 meses congelado y **nueve paquetes tenían vulnerabilidades
+conocidas**, entre ellas confusión de algoritmos en la librería que validaba los JWT.
+
+No está en CI a propósito: depende de red externa y una caída de OSV no debería bloquear un PR.
+
+Tres reglas que salieron de esa auditoría:
+
+- **Antes de actualizar una dependencia, comprueba si se usa.** Seis estaban declaradas y no se
+  importaban en ninguna parte (`lxml`, `pypdf`, `aiosmtplib`, `beautifulsoup4`, `schedule`,
+  `ratelimit`) — y tres de ellas cargaban CVE. **Quitarlas es mejor que actualizarlas.**
+- **Una librería sin releases es una señal, aunque no tenga CVE.** `passlib` llevaba 70 meses
+  sin publicar y era lo que obligaba a clavar `bcrypt` en 4.0.1.
+- **Cambiar de librería en autenticación exige test de interoperabilidad.** Un JWT y un hash
+  de contraseña son *formatos*, no librerías: lo que puede salir mal no es que falle, es que
+  funcione con lo nuevo y rechace lo que ya está emitido, echando a todos los usuarios en el
+  despliegue. Ver `tests/test_jwt_interoperable.py` y `tests/test_passwords_interoperable.py`,
+  donde los valores de referencia los generó **la librería anterior**.
+
 ### Migraciones
 - **Siempre `make migrate-create MSG="descripción"`. Nunca `alembic revision` directo.**
   Es la única forma de obtener IDs y cadenas de `down_revision` correctas. Este repo ya
@@ -245,6 +270,7 @@ y no tiene Pub/Sub ni Cloud Tasks.
 make setup                       # deps + hooks (clone o worktree nuevo)
 make hooks                       # sólo hooks
 make lint / make lint-fix        # ruff check + format (idéntico a CI)
+make audit                       # vulnerabilidades y antigüedad de dependencias
 make test                        # backend + ETL + frontend
 make dev-up-d / dev-logs / dev-down
 make migrate / make migrate-create MSG="..." / make migrate-status
