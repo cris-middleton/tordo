@@ -62,6 +62,12 @@ const navSections: NavSection[] = [
 ];
 
 export default function Layout({ children }: LayoutProps) {
+  // `Date.now()` se llamaba en pleno render, lo que lo hace no determinista:
+  // dos renders del mismo estado podían pintar cifras distintas. Se fija al
+  // montar. Los días de trial no cambian mientras la página está abierta, así
+  // que no se pierde nada. Lo detectó `react-hooks/purity` al subir a Next 16.
+  const [montadoEn] = useState(() => Date.now());
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [avatar, setAvatar] = useState<string | null>(null);
   const router = useRouter();
@@ -210,7 +216,7 @@ export default function Layout({ children }: LayoutProps) {
               ? Math.max(
                   0,
                   Math.ceil(
-                    (new Date(user.trial_ends_at as string).getTime() - Date.now())
+                    (new Date(user.trial_ends_at as string).getTime() - montadoEn)
                       / (1000 * 60 * 60 * 24)
                   )
                 )

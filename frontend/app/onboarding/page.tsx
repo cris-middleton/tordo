@@ -35,6 +35,43 @@ type Step = 1 | 2 | 3;
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
+
+// ─── Progress bar ──────────────────────────────────────────────────────
+
+const STEP_LABELS = ['Tu empresa', 'Tu alerta', 'Listo'];
+
+// Definido FUERA del componente a propósito. Estaba dentro, así que cada render
+// creaba un tipo de componente nuevo: React lo desmontaba y lo volvía a montar,
+// perdiendo su estado y reiniciando la animación de la barra. Lo detectó la regla
+// `react-hooks/static-components` al subir a Next 16.
+function ProgressBar({ step }: { step: number }) {
+return (
+  <div className="flex items-center gap-2 mb-8 w-full">
+    {STEP_LABELS.map((label, i) => {
+      const s = i + 1;
+      const isActive = step === s;
+      const isDone = step > s;
+      return (
+        <div key={s} className="flex-1 flex flex-col items-center gap-1.5">
+          <div className="w-full h-1.5 rounded-full overflow-hidden bg-border">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${
+                isDone ? 'bg-accent w-full' : isActive ? 'bg-primary w-1/2' : 'w-0'
+              }`}
+            />
+          </div>
+          <span className={`text-[11px] font-medium transition-colors ${
+            isActive ? 'text-primary' : isDone ? 'text-accent' : 'text-muted'
+          }`}>
+            {label}
+          </span>
+        </div>
+      );
+    })}
+  </div>
+);
+}
+
 export default function OnboardingPage() {
   const router = useRouter();
   const { user, refreshUser, loading: authLoading, isAuthenticated } = useAuth();
@@ -168,36 +205,6 @@ export default function OnboardingPage() {
     }
   };
 
-  // ─── Progress bar ──────────────────────────────────────────────────────
-
-  const STEP_LABELS = ['Tu empresa', 'Tu alerta', 'Listo'];
-
-  const ProgressBar = () => (
-    <div className="flex items-center gap-2 mb-8 w-full">
-      {STEP_LABELS.map((label, i) => {
-        const s = i + 1;
-        const isActive = step === s;
-        const isDone = step > s;
-        return (
-          <div key={s} className="flex-1 flex flex-col items-center gap-1.5">
-            <div className="w-full h-1.5 rounded-full overflow-hidden bg-border">
-              <div
-                className={`h-full rounded-full transition-all duration-500 ${
-                  isDone ? 'bg-accent w-full' : isActive ? 'bg-primary w-1/2' : 'w-0'
-                }`}
-              />
-            </div>
-            <span className={`text-[11px] font-medium transition-colors ${
-              isActive ? 'text-primary' : isDone ? 'text-accent' : 'text-muted'
-            }`}>
-              {label}
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
-
   // ─── Keyword preview ──────────────────────────────────────────────────
 
   const keywordList = alertKeywords
@@ -224,7 +231,7 @@ export default function OnboardingPage() {
           </p>
         </div>
 
-        <ProgressBar />
+        <ProgressBar step={step} />
 
         <div className="card space-y-5">
           {error && (

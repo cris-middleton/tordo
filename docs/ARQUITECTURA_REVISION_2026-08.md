@@ -584,6 +584,8 @@ F3/F4/F5 pueden solaparse.
 - [x] Barrido de ruff aislado en su propio commit, con `.git-blame-ignore-revs`
 - [x] **Suite de tests reparada**: backend 30→45 pasando (14 errores por `aiosqlite` ausente, un test desfasado del código); ETL 42→47 (pin de polars incompatible con el propio código)
 - [ ] Sentry en el frontend ← pendiente
+- [x] **Next 14 → 16** (con ESLint 8 → 9 y configuración plana). Cierra las dos últimas
+      vulnerabilidades graves del frontend: `npm audit` pasa de 6 a **0**.
 - [~] Protección de `main` — **no se puede desde aquí**: GitHub la reserva a repos públicos o a
       cuentas Pro (403 en `branches/main/protection` y en `rulesets`). Sustituto local:
       `make merge PR=<n>`, que se niega si algún check no está en verde. La protección real

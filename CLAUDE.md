@@ -258,7 +258,12 @@ y no tiene Pub/Sub ni Cloud Tasks.
   autenticación— se marcan con la clase `dark` sobre `bg-brand-navy`, y los tokens se
   invierten solos dentro. No repintes a mano.
 - El estado de servidor se maneja con `useState`/`useEffect` (deuda conocida; el objetivo es
-  TanStack Query — ver F5).
+  TanStack Query — ver F5). **El compilador de React de Next 16 la marca**: 44 avisos de
+  `react-hooks/set-state-in-effect` e `immutability`, todos sobre ese mismo patrón. Están en
+  `warn` a propósito, no silenciados línea a línea, y **vuelven a `error` cuando entre
+  TanStack Query**. Si el número sube antes, es que alguien añadió deuda del mismo tipo.
+- **El lint es `eslint .`, no `next lint`** — desapareció en Next 16. La configuración es plana
+  (`eslint.config.mjs`), porque ESLint 9 abandonó `.eslintrc`.
 
 ---
 
