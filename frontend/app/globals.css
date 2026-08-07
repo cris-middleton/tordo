@@ -63,8 +63,9 @@
   --color-background: 246 248 251;    /* #F6F8FB */
   --color-surface: 255 255 255;       /* #FFFFFF */
   --color-surface-elevated: 241 244 249; /* #F1F4F9 */
-  --color-border: 220 227 237;        /* #DCE3ED */
+  --color-border: 220 227 237;        /* #DCE3ED — decorativo: tarjetas, divisores */
   --color-border-light: 196 208 224;  /* #C4D0E0 */
+  --color-border-input: 122 141 166;  /* #7A8DA6 — 3.39:1, exige WCAG 1.4.11 para controles */
   --color-info: 29 78 216;            /* #1D4ED8 */
   --color-info-light: 235 241 253;    /* #EBF1FD */
   --color-danger: 185 28 28;          /* #B91C1C */
@@ -120,8 +121,9 @@
   --color-background: 8 11 17;        /* #080B11 */
   --color-surface: 14 19 28;          /* #0E131C */
   --color-surface-elevated: 22 29 42; /* #161D2A */
-  --color-border: 30 39 54;           /* #1E2736 */
+  --color-border: 30 39 54;           /* #1E2736 — decorativo */
   --color-border-light: 42 53 71;     /* #2A3547 */
+  --color-border-input: 85 102 132;   /* #556684 — 3.21:1 */
   --color-info: 122 167 245;          /* #7AA7F5 */
   --color-info-light: 13 25 48;       /* #0D1930 */
   --color-danger: 248 113 113;        /* #F87171 */
@@ -166,6 +168,25 @@
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     scroll-behavior: smooth;
+  }
+
+  /* Apaga el movimiento cuando el sistema lo pide. Esto sólo alcanza a lo que
+     anima CSS; el movimiento manejado por JavaScript (rubro rotatorio, avance
+     automático de tabs, aleteo del logo) se apaga con el hook
+     `usePrefersReducedMotion`, que no arranca el intervalo. */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      animation-delay: 0ms !important;
+    }
   }
 
   section[id] {
@@ -224,8 +245,10 @@
   /* ──────────────────────────────────────────────
      FORM FIELDS
   ────────────────────────────────────────────── */
+  /* `border-borderInput`, no `border-border`: WCAG 1.4.11 pide 3:1 para el
+     límite de un control interactivo, y el borde decorativo daba 1.29:1. */
   .input-field {
-    @apply w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-text placeholder-subtle shadow-sm transition-all duration-200 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:bg-background disabled:opacity-70;
+    @apply w-full rounded-lg border border-borderInput bg-surface px-4 py-2.5 text-sm text-text placeholder-subtle shadow-sm transition-all duration-200 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:cursor-not-allowed disabled:bg-background disabled:opacity-70;
     font-family: var(--font-dm-sans);
   }
 

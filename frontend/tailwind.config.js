@@ -24,6 +24,7 @@ module.exports = {
         'surface-elevated': 'rgb(var(--color-surface-elevated) / <alpha-value>)',
         border: 'rgb(var(--color-border) / <alpha-value>)',
         borderLight: 'rgb(var(--color-border-light) / <alpha-value>)',
+        borderInput: 'rgb(var(--color-border-input) / <alpha-value>)',
         info: 'rgb(var(--color-info) / <alpha-value>)',
         infoLight: 'rgb(var(--color-info-light) / <alpha-value>)',
         danger: 'rgb(var(--color-danger) / <alpha-value>)',
