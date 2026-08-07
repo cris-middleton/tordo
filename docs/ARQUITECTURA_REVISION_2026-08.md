@@ -720,7 +720,9 @@ F3/F4/F5 pueden solaparse.
 
 - [ ] TanStack Query
 - [ ] Capa proxy con route handlers + sesión en cookie `httpOnly`
-- [ ] Refresh token con rotación
+- [x] **Refresh token con rotación** y detección de reutilización (migración `5dd0faecd3f2`).
+      Antes el JWT duraba 30 min sin forma de renovarlo: **todo usuario quedaba desconectado a
+      la media hora**. Falta la mitad de frontend: cookie `httpOnly` vía el proxy de Next.
 - [ ] shadcn/ui como design system; descomponer las páginas de 900+ líneas
 - [ ] Vitest + Playwright para 3–4 flujos críticos
 - [ ] UI de invitación y gestión de miembros (el backend ya la soporta)

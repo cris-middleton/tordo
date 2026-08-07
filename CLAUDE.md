@@ -314,8 +314,17 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
 `analytics/evaluation/` es el harness de evaluación.
 
 ### Patrones vigentes
-- **Auth**: JWT HS256 30 min (sin refresh token) + Google OAuth + roles empresa
-  (owner/admin/viewer) + cuotas por plan.
+- **Auth**: JWT HS256 de 30 min **+ token de refresco con rotación** + Google OAuth +
+  roles empresa (owner/admin/viewer) + cuotas por plan.
+  El acceso es un JWT y no se puede revocar; lo que sostiene la sesión es el refresco, que
+  vive en `refresh_tokens` y sí se revoca. **Rota en cada uso**, y presentar uno ya canjeado
+  revoca la familia entera: sin eso, quien roba un token se queda dentro para siempre.
+  Cambiar la contraseña cierra todas las sesiones.
+  **Pendiente (F5, sesión de frontend)**: el refresco viaja en el cuerpo y hoy el frontend
+  guarda el acceso en `localStorage`. El destino es que el proxy de Next lo guarde en una
+  cookie `httpOnly` y el navegador no vea ninguno de los dos.
+  **La ruta de Google sigue sin refresco**: redirige con el token en la URL, y meter ahí un
+  refresco sería peor. Se arregla junto con el proxy.
 - **Alertas**: preferencias → AlertEngine → `INSERT ON CONFLICT` idempotente → multicanal.
 - **Planes**: el `id` del plan que devuelve `/api/billing/plans` **es** el `plan_tier` que se
   guarda en la empresa (`basico | pyme | pro | enterprise`); `nombre` es sólo lo que se

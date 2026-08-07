@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     secret_key: str
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
+    # El acceso dura poco a propósito: es un JWT y no se puede revocar. Lo que
+    # sostiene la sesión es el token de refresco, que sí vive en la base y sí se
+    # puede revocar.
+    refresh_token_expire_days: int = 30
 
     # CORS settings
     cors_origins: List[str] | str = ["http://localhost:3000", "http://localhost:3001"]

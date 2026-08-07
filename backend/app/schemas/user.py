@@ -64,6 +64,21 @@ class UserLogin(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    # El refresco viaja en el cuerpo, no en una cookie que ponga el backend: quien
+    # lo guarda es el proxy de Next en una cookie httpOnly, así que el navegador
+    # nunca lo ve. Ver F5.
+    refresh_token: str | None = None
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+class PasswordChange(BaseModel):
+    """Estaba declarado dentro de `api/auth.py`. Los schemas van aquí (CLAUDE.md)."""
+
+    current_password: str
+    new_password: str
 
 
 class TokenData(BaseModel):

@@ -3,7 +3,6 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
-from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,7 +15,15 @@ from app.core.security import (
 )
 from app.db import get_db
 from app.models.user import User
-from app.schemas.user import Token, UserCreate, UserLogin, UserResponse
+from app.schemas.user import (
+    PasswordChange,
+    RefreshRequest,
+    Token,
+    UserCreate,
+    UserLogin,
+    UserResponse,
+)
+from app.services import auth_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -77,17 +84,59 @@ async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
         data={"sub": str(user.id)},
         expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
     )
-    return {"access_token": access_token, "token_type": "bearer"}
+    refresh = await auth_tokens.emitir(db, user.id)
+    await db.commit()
+    return {"access_token": access_token, "token_type": "bearer", "refresh_token": refresh}
+
+
+@router.post("/refresh", response_model=Token)
+async def refresh(payload: RefreshRequest, db: AsyncSession = Depends(get_db)):
+    """Renueva el acceso sin volver a pedir la contraseña.
+
+    **Rota**: el token entregado deja de valer y se devuelve otro. Presentar uno
+    ya canjeado revoca la sesión entera — ver `services/auth_tokens.py`.
+
+    No exige el access token: la gracia es poder renovar justamente cuando ha
+    caducado.
+    """
+    try:
+        nuevo, user_id = await auth_tokens.rotar(db, payload.refresh_token)
+    except auth_tokens.ErrorDeRefresco as exc:
+        await db.commit()  # la revocación por reutilización tiene que persistir
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if user is None or not user.is_active:
+        await auth_tokens.revocar(db, nuevo)
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="La cuenta ya no está activa."
+        )
+
+    access_token = create_access_token(
+        data={"sub": str(user_id)},
+        expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
+    )
+    await db.commit()
+    return {"access_token": access_token, "token_type": "bearer", "refresh_token": nuevo}
+
+
+@router.post("/logout", status_code=status.HTTP_200_OK)
+async def logout(payload: RefreshRequest, db: AsyncSession = Depends(get_db)):
+    """Cierra la sesión revocando la familia de tokens.
+
+    Devuelve 200 aunque el token no exista: decirle a quien pregunta si un token
+    era válido es información que no necesita, y cerrar sesión dos veces no es un
+    error.
+    """
+    await auth_tokens.revocar(db, payload.refresh_token)
+    await db.commit()
+    return {"message": "Sesión cerrada"}
 
 
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(current_user: User = Depends(get_current_active_user)):
     return current_user
-
-
-class PasswordChange(BaseModel):
-    current_password: str
-    new_password: str
 
 
 @router.get("/google")
@@ -145,6 +194,9 @@ async def change_password(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect"
         )
     current_user.hashed_password = get_password_hash(password_data.new_password)
+    # Cambiar la contraseña sin echar a las sesiones abiertas deja dentro a quien
+    # la hubiera robado, que suele ser justo el motivo del cambio.
+    await auth_tokens.revocar_todo_del_usuario(db, current_user.id)
     await db.commit()
     await db.refresh(current_user)
-    return {"message": "Password changed successfully"}
+    return {"message": "Contraseña cambiada. Se cerraron las demás sesiones."}
