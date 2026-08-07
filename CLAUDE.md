@@ -259,6 +259,15 @@ y no tiene Pub/Sub ni Cloud Tasks.
   - **Pendiente**: una sesión iniciada con Google sigue caducando a los 30 minutos — el
     backend sólo manda el token de acceso en su redirección. Mandar el refresco por la URL
     sería peor. La solución es un código de un solo uso, y toca el backend.
+- **Los límites de plan NO se copian al frontend.** Viven en `PLAN_QUOTAS`
+  (`core/plan_limits.py`) y llegan por `GET /api/empresas/{id}/plan`, junto con el consumo
+  actual. Una copia en TypeScript se desincroniza al primer cambio de precios **sin que nada
+  falle**: el cliente ve un límite que no es el suyo. `null` es *ilimitado*, no cero.
+- **Un 402 del backend se traduce a `plan-upgrade-needed` en el interceptor de `lib/api.ts`**,
+  y `PlanUpgradeBanner` lo pinta. Va ahí y no en cada pantalla porque el backend devuelve 402
+  desde cuatro sitios y uno de ellos son los 22 endpoints de BI. **El banner llevaba
+  escuchando ese evento sin que nadie lo emitiera**: cada tope de plan se topaba en silencio.
+  Lo fija `__tests__/cuota-402.test.ts`, contra el interceptor real.
 - **Nunca hardcodear un color.** La paleta vive en tokens (`app/globals.css`) y se consume por
   Tailwind. Los componentes tenían 112 hexes; hoy tienen cero.
 - **Nunca `text-white` sobre un fondo de token.** Los rellenos se invierten con el tema: en
@@ -366,9 +375,9 @@ cada 30 min, trials, radar semanal. Todo en `America/Santiago`.
 
 ### Frontend — `frontend/`
 
-Next.js 14 App Router + TypeScript + Tailwind + Recharts. Componentes propios. Fetching con
-`useState`/`useEffect`, token JWT en `localStorage`, llamadas directas al backend vía
-`NEXT_PUBLIC_API_URL`.
+Next.js 16 App Router + TypeScript + Tailwind + Recharts. Componentes propios. El estado de
+servidor va en TanStack Query (`lib/queries.ts`) y la sesión en cookies `httpOnly` servidas
+por `/api/proxy` — ver las reglas de frontend más arriba.
 
 **Sistema de diseño por tokens** en `app/globals.css`, mapeado a Tailwind en
 `tailwind.config.js`. Paleta "Iridiscencia", sacada del propio logo — el tordo es un pájaro
@@ -483,7 +492,11 @@ empresa → **F4** modelo de datos → **F5** frontend → **F6** diferenciació
 ## Entorno
 
 `cp .env.example .env`. Críticas: `DATABASE_URL`, `REDIS_URL`, `SECRET_KEY`,
-`MERCADO_PUBLICO_TICKET`, `NEXT_PUBLIC_API_URL`, `APP_NAME`.
+`MERCADO_PUBLICO_TICKET`, `API_URL`, `APP_NAME`.
+
+**`API_URL` es de servidor y no lleva prefijo `NEXT_PUBLIC_`.** Cualquier variable que sí lo
+lleve se inlinea en el bundle del navegador, y la URL del backend ya no tiene por qué estar
+ahí: quien habla con él es el proxy de Next.
 
 Observabilidad: `SENTRY_DSN` (vacío = desactivado), `LOG_JSON` (false en local),
 `LOG_LEVEL`, `ENVIRONMENT`.

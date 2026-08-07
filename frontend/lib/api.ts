@@ -1,5 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 
+import type { ApiKeyCreada, ApiKeyResumen, PlanResumen } from '@/types/cuenta';
+
 /**
  * Cliente HTTP del navegador.
  *
@@ -29,13 +31,26 @@ class ApiClient {
 
     // Al 401, al login. Ya no hay token que borrar aquí: de eso se encarga el
     // proxy, que limpia las cookies cuando el refresco deja de valer.
+    //
+    // El 402 se traduce al evento que escucha `PlanUpgradeBanner`. Va aquí y no
+    // en cada pantalla porque el backend devuelve 402 desde cuatro sitios
+    // —asientos, cuota de BI, documentos y alertas— y son 22 endpoints de BI
+    // sólo en uno de ellos. El banner llevaba escuchando ese evento sin que
+    // nadie lo emitiera: cada tope de plan se topaba en silencio.
     this.client.interceptors.response.use(
       (response) => response,
       (error) => {
-        if (error.response?.status === 401 && typeof window !== 'undefined') {
+        const status = error.response?.status;
+        if (status === 401 && typeof window !== 'undefined') {
           const path = window.location.pathname;
           if (!path.startsWith('/login') && !path.startsWith('/register') && !path.startsWith('/auth')) {
             window.location.href = '/login';
+          }
+        }
+        if (status === 402 && typeof window !== 'undefined') {
+          const detalle = error.response?.data?.detail;
+          if (detalle?.bloqueada_por_plan) {
+            window.dispatchEvent(new CustomEvent('plan-upgrade-needed', { detail: detalle }));
           }
         }
         return Promise.reject(error);
@@ -192,6 +207,11 @@ class ApiClient {
     return res.data;
   }
 
+  async getPlanEmpresa(empresaId: string): Promise<PlanResumen> {
+    const res = await this.client.get(`/api/empresas/${empresaId}/plan`)
+    return res.data
+  }
+
   async getEmpresaMembers(empresaId: string) {
     const res = await this.client.get(`/api/empresas/${empresaId}/members`)
     return res.data
@@ -204,6 +224,24 @@ class ApiClient {
 
   async removeEmpresaMember(empresaId: string, userId: number) {
     const res = await this.client.delete(`/api/empresas/${empresaId}/members/${userId}`)
+    return res.data
+  }
+
+  // ── Claves de API ──────────────────────────────────────────────────────────
+
+  async getApiKeys(empresaId: string): Promise<ApiKeyResumen[]> {
+    const res = await this.client.get(`/api/empresas/${empresaId}/api-keys`)
+    return res.data
+  }
+
+  /** El `clave` de la respuesta es la ÚNICA vez que el secreto viaja. */
+  async crearApiKey(empresaId: string, nombre: string): Promise<ApiKeyCreada> {
+    const res = await this.client.post(`/api/empresas/${empresaId}/api-keys`, { nombre })
+    return res.data
+  }
+
+  async revocarApiKey(empresaId: string, claveId: string) {
+    const res = await this.client.delete(`/api/empresas/${empresaId}/api-keys/${claveId}`)
     return res.data
   }
 

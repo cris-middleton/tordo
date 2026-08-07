@@ -32,6 +32,7 @@ export const claves = {
   usuario: () => ['usuario'] as const,
 
   empresas: () => ['empresas'] as const,
+  empresaPlan: (empresaId: string) => ['empresas', empresaId, 'plan'] as const,
   empresaMiembros: (empresaId: string) => ['empresas', empresaId, 'miembros'] as const,
   empresaDocumentos: (empresaId: string) => ['empresas', empresaId, 'documentos'] as const,
   empresaEstadoHabil: (empresaId: string) => ['empresas', empresaId, 'estado-habil'] as const,
@@ -74,6 +75,22 @@ export function useUsuario(habilitada = true) {
 
 export function useEmpresas() {
   return useQuery({ queryKey: claves.empresas(), queryFn: () => apiClient.getEmpresas() });
+}
+
+export function usePlanEmpresa(empresaId?: string) {
+  return useQuery({
+    queryKey: claves.empresaPlan(empresaId ?? ''),
+    queryFn: () => apiClient.getPlanEmpresa(empresaId as string),
+    enabled: Boolean(empresaId),
+  });
+}
+
+export function useApiKeys(empresaId?: string) {
+  return useQuery({
+    queryKey: claves.empresaApiKeys(empresaId ?? ''),
+    queryFn: () => apiClient.getApiKeys(empresaId as string),
+    enabled: Boolean(empresaId),
+  });
 }
 
 export function useEmpresaMiembros(empresaId?: string) {
@@ -172,12 +189,20 @@ export function useCobroEstado() {
 // Cada una invalida lo que deja obsoleto. Es la mitad que se olvida: sin
 // invalidar, la pantalla sigue mostrando lo de antes hasta que alguien recarga.
 
+// Sumar o quitar a alguien mueve DOS cosas: la lista y los asientos
+// consumidos. Invalidar sólo la lista deja el contador "2 de 3" congelado justo
+// al lado de la fila que acaba de aparecer.
+function invalidarEquipo(qc: ReturnType<typeof useQueryClient>, empresaId: string) {
+  qc.invalidateQueries({ queryKey: claves.empresaMiembros(empresaId) });
+  qc.invalidateQueries({ queryKey: claves.empresaPlan(empresaId) });
+}
+
 export function useAgregarMiembro(empresaId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ email, rol }: { email: string; rol: 'admin' | 'viewer' }) =>
       apiClient.addEmpresaMember(empresaId, email, rol),
-    onSuccess: () => qc.invalidateQueries({ queryKey: claves.empresaMiembros(empresaId) }),
+    onSuccess: () => invalidarEquipo(qc, empresaId),
   });
 }
 
@@ -185,7 +210,23 @@ export function useEliminarMiembro(empresaId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (userId: number) => apiClient.removeEmpresaMember(empresaId, userId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: claves.empresaMiembros(empresaId) }),
+    onSuccess: () => invalidarEquipo(qc, empresaId),
+  });
+}
+
+export function useCrearApiKey(empresaId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (nombre: string) => apiClient.crearApiKey(empresaId, nombre),
+    onSuccess: () => qc.invalidateQueries({ queryKey: claves.empresaApiKeys(empresaId) }),
+  });
+}
+
+export function useRevocarApiKey(empresaId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (claveId: string) => apiClient.revocarApiKey(empresaId, claveId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: claves.empresaApiKeys(empresaId) }),
   });
 }
 

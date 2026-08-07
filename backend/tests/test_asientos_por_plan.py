@@ -21,7 +21,7 @@ import pytest_asyncio
 from fastapi import HTTPException
 
 from app.api.deps import EmpresaContext
-from app.api.empresas import agregar_miembro
+from app.api.empresas import agregar_miembro, resumen_de_plan
 from app.core.plan_limits import get_quota, verificar_asiento_disponible
 from app.models.empresa import Empresa, EmpresaUsuario
 from app.models.user import User
@@ -212,3 +212,62 @@ async def test_reañadir_a_un_miembro_existente_da_409_y_no_402(
             current_user=sample_user,
         )
     assert exc.value.status_code == 409
+
+
+# ── El resumen de plan que consume la UI ─────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_el_resumen_expone_limite_y_uso_de_asientos(async_db, empresa_con_owner):
+    """La UI necesita ambos números para decir "1 de 3" sin copiar PLAN_QUOTAS.
+
+    Copiarlas en el frontend es la alternativa evidente y la mala: se
+    desincronizan al cambiar precios y nadie se entera hasta que un cliente ve
+    un límite que no es el suyo.
+    """
+    empresa_con_owner.plan_tier = "pyme"
+    await async_db.flush()
+
+    resumen = await resumen_de_plan(
+        ctx=EmpresaContext(empresa_id=empresa_con_owner.id, rol="viewer"), db=async_db
+    )
+
+    assert resumen.tier == "pyme"
+    assert resumen.etiqueta == "PYME"
+    assert resumen.limites.max_usuarios == 3
+    assert resumen.uso.usuarios == 1  # sólo el owner
+    assert resumen.siguiente_tier == "pro"
+
+
+@pytest.mark.asyncio
+async def test_el_resumen_declara_el_trial_sin_deducirlo_del_tier(async_db, empresa_con_owner):
+    """Una empresa que contrata pro y está en trial da el mismo tier efectivo.
+
+    Si `en_trial` se dedujera comparando el tier efectivo con el contratado,
+    este caso saldría como "pagando" y la UI dejaría de avisar de que quedan
+    días.
+    """
+    empresa_con_owner.plan_tier = "pro"
+    empresa_con_owner.subscription_status = "trialing"
+    empresa_con_owner.trial_ends_at = datetime.now(UTC) + timedelta(days=7)
+    await async_db.flush()
+
+    resumen = await resumen_de_plan(
+        ctx=EmpresaContext(empresa_id=empresa_con_owner.id, rol="owner"), db=async_db
+    )
+    assert resumen.tier == "pro"
+    assert resumen.tier_contratado == "pro"
+    assert resumen.en_trial is True
+
+
+@pytest.mark.asyncio
+async def test_ilimitado_viaja_como_null_no_como_cero(async_db, empresa_con_owner):
+    """En JSON, un 0 en `max_usuarios` se leería como "no caben usuarios"."""
+    empresa_con_owner.plan_tier = "enterprise"
+    await async_db.flush()
+
+    resumen = await resumen_de_plan(
+        ctx=EmpresaContext(empresa_id=empresa_con_owner.id, rol="owner"), db=async_db
+    )
+    assert resumen.limites.max_usuarios is None
+    assert resumen.siguiente_tier is None

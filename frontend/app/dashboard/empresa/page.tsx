@@ -1,13 +1,15 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { useAuth } from '@/contexts/AuthContext'
-import { useAvatar, setAvatar } from '@/lib/avatar'
-import { useEmpresaMiembros } from '@/lib/queries'
-import { apiClient } from '@/lib/api'
-import { UserPlus, Trash2, Shield, Eye, Crown, FolderOpen } from 'lucide-react'
+import { useState } from 'react'
 import Link from 'next/link'
+import { FolderOpen } from 'lucide-react'
+
 import SelectField from '@/components/SelectField'
+import PanelClavesApi from '@/components/empresa/PanelClavesApi'
+import PanelEquipo, { EtiquetaRol } from '@/components/empresa/PanelEquipo'
+import SelectorAvatar from '@/components/empresa/SelectorAvatar'
+import { useAuth } from '@/contexts/AuthContext'
+import { useEmpresas } from '@/lib/queries'
 
 interface Empresa {
   id: string
@@ -16,102 +18,24 @@ interface Empresa {
   rol: string
 }
 
-interface Miembro {
-  user_id: number
-  email: string
-  full_name: string | null
-  rol: string
-  joined_at: string
-}
-
-const ROL_CONFIG: Record<string, { label: string; Icon: React.ElementType; cls: string }> = {
-  owner:  { label: 'Owner',  Icon: Crown,  cls: 'text-gold bg-gold/10'       },
-  admin:  { label: 'Admin',  Icon: Shield, cls: 'text-info bg-info/10'        },
-  viewer: { label: 'Viewer', Icon: Eye,    cls: 'text-muted bg-border'        },
-}
-
 export default function EmpresaPage() {
   const { user } = useAuth()
-  const [empresas, setEmpresas]         = useState<Empresa[]>([])
-  const [selected, setSelected]         = useState<Empresa | null>(null)
-  const [loading, setLoading]           = useState(true)
-  const [inviteEmail, setInviteEmail]   = useState('')
-  const [inviteRol, setInviteRol]       = useState<'admin' | 'viewer'>('viewer')
-  const [inviting, setInviting]         = useState(false)
-  const [error, setError]               = useState<string | null>(null)
-  const [success, setSuccess]           = useState<string | null>(null)
-  const avatar = useAvatar()
+  // Sólo el id: la empresa seleccionada se DERIVA de la lista. Guardar el objeto
+  // en estado obligaba a un efecto para elegir el primero al cargar, y ese
+  // efecto se quedaba con una copia vieja tras cualquier cambio.
+  const [idElegida, setIdElegida] = useState<string | null>(null)
 
-  const AVATARS = ['🦅', '🦉', '🕊️', '🐧', '🐦', '🐥', '🦆', '🦚', '🦜', '🦢', '🦩', '🐓', '🦃'];
+  const consulta = useEmpresas()
+  const datos = consulta.data as unknown
+  const empresas: Empresa[] = Array.isArray(datos)
+    ? (datos as Empresa[])
+    : ((datos as { data?: Empresa[] })?.data ?? [])
 
+  const seleccionada =
+    empresas.find((e) => e.id === idElegida) ?? empresas[0] ?? null
+  const puedeGestionar = seleccionada?.rol === 'owner' || seleccionada?.rol === 'admin'
 
-  const handleAvatarChange = (emp: string) => {
-    const val = emp || '';
-    setAvatar(val || null);
-    if (val) {
-    } else {
-      localStorage.removeItem('user_avatar');
-    }
-    window.dispatchEvent(new Event('avatar_changed'));
-  }
-
-  const canManage = selected?.rol === 'owner' || selected?.rol === 'admin'
-
-  useEffect(() => {
-    let active = true;
-    apiClient
-      .getEmpresas()
-      .then((data: any) => {
-        if (!active) return;
-        const list: Empresa[] = Array.isArray(data) ? data : (data?.data ?? [])
-        setEmpresas(list)
-        if (list.length > 0) setSelected(list[0])
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => { active = false; };
-  }, [])
-
-  // `enabled` cubre el `if (!selected) return`, y `refetch` sustituye a llamar a
-  // `loadMiembros()` a mano tras invitar o eliminar.
-  const consultaMiembros = useEmpresaMiembros(selected?.id)
-  const datosMiembros = consultaMiembros.data as unknown
-  const miembros: Miembro[] = Array.isArray(datosMiembros)
-    ? (datosMiembros as Miembro[])
-    : (((datosMiembros as { data?: Miembro[] })?.data) ?? [])
-  const loadingM = Boolean(selected) && consultaMiembros.isFetching
-  const loadMiembros = consultaMiembros.refetch
-
-  async function handleInvite(e: React.FormEvent) {
-    e.preventDefault()
-    if (!selected || !inviteEmail.trim()) return
-    setInviting(true); setError(null)
-    try {
-      await apiClient.addEmpresaMember(selected.id, inviteEmail.trim(), inviteRol)
-      setSuccess(`${inviteEmail.trim()} añadido como ${inviteRol}`)
-      setInviteEmail('')
-      loadMiembros()
-      setTimeout(() => setSuccess(null), 4000)
-    } catch (err: any) {
-      setError(err?.response?.data?.detail ?? 'No se pudo añadir el miembro')
-    } finally {
-      setInviting(false)
-    }
-  }
-
-  async function handleRemove(m: Miembro) {
-    if (!selected) return
-    if (!confirm(`¿Eliminar a ${m.email} del equipo?`)) return
-    try {
-      await apiClient.removeEmpresaMember(selected.id, m.user_id)
-      loadMiembros()
-    } catch (err: any) {
-      setError(err?.response?.data?.detail ?? 'No se pudo eliminar el miembro')
-    }
-  }
-
-  if (loading) {
+  if (consulta.isPending) {
     return (
       <div className="p-6 max-w-2xl mx-auto space-y-4">
         <div className="animate-pulse h-8 bg-border rounded w-40" />
@@ -136,205 +60,55 @@ export default function EmpresaPage() {
         </Link>
       </div>
 
-      <div className="bg-surface rounded-2xl border border-border shadow-sm p-5 mb-6 flex flex-col sm:flex-row sm:items-center gap-5">
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary text-onPrimary font-medium shadow-sm ring-4 ring-background">
-          {avatar ? (
-            <span className="text-3xl leading-none">{avatar}</span>
-          ) : (
-            <span className="text-xl">
-              {user?.full_name
-                ? user.full_name.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()
-                : user?.username?.slice(0, 2).toUpperCase() || 'U'}
-            </span>
-          )}
-        </div>
-        <div className="flex-1">
-          <h2 className="text-sm font-semibold text-text mb-0.5">Mi Perfil</h2>
-          <p className="text-xs text-muted mb-3">Elige tu avatar animal (visible en tu menú)</p>
-          <div className="flex flex-wrap gap-1.5">
-            {AVATARS.map((a) => (
-              <button
-                key={a}
-                onClick={() => handleAvatarChange(a)}
-                className={`flex h-8 w-8 items-center justify-center rounded-full transition-all hover:scale-110 ${
-                  avatar === a ? 'bg-primary/20 ring-2 ring-primary ring-offset-1 ring-offset-surface' : 'bg-background hover:bg-border/50'
-                }`}
-                title={`Elegir ${a}`}
-              >
-                {a}
-              </button>
-            ))}
-            {avatar && (
-              <button
-                onClick={() => handleAvatarChange('')}
-                className="flex h-8 px-3 items-center justify-center rounded-full bg-background hover:bg-danger/10 text-xs font-medium text-danger transition-all ml-1"
-              >
-                Quitar
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
+      <SelectorAvatar nombre={user?.full_name} usuario={user?.username} />
 
       {empresas.length > 1 && (
         <div className="mb-5">
           <label className="block text-xs font-medium text-muted mb-1">Empresa</label>
           <SelectField
-            value={selected?.id ?? ''}
-            onChange={(v) => setSelected(empresas.find((em) => em.id === v) ?? null)}
+            value={seleccionada?.id ?? ''}
+            onChange={setIdElegida}
             options={empresas.map((em) => ({ value: em.id, label: em.nombre_empresa }))}
           />
         </div>
       )}
 
-      {selected && (
+      {seleccionada && (
         <>
           <div className="bg-surface rounded-2xl border border-border shadow-sm p-5 mb-5">
             <div className="flex items-start justify-between">
               <div>
-                <h2 className="font-semibold text-text">{selected.nombre_empresa}</h2>
-                <p className="text-sm text-muted mt-0.5">{selected.rut_empresa}</p>
+                <h2 className="font-semibold text-text">{seleccionada.nombre_empresa}</h2>
+                <p className="text-sm text-muted mt-0.5">{seleccionada.rut_empresa}</p>
               </div>
-              {(() => {
-                const r = ROL_CONFIG[selected.rol] ?? ROL_CONFIG.viewer
-                return (
-                  <span className={`flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full ${r.cls}`}>
-                    <r.Icon className="w-3 h-3" /> {r.label}
-                  </span>
-                )
-              })()}
+              <EtiquetaRol rol={seleccionada.rol} />
             </div>
           </div>
 
-          <div className="bg-surface rounded-2xl border border-border shadow-sm p-5 mb-5">
-            <h3 className="text-sm font-semibold text-text mb-4">
-              Equipo ({miembros.length}{' '}
-              {miembros.length === 1 ? 'miembro' : 'miembros'})
-            </h3>
+          {/* La `key` reinicia el estado local al cambiar de empresa: un correo
+              a medio escribir para una no debe quedarse en el formulario de
+              otra, donde se enviaría a la equivocada. */}
+          <PanelEquipo
+            key={seleccionada.id}
+            empresaId={seleccionada.id}
+            puedeGestionar={puedeGestionar}
+            idUsuario={user?.id}
+          />
 
-            {loadingM ? (
-              <div className="space-y-3">
-                {[1, 2].map((i) => (
-                  <div key={i} className="animate-pulse h-12 bg-background rounded-xl" />
-                ))}
-              </div>
-            ) : miembros.length === 0 ? (
-              <p className="text-sm text-muted">Sin miembros registrados.</p>
-            ) : (
-              <div className="divide-y divide-border">
-                {miembros.map((m) => {
-                  const r = ROL_CONFIG[m.rol] ?? ROL_CONFIG.viewer
-                  const isMe = m.user_id === user?.id
-                  return (
-                    <div key={m.user_id} className="flex items-center justify-between py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-info/10 flex items-center justify-center flex-shrink-0">
-                          <span className="text-xs font-semibold text-info">
-                            {(m.full_name ?? m.email)[0].toUpperCase()}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-text leading-tight">
-                            {m.full_name ?? m.email}
-                            {isMe && (
-                              <span className="ml-1 text-xs font-normal text-muted">(tú)</span>
-                            )}
-                          </p>
-                          {m.full_name && (
-                            <p className="text-xs text-muted">{m.email}</p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${r.cls}`}>
-                          <r.Icon className="w-3 h-3" /> {r.label}
-                        </span>
-                        {canManage && m.rol !== 'owner' && !isMe && (
-                          <button
-                            onClick={() => handleRemove(m)}
-                            className="p-1 text-subtle hover:text-danger transition-colors"
-                            title="Eliminar miembro"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
-          {canManage ? (
-            <div className="bg-surface rounded-2xl border border-border shadow-sm p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <UserPlus className="w-4 h-4 text-muted" />
-                <h3 className="text-sm font-semibold text-text">Añadir miembro</h3>
-              </div>
-
-              {error && (
-                <div className="bg-danger/10 border border-danger/30 rounded-xl px-4 py-3 text-sm text-danger mb-4">
-                  {error}
-                </div>
-              )}
-              {success && (
-                <div className="bg-accent/10 border border-accent/30 rounded-xl px-4 py-3 text-sm text-accent mb-4">
-                  ✓ {success}
-                </div>
-              )}
-
-              <form onSubmit={handleInvite} className="space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-muted mb-1">
-                    Email del usuario
-                  </label>
-                  <input
-                    type="email"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    placeholder="usuario@empresa.cl"
-                    required
-                    className="input-field w-full"
-                  />
-                  <p className="text-xs text-muted mt-1">
-                    El usuario debe tener una cuenta en TORDO.
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-muted mb-1">Rol</label>
-                  <SelectField
-                    value={inviteRol}
-                    onChange={(v) => setInviteRol(v as 'admin' | 'viewer')}
-                    options={[
-                      { value: 'viewer', label: 'Viewer — solo puede leer' },
-                      { value: 'admin', label: 'Admin — puede editar y añadir miembros' },
-                    ]}
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={inviting || !inviteEmail.trim()}
-                  className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {inviting ? 'Añadiendo…' : 'Añadir miembro'}
-                </button>
-              </form>
-            </div>
-          ) : (
-            <p className="text-sm text-muted text-center py-4">
-              Solo el owner o admin puede gestionar miembros.
-            </p>
-          )}
+          <PanelClavesApi
+            key={`claves-${seleccionada.id}`}
+            empresaId={seleccionada.id}
+            puedeGestionar={puedeGestionar}
+          />
         </>
       )}
 
-      {!loading && empresas.length === 0 && (
+      {empresas.length === 0 && (
         <div className="text-center py-16">
           <p className="text-muted text-sm">No tienes empresas registradas.</p>
-          <a href="/onboarding" className="text-primary text-sm hover:underline mt-2 block">
+          <Link href="/onboarding" className="text-primary text-sm hover:underline mt-2 block">
             Registrar empresa →
-          </a>
+          </Link>
         </div>
       )}
     </div>

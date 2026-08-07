@@ -7,7 +7,15 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import EmpresaContext, empresa_ctx, require_rol
-from app.core.plan_limits import verificar_asiento_disponible
+from app.core.plan_limits import (
+    effective_plan_tier,
+    esta_en_trial,
+    etiqueta_de_tier,
+    get_bi_query_count,
+    get_quota,
+    siguiente_tier,
+    verificar_asiento_disponible,
+)
 from app.core.security import get_current_active_user
 from app.db import SyncSessionLocal, get_db
 from app.models.empresa import Empresa, EmpresaUsuario
@@ -20,7 +28,10 @@ from app.schemas.empresa import (
     EmpresaConRol,
     EmpresaCreate,
     EmpresaUpdate,
+    LimitesPlan,
     MiembroResponse,
+    PlanResumen,
+    UsoPlan,
 )
 from app.services import api_keys
 
@@ -198,6 +209,48 @@ async def eliminar_empresa(
     empresa = await _get_empresa_or_404(ctx.empresa_id, db)
     empresa.activo = False
     await db.commit()
+
+
+@router.get("/{empresa_id}/plan", response_model=PlanResumen)
+async def resumen_de_plan(
+    ctx: EmpresaContext = Depends(empresa_ctx),
+    db: AsyncSession = Depends(get_db),
+):
+    """El plan efectivo de la empresa y lo que lleva consumido.
+
+    Lo consulta cualquier miembro, no sólo quien administra: saber cuántos
+    asientos quedan es parte de entender la cuenta, y ocultarlo sólo consigue
+    que el 402 al invitar llegue por sorpresa.
+    """
+    empresa = await db.get(Empresa, ctx.empresa_id)
+    if empresa is None:
+        raise HTTPException(status_code=404, detail="Empresa no encontrada")
+
+    tier = effective_plan_tier(empresa)
+    quota = get_quota(tier)
+    usuarios = (
+        await db.execute(
+            select(func.count())
+            .select_from(EmpresaUsuario)
+            .where(EmpresaUsuario.empresa_id == ctx.empresa_id)
+        )
+    ).scalar_one()
+
+    contratado = (empresa.plan_tier or "basico").lower()
+    return PlanResumen(
+        tier=tier,
+        etiqueta=etiqueta_de_tier(tier),
+        en_trial=esta_en_trial(empresa),
+        tier_contratado=contratado,
+        siguiente_tier=siguiente_tier(tier),
+        limites=LimitesPlan(**{k: quota[k] for k in LimitesPlan.model_fields}),
+        uso=UsoPlan(
+            usuarios=usuarios,
+            # Redis es síncrono y falla abierto devolviendo 0; fuera del loop
+            # para no bloquearlo si el servidor tarda en responder.
+            consultas_bi_hoy=await asyncio.to_thread(get_bi_query_count, ctx.empresa_id),
+        ),
+    )
 
 
 @router.get("/{empresa_id}/members", response_model=list[MiembroResponse])

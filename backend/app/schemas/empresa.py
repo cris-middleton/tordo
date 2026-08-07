@@ -82,6 +82,45 @@ class AddMiembroRequest(BaseModel):
         return v
 
 
+class LimitesPlan(BaseModel):
+    """Los topes del plan. `null` significa ilimitado, no cero."""
+
+    max_usuarios: int | None
+    max_docs: int | None
+    max_docs_mb: int | None
+    bi_queries_per_day: int | None
+    max_active_alerts: int | None
+
+
+class UsoPlan(BaseModel):
+    """Consumo actual. Sólo lo que se mide de forma central hoy.
+
+    `usuarios` y `consultas_bi_hoy` son de la EMPRESA. Documentos y alertas se
+    cuentan por usuario (ver `_exigir_cuota_alertas`), así que no caben aquí sin
+    mezclar dos sujetos distintos en el mismo objeto.
+    """
+
+    usuarios: int
+    consultas_bi_hoy: int
+
+
+class PlanResumen(BaseModel):
+    """Plan efectivo de la empresa y su consumo, para pintar la UI.
+
+    Existe para que el frontend no tenga que replicar `PLAN_QUOTAS`: una copia
+    allí se desincroniza en cuanto cambian los precios y nadie se entera hasta
+    que un cliente ve un límite que no es el suyo.
+    """
+
+    tier: str = Field(..., description="Tier EFECTIVO: en trial es 'pro' aunque se pague otro.")
+    etiqueta: str
+    en_trial: bool
+    tier_contratado: str
+    siguiente_tier: str | None = Field(None, description="A qué plan subir. Null si es el mayor.")
+    limites: LimitesPlan
+    uso: UsoPlan
+
+
 class ApiKeyCrear(BaseModel):
     """Petición de creación de una clave de API."""
 

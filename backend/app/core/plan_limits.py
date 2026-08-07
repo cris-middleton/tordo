@@ -37,17 +37,27 @@ def effective_plan_tier(empresa) -> str:
     usuario (ADR 0002). Acepta cualquier objeto con `plan_tier`,
     `subscription_status` y `trial_ends_at`.
     """
-    trial_ends = getattr(empresa, "trial_ends_at", None)
-    status = getattr(empresa, "subscription_status", None)
-    if status == "trialing" and trial_ends is not None:
-        # Postgres devuelve el timestamp con zona; otros drivers (SQLite en los
-        # tests) lo devuelven sin ella, y comparar ambos lanza TypeError. Un
-        # valor sin zona se interpreta como UTC, que es como se guarda.
-        if trial_ends.tzinfo is None:
-            trial_ends = trial_ends.replace(tzinfo=UTC)
-        if trial_ends > datetime.now(UTC):
-            return "pro"
+    if esta_en_trial(empresa):
+        return "pro"
     return (empresa.plan_tier or "basico").lower()
+
+
+def esta_en_trial(empresa) -> bool:
+    """Si la empresa está dentro de un trial vigente.
+
+    Separado de `effective_plan_tier` porque una empresa que contrata Pro y
+    está en trial da el MISMO tier efectivo que fuera de él: deducir el trial
+    comparando tiers la daría por pagando.
+    """
+    trial_ends = getattr(empresa, "trial_ends_at", None)
+    if getattr(empresa, "subscription_status", None) != "trialing" or trial_ends is None:
+        return False
+    # Postgres devuelve el timestamp con zona; otros drivers lo devuelven sin
+    # ella, y comparar ambos lanza TypeError. Un valor sin zona se interpreta
+    # como UTC, que es como se guarda.
+    if trial_ends.tzinfo is None:
+        trial_ends = trial_ends.replace(tzinfo=UTC)
+    return trial_ends > datetime.now(UTC)
 
 
 # ── Tier ordering ─────────────────────────────────────────────────────────────
@@ -130,6 +140,14 @@ _TIER_LABEL: dict[str, str] = {
 
 def get_quota(tier: str) -> dict[str, Any]:
     return PLAN_QUOTAS.get((tier or "basico").lower(), PLAN_QUOTAS["basico"])
+
+
+def etiqueta_de_tier(tier: str) -> str:
+    return _TIER_LABEL.get((tier or "basico").lower(), (tier or "basico").title())
+
+
+def siguiente_tier(tier: str) -> str | None:
+    return _UPGRADE_MAP.get((tier or "basico").lower())
 
 
 def _quota_error(
