@@ -1,14 +1,19 @@
 'use client';
 
-import { useState, FormEvent, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useState, FormEvent } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { LogIn, Loader2, ArrowLeft, Eye, EyeOff, BarChart2, FileCheck, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import TordoLogo from '@/components/TordoLogo';
 import { apiClient } from '@/lib/api';
 
-export default function LoginPage() {
+// El formulario va dentro de un límite de Suspense porque usa
+// `useSearchParams`: sin él, Next no puede prerenderizar la página y el build
+// falla con "should be wrapped in a suspense boundary". Es el precio de leer la
+// URL en el render en vez de en un efecto — y sale a cuenta: el efecto provocaba
+// un render de más y lo marcaba el compilador.
+function LoginForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -17,16 +22,18 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const { login, isAuthenticated, loading: authLoading } = useAuth();
   const router = useRouter();
+  // `useSearchParams` en vez de leer `window.location` dentro de un efecto: es
+  // la API de Next para esto, funciona en el render y evita el `setState` que
+  // marcaba el compilador.
+  const searchParams = useSearchParams();
+  const mensajeDeRegistro =
+    searchParams.get('registered') === 'true'
+      ? 'Cuenta creada exitosamente. Por favor inicia sesión.'
+      : '';
+  const errorDeOAuth = searchParams.get('error')
+    ? decodeURIComponent(searchParams.get('error') as string)
+    : '';
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('registered') === 'true') {
-      setSuccess('Cuenta creada exitosamente. Por favor inicia sesión.');
-    }
-    const oauthError = params.get('error');
-    if (oauthError) setError(decodeURIComponent(oauthError));
-  }, []);
 
   useEffect(() => {
     if (isAuthenticated && !authLoading) router.push('/dashboard');
@@ -128,14 +135,14 @@ export default function LoginPage() {
           <h2 className="font-display text-2xl font-bold text-text mb-1">Bienvenido de vuelta</h2>
           <p className="text-sm text-muted mb-7">Ingresa tus credenciales para continuar</p>
 
-          {success && (
+          {(success || mensajeDeRegistro) && (
             <div className="alert-success mb-5">
-              <span>{success}</span>
+              <span>{success || mensajeDeRegistro}</span>
             </div>
           )}
-          {error && (
+          {(error || errorDeOAuth) && (
             <div className="alert-error mb-5">
-              <span>{error}</span>
+              <span>{error || errorDeOAuth}</span>
             </div>
           )}
 
@@ -220,5 +227,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+      <LoginForm />
+    </Suspense>
   );
 }

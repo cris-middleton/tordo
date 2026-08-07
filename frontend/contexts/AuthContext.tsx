@@ -41,10 +41,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
+  // `checkAuth` se declara ANTES del efecto que la usa. Estaba después, y una
+  // `const` no se iza: sólo funcionaba porque el efecto corre tras el render.
+  // Lo marcó `react-hooks/immutability` al subir a Next 16.
   const checkAuth = async () => {
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
@@ -67,11 +66,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Comprueba la sesión al montar. Sigue siendo un efecto a propósito: es un
+  // arranque de sesión, no una consulta de datos — TanStack Query no aporta aquí
+  // caché ni invalidación, y meterlo obligaría a que el proveedor de consultas
+  // envolviera al de autenticación.
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
   const login = async (username: string, password: string) => {
     try {
       // Step 1: Login and get token
       const loginResponse = await apiClient.login(username, password);
-      
+
       // Step 2: Get user data with the token
       const userData = await apiClient.getCurrentUser();
       setUser(userData);
@@ -79,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Clear token if login fails
       apiClient.clearToken();
       setUser(null);
-      
+
       // Provide better error message
       if (error.response?.status === 401) {
         if (error.response?.data?.detail?.includes('validate credentials')) {
@@ -88,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           throw new Error('Sesión iniciada pero no se pudo obtener información del usuario. Por favor intenta nuevamente.');
         }
       }
-      
+
       throw error; // Re-throw to let the component handle it
     }
   };
@@ -126,4 +133,3 @@ export function useAuth() {
   }
   return context;
 }
-

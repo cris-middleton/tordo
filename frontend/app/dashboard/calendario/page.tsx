@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api'
 import { ChevronLeft, ChevronRight, Clock, AlertTriangle } from 'lucide-react'
 
@@ -59,31 +60,24 @@ export default function CalendarioPage() {
   const [year, setYear] = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth())
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
-  const [postulaciones, setPostulaciones] = useState<PostulacionItem[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
+  // Las postulaciones de TODAS las empresas del usuario, en una consulta. Antes
+  // era un `useCallback` + `useEffect` que reunía empresas y postulaciones a
+  // mano; el fallo parcial ya lo cubría `allSettled` y se conserva.
+  const { data, isPending: loading } = useQuery({
+    queryKey: ['calendario', 'postulaciones-activas'],
+    queryFn: async () => {
       const empresas: Array<{ id: string }> = await apiClient.getEmpresas()
       const results = await Promise.allSettled(
-        empresas.map((e) =>
-          apiClient.getPostulaciones(e.id).then((r: PostulacionItem[]) => r)
-        )
+        empresas.map((e) => apiClient.getPostulaciones(e.id) as Promise<PostulacionItem[]>)
       )
       const flat: PostulacionItem[] = []
       for (const r of results) {
         if (r.status === 'fulfilled') flat.push(...r.value)
       }
-      setPostulaciones(flat.filter((p) => ACTIVE_ESTADOS.has(p.estado)))
-    } catch {
-      setPostulaciones([])
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => { load() }, [load])
+      return flat.filter((p) => ACTIVE_ESTADOS.has(p.estado))
+    },
+  })
+  const postulaciones = data ?? []
 
   // Build date → items map
   const byDate: Record<string, PostulacionItem[]> = {}

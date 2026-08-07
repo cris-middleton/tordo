@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/lib/api';
+import { useCobroEstado, useCobroPlanes } from '@/lib/queries';
 import {
   CheckCircle2,
   CreditCard,
@@ -54,33 +55,22 @@ const formatCLP = (n: number) => `$${n.toLocaleString('es-CL')}`;
 
 export default function BillingPage() {
   const { user, refreshUser } = useAuth();
-  const [plans, setPlans] = useState<Plan[]>([]);
-  const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Dos consultas independientes en vez de un Promise.all: si una falla, la otra
+  // sigue mostrándose. Antes un fallo en cualquiera vaciaba la pantalla entera.
+  const consultaPlanes = useCobroPlanes();
+  const consultaEstado = useCobroEstado();
+  const plans = (consultaPlanes.data ?? []) as Plan[];
+  const billingStatus = (consultaEstado.data ?? null) as BillingStatus | null;
+  const loading = consultaPlanes.isPending || consultaEstado.isPending;
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
   const [error, setError] = useState('');
+  const errorDeCarga =
+    consultaPlanes.error || consultaEstado.error
+      ? 'No se pudo cargar la información de facturación.'
+      : '';
 
-  useEffect(() => {
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const loadData = async () => {
-    try {
-      const [plansData, statusData] = await Promise.all([
-        apiClient.getBillingPlans(),
-        apiClient.getBillingStatus(),
-      ]);
-      setPlans(plansData);
-      setBillingStatus(statusData);
-    } catch {
-      setError('No se pudo cargar la información de facturación.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleCheckout = async () => {
     if (!billingStatus?.billing_enabled) return;
@@ -155,7 +145,7 @@ export default function BillingPage() {
         </div>
       </div>
 
-      {error && (
+      {(error || errorDeCarga) && (
         <div className="flex items-center gap-2 rounded-lg border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
           <AlertTriangle size={16} />
           {error}

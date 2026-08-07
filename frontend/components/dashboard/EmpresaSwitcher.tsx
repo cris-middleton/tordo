@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Check, X } from 'lucide-react';
-import { apiClient } from '@/lib/api';
-import { getEmpresaActiva, setEmpresaActiva } from '@/lib/empresaActive';
+import { useEmpresaActiva, setEmpresaActiva } from '@/lib/empresaActive';
+import { useEmpresas } from '@/lib/queries';
 
 interface EmpresaOption {
   id: string;
@@ -14,25 +14,20 @@ interface EmpresaOption {
 interface Props {
   open: boolean;
   onClose: () => void;
-  onSwitch: (empresaId: string) => void;
 }
 
-export function EmpresaSwitcher({ open, onClose, onSwitch }: Props) {
-  const [empresas, setEmpresas] = useState<EmpresaOption[]>([]);
-  const [active, setActive] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!open) return;
-    setLoading(true);
-    apiClient.getEmpresas()
-      .then((list: EmpresaOption[]) => {
-        const safe = Array.isArray(list) ? list : [];
-        setEmpresas(safe);
-        setActive(getEmpresaActiva() || (safe[0]?.id ?? null));
-      })
-      .finally(() => setLoading(false));
-  }, [open]);
+// `onSwitch` desapareció: existía para avisar al padre de que recargara. Ya no
+// hace falta — `setEmpresaActiva` notifica a `useEmpresaActiva`, la clave de la
+// consulta cambia y TanStack Query refresca sola las pantallas que dependan de
+// ella. De paso arregla el caso que el prop no cubría: pantallas montadas que no
+// pasaban por este padre no se enteraban del cambio.
+export function EmpresaSwitcher({ open, onClose }: Props) {
+  // `enabled` sólo cuando el diálogo está abierto: no tiene sentido pedir la
+  // lista hasta que alguien la va a ver.
+  const { data, isPending: loading } = useEmpresas();
+  const empresas = (Array.isArray(data) ? data : []) as EmpresaOption[];
+  const guardada = useEmpresaActiva();
+  const active = guardada || (empresas[0]?.id ?? null);
 
   useEffect(() => {
     if (!open) return;
@@ -45,7 +40,6 @@ export function EmpresaSwitcher({ open, onClose, onSwitch }: Props) {
 
   function choose(id: string) {
     setEmpresaActiva(id);
-    onSwitch(id);
     onClose();
   }
 

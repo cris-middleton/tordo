@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAvatar } from '@/lib/avatar';
 import TordoLogo from '@/components/TordoLogo';
 import {
   LayoutDashboard,
@@ -69,7 +70,7 @@ export default function Layout({ children }: LayoutProps) {
   const [montadoEn] = useState(() => Date.now());
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [avatar, setAvatar] = useState<string | null>(null);
+  const avatar = useAvatar();
   const router = useRouter();
   const pathname = usePathname();
   const { user, logout } = useAuth();
@@ -89,13 +90,6 @@ export default function Layout({ children }: LayoutProps) {
 
   const allNavItems = navSections.flatMap((s) => s.items);
 
-  useEffect(() => {
-    // Read avatar on mount and listen for changes from the profile page
-    setAvatar(localStorage.getItem('user_avatar'));
-    const handleAvatarChange = () => setAvatar(localStorage.getItem('user_avatar'));
-    window.addEventListener('avatar_changed', handleAvatarChange);
-    return () => window.removeEventListener('avatar_changed', handleAvatarChange);
-  }, []);
 
   // Routes that exist but are not listed in the sidebar nav
   const extraRouteNames: Record<string, string> = {

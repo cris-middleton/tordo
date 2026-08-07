@@ -9,10 +9,9 @@ import { EmpresaSwitcher } from './EmpresaSwitcher';
 interface Props {
   data: DashboardHomeResponse;
   firstName: string;
-  onEmpresaSwitch: (id: string) => void;
 }
 
-export function DashboardHeader({ data, firstName, onEmpresaSwitch }: Props) {
+export function DashboardHeader({ data, firstName }: Props) {
   const [open, setOpen] = useState(false);
   const lines = buildNarrative({ data, firstName, now: new Date() });
 
@@ -46,7 +45,7 @@ export function DashboardHeader({ data, firstName, onEmpresaSwitch }: Props) {
           ))}
         </div>
       </div>
-      <EmpresaSwitcher open={open} onClose={() => setOpen(false)} onSwitch={onEmpresaSwitch} />
+      <EmpresaSwitcher open={open} onClose={() => setOpen(false)} />
     </>
   );
 }

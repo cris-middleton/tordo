@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Radar, Loader2, Target, Building2, Zap } from 'lucide-react';
-import { apiClient } from '@/lib/api';
+import { useRadarSemanal } from '@/lib/queries';
 import type { RadarResponse, RadarMovimiento } from '@/types/dashboardHome';
 
 interface RadarWidgetProps {
@@ -23,21 +22,13 @@ const TIPO_COLOR: Record<RadarMovimiento['tipo'], string> = {
 };
 
 export function RadarWidget({ empresaId }: RadarWidgetProps) {
-  const [data, setData] = useState<RadarResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!empresaId) return;
-    setLoading(true);
-    apiClient
-      .getBIRadarSemanal(empresaId)
-      .then(setData)
-      .catch(() => setData(null))
-      .finally(() => setLoading(false));
-  }, [empresaId]);
+  // `enabled` dentro del hook cubre el caso sin empresa, así que desaparece el
+  // `if (!empresaId) return` que había dentro del efecto.
+  const { data: respuesta, isFetching } = useRadarSemanal(empresaId ?? undefined);
+  const data = (respuesta ?? null) as RadarResponse | null;
 
   // Loading state — keep card structure stable
-  if (loading) {
+  if (isFetching && !data) {
     return (
       <section className="card flex items-center gap-3 py-6">
         <Loader2 className="h-5 w-5 animate-spin text-primary" />

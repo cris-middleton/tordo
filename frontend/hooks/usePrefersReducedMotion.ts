@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 
 const QUERY = '(prefers-reduced-motion: reduce)';
 
@@ -13,22 +13,24 @@ const QUERY = '(prefers-reduced-motion: reduce)';
  * aleteo del logo son `setInterval`, y seguirían corriendo. Este hook existe
  * para eso — úsalo para no arrancar el intervalo, no sólo para ocultarlo.
  *
- * Arranca en `false` y se corrige tras montar: en el servidor no hay
- * `matchMedia`, y asumir `true` haría parpadear el contenido en la hidratación.
+ * Arranca en `false`: en el servidor no hay `matchMedia`, y asumir `true` haría
+ * parpadear el contenido en la hidratación.
  */
+const suscribir = (fn: () => void): (() => void) => {
+  const mq = window.matchMedia(QUERY);
+  mq.addEventListener('change', fn);
+  return () => mq.removeEventListener('change', fn);
+};
+
+const leer = (): boolean => window.matchMedia(QUERY).matches;
+
+// En el servidor no hay `matchMedia`. `false` es el mismo valor que da el cliente
+// antes de hidratar, así que no hay desajuste.
+const leerEnServidor = (): boolean => false;
+
 export function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia(QUERY);
-    setReduced(mq.matches);
-
-    const onChange = (e: MediaQueryListEvent) => setReduced(e.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
-
-  return reduced;
+  // `useSyncExternalStore` en vez de `useEffect` + `setState`: es la API que
+  // React tiene para suscribirse a algo que vive fuera de React, y evita el
+  // render de más que hacía el efecto al corregir el valor tras montar.
+  return useSyncExternalStore(suscribir, leer, leerEnServidor);
 }
-
-export default usePrefersReducedMotion;

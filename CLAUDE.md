@@ -257,11 +257,20 @@ y no tiene Pub/Sub ni Cloud Tasks.
 - Las superficies que deben verse oscuras siempre —el hero, la tarjeta Pro, los paneles de
   autenticación— se marcan con la clase `dark` sobre `bg-brand-navy`, y los tokens se
   invierten solos dentro. No repintes a mano.
-- El estado de servidor se maneja con `useState`/`useEffect` (deuda conocida; el objetivo es
-  TanStack Query — ver F5). **El compilador de React de Next 16 la marca**: 44 avisos de
-  `react-hooks/set-state-in-effect` e `immutability`, todos sobre ese mismo patrón. Están en
-  `warn` a propósito, no silenciados línea a línea, y **vuelven a `error` cuando entre
-  TanStack Query**. Si el número sube antes, es que alguien añadió deuda del mismo tipo.
+- **El estado de servidor va en TanStack Query.** Las consultas y sus claves viven en
+  `lib/queries.ts`, en un solo sitio: las claves son lo que permite invalidar con precisión
+  tras una mutación. Los hooks envuelven `lib/api.ts`, no `fetch` — esa capa es la que
+  permitirá mover el transporte a un proxy con cookie `httpOnly` sin tocar una pantalla.
+  **Migración en curso**: 8 de las 28 pantallas hechas; quedan 41 de los 49 avisos originales.
+- **Nada de `useEffect` + `setState` para leer algo que vive fuera de React.** Para
+  `localStorage`, `matchMedia` o un evento del navegador, la API correcta es
+  `useSyncExternalStore` — ya lo usan `useEmpresaActiva`, `useAvatar` y
+  `usePrefersReducedMotion`. Además de dejar el lint limpio, arregla un fallo que el efecto
+  tenía: **sólo corría al montar**, así que cambiar de empresa no actualizaba las pantallas
+  ya montadas.
+- Quedan avisos de `react-hooks/set-state-in-effect` e `immutability` en las pantallas sin
+  migrar. Están en `warn`, **no silenciados línea a línea**, y vuelven a `error` cuando la
+  migración termine. Si el número sube, es que alguien añadió deuda del mismo tipo.
 - **El lint es `eslint .`, no `next lint`** — desapareció en Next 16. La configuración es plana
   (`eslint.config.mjs`), porque ESLint 9 abandonó `.eslintrc`.
 
