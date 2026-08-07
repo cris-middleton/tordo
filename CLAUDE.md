@@ -152,6 +152,13 @@ una consulta propia de membresía en un router.
 `backend/tests/test_tenancy_estructural.py` falla en CI si una ruta con `{empresa_id}` no
 declara la dependencia. Ver `.claude/skills/endpoint-empresa/`.
 
+**El recorrido de rutas vive en `backend/tests/rutas.py`, en un solo sitio.** No uses
+`app.routes` directamente: desde FastAPI 0.115 los routers incluidos **no se aplanan** ahí,
+y `app.routes` devuelve envoltorios `_IncludedRouter`. Al actualizar desde 0.104 los dos
+tests estructurales pasaron a encontrar **cero rutas** — y lo dijeron sólo porque llevan
+guardas explícitas ("se esperaban ≥10, hay 0"). **Un test estructural sin esa guarda se
+queda mudo comprobando el vacío.**
+
 ### Gating por plan en BI
 `backend/tests/test_contrato_bi.py` declara, ruta por ruta, qué protección le toca a cada uno
 de los 22 endpoints de BI. **Un endpoint nuevo hace fallar el test hasta que alguien decida

@@ -25,6 +25,7 @@ from __future__ import annotations
 import pytest
 
 from app.main import app
+from tests.rutas import MINIMO_PLAUSIBLE, rutas_con_metodo
 
 # Ruta → nivel de protección esperado. Las excepciones llevan su motivo escrito:
 # si alguien la cambia, tiene que cambiar también la razón.
@@ -75,15 +76,19 @@ DEPENDENCIAS_POR_NIVEL = {
 
 
 def _rutas_bi() -> list[tuple[str, str, set[str]]]:
-    filas = []
-    for r in app.routes:
-        path = getattr(r, "path", "")
-        if not path.startswith("/api/bi/"):
-            continue
-        for metodo in r.methods - {"HEAD", "OPTIONS"}:
-            deps = {d.call.__name__ for d in r.dependant.dependencies if getattr(d, "call", None)}
-            filas.append((metodo, path, deps))
-    return filas
+    # El recorrido vive en tests/rutas.py, compartido con el test estructural de
+    # multi-tenancy: FastAPI 0.141 dejó de aplanar los routers incluidos y los
+    # dos pasaron a encontrar cero rutas a la vez.
+    return [f for f in rutas_con_metodo(app) if f[1].startswith("/api/bi/")]
+
+
+def test_el_recorrido_de_rutas_funciona():
+    """Guarda antes que nada: sin esto, un recorrido roto deja el resto en verde
+    comprobando el vacío."""
+    assert len(rutas_con_metodo(app)) >= MINIMO_PLAUSIBLE, (
+        "el recorrido de rutas no encuentra la app entera — revisa tests/rutas.py"
+    )
+    assert len(_rutas_bi()) >= 20, f"se esperaban ≥20 endpoints de BI, hay {len(_rutas_bi())}"
 
 
 def test_no_hay_endpoints_de_bi_sin_contrato_declarado():

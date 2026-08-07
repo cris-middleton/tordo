@@ -32,8 +32,8 @@ package = false
 shared = [
     "sqlalchemy==2.0.23",
     "psycopg2-binary==2.9.9",
-    "pydantic[email]==2.5.0",
-    "pydantic-settings==2.1.0",
+    "pydantic[email]>=2.12,<3",
+    "pydantic-settings>=2.6,<3",
     "python-dotenv==1.0.0",
     # 0.20.15 no tiene DataFrame.join(coalesce=...), que usa
     # etl/analytics/evaluation/metrics.py — 5 tests del harness fallaban.
@@ -48,9 +48,9 @@ shared = [
 api = [
     { include-group = "shared" },
     # Web
-    "fastapi==0.104.1",
-    "uvicorn[standard]==0.24.0",
-    "python-multipart==0.0.6",
+    "fastapi>=0.115,<1",
+    "uvicorn[standard]>=0.32,<1",
+    "python-multipart>=0.0.9",
     # Base de datos
     "asyncpg==0.29.0",
     "alembic==1.12.1",
