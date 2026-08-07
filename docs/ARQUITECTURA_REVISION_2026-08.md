@@ -588,7 +588,9 @@ F3/F4/F5 pueden solaparse.
       cuentas Pro (403 en `branches/main/protection` y en `rulesets`). Sustituto local:
       `make merge PR=<n>`, que se niega si algún check no está en verde. La protección real
       cuesta ~4 USD/mes. `staging` sigue descartado a propósito (ver CLAUDE.md).
-- [ ] `docker-compose.test.yml` con Postgres efímero; migrar `conftest.py` del DDL de SQLite a BD real ← pendiente, ver nota abajo
+- [x] **`conftest.py` migrado a Postgres real**: el esquema lo crean las migraciones y cada test
+      corre en una transacción que se revierte. El `docker-compose.test.yml` nunca hizo falta —
+      `scripts/ci-local.sh` levanta el Postgres efímero y lo destruye al terminar.
 - [x] **Contrato de los 22 endpoints de BI** (`test_contrato_bi.py`): tabla ruta → nivel de
       protección, con test estructural que falla si aparece un endpoint sin decidir el suyo.
       **Encontró una fuga real**: `/licitacion-match` implementa "Matching semántico", que se
@@ -684,12 +686,12 @@ F3/F4/F5 pueden solaparse.
 - [~] `repositories/` introducido (analytics, sync y async); **falta sacar SQLAlchemy del resto
       de los routers** — es lo único de F3 que sigue abierto junto al versionado
 - [ ] Versionado `/api/v1/`; documentar la decisión de envelope
-- [ ] **Suscripción por empresa** (decisión 2 — la pieza más grande de esta fase):
+- [x] **Suscripción por empresa** (decisión 2 — la pieza más grande de esta fase) — completa:
   - [x] Mover `plan_tier`, `subscription_status`, `billing_*`, `trial_*` de `User` a la empresa
   - [x] Usuarios pasan a ser asientos; límite por plan en `PLAN_QUOTAS.max_usuarios` (1/3/5/∞)
   - [x] `require_plan` y `check_bi_quota_dep` resuelven contra la empresa activa
   - [x] Cuotas de BI contabilizadas por empresa en Redis
-  - [ ] Migración de datos de los usuarios existentes a su empresa owner
+  - [x] Migración de **datos** de los usuarios existentes a su empresa owner (`4829d50c138a`)
 - [x] Puerto `ProveedorDePago` en `domain/`, Stripe como adaptador en `infra/`
 - [x] Adaptador de pasarela local: **MercadoPago** (ADR 0008). Sin probar aún contra la API real.
 
