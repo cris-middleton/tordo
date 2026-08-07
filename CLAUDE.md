@@ -141,6 +141,14 @@ declara la dependencia. Ver `.claude/skills/endpoint-empresa/`.
 - **Todos los schemas Pydantic en `app/schemas/`.** Nunca inline en endpoints o servicios.
 - **Toda tabla y columna nueva lleva `comment=`.** Es un producto de datos con 78 columnas
   por orden de compra; sin comentarios se vuelve inusable en meses.
+- **Clave primaria: `UUID` para entidades de negocio, `BigInteger` para las de ingesta.**
+  Las de ingesta crecen sin techo y `integer` se queda corto; las de negocio se exponen en
+  URLs y no conviene que sean adivinables.
+- **Las dos reglas anteriores las verifica `tests/test_convenciones_modelo.py`**, con
+  trinquete: hoy hay deuda (24 tablas y 302 columnas sin comentario, 16 PK `integer`), así que
+  el test **no exige arreglarla** — falla si aparece deuda **nueva**. La deuda vive en
+  `tests/convenciones_baseline.json` y sólo puede encoger.
+  Al arreglar algo: `cd backend && uv run --project .. python tests/regenerar_baseline.py`.
 - Los errores de negocio se devuelven con `HTTPException` y mensaje en español — los ve el usuario.
 
 ### Secretos

@@ -694,10 +694,20 @@ F3/F4/F5 pueden solaparse.
       (trigrama). Retirarlo entero habría perdido la búsqueda por fragmento sin evidencia de que
       nadie la usa. Medido: el `COUNT` que el endpoint ejecuta en cada búsqueda pasa de **94 ms a
       1,5 ms** sobre 200 000 filas.
-- [ ] `tipo_convocatoria` (licitacion | compra_agil | convenio_marco | trato_directo | cotizacion)
+- [~] `tipo_convocatoria` — **movido a F6.2**, con el trabajo de Compra Ágil / Convenio Marco.
+      Hoy el ETL sólo ingiere licitaciones, así que la columna sería constante y el enum se
+      fijaría antes de ver los datos reales. Tampoco hay prisa: en Postgres 11+ un `ADD COLUMN`
+      con default no volátil no reescribe la tabla, así que añadirlo después cuesta lo mismo.
+      Ojo: ya existe `licitaciones.tipo_licitacion`, que es otra cosa — el código LE/LP/LQ que
+      entrega la API.
 - [x] ~~`fuente` / `pais` en las entidades de ingesta~~ — descartado (decisión 1: sólo Chile)
-- [ ] Regla de PKs para entidades nuevas (UUIDv7 negocio / BigInteger ingesta)
-- [ ] Comentarios de BD obligatorios (regla + chequeo)
+- [x] Regla de PKs (UUID negocio / BigInteger ingesta) **y verificada**: ninguna tabla nueva
+      puede llevar PK `integer`. Las 16 existentes quedan en la línea base — migrarlas exige
+      reescribir las tablas grandes y tocar cada FK, y no hay urgencia (int4 aguanta 2,1 mil
+      millones de filas).
+- [x] Comentarios de BD **con chequeo**. Trinquete, no prohibición: exigirlos en todo fallaría
+      con 302 violaciones y el test acabaría desactivado. Falla sólo con deuda nueva, y la línea
+      base sólo puede encoger.
 
 ### F5 — Frontend · 1–2 semanas · paralelizable con F3/F4
 
