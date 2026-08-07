@@ -30,7 +30,7 @@ interface CompetenciaSectionProps {
 
 // Hex values — CSS vars don't resolve inside Recharts SVG fill props
 const COLORS = [
-  '#3B5BDB', '#00A87A', '#F59E0B', '#EF4444', '#8b5cf6', '#06b6d4',
+  '#102858', '#0E7C7F', '#96590A', '#B91C1C', '#8b5cf6', '#06b6d4',
 ];
 
 const CustomTooltip = ({ active, payload }: any) => {
@@ -160,13 +160,13 @@ export function CompetenciaSection({
           <div className="flex gap-2">
             <button
               onClick={() => setShowTable(false)}
-              className={`text-xs px-3 py-1 rounded-lg border transition-colors ${!showTable ? 'bg-primary text-white border-primary' : 'border-border text-muted hover:text-text'}`}
+              className={`text-xs px-3 py-1 rounded-lg border transition-colors ${!showTable ? 'bg-primary text-onPrimary border-primary' : 'border-border text-muted hover:text-text'}`}
             >
               Gráfico
             </button>
             <button
               onClick={() => setShowTable(true)}
-              className={`text-xs px-3 py-1 rounded-lg border transition-colors ${showTable ? 'bg-primary text-white border-primary' : 'border-border text-muted hover:text-text'}`}
+              className={`text-xs px-3 py-1 rounded-lg border transition-colors ${showTable ? 'bg-primary text-onPrimary border-primary' : 'border-border text-muted hover:text-text'}`}
             >
               Tabla
             </button>
@@ -175,26 +175,26 @@ export function CompetenciaSection({
           {!showTable ? (
             <ResponsiveContainer width="100%" height={320}>
               <ScatterChart margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#DCE3ED" />
                 <XAxis
                   dataKey="win_rate_pct"
                   name="Tasa adjudicación"
                   type="number"
-                  label={{ value: 'Tasa de adjudicación (%)', position: 'insideBottom', offset: -10, fontSize: 11, fill: '#94a3b8' }}
-                  tick={{ fontSize: 11, fill: '#94a3b8' }}
+                  label={{ value: 'Tasa de adjudicación (%)', position: 'insideBottom', offset: -10, fontSize: 11, fill: '#5F7089' }}
+                  tick={{ fontSize: 11, fill: '#5F7089' }}
                 />
                 <YAxis
                   dataKey="market_share_pct"
                   name="Participación"
                   type="number"
                   width={70}
-                  tick={{ fontSize: 11, fill: '#94a3b8' }}
+                  tick={{ fontSize: 11, fill: '#5F7089' }}
                   label={{
                     value: 'Participación de mercado (%)',
                     angle: -90,
                     position: 'insideLeft',
                     offset: 0,
-                    style: { fontSize: 11, fill: '#64748b', textAnchor: 'middle' },
+                    style: { fontSize: 11, fill: '#54637A', textAnchor: 'middle' },
                   }}
                 />
                 <ZAxis dataKey="n_oc" range={[40, 400]} />

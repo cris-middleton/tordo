@@ -143,7 +143,7 @@ export default function EmpresaPage() {
       </div>
 
       <div className="bg-surface rounded-2xl border border-border shadow-sm p-5 mb-6 flex flex-col sm:flex-row sm:items-center gap-5">
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary text-white font-medium shadow-sm ring-4 ring-background">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary text-onPrimary font-medium shadow-sm ring-4 ring-background">
           {avatar ? (
             <span className="text-3xl leading-none">{avatar}</span>
           ) : (

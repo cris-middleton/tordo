@@ -106,7 +106,7 @@ export function MatchesZone({ matches, totalDisponibles, cachedAt, plan }: Props
               <div className="absolute inset-0 flex items-center justify-center">
                 <Link
                   href="/dashboard/billing"
-                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary text-white rounded-lg text-xs font-medium hover:bg-primary/90"
+                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary text-onPrimary rounded-lg text-xs font-medium hover:bg-primary/90"
                 >
                   <Lock size={12} /> Desbloquea con PYME+
                 </Link>

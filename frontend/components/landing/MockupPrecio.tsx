@@ -174,50 +174,50 @@ export function MockupPrecio() {
       <BrowserChrome url="tordo.cl/dashboard/bi">
         <div key={activeIndex} className="animate-fade-in">
           {/* Header */}
-          <p className="text-[10px] text-[#94A3B8] mb-1 truncate">{ex.producto}</p>
+          <p className="text-[10px] text-[#5F7089] mb-1 truncate">{ex.producto}</p>
 
           {/* Mediana XL + tendencia */}
           <div className="flex items-baseline gap-2 mb-0.5">
             <span
-              className="text-2xl font-bold text-[#E2E8F0]"
+              className="text-2xl font-bold text-[#DCE3ED]"
               style={{ fontFamily: 'var(--font-outfit, system-ui)' }}
             >
               {ex.mediana}
             </span>
-            <span className="text-[9px] text-[#94A3B8]">/ {ex.unidad}</span>
+            <span className="text-[9px] text-[#5F7089]">/ {ex.unidad}</span>
             <span
-              className={`ml-auto text-[9px] font-semibold ${trendUp ? 'text-[#00C896]' : 'text-[#F85149]'}`}
+              className={`ml-auto text-[9px] font-semibold ${trendUp ? 'text-[#3DB9BB]' : 'text-[#B91C1C]'}`}
             >
               {ex.tendencia} vs hace 12 m.
             </span>
           </div>
-          <p className="text-[8px] font-semibold text-[#94A3B8] uppercase tracking-wider mb-3">
+          <p className="text-[8px] font-semibold text-[#5F7089] uppercase tracking-wider mb-3">
             Mediana de adjudicación
           </p>
 
           {/* Range bar */}
-          <div className="relative h-1.5 bg-[#1A1F2C] rounded-full mb-1">
+          <div className="relative h-1.5 bg-[#1E2736] rounded-full mb-1">
             {/* Mediana marker (green) */}
             <div
-              className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-3 w-3 rounded-full bg-[#00C896] border-2 border-[#0A0C10]"
+              className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-3 w-3 rounded-full bg-[#3DB9BB] border-2 border-[#080B11]"
               style={{ left: `${medianPct}%` }}
             />
             {/* Cotización marker (yellow) */}
             <div
-              className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-3 w-3 rounded-full bg-[#F59E0B] border-2 border-[#0A0C10]"
+              className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-3 w-3 rounded-full bg-[#96590A] border-2 border-[#080B11]"
               style={{ left: `${quotePct}%` }}
             />
           </div>
-          <div className="flex justify-between text-[8px] text-[#94A3B8] mb-3">
+          <div className="flex justify-between text-[8px] text-[#5F7089] mb-3">
             <span>{ex.minStr} Mín</span>
-            <span className="text-[#00C896]">{ex.mediana} Med.</span>
-            <span className="text-[#F59E0B]">{ex.cotizacion} Tu cot.</span>
+            <span className="text-[#3DB9BB]">{ex.mediana} Med.</span>
+            <span className="text-[#96590A]">{ex.cotizacion} Tu cot.</span>
             <span>{ex.maxStr} Máx</span>
           </div>
 
           {/* Callout simulador */}
-          <div className="rounded-lg bg-[#0EAD69]/10 border border-[#0EAD69]/20 px-3 py-2 mb-3">
-            <p className="text-[10px] text-[#E2E8F0] leading-relaxed">
+          <div className="rounded-lg bg-[#0E7C7F]/10 border border-[#0E7C7F]/20 px-3 py-2 mb-3">
+            <p className="text-[10px] text-[#DCE3ED] leading-relaxed">
               💡 Tu cotización de <strong>{ex.cotizacion}</strong> está sobre 3 de cada 4
               adjudicaciones. Si bajas a <strong>{ex.target}</strong>, te acercas al precio que
               suele ganar.
@@ -225,8 +225,8 @@ export function MockupPrecio() {
           </div>
 
           {/* Tabla adjudicaciones */}
-          <div className="rounded-lg bg-[#0F1117] border border-[#1A1F2C] overflow-hidden mb-2">
-            <div className="grid grid-cols-[1.8fr_0.9fr_0.8fr] px-3 py-1.5 text-[8px] font-semibold text-[#94A3B8] uppercase tracking-wider border-b border-[#1A1F2C]">
+          <div className="rounded-lg bg-[#0E131C] border border-[#1E2736] overflow-hidden mb-2">
+            <div className="grid grid-cols-[1.8fr_0.9fr_0.8fr] px-3 py-1.5 text-[8px] font-semibold text-[#5F7089] uppercase tracking-wider border-b border-[#1E2736]">
               <span>Comprador</span>
               <span>Fecha</span>
               <span>Monto</span>
@@ -235,18 +235,18 @@ export function MockupPrecio() {
               <div
                 key={i}
                 className={`grid grid-cols-[1.8fr_0.9fr_0.8fr] px-3 py-1.5 items-center ${
-                  i < ex.adjudicaciones.length - 1 ? 'border-b border-[#1A1F2C]' : ''
+                  i < ex.adjudicaciones.length - 1 ? 'border-b border-[#1E2736]' : ''
                 }`}
               >
-                <span className="text-[9px] text-[#E2E8F0] truncate">{adj.comprador}</span>
-                <span className="text-[8px] text-[#94A3B8]">{adj.fecha}</span>
-                <span className="text-[9px] font-semibold text-[#00C896]">{adj.monto}</span>
+                <span className="text-[9px] text-[#DCE3ED] truncate">{adj.comprador}</span>
+                <span className="text-[8px] text-[#5F7089]">{adj.fecha}</span>
+                <span className="text-[9px] font-semibold text-[#3DB9BB]">{adj.monto}</span>
               </div>
             ))}
           </div>
 
           {/* Footer insight */}
-          <p className="text-[9px] text-[#94A3B8] leading-relaxed">📌 {ex.insight}</p>
+          <p className="text-[9px] text-[#5F7089] leading-relaxed">📌 {ex.insight}</p>
         </div>
       </BrowserChrome>
 
@@ -263,8 +263,8 @@ export function MockupPrecio() {
             aria-selected={i === activeIndex}
             aria-label={`Ejemplo ${i + 1}: ${PRECIO_EXAMPLES[i].producto}`}
             onClick={() => setActiveIndex(i)}
-            className={`h-1.5 rounded-full transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0EAD69] ${
-              i === activeIndex ? 'w-4 bg-[#0EAD69]' : 'w-1.5 bg-[#94A3B8]/40 hover:bg-[#94A3B8]'
+            className={`h-1.5 rounded-full transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0E7C7F] ${
+              i === activeIndex ? 'w-4 bg-[#0E7C7F]' : 'w-1.5 bg-[#5F7089]/40 hover:bg-[#5F7089]'
             }`}
           />
         ))}
@@ -276,17 +276,17 @@ export function MockupPrecio() {
           onClick={() =>
             setActiveIndex((activeIndex - 1 + PRECIO_EXAMPLES.length) % PRECIO_EXAMPLES.length)
           }
-          className="text-[#94A3B8] hover:text-[#E2E8F0] px-2 py-1 text-lg leading-none"
+          className="text-[#5F7089] hover:text-[#DCE3ED] px-2 py-1 text-lg leading-none"
           aria-label="Ejemplo anterior"
         >
           ‹
         </button>
-        <span className="text-[10px] text-[#94A3B8]">
+        <span className="text-[10px] text-[#5F7089]">
           {activeIndex + 1} / {PRECIO_EXAMPLES.length}
         </span>
         <button
           onClick={() => setActiveIndex((activeIndex + 1) % PRECIO_EXAMPLES.length)}
-          className="text-[#94A3B8] hover:text-[#E2E8F0] px-2 py-1 text-lg leading-none"
+          className="text-[#5F7089] hover:text-[#DCE3ED] px-2 py-1 text-lg leading-none"
           aria-label="Siguiente ejemplo"
         >
           ›

@@ -240,7 +240,7 @@ export default function AlertsPage() {
             }}
             className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
               filter === 'unread'
-                ? 'bg-primary text-white shadow-sm'
+                ? 'bg-primary text-onPrimary shadow-sm'
                 : 'border border-border bg-surface text-muted hover:border-primary/40 hover:text-primary'
             }`}
           >
@@ -253,7 +253,7 @@ export default function AlertsPage() {
             }}
             className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
               filter === 'all'
-                ? 'bg-primary text-white shadow-sm'
+                ? 'bg-primary text-onPrimary shadow-sm'
                 : 'border border-border bg-surface text-muted hover:border-primary/40 hover:text-primary'
             }`}
           >

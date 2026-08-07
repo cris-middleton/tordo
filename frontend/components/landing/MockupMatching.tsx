@@ -59,9 +59,9 @@ const MATCHING_EXAMPLES: MatchingExample[] = [
 ];
 
 function calceColor(pct: number): string {
-  if (pct >= 90) return '#00C896';
-  if (pct >= 80) return '#00C896BB';
-  return '#00C89688';
+  if (pct >= 90) return '#3DB9BB';
+  if (pct >= 80) return '#3DB9BBBB';
+  return '#3DB9BB88';
 }
 
 export function MockupMatching() {
@@ -79,11 +79,11 @@ export function MockupMatching() {
       <BrowserChrome url="tordo.cl/dashboard/tenders">
         <div key={activeIndex} className="animate-fade-in">
           {/* Search bar */}
-          <div className="flex items-center gap-2 rounded-lg bg-[#0F1117] border border-[#1A1F2C] px-3 py-2 mb-1">
-            <Search className="h-3 w-3 flex-shrink-0 text-[#94A3B8]" />
-            <span className="text-[11px] text-[#E2E8F0] font-medium">{ex.rubro}</span>
+          <div className="flex items-center gap-2 rounded-lg bg-[#0E131C] border border-[#1E2736] px-3 py-2 mb-1">
+            <Search className="h-3 w-3 flex-shrink-0 text-[#5F7089]" />
+            <span className="text-[11px] text-[#DCE3ED] font-medium">{ex.rubro}</span>
           </div>
-          <p className="text-[9px] text-[#94A3B8] mb-3">
+          <p className="text-[9px] text-[#5F7089] mb-3">
             {ex.resultados.length} licitaciones que calzan con lo que vendes:
           </p>
 
@@ -92,32 +92,32 @@ export function MockupMatching() {
             {ex.resultados.map((r, i) => (
               <div
                 key={i}
-                className="relative rounded-lg bg-[#0F1117] border border-[#1A1F2C] px-3 py-2"
+                className="relative rounded-lg bg-[#0E131C] border border-[#1E2736] px-3 py-2"
               >
                 {/* Calce badge */}
                 <span
-                  className="absolute right-2 top-2 rounded-md px-1.5 py-0.5 text-[9px] font-bold text-[#0A0C10]"
+                  className="absolute right-2 top-2 rounded-md px-1.5 py-0.5 text-[9px] font-bold text-[#080B11]"
                   style={{ background: calceColor(r.calce) }}
                 >
                   {r.calce}%
                 </span>
-                <p className="text-[10px] font-semibold text-[#E2E8F0] pr-10 mb-0.5 truncate">
+                <p className="text-[10px] font-semibold text-[#DCE3ED] pr-10 mb-0.5 truncate">
                   {r.titulo}
                 </p>
-                <div className="flex items-center gap-2 text-[8px] text-[#94A3B8]">
+                <div className="flex items-center gap-2 text-[8px] text-[#5F7089]">
                   <span className="truncate">{r.comprador}</span>
                   <span>·</span>
                   <span>{r.monto}</span>
                   <span>·</span>
-                  <span className="text-[#F59E0B] flex-shrink-0">{r.diasCierre}d</span>
+                  <span className="text-[#96590A] flex-shrink-0">{r.diasCierre}d</span>
                 </div>
               </div>
             ))}
           </div>
 
           {/* Insight */}
-          <div className="rounded-lg bg-[#0EAD69]/10 border border-[#0EAD69]/20 px-3 py-2">
-            <p className="text-[10px] text-[#E2E8F0]">💡 {ex.insight}</p>
+          <div className="rounded-lg bg-[#0E7C7F]/10 border border-[#0E7C7F]/20 px-3 py-2">
+            <p className="text-[10px] text-[#DCE3ED]">💡 {ex.insight}</p>
           </div>
         </div>
       </BrowserChrome>
@@ -135,8 +135,8 @@ export function MockupMatching() {
             aria-selected={i === activeIndex}
             aria-label={`Ejemplo ${i + 1}: ${MATCHING_EXAMPLES[i].rubro}`}
             onClick={() => setActiveIndex(i)}
-            className={`h-1.5 rounded-full transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0EAD69] ${
-              i === activeIndex ? 'w-4 bg-[#0EAD69]' : 'w-1.5 bg-[#94A3B8]/40 hover:bg-[#94A3B8]'
+            className={`h-1.5 rounded-full transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0E7C7F] ${
+              i === activeIndex ? 'w-4 bg-[#0E7C7F]' : 'w-1.5 bg-[#5F7089]/40 hover:bg-[#5F7089]'
             }`}
           />
         ))}
@@ -150,17 +150,17 @@ export function MockupMatching() {
               (activeIndex - 1 + MATCHING_EXAMPLES.length) % MATCHING_EXAMPLES.length,
             )
           }
-          className="text-[#94A3B8] hover:text-[#E2E8F0] px-2 py-1 text-lg leading-none"
+          className="text-[#5F7089] hover:text-[#DCE3ED] px-2 py-1 text-lg leading-none"
           aria-label="Ejemplo anterior"
         >
           ‹
         </button>
-        <span className="text-[10px] text-[#94A3B8]">
+        <span className="text-[10px] text-[#5F7089]">
           {activeIndex + 1} / {MATCHING_EXAMPLES.length}
         </span>
         <button
           onClick={() => setActiveIndex((activeIndex + 1) % MATCHING_EXAMPLES.length)}
-          className="text-[#94A3B8] hover:text-[#E2E8F0] px-2 py-1 text-lg leading-none"
+          className="text-[#5F7089] hover:text-[#DCE3ED] px-2 py-1 text-lg leading-none"
           aria-label="Siguiente ejemplo"
         >
           ›

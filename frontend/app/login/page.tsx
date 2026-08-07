@@ -64,7 +64,7 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen">
       {/* ── Left brand panel ── */}
-      <div className="hidden lg:flex lg:w-[46%] xl:w-[50%] flex-col justify-between bg-brand-navy p-12 relative overflow-hidden">
+      <div className="dark hidden lg:flex lg:w-[46%] xl:w-[50%] flex-col justify-between bg-brand-navy p-12 relative overflow-hidden">
         {/* Dot grid background */}
         <div
           className="absolute inset-0 opacity-[0.035]"

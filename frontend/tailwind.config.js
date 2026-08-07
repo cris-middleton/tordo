@@ -11,7 +11,6 @@ module.exports = {
       colors: {
         primary: 'rgb(var(--color-primary) / <alpha-value>)',
         primaryDark: 'rgb(var(--color-primary-dark) / <alpha-value>)',
-        primaryLight: 'rgb(var(--color-primary-light) / <alpha-value>)',
         accent: 'rgb(var(--color-accent) / <alpha-value>)',
         accentDark: 'rgb(var(--color-accent-dark) / <alpha-value>)',
         accentLight: 'rgb(var(--color-accent-light) / <alpha-value>)',
@@ -34,6 +33,16 @@ module.exports = {
         success: 'rgb(var(--color-success) / <alpha-value>)',
         successLight: 'rgb(var(--color-success-light) / <alpha-value>)',
         'brand-navy': 'rgb(var(--color-brand-navy) / <alpha-value>)',
+        // Etiqueta que va ENCIMA de cada relleno de color. En tema claro los
+        // rellenos son oscuros y estas son blancas; en oscuro se invierten.
+        // Usa `text-onAccent` en vez de `text-white` sobre `bg-accent`.
+        onPrimary: 'rgb(var(--color-on-primary) / <alpha-value>)',
+        onAccent: 'rgb(var(--color-on-accent) / <alpha-value>)',
+        onSuccess: 'rgb(var(--color-on-success) / <alpha-value>)',
+        onDanger: 'rgb(var(--color-on-danger) / <alpha-value>)',
+        onWarning: 'rgb(var(--color-on-warning) / <alpha-value>)',
+        onGold: 'rgb(var(--color-on-gold) / <alpha-value>)',
+        onInfo: 'rgb(var(--color-on-info) / <alpha-value>)',
       },
       fontFamily: {
         sans: ['var(--font-dm-sans)', 'system-ui', 'sans-serif'],
