@@ -289,7 +289,10 @@ estos patrones, es señal de que hay que arreglar la causa, no de copiarlo:
 - ~~`Column(JSON)` donde corresponde `JSONB`~~ — **resuelto en F4**: las 26 columnas son JSONB.
   **Toda columna JSON nueva se declara `JSONB`**; `JSON` guarda texto y lo reparsea en cada
   lectura, y no se puede indexar.
-- Búsqueda con `ILIKE '%término%'`, que ningún índice puede servir (F4).
+- ~~Búsqueda con `ILIKE '%término%'`~~ — **resuelto en F4**: columna generada `busqueda`
+  (tsvector español) + GIN, más trigrama sobre `nombre`. **La búsqueda no se escribe a mano**:
+  usa `_coincide_termino()` en `api/tenders.py`, que combina las dos vías. Pendiente:
+  insensibilidad a tildes (exige una función IMMUTABLE propia).
 - ~~Suscripción y `plan_tier` colgando de `User`~~ — **resuelto en F3**: pertenecen a la empresa.
 - `subprocess.run` desde Celery hacia el ETL (F2).
 - ~~`Base.metadata.create_all()` en el loader del ETL~~ — **resuelto en F4**: verifica el

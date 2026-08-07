@@ -1,5 +1,18 @@
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Numeric, String, Text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Computed,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    desc,
+    text,
+)
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -10,7 +23,51 @@ class Licitacion(Base):
     """Model for public tenders (Licitaciones)"""
 
     __tablename__ = "licitaciones"
-    __table_args__ = {"comment": "Licitaciones publicadas en Mercado Público (listado diario)"}
+    __table_args__ = (
+        # ── Búsqueda ────────────────────────────────────────────────────────
+        # `busqueda` la calcula Postgres (columna generada), así que no hay forma
+        # de que se desincronice del texto: no hay trigger que mantener ni código
+        # que recordar actualizar.
+        Index("ix_licitaciones_busqueda", "busqueda", postgresql_using="gin"),
+        # Trigrama SÓLO sobre `nombre`. Es lo que permite que `ILIKE '%frag%'`
+        # use un índice en vez de recorrer la tabla. No se pone sobre
+        # `descripcion` a propósito: es texto largo, sería el índice más caro de
+        # mantener en cada carga del ETL, y ahí lo que se busca son palabras
+        # —que ya cubre el tsvector— no fragmentos.
+        Index(
+            "ix_licitaciones_nombre_trgm",
+            "nombre",
+            postgresql_using="gin",
+            postgresql_ops={"nombre": "gin_trgm_ops"},
+        ),
+        # ── Listado ─────────────────────────────────────────────────────────
+        # Todos los filtros del listado son PARCIALES sobre `activo`: la consulta
+        # siempre lleva `WHERE activo = true`, y un índice normal sobre una
+        # columna booleana casi siempre verdadera no sirve de nada. Puestos en el
+        # WHERE del índice, en cambio, lo hacen más pequeño y utilizable.
+        #
+        # El orden por defecto es `fecha_publicacion DESC`, así que va como
+        # segunda columna: permite filtrar y ordenar con un solo recorrido.
+        Index(
+            "ix_licitaciones_activas_fecha",
+            desc("fecha_publicacion"),
+            postgresql_where=text("activo"),
+        ),
+        Index(
+            "ix_licitaciones_estado_fecha",
+            "estado",
+            desc("fecha_publicacion"),
+            postgresql_where=text("activo"),
+        ),
+        # `region` no tenía NINGÚN índice y es filtro de primera línea en la UI.
+        Index(
+            "ix_licitaciones_region_fecha",
+            "region",
+            desc("fecha_publicacion"),
+            postgresql_where=text("activo"),
+        ),
+        {"comment": "Licitaciones publicadas en Mercado Público (listado diario)"},
+    )
 
     id = Column(Integer, primary_key=True)
 
@@ -21,6 +78,23 @@ class Licitacion(Base):
     # Basic information
     nombre = Column(String(500), nullable=False)
     descripcion = Column(Text)
+
+    # Columna GENERADA: Postgres la recalcula solo cuando cambian nombre o
+    # descripcion. Se usa la configuración 'spanish', que aporta stemming
+    # ("servicios" encuentra "servicio") y descarta palabras vacías.
+    #
+    # No lleva unaccent: exigiría una función marcada IMMUTABLE a mano, y
+    # mentirle a Postgres sobre la inmutabilidad de una función que depende de un
+    # diccionario es una forma conocida de corromper un índice. La
+    # insensibilidad a tildes queda pendiente y anotada.
+    busqueda = Column(
+        TSVECTOR,
+        Computed(
+            "to_tsvector('spanish', coalesce(nombre, '') || ' ' || coalesce(descripcion, ''))",
+            persisted=True,
+        ),
+        comment="Vector de búsqueda generado desde nombre + descripcion.",
+    )
 
     # Dates
     fecha_publicacion = Column(DateTime(timezone=True), nullable=False, index=True)

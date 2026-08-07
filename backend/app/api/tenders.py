@@ -31,6 +31,30 @@ def _to_response(lic: Licitacion, **extra) -> TenderResponse:
     return resp.model_copy(update=extra) if extra else resp
 
 
+def _coincide_termino(termino: str):
+    """Cómo se decide que una licitación coincide con un término.
+
+    Dos vías, ambas con índice:
+
+    - `busqueda @@ plainto_tsquery('spanish', t)` — palabras, con stemming.
+      Encuentra "servicio" buscando "servicios". Cubre nombre y descripcion.
+    - `nombre ILIKE '%t%'` — fragmentos dentro de una palabra, apoyado en el
+      índice de trigramas. Es lo que hacía antes toda la búsqueda.
+
+    `plainto_tsquery` trata la entrada como texto plano, así que un usuario no
+    puede colar sintaxis de tsquery (`&`, `|`, `!`) escribiendo en el buscador.
+
+    Qué cambia respecto de antes: se GANAN las coincidencias por palabra con
+    stemming en ambos campos. Se PIERDEN los fragmentos a mitad de palabra que
+    sólo aparecían en `descripcion` — no lleva trigrama porque es texto largo y
+    sería el índice más caro de mantener en cada carga del ETL.
+    """
+    return or_(
+        Licitacion.busqueda.op("@@")(func.plainto_tsquery("spanish", termino)),
+        Licitacion.nombre.ilike(f"%{termino}%"),
+    )
+
+
 @router.get("/", response_model=TenderListResponse)
 async def list_tenders(
     skip: int = Query(0, ge=0, alias="offset"),
@@ -76,9 +100,7 @@ async def list_tenders(
 
     if terms and not want_relevance:
         for term in terms:
-            stmt = stmt.where(
-                or_(Licitacion.nombre.ilike(f"%{term}%"), Licitacion.descripcion.ilike(f"%{term}%"))
-            )
+            stmt = stmt.where(_coincide_termino(term))
 
     # Load empresa perfil upfront if requested — needed for both enrichment and
     # `sort_by=score_encaje`. Fail closed on unauthorized empresa access.
@@ -109,10 +131,7 @@ async def list_tenders(
         if tfidf_matcher.is_available():
             # OR-ed ILIKE widens the candidate pool so semantic ranking can
             # surface near-synonyms the AND-query would have excluded.
-            term_clauses = [
-                or_(Licitacion.nombre.ilike(f"%{t}%"), Licitacion.descripcion.ilike(f"%{t}%"))
-                for t in terms
-            ]
+            term_clauses = [_coincide_termino(t) for t in terms]
             pool_stmt = stmt.where(or_(*term_clauses)) if term_clauses else stmt
             pool_stmt = pool_stmt.order_by(desc(Licitacion.fecha_publicacion)).limit(_SEMANTIC_POOL)
             pool = (await db.execute(pool_stmt)).scalars().all()

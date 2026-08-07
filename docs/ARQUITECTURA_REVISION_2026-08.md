@@ -317,12 +317,17 @@ columna sólo cuesta disco y escritura en cada carga del ETL. `licitaciones` y `
    GIN, sin operadores, re-parseo en cada lectura. `dashboard_cache.py:11` ya usa
    `JSON().with_variant(JSONB(), "postgresql")` — **ese es el patrón; falta aplicarlo al resto.**
    Migración barata hoy, cara con 10 M de filas.
-2. **Cero índices compuestos.** No hay una sola declaración `Index(...)` en los modelos ni en las
-   migraciones. La consulta de listado filtra por `estado + region + fecha_publicacion + monto` y
-   ordena — es un seq scan sobre una tabla que sólo crece.
-3. **Búsqueda por `ILIKE '%término%'`** (`tenders.py:66`). Comodín inicial ⇒ ningún índice sirve.
-   A escala esto se cae. Corrección: `tsvector` generado + índice GIN (`to_tsquery` en español), o
-   `pg_trgm` si hace falta tolerancia a typos.
+2. ~~**Cero índices compuestos.**~~ — **resuelto**: tres índices parciales sobre `activo`
+   (`fecha_publicacion DESC`, `estado + fecha`, `region + fecha`). Parciales porque la consulta
+   siempre lleva `WHERE activo = true` y un índice normal sobre un booleano casi siempre verdadero
+   no sirve. Verificado con `EXPLAIN ANALYZE` sobre 200 000 filas: el planificador usa los
+   compuestos cuando el filtro es selectivo y cae al de fecha cuando no lo es, que es lo correcto.
+3. ~~**Búsqueda por `ILIKE '%término%'`**~~ — **resuelto** con columna generada `busqueda`
+   (`to_tsvector('spanish', …)`) + GIN, y trigrama sobre `nombre`. Se usaron **las dos** opciones
+   que planteaba este punto, no una: el tsvector cubre las palabras y el trigrama los fragmentos.
+   Lo que se pierde son los fragmentos a mitad de palabra que sólo estaban en `descripcion` —
+   ahí no hay trigrama porque es texto largo y sería el índice más caro de mantener en cada carga
+   del ETL. Está fijado en `backend/tests/test_busqueda_licitaciones.py`.
 4. **La suscripción cuelga del `User`, no de un tenant.** `plan_tier`, `subscription_status`,
    `stripe_customer_id`, `trial_ends_at` están en `models/user.py`. `models/organization.py` **no es
    un tenant** — es `BuyerOrganization`, el organismo comprador. Consecuencia: si tres personas de
@@ -681,8 +686,14 @@ F3/F4/F5 pueden solaparse.
 - [x] `JSON` → `JSONB` en las 26 columnas (migración `8241c5e956f1`). **Sin GIN**: hoy ninguna
       se consulta por contenido en SQL, se leen enteras y se procesan en Python o Polars. Un GIN
       sobre una columna que nadie filtra sólo cuesta escritura en cada carga del ETL.
-- [ ] Índices compuestos para el listado de licitaciones
-- [ ] `tsvector` + GIN para búsqueda; retirar `ILIKE '%x%'`
+- [x] Índices para el listado (migración `adcfd900e5f3`): tres **parciales** sobre `activo`, con
+      `fecha_publicacion DESC` como última columna. El listado por defecto pasa de recorrer la
+      tabla a un index scan de 4 páginas. `region` no tenía ningún índice.
+- [x] `tsvector` + GIN para búsqueda. **El `ILIKE` no se retira del todo, a propósito**: cada
+      término coincide por palabra (tsvector, con stemming) **o** por fragmento en `nombre`
+      (trigrama). Retirarlo entero habría perdido la búsqueda por fragmento sin evidencia de que
+      nadie la usa. Medido: el `COUNT` que el endpoint ejecuta en cada búsqueda pasa de **94 ms a
+      1,5 ms** sobre 200 000 filas.
 - [ ] `tipo_convocatoria` (licitacion | compra_agil | convenio_marco | trato_directo | cotizacion)
 - [x] ~~`fuente` / `pais` en las entidades de ingesta~~ — descartado (decisión 1: sólo Chile)
 - [ ] Regla de PKs para entidades nuevas (UUIDv7 negocio / BigInteger ingesta)
