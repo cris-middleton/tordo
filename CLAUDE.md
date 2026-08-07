@@ -244,7 +244,7 @@ Monolito modular, **en migración a capas** (F3). Ya existen `repositories/`, `d
 moviendo agregado por agregado.
 
 ```
-api/            15 routers. HTTP y autorización por dependencia (deps.py).
+api/            14 routers. HTTP y autorización por dependencia (deps.py).
 domain/         Reglas puras, sin IO. Hoy: el puerto de cobro.
 infra/          Adaptadores externos. Hoy: billing/ (MercadoPago + Stripe).
 repositories/   Acceso a datos. Hoy: analytics (sync y async).
@@ -323,7 +323,7 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
   gating por plan (de la empresa). Hay un golden master (`backend/tests/golden/`) que fija
   el contrato: **cualquier cambio a `services/bi/` tiene que pasarlo.**
 - **Rate limiting**: Redis, por IP en `/api/bi/*`, más cuota diaria por tier.
-- **Feature flags**: 8 en config; apagadas devuelven 503 con mensaje accionable.
+- **Feature flags**: 7 en `app/config.py`; apagadas devuelven 503 con mensaje accionable.
 
 ---
 

@@ -90,19 +90,13 @@ format: ## Formatea el código
 
 # ── Tests ────────────────────────────────────────────────────────────────────
 
-test: test-backend test-etl test-frontend ## Corre todas las suites
+test: test-backend test-etl front-test ## Corre todas las suites
 
 test-backend: ## Tests del backend
 	cd backend && uv run --project .. pytest
 
 test-etl: ## Tests del ETL
 	cd etl && uv run --project .. pytest
-
-# CI ya los corría; en local no, así que el guard de contraste (on-color) sólo
-# saltaba después de pushear. Un test estructural que no corres antes de abrir
-# el PR no te sirve de mucho.
-test-frontend: ## Tests del frontend
-	cd frontend && npm test -- --run
 
 test-cov: ## Tests del backend con cobertura
 	cd backend && uv run --project .. pytest --cov=app --cov-report=term-missing
@@ -179,5 +173,5 @@ front-build: ## Build de producción del frontend
 front-lint: ## Lint del frontend
 	cd frontend && npm run lint
 
-front-test: ## Tests del frontend
-	cd frontend && npm test
+front-test: ## Tests del frontend (una pasada, no watch)
+	cd frontend && npm test -- --run
