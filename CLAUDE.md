@@ -49,21 +49,27 @@ make worktree-list
 `make worktree` hace el setup completo a propósito: una regla que exige cuatro pasos
 manuales se salta, un comando no.
 
-- **Flujo:** worktree → `make ci` en verde → PR a `main` → merge → despliegue.
+- **Flujo:** worktree → `make ci` en verde → PR a `main` → **Actions en verde** → merge →
+  despliegue.
 - Los worktrees **no heredan archivos gitignoreados**: cada uno necesita su propio
   `.env` y su propio `node_modules` (el target copia el primero e instala el segundo).
   Los hooks de pre-commit, en cambio, se comparten con el checkout principal.
 
-#### `make ci` es la puerta, porque GitHub Actions no está habilitado
+#### GitHub Actions sí corre. `make ci` es el ensayo previo
 
-La cuenta no tiene Actions habilitado (requiere tarjeta), así que **`.github/workflows/ci.yml`
-no corre**. No es que CI esté en verde: es que no corre. `make ci` levanta un Postgres
-efímero y ejecuta exactamente lo mismo — lint, ciclo de migraciones, ambas suites, lint,
-tests y build del frontend — y se destruye al terminar.
+Este archivo decía que Actions no estaba habilitado y que `.github/workflows/ci.yml` no
+corría. **Ya no es cierto**: `actions/permissions` devuelve `enabled=true` y el workflow
+ejecuta sus seis jobs —lint, migraciones, tests de backend, tests de ETL, frontend y build
+de imágenes— en cada `pull_request` contra `main`. Verificado sobre once PRs seguidos.
 
-Correrlo antes de cada PR **no es opcional**: sin él, "pasar CI" es una lista de comandos
-en la cabeza de alguien, y lo que se olvida siempre es lo mismo — el ciclo de migraciones
-y el build del frontend.
+Dos cosas que sí conviene saber:
+
+- **Un PR abierto durante una caída de Actions se queda sin checks para siempre.** GitHub no
+  dispara retroactivamente: hay que cerrar y reabrir el PR para gatillar el evento. Pasó con
+  una pila entera durante un `major_outage`.
+- **`make ci` sigue valiendo la pena antes de pushear.** Levanta un Postgres efímero y corre
+  lo mismo en local, así que el ciclo de vuelta es de minutos en vez de esperar al runner. Lo
+  que más se olvida es siempre lo mismo: el ciclo de migraciones y el build del frontend.
 - Los contenedores y volúmenes de Docker son compartidos: no levantes el stack desde dos
   worktrees a la vez.
 - **`etl/data/` tampoco se hereda** (está gitignoreado). Si necesitas los parquets de
@@ -183,6 +189,19 @@ y no tiene Pub/Sub ni Cloud Tasks.
 
 ### Frontend
 - Nunca hardcodear la URL del backend en un componente: usa `lib/api.ts`.
+- **Nunca hardcodear un color.** La paleta vive en tokens (`app/globals.css`) y se consume por
+  Tailwind. Los componentes tenían 112 hexes; hoy tienen cero.
+- **Nunca `text-white` sobre un fondo de token.** Los rellenos se invierten con el tema: en
+  claro `bg-accent` es teal oscuro con etiqueta blanca, en oscuro es teal claro con etiqueta
+  navy. Usa `text-onAccent`, `text-onPrimary`, `text-onGold`… `__tests__/on-color.test.ts`
+  falla si alguien lo olvida, y hace falta: **el error es invisible en tema claro**, que es el
+  que se revisa por defecto, porque ahí `on-accent` justamente ES blanco.
+- **Si tocas un token de color, revalida el contraste.** Los 166 pares del sistema están
+  verificados contra WCAG AA — cada tinta contra cada superficie, en ambos temas. El bug de
+  `.alert-info` (texto invisible en tema claro) nació de cambiar un token a ojo.
+- Las superficies que deben verse oscuras siempre —el hero, la tarjeta Pro, los paneles de
+  autenticación— se marcan con la clase `dark` sobre `bg-brand-navy`, y los tokens se
+  invierten solos dentro. No repintes a mano.
 - El estado de servidor se maneja con `useState`/`useEffect` (deuda conocida; el objetivo es
   TanStack Query — ver F5).
 
@@ -196,7 +215,7 @@ y no tiene Pub/Sub ni Cloud Tasks.
 make setup                       # deps + hooks (clone o worktree nuevo)
 make hooks                       # sólo hooks
 make lint / make lint-fix        # ruff check + format (idéntico a CI)
-make test                        # backend + ETL
+make test                        # backend + ETL + frontend
 make dev-up-d / dev-logs / dev-down
 make migrate / make migrate-create MSG="..." / make migrate-status
 make db-shell
@@ -260,9 +279,30 @@ cada 30 min, trials, radar semanal. Todo en `America/Santiago`.
 
 ### Frontend — `frontend/`
 
-Next.js 14 App Router + TypeScript + Tailwind + Recharts. Componentes propios (sin design
-system). Fetching con `useState`/`useEffect`, token JWT en `localStorage`, llamadas directas
-al backend vía `NEXT_PUBLIC_API_URL`.
+Next.js 14 App Router + TypeScript + Tailwind + Recharts. Componentes propios. Fetching con
+`useState`/`useEffect`, token JWT en `localStorage`, llamadas directas al backend vía
+`NEXT_PUBLIC_API_URL`.
+
+**Sistema de diseño por tokens** en `app/globals.css`, mapeado a Tailwind en
+`tailwind.config.js`. Paleta "Iridiscencia", sacada del propio logo — el tordo es un pájaro
+negro con tornasol azul-verdoso:
+
+- **navy = estructura**, **teal = acción**, **verde = liberado para significar "bueno"**.
+  Antes `--color-accent` y `--color-success` valían el mismo hex, así que "esto es de TORDO"
+  y "este número es bueno" eran indistinguibles.
+- Ningún hex único sirve en ambos temas, así que cada color de acción tiene **dos paradas
+  invertidas por tema** más un `--color-on-*` que dice qué etiqueta va encima.
+- La landing añade cuatro bandas (`band-1..4`) que dibujan una distribución: el tono se
+  profundiza hacia el centro y el centro es el bloque de datos de ChileCompra. Es el mismo
+  gesto que P10·P25·P50·P75·P90 en `PriceBandChart`.
+- Tipografía: **Archivo** display, **DM Sans** cuerpo, **Varien** sólo para la marca.
+  `.cifra` para cifras que se comparan en columna — DM Sans no trae figuras tabulares y
+  Archivo sí.
+- Tema claro por defecto, con toggle claro/oscuro/sistema en Configuración.
+
+La landing es server component (`app/page.tsx`) y toda su interactividad vive en
+`components/landing/LandingClient.tsx`: **no le devuelvas el `'use client'`**, porque Next
+ignora `metadata` en componentes cliente y la home perdería título y tarjeta de preview.
 
 ### ETL — `etl/`
 
