@@ -584,7 +584,10 @@ F3/F4/F5 pueden solaparse.
 - [x] Barrido de ruff aislado en su propio commit, con `.git-blame-ignore-revs`
 - [x] **Suite de tests reparada**: backend 30→45 pasando (14 errores por `aiosqlite` ausente, un test desfasado del código); ETL 42→47 (pin de polars incompatible con el propio código)
 - [ ] Sentry en el frontend ← pendiente
-- [ ] Ramas `staging` y `main` con protección; flujo de promoción ← **requiere acción humana en GitHub**
+- [~] Protección de `main` — **no se puede desde aquí**: GitHub la reserva a repos públicos o a
+      cuentas Pro (403 en `branches/main/protection` y en `rulesets`). Sustituto local:
+      `make merge PR=<n>`, que se niega si algún check no está en verde. La protección real
+      cuesta ~4 USD/mes. `staging` sigue descartado a propósito (ver CLAUDE.md).
 - [ ] `docker-compose.test.yml` con Postgres efímero; migrar `conftest.py` del DDL de SQLite a BD real ← pendiente, ver nota abajo
 - [ ] **Primeros tests que importan**: autorización por empresa (cada rol × cada endpoint) y contrato de los 22 endpoints de BI ← pendiente
 

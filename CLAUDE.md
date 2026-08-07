@@ -49,8 +49,19 @@ make worktree-list
 `make worktree` hace el setup completo a propósito: una regla que exige cuatro pasos
 manuales se salta, un comando no.
 
-- **Flujo:** worktree → `make ci` en verde → PR a `main` → **Actions en verde** → merge →
-  despliegue.
+- **Flujo:** worktree → `make ci` en verde → PR a `main` → **`make merge PR=<n>`** → despliegue.
+- **Mergea siempre con `make merge PR=<n>`, no con `gh pr merge`.** Espera a los checks,
+  los lista y se niega si alguno no está en verde.
+
+  Hace falta porque **`main` no tiene protección de rama**: GitHub la reserva a repos públicos
+  o a cuentas Pro, y este repo es privado en cuenta gratuita — la API devuelve 403 tanto para
+  `branches/main/protection` como para `rulesets`. Así que nada del lado del servidor impide
+  mergear en rojo, y ya pasó: el PR #14 se mergeó con el build de imágenes en FAILURE y los
+  tests de ETL en CANCELLED.
+
+  Esto **no es protección de verdad** — es local y se puede saltar. Sólo hace que el camino
+  correcto sea también el más corto. **La protección real cuesta ~4 USD/mes (GitHub Pro)**;
+  mientras no esté, esto es lo que hay.
 - Los worktrees **no heredan archivos gitignoreados**: cada uno necesita su propio
   `.env` y su propio `node_modules` (el target copia el primero e instala el segundo).
   Los hooks de pre-commit, en cambio, se comparten con el checkout principal.
