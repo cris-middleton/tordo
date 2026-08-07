@@ -65,5 +65,13 @@ if [ "$fallidos" -ne 0 ]; then
 fi
 
 printf "\n%s── Mergeando%s\n" "$azul" "$fin"
-gh pr merge "$PR" --squash --delete-branch
+rama=$(gh pr view "$PR" --json headRefName -q .headRefName)
+
+# Sin `--delete-branch`: esa opción hace que gh intente cambiar de rama en local,
+# y desde un worktree falla con "already used by worktree at …" — después de haber
+# mergeado, así que el comando salía en error y dejaba la rama remota viva. Como
+# aquí SIEMPRE se trabaja en worktrees, pasaba siempre.
+gh pr merge "$PR" --squash
+git push origin --delete "$rama" >/dev/null 2>&1 \
+  && printf "%s   rama remota %s eliminada%s\n" "$gris" "$rama" "$fin"
 printf "%s✓ Mergeado.%s\n" "$verde" "$fin"
