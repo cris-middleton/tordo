@@ -11,11 +11,13 @@
 > **Método.** Todo lo que se afirma aquí está verificado contra el código o contra los datos,
 > y lleva la evidencia al lado. Donde hay opinión, está marcada como debate.
 >
-> **Reparto con el otro agente.** Hay otra sesión ejecutando F1–F6 del plan de arquitectura.
-> Este documento **no toca esa lista**: F5 (TanStack Query) terminó en el PR #45 mientras se
-> escribía esto, y lo que queda ahí —proxy con cookie `httpOnly`, primitivas accesibles,
-> Playwright, versionado `/api/v1`— es trabajo de plataforma que este documento da por hecho.
-> Lo de aquí es la capa de **producto**: dato, cierre de ciclo, monetización y confianza.
+> **Reparto con el otro agente.** Hay otra sesión ejecutando F1–F6 del plan de arquitectura, y
+> avanzó mientras se escribía esto: el PR #45 cerró la migración a TanStack Query y el #46 movió
+> la sesión a cookies `httpOnly` con proxy en Next, con lo que **se acabó el cierre de sesión a
+> los 30 minutos**. Este documento **no toca esa lista**: lo que queda ahí —Google sin refresco,
+> primitivas accesibles, Playwright, versionado `/api/v1`, UI de invitación— es trabajo de
+> plataforma que este documento da por hecho. Lo de aquí es la capa de **producto**: dato,
+> cierre de ciclo, monetización y confianza.
 
 ---
 
