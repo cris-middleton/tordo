@@ -205,7 +205,7 @@ export default function LandingClient() {
             <Link href="/login" className="rounded-lg px-3 py-2 text-sm font-semibold text-muted transition-colors hover:text-primary">
               Iniciar sesión
             </Link>
-            <Link href="/register" className="hidden sm:inline-flex rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-accentDark hover:shadow-md">
+            <Link href="/register" className="hidden sm:inline-flex rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-onAccent transition-all hover:bg-accentDark hover:shadow-md">
               Probar Pro 14 días
             </Link>
             <button
@@ -226,7 +226,7 @@ export default function LandingClient() {
               {navItems.map((item) => (
                 <Link key={item.name} href={item.href} onClick={() => setMobileMenuOpen(false)} className="text-sm font-medium text-muted hover:text-primary">{item.name}</Link>
               ))}
-              <Link href="/register" onClick={() => setMobileMenuOpen(false)} className="inline-flex items-center justify-center rounded-lg bg-accent px-4 py-2.5 text-sm font-bold text-white transition-all hover:bg-accentDark">
+              <Link href="/register" onClick={() => setMobileMenuOpen(false)} className="inline-flex items-center justify-center rounded-lg bg-accent px-4 py-2.5 text-sm font-bold text-onAccent transition-all hover:bg-accentDark">
                 Probar Pro 14 días
               </Link>
             </nav>
@@ -391,7 +391,7 @@ export default function LandingClient() {
                   onClick={() => handleTabClick(tab.id)}
                   className={`rounded-full px-5 py-2.5 text-sm font-semibold transition-all ${
                     activeTab === tab.id
-                      ? 'bg-primary text-white shadow-md'
+                      ? 'bg-primary text-onPrimary shadow-md'
                       : 'border border-border text-muted hover:border-primary/30 bg-surface'
                   }`}
                 >
@@ -417,7 +417,7 @@ export default function LandingClient() {
             </div>
 
             <div className="mt-10 text-center">
-              <Link href="/register" className="inline-flex items-center gap-2 rounded-lg bg-accent px-6 py-3.5 text-sm font-bold text-white shadow-lg transition-all hover:bg-accentDark hover:shadow-xl">
+              <Link href="/register" className="inline-flex items-center gap-2 rounded-lg bg-accent px-6 py-3.5 text-sm font-bold text-onAccent shadow-lg transition-all hover:bg-accentDark hover:shadow-xl">
                 Quiero ver esto con mis datos
                 <ArrowRight className="h-4 w-4" />
               </Link>
@@ -443,7 +443,7 @@ export default function LandingClient() {
                 { step: '03', title: 'Postula informado', desc: 'Revisa precios históricos, competidores y prepara tu documentación con el checklist.' },
               ].map((s) => (
                 <div key={s.step} className="relative">
-                  <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-white font-bold text-lg relative z-10" style={{ fontFamily: 'var(--font-display, system-ui)' }}>
+                  <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-onPrimary font-bold text-lg relative z-10" style={{ fontFamily: 'var(--font-display, system-ui)' }}>
                     {s.step}
                   </div>
                   <h3 className="mb-2 text-xl font-bold text-text" style={{ fontFamily: 'var(--font-display, system-ui)' }}>{s.title}</h3>
@@ -518,7 +518,7 @@ export default function LandingClient() {
                 </ul>
                 <Link
                   href={FREE_PLAN.href}
-                  className="block rounded-lg py-2.5 text-center text-sm font-bold transition-all border border-primary text-primary hover:bg-primary hover:text-white"
+                  className="block rounded-lg py-2.5 text-center text-sm font-bold transition-all border border-primary text-primary hover:bg-primary hover:text-onPrimary"
                 >
                   {FREE_PLAN.cta}
                 </Link>
@@ -676,7 +676,7 @@ export default function LandingClient() {
       {/* ── Sticky Mobile CTA ── */}
       {showMobileCta && (
         <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-surface px-4 py-3 lg:hidden">
-          <Link href="/register" className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-6 py-3 text-sm font-bold text-white transition-all hover:bg-accentDark">
+          <Link href="/register" className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-6 py-3 text-sm font-bold text-onAccent transition-all hover:bg-accentDark">
             Probar Pro 14 días
             <ArrowRight className="h-4 w-4" />
           </Link>
