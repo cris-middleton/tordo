@@ -8,12 +8,33 @@ llamar a las mismas funciones, ahora contra Postgres, y exige salida idéntica.
 Sin esto la conversión sería una apuesta: 16 funciones que compilan y nadie sabe
 si devuelven lo mismo.
 
-Requiere Postgres con el esquema `analytics` materializado:
+Requiere Postgres con el esquema `analytics` materializado. El fixture vive en el
+repo justamente para eso:
 
-    make dev-up-d
-    cd etl && uv run --project .. python -m analytics.materialize
+    cd etl && uv run --project .. python -m analytics.materialize \
+        --data-dir ../backend/tests/golden/fixture_analytics
 
-Se salta en local si no hay datos; en CI es obligatorio.
+Se salta en local si no hay datos; **en CI es obligatorio y ahora sí corre**.
+
+Durante un tiempo no corría en ninguna parte
+--------------------------------------------
+El esquema `analytics` estaba vacío en CI, así que estos 31 casos se saltaban en
+silencio: la única verificación automática de `services/bi/` no se ejecutaba, y
+un cambio ahí sólo estaba comprobado si alguien se acordaba de correr el golden
+en local. `make ci` tampoco lo destapaba porque no exportaba `CI`.
+
+Se arregló recortando los datos a un fixture versionado (1 MB frente a 27 MB de
+parquets) y materializándolo como un paso más de CI, igual que las migraciones.
+
+Los valores esperados se recapturaron contra ese fixture: con menos filas, las
+funciones de agregación global (`get_resumen()`, `get_rubros()`) dan otros
+números. Para regenerarlos conservando los mismos 31 casos:
+
+    python tests/golden/capturar_golden_bi.py --desde-golden
+
+**Sin `--desde-golden` el script redescubre los casos muestreando los datos**, y
+sobre el fixture recortado produce otros: la primera recaptura pasó de 31 casos a
+7 antes de que se notara.
 """
 
 from __future__ import annotations

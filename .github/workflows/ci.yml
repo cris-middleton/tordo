@@ -159,6 +159,16 @@ jobs:
           SECRET_KEY: ci-secret
         run: uv run --project .. alembic upgrade head
 
+      # El golden master de BI (31 casos sobre services/bi/) necesita el esquema
+      # `analytics` materializado. Sin esto se saltaba en silencio y esos 31
+      # casos no corrían en ninguna parte automáticamente.
+      - name: Materializar analytics (fixture del golden)
+        working-directory: etl
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tordo_test
+          SECRET_KEY: ci-secret
+        run: uv run --project .. python -m analytics.materialize --data-dir ../backend/tests/golden/fixture_analytics
+
       - name: pytest
         working-directory: backend
         env:

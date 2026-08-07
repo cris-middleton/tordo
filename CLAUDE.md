@@ -321,7 +321,11 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
 - **BI**: batch en Polars → tablas materializadas en `analytics.*` → consulta con filtros
   empujados a SQL → fallback jerárquico L1→L2→L3 con confianza y tamaño de muestra →
   gating por plan (de la empresa). Hay un golden master (`backend/tests/golden/`) que fija
-  el contrato: **cualquier cambio a `services/bi/` tiene que pasarlo.**
+  el contrato: **cualquier cambio a `services/bi/` tiene que pasarlo**, y corre en CI.
+  Si cambias los datos del fixture, recaptura con
+  `python tests/golden/capturar_golden_bi.py --desde-golden` — **sin `--desde-golden` el
+  script redescubre los casos muestreando los datos** y sobre el fixture recortado produce
+  otros distintos (la primera vez pasó de 31 casos a 7).
 - **Rate limiting**: Redis, por IP en `/api/bi/*`, más cuota diaria por tier.
 - **Feature flags**: 7 en `app/config.py`; apagadas devuelven 503 con mensaje accionable.
 
@@ -348,10 +352,9 @@ estos patrones, es señal de que hay que arreglar la causa, no de copiarlo:
 - ~~`conftest.py` mantiene a mano el DDL de 11 tablas en SQLite~~ — **resuelto**: el esquema
   lo crean las migraciones (`alembic upgrade head`) sobre Postgres real, y cada test corre
   en una transacción que se revierte.
-- **El golden master de BI no corre en `make ci` ni en GitHub Actions**: necesita las tablas
-  de `analytics` materializadas, y ahí están vacías. Se salta en silencio. Hasta que se
-  resuelva, **un cambio a `services/bi/` sólo está verificado si corres el golden en local**
-  con los parquets materializados.
+- ~~El golden master de BI no corre en CI~~ — **resuelto**: el fixture de analytics está
+  versionado (`backend/tests/golden/fixture_analytics`, 1 MB) y `make ci` lo materializa
+  antes de los tests. Los 31 casos corren siempre.
 - 56 hallazgos de ruff silenciados en `pyproject.toml` con su conteo y motivo (F3).
 
 ## Hacia dónde va

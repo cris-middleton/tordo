@@ -30,6 +30,11 @@ CONTENEDOR="tordo-ci-local"
 PUERTO="${CI_LOCAL_PG_PORT:-55432}"
 export DATABASE_URL="postgresql://postgres:postgres@localhost:${PUERTO}/tordo_test"
 export SECRET_KEY="ci-secret"
+# Los tests distinguen CI de local: en local se saltan si falta la base o los
+# datos de analytics; en CI eso es un error. Sin esta variable, `make ci` era más
+# permisivo que el CI que dice reproducir — que es como el golden master llevaba
+# tiempo sin correr en ninguna parte.
+export CI="true"
 
 rojo=$'\e[31m'; verde=$'\e[32m'; azul=$'\e[36m'; gris=$'\e[90m'; fin=$'\e[0m'
 FALLOS=()
@@ -123,6 +128,13 @@ correr "Sin deriva entre modelos y migraciones" bash -c \
 
 # ── 🧪 Tests ─────────────────────────────────────────────────────────────────
 paso "🧪 Tests backend"
+# El golden master de BI necesita el esquema `analytics` materializado. El fixture
+# vive en el repo (backend/tests/golden/fixture_analytics) justamente para que
+# esto se pueda hacer en cualquier parte.
+correr "Materializar analytics (fixture del golden)" bash -c \
+  'cd etl && uv run --project .. python -m analytics.materialize \
+     --data-dir ../backend/tests/golden/fixture_analytics'
+
 correr "pytest backend" bash -c 'cd backend && uv run --project .. pytest -q'
 
 paso "🧪 Tests ETL"

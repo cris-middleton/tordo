@@ -95,11 +95,35 @@ def _casos() -> list[tuple[str, dict]]:
     return casos
 
 
+def _casos_del_golden_actual() -> list[tuple[str, dict]]:
+    """Reutiliza los casos ya capturados, en vez de redescubrirlos.
+
+    `_casos()` construye la lista muestreando los datos, así que sobre un conjunto
+    distinto —el fixture recortado que usa CI, por ejemplo— produce OTROS casos.
+    La primera vez que se recapturó contra el fixture, los 31 casos se quedaron en
+    7. Aquí se conservan las mismas llamadas y sólo se refrescan los resultados,
+    que es lo que hace falta cuando cambian los datos y no el contrato.
+    """
+    if not SALIDA.exists():
+        return []
+    return [(c["funcion"], c["kwargs"]) for c in json.loads(SALIDA.read_text())]
+
+
 def main() -> int:
-    casos = _casos()
+    desde_golden = "--desde-golden" in sys.argv
+    casos = _casos_del_golden_actual() if desde_golden else _casos()
     if not casos:
-        print("ERROR: no se pudieron construir casos — ¿están los parquets generados?")
+        print(
+            "ERROR: no se pudieron construir casos — "
+            + (
+                "no hay golden previo del que partir"
+                if desde_golden
+                else "¿están los parquets generados?"
+            )
+        )
         return 1
+    if desde_golden:
+        print(f"recapturando los {len(casos)} casos del golden actual")
 
     golden = []
     for nombre, kwargs in casos:

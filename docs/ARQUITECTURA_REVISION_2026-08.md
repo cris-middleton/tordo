@@ -734,6 +734,20 @@ Reordenado según las decisiones del 2026-08-05:
 
 ---
 
+> **El golden master no corría en ninguna parte, y ya está resuelto.** El esquema `analytics`
+> estaba vacío en CI, así que sus 31 casos —la única verificación automática de
+> `services/bi/`— se saltaban en silencio. `make ci` tampoco lo destapaba porque no exportaba
+> `CI`, así que era más permisivo que el CI que decía reproducir.
+>
+> Los datos completos no caben en el repo (27 MB de parquets), así que se recortaron a un
+> fixture de 1 MB construido alrededor de las claves que el golden consulta. Comprobado que
+> no debilita el test: **los mismos 27 de 31 casos conservan contenido real**, exactamente
+> como con los datos completos.
+>
+> Verificado además que detecta regresiones de verdad, no sólo que pasa: se le introdujo la
+> pérdida de un desempate y un off-by-one en un límite, y falló en ambos casos nombrando la
+> función.
+
 ## 13. Decisiones tomadas · 2026-08-05
 
 | # | Decisión | Consecuencia en el plan |
