@@ -152,6 +152,15 @@ una consulta propia de membresía en un router.
 `backend/tests/test_tenancy_estructural.py` falla en CI si una ruta con `{empresa_id}` no
 declara la dependencia. Ver `.claude/skills/endpoint-empresa/`.
 
+### Gating por plan en BI
+`backend/tests/test_contrato_bi.py` declara, ruta por ruta, qué protección le toca a cada uno
+de los 22 endpoints de BI. **Un endpoint nuevo hace fallar el test hasta que alguien decida
+explícitamente su nivel** — igual que con tenancy.
+
+Si una capacidad se vende en `/api/billing/plans`, el endpoint que la implementa tiene que
+comprobar el plan. Encontró que no se cumplía: "Matching semántico" se vendía como Pro y
+`/licitacion-match` no lo comprobaba.
+
 ### Convenciones de código
 - **Imports a nivel de módulo.** Nada de imports dentro de funciones. El código heredado
   los usa para diferir dependencias pesadas — es un síntoma del problema de servicio de

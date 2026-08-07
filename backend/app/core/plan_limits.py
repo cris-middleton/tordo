@@ -230,7 +230,7 @@ def require_plan(min_tier: str):
     from app.api.deps import empresa_facturable
     from app.models.empresa import Empresa
 
-    def _check(empresa: Empresa = Depends(empresa_facturable)) -> Empresa:
+    def _exigir_plan(empresa: Empresa = Depends(empresa_facturable)) -> Empresa:
         tier = effective_plan_tier(empresa)
         if not meets_min_tier(tier, min_tier):
             label = _TIER_LABEL.get(min_tier, min_tier.title())
@@ -247,7 +247,7 @@ def require_plan(min_tier: str):
             )
         return empresa
 
-    return _check
+    return _exigir_plan
 
 
 def check_bi_quota(
@@ -266,7 +266,7 @@ def _make_bi_quota_dep():
     from app.api.deps import empresa_facturable
     from app.models.empresa import Empresa
 
-    def _check(empresa: Empresa = Depends(empresa_facturable)) -> Empresa:
+    def _exigir_cuota_bi(empresa: Empresa = Depends(empresa_facturable)) -> Empresa:
         tier = effective_plan_tier(empresa)
         quota = get_quota(tier)
         daily_limit: int | None = quota["bi_queries_per_day"]
@@ -292,7 +292,7 @@ def _make_bi_quota_dep():
             )
         return empresa
 
-    return _check
+    return _exigir_cuota_bi
 
 
 # Callable dependency — used as `Depends(check_bi_quota_dep)`
@@ -309,7 +309,7 @@ def _make_alert_quota_dep_real():
     from app.models.empresa import Empresa
     from app.models.user import User
 
-    async def _check(
+    async def _exigir_cuota_alertas(
         db: AsyncSession = Depends(get_db),
         current_user: User = Depends(get_current_active_user),
         empresa: Empresa = Depends(empresa_facturable),
@@ -354,7 +354,7 @@ def _make_alert_quota_dep_real():
             )
         return current_user
 
-    return _check
+    return _exigir_cuota_alertas
 
 
 check_alert_quota_dep = _make_alert_quota_dep_real()

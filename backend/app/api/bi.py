@@ -15,10 +15,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import EmpresaContext, empresa_ctx, require_rol, verificar_acceso_empresa
 from app.config import settings
-from app.core.plan_limits import check_bi_quota_dep
+from app.core.plan_limits import check_bi_quota_dep, require_plan
 from app.core.security import get_current_active_user
 from app.db import get_db
-from app.models.empresa import EmpresaUsuario, TFIDFPerfil
+from app.models.empresa import Empresa, EmpresaUsuario, TFIDFPerfil
 from app.models.user import User
 from app.schemas.bi import (
     ClustersResponse,
@@ -448,6 +448,12 @@ async def get_licitacion_match(
     texto: str = Query(..., min_length=3, description="Nombre/descripción de la licitación"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
+    # "Matching semántico" se VENDE como capacidad del plan Pro
+    # (`/api/billing/plans`), y este endpoint sólo comprobaba el flag de la
+    # feature y la pertenencia a la empresa. Con FEATURE_TFIDF apagado no se
+    # notaba —responde 503 para todos— pero encenderlo regalaba una capacidad
+    # de pago. Lo detectó tests/test_contrato_bi.py.
+    _plan: Empresa = Depends(require_plan("pro")),
 ):
     _require_tfidf_flag()
     from app.services import tfidf_matcher

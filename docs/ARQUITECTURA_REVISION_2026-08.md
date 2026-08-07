@@ -589,7 +589,12 @@ F3/F4/F5 pueden solaparse.
       `make merge PR=<n>`, que se niega si algún check no está en verde. La protección real
       cuesta ~4 USD/mes. `staging` sigue descartado a propósito (ver CLAUDE.md).
 - [ ] `docker-compose.test.yml` con Postgres efímero; migrar `conftest.py` del DDL de SQLite a BD real ← pendiente, ver nota abajo
-- [ ] **Primeros tests que importan**: autorización por empresa (cada rol × cada endpoint) y contrato de los 22 endpoints de BI ← pendiente
+- [x] **Contrato de los 22 endpoints de BI** (`test_contrato_bi.py`): tabla ruta → nivel de
+      protección, con test estructural que falla si aparece un endpoint sin decidir el suyo.
+      **Encontró una fuga real**: `/licitacion-match` implementa "Matching semántico", que se
+      vende como capacidad Pro, y no comprobaba el plan.
+- [x] Autorización por empresa — cubierta por `test_tenancy_estructural.py` (estructural) y
+      `test_tenancy_autorizacion.py` (funcional, rol por rol).
 
 > **Nota sobre `conftest.py`.** Mantiene a mano el DDL de 11 tablas en SQLite porque
 > los modelos usan `ARRAY` de Postgres. Ese esquema paralelo **ya divergió**: declaraba
