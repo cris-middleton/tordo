@@ -766,9 +766,13 @@ F3/F4/F5 pueden solaparse.
 
 Reordenado según las decisiones del 2026-08-05:
 
-1. **Servidor MCP de sólo lectura sobre la base histórica** (decisión 4). Después de F2 es casi
-   gratis: mismas consultas Postgres que ya sirve la API, y el medidor por plan ya existe
-   (`check_bi_quota_dep`). Cobrado dentro del plan de quien lo consume. LicitaLab ya lanzó el suyo.
+1. ~~**Servidor MCP de sólo lectura sobre la base histórica**~~ — **EN PAUSA desde 2026-08-07**,
+   especificado en el [ADR 0004](decisiones/0004-llm-solo-mcp.md). No es una capacidad, es un
+   canal: alcanza sólo a quien ya paga un cliente MCP, mientras Compra Ágil y Convenio Marco
+   —volumen de mercado que los usuarios no ven— siguen sin construirse. La razón original era
+   "LicitaLab ya lanzó el suyo", que es imitar a un competidor, no resolver un problema propio.
+   Los cimientos sí se hicieron y no se pierden: claves de API (que además son prerequisito de
+   la API pública) y la actualización del framework.
 2. **Compra Ágil + Convenio Marco.** Volumen de mercado chileno que hoy no se ve. Requiere F4.
 3. **Alertas de cambio de precio** (lo que hace Falconsoft) — los datos ya están; falta el disparador.
 4. **API pública + API keys.** El ángulo de integración ERP de Falconsoft. Habilita el segmento gremios.

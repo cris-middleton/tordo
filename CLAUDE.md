@@ -438,6 +438,12 @@ Decisiones tomadas el 2026-08-05, con su ADR en `docs/decisiones/`:
 sólo Chile (sin multi-país), suscripción por empresa con planes por capacidades, nombre TORDO,
 LLM acotado a un servidor MCP sobre la base histórica, y pasarela de pago local en v1.
 
+**El MCP está en pausa desde 2026-08-07, y especificado** (ADR 0004): es un canal, no una
+capacidad, y alcanza sólo a quien ya paga un cliente MCP. Si lo retomas, **lee la
+especificación antes de escribir código** — sobre todo la parte de herramientas de grano
+grueso: con las cuotas actuales, exponer los 22 endpoints uno a uno agota el plan de un
+usuario en una sola conversación.
+
 Fases pendientes: **F2** plano de datos analítico → **F3** tenancy, capas y billing por
 empresa → **F4** modelo de datos → **F5** frontend → **F6** diferenciación.
 
