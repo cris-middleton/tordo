@@ -691,7 +691,7 @@ export default function TenderDetailPage({ params }: PageParams) {
           <ArrowLeft className="h-4 w-4" />
           Volver
         </button>
-        <h1 className="text-2xl font-semibold text-text sm:text-3xl">Detalle Licitación</h1>
+        <h1 className="page-title">Detalle Licitación</h1>
       </div>
 
       {loading ? (

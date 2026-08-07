@@ -234,7 +234,7 @@ export default function OrdersPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold text-text">Órdenes de Compra</h1>
+        <h1 className="page-title">Órdenes de Compra</h1>
         <p className="text-sm text-muted mt-0.5">Explora órdenes de compra públicas</p>
       </div>
 

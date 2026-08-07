@@ -207,7 +207,7 @@ export default function AlertsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="mb-2 text-2xl font-semibold text-text sm:text-3xl">Alertas</h1>
+          <h1 className="page-title">Alertas</h1>
           <p className="text-sm text-muted">
             {unreadCount > 0 && (
               <span className="font-semibold text-primary">{unreadCount} sin leer</span>

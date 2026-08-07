@@ -299,7 +299,7 @@ export default function PostulacionesPage() {
   if (!loading && empresas.length === 0) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-semibold text-text">Postulaciones</h1>
+        <h1 className="page-title">Postulaciones</h1>
         <div className="card flex flex-col items-center gap-3 py-12 text-center">
           <Building2 className="h-10 w-10 text-subtle" />
           <p className="text-muted">Registra tu empresa primero para gestionar postulaciones.</p>
@@ -315,7 +315,7 @@ export default function PostulacionesPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text">Postulaciones</h1>
+          <h1 className="page-title">Postulaciones</h1>
           <p className="text-sm text-muted mt-0.5">Gestiona tus postulaciones a licitaciones activas</p>
         </div>
       </div>
