@@ -1,36 +1,40 @@
 import axios, { AxiosInstance } from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
+/**
+ * Cliente HTTP del navegador.
+ *
+ * **Ya no maneja tokens.** Habla con `/api/proxy` en el mismo origen, y es el
+ * servidor de Next quien lee la cookie `httpOnly` y pone la cabecera
+ * `Authorization`. El navegador no puede leer la sesión ni aunque quiera — que
+ * es justo lo que hace que un XSS deje de ser una toma de cuenta.
+ *
+ * Antes el JWT vivía en `localStorage`, legible por cualquier script de la
+ * página, y por eso el token de refresco no podía guardarse en el cliente: la
+ * sesión moría a los 30 minutos. Ahora vive en cookie y la renovación la hace el
+ * proxy sin que nadie se entere.
+ */
 class ApiClient {
   private client: AxiosInstance;
 
   constructor() {
     this.client = axios.create({
-      baseURL: API_URL,
+      // Mismo origen. `NEXT_PUBLIC_API_URL` ya no lo usa el navegador: la URL
+      // del backend es ahora una variable de SERVIDOR (`API_URL`), y eso también
+      // significa que deja de estar en el bundle.
+      baseURL: '/api/proxy',
       headers: { 'Content-Type': 'application/json' },
+      // Para que las cookies viajen en cada petición.
+      withCredentials: true,
     });
 
-    // Attach token to every request
-    this.client.interceptors.request.use((config) => {
-      if (typeof window !== 'undefined') {
-        const token = localStorage.getItem('access_token');
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-      }
-      return config;
-    });
-
-    // On 401, clear token
+    // Al 401, al login. Ya no hay token que borrar aquí: de eso se encarga el
+    // proxy, que limpia las cookies cuando el refresco deja de valer.
     this.client.interceptors.response.use(
       (response) => response,
       (error) => {
         if (error.response?.status === 401 && typeof window !== 'undefined') {
           const path = window.location.pathname;
-          // Don't redirect if already on login/register pages
           if (!path.startsWith('/login') && !path.startsWith('/register') && !path.startsWith('/auth')) {
-            localStorage.removeItem('access_token');
             window.location.href = '/login';
           }
         }
@@ -39,27 +43,22 @@ class ApiClient {
     );
   }
 
-  // ── Token management ──────────────────────────────────────────────────────
-
-  setToken(token: string) {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('access_token', token);
-    }
-  }
-
-  clearToken() {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('access_token');
-    }
-  }
-
   // ── Auth ───────────────────────────────────────────────────────────────────
 
   async login(username: string, password: string) {
-    const res = await this.client.post('/api/auth/login', { username, password });
-    const { access_token } = res.data;
-    this.setToken(access_token);
+    // NO pasa por el proxy: va al handler que guarda las cookies. Es el único
+    // sitio donde los tokens existen, y existen en el servidor.
+    const res = await axios.post(
+      '/api/sesion/entrar',
+      { username, password },
+      { withCredentials: true },
+    );
     return res.data;
+  }
+
+  async logout() {
+    // Revoca el refresco en el backend y borra las cookies.
+    await axios.post('/api/sesion/salir', {}, { withCredentials: true });
   }
 
   async register(data: { username: string; email: string; password: string; full_name?: string }) {
@@ -81,7 +80,8 @@ class ApiClient {
   }
 
   getGoogleAuthUrl(): string {
-    return `${API_URL}/api/auth/google`;
+    // Ruta propia: la URL del backend ya no viaja en el bundle.
+    return '/api/sesion/google';
   }
 
   // ── Users ──────────────────────────────────────────────────────────────────

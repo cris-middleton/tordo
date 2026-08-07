@@ -45,21 +45,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // `const` no se iza: sólo funcionaba porque el efecto corre tras el render.
   // Lo marcó `react-hooks/immutability` al subir a Next 16.
   const checkAuth = async () => {
+    // Ya no se mira si hay token: el cliente no lo puede ver. Se pregunta al
+    // servidor, que sabe leer la cookie — y si el acceso caducó, el proxy lo
+    // renueva por el camino sin que aquí se note.
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-      if (token) {
-        // Timeout after 5 seconds to avoid hanging on "Verificando sesión…"
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 5000);
-        try {
-          const userData = await apiClient.getCurrentUser(controller.signal);
-          setUser(userData);
-        } finally {
-          clearTimeout(timeout);
-        }
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      try {
+        const userData = await apiClient.getCurrentUser(controller.signal);
+        setUser(userData);
+      } finally {
+        clearTimeout(timeout);
       }
-    } catch (error) {
-      apiClient.clearToken();
+    } catch {
+      // 401 sin sesión es lo normal en la landing: no es un error que reportar.
       setUser(null);
     } finally {
       setLoading(false);
@@ -77,15 +76,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (username: string, password: string) => {
     try {
-      // Step 1: Login and get token
-      const loginResponse = await apiClient.login(username, password);
-
-      // Step 2: Get user data with the token
-      const userData = await apiClient.getCurrentUser();
-      setUser(userData);
+      // El handler de sesión ya devuelve el usuario: se ahorra la segunda
+      // llamada que hacía antes, y con ella la ventana en la que había sesión
+      // pero no usuario.
+      const { usuario } = await apiClient.login(username, password);
+      setUser(usuario ?? (await apiClient.getCurrentUser()));
     } catch (error: any) {
-      // Clear token if login fails
-      apiClient.clearToken();
       setUser(null);
 
       // Provide better error message
@@ -101,8 +97,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const logout = () => {
-    apiClient.clearToken();
+  const logout = async () => {
+    // Revoca el refresco en el backend antes de borrar la cookie: si sólo se
+    // borrara, el token seguiría valiendo para quien lo hubiera copiado.
+    await apiClient.logout().catch(() => {});
     setUser(null);
   };
 

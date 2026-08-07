@@ -751,16 +751,12 @@ F3/F4/F5 pueden solaparse.
       caché de promesas hecha a mano, y se arreglaron dos fallos reales: el selector de empresa
       no actualizaba las pantallas ya montadas, y comparar dos rubros podía mezclar respuestas
       si una tardaba más que la otra.
-- [ ] Capa proxy con route handlers + sesión en cookie `httpOnly`.
-      **Aquí está el nudo de la autenticación.** El backend ya emite el refresco; el frontend
-      lo descarta, así que en la práctica la sesión sigue muriendo a los 30 minutos.
-      La tentación es guardarlo en `localStorage` y renovar desde `api.ts` — son 30 líneas y
-      **sería un paso atrás**: cambia una credencial de 30 minutos expuesta a XSS por una de
-      30 días. El destino es la cookie `httpOnly` puesta por el proxy, donde el navegador no
-      ve ninguno de los dos tokens. La ruta de Google se arregla en el mismo movimiento.
-- [x] **Refresh token con rotación** y detección de reutilización (migración `5dd0faecd3f2`).
-      Antes el JWT duraba 30 min sin forma de renovarlo: **todo usuario quedaba desconectado a
-      la media hora**. Falta la mitad de frontend: cookie `httpOnly` vía el proxy de Next.
+- [x] **Capa proxy con route handlers + sesión en cookie `httpOnly`.** El navegador ya no ve
+      ningún token y el proxy renueva de forma transparente: **se acabó el cierre de sesión a
+      los 30 minutos**. Verificado de punta a punta contra un backend real — login, petición
+      autenticada, renovación con sólo la cookie de refresco, y cierre que revoca en el
+      servidor además de borrar la cookie.
+      Queda que Google siga sin refresco: su redirección sólo trae el acceso.
 - [~] ~~shadcn/ui como design system~~ — **el sistema de tokens ya existe** (ver nota arriba).
       Queda: **primitivas accesibles** tipo Radix sobre esos tokens, y **descomponer las
       páginas de 900+ líneas** (`HerramientasAvanzadas.tsx` 932, `tenders/[codigo]` 915,

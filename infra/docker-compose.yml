@@ -284,7 +284,9 @@ services:
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://backend:8000}
+      # Nombre interno de Docker: ahora es correcto porque quien resuelve esta
+      # URL es el servidor de Next, no el navegador.
+      API_URL: ${API_URL:-http://backend:8000}
     depends_on:
       - backend
     networks:

@@ -243,7 +243,22 @@ TORDO usa su propio Sentry (`SENTRY_DSN`), su propio Celery beat en vez de Cloud
 y no tiene Pub/Sub ni Cloud Tasks.
 
 ### Frontend
-- Nunca hardcodear la URL del backend en un componente: usa `lib/api.ts`.
+- **El navegador nunca ve un token.** La sesión vive en cookies `httpOnly`
+  (`tordo_acceso`, `tordo_refresco`) que pone el servidor de Next, y todo el tráfico va por
+  `/api/proxy`, que lee la cookie y pone `Authorization`. Un XSS ya no puede llevarse la
+  sesión, porque no hay nada que leer.
+  - **El proxy renueva solo.** Al 401 rota el refresco y reintenta una vez. Antes el usuario
+    quedaba fuera a los 30 minutos.
+  - **`lib/api.ts` no maneja tokens.** No hay `setToken` ni `localStorage`: si te ves
+    añadiéndolos, es que algo se saltó el proxy.
+  - **La URL del backend es `API_URL`, de SERVIDOR.** `NEXT_PUBLIC_API_URL` desapareció:
+    cualquier variable `NEXT_PUBLIC_*` se inlinea en el bundle.
+  - `__tests__/sesion-cookies.test.ts` fija que las cookies sean `httpOnly` y `sameSite=lax`.
+    Todo el valor de esto depende de esa palabra, y es lo que se pierde en un refactor sin
+    que nada falle.
+  - **Pendiente**: una sesión iniciada con Google sigue caducando a los 30 minutos — el
+    backend sólo manda el token de acceso en su redirección. Mandar el refresco por la URL
+    sería peor. La solución es un código de un solo uso, y toca el backend.
 - **Nunca hardcodear un color.** La paleta vive en tokens (`app/globals.css`) y se consume por
   Tailwind. Los componentes tenían 112 hexes; hoy tienen cero.
 - **Nunca `text-white` sobre un fondo de token.** Los rellenos se invierten con el tema: en
