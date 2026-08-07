@@ -24,7 +24,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import select
 
-from app.api.tenders import _coincide_termino
+from app.api.tenders import _coincide_termino, list_tenders
 from app.models.licitacion import Licitacion
 
 
@@ -166,3 +166,68 @@ async def test_la_sintaxis_de_tsquery_no_se_interpreta(async_db, licitaciones):
     # Un operador suelto no revienta la consulta, sólo no encuentra nada.
     assert await _buscar(async_db, "&") == set()
     assert await _buscar(async_db, "!") == set()
+
+
+# ── El término como FILTRO, no sólo como criterio de orden ───────────────────
+
+
+@pytest.mark.asyncio
+async def test_relevancia_sin_modelo_sigue_filtrando_por_el_termino(
+    async_db, licitaciones, sample_user, monkeypatch
+):
+    """`sort_by=relevance` sin artefactos TF-IDF devolvía TODO.
+
+    La rama semántica aplicaba el filtro de términos dentro de sí misma, y
+    cuando el modelo no estaba disponible caía al orden por defecto con la
+    consulta **sin filtrar**. El usuario escribía "hospital" y recibía el
+    catálogo entero ordenado por fecha, sin ningún aviso de que su búsqueda se
+    había ignorado.
+
+    Es el estado normal de un despliegue nuevo: los artefactos del modelo se
+    generan después, y el frontend cambia a `relevance` en cuanto se escribe
+    algo en el buscador.
+    """
+    from app.services import tfidf_matcher
+
+    monkeypatch.setattr(tfidf_matcher, "is_available", lambda: False)
+
+    respuesta = await list_tenders(
+        skip=0,
+        limit=100,
+        estado=None,
+        codigo_organismo=None,
+        region=None,
+        min_amount=None,
+        max_amount=None,
+        search="hospital",
+        empresa_id=None,
+        sort_by="relevance",
+        sort_order="desc",
+        db=async_db,
+        current_user=sample_user,
+    )
+
+    codigos = {i.codigo_externo for i in respuesta.items if i.codigo_externo.startswith("T-")}
+    assert codigos == {"T-2"}, "la búsqueda tiene que filtrar aunque no haya ranking semántico"
+
+
+@pytest.mark.asyncio
+async def test_relevancia_sin_termino_no_filtra_nada(async_db, licitaciones, sample_user):
+    """El caso simétrico: ordenar por relevancia sin escribir nada lista todo."""
+    respuesta = await list_tenders(
+        skip=0,
+        limit=100,
+        estado=None,
+        codigo_organismo=None,
+        region=None,
+        min_amount=None,
+        max_amount=None,
+        search=None,
+        empresa_id=None,
+        sort_by="relevance",
+        sort_order="desc",
+        db=async_db,
+        current_user=sample_user,
+    )
+    codigos = {i.codigo_externo for i in respuesta.items if i.codigo_externo.startswith("T-")}
+    assert codigos == {"T-1", "T-2", "T-3"}

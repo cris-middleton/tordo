@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
 import {
   ArrowLeft,
@@ -59,10 +59,6 @@ interface TenderDetail {
   moneda?: string;
   codigo_organismo?: string;
   informacion_adicional?: Record<string, any>;
-}
-
-interface PageParams {
-  params: { codigo: string };
 }
 
 interface PerfilMatchResult {
@@ -562,8 +558,20 @@ function BIPanelSection({ panel, tender }: { panel: BIPanel; tender?: TenderDeta
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-export default function TenderDetailPage({ params }: PageParams) {
+/**
+ * El código viene de `useParams()` y NO de la prop `params`.
+ *
+ * Desde Next 16 `params` es una **Promesa**: leer `params.codigo` directamente
+ * da `undefined`, la petición sale como `/api/tenders/codigo/undefined` y la
+ * pantalla queda en "no pudimos cargar la información". Llevaba así desde la
+ * actualización desde Next 14, y no lo vio nadie porque compila igual.
+ *
+ * `useParams()` es la forma correcta en un componente cliente; `use(params)` lo
+ * sería si esto fuera un componente de servidor.
+ */
+export default function TenderDetailPage() {
   const router = useRouter();
+  const codigoRuta = decodeURIComponent(String(useParams().codigo ?? ''));
   const { user } = useAuth();
   const [tender, setTender] = useState<TenderDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -583,7 +591,7 @@ export default function TenderDetailPage({ params }: PageParams) {
 
   useEffect(() => {
     const loadTender = async () => {
-      const codigo = decodeURIComponent(params.codigo);
+      const codigo = codigoRuta;
       try {
         const response = await apiClient.getTenderByCode(codigo);
         setTender(response);
@@ -594,13 +602,13 @@ export default function TenderDetailPage({ params }: PageParams) {
       }
     };
     loadTender();
-  }, [params.codigo]);
+  }, [codigoRuta]);
 
   // Load BI panel + encaje after tender is ready
   useEffect(() => {
     if (!tender) return;
     let active = true;
-    const codigo = decodeURIComponent(params.codigo);
+    const codigo = codigoRuta;
 
     // Get first empresa for per-empresa BI data and encaje check
     apiClient.getEmpresas().then((empresas: any[]) => {
@@ -631,7 +639,7 @@ export default function TenderDetailPage({ params }: PageParams) {
     }).catch(() => {/* no empresas — skip */});
 
     return () => { active = false };
-  }, [tender, params.codigo]);
+  }, [tender, codigoRuta]);
 
   const handleIniciarPostulacion = async () => {
     if (!tender || !firstEmpresaId) return;

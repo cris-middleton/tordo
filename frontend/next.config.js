@@ -26,6 +26,7 @@ module.exports = withSentryConfig(nextConfig, {
   // fallos de justo los navegadores más protegidos.
   tunnelRoute: '/monitoring',
 
-  // Quita el logger del SDK del bundle de producción.
-  disableLogger: true,
+  // Sin `disableLogger`: está obsoleta y, además, no tiene efecto con Turbopack
+  // —que es el compilador por defecto desde Next 16—. Dejarla sólo producía un
+  // aviso de deprecación en cada build.
 })

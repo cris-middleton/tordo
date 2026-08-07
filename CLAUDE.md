@@ -318,6 +318,22 @@ y no tiene Pub/Sub ni Cloud Tasks.
   inicializar desde la URL (`bi/page`), sincronizar un formulario con datos que llegan después
   (`settings`) y arrancar la sesión (`AuthContext`). Si necesitas una cuarta, escribe por qué
   ahí mismo — nunca desactives la regla globalmente.
+- **Tests de extremo a extremo: `make e2e`.** Monta la pila entera contra una base
+  efímera y corre Playwright. Encontró **tres fallos que ninguna otra capa veía**, y los
+  tres compilaban y pasaban el lint:
+  - el proxy entraba en **bucle de redirecciones** con cualquier ruta terminada en `/`
+    (Next quita la barra, FastAPI la vuelve a pedir), así que `/api/tenders/`,
+    `/api/empresas/` y `/api/alerts/` **nunca cargaban**;
+  - `sort_by=relevance` **sin artefactos TF-IDF ignoraba el término** y devolvía el
+    catálogo entero — el estado normal de un despliegue nuevo;
+  - **`params` es una Promesa desde Next 16**, y las dos páginas de detalle la leían como
+    objeto: pedían `/codigo/undefined`. Rotas desde la actualización.
+  - En un componente cliente el parámetro de ruta se lee con **`useParams()`**.
+- **El navegador de los E2E corre en contenedor**, y el servidor de Next **dentro del
+  mismo contenedor**. No es capricho: las cookies de sesión son `Secure`, y
+  `http://localhost` es el único origen sin TLS que un navegador trata como de confianza.
+  Servido desde fuera, el login devuelve 200, no guarda nada y el test falla sin decir por
+  qué. El backend sí vive en el host, y por eso escucha en `0.0.0.0`.
 - **El lint es `eslint .`, no `next lint`** — desapareció en Next 16. La configuración es plana
   (`eslint.config.mjs`), porque ESLint 9 abandonó `.eslintrc`.
 
@@ -333,6 +349,7 @@ make hooks                       # sólo hooks
 make lint / make lint-fix        # ruff check + format (idéntico a CI)
 make audit                       # vulnerabilidades y antigüedad de dependencias
 make test                        # backend + ETL + frontend
+make e2e                         # extremo a extremo (pila completa + Playwright)
 make dev-up-d / dev-logs / dev-down
 make migrate / make migrate-create MSG="..." / make migrate-status
 make db-shell

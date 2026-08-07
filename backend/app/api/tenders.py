@@ -172,6 +172,17 @@ async def list_tenders(
             return TenderListResponse(items=items, total=total, page=page, size=limit, pages=pages)
         # Fall through to default ordering when model artifacts missing.
 
+    # Si se pidió relevancia pero NO hubo ranking semántico —bandera apagada o
+    # artefactos del modelo ausentes—, el término sigue siendo un FILTRO.
+    #
+    # Sin esto la búsqueda se ignoraba en silencio: `stmt` se saltó el filtro
+    # arriba por `want_relevance`, y el único sitio que volvía a aplicarlo era la
+    # rama semántica de la que acabamos de salir. El usuario escribía un término
+    # y recibía el catálogo entero, ordenado por fecha, sin ningún aviso.
+    if want_relevance:
+        for term in terms:
+            stmt = stmt.where(_coincide_termino(term))
+
     if sort_by == "score_encaje" and perfil_bytes is not None:
         from app.services import tfidf_matcher
 

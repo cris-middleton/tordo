@@ -1,0 +1,154 @@
+#!/usr/bin/env bash
+#
+# Tests de extremo a extremo con Playwright.
+#
+# Levanta la pila completa contra su propia base efímera —Postgres, migraciones,
+# semilla y backend— y deja que Playwright arranque el frontend. Nada de esto
+# toca la base de desarrollo ni el stack de `make dev-up-d`: los puertos son
+# distintos a propósito, para poder correrlo con el entorno de trabajo levantado.
+#
+# Uso:  make e2e            (todo)
+#       make e2e ARGS="--ui"  (modo interactivo de Playwright)
+
+set -euo pipefail
+# Control de trabajos: cada proceso en segundo plano recibe su PROPIO grupo, y
+# así `kill -- -PID` alcanza también a sus hijos. Sin esto el trap mataba la
+# subshell y dejaba vivos `next start` y `uvicorn`, que a la corrida siguiente
+# ocupaban el puerto — y el error que salía era "connection refused", que no
+# apunta a nada.
+set -m
+
+RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$RAIZ"
+
+CONTENEDOR="tordo-e2e-pg"
+PUERTO_PG="${E2E_PUERTO_PG:-55433}"
+PUERTO_API="${E2E_PUERTO_API:-8210}"
+PUERTO_FRONT="${E2E_PUERTO_FRONT:-3210}"
+# Debe coincidir con la versión de @playwright/test del package.json: si se
+# separan, el cliente y el navegador hablan protocolos distintos.
+IMAGEN_PLAYWRIGHT="mcr.microsoft.com/playwright:v1.62.1-noble"
+
+export DATABASE_URL="postgresql://postgres:postgres@localhost:${PUERTO_PG}/tordo_test"
+export SECRET_KEY="e2e-secret"
+export API_URL="http://localhost:${PUERTO_API}"
+# Sin Redis: el límite de peticiones y la cuota de BI fallan abiertos, que es lo
+# que interesa aquí. Levantar otro contenedor sólo para eso alarga el ciclo sin
+# probar nada más.
+export REDIS_URL="redis://localhost:6399/0"
+
+azul=$'\e[36m'; rojo=$'\e[31m'; fin=$'\e[0m'
+paso() { printf "\n%s── %s %s\n" "$azul" "$1" "$fin"; }
+
+PID_API=""
+limpiar() {
+  [ -n "$PID_API" ] && kill -- -"$PID_API" 2>/dev/null || true
+  docker rm -f "$CONTENEDOR" >/dev/null 2>&1 || true
+}
+trap limpiar EXIT
+
+# `pg_isready -h 127.0.0.1` fuerza TCP DENTRO del contenedor. Las otras dos
+# formas evidentes dan falsos positivos, y las dos se midieron:
+#
+#  - `pg_isready` por socket unix (sin -h): durante la inicializacion la imagen
+#    levanta un servidor TEMPORAL con `listen_addresses=''` para aplicar los
+#    scripts de arranque, y ese SI atiende por socket. El bucle salia ahi, justo
+#    antes de que el temporal se apagara, y el check siguiente caia en la
+#    ventana: "no arranco" con un log que terminaba en "ready for start up".
+#  - Abrir el puerto publicado desde el host: el proxy de Docker acepta la
+#    conexion **al segundo 1**, cuando postgres todavia no existe.
+#
+# El servidor temporal no escucha en red, asi que por TCP no hay ambiguedad.
+esperar_postgres() {
+  local intentos="$1"
+  for _ in $(seq 1 "$intentos"); do
+    docker exec "$CONTENEDOR" pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1 && return 0
+    sleep 1
+  done
+  return 1
+}
+
+paso "Postgres efímero (puerto $PUERTO_PG)"
+limpiar
+# `docker rm -f` devuelve antes de que el nombre quede libre, y el `docker run`
+# siguiente falla con "name already in use". Misma carrera que en ci-local.sh.
+for _ in $(seq 1 30); do
+  docker container inspect "$CONTENEDOR" >/dev/null 2>&1 || break
+  sleep 1
+done
+docker run -d --name "$CONTENEDOR" \
+  -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=tordo_test \
+  -p "${PUERTO_PG}:5432" postgres:15-alpine >/dev/null
+esperar_postgres 90 || {
+  printf "%sPostgres no arrancó%s\n" "$rojo" "$fin"
+  docker inspect -f 'status={{.State.Status}} oom={{.State.OOMKilled}} exit={{.State.ExitCode}}' "$CONTENEDOR"
+  printf "     error de pg_isready: "
+  docker exec "$CONTENEDOR" pg_isready -U postgres 2>&1 | tail -2 | sed 's/^/     /'
+  docker logs "$CONTENEDOR" 2>&1 | tail -8 | sed 's/^/     /'
+  exit 1
+}
+
+paso "Migraciones y semilla"
+(cd backend && uv run --project .. alembic upgrade head >/dev/null)
+(cd backend && uv run --project .. python scripts/sembrar_e2e.py)
+
+paso "Backend en el puerto $PUERTO_API"
+# `--host 0.0.0.0` y no el 127.0.0.1 por defecto de uvicorn: quien llama al
+# backend es el servidor de Next, que corre DENTRO del contenedor de Playwright
+# y lo alcanza por `host.docker.internal`. Con el bind por defecto la conexion
+# se rechaza, el login devuelve 200 sin cookie y el test falla en el
+# `waitForURL` sin decir nada del motivo.
+LOG_API="$(mktemp)"
+(cd backend && uv run --project .. uvicorn app.main:app \
+   --host 0.0.0.0 --port "$PUERTO_API" --log-level warning >"$LOG_API" 2>&1) &
+PID_API=$!
+for _ in $(seq 1 60); do
+  curl -sf "http://localhost:${PUERTO_API}/health/" >/dev/null 2>&1 && break
+  # Si el proceso murió, no tiene sentido esperar los 60 segundos.
+  kill -0 "$PID_API" 2>/dev/null || {
+    printf "%sEl backend murió al arrancar. Su salida:%s\n" "$rojo" "$fin"
+    sed 's/^/     /' "$LOG_API" | tail -20
+    exit 1
+  }
+  sleep 1
+done
+curl -sf "http://localhost:${PUERTO_API}/health/" >/dev/null || {
+  printf "%sEl backend no respondió en 60s. Su salida:%s\n" "$rojo" "$fin"
+  sed 's/^/     /' "$LOG_API" | tail -20
+  exit 1
+}
+
+paso "Build del frontend"
+# Se limpia `.next` antes de construir: los estaticos se copian DENTRO de
+# `.next/standalone` justo despues, y la compilacion siguiente arrancaba sobre
+# ese arbol ya manipulado. Turbopack fallaba entonces evaluando postcss, con un
+# error que no menciona ninguna de las dos cosas.
+find frontend/.next -mindepth 1 -delete 2>/dev/null || true
+(cd frontend && npm run build >/dev/null)
+# El standalone no se lleva los estaticos consigo: hay que copiarlos al lado,
+# igual que hace el Dockerfile.
+cp -R frontend/public frontend/.next/standalone/ 2>/dev/null || true
+mkdir -p frontend/.next/standalone/.next
+cp -R frontend/.next/static frontend/.next/standalone/.next/ 2>/dev/null || true
+
+paso "Playwright"
+# En contenedor y no con el navegador del host: `playwright install --with-deps`
+# necesita sudo, y ademas fija la MISMA version de navegador en local y en CI.
+#
+# El SERVIDOR DE NEXT arranca dentro de este mismo contenedor (`webServer` de
+# playwright.config.ts). Es lo que hace que el navegador lo vea en
+# `http://localhost`, el unico origen sin TLS que trata como de confianza — y
+# las cookies de sesion son `Secure`, asi que en cualquier otro las descarta.
+#
+# El BACKEND si vive en el host, y por eso `--add-host`: con Docker Desktop la
+# red del host es la de su VM, no la de WSL (medido: 000 con `--network host`,
+# 200 con `host.docker.internal`). `host-gateway` funciona igual en Docker
+# nativo, asi que el camino es uno solo.
+docker run --rm \
+  --add-host=host.docker.internal:host-gateway \
+  --user "$(id -u):$(id -g)" \
+  -v "${RAIZ}/frontend:/trabajo" -w /trabajo \
+  -e HOME=/tmp -e CI="${CI:-}" -e E2E_PUERTO_FRONT="$PUERTO_FRONT" \
+  -e API_URL="http://host.docker.internal:${PUERTO_API}" \
+  "$IMAGEN_PLAYWRIGHT" \
+  npx playwright test ${ARGS:-}

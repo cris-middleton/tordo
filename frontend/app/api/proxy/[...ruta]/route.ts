@@ -26,6 +26,46 @@ import {
 
 const SIN_CUERPO = new Set(['GET', 'HEAD']);
 
+/**
+ * Cuántas redirecciones internas del backend se siguen antes de rendirse.
+ * Una basta para el `redirect_slashes` de FastAPI; el tope existe para que un
+ * backend mal configurado no deje al proxy dando vueltas.
+ */
+const MAX_REDIRECCIONES = 3;
+
+/**
+ * Sigue las redirecciones del backend AQUÍ, sin devolvérselas al navegador.
+ *
+ * Sin esto, cualquier ruta terminada en `/` —`/api/tenders/`, `/api/empresas/`,
+ * `/api/alerts/`— entraba en un bucle infinito y **nunca cargaba**:
+ *
+ *   1. El navegador pide `/api/proxy/api/tenders/`.
+ *   2. Next normaliza y responde **308** a `/api/proxy/api/tenders`.
+ *   3. El proxy reenvía a `/api/tenders`, y FastAPI (`redirect_slashes`)
+ *      responde **307** a `/api/tenders/`.
+ *   4. Ese 307 se le pasaba al navegador, que volvía al paso 1.
+ *
+ * Son redirecciones del enrutado interno del backend: al navegador no le
+ * incumben. Se siguen sólo si apuntan al MISMO backend — `redirect: 'follow'`
+ * a secas convertiría un Location manipulado en una petición nuestra, con la
+ * cabecera `Authorization` puesta, hacia donde dijera ese Location.
+ */
+async function seguirRedirecciones(
+  respuesta: Response,
+  reenviar: (destino: string) => Promise<Response>,
+): Promise<Response> {
+  let actual = respuesta;
+  for (let i = 0; i < MAX_REDIRECCIONES; i++) {
+    if (actual.status < 300 || actual.status >= 400) return actual;
+    const destino = actual.headers.get('location');
+    if (!destino) return actual;
+    const absoluto = new URL(destino, urlBackend('/'));
+    if (absoluto.origin !== new URL(urlBackend('/')).origin) return actual;
+    actual = await reenviar(absoluto.toString());
+  }
+  return actual;
+}
+
 async function manejar(req: NextRequest, ctx: { params: Promise<{ ruta: string[] }> }) {
   const { ruta } = await ctx.params;
   // El cliente ya manda la ruta completa del backend (`/api/auth/me`), así que
@@ -38,8 +78,8 @@ async function manejar(req: NextRequest, ctx: { params: Promise<{ ruta: string[]
   // dos veces, y el reintento necesita el mismo cuerpo.
   const cuerpo = SIN_CUERPO.has(req.method) ? undefined : await req.arrayBuffer();
 
-  const enviar = (token?: string) =>
-    fetch(destino, {
+  const pedir = (url: string, token?: string) =>
+    fetch(url, {
       method: req.method,
       headers: {
         // Sólo lo necesario: reenviar las cabeceras del navegador tal cual
@@ -51,6 +91,9 @@ async function manejar(req: NextRequest, ctx: { params: Promise<{ ruta: string[]
       cache: 'no-store',
       redirect: 'manual',
     });
+
+  const enviar = async (token?: string) =>
+    seguirRedirecciones(await pedir(destino, token), (url) => pedir(url, token));
 
   let respuesta = await enviar(acceso);
 

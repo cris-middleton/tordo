@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
 import { usePrecioProducto } from '@/lib/queries';
 import {
@@ -44,10 +44,6 @@ interface OrderDetail {
   categoria?: string;
   rubro?: string;
   informacion_adicional?: Record<string, any>;
-}
-
-interface PageParams {
-  params: { codigo: string };
 }
 
 const normalizeKey = (key: string) => key.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -183,15 +179,27 @@ const normalizeOrderDetail = (data: any): OrderDetail => {
   return detail;
 };
 
-export default function OrderDetailPage({ params }: PageParams) {
+/**
+ * El código viene de `useParams()` y NO de la prop `params`.
+ *
+ * Desde Next 16 `params` es una **Promesa**: leer `params.codigo` directamente
+ * da `undefined`, la petición sale como `/api/tenders/codigo/undefined` y la
+ * pantalla queda en "no pudimos cargar la información". Llevaba así desde la
+ * actualización desde Next 14, y no lo vio nadie porque compila igual.
+ *
+ * `useParams()` es la forma correcta en un componente cliente; `use(params)` lo
+ * sería si esto fuera un componente de servidor.
+ */
+export default function OrderDetailPage() {
   const router = useRouter();
+  const codigoRuta = decodeURIComponent(String(useParams().codigo ?? ''));
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadOrder = async () => {
-      const codigo = decodeURIComponent(params.codigo);
+      const codigo = codigoRuta;
       try {
         const response = await apiClient.getOrders({
           codigo_oc: codigo,
@@ -211,7 +219,7 @@ export default function OrderDetailPage({ params }: PageParams) {
     };
 
     loadOrder();
-  }, [params.codigo]);
+  }, [codigoRuta]);
 
   // La cancelación manual con `active` la hace TanStack Query: si el rubro
   // cambia, descarta la respuesta anterior en vez de escribirla sobre la nueva.

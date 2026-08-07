@@ -86,11 +86,17 @@ docker run -d --name "$CONTENEDOR" \
 # 90s y no 40: con varios contenedores compitiendo por CPU, Postgres tarda más
 # en aceptar conexiones y el portón fallaba de forma intermitente. Un CI que a
 # veces no arranca se termina ignorando.
+#
+# `-h 127.0.0.1` fuerza TCP, y eso es lo que quita el fallo intermitente: sin
+# esa opción `pg_isready` va por socket unix, y durante la inicialización la
+# imagen levanta un servidor TEMPORAL (`listen_addresses=''`) que SÍ atiende
+# ahí. El bucle salía en esa ventana, el temporal se apagaba, y el check
+# siguiente reportaba "no arrancó" con un log terminado en "ready for start up".
 for _ in $(seq 1 90); do
-  docker exec "$CONTENEDOR" pg_isready -U postgres >/dev/null 2>&1 && break
+  docker exec "$CONTENEDOR" pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1 && break
   sleep 1
 done
-if ! docker exec "$CONTENEDOR" pg_isready -U postgres >/dev/null 2>&1; then
+if ! docker exec "$CONTENEDOR" pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1; then
   printf "%sPostgres no aceptó conexiones en 90s.%s\n" "$rojo" "$fin"
   # El estado va ANTES que el log: el log siempre termina en "ready for start
   # up" y no distingue "sigue arrancando, lento" de "lo mataron". Eso último

@@ -106,3 +106,8 @@ frontend/docs/superpowers/
 # no altera una tabla existente, así que un archivo viejo sombrea el esquema
 # nuevo en silencio.
 backend/test*.db
+
+# Artefactos de Playwright
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/

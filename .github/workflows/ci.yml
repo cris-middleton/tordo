@@ -238,10 +238,49 @@ jobs:
       - name: Tests
         run: npm test -- --run
 
+      # Sin `NEXT_PUBLIC_API_URL`: desapareció al pasar el tráfico por
+      # /api/proxy. La URL del backend es de servidor (`API_URL`).
       - name: Build
-        env:
-          NEXT_PUBLIC_API_URL: http://localhost:8000
         run: npm run build
+
+  # ───────────────────────────────────────────────────────────────────────────
+  e2e:
+    name: 🎭 Extremo a extremo
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias
+        run: |
+          uv sync --frozen
+          cd frontend && npm ci
+
+      # `make e2e` monta la pila entera —Postgres efímero, migraciones, semilla,
+      # backend— y corre Playwright en su imagen oficial. El MISMO comando que
+      # en local: un E2E que sólo existe en CI no lo usa nadie para depurar.
+      - name: Playwright
+        run: make e2e
+
+      - name: Guardar el informe si algo falla
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright
+          path: |
+            frontend/test-results/
+            frontend/playwright-report/
+          retention-days: 7
 
   # ───────────────────────────────────────────────────────────────────────────
   docker:
