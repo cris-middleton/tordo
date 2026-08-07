@@ -726,13 +726,40 @@ F3/F4/F5 pueden solaparse.
 
 ### F5 — Frontend · 1–2 semanas · paralelizable con F3/F4
 
+> **Revisado el 2026-08-07, y el plan cambia en un punto.** Mientras corrían F3 y F4, otra
+> sesión construyó el sistema de diseño: paleta por tokens en `globals.css` mapeada a
+> Tailwind, dos paradas invertidas por tema con su `--color-on-*`, tipografía, accesibilidad
+> AA verificada sobre 166 pares, y **tests estructurales propios** — `on-color.test.ts`
+> escanea el código buscando `text-white` sobre fondos de token, que es un fallo invisible en
+> tema claro.
+>
+> Eso deja **"shadcn/ui como design system" fuera de sitio**: la capa de tokens ya existe y
+> está verificada, y adoptar shadcn entero importaría un segundo vocabulario que pelearía con
+> ella. Lo que sí falta son **primitivas accesibles** (diálogo, select, dropdown, tabs):
+> `SelectField.tsx` está hecho a mano. Eso es Radix montado sobre los tokens que ya hay —
+> complementario, no sustitutivo, y se añade pieza a pieza cuando haga falta.
+>
+> Verificado además que el cambio de autenticación **no rompe el frontend**: `lib/api.ts`
+> desestructura sólo `access_token` e ignora el resto de la respuesta, y `changePassword` no
+> depende del mensaje. El esquema OpenAPI genera limpio (73 rutas, 100 schemas).
+
 - [ ] TanStack Query
-- [ ] Capa proxy con route handlers + sesión en cookie `httpOnly`
+- [ ] Capa proxy con route handlers + sesión en cookie `httpOnly`.
+      **Aquí está el nudo de la autenticación.** El backend ya emite el refresco; el frontend
+      lo descarta, así que en la práctica la sesión sigue muriendo a los 30 minutos.
+      La tentación es guardarlo en `localStorage` y renovar desde `api.ts` — son 30 líneas y
+      **sería un paso atrás**: cambia una credencial de 30 minutos expuesta a XSS por una de
+      30 días. El destino es la cookie `httpOnly` puesta por el proxy, donde el navegador no
+      ve ninguno de los dos tokens. La ruta de Google se arregla en el mismo movimiento.
 - [x] **Refresh token con rotación** y detección de reutilización (migración `5dd0faecd3f2`).
       Antes el JWT duraba 30 min sin forma de renovarlo: **todo usuario quedaba desconectado a
       la media hora**. Falta la mitad de frontend: cookie `httpOnly` vía el proxy de Next.
-- [ ] shadcn/ui como design system; descomponer las páginas de 900+ líneas
-- [ ] Vitest + Playwright para 3–4 flujos críticos
+- [~] ~~shadcn/ui como design system~~ — **el sistema de tokens ya existe** (ver nota arriba).
+      Queda: **primitivas accesibles** tipo Radix sobre esos tokens, y **descomponer las
+      páginas de 900+ líneas** (`HerramientasAvanzadas.tsx` 932, `tenders/[codigo]` 915,
+      `tenders/page` 761).
+- [~] **Vitest ya está** y corre en CI, con dos tests que valen: `on-color` (estructural sobre
+      los tokens) y `narrative`. Falta **Playwright** para 3–4 flujos críticos.
 - [ ] UI de invitación y gestión de miembros (el backend ya la soporta)
 
 ### F6 — Diferenciación · continuo, empezar después de F2
