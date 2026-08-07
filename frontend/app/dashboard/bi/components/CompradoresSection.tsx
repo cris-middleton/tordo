@@ -1,10 +1,10 @@
 // frontend/app/dashboard/bi/components/CompradoresSection.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { ChevronDown, ChevronUp, Loader2, Building2 } from 'lucide-react';
 import { CompradorResult, OrganismoConNombre, scoreColor, scoreBg } from '../types';
-import { useCompradorCache } from '../hooks/useCompradorCache';
+import { useComprador } from '@/lib/queries';
 
 interface CompradorSectionProps {
   topOrganismos: OrganismoConNombre[];
@@ -14,17 +14,12 @@ interface CompradorSectionProps {
 }
 
 function CompradorCard({ organismoId }: { organismoId: string }) {
-  const { get } = useCompradorCache();
-  const [data, setData] = useState<CompradorResult | null>(null);
-  const [loading, setLoading] = useState(true);
+  // La deduplicación entre tarjetas la hace TanStack Query por clave: dos
+  // tarjetas del mismo organismo comparten una sola petición, que es lo que
+  // hacía a mano el `useCompradorCache` que se eliminó.
+  const { data: respuesta, isPending: loading } = useComprador(organismoId);
+  const data = (respuesta ?? null) as CompradorResult | null;
   const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    get(organismoId)
-      .then((res) => setData(res))
-      .catch(() => setData(null))
-      .finally(() => setLoading(false));
-  }, [organismoId]);
 
   if (loading) return (
     <div className="rounded-xl border border-border p-4 flex items-center gap-2 text-sm text-muted">

@@ -126,20 +126,26 @@ export const toStoredOrder = (order: OrderInput): StoredOrder => ({
 });
 
 export function useDashboardCollections() {
-  const [collections, setCollections] = useState<DashboardCollectionsState>(defaultState);
-  const [hydrated, setHydrated] = useState(false);
+  // El estado arranca directamente de localStorage con un inicializador
+  // perezoso, en vez de un efecto que lo corregía tras montar. Ese efecto
+  // provocaba un render con el estado vacío y otro con el real — visible como
+  // un parpadeo en las listas guardadas.
+  //
+  // `typeof window` dentro del inicializador cubre el servidor, donde devuelve
+  // el estado por defecto: es el mismo valor que el cliente pinta en la
+  // hidratación, así que no hay desajuste.
+  const [collections, setCollections] = useState<DashboardCollectionsState>(() =>
+    typeof window === 'undefined'
+      ? defaultState
+      : parseState(window.localStorage.getItem(STORAGE_KEY)),
+  );
 
+  // Escribir SÍ es un efecto: es una sincronización con algo externo, no un
+  // cálculo de estado. `hydrated` desaparece porque ya no hay dos fases.
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const stored = parseState(window.localStorage.getItem(STORAGE_KEY));
-    setCollections(stored);
-    setHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    if (!hydrated || typeof window === 'undefined') return;
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(collections));
-  }, [collections, hydrated]);
+  }, [collections]);
 
   const isTenderStored = useCallback(
     (collection: CollectionType, id: number) =>
@@ -210,12 +216,12 @@ export function useDashboardCollections() {
   return {
     collections,
     counts,
-    hydrated,
+    //  siempre fue true tras el primer render; ahora lo es desde el
+    // primero, así que se conserva como constante para no romper a quien lo lea.
+    hydrated: true,
     isTenderStored,
     isOrderStored,
     toggleTender,
     toggleOrder,
   };
 }
-
-

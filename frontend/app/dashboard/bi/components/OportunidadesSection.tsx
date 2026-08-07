@@ -1,10 +1,10 @@
 // frontend/app/dashboard/bi/components/OportunidadesSection.tsx
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { ChevronDown, ChevronUp, Loader2, Target } from 'lucide-react';
 import { OportunidadItem, CompradorResult, scoreColor, scoreBg } from '../types';
-import { useCompradorCache } from '../hooks/useCompradorCache';
+import { useComprador } from '@/lib/queries';
 import { ShareMenu } from './ShareMenu';
 
 interface OportunidadesSectionProps {
@@ -62,26 +62,11 @@ function ExpandedRow({
   nombre: string;
   onFocus?: (o: { codigo: string; nombre: string }) => void;
 }) {
-  const { get } = useCompradorCache();
-  const [data, setData] = useState<CompradorResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-
-  const load = async () => {
-    if (loaded) return;
-    setLoading(true);
-    try {
-      const res = await get(organismo);
-      setData(res);
-      setLoaded(true);
-    } catch {
-      setLoaded(true);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { load(); }, []);
+  // El `loaded` que había existía para no volver a pedir lo mismo. Sobra: la
+  // caché de TanStack Query lo cubre por clave, y además comparte la respuesta
+  // con las tarjetas de CompradoresSection en vez de duplicarla.
+  const { data: respuesta, isPending: loading } = useComprador(organismo);
+  const data = (respuesta ?? null) as CompradorResult | null;
 
   if (loading) return (
     <div className="p-4 flex items-center gap-2 text-sm text-muted">

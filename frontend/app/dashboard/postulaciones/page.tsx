@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
+import { useDocumentos, useEmpresas, usePostulaciones } from '@/lib/queries';
 import SelectField from '@/components/SelectField';
 import {
   ClipboardList,
@@ -196,80 +197,47 @@ function PostulacionCard({
 
 export default function PostulacionesPage() {
   const router = useRouter();
-  const [empresas, setEmpresas] = useState<Empresa[]>([]);
-  const [empresaId, setEmpresaId] = useState('');
-  const [postulaciones, setPostulaciones] = useState<Postulacion[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filtroEstado, setFiltroEstado] = useState('');
-  const [documentos, setDocumentos] = useState<DocumentoRef[]>([]);
 
-  useEffect(() => {
-    loadEmpresas();
-  }, []);
+  const { data: empresasData } = useEmpresas();
+  const empresas = (empresasData ?? []) as Empresa[];
+  // Se DERIVA de la primera empresa mientras el usuario no elija otra.
+  const [empresaElegida, setEmpresaId] = useState('');
+  const empresaId = empresaElegida || empresas[0]?.id || '';
 
-  useEffect(() => {
-    if (empresaId) {
-      loadPostulaciones();
-      loadDocumentos();
-    }
-  }, [empresaId, filtroEstado]);
+  const consultaPost = usePostulaciones(empresaId || undefined, {
+    estado: filtroEstado || undefined,
+    limit: 50,
+  });
+  const datosPost = consultaPost.data as unknown;
+  const postulaciones: Postulacion[] = Array.isArray(datosPost)
+    ? (datosPost as Postulacion[])
+    : (((datosPost as { items?: Postulacion[] })?.items) ?? []);
+  const loading = consultaPost.isFetching || !empresasData;
 
-  const loadEmpresas = async () => {
-    try {
-      const data = await apiClient.getEmpresas();
-      setEmpresas(data);
-      if (data.length > 0) setEmpresaId(data[0].id);
-    } catch {
-      setLoading(false);
-    }
-  };
+  const consultaDocs = useDocumentos(empresaId || undefined);
+  const datosDocs = consultaDocs.data as unknown;
+  const documentos: DocumentoRef[] = (
+    Array.isArray(datosDocs) ? datosDocs : (((datosDocs as { items?: unknown[] })?.items) ?? [])
+  ).map((d) => {
+    const doc = d as { id: string; nombre_archivo: string; tipo_documento: string };
+    return {
+      id: doc.id,
+      nombre_archivo: doc.nombre_archivo,
+      tipo_documento: doc.tipo_documento,
+    };
+  });
 
-  const loadPostulaciones = async () => {
-    setLoading(true);
-    try {
-      const data = await apiClient.getPostulaciones(empresaId, {
-        estado: filtroEstado || undefined,
-        limit: 50,
-      });
-      setPostulaciones(Array.isArray(data) ? data : data.items || []);
-    } catch {
-      setPostulaciones([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadDocumentos = async () => {
-    try {
-      const data = await apiClient.getDocumentos(empresaId);
-      const docs: DocumentoRef[] = (Array.isArray(data) ? data : data.items || []).map(
-        (d: { id: string; nombre_archivo: string; tipo_documento: string }) => ({
-          id: d.id,
-          nombre_archivo: d.nombre_archivo,
-          tipo_documento: d.tipo_documento,
-        }),
-      );
-      setDocumentos(docs);
-    } catch {
-      setDocumentos([]);
-    }
-  };
+  // Nombres conservados: los llaman las acciones de la pantalla.
+  const loadPostulaciones = consultaPost.refetch;
+  const loadDocumentos = consultaDocs.refetch;
 
   const handleDocumentoLink = async (postulacionId: string, itemId: string, completado: boolean, documentoId: string | null) => {
     try {
       await apiClient.toggleChecklistItem(postulacionId, itemId, completado, documentoId ?? undefined);
-      setPostulaciones((prev) =>
-        prev.map((p) =>
-          p.id === postulacionId
-            ? {
-                ...p,
-                checklist: p.checklist.map((c) =>
-                  c.id === itemId ? { ...c, documento_id: documentoId } : c,
-                ),
-              }
-            : p,
-        ),
-      );
+      // Antes se actualizaba la lista en local; ahora se recarga del
+      // servidor, que es lo que de verdad quedó guardado.
+      await loadPostulaciones();
     } catch {
       // ignore
     }
@@ -279,18 +247,9 @@ export default function PostulacionesPage() {
     const newCompleted = !currentCompleted;
     try {
       await apiClient.toggleChecklistItem(postulacionId, itemId, newCompleted);
-      setPostulaciones((prev) =>
-        prev.map((p) =>
-          p.id === postulacionId
-            ? {
-                ...p,
-                checklist: p.checklist.map((i) =>
-                  i.id === itemId ? { ...i, completado: newCompleted } : i,
-                ),
-              }
-            : p,
-        ),
-      );
+      // Antes se actualizaba la lista en local; ahora se recarga del
+      // servidor, que es lo que de verdad quedó guardado.
+      await loadPostulaciones();
     } catch {
       // ignore
     }

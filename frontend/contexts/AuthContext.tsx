@@ -71,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // caché ni invalidación, y meterlo obligaría a que el proveedor de consultas
   // envolviera al de autenticación.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     checkAuth();
   }, []);
 

@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp, BarChart3, Loader2, AlertTriangle, Clock, Users, DollarSign } from 'lucide-react';
 import Link from 'next/link';
-import { apiClient } from '@/lib/api';
+import { usePanelLicitacion } from '@/lib/queries';
 import { scoreBg, scoreColor, PlanTier, isPaidPlan } from '../../../bi/types';
 
 interface BICardProps {
@@ -48,30 +48,11 @@ interface BIPanelData {
 
 export function BICard({ codigoExterno, empresaId, plan = 'basico' }: BICardProps) {
   const [open, setOpen] = useState(false);
-  const [data, setData] = useState<BIPanelData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [loaded, setLoaded] = useState(false);
+  // El `loaded` que había evitaba repetir la petición; lo cubre la caché por
+  // clave, que además comparte la respuesta si la tarjeta se monta dos veces.
+  const { data: respuesta, isPending: loading } = usePanelLicitacion(codigoExterno, empresaId);
+  const data = (respuesta ?? null) as BIPanelData | null;
   const paid = isPaidPlan(plan);
-
-  const load = async () => {
-    if (loaded) return;
-    setLoading(true);
-    try {
-      const res = await apiClient.getBIPanel(codigoExterno, empresaId);
-      setData(res);
-      setLoaded(true);
-    } catch {
-      setLoaded(true);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Load summary on mount
-  useEffect(() => {
-    load();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [codigoExterno]);
 
   // buyer_score is 0-1; ×10 for display and color thresholds
   const buyerScore = data?.comprador?.buyer_score != null ? data.comprador.buyer_score * 10 : undefined;
@@ -91,7 +72,6 @@ export function BICard({ codigoExterno, empresaId, plan = 'basico' }: BICardProp
       {/* Header */}
       <button
         onClick={() => {
-          if (!open) load();
           setOpen((o) => !o);
         }}
         className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-primary/5 transition-colors text-left"

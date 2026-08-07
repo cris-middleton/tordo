@@ -4,6 +4,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Loader2, BarChart3, Target, Columns } from 'lucide-react';
 import { apiClient } from '@/lib/api';
+import { useMiPosicion } from '@/lib/queries';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   OportunidadItem,
@@ -29,7 +30,6 @@ import { CompradoresSection } from './components/CompradoresSection';
 import { EstacionalidadSection } from './components/EstacionalidadSection';
 import { HerramientasAvanzadas } from './components/HerramientasAvanzadas';
 import { SectorOverview } from './components/SectorOverview';
-import { CompradorCacheProvider } from './hooks/useCompradorCache';
 import { CompareMode } from './components/CompareMode';
 
 function BIDisabledBanner() {
@@ -83,8 +83,9 @@ export default function BIPage() {
   const [loadingResumen, setLoadingResumen] = useState(false);
 
   // ── Mi posición state ──────────────────────────────────────────────────────
-  const [miPosicion, setMiPosicion] = useState<MiPosicion | null>(null);
-  const [loadingMiPosicion, setLoadingMiPosicion] = useState(false);
+  const consultaMiPosicion = useMiPosicion(firstEmpresaId ?? undefined, selectedRubro);
+  const miPosicion = (consultaMiPosicion.data ?? null) as MiPosicion | null;
+  const loadingMiPosicion = consultaMiPosicion.isFetching;
 
   // ── Compare mode ───────────────────────────────────────────────────────────
   const [compareMode, setCompareMode] = useState(false);
@@ -111,12 +112,12 @@ export default function BIPage() {
     return out;
   }, [oportunidades]);
 
-  const [selectedCompOrg, setSelectedCompOrg] = useState('');
-  useEffect(() => {
-    if (topOrganismos.length > 0 && !selectedCompOrg) {
-      setSelectedCompOrg(topOrganismos[0].codigo);
-    }
-  }, [topOrganismos, selectedCompOrg]);
+  // Se DERIVA del primer organismo mientras el usuario no elija otro. Antes era
+  // un efecto que sincronizaba estado con estado: un render de más y una ventana
+  // en la que la sección se pintaba sin selección.
+  const [orgElegido, setOrgElegido] = useState('');
+  const selectedCompOrg = orgElegido || topOrganismos[0]?.codigo || '';
+  const setSelectedCompOrg = setOrgElegido;
 
   // ── Load oportunidades ─────────────────────────────────────────────────────
   const loadOportunidades = useCallback(async (rubro: string) => {
@@ -166,18 +167,10 @@ export default function BIPage() {
   }, []);
 
   // ── Load mi posición ───────────────────────────────────────────────────────
-  const loadMiPosicion = useCallback(async (empresaId: string, rubro: string) => {
-    if (!empresaId || !rubro) { setMiPosicion(null); return; }
-    setLoadingMiPosicion(true);
-    try {
-      const res = await apiClient.getBIMiPosicion({ empresa_id: empresaId, rubro });
-      setMiPosicion(res);
-    } catch {
-      setMiPosicion(null);
-    } finally {
-      setLoadingMiPosicion(false);
-    }
-  }, []);
+  // `useMiPosicion` lleva `enabled`, así que no hace falta ni comprobar los
+  // parámetros ni disparar la carga desde un efecto cuando aparecen.
+  const noOp = useCallback(async (_e: string, _r: string) => {}, []);
+  const loadMiPosicion = noOp;
 
   // ── Load resumen ───────────────────────────────────────────────────────────
   const loadResumen = useCallback(async (rubro: string) => {
@@ -205,7 +198,8 @@ export default function BIPage() {
     setCagrRubro(null);
     setSelectedCompOrg('');
     setResumen(null);
-    setMiPosicion(null);
+    // `miPosicion` ya no se limpia a mano: al cambiar de rubro cambia la clave
+    // de la consulta, así que TanStack Query devuelve lo de ese rubro o nada.
     setFocusedOrganismo(null);
     // loadOportunidades and loadTendencias work with rubro='' (no filter / show all)
     loadOportunidades(rubro);
@@ -213,9 +207,8 @@ export default function BIPage() {
     // resumen and miPosicion require a specific rubro — skip if empty
     if (rubro) {
       loadResumen(rubro);
-      if (firstEmpresaId) loadMiPosicion(firstEmpresaId, rubro);
     }
-  }, [loadOportunidades, loadTendencias, loadResumen, loadMiPosicion, firstEmpresaId]);
+  }, [loadOportunidades, loadTendencias, loadResumen, setSelectedCompOrg]);
 
   // ── Init: load empresa + probe BI + seed rubros ────────────────────────────
   useEffect(() => {
@@ -317,13 +310,6 @@ export default function BIPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Fire mi_posicion when firstEmpresaId or selectedRubro becomes available ─
-  useEffect(() => {
-    if (firstEmpresaId && selectedRubro) {
-      loadMiPosicion(firstEmpresaId, selectedRubro);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [firstEmpresaId, selectedRubro]);
 
   // ── URL sync — escribir ?rubro=X&focus=Y&compare=Z en base al estado ───────
   useEffect(() => {
@@ -338,6 +324,13 @@ export default function BIPage() {
   }, [initialized, selectedRubro, focusedOrganismo, compareMode, rubroB]);
 
   // ── Restaurar focus desde URL cuando oportunidades ya cargaron ─────────────
+  //
+  // Esto SÍ es un efecto legítimo y se queda: es inicialización desde la URL, no
+  // estado de servidor. El organismo enfocado se puede cambiar después haciendo
+  // clic, así que no se puede derivar de la URL sin perder esa interacción.
+  //
+  // Se marca puntualmente y no con una regla global: es una excepción razonada
+  // en la página más compleja del panel, no una carta blanca.
   useEffect(() => {
     if (!initialized || oportunidades.length === 0 || focusedOrganismo) return;
     const urlParams = new URLSearchParams(window.location.search);
@@ -345,6 +338,7 @@ export default function BIPage() {
     if (!focusParam) return;
     const op = oportunidades.find((o) => o.CodigoOrganismoPublico === focusParam);
     if (op) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFocusedOrganismo({
         codigo: op.CodigoOrganismoPublico,
         nombre: op.NombreOrganismo || op.CodigoOrganismoPublico,
@@ -441,7 +435,6 @@ export default function BIPage() {
   }
 
   return (
-    <CompradorCacheProvider>
     <div className="flex flex-col min-h-screen">
       {/* Sticky filter bar */}
       <RubroFilter
@@ -615,6 +608,5 @@ export default function BIPage() {
         )}
       </div>
     </div>
-    </CompradorCacheProvider>
   );
 }

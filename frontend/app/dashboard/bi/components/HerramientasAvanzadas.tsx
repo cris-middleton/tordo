@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp, Wrench, Loader2, Search, Info } from 'lucide-react';
 import { apiClient } from '@/lib/api';
+import { useBuscarProductos, useDescuento } from '@/lib/queries';
 import { OrganismoConNombre } from '../types';
 
 function extractErrorMessage(err: unknown): string {
@@ -150,33 +151,18 @@ function TabMatching() {
 }
 
 function TabDescuento({ rubro }: { rubro: string }) {
-  const [data, setData] = useState<DescuentoItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    if (!rubro) {
-      setData([]);
-      return;
-    }
-    setLoading(true);
-    setError('');
-    apiClient
-      .getBIDescuento({ rubro })
-      .then((res) => {
-        if (res.disponible) {
-          setData(res.descuentos ?? []);
-        } else {
-          setError(res.motivo || 'Sin datos de descuento para este rubro.');
-          setData([]);
-        }
-      })
-      .catch((err) => {
-        setError(extractErrorMessage(err));
-        setData([]);
-      })
-      .finally(() => setLoading(false));
-  }, [rubro]);
+  const consulta = useDescuento(rubro || undefined);
+  const res = consulta.data as { disponible?: boolean; descuentos?: DescuentoItem[]; motivo?: string } | undefined;
+  const data: DescuentoItem[] = res?.disponible ? (res.descuentos ?? []) : [];
+  const loading = Boolean(rubro) && consulta.isFetching;
+  // Se conservan los dos tipos de mensaje: el del backend cuando dice que no hay
+  // datos, y el traducido cuando la petición falla (cuota agotada, módulo
+  // apagado…). Perder esa distinción dejaría "no hay datos" ante un 429.
+  const error = consulta.error
+    ? extractErrorMessage(consulta.error)
+    : res && !res.disponible
+      ? (res.motivo || 'Sin datos de descuento para este rubro.')
+      : '';
 
   if (!rubro) {
     return (
@@ -292,37 +278,32 @@ interface ProductoOption {
 
 function TabPrecio({ organismosConNombre }: { organismosConNombre?: OrganismoConNombre[] }) {
   const [query, setQuery] = useState('');
-  const [options, setOptions] = useState<ProductoOption[]>([]);
   const [selected, setSelected] = useState<ProductoOption | null>(null);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [searching, setSearching] = useState(false);
+  // El desplegable se abría solo al llegar resultados (con un `setShowDropdown`
+  // dentro del fetch). Al mover la petición a la consulta eso se habría perdido,
+  // así que ahora se DERIVA: hay resultados, el campo no está cerrado a mano y
+  // el usuario no ha elegido todavía.
+  const [cerradoAMano, setCerradoAMano] = useState(false);
   const [organismo, setOrganismo] = useState('');
   const [resultado, setResultado] = useState<PrecioResultado | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Debounced search del autocomplete
+  // El retardo se queda como efecto —un temporizador SÍ es un efecto— pero ya no
+  // hace la petición: sólo publica el texto retardado, y la consulta reacciona a
+  // él. Así desaparece la carrera que tenía el original, donde una respuesta
+  // lenta podía pisar a una más reciente.
+  const [textoRetardado, setTextoRetardado] = useState('');
   useEffect(() => {
-    if (!query || query.trim().length < 2 || selected?.nombre === query) {
-      setOptions([]);
-      return;
-    }
-    const t = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const res = await apiClient.getBIProductos({ q: query, limit: 20 });
-        if (res.disponible) {
-          setOptions(res.resultados ?? []);
-          setShowDropdown(true);
-        }
-      } catch {
-        setOptions([]);
-      } finally {
-        setSearching(false);
-      }
-    }, 250);
+    const buscable = !query || query.trim().length < 2 || selected?.nombre === query ? '' : query;
+    const t = setTimeout(() => setTextoRetardado(buscable), 250);
     return () => clearTimeout(t);
   }, [query, selected]);
+
+  const consultaProductos = useBuscarProductos(textoRetardado);
+  const resProductos = consultaProductos.data as { disponible?: boolean; resultados?: ProductoOption[] } | undefined;
+  const options: ProductoOption[] = resProductos?.disponible ? (resProductos.resultados ?? []) : [];
+  const searching = textoRetardado.length >= 2 && consultaProductos.isFetching;
 
   const consultar = async () => {
     const codigo = selected?.codigoProductoONU?.trim();
@@ -367,9 +348,9 @@ function TabPrecio({ organismosConNombre }: { organismosConNombre?: OrganismoCon
         <input
           type="text"
           value={query}
-          onChange={(e) => { setQuery(e.target.value); setSelected(null); }}
-          onFocus={() => { if (options.length > 0) setShowDropdown(true); }}
-          onBlur={() => { setTimeout(() => setShowDropdown(false), 150); }}
+          onChange={(e) => { setQuery(e.target.value); setSelected(null); setCerradoAMano(false); }}
+          onFocus={() => setCerradoAMano(false)}
+          onBlur={() => { setTimeout(() => setCerradoAMano(true), 150); }}
           placeholder="Escribe al menos 2 letras (ej: uniformes, reactivos, papel)"
           className="input-field pl-9 pr-9 w-full text-sm"
         />
@@ -378,7 +359,7 @@ function TabPrecio({ organismosConNombre }: { organismosConNombre?: OrganismoCon
         )}
 
         {/* Dropdown con resultados */}
-        {showDropdown && options.length > 0 && (
+        {!cerradoAMano && !selected && options.length > 0 && (
           <div className="absolute z-20 top-full mt-1 w-full max-h-64 overflow-y-auto rounded-xl border border-border bg-surface shadow-xl">
             {options.map((p) => (
               <button
@@ -387,7 +368,7 @@ function TabPrecio({ organismosConNombre }: { organismosConNombre?: OrganismoCon
                 onClick={() => {
                   setSelected(p);
                   setQuery(p.nombre || '');
-                  setShowDropdown(false);
+                  setCerradoAMano(true);
                 }}
                 className="w-full text-left px-3 py-2 hover:bg-primary/5 border-b border-border last:border-0"
               >
@@ -630,16 +611,15 @@ function TabSimulador({ rubroInicial, organismosConNombre, allRubros }: {
   allRubros: string[];
 }) {
   const [tipo, setTipo] = useState('LP');
-  const [rubro, setRubro] = useState(rubroInicial);
+  // Se deriva del rubro del panel mientras el usuario no elija otro, en vez de
+  // sincronizarlo con un efecto.
+  const [rubroElegido, setRubro] = useState('');
+  const rubro = rubroElegido || rubroInicial;
   const [organismo, setOrganismo] = useState('');
   const [result, setResult] = useState<SimuladorResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Sincronizar rubro cuando el user cambia el del panel
-  useEffect(() => {
-    if (!rubro && rubroInicial) setRubro(rubroInicial);
-  }, [rubroInicial, rubro]);
 
   const simular = async () => {
     if (!rubro) {

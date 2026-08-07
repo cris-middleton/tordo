@@ -1,10 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { Map, X } from 'lucide-react';
-import { apiClient } from '@/lib/api';
+import { useSectores } from '@/lib/queries';
 
 const DISMISS_KEY = 'tordo-bi-sector-dismiss-date';
+
+const hoy = (): string => new Date().toISOString().slice(0, 10);
+
+// Sin suscripción real: el descarte sólo cambia por acción propia dentro de este
+// componente, y eso ya lo cubre `descartadoAhora`.
+const suscribirDescarte = () => () => {};
+const leerDescarte = (): boolean => localStorage.getItem(DISMISS_KEY) === hoy();
 
 interface SectorRow {
   sector: string;
@@ -23,40 +30,23 @@ function formatCLP(v: number): string {
 }
 
 export function SectorOverview() {
-  const [dismissed, setDismissed] = useState<boolean | null>(null);
-  const [sectores, setSectores] = useState<SectorRow[]>([]);
-  const [loading, setLoading] = useState(false);
+  // El "descartado de hoy" vive en localStorage y se lee con
+  // `useSyncExternalStore`, no con un efecto: así el valor está disponible en el
+  // primer render y la consulta puede decidir si corre.
+  const descartadoHoy = useSyncExternalStore(suscribirDescarte, leerDescarte, () => true);
+  const [descartadoAhora, setDescartadoAhora] = useState(false);
+  const dismissed = descartadoHoy || descartadoAhora;
 
-  // Init: verificar si ya fue dismissed hoy
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const today = new Date().toISOString().slice(0, 10);
-    const last = localStorage.getItem(DISMISS_KEY);
-    setDismissed(last === today);
-  }, []);
-
-  // Fetch solo si NO fue dismissed
-  useEffect(() => {
-    if (dismissed !== false) return;
-    setLoading(true);
-    apiClient
-      .getBISector({ limit: 6 })
-      .then((res) => {
-        if (res?.disponible) {
-          setSectores(res.sectores ?? res.resultados ?? []);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [dismissed]);
+  // `enabled` sustituye al `if (dismissed !== false) return` del efecto.
+  const { data: res, isFetching: loading } = useSectores(!dismissed);
+  const sectores = ((res?.disponible ? (res.sectores ?? res.resultados) : []) ?? []) as SectorRow[];
 
   const dismiss = () => {
-    const today = new Date().toISOString().slice(0, 10);
-    localStorage.setItem(DISMISS_KEY, today);
-    setDismissed(true);
+    localStorage.setItem(DISMISS_KEY, hoy());
+    setDescartadoAhora(true);
   };
 
-  if (dismissed !== false) return null;
+  if (dismissed) return null;
   if (loading || sectores.length === 0) return null;
 
   return (

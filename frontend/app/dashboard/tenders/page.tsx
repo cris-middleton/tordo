@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { KeyboardEvent } from 'react';
 import Link from 'next/link';
-import { apiClient } from '@/lib/api';
+import { useEmpresas, useLicitaciones, usePanelLicitacion } from '@/lib/queries';
 import SelectField from '@/components/SelectField';
 import {
   Search,
@@ -141,9 +141,6 @@ interface BIPanel {
 }
 
 export default function TendersPage() {
-  const [tenders, setTenders] = useState<Tender[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [filters, setFilters] = useState({
@@ -161,64 +158,42 @@ export default function TendersPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const [selectedTender, setSelectedTender] = useState<Tender | null>(null);
-  const [biPanel, setBiPanel] = useState<BIPanel | null>(null);
-  const [biLoading, setBiLoading] = useState(false);
-  const [biError, setBiError] = useState(false);
-  const [firstEmpresaId, setFirstEmpresaId] = useState<string | null>(null);
+
+  const { data: empresasLista } = useEmpresas();
+  const firstEmpresaId =
+    (empresasLista as Array<{ id: string }> | undefined)?.[0]?.id ?? null;
   const [mobileTab, setMobileTab] = useState<'filtros' | 'lista' | 'detalle'>('lista');
 
-  useEffect(() => {
-    apiClient.getEmpresas().then((empresas: any[]) => {
-      if (empresas?.[0]?.id) setFirstEmpresaId(String(empresas[0].id));
-    }).catch(() => {});
-  }, []);
 
-  useEffect(() => {
-    if (!selectedTender) {
-      setBiPanel(null);
-      setBiError(false);
-      return;
-    }
-    let active = true;
-    setBiLoading(true);
-    setBiError(false);
-    setBiPanel(null);
-    apiClient
-      .getBIPanel(selectedTender.codigo_externo, firstEmpresaId ?? undefined)
-      .then((data: any) => { if (active) setBiPanel(data); })
-      .catch(() => { if (active) setBiError(true); })
-      .finally(() => { if (active) setBiLoading(false); });
-    return () => { active = false; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTender]);
+  // La cancelación con `active` y el vaciado al cambiar de licitación los hace
+  // la clave de la consulta: otra licitación, otra clave, otro resultado.
+  const consultaPanel = usePanelLicitacion(
+    selectedTender?.codigo_externo,
+    firstEmpresaId ?? undefined,
+  );
+  const biPanel = (consultaPanel.data ?? null) as BIPanel | null;
+  const biLoading = Boolean(selectedTender) && consultaPanel.isFetching;
+  const biError = Boolean(consultaPanel.error);
 
-  const loadTenders = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params: any = {
-        offset: (page - 1) * limit,
-        limit,
-        sort_by: sortBy,
-        sort_order: sortOrder,
-      };
-      if (filters.estado) params.estado = filters.estado;
-      if (filters.region) params.region = filters.region;
-      if (filters.min_amount) params.min_amount = parseFloat(filters.min_amount);
-      if (filters.max_amount) params.max_amount = parseFloat(filters.max_amount);
-      if (keywords.length) params.search = keywords.join(' ');
-      if (firstEmpresaId) params.empresa_id = firstEmpresaId;
-      const response = await apiClient.getTenders(params);
-      setTenders(response.items || []);
-      setTotal(response.total || 0);
-      setPages(response.pages || 1);
-    } catch (error) {
-      console.error('Error loading tenders:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [filters.estado, filters.max_amount, filters.min_amount, filters.region, keywords, page, limit, sortBy, sortOrder, firstEmpresaId]);
+  // Los parámetros SON la clave: cambiar un filtro cambia la clave y se pide de
+  // nuevo. `placeholderData` mantiene la tabla anterior mientras llega la nueva,
+  // así que ya no parpadea en cada tecleo del buscador.
+  const params: Record<string, unknown> = {
+    offset: (page - 1) * limit,
+    limit,
+    sort_by: sortBy,
+    sort_order: sortOrder,
+  };
+  if (filters.estado) params.estado = filters.estado;
+  if (filters.region) params.region = filters.region;
+  if (filters.min_amount) params.min_amount = parseFloat(filters.min_amount);
+  if (filters.max_amount) params.max_amount = parseFloat(filters.max_amount);
+  if (keywords.length) params.search = keywords.join(' ');
+  if (firstEmpresaId) params.empresa_id = firstEmpresaId;
 
-  useEffect(() => { loadTenders(); }, [loadTenders]);
+  const { data: respuesta, isFetching: loading, refetch: loadTenders } = useLicitaciones(params);
+  const tenders: Tender[] = respuesta?.items ?? [];
+  const total = respuesta?.total ?? 0;
 
   const handleFilterChange = (key: string, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));

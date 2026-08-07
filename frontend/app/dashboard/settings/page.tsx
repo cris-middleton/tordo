@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, useSyncExternalStore, FormEvent } from 'react';
 import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Save, Loader2, Mail, Bell, Webhook, Lock, Eye, EyeOff, MessageCircle, CreditCard, ExternalLink, Sun, Moon, Monitor, ChevronDown } from 'lucide-react';
@@ -10,7 +10,14 @@ import { useTheme } from 'next-themes';
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth();
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+  // `mounted` existe porque next-themes no sabe el tema hasta hidratar.
+  // `useSyncExternalStore` lo expresa sin efecto: en el servidor devuelve false,
+  // en el cliente true, y no hay render de más.
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [formData, setFormData] = useState({
@@ -33,10 +40,12 @@ export default function SettingsPage() {
   const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [changingPassword, setChangingPassword] = useState(false);
 
-  useEffect(() => { setMounted(true); }, []);
-
+  // Sincronizar un formulario con datos que llegan después SÍ es un efecto: el
+  // usuario puede haber empezado a escribir, así que no se puede derivar sin
+  // pisarle lo tecleado. Excepción puntual y razonada.
   useEffect(() => {
     if (user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData({
         full_name: user.full_name || '',
         email: user.email || '',

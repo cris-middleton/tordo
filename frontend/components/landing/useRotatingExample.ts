@@ -1,5 +1,6 @@
 // frontend/components/landing/useRotatingExample.ts
 import { useState, useEffect, useRef, useCallback, RefObject } from 'react';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 interface Options {
   count: number;
@@ -18,24 +19,14 @@ export function useRotatingExample({ count, intervalMs }: Options): Result {
   const [activeIndex, setActiveIndexState] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
-  const [reducedMotion, setReducedMotion] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  // Dos media queries, con `useMediaQuery` en vez de dos efectos que hacían
+  // setState. La segunda además ya no se queda congelada: antes se leía una sola
+  // vez al montar, así que girar la tablet no cambiaba el comportamiento.
+  const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
+  const isMobile = useMediaQuery('(hover: none)');
   const [resetKey, setResetKey] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Detect prefers-reduced-motion
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setReducedMotion(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, []);
-
-  // Detect touch/mobile (no hover = no autoplay)
-  useEffect(() => {
-    setIsMobile(window.matchMedia('(hover: none)').matches);
-  }, []);
 
   // IntersectionObserver: start rotating when mockup enters viewport
   useEffect(() => {

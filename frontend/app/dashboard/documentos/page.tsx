@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/lib/api';
+import { useDocumentos, useEmpresas, useEstadoHabil } from '@/lib/queries';
 import SelectField from '@/components/SelectField';
 import {
   Upload,
@@ -87,10 +88,12 @@ function VencimientoBadge({ fecha }: { fecha?: string }) {
 export default function DocumentosPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const [empresas, setEmpresas] = useState<Empresa[]>([]);
-  const [empresaId, setEmpresaId] = useState('');
-  const [documentos, setDocumentos] = useState<Documento[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: empresasData, error: errorEmpresas } = useEmpresas();
+  const empresas = (empresasData ?? []) as Empresa[];
+  // Se DERIVA de la primera empresa mientras el usuario no elija otra: antes lo
+  // hacía `loadEmpresas` con un `setEmpresaId` dentro del efecto.
+  const [empresaElegida, setEmpresaId] = useState('');
+  const empresaId = empresaElegida || empresas[0]?.id || '';
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -102,50 +105,19 @@ export default function DocumentosPage() {
   const [fechaVencimiento, setFechaVencimiento] = useState('');
   const [fechaEmision, setFechaEmision] = useState('');
   const [isDragging, setIsDragging] = useState(false);
-  const [estadoHabil, setEstadoHabil] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadEmpresas();
-  }, []);
+  // Tres efectos sustituidos por tres consultas con `enabled`.
+  const consultaDocs = useDocumentos(empresaId || undefined);
+  const documentos = (consultaDocs.data ?? []) as Documento[];
+  const loading = consultaDocs.isFetching || !empresasData;
 
-  useEffect(() => {
-    if (empresaId) loadDocumentos();
-  }, [empresaId]);
+  const consultaEstado = useEstadoHabil(empresaId || undefined);
+  const estadoHabil =
+    (consultaEstado.data as { estado_habil?: string } | undefined)?.estado_habil ?? null;
 
-  useEffect(() => {
-    if (!empresaId) return;
-    apiClient.getEstadoHabil(empresaId)
-      .then((data: any) => setEstadoHabil(data?.estado_habil ?? null))
-      .catch((err) => {
-        console.error('Error fetching estado hábil:', err);
-        setEstadoHabil(null);
-      });
-  }, [empresaId]);
-
-  const loadEmpresas = async () => {
-    try {
-      const data = await apiClient.getEmpresas();
-      setEmpresas(data);
-      if (data.length > 0) setEmpresaId(data[0].id);
-    } catch {
-      setError('No se pudieron cargar las empresas.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadDocumentos = async () => {
-    if (!empresaId) return;
-    setLoading(true);
-    try {
-      const data = await apiClient.getDocumentos(empresaId);
-      setDocumentos(data);
-    } catch {
-      setDocumentos([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // `loadDocumentos` se conserva como nombre porque lo llaman subir y eliminar;
+  // ahora es un refetch.
+  const loadDocumentos = consultaDocs.refetch;
 
   const handleUpload = async () => {
     if (!uploadFile || !empresaId) return;
@@ -181,7 +153,9 @@ export default function DocumentosPage() {
     if (!confirm('¿Eliminar este documento?')) return;
     try {
       await apiClient.deleteDocumento(empresaId, docId);
-      setDocumentos((prev) => prev.filter((d) => d.id !== docId));
+      // Antes se quitaba de la lista local; ahora se invalida la consulta, que
+      // además refleja lo que el servidor tiene de verdad.
+      await loadDocumentos();
       setSuccess('Documento eliminado.');
       setTimeout(() => setSuccess(''), 3000);
     } catch {

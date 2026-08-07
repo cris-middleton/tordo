@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { apiClient } from '@/lib/api';
+import { useAlertaPreferencias, useAlertas } from '@/lib/queries';
 import { Bell, Check, Trash2, Loader2, Plus, Filter, Pencil, X } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -32,15 +33,7 @@ interface AlertPreference {
 }
 
 export default function AlertsPage() {
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [preferences, setPreferences] = useState<AlertPreference[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [prefsLoading, setPrefsLoading] = useState(false);
-  const [total, setTotal] = useState(0);
-  const [totalAll, setTotalAll] = useState(0);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [page, setPage] = useState(1);
-  const [pages, setPages] = useState(1);
   const [filter, setFilter] = useState<'all' | 'unread'>('unread');
   const [showPrefs, setShowPrefs] = useState(false);
 
@@ -63,72 +56,26 @@ export default function AlertsPage() {
 
   const limit = 20;
 
-  const loadAlerts = useCallback(async () => {
-    setError(null);
-    setLoading(true);
-    try {
-      const params: Record<string, unknown> = {
-        offset: (page - 1) * limit,
-        limit,
-        unread_only: filter === 'unread',
-      };
+  // Tres consultas. `totalAll` es la misma llamada con otros parámetros, así que
+  // TanStack Query la trata como otra clave — y cuando el filtro es "all",
+  // comparte respuesta con la principal en vez de pedirla dos veces.
+  const params = { offset: (page - 1) * limit, limit, unread_only: filter === 'unread' };
+  const consultaAlertas = useAlertas(params);
+  const consultaTotal = useAlertas({ offset: 0, limit: 1, unread_only: false });
+  const consultaPrefs = useAlertaPreferencias(false);
 
-      const response = await apiClient.getAlerts(params);
-      setAlerts(response.items || []);
-      setTotal(response.total || 0);
-      setUnreadCount(response.unread_count || 0);
-      setPages(response.pages || 1);
-      // When viewed with no filter, update the total-all count as well
-      if (filter === 'all') {
-        setTotalAll(response.total || 0);
-      }
-    } catch (err) {
-      console.error('Error loading alerts:', err);
-      setError('No se pudieron cargar las alertas.');
-    } finally {
-      setLoading(false);
-    }
-  }, [filter, page]);
+  const alerts: Alert[] = consultaAlertas.data?.items ?? [];
+  const total = consultaAlertas.data?.total ?? 0;
+  const unreadCount = consultaAlertas.data?.unread_count ?? 0;
+  const pages = consultaAlertas.data?.pages ?? 1;
+  const totalAll = consultaTotal.data?.total ?? 0;
+  const preferences: AlertPreference[] = consultaPrefs.data ?? [];
+  const loading = consultaAlertas.isFetching;
+  const prefsLoading = consultaPrefs.isFetching;
 
-  // Fetch the real total count of ALL alerts (irrespective of current filter)
-  // so that "Todas (N)" always shows the correct number even before the user
-  // has clicked it.
-  const loadTotalAll = useCallback(async () => {
-    try {
-      const response = await apiClient.getAlerts({ offset: 0, limit: 1, unread_only: false });
-      setTotalAll(response.total || 0);
-    } catch (err) {
-      console.error('Error fetching total alert count:', err);
-    }
-  }, []);
+  const loadAlerts = consultaAlertas.refetch;
+  const loadPreferences = consultaPrefs.refetch;
 
-  const loadPreferences = useCallback(async () => {
-    setError(null);
-    setPrefsLoading(true);
-    try {
-      const data = await apiClient.getAlertPreferences(false);
-      setPreferences(data || []);
-    } catch (err) {
-      console.error('Error loading preferences:', err);
-      setError('No se pudieron cargar las preferencias.');
-    } finally {
-      setPrefsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadAlerts();
-  }, [loadAlerts]);
-
-  // Fetch the global alert count once on mount so the tab label is accurate
-  // from the very first render, regardless of which filter is active.
-  useEffect(() => {
-    loadTotalAll();
-  }, [loadTotalAll]);
-
-  useEffect(() => {
-    loadPreferences();
-  }, [loadPreferences]);
 
   const markAsRead = async (id: number) => {
     try {

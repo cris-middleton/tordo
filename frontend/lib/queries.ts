@@ -236,3 +236,96 @@ export function useRadarSemanal(empresaId?: string) {
     Boolean(empresaId),
   );
 }
+
+export function useComprador(organismoId?: string) {
+  // Sustituye a `useCompradorCache`, que era una caché de promesas hecha a mano
+  // con un `useRef<Map>` y un contexto propio. TanStack Query deduplica y cachea
+  // de serie, así que el proveedor entero sobra.
+  return useBI(
+    'comprador',
+    () => apiClient.getBIComprador(organismoId as string),
+    organismoId,
+    Boolean(organismoId),
+  );
+}
+
+export function useCompetidores(organismoId?: string, rubro?: string) {
+  return useBI(
+    'competidores',
+    () =>
+      apiClient.getBICompetidores(organismoId as string, {
+        rubro: rubro || undefined,
+        top_n: 10,
+      }),
+    { organismoId, rubro },
+    Boolean(organismoId),
+  );
+}
+
+export function useMiPosicion(empresaId?: string, rubro?: string) {
+  // `enabled` sustituye al efecto que disparaba la carga cuando ambos valores
+  // estaban disponibles: la consulta simplemente no corre hasta que lo están.
+  return useBI(
+    'mi-posicion',
+    () => apiClient.getBIMiPosicion({ empresa_id: empresaId as string, rubro: rubro as string }),
+    { empresaId, rubro },
+    Boolean(empresaId && rubro),
+  );
+}
+
+export function usePanelLicitacion(codigoExterno?: string, empresaId?: string) {
+  return useBI(
+    'panel-licitacion',
+    () => apiClient.getBIPanel(codigoExterno as string, empresaId),
+    { codigoExterno, empresaId },
+    Boolean(codigoExterno),
+  );
+}
+
+export function usePrecioProducto(codigo?: string) {
+  return useBI(
+    'precio',
+    () => apiClient.getBIPrecio(codigo as string),
+    codigo,
+    Boolean(codigo),
+  );
+}
+
+export function useSectores(habilitada = true) {
+  return useBI('sector', () => apiClient.getBISector({ limit: 6 }), { limit: 6 }, habilitada);
+}
+
+/**
+ * Consulta genérica de BI con función libre.
+ *
+ * La usan las secciones que combinan varias llamadas en una sola vista —
+ * `CompareMode` pide resumen, oportunidades y tendencia de un rubro— y que por
+ * eso no encajan en un hook por endpoint.
+ */
+export function useBILibre<T>(nombre: string, params: unknown, fn: () => Promise<T>, habilitada = true) {
+  return useBI(nombre, fn, params, habilitada);
+}
+
+export function useEstacionalidad(organismoId?: string, rubro?: string) {
+  return useBI(
+    'estacionalidad',
+    () => apiClient.getBIEstacionalidad(organismoId as string, { rubro: rubro || undefined }),
+    { organismoId, rubro },
+    Boolean(organismoId),
+  );
+}
+
+export function useDescuento(rubro?: string) {
+  return useBI('descuento', () => apiClient.getBIDescuento({ rubro: rubro as string }), rubro, Boolean(rubro));
+}
+
+export function useBuscarProductos(texto: string) {
+  // Se pide sólo con dos caracteres o más. El "debounce" ya no hace falta como
+  // efecto: quien llama pasa el texto ya retardado y la clave hace el resto.
+  return useBI(
+    'productos',
+    () => apiClient.getBIProductos({ q: texto, limit: 20 }),
+    texto,
+    texto.trim().length >= 2,
+  );
+}

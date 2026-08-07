@@ -1,7 +1,7 @@
 // frontend/app/dashboard/bi/components/EstacionalidadSection.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Loader2, Calendar } from 'lucide-react';
 import {
   AreaChart,
@@ -13,7 +13,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { EstacionalidadMes, MESES, OrganismoConNombre } from '../types';
-import { apiClient } from '@/lib/api';
+import { useEstacionalidad } from '@/lib/queries';
 import { InfoTooltip } from './InfoTooltip';
 
 interface EstacionalidadSectionProps {
@@ -47,9 +47,12 @@ const CustomTooltip = ({ active, payload }: any) => {
 };
 
 export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, focused, focusedNombre }: EstacionalidadSectionProps) {
-  const [selectedOrg, setSelectedOrg] = useState(topOrganismos[0]?.codigo ?? '');
-  const [patrones, setPatrones] = useState<EstacionalidadMes[]>([]);
-  const [loading, setLoading] = useState(false);
+  // El organismo mostrado se DERIVA, no se sincroniza con dos efectos: manda el
+  // enfocado si lo hay, si no el que el usuario haya elegido, y si no el primero
+  // de la lista. Los efectos que hacían eso competían entre sí — uno reponía el
+  // primero justo después de que el otro pusiera el enfocado.
+  const [orgElegido, setSelectedOrg] = useState('');
+  const selectedOrg = focusedOrganismo?.codigo || orgElegido || topOrganismos[0]?.codigo || '';
 
   // Combine topOrganismos with focusedOrganismo if it's not already in the list
   const optionsOrganismos = focusedOrganismo && !topOrganismos.find((o) => o.codigo === focusedOrganismo.codigo)
@@ -59,33 +62,9 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
   const selectedOrgNombre = optionsOrganismos.find((o) => o.codigo === selectedOrg)?.nombre
     || selectedOrg;
 
-  // Reset selectedOrg whenever the organismo list is replaced (e.g. after a rubro change)
-  useEffect(() => {
-    if (topOrganismos.length > 0) {
-      setSelectedOrg(topOrganismos[0].codigo);
-    } else {
-      setSelectedOrg('');
-    }
-  }, [topOrganismos]);
-
-  // Prioritize focusedOrganismo when set
-  useEffect(() => {
-    if (focusedOrganismo) {
-      setSelectedOrg(focusedOrganismo.codigo);
-    }
-  }, [focusedOrganismo?.codigo]);
-
-  useEffect(() => {
-    if (!selectedOrg) return;
-    setLoading(true);
-    apiClient.getBIEstacionalidad(selectedOrg, { rubro: rubro || undefined })
-      .then((res) => {
-        if (res.disponible) setPatrones(res.patrones ?? []);
-        else setPatrones([]);
-      })
-      .catch(() => setPatrones([]))
-      .finally(() => setLoading(false));
-  }, [selectedOrg, rubro]);
+  const { data: res, isFetching } = useEstacionalidad(selectedOrg || undefined, rubro);
+  const patrones = ((res?.disponible ? res.patrones : []) ?? []) as EstacionalidadMes[];
+  const loading = Boolean(selectedOrg) && isFetching;
 
   const chartData = Array.from({ length: 12 }, (_, i) => {
     const mes = i + 1;

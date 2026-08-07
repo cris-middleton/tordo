@@ -17,21 +17,22 @@ export default [
   { ignores: ['.next/**', 'node_modules/**', 'out/**', 'coverage/**'] },
   ...coreWebVitals,
   {
-    // Estas dos reglas las trae el compilador de React con Next 16, y disparan
-    // 44 veces — todas sobre el MISMO patrón: `useEffect` que hace fetch y llama
-    // a `setState`, que es como este frontend maneja el estado de servidor.
+    // Estas dos reglas las trae el compilador de React con Next 16. Al subir
+    // desde Next 14 dispararon 49 veces, todas sobre el mismo patrón: `useEffect`
+    // que hace fetch y llama a `setState`.
     //
-    // No se arreglan a mano a propósito: **es exactamente la deuda que TanStack
-    // Query viene a eliminar** (F5). Reescribir 44 sitios para tirarlos después
-    // sería trabajo perdido, y silenciarlas con `eslint-disable` línea a línea
-    // dejaría 44 comentarios que nadie limpiaría.
+    // Estuvieron en `warn` mientras duró la migración a TanStack Query, para no
+    // bloquear con 49 errores lo que era deuda conocida. **Ya está migrado, así
+    // que vuelven a `error`**: a partir de aquí, cualquiera nuevo es deuda nueva
+    // y para el PR.
     //
-    // Quedan como aviso: visibles, sin bloquear. **Cuando entre TanStack Query,
-    // vuelven a `error`** — y si el número sube antes de eso, es que alguien
-    // añadió más deuda del mismo tipo.
+    // Si necesitas una excepción, ponla en la LÍNEA con su motivo — hay tres en
+    // todo el frontend y cada una explica por qué es un efecto legítimo:
+    // inicializar desde la URL, sincronizar un formulario con datos que llegan
+    // después, y arrancar la sesión.
     rules: {
-      'react-hooks/set-state-in-effect': 'warn',
-      'react-hooks/immutability': 'warn',
+      'react-hooks/set-state-in-effect': 'error',
+      'react-hooks/immutability': 'error',
     },
   },
 ];

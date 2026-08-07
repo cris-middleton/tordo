@@ -747,7 +747,10 @@ F3/F4/F5 pueden solaparse.
 > desestructura sólo `access_token` e ignora el resto de la respuesta, y `changePassword` no
 > depende del mensaje. El esquema OpenAPI genera limpio (73 rutas, 100 schemas).
 
-- [ ] TanStack Query
+- [x] **TanStack Query** en las 28 pantallas. De paso desapareció `useCompradorCache`, una
+      caché de promesas hecha a mano, y se arreglaron dos fallos reales: el selector de empresa
+      no actualizaba las pantallas ya montadas, y comparar dos rubros podía mezclar respuestas
+      si una tardaba más que la otra.
 - [ ] Capa proxy con route handlers + sesión en cookie `httpOnly`.
       **Aquí está el nudo de la autenticación.** El backend ya emite el refresco; el frontend
       lo descarta, así que en la práctica la sesión sigue muriendo a los 30 minutos.

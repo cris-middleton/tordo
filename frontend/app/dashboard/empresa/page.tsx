@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useAvatar, setAvatar } from '@/lib/avatar'
+import { useEmpresaMiembros } from '@/lib/queries'
 import { apiClient } from '@/lib/api'
 import { UserPlus, Trash2, Shield, Eye, Crown, FolderOpen } from 'lucide-react'
 import Link from 'next/link'
@@ -32,27 +34,21 @@ export default function EmpresaPage() {
   const { user } = useAuth()
   const [empresas, setEmpresas]         = useState<Empresa[]>([])
   const [selected, setSelected]         = useState<Empresa | null>(null)
-  const [miembros, setMiembros]         = useState<Miembro[]>([])
   const [loading, setLoading]           = useState(true)
-  const [loadingM, setLoadingM]         = useState(false)
   const [inviteEmail, setInviteEmail]   = useState('')
   const [inviteRol, setInviteRol]       = useState<'admin' | 'viewer'>('viewer')
   const [inviting, setInviting]         = useState(false)
   const [error, setError]               = useState<string | null>(null)
   const [success, setSuccess]           = useState<string | null>(null)
-  const [avatar, setAvatar]             = useState<string | null>(null)
+  const avatar = useAvatar()
 
   const AVATARS = ['🦅', '🦉', '🕊️', '🐧', '🐦', '🐥', '🦆', '🦚', '🦜', '🦢', '🦩', '🐓', '🦃'];
 
-  useEffect(() => {
-    setAvatar(localStorage.getItem('user_avatar'))
-  }, [])
 
   const handleAvatarChange = (emp: string) => {
     const val = emp || '';
-    setAvatar(val);
+    setAvatar(val || null);
     if (val) {
-      localStorage.setItem('user_avatar', val);
     } else {
       localStorage.removeItem('user_avatar');
     }
@@ -77,17 +73,15 @@ export default function EmpresaPage() {
     return () => { active = false; };
   }, [])
 
-  const loadMiembros = useCallback(() => {
-    if (!selected) return
-    setLoadingM(true)
-    apiClient
-      .getEmpresaMembers(selected.id)
-      .then((data: any) => setMiembros(Array.isArray(data) ? data : (data?.data ?? [])))
-      .catch(() => setMiembros([]))
-      .finally(() => setLoadingM(false))
-  }, [selected])
-
-  useEffect(() => { loadMiembros() }, [loadMiembros])
+  // `enabled` cubre el `if (!selected) return`, y `refetch` sustituye a llamar a
+  // `loadMiembros()` a mano tras invitar o eliminar.
+  const consultaMiembros = useEmpresaMiembros(selected?.id)
+  const datosMiembros = consultaMiembros.data as unknown
+  const miembros: Miembro[] = Array.isArray(datosMiembros)
+    ? (datosMiembros as Miembro[])
+    : (((datosMiembros as { data?: Miembro[] })?.data) ?? [])
+  const loadingM = Boolean(selected) && consultaMiembros.isFetching
+  const loadMiembros = consultaMiembros.refetch
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault()

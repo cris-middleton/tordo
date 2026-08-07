@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
+import { usePrecioProducto } from '@/lib/queries';
 import {
   ArrowLeft,
   Loader2,
@@ -187,11 +188,6 @@ export default function OrderDetailPage({ params }: PageParams) {
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [biPrecio, setBiPrecio] = useState<{
-    p10: number; p25: number; p50: number; p75: number; p90: number;
-    n_obs: number; confianza: string;
-  } | null>(null);
-  const [biLoading, setBiLoading] = useState(false);
 
   useEffect(() => {
     const loadOrder = async () => {
@@ -217,18 +213,14 @@ export default function OrderDetailPage({ params }: PageParams) {
     loadOrder();
   }, [params.codigo]);
 
-  useEffect(() => {
-    if (!order) return;
-    const rubro = order.rubro || order.categoria;
-    if (!rubro) return;
-    let active = true;
-    setBiLoading(true);
-    apiClient.getBIPrecio(rubro)
-      .then((data: any) => { if (active) setBiPrecio(data); })
-      .catch(() => { if (active) setBiPrecio(null); })
-      .finally(() => { if (active) setBiLoading(false); });
-    return () => { active = false; };
-  }, [order]);
+  // La cancelación manual con `active` la hace TanStack Query: si el rubro
+  // cambia, descarta la respuesta anterior en vez de escribirla sobre la nueva.
+  const consultaPrecio = usePrecioProducto(order?.rubro || order?.categoria || undefined);
+  const biPrecio = (consultaPrecio.data ?? null) as {
+    p10: number; p25: number; p50: number; p75: number; p90: number;
+    disponible?: boolean; confianza?: string; n_muestra?: number; n_obs?: number;
+  } | null;
+  const biLoading = consultaPrecio.isFetching;
 
   const formatCurrency = (amount?: number, currency: string = 'CLP') => {
     if (amount === undefined || amount === null || Number.isNaN(amount)) {

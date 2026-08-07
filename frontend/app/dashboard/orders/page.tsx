@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { KeyboardEvent } from 'react';
 import Link from 'next/link';
-import { apiClient } from '@/lib/api';
+import { useEmpresas, useOrdenes } from '@/lib/queries';
 import SelectField from '@/components/SelectField';
 import {
   Search,
@@ -89,9 +89,6 @@ interface Order {
 }
 
 export default function OrdersPage() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({
     estado: 'En proceso',
@@ -106,40 +103,30 @@ export default function OrdersPage() {
   const [limit, setLimit] = useState(20);
   const [sortBy, setSortBy] = useState('fecha_publicacion');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [firstEmpresaId, setFirstEmpresaId] = useState<string | null>(null);
+  // La primera empresa sale de la consulta, no de un efecto que hacía setState.
+  const { data: empresas } = useEmpresas();
+  const firstEmpresaId = (empresas as Array<{ id: string }> | undefined)?.[0]?.id ?? null;
 
-  useEffect(() => {
-    apiClient.getEmpresas().then((empresas: any[]) => {
-      if (empresas?.[0]?.id) setFirstEmpresaId(String(empresas[0].id));
-    }).catch(() => {});
-  }, []);
 
-  const loadOrders = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params: any = {
-        offset: (page - 1) * limit,
-        limit,
-        sort_by: sortBy,
-        sort_order: sortOrder,
-      };
-      if (filters.estado) params.estado = filters.estado;
-      if (filters.region) params.region = filters.region;
-      if (filters.codigo_organismo) params.codigo_organismo = filters.codigo_organismo;
-      if (filters.codigo_proveedor) params.codigo_proveedor = filters.codigo_proveedor;
-      if (keywords.length) params.search = keywords.join(' ');
-      if (firstEmpresaId) params.empresa_id = firstEmpresaId;
-      const response = await apiClient.getOrders(params);
-      setOrders(response.data || []);
-      setTotal(response.total_count || 0);
-    } catch (error) {
-      console.error('Error loading orders:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [filters.codigo_organismo, filters.codigo_proveedor, filters.estado, filters.region, keywords, page, limit, sortBy, sortOrder, firstEmpresaId]);
+  // Los parámetros son la CLAVE de la consulta: cambiar un filtro cambia la
+  // clave y TanStack Query pide de nuevo. Desaparecen el `useCallback` con once
+  // dependencias y el efecto que lo disparaba.
+  const params: Record<string, unknown> = {
+    offset: (page - 1) * limit,
+    limit,
+    sort_by: sortBy,
+    sort_order: sortOrder,
+  };
+  if (filters.estado) params.estado = filters.estado;
+  if (filters.region) params.region = filters.region;
+  if (filters.codigo_organismo) params.codigo_organismo = filters.codigo_organismo;
+  if (filters.codigo_proveedor) params.codigo_proveedor = filters.codigo_proveedor;
+  if (keywords.length) params.search = keywords.join(' ');
+  if (firstEmpresaId) params.empresa_id = firstEmpresaId;
 
-  useEffect(() => { loadOrders(); }, [loadOrders]);
+  const { data: respuesta, isFetching: loading, refetch: loadOrders } = useOrdenes(params);
+  const orders: Order[] = respuesta?.data ?? [];
+  const total = respuesta?.total_count ?? 0;
 
   const handleFilterChange = (key: string, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));

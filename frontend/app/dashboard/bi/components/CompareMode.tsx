@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useBILibre } from '@/lib/queries';
 import { Loader2, X } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { OportunidadItem, ResumenMercado, TendenciaItem } from '../types';
@@ -128,27 +128,20 @@ function RubroColumn({ rubro, data }: { rubro: string; data: RubroData }) {
 }
 
 export function CompareMode({ rubroA, rubroB, allRubros, onChangeRubroA, onChangeRubroB, onClose }: CompareModeProps) {
-  const [dataA, setDataA] = useState<RubroData>({
-    resumen: null, oportunidades: [], tendencia: null, loading: true,
-  });
-  const [dataB, setDataB] = useState<RubroData>({
-    resumen: null, oportunidades: [], tendencia: null, loading: true,
-  });
+  // Una consulta por rubro. Antes eran dos efectos casi idénticos que hacían
+  // `setState` con el resultado; con la clave por rubro, cambiar de rubro cambia
+  // la clave y el resultado llega solo — y comparar A con B ya no puede mezclar
+  // respuestas si una tarda más que la otra.
+  const consultaA = useBILibre('comparar-rubro', rubroA, () => loadRubroData(rubroA), Boolean(rubroA));
+  const consultaB = useBILibre('comparar-rubro', rubroB, () => loadRubroData(rubroB), Boolean(rubroB));
 
-  useEffect(() => {
-    if (!rubroA) return;
-    setDataA((p) => ({ ...p, loading: true }));
-    loadRubroData(rubroA).then((d) => setDataA({ ...d, loading: false }));
-  }, [rubroA]);
-
-  useEffect(() => {
-    if (!rubroB) {
-      setDataB({ resumen: null, oportunidades: [], tendencia: null, loading: false });
-      return;
-    }
-    setDataB((p) => ({ ...p, loading: true }));
-    loadRubroData(rubroB).then((d) => setDataB({ ...d, loading: false }));
-  }, [rubroB]);
+  const vacio: RubroData = { resumen: null, oportunidades: [], tendencia: null, loading: false };
+  const dataA: RubroData = consultaA.data
+    ? { ...(consultaA.data as RubroData), loading: false }
+    : { ...vacio, loading: Boolean(rubroA) };
+  const dataB: RubroData = consultaB.data
+    ? { ...(consultaB.data as RubroData), loading: false }
+    : { ...vacio, loading: Boolean(rubroB) };
 
   return (
     <div className="space-y-4">

@@ -1,7 +1,7 @@
 // frontend/app/dashboard/bi/components/CompetenciaSection.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Loader2, Users } from 'lucide-react';
 import {
   ScatterChart,
@@ -15,7 +15,7 @@ import {
   Cell,
 } from 'recharts';
 import { CompetidorItem, ConcentracionItem, OrganismoConNombre } from '../types';
-import { apiClient } from '@/lib/api';
+import { useCompetidores } from '@/lib/queries';
 import { InfoTooltip } from './InfoTooltip';
 
 interface CompetenciaSectionProps {
@@ -55,24 +55,13 @@ export function CompetenciaSection({
   focused,
   focusedNombre,
 }: CompetenciaSectionProps) {
-  const [competidores, setCompetidores] = useState<CompetidorItem[]>([]);
-  const [concentracion, setConcentracion] = useState<ConcentracionItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { data: res, isPending } = useCompetidores(selectedOrganismo || undefined, rubro);
+  // Se conserva la regla anterior: si el backend dice `disponible: false`, se
+  // trata como si no hubiera datos, no como un error.
+  const competidores = ((res?.disponible ? res.competidores : []) ?? []) as CompetidorItem[];
+  const concentracion = ((res?.disponible ? res.concentracion : []) ?? []) as ConcentracionItem[];
+  const loading = Boolean(selectedOrganismo) && isPending;
   const [showTable, setShowTable] = useState(false);
-
-  useEffect(() => {
-    if (!selectedOrganismo) return;
-    setLoading(true);
-    apiClient.getBICompetidores(selectedOrganismo, { rubro: rubro || undefined, top_n: 10 })
-      .then((res) => {
-        if (res.disponible) {
-          setCompetidores(res.competidores ?? []);
-          setConcentracion(res.concentracion ?? []);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [selectedOrganismo, rubro]);
 
   const tipoMercado = concentracion[0]?.tipo_mercado;
   const nProveedores = concentracion[0]?.n_proveedores;
