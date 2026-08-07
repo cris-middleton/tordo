@@ -73,26 +73,26 @@ function RubroColumn({ rubro, data }: { rubro: string; data: RubroData }) {
         {data.resumen?.monto_anual_clp != null && (
           <div>
             <p className="text-xs text-muted">Monto anual</p>
-            <p className="font-semibold text-text">{formatCLPShort(data.resumen.monto_anual_clp)}</p>
+            <p className="cifra font-semibold text-text">{formatCLPShort(data.resumen.monto_anual_clp)}</p>
           </div>
         )}
 
         <div>
           <p className="text-xs text-muted">Oportunidades encontradas</p>
-          <p className="font-semibold text-text">{data.oportunidades.length}</p>
+          <p className="cifra font-semibold text-text">{data.oportunidades.length}</p>
         </div>
 
         {maxScore > 0 && (
           <div>
             <p className="text-xs text-muted">Mejor score</p>
-            <p className="font-semibold text-text">{maxScore.toFixed(1)}</p>
+            <p className="cifra font-semibold text-text">{maxScore.toFixed(1)}</p>
           </div>
         )}
 
         {cagr != null && (
           <div>
             <p className="text-xs text-muted">Crecimiento anual</p>
-            <p className={`font-semibold ${cagr >= 0 ? 'text-accent' : 'text-danger'}`}>
+            <p className={`cifra font-semibold ${cagr >= 0 ? 'text-accent' : 'text-danger'}`}>
               {cagr > 0 ? '+' : ''}{cagr.toFixed(1)}%
             </p>
           </div>
@@ -101,7 +101,7 @@ function RubroColumn({ rubro, data }: { rubro: string; data: RubroData }) {
         {data.resumen?.n_proveedores_actual != null && (
           <div>
             <p className="text-xs text-muted">Proveedores activos</p>
-            <p className="font-semibold text-text">
+            <p className="cifra font-semibold text-text">
               {data.resumen.n_proveedores_actual.toLocaleString('es-CL')}
             </p>
           </div>

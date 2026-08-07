@@ -286,7 +286,7 @@ export function OportunidadesSection({ oportunidades, loading, onFocusOrganismo 
                     <td className="px-4 py-3 w-40">
                       <ScoreBar value={op.opportunity_score} />
                     </td>
-                    <td className="px-4 py-3 text-text text-right">{op.n_transacciones.toLocaleString('es-CL')}</td>
+                    <td className="cifra px-4 py-3 text-text text-right">{op.n_transacciones.toLocaleString('es-CL')}</td>
                     <td className="px-4 py-3">
                       <CompetitionBadge n={op.n_proveedores} />
                     </td>

@@ -130,10 +130,10 @@ function TabMatching() {
               {results.map((r) => (
                 <tr key={r.CodigoProveedor} className="border-b border-border last:border-0 hover:bg-primary/5">
                   <td className="px-3 py-2 font-medium text-text">{r.NombreProveedor || '—'}</td>
-                  <td className="px-3 py-2 text-text">
+                  <td className="cifra px-3 py-2 text-text">
                     {r.similarity_score != null ? `${(r.similarity_score * 100).toFixed(0)}%` : '—'}
                   </td>
-                  <td className="px-3 py-2 text-text">
+                  <td className="cifra px-3 py-2 text-text">
                     {r.n_oc?.toLocaleString('es-CL') ?? '—'}
                   </td>
                 </tr>

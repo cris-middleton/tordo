@@ -84,7 +84,7 @@ export function SectorOverview() {
             <p className="text-xs text-muted truncate" title={s.sector}>
               {s.sector || '—'}
             </p>
-            <p className="text-sm font-semibold text-text mt-0.5">
+            <p className="cifra text-sm font-semibold text-text mt-0.5">
               {formatCLP(s.monto_total ?? 0)}
             </p>
             <p className="text-xs text-subtle mt-0.5">
