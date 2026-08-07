@@ -179,8 +179,8 @@ export function MockupPrecio() {
           {/* Mediana XL + tendencia */}
           <div className="flex items-baseline gap-2 mb-0.5">
             <span
-              className="text-2xl font-bold text-text"
-              style={{ fontFamily: 'var(--font-outfit, system-ui)' }}
+              className="cifra text-2xl font-bold text-text"
+              style={{ fontFamily: 'var(--font-display, system-ui)' }}
             >
               {ex.mediana}
             </span>
@@ -208,7 +208,7 @@ export function MockupPrecio() {
               style={{ left: `${quotePct}%` }}
             />
           </div>
-          <div className="flex justify-between text-[8px] text-muted mb-3">
+          <div className="cifra flex justify-between text-[8px] text-muted mb-3">
             <span>{ex.minStr} Mín</span>
             <span className="text-accent">{ex.mediana} Med.</span>
             <span className="text-gold">{ex.cotizacion} Tu cot.</span>
@@ -240,7 +240,7 @@ export function MockupPrecio() {
               >
                 <span className="text-[9px] text-text truncate">{adj.comprador}</span>
                 <span className="text-[8px] text-muted">{adj.fecha}</span>
-                <span className="text-[9px] font-semibold text-accent">{adj.monto}</span>
+                <span className="cifra text-[9px] font-semibold text-accent">{adj.monto}</span>
               </div>
             ))}
           </div>

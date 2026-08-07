@@ -113,7 +113,7 @@ export function MockupScore() {
             >
               <span
                 className="text-2xl font-bold tabular-nums"
-                style={{ color, fontFamily: 'var(--font-outfit, system-ui)' }}
+                style={{ color, fontFamily: 'var(--font-display, system-ui)' }}
               >
                 {ex.score}
               </span>
@@ -122,7 +122,7 @@ export function MockupScore() {
               <p className="text-[8px] text-muted uppercase tracking-wider">Score</p>
               <p
                 className="text-sm font-bold"
-                style={{ color, fontFamily: 'var(--font-outfit, system-ui)' }}
+                style={{ color, fontFamily: 'var(--font-display, system-ui)' }}
               >
                 {ex.verdict}
               </p>
