@@ -75,7 +75,7 @@ worktree-clean: ## Elimina un worktree ya mergeado — make worktree-clean NOMBR
 
 # ── Calidad ──────────────────────────────────────────────────────────────────
 
-ci: ## Corre TODO lo que corre CI, en local (Actions no está habilitado)
+ci: ## Corre en local lo mismo que Actions, para no esperar al runner
 	./scripts/ci-local.sh
 
 lint: ## Lint + chequeo de formato (lo mismo que corre CI)
@@ -90,13 +90,19 @@ format: ## Formatea el código
 
 # ── Tests ────────────────────────────────────────────────────────────────────
 
-test: test-backend test-etl ## Corre todas las suites
+test: test-backend test-etl test-frontend ## Corre todas las suites
 
 test-backend: ## Tests del backend
 	cd backend && uv run --project .. pytest
 
 test-etl: ## Tests del ETL
 	cd etl && uv run --project .. pytest
+
+# CI ya los corría; en local no, así que el guard de contraste (on-color) sólo
+# saltaba después de pushear. Un test estructural que no corres antes de abrir
+# el PR no te sirve de mucho.
+test-frontend: ## Tests del frontend
+	cd frontend && npm test -- --run
 
 test-cov: ## Tests del backend con cobertura
 	cd backend && uv run --project .. pytest --cov=app --cov-report=term-missing
