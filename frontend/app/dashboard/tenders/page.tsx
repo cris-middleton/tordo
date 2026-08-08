@@ -19,126 +19,13 @@ import {
   ArrowRight,
   AlertTriangle,
 } from 'lucide-react';
-
-const REGIONES_CHILE = [
-  'Región de Arica y Parinacota',
-  'Región de Tarapacá',
-  'Región de Antofagasta',
-  'Región de Atacama',
-  'Región de Coquimbo',
-  'Región de Valparaíso',
-  'Región Metropolitana de Santiago',
-  'Región del Libertador General Bernardo O´Higgins',
-  'Región del Maule',
-  'Región del Ñuble',
-  'Región del Biobío',
-  'Región de la Araucanía',
-  'Región de Los Ríos',
-  'Región de los Lagos',
-  'Región Aysén del General Carlos Ibáñez del Campo',
-  'Región de Magallanes y de la Antártica',
-];
-
-const ESTADOS_LICITACION = [
-  'Publicada',
-  'Cerrada',
-  'En evaluación',
-  'Adjudicada',
-  'Desierta',
-  'Revocada',
-  'Suspendida',
-];
-
 import { format } from 'date-fns';
+
 import { useDashboardCollections } from '@/hooks/useDashboardCollections';
-
-const normalizeText = (text: string | undefined): string => {
-  if (!text) return '';
-  return text
-    .split(' ')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
-};
-
-interface TenderDetalle {
-  id?: number;
-  numero_actualizaciones?: number;
-  estado_actual?: string;
-  fecha_adjudicacion?: string;
-  monto_adjudicado?: string;
-  proveedor_adjudicado?: string;
-  fecha_cierre_real?: string;
-  items?: any[];
-  participantes?: any[];
-}
-
-type NivelEncaje = 'alto' | 'medio' | 'bajo' | 'sin_encaje';
-
-interface Tender {
-  id: number;
-  codigo_externo: string;
-  nombre: string;
-  descripcion?: string;
-  fecha_publicacion: string;
-  fecha_cierre?: string;
-  monto_estimado?: number;
-  estado?: string;
-  region?: string;
-  comuna?: string;
-  nombre_organismo?: string;
-  url_licitacion?: string;
-  detalle?: TenderDetalle;
-  similarity_score?: number | null;
-  score_encaje?: number | null;
-  nivel_encaje?: NivelEncaje | null;
-}
-
-interface BIPanel {
-  codigo_externo: string;
-  organismo_id?: string;
-  comprador: {
-    disponible: boolean;
-    buyer_score?: number | null;
-    mediana_dias_pago?: number | null;
-    tasa_adjudicacion?: number | null;
-    n_flags?: number;
-    transparencia?: { clasificacion?: string | null } | null;
-    motivo?: string | null;
-  };
-  ventana: {
-    disponible: boolean;
-    window_days?: number | null;
-    alerta_ventana_corta?: boolean | null;
-    presion_score?: number | null;
-    clasificacion_ventana?: string | null;
-    pct_del_tipico?: number | null;
-    motivo?: string | null;
-  };
-  competidores: {
-    disponible: boolean;
-    top5?: Array<{
-      NombreProveedor?: string | null;
-      market_share_pct?: number | null;
-      n_oc?: number | null;
-      n_proveedores?: number | null;
-    }> | null;
-    hhi?: number | null;
-    tipo_mercado?: string | null;
-    motivo?: string | null;
-  };
-  precios: Array<{
-    disponible: boolean;
-    codigo_producto?: string | null;
-    nivel_usado?: string | null;
-    fallback?: boolean;
-    p25?: number | null;
-    p50?: number | null;
-    p75?: number | null;
-    confianza?: string | null;
-    n?: number | null;
-  }>;
-  postulacion_id?: string | null;
-}
+import TarjetaLicitacion from '@/components/licitacion/TarjetaLicitacion';
+import { ESTADOS_LICITACION, REGIONES_CHILE } from '@/lib/constantesChile';
+import { formatCurrency, normalizeText, shortRegion } from '@/lib/licitacionEstado';
+import type { BIPanel, Tender } from '@/types/licitacion';
 
 export default function TendersPage() {
   const [page, setPage] = useState(1);
@@ -230,79 +117,6 @@ export default function TendersPage() {
     setKeywords((prev) => prev.filter((keyword) => keyword.toLowerCase() !== value.toLowerCase()));
     setPage(1);
   }, []);
-
-  const formatCurrency = (amount?: number) => {
-    if (amount == null) return null;
-    if (amount >= 1_000_000_000) return `$${(amount / 1_000_000_000).toFixed(1)}B`;
-    if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
-    if (amount >= 1_000) return `$${(amount / 1_000).toFixed(0)}K`;
-    return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 0 }).format(amount);
-  };
-
-  const getEstadoCls = (estado?: string | null) => {
-    if (!estado) return 'bg-border/50 text-subtle border-border';
-    const e = estado.toLowerCase();
-    if (e.includes('public')) return 'bg-accent/10 text-accent border-accent/20';
-    if (e.includes('adjudic')) return 'bg-info/10 text-info border-info/20';
-    if (e.includes('evaluac')) return 'bg-primary/10 text-primary border-primary/20';
-    if (e.includes('desierta') || e.includes('suspend')) return 'bg-border/50 text-subtle border-border';
-    if (e.includes('revocad') || e.includes('cancel')) return 'bg-danger/10 text-danger border-danger/20';
-    if (e.includes('cerrada')) return 'bg-gold/10 text-gold border-gold/20';
-    return 'bg-border/50 text-muted border-border';
-  };
-
-  const getEstadoAccent = (estado?: string | null) => {
-    if (!estado) return 'bg-primary/30';
-    const e = estado.toLowerCase();
-    if (e.includes('public')) return 'bg-accent';
-    if (e.includes('adjudic')) return 'bg-info';
-    if (e.includes('evaluac')) return 'bg-primary';
-    if (e.includes('desierta') || e.includes('suspend')) return 'bg-subtle';
-    if (e.includes('revocad') || e.includes('cancel')) return 'bg-danger';
-    if (e.includes('cerrada')) return 'bg-gold';
-    return 'bg-primary/30';
-  };
-
-  const getClosingUrgency = (fechaCierre?: string | null) => {
-    if (!fechaCierre) return null;
-    const closing = new Date(fechaCierre);
-    const now = new Date();
-    const daysLeft = Math.ceil((closing.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    if (daysLeft < 0) return null;
-    if (daysLeft === 0) return { label: 'Cierra hoy', cls: 'text-danger font-bold' };
-    if (daysLeft <= 2) return { label: `${daysLeft}d`, cls: 'text-danger font-semibold' };
-    if (daysLeft <= 7) return { label: `${daysLeft}d`, cls: 'text-gold font-medium' };
-    return { label: format(closing, 'dd MMM'), cls: 'text-muted' };
-  };
-
-  const getEncajeBadge = (nivel?: NivelEncaje | null) => {
-    if (!nivel || nivel === 'sin_encaje') return null;
-    const map: Record<string, { label: string; cls: string }> = {
-      alto: { label: 'Encaje alto', cls: 'bg-accent/10 text-accent border-accent/20' },
-      medio: { label: 'Encaje medio', cls: 'bg-primary/10 text-primary border-primary/20' },
-      bajo: { label: 'Encaje bajo', cls: 'bg-border/50 text-subtle border-border' },
-    };
-    const config = map[nivel];
-    if (!config) return null;
-    return (
-      <span
-        title="Afinidad con el perfil de tu empresa (TF-IDF)"
-        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold leading-none ${config.cls}`}
-      >
-        {config.label}
-      </span>
-    );
-  };
-
-  const shortRegion = (region?: string) => {
-    if (!region) return '';
-    return normalizeText(region)
-      .replace(/^Región (Metropolitana.*)$/i, 'RM')
-      .replace(/^Región (del Libertador.*)$/i, "O'Higgins")
-      .replace(/^Región (Aysén.*)$/i, 'Aysén')
-      .replace(/^Región (de |del |de la )?/i, '')
-      .trim();
-  };
 
   return (
     <div className="space-y-5">
@@ -466,132 +280,17 @@ export default function TendersPage() {
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {tenders.map((tender) => {
-              const isSaved = hydrated && isTenderStored('saved', tender.id);
-              const isApplied = hydrated && isTenderStored('applied', tender.id);
-              const urgency = getClosingUrgency(tender.fecha_cierre);
-              const estadoDisplay = tender.estado ?? tender.detalle?.estado_actual;
-              const estadoCls = getEstadoCls(estadoDisplay);
-              const accentCls = getEstadoAccent(estadoDisplay);
-              const isSelected = selectedTender?.id === tender.id;
-
-              return (
-                <div
-                  key={tender.id}
-                  onClick={() => { setSelectedTender(tender); setMobileTab('detalle'); }}
-                  className={`relative flex overflow-hidden rounded-xl border transition-all duration-150 hover:-translate-y-0.5 hover:shadow-card-md cursor-pointer ${
-                    isSelected
-                      ? 'border-primary/40 bg-primary/3 shadow-card-md'
-                      : 'border-border bg-surface hover:border-primary/20'
-                  }`}
-                >
-                  {/* Left accent bar */}
-                  <div className={`w-1 shrink-0 ${accentCls}`} />
-
-                  <div className="flex flex-col flex-1 min-w-0 px-4 pt-3.5 pb-3">
-                    {/* Row 1: badge(s) + region */}
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        {estadoDisplay && (
-                          <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold leading-none ${estadoCls}`}>
-                            {normalizeText(estadoDisplay)}
-                          </span>
-                        )}
-                        {getEncajeBadge(tender.nivel_encaje)}
-                      </div>
-                      {tender.region && (
-                        <span className="flex items-center gap-0.5 text-[11px] text-muted shrink-0">
-                          <MapPin className="h-2.5 w-2.5" />
-                          {shortRegion(tender.region)}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Title */}
-                    <Link
-                      href={`/dashboard/tenders/${encodeURIComponent(tender.codigo_externo)}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-sm font-semibold text-text leading-snug line-clamp-2 hover:text-primary transition-colors mb-0.5"
-                    >
-                      {normalizeText(tender.nombre)}
-                    </Link>
-
-                    {/* Organismo */}
-                    <p className="text-[11px] text-muted truncate mb-3">
-                      {tender.nombre_organismo ? normalizeText(tender.nombre_organismo) : tender.codigo_externo}
-                    </p>
-
-                    {/* Footer: monto + urgency + actions */}
-                    <div className="flex items-center gap-2 pt-2.5 border-t border-border mt-auto">
-                      <div className="flex-1 min-w-0">
-                        {tender.monto_estimado ? (
-                          <p className="text-sm font-bold text-primary tabular-nums leading-none">
-                            {formatCurrency(tender.monto_estimado)}
-                          </p>
-                        ) : (
-                          <p className="text-[11px] text-subtle leading-none">Sin monto</p>
-                        )}
-                        <div className="flex items-center gap-2 mt-1">
-                          {tender.fecha_publicacion && (
-                            <p className="text-[11px] text-subtle">
-                              {format(new Date(tender.fecha_publicacion), 'dd MMM yy')}
-                            </p>
-                          )}
-                          {urgency && (
-                            <p className={`text-[11px] ${urgency.cls}`}>· {urgency.label}</p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          type="button"
-                          disabled={!hydrated}
-                          onClick={(e) => { e.stopPropagation(); toggleTender('saved', tender); }}
-                          title={isSaved ? 'Quitar guardada' : 'Guardar'}
-                          className={`flex items-center justify-center rounded-lg border p-1.5 transition-all ${
-                            isSaved ? 'border-primary/30 bg-primary/8 text-primary' : 'border-border bg-background text-muted hover:border-primary/25 hover:text-primary'
-                          } ${!hydrated ? 'opacity-50' : ''}`}
-                        >
-                          {isSaved ? <BookmarkCheck className="h-3.5 w-3.5" /> : <BookmarkPlus className="h-3.5 w-3.5" />}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={!hydrated}
-                          onClick={(e) => { e.stopPropagation(); toggleTender('applied', tender); }}
-                          title={isApplied ? 'Quitar postulación' : 'Postular'}
-                          className={`flex items-center justify-center rounded-lg border p-1.5 transition-all ${
-                            isApplied ? 'border-accent/30 bg-accent/8 text-accent' : 'border-border bg-background text-muted hover:border-accent/25 hover:text-accent'
-                          } ${!hydrated ? 'opacity-50' : ''}`}
-                        >
-                          {isApplied ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}
-                        </button>
-                        {tender.url_licitacion ? (
-                          <a
-                            href={tender.url_licitacion}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            title="Ver en Mercado Público"
-                            className="flex items-center justify-center rounded-lg border border-border bg-background p-1.5 text-muted hover:border-primary/25 hover:text-primary transition-all"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </a>
-                        ) : (
-                          <Link
-                            href={`/dashboard/tenders/${encodeURIComponent(tender.codigo_externo)}`}
-                            onClick={(e) => e.stopPropagation()}
-                            title="Ver detalle"
-                            className="flex items-center justify-center rounded-lg border border-border bg-background p-1.5 text-muted hover:border-primary/25 hover:text-primary transition-all"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </Link>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {tenders.map((tender) => (
+              <TarjetaLicitacion
+                key={tender.id}
+                tender={tender}
+                seleccionada={selectedTender?.id === tender.id}
+                onSeleccionar={() => { setSelectedTender(tender); setMobileTab('detalle'); }}
+                hydrated={hydrated}
+                estaGuardada={isTenderStored}
+                alternar={toggleTender}
+              />
+            ))}
           </div>
 
           {/* Pagination */}

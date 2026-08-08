@@ -318,6 +318,12 @@ y no tiene Pub/Sub ni Cloud Tasks.
   inicializar desde la URL (`bi/page`), sincronizar un formulario con datos que llegan después
   (`settings`) y arrancar la sesión (`AuthContext`). Si necesitas una cuarta, escribe por qué
   ahí mismo — nunca desactives la regla globalmente.
+- **Ninguna pantalla pasa de 700 líneas.** Las tres que lo hacían están partidas por su
+  seam natural: el detalle de licitación en `components/licitacion/` + `lib/licitacionDetalle.ts`,
+  el listado en `TarjetaLicitacion` + `lib/licitacionEstado.ts`, y las herramientas de BI en
+  `bi/components/herramientas/` (una pestaña por fichero). **Los ayudantes de estado y formato
+  van en `lib/`, no dentro del componente**: definidos dentro se reconstruían en cada render
+  y no se podían reutilizar desde la tarjeta.
 - **Tests de extremo a extremo: `make e2e`.** Monta la pila entera contra una base
   efímera y corre Playwright. Encontró **tres fallos que ninguna otra capa veía**, y los
   tres compilaban y pasaban el lint:
