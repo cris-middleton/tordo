@@ -1439,7 +1439,8 @@ TWILIO_ACCOUNT_SID=
 TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
 
 # === ETL ===
-MERCADOPUBLICO_API_TICKET=
+MERCADO_PUBLICO_TICKET=          # API clásica (licitaciones y órdenes de compra)
+COMPRA_AGIL_TICKET=              # API v2. Vacío = usa el de arriba
 OC_ZIP_URL_TEMPLATE=https://transparenciachc.blob.core.windows.net/oc-da/{year}-{month}.zip
 LIC_ZIP_URL_TEMPLATE=https://transparenciachc.blob.core.windows.net/lic-da/{year}-{month}.zip
 

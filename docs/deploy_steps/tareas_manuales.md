@@ -24,20 +24,41 @@ Respuestas confirmadas:
   - Campo `Proveedor.Estado` contiene el estado
 - **404 u otro error**: Proveedor no existe
 
-**Acción para Fase 1**: Usar solo el endpoint per-RUT. No hay fallback a CSV. 
+**Acción para Fase 1**: Usar solo el endpoint per-RUT. No hay fallback a CSV.
 El código está simplificado en la SPEC.md sección 7.2.
 
 ---
 
-### 2. Usar ticket de API de Mercado Público (YA DISPONIBLE)
-✅ **El ticket de API pública ya está en `.env.example`**:
+### 2. Ticket de API de Mercado Público — ⚠️ PENDIENTE, y bloquea la ingesta
+
+**El `.env` de este entorno tiene `MERCADO_PUBLICO_TICKET=your-ticket-here`**, que
+es el marcador de posición de `.env.example`. Es decir: **nada ha hablado nunca con
+la API real.**
+
+Los nombres correctos son estos — este documento traía
+`MERCADOPUBLICO_API_TICKET`, que **no lo lee ningún código**:
+
 ```
-MERCADOPUBLICO_API_TICKET=F8537A18-6766-4DEF-9E59-426B4FEE2844
+MERCADO_PUBLICO_TICKET=   # API clásica: licitaciones y órdenes de compra
+COMPRA_AGIL_TICKET=       # API v2. Si se deja vacío, cae al de arriba
 ```
 
-Es el ticket demo público de ChileCompra. Para producción, opcionalmente:
-- Solicitar un ticket oficial en: `https://www.mercadopublico.cl` → Portal de APIs
-- Pero el ticket demo es válido para development y MVP
+Se solicita en `https://www.mercadopublico.cl` → Portal de APIs, con una cuenta
+registrada.
+
+**Son dos APIs distintas, y conviene saberlo antes de pedirlo:**
+
+| | clásica | Compra Ágil |
+|---|---|---|
+| host | `api.mercadopublico.cl` | `api2.mercadopublico.cl` |
+| ticket | parámetro de la URL | **cabecera `ticket`** |
+| sin ticket | responde `203` | responde `401` |
+| cuota | — | **diaria**; al agotarla `429` y **no se restablece hasta el día siguiente** |
+
+**Lo primero que hay que hacer con un ticket real es una pasada y comparar**, no
+una feature encima: el cliente de Compra Ágil (`etl/extractors/compra_agil.py`)
+está escrito contra la «Guía de uso API Compra Ágil v3» y probado con respuestas
+simuladas, pero nunca ha recibido una de verdad.
 
 ---
 
