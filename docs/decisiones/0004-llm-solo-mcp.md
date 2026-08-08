@@ -27,6 +27,12 @@ es por documento (se cachea y se amortiza entre suscriptores), no por consulta d
 **Reevaluar después de F3**, cuando el plan por empresa permita cobrarlo por capacidad.
 Ver `docs/ARQUITECTURA_REVISION_2026-08.md` §14.
 
+> **Resuelto el 2026-08-08 en el [ADR 0010](0010-extraccion-de-bases-con-llm.md): aplazada.**
+> La API no entrega las bases **ni los datos que se iban a extraer de ellas** —en su
+> diccionario oficial, «Adjunt…», «Garantía», «Criterio» y «Ponderaci…» aparecen cero veces—,
+> así que el proyecto no era «extraer con LLM» sino «construir y mantener un scraper del
+> portal», con la duda legal que eso trae. El LLM era la última parte y la barata.
+
 ---
 
 # Pausa · 2026-08-07

@@ -7,6 +7,33 @@
 
 ---
 
+## Estado al cerrar · 2026-08-08
+
+**Las siete fases están cerradas** — F0 a F6. Los cuatro problemas de fondo del veredicto
+(§0) están resueltos: el plano de datos analítico vive en Postgres, la multi-tenancy se
+garantiza por dependencia con test estructural, el modelo de datos soporta el alcance
+objetivo, y el frontend tiene tests de extremo a extremo.
+
+**Lo que sigue abierto, con su motivo — no son pendientes sin dueño:**
+
+| qué | por qué sigue abierto |
+|---|---|
+| Protección de rama en `main` | GitHub la reserva a cuentas Pro (~4 USD/mes). Sustituto local: `make merge PR=<n>`, que se niega en rojo. |
+| Primitivas accesibles tipo Radix | Mejora de accesibilidad que conviene hacer con un inventario de componentes delante. |
+| Extracción de bases con LLM | Aplazada con su [ADR 0010](decisiones/0010-extraccion-de-bases-con-llm.md): **no hay fuente** para las bases. Se reabre si el OCDS de ChileCompra trae `documents`. |
+| Servidor MCP | En pausa y especificado ([ADR 0004](decisiones/0004-llm-solo-mcp.md)): es un canal, no una capacidad. |
+| Refresco en el login con Google | La sesión por Google sigue caducando a los 30 min. La solución es un código de un solo uso, y toca el backend. |
+| `subprocess.run` de Celery hacia el ETL | Deuda conocida de F2, no bloqueante. |
+
+**Y tres cosas que dependen de credenciales que no tengo, dichas claro:**
+
+- **El cliente de Compra Ágil nunca ha hablado con la API real** — el ticket configurado es el
+  de ejemplo. Lo primero con un ticket de verdad es correr una pasada y comparar.
+- **El adaptador de MercadoPago nunca se ha probado contra la API real.**
+- **La infraestructura no está declarada como código.**
+
+---
+
 ## 0. Veredicto en una página
 
 **La aplicación no está mal construida.** Es un monolito modular competente, con profundidad de
@@ -583,7 +610,9 @@ F3/F4/F5 pueden solaparse.
 - [x] Dockerfiles migrados a `uv` con contexto en la raíz + `.dockerignore`
 - [x] Barrido de ruff aislado en su propio commit, con `.git-blame-ignore-revs`
 - [x] **Suite de tests reparada**: backend 30→45 pasando (14 errores por `aiosqlite` ausente, un test desfasado del código); ETL 42→47 (pin de polars incompatible con el propio código)
-- [ ] Sentry en el frontend ← pendiente
+- [x] **Sentry en el frontend** — los tres runtimes (navegador, Node y edge), con las opciones
+      en un solo sitio (`lib/sentry-comun.ts`) y un test estructural que exige que las tres
+      partan de ahí. Sin replay de sesión y con `sendDefaultPii: false`, fijado por test.
 - [x] **Next 14 → 16** (con ESLint 8 → 9 y configuración plana). Cierra las dos últimas
       vulnerabilidades graves del frontend: `npm audit` pasa de 6 a **0**.
 - [~] Protección de `main` — **no se puede desde aquí**: GitHub la reserva a repos públicos o a
@@ -723,9 +752,12 @@ F3/F4/F5 pueden solaparse.
 - [x] `api/deps.py` con `empresa_ctx` / `require_rol`; eliminados los chequeos manuales
 - [x] Test estructural: toda ruta de empresa declara la dependencia (detectó 2 rutas sin ella)
 - [x] Partir `bi_service.py` (1 476 líneas) en `services/bi/*` — 8 módulos por dominio, ninguno pasa de 332 líneas. Verificado con el golden master: 31/31, ni un resultado cambió.
-- [~] `repositories/` introducido (analytics, sync y async); **falta sacar SQLAlchemy del resto
-      de los routers** — es lo único de F3 que sigue abierto junto al versionado
-- [ ] Versionado `/api/v1/`; documentar la decisión de envelope
+- [x] `repositories/` con **todos** los routers migrados, y `tests/test_capas_sin_sql_en_routers.py`
+      comprobándolo fichero a fichero con tres excepciones documentadas. Sacar las 120 consultas
+      de los routers destapó tres fallos que no rompían nada visible (ver la sección de backend
+      en `CLAUDE.md`).
+- [x] **Versionado `/api/v1/` y sin envelope** — [ADR 0009](decisiones/0009-api-versionada-y-sin-envelope.md).
+      El prefijo lo pone `main.py`, no los routers.
 - [x] **Suscripción por empresa** (decisión 2 — la pieza más grande de esta fase) — completa:
   - [x] Mover `plan_tier`, `subscription_status`, `billing_*`, `trial_*` de `User` a la empresa
   - [x] Usuarios pasan a ser asientos; límite por plan en `PLAN_QUOTAS.max_usuarios` (1/3/5/∞)
@@ -751,12 +783,10 @@ F3/F4/F5 pueden solaparse.
       (trigrama). Retirarlo entero habría perdido la búsqueda por fragmento sin evidencia de que
       nadie la usa. Medido: el `COUNT` que el endpoint ejecuta en cada búsqueda pasa de **94 ms a
       1,5 ms** sobre 200 000 filas.
-- [~] `tipo_convocatoria` — **movido a F6.2**, con el trabajo de Compra Ágil / Convenio Marco.
-      Hoy el ETL sólo ingiere licitaciones, así que la columna sería constante y el enum se
-      fijaría antes de ver los datos reales. Tampoco hay prisa: en Postgres 11+ un `ADD COLUMN`
-      con default no volátil no reescribe la tabla, así que añadirlo después cuesta lo mismo.
-      Ojo: ya existe `licitaciones.tipo_licitacion`, que es otra cosa — el código LE/LP/LQ que
-      entrega la API.
+- [x] `tipo_convocatoria` — **hecho en F6.2**, donde tocaba: con los datos reales de Compra
+      Ágil y Convenio Marco delante, en vez de fijar el enum antes de verlos. Vive en
+      `app/models/convocatoria.py` y el ETL lo importa por `shared_imports`, no lo copia.
+      Ojo: `licitaciones.tipo_licitacion` es otra cosa — el código LE/LP/LQ que entrega la API.
 - [x] ~~`fuente` / `pais` en las entidades de ingesta~~ — descartado (decisión 1: sólo Chile)
 - [x] Regla de PKs (UUID negocio / BigInteger ingesta) **y verificada**: ninguna tabla nueva
       puede llevar PK `integer`. Las 16 existentes quedan en la línea base — migrarlas exige
@@ -795,13 +825,16 @@ F3/F4/F5 pueden solaparse.
       autenticada, renovación con sólo la cookie de refresco, y cierre que revoca en el
       servidor además de borrar la cookie.
       Queda que Google siga sin refresco: su redirección sólo trae el acceso.
-- [~] ~~shadcn/ui como design system~~ — **el sistema de tokens ya existe** (ver nota arriba).
-      Queda: **primitivas accesibles** tipo Radix sobre esos tokens, y **descomponer las
-      páginas de 900+ líneas** (`HerramientasAvanzadas.tsx` 932, `tenders/[codigo]` 915,
-      `tenders/page` 761).
-- [~] **Vitest ya está** y corre en CI, con dos tests que valen: `on-color` (estructural sobre
-      los tokens) y `narrative`. Falta **Playwright** para 3–4 flujos críticos.
-- [ ] UI de invitación y gestión de miembros (el backend ya la soporta)
+- [~] ~~shadcn/ui como design system~~ — **el sistema de tokens ya existe** (ver nota arriba),
+      y **las páginas de 900+ líneas están descompuestas**: ninguna pasa de 700, partidas por
+      su seam natural y con los ayudantes de estado y formato en `lib/`.
+      **Queda abierto a propósito**: primitivas accesibles tipo Radix sobre esos tokens. No es
+      un pendiente de la fase sino una mejora de accesibilidad que conviene hacer con un
+      inventario de componentes delante, no a la vez que se parten las pantallas.
+- [x] **Vitest y Playwright**, los dos en CI. Playwright cubre 9 flujos y encontró tres fallos
+      que ninguna otra capa veía — todos compilaban y pasaban el lint.
+- [x] **UI de invitación y gestión de miembros** — `components/empresa/PanelEquipo.tsx`, con
+      `UsoDeAsientos` al lado para que el tope del plan se vea antes de toparse con el 402.
 
 ### F6 — Diferenciación · continuo, empezar después de F2
 
@@ -916,8 +949,32 @@ Reordenado según las decisiones del 2026-08-05:
      semanal.
    - `reportlab` y no un motor de navegador: weasyprint necesita cairo y pango del sistema, y
      la imagen ya se mide contra 512 MB. reportlab es Python puro.
-6. **Extracción de bases con LLM** — reevaluar después de F3, no antes. Ver §14: es el único uso de
-   LLM con valor claro acá, y sólo se puede vender bien una vez que el plan sea por empresa.
+6. **Extracción de bases con LLM** — **reevaluada y aplazada** el 2026-08-08, con su
+   [ADR 0010](decisiones/0010-extraccion-de-bases-con-llm.md). F3 está hecho, así que tocaba
+   decidir; al ir a hacerlo apareció que **el proyecto no era el que parecía**.
+
+   §14 razonó la economía como «costo por documento, que se amortiza entre los suscriptores
+   que miren esa licitación», y con eso la respuesta era obviamente sí. Ese cálculo da por
+   supuesto que el documento está disponible, y **no lo está**:
+
+   - En el diccionario de datos oficial de la API, «Licitaci…» aparece **260 veces** y
+     «Adjunt…», «Garantía», «Criterio» y «Ponderaci…» aparecen **cero**. No sólo faltan los
+     archivos: faltan también los datos que el LLM iba a extraer de ellos.
+   - `licitaciones` guarda `url_licitacion` y `url_acta`, que son enlaces a la **ficha del
+     portal**, no a archivos. Ningún extractor descarga adjuntos.
+   - Y la premisa que sostenía la urgencia era falsa: §14 decía que el checklist dependía de
+     plantillas «que puede que ni siquiera estén sembradas». **`plantillas_checklist` tiene 29
+     filas.** El módulo funciona.
+
+   Así que lo que había que construir era un **scraper del portal** (ASP.NET WebForms con
+   `viewstate`, frágil), resolver **si automatizar el portal está permitido** —consumir la API
+   lo está; el portal es otra cosa— y almacenar los archivos. El LLM era la última parte y la
+   barata.
+
+   **Se reabre** si aparece una fuente autorizada de los archivos. La comprobación que falta
+   está nombrada en el ADR: si el OCDS que publica ChileCompra trae su array `documents` con
+   URL, desaparecen el scraper y la duda legal, el cálculo de §14 vuelve a ser correcto y la
+   respuesta vuelve a ser sí.
 
 ---
 

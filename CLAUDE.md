@@ -641,8 +641,17 @@ especificación antes de escribir código** — sobre todo la parte de herramien
 grueso: con las cuotas actuales, exponer los 22 endpoints uno a uno agota el plan de un
 usuario en una sola conversación.
 
-Fases pendientes: **F2** plano de datos analítico → **F3** tenancy, capas y billing por
-empresa → **F4** modelo de datos → **F5** frontend → **F6** diferenciación.
+**La extracción de bases con LLM está aplazada** (ADR 0010), y no por precio: **la API no
+entrega las bases ni los datos que se iban a sacar de ellas** — en su diccionario oficial,
+«Adjunt…», «Garantía», «Criterio» y «Ponderaci…» aparecen cero veces. El proyecto real era
+«construir y mantener un scraper del portal», con su duda legal; el LLM era la última parte y
+la barata. Se reabre si el OCDS de ChileCompra trae su array `documents`. **No hay ninguna
+dependencia de un proveedor de LLM en el sistema**, ni clave, ni costo variable.
+
+**Las seis fases del plan están cerradas** (F0 higiene, F1 seguridad, F2 plano de datos
+analítico, F3 tenancy/capas/billing por empresa, F4 modelo de datos, F5 frontend, F6
+diferenciación). Lo que queda vive en `docs/ARQUITECTURA_REVISION_2026-08.md` como puntos
+decididos y aplazados, cada uno con su motivo — no como pendientes sin dueño.
 
 ---
 
