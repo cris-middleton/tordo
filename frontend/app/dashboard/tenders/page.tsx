@@ -23,7 +23,7 @@ import { format } from 'date-fns';
 
 import { useDashboardCollections } from '@/hooks/useDashboardCollections';
 import TarjetaLicitacion from '@/components/licitacion/TarjetaLicitacion';
-import { ESTADOS_LICITACION, REGIONES_CHILE } from '@/lib/constantesChile';
+import { ESTADOS_LICITACION, REGIONES_CHILE, TIPOS_CONVOCATORIA } from '@/lib/constantesChile';
 import { formatCurrency, normalizeText, shortRegion } from '@/lib/licitacionEstado';
 import type { BIPanel, Tender } from '@/types/licitacion';
 
@@ -32,6 +32,7 @@ export default function TendersPage() {
   const [pages, setPages] = useState(1);
   const [filters, setFilters] = useState({
     estado: '',
+    tipo_convocatoria: '',
     region: '',
     min_amount: '',
     max_amount: '',
@@ -72,6 +73,7 @@ export default function TendersPage() {
     sort_order: sortOrder,
   };
   if (filters.estado) params.estado = filters.estado;
+  if (filters.tipo_convocatoria) params.tipo_convocatoria = filters.tipo_convocatoria;
   if (filters.region) params.region = filters.region;
   if (filters.min_amount) params.min_amount = parseFloat(filters.min_amount);
   if (filters.max_amount) params.max_amount = parseFloat(filters.max_amount);
@@ -145,7 +147,15 @@ export default function TendersPage() {
             autoComplete="off"
           />
         </div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+          <SelectField
+            value={filters.tipo_convocatoria}
+            onChange={(v) => handleFilterChange('tipo_convocatoria', v)}
+            options={[
+              { value: '', label: 'Todos los mecanismos' },
+              ...TIPOS_CONVOCATORIA.map((t) => ({ value: t.value, label: t.label })),
+            ]}
+          />
           <SelectField
             value={filters.estado}
             onChange={(v) => handleFilterChange('estado', v)}

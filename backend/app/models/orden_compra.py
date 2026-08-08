@@ -36,6 +36,24 @@ class OrdenCompra(Base):
 
     # Status
     estado = Column(String(50), index=True)
+
+    # El `Tipo` que devuelve la API (§3.1 del diccionario de datos). Se guarda
+    # tal cual y además se traduce a `tipo_convocatoria`: el código crudo permite
+    # reinterpretarlo si ChileCompra añade valores, y la traducción es lo que
+    # consulta el producto.
+    tipo_oc = Column(
+        String(10),
+        index=True,
+        comment="Código de tipo de OC de Mercado Público. 9=Convenio Marco, 2=Trato Directo.",
+    )
+    tipo_convocatoria = Column(
+        String(30),
+        index=True,
+        comment=(
+            "Mecanismo de compra deducido de `tipo_oc`. NULL cuando el tipo sólo "
+            "describe cómo se emitió la orden (1=Automática, 8=Sin emisión automática)."
+        ),
+    )
     estado_proveedor = Column(String(50))
 
     # Organization

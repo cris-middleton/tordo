@@ -20,6 +20,7 @@ from app.config import settings
 from app.core.security import get_current_active_user
 from app.core.versionado import PREFIJO_API
 from app.db import get_db
+from app.models.convocatoria import TipoConvocatoria
 from app.models.empresa import EmpresaUsuario, TFIDFPerfil
 from app.models.licitacion import Licitacion
 from app.models.orden_compra import OrdenCompra
@@ -202,6 +203,13 @@ async def get_ordenes_compra(
     region: str | None = Query(None),
     codigo_organismo: str | None = Query(None),
     codigo_proveedor: str | None = Query(None),
+    tipo_convocatoria: str | None = Query(
+        None,
+        description=(
+            "Mecanismo de compra, separado por comas. `convenio_marco` es la única "
+            "forma de ver ese mercado: la API de Mercado Público no le da endpoint propio."
+        ),
+    ),
     search: str | None = Query(None),
     empresa_id: UUID | None = Query(
         None, description="UUID empresa — habilita score_encaje por fila"
@@ -221,6 +229,20 @@ async def get_ordenes_compra(
         stmt = stmt.where(OrdenCompra.codigo_organismo == codigo_organismo)
     if codigo_proveedor:
         stmt = stmt.where(OrdenCompra.codigo_proveedor == codigo_proveedor)
+    if tipo_convocatoria:
+        tipos = [t.strip() for t in tipo_convocatoria.split(",") if t.strip()]
+        desconocidos = [t for t in tipos if t not in set(TipoConvocatoria)]
+        if desconocidos:
+            # Ignorarlo devolvería el catálogo entero, y quien filtró creería que
+            # no hay compras de ese mecanismo.
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Mecanismo de compra desconocido: {', '.join(desconocidos)}. "
+                    f"Valores válidos: {', '.join(sorted(TipoConvocatoria))}."
+                ),
+            )
+        stmt = stmt.where(OrdenCompra.tipo_convocatoria.in_(tipos))
 
     terms = [t.strip() for t in (search or "").split() if t.strip()]
     want_relevance = sort_by == "relevance" and bool(terms)

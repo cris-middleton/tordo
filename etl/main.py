@@ -8,8 +8,10 @@ import sys
 
 from etl.config import config
 from etl.extractors import MercadoPublicoLicitacionesExtractor, MercadoPublicoOrdenesExtractor
+from etl.extractors.compra_agil import CompraAgilExtractor, CuotaDiariaAgotada
 from etl.loaders import DatabaseLoaderV2
 from etl.transformers import LicitacionTransformer, OrdenCompraTransformer
+from etl.transformers.compra_agil_transformer import CompraAgilTransformer
 from etl.utils import now_santiago
 
 # Configure logging
@@ -93,6 +95,73 @@ def run_etl_licitaciones_v2(fecha_desde: str | None = None, fecha_hasta: str | N
 
     except Exception as e:
         logger.error(f"ETL V2 pipeline for Licitaciones failed: {str(e)}", exc_info=True)
+        return False
+
+
+def run_etl_compra_agil(cambio_desde: str | None = None, cambio_hasta: str | None = None) -> bool:
+    """Ingiere Compras Ágiles desde la API v2.
+
+    Compra Ágil **no está en la API clásica**: tiene host propio, el ticket va
+    en una cabecera y hay cuota diaria. Ver `etl/extractors/compra_agil.py`.
+
+    Sin ticket configurado no se intenta nada. Es lo correcto: pegarle a la API
+    sin credencial gasta reintentos para acabar en 401, y llenaría el log de
+    errores en cada pasada horaria de una instalación que simplemente no tiene
+    la integración activada.
+    """
+    logger.info("=" * 60)
+    logger.info("ETL de Compra Ágil")
+    logger.info("=" * 60)
+
+    ticket = getattr(config, "COMPRA_AGIL_TICKET", "") or config.MERCADO_PUBLICO_TICKET
+    if not ticket:
+        logger.info("Compra Ágil: sin ticket configurado — se omite")
+        return True
+
+    try:
+        extractor = CompraAgilExtractor(
+            {
+                "COMPRA_AGIL_TICKET": ticket,
+                "MAX_RETRIES": config.MAX_RETRIES,
+                "RETRY_DELAY": config.RETRY_DELAY,
+            }
+        )
+        transformer = CompraAgilTransformer()
+        loader = DatabaseLoaderV2({"DATABASE_URL": config.DATABASE_URL})
+
+        crudos = extractor.extract(cambio_desde=cambio_desde, cambio_hasta=cambio_hasta)
+        logger.info("Compra Ágil: %d registros crudos", len(crudos))
+        if not crudos:
+            return True
+
+        filas = []
+        for registro in crudos:
+            try:
+                fila = transformer.transform(registro)
+                if fila:
+                    filas.append(fila)
+            except Exception as exc:
+                logger.error("Compra Ágil: registro no transformable: %s", exc)
+
+        logger.info("Compra Ágil: %d filas válidas", len(filas))
+        if not filas:
+            return True
+
+        loader.connect()
+        try:
+            cargadas = loader.load_licitaciones(filas)
+            logger.info("Compra Ágil: %d filas cargadas", cargadas)
+        finally:
+            loader.disconnect()
+        return True
+
+    except CuotaDiariaAgotada as exc:
+        # No es un fallo del pipeline: la cuota vuelve mañana. Se registra como
+        # aviso para que el watchdog no lo cuente como corrida rota.
+        logger.warning("Compra Ágil: %s", exc)
+        return True
+    except Exception as exc:
+        logger.error("ETL de Compra Ágil falló: %s", exc, exc_info=True)
         return False
 
 
@@ -570,6 +639,7 @@ def run_etl_pipeline_v2(
     fecha_hasta: str | None = None,
     extract_licitaciones: bool = True,
     extract_ordenes: bool = True,
+    extract_compra_agil: bool = True,
     extract_detalles_nuevos: bool = True,
     actualizar_detalles: bool = False,
     detalles_limit: int | None = None,
@@ -583,6 +653,7 @@ def run_etl_pipeline_v2(
         fecha_hasta: End date for daily extraction
         extract_licitaciones: Extract licitaciones basic data
         extract_ordenes: Extract órdenes basic data
+        extract_compra_agil: Ingerir Compras Ágiles (API v2, ticket propio)
         extract_detalles_nuevos: Extract details for new records
         actualizar_detalles: Update existing details and detect changes
         detalles_limit: Limit for detail extraction
@@ -608,6 +679,12 @@ def run_etl_pipeline_v2(
 
     if extract_ordenes:
         if not run_etl_ordenes_compra_v2(fecha_desde, fecha_hasta):
+            success = False
+
+    # Compra Ágil va aparte: otra API, otro host, otra autenticación y cuota
+    # diaria propia. Sin ticket configurado se omite sin ruido.
+    if extract_compra_agil:
+        if not run_etl_compra_agil():
             success = False
 
     # Step 2: Extract details for ACTIVE records without detalle

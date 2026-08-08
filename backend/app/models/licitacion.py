@@ -17,6 +17,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.db import Base
+from app.models.convocatoria import TipoConvocatoria
 
 
 class Licitacion(Base):
@@ -121,6 +122,20 @@ class Licitacion(Base):
     monto_estimado = Column(Numeric(15, 2))
     monto_total = Column(Numeric(15, 2))
     moneda = Column(String(10), default="CLP")
+
+    # Por qué mecanismo convoca el Estado. Hasta F6 todo lo ingerido era una
+    # licitación y el modelo lo daba por hecho; Compra Ágil y Convenio Marco son
+    # cerca de la mitad del mercado chileno y no se veían.
+    #
+    # Texto y no enum de Postgres: añadir un mecanismo no debería exigir un
+    # `ALTER TYPE`, que no se puede revertir dentro de una transacción.
+    tipo_convocatoria = Column(
+        String(30),
+        nullable=False,
+        server_default=TipoConvocatoria.LICITACION.value,
+        index=True,
+        comment="Mecanismo de compra: licitacion | compra_agil | convenio_marco | trato_directo.",
+    )
 
     # Status and type
     estado = Column(String(50), index=True)

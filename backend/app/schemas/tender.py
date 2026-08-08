@@ -60,6 +60,9 @@ class LicitacionDetalleResponse(BaseModel):
 class TenderResponse(TenderBase):
     id: int
     codigo_interno: str | None = None
+    #: Mecanismo de compra. Hasta F6 todo era `licitacion` y el modelo lo daba
+    #: por hecho; Compra Ágil y Convenio Marco son ~la mitad del mercado.
+    tipo_convocatoria: str = "licitacion"
     monto_total: Decimal | None = None
     moneda: str | None = None
     tipo_moneda: str | None = None

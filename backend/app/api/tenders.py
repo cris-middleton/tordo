@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.core.security import get_current_active_user
 from app.db import get_db
+from app.models.convocatoria import TipoConvocatoria
 from app.models.licitacion import Licitacion
 from app.models.user import User
 from app.repositories import empresas as repo_empresas
@@ -61,6 +62,13 @@ async def list_tenders(
     limit: int = Query(20, ge=1, le=100, alias="limit"),
     estado: str | None = None,
     codigo_organismo: str | None = None,
+    tipo_convocatoria: str | None = Query(
+        None,
+        description=(
+            "Mecanismo de compra, separado por comas: "
+            "licitacion, compra_agil, convenio_marco, trato_directo."
+        ),
+    ),
     region: str | None = None,
     min_amount: float | None = None,
     max_amount: float | None = None,
@@ -76,9 +84,24 @@ async def list_tenders(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
+    tipos = [t.strip() for t in (tipo_convocatoria or "").split(",") if t.strip()]
+    desconocidos = [t for t in tipos if t not in set(TipoConvocatoria)]
+    if desconocidos:
+        # Se rechaza en vez de ignorarlo: un valor mal escrito devolvería el
+        # catálogo entero, y quien filtra por "compra_agiles" creería que no hay
+        # ninguna.
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Mecanismo de compra desconocido: {', '.join(desconocidos)}. "
+                f"Valores válidos: {', '.join(sorted(TipoConvocatoria))}."
+            ),
+        )
+
     filtros = repo_licitaciones.Filtros(
         estado=estado,
         codigo_organismo=codigo_organismo,
+        tipos_convocatoria=tipos,
         region=region,
         monto_minimo=min_amount,
         monto_maximo=max_amount,

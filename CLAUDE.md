@@ -530,6 +530,19 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
   - **Contrapartida, dicha claro**: una licitación ingerida hoy no tiene fila hasta las 06:00
     siguientes y sale sin score. El score se guarda entero (0-100) y la API lo devuelve como
     coseno 0-1, así que se pierde precisión por debajo del 1 %.
+- **Mecanismo de compra: `tipo_convocatoria`** (`app/models/convocatoria.py`, importado por el
+  ETL a través de `etl/shared_imports.py` — **no se copia**). El modelo daba por hecho que todo
+  lo ingerido era una licitación; Compra Ágil y Convenio Marco son cerca de la mitad del
+  mercado chileno.
+  - **Convenio Marco sólo se ve por la orden de compra.** La API de Mercado Público no le da
+    endpoint propio: las compras por catálogo llegan como órdenes con `Tipo=9` (§3.1 del
+    diccionario de datos oficial). Se guarda el código crudo (`tipo_oc`) **y** su traducción.
+  - Los tipos `1` (Automática) y `8` (Sin emisión automática) describen **cómo se emitió** la
+    orden, no por qué mecanismo se compró: quedan en `NULL` a propósito.
+  - **Compra Ágil NO está en la API clásica.** Tiene su propia API (`api2.mercadopublico.cl`,
+    v2, ticket por cabecera) — ver `etl/extractors/compra_agil.py`.
+  - Un filtro con un mecanismo desconocido devuelve **422**, no el catálogo entero: ignorarlo
+    haría creer que no hay compras de ese tipo.
 - **Rate limiting**: Redis, por IP en `/api/v1/bi/*`, más cuota diaria por tier.
 - **Un worker por contenedor, y es una decisión medida.** El modelo TF-IDF cuesta **~105 MB
   por proceso** y no se comparte entre workers. Con `-w 4` en 512 MB el contenedor muere por

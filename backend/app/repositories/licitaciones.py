@@ -66,6 +66,10 @@ class Filtros:
 
     estado: str | None = None
     codigo_organismo: str | None = None
+    #: Mecanismo de compra. Varios valores separados por coma se combinan con OR:
+    #: quien filtra "compra ágil o convenio marco" está preguntando por el
+    #: mercado que NO es licitación, no por uno de los dos.
+    tipos_convocatoria: list[str] = field(default_factory=list)
     region: str | None = None
     monto_minimo: float | None = None
     monto_maximo: float | None = None
@@ -92,6 +96,8 @@ def _con_filtros(filtros: Filtros, *, aplicar_terminos: bool = True) -> Select:
         consulta = consulta.where(Licitacion.estado == filtros.estado)
     if filtros.codigo_organismo:
         consulta = consulta.where(Licitacion.codigo_organismo == filtros.codigo_organismo)
+    if filtros.tipos_convocatoria:
+        consulta = consulta.where(Licitacion.tipo_convocatoria.in_(filtros.tipos_convocatoria))
     if filtros.region:
         consulta = consulta.where(Licitacion.region == filtros.region)
     if filtros.monto_minimo:

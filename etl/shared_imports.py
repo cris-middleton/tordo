@@ -29,6 +29,11 @@ if "SECRET_KEY" not in os.environ:
 
 # Now import models (these may trigger config loading)
 from app.db import Base
+
+# El vocabulario de mecanismos de compra se importa, no se copia: el ETL decide
+# el tipo al transformar y la API filtra por él, así que dos copias se
+# desincronizan en cuanto ChileCompra añada un mecanismo.
+from app.models.convocatoria import TipoConvocatoria, convocatoria_de_orden
 from app.models.licitacion import Licitacion
 from app.models.licitacion_detalle import LicitacionDetalle
 from app.models.licitacion_historial import LicitacionHistorial
@@ -37,6 +42,8 @@ from app.models.orden_compra_detalle import OrdenCompraDetalle
 from app.models.orden_compra_historial import OrdenCompraHistorial
 
 __all__ = [
+    "TipoConvocatoria",
+    "convocatoria_de_orden",
     "Licitacion",
     "LicitacionDetalle",
     "LicitacionHistorial",

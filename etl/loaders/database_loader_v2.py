@@ -160,7 +160,18 @@ class DatabaseLoaderV2(BaseLoader):
 
         BATCH_SIZE = 500
         table = Licitacion.__table__
-        # Columns to update on conflict (exclude PK, unique key, and server-set timestamps)
+        # Columnas a actualizar en el conflicto: se excluyen la PK, la clave de
+        # negocio y las marcas de tiempo que pone el servidor.
+        #
+        # Las columnas GENERADAS (`col.computed`) se excluyen aparte y por
+        # programa, no por nombre: Postgres rechaza escribirlas —«column
+        # "busqueda" can only be updated to DEFAULT»— y ese rechazo aborta la
+        # sentencia ENTERA, así que no fallaba sólo la actualización: **no se
+        # cargaba ni una sola licitación**. Lleva así desde que F4 añadió
+        # `busqueda` y `nombre_norm`, y ningún test lo tocaba.
+        #
+        # Filtrar por `col.computed` y no por una lista de nombres es lo que
+        # hace que la próxima columna generada no repita el problema.
         skip_on_update = {"id", "codigo_externo", "fecha_extraccion"}
         total_loaded = 0
         total_updated = 0
@@ -187,7 +198,7 @@ class DatabaseLoaderV2(BaseLoader):
                 update_dict = {
                     col.name: stmt.excluded[col.name]
                     for col in table.columns
-                    if col.name not in skip_on_update
+                    if col.name not in skip_on_update and col.computed is None
                 }
                 update_dict["fecha_actualizacion"] = func.now()
                 stmt = stmt.on_conflict_do_update(
@@ -430,7 +441,7 @@ class DatabaseLoaderV2(BaseLoader):
                 update_dict = {
                     col.name: stmt.excluded[col.name]
                     for col in table.columns
-                    if col.name not in skip_on_update
+                    if col.name not in skip_on_update and col.computed is None
                 }
                 update_dict["fecha_actualizacion"] = func.now()
                 stmt = stmt.on_conflict_do_update(

@@ -814,7 +814,22 @@ Reordenado según las decisiones del 2026-08-05:
    "LicitaLab ya lanzó el suyo", que es imitar a un competidor, no resolver un problema propio.
    Los cimientos sí se hicieron y no se pierden: claves de API (que además son prerequisito de
    la API pública) y la actualización del framework.
-2. **Compra Ágil + Convenio Marco.** Volumen de mercado chileno que hoy no se ve. Requiere F4.
+2. **Compra Ágil + Convenio Marco** — **hecho**, con dos correcciones al plan que salieron de
+   leer la documentación oficial en vez de suponerla:
+
+   - **Convenio Marco no tiene endpoint propio.** Las compras por catálogo llegan como
+     **órdenes de compra con `Tipo=9`** (§3.1 del diccionario de datos oficial), y ese campo
+     no se guardaba en ninguna columna. Es la única vía.
+   - **Compra Ágil no está en la API clásica.** ChileCompra publicó **una API aparte** en mayo
+     de 2026: otro host (`api2.mercadopublico.cl`), **el ticket va en una cabecera** y hay
+     **cuota diaria** con un 429 que no se restablece hasta el día siguiente.
+
+   El discriminador es `tipo_convocatoria`, en `app/models/convocatoria.py`, importado por el
+   ETL a través de `shared_imports` — no copiado.
+
+   **El cliente de Compra Ágil nunca ha hablado con la API real**: el ticket configurado es el
+   de ejemplo. Está escrito contra la especificación y probado con respuestas simuladas que la
+   reproducen. Con un ticket de verdad, lo primero es correr una pasada y comparar.
 3. **Alertas de cambio de precio** (lo que hace Falconsoft) — los datos ya están; falta el disparador.
 4. **API pública + API keys.** El ángulo de integración ERP de Falconsoft. Habilita el segmento gremios.
    **Las claves de API ya están hechas** — y hubo que adelantarlas: el orden del plan estaba

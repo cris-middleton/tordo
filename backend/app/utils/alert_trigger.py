@@ -20,7 +20,12 @@ def trigger_licitacion_alert(licitacion_id: int, use_celery: bool = True):
         try:
             from app.tasks.alert_tasks import process_new_licitacion_alert
 
-            process_new_licitacion_alert.delay(licitacion_id)
+            # `retry=False` en vez de `.delay()`: con el broker caído, la
+            # política por defecto de Celery reintenta con backoff y tarda ~19 s
+            # ANTES de rendirse. Multiplicado por los cientos de registros de una
+            # pasada del ETL, una caída de Redis convierte la carga horaria en
+            # horas. Con el broker arriba —el caso normal— esto no cambia nada.
+            process_new_licitacion_alert.apply_async(args=[licitacion_id], retry=False)
             logger.info(f"Triggered Celery task for licitacion {licitacion_id}")
         except Exception as e:
             logger.error(f"Failed to trigger Celery task for licitacion {licitacion_id}: {e}")
@@ -55,7 +60,9 @@ def trigger_orden_compra_alert(orden_compra_id: int, use_celery: bool = True):
         try:
             from app.tasks.alert_tasks import process_new_orden_compra_alert
 
-            process_new_orden_compra_alert.delay(orden_compra_id)
+            # Ver el comentario de `trigger_licitacion_alert`: sin `retry=False`,
+            # un broker caído cuesta ~19 s por registro.
+            process_new_orden_compra_alert.apply_async(args=[orden_compra_id], retry=False)
             logger.info(f"Triggered Celery task for orden_compra {orden_compra_id}")
         except Exception as e:
             logger.error(f"Failed to trigger Celery task for orden_compra {orden_compra_id}: {e}")

@@ -6,6 +6,7 @@ Normalizes API response to database schema
 from datetime import datetime
 from typing import Any, Dict
 
+from etl.shared_imports import convocatoria_de_orden
 from etl.transformers.base import BaseTransformer
 from etl.utils import now_santiago
 
@@ -139,6 +140,9 @@ class OrdenCompraTransformer(BaseTransformer):
         region = data.get("Region") or data.get("region")
         comuna = data.get("Comuna") or data.get("comuna")
 
+        tipo_oc = data.get("Tipo") or data.get("tipo")
+        tipo_oc = str(tipo_oc).strip() if tipo_oc is not None else None
+
         # Build transformed record
         transformed = {
             "codigo_oc": codigo_oc,
@@ -157,6 +161,14 @@ class OrdenCompraTransformer(BaseTransformer):
             "monto_iva": monto_iva,
             "moneda": data.get("Moneda") or data.get("moneda") or "CLP",
             "estado": data.get("Estado") or data.get("estado") or data.get("EstadoPublicacion"),
+            # El `Tipo` de la API dice por qué mecanismo se compró (§3.1 del
+            # diccionario de datos): 9 es Convenio Marco. Se guarda el código
+            # crudo y además su traducción — el crudo permite reinterpretarlo si
+            # ChileCompra añade valores; la traducción es lo que consulta el
+            # producto. Es la ÚNICA forma de ver Convenio Marco: no tiene
+            # endpoint propio en la API.
+            "tipo_oc": tipo_oc,
+            "tipo_convocatoria": convocatoria_de_orden(tipo_oc),
             "estado_proveedor": data.get("EstadoProveedor") or data.get("estadoProveedor"),
             "codigo_organismo": codigo_organismo,
             "nombre_organismo": nombre_organismo,
@@ -188,6 +200,7 @@ class OrdenCompraTransformer(BaseTransformer):
                     "Moneda",
                     "Estado",
                     "EstadoProveedor",
+                    "Tipo",
                     "Organismo",
                     "CodigoOrganismo",
                     "NombreOrganismo",

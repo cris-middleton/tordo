@@ -1,0 +1,211 @@
+"""Cliente y transformador de Compra Ágil.
+
+Se prueba contra la forma **documentada** de la API v2 («Guía de uso API Compra
+Ágil v3», ChileCompra, mayo 2026), con las respuestas simuladas. Es lo honesto
+que se puede hacer sin un ticket real, y lo que hay que decir: **este código
+nunca ha hablado con la API de verdad**. Lo primero que hay que hacer con un
+ticket es correr una pasada y comparar.
+
+Lo que sí queda fijado son las tres cosas que separan esta API de la clásica y
+que un refactor puede deshacer sin que nada falle:
+
+- el ticket va en una **cabecera**, no en la URL;
+- la respuesta viene **envuelta** en `{success, payload}`;
+- un **429** es cuota diaria agotada y NO se reintenta.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from etl.extractors.compra_agil import (  # noqa: E402
+    CompraAgilExtractor,
+    CuotaDiariaAgotada,
+)
+from etl.transformers.compra_agil_transformer import CompraAgilTransformer  # noqa: E402
+
+# Un item tal como lo documenta §6.1 de la guía oficial.
+ITEM = {
+    "codigo": "1057539-228-COT26",
+    "nombre": "Materiales eléctricos para mantención",
+    "estado": {"id_estado": 3, "codigo": "publicada", "glosa": "Publicada"},
+    "convocatoria": {"estado_convocatoria": 1, "descripcion": "Primer llamado"},
+    "documentos": [],
+    "fechas": {
+        "fecha_publicacion": "2026-08-01T14:30:00Z",
+        "fecha_cierre": "2026-08-06T18:00:00Z",
+        "fecha_ultimo_cambio": "2026-08-02T09:15:00Z",
+        "fecha_cancelacion": None,
+    },
+    "montos": {"moneda": "CLP", "monto_disponible": 4_500_000, "monto_disponible_clp": 4_500_000},
+    "institucion": {
+        "organismo_comprador": "Municipalidad de Prueba",
+        "rut": "69.070.100-7",
+        "unidad_compra": "Dirección de Operaciones",
+        "region": 13,
+        "nombre_region": "Metropolitana de Santiago",
+    },
+    "resumen": {"total_ofertas_recibidas": 4},
+    "motivos": {"motivo_cancelacion": None, "motivo_desierta": None, "motivo_seleccion": None},
+    "links": {"detalle": "/v2/compra-agil/1057539-228-COT26"},
+}
+
+
+class _Respuesta:
+    def __init__(self, cuerpo, status_code=200):
+        self._cuerpo = cuerpo
+        self.status_code = status_code
+
+    def json(self):
+        return self._cuerpo
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            import requests
+
+            raise requests.exceptions.HTTPError(f"HTTP {self.status_code}")
+
+
+def _envuelto(items, total_paginas=1, numero_pagina=1):
+    return {
+        "success": "OK",
+        "trace": None,
+        "payload": {
+            "items": items,
+            "paginacion": {
+                "total_paginas": total_paginas,
+                "numero_pagina": numero_pagina,
+                "tamano_pagina": 50,
+                "total_resultados": len(items),
+            },
+        },
+        "errors": None,
+    }
+
+
+# ── El cliente ───────────────────────────────────────────────────────────────
+
+
+def test_el_ticket_viaja_en_la_cabecera(monkeypatch):
+    """La API clásica lo lleva en la URL; ésta, en una cabecera.
+
+    Es la diferencia que más veces se escribe mal, y el síntoma es un 401 —no un
+    203 como en la clásica—, así que el fallo no se parece al conocido.
+    """
+    capturado = {}
+
+    def falso_get(url, params=None, headers=None, timeout=None):
+        capturado["url"] = url
+        capturado["headers"] = headers or {}
+        capturado["params"] = params or {}
+        return _Respuesta(_envuelto([ITEM]))
+
+    monkeypatch.setattr("etl.extractors.compra_agil.requests.get", falso_get)
+
+    extractor = CompraAgilExtractor({"COMPRA_AGIL_TICKET": "T-123"})
+    extractor.extract(cambio_desde="2026-08-01T00:00:00Z", cambio_hasta="2026-08-02T00:00:00Z")
+
+    assert capturado["headers"].get("ticket") == "T-123"
+    assert "ticket" not in capturado["params"], "el ticket NO va en la query"
+    assert capturado["url"].startswith("https://api2.mercadopublico.cl/v2/compra-agil")
+
+
+def test_recorre_todas_las_paginas(monkeypatch):
+    paginas = {
+        1: _envuelto([dict(ITEM, codigo="A-1")], total_paginas=3, numero_pagina=1),
+        2: _envuelto([dict(ITEM, codigo="A-2")], total_paginas=3, numero_pagina=2),
+        3: _envuelto([dict(ITEM, codigo="A-3")], total_paginas=3, numero_pagina=3),
+    }
+
+    def falso_get(url, params=None, headers=None, timeout=None):
+        return _Respuesta(paginas[params["numero_pagina"]])
+
+    monkeypatch.setattr("etl.extractors.compra_agil.requests.get", falso_get)
+
+    registros = CompraAgilExtractor({"COMPRA_AGIL_TICKET": "T"}).extract()
+    assert [r["codigo"] for r in registros] == ["A-1", "A-2", "A-3"]
+
+
+def test_un_429_no_se_reintenta(monkeypatch):
+    """La cuota es DIARIA: insistir hoy sólo consume lo que quede.
+
+    Se levanta una excepción con nombre propio para que el orquestador pueda
+    distinguirla de un fallo de red y no marque la corrida como rota.
+    """
+    llamadas = {"n": 0}
+
+    def falso_get(url, params=None, headers=None, timeout=None):
+        llamadas["n"] += 1
+        return _Respuesta({"success": "NOK"}, status_code=429)
+
+    monkeypatch.setattr("etl.extractors.compra_agil.requests.get", falso_get)
+
+    with pytest.raises(CuotaDiariaAgotada):
+        CompraAgilExtractor({"COMPRA_AGIL_TICKET": "T"}).extract()
+    assert llamadas["n"] == 1, "no se reintenta"
+
+
+def test_una_respuesta_no_ok_no_se_toma_por_buena(monkeypatch):
+    """La v2 puede responder HTTP 200 con `success: "NOK"`.
+
+    Tratarla como vacía es correcto; tratarla como datos metería `None` en la
+    base.
+    """
+    monkeypatch.setattr(
+        "etl.extractors.compra_agil.requests.get",
+        lambda *a, **k: _Respuesta(
+            {"success": "NOK", "payload": None, "errors": [{"codigo": "500"}]}
+        ),
+    )
+    assert CompraAgilExtractor({"COMPRA_AGIL_TICKET": "T"}).extract() == []
+
+
+# ── El transformador ─────────────────────────────────────────────────────────
+
+
+def test_mapea_a_la_forma_de_licitaciones():
+    fila = CompraAgilTransformer().transform(ITEM)
+
+    assert fila["codigo_externo"] == "1057539-228-COT26"
+    assert fila["tipo_convocatoria"] == "compra_agil"
+    assert fila["nombre"].startswith("Materiales")
+    assert fila["estado"] == "Publicada"
+    # El monto normalizado a CLP: es lo que permite comparar con el resto del
+    # catálogo y ordenar por monto.
+    assert fila["monto_estimado"] == 4_500_000
+    assert fila["nombre_organismo"] == "Municipalidad de Prueba"
+    assert fila["region"] == "Metropolitana de Santiago"
+    assert fila["fecha_publicacion"].year == 2026
+
+
+def test_el_llamado_se_conserva_aunque_no_tenga_columna():
+    """Una Compra Ágil desierta en el primer llamado se vuelve a abrir.
+
+    Sin `estado_convocatoria`, los dos llamados del mismo código serían
+    indistinguibles y el segundo pisaría al primero sin dejar rastro.
+    """
+    fila = CompraAgilTransformer().transform(ITEM)
+    assert fila["informacion_adicional"]["estado_convocatoria"] == 1
+    assert fila["informacion_adicional"]["total_ofertas_recibidas"] == 4
+
+
+def test_sin_codigo_se_descarta():
+    """Es la clave de negocio: sin ella la fila no se puede upsertar."""
+    assert CompraAgilTransformer().transform(dict(ITEM, codigo=None)) is None
+
+
+def test_sin_fecha_de_publicacion_se_descarta():
+    """La columna es NOT NULL, y adivinarla falsearía el orden del listado."""
+    roto = dict(ITEM, fechas={**ITEM["fechas"], "fecha_publicacion": None})
+    assert CompraAgilTransformer().transform(roto) is None
+
+
+def test_la_descripcion_queda_vacia_a_proposito():
+    """El listado de la API no la trae; el detalle cuesta una petición por
+    registro contra una API con cuota diaria."""
+    assert CompraAgilTransformer().transform(ITEM)["descripcion"] == ""

@@ -28,3 +28,17 @@ export const ESTADOS_LICITACION = [
   'Revocada',
   'Suspendida',
 ];
+
+/**
+ * Los mecanismos por los que el Estado convoca.
+ *
+ * Espeja `backend/app/models/convocatoria.py`. Compra Ágil y Convenio Marco son
+ * cerca de la mitad del mercado chileno y hasta F6 no se veían en el producto:
+ * el modelo daba por hecho que todo era una licitación.
+ */
+export const TIPOS_CONVOCATORIA = [
+  { value: 'licitacion', label: 'Licitación' },
+  { value: 'compra_agil', label: 'Compra Ágil' },
+  { value: 'convenio_marco', label: 'Convenio Marco' },
+  { value: 'trato_directo', label: 'Trato Directo' },
+] as const;
