@@ -26,7 +26,7 @@ from app.schemas.billing import (
     PortalResponse,
 )
 
-router = APIRouter(prefix="/api/billing", tags=["billing"])
+router = APIRouter(prefix="/billing", tags=["billing"])
 
 PLANS: list[Plan] = [
     # El id ES el plan_tier almacenado. Se llamaba "free" mientras la base

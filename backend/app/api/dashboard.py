@@ -32,7 +32,7 @@ from app.services.dashboard_home_service import (
     load_matches,
 )
 
-router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
+router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 
 @router.get("/stats")

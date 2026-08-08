@@ -16,6 +16,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import select
 
+from app.api.versionado import PREFIJO_API
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.services import auth_tokens
@@ -226,7 +227,7 @@ async def cliente(async_db):
 async def _registrar(cliente) -> tuple[str, str]:
     nombre = f"u{uuid.uuid4().hex[:8]}"
     await cliente.post(
-        "/api/auth/register",
+        f"{PREFIJO_API}/auth/register",
         json={
             "username": nombre,
             "email": f"{nombre}@example.com",
@@ -240,7 +241,9 @@ async def _registrar(cliente) -> tuple[str, str]:
 @pytest.mark.asyncio
 async def test_login_entrega_los_dos_tokens(cliente):
     usuario, clave = await _registrar(cliente)
-    r = await cliente.post("/api/auth/login", json={"username": usuario, "password": clave})
+    r = await cliente.post(
+        f"{PREFIJO_API}/auth/login", json={"username": usuario, "password": clave}
+    )
     assert r.status_code == 200, r.text
     cuerpo = r.json()
     assert cuerpo["access_token"]
@@ -250,25 +253,29 @@ async def test_login_entrega_los_dos_tokens(cliente):
 @pytest.mark.asyncio
 async def test_el_endpoint_de_refresco_rota(cliente):
     usuario, clave = await _registrar(cliente)
-    login = await cliente.post("/api/auth/login", json={"username": usuario, "password": clave})
+    login = await cliente.post(
+        f"{PREFIJO_API}/auth/login", json={"username": usuario, "password": clave}
+    )
     primero = login.json()["refresh_token"]
 
-    r = await cliente.post("/api/auth/refresh", json={"refresh_token": primero})
+    r = await cliente.post(f"{PREFIJO_API}/auth/refresh", json={"refresh_token": primero})
     assert r.status_code == 200, r.text
     assert r.json()["refresh_token"] != primero
 
     # El anterior ya no vale, y el error es 401 y no un 500.
-    repetido = await cliente.post("/api/auth/refresh", json={"refresh_token": primero})
+    repetido = await cliente.post(f"{PREFIJO_API}/auth/refresh", json={"refresh_token": primero})
     assert repetido.status_code == 401
 
 
 @pytest.mark.asyncio
 async def test_cerrar_sesion_invalida_el_refresco(cliente):
     usuario, clave = await _registrar(cliente)
-    login = await cliente.post("/api/auth/login", json={"username": usuario, "password": clave})
+    login = await cliente.post(
+        f"{PREFIJO_API}/auth/login", json={"username": usuario, "password": clave}
+    )
     token = login.json()["refresh_token"]
 
-    salida = await cliente.post("/api/auth/logout", json={"refresh_token": token})
+    salida = await cliente.post(f"{PREFIJO_API}/auth/logout", json={"refresh_token": token})
     assert salida.status_code == 200
-    otra = await cliente.post("/api/auth/refresh", json={"refresh_token": token})
+    otra = await cliente.post(f"{PREFIJO_API}/auth/refresh", json={"refresh_token": token})
     assert otra.status_code == 401

@@ -9,7 +9,7 @@ from app.db import get_db
 from app.models.user import User
 from app.schemas.user import UserResponse, UserUpdate
 
-router = APIRouter(prefix="/api/users", tags=["users"])
+router = APIRouter(prefix="/users", tags=["users"])
 
 
 @router.get("/", response_model=List[UserResponse])

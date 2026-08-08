@@ -22,7 +22,7 @@ from app.domain.billing import ErrorDeCobro, EventoDeSuscripcion
 from app.infra.billing import obtener_proveedor
 from app.models.empresa import Empresa
 
-router = APIRouter(prefix="/api/webhooks", tags=["webhooks"])
+router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 logger = logging.getLogger(__name__)
 
 

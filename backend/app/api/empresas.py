@@ -35,7 +35,7 @@ from app.schemas.empresa import (
 )
 from app.services import api_keys
 
-router = APIRouter(prefix="/api/empresas", tags=["empresas"])
+router = APIRouter(prefix="/empresas", tags=["empresas"])
 
 TRIAL_LENGTH_DAYS = 14
 

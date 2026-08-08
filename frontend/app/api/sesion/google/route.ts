@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { API } from '@/lib/versionApi';
 import { urlBackend } from '@/lib/servidor/sesion';
 
 /**
@@ -11,7 +12,7 @@ import { urlBackend } from '@/lib/servidor/sesion';
  * decide el servidor.
  */
 export function GET() {
-  return NextResponse.redirect(urlBackend('/api/auth/google'));
+  return NextResponse.redirect(urlBackend(`${API}/auth/google`));
 }
 
 export const dynamic = 'force-dynamic';

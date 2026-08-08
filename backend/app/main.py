@@ -24,6 +24,7 @@ from app.api import (
     users,
     webhooks,
 )
+from app.api.versionado import PREFIJO_API
 from app.config import settings
 from app.observability import request_id_ctx, setup_logging, setup_sentry
 
@@ -137,22 +138,35 @@ async def catch_all_exception_handler(request: Request, exc: Exception):
     )
 
 
-# Include routers
+# ── Rutas ────────────────────────────────────────────────────────────────────
+#
+# El prefijo vive AQUÍ y en un solo sitio. Los routers declaran su ruta relativa
+# (`/tenders`, `/empresas`…) y no saben nada de la versión: publicar una v2 es
+# montar los mismos routers bajo otro prefijo, no editar catorce ficheros.
+#
+# `/health` queda FUERA de la versión a propósito: lo consulta el healthcheck de
+# la plataforma, no un cliente de la API. Versionarlo obligaría a tocar la
+# configuración de Railway cada vez que suba la versión, que es justo lo que el
+# versionado intenta evitar.
+for router in (
+    data_inspection.router,
+    auth.router,
+    users.router,
+    tenders.router,
+    alerts.router,
+    empresas.router,
+    documentos.router,
+    documentos.file_router,
+    postulaciones.router,
+    estado_habil.router,
+    bi.router,
+    dashboard.router,
+    billing.router,
+    webhooks.router,
+):
+    app.include_router(router, prefix=PREFIJO_API)
+
 app.include_router(health.router)
-app.include_router(data_inspection.router)
-app.include_router(auth.router)
-app.include_router(users.router)
-app.include_router(tenders.router)
-app.include_router(alerts.router)
-app.include_router(empresas.router)
-app.include_router(documentos.router)
-app.include_router(documentos.file_router)
-app.include_router(postulaciones.router)
-app.include_router(estado_habil.router)
-app.include_router(bi.router)
-app.include_router(dashboard.router)
-app.include_router(billing.router)
-app.include_router(webhooks.router)
 
 
 # El pre-warm de artefactos de BI vivía aquí: cargaba en segundo plano 60 MB de

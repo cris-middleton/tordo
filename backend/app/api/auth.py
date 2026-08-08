@@ -27,7 +27,7 @@ from app.services import auth_tokens
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/auth", tags=["authentication"])
+router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
 # El reverse-trial ya no arranca aquí: pertenece a la empresa, y la empresa

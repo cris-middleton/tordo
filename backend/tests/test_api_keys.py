@@ -14,6 +14,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 import pytest_asyncio
 
+from app.api.versionado import PREFIJO_API
 from app.models.empresa import Empresa, EmpresaUsuario
 from app.services import api_keys
 
@@ -201,7 +202,7 @@ async def test_una_clave_autentica_como_su_creador(cliente, async_db, sample_emp
     clave, _ = await api_keys.crear(
         async_db, empresa_id=sample_empresa.id, nombre="MCP", creada_por=sample_user.id
     )
-    r = await cliente.get("/api/auth/me", headers={"Authorization": f"Bearer {clave}"})
+    r = await cliente.get(f"{PREFIJO_API}/auth/me", headers={"Authorization": f"Bearer {clave}"})
     assert r.status_code == 200, r.text
     assert r.json()["id"] == sample_user.id
 
@@ -219,7 +220,7 @@ async def test_la_clave_no_puede_saltar_de_empresa(
         async_db, empresa_id=sample_empresa.id, nombre="MCP", creada_por=sample_user.id
     )
     r = await cliente.get(
-        "/api/billing/status",
+        f"{PREFIJO_API}/billing/status",
         params={"empresa_id": str(otra_empresa.id)},
         headers={"Authorization": f"Bearer {clave}"},
     )
@@ -235,7 +236,9 @@ async def test_sin_nombrar_empresa_la_clave_usa_la_suya(
     clave, _ = await api_keys.crear(
         async_db, empresa_id=sample_empresa.id, nombre="MCP", creada_por=sample_user.id
     )
-    r = await cliente.get("/api/billing/status", headers={"Authorization": f"Bearer {clave}"})
+    r = await cliente.get(
+        f"{PREFIJO_API}/billing/status", headers={"Authorization": f"Bearer {clave}"}
+    )
     assert r.status_code == 200, r.text
 
 
@@ -251,7 +254,7 @@ async def test_una_clave_de_un_usuario_inactivo_deja_de_valer(
     sample_user.is_active = False
     await async_db.flush()
 
-    r = await cliente.get("/api/auth/me", headers={"Authorization": f"Bearer {clave}"})
+    r = await cliente.get(f"{PREFIJO_API}/auth/me", headers={"Authorization": f"Bearer {clave}"})
     assert r.status_code == 401
 
 
@@ -262,5 +265,5 @@ async def test_una_clave_revocada_no_entra_por_http(cliente, async_db, sample_em
     )
     await api_keys.revocar(async_db, fila.id, sample_empresa.id)
 
-    r = await cliente.get("/api/auth/me", headers={"Authorization": f"Bearer {clave}"})
+    r = await cliente.get(f"{PREFIJO_API}/auth/me", headers={"Authorization": f"Bearer {clave}"})
     assert r.status_code == 401

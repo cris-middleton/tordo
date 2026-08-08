@@ -25,7 +25,7 @@ from app.models.orden_compra import OrdenCompra
 from app.models.user import User
 
 router = APIRouter(
-    prefix="/api/data",
+    prefix="/data",
     tags=["data-inspection"],
     dependencies=[Depends(get_current_active_user)],
 )

@@ -1,5 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 
+import { API } from '@/lib/versionApi';
 import type { ApiKeyCreada, ApiKeyResumen, PlanResumen } from '@/types/cuenta';
 
 /**
@@ -77,17 +78,17 @@ class ApiClient {
   }
 
   async register(data: { username: string; email: string; password: string; full_name?: string }) {
-    const res = await this.client.post('/api/auth/register', data);
+    const res = await this.client.post(`${API}/auth/register`, data);
     return res.data;
   }
 
   async getCurrentUser(signal?: AbortSignal) {
-    const res = await this.client.get('/api/auth/me', { signal });
+    const res = await this.client.get(`${API}/auth/me`, { signal });
     return res.data;
   }
 
   async changePassword(currentPassword: string, newPassword: string) {
-    const res = await this.client.post('/api/auth/change-password', {
+    const res = await this.client.post(`${API}/auth/change-password`, {
       current_password: currentPassword,
       new_password: newPassword,
     });
@@ -102,201 +103,201 @@ class ApiClient {
   // ── Users ──────────────────────────────────────────────────────────────────
 
   async updateUser(userId: number, data: Record<string, unknown>) {
-    const res = await this.client.put(`/api/users/${userId}`, data);
+    const res = await this.client.put(`${API}/users/${userId}`, data);
     return res.data;
   }
 
   // ── Dashboard ──────────────────────────────────────────────────────────────
 
   async getDashboardStats() {
-    const res = await this.client.get('/api/dashboard/stats');
+    const res = await this.client.get(`${API}/dashboard/stats`);
     return res.data;
   }
 
   async getDashboardHome(empresaId?: string) {
     const params = empresaId ? { empresa_id: empresaId } : {};
-    const res = await this.client.get('/api/dashboard/home', { params });
+    const res = await this.client.get(`${API}/dashboard/home`, { params });
     return res.data as import('@/types/dashboardHome').DashboardHomeResponse;
   }
 
   // ── Tenders ────────────────────────────────────────────────────────────────
 
   async getTenders(params: Record<string, unknown> = {}) {
-    const res = await this.client.get('/api/tenders/', { params });
+    const res = await this.client.get(`${API}/tenders/`, { params });
     return res.data;
   }
 
   async getTenderByCode(codigo: string) {
-    const res = await this.client.get(`/api/tenders/codigo/${encodeURIComponent(codigo)}`);
+    const res = await this.client.get(`${API}/tenders/codigo/${encodeURIComponent(codigo)}`);
     return res.data;
   }
 
   // ── Orders (via data-inspection) ───────────────────────────────────────────
 
   async getOrders(params: Record<string, unknown> = {}) {
-    const res = await this.client.get('/api/data/ordenes_compra', { params });
+    const res = await this.client.get(`${API}/data/ordenes_compra`, { params });
     return res.data;
   }
 
   // ── Alerts ─────────────────────────────────────────────────────────────────
 
   async getAlerts(params: Record<string, unknown> = {}) {
-    const res = await this.client.get('/api/alerts/', { params });
+    const res = await this.client.get(`${API}/alerts/`, { params });
     return res.data;
   }
 
   async markAlertAsRead(alertId: number) {
-    const res = await this.client.post(`/api/alerts/${alertId}/read`);
+    const res = await this.client.post(`${API}/alerts/${alertId}/read`);
     return res.data;
   }
 
   async deleteAlert(alertId: number) {
-    await this.client.delete(`/api/alerts/${alertId}`);
+    await this.client.delete(`${API}/alerts/${alertId}`);
   }
 
   async getAlertPreferences(activeOnly: boolean = true) {
-    const res = await this.client.get('/api/alerts/preferences', {
+    const res = await this.client.get(`${API}/alerts/preferences`, {
       params: { active_only: activeOnly },
     });
     return res.data;
   }
 
   async createAlertPreference(data: Record<string, unknown>) {
-    const res = await this.client.post('/api/alerts/preferences', data);
+    const res = await this.client.post(`${API}/alerts/preferences`, data);
     return res.data;
   }
 
   async updateAlertPreference(prefId: number, data: Record<string, unknown>) {
-    const res = await this.client.put(`/api/alerts/preferences/${prefId}`, data);
+    const res = await this.client.put(`${API}/alerts/preferences/${prefId}`, data);
     return res.data;
   }
 
   async deleteAlertPreference(prefId: number) {
-    await this.client.delete(`/api/alerts/preferences/${prefId}`);
+    await this.client.delete(`${API}/alerts/preferences/${prefId}`);
   }
 
   async sendTestAlert() {
-    const res = await this.client.post('/api/alerts/test');
+    const res = await this.client.post(`${API}/alerts/test`);
     return res.data;
   }
 
   // ── Empresas ───────────────────────────────────────────────────────────────
 
   async getEmpresas() {
-    const res = await this.client.get('/api/empresas/');
+    const res = await this.client.get(`${API}/empresas/`);
     return res.data;
   }
 
   async createEmpresa(data: { rut_empresa: string; nombre_empresa: string }) {
-    const res = await this.client.post('/api/empresas/', data);
+    const res = await this.client.post(`${API}/empresas/`, data);
     return res.data;
   }
 
   async updateEmpresa(empresaId: string, data: Record<string, unknown>) {
-    const res = await this.client.put(`/api/empresas/${empresaId}`, data);
+    const res = await this.client.put(`${API}/empresas/${empresaId}`, data);
     return res.data;
   }
 
   async getEstadoHabil(empresaId: string) {
-    const res = await this.client.get(`/api/empresas/${empresaId}/estado-habil`);
+    const res = await this.client.get(`${API}/empresas/${empresaId}/estado-habil`);
     return res.data;
   }
 
   async checkEstadoHabilNow(empresaId: string) {
-    const res = await this.client.post(`/api/empresas/${empresaId}/check-estado-habil-now`);
+    const res = await this.client.post(`${API}/empresas/${empresaId}/check-estado-habil-now`);
     return res.data;
   }
 
   async getPlanEmpresa(empresaId: string): Promise<PlanResumen> {
-    const res = await this.client.get(`/api/empresas/${empresaId}/plan`)
+    const res = await this.client.get(`${API}/empresas/${empresaId}/plan`)
     return res.data
   }
 
   async getEmpresaMembers(empresaId: string) {
-    const res = await this.client.get(`/api/empresas/${empresaId}/members`)
+    const res = await this.client.get(`${API}/empresas/${empresaId}/members`)
     return res.data
   }
 
   async addEmpresaMember(empresaId: string, email: string, rol: 'admin' | 'viewer') {
-    const res = await this.client.post(`/api/empresas/${empresaId}/members`, { email, rol })
+    const res = await this.client.post(`${API}/empresas/${empresaId}/members`, { email, rol })
     return res.data
   }
 
   async removeEmpresaMember(empresaId: string, userId: number) {
-    const res = await this.client.delete(`/api/empresas/${empresaId}/members/${userId}`)
+    const res = await this.client.delete(`${API}/empresas/${empresaId}/members/${userId}`)
     return res.data
   }
 
   // ── Claves de API ──────────────────────────────────────────────────────────
 
   async getApiKeys(empresaId: string): Promise<ApiKeyResumen[]> {
-    const res = await this.client.get(`/api/empresas/${empresaId}/api-keys`)
+    const res = await this.client.get(`${API}/empresas/${empresaId}/api-keys`)
     return res.data
   }
 
   /** El `clave` de la respuesta es la ÚNICA vez que el secreto viaja. */
   async crearApiKey(empresaId: string, nombre: string): Promise<ApiKeyCreada> {
-    const res = await this.client.post(`/api/empresas/${empresaId}/api-keys`, { nombre })
+    const res = await this.client.post(`${API}/empresas/${empresaId}/api-keys`, { nombre })
     return res.data
   }
 
   async revocarApiKey(empresaId: string, claveId: string) {
-    const res = await this.client.delete(`/api/empresas/${empresaId}/api-keys/${claveId}`)
+    const res = await this.client.delete(`${API}/empresas/${empresaId}/api-keys/${claveId}`)
     return res.data
   }
 
   // ── Documentos ─────────────────────────────────────────────────────────────
 
   async getDocumentos(empresaId: string) {
-    const res = await this.client.get(`/api/empresas/${empresaId}/documentos`);
+    const res = await this.client.get(`${API}/empresas/${empresaId}/documentos`);
     return res.data;
   }
 
   async uploadDocumento(empresaId: string, formData: FormData) {
-    const res = await this.client.post(`/api/empresas/${empresaId}/documentos`, formData, {
+    const res = await this.client.post(`${API}/empresas/${empresaId}/documentos`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
     return res.data;
   }
 
   async deleteDocumento(empresaId: string, docId: string) {
-    await this.client.delete(`/api/empresas/${empresaId}/documentos/${docId}`);
+    await this.client.delete(`${API}/empresas/${empresaId}/documentos/${docId}`);
   }
 
   async getDocumentoDownloadUrl(empresaId: string, docId: string) {
-    const res = await this.client.get(`/api/empresas/${empresaId}/documentos/${docId}/download`);
+    const res = await this.client.get(`${API}/empresas/${empresaId}/documentos/${docId}/download`);
     return res.data;
   }
 
   // ── Postulaciones ──────────────────────────────────────────────────────────
 
   async getPostulaciones(empresaId: string, params: Record<string, unknown> = {}) {
-    const res = await this.client.get(`/api/empresas/${empresaId}/postulaciones`, { params });
+    const res = await this.client.get(`${API}/empresas/${empresaId}/postulaciones`, { params });
     return res.data;
   }
 
   async toggleChecklistItem(postulacionId: string, itemId: string, completed: boolean, documentoId?: string) {
     const res = await this.client.put(
-      `/api/postulaciones/${postulacionId}/checklist/${itemId}`,
+      `${API}/postulaciones/${postulacionId}/checklist/${itemId}`,
       { completado: completed, ...(documentoId !== undefined ? { documento_id: documentoId } : {}) },
     );
     return res.data;
   }
 
   async createPostulacion(data: { empresa_id: string; licitacion_id: number | string; notas?: string }) {
-    const res = await this.client.post('/api/postulaciones', data);
+    const res = await this.client.post(`${API}/postulaciones`, data);
     return res.data;
   }
 
   // ── Billing ────────────────────────────────────────────────────────────────
 
   async getBillingPlans() {
-    const res = await this.client.get('/api/billing/plans');
+    const res = await this.client.get(`${API}/billing/plans`);
     return res.data;
   }
 
   async getBillingStatus() {
-    const res = await this.client.get('/api/billing/status');
+    const res = await this.client.get(`${API}/billing/status`);
     return res.data;
   }
 
@@ -306,138 +307,138 @@ class ApiClient {
     success_url: string;
     cancel_url: string;
   }) {
-    const res = await this.client.post('/api/billing/checkout', data);
+    const res = await this.client.post(`${API}/billing/checkout`, data);
     return res.data;
   }
 
   async createBillingPortal() {
-    const res = await this.client.post('/api/billing/portal');
+    const res = await this.client.post(`${API}/billing/portal`);
     return res.data;
   }
 
   // ── BI / Analytics ─────────────────────────────────────────────────────────
 
   async getBIOportunidades(params: Record<string, unknown> = {}) {
-    const res = await this.client.get('/api/bi/oportunidades', { params });
+    const res = await this.client.get(`${API}/bi/oportunidades`, { params });
     return res.data;
   }
 
   async getBIMatching(params: { texto: string; top_n?: number }) {
-    const res = await this.client.get('/api/bi/matching', { params });
+    const res = await this.client.get(`${API}/bi/matching`, { params });
     return res.data;
   }
 
   async getBICompetidores(organismoId: string, params: Record<string, unknown> = {}) {
-    const res = await this.client.get(`/api/bi/competidores/${encodeURIComponent(organismoId)}`, {
+    const res = await this.client.get(`${API}/bi/competidores/${encodeURIComponent(organismoId)}`, {
       params,
     });
     return res.data;
   }
 
   async getBIComprador(organismoId: string) {
-    const res = await this.client.get(`/api/bi/comprador/${encodeURIComponent(organismoId)}`);
+    const res = await this.client.get(`${API}/bi/comprador/${encodeURIComponent(organismoId)}`);
     return res.data;
   }
 
   async getBIVentana(codigoExterno: string) {
-    const res = await this.client.get(`/api/bi/ventana/${encodeURIComponent(codigoExterno)}`);
+    const res = await this.client.get(`${API}/bi/ventana/${encodeURIComponent(codigoExterno)}`);
     return res.data;
   }
 
   async getBIEstacionalidad(organismoId: string, params: Record<string, unknown> = {}) {
     const res = await this.client.get(
-      `/api/bi/estacionalidad/${encodeURIComponent(organismoId)}`,
+      `${API}/bi/estacionalidad/${encodeURIComponent(organismoId)}`,
       { params },
     );
     return res.data;
   }
 
   async getBITendencia(params: Record<string, unknown> = {}) {
-    const res = await this.client.get('/api/bi/tendencia', { params });
+    const res = await this.client.get(`${API}/bi/tendencia`, { params });
     return res.data;
   }
 
   async getBIDescuento(params: Record<string, unknown> = {}) {
-    const res = await this.client.get('/api/bi/descuento', { params });
+    const res = await this.client.get(`${API}/bi/descuento`, { params });
     return res.data;
   }
 
   async getBIRubros(limit: number = 354) {
-    const res = await this.client.get('/api/bi/rubros', { params: { limit } });
+    const res = await this.client.get(`${API}/bi/rubros`, { params: { limit } });
     return res.data;
   }
 
   async getBIResumen(rubro: string) {
-    const res = await this.client.get('/api/bi/resumen', { params: { rubro } });
+    const res = await this.client.get(`${API}/bi/resumen`, { params: { rubro } });
     return res.data;
   }
 
   async getBIMiPosicion(params: { empresa_id: string; rubro: string }) {
-    const res = await this.client.get('/api/bi/mi_posicion', { params });
+    const res = await this.client.get(`${API}/bi/mi_posicion`, { params });
     return res.data;
   }
 
   async getBIClusters(topN: number = 80) {
-    const res = await this.client.get('/api/bi/clusters', { params: { top_n: topN } });
+    const res = await this.client.get(`${API}/bi/clusters`, { params: { top_n: topN } });
     return res.data;
   }
 
   async getTFIDFPerfil(empresaId: string) {
-    const res = await this.client.get(`/api/bi/perfil/${empresaId}`);
+    const res = await this.client.get(`${API}/bi/perfil/${empresaId}`);
     return res.data;
   }
 
   async updateTFIDFPerfil(empresaId: string, data: Record<string, unknown>) {
-    const res = await this.client.put(`/api/bi/perfil/${empresaId}`, data);
+    const res = await this.client.put(`${API}/bi/perfil/${empresaId}`, data);
     return res.data;
   }
 
   async getBIPanel(codigoExterno: string, empresaId?: string) {
-    const res = await this.client.get(`/api/bi/licitacion/${encodeURIComponent(codigoExterno)}/panel`, {
+    const res = await this.client.get(`${API}/bi/licitacion/${encodeURIComponent(codigoExterno)}/panel`, {
       params: empresaId ? { empresa_id: empresaId } : undefined,
     })
     return res.data
   }
 
   async getBILicitacionMatch(codigoExterno: string, params: { empresa_id: string; texto: string }) {
-    const res = await this.client.get(`/api/bi/licitacion/${encodeURIComponent(codigoExterno)}/match`, { params })
+    const res = await this.client.get(`${API}/bi/licitacion/${encodeURIComponent(codigoExterno)}/match`, { params })
     return res.data
   }
 
   async getBISector(params?: { sector?: string; limit?: number }) {
-    const res = await this.client.get('/api/bi/sector', { params })
+    const res = await this.client.get(`${API}/bi/sector`, { params })
     return res.data
   }
 
   async getBIProductos(params: { q: string; limit?: number }) {
-    const res = await this.client.get('/api/bi/productos', { params });
+    const res = await this.client.get(`${API}/bi/productos`, { params });
     return res.data;
   }
 
   async getBIPrecio(codigoProducto: string, params: { organismo_id?: string; unidad_medida?: string } = {}) {
-    const res = await this.client.get(`/api/bi/precio/${encodeURIComponent(codigoProducto)}`, { params });
+    const res = await this.client.get(`${API}/bi/precio/${encodeURIComponent(codigoProducto)}`, { params });
     return res.data;
   }
 
   async getDataSummary() {
-    const res = await this.client.get('/api/data/summary')
+    const res = await this.client.get(`${API}/data/summary`)
     return res.data
   }
 
   async getBIForecastCompetidores(params: { organismo_id?: string; rubro?: string; tipo?: string } = {}) {
-    const res = await this.client.get('/api/bi/forecast_competidores', { params });
+    const res = await this.client.get(`${API}/bi/forecast_competidores`, { params });
     return res.data;
   }
 
   async getBIRadarSemanal(empresaId: string) {
-    const res = await this.client.get('/api/bi/radar_semanal', { params: { empresa_id: empresaId } });
+    const res = await this.client.get(`${API}/bi/radar_semanal`, { params: { empresa_id: empresaId } });
     return res.data as import('@/types/dashboardHome').RadarResponse;
   }
 
   // ── WhatsApp test ──────────────────────────────────────────────────────────
 
   async sendTestWhatsApp() {
-    const res = await this.client.post('/api/alerts/test-whatsapp');
+    const res = await this.client.post(`${API}/alerts/test-whatsapp`);
     return res.data;
   }
 

@@ -47,7 +47,7 @@ from app.schemas.bi import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/bi", tags=["bi"])
+router = APIRouter(prefix="/bi", tags=["bi"])
 
 
 def _require_analytics():

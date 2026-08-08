@@ -25,7 +25,7 @@ from fastapi.routing import APIRoute
 
 from app.api.deps import empresa_ctx, empresa_ctx_opcional, verificar_acceso_empresa
 from app.main import app
-from tests.rutas import MINIMO_PLAUSIBLE, iter_rutas
+from tests.rutas import comprobar_recorrido, iter_rutas
 
 # Nombres de dependencia que cuentan como autorización resuelta.
 DEPENDENCIAS_VALIDAS = {empresa_ctx.__name__, empresa_ctx_opcional.__name__}
@@ -60,17 +60,14 @@ def _nombres_de_dependencias(ruta: APIRoute) -> set[str]:
 def _rutas_con_empresa_id_en_path() -> list[APIRoute]:
     # El recorrido vive en tests/rutas.py: FastAPI 0.141 dejó de aplanar los
     # routers incluidos y `app.routes` pasó a devolver envoltorios.
-    return [r for r in iter_rutas(app) if "{empresa_id}" in r.path]
+    return [r for _prefijo, r in iter_rutas(app) if "{empresa_id}" in r.path]
 
 
 def test_hay_rutas_que_verificar():
     """Si esto falla, el test dejó de cubrir nada y hay que revisarlo."""
     # Dos guardas, no una. La segunda distingue "faltan rutas de empresa" de
     # "el recorrido está roto", que es lo que pasó al actualizar FastAPI.
-    assert len(list(iter_rutas(app))) >= MINIMO_PLAUSIBLE, (
-        "el recorrido de rutas no encuentra la app entera — revisa tests/rutas.py, "
-        "probablemente FastAPI cambió la forma de sus rutas"
-    )
+    comprobar_recorrido(app)
     rutas = _rutas_con_empresa_id_en_path()
     assert len(rutas) >= 10, f"se esperaban ≥10 rutas con empresa_id, hay {len(rutas)}"
 

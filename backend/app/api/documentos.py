@@ -24,7 +24,7 @@ MAX_UPLOAD_BYTES = 26_214_400  # 25 MB
 
 
 @router.post(
-    "/api/empresas/{empresa_id}/documentos",
+    "/empresas/{empresa_id}/documentos",
     response_model=DocumentoOut,
     status_code=status.HTTP_201_CREATED,
 )
@@ -96,7 +96,7 @@ async def upload_documento(
     return doc
 
 
-@router.get("/api/empresas/{empresa_id}/documentos", response_model=list[DocumentoOut])
+@router.get("/empresas/{empresa_id}/documentos", response_model=list[DocumentoOut])
 async def listar_documentos(
     ctx: EmpresaContext = Depends(empresa_ctx),
     db: AsyncSession = Depends(get_db),
@@ -119,7 +119,7 @@ async def listar_documentos(
 
 
 @router.get(
-    "/api/empresas/{empresa_id}/documentos/{doc_id}/download",
+    "/empresas/{empresa_id}/documentos/{doc_id}/download",
     response_model=DocumentoDownloadResponse,
 )
 async def download_documento(
@@ -148,9 +148,7 @@ async def download_documento(
     )
 
 
-@router.delete(
-    "/api/empresas/{empresa_id}/documentos/{doc_id}", status_code=status.HTTP_204_NO_CONTENT
-)
+@router.delete("/empresas/{empresa_id}/documentos/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def eliminar_documento(
     doc_id: UUID,
     ctx: EmpresaContext = Depends(require_rol("owner", "admin")),
@@ -176,7 +174,7 @@ async def eliminar_documento(
 file_router = APIRouter(tags=["files"])
 
 
-@file_router.get("/api/files/{key:path}")
+@file_router.get("/files/{key:path}")
 async def serve_local_file(key: str, current_user: User = Depends(get_current_active_user)):
     if settings.storage_backend != "local":
         raise HTTPException(status_code=404, detail="Local file server not available")

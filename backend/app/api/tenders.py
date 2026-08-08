@@ -14,7 +14,7 @@ from app.models.user import User
 from app.repositories import matches as repo_matches
 from app.schemas.tender import TenderListResponse, TenderResponse
 
-router = APIRouter(prefix="/api/tenders", tags=["tenders"])
+router = APIRouter(prefix="/tenders", tags=["tenders"])
 
 # Cap on candidates pulled from Postgres before Python-side ranking. 200 gives
 # good coverage for typical keyword searches while keeping the per-request

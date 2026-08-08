@@ -30,7 +30,7 @@ class EstadoHabilResponse(BaseModel):
     historial: list[EstadoHabilLogOut]
 
 
-@router.get("/api/empresas/{empresa_id}/estado-habil", response_model=EstadoHabilResponse)
+@router.get("/empresas/{empresa_id}/estado-habil", response_model=EstadoHabilResponse)
 async def get_estado_habil(
     ctx: EmpresaContext = Depends(empresa_ctx),
     db: AsyncSession = Depends(get_db),

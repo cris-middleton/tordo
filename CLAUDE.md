@@ -189,7 +189,7 @@ queda mudo comprobando el vacío.**
 de los 22 endpoints de BI. **Un endpoint nuevo hace fallar el test hasta que alguien decida
 explícitamente su nivel** — igual que con tenancy.
 
-Si una capacidad se vende en `/api/billing/plans`, el endpoint que la implementa tiene que
+Si una capacidad se vende en `/api/v1/billing/plans`, el endpoint que la implementa tiene que
 comprobar el plan. Encontró que no se cumplía: "Matching semántico" se vendía como Pro y
 `/licitacion-match` no lo comprobaba.
 
@@ -260,7 +260,7 @@ y no tiene Pub/Sub ni Cloud Tasks.
     backend sólo manda el token de acceso en su redirección. Mandar el refresco por la URL
     sería peor. La solución es un código de un solo uso, y toca el backend.
 - **Los límites de plan NO se copian al frontend.** Viven en `PLAN_QUOTAS`
-  (`core/plan_limits.py`) y llegan por `GET /api/empresas/{id}/plan`, junto con el consumo
+  (`core/plan_limits.py`) y llegan por `GET /api/v1/empresas/{id}/plan`, junto con el consumo
   actual. Una copia en TypeScript se desincroniza al primer cambio de precios **sin que nada
   falle**: el cliente ve un límite que no es el suyo. `null` es *ilimitado*, no cero.
 - **Un 402 del backend se traduce a `plan-upgrade-needed` en el interceptor de `lib/api.ts`**,
@@ -328,8 +328,8 @@ y no tiene Pub/Sub ni Cloud Tasks.
   efímera y corre Playwright. Encontró **tres fallos que ninguna otra capa veía**, y los
   tres compilaban y pasaban el lint:
   - el proxy entraba en **bucle de redirecciones** con cualquier ruta terminada en `/`
-    (Next quita la barra, FastAPI la vuelve a pedir), así que `/api/tenders/`,
-    `/api/empresas/` y `/api/alerts/` **nunca cargaban**;
+    (Next quita la barra, FastAPI la vuelve a pedir), así que `/api/v1/tenders/`,
+    `/api/v1/empresas/` y `/api/v1/alerts/` **nunca cargaban**;
   - `sort_by=relevance` **sin artefactos TF-IDF ignoraba el término** y devolvía el
     catálogo entero — el estado normal de un despliegue nuevo;
   - **`params` es una Promesa desde Next 16**, y las dos páginas de detalle la leían como
@@ -411,6 +411,17 @@ tasks/          Celery
 bi (22 endpoints), dashboard, billing, webhooks, health, data_inspection.
 `data_inspection` requiere auth a nivel de router — **no añadas rutas ahí que la salten**.
 
+**Todo cuelga de `/api/v1`, y el prefijo lo pone `main.py`** (ADR 0009). Los routers declaran
+su ruta relativa (`/tenders`, `/empresas`…) y **nunca `/api` por su cuenta**: publicar una v2
+es montar los mismos routers bajo otro prefijo, no editar catorce ficheros. `/health` queda
+fuera de la versión — lo consulta el healthcheck de la plataforma, no un cliente.
+La versión vive en `app/api/versionado.py` y, duplicada a propósito, en
+`frontend/lib/versionApi.ts`: si se desincronizan, **todas** las llamadas fallan a la vez.
+
+**Las respuestas son planas, sin envelope** (ADR 0009). El éxito ya lo lleva el código HTTP;
+un `{success, data}` termina siempre en 200 con `success: false`, que obliga a cada cliente a
+mirar dos sitios. Lo fija `tests/test_versionado_api.py`.
+
 **Celery**: 11 jobs. ETL horario, backfill diario, bulk semanal + analytics, estado hábil
 cada 6 h, recordatorios de plazo y de vencimiento, precómputo nocturno de matches, watchdog
 cada 30 min, trials, radar semanal. Todo en `America/Santiago`.
@@ -465,7 +476,7 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
   - **Clave de API** (`tordo_<prefijo>_<secreto>`). Para clientes sin navegador: MCP, ERP,
     scripts. **Pertenece a la empresa y la fija**: nombrar otra da 403, aunque quien la creó
     pertenezca a las dos. Se guarda el hash; el prefijo queda en claro para poder
-    identificarla. Se emite en `POST /api/empresas/{id}/api-keys` con rol de escritura, y
+    identificarla. Se emite en `POST /api/v1/empresas/{id}/api-keys` con rol de escritura, y
     **el secreto sólo se devuelve ahí**.
 
   Roles empresa (owner/admin/viewer) + cuotas por plan aplican igual por las dos vías.
@@ -473,13 +484,12 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
   vive en `refresh_tokens` y sí se revoca. **Rota en cada uso**, y presentar uno ya canjeado
   revoca la familia entera: sin eso, quien roba un token se queda dentro para siempre.
   Cambiar la contraseña cierra todas las sesiones.
-  **Pendiente (F5, sesión de frontend)**: el refresco viaja en el cuerpo y hoy el frontend
-  guarda el acceso en `localStorage`. El destino es que el proxy de Next lo guarde en una
-  cookie `httpOnly` y el navegador no vea ninguno de los dos.
+  **Resuelto en F5**: el navegador ya no ve ninguno de los dos. El proxy de Next los guarda
+  en cookies `httpOnly` y renueva solo — ver las reglas de frontend.
   **La ruta de Google sigue sin refresco**: redirige con el token en la URL, y meter ahí un
-  refresco sería peor. Se arregla junto con el proxy.
+  refresco sería peor (historial, logs, `Referer`). La solución es un código de un solo uso.
 - **Alertas**: preferencias → AlertEngine → `INSERT ON CONFLICT` idempotente → multicanal.
-- **Planes**: el `id` del plan que devuelve `/api/billing/plans` **es** el `plan_tier` que se
+- **Planes**: el `id` del plan que devuelve `/api/v1/billing/plans` **es** el `plan_tier` que se
   guarda en la empresa (`basico | pyme | pro | enterprise`); `nombre` es sólo lo que se
   muestra. Los límites — documentos, consultas BI, alertas y **asientos** — viven todos en
   `PLAN_QUOTAS` (`core/plan_limits.py`), que es la única tabla que hay que editar.
@@ -503,7 +513,7 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
   - **Contrapartida, dicha claro**: una licitación ingerida hoy no tiene fila hasta las 06:00
     siguientes y sale sin score. El score se guarda entero (0-100) y la API lo devuelve como
     coseno 0-1, así que se pierde precisión por debajo del 1 %.
-- **Rate limiting**: Redis, por IP en `/api/bi/*`, más cuota diaria por tier.
+- **Rate limiting**: Redis, por IP en `/api/v1/bi/*`, más cuota diaria por tier.
 - **Un worker por contenedor, y es una decisión medida.** El modelo TF-IDF cuesta **~105 MB
   por proceso** y no se comparte entre workers. Con `-w 4` en 512 MB el contenedor muere por
   OOM, y cada reinicio recarga el modelo: en la medición se cargó 14 veces para 4 workers.

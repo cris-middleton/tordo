@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { API } from '@/lib/versionApi';
 import { guardarSesion, urlBackend } from '@/lib/servidor/sesion';
 
 /**
@@ -12,7 +13,7 @@ import { guardarSesion, urlBackend } from '@/lib/servidor/sesion';
 export async function POST(req: NextRequest) {
   const credenciales = await req.json();
 
-  const r = await fetch(urlBackend('/api/auth/login'), {
+  const r = await fetch(urlBackend(`${API}/auth/login`), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(credenciales),
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(datos, { status: r.status });
   }
 
-  const usuario = await fetch(urlBackend('/api/auth/me'), {
+  const usuario = await fetch(urlBackend(`${API}/auth/me`), {
     headers: { Authorization: `Bearer ${datos.access_token}` },
     cache: 'no-store',
   }).then((x) => (x.ok ? x.json() : null));

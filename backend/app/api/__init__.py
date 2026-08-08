@@ -15,3 +15,6 @@ from app.api import (
     users,
     webhooks,
 )
+from app.api.versionado import PREFIJO_API, VERSION_API
+
+__all__ = ["PREFIJO_API", "VERSION_API"]

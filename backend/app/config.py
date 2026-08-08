@@ -127,7 +127,11 @@ class Settings(BaseSettings):
     # Google OAuth
     google_client_id: str | None = None
     google_client_secret: str | None = None
-    google_redirect_uri: str = "http://localhost:8000/api/auth/google/callback"
+    # Tiene que coincidir EXACTAMENTE con lo registrado en Google Cloud Console:
+    # Google compara la cadena completa y rechaza el intercambio si difiere en un
+    # carácter. Cambió al versionar la API (ADR 0009) — si el login con Google
+    # deja de funcionar tras un despliegue, esto es lo primero que hay que mirar.
+    google_redirect_uri: str = "http://localhost:8000/api/v1/auth/google/callback"
 
     # Twilio WhatsApp
     twilio_account_sid: str | None = None

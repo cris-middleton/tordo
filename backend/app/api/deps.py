@@ -9,10 +9,10 @@ Estas dependencias convierten esa garantía en algo declarativo: se pide el
 contexto de empresa en la firma y FastAPI se encarga de resolverlo o rechazar con
 403 antes de que el handler corra.
 
-    @router.get("/api/algo/{empresa_id}")
+    @router.get("/algo/{empresa_id}")
     async def leer(ctx: EmpresaContext = Depends(empresa_ctx)): ...
 
-    @router.post("/api/algo/{empresa_id}")
+    @router.post("/algo/{empresa_id}")
     async def escribir(ctx: EmpresaContext = Depends(require_rol("owner", "admin"))): ...
 
 Ver `.claude/skills/endpoint-empresa/SKILL.md`.

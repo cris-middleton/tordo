@@ -19,7 +19,7 @@ from app.schemas.alert import (
     AlertUpdate,
 )
 
-router = APIRouter(prefix="/api/alerts", tags=["alerts"])
+router = APIRouter(prefix="/alerts", tags=["alerts"])
 
 
 @router.post(

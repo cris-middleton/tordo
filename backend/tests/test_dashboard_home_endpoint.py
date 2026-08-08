@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from app.api.versionado import PREFIJO_API
 from app.core.security import get_current_active_user
 from app.db import get_db
 from app.main import app
@@ -35,7 +36,7 @@ async def test_home_endpoint_returns_full_shape(async_db, sample_user, sample_em
     try:
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
-            res = await ac.get("/api/dashboard/home")
+            res = await ac.get(f"{PREFIJO_API}/dashboard/home")
     finally:
         _clear_overrides()
 
@@ -59,7 +60,7 @@ async def test_home_endpoint_rejects_empresa_user_is_not_member_of(
     try:
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
-            res = await ac.get(f"/api/dashboard/home?empresa_id={fake_uuid}")
+            res = await ac.get(f"{PREFIJO_API}/dashboard/home?empresa_id={fake_uuid}")
     finally:
         _clear_overrides()
 
@@ -81,7 +82,7 @@ async def test_home_endpoint_free_tier_caps_matches_visible_at_1(
     try:
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
-            res = await ac.get("/api/dashboard/home")
+            res = await ac.get(f"{PREFIJO_API}/dashboard/home")
     finally:
         _clear_overrides()
 
@@ -107,7 +108,7 @@ async def test_home_endpoint_active_trial_unlocks_paid_tier(async_db, sample_use
     try:
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
-            res = await ac.get("/api/dashboard/home")
+            res = await ac.get(f"{PREFIJO_API}/dashboard/home")
     finally:
         _clear_overrides()
 
@@ -131,7 +132,7 @@ async def test_home_endpoint_expired_trial_falls_back_to_free(
     try:
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
-            res = await ac.get("/api/dashboard/home")
+            res = await ac.get(f"{PREFIJO_API}/dashboard/home")
     finally:
         _clear_overrides()
 

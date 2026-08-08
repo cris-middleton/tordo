@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { API } from '@/lib/versionApi';
 import { borrarSesion, leerSesion, urlBackend } from '@/lib/servidor/sesion';
 
 /**
@@ -12,7 +13,7 @@ export async function POST() {
   const { refresco } = await leerSesion();
 
   if (refresco) {
-    await fetch(urlBackend('/api/auth/logout'), {
+    await fetch(urlBackend(`${API}/auth/logout`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh_token: refresco }),

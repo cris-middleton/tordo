@@ -59,9 +59,7 @@ async def _generate_checklist(postulacion_id: UUID, tipo_licitacion: str, db: As
     db.add_all(items)
 
 
-@router.post(
-    "/api/postulaciones", response_model=PostulacionOut, status_code=status.HTTP_201_CREATED
-)
+@router.post("/postulaciones", response_model=PostulacionOut, status_code=status.HTTP_201_CREATED)
 async def crear_postulacion(
     payload: PostulacionCreate,
     db: AsyncSession = Depends(get_db),
@@ -110,7 +108,7 @@ async def crear_postulacion(
     return postulacion
 
 
-@router.get("/api/empresas/{empresa_id}/postulaciones", response_model=list[PostulacionListItem])
+@router.get("/empresas/{empresa_id}/postulaciones", response_model=list[PostulacionListItem])
 async def listar_postulaciones(
     estado: str | None = Query(None),
     ctx: EmpresaContext = Depends(empresa_ctx),
@@ -132,7 +130,7 @@ async def listar_postulaciones(
     return postulaciones
 
 
-@router.get("/api/postulaciones/{postulacion_id}", response_model=PostulacionOut)
+@router.get("/postulaciones/{postulacion_id}", response_model=PostulacionOut)
 async def obtener_postulacion(
     postulacion_id: UUID,
     db: AsyncSession = Depends(get_db),
@@ -152,7 +150,7 @@ async def obtener_postulacion(
     return p
 
 
-@router.put("/api/postulaciones/{postulacion_id}", response_model=PostulacionOut)
+@router.put("/postulaciones/{postulacion_id}", response_model=PostulacionOut)
 async def actualizar_postulacion(
     postulacion_id: UUID,
     payload: PostulacionUpdate,
@@ -183,7 +181,7 @@ async def actualizar_postulacion(
     return p
 
 
-@router.put("/api/postulaciones/{postulacion_id}/checklist/{item_id}", response_model=None)
+@router.put("/postulaciones/{postulacion_id}/checklist/{item_id}", response_model=None)
 async def toggle_checklist_item(
     postulacion_id: UUID,
     item_id: UUID,

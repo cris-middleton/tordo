@@ -1,3 +1,4 @@
+import { API } from '@/lib/versionApi';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
@@ -72,7 +73,7 @@ export async function leerSesion(): Promise<{ acceso?: string; refresco?: string
 export async function rotar(
   refresco: string,
 ): Promise<{ acceso: string; refresco: string } | null> {
-  const r = await fetch(urlBackend('/api/auth/refresh'), {
+  const r = await fetch(urlBackend(`${API}/auth/refresh`), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refresh_token: refresco }),

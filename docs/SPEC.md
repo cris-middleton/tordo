@@ -242,14 +242,14 @@ El stack (Next.js + Tailwind CSS responsive) lo soporta sin cambio. PWA va en v3
 │  BACKEND API     │  │  MOTOR DE ALERTAS   │  │  SERVICIO DE             │
 │  (FastAPI)       │  │  (Celery Beat)      │  │  NOTIFICACIONES          │
 │                  │  │  TZ: America/       │  │                          │
-│  /api/auth       │  │  Santiago           │  │  Email (SES/SMTP)        │
-│  /api/tenders    │  │                     │  │  WhatsApp (Twilio WABA)  │
-│  /api/empresa    │  │  etl_licitaciones   │  │  In-app                  │
-│  /api/bi         │  │  (hourly — activas) │  │                          │
-│  /api/checklist  │  │  etl_licitaciones   │  │  Fallback: email si      │
-│  /api/documents  │  │  (02:00 — nuevas)   │  │  WhatsApp falla          │
-│  /api/alerts     │  │  check_estado_habil │  │                          │
-│  /api/billing    │  │  (6h)               │  │                          │
+│  /api/v1/auth       │  │  Santiago           │  │  Email (SES/SMTP)        │
+│  /api/v1/tenders    │  │                     │  │  WhatsApp (Twilio WABA)  │
+│  /api/v1/empresa    │  │  etl_licitaciones   │  │  In-app                  │
+│  /api/v1/bi         │  │  (hourly — activas) │  │                          │
+│  /api/v1/checklist  │  │  etl_licitaciones   │  │  Fallback: email si      │
+│  /api/v1/documents  │  │  (02:00 — nuevas)   │  │  WhatsApp falla          │
+│  /api/v1/alerts     │  │  check_estado_habil │  │                          │
+│  /api/v1/billing    │  │  (6h)               │  │                          │
 │                  │  │  analytics_refresh   │  │                          │
 │  Lee parquets de │  │  (semanal o mensual) │  │                          │
 │  analytics/ vía  │  │  watchdog (30min)   │  │                          │
@@ -306,13 +306,13 @@ El stack (Next.js + Tailwind CSS responsive) lo soporta sin cambio. PWA va en v3
 
 [Cron */30 min]       → Watchdog: verificar que tasks críticas corrieron
 
-[Usuario web — BI]    → GET /api/bi/benchmarking?producto=X&organismo=Y
+[Usuario web — BI]    → GET /api/v1/bi/benchmarking?producto=X&organismo=Y
                       → BIService lee product_price_bands_L1.parquet
-                      → GET /api/bi/competidores?rubro=X&organismo=Y
+                      → GET /api/v1/bi/competidores?rubro=X&organismo=Y
                       → BIService lee competitors_by_market.parquet
-                      → GET /api/bi/matching?empresa_id=X
+                      → GET /api/v1/bi/matching?empresa_id=X
                       → TF-IDF cosine similarity con modelo pre-entrenado
-                      → GET /api/bi/oportunidad?licitacion_id=X
+                      → GET /api/v1/bi/oportunidad?licitacion_id=X
                       → BIService combina: precio + competencia + ventana + tendencia
 ```
 
@@ -925,8 +925,8 @@ class AlertService:
 ### 7.5 Protección de Datos (Ley 19.628 Chile)
 
 - **RUT de empresa**: No loggear en texto plano.
-- **Exportación**: `GET /api/empresa/export`.
-- **Eliminación**: `DELETE /api/empresa` — cascada + S3 lifecycle.
+- **Exportación**: `GET /api/v1/empresa/export`.
+- **Eliminación**: `DELETE /api/v1/empresa` — cascada + S3 lifecycle.
 - **Retención**: Documentos eliminados 90 días después de cancelar cuenta.
 
 ---
@@ -1187,12 +1187,12 @@ de precio a nivel rubro.
 > **NUEVO en v1.1**: Esta fase integra los analytics pre-computados con el frontend.
 
 - [ ] `BIService`: lee parquets de analytics, expone datos vía API
-- [ ] `GET /api/bi/precio?producto=X&organismo=Y` → bandas de product_price_bands
-- [ ] `GET /api/bi/competidores?rubro=X&organismo=Y` → competitors_by_market
-- [ ] `GET /api/bi/matching?empresa_id=X` → TF-IDF matching
-- [ ] `GET /api/bi/oportunidad?licitacion_id=X` → score compuesto
-- [ ] `GET /api/bi/comprador?organismo=X` → buyer_scores + transparency
-- [ ] `GET /api/bi/ventana?licitacion_id=X` → window classification
+- [ ] `GET /api/v1/bi/precio?producto=X&organismo=Y` → bandas de product_price_bands
+- [ ] `GET /api/v1/bi/competidores?rubro=X&organismo=Y` → competitors_by_market
+- [ ] `GET /api/v1/bi/matching?empresa_id=X` → TF-IDF matching
+- [ ] `GET /api/v1/bi/oportunidad?licitacion_id=X` → score compuesto
+- [ ] `GET /api/v1/bi/comprador?organismo=X` → buyer_scores + transparency
+- [ ] `GET /api/v1/bi/ventana?licitacion_id=X` → window classification
 - [ ] Frontend — Panel `/bi`: histograma precios + competidores + score oportunidad
 - [ ] Frontend — Widget BI en `/licitaciones/[codigo]`
 - [ ] Dashboard: widget "¿Conviene postular?" + próximos plazos + estado hábil + alertas

@@ -24,43 +24,44 @@ from __future__ import annotations
 
 import pytest
 
+from app.api.versionado import PREFIJO_API
 from app.main import app
-from tests.rutas import MINIMO_PLAUSIBLE, rutas_con_metodo
+from tests.rutas import comprobar_recorrido, rutas_con_metodo
 
 # Ruta → nivel de protección esperado. Las excepciones llevan su motivo escrito:
 # si alguien la cambia, tiene que cambiar también la razón.
 CONTRATO: dict[tuple[str, str], str] = {
-    ("GET", "/api/bi/clusters"): "cuota",
-    ("GET", "/api/bi/competidores/{organismo_id}"): "cuota",
-    ("GET", "/api/bi/comprador/{organismo_id}"): "cuota",
-    ("GET", "/api/bi/descuento"): "cuota",
-    ("GET", "/api/bi/diversificacion/{codigo_proveedor}"): "cuota",
-    ("GET", "/api/bi/estacionalidad/{organismo_id}"): "cuota",
-    ("GET", "/api/bi/forecast_competidores"): "cuota",
-    ("GET", "/api/bi/licitacion/{codigo_externo}/panel"): "cuota",
-    ("GET", "/api/bi/matching"): "cuota",
-    ("GET", "/api/bi/mi_posicion"): "cuota",
-    ("GET", "/api/bi/oportunidades"): "cuota",
-    ("GET", "/api/bi/precio/{codigo_producto}"): "cuota",
-    ("GET", "/api/bi/resumen"): "cuota",
-    ("GET", "/api/bi/sector"): "cuota",
-    ("GET", "/api/bi/tendencia"): "cuota",
-    ("GET", "/api/bi/ventana/{codigo_externo}"): "cuota",
+    ("GET", "/bi/clusters"): "cuota",
+    ("GET", "/bi/competidores/{organismo_id}"): "cuota",
+    ("GET", "/bi/comprador/{organismo_id}"): "cuota",
+    ("GET", "/bi/descuento"): "cuota",
+    ("GET", "/bi/diversificacion/{codigo_proveedor}"): "cuota",
+    ("GET", "/bi/estacionalidad/{organismo_id}"): "cuota",
+    ("GET", "/bi/forecast_competidores"): "cuota",
+    ("GET", "/bi/licitacion/{codigo_externo}/panel"): "cuota",
+    ("GET", "/bi/matching"): "cuota",
+    ("GET", "/bi/mi_posicion"): "cuota",
+    ("GET", "/bi/oportunidades"): "cuota",
+    ("GET", "/bi/precio/{codigo_producto}"): "cuota",
+    ("GET", "/bi/resumen"): "cuota",
+    ("GET", "/bi/sector"): "cuota",
+    ("GET", "/bi/tendencia"): "cuota",
+    ("GET", "/bi/ventana/{codigo_externo}"): "cuota",
     # El perfil TF-IDF es de la empresa: basta con pertenecer a ella. Escribirlo
     # exige además rol de escritura.
-    ("GET", "/api/bi/perfil/{empresa_id}"): "empresa",
-    ("PUT", "/api/bi/perfil/{empresa_id}"): "empresa",
+    ("GET", "/bi/perfil/{empresa_id}"): "empresa",
+    ("PUT", "/bi/perfil/{empresa_id}"): "empresa",
     # Catálogos que alimentan los desplegables de los filtros. Cobrar por leer la
     # lista de rubros dejaría la pantalla inservible antes de poder consultar
     # nada, así que van sin cuota a propósito.
-    ("GET", "/api/bi/rubros"): "sesion",
-    ("GET", "/api/bi/productos"): "sesion",
+    ("GET", "/bi/rubros"): "sesion",
+    ("GET", "/bi/productos"): "sesion",
     # El radar comprueba pertenencia a la empresa por dentro
     # (`verificar_acceso_empresa`), no por dependencia. No está listado como
     # capacidad de ningún plan, así que hoy no se cobra.
-    ("GET", "/api/bi/radar_semanal"): "sesion",
+    ("GET", "/bi/radar_semanal"): "sesion",
     # `/licitacion-match` NO está aquí a propósito: ver test_matching_semantico_*.
-    ("GET", "/api/bi/licitacion-match/{codigo_externo}"): "plan_pro",
+    ("GET", "/bi/licitacion-match/{codigo_externo}"): "plan_pro",
 }
 
 # Los nombres internos de `plan_limits.py` eran los tres `_check`, así que al
@@ -76,18 +77,28 @@ DEPENDENCIAS_POR_NIVEL = {
 
 
 def _rutas_bi() -> list[tuple[str, str, set[str]]]:
-    # El recorrido vive en tests/rutas.py, compartido con el test estructural de
-    # multi-tenancy: FastAPI 0.141 dejó de aplanar los routers incluidos y los
-    # dos pasaron a encontrar cero rutas a la vez.
-    return [f for f in rutas_con_metodo(app) if f[1].startswith("/api/bi/")]
+    """Las rutas de BI, con la ruta SIN el prefijo de versión.
+
+    La tabla de arriba se escribe relativa (`/bi/clusters`) a propósito: sacar
+    una v2 no debería obligar a reescribir 22 líneas que no han cambiado de
+    significado.
+
+    El recorrido vive en tests/rutas.py, compartido con el test estructural de
+    multi-tenancy: FastAPI 0.141 dejó de aplanar los routers incluidos y los dos
+    pasaron a encontrar cero rutas a la vez.
+    """
+    marca = f"{PREFIJO_API}/bi/"
+    return [
+        (metodo, ruta[len(PREFIJO_API) :], deps)
+        for metodo, ruta, deps in rutas_con_metodo(app)
+        if ruta.startswith(marca)
+    ]
 
 
 def test_el_recorrido_de_rutas_funciona():
     """Guarda antes que nada: sin esto, un recorrido roto deja el resto en verde
     comprobando el vacío."""
-    assert len(rutas_con_metodo(app)) >= MINIMO_PLAUSIBLE, (
-        "el recorrido de rutas no encuentra la app entera — revisa tests/rutas.py"
-    )
+    comprobar_recorrido(app)
     assert len(_rutas_bi()) >= 20, f"se esperaban ≥20 endpoints de BI, hay {len(_rutas_bi())}"
 
 
@@ -154,7 +165,7 @@ def test_matching_semantico_exige_plan_pro():
         "endpoint tienen que cambiar juntos."
     )
 
-    deps = next(d for m, p, d in _rutas_bi() if p == "/api/bi/licitacion-match/{codigo_externo}")
+    deps = next(d for m, p, d in _rutas_bi() if p == "/bi/licitacion-match/{codigo_externo}")
     assert deps & DEPENDENCIAS_POR_NIVEL["plan_pro"], (
         f"/licitacion-match declara {sorted(deps)} y no comprueba el plan, "
         "pero el matching semántico se vende como capacidad Pro."
@@ -193,7 +204,7 @@ async def test_un_plan_basico_recibe_402_en_el_matching(async_db, sample_user, s
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
             r = await c.get(
-                "/api/bi/licitacion-match/ABC-1",
+                f"{PREFIJO_API}/bi/licitacion-match/ABC-1",
                 params={"empresa_id": str(sample_empresa.id), "texto": "servicios de aseo"},
             )
     finally:
