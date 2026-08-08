@@ -9,10 +9,13 @@
 
 ## Estado al cerrar · 2026-08-08
 
-**Las siete fases están cerradas** — F0 a F6. Los cuatro problemas de fondo del veredicto
-(§0) están resueltos: el plano de datos analítico vive en Postgres, la multi-tenancy se
-garantiza por dependencia con test estructural, el modelo de datos soporta el alcance
-objetivo, y el frontend tiene tests de extremo a extremo.
+**Las siete fases están cerradas** — F0 a F6 — **y el servidor MCP también**, que era el
+punto que quedaba en pausa: se retomó al cumplirse la condición que puso su propia
+especificación (la API pública ya está, así que dejó de ser superficie nueva).
+
+Los cuatro problemas de fondo del veredicto (§0) están resueltos: el plano de datos analítico
+vive en Postgres, la multi-tenancy se garantiza por dependencia con test estructural, el
+modelo de datos soporta el alcance objetivo, y el frontend tiene tests de extremo a extremo.
 
 **Lo que sigue abierto, con su motivo — no son pendientes sin dueño:**
 
@@ -21,15 +24,16 @@ objetivo, y el frontend tiene tests de extremo a extremo.
 | Protección de rama en `main` | GitHub la reserva a cuentas Pro (~4 USD/mes). Sustituto local: `make merge PR=<n>`, que se niega en rojo. |
 | Primitivas accesibles tipo Radix | Mejora de accesibilidad que conviene hacer con un inventario de componentes delante. |
 | Extracción de bases con LLM | Aplazada con su [ADR 0010](decisiones/0010-extraccion-de-bases-con-llm.md): **no hay fuente** para las bases. Se reabre si el OCDS de ChileCompra trae `documents`. |
-| Servidor MCP | En pausa y especificado ([ADR 0004](decisiones/0004-llm-solo-mcp.md)): es un canal, no una capacidad. |
 | Refresco en el login con Google | La sesión por Google sigue caducando a los 30 min. La solución es un código de un solo uso, y toca el backend. |
 | `subprocess.run` de Celery hacia el ETL | Deuda conocida de F2, no bloqueante. |
 
-**Y tres cosas que dependen de credenciales que no tengo, dichas claro:**
+**Y cuatro cosas que no puedo verificar desde aquí, dichas claro:**
 
 - **El cliente de Compra Ágil nunca ha hablado con la API real** — el ticket configurado es el
   de ejemplo. Lo primero con un ticket de verdad es correr una pasada y comparar.
 - **El adaptador de MercadoPago nunca se ha probado contra la API real.**
+- **El servidor MCP nunca ha hablado con un cliente MCP real** — habla su protocolo por HTTP
+  en los tests, pero falta apuntarle un cliente de verdad.
 - **La infraestructura no está declarada como código.**
 
 ---
