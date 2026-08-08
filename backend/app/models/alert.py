@@ -32,6 +32,10 @@ class AlertType(str, enum.Enum):
     PLAZO_48H = "plazo_48h"
     PLAZO_24H = "plazo_24h"
     NUEVA_LICITACION_MATCH = "nueva_licitacion_match"
+    # El precio mediano de un producto vigilado se movió por encima del umbral.
+    # Los datos de precio ya existían; lo que faltaba era poder compararlos con
+    # los de la corrida anterior. Ver `app/models/precio.py`.
+    CAMBIO_PRECIO = "cambio_precio"
 
 
 class NotificationChannel(str, enum.Enum):

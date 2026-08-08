@@ -18,8 +18,10 @@ from app.core.plan_limits import (
 from app.core.security import get_current_active_user
 from app.db import SyncSessionLocal, get_db
 from app.models.empresa import Empresa, EmpresaUsuario
+from app.models.precio import SuscripcionPrecio
 from app.models.user import User
 from app.repositories import empresas as repo
+from app.repositories import precios as repo_precios
 from app.schemas.empresa import (
     AddMiembroRequest,
     ApiKeyCreada,
@@ -31,6 +33,8 @@ from app.schemas.empresa import (
     LimitesPlan,
     MiembroResponse,
     PlanResumen,
+    SuscripcionPrecioCrear,
+    SuscripcionPrecioOut,
     UsoPlan,
 )
 from app.services import api_keys
@@ -337,3 +341,74 @@ async def revocar_api_key(
         raise HTTPException(status_code=404, detail="La clave no existe o ya estaba revocada")
     await db.commit()
     return {"message": "Clave revocada"}
+
+
+# ── Vigilancia de precios ────────────────────────────────────────────────────
+
+
+@router.get("/{empresa_id}/precios-vigilados", response_model=list[SuscripcionPrecioOut])
+async def listar_precios_vigilados(
+    ctx: EmpresaContext = Depends(empresa_ctx),
+    db: AsyncSession = Depends(get_db),
+):
+    """Los productos cuyo precio vigila la empresa.
+
+    Lo consulta cualquier miembro: la vigilancia es del equipo, no de quien la
+    creó.
+    """
+    return await repo_precios.listar(db, ctx.empresa_id)
+
+
+@router.post(
+    "/{empresa_id}/precios-vigilados",
+    response_model=SuscripcionPrecioOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def vigilar_precio(
+    payload: SuscripcionPrecioCrear,
+    ctx: EmpresaContext = Depends(require_rol("owner", "admin")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Empieza a vigilar el precio de un producto.
+
+    Suscribirse dos veces al mismo producto duplicaría todas sus alertas, así
+    que el segundo intento devuelve la suscripción existente en vez de crear
+    otra: es lo que espera quien pulsa dos veces el mismo botón.
+
+    Si no se indica unidad, la resuelve el servidor por la unidad en la que más
+    se compra el producto. Dejarla vacía crearía una vigilancia que no puede
+    coincidir con los datos y no avisaría nunca sin decirlo.
+    """
+    unidad = payload.unidad_medida
+    if unidad is None:
+        unidad = await repo_precios.unidad_predominante(db, payload.codigo_producto)
+
+    existente = await repo_precios.buscar(db, ctx.empresa_id, payload.codigo_producto, unidad)
+    if existente:
+        return existente
+
+    suscripcion = SuscripcionPrecio(
+        empresa_id=ctx.empresa_id,
+        codigo_producto=payload.codigo_producto,
+        unidad_medida=unidad,
+        nombre_producto=payload.nombre_producto,
+        umbral_pct=payload.umbral_pct,
+    )
+    db.add(suscripcion)
+    await db.commit()
+    await db.refresh(suscripcion)
+    return suscripcion
+
+
+@router.delete("/{empresa_id}/precios-vigilados/{suscripcion_id}", status_code=200)
+async def dejar_de_vigilar_precio(
+    suscripcion_id: int,
+    ctx: EmpresaContext = Depends(require_rol("owner", "admin")),
+    db: AsyncSession = Depends(get_db),
+):
+    suscripcion = await repo_precios.obtener(db, suscripcion_id, ctx.empresa_id)
+    if not suscripcion:
+        raise HTTPException(status_code=404, detail="No se vigila ese producto")
+    await db.delete(suscripcion)
+    await db.commit()
+    return {"message": "Se dejó de vigilar el producto"}

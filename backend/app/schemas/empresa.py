@@ -153,3 +153,38 @@ class ApiKeyCreada(ApiKeyResumen):
     """
 
     clave: str = Field(..., description="Guárdala ahora: no se vuelve a mostrar.")
+
+
+class SuscripcionPrecioCrear(BaseModel):
+    """Alta de vigilancia de precio sobre un producto."""
+
+    codigo_producto: str = Field(..., min_length=1, max_length=50)
+    unidad_medida: str | None = Field(
+        None,
+        max_length=100,
+        description=(
+            "Omitir para que el servidor use la unidad en la que más se compra "
+            "el producto. La unidad forma parte de la identidad del precio."
+        ),
+    )
+    nombre_producto: str | None = Field(None, max_length=500)
+    umbral_pct: float = Field(
+        10.0,
+        gt=0,
+        le=100,
+        description=(
+            "Variación mínima en % para avisar. Por debajo del 1 % el ruido del "
+            "muestreo domina y el aviso deja de significar nada."
+        ),
+    )
+
+
+class SuscripcionPrecioOut(BaseModel):
+    id: int
+    codigo_producto: str
+    unidad_medida: str
+    nombre_producto: str | None
+    umbral_pct: float
+    creada_en: datetime
+
+    model_config = ConfigDict(from_attributes=True)

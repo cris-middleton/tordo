@@ -506,6 +506,18 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
   **La ruta de Google sigue sin refresco**: redirige con el token en la URL, y meter ahí un
   refresco sería peor (historial, logs, `Referer`). La solución es un código de un solo uso.
 - **Alertas**: preferencias → AlertEngine → `INSERT ON CONFLICT` idempotente → multicanal.
+- **Vigilancia de precios**: `analytics.product_price_bands_l1` **se reemplaza entera** en cada
+  materialización, así que por sí sola no permite detectar un cambio — no queda con qué comparar.
+  `precio_referencia` guarda el último precio conocido por producto **y unidad** (se actualiza en
+  el sitio, no es un histórico) y `suscripcion_precio` dice a qué empresa le importa, **con su
+  propio umbral**: por eso el umbral se aplica al avisar y no al detectar. El job corre los lunes
+  a las 04:30, después de la reconstrucción de analytics: en paralelo compararía contra una tabla
+  a medio reemplazar. Se avisa **a cada miembro** de la empresa, porque `alerts.user_id` es de
+  usuario y la suscripción es de la empresa.
+- **Tareas Celery**: `beat_schedule` las nombra **por cadena**, así que un módulo sin importar en
+  `celery_app.py` produce `Received unregistered task` en el worker y nada más.
+  `tests/test_celery_beat.py` comprueba que cada entrada del calendario existe; si añades una
+  tarea programada, importa su módulo al final de `celery_app.py`.
 - **Planes**: el `id` del plan que devuelve `/api/v1/billing/plans` **es** el `plan_tier` que se
   guarda en la empresa (`basico | pyme | pro | enterprise`); `nombre` es sólo lo que se
   muestra. Los límites — documentos, consultas BI, alertas y **asientos** — viven todos en

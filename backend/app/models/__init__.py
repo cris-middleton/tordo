@@ -18,6 +18,7 @@ from app.models.orden_compra_detalle import OrdenCompraDetalle
 from app.models.orden_compra_historial import OrdenCompraHistorial
 from app.models.organization import BuyerOrganization, Supplier
 from app.models.postulacion import ChecklistPostulacion, PlantillaChecklist, Postulacion
+from app.models.precio import PrecioReferencia, SuscripcionPrecio
 from app.models.reference import (
     FormaPagoRef,
     TipoDespachoRef,
@@ -61,4 +62,6 @@ __all__ = [
     "ChecklistPostulacion",
     "TaskFailure",
     "MatchEmpresaLicitacion",
+    "PrecioReferencia",
+    "SuscripcionPrecio",
 ]

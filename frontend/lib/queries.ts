@@ -37,6 +37,7 @@ export const claves = {
   empresaDocumentos: (empresaId: string) => ['empresas', empresaId, 'documentos'] as const,
   empresaEstadoHabil: (empresaId: string) => ['empresas', empresaId, 'estado-habil'] as const,
   empresaApiKeys: (empresaId: string) => ['empresas', empresaId, 'api-keys'] as const,
+  empresaPrecios: (empresaId: string) => ['empresas', empresaId, 'precios-vigilados'] as const,
 
   licitaciones: (params: Record<string, unknown>) => ['licitaciones', params] as const,
   licitacion: (codigo: string) => ['licitaciones', codigo] as const,
@@ -99,6 +100,14 @@ export function useEmpresaMiembros(empresaId?: string) {
     queryFn: () => apiClient.getEmpresaMembers(empresaId as string),
     // `enabled` es lo que evita el patrón `if (!id) return` dentro de un efecto:
     // sin empresa no se pide, y el hook sigue siendo incondicional.
+    enabled: Boolean(empresaId),
+  });
+}
+
+export function usePreciosVigilados(empresaId?: string) {
+  return useQuery({
+    queryKey: claves.empresaPrecios(empresaId ?? ''),
+    queryFn: () => apiClient.getPreciosVigilados(empresaId as string),
     enabled: Boolean(empresaId),
   });
 }
@@ -227,6 +236,23 @@ export function useRevocarApiKey(empresaId: string) {
   return useMutation({
     mutationFn: (claveId: string) => apiClient.revocarApiKey(empresaId, claveId),
     onSuccess: () => qc.invalidateQueries({ queryKey: claves.empresaApiKeys(empresaId) }),
+  });
+}
+
+export function useVigilarPrecio(empresaId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (datos: { codigo_producto: string; nombre_producto?: string; umbral_pct?: number }) =>
+      apiClient.vigilarPrecio(empresaId, datos),
+    onSuccess: () => qc.invalidateQueries({ queryKey: claves.empresaPrecios(empresaId) }),
+  });
+}
+
+export function useDejarDeVigilarPrecio(empresaId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (suscripcionId: number) => apiClient.dejarDeVigilarPrecio(empresaId, suscripcionId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: claves.empresaPrecios(empresaId) }),
   });
 }
 

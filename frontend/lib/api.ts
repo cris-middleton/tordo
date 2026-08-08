@@ -1,7 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 
 import { API } from '@/lib/versionApi';
-import type { ApiKeyCreada, ApiKeyResumen, PlanResumen } from '@/types/cuenta';
+import type { ApiKeyCreada, ApiKeyResumen, PlanResumen, PrecioVigilado } from '@/types/cuenta';
 
 /**
  * Cliente HTTP del navegador.
@@ -243,6 +243,33 @@ class ApiClient {
 
   async revocarApiKey(empresaId: string, claveId: string) {
     const res = await this.client.delete(`${API}/empresas/${empresaId}/api-keys/${claveId}`)
+    return res.data
+  }
+
+  // ── Vigilancia de precios ──────────────────────────────────────────────────
+
+  async getPreciosVigilados(empresaId: string): Promise<PrecioVigilado[]> {
+    const res = await this.client.get(`${API}/empresas/${empresaId}/precios-vigilados`)
+    return res.data
+  }
+
+  /**
+   * La unidad se omite a propósito: la resuelve el servidor por la unidad en la
+   * que más se compra el producto. Mandarla vacía crearía una vigilancia que no
+   * puede coincidir con los datos y no avisaría nunca.
+   */
+  async vigilarPrecio(
+    empresaId: string,
+    datos: { codigo_producto: string; nombre_producto?: string; umbral_pct?: number },
+  ): Promise<PrecioVigilado> {
+    const res = await this.client.post(`${API}/empresas/${empresaId}/precios-vigilados`, datos)
+    return res.data
+  }
+
+  async dejarDeVigilarPrecio(empresaId: string, suscripcionId: number) {
+    const res = await this.client.delete(
+      `${API}/empresas/${empresaId}/precios-vigilados/${suscripcionId}`,
+    )
     return res.data
   }
 

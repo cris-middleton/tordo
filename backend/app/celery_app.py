@@ -51,6 +51,14 @@ celery_app.conf.update(
             "task": "app.tasks.etl_tasks.run_bulk_semanal",
             "schedule": crontab(day_of_week=1, hour=3, minute=0),
         },
+        # Lunes 04:30 SCL: una hora y media después de la reconstrucción de
+        # analytics. El precio se compara contra el de la corrida anterior, así
+        # que tiene que correr DESPUÉS de que las bandas estén materializadas —
+        # contra una tabla a medio reemplazar, las variaciones serían inventadas.
+        "vigilancia-precios": {
+            "task": "app.tasks.precio_tasks.revisar_cambios_de_precio",
+            "schedule": crontab(day_of_week=1, hour=4, minute=30),
+        },
         # Every 6h: check estado hábil for all registered empresas
         "check-estado-habil": {
             "task": "app.tasks.estado_habil_tasks.check_estado_habil",
@@ -103,3 +111,4 @@ from app.tasks import estado_habil_tasks  # noqa
 from app.tasks import dashboard_tasks  # noqa
 from app.tasks import trial_tasks  # noqa
 from app.tasks import radar_tasks  # noqa
+from app.tasks import precio_tasks  # noqa

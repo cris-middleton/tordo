@@ -47,3 +47,21 @@ export interface ApiKeyResumen {
 export interface ApiKeyCreada extends ApiKeyResumen {
   clave: string;
 }
+
+/**
+ * Un producto cuyo precio vigila la empresa.
+ *
+ * La vigilancia es de la EMPRESA y no de la persona: el precio de un insumo
+ * interesa a todo el equipo, y atarla a un usuario la perdería cuando esa
+ * persona deja la cuenta.
+ */
+export interface PrecioVigilado {
+  id: number;
+  codigo_producto: string;
+  /** La resuelve el servidor si no se manda: forma parte de la identidad del precio. */
+  unidad_medida: string;
+  nombre_producto: string | null;
+  /** Variación mínima en % para avisar. Por debajo, domina el ruido del muestreo. */
+  umbral_pct: number;
+  creada_en: string;
+}

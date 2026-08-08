@@ -6,6 +6,7 @@ import { Info, Loader2, Search } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { useBuscarProductos } from '@/lib/queries';
 import type { OrganismoConNombre } from '../../types';
+import VigilarPrecio from './VigilarPrecio';
 import {
   extractErrorMessage,
   formatCLPShort,
@@ -187,6 +188,12 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
             {resultado?.nivel_usado && <> · Fuente: {nivelLabel(resultado.nivel_usado)}</>}
             {banda.confianza && <> · Confianza: {banda.confianza}</>}
           </p>
+          {selected?.codigoProductoONU && (
+            <VigilarPrecio
+              codigoProducto={selected.codigoProductoONU}
+              nombreProducto={selected.nombre}
+            />
+          )}
         </div>
       )}
     </div>

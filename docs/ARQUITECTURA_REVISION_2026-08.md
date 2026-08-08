@@ -830,7 +830,43 @@ Reordenado según las decisiones del 2026-08-05:
    **El cliente de Compra Ágil nunca ha hablado con la API real**: el ticket configurado es el
    de ejemplo. Está escrito contra la especificación y probado con respuestas simuladas que la
    reproducen. Con un ticket de verdad, lo primero es correr una pasada y comparar.
-3. **Alertas de cambio de precio** (lo que hace Falconsoft) — los datos ya están; falta el disparador.
+3. **Alertas de cambio de precio** (lo que hace Falconsoft) — **hecho**. Los datos ya estaban;
+   faltaba el disparador, y faltaba por una razón concreta que sólo aparece al mirar el ETL:
+   **`analytics.product_price_bands_l1` se reemplaza entera** en cada materialización (swap
+   atómico), así que después de recalcularla **no queda con qué comparar**. Un cambio de precio
+   era invisible por construcción, no por falta de ganas.
+
+   Lo que se añadió es lo que faltaba para que "aquí está el precio" se convierta en "el precio
+   subió un 18 %":
+
+   - `precio_referencia` — el último precio conocido por producto **y unidad**. No es un
+     histórico: se actualiza en el sitio. Un histórico daría 23 000 filas por corrida de las
+     que nadie consultaría el 99 %.
+   - `suscripcion_precio` — qué vigila cada **empresa**, con **su propio umbral**. Por eso el
+     umbral se aplica al avisar y no al detectar: aplicarlo antes impediría que una empresa
+     pidiera avisos más finos que otra.
+   - `app/services/vigilancia_precios.py` + tarea Celery los **lunes a las 04:30**, hora y media
+     después de la reconstrucción de analytics. Correrla en paralelo compararía contra una tabla
+     a medio reemplazar y las variaciones serían inventadas.
+   - Tres endpoints bajo `/empresas/{id}/precios-vigilados` y el botón «avisarme si cambia el
+     precio» en la herramienta de consulta de precios del BI.
+
+   Cuatro decisiones que el código no explica solo, y por eso están fijadas con tests: **la
+   primera corrida no avisa de nada** (un precio visto por primera vez no ha cambiado de nada, y
+   alertar del catálogo entero sería spam garantizado); **un producto con menos de 5 órdenes no
+   genera aviso** (su mediana se mueve sola); **avisa a todo el equipo**, porque la suscripción
+   es de la empresa y `alerts.user_id` es de usuario; y **correr dos veces el mismo día no
+   duplica**, con el día dentro de la clave de idempotencia.
+
+   La unidad de medida **la resuelve el servidor** por la unidad en la que más se compra el
+   producto. Quien pulsa «vigilar» busca un producto, no una unidad — y guardarla vacía habría
+   creado una vigilancia incapaz de coincidir con los datos: no avisaría nunca, sin decirlo.
+
+   > **De paso apareció otra cosa:** `beat_schedule` nombra las tareas por cadena, y el módulo
+   > nuevo no estaba importado en `celery_app.py`. Beat la habría encolado y el worker la habría
+   > rechazado con `Received unregistered task` — un fallo que sólo se ve en producción, un lunes
+   > a las 4:30. Ahora hay un test que recorre **las 12 entradas del calendario** y comprueba que
+   > cada una corresponde a una tarea registrada.
 4. **API pública + API keys.** El ángulo de integración ERP de Falconsoft. Habilita el segmento gremios.
    **Las claves de API ya están hechas** — y hubo que adelantarlas: el orden del plan estaba
    invertido. El MCP (punto 1) necesita una credencial que un cliente sin navegador pueda usar,
