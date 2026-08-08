@@ -3,7 +3,7 @@
 import { useState, useEffect, useSyncExternalStore, FormEvent } from 'react';
 import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
-import { Save, Loader2, Mail, Bell, Webhook, Lock, Eye, EyeOff, MessageCircle, CreditCard, ExternalLink, Sun, Moon, Monitor, ChevronDown } from 'lucide-react';
+import { Save, Loader2, Mail, Bell, Webhook, Lock, Eye, EyeOff, MessageCircle, CreditCard, ExternalLink, Sun, Moon, Monitor, ChevronDown, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { useTheme } from 'next-themes';
 
@@ -27,6 +27,7 @@ export default function SettingsPage() {
     notification_in_app: true,
     notification_webhook: false,
     notification_whatsapp: false,
+    recibe_informe_semanal: true,
     webhook_url: '',
     whatsapp_number: '',
   });
@@ -50,6 +51,7 @@ export default function SettingsPage() {
         full_name: user.full_name || '',
         email: user.email || '',
         notification_email: user.notification_email ?? true,
+        recibe_informe_semanal: user.recibe_informe_semanal ?? true,
         notification_in_app: user.notification_in_app ?? true,
         notification_webhook: user.notification_webhook ?? false,
         notification_whatsapp: user.notification_whatsapp ?? false,
@@ -127,6 +129,9 @@ export default function SettingsPage() {
     { field: 'notification_in_app', label: 'App', icon: Bell, desc: 'Alertas en plataforma' },
     { field: 'notification_webhook', label: 'Webhook', icon: Webhook, desc: 'Endpoint personalizado' },
     { field: 'notification_whatsapp', label: 'WhatsApp', icon: MessageCircle, desc: 'Mensajes urgentes' },
+    // El correo del informe lleva un enlace para desactivarlo. Esta casilla es
+    // lo que hace que ese enlace no sea mentira.
+    { field: 'recibe_informe_semanal', label: 'Informe semanal', icon: FileText, desc: 'Resumen de los lunes, con PDF' },
   ];
 
   return (

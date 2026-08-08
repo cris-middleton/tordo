@@ -21,6 +21,7 @@ class UserUpdate(BaseModel):
     notification_in_app: bool | None = None
     notification_webhook: bool | None = None
     notification_whatsapp: bool | None = None
+    recibe_informe_semanal: bool | None = None
     webhook_url: str | None = None
     onboarding_completed: bool | None = None
     onboarding_step: int | None = None
@@ -35,6 +36,7 @@ class UserResponse(UserBase):
     notification_in_app: bool
     notification_webhook: bool
     notification_whatsapp: bool = False
+    recibe_informe_semanal: bool = True
     # El plan y el trial NO se exponen aquí: son de la empresa, no del usuario
     # (ADR 0002). El frontend los obtiene de /api/billing/status.
     onboarding_completed: bool = False

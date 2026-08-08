@@ -96,9 +96,13 @@ celery_app.conf.update(
             "task": "app.tasks.trial_tasks.send_trial_reminders",
             "schedule": crontab(hour=9, minute=0),
         },
-        # Lunes 09:00 SCL: enviar radar semanal a empresas con perfil TF-IDF
-        "radar-semanal": {
-            "task": "send_radar_semanal",
+        # Lunes 09:00 SCL: el informe semanal. Sustituye al radar, que mandaba
+        # tres movimientos de mercado: ahora es una sección más del informe. Dos
+        # correos el mismo lunes serían dos correos que se ignoran igual.
+        # Va DESPUÉS de la vigilancia de precios (04:30) para que los cambios de
+        # esta semana ya estén en las alertas que el informe lee.
+        "informe-semanal": {
+            "task": "app.tasks.informe_tasks.enviar_informe_semanal",
             "schedule": crontab(day_of_week=1, hour=9, minute=0),
         },
     },
@@ -110,5 +114,5 @@ from app.tasks import etl_tasks  # noqa
 from app.tasks import estado_habil_tasks  # noqa
 from app.tasks import dashboard_tasks  # noqa
 from app.tasks import trial_tasks  # noqa
-from app.tasks import radar_tasks  # noqa
 from app.tasks import precio_tasks  # noqa
+from app.tasks import informe_tasks  # noqa

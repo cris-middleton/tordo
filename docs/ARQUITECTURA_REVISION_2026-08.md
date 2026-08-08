@@ -895,7 +895,27 @@ Reordenado según las decisiones del 2026-08-05:
    > dejó de arrancar. Las tres dependencias de cuota se movieron a `api/deps.py`, que es
    > donde vive el resto; `core` se queda con la tabla de cuotas y las funciones puras. De
    > paso desapareció un `check_bi_quota` muerto que sólo lanzaba `NotImplementedError`.
-5. **Reportes semanales automáticos** en PDF/email.
+5. **Reportes semanales automáticos en PDF/email** — **hecho**.
+
+   Ya existía un «radar semanal» por correo, y al abrirlo aparecieron tres cosas: mandaba el
+   **HTML en el hueco del texto plano** (quien lo leyera sin HTML recibía el marcado en
+   crudo), **interpolaba nombres de ChileCompra sin escapar** —un `&` rompía la maqueta— y su
+   pie ofrecía desactivarlo en «Ajustes → Notificaciones», **una pantalla que no tenía esa
+   opción**.
+
+   El informe lo sustituye: cinco secciones —encaje, cierres de la semana, cambios de precio
+   de lo vigilado, cumplimiento y mercado— con el mismo contenido **en PDF adjunto**, porque
+   un correo no se reenvía a un directorio ni se archiva con la postulación.
+
+   - **El encaje se lee del precomputado.** El radar cargaba TF-IDF y puntuaba 200
+     licitaciones por empresa en cada corrida; además de costar, podía dar un número distinto
+     al que muestra el panel. Dos fuentes de verdad para «encaje» es una de más.
+   - **Una sección vacía se dice, no se esconde.** «Ningún documento vence en 30 días» es
+     información; omitir la sección deja sin saber si es que no hay o es que no se miró.
+   - **Si no hay absolutamente nada, no se manda.** Un semanal vacío enseña a ignorar el
+     semanal.
+   - `reportlab` y no un motor de navegador: weasyprint necesita cairo y pango del sistema, y
+     la imagen ya se mide contra 512 MB. reportlab es Python puro.
 6. **Extracción de bases con LLM** — reevaluar después de F3, no antes. Ver §14: es el único uso de
    LLM con valor claro acá, y sólo se puede vender bien una vez que el plan sea por empresa.
 

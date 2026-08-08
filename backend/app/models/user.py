@@ -28,6 +28,16 @@ class User(Base):
     # La base la creó NOT NULL con server_default. El modelo decía nullable, que
     # es más laxo que la realidad: se alinea con la base, que es la estricta.
     notification_whatsapp = Column(Boolean, default=False, server_default="false", nullable=False)
+    # El informe semanal se manda a quien lo tenga activo. Existir es lo que hace
+    # verdadero el pie del correo: prometía «Ajustes → Notificaciones» para
+    # desactivarlo, y esa opción no existía en ninguna parte.
+    recibe_informe_semanal = Column(
+        Boolean,
+        default=True,
+        server_default="true",
+        nullable=False,
+        comment="Si recibe el informe semanal por correo.",
+    )
     webhook_url = Column(String(500))
 
     # La suscripción y el trial NO viven aquí: pertenecen a la empresa.

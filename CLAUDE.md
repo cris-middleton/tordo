@@ -442,7 +442,7 @@ mirar dos sitios. Lo fija `tests/test_versionado_api.py`.
 
 **Celery**: 12 jobs. ETL horario, backfill diario, bulk semanal + analytics, estado hábil
 cada 6 h, recordatorios de plazo y de vencimiento, precómputo nocturno de matches, watchdog
-cada 30 min, trials, radar semanal, vigilancia de precios. Todo en `America/Santiago`.
+cada 30 min, trials, informe semanal, vigilancia de precios. Todo en `America/Santiago`.
 
 ### Datos
 
@@ -507,6 +507,23 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
   **La ruta de Google sigue sin refresco**: redirige con el token en la URL, y meter ahí un
   refresco sería peor (historial, logs, `Referer`). La solución es un código de un solo uso.
 - **Alertas**: preferencias → AlertEngine → `INSERT ON CONFLICT` idempotente → multicanal.
+- **Informe semanal** (lunes 09:00): un correo por empresa con encaje, cierres, cambios de
+  precio, cumplimiento y mercado, más el mismo informe en **PDF adjunto**
+  (`services/informe_semanal.py` construye, `informe_render.py` pinta).
+  - **Sustituyó al radar semanal**, que ahora es una de sus secciones. Dos correos el mismo
+    lunes serían dos correos que se ignoran igual.
+  - **El encaje se LEE de `match_empresa_licitacion`**, no se recalcula: el radar cargaba
+    TF-IDF y puntuaba 200 licitaciones por empresa, y podía dar un número distinto al del panel.
+  - **Una sección vacía se pinta igual**, con su frase: omitirla no distingue entre «no hay
+    nada» y «no se miró».
+  - **Todo el texto que viene de fuera se escapa** (`html.escape`). Los nombres son datos de
+    ChileCompra: el correo anterior los metía en crudo y un `&` rompía la maqueta.
+  - **`send_email` acepta adjuntos**, y con ellos la estructura es `mixed` por fuera y
+    `alternative` por dentro. Al revés, el cliente esconde el PDF o lo muestra en lugar del
+    mensaje — y el envío no falla, así que no hay traza.
+  - Lo reciben **owners y admins con `users.recibe_informe_semanal`**. Esa columna existe
+    porque el pie del correo prometía «Ajustes → Notificaciones» para desactivarlo y esa
+    opción no existía.
 - **Vigilancia de precios**: `analytics.product_price_bands_l1` **se reemplaza entera** en cada
   materialización, así que por sí sola no permite detectar un cambio — no queda con qué comparar.
   `precio_referencia` guarda el último precio conocido por producto **y unidad** (se actualiza en

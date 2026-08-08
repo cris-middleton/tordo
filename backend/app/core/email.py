@@ -5,6 +5,8 @@ Supports SMTP (Gmail, SendGrid, AWS SES, etc.)
 
 import logging
 import smtplib
+from dataclasses import dataclass
+from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -13,12 +15,22 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class Adjunto:
+    """Un fichero que viaja con el correo."""
+
+    nombre: str
+    contenido: bytes
+    subtipo: str = "pdf"
+
+
 def send_email(
     to: str,
     subject: str,
     body: str,
     html_body: str | None = None,
     from_email: str | None = None,
+    adjuntos: list[Adjunto] | None = None,
 ) -> bool:
     """
     Send an email notification
@@ -29,9 +41,15 @@ def send_email(
         body: Plain text email body
         html_body: Optional HTML email body
         from_email: Sender email (defaults to settings.smtp_from_email)
+        adjuntos: Ficheros adjuntos (el informe semanal manda su PDF)
 
     Returns:
         True if email was sent successfully, False otherwise
+
+    Nota sobre la estructura MIME: con adjuntos hace falta `mixed` por FUERA y
+    `alternative` por DENTRO. Al revés —adjuntar el PDF como una "alternativa"
+    al texto— algunos clientes lo tratan como otra versión del mismo contenido y
+    lo esconden, y otros muestran el PDF EN LUGAR del mensaje.
     """
     # Check if email is configured
     if not settings.smtp_host or not settings.smtp_user:
@@ -39,20 +57,24 @@ def send_email(
         return False
 
     try:
-        # Create message
-        msg = MIMEMultipart("alternative")
+        cuerpo = MIMEMultipart("alternative")
+        cuerpo.attach(MIMEText(body, "plain", "utf-8"))
+        if html_body:
+            cuerpo.attach(MIMEText(html_body, "html", "utf-8"))
+
+        if adjuntos:
+            msg = MIMEMultipart("mixed")
+            msg.attach(cuerpo)
+            for adjunto in adjuntos:
+                parte = MIMEApplication(adjunto.contenido, _subtype=adjunto.subtipo)
+                parte.add_header("Content-Disposition", "attachment", filename=adjunto.nombre)
+                msg.attach(parte)
+        else:
+            msg = cuerpo
+
         msg["Subject"] = subject
         msg["From"] = from_email or settings.smtp_from_email or settings.smtp_user
         msg["To"] = to
-
-        # Add plain text part
-        text_part = MIMEText(body, "plain", "utf-8")
-        msg.attach(text_part)
-
-        # Add HTML part if provided
-        if html_body:
-            html_part = MIMEText(html_body, "html", "utf-8")
-            msg.attach(html_part)
 
         # Connect to SMTP server
         if settings.smtp_use_tls:

@@ -149,39 +149,3 @@ def compute_radar_for_empresa(db: Session, empresa_id: UUID) -> dict:
         "semana_inicio": _semana_lunes_iso(),
         "movimientos": movimientos[:3],
     }
-
-
-def render_radar_email_html(radar: dict, app_url: str = "https://tordo.cl") -> tuple[str, str]:
-    """Genera (subject, html_body) para el email del radar semanal."""
-    nombre = radar.get("empresa_nombre") or "tu empresa"
-    movimientos = radar.get("movimientos") or []
-
-    subject = f"Radar semanal Tordo — {len(movimientos)} movimientos en tu rubro"
-
-    items_html = ""
-    for m in movimientos:
-        url = f"{app_url}{m.get('accion_url', '')}" if m.get("accion_url") else ""
-        link_html = (
-            f'<a href="{url}" style="color:#3B5BDB;text-decoration:none;">Ver &rarr;</a>'
-            if url
-            else ""
-        )
-        items_html += (
-            f'<li style="margin-bottom:14px;">'
-            f'<div style="font-weight:600;color:#1a1a1a;">{m["titulo"]}</div>'
-            f'<div style="color:#475569;font-size:14px;margin-top:2px;">{m["detalle"]}</div>'
-            f'<div style="margin-top:4px;font-size:13px;">{link_html}</div>'
-            f"</li>"
-        )
-
-    html = f"""
-    <div style="font-family:-apple-system,sans-serif;max-width:560px;margin:0 auto;padding:20px;">
-      <h2 style="color:#1a1a1a;">Radar de la semana</h2>
-      <p style="color:#475569;">Hola, este es el resumen de movimientos en los rubros de <b>{nombre}</b>:</p>
-      <ul style="list-style:none;padding:0;">{items_html}</ul>
-      <p style="color:#94a3b8;font-size:12px;margin-top:24px;">
-        Recibes este correo porque tienes el Radar Semanal activo. Para desactivarlo, ve a Ajustes &rarr; Notificaciones.
-      </p>
-    </div>
-    """
-    return subject, html
