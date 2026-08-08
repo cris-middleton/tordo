@@ -8,9 +8,10 @@ from sqlalchemy.orm import selectinload
 from app.config import settings
 from app.core.security import get_current_active_user
 from app.db import get_db
-from app.models.empresa import EmpresaUsuario, TFIDFPerfil
+from app.models.empresa import EmpresaUsuario
 from app.models.licitacion import Licitacion
 from app.models.user import User
+from app.repositories import matches as repo_matches
 from app.schemas.tender import TenderListResponse, TenderResponse
 
 router = APIRouter(prefix="/api/tenders", tags=["tenders"])
@@ -29,6 +30,27 @@ def _to_response(lic: Licitacion, **extra) -> TenderResponse:
     # Pydantic v2: build from ORM attrs, then override with computed score fields.
     resp = TenderResponse.model_validate(lic)
     return resp.model_copy(update=extra) if extra else resp
+
+
+async def _encaje_de(
+    db: AsyncSession, empresa_id: UUID | None, licitaciones: list[Licitacion]
+) -> dict[int, dict]:
+    """`{licitacion_id: {score_encaje, nivel_encaje}}` para enriquecer una página.
+
+    Sale de `match_empresa_licitacion`, no del modelo. El score se guarda como
+    entero 0-100 y el contrato de la API es un coseno 0-1, así que se divide:
+    se pierde precisión por debajo del 1 %, que es menos de lo que cualquier
+    pantalla muestra.
+    """
+    if not empresa_id or not licitaciones:
+        return {}
+    encontrados = await repo_matches.encaje_por_licitacion(
+        db, empresa_id, [lic.id for lic in licitaciones]
+    )
+    return {
+        lic_id: {"score_encaje": score / 100, "nivel_encaje": nivel}
+        for lic_id, (score, nivel) in encontrados.items()
+    }
 
 
 def _coincide_termino(termino: str):
@@ -109,10 +131,13 @@ async def list_tenders(
         for term in terms:
             stmt = stmt.where(_coincide_termino(term))
 
-    # Load empresa perfil upfront if requested — needed for both enrichment and
-    # `sort_by=score_encaje`. Fail closed on unauthorized empresa access.
-    perfil_bytes: bytes | None = None
-    want_encaje = bool(empresa_id) and settings.feature_tfidf
+    # El encaje YA NO se calcula aquí: sale de `match_empresa_licitacion`, que
+    # llena el job nocturno. Cargar el perfil y puntuar en tiempo de request
+    # obligaba a tener el modelo TF-IDF (~105 MB por proceso) dentro de la API, y
+    # era lo que impedía servir con más de un worker en 512 MB.
+    #
+    # La contrapartida, dicha claro: una licitación ingerida hoy no tiene fila
+    # hasta las 06:00 siguientes, y sale sin score.
     if empresa_id:
         membership = (
             await db.execute(
@@ -124,12 +149,6 @@ async def list_tenders(
         ).scalar_one_or_none()
         if not membership:
             raise HTTPException(status_code=403, detail="Sin acceso a esta empresa")
-        if want_encaje:
-            perfil = (
-                await db.execute(select(TFIDFPerfil).where(TFIDFPerfil.empresa_id == empresa_id))
-            ).scalar_one_or_none()
-            if perfil and perfil.vector_bytes:
-                perfil_bytes = perfil.vector_bytes
 
     # Semantic re-ranking paths — bring in TF-IDF only when requested.
     if want_relevance and settings.feature_tfidf:
@@ -146,26 +165,23 @@ async def list_tenders(
             texts = [_licitacion_text(l) for l in pool]
             sims = tfidf_matcher.score_texts(" ".join(terms), texts)
 
-            if perfil_bytes is not None:
-                encaje = tfidf_matcher.score_empresa_texts(perfil_bytes, texts)
-            else:
-                encaje = [(None, None)] * len(pool)
-
             ranked = sorted(
-                zip(pool, sims, encaje),
+                zip(pool, sims),
                 key=lambda row: row[1],
                 reverse=sort_order != "asc",
             )
             total = len(ranked)
             page_rows = ranked[skip : skip + limit]
+            # Sólo para la página que se devuelve: pedir el encaje de las 500 del
+            # pool sería traer datos que nadie va a mirar.
+            encaje = await _encaje_de(db, empresa_id, [lic for lic, _ in page_rows])
             items = [
                 _to_response(
                     lic,
                     similarity_score=round(float(sim), 4),
-                    score_encaje=enc[0],
-                    nivel_encaje=enc[1],
+                    **encaje.get(lic.id, {}),
                 )
-                for lic, sim, enc in page_rows
+                for lic, sim in page_rows
             ]
             pages = (total + limit - 1) // limit if limit > 0 else 0
             page = (skip // limit) + 1 if limit > 0 else 1
@@ -183,69 +199,32 @@ async def list_tenders(
         for term in terms:
             stmt = stmt.where(_coincide_termino(term))
 
-    if sort_by == "score_encaje" and perfil_bytes is not None:
-        from app.services import tfidf_matcher
-
-        if tfidf_matcher.is_available():
-            # `stmt` already has AND-term filters applied above in the
-            # `if terms and not want_relevance` block.
-            pool_stmt = stmt.order_by(desc(Licitacion.fecha_publicacion)).limit(_SEMANTIC_POOL)
-            pool = (await db.execute(pool_stmt)).scalars().all()
-
-            texts = [_licitacion_text(l) for l in pool]
-            encaje = tfidf_matcher.score_empresa_texts(perfil_bytes, texts)
-            ranked = sorted(
-                zip(pool, encaje),
-                key=lambda row: row[1][0],
-                reverse=sort_order != "asc",
-            )
-            total = len(ranked)
-            page_rows = ranked[skip : skip + limit]
-            items = [
-                _to_response(lic, score_encaje=enc[0], nivel_encaje=enc[1])
-                for lic, enc in page_rows
-            ]
-            pages = (total + limit - 1) // limit if limit > 0 else 0
-            page = (skip // limit) + 1 if limit > 0 else 1
-            return TenderListResponse(items=items, total=total, page=page, size=limit, pages=pages)
-
     # Default path — SQL-side sort + pagination.
     count_stmt = select(func.count()).select_from(stmt.subquery())
     total = (await db.execute(count_stmt)).scalar() or 0
 
-    sort_col_map = {
-        "fecha_publicacion": Licitacion.fecha_publicacion,
-        "fecha_cierre": Licitacion.fecha_cierre,
-        "monto_estimado": Licitacion.monto_estimado,
-        "nombre": Licitacion.nombre,
-    }
-    # `relevance` / `score_encaje` fall back here when TF-IDF unavailable.
-    sort_col = sort_col_map.get(sort_by or "", Licitacion.fecha_publicacion)
-    order_fn = desc if sort_order == "desc" else asc
-
-    rows = (
-        (await db.execute(stmt.order_by(order_fn(sort_col)).offset(skip).limit(limit)))
-        .scalars()
-        .all()
-    )
-
-    # Enrich page rows with encaje when requested — purely informational, does
-    # not affect ordering in the default path.
-    if perfil_bytes is not None and rows:
-        from app.services import tfidf_matcher
-
-        if tfidf_matcher.is_available():
-            encaje = tfidf_matcher.score_empresa_texts(
-                perfil_bytes, [_licitacion_text(r) for r in rows]
-            )
-            items = [
-                _to_response(lic, score_encaje=enc[0], nivel_encaje=enc[1])
-                for lic, enc in zip(rows, encaje)
-            ]
-        else:
-            items = [_to_response(lic) for lic in rows]
+    if sort_by == "score_encaje" and empresa_id:
+        # Ordenar en SQL y no en memoria arregla de paso un fallo del camino
+        # anterior: cortaba en un pool de 500 y devolvía ese tamaño como `total`,
+        # así que la paginación mentía en cuanto había más resultados.
+        ordenado = repo_matches.ordenar_por_encaje(stmt, empresa_id, ascendente=sort_order == "asc")
     else:
-        items = [_to_response(lic) for lic in rows]
+        sort_col_map = {
+            "fecha_publicacion": Licitacion.fecha_publicacion,
+            "fecha_cierre": Licitacion.fecha_cierre,
+            "monto_estimado": Licitacion.monto_estimado,
+            "nombre": Licitacion.nombre,
+        }
+        # `relevance` cae aquí cuando no hay modelo; `score_encaje`, cuando no
+        # hay empresa a la que comparar.
+        sort_col = sort_col_map.get(sort_by or "", Licitacion.fecha_publicacion)
+        order_fn = desc if sort_order == "desc" else asc
+        ordenado = stmt.order_by(order_fn(sort_col))
+
+    rows = (await db.execute(ordenado.offset(skip).limit(limit))).scalars().all()
+
+    encaje = await _encaje_de(db, empresa_id, rows)
+    items = [_to_response(lic, **encaje.get(lic.id, {})) for lic in rows]
 
     pages = (total + limit - 1) // limit if limit > 0 else 0
     page = (skip // limit) + 1 if limit > 0 else 1

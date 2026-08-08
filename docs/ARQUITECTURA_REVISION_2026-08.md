@@ -654,7 +654,21 @@ F3/F4/F5 pueden solaparse.
 
 **Pendiente:**
 
-- [ ] Generalizar `precompute_dashboard_matches` → tabla `match_empresa_licitacion`.
+- [x] **Generalizado `precompute_dashboard_matches` → tabla `match_empresa_licitacion`.**
+      Una fila por par (empresa, licitación) con `score` 0-100 y `nivel`, en vez del blob JSON
+      de `dashboard_home_cache` (tabla eliminada). Tres consecuencias:
+
+      1. **La portada dejó de mostrar datos rancios.** El blob copiaba nombre, monto y fecha
+         de cierre dentro; ahora salen de `licitaciones` por join.
+      2. **El listado ya no carga el modelo TF-IDF para el encaje.** Era una de las dos
+         llamadas en tiempo de request, y la única precomputable — la otra
+         (`score_texts` sobre términos de búsqueda arbitrarios) sigue como está, tal como
+         anota la corrección de más arriba.
+      3. **`sort_by=score_encaje` se resuelve en SQL.** El camino anterior cortaba en un pool
+         de 500 en memoria y devolvía ese tamaño como `total`, así que la paginación mentía
+         en cuanto había más resultados.
+
+      Contrapartida: una licitación ingerida hoy no tiene fila hasta las 06:00 siguientes.
 - [x] **Medida la API en un contenedor de 512 MB con `-w 4`.** La predicción era correcta:
       no cabe. Reproducible con `make medir-memoria`, sobre la imagen real y con el modelo
       TF-IDF real montado:

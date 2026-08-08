@@ -2,7 +2,6 @@ from app.db import Base
 from app.models.alert import Alert, AlertPreference, AlertStatus, AlertType, NotificationChannel
 from app.models.api_key import ApiKey
 from app.models.category import Category
-from app.models.dashboard_cache import DashboardHomeCache
 from app.models.empresa import (
     DocumentoEmpresa,
     Empresa,
@@ -13,6 +12,7 @@ from app.models.empresa import (
 from app.models.licitacion import Licitacion
 from app.models.licitacion_detalle import LicitacionDetalle
 from app.models.licitacion_historial import LicitacionHistorial
+from app.models.match import MatchEmpresaLicitacion
 from app.models.orden_compra import OrdenCompra
 from app.models.orden_compra_detalle import OrdenCompraDetalle
 from app.models.orden_compra_historial import OrdenCompraHistorial
@@ -60,5 +60,5 @@ __all__ = [
     "PlantillaChecklist",
     "ChecklistPostulacion",
     "TaskFailure",
-    "DashboardHomeCache",
+    "MatchEmpresaLicitacion",
 ]

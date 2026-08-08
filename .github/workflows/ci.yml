@@ -266,10 +266,21 @@ jobs:
           uv sync --frozen
           cd frontend && npm ci
 
-      # `make e2e` monta la pila entera —Postgres efímero, migraciones, semilla,
-      # backend— y corre Playwright en su imagen oficial. El MISMO comando que
-      # en local: un E2E que sólo existe en CI no lo usa nadie para depurar.
+      # El navegador se instala en el runner en vez de bajar la imagen de
+      # Playwright. La imagen pesa ~2 GB y desde Actions tardaba cuatro minutos
+      # entre reintentos hasta morir con `connection reset by peer`; esto tarda
+      # menos de un minuto. Localmente sigue usándose el contenedor, porque
+      # `--with-deps` pide sudo — `scripts/e2e.sh` elige solo.
+      - name: Instalar Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      # `make e2e` monta la pila entera: Postgres efímero, migraciones, semilla,
+      # backend y el servidor de Next. El MISMO comando que en local — un E2E
+      # que sólo existe en CI no lo usa nadie para depurar.
       - name: Playwright
+        env:
+          E2E_NAVEGADOR: nativo
         run: make e2e
 
       - name: Guardar el informe si algo falla

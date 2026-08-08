@@ -28,6 +28,17 @@ PUERTO_FRONT="${E2E_PUERTO_FRONT:-3210}"
 # Debe coincidir con la versión de @playwright/test del package.json: si se
 # separan, el cliente y el navegador hablan protocolos distintos.
 IMAGEN_PLAYWRIGHT="mcr.microsoft.com/playwright:v1.62.1-noble"
+# De dónde sale el navegador: `nativo` | `contenedor` | `auto`.
+#
+# `auto` prueba a lanzarlo en el host y cae al contenedor si no puede. Hace falta
+# porque `playwright install --with-deps` pide sudo, y en una máquina de trabajo
+# no siempre se tiene. En CI, en cambio, el runner instala las librerías sin
+# problema y bajar la imagen —2 GB desde mcr.microsoft.com— tardaba cuatro
+# minutos y a veces terminaba en `connection reset by peer`. Ahí va `nativo`.
+#
+# Lo que cambia entre los dos caminos es SÓLO de dónde sale el binario: misma
+# versión de Playwright, mismo Chromium, mismos tests, misma pila.
+NAVEGADOR="${E2E_NAVEGADOR:-auto}"
 
 export DATABASE_URL="postgresql://postgres:postgres@localhost:${PUERTO_PG}/tordo_test"
 export SECRET_KEY="e2e-secret"
@@ -131,7 +142,23 @@ cp -R frontend/public frontend/.next/standalone/ 2>/dev/null || true
 mkdir -p frontend/.next/standalone/.next
 cp -R frontend/.next/static frontend/.next/standalone/.next/ 2>/dev/null || true
 
-paso "Playwright"
+# ¿Se puede lanzar el navegador aquí mismo? Un `--version` no sirve: lo que
+# falta en una máquina sin `--with-deps` son librerías del sistema, y eso sólo
+# se ve al arrancar el proceso de verdad.
+navegador_nativo_funciona() {
+  (cd frontend && node -e "
+    require('@playwright/test').chromium.launch()
+      .then((b) => b.close())
+      .then(() => process.exit(0))
+      .catch(() => process.exit(1));
+  ") >/dev/null 2>&1
+}
+
+if [ "$NAVEGADOR" = auto ]; then
+  if navegador_nativo_funciona; then NAVEGADOR=nativo; else NAVEGADOR=contenedor; fi
+fi
+
+paso "Playwright ($NAVEGADOR)"
 # En contenedor y no con el navegador del host: `playwright install --with-deps`
 # necesita sudo, y ademas fija la MISMA version de navegador en local y en CI.
 #
@@ -144,11 +171,20 @@ paso "Playwright"
 # red del host es la de su VM, no la de WSL (medido: 000 con `--network host`,
 # 200 con `host.docker.internal`). `host-gateway` funciona igual en Docker
 # nativo, asi que el camino es uno solo.
-docker run --rm \
-  --add-host=host.docker.internal:host-gateway \
-  --user "$(id -u):$(id -g)" \
-  -v "${RAIZ}/frontend:/trabajo" -w /trabajo \
-  -e HOME=/tmp -e CI="${CI:-}" -e E2E_PUERTO_FRONT="$PUERTO_FRONT" \
-  -e API_URL="http://host.docker.internal:${PUERTO_API}" \
-  "$IMAGEN_PLAYWRIGHT" \
-  npx playwright test ${ARGS:-}
+if [ "$NAVEGADOR" = nativo ]; then
+  # El servidor de Next lo arranca `webServer` de playwright.config.ts, igual
+  # que en el contenedor. El navegador lo ve en `http://localhost`, que es el
+  # único origen sin TLS que trata como de confianza — y las cookies de sesión
+  # son `Secure`.
+  (cd frontend && API_URL="http://localhost:${PUERTO_API}" \
+     E2E_PUERTO_FRONT="$PUERTO_FRONT" npx playwright test ${ARGS:-})
+else
+  docker run --rm \
+    --add-host=host.docker.internal:host-gateway \
+    --user "$(id -u):$(id -g)" \
+    -v "${RAIZ}/frontend:/trabajo" -w /trabajo \
+    -e HOME=/tmp -e CI="${CI:-}" -e E2E_PUERTO_FRONT="$PUERTO_FRONT" \
+    -e API_URL="http://host.docker.internal:${PUERTO_API}" \
+    "$IMAGEN_PLAYWRIGHT" \
+    npx playwright test ${ARGS:-}
+fi

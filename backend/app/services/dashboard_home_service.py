@@ -2,7 +2,8 @@
 
 Single-roundtrip aggregator that reads from Postulacion, Licitacion, Alert,
 DocumentoEmpresa, Empresa, and dashboard_home_cache. All heavy lifting (TF-IDF
-matching) is pre-computed by the precompute_dashboard_matches Celery task.
+matching) lo precomputa la tarea Celery `precompute_dashboard_matches` en
+`match_empresa_licitacion`.
 """
 
 from __future__ import annotations
@@ -14,10 +15,10 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.alert import Alert, AlertStatus, AlertType
-from app.models.dashboard_cache import DashboardHomeCache
 from app.models.empresa import DocumentoEmpresa, Empresa
 from app.models.licitacion import Licitacion
 from app.models.postulacion import ChecklistPostulacion, Postulacion
+from app.repositories import matches as repo_matches
 from app.schemas.dashboard_home import (
     MatchItem,
     PipelineCounts,
@@ -431,14 +432,26 @@ async def compose_trend(db: AsyncSession, empresa_id: UUID) -> TrendStats:
 async def load_matches(
     db: AsyncSession, empresa_id: UUID
 ) -> tuple[list[MatchItem], datetime | None, int]:
-    """Read pre-computed matches from dashboard_home_cache."""
-    cache = (
-        await db.execute(
-            select(DashboardHomeCache).where(DashboardHomeCache.empresa_id == empresa_id)
+    """El encaje precomputado, unido a la licitación para que no esté rancio.
+
+    Antes leía un blob JSON de `dashboard_home_cache` con el nombre, el monto y
+    la fecha de cierre COPIADOS dentro. Eran una foto de las 06:00: si el ETL
+    actualizaba la licitación durante el día, la portada seguía mostrando lo
+    viejo. Ahora esos campos salen de `licitaciones` en el propio join.
+    """
+    filas, calculado_en = await repo_matches.top_licitaciones(db, empresa_id, limite=20)
+
+    items = [
+        MatchItem(
+            codigo_externo=lic.codigo_externo,
+            nombre=lic.nombre,
+            organismo=lic.nombre_organismo or "",
+            monto_estimado=(float(lic.monto_estimado) if lic.monto_estimado is not None else None),
+            moneda=lic.moneda or "CLP",
+            fecha_cierre=lic.fecha_cierre,
+            score=int(m.score),
+            href=f"/dashboard/tenders/{lic.codigo_externo}",
         )
-    ).scalar_one_or_none()
-    if cache is None:
-        return [], None, 0
-    items = [MatchItem.model_validate(m) for m in (cache.matches or [])]
-    cached_at = _ensure_utc(cache.cached_at) if cache.cached_at else None
-    return items, cached_at, int(cache.matches_count or 0)
+        for lic, m in filas
+    ]
+    return items, _ensure_utc(calculado_en) if calculado_en else None, len(items)

@@ -335,11 +335,17 @@ y no tiene Pub/Sub ni Cloud Tasks.
   - **`params` es una Promesa desde Next 16**, y las dos páginas de detalle la leían como
     objeto: pedían `/codigo/undefined`. Rotas desde la actualización.
   - En un componente cliente el parámetro de ruta se lee con **`useParams()`**.
-- **El navegador de los E2E corre en contenedor**, y el servidor de Next **dentro del
-  mismo contenedor**. No es capricho: las cookies de sesión son `Secure`, y
-  `http://localhost` es el único origen sin TLS que un navegador trata como de confianza.
-  Servido desde fuera, el login devuelve 200, no guarda nada y el test falla sin decir por
-  qué. El backend sí vive en el host, y por eso escucha en `0.0.0.0`.
+- **El navegador de los E2E se elige solo** (`E2E_NAVEGADOR=auto`): nativo si puede
+  lanzarse, y si no, la imagen oficial de Playwright. En una máquina de trabajo
+  `playwright install --with-deps` pide sudo; en CI no, y **bajar la imagen de 2 GB desde
+  Actions tardaba cuatro minutos y moría con `connection reset by peer`** — por eso el job
+  instala Chromium y fuerza `nativo`. Lo único que cambia entre los dos caminos es de dónde
+  sale el binario: misma versión, mismos tests, misma pila.
+- **El navegador y el servidor de Next tienen que verse en `http://localhost`.** Las cookies
+  de sesión son `Secure`, y ése es el único origen sin TLS que un navegador trata como de
+  confianza. Servido desde otro nombre, el login devuelve 200, no guarda nada y el test falla
+  sin decir por qué. Por eso, en el camino de contenedor, Next arranca DENTRO del contenedor.
+  El backend sí vive siempre en el host, y por eso escucha en `0.0.0.0`.
 - **El lint es `eslint .`, no `next lint`** — desapareció en Next 16. La configuración es plana
   (`eslint.config.mjs`), porque ESLint 9 abandonó `.eslintrc`.
 
@@ -485,6 +491,18 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
   `python tests/golden/capturar_golden_bi.py --desde-golden` — **sin `--desde-golden` el
   script redescubre los casos muestreando los datos** y sobre el fixture recortado produce
   otros distintos (la primera vez pasó de 31 casos a 7).
+- **Encaje empresa × licitación: `match_empresa_licitacion`, precomputado.** Una fila por par,
+  con `score` 0-100 y `nivel`. Lo llena el job de las 06:00 (`precompute_dashboard_matches`),
+  que es donde vive el modelo TF-IDF; la API **no lo carga para esto**.
+  - Los datos de la licitación se leen con **join**, nunca copiados. La versión anterior
+    guardaba un blob JSON con nombre, monto y fecha dentro: eran una foto de las 06:00 y el
+    ETL horario los dejaba rancios sin que nada avisara.
+  - **Se lee por `repositories/matches.py`**, no con SELECT propios en el router.
+  - **Ordenar por encaje usa join EXTERNO con `NULLS LAST`.** Con join interno, "ordenar por
+    encaje" pasaría a ser "filtrar por encaje" y el catálogo encogería al cambiar el orden.
+  - **Contrapartida, dicha claro**: una licitación ingerida hoy no tiene fila hasta las 06:00
+    siguientes y sale sin score. El score se guarda entero (0-100) y la API lo devuelve como
+    coseno 0-1, así que se pierde precisión por debajo del 1 %.
 - **Rate limiting**: Redis, por IP en `/api/bi/*`, más cuota diaria por tier.
 - **Un worker por contenedor, y es una decisión medida.** El modelo TF-IDF cuesta **~105 MB
   por proceso** y no se comparte entre workers. Con `-w 4` en 512 MB el contenedor muere por

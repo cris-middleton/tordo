@@ -6,8 +6,7 @@ tests: este archivo mantenía su propio DDL de SQLite —el tercero del repo— 
 desincronizaba con cada columna nueva.
 """
 
-from datetime import UTC, datetime
-from unittest.mock import patch
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
@@ -22,7 +21,16 @@ def sync_task_db(esquema_migrado):
     engine = create_engine(url, future=True)
     conexion = engine.connect()
     transaccion = conexion.begin()
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=conexion)
+    # `create_savepoint`: la tarea hace `commit()` y `rollback()` por empresa, y
+    # sin esto ese rollback deshace la transacción del PROPIO test —incluidas las
+    # filas que acaba de sembrar—. Con savepoints, cada rollback de la tarea
+    # afecta sólo a su empresa, que es lo que se quiere comprobar.
+    SessionLocal = sessionmaker(
+        autocommit=False,
+        autoflush=False,
+        bind=conexion,
+        join_transaction_mode="create_savepoint",
+    )
     session = SessionLocal()
     try:
         yield session, SessionLocal
@@ -41,12 +49,8 @@ def test_precompute_dashboard_matches_skips_when_feature_off(monkeypatch):
     assert result == {"skipped": True}
 
 
-def test_precompute_dashboard_matches_writes_cache_for_empresa(sync_task_db, monkeypatch):
-    from app.models.dashboard_cache import DashboardHomeCache
+def _empresa_con_perfil(session):
     from app.models.empresa import Empresa, TFIDFPerfil
-    from app.tasks import dashboard_tasks
-
-    session, SessionLocal = sync_task_db
 
     empresa = Empresa(
         id=uuid4(),
@@ -65,29 +69,114 @@ def test_precompute_dashboard_matches_writes_cache_for_empresa(sync_task_db, mon
         )
     )
     session.flush()
+    return empresa
 
-    fake_matches = [
-        {
-            "codigo_externo": "LIC-X",
-            "nombre": "Servicios test",
-            "organismo": "ORG",
-            "monto_estimado": 100000.0,
-            "moneda": "CLP",
-            "fecha_cierre": datetime.now(UTC).isoformat(),
-            "score": 80,
-            "href": "/dashboard/tenders/LIC-X",
-        }
-    ]
+
+def _licitacion(session, codigo: str):
+    from app.models.licitacion import Licitacion
+
+    lic = Licitacion(
+        codigo_externo=codigo,
+        nombre=f"Servicios {codigo}",
+        fecha_publicacion=datetime.now(UTC) - timedelta(days=1),
+        fecha_cierre=datetime.now(UTC) + timedelta(days=10),
+        estado="Publicada",
+        activo=True,
+    )
+    session.add(lic)
+    session.flush()
+    return lic
+
+
+def test_el_job_escribe_una_fila_por_licitacion_puntuada(sync_task_db, monkeypatch):
+    from app.models.match import MatchEmpresaLicitacion
+    from app.tasks import dashboard_tasks
+
+    session, SessionLocal = sync_task_db
+    empresa = _empresa_con_perfil(session)
+    lic = _licitacion(session, "LIC-X")
+
+    monkeypatch.setattr(dashboard_tasks.settings, "feature_tfidf", True)
+    monkeypatch.setattr(dashboard_tasks, "SyncSessionLocal", SessionLocal)
+    monkeypatch.setattr(
+        dashboard_tasks, "_puntuar_empresa", lambda db, vector: [(lic.id, 80, "alto")]
+    )
+
+    resultado = dashboard_tasks.precompute_dashboard_matches()
+
+    assert resultado["processed"] == 1
+    assert resultado["failed"] == 0
+
+    fila = session.query(MatchEmpresaLicitacion).filter_by(empresa_id=empresa.id).one()
+    assert fila.licitacion_id == lic.id
+    assert fila.score == 80
+    assert fila.nivel == "alto"
+
+
+def test_recalcular_reemplaza_lo_anterior_en_vez_de_acumular(sync_task_db, monkeypatch):
+    """Una licitación que deja de puntuar tiene que DESAPARECER.
+
+    Con un upsert sin borrado previo, las filas de licitaciones ya cerradas —o
+    caídas por debajo del umbral— se quedarían para siempre, y la tabla sólo
+    crecería. Peor: la portada seguiría ofreciendo licitaciones cerradas.
+    """
+    from app.models.match import MatchEmpresaLicitacion
+    from app.tasks import dashboard_tasks
+
+    session, SessionLocal = sync_task_db
+    empresa = _empresa_con_perfil(session)
+    vieja = _licitacion(session, "LIC-VIEJA")
+    nueva = _licitacion(session, "LIC-NUEVA")
 
     monkeypatch.setattr(dashboard_tasks.settings, "feature_tfidf", True)
     monkeypatch.setattr(dashboard_tasks, "SyncSessionLocal", SessionLocal)
 
-    with patch.object(dashboard_tasks, "_compute_matches_for_empresa", return_value=fake_matches):
-        result = dashboard_tasks.precompute_dashboard_matches()
+    monkeypatch.setattr(
+        dashboard_tasks, "_puntuar_empresa", lambda db, vector: [(vieja.id, 90, "alto")]
+    )
+    dashboard_tasks.precompute_dashboard_matches()
 
-    assert result["processed"] == 1
-    assert result["failed"] == 0
+    monkeypatch.setattr(
+        dashboard_tasks, "_puntuar_empresa", lambda db, vector: [(nueva.id, 70, "medio")]
+    )
+    dashboard_tasks.precompute_dashboard_matches()
 
-    cache = session.query(DashboardHomeCache).filter_by(empresa_id=empresa.id).one()
-    assert cache.matches_count == 1
-    assert cache.matches[0]["codigo_externo"] == "LIC-X"
+    filas = session.query(MatchEmpresaLicitacion).filter_by(empresa_id=empresa.id).all()
+    assert [f.licitacion_id for f in filas] == [nueva.id]
+
+
+def test_una_empresa_que_falla_no_arrastra_a_las_demas(sync_task_db, monkeypatch):
+    """El commit es por empresa. Con uno solo al final, un fallo en la última
+    tiraba el trabajo de todas."""
+    from app.models.empresa import Empresa, TFIDFPerfil
+    from app.models.match import MatchEmpresaLicitacion
+    from app.tasks import dashboard_tasks
+
+    session, SessionLocal = sync_task_db
+    buena = _empresa_con_perfil(session)
+    lic = _licitacion(session, "LIC-OK")
+
+    mala = Empresa(
+        id=uuid4(), rut_empresa="22222222-2", nombre_empresa="Rota", estado_habil="habil"
+    )
+    session.add(mala)
+    session.flush()
+    session.add(
+        TFIDFPerfil(id=uuid4(), empresa_id=mala.id, vector_bytes=b"rota", modelo_version="v1")
+    )
+    session.flush()
+
+    def puntuar(db, vector):
+        if vector == b"rota":
+            raise RuntimeError("modelo corrupto")
+        return [(lic.id, 60, "medio")]
+
+    monkeypatch.setattr(dashboard_tasks.settings, "feature_tfidf", True)
+    monkeypatch.setattr(dashboard_tasks, "SyncSessionLocal", SessionLocal)
+    monkeypatch.setattr(dashboard_tasks, "_puntuar_empresa", puntuar)
+
+    resultado = dashboard_tasks.precompute_dashboard_matches()
+
+    assert resultado["processed"] == 1
+    assert resultado["failed"] == 1
+    assert session.query(MatchEmpresaLicitacion).filter_by(empresa_id=buena.id).count() == 1
