@@ -1,3 +1,7 @@
+> 🟡 **Histórico (2026-04). No describe el sistema de hoy.** Los problemas que
+> encontró están corregidos; se conserva por el análisis, no como referencia.
+> Ver [`README.md`](README.md) para el mapa de la documentación.
+
 # Análisis de Problemas en Base de Datos
 
 ## 1. Problema: Estructura de datos en `ordenes_compra_detalle`
@@ -34,7 +38,7 @@ En lugar de la estructura completa esperada:
 
 Estos registros fueron creados con datos **incompletos**, probablemente:
 
-1. **Del ETL básico (listado diario)**: 
+1. **Del ETL básico (listado diario)**:
    - El ETL diario solo extrae información básica del listado
    - Los detalles completos se obtienen con el endpoint de detalle
    - Si se creó el registro `detalle` sin ejecutar la extracción de detalles, tendrá datos mínimos
@@ -115,7 +119,7 @@ with engine.connect() as conn:
     result = conn.execute(text("SHOW timezone"))
     tz = result.scalar()
     print(f"PostgreSQL timezone: {tz}")
-    
+
     result = conn.execute(text("SELECT NOW()"))
     now_db = result.scalar()
     print(f"PostgreSQL NOW(): {now_db}")
@@ -155,4 +159,3 @@ Si el servidor PostgreSQL tiene otras bases de datos que también necesitan `Ame
 2. **Largo plazo**: Asegurar que el ETL siempre extraiga detalles completos antes de crear registros `detalle`
 
 ¿Quieres que cree el script para re-extraer los detalles incompletos?
-

@@ -6,21 +6,28 @@ Plataforma SaaS para PYMES chilenas que participan en licitaciones públicas. Ge
 > `APP_NAME` / `BRAND_NAME`; no hardcodear. (Un pivot de marca a "YUCA" quedó descartado —
 > si aparece una referencia a YUCA en algún documento, está obsoleta.)
 >
-> **Estado del proyecto**: Fases 0–6 de `docs/deploy_steps/` ~90 % implementadas. En curso el plan
-> de remediación de arquitectura — ver **`docs/ARQUITECTURA_REVISION_2026-08.md`**, que es la
-> referencia para cualquier cambio estructural. La especificación de producto es `docs/SPEC.md`.
+> **Estado del proyecto (2026-08-08)**: el plan de remediación de arquitectura está
+> **cerrado** — sus siete fases (F0–F6) y el servidor MCP. Lo que sigue abierto está en
+> `docs/ARQUITECTURA_REVISION_2026-08.md` §«Estado al cerrar», **cada cosa con su motivo**,
+> incluidas las tres integraciones que aún no han hablado con su servicio real.
+>
+> **`docs/README.md` es el mapa de la documentación**: dice, documento a documento, cuál
+> describe el sistema de hoy y cuál es la foto de un momento.
 
 ## Estructura del Proyecto
 
 ```
 tordo/
 ├── backend/          # FastAPI + SQLAlchemy + Celery
-├── frontend/         # Next.js 14 + Tailwind CSS
+├── frontend/         # Next.js 16 (App Router) + Tailwind CSS
 ├── etl/              # Pipeline de extracción (Mercado Público, estado hábil)
 ├── infra/            # Docker Compose
 ├── docs/             # Especificación técnica, planes de negocio, guías, deploy
-│   ├── SPEC.md       # Especificación técnica completa (v3.1)
-│   ├── deploy_steps/ # Fases de implementación (Fase 0 → 6) + tareas manuales
+│   ├── README.md     # MAPA: qué documento está vivo y cuál es histórico
+│   ├── decisiones/   # 10 ADRs — por qué el sistema es así
+│   ├── API_PUBLICA.md# Qué se promete a quien integra desde fuera
+│   ├── SPEC.md       # Especificación de producto
+│   ├── deploy_steps/ # Despliegue y tareas manuales en consolas de terceros
 │   └── assets/       # Assets de diseño (logos fuente, etc.)
 └── .env.example      # Variables de entorno de referencia
 ```
@@ -67,13 +74,17 @@ tordo/
 5. **Acceder a los servicios**
    | Servicio | URL |
    |----------|-----|
-   | Backend API | http://localhost:8000 |
+   | Backend API | http://localhost:8000/api/v1 |
    | API Docs (Swagger) | http://localhost:8000/docs |
+   | Servidor MCP | http://localhost:8000/mcp/ |
    | Frontend | http://localhost:3000 |
    | PostgreSQL | localhost:5432 |
    | Redis | localhost:6379 |
 
-   > **Nota**: Si el frontend corre en Docker y hace llamadas API desde el navegador, configura `NEXT_PUBLIC_API_URL=http://localhost:8000` en `.env` para que el cliente pueda alcanzar el backend.
+   > **El navegador no habla con el backend.** Todo pasa por `/api/proxy` del servidor de
+   > Next, que es quien guarda la sesión en cookies `httpOnly`. Por eso la URL del backend es
+   > `API_URL`, **de servidor y sin prefijo `NEXT_PUBLIC_`**: cualquier variable con ese
+   > prefijo se inlinea en el bundle del navegador.
 
 ## Desarrollo
 
@@ -82,8 +93,9 @@ tordo/
 1. **Leer** `CLAUDE.md` (reglas de trabajo y mapa de arquitectura)
 2. **Leer** `docs/ARQUITECTURA_REVISION_2026-08.md` antes de cualquier cambio estructural
 3. **Consultar** `docs/SPEC.md` para el alcance de producto
-4. **Revisar** `docs/deploy_steps/tareas_manuales.md` — servicios externos aún pendientes
-   (Stripe live, Google OAuth, Twilio WABA, dominio + SSL)
+4. **Consultar** `docs/decisiones/` antes de re-discutir algo ya decidido
+5. **Revisar** `docs/deploy_steps/tareas_manuales.md` — servicios externos aún pendientes
+   (MercadoPago, Google OAuth, Twilio WABA, dominio + SSL)
 
 **Toda feature se desarrolla en un worktree**, nunca ramificando en el checkout
 principal:
@@ -95,8 +107,9 @@ cd ../tordo-worktrees/mi-feature
 
 Luego PR a `main`; CI en verde es la única puerta. No hay rama ni entorno de staging
 — es deliberado, ver `CLAUDE.md`.
-`docs/deploy_steps/fase_*.md` es el roadmap original (fases 0–6, ~90 % ejecutado); se conserva
-como referencia histórica del alcance, no como plan vigente.
+`docs/deploy_steps/fase_*.md` es el roadmap original de implementación; se conserva como
+referencia histórica, no como plan vigente. **No confundirlo con las fases F0–F6 de
+`docs/ARQUITECTURA_REVISION_2026-08.md`**, que son otra cosa y están cerradas.
 
 ### Comandos
 
@@ -107,7 +120,10 @@ make install       # dependencias Python desde uv.lock
 make hooks         # instalar hooks de pre-commit (una vez por clone)
 make lint          # ruff check + format --check (lo mismo que CI)
 make lint-fix      # autocorregir
-make test          # backend + ETL
+make test          # backend + ETL + frontend
+make ci            # lo mismo que CI, en local, antes de pushear
+make e2e           # extremo a extremo (pila completa + Playwright)
+make audit         # vulnerabilidades y antigüedad de dependencias
 make dev-up-d      # stack completo en segundo plano
 make db-shell      # psql
 ```
@@ -168,7 +184,10 @@ make downgrade                          # revertir la última
 ## Testing
 
 ```bash
-make test          # backend + ETL
+make test          # backend + ETL + frontend
+make ci            # lo mismo que CI, en local, antes de pushear
+make e2e           # extremo a extremo (pila completa + Playwright)
+make audit         # vulnerabilidades y antigüedad de dependencias
 make test-backend
 make test-etl
 make test-cov      # backend con cobertura

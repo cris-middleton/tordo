@@ -1,3 +1,6 @@
+> 🟡 **Histórico (2026-04).** Los comandos vigentes están en `CLAUDE.md` y en
+> `make help`; algunos de aquí ya no existen. Ver [`README.md`](README.md).
+
 # 📝 Comandos ETL - Referencia Rápida
 
 ## ⚡ Comando Más Común (Pipeline Completo)
@@ -12,7 +15,7 @@ python -m etl.main
 
 **Qué hace**:
 1. ✅ Extrae licitaciones del día actual
-2. ✅ Extrae órdenes de compra del día actual  
+2. ✅ Extrae órdenes de compra del día actual
 3. ✅ Extrae detalles de registros nuevos (sin detalles previos)
 4. ⏱️ Duración: 10-30 minutos
 
@@ -224,4 +227,3 @@ grep ERROR etl/etl.log | tail -20
 3. **No uses** `python etl/main.py` ❌ (da error de módulo)
 
 4. **Usa** `python -m etl.main` ✅ (correcto)
-

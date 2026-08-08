@@ -1,9 +1,13 @@
+> 🟡 **Histórico (2026-03).** Es el plan del que salió el módulo de BI, no una
+> descripción de cómo quedó. Lo construido está en `CLAUDE.md` §BI.
+> Ver [`README.md`](README.md) para el mapa de la documentación.
+
 # TORDO — Dashboard BI & Analytics v3.0
 *Marzo 2026 · Confidencial*
 
-> **Estructura de este documento:**  
-> **PARTE A — Spec de producto:** qué construir, por qué, y cómo debe comportarse.  
-> **PARTE B — Prompt ejecutable para Claude Code:** cómo implementarlo, en qué orden, con qué restricciones.  
+> **Estructura de este documento:**
+> **PARTE A — Spec de producto:** qué construir, por qué, y cómo debe comportarse.
+> **PARTE B — Prompt ejecutable para Claude Code:** cómo implementarlo, en qué orden, con qué restricciones.
 >
 > Claude Code debe leer ambas partes antes de escribir código. La Parte B sin la Parte A produce trabajo incorrecto.
 
@@ -77,7 +81,7 @@ Score total: 7.8 / 10
 [Competencia  ███████░░░  65%]  ← competencia media
 [Timing       ██████░░░░  52%]  ← sin urgencia inmediata
 
-"Rankea alto porque el precio cae en el percentil ganador y el 
+"Rankea alto porque el precio cae en el percentil ganador y el
 organismo repite patrón de compra. Competencia esperada: media."
 ```
 
@@ -88,7 +92,7 @@ El texto de 1 línea al pie es **obligatorio**. No opcional. Sin él, el score e
 El texto se genera en frontend combinando los valores de los 4 drivers:
 
 ```
-"Rankea [alto/medio/bajo] porque 
+"Rankea [alto/medio/bajo] porque
  [precio cae en percentil ganador / precio está por encima del rango histórico],
  [el organismo repite patrón de compra / el organismo es volátil],
  y la competencia esperada es [alta/media/baja]."
@@ -409,7 +413,7 @@ Capas del chart (todas en Recharts):
 - `<ReferenceLine>` para precio recomendado del usuario (si lo ingresó)
 - `<ReferenceLine>` para precio adjudicado anterior (si existe en datos)
 
-Encima del chart: `<ConfidenceBadge n={n_observaciones} />`  
+Encima del chart: `<ConfidenceBadge n={n_observaciones} />`
 Debajo del chart: `Actualizado {formatRelativeTime(last_updated)}`
 
 **Si N < 5:** mostrar solo la mediana con badge rojo. No mostrar bandas que darían falsa precisión.
@@ -448,7 +452,7 @@ CLP 1.2B             4.2 OC/mes           31 proveedores          Top-3: 67%
 [N=142 · 🟢 Alta]   [N=142 · 🟢 Alta]   [N=142 · 🟢 Alta]      [N=142 · 🟢 Alta]
 ```
 
-Mini sparkline de actividad mensual (últimos 12 meses).  
+Mini sparkline de actividad mensual (últimos 12 meses).
 Mini heatmap de estacionalidad (Tailwind Grid, no Recharts — más simple): columnas = meses, intensidad = color.
 
 ---
@@ -632,5 +636,5 @@ El resultado es un sistema de decisiones para el dueño de PYME, no un tablero d
 
 ---
 
-*TORDO · Plan Analytics & BI Dashboard v3.0 · Marzo 2026 · Confidencial*  
+*TORDO · Plan Analytics & BI Dashboard v3.0 · Marzo 2026 · Confidencial*
 *Revisión v3.0: incorpora confianza del dato como primer ciudadano, descomposición de score en 4 drivers, texto explicativo obligatorio por oportunidad, frescura del dato visible, comparación usuario vs. mercado, separación Parte A / Parte B, mini heatmap reemplazado por barras en home, lenguaje de score calibrado (sin "probabilidad de ganar"), contrato de datos por visualización.*

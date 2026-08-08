@@ -1,3 +1,8 @@
+> **Retirado el 2026-08-08.** Describe una estructura de backend que ya no
+> existe: no tiene `repositories/`, `domain/`, `infra/` ni `mcp/`, y su capa de
+> servicios es anterior al reparto por capas de F3. Lo que decía vive hoy en
+> `CLAUDE.md`, que sí se actualiza con el código.
+
 # Development Guide
 
 ## Project Architecture

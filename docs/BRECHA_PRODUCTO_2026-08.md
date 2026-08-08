@@ -1,3 +1,7 @@
+> 🟡 **Histórico (2026-08-07).** Es la foto que ordenó las prioridades de F6.
+> **F6 ya está cerrada**, así que varias brechas que nombra están cubiertas —
+> el estado actual está en `ARQUITECTURA_REVISION_2026-08.md`.
+
 # Brecha entre el producto construido y el producto prometido
 
 **TORDO · revisión del 2026-08-07**

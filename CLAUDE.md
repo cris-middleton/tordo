@@ -6,6 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 > planificado pero no construido vive en "Hacia dónde va" y en
 > `docs/ARQUITECTURA_REVISION_2026-08.md`. Si encuentras una diferencia entre este
 > archivo y el código, **el código gana** — y corrige este archivo en el mismo PR.
+>
+> **`docs/README.md` es el mapa de la documentación**: dice, documento a documento, cuál
+> describe el sistema de hoy (🟢) y cuál es la foto de un momento (🟡). Un documento nuevo
+> sin clasificar hace fallar `tests/test_docs_indexadas.py` — porque una documentación
+> desfasada es peor que ninguna: la de hoy se lee con desconfianza y la vieja se cree.
 
 ---
 

@@ -1,3 +1,7 @@
+> 🟡 **Histórico (2026-04). No describe el sistema de hoy.** Se conserva porque
+> la validación de `Listado[0]` y de timezone contra la API de Mercado Público
+> costó trabajo. Ver [`README.md`](README.md) para el mapa de la documentación.
+
 # Validación de Estructura de Datos y Timezone
 
 ## 1. Validación de uso de `Listado[0]` vs nivel raíz
@@ -131,10 +135,10 @@ Este script:
    ```sql
    -- En postgresql.conf
    timezone = 'America/Santiago'
-   
+
    -- O por sesión
    SET timezone = 'America/Santiago';
-   
+
    -- O por base de datos
    ALTER DATABASE licitaciones SET timezone = 'America/Santiago';
    ```
@@ -149,7 +153,7 @@ Este script:
    # Verificar timezone actual
    from etl.utils import now_santiago
    import pytz
-   
+
    fecha = now_santiago()
    print(f"Fecha: {fecha}")
    print(f"Timezone: {fecha.tzinfo}")
@@ -173,4 +177,3 @@ Este script:
 - ✅ La implementación actual con `pytz` es correcta
 
 **Recomendación:** Mantener el cambio a Santiago, pero documentar bien y verificar la configuración de PostgreSQL.
-

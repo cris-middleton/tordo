@@ -1,0 +1,71 @@
+# Mapa de la documentación
+
+**El problema que resuelve este índice**: doce documentos en un directorio no
+dicen cuáles describen el sistema de hoy y cuáles son la foto de un martes de
+abril. Y una documentación desfasada es peor que ninguna — la de hoy se lee con
+desconfianza, y la de abril se cree.
+
+Así que cada documento está clasificado, y **un documento nuevo sin clasificar
+hace fallar `backend/tests/test_docs_indexadas.py`**. Es el mismo trinquete que
+usa el resto del repo: la decisión la toma una persona, no el descuido.
+
+| estado | qué significa |
+|---|---|
+| 🟢 **vivo** | Describe el sistema actual. **Si cambias el código y esto queda desfasado, se corrige en el mismo PR.** |
+| 🟡 **histórico** | La foto de un momento. **No se actualiza** — se conserva por el razonamiento, no como referencia. |
+| 🔵 **externo** | Documentación de terceros (ChileCompra). No la escribimos ni la mantenemos. |
+
+---
+
+## 🟢 Vivo
+
+| documento | qué contiene | cuándo mirarlo |
+|---|---|---|
+| [`../CLAUDE.md`](../CLAUDE.md) | **El estado real del backend, el frontend y el ETL**, con las decisiones que el código no explica solo. Es el documento que más se actualiza. | Antes de tocar cualquier cosa |
+| [`ARQUITECTURA_REVISION_2026-08.md`](ARQUITECTURA_REVISION_2026-08.md) | La revisión que originó las siete fases (F0–F6) y su estado de cierre, con lo que queda abierto y por qué | Para entender por qué el sistema es así |
+| [`decisiones/`](decisiones/README.md) | **10 ADRs**: sólo Chile, suscripción por empresa, nombre, LLM/MCP, pasarela local, analytics en Postgres, no migrar a Supabase, MercadoPago, API versionada, extracción de bases | Antes de re-discutir algo que ya se decidió |
+| [`API_PUBLICA.md`](API_PUBLICA.md) | Qué parte de la API es pública, límites, errores, el servidor MCP y **lo que no hay** | Para integrar desde fuera |
+| [`SPEC.md`](SPEC.md) | La especificación de producto | Para saber qué se prometió |
+| [`tordo_plan_saas.md`](tordo_plan_saas.md) | El plan de negocio: segmento, precios, competencia | Para decisiones de producto |
+| [`deploy_steps/railway_deployment_guide.md`](deploy_steps/railway_deployment_guide.md) | Cómo se despliega | Al desplegar |
+| [`deploy_steps/tareas_manuales.md`](deploy_steps/tareas_manuales.md) | Lo que hay que hacer a mano en consolas de terceros | Al configurar credenciales |
+
+**La referencia de endpoints no está en ningún `.md`, y es deliberado**: se
+genera del código y vive en `/docs`, `/redoc` y `/openapi.json`. Una lista de
+endpoints escrita a mano se queda vieja sin que nada falle.
+
+## 🟡 Histórico
+
+Ninguno se actualiza. Se conservan porque contienen razonamiento que costó
+producir — no porque describan el sistema de hoy.
+
+| documento | de cuándo | por qué se conserva |
+|---|---|---|
+| [`BRECHA_PRODUCTO_2026-08.md`](BRECHA_PRODUCTO_2026-08.md) | 2026-08-07 | La lectura del código contra el plan de negocio que ordenó las prioridades de F6 |
+| [`ANALISIS_PROBLEMAS_DATOS.md`](ANALISIS_PROBLEMAS_DATOS.md) | 2026-04 | Los problemas de estructura de datos que encontró y **que ya están corregidos** |
+| [`VALIDACION_ESTRUCTURA_DATOS.md`](VALIDACION_ESTRUCTURA_DATOS.md) | 2026-04 | La validación de `Listado[0]` y timezone contra la API de Mercado Público |
+| [`tordo_analytics_bi_dashboard_plan_v3.md`](tordo_analytics_bi_dashboard_plan_v3.md) | 2026-03 | El plan del que salió el módulo de BI |
+| [`COMANDOS_ETL.md`](COMANDOS_ETL.md) | 2026-04 | Referencia de comandos del ETL. **Los vigentes están en `CLAUDE.md`** |
+| [`deploy_steps/fase_*.md`](deploy_steps/) | 2026 | El roadmap original de implementación, anterior a la revisión de arquitectura |
+| [`_archive/`](_archive/README.md) | hasta F0 | 44 documentos retirados en la limpieza de F0. Tiene su propia advertencia |
+
+## 🔵 Referencia externa
+
+| documento | qué es |
+|---|---|
+| `Documentación API Mercado Publico - Licitaciones.pdf` | Diccionario de datos oficial de ChileCompra. **Es la fuente cuando hay dudas sobre un campo** — se usó para decidir el [ADR 0010](decisiones/0010-extraccion-de-bases-con-llm.md) |
+| `Documentación API de Mercado Público - Órdenes de Compra.pdf` | Ídem, para órdenes de compra |
+| `Declaración de Uso de Datos Oficiales.pdf` | Los términos bajo los que se consumen los datos |
+| [`mercado_publico_faq.md`](mercado_publico_faq.md) | Cómo funciona Mercado Público: mecanismos de compra, plazos, vocabulario |
+
+## Dónde va cada cosa
+
+Si dudas dónde documentar algo:
+
+- **Cómo funciona el sistema hoy** → `CLAUDE.md`.
+- **Por qué se eligió A y no B**, y es una decisión que alguien re-discutiría →
+  un ADR en `decisiones/`. Se numeran en orden y se indexan en su README.
+- **Lo que ve quien integra desde fuera** → `API_PUBLICA.md`, y lo que sea
+  referencia de endpoints, en los docstrings (van al OpenAPI).
+- **Por qué el código está así y no de otra forma** → un comentario junto al
+  código. Es lo que sobrevive al refactor; un documento aparte, no.
