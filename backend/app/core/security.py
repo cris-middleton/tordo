@@ -4,14 +4,17 @@ from uuid import UUID
 
 import bcrypt
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core import limites_api
+from app.core.plan_limits import effective_plan_tier
 from app.core.versionado import PREFIJO_API
 from app.db import get_db
+from app.models.empresa import Empresa
 from app.models.user import User
 
 # Password hashing
@@ -97,6 +100,7 @@ class Autenticacion:
 
 
 async def autenticar(
+    respuesta: Response,
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db),
 ) -> Autenticacion:
@@ -104,6 +108,11 @@ async def autenticar(
 
     Se distinguen por el prefijo `tordo_`, sin consultar la base: un JWT nunca
     empieza así.
+
+    **Las claves llevan además límite por minuto**, y se aplica aquí porque es el
+    único punto por el que pasan todas: ponerlo en un middleware obligaría a
+    verificar la clave dos veces, y ponerlo en cada router sería olvidarlo en el
+    siguiente.
     """
     from app.services import api_keys
 
@@ -131,9 +140,43 @@ async def autenticar(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="La cuenta que creó esta clave ya no está activa.",
             )
+        await _aplicar_limite_de_clave(db, clave, respuesta)
         return Autenticacion(usuario=usuario, empresa_fijada=clave.empresa_id)
 
     return Autenticacion(usuario=await _usuario_de_jwt(token, db))
+
+
+async def _aplicar_limite_de_clave(db: AsyncSession, clave, respuesta: Response) -> None:
+    """Cuenta esta petición contra el cubo de la clave, y corta si se pasó.
+
+    El tier sale de la empresa de la clave, no de quien la creó: la suscripción
+    es de la empresa (ADR 0002), y la clave está fijada a una.
+
+    Cuesta un SELECT por petición autenticada con clave. Se paga a propósito: la
+    alternativa —cachear el plan— haría que una empresa que sube de plan siguiera
+    limitada al anterior hasta que caducara la caché, que es justo el momento en
+    que menos conviene.
+    """
+    empresa = await db.get(Empresa, clave.empresa_id)
+    tier = effective_plan_tier(empresa) if empresa is not None else "basico"
+
+    consumo = limites_api.consumir(str(clave.id), tier)
+    if consumo is None:
+        # Redis no responde: se deja pasar y NO se anuncian cabeceras, porque
+        # cualquier número que pusiéramos sería inventado.
+        return
+
+    if consumo.excedido:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                f"Superaste el límite de {consumo.limite} peticiones por minuto "
+                f"de tu plan. Reintenta en un minuto o espacia las llamadas."
+            ),
+            headers={**limites_api.cabeceras(consumo), "Retry-After": "60"},
+        )
+
+    respuesta.headers.update(limites_api.cabeceras(consumo))
 
 
 async def get_current_user(auth: Autenticacion = Depends(autenticar)) -> User:

@@ -75,7 +75,7 @@ ventana corta en la que el frontend viejo pide `/api/...` y recibe 404. Es un ev
 
 ## Consecuencias
 
-- `backend/app/api/versionado.py` y `frontend/lib/versionApi.ts` tienen la versión. Están
+- `backend/app/core/versionado.py` y `frontend/lib/versionApi.ts` tienen la versión. Están
   **duplicadas a propósito**: el frontend no importa nada de Python, y si se desincronizan
   todas las llamadas fallan a la vez — ruidoso, no silencioso.
 - La tabla de contrato de BI y los tests estructurales pasan a trabajar con rutas **relativas

@@ -25,11 +25,21 @@ from typing import Literal
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.plan_limits import (
+    ILIMITADO,
+    effective_plan_tier,
+    error_de_cuota,
+    etiqueta_de_tier,
+    get_quota,
+    increment_bi_query,
+    meets_min_tier,
+)
 from app.core.security import empresa_fijada_por_clave, get_current_active_user
 from app.db import get_db
+from app.models.alert import AlertPreference
 from app.models.empresa import Empresa, EmpresaUsuario
 from app.models.user import User
 
@@ -229,3 +239,113 @@ async def empresa_facturable(
         empresa_id = empresa_de_clave
 
     return await resolver_empresa_facturable(empresa_id, current_user, db)
+
+
+# ── Cuotas de plan ───────────────────────────────────────────────────────────
+#
+# Estas tres dependencias vivían en `core/plan_limits.py`, y para poder pedir
+# `empresa_facturable` importaban `app.api.deps` **dentro de una función**. Eso
+# era `core` importando de `api`: la dirección contraria a la que manda el
+# diseño por capas, y un ciclo real que sólo se sostenía porque el import estaba
+# diferido — al añadir un import normal de `plan_limits` desde `core.security`,
+# el ciclo se cerró y la aplicación dejó de arrancar.
+#
+# Aquí no hay ciclo: `api` puede importar `core` cuanto quiera. `plan_limits`
+# se queda con lo que de verdad es suyo — la tabla de cuotas y las funciones
+# puras que la leen — y las dependencias de FastAPI viven donde vive el resto.
+
+
+def require_plan(min_tier: str):
+    """Exige un plan mínimo. Se usa como `Depends(require_plan("pyme"))`."""
+
+    def _exigir_plan(empresa: Empresa = Depends(empresa_facturable)) -> Empresa:
+        tier = effective_plan_tier(empresa)
+        if not meets_min_tier(tier, min_tier):
+            raise HTTPException(
+                status_code=402,
+                detail=error_de_cuota(
+                    "plan_tier",
+                    tier,
+                    None,
+                    None,
+                    f"Esta función requiere el plan {etiqueta_de_tier(min_tier)} o "
+                    f"superior. Actualiza tu suscripción para acceder.",
+                ),
+            )
+        return empresa
+
+    return _exigir_plan
+
+
+def _exigir_cuota_bi(empresa: Empresa = Depends(empresa_facturable)) -> Empresa:
+    tier = effective_plan_tier(empresa)
+    limite_diario: int | None = get_quota(tier)["bi_queries_per_day"]
+
+    if limite_diario is ILIMITADO:
+        increment_bi_query(empresa.id)
+        return empresa
+
+    # Se incrementa primero (atómico) y luego se comprueba: evita un GET+SET.
+    consumidas = increment_bi_query(empresa.id)
+    if consumidas > limite_diario:
+        raise HTTPException(
+            status_code=402,
+            detail=error_de_cuota(
+                "bi_queries_per_day",
+                tier,
+                limite_diario,
+                consumidas,
+                f"Has alcanzado el límite de {limite_diario} consultas BI por día "
+                f"del plan {etiqueta_de_tier(tier)}. Actualiza tu plan para continuar.",
+            ),
+        )
+    return empresa
+
+
+#: Los 16 endpoints de BI la piden por este nombre.
+check_bi_quota_dep = _exigir_cuota_bi
+
+
+async def _exigir_cuota_alertas(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+    empresa: Empresa = Depends(empresa_facturable),
+) -> User:
+    # El LÍMITE sale del plan, que es de la empresa. El CONTEO sigue siendo por
+    # usuario, porque AlertPreference es una preferencia personal y no tiene
+    # empresa_id.
+    #
+    # Matiz pendiente de decisión de producto: con varios asientos, el límite se
+    # multiplica de hecho por el número de usuarios. Hacerlo un entitlement de la
+    # cuenta exige darle empresa_id a AlertPreference.
+    tier = effective_plan_tier(empresa)
+    max_alertas: int | None = get_quota(tier)["max_active_alerts"]
+    if max_alertas is ILIMITADO:
+        return current_user
+
+    activas: int = (
+        await db.execute(
+            select(func.count())
+            .select_from(AlertPreference)
+            .where(
+                AlertPreference.user_id == current_user.id,
+                AlertPreference.is_active.is_(True),
+            )
+        )
+    ).scalar() or 0
+    if activas >= max_alertas:
+        raise HTTPException(
+            status_code=402,
+            detail=error_de_cuota(
+                "max_active_alerts",
+                tier,
+                max_alertas,
+                activas,
+                f"Has alcanzado el límite de {max_alertas} alertas activas del plan "
+                f"{etiqueta_de_tier(tier)}. Actualiza tu plan para agregar más alertas.",
+            ),
+        )
+    return current_user
+
+
+check_alert_quota_dep = _exigir_cuota_alertas

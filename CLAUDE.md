@@ -416,7 +416,8 @@ services/       Lógica de negocio como funciones de módulo.
                 services/bi/ está partido por dominio (precio, competencia,
                 comprador, oportunidad, temporal, mercado, panel), con _base.py
                 como único punto de acceso a las tablas de analytics.
-core/           security.py (JWT), plan_limits.py (cuotas), email.py
+core/           security.py (JWT), plan_limits.py (cuotas), limites_api.py
+                (límite por clave), versionado.py, email.py
 observability/  logging JSON con request_id (contextvar) + Sentry opt-in
 db/             sesión async (asyncpg) y sync (psycopg2)
 models/         SQLAlchemy
@@ -432,16 +433,16 @@ bi (22 endpoints), dashboard, billing, webhooks, health, data_inspection.
 su ruta relativa (`/tenders`, `/empresas`…) y **nunca `/api` por su cuenta**: publicar una v2
 es montar los mismos routers bajo otro prefijo, no editar catorce ficheros. `/health` queda
 fuera de la versión — lo consulta el healthcheck de la plataforma, no un cliente.
-La versión vive en `app/api/versionado.py` y, duplicada a propósito, en
+La versión vive en `app/core/versionado.py` y, duplicada a propósito, en
 `frontend/lib/versionApi.ts`: si se desincronizan, **todas** las llamadas fallan a la vez.
 
 **Las respuestas son planas, sin envelope** (ADR 0009). El éxito ya lo lleva el código HTTP;
 un `{success, data}` termina siempre en 200 con `success: false`, que obliga a cada cliente a
 mirar dos sitios. Lo fija `tests/test_versionado_api.py`.
 
-**Celery**: 11 jobs. ETL horario, backfill diario, bulk semanal + analytics, estado hábil
+**Celery**: 12 jobs. ETL horario, backfill diario, bulk semanal + analytics, estado hábil
 cada 6 h, recordatorios de plazo y de vencimiento, precómputo nocturno de matches, watchdog
-cada 30 min, trials, radar semanal. Todo en `America/Santiago`.
+cada 30 min, trials, radar semanal, vigilancia de precios. Todo en `America/Santiago`.
 
 ### Datos
 
@@ -555,7 +556,26 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
     v2, ticket por cabecera) — ver `etl/extractors/compra_agil.py`.
   - Un filtro con un mecanismo desconocido devuelve **422**, no el catálogo entero: ignorarlo
     haría creer que no hay compras de ese tipo.
-- **Rate limiting**: Redis, por IP en `/api/v1/bi/*`, más cuota diaria por tier.
+- **Rate limiting**: tres capas, cada una por un motivo distinto.
+  - **Por IP** en `/api/v1/bi/*` — para el navegador, que es donde una IP es
+    aproximadamente una persona.
+  - **Por CLAVE de API y por minuto** (`core/limites_api.py`, aplicado en
+    `autenticar()`), según el plan. Por clave y no por IP porque una integración sale por
+    una sola IP de oficina: limitar ahí metería a toda la empresa en el mismo cubo, y quien
+    quisiera saltárselo sólo tendría que usar varias IP. Se anuncia con `X-RateLimit-*`
+    **también al dejar pasar** — enterarse por el 429 es enterarse tarde.
+  - **Cuota diaria por empresa** en BI, que es la capacidad que se vende.
+
+  Las tres fallan abiertas si Redis no responde.
+- **Las dependencias de cuota viven en `api/deps.py`, no en `core/`.** Estaban en
+  `plan_limits.py` importando `app.api.deps` **dentro de una función**: `core` importando de
+  `api`, un ciclo real que sólo se sostenía por estar diferido. `core` se queda con la tabla
+  de cuotas y las funciones puras; las `Depends` van donde va el resto.
+- **La API pública está declarada, no deducida.** `app/api/documentacion.py` clasifica cada
+  grupo de endpoints como `publica` o `interna` y publica la guía dentro del propio OpenAPI
+  (la ve quien abre `/docs` o genera un cliente). `tests/test_superficie_publica.py` falla si
+  aparece un grupo sin clasificar: sin eso, «la API pública» sería «todo lo que resultó estar
+  montado». Ver `docs/API_PUBLICA.md`.
 - **Un worker por contenedor, y es una decisión medida.** El modelo TF-IDF cuesta **~105 MB
   por proceso** y no se comparte entre workers. Con `-w 4` en 512 MB el contenedor muere por
   OOM, y cada reinicio recarga el modelo: en la medición se cargó 14 veces para 4 workers.

@@ -24,6 +24,7 @@ from app.api import (
     users,
     webhooks,
 )
+from app.api.documentacion import DESCRIPCION, ETIQUETAS
 from app.config import settings
 from app.core.versionado import PREFIJO_API
 from app.observability import request_id_ctx, setup_logging, setup_sentry
@@ -39,7 +40,16 @@ setup_sentry(
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title=settings.app_name, version=settings.app_version, debug=settings.debug)
+app = FastAPI(
+    title=settings.app_name,
+    version=settings.app_version,
+    debug=settings.debug,
+    # La descripción viaja DENTRO del esquema OpenAPI: la ve quien abre `/docs`,
+    # quien genera un cliente y quien se descarga el JSON. Un README aparte se
+    # queda viejo sin que nada falle.
+    description=DESCRIPCION,
+    openapi_tags=ETIQUETAS,
+)
 
 # CORS middleware
 app.add_middleware(
@@ -190,12 +200,14 @@ app.include_router(health.router)
 # nocturno es lo que queda de F2.
 
 
-@app.get("/")
+@app.get("/", tags=["raiz"])
 async def root():
-    """Root endpoint"""
+    """Punto de entrada: versión y dónde está la documentación."""
     return {
         "status": "active",
-        "message": "Tordo API",
+        # El nombre se lee de la configuración: estaba escrito a mano, y
+        # renombrar el producto habría dejado el anterior aquí para siempre.
+        "message": f"{settings.app_name} API",
         "version": settings.app_version,
         "docs": "/docs",
         "redoc": "/redoc",

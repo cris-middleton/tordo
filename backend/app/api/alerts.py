@@ -4,8 +4,8 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import check_alert_quota_dep
 from app.config import settings
-from app.core.plan_limits import check_alert_quota_dep
 from app.core.security import get_current_active_user
 from app.db import get_db
 from app.models.alert import Alert, AlertPreference, AlertStatus, AlertType

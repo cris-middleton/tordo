@@ -12,9 +12,15 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import EmpresaContext, empresa_ctx, require_rol, verificar_acceso_empresa
+from app.api.deps import (
+    EmpresaContext,
+    check_bi_quota_dep,
+    empresa_ctx,
+    require_plan,
+    require_rol,
+    verificar_acceso_empresa,
+)
 from app.config import settings
-from app.core.plan_limits import check_bi_quota_dep, require_plan
 from app.core.security import get_current_active_user
 from app.db import get_db
 from app.models.empresa import Empresa, TFIDFPerfil

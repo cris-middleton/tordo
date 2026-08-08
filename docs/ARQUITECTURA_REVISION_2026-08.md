@@ -867,11 +867,34 @@ Reordenado según las decisiones del 2026-08-05:
    > rechazado con `Received unregistered task` — un fallo que sólo se ve en producción, un lunes
    > a las 4:30. Ahora hay un test que recorre **las 12 entradas del calendario** y comprueba que
    > cada una corresponde a una tarea registrada.
-4. **API pública + API keys.** El ángulo de integración ERP de Falconsoft. Habilita el segmento gremios.
-   **Las claves de API ya están hechas** — y hubo que adelantarlas: el orden del plan estaba
-   invertido. El MCP (punto 1) necesita una credencial que un cliente sin navegador pueda usar,
-   y la única autenticación era un JWT de 30 minutos. Falta la superficie pública en sí
-   (documentación, versionado, límites por clave).
+4. **API pública + API keys** — **hecho**. El ángulo de integración ERP de Falconsoft.
+   Habilita el segmento gremios.
+
+   Las claves de API hubo que adelantarlas: el orden del plan estaba invertido. El MCP
+   (punto 1) necesita una credencial que un cliente sin navegador pueda usar, y la única
+   autenticación era un JWT de 30 minutos. El versionado se cerró en el [ADR
+   0009](decisiones/0009-api-versionada-y-sin-envelope.md). Lo que faltaba —y ya está— es
+   la superficie en sí:
+
+   - **Está declarada, no deducida.** `app/api/documentacion.py::SUPERFICIE` clasifica cada
+     grupo como `publica` o `interna`, y un test falla si aparece uno sin clasificar. Sin esa
+     declaración, «la API pública» sería «todo lo que resultó estar montado» — una promesa de
+     estabilidad que nadie decidió dar, y que se ampliaría sola con cada router nuevo.
+   - **La guía viaja dentro del OpenAPI**, no en un README: la ve quien abre `/docs`, quien
+     genera un cliente y quien se descarga el esquema. Un README se queda viejo sin que nada
+     falle. `docs/API_PUBLICA.md` se queda con lo que el esquema no puede decir solo.
+   - **Límite por minuto y por CLAVE**, según el plan. Por clave y no por IP porque un ERP
+     sale por una sola IP de oficina: limitar ahí metería a toda la empresa en el mismo cubo,
+     y quien quisiera saltárselo sólo tendría que usar varias IP. Las cabeceras
+     `X-RateLimit-*` se mandan **también al dejar pasar** — enterarse por el 429 es tarde.
+
+   > **Deuda que salió al hacerlo.** `core/plan_limits.py` importaba `app.api.deps` **dentro
+   > de una función**: `core` importando de `api`, la dirección contraria a la que manda el
+   > diseño por capas. Era un ciclo real que sólo se sostenía por estar diferido, y se cerró
+   > en cuanto `core.security` necesitó un import normal de `plan_limits` — la aplicación
+   > dejó de arrancar. Las tres dependencias de cuota se movieron a `api/deps.py`, que es
+   > donde vive el resto; `core` se queda con la tabla de cuotas y las funciones puras. De
+   > paso desapareció un `check_bi_quota` muerto que sólo lanzaba `NotImplementedError`.
 5. **Reportes semanales automáticos** en PDF/email.
 6. **Extracción de bases con LLM** — reevaluar después de F3, no antes. Ver §14: es el único uso de
    LLM con valor claro acá, y sólo se puede vender bien una vez que el plan sea por empresa.

@@ -20,7 +20,7 @@ import logging
 from datetime import UTC, date, datetime
 from typing import Any
 
-from fastapi import Depends, HTTPException
+from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ def esta_en_trial(empresa) -> bool:
 # ── Tier ordering ─────────────────────────────────────────────────────────────
 
 TIER_ORDER = ["basico", "pyme", "pro", "enterprise"]
-_UNLIMITED = None
+ILIMITADO = None
 
 
 def _tier_idx(tier: str) -> int:
@@ -94,6 +94,7 @@ def meets_min_tier(user_tier: str, required_tier: str) -> bool:
 
 PLAN_QUOTAS: dict[str, dict[str, Any]] = {
     "basico": {
+        "api_requests_per_minute": 30,
         "max_docs": 5,
         "max_docs_mb": 5,
         "bi_queries_per_day": 3,
@@ -101,25 +102,28 @@ PLAN_QUOTAS: dict[str, dict[str, Any]] = {
         "max_usuarios": 1,
     },
     "pyme": {
+        "api_requests_per_minute": 60,
         "max_docs": 50,
         "max_docs_mb": 25,
         "bi_queries_per_day": 50,
-        "max_active_alerts": _UNLIMITED,
+        "max_active_alerts": ILIMITADO,
         "max_usuarios": 3,
     },
     "pro": {
+        "api_requests_per_minute": 120,
         "max_docs": 200,
-        "max_docs_mb": _UNLIMITED,
-        "bi_queries_per_day": _UNLIMITED,
-        "max_active_alerts": _UNLIMITED,
+        "max_docs_mb": ILIMITADO,
+        "bi_queries_per_day": ILIMITADO,
+        "max_active_alerts": ILIMITADO,
         "max_usuarios": 5,
     },
     "enterprise": {
-        "max_docs": _UNLIMITED,
-        "max_docs_mb": _UNLIMITED,
-        "bi_queries_per_day": _UNLIMITED,
-        "max_active_alerts": _UNLIMITED,
-        "max_usuarios": _UNLIMITED,
+        "api_requests_per_minute": 600,
+        "max_docs": ILIMITADO,
+        "max_docs_mb": ILIMITADO,
+        "bi_queries_per_day": ILIMITADO,
+        "max_active_alerts": ILIMITADO,
+        "max_usuarios": ILIMITADO,
     },
 }
 
@@ -150,7 +154,7 @@ def siguiente_tier(tier: str) -> str | None:
     return _UPGRADE_MAP.get((tier or "basico").lower())
 
 
-def _quota_error(
+def error_de_cuota(
     quota_key: str,
     plan_tier: str,
     limite: int | None,
@@ -170,7 +174,10 @@ def _quota_error(
 # ── Redis helpers ─────────────────────────────────────────────────────────────
 
 
-def _redis_client():
+def redis_client():
+    """El cliente que usan las cuotas. Público porque también lo usa el límite
+    por clave de API (`core/limites_api.py`): dos formas de crear la conexión
+    serían dos sitios donde cambiar el timeout."""
     import redis as _redis
 
     from app.config import settings
@@ -185,7 +192,7 @@ def _bi_redis_key(empresa_id) -> str:
 def get_bi_query_count(empresa_id) -> int:
     """Consultas de BI de hoy para la empresa. Falla abierto (0) si Redis no responde."""
     try:
-        r = _redis_client()
+        r = redis_client()
         return int(r.get(_bi_redis_key(empresa_id)) or 0)
     except Exception as exc:
         logger.warning("Redis unavailable (get_bi_query_count): %s", exc)
@@ -195,7 +202,7 @@ def get_bi_query_count(empresa_id) -> int:
 def increment_bi_query(empresa_id) -> int:
     """Increment and return new count. Sets 48h TTL on first use. Fails open (returns 0)."""
     try:
-        r = _redis_client()
+        r = redis_client()
         key = _bi_redis_key(empresa_id)
         count = r.incr(key)
         if count == 1:
@@ -216,14 +223,14 @@ def verificar_asiento_disponible(empresa, usuarios_actuales: int) -> None:
     """
     tier = effective_plan_tier(empresa)
     limite = get_quota(tier)["max_usuarios"]
-    if limite is _UNLIMITED or usuarios_actuales < limite:
+    if limite is ILIMITADO or usuarios_actuales < limite:
         return
 
     label = _TIER_LABEL.get(tier, tier.title())
     plural = "usuario" if limite == 1 else "usuarios"
     raise HTTPException(
         status_code=402,
-        detail=_quota_error(
+        detail=error_de_cuota(
             "max_usuarios",
             tier,
             limite,
@@ -235,147 +242,6 @@ def verificar_asiento_disponible(empresa, usuarios_actuales: int) -> None:
 
 
 # ── FastAPI dependencies ──────────────────────────────────────────────────────
-
-
-def require_plan(min_tier: str):
-    """
-    Dependency factory.  Usage::
-
-        @router.get("/some-endpoint")
-        def endpoint(user=Depends(require_plan("pyme"))):
-            ...
-    """
-    from app.api.deps import empresa_facturable
-    from app.models.empresa import Empresa
-
-    def _exigir_plan(empresa: Empresa = Depends(empresa_facturable)) -> Empresa:
-        tier = effective_plan_tier(empresa)
-        if not meets_min_tier(tier, min_tier):
-            label = _TIER_LABEL.get(min_tier, min_tier.title())
-            raise HTTPException(
-                status_code=402,
-                detail=_quota_error(
-                    "plan_tier",
-                    tier,
-                    None,
-                    None,
-                    f"Esta función requiere el plan {label} o superior. "
-                    f"Actualiza tu suscripción para acceder.",
-                ),
-            )
-        return empresa
-
-    return _exigir_plan
-
-
-def check_bi_quota(
-    current_user=Depends(  # type: ignore[assignment]
-        # Resolved lazily to avoid circular import
-        lambda: None
-    ),
-) -> Any:
-    """
-    Inline dependency — do NOT use directly.  Use check_bi_quota_dep below.
-    """
-    raise NotImplementedError
-
-
-def _make_bi_quota_dep():
-    from app.api.deps import empresa_facturable
-    from app.models.empresa import Empresa
-
-    def _exigir_cuota_bi(empresa: Empresa = Depends(empresa_facturable)) -> Empresa:
-        tier = effective_plan_tier(empresa)
-        quota = get_quota(tier)
-        daily_limit: int | None = quota["bi_queries_per_day"]
-
-        if daily_limit is _UNLIMITED:
-            increment_bi_query(empresa.id)
-            return empresa
-
-        # Se incrementa primero (atómico) y luego se comprueba: evita un GET+SET
-        new_count = increment_bi_query(empresa.id)
-        if new_count > daily_limit:
-            label = _TIER_LABEL.get(tier, tier.title())
-            raise HTTPException(
-                status_code=402,
-                detail=_quota_error(
-                    "bi_queries_per_day",
-                    tier,
-                    daily_limit,
-                    new_count,
-                    f"Has alcanzado el límite de {daily_limit} consultas BI por día "
-                    f"del plan {label}. Actualiza tu plan para continuar.",
-                ),
-            )
-        return empresa
-
-    return _exigir_cuota_bi
-
-
-# Callable dependency — used as `Depends(check_bi_quota_dep)`
-check_bi_quota_dep = _make_bi_quota_dep()
-
-
-def _make_alert_quota_dep_real():
-    from sqlalchemy import func, select
-    from sqlalchemy.ext.asyncio import AsyncSession
-
-    from app.api.deps import empresa_facturable
-    from app.core.security import get_current_active_user
-    from app.db import get_db
-    from app.models.empresa import Empresa
-    from app.models.user import User
-
-    async def _exigir_cuota_alertas(
-        db: AsyncSession = Depends(get_db),
-        current_user: User = Depends(get_current_active_user),
-        empresa: Empresa = Depends(empresa_facturable),
-    ) -> User:
-        from app.models.alert import AlertPreference
-
-        # El LÍMITE sale del plan, que es de la empresa. El CONTEO sigue siendo
-        # por usuario, porque AlertPreference es una preferencia personal y no
-        # tiene empresa_id.
-        #
-        # Matiz pendiente de decisión de producto: con varios asientos, el
-        # límite se multiplica de hecho por el número de usuarios. Hacerlo un
-        # entitlement de la cuenta exige darle empresa_id a AlertPreference.
-        tier = effective_plan_tier(empresa)
-        quota = get_quota(tier)
-        max_alerts: int | None = quota["max_active_alerts"]
-        if max_alerts is _UNLIMITED:
-            return current_user
-
-        active_count: int = (
-            await db.execute(
-                select(func.count())
-                .select_from(AlertPreference)
-                .where(
-                    AlertPreference.user_id == current_user.id,
-                    AlertPreference.is_active.is_(True),
-                )
-            )
-        ).scalar() or 0
-        if active_count >= max_alerts:
-            label = _TIER_LABEL.get(tier, tier.title())
-            raise HTTPException(
-                status_code=402,
-                detail=_quota_error(
-                    "max_active_alerts",
-                    tier,
-                    max_alerts,
-                    active_count,
-                    f"Has alcanzado el límite de {max_alerts} alertas activas "
-                    f"del plan {label}. Actualiza tu plan para agregar más alertas.",
-                ),
-            )
-        return current_user
-
-    return _exigir_cuota_alertas
-
-
-check_alert_quota_dep = _make_alert_quota_dep_real()
 
 
 # ── Document quota helper (called inline, not as Depends) ─────────────────────
@@ -393,10 +259,10 @@ def enforce_doc_quota(user, existing_docs: list, new_file_bytes: int) -> None:
     max_mb: float | None = quota["max_docs_mb"]
     label = _TIER_LABEL.get(tier, tier.title())
 
-    if max_docs is not _UNLIMITED and len(existing_docs) >= max_docs:
+    if max_docs is not ILIMITADO and len(existing_docs) >= max_docs:
         raise HTTPException(
             status_code=402,
-            detail=_quota_error(
+            detail=error_de_cuota(
                 "max_docs",
                 tier,
                 max_docs,
@@ -406,7 +272,7 @@ def enforce_doc_quota(user, existing_docs: list, new_file_bytes: int) -> None:
             ),
         )
 
-    if max_mb is not _UNLIMITED:
+    if max_mb is not ILIMITADO:
         total_bytes = (
             sum(getattr(d, "tamano_bytes", 0) or 0 for d in existing_docs) + new_file_bytes
         )
@@ -414,7 +280,7 @@ def enforce_doc_quota(user, existing_docs: list, new_file_bytes: int) -> None:
         if total_mb_used > max_mb:
             raise HTTPException(
                 status_code=402,
-                detail=_quota_error(
+                detail=error_de_cuota(
                     "max_docs_mb",
                     tier,
                     max_mb,
