@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.api.versionado import PREFIJO_API
+from app.core.versionado import PREFIJO_API
 from app.main import app
 from tests.rutas import comprobar_recorrido, rutas_con_metodo
 

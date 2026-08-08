@@ -16,7 +16,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import select
 
-from app.api.versionado import PREFIJO_API
+from app.core.versionado import PREFIJO_API
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.services import auth_tokens

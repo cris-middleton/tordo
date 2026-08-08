@@ -386,9 +386,26 @@ scorer sin correrlo.
 
 ### Backend — `backend/app/`
 
-Monolito modular, **en migración a capas** (F3). Ya existen `repositories/`, `domain/` e
-`infra/`, pero muchos routers todavía llevan consultas SQLAlchemy inline: eso se va
-moviendo agregado por agregado.
+Monolito modular **por capas**. Los routers hacen HTTP y autorización; **no arman
+consultas**: eso vive en `repositories/`, y `tests/test_capas_sin_sql_en_routers.py` lo
+comprueba fichero a fichero.
+
+Había 120 consultas repartidas por once routers, y mover cada filtro repetido a un solo sitio
+destapó tres cosas que no rompían nada visible: `Alert.user_id` escrito **seis veces**
+(la garantía de que nadie lee la alerta de otro), `documento.eliminado` en cuatro
+(un documento borrado reaparecía con su enlace de descarga) y `Licitacion.activo` **ausente**
+en el endpoint que crea postulaciones (se podía postular a algo ya retirado).
+
+Tres excepciones, cada una con su motivo en el test: `deps.py` (las dependencias de tenancy
+SON el acceso a datos), `data_inspection.py` (explorador genérico: construir la consulta es la
+feature) y `health.py` (`SELECT 1` no es una consulta de dominio).
+
+**`app/api/__init__.py` está vacío a propósito.** Importar ahí los routers convertía cualquier
+`from app.api.deps import ...` en «importa la aplicación entera», y de ahí salía una
+importación circular con `core.plan_limits`. Peor: **dependía del orden de importación**, así
+que CI estaba en verde mientras un script de operaciones no arrancaba.
+`tests/test_modulos_importables.py` importa cada módulo en un proceso limpio para que no
+vuelva a pasar.
 
 ```
 api/            14 routers. HTTP y autorización por dependencia (deps.py).

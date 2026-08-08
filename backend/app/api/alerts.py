@@ -2,14 +2,15 @@ from datetime import UTC, datetime
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core.plan_limits import check_alert_quota_dep
 from app.core.security import get_current_active_user
 from app.db import get_db
 from app.models.alert import Alert, AlertPreference, AlertStatus, AlertType
 from app.models.user import User
+from app.repositories import alertas as repo
 from app.schemas.alert import (
     AlertListResponse,
     AlertPreferenceCreate,
@@ -18,8 +19,37 @@ from app.schemas.alert import (
     AlertResponse,
     AlertUpdate,
 )
+from app.services.twilio_service import send_whatsapp_alert
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
+
+_NO_ENCONTRADA = "Alerta no encontrada"
+_PREFERENCIA_NO_ENCONTRADA = "Preferencia de alerta no encontrada"
+
+
+async def _alerta_mia(db: AsyncSession, alerta_id: int, usuario: User) -> Alert:
+    """La alerta del usuario, o 404.
+
+    Todo endpoint que toque una alerta pasa por aquí. El filtro por usuario vive
+    en el repositorio, en un solo sitio: repetido en cada handler era la garantía
+    de aislamiento más fácil de olvidar del backend.
+    """
+    alerta = await repo.obtener_alerta(db, alerta_id, usuario.id)
+    if not alerta:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NO_ENCONTRADA)
+    return alerta
+
+
+async def _preferencia_mia(db: AsyncSession, preferencia_id: int, usuario: User) -> AlertPreference:
+    preferencia = await repo.obtener_preferencia(db, preferencia_id, usuario.id)
+    if not preferencia:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=_PREFERENCIA_NO_ENCONTRADA
+        )
+    return preferencia
+
+
+# ── Preferencias ─────────────────────────────────────────────────────────────
 
 
 @router.post(
@@ -43,10 +73,7 @@ async def list_alert_preferences(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    stmt = select(AlertPreference).where(AlertPreference.user_id == current_user.id)
-    if active_only:
-        stmt = stmt.where(AlertPreference.is_active == True)
-    return (await db.execute(stmt)).scalars().all()
+    return await repo.listar_preferencias(db, current_user.id, solo_activas=active_only)
 
 
 @router.get("/preferences/{preference_id}", response_model=AlertPreferenceResponse)
@@ -55,18 +82,7 @@ async def get_alert_preference(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    preference = (
-        await db.execute(
-            select(AlertPreference).where(
-                AlertPreference.id == preference_id, AlertPreference.user_id == current_user.id
-            )
-        )
-    ).scalar_one_or_none()
-    if not preference:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Alert preference not found"
-        )
-    return preference
+    return await _preferencia_mia(db, preference_id, current_user)
 
 
 @router.put("/preferences/{preference_id}", response_model=AlertPreferenceResponse)
@@ -76,17 +92,7 @@ async def update_alert_preference(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    preference = (
-        await db.execute(
-            select(AlertPreference).where(
-                AlertPreference.id == preference_id, AlertPreference.user_id == current_user.id
-            )
-        )
-    ).scalar_one_or_none()
-    if not preference:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Alert preference not found"
-        )
+    preference = await _preferencia_mia(db, preference_id, current_user)
     for field, value in preference_update.model_dump(exclude_unset=True).items():
         setattr(preference, field, value)
     await db.commit()
@@ -100,20 +106,13 @@ async def delete_alert_preference(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    preference = (
-        await db.execute(
-            select(AlertPreference).where(
-                AlertPreference.id == preference_id, AlertPreference.user_id == current_user.id
-            )
-        )
-    ).scalar_one_or_none()
-    if not preference:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Alert preference not found"
-        )
+    preference = await _preferencia_mia(db, preference_id, current_user)
     await db.delete(preference)
     await db.commit()
     return None
+
+
+# ── Alertas ──────────────────────────────────────────────────────────────────
 
 
 @router.get("/", response_model=AlertListResponse)
@@ -126,29 +125,15 @@ async def list_alerts(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    stmt = select(Alert).where(Alert.user_id == current_user.id)
-    if status_filter:
-        stmt = stmt.where(Alert.status == status_filter)
-    if alert_type:
-        stmt = stmt.where(Alert.alert_type == alert_type)
-    if unread_only:
-        stmt = stmt.where(Alert.status != AlertStatus.READ)
-
-    total = (await db.execute(select(func.count()).select_from(stmt.subquery()))).scalar() or 0
-    unread_count = (
-        await db.execute(
-            select(func.count(Alert.id)).where(
-                Alert.user_id == current_user.id, Alert.status != AlertStatus.READ
-            )
-        )
-    ).scalar() or 0
-
-    items = (
-        (await db.execute(stmt.order_by(Alert.created_at.desc()).offset(skip).limit(limit)))
-        .scalars()
-        .all()
+    items, total, unread_count = await repo.listar_alertas(
+        db,
+        current_user.id,
+        estado=status_filter,
+        tipo=alert_type,
+        solo_no_leidas=unread_only,
+        salto=skip,
+        limite=limit,
     )
-
     pages = (total + limit - 1) // limit if limit > 0 else 0
     page = (skip // limit) + 1 if limit > 0 else 1
     return AlertListResponse(
@@ -162,14 +147,7 @@ async def get_alert(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    alert = (
-        await db.execute(
-            select(Alert).where(Alert.id == alert_id, Alert.user_id == current_user.id)
-        )
-    ).scalar_one_or_none()
-    if not alert:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Alert not found")
-    return alert
+    return await _alerta_mia(db, alert_id, current_user)
 
 
 @router.put("/{alert_id}", response_model=AlertResponse)
@@ -179,18 +157,12 @@ async def update_alert(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    alert = (
-        await db.execute(
-            select(Alert).where(Alert.id == alert_id, Alert.user_id == current_user.id)
-        )
-    ).scalar_one_or_none()
-    if not alert:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Alert not found")
+    alert = await _alerta_mia(db, alert_id, current_user)
     for field, value in alert_update.model_dump(exclude_unset=True).items():
         setattr(alert, field, value)
+    # Marcarla como leída sella la hora, pero sólo la PRIMERA vez: releerla no
+    # debería mover la fecha con la que se mide el tiempo de reacción.
     if alert_update.status == AlertStatus.READ and not alert.read_at:
-        from datetime import datetime
-
         alert.read_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(alert)
@@ -203,13 +175,7 @@ async def mark_alert_as_read(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    alert = (
-        await db.execute(
-            select(Alert).where(Alert.id == alert_id, Alert.user_id == current_user.id)
-        )
-    ).scalar_one_or_none()
-    if not alert:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Alert not found")
+    alert = await _alerta_mia(db, alert_id, current_user)
     alert.status = AlertStatus.READ
     alert.read_at = datetime.now(UTC)
     await db.commit()
@@ -217,15 +183,31 @@ async def mark_alert_as_read(
     return alert
 
 
+@router.delete("/{alert_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_alert(
+    alert_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    alert = await _alerta_mia(db, alert_id, current_user)
+    await db.delete(alert)
+    await db.commit()
+    return None
+
+
+# ── Pruebas de canal ─────────────────────────────────────────────────────────
+
+
 @router.post("/test")
 async def send_test_alert(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
+    # La clave lleva la hora: repetir la prueba dentro de la misma hora no crea
+    # una alerta nueva, y al cambiar de hora sí. Es el mismo mecanismo de
+    # idempotencia que usa el motor de alertas.
     ikey = f"onboarding_test_{current_user.id}_{datetime.now(UTC).strftime('%Y%m%d%H')}"
-    existing = (
-        await db.execute(select(Alert).where(Alert.idempotency_key == ikey))
-    ).scalar_one_or_none()
+    existing = await repo.buscar_por_clave_idempotencia(db, ikey)
     if existing:
         return {"created": False, "alert_id": existing.id}
     alert = Alert(
@@ -250,14 +232,13 @@ async def send_test_alert(
 
 @router.post("/test-whatsapp")
 async def send_test_whatsapp(
-    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    """Send a test WhatsApp message to the current user's registered number.
-    Uses Twilio sandbox in dev. Requires FEATURE_WHATSAPP=true and valid credentials."""
-    from app.config import settings as app_settings
-    from app.services.twilio_service import send_whatsapp_alert
+    """Manda un WhatsApp de prueba al número registrado del usuario.
 
+    En desarrollo usa el sandbox de Twilio. Necesita `FEATURE_WHATSAPP=true` y
+    credenciales válidas; sin ellas responde `sent: false` en vez de fallar.
+    """
     if not current_user.whatsapp_number:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -274,26 +255,6 @@ async def send_test_whatsapp(
         "sent": success,
         "to": current_user.whatsapp_number,
         "live": bool(
-            app_settings.feature_whatsapp
-            and app_settings.twilio_account_sid
-            and app_settings.twilio_auth_token
+            settings.feature_whatsapp and settings.twilio_account_sid and settings.twilio_auth_token
         ),
     }
-
-
-@router.delete("/{alert_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_alert(
-    alert_id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
-):
-    alert = (
-        await db.execute(
-            select(Alert).where(Alert.id == alert_id, Alert.user_id == current_user.id)
-        )
-    ).scalar_one_or_none()
-    if not alert:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Alert not found")
-    await db.delete(alert)
-    await db.commit()
-    return None

@@ -24,8 +24,8 @@ from app.api import (
     users,
     webhooks,
 )
-from app.api.versionado import PREFIJO_API
 from app.config import settings
+from app.core.versionado import PREFIJO_API
 from app.observability import request_id_ctx, setup_logging, setup_sentry
 
 # Antes de cualquier otra cosa: si el logging no está configurado, los mensajes
@@ -52,10 +52,21 @@ app.add_middleware(
 
 
 class BIRateLimitMiddleware(BaseHTTPMiddleware):
-    """60 requests/minute per IP on /api/bi/* — fail-open when Redis unavailable."""
+    """60 peticiones por minuto y por IP sobre los endpoints de BI.
+
+    Falla abierto si Redis no responde: quedarse sin límite es peor que quedarse
+    sin BI.
+
+    El prefijo se compone con `PREFIJO_API` y no se escribe a mano. Con la ruta
+    literal, versionar la API dejó este middleware sin coincidir con nada — y no
+    falla: simplemente deja de limitar, en silencio, los 22 endpoints más caros
+    del producto.
+    """
+
+    RUTA_BI = f"{PREFIJO_API}/bi/"
 
     async def dispatch(self, request: Request, call_next):
-        if not request.url.path.startswith("/api/bi/"):
+        if not request.url.path.startswith(self.RUTA_BI):
             return await call_next(request)
 
         ip = (request.client.host if request.client else None) or "unknown"

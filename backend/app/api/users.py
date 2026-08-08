@@ -1,12 +1,12 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import get_current_active_user, get_current_superuser
 from app.db import get_db
 from app.models.user import User
+from app.repositories import usuarios as repo
 from app.schemas.user import UserResponse, UserUpdate
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -19,8 +19,7 @@ async def list_users(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_superuser),
 ):
-    users = (await db.execute(select(User).offset(skip).limit(limit))).scalars().all()
-    return users
+    return await repo.listar(db, salto=skip, limite=limit)
 
 
 @router.get("/{user_id}", response_model=UserResponse)
@@ -29,7 +28,7 @@ async def get_user(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    user = await repo.obtener(db, user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     if user_id != current_user.id and not current_user.is_superuser:
@@ -44,7 +43,7 @@ async def update_user(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    user = await repo.obtener(db, user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     if user_id != current_user.id and not current_user.is_superuser:
@@ -62,7 +61,7 @@ async def delete_user(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_superuser),
 ):
-    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    user = await repo.obtener(db, user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     await db.delete(user)

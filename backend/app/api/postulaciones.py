@@ -1,19 +1,18 @@
 """Postulaciones API."""
 
-from datetime import UTC
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.api.deps import EmpresaContext, empresa_ctx, verificar_acceso_empresa
 from app.core.security import get_current_active_user
 from app.db import get_db
-from app.models.licitacion import Licitacion
-from app.models.postulacion import ChecklistPostulacion, PlantillaChecklist, Postulacion
+from app.models.postulacion import ChecklistPostulacion, Postulacion
 from app.models.user import User
+from app.repositories import licitaciones as repo_licitaciones
+from app.repositories import postulaciones as repo
 from app.schemas.postulacion import (
     ChecklistItemUpdate,
     PostulacionCreate,
@@ -30,21 +29,7 @@ VALID_ESTADOS = frozenset(
 
 
 async def _generate_checklist(postulacion_id: UUID, tipo_licitacion: str, db: AsyncSession) -> None:
-    # Include GENERICO items (apply to all types) alongside type-specific ones
-    templates = (
-        (
-            await db.execute(
-                select(PlantillaChecklist)
-                .where(
-                    PlantillaChecklist.tipo_licitacion.in_([tipo_licitacion, "GENERICO"]),
-                    PlantillaChecklist.activo.is_(True),
-                )
-                .order_by(PlantillaChecklist.tipo_licitacion.desc(), PlantillaChecklist.orden)
-            )
-        )
-        .scalars()
-        .all()
-    )
+    templates = await repo.plantilla_de_checklist(db, tipo_licitacion)
     if not templates:
         return
     items = [
@@ -68,19 +53,15 @@ async def crear_postulacion(
     # El empresa_id llega en el cuerpo, así que no puede resolverse como
     # dependencia: se verifica con la misma función que usan las dependencias.
     await verificar_acceso_empresa(payload.empresa_id, current_user, db)
-    licitacion = (
-        await db.execute(select(Licitacion).where(Licitacion.id == payload.licitacion_id))
-    ).scalar_one_or_none()
+    # `obtener_para_postular` sólo devuelve licitaciones ACTIVAS. Antes no se
+    # filtraba: se podía abrir una postulación sobre algo que Mercado Público ya
+    # había retirado, y el usuario preparaba documentos para nada.
+    licitacion = await repo_licitaciones.obtener_para_postular(db, payload.licitacion_id)
     if not licitacion:
         raise HTTPException(status_code=404, detail="Licitación no encontrada")
-    existing = (
-        await db.execute(
-            select(Postulacion).where(
-                Postulacion.empresa_id == payload.empresa_id,
-                Postulacion.licitacion_id == payload.licitacion_id,
-            )
-        )
-    ).scalar_one_or_none()
+    existing = await repo.buscar_de_empresa_para_licitacion(
+        db, payload.empresa_id, payload.licitacion_id
+    )
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -97,15 +78,10 @@ async def crear_postulacion(
     await _generate_checklist(postulacion.id, tipo, db)
 
     await db.commit()
-    # Reload with checklist
-    postulacion = (
-        await db.execute(
-            select(Postulacion)
-            .options(selectinload(Postulacion.checklist))
-            .where(Postulacion.id == postulacion.id)
-        )
-    ).scalar_one()
-    return postulacion
+    # Se recarga con el checklist: el que se acaba de crear no está en la
+    # instancia en memoria, y serializar la relación sin cargarla revienta en
+    # async.
+    return await repo.obtener(db, postulacion.id)
 
 
 @router.get("/empresas/{empresa_id}/postulaciones", response_model=list[PostulacionListItem])
@@ -114,20 +90,11 @@ async def listar_postulaciones(
     ctx: EmpresaContext = Depends(empresa_ctx),
     db: AsyncSession = Depends(get_db),
 ):
-    empresa_id = ctx.empresa_id
-    stmt = (
-        select(Postulacion)
-        .options(selectinload(Postulacion.checklist), selectinload(Postulacion.licitacion))
-        .where(Postulacion.empresa_id == empresa_id)
-    )
-    if estado:
-        if estado not in VALID_ESTADOS:
-            raise HTTPException(
-                status_code=400, detail=f"Estado inválido. Valores: {sorted(VALID_ESTADOS)}"
-            )
-        stmt = stmt.where(Postulacion.estado == estado)
-    postulaciones = (await db.execute(stmt.order_by(Postulacion.created_at.desc()))).scalars().all()
-    return postulaciones
+    if estado and estado not in VALID_ESTADOS:
+        raise HTTPException(
+            status_code=400, detail=f"Estado inválido. Valores: {sorted(VALID_ESTADOS)}"
+        )
+    return await repo.listar_de_empresa(db, ctx.empresa_id, estado=estado)
 
 
 @router.get("/postulaciones/{postulacion_id}", response_model=PostulacionOut)
@@ -136,13 +103,7 @@ async def obtener_postulacion(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    p = (
-        await db.execute(
-            select(Postulacion)
-            .options(selectinload(Postulacion.checklist))
-            .where(Postulacion.id == postulacion_id)
-        )
-    ).scalar_one_or_none()
+    p = await repo.obtener(db, postulacion_id)
     if not p:
         raise HTTPException(status_code=404, detail="Postulación no encontrada")
     # El empresa_id sale de la entidad recién cargada, no del request.
@@ -157,13 +118,7 @@ async def actualizar_postulacion(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    p = (
-        await db.execute(
-            select(Postulacion)
-            .options(selectinload(Postulacion.checklist))
-            .where(Postulacion.id == postulacion_id)
-        )
-    ).scalar_one_or_none()
+    p = await repo.obtener(db, postulacion_id)
     if not p:
         raise HTTPException(status_code=404, detail="Postulación no encontrada")
     # El empresa_id sale de la entidad recién cargada, no del request.
@@ -189,25 +144,16 @@ async def toggle_checklist_item(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    p = (
-        await db.execute(select(Postulacion).where(Postulacion.id == postulacion_id))
-    ).scalar_one_or_none()
+    p = await repo.obtener(db, postulacion_id)
     if not p:
         raise HTTPException(status_code=404, detail="Postulación no encontrada")
     # El empresa_id sale de la entidad recién cargada, no del request.
     await verificar_acceso_empresa(p.empresa_id, current_user, db)
-    item = (
-        await db.execute(
-            select(ChecklistPostulacion).where(
-                ChecklistPostulacion.id == item_id,
-                ChecklistPostulacion.postulacion_id == postulacion_id,
-            )
-        )
-    ).scalar_one_or_none()
+    # El ítem se acota a SU postulación: el acceso se comprobó sobre la de la
+    # URL, así que un id de otra no puede colarse por aquí.
+    item = await repo.obtener_item_checklist(db, item_id, postulacion_id)
     if not item:
         raise HTTPException(status_code=404, detail="Item de checklist no encontrado")
-    from datetime import datetime
-
     item.completado = payload.completado
     item.completado_at = datetime.now(UTC) if payload.completado else None
     if payload.documento_id is not None:

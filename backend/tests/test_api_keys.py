@@ -14,7 +14,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 import pytest_asyncio
 
-from app.api.versionado import PREFIJO_API
+from app.core.versionado import PREFIJO_API
 from app.models.empresa import Empresa, EmpresaUsuario
 from app.services import api_keys
 

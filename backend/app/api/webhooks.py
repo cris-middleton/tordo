@@ -13,14 +13,13 @@ usuarios son asientos (ADR 0002).
 
 import asyncio
 import logging
-from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request, status
 
 from app.db import SyncSessionLocal
 from app.domain.billing import ErrorDeCobro, EventoDeSuscripcion
 from app.infra.billing import obtener_proveedor
-from app.models.empresa import Empresa
+from app.repositories import empresas_sync as repo
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 logger = logging.getLogger(__name__)
@@ -114,15 +113,10 @@ def buscar_empresa_del_evento(db, evento: EventoDeSuscripcion):
     del metadata enviado al iniciar el cobro.
     """
     if evento.customer_id:
-        empresa = (
-            db.query(Empresa).filter(Empresa.billing_customer_id == evento.customer_id).first()
-        )
+        empresa = repo.buscar_por_customer_id(db, evento.customer_id)
         if empresa:
             return empresa
 
     if evento.empresa_id:
-        try:
-            return db.query(Empresa).filter(Empresa.id == UUID(evento.empresa_id)).first()
-        except ValueError:
-            logger.error("empresa_id inválido en el evento: %s", evento.empresa_id)
+        return repo.buscar_por_id_textual(db, evento.empresa_id)
     return None

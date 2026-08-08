@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.api.versionado import PREFIJO_API, VERSION_API
+from app.core.versionado import PREFIJO_API, VERSION_API
 from app.main import app
 from tests.rutas import comprobar_recorrido, rutas_con_metodo
 
@@ -107,4 +107,44 @@ def test_las_respuestas_no_van_envueltas():
         "Estos esquemas devuelven un envelope: "
         + ", ".join(envueltos)
         + ". El ADR 0009 fija respuestas planas — el éxito ya lo lleva el código HTTP."
+    )
+
+
+def test_ningun_modulo_escribe_una_ruta_de_la_api_a_mano():
+    """Una ruta literal `/api/...` en el código es una bomba de relojería.
+
+    No falla al arrancar ni al compilar: sigue ahí, apuntando a una versión que
+    ya no existe. Al versionar la API esto dejó **cuatro** referencias rotas, y
+    ninguna hizo fallar un test:
+
+    - el middleware de límite de peticiones dejó de coincidir con los endpoints
+      de BI, así que los 22 más caros del producto quedaron **sin límite, en
+      silencio**;
+    - `get_download_url` devolvía un enlace de descarga a un 404;
+    - el `tokenUrl` de OAuth2 dejó el botón «Authorize» de la documentación
+      apuntando a una ruta inexistente;
+    - el catálogo de `/data/tables` anunciaba endpoints que ya no estaban.
+
+    Todas se componen ahora con `PREFIJO_API`.
+    """
+    import pathlib
+
+    app_dir = pathlib.Path(__file__).resolve().parents[1] / "app"
+    culpables: list[str] = []
+    for fichero in sorted(app_dir.rglob("*.py")):
+        if fichero.name == "versionado.py":
+            continue
+        for numero, linea in enumerate(fichero.read_text().splitlines(), 1):
+            # Sólo cadenas: los comentarios y docstrings que citan una ruta como
+            # ejemplo no rompen nada.
+            if '"/api/' in linea or "'/api/" in linea:
+                sin_comentario = linea.split("#", 1)[0]
+                if '"/api/' in sin_comentario or "'/api/" in sin_comentario:
+                    culpables.append(f"{fichero.relative_to(app_dir)}:{numero}")
+
+    assert not culpables, (
+        "Rutas de la API escritas a mano:\n  "
+        + "\n  ".join(culpables)
+        + "\n\nCompónlas con `PREFIJO_API`: al subir de versión, una cadena literal no "
+        "falla — deja de coincidir en silencio."
     )

@@ -18,6 +18,7 @@ from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.core.security import get_current_active_user
+from app.core.versionado import PREFIJO_API
 from app.db import get_db
 from app.models.empresa import EmpresaUsuario, TFIDFPerfil
 from app.models.licitacion import Licitacion
@@ -94,12 +95,12 @@ async def list_tables():
             {
                 "name": "licitaciones",
                 "description": "Public tenders",
-                "endpoint": "/api/data/licitaciones",
+                "endpoint": f"{PREFIJO_API}/data/licitaciones",
             },
             {
                 "name": "ordenes_compra",
                 "description": "Purchase orders",
-                "endpoint": "/api/data/ordenes_compra",
+                "endpoint": f"{PREFIJO_API}/data/ordenes_compra",
             },
         ]
     }

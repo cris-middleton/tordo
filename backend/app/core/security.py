@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core.versionado import PREFIJO_API
 from app.db import get_db
 from app.models.user import User
 
@@ -36,11 +37,11 @@ def _recortar(password: str) -> bytes:
 
 
 # OAuth2 scheme
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{PREFIJO_API}/auth/login")
 # Igual, pero sin lanzar 401 cuando no hay cabecera. Lo usa la detección de
 # empresa fijada, que sólo mira si la credencial es una clave de API — la
 # autenticación en sí sigue siendo cosa de `get_current_active_user`.
-oauth2_opcional = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
+oauth2_opcional = OAuth2PasswordBearer(tokenUrl=f"{PREFIJO_API}/auth/login", auto_error=False)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:

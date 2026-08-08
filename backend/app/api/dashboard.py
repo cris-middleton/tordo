@@ -1,21 +1,16 @@
 """Dashboard stats endpoint."""
 
-from datetime import date, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.plan_limits import effective_plan_tier
 from app.core.security import get_current_active_user
 from app.db import get_db
-from app.models.alert import Alert, AlertStatus
-from app.models.empresa import DocumentoEmpresa, Empresa, EmpresaUsuario
-from app.models.licitacion import Licitacion
-from app.models.orden_compra import OrdenCompra
-from app.models.postulacion import Postulacion
 from app.models.user import User
+from app.repositories import empresas as repo_empresas
+from app.repositories import panel
 from app.schemas.dashboard_home import (
     DashboardHomeResponse,
     EmpresaSummary,
@@ -40,64 +35,17 @@ async def get_dashboard_stats(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    licitaciones_activas = (
-        await db.execute(
-            select(func.count(Licitacion.id)).where(
-                Licitacion.activo == True,
-                Licitacion.estado == "Publicada",
-            )
-        )
-    ).scalar() or 0
+    # Cada número responde a un sujeto distinto —catálogo, usuario, empresas—
+    # y por eso los nombres del repositorio lo dicen: leídos aquí seguidos, es
+    # fácil suponer que todos filtran por lo mismo.
+    empresa_ids = await repo_empresas.ids_de_empresas_del_usuario(db, current_user.id)
 
-    ordenes_activas = (
-        await db.execute(
-            select(func.count(OrdenCompra.id)).where(
-                OrdenCompra.estado == "En proceso",
-            )
-        )
-    ).scalar() or 0
-
-    alertas_no_leidas = (
-        await db.execute(
-            select(func.count(Alert.id)).where(
-                Alert.user_id == current_user.id,
-                Alert.status != AlertStatus.READ,
-            )
-        )
-    ).scalar() or 0
-
-    memberships = (
-        (await db.execute(select(EmpresaUsuario).where(EmpresaUsuario.user_id == current_user.id)))
-        .scalars()
-        .all()
-    )
-    empresa_ids = [m.empresa_id for m in memberships]
-    tiene_empresa = len(empresa_ids) > 0
-
-    postulaciones_activas = 0
-    documentos_por_vencer = 0
-    if empresa_ids:
-        postulaciones_activas = (
-            await db.execute(
-                select(func.count(Postulacion.id)).where(
-                    Postulacion.empresa_id.in_(empresa_ids),
-                    Postulacion.estado.in_(["en_seguimiento", "en_preparacion", "enviada"]),
-                )
-            )
-        ).scalar() or 0
-
-        cutoff = date.today() + timedelta(days=30)
-        documentos_por_vencer = (
-            await db.execute(
-                select(func.count(DocumentoEmpresa.id)).where(
-                    DocumentoEmpresa.empresa_id.in_(empresa_ids),
-                    DocumentoEmpresa.eliminado.is_(False),
-                    DocumentoEmpresa.fecha_vencimiento.isnot(None),
-                    DocumentoEmpresa.fecha_vencimiento <= cutoff,
-                    DocumentoEmpresa.fecha_vencimiento >= date.today(),
-                )
-            )
-        ).scalar() or 0
+    licitaciones_activas = await panel.licitaciones_publicadas(db)
+    ordenes_activas = await panel.ordenes_en_proceso(db)
+    alertas_no_leidas = await panel.alertas_no_leidas(db, current_user.id)
+    postulaciones_activas = await panel.postulaciones_activas(db, empresa_ids)
+    documentos_por_vencer = await panel.documentos_por_vencer(db, empresa_ids)
+    tiene_empresa = bool(empresa_ids)
 
     return {
         "licitaciones_activas": licitaciones_activas,
@@ -116,11 +64,7 @@ async def get_dashboard_home(
     current_user: User = Depends(get_current_active_user),
 ) -> DashboardHomeResponse:
     """Single-roundtrip aggregator for the operational home."""
-    memberships = (
-        (await db.execute(select(EmpresaUsuario).where(EmpresaUsuario.user_id == current_user.id)))
-        .scalars()
-        .all()
-    )
+    memberships = await repo_empresas.membresias_del_usuario(db, current_user.id)
 
     if not memberships:
         # Sin empresa no hay plan que aplicar: la suscripción es de la empresa
@@ -144,9 +88,7 @@ async def get_dashboard_home(
     elif empresa_id not in member_ids:
         raise HTTPException(status_code=403, detail="No eres miembro de esta empresa")
 
-    empresa = (
-        await db.execute(select(Empresa).where(Empresa.id == empresa_id))
-    ).scalar_one_or_none()
+    empresa = await repo_empresas.obtener(db, empresa_id)
     if empresa is None:
         raise HTTPException(status_code=404, detail="Empresa no encontrada")
 

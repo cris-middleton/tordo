@@ -3,7 +3,6 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -15,6 +14,7 @@ from app.core.security import (
 )
 from app.db import get_db
 from app.models.user import User
+from app.repositories import usuarios as repo
 from app.schemas.user import (
     PasswordChange,
     RefreshRequest,
@@ -37,13 +37,7 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
-    existing_user = (
-        await db.execute(
-            select(User).where(
-                (User.email == user_data.email) | (User.username == user_data.username)
-            )
-        )
-    ).scalar_one_or_none()
+    existing_user = await repo.existe_email_o_username(db, user_data.email, user_data.username)
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Email or username already registered"
@@ -63,9 +57,7 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
 
 @router.post("/login", response_model=Token)
 async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
-    user = (
-        await db.execute(select(User).where(User.username == credentials.username))
-    ).scalar_one_or_none()
+    user = await repo.buscar_por_username(db, credentials.username)
     if not user or not verify_password(credentials.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -105,7 +97,7 @@ async def refresh(payload: RefreshRequest, db: AsyncSession = Depends(get_db)):
         await db.commit()  # la revocación por reutilización tiene que persistir
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
-    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    user = await repo.obtener(db, user_id)
     if user is None or not user.is_active:
         await auth_tokens.revocar(db, nuevo)
         await db.commit()

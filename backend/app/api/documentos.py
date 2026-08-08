@@ -5,7 +5,6 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import EmpresaContext, empresa_ctx, require_rol
@@ -15,6 +14,7 @@ from app.core.security import get_current_active_user
 from app.db import get_db
 from app.models.empresa import DocumentoEmpresa
 from app.models.user import User
+from app.repositories import documentos as repo
 from app.schemas.documento import DocumentoDownloadResponse, DocumentoOut
 from app.services.storage_service import get_storage_service, make_document_key
 
@@ -50,18 +50,7 @@ async def upload_documento(
 
     from app.core.plan_limits import enforce_doc_quota
 
-    existing_docs = (
-        (
-            await db.execute(
-                select(DocumentoEmpresa).where(
-                    DocumentoEmpresa.empresa_id == empresa_id,
-                    DocumentoEmpresa.eliminado.is_(False),
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
+    existing_docs = await repo.listar_de_empresa(db, empresa_id)
     enforce_doc_quota(current_user, existing_docs, len(file_bytes))
 
     display_name = nombre or file.filename or "sin_nombre"
@@ -103,19 +92,7 @@ async def listar_documentos(
 ):
     empresa_id = ctx.empresa_id
     await _get_empresa_or_404(empresa_id, db)
-    return (
-        (
-            await db.execute(
-                select(DocumentoEmpresa)
-                .where(
-                    DocumentoEmpresa.empresa_id == empresa_id, DocumentoEmpresa.eliminado.is_(False)
-                )
-                .order_by(DocumentoEmpresa.created_at.desc())
-            )
-        )
-        .scalars()
-        .all()
-    )
+    return await repo.listar_de_empresa(db, empresa_id)
 
 
 @router.get(
@@ -130,15 +107,7 @@ async def download_documento(
     empresa_id = ctx.empresa_id
     await _get_empresa_or_404(empresa_id, db)
 
-    doc = (
-        await db.execute(
-            select(DocumentoEmpresa).where(
-                DocumentoEmpresa.id == doc_id,
-                DocumentoEmpresa.empresa_id == empresa_id,
-                DocumentoEmpresa.eliminado.is_(False),
-            )
-        )
-    ).scalar_one_or_none()
+    doc = await repo.obtener_vigente(db, doc_id, empresa_id)
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Documento no encontrado")
 
@@ -157,13 +126,8 @@ async def eliminar_documento(
     empresa_id = ctx.empresa_id
     await _get_empresa_or_404(empresa_id, db)
 
-    doc = (
-        await db.execute(
-            select(DocumentoEmpresa).where(
-                DocumentoEmpresa.id == doc_id, DocumentoEmpresa.empresa_id == empresa_id
-            )
-        )
-    ).scalar_one_or_none()
+    # Incluye los ya eliminados: borrar dos veces no debería dar 404.
+    doc = await repo.obtener_incluso_eliminado(db, doc_id, empresa_id)
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Documento no encontrado")
 

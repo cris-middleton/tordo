@@ -17,6 +17,21 @@ nada de la versión: `main.py` los monta bajo este prefijo. Sacar una v2 es
 montar los mismos routers —o los que cambien— bajo `/api/v2`, no editar catorce
 ficheros.
 
+Por qué vive en `core/` y no en `api/`
+--------------------------------------
+Estuvo en `app/api/versionado.py` durante exactamente un commit. Importarlo
+desde `core/security.py` ejecutaba `app/api/__init__.py`, que importa los
+catorce routers, que a su vez importan `core.security`: **importación
+circular**.
+
+Y no fallaba siempre. Con `app.main` primero, el ciclo se resolvía por orden y
+todo iba bien; con `app.core.security` primero —como hace el sembrador de datos—
+reventaba. Un fallo que depende de quién importa antes es de los que aparecen en
+producción y no en CI.
+
+`tests/test_modulos_importables.py` importa cada módulo por separado justamente
+para que no vuelva a pasar.
+
 Qué NO se versiona
 ------------------
 `/health`, porque lo consulta el healthcheck de la plataforma y no un cliente de

@@ -9,8 +9,8 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.api.versionado import PREFIJO_API
 from app.core.security import get_current_active_user
+from app.core.versionado import PREFIJO_API
 from app.db import get_db
 from app.main import app
 

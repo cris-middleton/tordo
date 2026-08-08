@@ -24,8 +24,9 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import select
 
-from app.api.tenders import _coincide_termino, list_tenders
+from app.api.tenders import list_tenders
 from app.models.licitacion import Licitacion
+from app.repositories.licitaciones import coincide_termino as _coincide_termino
 
 
 @pytest_asyncio.fixture

@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.config import settings
+from app.core.versionado import PREFIJO_API
 
 
 @dataclass
@@ -54,8 +55,9 @@ class LocalStorageService(StorageService):
         return StoredFile(key=key, bucket=str(self.base), size_bytes=len(file_bytes))
 
     def get_download_url(self, key: str) -> str:
-        # The API serves local files via /api/files/{key} (registered in main.py)
-        return f"/api/files/{key}"
+        # La ruta se compone con `PREFIJO_API`: escrita a mano, versionar la API
+        # la dejó apuntando a un 404 sin que nada fallara al arrancar.
+        return f"{PREFIJO_API}/files/{key}"
 
     def delete(self, key: str) -> None:
         target = self.base / key

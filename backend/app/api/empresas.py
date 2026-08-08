@@ -3,7 +3,6 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import EmpresaContext, empresa_ctx, require_rol
@@ -20,6 +19,7 @@ from app.core.security import get_current_active_user
 from app.db import SyncSessionLocal, get_db
 from app.models.empresa import Empresa, EmpresaUsuario
 from app.models.user import User
+from app.repositories import empresas as repo
 from app.schemas.empresa import (
     AddMiembroRequest,
     ApiKeyCreada,
@@ -59,9 +59,7 @@ def aplicar_trial_inicial(empresa: Empresa) -> None:
 
 
 async def _get_empresa_or_404(empresa_id: UUID, db: AsyncSession) -> Empresa:
-    empresa = (
-        await db.execute(select(Empresa).where(Empresa.id == empresa_id))
-    ).scalar_one_or_none()
+    empresa = await repo.obtener(db, empresa_id)
     if not empresa:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Empresa no encontrada")
     return empresa
@@ -72,19 +70,7 @@ async def listar_empresas(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    from sqlalchemy.orm import selectinload
-
-    memberships = (
-        (
-            await db.execute(
-                select(EmpresaUsuario)
-                .options(selectinload(EmpresaUsuario.empresa))
-                .where(EmpresaUsuario.user_id == current_user.id)
-            )
-        )
-        .scalars()
-        .all()
-    )
+    memberships = await repo.membresias_del_usuario(db, current_user.id)
     return [
         EmpresaConRol(
             id=m.empresa.id,
@@ -109,18 +95,9 @@ async def crear_empresa(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    existing = (
-        await db.execute(select(Empresa).where(Empresa.rut_empresa == payload.rut_empresa))
-    ).scalar_one_or_none()
+    existing = await repo.buscar_por_rut(db, payload.rut_empresa)
     if existing:
-        membership = (
-            await db.execute(
-                select(EmpresaUsuario).where(
-                    EmpresaUsuario.empresa_id == existing.id,
-                    EmpresaUsuario.user_id == current_user.id,
-                )
-            )
-        ).scalar_one_or_none()
+        membership = await repo.membresia(db, existing.id, current_user.id)
         if membership:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT, detail="Ya tienes acceso a esta empresa"
@@ -228,13 +205,7 @@ async def resumen_de_plan(
 
     tier = effective_plan_tier(empresa)
     quota = get_quota(tier)
-    usuarios = (
-        await db.execute(
-            select(func.count())
-            .select_from(EmpresaUsuario)
-            .where(EmpresaUsuario.empresa_id == ctx.empresa_id)
-        )
-    ).scalar_one()
+    usuarios = await repo.contar_miembros(db, ctx.empresa_id)
 
     contratado = (empresa.plan_tier or "basico").lower()
     return PlanResumen(
@@ -258,14 +229,7 @@ async def listar_miembros(
     ctx: EmpresaContext = Depends(empresa_ctx),
     db: AsyncSession = Depends(get_db),
 ):
-    rows = (
-        await db.execute(
-            select(EmpresaUsuario, User)
-            .join(User, EmpresaUsuario.user_id == User.id)
-            .where(EmpresaUsuario.empresa_id == ctx.empresa_id)
-            .order_by(EmpresaUsuario.created_at)
-        )
-    ).all()
+    rows = await repo.miembros_con_usuario(db, ctx.empresa_id)
     return [
         MiembroResponse(
             user_id=user.id,
@@ -285,9 +249,7 @@ async def agregar_miembro(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    target = (
-        await db.execute(select(User).where(User.email == payload.email))
-    ).scalar_one_or_none()
+    target = await repo.buscar_usuario_por_email(db, payload.email)
     if not target:
         raise HTTPException(
             status_code=404, detail=f"No existe un usuario con email {payload.email!r}"
@@ -295,29 +257,15 @@ async def agregar_miembro(
     if target.id == current_user.id:
         raise HTTPException(status_code=400, detail="Ya eres miembro de esta empresa")
 
-    existing = (
-        await db.execute(
-            select(EmpresaUsuario).where(
-                EmpresaUsuario.empresa_id == ctx.empresa_id,
-                EmpresaUsuario.user_id == target.id,
-            )
-        )
-    ).scalar_one_or_none()
+    existing = await repo.membresia(db, ctx.empresa_id, target.id)
     if existing:
         raise HTTPException(status_code=409, detail="Este usuario ya es miembro")
 
     # Los asientos son una capacidad del plan (ADR 0002). Se comprueba DESPUÉS de
     # descartar que ya sea miembro: reañadir a alguien que ya está dentro no
     # consume un asiento nuevo, y devolver 402 ahí confundiría.
-    empresa = await db.get(Empresa, ctx.empresa_id)
-    usuarios_actuales = (
-        await db.execute(
-            select(func.count())
-            .select_from(EmpresaUsuario)
-            .where(EmpresaUsuario.empresa_id == ctx.empresa_id)
-        )
-    ).scalar_one()
-    verificar_asiento_disponible(empresa, usuarios_actuales)
+    empresa = await repo.obtener(db, ctx.empresa_id)
+    verificar_asiento_disponible(empresa, await repo.contar_miembros(db, ctx.empresa_id))
 
     db.add(EmpresaUsuario(empresa_id=ctx.empresa_id, user_id=target.id, rol=payload.rol))
     await db.commit()
@@ -331,14 +279,7 @@ async def eliminar_miembro(
     db: AsyncSession = Depends(get_db),
 ):
 
-    target = (
-        await db.execute(
-            select(EmpresaUsuario).where(
-                EmpresaUsuario.empresa_id == ctx.empresa_id,
-                EmpresaUsuario.user_id == user_id,
-            )
-        )
-    ).scalar_one_or_none()
+    target = await repo.membresia(db, ctx.empresa_id, user_id)
     if not target:
         raise HTTPException(status_code=404, detail="Miembro no encontrado")
     if target.rol == "owner":

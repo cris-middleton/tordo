@@ -10,7 +10,6 @@ import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import EmpresaContext, empresa_ctx, require_rol, verificar_acceso_empresa
@@ -18,8 +17,11 @@ from app.config import settings
 from app.core.plan_limits import check_bi_quota_dep, require_plan
 from app.core.security import get_current_active_user
 from app.db import get_db
-from app.models.empresa import Empresa, EmpresaUsuario, TFIDFPerfil
+from app.models.empresa import Empresa, TFIDFPerfil
 from app.models.user import User
+from app.repositories import empresas as repo_empresas
+from app.repositories import licitaciones as repo_licitaciones
+from app.repositories import postulaciones as repo_postulaciones
 from app.schemas.bi import (
     ClustersResponse,
     CompetidoresResponse,
@@ -187,14 +189,9 @@ async def get_licitacion_panel(
     _require_analytics()
     from uuid import UUID as _UUID
 
-    from app.models.empresa import Empresa
-    from app.models.licitacion import Licitacion
-    from app.models.postulacion import Postulacion
     from app.services import bi as bi_service
 
-    lic = (
-        await db.execute(select(Licitacion).where(Licitacion.codigo_externo == codigo_externo))
-    ).scalar_one_or_none()
+    lic = await repo_licitaciones.obtener_por_codigo(db, codigo_externo)
     if not lic:
         raise HTTPException(status_code=404, detail="Licitación no encontrada")
 
@@ -233,27 +230,14 @@ async def get_licitacion_panel(
 
         # Chequeo blando a propósito: si no es miembro simplemente no se enriquece
         # la respuesta, no se rechaza la petición.
-        membership = (
-            await db.execute(
-                select(EmpresaUsuario).where(
-                    EmpresaUsuario.empresa_id == empresa_uuid,
-                    EmpresaUsuario.user_id == current_user.id,
-                )
-            )
-        ).scalar_one_or_none()
+        membership = await repo_empresas.membresia(db, empresa_uuid, current_user.id)
         if membership:
-            existing = (
-                await db.execute(
-                    select(Postulacion).where(
-                        Postulacion.empresa_id == empresa_uuid, Postulacion.licitacion_id == lic.id
-                    )
-                )
-            ).scalar_one_or_none()
+            existing = await repo_postulaciones.buscar_de_empresa_para_licitacion(
+                db, empresa_uuid, lic.id
+            )
             panel["postulacion_id"] = str(existing.id) if existing else None
 
-            empresa = (
-                await db.execute(select(Empresa).where(Empresa.id == empresa_uuid))
-            ).scalar_one_or_none()
+            empresa = await repo_empresas.obtener(db, empresa_uuid)
             if empresa:
                 panel["estado_habil"] = empresa.estado_habil
 
@@ -469,9 +453,7 @@ async def get_licitacion_match(
         )
 
     # Load empresa TF-IDF profile
-    perfil = (
-        await db.execute(select(TFIDFPerfil).where(TFIDFPerfil.empresa_id == empresa_id))
-    ).scalar_one_or_none()
+    perfil = await repo_empresas.perfil_tfidf(db, empresa_id)
     if not perfil or not perfil.vector_bytes:
         return PerfilMatchResponse(
             disponible=True,
@@ -512,9 +494,7 @@ async def get_tfidf_perfil(
     _require_tfidf_flag()
     empresa_id = ctx.empresa_id
 
-    perfil = (
-        await db.execute(select(TFIDFPerfil).where(TFIDFPerfil.empresa_id == empresa_id))
-    ).scalar_one_or_none()
+    perfil = await repo_empresas.perfil_tfidf(db, empresa_id)
     if not perfil:
         return TFIDFPerfilResponse(
             empresa_id=str(empresa_id),
@@ -572,9 +552,7 @@ async def update_tfidf_perfil(
             )
 
     # Upsert TFIDFPerfil — always save rubros regardless of vector availability
-    perfil = (
-        await db.execute(select(TFIDFPerfil).where(TFIDFPerfil.empresa_id == empresa_id))
-    ).scalar_one_or_none()
+    perfil = await repo_empresas.perfil_tfidf(db, empresa_id)
     if perfil:
         if vector_bytes:  # Only overwrite existing vector if we built a real one
             perfil.vector_bytes = vector_bytes
@@ -691,15 +669,12 @@ async def get_mi_posicion(
     current_user: User = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
-    from app.models.empresa import Empresa
     from app.services import bi as bi_service
 
     # Verificar membership a la empresa
     await verificar_acceso_empresa(empresa_id, current_user, db)
 
-    empresa = (
-        await db.execute(select(Empresa).where(Empresa.id == empresa_id))
-    ).scalar_one_or_none()
+    empresa = await repo_empresas.obtener(db, empresa_id)
 
     if not empresa or not empresa.rut:
         return {
