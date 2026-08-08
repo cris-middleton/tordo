@@ -356,6 +356,7 @@ make lint / make lint-fix        # ruff check + format (idéntico a CI)
 make audit                       # vulnerabilidades y antigüedad de dependencias
 make test                        # backend + ETL + frontend
 make e2e                         # extremo a extremo (pila completa + Playwright)
+make medir-memoria               # ¿cabe la API en 512 MB? mide la imagen real
 make dev-up-d / dev-logs / dev-down
 make migrate / make migrate-create MSG="..." / make migrate-status
 make db-shell
@@ -485,6 +486,11 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
   script redescubre los casos muestreando los datos** y sobre el fixture recortado produce
   otros distintos (la primera vez pasó de 31 casos a 7).
 - **Rate limiting**: Redis, por IP en `/api/bi/*`, más cuota diaria por tier.
+- **Un worker por contenedor, y es una decisión medida.** El modelo TF-IDF cuesta **~105 MB
+  por proceso** y no se comparte entre workers. Con `-w 4` en 512 MB el contenedor muere por
+  OOM, y cada reinicio recarga el modelo: en la medición se cargó 14 veces para 4 workers.
+  La concurrencia se sube con `WEB_CONCURRENCY`, y **exige 1 GB**; con 512 MB el techo son 2.
+  Repetible con `make medir-memoria`.
 - **Feature flags**: 7 en `app/config.py`; apagadas devuelven 503 con mensaje accionable.
 
 ---

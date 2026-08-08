@@ -655,7 +655,31 @@ F3/F4/F5 pueden solaparse.
 **Pendiente:**
 
 - [ ] Generalizar `precompute_dashboard_matches` → tabla `match_empresa_licitacion`.
-- [ ] Medir la API en un contenedor de 512 MB con `-w 4`.
+- [x] **Medida la API en un contenedor de 512 MB con `-w 4`.** La predicción era correcta:
+      no cabe. Reproducible con `make medir-memoria`, sobre la imagen real y con el modelo
+      TF-IDF real montado:
+
+      | límite | workers | TF-IDF | reposo | pico | resultado |
+      |---|--:|:--:|--:|--:|---|
+      | 512 MB | 1 | no | 77 MB | 79 MB | ✓ |
+      | 512 MB | 1 | **sí** | 77 MB | **182 MB** | ✓ |
+      | 512 MB | 2 | sí | 176 MB | 384 MB | ✓ |
+      | 512 MB | 4 | no | 316 MB | 332 MB | ✓ |
+      | 512 MB | 4 | **sí** | 317 MB | **420 MB** | **✗ OOM** |
+      | 1 GB | 4 | sí | 316 MB | 627 MB | ✓ |
+
+      **El modelo cuesta ~105 MB por PROCESO** (182 − 77) y no se comparte entre workers: se
+      carga perezosamente en cada uno. Con 4 en 512 MB el kernel empieza a matarlos, cada
+      reinicio vuelve a cargar el modelo y el ciclo se realimenta — en esa corrida el modelo
+      se cargó **14 veces para 4 workers**.
+
+      **Decisión:** la imagen sirve con `--workers ${WEB_CONCURRENCY:-1}`, explícito en el
+      Dockerfile. Subir de ahí exige 1 GB; con 512 MB el techo son 2.
+
+      *Ojo con cómo se mide:* el primer intento daba el mismo número con y sin TF-IDF, porque
+      los endpoints devolvían **401** y no llegaban a cargar nada. El script autentica y
+      además cuenta cuántas veces se cargó el modelo — si sale 0 con TF-IDF activo, avisa de
+      que ese número no mide lo que dice.
 
 > **Sobre sacar el TF-IDF del proceso de la API — corrección al plan original.**
 > No se puede sin cambiar el comportamiento, y conviene decirlo en vez de arrastrarlo como
