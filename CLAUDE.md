@@ -418,6 +418,7 @@ services/       Lógica de negocio como funciones de módulo.
                 como único punto de acceso a las tablas de analytics.
 core/           security.py (JWT), plan_limits.py (cuotas), limites_api.py
                 (límite por clave), versionado.py, email.py
+mcp/            servidor MCP: 4 herramientas de grano grueso sobre services/bi/
 observability/  logging JSON con request_id (contextvar) + Sentry opt-in
 db/             sesión async (asyncpg) y sync (psycopg2)
 models/         SQLAlchemy
@@ -635,11 +636,22 @@ Decisiones tomadas el 2026-08-05, con su ADR en `docs/decisiones/`:
 sólo Chile (sin multi-país), suscripción por empresa con planes por capacidades, nombre TORDO,
 LLM acotado a un servidor MCP sobre la base histórica, y pasarela de pago local en v1.
 
-**El MCP está en pausa desde 2026-08-07, y especificado** (ADR 0004): es un canal, no una
-capacidad, y alcanza sólo a quien ya paga un cliente MCP. Si lo retomas, **lee la
-especificación antes de escribir código** — sobre todo la parte de herramientas de grano
-grueso: con las cuotas actuales, exponer los 22 endpoints uno a uno agota el plan de un
-usuario en una sola conversación.
+**El MCP está construido** (ADR 0004, retomado el 2026-08-08 al cumplirse su propia
+condición: la API pública ya está, así que dejó de ser superficie nueva). Vive en `app/mcp/`,
+montado en `/mcp` **fuera de `/api/v1`** — MCP versiona su propio protocolo.
+- **Cuatro herramientas de grano grueso, no veintidós.** Un modelo encadena unas quince
+  llamadas donde una persona hace tres: con `basico` a 3 consultas/día, exponer los endpoints
+  uno a uno agotaría el plan en una conversación. **Si se exponen uno a uno, hay que rehacer
+  las cuotas primero**, y hay un test que falla si aparece una quinta herramienta.
+- **La empresa sale de la CLAVE, no de un argumento.** Ninguna herramienta acepta
+  `empresa_id`: un modelo rellenaría ese hueco con lo que le pareciera. Un test lo comprueba.
+- **La cuota de BI se aplica con la MISMA función que la API** (`plan_limits.consumir_cuota_bi`).
+  Escrita dos veces, una de las dos se queda atrás — y es la que no cobra.
+- **`tests/test_mcp.py` habla el protocolo por HTTP**, no llama a las funciones. Es la única
+  forma de ver los dos fallos que tiene esto: que montar una app ASGI dentro de otra **no
+  ejecuta su ciclo de vida**, y que la protección anti-DNS-rebinding del SDK viene activada
+  con una lista blanca que sólo trae `localhost` — desde un dominio real, **todo** responde
+  `421`.
 
 **La extracción de bases con LLM está aplazada** (ADR 0010), y no por precio: **la API no
 entrega las bases ni los datos que se iban a sacar de ellas** — en su diccionario oficial,

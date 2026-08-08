@@ -1,6 +1,6 @@
 # 0004 — LLM acotado a un servidor MCP sobre la base histórica
 
-**Estado**: Aceptada, **en pausa** desde 2026-08-07 · **Fecha**: 2026-08-05
+**Estado**: Aceptada · **en pausa** 2026-08-07 → **construido** 2026-08-08 · **Fecha**: 2026-08-05
 
 ## Contexto
 `docs/SPEC.md` descartó los LLM por costo ("TF-IDF sobre historial OC, sin LLM"). LicitaLab
@@ -141,3 +141,77 @@ calculó con 4 observaciones la presentará como un hecho.
 - Si aparecen clientes pidiéndolo por nombre, no por curiosidad.
 - Si la API pública ya está y el MCP pasa a ser una envoltura fina sobre ella.
 - Si el SDK de MCP se estabiliza y deja de romper entre versiones menores.
+
+
+---
+
+# Construido · 2026-08-08
+
+**Se retomó porque se cumplió la condición que el propio documento puso**: *«si la
+API pública ya está y el MCP pasa a ser una envoltura fina sobre ella»*. F6.4 la
+dejó hecha —declarada, documentada y con límite por clave—, así que el MCP dejó
+de ser una superficie nueva para ser otra puerta a la misma.
+
+Las otras dos razones de la pausa siguen siendo ciertas y no se han resuelto:
+sigue siendo un canal y no una capacidad, y sigue alcanzando sólo a quien ya paga
+un cliente MCP. Lo que cambió es el costo de construirlo, no el tamaño del
+premio. Y el orden importaba: **Compra Ágil y Convenio Marco se hicieron
+primero**, que era el argumento principal de la pausa.
+
+## Se siguió la especificación, punto por punto
+
+- **Dentro de la app** (`app/mcp/`, montado en `/mcp`), no como cliente de su
+  propia API.
+- **HTTP remoto**, `stateless_http` — el despliegue puede tener réplicas y una
+  sesión en memoria haría que la segunda petición cayera en un proceso que no
+  sabe nada de la primera.
+- **Clave de API**, y **sólo** clave: un JWT de sesión se rechaza con un mensaje
+  que lo explica.
+- **Cuatro herramientas de grano grueso**, con un test que falla si aparece una
+  quinta sin que alguien lo decida.
+- **Cada llamada descuenta cuota de BI**, y la regla vive en **una** función
+  (`plan_limits.consumir_cuota_bi`) que usan los dos canales. Escrita dos veces,
+  una de las dos se habría quedado atrás — y habría sido la que no cobra.
+- **`confianza` y `n` no se filtran**, y las instrucciones del servidor le piden
+  al modelo que los mencione.
+
+## Lo que el SDK 2.0 confirmó
+
+La tercera razón de la pausa era *«el SDK acaba de sacar un 2.0 y el protocolo se
+mueve rápido»*. Se confirmó al escribirlo: **`mcp.server.fastmcp` ya no existe**
+en 2.0 — la clase pasó a llamarse `MCPServer`. Por eso la dependencia se fija a
+la mayor (`mcp>=2,<3`) y no a un rango abierto.
+
+Además arrastra `anyio 3.7.1 → 4.14.2`, un salto de major en la base asíncrona de
+toda la aplicación. Se verificó antes de dar por buena la decisión: la suite
+entera pasa.
+
+## Dos fallos que sólo se ven por HTTP
+
+Los dos habrían llegado a producción con los tests pasando en verde:
+
+1. **Montar una app ASGI dentro de otra no ejecuta su ciclo de vida.** Sin el
+   gestor de sesiones, el servidor acepta la conexión y revienta en la primera
+   herramienta. Se arregla pasando su ciclo de vida al de FastAPI.
+2. **La protección contra DNS rebinding viene activada, y su lista blanca sólo
+   trae `localhost`.** Servido desde un dominio real, **todas** las peticiones
+   habrían respondido `421 Misdirected Request`. Se apaga a propósito: lo que
+   protege es una página web alcanzando un servidor **local** del visitante, y
+   éste es remoto y exige clave en cada llamada.
+
+Por eso `tests/test_mcp.py` habla el protocolo por HTTP en vez de llamar a las
+funciones: ninguno de los dos lo detecta un test que importe el módulo.
+
+## Lo que costó, medido
+
+- **Memoria en reposo: 107 MiB de 512** (21 %), con el contenedor real limitado a
+  512 m. El presupuesto sigue holgado; lo que lo aprieta es el modelo TF-IDF
+  (~105 MB por proceso), que no cambia.
+- **Disco**: `mcp` 2,9 MB + `mcp-types` 0,7 + `httpx2` 0,8 + `sse-starlette` 0,1
+  ≈ **4,5 MB** sobre un entorno de 785 MB. `httpx2` es un segundo cliente HTTP
+  conviviendo con `httpx`: no rompe nada, pero es bulto que hay que saber que
+  está.
+- **`anyio 3.7.1 → 4.14.2`**, arrastrado por el SDK. Es un salto de major en la
+  base asíncrona de toda la aplicación, así que se verificó **antes** de dar la
+  decisión por buena: la suite entera y los tests de extremo a extremo pasan. De
+  paso quita de encima una dependencia que llevaba 37 meses sin actualizar.

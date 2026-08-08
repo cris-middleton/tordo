@@ -138,6 +138,16 @@ mezclaría a toda la empresa en el mismo cubo.
 Los endpoints de **BI** consumen además **cuota diaria** del plan, y al agotarla
 devuelven **402** con el detalle de cuánto se usó y qué plan lo levanta.
 
+## Servidor MCP
+
+Los mismos datos, para un cliente de modelo de lenguaje, en `/mcp/` — **fuera de
+`/api/v1`**, porque MCP versiona su propio protocolo.
+
+Se autentica con la misma clave de API, expone **cuatro** herramientas de grano
+grueso y **cada llamada descuenta de la cuota diaria de BI**. Son cuatro y no
+veintidós a propósito: un modelo encadena unas quince llamadas donde una persona
+hace tres. Ver `docs/API_PUBLICA.md`.
+
 ## Errores
 
 | código | qué significa |

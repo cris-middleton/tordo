@@ -147,6 +147,51 @@ puede resolver solo:
 Toda respuesta lleva `X-Request-ID`. **Cítalo al reportar un problema**: es lo
 que permite encontrar la traza del servidor.
 
+## Servidor MCP
+
+Para clientes de modelos de lenguaje. Vive en **`/mcp/`**, fuera de `/api/v1`:
+MCP versiona su propio protocolo, y colgarlo de nuestra versión REST prometería
+que una v2 nuestra lo cambia —falso— y que no cambia sin que cambiemos la v
+—también falso—.
+
+Se configura con la **misma clave de API**:
+
+```json
+{ "mcpServers": { "tordo": {
+    "url": "https://<host>/mcp/",
+    "headers": { "Authorization": "Bearer tordo_a1b2c3d4_…" } } } }
+```
+
+**Cuatro herramientas, no veintidós**, y es la decisión de diseño que sostiene
+todo lo demás:
+
+| herramienta | qué devuelve |
+|---|---|
+| `panel_de_licitacion` | comprador, ventana, competidores y precios de una licitación, **en una llamada** |
+| `precio_de_producto` | bandas P10–P90 con nivel usado, confianza y tamaño de muestra |
+| `perfil_de_comprador` | cómo paga un organismo y sus señales de riesgo |
+| `buscar_productos` | del nombre al código ONU |
+
+Una persona hace unas tres consultas de BI para evaluar una licitación; **un
+modelo encadena unas quince** para responder una sola pregunta. Con `basico` a 3
+consultas/día, exponer los 22 endpoints uno a uno agotaría el plan en una
+conversación — y la culpa parecería del plan. Menos herramientas que devuelvan
+más. **Si algún día se exponen uno a uno, hay que rehacer las cuotas primero.**
+
+Tres cosas más que conviene saber:
+
+- **Cada llamada a herramienta descuenta de la cuota diaria de BI**, con la misma
+  función que usa la API. No se cobra por conversación.
+- **La empresa sale de la clave, no de un argumento.** Ninguna herramienta acepta
+  `empresa_id`: un modelo rellenaría ese hueco con lo que le pareciera.
+- **Las bandas de precio llegan siempre con `confianza` y `n`**, y las
+  instrucciones del servidor le piden al modelo que los mencione. Una mediana de
+  cuatro órdenes presentada como precio de mercado es el error más caro posible
+  aquí.
+
+Los errores llegan como resultado de la herramienta, no como fallo de protocolo:
+«no te queda cuota» es algo que el modelo puede contarle al usuario.
+
 ## Lo que todavía no está
 
 Dicho claro, porque son las tres preguntas que hace cualquiera que integre:

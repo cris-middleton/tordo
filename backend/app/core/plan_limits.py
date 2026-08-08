@@ -244,6 +244,37 @@ def verificar_asiento_disponible(empresa, usuarios_actuales: int) -> None:
 # ── FastAPI dependencies ──────────────────────────────────────────────────────
 
 
+def consumir_cuota_bi(empresa) -> None:
+    """Descuenta una consulta de BI a la empresa, o lanza 402 si ya no le quedan.
+
+    Es una función normal y no una dependencia de FastAPI porque tiene **dos**
+    puntos de entrada: los endpoints de BI (a través de `api/deps.py`) y el
+    servidor MCP, que no pasa por el enrutador. Escrita dos veces, una de las dos
+    se quedaría atrás — y sería la que no cobra.
+    """
+    tier = effective_plan_tier(empresa)
+    limite_diario: int | None = get_quota(tier)["bi_queries_per_day"]
+
+    if limite_diario is ILIMITADO:
+        increment_bi_query(empresa.id)
+        return
+
+    # Se incrementa primero (atómico) y luego se comprueba: evita un GET+SET.
+    consumidas = increment_bi_query(empresa.id)
+    if consumidas > limite_diario:
+        raise HTTPException(
+            status_code=402,
+            detail=error_de_cuota(
+                "bi_queries_per_day",
+                tier,
+                limite_diario,
+                consumidas,
+                f"Has alcanzado el límite de {limite_diario} consultas BI por día "
+                f"del plan {etiqueta_de_tier(tier)}. Actualiza tu plan para continuar.",
+            ),
+        )
+
+
 # ── Document quota helper (called inline, not as Depends) ─────────────────────
 
 

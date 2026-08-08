@@ -30,11 +30,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.plan_limits import (
     ILIMITADO,
+    consumir_cuota_bi,
     effective_plan_tier,
     error_de_cuota,
     etiqueta_de_tier,
     get_quota,
-    increment_bi_query,
     meets_min_tier,
 )
 from app.core.security import empresa_fijada_por_clave, get_current_active_user
@@ -278,27 +278,9 @@ def require_plan(min_tier: str):
 
 
 def _exigir_cuota_bi(empresa: Empresa = Depends(empresa_facturable)) -> Empresa:
-    tier = effective_plan_tier(empresa)
-    limite_diario: int | None = get_quota(tier)["bi_queries_per_day"]
-
-    if limite_diario is ILIMITADO:
-        increment_bi_query(empresa.id)
-        return empresa
-
-    # Se incrementa primero (atómico) y luego se comprueba: evita un GET+SET.
-    consumidas = increment_bi_query(empresa.id)
-    if consumidas > limite_diario:
-        raise HTTPException(
-            status_code=402,
-            detail=error_de_cuota(
-                "bi_queries_per_day",
-                tier,
-                limite_diario,
-                consumidas,
-                f"Has alcanzado el límite de {limite_diario} consultas BI por día "
-                f"del plan {etiqueta_de_tier(tier)}. Actualiza tu plan para continuar.",
-            ),
-        )
+    """La regla vive en `core/plan_limits.py`: el MCP la aplica también, y no
+    pasa por aquí."""
+    consumir_cuota_bi(empresa)
     return empresa
 
 

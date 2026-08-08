@@ -51,6 +51,10 @@ api = [
     "fastapi>=0.115,<1",
     "uvicorn[standard]>=0.32,<1",
     "python-multipart>=0.0.9",
+    # Servidor MCP. Se fija a la MAYOR, no a la menor: el ADR 0004 pausó esto en
+    # parte porque el protocolo se mueve rápido, y un rango abierto convertiría
+    # una rotura suya en una rotura nuestra sin aviso.
+    "mcp>=2,<3",
     # PDF del informe semanal. reportlab y no weasyprint: weasyprint necesita
     # cairo y pango del sistema, que hay que meter en una imagen que ya se mide
     # contra 512 MB. reportlab es Python puro.
@@ -104,6 +108,10 @@ etl = [
 ]
 
 dev = [
+    # Arranca el ciclo de vida de la app en los tests. Hace falta para el MCP:
+    # montar una app ASGI dentro de otra no lo ejecuta, y sin el gestor de
+    # sesiones el servidor acepta la conexión y revienta en la primera llamada.
+    "asgi-lifespan>=2,<3",
     { include-group = "api" },
     { include-group = "etl" },
     "pytest>=8.3,<10",

@@ -1,5 +1,6 @@
 import logging
 import uuid
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
 from fastapi import FastAPI
@@ -27,6 +28,8 @@ from app.api import (
 from app.api.documentacion import DESCRIPCION, ETIQUETAS
 from app.config import settings
 from app.core.versionado import PREFIJO_API
+from app.mcp.servidor import aplicacion as aplicacion_mcp
+from app.mcp.servidor import servidor as servidor_mcp
 from app.observability import request_id_ctx, setup_logging, setup_sentry
 
 # Antes de cualquier otra cosa: si el logging no está configurado, los mensajes
@@ -40,7 +43,22 @@ setup_sentry(
 
 logger = logging.getLogger(__name__)
 
+
+@asynccontextmanager
+async def ciclo_de_vida(_app: FastAPI):
+    """Arranca el gestor de sesiones del MCP.
+
+    Montar una app ASGI dentro de otra **no ejecuta su ciclo de vida**, y sin
+    eso el servidor MCP acepta la conexión y falla en la primera herramienta.
+    No hay forma de que lo detecte un test que sólo importe la app: hay que
+    ejercitarlo por HTTP, y por eso `tests/test_mcp.py` lo hace.
+    """
+    async with servidor_mcp.session_manager.run():
+        yield
+
+
 app = FastAPI(
+    lifespan=ciclo_de_vida,
     title=settings.app_name,
     version=settings.app_version,
     debug=settings.debug,
@@ -188,6 +206,12 @@ for router in (
     app.include_router(router, prefix=PREFIJO_API)
 
 app.include_router(health.router)
+
+# El MCP va FUERA de `/api/v1`, y no es una excepción caprichosa: MCP versiona su
+# propio protocolo (`protocol_version` en cada handshake). Colgarlo de nuestra
+# versión REST prometería que una v2 nuestra cambia el protocolo, que es falso, y
+# que el protocolo no cambia sin que cambiemos la v, que también.
+app.mount("/mcp", aplicacion_mcp())
 
 
 # El pre-warm de artefactos de BI vivía aquí: cargaba en segundo plano 60 MB de

@@ -840,7 +840,15 @@ F3/F4/F5 pueden solaparse.
 
 Reordenado según las decisiones del 2026-08-05:
 
-1. ~~**Servidor MCP de sólo lectura sobre la base histórica**~~ — **EN PAUSA desde 2026-08-07**,
+1. **Servidor MCP de sólo lectura sobre la base histórica** — **construido el 2026-08-08**,
+   al cumplirse la condición que su propia especificación puso: *«si la API pública ya está y
+   el MCP pasa a ser una envoltura fina sobre ella»*. F6.4 la dejó hecha. Las otras dos
+   razones de la pausa siguen siendo ciertas —sigue siendo un canal y sigue alcanzando sólo a
+   quien ya paga un cliente MCP—; lo que cambió es el costo de construirlo, no el premio. Y el
+   orden se respetó: Compra Ágil y Convenio Marco se hicieron **antes**.
+
+   Historial de la pausa, que sigue valiendo:
+   ~~**EN PAUSA desde 2026-08-07**~~,
    especificado en el [ADR 0004](decisiones/0004-llm-solo-mcp.md). No es una capacidad, es un
    canal: alcanza sólo a quien ya paga un cliente MCP, mientras Compra Ágil y Convenio Marco
    —volumen de mercado que los usuarios no ven— siguen sin construirse. La razón original era
