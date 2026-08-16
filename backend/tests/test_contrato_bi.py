@@ -56,6 +56,11 @@ CONTRATO: dict[tuple[str, str], str] = {
     # nada, así que van sin cuota a propósito.
     ("GET", "/bi/rubros"): "sesion",
     ("GET", "/bi/productos"): "sesion",
+    # Sugerir rubros a partir de la descripción es parte de ARMAR el perfil, y
+    # el perfil es lo que hay que tener antes de recibir nada. Cobrarlo con
+    # cuota de BI pondría un peaje en el onboarding: la empresa gastaría sus
+    # consultas del plan básico antes de haber visto un solo dato.
+    ("GET", "/bi/rubros/sugerir"): "sesion",
     # El radar comprueba pertenencia a la empresa por dentro
     # (`verificar_acceso_empresa`), no por dependencia. No está listado como
     # capacidad de ningún plan, así que hoy no se cobra.
@@ -141,9 +146,21 @@ def test_la_mayoria_de_bi_pasa_por_la_cuota():
     El día que la mitad de BI esté en 'sesion', el medidor de consultas —y con él
     la diferencia entre el plan gratuito y el de pago— no significa nada. Este
     número es un tope, no un objetivo: si sube, alguien tiene que explicarlo.
+
+    **Subió de 3 a 4 el 2026-08-16, y ésta es la explicación.** Entró
+    `/bi/rubros/sugerir`, que convierte la descripción libre de la empresa en
+    rubros propuestos. Es parte de ARMAR el perfil, no de consultarlo: cobrarlo
+    con cuota de BI haría que una empresa del plan básico —3 consultas al día—
+    gastara un tercio de su cuota antes de haber visto un solo dato. El peaje
+    estaría puesto justo en el paso que hay que completar para que el producto
+    sirva de algo.
+
+    Sigue protegido por el límite por IP de `/api/v1/bi/*`, que es la capa que
+    corresponde a un endpoint de onboarding: acota el abuso sin cobrarle al uso
+    legítimo.
     """
     laxos = [k for k, v in CONTRATO.items() if v == "sesion"]
-    assert len(laxos) <= 3, (
+    assert len(laxos) <= 4, (
         f"{len(laxos)} endpoints de BI sin cuota: {sorted(laxos)}. "
         "Cada uno es acceso ilimitado desde el plan gratuito."
     )

@@ -1,6 +1,6 @@
 """Pydantic schemas for BI API responses."""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class BINotAvailable(BaseModel):
@@ -236,6 +236,11 @@ class RubrosResponse(BaseModel):
 
 class TFIDFPerfilResponse(BaseModel):
     empresa_id: str
+    #: Lo que la empresa dice que hace, en sus palabras. Es la entrada principal
+    #: del perfil desde que existe: los rubros solos no distinguen a dos empresas
+    #: del mismo rubro, y elegirlos exige entender la taxonomía de ChileCompra
+    #: antes de recibir el primer resultado.
+    descripcion: str | None = None
     rubros_usados: list[str] | None = None
     modelo_version: str | None = None
     actualizado_en: str | None = None
@@ -243,7 +248,28 @@ class TFIDFPerfilResponse(BaseModel):
 
 
 class TFIDFPerfilUpdate(BaseModel):
+    #: Texto libre. Se puede mandar sola, sin rubros.
+    descripcion: str | None = Field(
+        default=None,
+        max_length=2000,
+        description="A qué se dedica la empresa, en sus propias palabras",
+    )
     rubros_usados: list[str] = []
+
+
+class RubroSugerido(BaseModel):
+    codigo: str | None = None
+    nombre: str
+    similitud: float
+
+
+class SugerenciaRubrosResponse(BaseModel):
+    """Rubros propuestos a partir de la descripción, para que el usuario corrija
+    en vez de elegir a ciegas."""
+
+    disponible: bool
+    sugerencias: list[RubroSugerido] = []
+    motivo: str | None = None
 
 
 # ─── Licitación BI Panel schemas ─────────────────────────────────────────────

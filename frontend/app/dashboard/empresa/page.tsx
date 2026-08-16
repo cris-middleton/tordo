@@ -7,6 +7,7 @@ import { FolderOpen } from 'lucide-react'
 import SelectField from '@/components/SelectField'
 import PanelClavesApi from '@/components/empresa/PanelClavesApi'
 import PanelEquipo, { EtiquetaRol } from '@/components/empresa/PanelEquipo'
+import PanelPerfilSemantico from '@/components/empresa/PanelPerfilSemantico'
 import SelectorAvatar from '@/components/empresa/SelectorAvatar'
 import { useAuth } from '@/contexts/AuthContext'
 import { useEmpresas } from '@/lib/queries'
@@ -49,7 +50,7 @@ export default function EmpresaPage() {
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="page-title mb-1">Mi Empresa</h1>
-          <p className="text-sm text-muted">Gestiona el equipo de tu empresa</p>
+          <p className="text-sm text-muted">Tu perfil de búsqueda, tu equipo y tus claves</p>
         </div>
         <Link
           href="/dashboard/documentos"
@@ -84,6 +85,12 @@ export default function EmpresaPage() {
               <EtiquetaRol rol={seleccionada.rol} />
             </div>
           </div>
+
+          <PanelPerfilSemantico
+            key={`perfil-${seleccionada.id}`}
+            empresaId={seleccionada.id}
+            puedeGestionar={puedeGestionar}
+          />
 
           {/* La `key` reinicia el estado local al cambiar de empresa: un correo
               a medio escribir para una no debe quedarse en el formulario de

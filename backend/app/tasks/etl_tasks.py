@@ -18,6 +18,7 @@ from app.celery_app import celery_app
 from app.db import SyncSessionLocal as SessionLocal
 from app.models.task_failure import TaskFailure
 from app.services import notificaciones
+from app.tasks.dashboard_tasks import actualizar_matches_de_licitaciones
 
 logger = logging.getLogger(__name__)
 
@@ -111,11 +112,17 @@ def _run_matching_for_new_licitaciones() -> None:
 
         enviado = notificaciones.despachar_pendientes(db, nuevas)
 
+        # El encaje que se VE en pantalla se recalculaba entero a las 06:00, así
+        # que una licitación ingerida a las 10:00 salía sin score hasta el día
+        # siguiente. Puntuar aquí lo nuevo lo baja de veinte horas a una.
+        filas = actualizar_matches_de_licitaciones(db, [lic.id for lic in new_lics])
+
         logger.info(
-            "[Matching] Processed %d new licitaciones, %d alerts created, %d notificadas",
+            "[Matching] %d licitaciones nuevas · %d alertas · %d notificadas · %d encajes",
             len(new_lics),
             total_created,
             enviado.get("en_tanda", 0),
+            filas,
         )
     except Exception as exc:
         logger.error("[Matching] Step failed: %s", exc)

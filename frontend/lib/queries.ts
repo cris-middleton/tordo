@@ -38,6 +38,7 @@ export const claves = {
   empresaEstadoHabil: (empresaId: string) => ['empresas', empresaId, 'estado-habil'] as const,
   empresaApiKeys: (empresaId: string) => ['empresas', empresaId, 'api-keys'] as const,
   empresaPrecios: (empresaId: string) => ['empresas', empresaId, 'precios-vigilados'] as const,
+  empresaPerfil: (empresaId: string) => ['empresas', empresaId, 'perfil-semantico'] as const,
 
   licitaciones: (params: Record<string, unknown>) => ['licitaciones', params] as const,
   licitacion: (codigo: string) => ['licitaciones', codigo] as const,
@@ -91,6 +92,23 @@ export function useApiKeys(empresaId?: string) {
     queryKey: claves.empresaApiKeys(empresaId ?? ''),
     queryFn: () => apiClient.getApiKeys(empresaId as string),
     enabled: Boolean(empresaId),
+  });
+}
+
+export function usePerfilSemantico(empresaId?: string) {
+  return useQuery({
+    queryKey: claves.empresaPerfil(empresaId ?? ''),
+    queryFn: () => apiClient.getTFIDFPerfil(empresaId as string),
+    enabled: Boolean(empresaId),
+  });
+}
+
+export function useGuardarPerfilSemantico(empresaId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (datos: { descripcion: string; rubros_usados: string[] }) =>
+      apiClient.updateTFIDFPerfil(empresaId, datos),
+    onSuccess: () => qc.invalidateQueries({ queryKey: claves.empresaPerfil(empresaId) }),
   });
 }
 

@@ -149,3 +149,121 @@ def test_una_empresa_que_falla_no_arrastra_a_las_demas(sync_task_db, monkeypatch
     assert resultado["processed"] == 1
     assert resultado["failed"] == 1
     assert session.query(MatchEmpresaLicitacion).filter_by(empresa_id=buena.id).count() == 1
+
+
+# ── Encaje incremental ───────────────────────────────────────────────────────
+#
+# El recálculo completo corre a las 06:00, así que una licitación ingerida a las
+# 10:00 salía sin encaje hasta el día siguiente: no aparecía ordenada, no entraba
+# en el correo y no se veía en el panel. Estos tests fijan las dos propiedades
+# que hacen que el camino incremental sea seguro — que NO borra y que actualiza.
+
+
+def test_el_camino_incremental_puntua_lo_recien_ingerido(sync_task_db, monkeypatch):
+    from app.models.match import MatchEmpresaLicitacion
+    from app.tasks import dashboard_tasks
+
+    session, _ = sync_task_db
+    empresa = _empresa_con_perfil(session)
+    lic = _licitacion(session, "LIC-NUEVA-HORA")
+
+    monkeypatch.setattr(
+        dashboard_tasks, "score_empresa_licitacion", lambda vector, texto: (0.82, "alto")
+    )
+
+    filas = dashboard_tasks.actualizar_matches_de_licitaciones(session, [lic.id])
+
+    assert filas == 1
+    fila = session.query(MatchEmpresaLicitacion).filter_by(empresa_id=empresa.id).one()
+    assert fila.licitacion_id == lic.id
+    assert fila.score == 82
+    assert fila.nivel == "alto"
+
+
+def test_el_camino_incremental_no_borra_lo_que_ya_habia(sync_task_db, monkeypatch):
+    """Es la diferencia con el recálculo completo, y la que puede romperlo todo.
+
+    El job de las 06:00 hace DELETE+INSERT para limpiar lo que dejó de puntuar.
+    Si este camino hiciera lo mismo, cada corrida horaria dejaría a cada empresa
+    con el encaje de las dos o tres licitaciones de esa hora y borraría el resto.
+    """
+    from app.models.match import MatchEmpresaLicitacion
+    from app.tasks import dashboard_tasks
+
+    session, _ = sync_task_db
+    empresa = _empresa_con_perfil(session)
+    vieja = _licitacion(session, "LIC-DE-AYER")
+    nueva = _licitacion(session, "LIC-DE-AHORA")
+
+    session.add(
+        MatchEmpresaLicitacion(
+            empresa_id=empresa.id,
+            licitacion_id=vieja.id,
+            score=95,
+            nivel="alto",
+            calculado_en=datetime.now(UTC),
+        )
+    )
+    session.flush()
+
+    monkeypatch.setattr(
+        dashboard_tasks, "score_empresa_licitacion", lambda vector, texto: (0.60, "medio")
+    )
+    dashboard_tasks.actualizar_matches_de_licitaciones(session, [nueva.id])
+
+    filas = {
+        f.licitacion_id: f.score
+        for f in session.query(MatchEmpresaLicitacion).filter_by(empresa_id=empresa.id).all()
+    }
+    assert filas == {vieja.id: 95, nueva.id: 60}
+
+
+def test_revisitar_una_licitacion_actualiza_su_encaje(sync_task_db, monkeypatch):
+    """El ETL horario revisita licitaciones que cambiaron de nombre o descripción,
+    y ahí el score cambia. Con `DO NOTHING` se quedaría el primero para siempre."""
+    from app.models.match import MatchEmpresaLicitacion
+    from app.tasks import dashboard_tasks
+
+    session, _ = sync_task_db
+    empresa = _empresa_con_perfil(session)
+    lic = _licitacion(session, "LIC-QUE-CAMBIA")
+
+    monkeypatch.setattr(
+        dashboard_tasks, "score_empresa_licitacion", lambda vector, texto: (0.30, "bajo")
+    )
+    dashboard_tasks.actualizar_matches_de_licitaciones(session, [lic.id])
+
+    monkeypatch.setattr(
+        dashboard_tasks, "score_empresa_licitacion", lambda vector, texto: (0.90, "alto")
+    )
+    dashboard_tasks.actualizar_matches_de_licitaciones(session, [lic.id])
+
+    fila = session.query(MatchEmpresaLicitacion).filter_by(empresa_id=empresa.id).one()
+    assert fila.score == 90
+    assert fila.nivel == "alto"
+
+
+def test_lo_que_no_llega_al_umbral_no_se_guarda(sync_task_db, monkeypatch):
+    """Guardar los ceros multiplicaría la tabla por el catálogo entero sin que
+    ninguna pantalla los muestre."""
+    from app.models.match import MatchEmpresaLicitacion
+    from app.tasks import dashboard_tasks
+
+    session, _ = sync_task_db
+    _empresa_con_perfil(session)
+    lic = _licitacion(session, "LIC-IRRELEVANTE")
+
+    monkeypatch.setattr(
+        dashboard_tasks, "score_empresa_licitacion", lambda vector, texto: (0.001, "bajo")
+    )
+    filas = dashboard_tasks.actualizar_matches_de_licitaciones(session, [lic.id])
+
+    assert filas == 0
+    assert session.query(MatchEmpresaLicitacion).count() == 0
+
+
+def test_sin_licitaciones_no_hace_nada(sync_task_db):
+    from app.tasks import dashboard_tasks
+
+    session, _ = sync_task_db
+    assert dashboard_tasks.actualizar_matches_de_licitaciones(session, []) == 0

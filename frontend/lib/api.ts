@@ -444,6 +444,13 @@ class ApiClient {
     return res.data;
   }
 
+  async sugerirRubros(descripcion: string, limit = 6) {
+    const res = await this.client.get(`${API}/bi/rubros/sugerir`, {
+      params: { descripcion, limit },
+    });
+    return res.data;
+  }
+
   async getBIPanel(codigoExterno: string, empresaId?: string) {
     const res = await this.client.get(`${API}/bi/licitacion/${encodeURIComponent(codigoExterno)}/panel`, {
       params: empresaId ? { empresa_id: empresaId } : undefined,

@@ -110,6 +110,78 @@ def _guardar(db, empresa_id, filas: list[tuple[int, int, str]], calculado_en: da
     )
 
 
+def actualizar_matches_de_licitaciones(db, licitacion_ids: list[int]) -> int:
+    """Puntúa un puñado de licitaciones recién ingeridas contra todos los perfiles.
+
+    **Por qué existe.** El recálculo completo corre una vez al día a las 06:00, así
+    que una licitación ingerida a las 10:00 salía **sin encaje hasta el día
+    siguiente** — y sin encaje no aparece ordenada, no entra en el correo y no se
+    ve en el panel. En un producto donde la competencia vende «revisamos cada 10
+    minutos», esperar veinte horas es la diferencia entera.
+
+    Tres decisiones que el código no explica solo:
+
+    - **Aquí no se borra nada.** El recálculo completo hace `DELETE`+`INSERT` para
+      limpiar lo que dejó de puntuar; este camino sólo añade. Un borrado por
+      empresa aquí tiraría el encaje de todas las demás licitaciones cada hora.
+    - **No se aplica el tope por empresa.** No se puede sin recorrer la tabla
+      entera, y unas pocas filas de más por hora las recorta la corrida de las
+      06:00. Elegir entre "un poco por encima del tope durante unas horas" y "sin
+      encaje durante veinte" no es difícil.
+    - **Se actualiza si ya existía** (`DO UPDATE`): el ETL horario revisita
+      licitaciones que cambiaron de nombre o descripción, y ahí el score cambia.
+    """
+    if not licitacion_ids:
+        return 0
+
+    licitaciones = db.query(Licitacion).filter(Licitacion.id.in_(licitacion_ids)).all()
+    if not licitaciones:
+        return 0
+
+    textos = {
+        lic.id: " ".join(filter(None, [lic.nombre or "", lic.descripcion or ""])).strip()
+        for lic in licitaciones
+    }
+
+    ahora = datetime.now(UTC)
+    filas: list[dict] = []
+    for perfil in db.query(TFIDFPerfil).all():
+        if not perfil.vector_bytes:
+            continue
+        for lic_id, texto in textos.items():
+            if not texto:
+                continue
+            score, nivel = score_empresa_licitacion(perfil.vector_bytes, texto)
+            if score < UMBRAL_MINIMO:
+                continue
+            filas.append(
+                {
+                    "empresa_id": perfil.empresa_id,
+                    "licitacion_id": lic_id,
+                    "score": max(0, min(100, round(score * 100))),
+                    "nivel": nivel,
+                    "calculado_en": ahora,
+                }
+            )
+
+    if not filas:
+        return 0
+
+    insert = pg_insert(MatchEmpresaLicitacion).values(filas)
+    db.execute(
+        insert.on_conflict_do_update(
+            index_elements=["empresa_id", "licitacion_id"],
+            set_={
+                "score": insert.excluded.score,
+                "nivel": insert.excluded.nivel,
+                "calculado_en": insert.excluded.calculado_en,
+            },
+        )
+    )
+    db.commit()
+    return len(filas)
+
+
 @celery_app.task(name="app.tasks.dashboard_tasks.precompute_dashboard_matches")
 def precompute_dashboard_matches() -> dict:
     """06:00 SCL: recalcula `match_empresa_licitacion` para cada perfil TF-IDF."""

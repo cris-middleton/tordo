@@ -232,6 +232,15 @@ class TFIDFPerfil(Base):
         unique=True,
     )
     vector_bytes = Column(LargeBinary(), nullable=False)
+    descripcion = Column(
+        Text(),
+        nullable=True,
+        comment=(
+            "A qué se dedica la empresa, en sus palabras. Entrada principal del "
+            "vector TF-IDF: los rubros solos no distinguen a dos empresas del "
+            "mismo rubro, así que compartían perfil."
+        ),
+    )
     rubros_usados = Column(ARRAY(Text()), nullable=True)
     modelo_version = Column(String(50), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

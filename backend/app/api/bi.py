@@ -47,6 +47,7 @@ from app.schemas.bi import (
     ResumenResponse,
     RubrosResponse,
     SectorResponse,
+    SugerenciaRubrosResponse,
     TendenciaResponse,
     TFIDFPerfilResponse,
     TFIDFPerfilUpdate,
@@ -504,6 +505,7 @@ async def get_tfidf_perfil(
     if not perfil:
         return TFIDFPerfilResponse(
             empresa_id=str(empresa_id),
+            descripcion=None,
             rubros_usados=None,
             modelo_version=None,
             actualizado_en=None,
@@ -512,6 +514,7 @@ async def get_tfidf_perfil(
 
     return TFIDFPerfilResponse(
         empresa_id=str(empresa_id),
+        descripcion=perfil.descripcion,
         rubros_usados=perfil.rubros_usados,
         modelo_version=perfil.modelo_version,
         actualizado_en=perfil.updated_at.isoformat() if perfil.updated_at else None,
@@ -543,7 +546,13 @@ async def update_tfidf_perfil(
     # Use b'' as placeholder to satisfy NOT NULL constraint when model is unavailable
     vector_bytes: bytes = b""
     if tfidf_matcher.is_available():
-        rubros_text = " ".join(body.rubros_usados)
+        # **La descripción va primero y pesa el doble.** Repetirla es la forma
+        # barata de ponderar en TF-IDF sin tocar el modelo, y hace falta: los
+        # rubros son etiquetas de una taxonomía compartida, así que sin este
+        # peso dos empresas del mismo rubro vuelven a tener casi el mismo
+        # vector — que es justo el problema que la descripción viene a resolver.
+        partes = [body.descripcion or "", body.descripcion or ""] + list(body.rubros_usados)
+        rubros_text = " ".join(p for p in partes if p.strip())
         try:
             vector_bytes = tfidf_matcher.build_empresa_vector(rubros_text)
         except Exception:
@@ -562,12 +571,14 @@ async def update_tfidf_perfil(
     if perfil:
         if vector_bytes:  # Only overwrite existing vector if we built a real one
             perfil.vector_bytes = vector_bytes
+        perfil.descripcion = body.descripcion
         perfil.rubros_usados = body.rubros_usados
         perfil.modelo_version = "v1"
     else:
         perfil = TFIDFPerfil(
             empresa_id=empresa_id,
             vector_bytes=vector_bytes,
+            descripcion=body.descripcion,
             rubros_usados=body.rubros_usados,
             modelo_version="v1",
         )
@@ -578,10 +589,11 @@ async def update_tfidf_perfil(
 
     return TFIDFPerfilResponse(
         empresa_id=str(empresa_id),
+        descripcion=perfil.descripcion,
         rubros_usados=perfil.rubros_usados,
         modelo_version=perfil.modelo_version,
         actualizado_en=perfil.updated_at.isoformat() if perfil.updated_at else None,
-        tiene_vector=True,
+        tiene_vector=bool(vector_bytes),
     )
 
 
@@ -603,6 +615,55 @@ def get_rubros(
 
     result = bi_service.get_rubros(limit=limit)
     return result
+
+
+@router.get(
+    "/rubros/sugerir",
+    response_model=SugerenciaRubrosResponse,
+    summary="Rubros propuestos a partir de una descripción en lenguaje natural",
+    description=(
+        "Recibe lo que la empresa dice que hace y devuelve los rubros de la taxonomía "
+        "de ChileCompra más cercanos, para que el usuario **corrija** en vez de elegir "
+        "a ciegas entre 354 opciones que no escribió él."
+    ),
+)
+def sugerir_rubros(
+    descripcion: str = Query(..., min_length=10, max_length=2000),
+    limit: int = Query(6, ge=1, le=20),
+    current_user: User = Depends(get_current_active_user),
+):
+    _require_analytics()
+    _require_tfidf_flag()
+    from app.services import bi as bi_service
+    from app.services import tfidf_matcher
+
+    catalogo = bi_service.get_rubros(limit=354)
+    if not catalogo.get("disponible"):
+        return {"disponible": False, "sugerencias": [], "motivo": catalogo.get("motivo")}
+
+    nombres = catalogo["rubros"]
+    similitudes = tfidf_matcher.score_texts(descripcion, nombres)
+
+    # Se desempata por nombre: muchos rubros dan la misma similitud sobre una
+    # descripción corta, y con `head` el empate decide QUÉ rubros entran, no
+    # sólo en qué orden. Sin esto, dos llamadas iguales devuelven listas
+    # distintas según el orden físico de las filas.
+    pares = sorted(zip(nombres, similitudes, strict=True), key=lambda p: (-p[1], p[0]))
+
+    # Por debajo de esto la sugerencia es ruido: proponer un rubro al azar es
+    # peor que no proponer ninguno, porque el usuario lo acepta sin mirar.
+    UMBRAL = 0.05
+    sugerencias = [
+        {"codigo": None, "nombre": nombre, "similitud": round(sim, 4)}
+        for nombre, sim in pares[:limit]
+        if sim >= UMBRAL
+    ]
+
+    return {
+        "disponible": True,
+        "sugerencias": sugerencias,
+        "motivo": None if sugerencias else "la descripción no se parece a ningún rubro conocido",
+    }
 
 
 @router.get(
@@ -682,14 +743,19 @@ async def get_mi_posicion(
 
     empresa = await repo_empresas.obtener(db, empresa_id)
 
-    if not empresa or not empresa.rut:
+    # La columna es `rut_empresa`. Esto decía `empresa.rut`, que no existe en el
+    # modelo, así que el endpoint lanzaba AttributeError y devolvía 500 en TODAS
+    # las llamadas — en la pantalla principal de BI. No lo destapó ningún test
+    # porque los que había llamaban a la función del servicio, no al endpoint:
+    # un atributo que no existe sólo aparece ejecutando la ruta.
+    if not empresa or not empresa.rut_empresa:
         return {
             "disponible": False,
             "tiene_historial": False,
             "motivo": "La empresa no tiene RUT registrado",
         }
 
-    return bi_service.get_mi_posicion(empresa.rut, rubro)
+    return bi_service.get_mi_posicion(empresa.rut_empresa, rubro)
 
 
 @router.get(
