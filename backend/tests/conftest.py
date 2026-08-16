@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import uuid
 from pathlib import Path
 
 import pytest
@@ -42,6 +43,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.api.empresas import aplicar_trial_inicial
+from app.core.security import create_access_token
 from app.db import get_db
 from app.main import app
 from app.models.empresa import Empresa, EmpresaUsuario
@@ -182,3 +184,39 @@ async def sample_empresa(async_db: AsyncSession, sample_user: User) -> Empresa:
     await async_db.flush()
     await async_db.refresh(empresa)
     return empresa
+
+
+# ── Cabeceras de autorización por rol ────────────────────────────────────────
+#
+# `sample_empresa` ya deja a `sample_user` como owner. Estas dos fixtures dan
+# el JWT listo para usar en la cabecera `Authorization`, para tests que
+# necesitan comprobar qué puede hacer cada rol (Tareas 4, 5, 13).
+
+
+@pytest_asyncio.fixture
+async def cabeceras_owner(sample_user: User) -> dict[str, str]:
+    """Cabeceras con el JWT del owner de `sample_empresa` (=`sample_user`)."""
+    token = create_access_token({"sub": str(sample_user.id)})
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest_asyncio.fixture
+async def cabeceras_viewer(async_db: AsyncSession, sample_empresa: Empresa) -> dict[str, str]:
+    """Cabeceras con el JWT de un usuario `viewer` sobre `sample_empresa`.
+
+    Un usuario nuevo, no `sample_user`: ése ya es owner, y lo que hace falta
+    para probar la barrera de rol es alguien SIN permiso de escritura.
+    """
+    sufijo = uuid.uuid4().hex[:8]
+    usuario = User(
+        username=f"viewer-{sufijo}",
+        email=f"viewer-{sufijo}@example.com",
+        hashed_password="x",
+        is_active=True,
+    )
+    async_db.add(usuario)
+    await async_db.flush()
+    async_db.add(EmpresaUsuario(user_id=usuario.id, empresa_id=sample_empresa.id, rol="viewer"))
+    await async_db.flush()
+    token = create_access_token({"sub": str(usuario.id)})
+    return {"Authorization": f"Bearer {token}"}

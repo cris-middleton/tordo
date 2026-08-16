@@ -10,7 +10,7 @@ import asyncio
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import empresa_facturable
+from app.api.deps import empresa_facturable, verificar_acceso_empresa
 from app.core.plan_limits import get_quota
 from app.core.security import get_current_active_user
 from app.db import get_db
@@ -20,6 +20,7 @@ from app.models.empresa import Empresa
 from app.models.user import User
 from app.schemas.billing import (
     BillingStatus,
+    CancelacionResponse,
     CheckoutRequest,
     CheckoutResponse,
     Plan,
@@ -166,3 +167,67 @@ async def create_billing_portal(
         f"{settings.frontend_url}/dashboard/billing",
     )
     return PortalResponse(portal_url=url)
+
+
+@router.post("/cancelar", response_model=CancelacionResponse)
+async def cancelar_suscripcion(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+    empresa: Empresa = Depends(empresa_facturable),
+):
+    """Da de baja la suscripción de la empresa.
+
+    Existe porque MercadoPago no hospeda portal de gestión: sin este endpoint la
+    única forma de dejar de pagar sería escribir un correo, y contratar por un
+    canal obliga a poder terminar por el mismo.
+
+    **El rol se comprueba sobre la empresa YA resuelta**, con
+    `verificar_acceso_empresa` — la misma implementación que usan las
+    dependencias, nunca una consulta de membresía propia. Apilar
+    `Depends(require_rol(...))` aquí haría obligatorio el `empresa_id` que el
+    resto de `/billing` deja opcional: `require_rol` cuelga de `empresa_ctx`,
+    pensado para rutas con `{empresa_id}` en el path, y sin eso FastAPI lo
+    reclasifica como query obligatorio.
+
+    **El orden importa.** Primero se le pide la baja a la pasarela y sólo
+    después se escribe en la base. Al revés, un fallo de red dejaría a la
+    empresa viéndose como cancelada mientras el cobro sigue corriendo.
+    """
+    ctx = await verificar_acceso_empresa(empresa.id, current_user, db)
+    if ctx.rol not in ("owner", "admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Se requiere rol owner o admin",
+        )
+
+    if not empresa.billing_subscription_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Esta empresa no tiene una suscripción activa que cancelar.",
+        )
+
+    proveedor = obtener_proveedor()
+    try:
+        vigente_hasta = await asyncio.to_thread(
+            proveedor.cancelar_suscripcion, empresa.billing_subscription_id
+        )
+    except ErrorDeCobro as exc:
+        # 502 y no 400: el fallo es de la pasarela, no de lo que pidió el usuario.
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"No se pudo cancelar en la pasarela: {exc}",
+        ) from exc
+
+    empresa.subscription_status = "canceled"
+    empresa.billing_subscription_id = None
+    # El plan NO se degrada aquí: el acceso ya pagado se respeta hasta
+    # `plan_vigente_hasta`, y el job nocturno lo baja cuando esa fecha pasa
+    # (Tarea 5). Degradar en este punto sería cobrar el mes y cortarlo el día 3.
+    await db.commit()
+    await db.refresh(empresa)
+
+    return CancelacionResponse(
+        plan_tier=empresa.plan_tier,
+        subscription_status=empresa.subscription_status,
+        vigente_hasta=vigente_hasta,
+    )

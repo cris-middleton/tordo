@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/lib/api';
-import { useCobroEstado, useCobroPlanes } from '@/lib/queries';
+import { useCancelarSuscripcion, useCobroEstado, useCobroPlanes } from '@/lib/queries';
 import {
   CheckCircle2,
   CreditCard,
@@ -12,6 +12,7 @@ import {
   Star,
   AlertTriangle,
   Lock,
+  X,
 } from 'lucide-react';
 
 interface Plan {
@@ -66,6 +67,8 @@ export default function BillingPage() {
   const [portalLoading, setPortalLoading] = useState(false);
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
   const [error, setError] = useState('');
+  const [confirmando, setConfirmando] = useState(false);
+  const cancelar = useCancelarSuscripcion();
   const errorDeCarga =
     consultaPlanes.error || consultaEstado.error
       ? 'No se pudo cargar la información de facturación.'
@@ -142,8 +145,51 @@ export default function BillingPage() {
               <ExternalLink size={12} />
             </button>
           )}
+          {billingStatus?.billing_subscription_id && !billingStatus?.tiene_portal_de_gestion && (
+            <button
+              onClick={() => setConfirmando(true)}
+              className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium text-text hover:bg-background"
+            >
+              <X size={14} />
+              Cancelar suscripción
+            </button>
+          )}
         </div>
       </div>
+
+      {confirmando && (
+        <div className="rounded-xl border border-danger/30 bg-danger/5 p-5">
+          <p className="text-sm font-semibold text-text">¿Cancelar la suscripción?</p>
+          <p className="mt-1 text-sm text-muted">
+            Conservas el plan Pro hasta el final del periodo que ya pagaste. Después la
+            empresa vuelve al plan Free y no se te vuelve a cobrar.
+          </p>
+          <div className="mt-4 flex gap-2">
+            <button
+              onClick={async () => {
+                await cancelar.mutateAsync(undefined);
+                setConfirmando(false);
+              }}
+              disabled={cancelar.isPending}
+              className="inline-flex items-center gap-2 rounded-lg bg-danger px-3 py-2 text-sm font-bold text-onDanger disabled:opacity-60"
+            >
+              {cancelar.isPending ? <Loader2 className="animate-spin" size={14} /> : null}
+              Sí, cancelar
+            </button>
+            <button
+              onClick={() => setConfirmando(false)}
+              className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-text hover:bg-background"
+            >
+              Mantener mi plan
+            </button>
+          </div>
+          {cancelar.isError && (
+            <p className="mt-3 text-sm text-danger">
+              No se pudo cancelar. Vuelve a intentarlo en un momento.
+            </p>
+          )}
+        </div>
+      )}
 
       {(error || errorDeCarga) && (
         <div className="flex items-center gap-2 rounded-lg border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
@@ -253,7 +299,7 @@ export default function BillingPage() {
       </div>
 
       <p className="text-center text-xs text-subtle">
-        Precios en CLP. Cancela cuando quieras desde el portal de facturación.
+        Precios en CLP. Puedes cancelar cuando quieras desde esta pantalla.
       </p>
     </div>
   );

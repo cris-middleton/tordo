@@ -356,6 +356,17 @@ class ApiClient {
     return res.data;
   }
 
+  async cancelarSuscripcion(empresaId?: string) {
+    const { data } = await this.client.post(`${API}/billing/cancelar`, null, {
+      params: empresaId ? { empresa_id: empresaId } : undefined,
+    });
+    return data as {
+      plan_tier: string;
+      subscription_status: string;
+      vigente_hasta: string | null;
+    };
+  }
+
   // ── BI / Analytics ─────────────────────────────────────────────────────────
 
   async getBIOportunidades(params: Record<string, unknown> = {}) {

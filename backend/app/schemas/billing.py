@@ -43,3 +43,12 @@ class CheckoutResponse(BaseModel):
 
 class PortalResponse(BaseModel):
     portal_url: str
+
+
+class CancelacionResponse(BaseModel):
+    """Resultado de dar de baja la suscripción."""
+
+    plan_tier: str
+    subscription_status: str
+    vigente_hasta: str | None = None
+    """Hasta cuándo sigue el acceso ya pagado. None si no hay periodo que respetar."""

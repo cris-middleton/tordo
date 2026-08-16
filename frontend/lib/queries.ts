@@ -198,6 +198,19 @@ export function useCobroEstado() {
 // Cada una invalida lo que deja obsoleto. Es la mitad que se olvida: sin
 // invalidar, la pantalla sigue mostrando lo de antes hasta que alguien recarga.
 
+export function useCancelarSuscripcion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (empresaId?: string) => apiClient.cancelarSuscripcion(empresaId),
+    // Invalidar es el motivo de que las claves vivan en un solo sitio: tras
+    // cancelar, el estado de cobro y el plan de la empresa dejan de ser válidos.
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: claves.cobroEstado() });
+      qc.invalidateQueries({ queryKey: claves.empresas() });
+    },
+  });
+}
+
 // Sumar o quitar a alguien mueve DOS cosas: la lista y los asientos
 // consumidos. Invalidar sólo la lista deja el contador "2 de 3" congelado justo
 // al lado de la fila que acaba de aparecer.
