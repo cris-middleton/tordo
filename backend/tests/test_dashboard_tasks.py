@@ -9,37 +9,6 @@ desincronizaba con cada columna nueva.
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
-import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
-
-@pytest.fixture
-def sync_task_db(esquema_migrado):
-    """Sesión síncrona sobre una transacción que se revierte al terminar."""
-    url = esquema_migrado.replace("postgresql+asyncpg://", "postgresql://", 1)
-    engine = create_engine(url, future=True)
-    conexion = engine.connect()
-    transaccion = conexion.begin()
-    # `create_savepoint`: la tarea hace `commit()` y `rollback()` por empresa, y
-    # sin esto ese rollback deshace la transacción del PROPIO test —incluidas las
-    # filas que acaba de sembrar—. Con savepoints, cada rollback de la tarea
-    # afecta sólo a su empresa, que es lo que se quiere comprobar.
-    SessionLocal = sessionmaker(
-        autocommit=False,
-        autoflush=False,
-        bind=conexion,
-        join_transaction_mode="create_savepoint",
-    )
-    session = SessionLocal()
-    try:
-        yield session, SessionLocal
-    finally:
-        session.close()
-        transaccion.rollback()
-        conexion.close()
-        engine.dispose()
-
 
 def test_precompute_dashboard_matches_skips_when_feature_off(monkeypatch):
     from app.tasks import dashboard_tasks

@@ -14,7 +14,7 @@ from app.api.deps import empresa_facturable, verificar_acceso_empresa
 from app.core.plan_limits import get_quota
 from app.core.security import get_current_active_user
 from app.db import get_db
-from app.domain.billing import ErrorDeCobro
+from app.domain.billing import ErrorDeCobro, parsear_vigente_hasta
 from app.infra.billing import obtener_proveedor
 from app.models.empresa import Empresa
 from app.models.user import User
@@ -223,6 +223,25 @@ async def cancelar_suscripcion(
     # El plan NO se degrada aquí: el acceso ya pagado se respeta hasta
     # `plan_vigente_hasta`, y el job nocturno lo baja cuando esa fecha pasa
     # (Tarea 5). Degradar en este punto sería cobrar el mes y cortarlo el día 3.
+    if vigente_hasta:
+        try:
+            empresa.plan_vigente_hasta = parsear_vigente_hasta(vigente_hasta)
+        except ValueError as exc:
+            # La suscripción YA está cancelada en la pasarela — esto no
+            # deshace eso. Pero nada de lo anterior se ha comprometido
+            # todavía (el `commit` está más abajo), así que la empresa sigue
+            # viéndose en la base como estaba antes de este endpoint: no
+            # perder acceso por un bug de parseo nuestro es preferible a
+            # degradarla en silencio, y un 502 explícito es preferible a un
+            # 500 sin contexto. Queda para reconciliar a mano.
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"La pasarela devolvió una fecha de vigencia inválida: {exc}",
+            ) from exc
+    else:
+        # La pasarela no informó fecha (pago único, o no la trae): no hay
+        # periodo ya pagado que respetar.
+        empresa.plan_tier = "basico"
     await db.commit()
     await db.refresh(empresa)
 

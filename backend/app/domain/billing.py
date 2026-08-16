@@ -34,6 +34,7 @@ Quien consuma el puerto debe consultar esas capacidades, no asumirlas.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Literal, Protocol, runtime_checkable
 
 # Tipos de evento que el producto entiende, independientes del proveedor.
@@ -68,10 +69,44 @@ class EventoDeSuscripcion:
     empresa_id: str | None = None
     """Presente en el primer pago, cuando la empresa todavía no tiene guardado el
     customer_id y hay que localizarla por el metadata que se envió al iniciar."""
+    vigente_hasta: str | None = None
+    """Fecha ISO-8601 hasta la que el periodo ya pagado sigue vigente, en un
+    evento de cancelación.
+
+    Existe porque `/billing/cancelar` no es el único camino por el que una
+    suscripción muere: un cliente de MercadoPago puede cancelar desde la propia
+    MercadoPago, sin pasar nunca por nuestro endpoint. Ese webhook es la ÚNICA
+    notificación que llega, así que tiene que traer su propia fecha — la misma
+    que `ProveedorDePago.cancelar_suscripcion` devuelve cuando cancela quien
+    llama a nuestra API. None si el proveedor no la informó en el evento, o si
+    el evento no es una cancelación."""
 
 
 class ErrorDeCobro(Exception):
     """Fallo del proveedor. La capa de API lo traduce a un HTTP apropiado."""
+
+
+def parsear_vigente_hasta(vigente_hasta: str) -> datetime:
+    """Convierte la fecha ISO-8601 de la pasarela a un datetime aware en UTC.
+
+    El puerto sólo promete "una fecha ISO-8601" (`cancelar_suscripcion`), no
+    que siempre traiga el offset. Sin normalizar, un valor SIN offset se
+    guarda tal cual en `plan_vigente_hasta` (`DateTime(timezone=True)`) — y
+    Postgres interpreta un datetime naive según el *timezone de la sesión*,
+    no como UTC. Si ese GUC no fuera UTC (aquí lo es, pero no es una garantía
+    del esquema), la empresa conservaría el plan más o menos horas de las que
+    le tocan, en silencio: nadie ve una excepción, sólo un dato corrido.
+
+    Lanza `ValueError` si la cadena no es un ISO-8601 válido: no es
+    responsabilidad de una función pura decidir si eso bloquea la
+    cancelación o se trata como una fecha ausente — eso lo decide quien
+    llama, que sabe si está respondiéndole a un usuario o procesando un
+    webhook de fondo.
+    """
+    fecha = datetime.fromisoformat(vigente_hasta)
+    if fecha.tzinfo is None:
+        fecha = fecha.replace(tzinfo=UTC)
+    return fecha
 
 
 @runtime_checkable

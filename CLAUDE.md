@@ -446,9 +446,10 @@ La versión vive en `app/core/versionado.py` y, duplicada a propósito, en
 un `{success, data}` termina siempre en 200 con `success: false`, que obliga a cada cliente a
 mirar dos sitios. Lo fija `tests/test_versionado_api.py`.
 
-**Celery**: 12 jobs. ETL horario, backfill diario, bulk semanal + analytics, estado hábil
+**Celery**: 13 jobs. ETL horario, backfill diario, bulk semanal + analytics, estado hábil
 cada 6 h, recordatorios de plazo y de vencimiento, precómputo nocturno de matches, watchdog
-cada 30 min, trials, informe semanal, vigilancia de precios. Todo en `America/Santiago`.
+cada 30 min, trials (vencimiento de reverse-trial y de periodo pagado tras cancelar), informe
+semanal, vigilancia de precios. Todo en `America/Santiago`.
 
 ### Datos
 

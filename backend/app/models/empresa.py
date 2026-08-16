@@ -71,6 +71,15 @@ class Empresa(Base):
     billing_subscription_id = Column(
         String(255), nullable=True, comment="ID de la suscripción en la pasarela."
     )
+    plan_vigente_hasta = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment=(
+            "Hasta cuándo conserva el plan una empresa que ya canceló. "
+            "Es el periodo que pagó y todavía no consume; el job nocturno la "
+            "degrada cuando pasa. NULL si no hay cancelación pendiente."
+        ),
+    )
     trial_ends_at = Column(
         DateTime(timezone=True),
         nullable=True,

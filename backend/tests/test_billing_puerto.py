@@ -79,6 +79,7 @@ class _EmpresaFalsa:
         self.billing_provider = None
         self.billing_customer_id = None
         self.billing_subscription_id = None
+        self.plan_vigente_hasta = None
 
 
 # ── El contrato ──────────────────────────────────────────────────────────────
@@ -314,3 +315,46 @@ def test_todo_proveedor_sabe_cancelar():
         assert hasattr(clase, "cancelar_suscripcion"), (
             f"el proveedor '{nombre}' no implementa cancelar_suscripcion"
         )
+
+
+# ── parsear_vigente_hasta ────────────────────────────────────────────────────
+#
+# Función pura: se prueba directamente, sin pasarela ni base de datos. Es la
+# única forma de comprobar de verdad que normaliza a aware-UTC — un test que
+# pasa por el endpoint y vuelve a leer de Postgres no distingue el caso: un
+# `timestamptz` siempre se lee de vuelta con tzinfo (lo pone el driver), así
+# que el round-trip disfraza un `datetime` naive que se hubiera guardado sin
+# normalizar. Sólo inspeccionando el valor en memoria, antes de tocar la base,
+# se ve la diferencia.
+
+
+def test_parsear_vigente_hasta_normaliza_una_fecha_sin_offset_a_utc():
+    from datetime import UTC, datetime
+
+    from app.domain.billing import parsear_vigente_hasta
+
+    fecha = parsear_vigente_hasta("2026-09-01T00:00:00")
+
+    assert fecha.tzinfo is not None
+    assert fecha == datetime(2026, 9, 1, tzinfo=UTC)
+
+
+def test_parsear_vigente_hasta_conserva_el_offset_que_trae_la_pasarela():
+    from datetime import UTC, datetime
+
+    from app.domain.billing import parsear_vigente_hasta
+
+    fecha = parsear_vigente_hasta("2026-09-01T00:00:00-04:00")
+
+    assert fecha.tzinfo is not None
+    assert fecha == datetime(2026, 9, 1, 4, 0, 0, tzinfo=UTC)
+
+
+def test_parsear_vigente_hasta_rechaza_una_cadena_que_no_es_fecha():
+    """Que sea `ValueError`, y no algo más específico, es a propósito: es el
+    mismo tipo que lanza `datetime.fromisoformat`, así que quien llama puede
+    capturarlo sin conocer los detalles de la función."""
+    from app.domain.billing import parsear_vigente_hasta
+
+    with pytest.raises(ValueError):
+        parsear_vigente_hasta("no-es-una-fecha")

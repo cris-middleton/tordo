@@ -91,6 +91,11 @@ celery_app.conf.update(
             "task": "app.tasks.trial_tasks.downgrade_expired_trials",
             "schedule": crontab(hour=3, minute=0),
         },
+        # 03:15 SCL diario: baja a quien canceló y ya consumió el periodo pagado.
+        "degradar-suscripciones-vencidas": {
+            "task": "app.tasks.trial_tasks.degradar_suscripciones_vencidas",
+            "schedule": crontab(hour=3, minute=15),
+        },
         # 09:00 SCL daily: reverse-trial day-7 / day-12 reminder emails
         "trial-reminders": {
             "task": "app.tasks.trial_tasks.send_trial_reminders",

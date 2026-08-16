@@ -259,6 +259,11 @@ class MercadoPagoAdapter:
                 plan_tier="basico",
                 estado="canceled",
                 empresa_id=empresa_id,
+                # Igual que en `cancelar_suscripcion`: es la fecha hasta la que
+                # el cliente ya pagó. Necesaria AQUÍ y no sólo ahí porque una
+                # cancelación puede llegar sin haber pasado por nuestro
+                # endpoint — el cliente cancela directo en MercadoPago.
+                vigente_hasta=sub.get("next_payment_date") or None,
             )
 
         if estado == "active":

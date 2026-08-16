@@ -197,11 +197,17 @@ class StripeAdapter:
             )
 
         if tipo == "customer.subscription.deleted":
+            # Mismo dato que `cancelar_suscripcion`, por la misma razón: si el
+            # cliente cancela desde el portal de Stripe en vez de nuestro
+            # endpoint, este webhook es la única notificación que llega, y
+            # tiene que traer su propia fecha de vigencia.
+            fin = obj.get("current_period_end")
             return EventoDeSuscripcion(
                 tipo="cancelada",
                 customer_id=obj.get("customer"),
                 plan_tier="basico",
                 estado="canceled",
+                vigente_hasta=datetime.fromtimestamp(fin, tz=UTC).isoformat() if fin else None,
             )
 
         if tipo == "invoice.payment_failed":

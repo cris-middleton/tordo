@@ -347,6 +347,44 @@ def test_los_estados_se_traducen_al_dominio(
     assert evento.empresa_id == "11111111-1111-1111-1111-111111111111"
 
 
+def test_la_cancelacion_trae_la_fecha_de_vigencia(config, red):
+    """`/billing/cancelar` no es el único camino por el que muere una
+    suscripción: un cliente puede cancelar directo en MercadoPago, y este
+    webhook es la ÚNICA notificación que llega. Sin la fecha aquí, el manejador
+    de webhooks no tiene cómo respetar el periodo ya pagado."""
+    red.respuestas["/preapproval/"] = RespuestaFalsa(
+        {
+            "id": "pre-1",
+            "status": "cancelled",
+            "payer_id": 42,
+            "external_reference": "11111111-1111-1111-1111-111111111111",
+            "next_payment_date": "2026-09-01T00:00:00.000-04:00",
+        }
+    )
+    payload, cabeceras = firmar({"type": "subscription_preapproval", "data": {"id": "pre-1"}})
+    evento = MercadoPagoAdapter().interpretar_webhook(payload, cabeceras)
+
+    assert evento.tipo == "cancelada"
+    assert evento.vigente_hasta == "2026-09-01T00:00:00.000-04:00"
+
+
+def test_la_cancelacion_sin_fecha_de_proximo_cobro_no_inventa_una(config, red):
+    """Una suscripción que nunca llegó a cobrarse no tiene periodo que
+    respetar: `vigente_hasta` tiene que quedar en None, no en cadena vacía."""
+    red.respuestas["/preapproval/"] = RespuestaFalsa(
+        {
+            "id": "pre-1",
+            "status": "cancelled",
+            "payer_id": 42,
+            "external_reference": "11111111-1111-1111-1111-111111111111",
+        }
+    )
+    payload, cabeceras = firmar({"type": "subscription_preapproval", "data": {"id": "pre-1"}})
+    evento = MercadoPagoAdapter().interpretar_webhook(payload, cabeceras)
+
+    assert evento.vigente_hasta is None
+
+
 def test_el_webhook_va_a_buscar_el_recurso_porque_no_viene_en_la_notificacion(config, red):
     red.respuestas["/preapproval/"] = RespuestaFalsa(
         {"id": "pre-7", "status": "authorized", "payer_id": 9, "external_reference": "emp"}

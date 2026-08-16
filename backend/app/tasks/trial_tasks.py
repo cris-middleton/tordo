@@ -18,6 +18,8 @@ from sqlalchemy import create_engine, text
 
 from app.celery_app import celery_app
 from app.config import settings
+from app.db import SyncSessionLocal as SessionLocal
+from app.models.empresa import Empresa
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +61,46 @@ def downgrade_expired_trials() -> dict:
     """Beat-scheduled task — runs daily at 03:00 America/Santiago."""
     count = _downgrade_expired_trials_sync()
     return {"downgraded": count, "ran_at": datetime.now(UTC).isoformat()}
+
+
+@celery_app.task(name="app.tasks.trial_tasks.degradar_suscripciones_vencidas")
+def degradar_suscripciones_vencidas() -> dict:
+    """03:15 SCL: baja a `basico` a quien canceló y ya consumió su periodo.
+
+    Va quince minutos después de `downgrade_expired_trials` y no en la misma
+    tarea a propósito: son dos motivos distintos de perder el plan, y juntarlos
+    haría que un fallo en uno se llevara el otro por delante.
+    """
+    db = SessionLocal()
+    degradadas = 0
+    try:
+        ahora = datetime.now(UTC)
+        empresas = (
+            db.query(Empresa)
+            .filter(
+                Empresa.plan_vigente_hasta.isnot(None),
+                Empresa.plan_vigente_hasta <= ahora,
+                # Defensivo: `plan_vigente_hasta` sólo debería sobrevivir en
+                # una empresa cancelada — el webhook la limpia al reactivar
+                # (`activada`/`actualizada`). Este filtro es la segunda
+                # barrera, no la única: si algo más deja la fecha colgando
+                # de una empresa que volvió a pagar, este WHERE es lo que
+                # evita degradarla igual.
+                Empresa.subscription_status == "canceled",
+            )
+            .all()
+        )
+        for empresa in empresas:
+            logger.info(
+                "Fin del periodo pagado: empresa %s %s → basico", empresa.id, empresa.plan_tier
+            )
+            empresa.plan_tier = "basico"
+            empresa.plan_vigente_hasta = None
+            degradadas += 1
+        db.commit()
+        return {"degradadas": degradadas}
+    finally:
+        db.close()
 
 
 # ── Reminder emails ────────────────────────────────────────────────────────────

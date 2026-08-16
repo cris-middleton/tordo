@@ -17,7 +17,7 @@ import logging
 from fastapi import APIRouter, HTTPException, Request, status
 
 from app.db import SyncSessionLocal
-from app.domain.billing import ErrorDeCobro, EventoDeSuscripcion
+from app.domain.billing import ErrorDeCobro, EventoDeSuscripcion, parsear_vigente_hasta
 from app.infra.billing import obtener_proveedor
 from app.repositories import empresas_sync as repo
 
@@ -81,6 +81,11 @@ def aplicar_evento_de_suscripcion(
             empresa.billing_subscription_id = evento.subscription_id
             empresa.plan_tier = evento.plan_tier or "pro"
             empresa.subscription_status = "active"
+            # Reactivarse DENTRO del periodo de gracia de una cancelación
+            # anterior tiene que limpiar la fecha: si no, el job nocturno
+            # degradaría a una empresa que ya está pagando de nuevo, en la
+            # fecha vieja de la cancelación que se arrepintió.
+            empresa.plan_vigente_hasta = None
 
         elif evento.tipo == "actualizada":
             empresa.subscription_status = evento.estado or "inactive"
@@ -88,11 +93,31 @@ def aplicar_evento_de_suscripcion(
                 empresa.billing_subscription_id = evento.subscription_id
             if evento.plan_tier:
                 empresa.plan_tier = evento.plan_tier
+            if empresa.subscription_status == "active":
+                # Mismo motivo que en «activada»: un evento que reporta la
+                # suscripción activa otra vez no puede dejar colgada la fecha
+                # de una cancelación anterior.
+                empresa.plan_vigente_hasta = None
 
         elif evento.tipo == "cancelada":
-            empresa.plan_tier = "basico"
             empresa.subscription_status = "canceled"
             empresa.billing_subscription_id = None
+            # El plan se conserva mientras quede periodo pagado. Degradarlo aquí
+            # sería cobrar el mes completo y entregar los días transcurridos; el
+            # job nocturno lo baja cuando `plan_vigente_hasta` pasa.
+            #
+            # La fecha puede llegar de DOS caminos. Si la cancelación pasó por
+            # `/billing/cancelar`, `plan_vigente_hasta` ya está escrita ahí.
+            # Si se originó FUERA de nuestra UI —el cliente cancela desde la
+            # propia MercadoPago o Stripe— este webhook es la ÚNICA
+            # notificación que llega, y trae su propia fecha en
+            # `evento.vigente_hasta`: sin usarla, esa cancelación reproduciría
+            # exactamente el bug que esta tarea existe para cerrar.
+            vigente_hasta = _vigente_hasta_del_evento(evento)
+            if vigente_hasta is not None:
+                empresa.plan_vigente_hasta = vigente_hasta
+            elif empresa.plan_vigente_hasta is None:
+                empresa.plan_tier = "basico"
 
         elif evento.tipo == "pago_fallido":
             empresa.subscription_status = "past_due"
@@ -103,6 +128,27 @@ def aplicar_evento_de_suscripcion(
         )
     finally:
         db.close()
+
+
+def _vigente_hasta_del_evento(evento: EventoDeSuscripcion):
+    """Parsea `evento.vigente_hasta`, tolerando una pasarela que manda basura.
+
+    Un webhook no tiene a quién devolverle un 502: al contrario que
+    `/billing/cancelar`, donde una fecha inválida puede bloquear la operación
+    y dejar que el usuario reintente, aquí el remitente es la propia pasarela
+    reintentando un evento que ya procesó — y una fecha rota no se arregla
+    reintentando. Se registra y se trata como ausente: la empresa igual queda
+    marcada `canceled`, sólo que sin periodo de gracia que respetar.
+    """
+    if not evento.vigente_hasta:
+        return None
+    try:
+        return parsear_vigente_hasta(evento.vigente_hasta)
+    except ValueError:
+        logger.warning(
+            "Fecha de vigencia inválida en el evento de cancelación: %r", evento.vigente_hasta
+        )
+        return None
 
 
 def buscar_empresa_del_evento(db, evento: EventoDeSuscripcion):
