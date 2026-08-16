@@ -74,7 +74,9 @@ export function CompetenciaSection({
       concentrado: 'Concentrado',
       moderado: 'Moderado',
       fragmentado: 'Fragmentado',
-      competitivo: 'Competitivo',
+      // Nombre anterior del mismo tramo; sigue llegando hasta la próxima
+      // materialización semanal de analytics.
+      competitivo: 'Fragmentado',
     };
     if (known[lower]) return known[lower];
     // Fallback: capitaliza primera letra del string raw del backend

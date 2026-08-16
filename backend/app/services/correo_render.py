@@ -103,10 +103,21 @@ def lineas_de_bi(contexto: dict | None) -> list[str]:
     if comp.get("disponible") and top5:
         lineas.append(f"{len(top5)} proveedores habituales en este comprador")
 
+    # **Se retiró la línea «paga a N días».** El dato que la alimentaba mide
+    # `FechaEnvio → FechaAceptacion` —lo que tarda el proveedor en aceptar la
+    # orden— y no el plazo de pago, que ChileCompra no publica. Con la mediana
+    # real en 1,4 días, el correo habría dicho «paga a 1 día»: falso, y de los
+    # que hunden la credibilidad del resto del aviso.
+    #
+    # En su lugar va la tasa de adjudicación, que sí sale del dato: un comprador
+    # que declara desierto uno de cada tres llamados es información que cambia
+    # la decisión de invertir dos días en una oferta.
     comprador = contexto.get("comprador") or {}
-    dias = comprador.get("mediana_dias_pago")
-    if dias:
-        lineas.append(f"Paga a {int(dias)} días en promedio")
+    tasa = comprador.get("tasa_adjudicacion")
+    if tasa is not None and 0 < tasa < 1:
+        desierto = round((1 - tasa) * 100)
+        if desierto >= 10:
+            lineas.append(f"Declara desierto el {desierto}% de lo que llama")
 
     ventana = contexto.get("ventana") or {}
     if ventana.get("alerta_ventana_corta"):

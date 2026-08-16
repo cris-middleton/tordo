@@ -1,0 +1,308 @@
+"""Las métricas del dashboard, fijadas con un caso donde el error se ve.
+
+Todo lo que se prueba aquí falla con el código anterior. No son tests de
+regresión defensivos: son la definición de qué significa cada número, escrita
+después de encontrar que tres de ellos significaban otra cosa.
+
+El caso está construido a imagen del problema real: `competitors_by_market`
+tiene una fila por *(organismo, rubro, proveedor)*, así que un proveedor con
+muchos compradores aparece muchas veces. Cualquier métrica que cuente filas o
+que tome una fila suelta como representativa del rubro está mal.
+"""
+
+from __future__ import annotations
+
+import polars as pl
+import pytest
+
+from app.services.bi import competencia
+from app.services.bi import rubro as svc_rubro
+
+RUBRO = "Servicios de aseo"
+
+
+# ── El mercado de juguete ────────────────────────────────────────────────────
+#
+#   Grande  (11111111-1) gana 1 orden enorme en 1 comprador   → 800 de monto,  1 OC
+#   Hormiga (22222222-2) gana 60 órdenes chicas en 3          → 120 de monto, 60 OC
+#   Mediano (33333333-3) gana 20 órdenes en 2                 →  80 de monto, 20 OC
+#
+# Los códigos tienen forma de RUT a propósito: `_normalize_rut` inserta un
+# guion antes del último carácter, así que un identificador que no lo sea sale
+# deformado y no coincide con nada.
+#
+# Total del rubro: 1.000 de monto, 81 órdenes, 3 proveedores, 4 compradores.
+# Y SEIS filas — que es exactamente lo que el código viejo contaba como
+# «proveedores».
+
+COMPETIDORES = pl.DataFrame(
+    [
+        {
+            "CodigoOrganismoPublico": "A",
+            "CodigoProveedor": "11111111-1",
+            "NombreProveedor": "Grande SA",
+            "monto_total": 800.0,
+            "n_oc": 1,
+        },
+        {
+            "CodigoOrganismoPublico": "A",
+            "CodigoProveedor": "22222222-2",
+            "NombreProveedor": "Hormiga Ltda",
+            "monto_total": 40.0,
+            "n_oc": 20,
+        },
+        {
+            "CodigoOrganismoPublico": "B",
+            "CodigoProveedor": "22222222-2",
+            "NombreProveedor": "Hormiga Ltda",
+            "monto_total": 40.0,
+            "n_oc": 20,
+        },
+        {
+            "CodigoOrganismoPublico": "C",
+            "CodigoProveedor": "22222222-2",
+            "NombreProveedor": "Hormiga Ltda",
+            "monto_total": 40.0,
+            "n_oc": 20,
+        },
+        {
+            "CodigoOrganismoPublico": "B",
+            "CodigoProveedor": "33333333-3",
+            "NombreProveedor": "Mediano SpA",
+            "monto_total": 40.0,
+            "n_oc": 10,
+        },
+        {
+            "CodigoOrganismoPublico": "D",
+            "CodigoProveedor": "33333333-3",
+            "NombreProveedor": "Mediano SpA",
+            "monto_total": 40.0,
+            "n_oc": 10,
+        },
+    ]
+)
+
+
+def _stub(tablas: dict[str, pl.DataFrame]):
+    """Un `_load` que filtra y recorta como el de verdad."""
+
+    def _load(nombre, *, filtros=None, columnas=None, **_):
+        df = tablas.get(nombre)
+        if df is None:
+            return None
+        if filtros:
+            for clave, valor in filtros.items():
+                if clave in df.columns:
+                    df = df.filter(pl.col(clave).cast(pl.Utf8) == str(valor))
+        if columnas:
+            df = df.select([c for c in columnas if c in df.columns])
+        return df
+
+    return _load
+
+
+@pytest.fixture
+def mercado(monkeypatch):
+    tablas = {
+        "competitors_by_market.parquet": COMPETIDORES.with_columns(pl.lit(RUBRO).alias("RubroN2"))
+    }
+    monkeypatch.setattr(competencia, "_load", _stub(tablas))
+    monkeypatch.setattr(svc_rubro, "_load", _stub(tablas))
+    return tablas
+
+
+# ── mi_posicion ──────────────────────────────────────────────────────────────
+
+
+class TestMiPosicion:
+    def test_cuenta_proveedores_y_no_filas(self, mercado):
+        """El código anterior devolvía 6 —las filas— en vez de 3.
+
+        Sobre datos reales el error era de 128.462 contra 77.720: el usuario veía
+        que competía contra el doble de empresas de las que existen.
+        """
+        r = competencia.get_mi_posicion("22222222-2", RUBRO)
+        assert r["total_proveedores"] == 3
+
+    def test_la_participacion_es_del_rubro_y_no_de_un_comprador(self, mercado):
+        """HORMIGA tiene 40 de 800 en el comprador A —un 5 %— pero 120 de 1.000
+        en el rubro. El código anterior publicaba el primero."""
+        r = competencia.get_mi_posicion("22222222-2", RUBRO)
+        assert r["participacion_pct"] == pytest.approx(12.0)
+
+    def test_el_rank_ordena_proveedores_por_su_monto_en_el_rubro(self, mercado):
+        assert competencia.get_mi_posicion("11111111-1", RUBRO)["rank"] == 1
+        assert competencia.get_mi_posicion("22222222-2", RUBRO)["rank"] == 2
+        assert competencia.get_mi_posicion("33333333-3", RUBRO)["rank"] == 3
+
+    def test_suma_las_ordenes_y_los_compradores_de_todos_sus_mercados(self, mercado):
+        r = competencia.get_mi_posicion("22222222-2", RUBRO)
+        assert r["n_oc_propias"] == 60
+        assert r["n_organismos_atendidos"] == 3
+
+    def test_quien_no_esta_en_el_rubro_lo_sabe(self, mercado):
+        r = competencia.get_mi_posicion("99999999", RUBRO)
+        assert r["disponible"] is True
+        assert r["tiene_historial"] is False
+        assert r["total_proveedores"] == 3
+
+    def test_la_diversificacion_ausente_se_declara_en_vez_de_fingirse(self, mercado):
+        """El fixture no trae `provider_diversification`, y eso se dice.
+
+        Unos campos en `null` no distinguen «no lo sabemos» de «este proveedor
+        no tiene riesgo de concentración» — que es exactamente lo contrario."""
+        r = competencia.get_mi_posicion("22222222-2", RUBRO)
+        assert r["diversificacion_disponible"] is False
+
+    def test_la_diversificacion_presente_se_devuelve_entera(self, mercado, monkeypatch):
+        tablas = {
+            "competitors_by_market.parquet": COMPETIDORES.with_columns(
+                pl.lit(RUBRO).alias("RubroN2")
+            ),
+            "provider_diversification.parquet": pl.DataFrame(
+                [
+                    {
+                        "CodigoProveedor": "22222222-2",
+                        "hhi_org": 3333.0,
+                        "n_organismos": 3,
+                        "n_rubros": 2,
+                        "n_regiones": 1,
+                        "score_diversificacion": 0.42,
+                        "clasificacion": "moderado",
+                        "alerta_dependencia": False,
+                    }
+                ]
+            ),
+        }
+        monkeypatch.setattr(competencia, "_load", _stub(tablas))
+        r = competencia.get_mi_posicion("22222222-2", RUBRO)
+        assert r["diversificacion_disponible"] is True
+        assert r["diversificacion"]["hhi_compradores"] == 3333.0
+        assert r["diversificacion"]["alerta_dependencia"] is False
+
+    def test_sin_rubro_no_inventa(self, mercado):
+        assert competencia.get_mi_posicion("22222222-2", "")["disponible"] is False
+
+    def test_el_identificador_es_el_codigo_de_proveedor_no_el_rut(self, monkeypatch):
+        """**El fallo que hacía inútil toda la pantalla.**
+
+        `CodigoProveedor` es el identificador interno de Mercado Público, no un
+        RUT: de los 4.204.598 registros de la tabla real, ninguno lleva guion.
+        La versión anterior normalizaba el RUT de la empresa a `12345678-9` y lo
+        comparaba con esa columna, así que **no coincidía jamás** y «Tu
+        posición» respondía «todavía no tienes órdenes en este rubro» a todo el
+        mundo. Aquí el dato tiene la forma real.
+        """
+        reales = pl.DataFrame(
+            [
+                {
+                    "RubroN2": RUBRO,
+                    "CodigoOrganismoPublico": "A",
+                    "CodigoProveedor": "1451428",
+                    "NombreProveedor": "Proveedor Real SpA",
+                    "monto_total": 500.0,
+                    "n_oc": 12,
+                }
+            ]
+        )
+        monkeypatch.setattr(competencia, "_load", _stub({"competitors_by_market.parquet": reales}))
+        r = competencia.get_mi_posicion("1451428", RUBRO)
+        assert r["tiene_historial"] is True
+        assert r["n_oc_propias"] == 12
+
+
+# ── Panorama: competencia ────────────────────────────────────────────────────
+
+
+class TestCompetenciaDelRubro:
+    def test_el_lider_es_el_del_rubro(self, mercado):
+        p = svc_rubro.get_panorama(RUBRO)["competencia"]
+        assert p["lideres"][0]["nombre"] == "Grande SA"
+        assert p["lideres"][0]["share_pct"] == pytest.approx(80.0)
+
+    def test_la_cuota_por_ordenes_cuenta_otra_historia(self, mercado):
+        """GRANDE tiene el 80 % del monto y el 1,2 % de las órdenes; HORMIGA al
+        revés. Publicar sólo el monto le diría a una PYME que el mercado está
+        tomado cuando lo que hay son compras chicas repartidas."""
+        lideres = {x["nombre"]: x for x in svc_rubro.get_panorama(RUBRO)["competencia"]["lideres"]}
+        assert lideres["Grande SA"]["share_oc_pct"] == pytest.approx(1.23, abs=0.01)
+        assert lideres["Hormiga Ltda"]["share_oc_pct"] == pytest.approx(74.07, abs=0.01)
+
+    def test_el_hhi_sale_de_las_cuotas_del_rubro(self, mercado):
+        """80² + 12² + 8² = 6.400 + 144 + 64 = 6.608 → concentrado."""
+        p = svc_rubro.get_panorama(RUBRO)["competencia"]
+        assert p["hhi"] == 6608
+        assert p["tipo_mercado"] == "concentrado"
+
+    def test_cuenta_proveedores_y_compradores_distintos(self, mercado):
+        p = svc_rubro.get_panorama(RUBRO)["competencia"]
+        assert p["n_proveedores"] == 3
+        assert p["n_compradores"] == 4
+
+    @pytest.mark.parametrize(
+        ("hhi", "esperado"),
+        [(0, "fragmentado"), (1500, "fragmentado"), (1501, "moderado"), (2501, "concentrado")],
+    )
+    def test_los_cortes_del_hhi_son_los_de_la_literatura(self, hhi, esperado):
+        """1.500 y 2.500 son los umbrales de las guías de competencia (DOJ/FTC).
+        Están aquí para que nadie los mueva por intuición."""
+        assert svc_rubro._clasificar_mercado(hhi) == esperado
+
+
+# ── Panorama: estacionalidad ─────────────────────────────────────────────────
+
+
+class TestEstacionalidad:
+    def _con_meses(self, monkeypatch, compras_por_mes: list[int]):
+        filas = [
+            {"RubroN2": RUBRO, "CodigoOrganismoPublico": org, "mes": i + 1, "compras_mes": c}
+            for org in ("A", "B")
+            for i, c in enumerate(compras_por_mes)
+        ]
+        monkeypatch.setattr(
+            svc_rubro, "_load", _stub({"seasonality_patterns.parquet": pl.DataFrame(filas)})
+        )
+
+    def test_suma_todos_los_compradores_del_rubro(self, monkeypatch):
+        """La estacionalidad que existía era la de UN organismo. Para decidir
+        cuándo tener el equipo disponible, lo que importa es el mercado."""
+        self._con_meses(monkeypatch, [10] * 12)
+        e = svc_rubro._estacionalidad_del_rubro(RUBRO)
+        assert len(e["meses"]) == 12
+        assert all(m["pct"] == pytest.approx(8.3, abs=0.1) for m in e["meses"])
+
+    def test_un_reparto_plano_no_tiene_temporada(self, monkeypatch):
+        self._con_meses(monkeypatch, [10] * 12)
+        assert svc_rubro._estacionalidad_del_rubro(RUBRO)["tiene_temporada"] is False
+
+    def test_una_concentracion_real_sí_la_tiene(self, monkeypatch):
+        """Diciembre, noviembre y octubre con el 60 % del año."""
+        self._con_meses(monkeypatch, [4] * 9 + [20, 20, 20])
+        e = svc_rubro._estacionalidad_del_rubro(RUBRO)
+        assert e["tiene_temporada"] is True
+        assert e["mes_pico"] in ("Oct", "Nov", "Dic")
+
+    def test_sin_datos_lo_dice(self, monkeypatch):
+        monkeypatch.setattr(svc_rubro, "_load", _stub({}))
+        assert svc_rubro._estacionalidad_del_rubro(RUBRO)["disponible"] is False
+
+
+# ── Panorama: entero ─────────────────────────────────────────────────────────
+
+
+class TestPanorama:
+    def test_sin_rubro_no_consulta_nada(self):
+        assert svc_rubro.get_panorama("")["disponible"] is False
+
+    def test_un_rubro_sin_histórico_lo_dice_una_vez(self, monkeypatch):
+        """Cuatro bloques vacíos obligan al frontend a decidir qué significa el
+        conjunto. Una respuesta no disponible con motivo, no."""
+        monkeypatch.setattr(svc_rubro, "_load", _stub({}))
+        r = svc_rubro.get_panorama("Rubro que no existe")
+        assert r["disponible"] is False
+        assert "Rubro que no existe" in r["motivo"]
+
+    def test_devuelve_los_cuatro_bloques(self, mercado):
+        r = svc_rubro.get_panorama(RUBRO)
+        assert r["disponible"] is True
+        assert set(r) >= {"mercado", "competencia", "estacionalidad", "vigilar"}

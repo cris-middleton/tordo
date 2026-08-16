@@ -16,6 +16,7 @@ from app.services.bi.mercado import get_descuento, get_diversificacion, get_resu
 from app.services.bi.oportunidad import get_oportunidades, get_rubros
 from app.services.bi.panel import get_licitacion_panel
 from app.services.bi.precio import get_precio_producto, get_productos
+from app.services.bi.rubro import get_panorama
 
 # Los helpers privados (`_normalize_rut`, `_compute_cagr_...`) NO se re-exportan
 # aquí: quien los necesite importa del módulo que los define. Una fachada que
@@ -37,6 +38,7 @@ __all__ = [
     "get_licitacion_panel",
     "get_mi_posicion",
     "get_oportunidades",
+    "get_panorama",
     "get_precio_producto",
     "get_productos",
     "get_resumen",

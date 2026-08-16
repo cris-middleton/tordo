@@ -424,6 +424,11 @@ class ApiClient {
     return res.data;
   }
 
+  async getBIPanorama(rubro: string) {
+    const res = await this.client.get(`${API}/bi/panorama`, { params: { rubro } });
+    return res.data;
+  }
+
   async getBIResumen(rubro: string) {
     const res = await this.client.get(`${API}/bi/resumen`, { params: { rubro } });
     return res.data;

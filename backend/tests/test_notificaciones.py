@@ -288,18 +288,32 @@ class TestCorreo:
 
     def test_el_bi_va_dentro_del_aviso(self):
         """Es la diferencia entera con la competencia: donde ellos dicen «esta
-        licitación calza», aquí va además cuánto paga ese comprador."""
+        licitación calza», aquí va además la banda de precio y el historial del
+        comprador.
+
+        Este test exigía la línea «paga a 32 días», que salía de
+        `mediana_dias_pago`. Ese campo mide los días hasta que el PROVEEDOR
+        acepta la orden, no un pago —ChileCompra no publica fecha de pago en
+        ninguna parte—, así que el correo prometía un plazo que nadie había
+        medido. Lo reemplaza la tasa de adjudicación, que sí sale del dato.
+        """
         contexto = {
             "precios": [{"p25": 2_400_000, "p75": 3_900_000, "predictibilidad": "alta"}],
-            "comprador": {"mediana_dias_pago": 32},
+            "comprador": {"tasa_adjudicacion": 0.62},
             "competidores": {"disponible": True, "top5": [{}, {}, {}]},
         }
         _, texto, html_ = correo_render.alerta_individual(_Alerta(), contexto)
 
         assert "$2.400.000" in texto and "$3.900.000" in texto
-        assert "32 días" in texto
+        assert "38%" in texto
         assert "3 proveedores habituales" in texto
         assert "$2.400.000" in html_
+
+    def test_el_correo_no_promete_plazos_de_pago(self):
+        """Guarda explícita: el dato de días no vuelve a colarse como un pago."""
+        contexto = {"comprador": {"mediana_dias_aceptacion": 32, "tasa_adjudicacion": 0.9}}
+        lineas = correo_render.lineas_de_bi(contexto)
+        assert not any("paga" in x.lower() or "pago" in x.lower() for x in lineas)
 
     def test_la_dispersion_alta_se_dice_como_hallazgo(self):
         """Un rango enorme no es un hueco que disimular: significa que el precio

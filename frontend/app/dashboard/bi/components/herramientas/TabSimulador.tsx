@@ -21,9 +21,12 @@ interface SimuladorResult {
   } | null;
   comprador: {
     nombre: string | null;
-    pago_dias: number | null;
+    /** Proporción de sus llamados que termina adjudicando. El resto se declara
+     *  desierto: es el riesgo de preparar una oferta para nada. Aquí había
+     *  `pago_dias`, que ni era un pago ni era del comprador. */
+    tasa_adjudicacion: number | null;
     clasificacion: string | null;
-    alerta_pago_lento: boolean;
+    alerta_desierto: boolean;
   } | null;
 }
 
@@ -101,14 +104,14 @@ export default function TabSimulador({ rubroInicial, organismosConNombre, allRub
       const c = compradorRes.value as {
         nombre?: string;
         clasificacion?: string;
-        pago?: { mediana_dias_pago?: number };
-        risk_flags?: { pago_lento?: boolean };
+        tramitacion?: { tasa_adjudicacion?: number };
+        risk_flags?: { licitaciones_fallidas?: boolean };
       };
       comprador = {
         nombre: c.nombre || null,
-        pago_dias: c.pago?.mediana_dias_pago != null ? Math.round(c.pago.mediana_dias_pago) : null,
+        tasa_adjudicacion: c.tramitacion?.tasa_adjudicacion ?? null,
         clasificacion: c.clasificacion || null,
-        alerta_pago_lento: !!c.risk_flags?.pago_lento,
+        alerta_desierto: !!c.risk_flags?.licitaciones_fallidas,
       };
     }
 
@@ -145,25 +148,20 @@ export default function TabSimulador({ rubroInicial, organismosConNombre, allRub
     }
 
     if (comprador) {
-      if (comprador.pago_dias != null) {
-        const labelPago =
-          comprador.clasificacion === 'bueno' ? 'buen pagador' :
-          comprador.clasificacion === 'medio' ? 'pago normal' :
-          comprador.clasificacion === 'lento' ? 'pago lento' : 'sin clasificar';
-        const diasTexto =
-          comprador.pago_dias === 0 ? 'el mismo día' :
-          comprador.pago_dias === 1 ? 'al día siguiente' :
-          `en ~${comprador.pago_dias} días`;
+      if (comprador.tasa_adjudicacion != null) {
+        const adjudica = Math.round(comprador.tasa_adjudicacion * 100);
         bullets.push(
-          <li key="pago">
-            El comprador paga <b>{diasTexto}</b> ({labelPago}).
+          <li key="adjudica">
+            Este comprador adjudica el <b>{adjudica}%</b> de lo que llama
+            {adjudica < 100 && <> y declara desierto el resto</>}.
           </li>
         );
       }
-      if (comprador.alerta_pago_lento) {
+      if (comprador.alerta_desierto) {
         bullets.push(
           <li key="alerta" className="text-danger">
-            ⚠ Alerta: este comprador tiene historial de pagos lentos.
+            ⚠ Declara desierta una parte alta de sus licitaciones: prepara la oferta contando
+            con eso.
           </li>
         );
       }
@@ -189,7 +187,7 @@ export default function TabSimulador({ rubroInicial, organismosConNombre, allRub
     }
     if (comprador) {
       totales++;
-      if (comprador.clasificacion === 'bueno' && !comprador.alerta_pago_lento) puntos++;
+      if (comprador.clasificacion === 'bueno' && !comprador.alerta_desierto) puntos++;
     }
 
     if (totales === 0) return null;

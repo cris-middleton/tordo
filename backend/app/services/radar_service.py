@@ -123,9 +123,19 @@ def compute_radar_for_empresa(db: Session, empresa_id: UUID) -> dict:
                         {
                             "tipo": "comprador_activo",
                             "titulo": f"Comprador más activo en {primer_rubro}",
+                            # Se quitó «paga en ~N días»: ese dato medía la
+                            # aceptación de la orden, no el pago, y con la
+                            # mediana real en 1,4 días el radar decía «paga en
+                            # ~1 día».
                             "detalle": (
-                                f"{tc['nombre']} — paga en ~{tc.get('pago_mediana_dias', '?')} días"
-                                f" ({tc.get('clasificacion_pago', 'sin clasificar')})"
+                                f"{tc['nombre']}"
+                                + (
+                                    f" — {tc['n_oc_total']:,} órdenes en el histórico".replace(
+                                        ",", "."
+                                    )
+                                    if tc.get("n_oc_total")
+                                    else ""
+                                )
                             ),
                             "accion_url": f"/dashboard/bi?rubro={primer_rubro}",
                         }

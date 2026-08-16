@@ -70,7 +70,12 @@ def test_resumen_estructura_completa(sin_datos):
         "n_organismos",
         "cagr_pct",
         "n_proveedores_actual",
-        "n_proveedores_hace_3_anios",
+        # `n_proveedores_hace_3_anios` estaba en esta lista y **nunca se
+        # devolvía**: el test comprobaba `issubset` sobre las claves del dict y
+        # pasaba porque el service sí la ponía... en `None`. El frontend tenía
+        # una rama entera colgada de ella que no se ejecutó jamás. Se quitó de
+        # los dos lados: contar la evolución de la competencia exige una serie
+        # por rubro que el pipeline no materializa.
         "top_comprador",
         "teaser_competencia",
         "teaser_estacionalidad",

@@ -95,6 +95,60 @@ export function useApiKeys(empresaId?: string) {
   });
 }
 
+/**
+ * Los datos de la pantalla de analítica.
+ *
+ * **Estas consultas existen porque la pantalla las tenía en `useState` +
+ * `useEffect`.** Media docena de estados de carga a mano, un efecto de
+ * inicialización de noventa líneas y tres `eslint-disable` para callar la regla
+ * `set-state-in-effect`, que en este repo es `error` justamente para esto.
+ * Además de la ceremonia, el patrón traía dos fallos reales: cambiar de rubro
+ * dejaba datos del anterior en pantalla mientras cargaban los nuevos, y volver
+ * a la pantalla re-pedía todo.
+ *
+ * `enabled` es lo que sustituye a los `if (!rubro) return` dentro de los
+ * efectos: sin rubro no se pide, y el hook sigue siendo incondicional.
+ */
+export function useBIPanorama(rubro?: string) {
+  return useQuery({
+    queryKey: claves.bi('panorama', rubro ?? null),
+    queryFn: () => apiClient.getBIPanorama(rubro as string),
+    enabled: Boolean(rubro),
+  });
+}
+
+export function useBIOportunidades(rubro?: string) {
+  return useQuery({
+    queryKey: claves.bi('oportunidades', rubro ?? null),
+    queryFn: () => apiClient.getBIOportunidades({ rubro: rubro || undefined, min_score: 4, limit: 50 }),
+  });
+}
+
+export function useBITendencia(rubro?: string) {
+  return useQuery({
+    queryKey: claves.bi('tendencia', rubro ?? null),
+    queryFn: () => apiClient.getBITendencia({ rubro: rubro || undefined, limit: 15 }),
+  });
+}
+
+export function useBIResumen(rubro?: string) {
+  return useQuery({
+    queryKey: claves.bi('resumen', rubro ?? null),
+    queryFn: () => apiClient.getBIResumen(rubro as string),
+    enabled: Boolean(rubro),
+  });
+}
+
+export function useBIRubros() {
+  return useQuery({
+    queryKey: claves.bi('rubros'),
+    queryFn: () => apiClient.getBIRubros(),
+    // El catálogo de rubros cambia cuando corre el pipeline, una vez por
+    // semana. Re-pedirlo en cada visita a la pantalla es tráfico por nada.
+    staleTime: 60 * 60 * 1000,
+  });
+}
+
 export function usePerfilSemantico(empresaId?: string) {
   return useQuery({
     queryKey: claves.empresaPerfil(empresaId ?? ''),

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 
-from app.services.bi._base import _load
+from app.services.bi._base import _load, _primero
 
 logger = logging.getLogger(__name__)
 
@@ -19,33 +19,27 @@ def get_comprador(organismo_id: str) -> dict:
     Buyer profile: payment behaviour, risk flags, and overall score.
     Combines buyer_scores + buyer_risk_flags + buyer_payment_stats.
     """
-    score_df = _load("buyer_scores.parquet")
-    flags_df = _load("buyer_risk_flags.parquet")
-    payment_df = _load("buyer_payment_stats.parquet")
+    por_organismo = {"CodigoOrganismoPublico": str(organismo_id)}
+    score_df = _load("buyer_scores.parquet", filtros=por_organismo)
+    flags_df = _load("buyer_risk_flags.parquet", filtros=por_organismo)
+    payment_df = _load("buyer_payment_stats.parquet", filtros=por_organismo)
 
     if score_df is None:
         return {"disponible": False, "motivo": "parquet no generado"}
 
-    mask_score = score_df["CodigoOrganismoPublico"].cast(str) == str(organismo_id)
-    score_rows = score_df.filter(mask_score)
+    score_rows = score_df
     if score_rows.is_empty():
         return {"disponible": False, "motivo": "organismo no encontrado en histórico"}
 
     score = score_rows.row(0, named=True)
 
     flags: dict = {}
-    if flags_df is not None:
-        mask_f = flags_df["CodigoOrganismoPublico"].cast(str) == str(organismo_id)
-        f_rows = flags_df.filter(mask_f)
-        if not f_rows.is_empty():
-            flags = f_rows.row(0, named=True)
+    if flags_df is not None and not flags_df.is_empty():
+        flags = flags_df.row(0, named=True)
 
     payment: dict = {}
-    if payment_df is not None:
-        mask_p = payment_df["CodigoOrganismoPublico"].cast(str) == str(organismo_id)
-        p_rows = payment_df.filter(mask_p)
-        if not p_rows.is_empty():
-            payment = p_rows.row(0, named=True)
+    if payment_df is not None and not payment_df.is_empty():
+        payment = payment_df.row(0, named=True)
 
     # ── Transparency index ────────────────────────────────────────────────────
     transp_df = _load("buyer_transparency.parquet")
@@ -68,16 +62,30 @@ def get_comprador(organismo_id: str) -> dict:
         "nombre": score.get("NombreOrganismo"),
         "buyer_score": score.get("buyer_score"),
         "clasificacion": score.get("clasificacion"),
-        "pago": {
-            "mediana_dias_pago": score.get("mediana_dias_pago"),
-            "p75_dias_pago": score.get("p75_dias_pago"),
-            "p90_dias_pago": score.get("p90_dias_pago"),
+        # **Esto NO son días de pago, y llamarlo así fue un error que llegó
+        # hasta la landing.** Lo que mide el dato es `FechaEnvio → FechaAceptacion`:
+        # lo que tarda el PROVEEDOR en aceptar la orden. La mediana global es 1,4
+        # días, lo que hacía obvio que no era un plazo de pago, y sin embargo el
+        # producto decía «paga a N días» en la pantalla, en el correo y en la web.
+        #
+        # **La fecha de pago no existe en el dato de ChileCompra**: las únicas
+        # fechas del archivo son creación, envío, aceptación, cancelación y
+        # última modificación. Y `Forma de Pago` no vale de sustituto — el
+        # 98,7 % de las órdenes dice lo mismo.
+        "tramitacion": {
+            "mediana_dias_aceptacion": _primero(
+                score, "mediana_dias_aceptacion", "mediana_dias_pago"
+            ),
+            "p75_dias_aceptacion": _primero(score, "p75_dias_aceptacion", "p75_dias_pago"),
+            "p90_dias_aceptacion": _primero(score, "p90_dias_aceptacion", "p90_dias_pago"),
             "tasa_aceptacion": score.get("tasa_aceptacion"),
             "tasa_cancelacion": score.get("tasa_cancelacion"),
             "tasa_adjudicacion": score.get("tasa_adjudicacion"),
         },
         "scores_detalle": {
-            "velocidad_pago": score.get("score_velocidad_pago"),
+            "velocidad_aceptacion": _primero(
+                score, "score_velocidad_aceptacion", "score_velocidad_pago"
+            ),
             "tasa_aceptacion": score.get("score_tasa_aceptacion"),
             "no_cancelacion": score.get("score_tasa_no_cancelacion"),
             "adjudicacion": score.get("score_tasa_adjudicacion"),
@@ -87,8 +95,12 @@ def get_comprador(organismo_id: str) -> dict:
         },
         "risk_flags": {
             "n_flags": flags.get("n_flags", 0),
-            "pago_lento": flags.get("flag_pago_lento", False),
-            "pago_impredecible": flags.get("flag_pago_impredecible", False),
+            "aceptacion_lenta": bool(
+                _primero(flags, "flag_aceptacion_lenta", "flag_pago_lento") or False
+            ),
+            "aceptacion_impredecible": bool(
+                _primero(flags, "flag_aceptacion_impredecible", "flag_pago_impredecible") or False
+            ),
             "cancelaciones": flags.get("flag_cancelaciones", False),
             "licitaciones_fallidas": flags.get("flag_licitaciones_fallidas", False),
             "baja_calificacion": flags.get("flag_baja_calificacion", False),

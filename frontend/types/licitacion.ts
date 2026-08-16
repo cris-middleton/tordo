@@ -39,7 +39,8 @@ export interface BIPanel {
   comprador: {
     disponible: boolean;
     buyer_score?: number | null;
-    mediana_dias_pago?: number | null;
+    /** Días hasta que el proveedor acepta la orden. No es un plazo de pago. */
+    mediana_dias_aceptacion?: number | null;
     tasa_adjudicacion?: number | null;
     n_flags?: number;
     transparencia?: { clasificacion?: string | null } | null;

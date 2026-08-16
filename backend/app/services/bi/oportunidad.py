@@ -24,15 +24,20 @@ def get_oportunidades(
     Ranked opportunities (opportunity_score 0–10).
     Optionally filtered by organismo and/or rubro.
     """
-    df = _load("opportunity_scores.parquet")
+    # Los filtros de igualdad viajan al WHERE; el de `min_score` es una
+    # desigualdad y se queda en Polars sobre lo ya reducido. Antes se traían las
+    # 238.000 filas de la tabla para descartar casi todas.
+    filtros: dict = {}
+    if organismo_id:
+        filtros["CodigoOrganismoPublico"] = str(organismo_id)
+    if rubro:
+        filtros["RubroN2"] = rubro
+
+    df = _load("opportunity_scores.parquet", filtros=filtros or None)
     if df is None:
         return {"disponible": False, "motivo": "parquet no generado"}
 
     mask = df["opportunity_score"] >= min_score
-    if organismo_id:
-        mask = mask & (df["CodigoOrganismoPublico"].cast(str) == str(organismo_id))
-    if rubro:
-        mask = mask & (df["RubroN2"] == rubro)
 
     rows = df.filter(mask).sort("opportunity_score", descending=True).head(limit)
 
@@ -80,7 +85,9 @@ def get_rubros(limit: int = 354) -> dict:
     sorted by frequency (number of market opportunities) descending.
     Excludes null / 'NA' entries.
     """
-    df = _load("opportunity_scores.parquet")
+    # Sólo hace falta la columna del rubro: traer las quince restantes de las
+    # 238.000 filas para contar valores distintos es tráfico puro.
+    df = _load("opportunity_scores.parquet", columnas=["RubroN2"])
     if df is None:
         return {"disponible": False, "motivo": "parquet no generado"}
 

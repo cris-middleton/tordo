@@ -373,10 +373,12 @@ export default function TendersPage() {
                         <span className="font-semibold text-text">{biPanel.comprador.buyer_score.toFixed(1)}/10</span>
                       </div>
                     )}
-                    {biPanel.comprador.mediana_dias_pago != null && (
+                    {biPanel.comprador.tasa_adjudicacion != null && (
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted">Pago mediano</span>
-                        <span className="text-text">{Math.round(biPanel.comprador.mediana_dias_pago)} días</span>
+                        <span className="text-muted">Adjudica</span>
+                        <span className="text-text">
+                          {Math.round(biPanel.comprador.tasa_adjudicacion * 100)}%
+                        </span>
                       </div>
                     )}
                   </>

@@ -19,7 +19,10 @@ interface BIPanelData {
     nombre?: string;
     buyer_score?: number;
     clasificacion?: string;
-    mediana_dias_pago?: number;
+    /** Días entre emisión y aceptación de la orden. NO es un plazo de pago:
+     *  ChileCompra no publica fecha de pago. Se deja porque el panel lo
+     *  devuelve, pero no se pinta como cifra suelta. */
+    mediana_dias_aceptacion?: number;
     tasa_adjudicacion?: number;
     n_flags?: number;
   };
@@ -100,7 +103,7 @@ export function BICard({ codigoExterno, empresaId, plan = 'basico' }: BICardProp
         <div className="border-t border-border px-5 py-4">
           {!paid ? (
             <div className="flex flex-col items-center gap-3 py-4 text-center">
-              <p className="text-sm text-muted">Análisis detallado disponible en plan PYME o superior.</p>
+              <p className="text-sm text-muted">Análisis detallado disponible en plan Pro.</p>
               <Link href="/dashboard/billing" className="btn-primary text-sm">Ver planes</Link>
             </div>
           ) : loading ? (
@@ -158,8 +161,14 @@ export function BICard({ codigoExterno, empresaId, plan = 'basico' }: BICardProp
                         )}
                       </div>
                     )}
-                    {data.comprador.mediana_dias_pago != null && (
-                      <p className="text-xs text-muted">Pago: {Math.round(data.comprador.mediana_dias_pago)} días</p>
+                    {/* Antes decía «Pago: N días» sobre un dato que mide
+                        otra cosa. Lo que sí dice el histórico del comprador es
+                        cuánto de lo que llama termina adjudicando. */}
+                    {data.comprador.tasa_adjudicacion != null && (
+                      <p className="text-xs text-muted">
+                        Adjudica el {Math.round(data.comprador.tasa_adjudicacion * 100)}% de lo que
+                        llama
+                      </p>
                     )}
                   </>
                 ) : (

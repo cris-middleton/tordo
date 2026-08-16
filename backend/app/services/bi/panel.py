@@ -33,15 +33,15 @@ def get_licitacion_panel(
     # ── Comprador ─────────────────────────────────────────────────────────────
     if organismo_id:
         full = get_comprador(organismo_id)
-        pago = full.get("pago") or {}
+        tramitacion = full.get("tramitacion") or {}
         flags = full.get("risk_flags") or {}
         comprador: dict = {
             "disponible": full["disponible"],
             "nombre": full.get("nombre"),
             "buyer_score": full.get("buyer_score"),
             "clasificacion": full.get("clasificacion"),
-            "mediana_dias_pago": pago.get("mediana_dias_pago"),
-            "tasa_adjudicacion": pago.get("tasa_adjudicacion"),
+            "mediana_dias_aceptacion": tramitacion.get("mediana_dias_aceptacion"),
+            "tasa_adjudicacion": tramitacion.get("tasa_adjudicacion"),
             "n_flags": flags.get("n_flags", 0),
             "transparencia": full.get("transparencia"),
             "motivo": full.get("motivo"),

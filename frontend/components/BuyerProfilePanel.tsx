@@ -15,7 +15,6 @@ interface CompradorPanel {
   nombre?: string | null;
   buyer_score?: number | null;
   clasificacion?: string | null;
-  mediana_dias_pago?: number | null;
   tasa_adjudicacion?: number | null;
   n_flags?: number;
   n_base?: number | null;
@@ -53,9 +52,10 @@ function scoreColor(score: number): string {
   return 'text-danger';
 }
 
-function diasColor(dias: number): string {
-  if (dias <= 30) return 'text-accent';
-  if (dias <= 60) return 'text-gold';
+/** Cuanto más compra por trato directo, menos queda a competir de verdad. */
+function tratoDirectoColor(pct: number): string {
+  if (pct <= 0.15) return 'text-accent';
+  if (pct <= 0.35) return 'text-gold';
   return 'text-danger';
 }
 
@@ -126,24 +126,30 @@ export function BuyerProfilePanel({ comprador }: BuyerProfilePanelProps) {
               }
             />
 
-            {/* Días de pago */}
+            {/* Trato directo.
+                Este hueco lo ocupaba «Pago med.», que mostraba los días hasta
+                que el PROVEEDOR acepta la orden bajo una etiqueta de plazo de
+                pago —y con una escala de color de 30/60 días para un dato cuya
+                mediana real es de 1,6—. El porcentaje de trato directo sí
+                cambia una decisión: es la parte del gasto que no llega a
+                competencia abierta. */}
             <KpiTile
-              label="Pago med."
+              label="Trato directo"
               value={
-                comprador.mediana_dias_pago != null
-                  ? `${comprador.mediana_dias_pago} días`
+                comprador.transparencia?.pct_trato_directo != null
+                  ? `${Math.round(comprador.transparencia.pct_trato_directo * 100)}%`
                   : '—'
               }
               valueColor={
-                comprador.mediana_dias_pago != null
-                  ? diasColor(comprador.mediana_dias_pago)
+                comprador.transparencia?.pct_trato_directo != null
+                  ? tratoDirectoColor(comprador.transparencia.pct_trato_directo)
                   : 'text-muted'
               }
             />
 
             {/* Tasa adjudicación */}
             <KpiTile
-              label="Adj. rate"
+              label="Adjudica"
               value={
                 comprador.tasa_adjudicacion != null
                   ? `${Math.round(comprador.tasa_adjudicacion * 100)}%`

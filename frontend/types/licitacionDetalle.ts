@@ -51,7 +51,8 @@ export interface CompradorPanel {
   nombre?: string;
   buyer_score?: number;
   clasificacion?: string;
-  mediana_dias_pago?: number;
+  /** Días hasta que el proveedor acepta la orden. No es un plazo de pago. */
+  mediana_dias_aceptacion?: number;
   tasa_adjudicacion?: number;
   n_flags?: number;
   transparencia?: Transparencia;

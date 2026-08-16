@@ -193,7 +193,7 @@ export function RubroFilter({
       {/* Lock badge for basico */}
       {locked && (
         <span className="text-xs text-muted bg-surface border border-border rounded-full px-2.5 py-0.5">
-          Desbloquea más rubros con plan PYME
+          Desbloquea más rubros con plan Pro
         </span>
       )}
 

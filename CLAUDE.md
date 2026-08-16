@@ -191,7 +191,7 @@ queda mudo comprobando el vacío.**
 
 ### Gating por plan en BI
 `backend/tests/test_contrato_bi.py` declara, ruta por ruta, qué protección le toca a cada uno
-de los 22 endpoints de BI. **Un endpoint nuevo hace fallar el test hasta que alguien decida
+de los 26 endpoints de BI. **Un endpoint nuevo hace fallar el test hasta que alguien decida
 explícitamente su nivel** — igual que con tenancy.
 
 Si una capacidad se vende en `/api/v1/billing/plans`, el endpoint que la implementa tiene que
@@ -270,7 +270,7 @@ y no tiene Pub/Sub ni Cloud Tasks.
   falle**: el cliente ve un límite que no es el suyo. `null` es *ilimitado*, no cero.
 - **Un 402 del backend se traduce a `plan-upgrade-needed` en el interceptor de `lib/api.ts`**,
   y `PlanUpgradeBanner` lo pinta. Va ahí y no en cada pantalla porque el backend devuelve 402
-  desde cuatro sitios y uno de ellos son los 22 endpoints de BI. **El banner llevaba
+  desde cuatro sitios y uno de ellos son los 26 endpoints de BI. **El banner llevaba
   escuchando ese evento sin que nadie lo emitiera**: cada tope de plan se topaba en silencio.
   Lo fija `__tests__/cuota-402.test.ts`, contra el interceptor real.
 - **Sentry cubre los tres runtimes** (navegador, Node y edge) y las opciones salen de un solo
@@ -432,7 +432,7 @@ tasks/          Celery
 ```
 
 **Routers**: auth, users, tenders, alerts, empresas, documentos, postulaciones, estado_habil,
-bi (22 endpoints), dashboard, billing, webhooks, health, data_inspection.
+bi (26 endpoints), dashboard, billing, webhooks, health, data_inspection.
 `data_inspection` requiere auth a nivel de router — **no añadas rutas ahí que la salten**.
 
 **Todo cuelga de `/api/v1`, y el prefijo lo pone `main.py`** (ADR 0009). Los routers declaran
@@ -465,6 +465,18 @@ semanal, vigilancia de precios. Todo en `America/Santiago`.
 Next.js 16 App Router + TypeScript + Tailwind + Recharts. Componentes propios. El estado de
 servidor va en TanStack Query (`lib/queries.ts`) y la sesión en cookies `httpOnly` servidas
 por `/api/proxy` — ver las reglas de frontend más arriba.
+
+**La pantalla de analítica (`app/dashboard/bi/`) está ordenada por la decisión, no por lo
+que el pipeline sabe calcular**: cómo está el mercado → dónde estoy yo → qué hago esta
+semana → un comprador en concreto → herramientas. Antes eran cinco secciones del mismo peso
+visual y la primera pregunta —la que trae al usuario— no se respondía en ninguna. La
+cabecera del rubro la pinta `PanoramaRubro` desde `GET /bi/panorama`, que es una sola
+llamada para las cuatro preguntas de mercado.
+
+**La URL de esa pantalla se lee, no sólo se escribe.** `rubro`, `focus` y `compare` se leen
+con `useSearchParams` en un inicializador perezoso —dentro de una frontera de `Suspense`,
+que `useSearchParams` exige— y se escriben con `replaceState`. Antes sólo se escribían:
+compartir el enlace de un rubro abría el rubro por defecto del que lo recibía.
 
 **Sistema de diseño por tokens** en `app/globals.css`, mapeado a Tailwind en
 `tailwind.config.js`. Paleta "Iridiscencia", sacada del propio logo — el tordo es un pájaro
@@ -538,7 +550,8 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
     enterarse de todo, incluido lo urgente. La frontera de la tanda es la **corrida**,
     no la licitación: quien orquesta junta los ids y despacha una vez.
   - **El aviso de encaje lleva el BI dentro** (`correo_render.lineas_de_bi`): banda de
-    precio del comprador, competidores habituales, días de pago. Es el mismo canal que
+    precio del comprador, competidores habituales y qué proporción de sus llamados
+    termina adjudicando. Es el mismo canal que
     usa la competencia y una respuesta que sólo puede escribir quien tiene el histórico.
     Una línea sin dato **se omite**: un «sin datos» en un correo enseña a no leerlo.
   - **Sin WhatsApp.** Se retiró: la verificación WABA con Meta tarda 4–8 semanas y nunca
@@ -601,6 +614,34 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
   `python tests/golden/capturar_golden_bi.py --desde-golden` — **sin `--desde-golden` el
   script redescubre los casos muestreando los datos** y sobre el fixture recortado produce
   otros distintos (la primera vez pasó de 31 casos a 7).
+- **`CodigoProveedor` NO es un RUT.** Es el identificador interno de Mercado Público: de
+  los 4.204.598 registros de `competitors_by_market`, **cero** llevan guion. La traducción
+  RUT → código sale de `ordenes_compra`, que guarda los dos, y vive en
+  `repositories/proveedores.py`. Hizo falta porque `get_mi_posicion` comparaba el RUT
+  normalizado contra esa columna: **no coincidía nunca**, así que «Tu posición» le decía a
+  todo el mundo —también a quien tenía historial— que no tenía órdenes en el rubro. Un test
+  de `_normalize_rut` pasaba en verde comprobando la mitad equivocada del problema.
+- **`competitors_by_market` tiene una fila por *(organismo, rubro, proveedor)*.** Cualquier
+  métrica de rubro **agrega por proveedor primero**. Contar filas decía 128.462 proveedores
+  donde hay 77.720, y tomar una fila suelta como representativa daba tres «líderes del
+  rubro» con 99,9 %, 99,9 % y 99,0 %… cada uno de un comprador distinto. Lo fija
+  `tests/test_bi_metricas.py`, con un mercado de juguete donde el error se ve.
+- **No existe ninguna fecha de pago en el dato de ChileCompra.** `mediana_dias_pago` medía
+  `FechaEnvio → FechaAceptacion` —lo que tarda el **proveedor** en aceptar la orden, mediana
+  real 1,63 días— y el producto lo publicaba como plazo de pago en la pantalla, en el correo
+  y en la landing. Se renombró a `*_aceptacion` en todas partes y **no se muestra como cifra
+  suelta**: sólo como bandera cuando se sale de rango. Lo que sí sale del dato y decide algo
+  es `tasa_adjudicacion` (cuánto de lo que llama termina adjudicando). `Forma de Pago`
+  tampoco sirve de sustituto: el 98,7 % de las órdenes dice lo mismo.
+- **El tramo bajo del HHI se llama `fragmentado`, no `competitivo`.** El eje que mide el HHI
+  es la concentración; «competitivo» se lee al revés de lo que significa. Convivían las dos
+  palabras —el ETL una, los servicios otra— y el usuario veía dos nombres para el mismo
+  mercado en la misma pantalla. Los cortes 1.500 / 2.500 son los de las guías DOJ/FTC y no
+  se mueven por intuición. `market_concentration` se re-materializa una vez por semana, así
+  que el frontend **mapea también la palabra vieja** hasta esa corrida.
+- **Sólo se venden dos planes: `basico` (Free) y `pro` (Pro).** `pyme` y `enterprise` existen
+  en `PLAN_QUOTAS` y **no** en `/api/v1/billing/plans`. Nombrar un plan que no se puede
+  comprar manda al usuario a la página de precios a buscar algo que no está.
 - **El precio se agrupa por PRODUCTO, no por categoría del catálogo.**
   `codigoProductoONU` es una categoría UNSPSC: medido sobre datos reales, una sola
   categoría en un solo hospital y un solo mes contiene artículos que difieren en cinco

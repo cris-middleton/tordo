@@ -1,5 +1,22 @@
 import { ResumenMercado } from '../types';
 
+/**
+ * Escapa lo que viene de fuera.
+ *
+ * Estas frases se pintan con `dangerouslySetInnerHTML` porque llevan `<b>`
+ * propios, y dentro se interpolan **nombres de ChileCompra**: el rubro y la
+ * razón social del comprador. Sin escapar, cualquier `<` en un nombre entra
+ * como marcado. Es exactamente el fallo que ya se corrigió en el correo
+ * semanal con `html.escape`; aquí faltaba.
+ */
+function esc(texto: string): string {
+  return texto
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 function formatCLP(value: number): string {
   const abs = Math.abs(value);
   if (abs >= 1e12) return `CLP ${(value / 1e12).toFixed(1)} billones`;
@@ -13,7 +30,7 @@ export function frase1(r: ResumenMercado): string | null {
   if (r.monto_anual_clp == null && r.n_organismos == null) return null;
 
   const parts: string[] = [];
-  parts.push(`El mercado de <b>${r.rubro}</b>`);
+  parts.push(`El mercado de <b>${esc(r.rubro)}</b>`);
 
   if (r.monto_anual_clp != null) {
     parts.push(`movió <b>${formatCLP(r.monto_anual_clp)}</b> el último año`);
@@ -72,14 +89,14 @@ export function frase2(r: ResumenMercado): string | null {
     return `${leading} (último año: ${fmtPct(yoy)}).`;
   }
 
-  // Sin YoY o YoY muy pequeño: caer al comportamiento anterior
-  if (r.n_proveedores_actual != null && r.n_proveedores_hace_3_anios != null) {
-    if (r.n_proveedores_actual > r.n_proveedores_hace_3_anios) {
-      return `${leading}, pero la competencia también: de ${r.n_proveedores_hace_3_anios} a <b>${r.n_proveedores_actual.toLocaleString('es-CL')} proveedores activos</b> en 3 años.`;
-    }
-    return `${leading}, con <b>${r.n_proveedores_actual.toLocaleString('es-CL')} proveedores activos</b>.`;
-  }
-
+  // Sin YoY o YoY muy pequeño.
+  //
+  // Aquí había una rama que comparaba los proveedores de hoy contra los de hace
+  // tres años. El campo nunca llegó a existir en la respuesta: el teaser sólo
+  // manda el conteo actual, así que `n_proveedores_hace_3_anios` era siempre
+  // `undefined` y la rama estaba muerta desde el primer día. Contar una
+  // evolución de la competencia exigiría una serie por rubro que el pipeline no
+  // materializa — y decirla a medias es peor que no decirla.
   if (r.n_proveedores_actual != null) {
     return `${leading}, con <b>${r.n_proveedores_actual.toLocaleString('es-CL')} proveedores activos</b>.`;
   }
@@ -87,27 +104,26 @@ export function frase2(r: ResumenMercado): string | null {
   return `${leading}.`;
 }
 
-// Helper: describe pago_mediana_dias en prosa
-function describeDiasPago(dias: number): string {
-  if (dias === 0) return 'paga el mismo día de emitida la orden';
-  if (dias === 1) return 'paga al día siguiente';
-  return `paga en promedio en <b>${dias} días</b>`;
-}
-
+/**
+ * El comprador más activo del rubro.
+ *
+ * **Ya no dice a cuántos días paga.** Decía «paga en promedio en N días» sobre
+ * `mediana_dias_pago`, y ese campo no mide un pago: mide los días entre la
+ * emisión de la orden y su aceptación por el proveedor. La API de Mercado
+ * Público no publica fecha de pago en ninguna parte. La mediana real es de 1,63
+ * días — la frase le prometía al usuario un plazo de pago de dos días.
+ *
+ * En su lugar va el volumen, que sí sale del dato: cuántas órdenes emite. Es lo
+ * que responde «¿vale la pena entenderlo a fondo?».
+ */
 export function frase3(r: ResumenMercado): string | null {
   const t = r.top_comprador;
   if (!t?.nombre) return null;
 
-  const labelPago =
-    t.clasificacion_pago === 'bueno' ? 'bueno' :
-    t.clasificacion_pago === 'medio' ? 'normal' :
-    t.clasificacion_pago === 'lento' ? 'lento' : null;
-
-  if (t.pago_mediana_dias != null && labelPago) {
-    const diasPart = describeDiasPago(t.pago_mediana_dias);
-    return `El comprador más activo es <b>${t.nombre}</b>, que ${diasPart} (${labelPago} para el sector).`;
+  if (t.n_oc_total != null && t.n_oc_total > 0) {
+    return `El comprador más activo es <b>${esc(t.nombre)}</b>, con <b>${t.n_oc_total.toLocaleString('es-CL')} órdenes</b> emitidas.`;
   }
-  return `El comprador más activo es <b>${t.nombre}</b>.`;
+  return `El comprador más activo es <b>${esc(t.nombre)}</b>.`;
 }
 
 export function buildFrases(r: ResumenMercado): string[] {

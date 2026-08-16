@@ -54,6 +54,17 @@ from .data_loader import iter_lic_parquets, iter_oc_parquets
 
 logger = logging.getLogger(__name__)
 
+#: Días de mediana por encima de los cuales una orden tarda en aceptarse más de
+#: lo normal. Es el percentil 99 de la distribución real (19 compradores de
+#: 1.222): por debajo de esto la bandera marcaría a demasiados para significar
+#: algo.
+UMBRAL_ACEPTACION_LENTA = 5.0
+
+#: Ídem para la cola: p90 por encima de esto es el percentil 90 de los p90
+#: (204 de 1.222). Marca al comprador cuyas órdenes a veces se quedan paradas,
+#: aunque su mediana esté bien.
+UMBRAL_ACEPTACION_ERRATICA = 15.0
+
 # Pesos de cada componente
 WEIGHTS = {
     "transparencia": 0.25,  # % Trato Directo — reemplaza velocidad_pago
@@ -110,7 +121,22 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
         if org_col not in df.columns:
             continue
 
-        # --- Velocidad de pago: días entre FechaEnvio y FechaAceptacion ---
+        # --- Velocidad de ACEPTACIÓN: días entre FechaEnvio y FechaAceptacion ---
+        #
+        # **Esto NO es la velocidad de pago, y llamarlo así fue un error que
+        # llegó hasta la landing.** `FechaEnvio → FechaAceptacion` es lo que
+        # tarda el PROVEEDOR en aceptar la orden, no lo que tarda el comprador
+        # en pagarla. Se nota en el dato: la mediana global es de 1,4 días y el
+        # máximo de 12,8 — nadie en el Estado paga a día y medio.
+        #
+        # **La fecha de pago no existe en el dato de ChileCompra.** Las únicas
+        # fechas del archivo de órdenes son creación, envío, aceptación,
+        # cancelación y última modificación. Y `Forma de Pago` no sirve de
+        # sustituto: el 98,7 % de las órdenes dice «30 días contra la recepción
+        # conforme», así que no distingue entre compradores.
+        #
+        # Lo que sí mide esto es útil y hay que venderlo por lo que es: una
+        # orden que tarda en aceptarse es una orden con fricción administrativa.
         if "FechaEnvio" in df.columns and "FechaAceptacion" in df.columns:
             pay = (
                 df.filter(
@@ -136,18 +162,18 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
                     [
                         (pl.col("dt_aceptacion") - pl.col("dt_envio"))
                         .dt.total_days()
-                        .alias("dias_pago"),
+                        .alias("dias_aceptacion"),
                     ]
                 )
-                .filter((pl.col("dias_pago") >= 0) & (pl.col("dias_pago") <= 365))
+                .filter((pl.col("dias_aceptacion") >= 0) & (pl.col("dias_aceptacion") <= 365))
                 .group_by(org_col)
                 .agg(
                     [
-                        pl.col("dias_pago").median().alias("mediana_dias_pago"),
-                        pl.col("dias_pago").quantile(0.75).alias("p75_dias_pago"),
-                        pl.col("dias_pago").quantile(0.90).alias("p90_dias_pago"),
-                        pl.col("dias_pago").mean().alias("promedio_dias_pago"),
-                        pl.len().alias("n_con_fecha_pago"),
+                        pl.col("dias_aceptacion").median().alias("mediana_dias_aceptacion"),
+                        pl.col("dias_aceptacion").quantile(0.75).alias("p75_dias_aceptacion"),
+                        pl.col("dias_aceptacion").quantile(0.90).alias("p90_dias_aceptacion"),
+                        pl.col("dias_aceptacion").mean().alias("promedio_dias_aceptacion"),
+                        pl.len().alias("n_con_fecha_aceptacion"),
                     ]
                 )
             )
@@ -225,38 +251,50 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
             payments.group_by(org_col)
             .agg(
                 [
-                    (pl.col("mediana_dias_pago") * pl.col("n_con_fecha_pago"))
+                    (pl.col("mediana_dias_aceptacion") * pl.col("n_con_fecha_aceptacion"))
                     .sum()
                     .alias("_wt_med"),
-                    (pl.col("p75_dias_pago") * pl.col("n_con_fecha_pago")).sum().alias("_wt_p75"),
-                    (pl.col("p90_dias_pago") * pl.col("n_con_fecha_pago")).sum().alias("_wt_p90"),
-                    (pl.col("promedio_dias_pago") * pl.col("n_con_fecha_pago"))
+                    (pl.col("p75_dias_aceptacion") * pl.col("n_con_fecha_aceptacion"))
+                    .sum()
+                    .alias("_wt_p75"),
+                    (pl.col("p90_dias_aceptacion") * pl.col("n_con_fecha_aceptacion"))
+                    .sum()
+                    .alias("_wt_p90"),
+                    (pl.col("promedio_dias_aceptacion") * pl.col("n_con_fecha_aceptacion"))
                     .sum()
                     .alias("_wt_avg"),
-                    pl.col("n_con_fecha_pago").sum(),
+                    pl.col("n_con_fecha_aceptacion").sum(),
                 ]
             )
             .with_columns(
                 [
-                    (pl.col("_wt_med") / pl.col("n_con_fecha_pago")).alias("mediana_dias_pago"),
-                    (pl.col("_wt_p75") / pl.col("n_con_fecha_pago")).alias("p75_dias_pago"),
-                    (pl.col("_wt_p90") / pl.col("n_con_fecha_pago")).alias("p90_dias_pago"),
-                    (pl.col("_wt_avg") / pl.col("n_con_fecha_pago")).alias("promedio_dias_pago"),
+                    (pl.col("_wt_med") / pl.col("n_con_fecha_aceptacion")).alias(
+                        "mediana_dias_aceptacion"
+                    ),
+                    (pl.col("_wt_p75") / pl.col("n_con_fecha_aceptacion")).alias(
+                        "p75_dias_aceptacion"
+                    ),
+                    (pl.col("_wt_p90") / pl.col("n_con_fecha_aceptacion")).alias(
+                        "p90_dias_aceptacion"
+                    ),
+                    (pl.col("_wt_avg") / pl.col("n_con_fecha_aceptacion")).alias(
+                        "promedio_dias_aceptacion"
+                    ),
                 ]
             )
             .select(
                 [
                     org_col,
-                    "mediana_dias_pago",
-                    "p75_dias_pago",
-                    "p90_dias_pago",
-                    "promedio_dias_pago",
-                    "n_con_fecha_pago",
+                    "mediana_dias_aceptacion",
+                    "p75_dias_aceptacion",
+                    "p90_dias_aceptacion",
+                    "promedio_dias_aceptacion",
+                    "n_con_fecha_aceptacion",
                 ]
             )
         )
     else:
-        payments = pl.DataFrame({org_col: [], "mediana_dias_pago": []})
+        payments = pl.DataFrame({org_col: [], "mediana_dias_aceptacion": []})
 
     # Estados
     if status_frames:
@@ -572,9 +610,9 @@ def compute_buyer_scores(oc_metrics: pl.DataFrame, lic_metrics: pl.DataFrame) ->
             "score_satisfaccion",
             # Métricas raw
             "pct_trato_directo",
-            "mediana_dias_pago",
-            "p75_dias_pago",
-            "p90_dias_pago",
+            "mediana_dias_aceptacion",
+            "p75_dias_aceptacion",
+            "p90_dias_aceptacion",
             "tasa_aceptacion",
             "tasa_cancelacion",
             "tasa_adjudicacion",
@@ -608,10 +646,24 @@ def compute_risk_flags(buyer_scores: pl.DataFrame) -> pl.DataFrame:
 
     flags = buyer_scores.with_columns(
         [
-            # Pago muy lento (mediana > 30 días)
-            (pl.col("mediana_dias_pago") > 30).fill_null(False).alias("flag_pago_lento"),
-            # Alta variabilidad en pago (p90 > 60 días)
-            (pl.col("p90_dias_pago") > 60).fill_null(False).alias("flag_pago_impredecible"),
+            # Aceptación lenta.
+            #
+            # **Los umbrales de antes eran 30 y 60 días, y no podían dispararse
+            # nunca.** Estaban calibrados para «días de pago»; sobre días de
+            # aceptación la mediana global es 1,4 y el máximo 12,8, así que las
+            # dos banderas estaban muertas desde que existen.
+            #
+            # Ahora salen de la distribución real: `> UMBRAL_ACEPTACION_LENTA`
+            # es el percentil 99 de la mediana por comprador (19 de 1.222), y
+            # `> UMBRAL_ACEPTACION_ERRATICA` el percentil 90 del p90 (204 de
+            # 1.222). Una bandera que marca al 90 % de los compradores no avisa
+            # de nada; una que no marca a ninguno, tampoco.
+            (pl.col("mediana_dias_aceptacion") > UMBRAL_ACEPTACION_LENTA)
+            .fill_null(False)
+            .alias("flag_aceptacion_lenta"),
+            (pl.col("p90_dias_aceptacion") > UMBRAL_ACEPTACION_ERRATICA)
+            .fill_null(False)
+            .alias("flag_aceptacion_impredecible"),
             # Alta tasa de cancelación (> 5%)
             (pl.col("tasa_cancelacion") > 0.05).fill_null(False).alias("flag_cancelaciones"),
             # Baja tasa de adjudicación en licitaciones (< 70%)
@@ -646,7 +698,7 @@ def compute_risk_flags(buyer_scores: pl.DataFrame) -> pl.DataFrame:
             ]
             + flag_cols
             + [
-                "mediana_dias_pago",
+                "mediana_dias_aceptacion",
                 "tasa_cancelacion",
                 "tasa_adjudicacion",
                 "prom_calificacion",
@@ -700,7 +752,7 @@ def run_buyer_scoring() -> dict[str, pl.DataFrame]:
     for row in scores.head(10).iter_rows(named=True):
         logger.info(
             f"  [{row['buyer_score']:.3f}] {row['NombreOrganismo']} "
-            f"(pago: {row['mediana_dias_pago']:.0f}d, OC: {row['n_oc_total']:,})"
+            f"(pago: {row['mediana_dias_aceptacion']:.0f}d, OC: {row['n_oc_total']:,})"
         )
 
     logger.info("\nTop 10 peores compradores (con >50 OC):")
@@ -708,7 +760,7 @@ def run_buyer_scoring() -> dict[str, pl.DataFrame]:
     for row in worst.iter_rows(named=True):
         logger.info(
             f"  [{row['buyer_score']:.3f}] {row['NombreOrganismo']} "
-            f"(pago: {row['mediana_dias_pago']:.0f}d, cancel: {row['tasa_cancelacion']:.1%})"
+            f"(pago: {row['mediana_dias_aceptacion']:.0f}d, cancel: {row['tasa_cancelacion']:.1%})"
         )
 
     return {"scores": scores, "risk": risk, "oc_metrics": oc_metrics}

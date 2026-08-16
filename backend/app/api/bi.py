@@ -28,6 +28,7 @@ from app.models.user import User
 from app.repositories import empresas as repo_empresas
 from app.repositories import licitaciones as repo_licitaciones
 from app.repositories import postulaciones as repo_postulaciones
+from app.repositories import proveedores as repo_proveedores
 from app.schemas.bi import (
     ClustersResponse,
     CompetidoresResponse,
@@ -40,6 +41,7 @@ from app.schemas.bi import (
     MatchingResponse,
     MiPosicionResponse,
     OportunidadesResponse,
+    PanoramaResponse,
     PerfilMatchResponse,
     PrecioResponse,
     ProductosResponse,
@@ -728,6 +730,29 @@ def sugerir_rubros(
 
 
 @router.get(
+    "/panorama",
+    response_model=PanoramaResponse,
+    summary="Panorama completo de un rubro",
+    description=(
+        "Tamaño y ticket del mercado, concentración real, estacionalidad agregada y "
+        "compradores con banderas de riesgo — todo del **rubro**, no de un par "
+        "organismo×rubro.\n\n"
+        "Va en una sola llamada porque la pantalla los necesita juntos: cinco peticiones "
+        "serían cinco estados de carga, cinco formas de fallar a medias y cinco descuentos "
+        "de cuota por una sola pregunta del usuario."
+    ),
+)
+def get_panorama(
+    rubro: str = Query(..., min_length=1, description="RubroN2 de la taxonomía de ChileCompra"),
+    current_user: User = Depends(check_bi_quota_dep),
+):
+    _require_analytics()
+    from app.services import bi as bi_service
+
+    return bi_service.get_panorama(rubro)
+
+
+@router.get(
     "/resumen",
     response_model=ResumenResponse,
     summary="Resumen narrativo de un rubro (para MarketSummaryCard + teasers paywall)",
@@ -785,8 +810,9 @@ def get_clusters(
     response_model=MiPosicionResponse,
     summary="Posición de la empresa del usuario en un rubro (personalización)",
     description=(
-        "Cruza el RUT de la empresa con los parquets de competencia + diversificación. "
-        "Devuelve ranking, participación, diversificación y alerta de dependencia. "
+        "Traduce el RUT de la empresa a su código de proveedor de Mercado Público y "
+        "lo cruza con las tablas de competencia y diversificación. Devuelve puesto, "
+        "participación en el rubro, compradores atendidos y concentración de cartera. "
         "Requiere acceso a la empresa (EmpresaUsuario)."
     ),
 )
@@ -816,7 +842,21 @@ async def get_mi_posicion(
             "motivo": "La empresa no tiene RUT registrado",
         }
 
-    return bi_service.get_mi_posicion(empresa.rut_empresa, rubro)
+    # El RUT no sirve para cruzar con analytics: allí el proveedor se identifica
+    # por `CodigoProveedor`, el código interno de Mercado Público. La traducción
+    # sale de `ordenes_compra`, que guarda los dos.
+    codigo = await repo_proveedores.codigo_por_rut(db, empresa.rut_empresa)
+    if not codigo:
+        return {
+            "disponible": True,
+            "tiene_historial": False,
+            "motivo": (
+                "No encontramos órdenes de compra a nombre de este RUT. "
+                "Si tu empresa ya vendió al Estado, revisa que el RUT esté bien escrito."
+            ),
+        }
+
+    return bi_service.get_mi_posicion(codigo, rubro)
 
 
 @router.get(

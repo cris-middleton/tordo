@@ -64,6 +64,10 @@ CONTRATO: dict[tuple[str, str], str] = {
     # La exportación ES la consulta, sólo que en un archivo. Si no descontara
     # cuota sería la forma de saltarse el medidor: pedir el CSV en vez de la
     # pantalla y llevarse lo mismo sin pagar.
+    # El panorama sustituye a cinco consultas que la pantalla hacía por
+    # separado, así que descuenta una y no cinco. Cobrar por cada bloque sería
+    # cobrar cinco veces la misma pregunta.
+    ("GET", "/bi/panorama"): "cuota",
     ("GET", "/bi/exportar/precio/{codigo_producto}"): "cuota",
     ("GET", "/bi/exportar/competidores/{organismo_id}"): "cuota",
     # El radar comprueba pertenencia a la empresa por dentro

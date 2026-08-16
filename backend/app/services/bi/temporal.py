@@ -52,15 +52,16 @@ def get_estacionalidad(
     Monthly seasonality patterns for an organismo (+ optional rubro filter).
     Returns prob_mes, consistencia, es_pico_estacional for each of the 12 months.
     """
-    df = _load("seasonality_patterns.parquet")
+    # 1,78 millones de filas en la tabla, doce en la respuesta.
+    filtros: dict = {"CodigoOrganismoPublico": str(organismo_id)}
+    if rubro:
+        filtros["RubroN2"] = rubro
+
+    df = _load("seasonality_patterns.parquet", filtros=filtros)
     if df is None:
         return {"disponible": False, "motivo": "parquet no generado"}
 
-    mask = df["CodigoOrganismoPublico"].cast(str) == str(organismo_id)
-    if rubro:
-        mask = mask & (df["RubroN2"] == rubro)
-
-    rows = df.filter(mask).sort("mes")
+    rows = df.sort("mes")
     if rows.is_empty():
         return {
             "disponible": False,
@@ -90,8 +91,9 @@ def get_tendencia(
     Market growth trends from trend_by_market.parquet.
     emerging_markets.parquet contains the subset with CAGR > 20%.
     """
-    df = _load("trend_by_market.parquet")
-    em_df = _load("emerging_markets.parquet")
+    filtros = {"RubroN2": rubro} if rubro else None
+    df = _load("trend_by_market.parquet", filtros=filtros)
+    em_df = _load("emerging_markets.parquet", filtros=filtros)
 
     if df is None:
         return {"disponible": False, "motivo": "parquet no generado"}
@@ -102,8 +104,6 @@ def get_tendencia(
     min_oc = df["total_oc"] >= 15 if "total_oc" in df.columns else df["cagr"].is_not_null()
 
     mask = df["cagr"].is_not_null() & min_anios & min_oc
-    if rubro:
-        mask = mask & (df["RubroN2"] == rubro)
     if tendencia:
         mask = mask & (df["tendencia"] == tendencia)
 
@@ -133,8 +133,6 @@ def get_tendencia(
             em_df["total_oc"] >= 15 if "total_oc" in em_df.columns else em_df["cagr"].is_not_null()
         )
         em_mask = em_df["cagr"].is_not_null() & em_min_anios & em_min_oc
-        if rubro:
-            em_mask = em_mask & (em_df["RubroN2"] == rubro)
         em_cols = [c for c in cols if c in em_df.columns]
         em_rows = em_df.filter(em_mask).sort("cagr", descending=True).head(20)
         if not em_rows.is_empty():

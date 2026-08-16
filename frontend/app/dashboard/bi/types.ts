@@ -47,17 +47,25 @@ export interface CompradorResult {
   nombre?: string;
   buyer_score?: number;
   clasificacion?: string;
-  pago?: {
-    mediana_dias_pago?: number;
+  /** Antes `pago`. Ninguno de estos números es un plazo de pago: los días son
+   *  los que tarda el PROVEEDOR en aceptar la orden, y ChileCompra no publica
+   *  fecha de pago en ninguna parte. */
+  tramitacion?: {
+    mediana_dias_aceptacion?: number;
+    p75_dias_aceptacion?: number;
+    p90_dias_aceptacion?: number;
+    tasa_aceptacion?: number;
     tasa_cancelacion?: number;
     tasa_adjudicacion?: number;
-    p75_dias_pago?: number;
   };
   risk_flags?: {
     n_flags: number;
-    pago_lento: boolean;
+    aceptacion_lenta: boolean;
+    aceptacion_impredecible: boolean;
     cancelaciones: boolean;
+    licitaciones_fallidas: boolean;
     baja_calificacion: boolean;
+    compras_irregulares: boolean;
   };
   motivo?: string;
 }
@@ -93,6 +101,9 @@ export interface ClusterItem {
 
 export interface TFIDFPerfilData {
   empresa_id: string;
+  /** El backend la devuelve y `PUT /bi/perfil` la reescribe entera: guardar sin
+   *  mandarla la borra. Faltaba en este tipo, así que nada avisaba. */
+  descripcion?: string | null;
   rubros_usados?: string[];
   modelo_version?: string;
   actualizado_en?: string;
@@ -145,18 +156,89 @@ export interface TendenciaApiResponse {
 export interface MiPosicion {
   disponible: boolean;
   tiene_historial: boolean;
+  /** Cuota sobre el monto de TODO el rubro. Antes era la cuota dentro de un
+   *  solo comprador, presentada como si fuera la del rubro. */
   participacion_pct?: number | null;
+  /** Posición entre los proveedores del rubro ordenados por monto. */
   rank?: number | null;
+  /** Proveedores DISTINTOS. Antes contaba filas (organismo × proveedor). */
   total_proveedores?: number | null;
+  monto_rubro_clp?: number | null;
+  monto_propio_clp?: number | null;
+  n_oc_propias?: number | null;
   n_organismos_atendidos?: number | null;
-  n_organismos_promedio_sector?: number | null;
-  diversificacion_pct?: number | null;
-  alerta_dependencia?: boolean | null;
-  top_organismo_empresa?: {
-    nombre?: string | null;
-    porcentaje_oc?: number | null;
-  } | null;
+  /** Mediana y no media: la distribución tiene cola larga y la media la sigue. */
+  n_organismos_mediana_rubro?: number | null;
+  /** Explícito porque la tabla puede no estar materializada, y unos campos en
+   *  `null` no distinguen «no lo sabemos» de «no tiene riesgo». */
+  diversificacion_disponible?: boolean;
+  diversificacion?: Diversificacion | null;
   motivo?: string;
+}
+
+/** Concentración de cartera del proveedor, sobre TODOS sus rubros. */
+export interface Diversificacion {
+  /** Herfindahl de sus compradores: 10.000 es «un único cliente». */
+  hhi_compradores?: number | null;
+  n_compradores_total?: number | null;
+  n_rubros_total?: number | null;
+  n_regiones_total?: number | null;
+  score?: number | null;
+  clasificacion?: string | null;
+  alerta_dependencia: boolean;
+}
+
+export interface PanoramaLider {
+  nombre?: string | null;
+  /** Cuota por monto. La puede dominar una sola compra enorme. */
+  share_pct?: number | null;
+  /** Cuota por órdenes: cuántas veces gana, no cuánto factura. */
+  share_oc_pct?: number | null;
+  n_oc?: number | null;
+  n_compradores?: number | null;
+}
+
+export interface Panorama {
+  disponible: boolean;
+  rubro?: string | null;
+  motivo?: string | null;
+  mercado?: {
+    disponible: boolean;
+    anio?: number | null;
+    monto_clp?: number | null;
+    n_oc?: number | null;
+    ticket_promedio_clp?: number | null;
+  } | null;
+  competencia?: {
+    disponible: boolean;
+    n_proveedores?: number | null;
+    n_compradores?: number | null;
+    monto_clp?: number | null;
+    n_oc?: number | null;
+    hhi?: number | null;
+    tipo_mercado?: string | null;
+    share_top5_pct?: number | null;
+    lideres: PanoramaLider[];
+  } | null;
+  estacionalidad?: {
+    disponible: boolean;
+    meses: { mes: number; nombre: string; pct: number }[];
+    mes_pico?: string | null;
+    pct_pico?: number | null;
+    pct_top3?: number | null;
+    tiene_temporada: boolean;
+  } | null;
+  vigilar?: {
+    disponible: boolean;
+    n_con_banderas: number;
+    n_compradores_rubro?: number | null;
+    compradores: {
+      codigo: string;
+      nombre?: string | null;
+      n_banderas: number;
+      motivos: string[];
+    }[];
+  } | null;
 }
 
 export interface ResumenMercado {
@@ -167,12 +249,10 @@ export interface ResumenMercado {
   cagr_pct?: number | null;
   yoy_pct?: number | null;  // último año completo vs año anterior
   n_proveedores_actual?: number | null;
-  n_proveedores_hace_3_anios?: number | null;
   top_comprador?: {
     codigo?: string | null;
     nombre?: string | null;
-    pago_mediana_dias?: number | null;
-    clasificacion_pago?: 'bueno' | 'medio' | 'lento' | null;
+    n_oc_total?: number | null;
   } | null;
   teaser_competencia?: {
     lider_nombre?: string | null;

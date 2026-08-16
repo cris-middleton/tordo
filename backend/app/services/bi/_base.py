@@ -57,6 +57,23 @@ def _load(
     )
 
 
+def _primero(fila: dict, *claves: str):
+    """El primer valor no nulo entre varias claves posibles.
+
+    Existe para sobrevivir a un renombrado de columna sin romper la API en el
+    hueco entre desplegar el código y re-materializar analytics: el pipeline
+    corre una vez por semana, así que ese hueco dura días. Sin esto, la pantalla
+    de comprador devolvería nulos —o peor, un 500— hasta la corrida siguiente.
+
+    Cuando ya no queden tablas con el nombre viejo, la segunda clave sobra.
+    """
+    for clave in claves:
+        valor = fila.get(clave)
+        if valor is not None:
+            return valor
+    return None
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Public API
 # ─────────────────────────────────────────────────────────────────────────────

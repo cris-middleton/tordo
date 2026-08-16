@@ -174,12 +174,21 @@ def compute_market_concentration(market_shares: pl.DataFrame) -> pl.DataFrame:
     """
     Calcula Herfindahl-Hirschman Index (HHI) por mercado.
     HHI = Σ(market_share_i²)
-    - HHI < 1500: mercado competitivo
+    - HHI < 1500: fragmentado
     - HHI 1500-2500: moderadamente concentrado
     - HHI > 2500: altamente concentrado
 
     Mercados concentrados = oportunidad para nuevos entrantes es baja.
-    Mercados competitivos = más oportunidad pero más competencia.
+    Mercados fragmentados = más oportunidad pero más competencia.
+
+    **El tramo bajo se llamaba «competitivo», y se cambió.** El eje que mide el
+    HHI es la concentración, así que el opuesto de «concentrado» es
+    «fragmentado». «Competitivo» se lee al revés de lo que significa: suena a
+    «acá es difícil», cuando el dato dice justamente que hay espacio. Además
+    convivía con «fragmentado», que es lo que devuelven los servicios de BI, y
+    el usuario veía dos palabras distintas para el mismo mercado en la misma
+    pantalla. Los cortes (1.500 / 2.500) no cambian: son los de las guías de
+    competencia del DOJ/FTC.
     """
     logger.info("Calculando concentración de mercados (HHI)...")
 
@@ -207,7 +216,7 @@ def compute_market_concentration(market_shares: pl.DataFrame) -> pl.DataFrame:
         .with_columns(
             [
                 pl.when(pl.col("hhi") < 1500)
-                .then(pl.lit("competitivo"))
+                .then(pl.lit("fragmentado"))
                 .when(pl.col("hhi") < 2500)
                 .then(pl.lit("moderado"))
                 .otherwise(pl.lit("concentrado"))
@@ -217,7 +226,7 @@ def compute_market_concentration(market_shares: pl.DataFrame) -> pl.DataFrame:
         .sort("hhi", descending=True)
     )
 
-    for tipo in ["competitivo", "moderado", "concentrado"]:
+    for tipo in ["fragmentado", "moderado", "concentrado"]:
         n = hhi.filter(pl.col("tipo_mercado") == tipo).shape[0]
         logger.info(f"  {tipo}: {n:,} mercados")
 

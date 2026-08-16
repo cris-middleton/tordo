@@ -53,6 +53,10 @@ function CompetitionBadge({ n }: { n: number }) {
   );
 }
 
+function pctOpc(v?: number | null): string {
+  return v == null ? '—' : `${(v * 100).toFixed(0)}%`;
+}
+
 function ExpandedRow({
   organismo,
   nombre,
@@ -98,36 +102,38 @@ function ExpandedRow({
         )}
       </div>
       <div>
-        <p className="text-xs text-muted mb-1">Pago promedio</p>
+        <p className="text-xs text-muted mb-1">Adjudica</p>
         <p className="font-medium text-text">
-          {data.pago?.mediana_dias_pago != null
-            ? `${Math.round(data.pago.mediana_dias_pago)} días`
-            : '—'}
+          {pctOpc(data.tramitacion?.tasa_adjudicacion)}
         </p>
       </div>
       <div>
-        <p className="text-xs text-muted mb-1">Tasa adjudicación</p>
+        <p className="text-xs text-muted mb-1">Cancela</p>
         <p className="font-medium text-text">
-          {data.pago?.tasa_adjudicacion != null
-            ? `${(data.pago.tasa_adjudicacion * 100).toFixed(0)}%`
-            : '—'}
+          {pctOpc(data.tramitacion?.tasa_cancelacion)}
         </p>
       </div>
       <div>
-        <p className="text-xs text-muted mb-1">Cancelaciones</p>
+        <p className="text-xs text-muted mb-1">Órdenes aceptadas</p>
         <p className="font-medium text-text">
-          {data.pago?.tasa_cancelacion != null
-            ? `${(data.pago.tasa_cancelacion * 100).toFixed(0)}%`
-            : '—'}
+          {pctOpc(data.tramitacion?.tasa_aceptacion)}
         </p>
       </div>
       {data.risk_flags && data.risk_flags.n_flags > 0 && (
         <div className="col-span-full flex flex-wrap gap-1.5">
-          {data.risk_flags.pago_lento && (
-            <span title="Este organismo tarda más de 45 días en pagar en promedio" className="badge-danger text-xs cursor-help">⚠ Pago lento</span>
+          {data.risk_flags.aceptacion_lenta && (
+            <span
+              title="Sus órdenes tardan en aceptarse mucho más que la mediana del sistema. Suele indicar fricción en el trámite."
+              className="badge-danger text-xs cursor-help"
+            >
+              ⚠ Trámite lento
+            </span>
           )}
           {data.risk_flags.cancelaciones && (
             <span title="Alta tasa de órdenes canceladas" className="badge-danger text-xs cursor-help">⚠ Cancelaciones frecuentes</span>
+          )}
+          {data.risk_flags.licitaciones_fallidas && (
+            <span title="Declara desierta una parte alta de lo que llama a licitación" className="badge-danger text-xs cursor-help">⚠ Declara desierto seguido</span>
           )}
           {data.risk_flags.baja_calificacion && (
             <span title="Calificación promedio de proveedores baja" className="badge-danger text-xs cursor-help">⚠ Baja calificación</span>

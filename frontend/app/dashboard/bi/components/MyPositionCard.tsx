@@ -1,150 +1,178 @@
 'use client';
 
-import { User, AlertTriangle } from 'lucide-react';
-import Link from 'next/link';
-import { MiPosicion, PlanTier, isPaidPlan } from '../types';
+import { Loader2, Trophy } from 'lucide-react';
 
-interface MyPositionCardProps {
-  posicion: MiPosicion | null;
-  plan: PlanTier | undefined;
-  loading?: boolean;
+import { InfoTooltip } from './InfoTooltip';
+import type { MiPosicion } from '../types';
+
+/**
+ * Dónde está la empresa del usuario dentro del rubro.
+ *
+ * **Los tres números que enseña estaban mal, y no un poco.**
+ * `competitors_by_market` tiene una fila por *(organismo, rubro, proveedor)*, y
+ * el servicio tomaba la primera fila que coincidía con el RUT:
+ *
+ * - «compites contra N proveedores» contaba **filas**: sobre datos reales decía
+ *   128.462 donde los proveedores distintos eran 77.720.
+ * - «tu participación» era la cuota dentro de **un solo comprador**. Los tres
+ *   primeros del ranking tenían 99,9 %, 99,9 % y 99,0 %… cada uno de un
+ *   comprador distinto.
+ * - el puesto ordenaba esas mismas filas, así que no significaba nada.
+ *
+ * Ahora los tres salen de agregar por proveedor sobre el rubro completo. La
+ * tarjeta enseña además cuántos compradores atiende, porque es la palanca que
+ * un proveedor chico sí puede mover.
+ */
+
+function pct(v?: number | null): string {
+  if (v == null) return '—';
+  // Por debajo de 0,01 % el redondeo a dos decimales da «0,00 %», que se lee
+  // como «no vendes nada» en vez de «vendes poco».
+  if (v > 0 && v < 0.01) return '<0,01%';
+  return `${v.toFixed(2).replace('.', ',')}%`;
 }
 
-export function MyPositionCard({ posicion, plan, loading }: MyPositionCardProps) {
-  // Loading — mantener la estructura para no causar layout shift
+function entero(v?: number | null): string {
+  return v == null ? '—' : v.toLocaleString('es-CL');
+}
+
+export function MyPositionCard({
+  posicion,
+  loading,
+  rubro,
+}: {
+  posicion: MiPosicion | null;
+  loading: boolean;
+  rubro: string;
+}) {
   if (loading) {
     return (
-      <section className="card border-border/50 bg-surface/50 py-6">
-        <p className="text-sm text-muted text-center">Calculando tu posición...</p>
-      </section>
+      <div className="flex items-center justify-center rounded-xl border border-border bg-surface py-16">
+        <Loader2 className="h-5 w-5 animate-spin text-muted" aria-hidden="true" />
+      </div>
     );
   }
 
-  if (!posicion) return null;
+  if (!posicion?.disponible) return null;
 
-  const paid = isPaidPlan(plan);
-
-  // ── Estado: sin historial de ventas en este rubro ─────────────────────────
-  if (posicion.disponible && !posicion.tiene_historial) {
+  if (!posicion.tiene_historial) {
     return (
-      <section className="card border-border/60 bg-surface/60">
-        <div className="flex items-start gap-3">
-          <div className="rounded-full bg-surface border border-border p-2 shrink-0">
-            <User className="h-4 w-4 text-muted" />
-          </div>
-          <div className="flex-1 text-sm">
-            <p className="font-semibold text-text mb-1">Tu posición</p>
-            <p className="text-muted">
-              Aún no tienes OC en este rubro. Cuando tu empresa venda en este mercado,
-              aquí verás tu <b>ranking</b>, tu <b>participación</b> y <b>alertas de concentración</b>.
-            </p>
-            <p className="text-xs text-subtle mt-2">
-              Mientras tanto, revisa las oportunidades y compradores de abajo.
-            </p>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  // Si el backend dice no-disponible (por ej. empresa sin RUT), renderear mensaje útil
-  if (!posicion.disponible) {
-    return (
-      <section className="card border-border/60 bg-surface/60">
-        <div className="flex items-start gap-3">
-          <div className="rounded-full bg-surface border border-border p-2 shrink-0">
-            <User className="h-4 w-4 text-muted" />
-          </div>
-          <div className="flex-1 text-sm">
-            <p className="font-semibold text-text mb-1">Tu posición</p>
-            <p className="text-muted">
-              {(posicion as any).motivo || 'Falta información para mostrar tu posición. Verifica que tu empresa tenga RUT registrado.'}
-            </p>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  // ── Estado: teaser para plan básico ────────────────────────────────────────
-  if (!paid) {
-    return (
-      <section className="card border-primary/30 bg-primary/5">
-        <div className="flex items-start gap-3 mb-3">
-          <div className="rounded-full bg-primary/15 p-2 shrink-0">
-            <User className="h-4 w-4 text-primary" />
-          </div>
-          <div className="flex-1 text-sm space-y-1.5">
-            <p className="font-semibold text-text">Tu posición</p>
-            {posicion.participacion_pct != null && (
-              <p className="text-text">
-                Tu participación en este mercado: <b>{posicion.participacion_pct.toFixed(1)}%</b>
-              </p>
-            )}
-            {posicion.top_organismo_empresa?.porcentaje_oc != null && (
-              <p className="text-text">
-                Tu dependencia en un solo comprador: <b>{Math.round(posicion.top_organismo_empresa.porcentaje_oc)}%</b>
-              </p>
-            )}
-          </div>
-        </div>
-        <div className="rounded-xl border border-border bg-surface/70 p-3 flex items-center gap-3">
-          <p className="flex-1 text-xs text-muted">
-            Ver tu ranking completo, diversificación y alertas
+      <section className="rounded-xl border border-border bg-surface p-4">
+        <header className="mb-3 flex items-center gap-1.5">
+          <Trophy className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+          <h3 className="text-xs font-bold uppercase tracking-wider text-muted">Dónde estás tú</h3>
+        </header>
+        <p className="text-sm text-text">
+          Tu empresa todavía no tiene órdenes adjudicadas en {rubro || 'este rubro'}.
+        </p>
+        {posicion.total_proveedores != null && (
+          <p className="mt-1 text-xs text-muted">
+            Hay {entero(posicion.total_proveedores)} proveedores con historial aquí. Es un mercado
+            en el que puedes entrar.
           </p>
-          <Link href="/dashboard/billing" className="btn-primary text-xs shrink-0">
-            Plan PYME →
-          </Link>
-        </div>
+        )}
       </section>
     );
   }
 
-  // ── Estado: versión completa PYME+ ─────────────────────────────────────────
+  const div = posicion.diversificacion_disponible ? posicion.diversificacion : null;
+  const soloUno = posicion.n_organismos_atendidos === 1;
+  const bajoLaMediana =
+    posicion.n_organismos_atendidos != null &&
+    posicion.n_organismos_mediana_rubro != null &&
+    posicion.n_organismos_atendidos < posicion.n_organismos_mediana_rubro;
+
   return (
-    <section className="card border-primary/30 bg-primary/5">
-      <div className="flex items-start gap-3">
-        <div className="rounded-full bg-primary/15 p-2 shrink-0">
-          <User className="h-4 w-4 text-primary" />
+    <section className="rounded-xl border border-border bg-surface p-4">
+      <header className="mb-3 flex items-center gap-1.5">
+        <Trophy className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+        <h3 className="text-xs font-bold uppercase tracking-wider text-muted">Dónde estás tú</h3>
+        <InfoTooltip content="Tu monto adjudicado en este rubro, sumando todos tus compradores, sobre el monto total del rubro." />
+      </header>
+
+      <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-subtle">Tu puesto</p>
+          <p
+            className="cifra text-2xl font-bold leading-none text-text"
+            style={{ fontFamily: 'var(--font-display, system-ui)' }}
+          >
+            {posicion.rank ?? '—'}
+            <span className="text-sm font-normal text-muted">
+              {' '}
+              de {entero(posicion.total_proveedores)}
+            </span>
+          </p>
         </div>
-        <div className="flex-1 space-y-2 text-sm">
-          <p className="font-semibold text-text">Tu posición</p>
-
-          {posicion.participacion_pct != null && posicion.rank != null && posicion.total_proveedores != null && (
-            <p className="text-text">
-              📊 Participación: <b>{posicion.participacion_pct.toFixed(1)}%</b>
-              {' · '}
-              puesto <b>{posicion.rank}</b> de <b>{posicion.total_proveedores.toLocaleString('es-CL')}</b>
-            </p>
-          )}
-
-          {posicion.n_organismos_atendidos != null && (
-            <p className="text-text">
-              🏛️ Vendes a <b>{posicion.n_organismos_atendidos}</b> compradores
-              {posicion.n_organismos_promedio_sector != null && (
-                <span className="text-muted"> (promedio del sector: {posicion.n_organismos_promedio_sector})</span>
-              )}
-            </p>
-          )}
-
-          {posicion.alerta_dependencia && posicion.top_organismo_empresa?.porcentaje_oc != null && (
-            <p className="flex items-start gap-1.5 text-danger">
-              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-              <span>
-                <b>{Math.round(posicion.top_organismo_empresa.porcentaje_oc)}%</b> de tus OC dependen de un solo comprador
-                {posicion.top_organismo_empresa.nombre ? <> (<b>{posicion.top_organismo_empresa.nombre}</b>)</> : null}
-                {' '}— alerta de concentración
-              </span>
-            </p>
-          )}
-
-          {posicion.diversificacion_pct != null && !posicion.alerta_dependencia && (
-            <p className="text-muted text-xs">
-              Diversificación: {Math.round(posicion.diversificacion_pct)}% — cartera balanceada
-            </p>
-          )}
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-subtle">Tu participación</p>
+          <p
+            className="cifra text-2xl font-bold leading-none text-text"
+            style={{ fontFamily: 'var(--font-display, system-ui)' }}
+          >
+            {pct(posicion.participacion_pct)}
+          </p>
+        </div>
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-subtle">Tus órdenes</p>
+          <p
+            className="cifra text-2xl font-bold leading-none text-text"
+            style={{ fontFamily: 'var(--font-display, system-ui)' }}
+          >
+            {entero(posicion.n_oc_propias)}
+          </p>
         </div>
       </div>
+
+      {/* La lectura, no sólo la cifra. Es la diferencia entre un tablero y un
+          consejo: «atiendes a 1 comprador y la mediana del rubro son 3» dice
+          qué hacer mañana. */}
+      {posicion.n_organismos_atendidos != null && (
+        <p className="mt-4 border-t border-border pt-3 text-xs leading-relaxed text-muted">
+          Le vendes a <b className="text-text">{entero(posicion.n_organismos_atendidos)}</b>{' '}
+          {soloUno ? 'comprador' : 'compradores'} de este rubro
+          {posicion.n_organismos_mediana_rubro != null && (
+            <>
+              , y un proveedor típico le vende a{' '}
+              <b className="text-text">{posicion.n_organismos_mediana_rubro}</b>
+            </>
+          )}
+          .{' '}
+          {soloUno
+            ? 'Depender de uno solo es el riesgo más común en Mercado Público: si ese comprador cambia de proveedor o deja de licitar, se va todo.'
+            : bajoLaMediana
+              ? 'Ampliar a un comprador más suele costar menos que crecer dentro de los que ya tienes.'
+              : 'Estás por encima de la mediana del rubro en cantidad de compradores.'}
+        </p>
+      )}
+
+      {/* Toda tu cartera, no sólo este rubro. Es la otra mitad de la pregunta:
+          se puede estar bien posicionado aquí y aun así depender de un cliente
+          único mirando el conjunto. */}
+      {div && (
+        <div className="mt-3 border-t border-border pt-3">
+          <p className="text-[11px] uppercase tracking-wider text-subtle">Tu cartera completa</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted">
+            {entero(div.n_compradores_total)} compradores en {entero(div.n_rubros_total)}{' '}
+            {div.n_rubros_total === 1 ? 'rubro' : 'rubros'}
+            {div.n_regiones_total != null && (
+              <>
+                {' '}
+                y {entero(div.n_regiones_total)}{' '}
+                {div.n_regiones_total === 1 ? 'región' : 'regiones'}
+              </>
+            )}
+            .{' '}
+            {div.alerta_dependencia ? (
+              <span className="text-danger">
+                Tu facturación está muy concentrada en pocos clientes.
+              </span>
+            ) : (
+              'Tu facturación está repartida entre varios clientes.'
+            )}
+          </p>
+        </div>
+      )}
     </section>
   );
 }

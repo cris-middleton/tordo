@@ -68,7 +68,11 @@ class OrdenCompra(Base):
     # Supplier information
     codigo_proveedor = Column(String(50), index=True)
     nombre_proveedor = Column(String(500))
-    rut_proveedor = Column(String(20))
+    # Indexado porque es la ÚNICA forma de traducir el RUT de una empresa al
+    # `CodigoProveedor` con el que analytics identifica al proveedor. Sin índice
+    # esa traducción es un recorrido secuencial de la tabla más grande del
+    # sistema, y ocurre en la carga de la pantalla de BI.
+    rut_proveedor = Column(String(20), index=True)
     proveedor_id = Column(Integer, ForeignKey("suppliers.id"), nullable=True)
     proveedor = relationship(
         "Supplier", back_populates="ordenes_compra", foreign_keys=[proveedor_id]

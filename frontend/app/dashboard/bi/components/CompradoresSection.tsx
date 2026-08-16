@@ -13,6 +13,10 @@ interface CompradorSectionProps {
   focusedNombre?: string; // NEW: display name of the focused organismo
 }
 
+function pctOpc(v?: number | null): string {
+  return v == null ? '—' : `${(v * 100).toFixed(0)}%`;
+}
+
 function CompradorCard({ organismoId }: { organismoId: string }) {
   // La deduplicación entre tarjetas la hace TanStack Query por clave: dos
   // tarjetas del mismo organismo comparten una sola petición, que es lo que
@@ -63,43 +67,63 @@ function CompradorCard({ organismoId }: { organismoId: string }) {
 
       {open && (
         <div className="px-4 py-4 space-y-4 border-t border-border">
+          {/* Los tres números son comportamiento del COMPRADOR, que es lo que
+              se puede usar para decidir. El que estaba en el primer hueco
+              —«Pago promedio: N días»— era comportamiento del proveedor
+              aceptando la orden, y encima anunciado como plazo de pago. */}
           <div className="grid grid-cols-3 gap-3">
             <div className="rounded-lg bg-surface border border-border p-3">
-              <p className="text-xs text-muted">Pago promedio</p>
+              <p className="text-xs text-muted">Adjudica</p>
               <p className="text-base font-semibold text-text mt-0.5">
-                {data.pago?.mediana_dias_pago != null
-                  ? `${Math.round(data.pago.mediana_dias_pago)} días`
-                  : '—'}
+                {pctOpc(data.tramitacion?.tasa_adjudicacion)}
               </p>
+              <p className="text-[11px] text-subtle mt-0.5">de lo que llama</p>
             </div>
             <div className="rounded-lg bg-surface border border-border p-3">
-              <p className="text-xs text-muted">Tasa adjudicación</p>
+              <p className="text-xs text-muted">Cancela</p>
               <p className="text-base font-semibold text-text mt-0.5">
-                {data.pago?.tasa_adjudicacion != null
-                  ? `${(data.pago.tasa_adjudicacion * 100).toFixed(0)}%`
-                  : '—'}
+                {pctOpc(data.tramitacion?.tasa_cancelacion)}
               </p>
+              <p className="text-[11px] text-subtle mt-0.5">de sus órdenes</p>
             </div>
             <div className="rounded-lg bg-surface border border-border p-3">
-              <p className="text-xs text-muted">Cancelaciones</p>
+              <p className="text-xs text-muted">Órdenes aceptadas</p>
               <p className="text-base font-semibold text-text mt-0.5">
-                {data.pago?.tasa_cancelacion != null
-                  ? `${(data.pago.tasa_cancelacion * 100).toFixed(0)}%`
-                  : '—'}
+                {pctOpc(data.tramitacion?.tasa_aceptacion)}
               </p>
+              <p className="text-[11px] text-subtle mt-0.5">por el proveedor</p>
             </div>
           </div>
 
           {data.risk_flags && data.risk_flags.n_flags > 0 && (
             <div className="flex flex-wrap gap-1.5">
-              {data.risk_flags.pago_lento && (
-                <span title="Este organismo tarda más de 45 días en pagar en promedio" className="badge-danger text-xs cursor-help">⚠ Pago lento</span>
+              {data.risk_flags.aceptacion_lenta && (
+                <span
+                  title="Sus órdenes tardan en aceptarse mucho más que la mediana del sistema, que es de menos de dos días. Suele indicar fricción en el trámite."
+                  className="badge-danger text-xs cursor-help"
+                >
+                  ⚠ Trámite lento
+                </span>
+              )}
+              {data.risk_flags.aceptacion_impredecible && (
+                <span
+                  title="El tiempo hasta la aceptación varía mucho de una orden a otra."
+                  className="badge-danger text-xs cursor-help"
+                >
+                  ⚠ Trámite impredecible
+                </span>
               )}
               {data.risk_flags.cancelaciones && (
                 <span title="Alta tasa de órdenes canceladas" className="badge-danger text-xs cursor-help">⚠ Cancelaciones frecuentes</span>
               )}
+              {data.risk_flags.licitaciones_fallidas && (
+                <span title="Declara desierta una parte alta de lo que llama a licitación" className="badge-danger text-xs cursor-help">⚠ Declara desierto seguido</span>
+              )}
               {data.risk_flags.baja_calificacion && (
                 <span title="Calificación promedio de proveedores baja" className="badge-danger text-xs cursor-help">⚠ Baja calificación</span>
+              )}
+              {data.risk_flags.compras_irregulares && (
+                <span title="Compra de forma muy irregular a lo largo del año" className="badge-danger text-xs cursor-help">⚠ Compra irregular</span>
               )}
             </div>
           )}

@@ -22,7 +22,6 @@ interface CompradorPanel {
   disponible: boolean;
   nombre?: string | null;
   buyer_score?: number | null;
-  mediana_dias_pago?: number | null;
   tasa_adjudicacion?: number | null;
   n_flags?: number;
   motivo?: string | null;

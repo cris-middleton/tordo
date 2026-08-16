@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import logging
 
+import polars as pl
+
 from app.services.bi._base import _load
 from app.services.bi.temporal import _compute_cagr_rubro_desde_time_series
 
@@ -169,17 +171,40 @@ def get_resumen(rubro: str | None = None) -> dict:
         if "CodigoOrganismoPublico" in rubro_last.columns and len(rubro_last) > 0:
             n_organismos = rubro_last.select("CodigoOrganismoPublico").n_unique()
 
-    # ── N proveedores desde competitors_by_market ────────────────────────────
+    # ── Proveedores y líder REAL del rubro ───────────────────────────────────
+    #
+    # Una sola lectura de `competitors_by_market` para las dos cosas: el número
+    # de proveedores distintos y quién lidera de verdad. Antes eran dos lecturas
+    # y la segunda daba un resultado incorrecto (ver abajo).
     n_prov_actual: int | None = None
-    df_comp = _load("competitors_by_market.parquet", filtros={"RubroN2": rubro})
-    if (
-        df_comp is not None
-        and "CodigoProveedor" in df_comp.columns
-        and "RubroN2" in df_comp.columns
-    ):
-        subset = df_comp.filter(df_comp["RubroN2"] == rubro)
-        if len(subset) > 0:
-            n_prov_actual = subset.select("CodigoProveedor").n_unique()
+    lider: dict | None = None
+    hhi_rubro: float | None = None
+    df_comp = _load(
+        "competitors_by_market.parquet",
+        filtros={"RubroN2": rubro},
+        columnas=["CodigoProveedor", "NombreProveedor", "monto_total"],
+    )
+    if df_comp is not None and not df_comp.is_empty():
+        n_prov_actual = df_comp.select("CodigoProveedor").n_unique()
+
+        monto_rubro = df_comp.select(pl.col("monto_total").sum()).item() or 0
+        if monto_rubro > 0:
+            por_proveedor = (
+                df_comp.group_by("CodigoProveedor")
+                .agg(
+                    pl.col("monto_total").sum().alias("monto"),
+                    pl.col("NombreProveedor").first().alias("nombre"),
+                )
+                .with_columns((pl.col("monto") / monto_rubro * 100).alias("share"))
+            )
+            top = por_proveedor.sort(["monto", "CodigoProveedor"], descending=[True, False]).head(1)
+            fila = top.row(0, named=True)
+            lider = {"nombre": fila["nombre"], "share_pct": round(float(fila["share"]), 2)}
+            # HHI de verdad: suma de los cuadrados de las cuotas de TODOS los
+            # proveedores del rubro. El que se usaba antes venía de
+            # `market_concentration`, que lo calcula por (organismo, rubro): es
+            # la concentración dentro de UN comprador, no la del mercado.
+            hhi_rubro = float(por_proveedor.select((pl.col("share") ** 2).sum()).item())
 
     # ── Top comprador: organismo más activo del rubro en opportunity_scores ──
     top_comprador: dict | None = None
@@ -198,63 +223,60 @@ def get_resumen(rubro: str | None = None) -> dict:
                 row = df_buyers.filter(df_buyers["CodigoOrganismoPublico"].cast(str) == code)
                 if len(row) > 0:
                     b = row.to_dicts()[0]
-                    pago_dias = b.get("mediana_dias_pago")
-                    if pago_dias and pago_dias > 45:
-                        clasif = "lento"
-                    elif pago_dias and pago_dias > 30:
-                        clasif = "medio"
-                    else:
-                        clasif = "bueno"
+                    # **Se quitó la clasificación «bueno | medio | lento».**
+                    # Clasificaba `mediana_dias_pago` con cortes en 30 y 45 días
+                    # sobre un dato cuyo máximo es 12,8 — así que TODOS los
+                    # compradores salían «bueno», siempre. Una etiqueta con un
+                    # solo valor posible no clasifica: decora.
+                    #
+                    # Lo que se publica ahora es el volumen, que sí distingue y
+                    # sí se puede verificar.
                     top_comprador = {
                         "codigo": code,
                         "nombre": b.get("NombreOrganismo"),
-                        "pago_mediana_dias": int(pago_dias) if pago_dias is not None else None,
-                        "clasificacion_pago": clasif,
+                        "n_oc_total": b.get("n_oc_total"),
                     }
                     top_organismo_code = code
                     break  # el primero con datos en buyer_scores
 
-    # ── Teaser competencia desde market_concentration ────────────────────────
+    # ── Competencia del rubro ────────────────────────────────────────────────
+    #
+    # **Lo que había aquí era incorrecto.** Tomaba de `market_concentration` la
+    # fila con mayor `monto_total_mercado` —es decir, el par (organismo, rubro)
+    # más grande— y publicaba su `top_proveedor` como «el líder del rubro» con
+    # su `top_share_pct` como si fuera la cuota del rubro entero. Medido sobre
+    # datos reales, el teaser decía «UNIVERSIDAD DE LOS LAGOS con 0 %» cuando su
+    # cuota real del rubro es 66,79 %.
+    #
+    # Ahora el líder y el HHI salen de agregar por proveedor sobre el rubro
+    # completo, que es lo que la frase promete.
     teaser_competencia: dict | None = None
-    df_mc = _load("market_concentration.parquet")
-    if df_mc is not None and "RubroN2" in df_mc.columns:
-        mc_subset = df_mc.filter(df_mc["RubroN2"] == rubro)
-        if len(mc_subset) > 0:
-            # Agregar por rubro: líder global (mayor top_share_pct acumulado), HHI promedio
-            # Buscar el registro con mayor monto_total_mercado para representar el mercado
-            if "monto_total_mercado" in mc_subset.columns:
-                mc_top = (
-                    mc_subset.sort("monto_total_mercado", descending=True).head(1).to_dicts()[0]
-                )
-            else:
-                mc_top = mc_subset.sort("hhi", descending=True).head(1).to_dicts()[0]
-
-            lider_nombre = mc_top.get("top_proveedor")
-            lider_share = float(mc_top.get("top_share_pct") or 0)
-            tipo_mercado = mc_top.get("tipo_mercado")
-            # Fallback tipo_mercado desde HHI si no está
-            if not tipo_mercado:
-                hhi = mc_top.get("hhi")
-                if hhi:
-                    if hhi > 2500:
-                        tipo_mercado = "concentrado"
-                    elif hhi > 1500:
-                        tipo_mercado = "moderado"
-                    else:
-                        tipo_mercado = "fragmentado"
-
-            if lider_nombre:
-                teaser_competencia = {
-                    "lider_nombre": lider_nombre,
-                    "lider_share_pct": lider_share,
-                    "tipo_mercado": tipo_mercado,
-                }
+    if lider and lider.get("nombre"):
+        if hhi_rubro is None:
+            tipo_mercado = None
+        elif hhi_rubro > 2500:
+            tipo_mercado = "concentrado"
+        elif hhi_rubro > 1500:
+            tipo_mercado = "moderado"
+        else:
+            tipo_mercado = "fragmentado"
+        teaser_competencia = {
+            "lider_nombre": lider["nombre"],
+            "lider_share_pct": lider["share_pct"],
+            "tipo_mercado": tipo_mercado,
+            "hhi": round(hhi_rubro) if hhi_rubro is not None else None,
+        }
 
     # ── Teaser estacionalidad: mes pico + consistencia avg ──────────────────
     teaser_estacionalidad: dict | None = None
     meses_es = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
     if top_organismo_code:
-        df_seas = _load("seasonality_patterns.parquet")
+        # Filtro empujado: sin él se traían los 1,78 millones de filas de
+        # `seasonality_patterns` para quedarse con doce.
+        df_seas = _load(
+            "seasonality_patterns.parquet",
+            filtros={"CodigoOrganismoPublico": top_organismo_code},
+        )
         if df_seas is not None and "CodigoOrganismoPublico" in df_seas.columns:
             seas_rows = df_seas.filter(
                 (df_seas["CodigoOrganismoPublico"].cast(str) == top_organismo_code)
@@ -290,7 +312,6 @@ def get_resumen(rubro: str | None = None) -> dict:
         "cagr_pct": cagr_pct,
         "yoy_pct": yoy_pct,
         "n_proveedores_actual": n_prov_actual,
-        "n_proveedores_hace_3_anios": None,  # not computable without temporal provider data
         "top_comprador": top_comprador,
         "teaser_competencia": teaser_competencia,
         "teaser_estacionalidad": teaser_estacionalidad,

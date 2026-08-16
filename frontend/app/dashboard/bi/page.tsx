@@ -1,467 +1,312 @@
-// frontend/app/dashboard/bi/page.tsx
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Loader2, BarChart3, Target, Columns } from 'lucide-react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { BarChart3, Columns, Loader2, Target } from 'lucide-react';
+
 import { apiClient } from '@/lib/api';
-import { useMiPosicion } from '@/lib/queries';
 import { useAuth } from '@/contexts/AuthContext';
 import {
+  useBIOportunidades,
+  useBIPanorama,
+  useBIResumen,
+  useBIRubros,
+  useBITendencia,
+  useEmpresas,
+  useMiPosicion,
+  usePerfilSemantico,
+} from '@/lib/queries';
+
+import {
+  MiPosicion,
   OportunidadItem,
   OrganismoConNombre,
+  Panorama,
+  PlanTier,
   ResumenMercado,
-  MiPosicion,
-  SerieAnualPunto,
-  TendenciaItem,
   TendenciaApiResponse,
   TFIDFPerfilData,
-  PlanTier,
   isPaidPlan,
 } from './types';
 import { BIOnboarding } from './components/BIOnboarding';
-import { MarketSummaryCard } from './components/MarketSummaryCard';
-import { MyPositionCard } from './components/MyPositionCard';
-import { RubroFilter } from './components/RubroFilter';
-import { PlanGate } from './components/PlanGate';
-import { OportunidadesSection } from './components/OportunidadesSection';
-import { TendenciasSection } from './components/TendenciasSection';
+import { CompareMode } from './components/CompareMode';
 import { CompetenciaSection } from './components/CompetenciaSection';
 import { CompradoresSection } from './components/CompradoresSection';
 import { EstacionalidadSection } from './components/EstacionalidadSection';
 import { HerramientasAvanzadas } from './components/HerramientasAvanzadas';
+import { MarketSummaryCard } from './components/MarketSummaryCard';
+import { MyPositionCard } from './components/MyPositionCard';
+import { OportunidadesSection } from './components/OportunidadesSection';
+import { PanoramaRubro } from './components/PanoramaRubro';
+import { PlanGate } from './components/PlanGate';
+import { RubroFilter } from './components/RubroFilter';
 import { SectorOverview } from './components/SectorOverview';
-import { CompareMode } from './components/CompareMode';
+import { TendenciasSection } from './components/TendenciasSection';
 
-function BIDisabledBanner() {
+/**
+ * Inteligencia de mercado.
+ *
+ * **El estado de servidor vive en TanStack Query, no en `useState`.** Esta
+ * pantalla tenía seis estados de carga a mano, un efecto de inicialización de
+ * noventa líneas y tres `eslint-disable` para callar `set-state-in-effect`, que
+ * en este repo es `error` precisamente para evitar este patrón. Además de la
+ * ceremonia traía dos fallos: cambiar de rubro dejaba en pantalla los datos del
+ * anterior mientras cargaban los nuevos, y volver a la pantalla lo re-pedía
+ * todo.
+ *
+ * **El orden de las secciones es la jerarquía de la decisión**, no una lista de
+ * lo que el pipeline sabe calcular:
+ *
+ *   1. Panorama del rubro — ¿cómo está este mercado?
+ *   2. Dónde estoy yo — ¿tengo algo que defender aquí?
+ *   3. Oportunidades — ¿qué hago esta semana?
+ *   4. Detalle por comprador — ¿y si miro uno en concreto?
+ *   5. Herramientas — cálculos puntuales, plegados.
+ *
+ * Antes eran cinco secciones del mismo peso visual en un scroll largo, y la
+ * primera pregunta —la que trae al usuario— no se respondía en ninguna.
+ */
+
+function BIDesactivado() {
   return (
     <div className="card flex flex-col items-center gap-4 py-12 text-center">
       <div className="rounded-full bg-gold/15 p-4">
-        <BarChart3 className="h-10 w-10 text-gold" />
+        <BarChart3 className="h-10 w-10 text-gold" aria-hidden="true" />
       </div>
       <div>
-        <h2 className="text-xl font-semibold text-text">Módulo BI desactivado</h2>
-        <p className="mt-2 text-sm text-muted max-w-md">
-          La inteligencia de negocios requiere que el pipeline ETL de analytics haya generado
-          los parquets de datos históricos (<code>etl/data/analytics/</code>) y que el flag{' '}
-          <code>FEATURE_ANALYTICS=true</code> esté activo.
+        <h2 className="text-xl font-semibold text-text">Módulo de analítica desactivado</h2>
+        <p className="mx-auto mt-2 max-w-md text-sm text-muted">
+          Falta que el pipeline de analytics haya materializado sus tablas y que{' '}
+          <code>FEATURE_ANALYTICS</code> esté activo.
         </p>
       </div>
     </div>
   );
 }
 
-export default function BIPage() {
+function Seccion({
+  titulo,
+  descripcion,
+  children,
+}: {
+  titulo: string;
+  descripcion?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-3">
+      <div>
+        <h2
+          className="text-lg font-bold text-text"
+          style={{ fontFamily: 'var(--font-display, system-ui)' }}
+        >
+          {titulo}
+        </h2>
+        {descripcion && <p className="text-sm text-muted">{descripcion}</p>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function BIContenido() {
   const { user } = useAuth();
   const plan = (user?.plan_tier ?? 'basico') as PlanTier;
   const paid = isPaidPlan(plan);
 
-  // ── Init state ─────────────────────────────────────────────────────────────
-  const [biEnabled, setBiEnabled] = useState<boolean | null>(null);
-  const [initialized, setInitialized] = useState(false);
-  const [loadingInit, setLoadingInit] = useState(false);
+  // La URL se LEE al montar, no sólo se escribe. Antes esta pantalla la
+  // escribía en un efecto y nunca la leía: compartir el enlace de un rubro
+  // abría el rubro por defecto del que lo recibía.
+  //
+  // Se lee con `useSearchParams` y un inicializador perezoso —una vez— en vez
+  // de con `useEffect` + `setState`: `window` no existe en el prerender, así
+  // que leerlo directo rompería el build.
+  const params = useSearchParams();
+  const [rubroElegido, setRubroElegido] = useState<string | null>(
+    () => params.get('rubro') || null,
+  );
+  const [rubroB, setRubroB] = useState(() => params.get('compare') ?? '');
+  const [compareMode, setCompareMode] = useState(() => !!params.get('compare'));
+  const [focusCodigo, setFocusCodigo] = useState<string | null>(
+    () => params.get('focus') || null,
+  );
+  const [orgElegido, setOrgElegido] = useState('');
 
-  // ── Empresa / perfil state ─────────────────────────────────────────────────
-  const [firstEmpresaId, setFirstEmpresaId] = useState<string | null>(null);
-  const [perfil, setPerfil] = useState<TFIDFPerfilData | null>(null);
-  const [allRubros, setAllRubros] = useState<string[]>([]);
+  // ── Contexto de empresa y catálogo ───────────────────────────────────────
+  const consultaEmpresas = useEmpresas();
+  const empresas = (consultaEmpresas.data ?? []) as { id: string; rubros_cpv?: string[] }[];
+  const empresaId = empresas[0]?.id;
 
-  // ── Rubro state ────────────────────────────────────────────────────────────
-  const [availableRubros, setAvailableRubros] = useState<string[]>([]);
-  const [selectedRubro, setSelectedRubro] = useState('');
+  const consultaPerfil = usePerfilSemantico(empresaId);
+  const perfil = consultaPerfil.data as TFIDFPerfilData | undefined;
 
-  // ── Section data ───────────────────────────────────────────────────────────
-  const [oportunidades, setOportunidades] = useState<OportunidadItem[]>([]);
-  const [loadingOp, setLoadingOp] = useState(false);
-  const [tendencias, setTendencias] = useState<TendenciaItem[]>([]);
-  const [emergentes, setEmergentes] = useState<TendenciaItem[]>([]);
-  const [serieAnual, setSerieAnual] = useState<SerieAnualPunto[] | null>(null);
-  const [cagrRubro, setCagrRubro] = useState<number | null>(null);
-  const [loadingTend, setLoadingTend] = useState(false);
+  const consultaRubros = useBIRubros();
+  const allRubros = useMemo<string[]>(() => {
+    const datos = consultaRubros.data as { disponible?: boolean; rubros?: string[] } | undefined;
+    if (!datos?.disponible) return [];
+    return [...(datos.rubros ?? [])].sort((a, b) => a.localeCompare(b, 'es'));
+  }, [consultaRubros.data]);
 
-  // ── Resumen state ──────────────────────────────────────────────────────────
-  const [resumen, setResumen] = useState<ResumenMercado | null>(null);
-  const [loadingResumen, setLoadingResumen] = useState(false);
+  // El rubro se DERIVA mientras el usuario no elija uno: de la URL, de la
+  // empresa o del perfil. Guardarlo en estado desde un efecto era lo que
+  // obligaba al `eslint-disable` y lo que dejaba un render con el valor vacío.
+  const rubroPorDefecto =
+    empresas[0]?.rubros_cpv?.[0] ?? perfil?.rubros_usados?.[0] ?? '';
+  const rubro = rubroElegido ?? rubroPorDefecto;
 
-  // ── Mi posición state ──────────────────────────────────────────────────────
-  const consultaMiPosicion = useMiPosicion(firstEmpresaId ?? undefined, selectedRubro);
+  // ── Datos de la pantalla ─────────────────────────────────────────────────
+  const consultaPanorama = useBIPanorama(rubro || undefined);
+  const panorama = consultaPanorama.data as Panorama | undefined;
+
+  const consultaOportunidades = useBIOportunidades(rubro || undefined);
+  const oportunidades = useMemo<OportunidadItem[]>(() => {
+    const d = consultaOportunidades.data as { disponible?: boolean; oportunidades?: OportunidadItem[] } | undefined;
+    return d?.disponible ? (d.oportunidades ?? []) : [];
+  }, [consultaOportunidades.data]);
+
+  const consultaTendencia = useBITendencia(rubro || undefined);
+  const tendencia = consultaTendencia.data as TendenciaApiResponse | undefined;
+
+  const consultaResumen = useBIResumen(rubro || undefined);
+  const resumen = (consultaResumen.data ?? null) as ResumenMercado | null;
+
+  const consultaMiPosicion = useMiPosicion(empresaId, rubro);
   const miPosicion = (consultaMiPosicion.data ?? null) as MiPosicion | null;
-  const loadingMiPosicion = consultaMiPosicion.isFetching;
 
-  // ── Compare mode ───────────────────────────────────────────────────────────
-  const [compareMode, setCompareMode] = useState(false);
-  const [rubroB, setRubroB] = useState('');
+  // El módulo está apagado si la primera consulta devolvió 503. Se lee del
+  // error de la consulta en vez de mantenerse en un estado propio.
+  const biDesactivado =
+    (consultaOportunidades.error as { response?: { status?: number } } | null)?.response?.status ===
+    503;
 
-  // ── Focused organismo (cross-link §1 → §3/§4/§5) ──────────────────────────
-  const [focusedOrganismo, setFocusedOrganismo] = useState<OrganismoConNombre | null>(null);
+  const cargandoInicial = consultaEmpresas.isPending || consultaRubros.isPending;
 
-  // Derived: top 3 unique organismos con nombre resuelto
-  // useMemo gives a stable reference so children don't get unnecessary new prop arrays
   const topOrganismos = useMemo<OrganismoConNombre[]>(() => {
-    const seen = new Set<string>();
-    const out: OrganismoConNombre[] = [];
-    // Sample up to 10 items to ensure we find 3 distinct organismos even with duplicates
+    const vistos = new Set<string>();
+    const salida: OrganismoConNombre[] = [];
     for (const o of oportunidades.slice(0, 10)) {
-      if (seen.has(o.CodigoOrganismoPublico)) continue;
-      seen.add(o.CodigoOrganismoPublico);
-      out.push({
+      if (vistos.has(o.CodigoOrganismoPublico)) continue;
+      vistos.add(o.CodigoOrganismoPublico);
+      salida.push({
         codigo: o.CodigoOrganismoPublico,
         nombre: o.NombreOrganismo || o.CodigoOrganismoPublico,
       });
-      if (out.length >= 3) break;
+      if (salida.length >= 3) break;
     }
-    return out;
+    return salida;
   }, [oportunidades]);
 
-  // Se DERIVA del primer organismo mientras el usuario no elija otro. Antes era
-  // un efecto que sincronizaba estado con estado: un render de más y una ventana
-  // en la que la sección se pintaba sin selección.
-  const [orgElegido, setOrgElegido] = useState('');
-  const selectedCompOrg = orgElegido || topOrganismos[0]?.codigo || '';
-  const setSelectedCompOrg = setOrgElegido;
+  const organismoComparado = orgElegido || topOrganismos[0]?.codigo || '';
 
-  // ── Load oportunidades ─────────────────────────────────────────────────────
-  const loadOportunidades = useCallback(async (rubro: string) => {
-    setLoadingOp(true);
-    try {
-      const res = await apiClient.getBIOportunidades({
-        rubro: rubro || undefined,
-        min_score: 4,
-        limit: 50,
-      });
-      if (res.disponible) setOportunidades(res.oportunidades ?? []);
-      else setOportunidades([]);
-    } catch {
-      setOportunidades([]);
-    } finally {
-      setLoadingOp(false);
-    }
-  }, []);
+  // El comprador enfocado se guarda por CÓDIGO y el nombre se deriva de lo que
+  // esté cargado. Guardar el par entero dejaba el nombre congelado del momento
+  // del clic, y con un código venido de la URL no había nombre ninguno: se
+  // pintaba el código crudo en la cabecera.
+  const focusedOrganismo = useMemo<OrganismoConNombre | null>(() => {
+    if (!focusCodigo) return null;
+    const desdeOportunidades = oportunidades.find(
+      (o) => o.CodigoOrganismoPublico === focusCodigo,
+    );
+    return {
+      codigo: focusCodigo,
+      nombre: desdeOportunidades?.NombreOrganismo || focusCodigo,
+    };
+  }, [focusCodigo, oportunidades]);
 
-  // ── Load tendencias ────────────────────────────────────────────────────────
-  const loadTendencias = useCallback(async (rubro: string) => {
-    setLoadingTend(true);
-    try {
-      const res: TendenciaApiResponse = await apiClient.getBITendencia({
-        rubro: rubro || undefined,
-        limit: 15,
-      });
-      if (res.disponible) {
-        setTendencias(res.tendencias ?? []);
-        setEmergentes(res.emergentes ?? []);
-        setSerieAnual(res.serie_anual ?? null);
-        setCagrRubro(res.cagr_rubro ?? null);
-      } else {
-        setTendencias([]);
-        setEmergentes([]);
-        setSerieAnual(null);
-        setCagrRubro(null);
-      }
-    } catch {
-      setTendencias([]);
-      setEmergentes([]);
-      setSerieAnual(null);
-      setCagrRubro(null);
-    } finally {
-      setLoadingTend(false);
-    }
-  }, []);
-
-  // ── Load mi posición ───────────────────────────────────────────────────────
-  // `useMiPosicion` lleva `enabled`, así que no hace falta ni comprobar los
-  // parámetros ni disparar la carga desde un efecto cuando aparecen.
-  const noOp = useCallback(async (_e: string, _r: string) => {}, []);
-  const loadMiPosicion = noOp;
-
-  // ── Load resumen ───────────────────────────────────────────────────────────
-  const loadResumen = useCallback(async (rubro: string) => {
-    if (!rubro) { setResumen(null); return; }
-    setLoadingResumen(true);
-    try {
-      const res = await apiClient.getBIResumen(rubro);
-      setResumen(res);
-    } catch {
-      setResumen(null);
-    } finally {
-      setLoadingResumen(false);
-    }
-  }, []);
-
-  // ── Rubro change handler ───────────────────────────────────────────────────
-  const handleRubroChange = useCallback((rubro: string) => {
+  const cambiarRubro = useCallback((nuevo: string) => {
     setCompareMode(false);
     setRubroB('');
-    setSelectedRubro(rubro);
-    setOportunidades([]);
-    setTendencias([]);
-    setEmergentes([]);
-    setSerieAnual(null);
-    setCagrRubro(null);
-    setSelectedCompOrg('');
-    setResumen(null);
-    // `miPosicion` ya no se limpia a mano: al cambiar de rubro cambia la clave
-    // de la consulta, así que TanStack Query devuelve lo de ese rubro o nada.
-    setFocusedOrganismo(null);
-    // loadOportunidades and loadTendencias work with rubro='' (no filter / show all)
-    loadOportunidades(rubro);
-    loadTendencias(rubro);
-    // resumen and miPosicion require a specific rubro — skip if empty
-    if (rubro) {
-      loadResumen(rubro);
-    }
-  }, [loadOportunidades, loadTendencias, loadResumen, setSelectedCompOrg]);
-
-  // ── Init: load empresa + probe BI + seed rubros ────────────────────────────
-  useEffect(() => {
-    let cancelled = false;
-
-    const init = async () => {
-      setLoadingInit(true);
-      try {
-        // Load empresa context + standardized rubros list in parallel
-        let empresaRubros: string[] = [];
-        let perfilRubros: string[] = [];
-
-        const [empresasRes, rubrosRes] = await Promise.allSettled([
-          apiClient.getEmpresas(),
-          apiClient.getBIRubros(),
-        ]);
-
-        if (!cancelled) {
-          // Empresa context
-          if (empresasRes.status === 'fulfilled' && empresasRes.value.length > 0) {
-            const emp = empresasRes.value[0];
-            setFirstEmpresaId(emp.id);
-            if (emp.rubros_cpv?.length) empresaRubros = emp.rubros_cpv;
-
-            // Load TF-IDF perfil non-blocking
-            apiClient.getTFIDFPerfil(emp.id)
-              .then((p: TFIDFPerfilData) => {
-                if (cancelled) return;
-                setPerfil(p);
-                perfilRubros = p.rubros_usados ?? [];
-              })
-              .catch(() => {});
-          }
-
-          // Standardized rubros — A-Z, no NA
-          if (rubrosRes.status === 'fulfilled' && rubrosRes.value.disponible) {
-            const sorted = [...(rubrosRes.value.rubros ?? [])].sort((a: string, b: string) =>
-              a.localeCompare(b, 'es')
-            );
-            setAllRubros(sorted);
-            // Use as the main dropdown source too
-            setAvailableRubros(sorted);
-          }
-        }
-        if (cancelled) return;
-
-        // Probe BI + load initial oportunidades
-        // Default rubro: URL param > empresa > perfil > none (shows all)
-        const urlParams = new URLSearchParams(window.location.search);
-        const rubroParam = urlParams.get('rubro');
-        const compareParam = urlParams.get('compare');
-
-        const firstRubro = empresaRubros[0] ?? perfilRubros[0] ?? '';
-        const effectiveRubro = rubroParam || firstRubro;
-
-        const res = await apiClient.getBIOportunidades({
-          rubro: effectiveRubro || undefined,
-          min_score: 4,
-          limit: 50,
-        });
-        if (cancelled) return;
-
-        const enabled = res.disponible !== false;
-        setBiEnabled(enabled);
-
-        if (enabled) {
-          const opData: OportunidadItem[] = res.oportunidades ?? [];
-          setOportunidades(opData);
-          setSelectedRubro(effectiveRubro);
-
-          // Restaurar compare mode si viene en URL
-          if (compareParam) {
-            setCompareMode(true);
-            setRubroB(compareParam);
-          }
-
-          // Load tendencias and resumen in parallel
-          loadTendencias(effectiveRubro);
-          if (effectiveRubro) {
-            loadResumen(effectiveRubro);
-          }
-        }
-      } catch (err: unknown) {
-        if (!cancelled) {
-          const status = (err as { response?: { status?: number } })?.response?.status;
-          setBiEnabled(status === 503 ? false : null);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoadingInit(false);
-          setInitialized(true);
-        }
-      }
-    };
-
-    init();
-
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    setRubroElegido(nuevo);
+    setOrgElegido('');
+    setFocusCodigo(null);
   }, []);
 
-
-  // ── URL sync — escribir ?rubro=X&focus=Y&compare=Z en base al estado ───────
-  useEffect(() => {
-    if (!initialized) return;
-    const params = new URLSearchParams();
-    if (selectedRubro) params.set('rubro', selectedRubro);
-    if (focusedOrganismo) params.set('focus', focusedOrganismo.codigo);
-    if (compareMode && rubroB) params.set('compare', rubroB);
-    const qs = params.toString();
-    const newUrl = qs ? `?${qs}` : window.location.pathname;
-    window.history.replaceState({}, '', newUrl);
-  }, [initialized, selectedRubro, focusedOrganismo, compareMode, rubroB]);
-
-  // ── Restaurar focus desde URL cuando oportunidades ya cargaron ─────────────
-  //
-  // Esto SÍ es un efecto legítimo y se queda: es inicialización desde la URL, no
-  // estado de servidor. El organismo enfocado se puede cambiar después haciendo
-  // clic, así que no se puede derivar de la URL sin perder esa interacción.
-  //
-  // Se marca puntualmente y no con una regla global: es una excepción razonada
-  // en la página más compleja del panel, no una carta blanca.
-  useEffect(() => {
-    if (!initialized || oportunidades.length === 0 || focusedOrganismo) return;
-    const urlParams = new URLSearchParams(window.location.search);
-    const focusParam = urlParams.get('focus');
-    if (!focusParam) return;
-    const op = oportunidades.find((o) => o.CodigoOrganismoPublico === focusParam);
-    if (op) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setFocusedOrganismo({
-        codigo: op.CodigoOrganismoPublico,
-        nombre: op.NombreOrganismo || op.CodigoOrganismoPublico,
+  /**
+   * Guarda el perfil semántico desde el selector de rubros.
+   *
+   * **Manda la descripción aunque no se toque aquí.** `PUT /bi/perfil` escribe
+   * todos los campos del cuerpo, así que enviar sólo los rubros —como hacía
+   * esta pantalla— dejaba `descripcion` en `None` y **borraba lo que el usuario
+   * había escrito** en la pantalla de empresa. Un guardado silencioso que
+   * destruye el dato que alimenta todo el matching.
+   */
+  const guardarPerfil = useCallback(
+    async (rubros: string[]) => {
+      if (!empresaId) return;
+      await apiClient.updateTFIDFPerfil(empresaId, {
+        descripcion: perfil?.descripcion ?? null,
+        rubros_usados: rubros,
       });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialized, oportunidades]);
+      await consultaPerfil.refetch();
+    },
+    [empresaId, perfil?.descripcion, consultaPerfil],
+  );
 
-  // ── Save perfil handler ────────────────────────────────────────────────────
-  const handleSavePerfil = async (rubros: string[]) => {
-    if (!firstEmpresaId) return;
-    const updated = await apiClient.updateTFIDFPerfil(firstEmpresaId, { rubros_usados: rubros });
-    setPerfil(updated);
-    // availableRubros stays as the full standardized A-Z list — no change needed
-  };
+  // ── Sincronizar la URL ───────────────────────────────────────────────────
+  // Único efecto de la pantalla, y no toca estado de React: escribe fuera. Va
+  // con `replaceState` para no llenar el historial con cada cambio de filtro.
+  useEffect(() => {
+    const siguiente = new URLSearchParams();
+    if (rubro) siguiente.set('rubro', rubro);
+    if (focusCodigo) siguiente.set('focus', focusCodigo);
+    if (compareMode && rubroB) siguiente.set('compare', rubroB);
+    const qs = siguiente.toString();
+    window.history.replaceState({}, '', qs ? `?${qs}` : window.location.pathname);
+  }, [rubro, focusCodigo, compareMode, rubroB]);
 
-  // ── Render ─────────────────────────────────────────────────────────────────
-  // ── Previews para el paywall de secciones gated ─────────────────────────
-  const previewCompetencia = resumen?.teaser_competencia && resumen.teaser_competencia.lider_nombre ? (
-    <p>
-      {resumen.n_proveedores_actual != null && (
-        <>
-          En este mercado compites contra <b>{resumen.n_proveedores_actual.toLocaleString('es-CL')}</b> proveedores.{' '}
-        </>
-      )}
-      {resumen.teaser_competencia.lider_share_pct != null && (
-        <>
-          El líder, <b>{resumen.teaser_competencia.lider_nombre}</b>, captura el{' '}
-          <b>{resumen.teaser_competencia.lider_share_pct.toFixed(0)}%</b>.{' '}
-        </>
-      )}
-      {resumen.teaser_competencia.tipo_mercado && (
-        <>Mercado <b>{resumen.teaser_competencia.tipo_mercado}</b>.</>
-      )}
-    </p>
-  ) : null;
-
-  const previewCompradores = resumen?.top_comprador?.nombre ? (
-    <p>
-      El comprador más activo es <b>{resumen.top_comprador.nombre}</b>
-      {resumen.top_comprador.pago_mediana_dias != null && (
-        <>
-          , que paga en promedio en <b>{resumen.top_comprador.pago_mediana_dias} día
-          {resumen.top_comprador.pago_mediana_dias === 1 ? '' : 's'}</b>
-          {resumen.top_comprador.clasificacion_pago && (
-            <> ({resumen.top_comprador.clasificacion_pago})</>
-          )}
-        </>
-      )}.
-      {resumen.n_organismos != null && (
-        <> Este mercado atiende a <b>{resumen.n_organismos.toLocaleString('es-CL')}</b> compradores en total.</>
-      )}
-    </p>
-  ) : null;
-
-  const previewEstacionalidad = resumen?.teaser_estacionalidad?.mes_pico_mayor ? (
-    <p>
-      El pico de compras suele ser en <b>{resumen.teaser_estacionalidad.mes_pico_mayor}</b>.
-      {resumen.teaser_estacionalidad.consistencia_avg_pct != null && (
-        <> Consistencia promedio del patrón: <b>{resumen.teaser_estacionalidad.consistencia_avg_pct}%</b>.</>
-      )}
-    </p>
-  ) : null;
-
-  // Determine if user needs onboarding: new user with no rubros configured
-  // - If empresa has rubros_cpv: selectedRubro is seeded from empresaRubros[0] → false → no onboarding (correct)
-  // - If empresa has no rubros_cpv AND perfil.rubros_usados is empty → true → show onboarding (correct)
-  // - If selectedRubro is '' but user chose "Todos los rubros": perfil.rubros_usados will still be populated
-  //   from a prior save, so necesitaOnboarding stays false (correct)
   const necesitaOnboarding =
-    initialized &&
-    biEnabled !== false &&
-    !perfil?.rubros_usados?.length &&
-    !selectedRubro;
+    !cargandoInicial && !biDesactivado && !perfil?.rubros_usados?.length && !rubro;
 
-  if (loadingInit || !initialized) {
+  if (cargandoInicial) {
     return (
       <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
       </div>
     );
   }
 
-  if (biEnabled === false) {
+  if (biDesactivado) {
     return (
       <div className="space-y-4 p-4">
         <h1 className="page-title flex items-center gap-2">
-          <BarChart3 className="h-6 w-6 text-primary" />
-          Inteligencia de Mercado
+          <BarChart3 className="h-6 w-6 text-primary" aria-hidden="true" />
+          Inteligencia de mercado
         </h1>
-        <BIDisabledBanner />
+        <BIDesactivado />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
-      {/* Sticky filter bar */}
+    <div className="flex min-h-screen flex-col">
       <RubroFilter
-        rubros={availableRubros}
-        selectedRubro={selectedRubro}
-        onRubroChange={handleRubroChange}
+        rubros={allRubros}
+        selectedRubro={rubro}
+        onRubroChange={cambiarRubro}
         plan={plan}
         allRubros={allRubros}
-        perfil={perfil}
-        empresaId={firstEmpresaId}
-        onSavePerfil={handleSavePerfil}
+        perfil={perfil ?? null}
+        empresaId={empresaId ?? null}
+        onSavePerfil={guardarPerfil}
         focusedOrganismo={focusedOrganismo}
-        onClearFocus={() => setFocusedOrganismo(null)}
+        onClearFocus={() => setFocusCodigo(null)}
       />
 
-      <div className="flex-1 space-y-6 p-4 pb-12">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h1 className="page-title flex items-center gap-2">
-            <BarChart3 className="h-6 w-6 text-primary" />
-            Inteligencia de Mercado
-          </h1>
-          {!compareMode && selectedRubro && (
+      <div className="flex-1 space-y-8 p-4 pb-12">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="page-title flex items-center gap-2">
+              <BarChart3 className="h-6 w-6 text-primary" aria-hidden="true" />
+              Inteligencia de mercado
+            </h1>
+            {rubro && <p className="mt-0.5 text-sm text-muted">{rubro}</p>}
+          </div>
+          {!compareMode && rubro && (
             <button
               onClick={() => setCompareMode(true)}
-              className="hidden md:flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-text hover:border-primary hover:text-primary transition-colors"
+              className="hidden items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-text transition-colors hover:border-primary hover:text-primary md:flex"
             >
-              <Columns className="h-4 w-4" />
+              <Columns className="h-4 w-4" aria-hidden="true" />
               Comparar con otro rubro
             </button>
           )}
@@ -469,144 +314,169 @@ export default function BIPage() {
 
         {compareMode ? (
           <CompareMode
-            rubroA={selectedRubro}
+            rubroA={rubro}
             rubroB={rubroB}
             allRubros={allRubros}
-            onChangeRubroA={(r) => setSelectedRubro(r)}
+            onChangeRubroA={setRubroElegido}
             onChangeRubroB={setRubroB}
-            onClose={() => { setCompareMode(false); setRubroB(''); }}
+            onClose={() => {
+              setCompareMode(false);
+              setRubroB('');
+            }}
+          />
+        ) : necesitaOnboarding ? (
+          <BIOnboarding
+            onConfigurarRubros={() =>
+              window.dispatchEvent(new CustomEvent('bi:open-rubros-modal'))
+            }
+            onExplorarSinConfigurar={() => allRubros[0] && cambiarRubro(allRubros[0])}
           />
         ) : (
           <>
-            {necesitaOnboarding ? (
-              <BIOnboarding
-                onConfigurarRubros={() => {
-                  window.dispatchEvent(new CustomEvent('bi:open-rubros-modal'));
-                }}
-                onExplorarSinConfigurar={() => {
-                  const primer = allRubros[0];
-                  if (primer) handleRubroChange(primer);
+            <SectorOverview />
+
+            {/* ── 1 · ¿Cómo está este mercado? ───────────────────────────── */}
+            <Seccion
+              titulo="Cómo está el mercado"
+              descripcion="Tamaño, competencia y calendario del rubro completo, no de un comprador suelto."
+            >
+              {/* El párrafo primero y las cifras después: quien abre esto no
+                  quiere leer un tablero, quiere que le digan cómo está el
+                  mercado. Las cifras están debajo para el que sí. */}
+              <MarketSummaryCard resumen={resumen} loading={consultaResumen.isFetching} />
+              <PanoramaRubro
+                panorama={panorama}
+                cargando={consultaPanorama.isPending && !!rubro}
+                rubro={rubro}
+              />
+            </Seccion>
+
+            {/* ── 2 · ¿Tengo algo que defender aquí? ─────────────────────── */}
+            {rubro && miPosicion && (
+              <Seccion titulo="Tu posición">
+                <MyPositionCard
+                  posicion={miPosicion}
+                  loading={consultaMiPosicion.isFetching}
+                  rubro={rubro}
+                />
+              </Seccion>
+            )}
+
+            {/* ── 3 · ¿Qué hago esta semana? ─────────────────────────────── */}
+            <Seccion
+              titulo="Dónde mirar primero"
+              descripcion="Los mercados con mejor combinación de precio, competencia y regularidad."
+            >
+              <OportunidadesSection
+                oportunidades={oportunidades}
+                loading={consultaOportunidades.isFetching}
+                onFocusOrganismo={(o) => {
+                  setFocusCodigo(o.codigo);
+                  setTimeout(() => {
+                    document
+                      .querySelector('[data-section="detalle-comprador"]')
+                      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }, 100);
                 }}
               />
-            ) : (
-              <>
-                {/* Sector overview banner — dismissible once per day */}
-                <SectorOverview />
+              <TendenciasSection
+                tendencias={tendencia?.tendencias ?? []}
+                emergentes={tendencia?.emergentes ?? []}
+                loading={consultaTendencia.isFetching}
+                selectedRubro={rubro}
+                serieAnual={tendencia?.serie_anual ?? null}
+                cagrRubro={tendencia?.cagr_rubro ?? null}
+              />
+            </Seccion>
 
-                {/* Narrative market summary + MyPositionCard en grid 2-col */}
-                {(() => {
-                  // showMyPosition: true si hay respuesta del backend (con o sin historial)
-                  // miPosicion será null solo si el fetch aún no corrió o falló
-                  const showMyPosition = !!miPosicion;
-                  if (showMyPosition) {
-                    return (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <MarketSummaryCard resumen={resumen} loading={loadingResumen} />
-                        <MyPositionCard posicion={miPosicion} plan={plan} loading={loadingMiPosicion} />
-                      </div>
-                    );
-                  }
-                  // Solo MarketSummary — full width (fetch pendiente o falló)
-                  return <MarketSummaryCard resumen={resumen} loading={loadingResumen} />;
-                })()}
-
-                {/* Focused organismo banner — single prominent banner between narrative and data */}
-                {focusedOrganismo && (
-                  <div className="rounded-xl border-l-4 border-accent bg-accent/10 px-4 py-3 flex items-center gap-3">
-                    <Target className="h-5 w-5 text-accent shrink-0" />
-                    <div className="flex-1 text-sm">
-                      <p className="text-text">
-                        <span className="text-muted">Filtrando análisis a:</span>{' '}
-                        <span className="font-semibold">{focusedOrganismo.nombre}</span>
-                      </p>
-                      <p className="text-xs text-muted mt-0.5">
-                        Las secciones de Competencia, Compradores y Estacionalidad muestran datos de este comprador.
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => setFocusedOrganismo(null)}
-                      className="text-xs text-muted hover:text-danger transition-colors font-medium shrink-0"
-                    >
-                      Quitar filtro
-                    </button>
+            {/* ── 4 · Detalle de un comprador ────────────────────────────── */}
+            <div data-section="detalle-comprador" className="space-y-6">
+              {focusedOrganismo && (
+                <div className="flex items-center gap-3 rounded-xl border-l-4 border-accent bg-accent/10 px-4 py-3">
+                  <Target className="h-5 w-5 shrink-0 text-accent" aria-hidden="true" />
+                  <div className="flex-1 text-sm">
+                    <p className="text-text">
+                      <span className="text-muted">Mirando en detalle:</span>{' '}
+                      <span className="font-semibold">{focusedOrganismo.nombre}</span>
+                    </p>
                   </div>
-                )}
-
-                {/* § 1 — Always visible */}
-                <OportunidadesSection
-                  oportunidades={oportunidades}
-                  loading={loadingOp}
-                  onFocusOrganismo={(o) => {
-                    setFocusedOrganismo(o);
-                    setTimeout(() => {
-                      const el = document.querySelector('[data-section="competencia"]') as HTMLElement | null;
-                      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }, 100);
-                  }}
-                />
-
-                {/* § 2 — Always visible */}
-                <TendenciasSection tendencias={tendencias} emergentes={emergentes} loading={loadingTend} selectedRubro={selectedRubro} serieAnual={serieAnual} cagrRubro={cagrRubro} />
-
-                {/* § 3 — Locked for basico */}
-                <div data-section="competencia">
-                  <PlanGate
-                    locked={!paid}
-                    label="Análisis de competencia — plan PYME o superior"
-                    preview={previewCompetencia}
+                  <button
+                    onClick={() => setFocusCodigo(null)}
+                    className="shrink-0 text-xs font-medium text-muted transition-colors hover:text-danger"
                   >
+                    Quitar
+                  </button>
+                </div>
+              )}
+
+              <Seccion
+                titulo="Un comprador en concreto"
+                descripcion="Quién le vende, cómo tramita y en qué meses compra."
+              >
+                {/* El plan que se nombra es el que se puede comprar. Antes decía
+                    «plan PYME o superior» y ese plan no está a la venta: existe
+                    en `PLAN_QUOTAS` y no en `/billing/plans`. */}
+                <PlanGate locked={!paid} label="Análisis por comprador — plan Pro">
+                  <div className="space-y-6">
                     <CompetenciaSection
                       topOrganismos={topOrganismos}
-                      selectedOrganismo={focusedOrganismo?.codigo || selectedCompOrg}
-                      onOrganismoChange={setSelectedCompOrg}
-                      rubro={selectedRubro}
+                      selectedOrganismo={focusedOrganismo?.codigo || organismoComparado}
+                      onOrganismoChange={setOrgElegido}
+                      rubro={rubro}
                       disabled={!!focusedOrganismo}
                       focused={!!focusedOrganismo}
                       focusedNombre={focusedOrganismo?.nombre}
                     />
-                  </PlanGate>
-                </div>
-
-                {/* § 4 — Locked for basico */}
-                <PlanGate
-                  locked={!paid}
-                  label="Perfil de compradores — plan PYME o superior"
-                  preview={previewCompradores}
-                >
-                  {(topOrganismos.length > 0 || focusedOrganismo) && (
-                    <CompradoresSection
-                      topOrganismos={topOrganismos}
-                      rubro={selectedRubro}
-                      focusedOrganismo={focusedOrganismo}
-                      focusedNombre={focusedOrganismo?.nombre}
-                    />
-                  )}
+                    {(topOrganismos.length > 0 || focusedOrganismo) && (
+                      <>
+                        <CompradoresSection
+                          topOrganismos={topOrganismos}
+                          rubro={rubro}
+                          focusedOrganismo={focusedOrganismo}
+                          focusedNombre={focusedOrganismo?.nombre}
+                        />
+                        <EstacionalidadSection
+                          topOrganismos={topOrganismos}
+                          rubro={rubro}
+                          focusedOrganismo={focusedOrganismo}
+                          focused={!!focusedOrganismo}
+                          focusedNombre={focusedOrganismo?.nombre}
+                        />
+                      </>
+                    )}
+                  </div>
                 </PlanGate>
+              </Seccion>
+            </div>
 
-                {/* § 5 — Locked for basico */}
-                <PlanGate
-                  locked={!paid}
-                  label="Estacionalidad — plan PYME o superior"
-                  preview={previewEstacionalidad}
-                >
-                  {(topOrganismos.length > 0 || focusedOrganismo) && (
-                    <EstacionalidadSection
-                      topOrganismos={topOrganismos}
-                      rubro={selectedRubro}
-                      focusedOrganismo={focusedOrganismo}
-                      focused={!!focusedOrganismo}
-                      focusedNombre={focusedOrganismo?.nombre}
-                    />
-                  )}
-                </PlanGate>
-
-                {/* Herramientas avanzadas — colapsible al pie */}
-                <HerramientasAvanzadas rubro={selectedRubro} topOrganismos={topOrganismos} allRubros={allRubros} />
-              </>
-            )}
+            {/* ── 5 · Cálculos puntuales ─────────────────────────────────── */}
+            <HerramientasAvanzadas
+              rubro={rubro}
+              topOrganismos={topOrganismos}
+              allRubros={allRubros}
+            />
           </>
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * `useSearchParams` obliga a una frontera de Suspense: sin ella el build
+ * estático falla en esta ruta. El fallback es el mismo spinner de la carga
+ * inicial, así que el usuario no ve dos estados de espera distintos.
+ */
+export default function BIPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
+        </div>
+      }
+    >
+      <BIContenido />
+    </Suspense>
   );
 }

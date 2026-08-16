@@ -47,7 +47,11 @@ export function PlanGate({ children, locked, label, preview, placeholder }: Plan
         </div>
         <div className="flex-1">
           <p className="text-sm font-semibold text-text">
-            {label || 'Disponible en plan PYME'}
+            {/* El plan que se nombra tiene que ser uno que se pueda comprar.
+                `/billing/plans` vende exactamente dos, «Free» y «Pro»; «PYME»
+                existe en la tabla de cuotas y no en el catálogo, así que este
+                cartel mandaba a la página de planes a buscar algo que no está. */}
+            {label || 'Disponible en plan Pro'}
           </p>
           <p className="text-xs text-muted mt-0.5">
             Actualiza tu plan para ver el detalle completo

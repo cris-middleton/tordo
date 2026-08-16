@@ -7,27 +7,11 @@ líneas. El contrato hacia los endpoints no cambia: lo fija el golden master en
 
 from __future__ import annotations
 
-import contextlib
 import logging
 
 from app.services.bi._base import _load
 
 logger = logging.getLogger(__name__)
-
-
-def _normalize_rut(rut: str | None) -> str:
-    """Normaliza RUT chileno al formato esperado por CodigoProveedor del parquet.
-    ChileCompra típicamente usa '12345678-9' (sin puntos, con guión).
-    Retorna cadena vacía si el input es inválido o None."""
-    if not rut:
-        return ""
-    cleaned = str(rut).replace(".", "").replace(" ", "").upper()
-    if not cleaned:
-        return ""
-    # Si no tiene guión, insertar uno antes del último char (DV)
-    if "-" not in cleaned and len(cleaned) > 1:
-        cleaned = f"{cleaned[:-1]}-{cleaned[-1]}"
-    return cleaned
 
 
 def get_competidores(
@@ -39,15 +23,17 @@ def get_competidores(
     Top competitors in a buyer's market.
     Optionally filtered by RubroN2 category.
     """
-    df = _load("competitors_by_market.parquet")
+    # `competitors_by_market` tiene 4,2 millones de filas. Sin empujar el
+    # filtro se traían todas para quedarse con veinte.
+    filtros: dict = {"CodigoOrganismoPublico": str(organismo_id)}
+    if rubro:
+        filtros["RubroN2"] = rubro
+
+    df = _load("competitors_by_market.parquet", filtros=filtros)
     if df is None:
         return {"disponible": False, "motivo": "parquet no generado"}
 
-    mask = df["CodigoOrganismoPublico"].cast(str) == str(organismo_id)
-    if rubro:
-        mask = mask & (df["RubroN2"] == rubro)
-
-    rows = df.filter(mask).sort("rank_monto").head(top_n)
+    rows = df.sort("rank_monto").head(top_n)
 
     if rows.is_empty():
         return {"disponible": False, "motivo": "organismo no encontrado en histórico"}
@@ -69,17 +55,10 @@ def get_competidores(
     ).to_dicts()
 
     # Pull HHI from market_concentration if available
-    mc_df = _load("market_concentration.parquet")
+    mc_df = _load("market_concentration.parquet", filtros=filtros)
     hhi_rows: list[dict] = []
     if mc_df is not None:
-        mc_mask = mc_df["CodigoOrganismoPublico"].cast(str) == str(organismo_id)
-        if rubro:
-            mc_mask = mc_mask & (mc_df["RubroN2"] == rubro)
-        hhi_rows = (
-            mc_df.filter(mc_mask)
-            .select(["RubroN2", "hhi", "tipo_mercado", "n_proveedores"])
-            .to_dicts()
-        )
+        hhi_rows = mc_df.select(["RubroN2", "hhi", "tipo_mercado", "n_proveedores"]).to_dicts()
 
     return {
         "disponible": True,
@@ -182,151 +161,173 @@ def get_forecast_competidores(
     return {"disponible": False, "motivo": "sin datos para los parámetros solicitados"}
 
 
-def get_mi_posicion(empresa_rut: str, rubro: str) -> dict:
-    """
-    Posición del proveedor (empresa del usuario) en un rubro específico.
-    Combina market_concentration / competitors_by_market para participación + rank,
-    y provider_diversification para score de diversificación y alerta.
+def get_mi_posicion(codigo_proveedor: str, rubro: str) -> dict:
+    """Posición REAL de un proveedor dentro de un rubro.
+
+    **Recibe el `CodigoProveedor` de ChileCompra, no el RUT.** Antes recibía el
+    RUT y lo normalizaba a `12345678-9` para compararlo con `CodigoProveedor`,
+    que es el identificador interno de Mercado Público: de los 4.204.598
+    registros de la tabla real, **ninguno** tiene esa forma. La comparación no
+    acertaba nunca, así que esta pantalla le decía a todo el mundo —también a
+    quien sí tiene historial— que no tenía órdenes en el rubro. La traducción
+    RUT → código vive en `repositories/proveedores.py`.
+
+    **Lo que había aquí estaba mal, y el error no era sutil.**
+    `competitors_by_market` tiene una fila por *(organismo, rubro, proveedor)*:
+    un mismo proveedor aparece tantas veces como compradores tiene. El código
+    anterior filtraba por rubro, ordenaba por `market_share_pct` y devolvía la
+    posición de la **primera fila** que coincidía con el RUT. Consecuencias,
+    medidas sobre datos reales en «Servicios de recursos humanos»:
+
+    - `total_proveedores` decía **128.462** cuando los proveedores distintos son
+      **77.720** — contaba filas, no proveedores.
+    - `participacion_pct` era la participación del proveedor **en un solo
+      comprador**, presentada como su participación en el rubro. Los tres
+      «líderes» del rubro tenían 99,9 %, 99,9 % y 99,0 %… cada uno de un
+      comprador distinto.
+    - `rank` ordenaba esas mismas filas, así que no significaba nada.
+
+    Lo correcto es agregar por proveedor antes de rankear: sumar su monto en
+    todos los compradores del rubro y dividir por el monto total del rubro. Con
+    eso el líder real sale con 66,8 %, que es una cifra que se puede enseñar.
+
+    Y el filtro viaja a SQL. Antes se traían los 4,2 millones de filas de la
+    tabla a memoria para descartar el 97 %.
     """
     import polars as pl
 
-    if not empresa_rut or not rubro:
+    if not codigo_proveedor or not rubro:
         return {
             "disponible": False,
             "tiene_historial": False,
-            "motivo": "rut y rubro requeridos",
+            "motivo": "código de proveedor y rubro requeridos",
         }
 
-    rut_norm = _normalize_rut(empresa_rut)
+    codigo = str(codigo_proveedor).strip()
 
-    # ── Competencia en el rubro: buscar al proveedor ─────────────────────────
-    # Preferir competitor_analysis; fallback a competitors_by_market
-    df_comp = _load("competitor_analysis.parquet")
-    if df_comp is None:
-        df_comp = _load("competitors_by_market.parquet")
-
-    if df_comp is None:
+    df = _load(
+        "competitors_by_market.parquet",
+        filtros={"RubroN2": rubro},
+        columnas=[
+            "CodigoOrganismoPublico",
+            "CodigoProveedor",
+            "NombreProveedor",
+            "monto_total",
+            "n_oc",
+        ],
+    )
+    if df is None:
         return {
             "disponible": False,
             "tiene_historial": False,
             "motivo": "parquets de competencia no disponibles",
         }
-
-    if "RubroN2" not in df_comp.columns or "CodigoProveedor" not in df_comp.columns:
-        return {
-            "disponible": False,
-            "tiene_historial": False,
-            "motivo": "schema de parquet no esperado",
-        }
-
-    subset = df_comp.filter(df_comp["RubroN2"] == rubro)
-    if len(subset) == 0:
+    if df.is_empty():
         return {
             "disponible": True,
             "tiene_historial": False,
             "motivo": f"sin datos para el rubro '{rubro}'",
         }
 
-    # Ranking: preferir market_share_pct, fallback a monto_total
-    if "market_share_pct" in subset.columns:
-        ranked = subset.sort("market_share_pct", descending=True)
-    elif "monto_total" in subset.columns:
-        ranked = subset.sort("monto_total", descending=True)
-    else:
-        ranked = subset
-    ranked_rows = ranked.to_dicts()
-    total_prov = len(ranked_rows)
+    # Una fila por proveedor: monto y órdenes sumados, y cuántos compradores
+    # distintos atiende dentro del rubro.
+    por_proveedor = (
+        df.group_by("CodigoProveedor")
+        .agg(
+            pl.col("monto_total").sum().alias("monto"),
+            pl.col("n_oc").sum().alias("oc"),
+            pl.col("CodigoOrganismoPublico").n_unique().alias("compradores"),
+            pl.col("NombreProveedor").first().alias("nombre"),
+        )
+        .sort(["monto", "CodigoProveedor"], descending=[True, False])
+        .with_row_index("posicion", offset=1)
+    )
 
-    empresa_row = None
-    rank = None
-    for i, row in enumerate(ranked_rows):
-        if str(row.get("CodigoProveedor")) == rut_norm:
-            empresa_row = row
-            rank = i + 1
-            break
+    total_proveedores = por_proveedor.height
+    monto_rubro = por_proveedor.select(pl.col("monto").sum()).item() or 0
 
-    if empresa_row is None:
+    mias = por_proveedor.filter(pl.col("CodigoProveedor").cast(pl.Utf8) == codigo)
+    if mias.is_empty():
         return {
             "disponible": True,
             "tiene_historial": False,
-            "total_proveedores": total_prov,
-            "motivo": f"El RUT {rut_norm} no tiene historial de OC en '{rubro}'",
+            "total_proveedores": total_proveedores,
+            "motivo": f"Tu empresa no tiene historial de órdenes en '{rubro}'",
         }
 
-    participacion_pct = (
-        float(empresa_row.get("market_share_pct") or 0)
-        if "market_share_pct" in empresa_row
-        else None
-    )
+    yo = mias.row(0, named=True)
+    participacion = (yo["monto"] / monto_rubro * 100) if monto_rubro else None
 
-    # ── n_organismos atendidos (del row de la empresa si existe) ─────────────
-    n_org_atendidos = None
-    for key in ("n_organismos", "n_organismos_atendidos", "organismos_distintos"):
-        if key in empresa_row and empresa_row[key] is not None:
-            try:
-                n_org_atendidos = int(empresa_row[key])
-                break
-            except (TypeError, ValueError):
-                pass
-
-    # ── n_organismos promedio del sector (heurística simple) ─────────────────
-    # Promedio de n_organismos entre proveedores del mismo rubro, si la columna existe
-    n_org_prom = None
-    org_col = None
-    for key in ("n_organismos", "n_organismos_atendidos", "organismos_distintos"):
-        if key in ranked.columns:
-            org_col = key
-            break
-    if org_col is not None:
-        try:
-            avg_val = ranked.select(pl.col(org_col).mean()).item()
-            if avg_val is not None:
-                n_org_prom = round(avg_val, 1)
-        except Exception:
-            n_org_prom = None
-
-    # ── Diversificación (desde provider_diversification.parquet) ─────────────
-    diversificacion_pct = None
-    alerta_dependencia = False
-    top_org_nombre = None
-    top_org_pct = None
-    df_div = _load("provider_diversification.parquet")
-    if df_div is not None and "CodigoProveedor" in df_div.columns:
-        row = df_div.filter(df_div["CodigoProveedor"] == rut_norm)
-        if len(row) > 0:
-            d = row.to_dicts()[0]
-            # score_diversificacion suele estar en 0-1
-            score = d.get("score_diversificacion")
-            if score is not None:
-                with contextlib.suppress(TypeError, ValueError):
-                    diversificacion_pct = float(score) * 100
-            alerta_dependencia = bool(d.get("alerta_dependencia") or False)
-            top_org_nombre = d.get("top_comprador_nombre") or d.get("top_organismo_nombre")
-            top_org_pct_raw = d.get("top_comprador_pct") or d.get("top_organismo_pct")
-            if top_org_pct_raw is not None:
-                try:
-                    # Puede estar en fracción (0-1) o porcentaje
-                    val = float(top_org_pct_raw)
-                    top_org_pct = val * 100 if val <= 1.0 else val
-                except (TypeError, ValueError):
-                    pass
-
-    top_organismo_empresa = None
-    if top_org_nombre:
-        top_organismo_empresa = {
-            "nombre": top_org_nombre,
-            "porcentaje_oc": top_org_pct,
-        }
+    # Cuántos compradores atiende un proveedor típico del rubro. La MEDIANA y no
+    # la media: la distribución tiene una cola larguísima —un puñado de
+    # proveedores atiende cientos de organismos— y la media los sigue, dejando
+    # al usuario comparándose contra un número que casi nadie alcanza.
+    compradores_tipico = por_proveedor.select(pl.col("compradores").median()).item()
 
     return {
         "disponible": True,
         "tiene_historial": True,
-        "participacion_pct": participacion_pct,
-        "rank": rank,
-        "total_proveedores": total_prov,
-        "n_organismos_atendidos": n_org_atendidos,
-        "n_organismos_promedio_sector": n_org_prom,
-        "diversificacion_pct": diversificacion_pct,
-        "alerta_dependencia": alerta_dependencia,
-        "top_organismo_empresa": top_organismo_empresa,
+        "participacion_pct": round(participacion, 4) if participacion is not None else None,
+        "rank": int(yo["posicion"]),
+        "total_proveedores": total_proveedores,
+        "monto_rubro_clp": float(monto_rubro),
+        "monto_propio_clp": float(yo["monto"]),
+        "n_oc_propias": int(yo["oc"]),
+        "n_organismos_atendidos": int(yo["compradores"]),
+        "n_organismos_mediana_rubro": (
+            round(float(compradores_tipico), 1) if compradores_tipico is not None else None
+        ),
+        **_diversificacion(codigo),
     }
+
+
+def _diversificacion(codigo_proveedor: str) -> dict:
+    """Concentración de cartera del proveedor, mirando TODOS sus rubros.
+
+    Es la contraparte del resto de la respuesta: lo demás mira un rubro, esto
+    mira si la empresa depende de un solo cliente en general. `hhi_org` es el
+    Herfindahl de sus compradores, así que 10.000 es «un único cliente».
+
+    Se devuelve `diversificacion_disponible` explícito porque la tabla puede no
+    estar materializada todavía, y unos campos en `null` no distinguen «no lo
+    sabemos» de «no tiene riesgo» — que es justo lo contrario.
+    """
+    df = _load(
+        "provider_diversification.parquet",
+        filtros={"CodigoProveedor": codigo_proveedor},
+        columnas=[
+            "hhi_org",
+            "n_organismos",
+            "n_rubros",
+            "n_regiones",
+            "score_diversificacion",
+            "clasificacion",
+            "alerta_dependencia",
+        ],
+    )
+    if df is None:
+        return {"diversificacion_disponible": False}
+    if df.is_empty():
+        return {"diversificacion_disponible": True, "diversificacion": None}
+
+    fila = df.row(0, named=True)
+    return {
+        "diversificacion_disponible": True,
+        "diversificacion": {
+            "hhi_compradores": _num(fila.get("hhi_org")),
+            "n_compradores_total": _int(fila.get("n_organismos")),
+            "n_rubros_total": _int(fila.get("n_rubros")),
+            "n_regiones_total": _int(fila.get("n_regiones")),
+            "score": _num(fila.get("score_diversificacion")),
+            "clasificacion": fila.get("clasificacion"),
+            "alerta_dependencia": bool(fila.get("alerta_dependencia") or False),
+        },
+    }
+
+
+def _num(v) -> float | None:
+    return None if v is None else round(float(v), 4)
+
+
+def _int(v) -> int | None:
+    return None if v is None else int(v)

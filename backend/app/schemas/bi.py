@@ -124,17 +124,31 @@ class VentanaResponse(BaseModel):
     motivo: str | None = None
 
 
-class PagoStats(BaseModel):
-    mediana_dias_pago: float | None = None
-    p75_dias_pago: float | None = None
-    p90_dias_pago: float | None = None
+class TramitacionStats(BaseModel):
+    """Cómo tramita sus órdenes este comprador.
+
+    **No son días de pago.** Lo que mide el dato es `FechaEnvio →
+    FechaAceptacion`: lo que tarda el proveedor en aceptar la orden. La mediana
+    global es de 1,4 días, lo que ya delataba que no era un plazo de pago — y
+    aun así el producto decía «paga a N días» en la pantalla, en el correo y en
+    la web.
+
+    **La fecha de pago no está en el dato de ChileCompra.** Las únicas fechas
+    del archivo de órdenes son creación, envío, aceptación, cancelación y última
+    modificación; `Forma de Pago` tampoco sirve, porque el 98,7 % de las órdenes
+    dice lo mismo. Si algún día aparece, esta clase es donde va.
+    """
+
+    mediana_dias_aceptacion: float | None = None
+    p75_dias_aceptacion: float | None = None
+    p90_dias_aceptacion: float | None = None
     tasa_aceptacion: float | None = None
     tasa_cancelacion: float | None = None
     tasa_adjudicacion: float | None = None
 
 
 class ScoresDetalle(BaseModel):
-    velocidad_pago: float | None = None
+    velocidad_aceptacion: float | None = None
     tasa_aceptacion: float | None = None
     no_cancelacion: float | None = None
     adjudicacion: float | None = None
@@ -145,8 +159,8 @@ class ScoresDetalle(BaseModel):
 
 class RiskFlags(BaseModel):
     n_flags: int = 0
-    pago_lento: bool = False
-    pago_impredecible: bool = False
+    aceptacion_lenta: bool = False
+    aceptacion_impredecible: bool = False
     cancelaciones: bool = False
     licitaciones_fallidas: bool = False
     baja_calificacion: bool = False
@@ -176,7 +190,7 @@ class CompradorResponse(BaseModel):
     nombre: str | None = None
     buyer_score: float | None = None
     clasificacion: str | None = None
-    pago: PagoStats | None = None
+    tramitacion: TramitacionStats | None = None
     scores_detalle: ScoresDetalle | None = None
     risk_flags: RiskFlags | None = None
     volumen: VolumenComprador | None = None
@@ -280,7 +294,9 @@ class CompradorPanel(BaseModel):
     nombre: str | None = None
     buyer_score: float | None = None
     clasificacion: str | None = None
-    mediana_dias_pago: float | None = None
+    #: Días hasta que la orden se acepta. **No es el plazo de pago** — ver
+    #: `TramitacionStats`.
+    mediana_dias_aceptacion: float | None = None
     tasa_adjudicacion: float | None = None
     n_flags: int = 0
     transparencia: TransparenciaComprador | None = None
@@ -472,13 +488,19 @@ class SectorResponse(BaseModel):
 class ResumenTopComprador(BaseModel):
     codigo: str | None = None
     nombre: str | None = None
-    pago_mediana_dias: int | None = None
-    clasificacion_pago: str | None = None  # "bueno" | "medio" | "lento"
+    #: Se quitó `clasificacion_pago`: cortaba en 30 y 45 días un dato cuyo
+    #: máximo es 12,8, así que todos los compradores salían «bueno» siempre.
+    n_oc_total: int | None = None
 
 
 class ResumenTeaserCompetencia(BaseModel):
+    #: Líder del RUBRO: el proveedor con más monto sumando todos sus
+    #: compradores. Antes era el líder del par (organismo, rubro) más grande,
+    #: publicado como si fuera el del rubro entero.
     lider_nombre: str | None = None
     lider_share_pct: float | None = None
+    #: Índice de Herfindahl sobre las cuotas de todos los proveedores del rubro.
+    hhi: int | None = None
     tipo_mercado: str | None = None  # "concentrado" | "moderado" | "fragmentado" | "competitivo"
 
 
@@ -495,7 +517,6 @@ class ResumenResponse(BaseModel):
     cagr_pct: float | None = None
     yoy_pct: float | None = None  # último año completo vs año anterior
     n_proveedores_actual: int | None = None
-    n_proveedores_hace_3_anios: int | None = None
     top_comprador: ResumenTopComprador | None = None
     teaser_competencia: ResumenTeaserCompetencia | None = None
     teaser_estacionalidad: ResumenTeaserEstacionalidad | None = None
@@ -505,9 +526,17 @@ class ResumenResponse(BaseModel):
 # ─── Mi Posición (personalización por empresa) ───────────────────────────────
 
 
-class MiPosicionTopOrganismo(BaseModel):
-    nombre: str | None = None
-    porcentaje_oc: float | None = None
+class Diversificacion(BaseModel):
+    """Concentración de cartera del proveedor, sobre TODOS sus rubros."""
+
+    #: Herfindahl de sus compradores. 10.000 es «un único cliente».
+    hhi_compradores: float | None = None
+    n_compradores_total: int | None = None
+    n_rubros_total: int | None = None
+    n_regiones_total: int | None = None
+    score: float | None = None
+    clasificacion: str | None = None
+    alerta_dependencia: bool = False
 
 
 class MiPosicionResponse(BaseModel):
@@ -516,11 +545,17 @@ class MiPosicionResponse(BaseModel):
     participacion_pct: float | None = None
     rank: int | None = None
     total_proveedores: int | None = None
+    monto_rubro_clp: float | None = None
+    monto_propio_clp: float | None = None
+    n_oc_propias: int | None = None
     n_organismos_atendidos: int | None = None
-    n_organismos_promedio_sector: float | None = None
-    diversificacion_pct: float | None = None
-    alerta_dependencia: bool | None = None
-    top_organismo_empresa: MiPosicionTopOrganismo | None = None
+    #: MEDIANA y no promedio: la cola de la distribución arrastra la media hasta
+    #: un número que casi ningún proveedor alcanza.
+    n_organismos_mediana_rubro: float | None = None
+    #: Explícito porque la tabla puede no estar materializada, y unos campos en
+    #: `null` no distinguen «no lo sabemos» de «no tiene riesgo».
+    diversificacion_disponible: bool = False
+    diversificacion: Diversificacion | None = None
     motivo: str | None = None
 
 
@@ -553,4 +588,86 @@ class RadarResponse(BaseModel):
     empresa_nombre: str | None = None
     semana_inicio: str | None = None  # ISO date lunes
     movimientos: list[RadarMovimiento] | None = None
+    motivo: str | None = None
+
+
+# ─── Panorama del rubro ──────────────────────────────────────────────────────
+
+
+class PanoramaMercado(BaseModel):
+    disponible: bool = False
+    anio: int | None = None
+    monto_clp: float | None = None
+    n_oc: int | None = None
+    #: Promedio y no mediana: `time_series` viene agregado por mes, así que no
+    #: quedan órdenes individuales sobre las que sacar una mediana.
+    ticket_promedio_clp: float | None = None
+
+
+class PanoramaLider(BaseModel):
+    nombre: str | None = None
+    #: Cuota por MONTO. La puede dominar una sola compra enorme.
+    share_pct: float | None = None
+    #: Cuota por ÓRDENES: cuántas veces gana, no cuánto factura. Es la que
+    #: importa cuando se compite por compras chicas y frecuentes.
+    share_oc_pct: float | None = None
+    n_oc: int | None = None
+    n_compradores: int | None = None
+
+
+class PanoramaCompetencia(BaseModel):
+    disponible: bool = False
+    n_proveedores: int | None = None
+    n_compradores: int | None = None
+    monto_clp: float | None = None
+    n_oc: int | None = None
+    #: Herfindahl sobre las cuotas de TODOS los proveedores del rubro.
+    hhi: int | None = None
+    tipo_mercado: str | None = None
+    #: Cuota conjunta de los cinco primeros. Dice lo mismo que el HHI y se
+    #: entiende sin explicarlo.
+    share_top5_pct: float | None = None
+    lideres: list[PanoramaLider] = []
+
+
+class PanoramaMes(BaseModel):
+    mes: int
+    nombre: str
+    pct: float
+
+
+class PanoramaEstacionalidad(BaseModel):
+    disponible: bool = False
+    meses: list[PanoramaMes] = []
+    mes_pico: str | None = None
+    pct_pico: float | None = None
+    #: Cuánto del año se juega en los tres meses más activos. Con reparto plano
+    #: serían 25 %.
+    pct_top3: float | None = None
+    tiene_temporada: bool = False
+
+
+class PanoramaCompradorVigilado(BaseModel):
+    codigo: str
+    nombre: str | None = None
+    n_banderas: int = 0
+    motivos: list[str] = []
+
+
+class PanoramaVigilar(BaseModel):
+    disponible: bool = False
+    n_con_banderas: int = 0
+    n_compradores_rubro: int | None = None
+    compradores: list[PanoramaCompradorVigilado] = []
+
+
+class PanoramaResponse(BaseModel):
+    """Todo lo que hay que saber de un rubro, en una sola llamada."""
+
+    disponible: bool
+    rubro: str | None = None
+    mercado: PanoramaMercado | None = None
+    competencia: PanoramaCompetencia | None = None
+    estacionalidad: PanoramaEstacionalidad | None = None
+    vigilar: PanoramaVigilar | None = None
     motivo: str | None = None

@@ -31,15 +31,22 @@ interface CompetidoresPanelProps {
 
 // ── Label / color maps ─────────────────────────────────────────────────────
 
+// `competitivo` es el nombre viejo del tramo bajo del HHI. Se mantiene mapeado
+// —no en la lista de valores nuevos— porque `analytics.market_concentration` se
+// re-materializa una vez por semana: entre el despliegue y esa corrida las filas
+// siguen diciendo la palabra anterior, y sin esto saldrían con la insignia gris
+// de «tipo desconocido».
 const tipoLabel: Record<string, string> = {
   concentrado: 'Concentrado',
   moderado: 'Moderado',
-  competitivo: 'Competitivo',
+  fragmentado: 'Fragmentado',
+  competitivo: 'Fragmentado',
 };
 
 const tipoColor: Record<string, string> = {
   concentrado: 'bg-danger/10 text-danger border-danger/20',
   moderado: 'bg-gold/10 text-gold border-gold/20',
+  fragmentado: 'bg-accent/10 text-accent border-accent/20',
   competitivo: 'bg-accent/10 text-accent border-accent/20',
 };
 
