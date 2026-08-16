@@ -548,13 +548,33 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
   muestra. Los límites — documentos, consultas BI, alertas y **asientos** — viven todos en
   `PLAN_QUOTAS` (`core/plan_limits.py`), que es la única tabla que hay que editar.
 - **BI**: batch en Polars → tablas materializadas en `analytics.*` → consulta con filtros
-  empujados a SQL → fallback jerárquico L1→L2→L3 con confianza y tamaño de muestra →
-  gating por plan (de la empresa). Hay un golden master (`backend/tests/golden/`) que fija
+  empujados a SQL → fallback jerárquico **L0→L0N→L1→L2→L3→L4** con dispersión y tamaño de
+  muestra → gating por plan (de la empresa). Hay un golden master (`backend/tests/golden/`) que fija
   el contrato: **cualquier cambio a `services/bi/` tiene que pasarlo**, y corre en CI.
   Si cambias los datos del fixture, recaptura con
   `python tests/golden/capturar_golden_bi.py --desde-golden` — **sin `--desde-golden` el
   script redescubre los casos muestreando los datos** y sobre el fixture recortado produce
   otros distintos (la primera vez pasó de 31 casos a 7).
+- **El precio se agrupa por PRODUCTO, no por categoría del catálogo.**
+  `codigoProductoONU` es una categoría UNSPSC: medido sobre datos reales, una sola
+  categoría en un solo hospital y un solo mes contiene artículos que difieren en cinco
+  órdenes de magnitud (un calibrador a $557.062 y un criovial a $1 bajo «Reactivos»).
+  Los niveles L0/L0N agrupan por la **firma** de `EspecificacionComprador`
+  (`etl/analytics/normalizacion.py`) y dan una banda **más de dos veces más estrecha**:
+  QCD mediano 0,21–0,26 contra 0,57–0,59. Cubren el 22–29 % de los ítems; del resto
+  sigue encargándose L1.
+  - **La firma ordena los tokens y quita cualquiera que contenga un dígito.** Lo primero
+    porque el orden de las palabras no cambia el producto; lo segundo porque en los datos
+    reales los alfanuméricos son códigos de orden y de guía, y cada uno parte el producto
+    en un grupo de una observación. Se pierde el gramaje: es el precio a pagar, medido.
+  - **La dispersión se mide con QCD, no con CV.** Sobre precios con cola larga la
+    desviación estándar mide el outlier que sobrevivió a Tukey, no el mercado.
+  - **`predictibilidad` (alta|media|baja) es producto, no diagnóstico interno.** Una banda
+    muy dispersa significa que el precio no es lo que decide la adjudicación, y decirlo
+    vale más que inventar un número con aspecto de respuesta.
+  - **Deflactar por inflación no sirve, y está medido**: el CV dentro de un solo mes es
+    0,83–0,88 y mezclando 2016–2026 es 0,88, con +38 % de inflación en la década. No lo
+    reabras sin un número nuevo.
 - **Encaje empresa × licitación: `match_empresa_licitacion`, precomputado.** Una fila por par,
   con `score` 0-100 y `nivel`. Lo llena el job de las 06:00 (`precompute_dashboard_matches`),
   que es donde vive el modelo TF-IDF; la API **no lo carga para esto**.

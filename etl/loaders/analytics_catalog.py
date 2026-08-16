@@ -22,7 +22,27 @@ from etl.loaders.analytics_loader import TablaAnalytics
 # Cada entrada: qué lee la API de ahí y por dónde filtra.
 CATALOGO: list[TablaAnalytics] = [
     # ── Bandas de precio ─────────────────────────────────────────────────────
-    # get_precio_producto: producto + organismo + unidad, con fallback L1→L2→L3.
+    # get_precio_producto: producto + organismo + unidad, con fallback
+    # L0→L0N→L1→L2→L3.
+    #
+    # L0 y L0N son las únicas bandas donde el grupo contiene el MISMO producto:
+    # agrupan por la firma de `EspecificacionComprador` en vez de por la
+    # categoría UNSPSC. Se consultan por `codigoProductoONU` igual que las demás
+    # —la columna va en la tabla aunque no sea la clave— para que el endpoint no
+    # tenga que saber que existen dos formas de identificar un producto.
+    TablaAnalytics(
+        tabla="product_price_bands_l0",
+        parquet="product_price_bands_L0.parquet",
+        indices=[
+            ["codigoProductoONU", "CodigoOrganismoPublico", "UnidadMedida"],
+            ["firma_producto", "CodigoOrganismoPublico"],
+        ],
+    ),
+    TablaAnalytics(
+        tabla="product_price_bands_l0n",
+        parquet="product_price_bands_L0N.parquet",
+        indices=[["codigoProductoONU", "UnidadMedida"], ["firma_producto"]],
+    ),
     TablaAnalytics(
         tabla="product_price_bands_l1",
         parquet="product_price_bands_L1.parquet",

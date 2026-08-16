@@ -11,6 +11,13 @@ class BINotAvailable(BaseModel):
 class PrecioBanda(BaseModel):
     codigoProductoONU: str | None = None
     NombreProductoGenerico: str | None = None
+    #: Firma normalizada del producto. Sólo viene en los niveles L0 y L0N, que
+    #: son los que agrupan por producto real y no por categoría UNSPSC.
+    firma_producto: str | None = None
+    #: Cómo escribió ese producto quien más veces lo compró. Es lo que se
+    #: muestra: la firma es una bolsa de palabras ordenada, buena para agrupar
+    #: y mala para leer.
+    descripcion: str | None = None
     p10: float | None = None
     p25: float | None = None
     p50: float | None = None
@@ -18,6 +25,16 @@ class PrecioBanda(BaseModel):
     p90: float | None = None
     pu_mean: float | None = None
     cv: float | None = None
+    #: Coeficiente cuartílico de dispersión, (p75−p25)/(p75+p25), en [0,1].
+    #: Es la medida de dispersión que hay que mirar: `cv` se conserva por
+    #: compatibilidad, pero sobre precios con cola larga mide el outlier que
+    #: sobrevivió al filtro, no el mercado.
+    qcd: float | None = None
+    #: `alta` | `media` | `baja`. La lectura de producto de `qcd` y `n`.
+    #: **Predictibilidad baja no es un hueco, es un hallazgo**: significa que
+    #: este comprador paga precios muy distintos por lo mismo, y por tanto que
+    #: el precio probablemente no sea lo que decide la adjudicación.
+    predictibilidad: str | None = None
     # El pipeline produce confianza como Float64 (0–1), no como texto.
     # Declararla `str` hacía que /api/bi/precio devolviera siempre 500 con
     # ResponseValidationError en cuanto había datos. Nunca se detectó porque
@@ -31,7 +48,11 @@ class PrecioResponse(BaseModel):
     codigo_producto: str | None = None
     resultado: list[PrecioBanda] | None = None
     total_registros: int | None = None
-    nivel_usado: str | None = None  # "L1", "L2", "L3"
+    #: "L0" | "L0N" | "L1" | "L2" | "L3" | "L4", de más a menos específico.
+    #: L0 y L0N agrupan por producto real; de L1 en adelante, por categoría
+    #: UNSPSC — que puede contener artículos que difieren en varios órdenes de
+    #: magnitud. El nivel dice cuánto vale el número.
+    nivel_usado: str | None = None
     fallback: bool = False
     fallback_motivo: str | None = None
     motivo: str | None = None

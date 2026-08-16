@@ -1,11 +1,28 @@
 """Bandas de precio por producto y búsqueda de productos.
 
-El fallback jerárquico L1 (producto+organismo+unidad) → L2 (producto+sector) →
-L3 (nacional) es el núcleo del BI: devuelve un rango con confianza y tamaño de
-muestra, no un promedio.
+El fallback jerárquico es el núcleo del BI: devuelve un rango con dispersión y
+tamaño de muestra, no un promedio.
+
+    L0  firma del producto + organismo + unidad   ← el mismo producto
+    L0N firma del producto + unidad (nacional)    ← el mismo producto
+    L1  categoría UNSPSC + organismo + unidad
+    L2  categoría UNSPSC + sector + unidad
+    L3  categoría UNSPSC + unidad (nacional)
+    L4  rubro + organismo (contexto general)
+
+**L0 va primero y no es un nivel más.** De L1 hacia abajo se agrupa por
+`codigoProductoONU`, que es una categoría del catálogo UNSPSC: en los datos
+reales, una sola categoría en un solo hospital y un solo mes contiene artículos
+que difieren en cinco órdenes de magnitud. L0 agrupa por la firma de
+`EspecificacionComprador`, que sí identifica el artículo. Ver
+`etl/analytics/normalizacion.py`.
+
+**Si el parquet de L0 no existe, el comportamiento es exactamente el de antes.**
+No es casualidad ni cortesía: es lo que permite que el golden master —cuyo
+fixture se capturó sin ese nivel— siga fijando el contrato de L1→L4 sin cambios.
 
 Parte de `app.services.bi`, que reemplaza al antiguo `bi_service.py` de 1.476
-líneas. El contrato hacia los endpoints no cambia: lo fija el golden master en
+líneas. El contrato hacia los endpoints lo fija el golden master en
 `backend/tests/golden/bi_golden.json`.
 """
 
@@ -16,6 +33,11 @@ import logging
 from app.services.bi._base import _load
 
 logger = logging.getLogger(__name__)
+
+#: Cuántos productos distintos devuelve L0 como máximo. Una categoría UNSPSC
+#: amplia puede tener cientos en un mismo comprador; la pantalla muestra los que
+#: tienen más respaldo, no todos.
+MAX_PRODUCTOS_L0 = 12
 
 
 def get_precio_producto(
@@ -36,6 +58,26 @@ def get_precio_producto(
     # ETL writes the column as "NombreroductoGenerico" (missing 'P' — historical typo).
     # COLS lists use the typo'd name so _sel finds it; _to_dicts renames to the
     # canonical API name "NombreProductoGenerico" before Pydantic serialisation.
+    COLS_L0 = [
+        "firma_producto",
+        "descripcion",
+        "codigoProductoONU",
+        "NombreroductoGenerico",
+        "CodigoOrganismoPublico",
+        "OrganismoPublico",
+        "UnidadMedida",
+        "p10",
+        "p25",
+        "p50",
+        "p75",
+        "p90",
+        "pu_mean",
+        "cv",
+        "qcd",
+        "predictibilidad",
+        "confianza",
+        "n",
+    ]
     COLS_L1 = [
         "codigoProductoONU",
         "NombreroductoGenerico",
@@ -49,6 +91,8 @@ def get_precio_producto(
         "p90",
         "pu_mean",
         "cv",
+        "qcd",
+        "predictibilidad",
         "confianza",
         "n",
     ]
@@ -64,6 +108,8 @@ def get_precio_producto(
         "p90",
         "pu_mean",
         "cv",
+        "qcd",
+        "predictibilidad",
         "confianza",
         "n",
     ]
@@ -78,9 +124,12 @@ def get_precio_producto(
         "p90",
         "pu_mean",
         "cv",
+        "qcd",
+        "predictibilidad",
         "confianza",
         "n",
     ]
+    COLS_L0N = [c for c in COLS_L0 if c not in ("CodigoOrganismoPublico", "OrganismoPublico")]
 
     def _sel(df, cols):
         return [c for c in cols if c in df.columns]
@@ -96,6 +145,16 @@ def get_precio_producto(
             return df["UnidadMedida"] == unidad_medida
         return None
 
+    def _mejores(df, tope: int = MAX_PRODUCTOS_L0):
+        """Los productos con más respaldo primero, y sólo los primeros.
+
+        Se desempata por la firma, que es única dentro del grupo: sin el
+        desempate, dos productos con la misma `n` alternarían el orden entre
+        llamadas y la pantalla parecería inestable sin que cambiara el dato.
+        """
+        columnas = ["n"] + (["firma_producto"] if "firma_producto" in df.columns else [])
+        return df.sort(columnas, descending=[True] + [False] * (len(columnas) - 1)).head(tope)
+
     def _filtros(**kv) -> dict:
         """Descarta las claves sin valor.
 
@@ -103,6 +162,69 @@ def get_precio_producto(
         incluirlo sin querer devolvería cero filas.
         """
         return {k: v for k, v in kv.items() if v is not None}
+
+    # ── Level 0: el mismo producto, este comprador ───────────────────────────
+    #
+    # Devuelve VARIAS filas: dentro de una categoría UNSPSC hay varios productos
+    # reales, y enseñarlos por separado es justamente la mejora. El contrato ya
+    # admite una lista (`resultado`), así que no hay cambio de forma.
+    #
+    # Se ordena por muestra descendente y se corta: una categoría amplia puede
+    # tener cientos de productos y la pantalla no los quiere todos. El corte va
+    # aquí y no en el endpoint para que la cuota de BI cubra siempre lo mismo.
+    if organismo_id:
+        df0 = _load(
+            "product_price_bands_L0.parquet",
+            filtros=_filtros(
+                codigoProductoONU=str(codigo_producto),
+                CodigoOrganismoPublico=str(organismo_id),
+                UnidadMedida=unidad_medida,
+            ),
+        )
+        if df0 is not None and "firma_producto" in df0.columns:
+            mask = (df0["codigoProductoONU"].cast(str) == str(codigo_producto)) & (
+                df0["CodigoOrganismoPublico"].cast(str) == str(organismo_id)
+            )
+            um = _unit_mask(df0)
+            if um is not None:
+                mask = mask & um
+            rows = df0.filter(mask)
+            if not rows.is_empty():
+                rows = _mejores(rows)
+                return {
+                    "disponible": True,
+                    "codigo_producto": codigo_producto,
+                    "resultado": _to_dicts(rows, COLS_L0),
+                    "total_registros": len(rows),
+                    "nivel_usado": "L0",
+                    "fallback": False,
+                }
+
+    # ── Level 0N: el mismo producto, cualquier comprador ─────────────────────
+    df0n = _load(
+        "product_price_bands_L0N.parquet",
+        filtros=_filtros(codigoProductoONU=str(codigo_producto), UnidadMedida=unidad_medida),
+    )
+    if df0n is not None and "firma_producto" in df0n.columns:
+        mask = df0n["codigoProductoONU"].cast(str) == str(codigo_producto)
+        um = _unit_mask(df0n)
+        if um is not None:
+            mask = mask & um
+        rows = df0n.filter(mask)
+        if not rows.is_empty():
+            rows = _mejores(rows)
+            return {
+                "disponible": True,
+                "codigo_producto": codigo_producto,
+                "resultado": _to_dicts(rows, COLS_L0N),
+                "total_registros": len(rows),
+                "nivel_usado": "L0N",
+                "fallback": True,
+                "fallback_motivo": (
+                    "sin datos de este comprador para estos productos — referencia nacional "
+                    "del mismo producto"
+                ),
+            }
 
     # ── Level 1: producto + organismo ────────────────────────────────────────
     if organismo_id:
