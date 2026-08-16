@@ -4,77 +4,121 @@ import { useState, useEffect, useCallback } from 'react';
 import TordoLogo from '@/components/TordoLogo';
 import Link from 'next/link';
 import {
-  CheckCircle2,
-  Bell,
   ArrowRight,
+  Bell,
+  CalendarClock,
   ChevronDown,
+  FileText,
   Menu,
+  Plug,
+  ShieldCheck,
+  TrendingUp,
+  Users,
   X,
-  Target,
-  DollarSign,
-  Sparkles,
-  FileClock,
 } from 'lucide-react';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
+import { MockupAviso } from '@/components/landing/MockupAviso';
+import { MockupComprador } from '@/components/landing/MockupComprador';
+import { MockupMatching } from '@/components/landing/MockupMatching';
 import { MockupPrecio } from '@/components/landing/MockupPrecio';
 import { MockupScore } from '@/components/landing/MockupScore';
-import { MockupMatching } from '@/components/landing/MockupMatching';
 
 /* ─────────────────────────────────────────────
-   DATA
+   Las bandas dibujan una distribución: el tono se profundiza hacia el centro y
+   el centro es el bloque de datos de ChileCompra. Es el mismo gesto que
+   P10·P25·P50·P75·P90 en PriceBandChart, y por eso el orden de las secciones
+   NO es libre: band4 → band3 → band2 → band1 → band2 → band3 → band4.
+   Si insertas una sección, mantén la simetría o el gesto se pierde.
    ───────────────────────────────────────────── */
 
 const navItems = [
-  { name: 'Beneficios', href: '#beneficios' },
-  { name: 'Cómo funciona', href: '#como-funciona' },
+  { name: 'El aviso', href: '#aviso' },
+  { name: 'Qué revisamos', href: '#mecanismos' },
+  { name: 'Antes de decidir', href: '#producto' },
   { name: 'Precios', href: '#precios' },
-  { name: 'FAQ', href: '#faq' },
 ];
 
-const rotatingRubros = [
-  'servicios de aseo',
-  'suministros médicos',
-  'tecnología',
-  'construcción',
-  'transporte',
-  'alimentación',
-  'mantención',
-  'seguridad',
-  'consultoría',
-  'equipamiento',
+const MECANISMOS = [
+  {
+    nombre: 'Licitación pública',
+    detalle: 'Los llamados abiertos, de L1 a LR. Los seguimos desde que se publican.',
+  },
+  {
+    nombre: 'Compra Ágil',
+    detalle:
+      'Compras bajo 30 UTM, rápidas y frecuentes. Tienen su propia API y ahí es donde muchas PYMES hacen su volumen.',
+  },
+  {
+    nombre: 'Licitación privada',
+    detalle: 'Cuando el organismo invita a proveedores específicos. También quedan publicadas.',
+  },
+  {
+    nombre: 'Convenio Marco',
+    detalle:
+      'Compras por catálogo. ChileCompra no las publica como llamado: sólo se ven por la orden de compra, y es la vía por la que las leemos.',
+  },
+];
+
+const CADENCIA = [
+  {
+    cuando: 'Cada hora',
+    icon: Bell,
+    que: 'Revisamos lo que se publicó y te avisamos si calza con lo que vendes.',
+  },
+  {
+    cuando: '48 y 24 h antes',
+    icon: CalendarClock,
+    que: 'Un recordatorio por cada cierre que estás siguiendo, para que no se te pase ninguno.',
+  },
+  {
+    cuando: 'Cada lunes, 9:00',
+    icon: FileText,
+    que: 'Tu semana en un correo, con el mismo informe en PDF adjunto para archivar o reenviar.',
+  },
+  {
+    cuando: 'Cuando cambia',
+    icon: TrendingUp,
+    que: 'Si sube el precio de algo que vendes, o si tu empresa deja de estar hábil en el Registro.',
+  },
 ];
 
 const faqs = [
   {
+    question: '¿De dónde salen los precios que me muestran?',
+    answer:
+      'De los archivos abiertos de órdenes de compra que publica ChileCompra. Son datos oficiales, gratuitos y verificables: cualquier cifra que te mostremos la puedes contrastar en Mercado Público. Procesamos desde 2010, unos 88 millones de líneas de compra, para calcular qué ha pagado cada comprador por cada producto.',
+  },
+  {
+    question: '¿Me van a decir exactamente cuánto cotizar?',
+    answer:
+      'No, y preferimos decirlo antes que después. Te mostramos el rango en que ese comprador ha adjudicado y cuán confiable es ese rango. En muchos productos el precio se mueve poco y el rango es estrecho; en otros el mismo comprador ha pagado cifras muy distintas por lo mismo — y eso también es información: significa que el precio probablemente no sea lo que decide esa adjudicación.',
+  },
+  {
     question: '¿Necesito algo de ChileCompra antes de usar TORDO?',
     answer:
-      'Sí. Para postular en Mercado Público tu empresa debe estar inscrita como proveedor en ChileCompra y mantener el "estado hábil" al día. TORDO no reemplaza ese registro — te ayuda a usar mejor la información una vez que ya eres proveedor, y revisa tu estado hábil diariamente para avisarte si algo cambia.',
+      'Sí. Para postular en Mercado Público tu empresa tiene que estar inscrita como proveedor y mantener el estado hábil al día. TORDO no reemplaza ese registro: te ayuda a usar mejor la información una vez que ya eres proveedor, y revisa tu estado hábil cada 6 horas para avisarte si cambia.',
   },
   {
     question: '¿Necesito experiencia en licitaciones?',
     answer:
-      'No. TORDO está diseñado para que cualquier empresa pueda entender una licitación y evaluar si le conviene postular, sin conocimiento previo del proceso.',
+      'No. Describes a qué se dedica tu empresa en tus propias palabras y nosotros nos encargamos del resto. No hay que aprenderse la taxonomía de rubros ni los tipos de llamado.',
   },
   {
-    question: '¿De dónde vienen los datos?',
+    question: '¿Cada cuánto me van a escribir?',
     answer:
-      'De los archivos públicos de órdenes de compra que publica ChileCompra. Son datos oficiales, gratuitos y verificables. Procesamos millones de transacciones para calcular rangos de precio por producto y comprador.',
-  },
-  {
-    question: '¿En qué se diferencia de otras herramientas?',
-    answer:
-      'La mayoría de las herramientas están diseñadas para equipos grandes con analistas dedicados. TORDO está pensado para el dueño de PYME que toma decisiones solo: simplifica la información para que entiendas rápido si conviene postular.',
+      'Depende de tu rubro, pero agrupamos: un correo por revisión con todo lo que apareció, no uno por licitación. Lo urgente —un cierre en 24 horas, un documento que vence, un cambio en tu estado hábil— sí sale al momento. Y puedes ajustar qué te llega desde Configuración.',
   },
 ];
 
 const FREE_PLAN = {
   name: 'Free',
-  description: 'Para explorar sin compromiso',
+  description: 'Para ver si esto te sirve',
   features: [
-    'Exploración de licitaciones',
-    '3 alertas al mes',
+    'Explora licitaciones, Compra Ágil y Convenio Marco',
+    '3 consultas de precio al día',
+    '5 alertas activas',
     'Monitor de estado hábil',
-    'Sin tarjeta de crédito',
+    '1 usuario · sin tarjeta',
   ],
   cta: 'Crear cuenta gratis',
   href: '/register',
@@ -82,69 +126,55 @@ const FREE_PLAN = {
 
 const PRO_PLAN = {
   name: 'Pro',
-  description: 'Inteligencia completa para ganar más',
+  description: 'Para cuando postular es parte del negocio',
   monthly: { price: '$11.900', period: '/mes', note: '' },
   annual: { price: '$9.900', period: '/mes', note: 'Facturado anual · ahorras 2 meses' },
   features: [
-    'Alertas ilimitadas',
-    'Benchmarks de precio por producto',
-    'Análisis de competidores',
+    'Consultas de precio sin límite',
+    'Perfil del comprador y competencia',
     'Score de oportunidad',
-    'Matching semántico',
-    'Checklist por tipo de licitación',
-    'Alertas de vencimiento de documentos',
+    'Matching semántico: encaje con lo que vendes',
+    'Informe semanal en PDF',
+    'Vigilancia de precios de tus productos',
+    'Checklist por tipo y hasta 200 documentos',
+    'Hasta 5 personas en el equipo',
   ],
   cta: 'Probar 14 días gratis',
   href: '/register',
 };
 
-/* ─────────────────────────────────────────────
-   ROTATING TEXT COMPONENT
-   ───────────────────────────────────────────── */
-
-function RotatingRubro() {
-  const [index, setIndex] = useState(0);
-  const [isVisible, setIsVisible] = useState(true);
-  const reducedMotion = usePrefersReducedMotion();
-
-  useEffect(() => {
-    if (reducedMotion) return;
-    const interval = setInterval(() => {
-      setIsVisible(false);
-      setTimeout(() => {
-        setIndex((prev) => (prev + 1) % rotatingRubros.length);
-        setIsVisible(true);
-      }, 300);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [reducedMotion]);
-
-  return (
-    <span
-      className={`inline text-accent bg-accent/15 px-3 py-0.5 rounded-lg transition-all duration-300 ${
-        isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
-      }`}
-      style={{ WebkitBoxDecorationBreak: 'clone', boxDecorationBreak: 'clone' }}
-    >
-      {rotatingRubros[index]}
-    </span>
-  );
-}
-
-/* ─────────────────────────────────────────────
-   PRODUCT DEMO TABS
-   ───────────────────────────────────────────── */
-
 const productTabs = [
   { id: 'precio', label: 'Precio de mercado' },
+  { id: 'comprador', label: 'El comprador' },
   { id: 'score', label: 'Score de oportunidad' },
-  { id: 'matching', label: 'Matching semántico' },
+  { id: 'matching', label: 'Encaje con lo que vendes' },
 ] as const;
 
 type TabId = (typeof productTabs)[number]['id'];
 
 /* ─────────────────────────────────────────────
-   MAIN PAGE
+   PIEZAS
+   ───────────────────────────────────────────── */
+
+function Eyebrow({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-accent">{children}</p>
+  );
+}
+
+function Titulo({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <h2
+      className={`text-3xl font-bold leading-tight text-text sm:text-4xl ${className}`}
+      style={{ fontFamily: 'var(--font-display, system-ui)' }}
+    >
+      {children}
+    </h2>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   PÁGINA
    ───────────────────────────────────────────── */
 
 export default function LandingClient() {
@@ -164,7 +194,7 @@ export default function LandingClient() {
         const idx = productTabs.findIndex((t) => t.id === prev);
         return productTabs[(idx + 1) % productTabs.length].id;
       });
-    }, 5000);
+    }, 6000);
     return () => clearInterval(interval);
   }, [userClicked, reducedMotion]);
 
@@ -180,53 +210,78 @@ export default function LandingClient() {
   }, []);
 
   return (
-    <div className="flex min-h-screen flex-col bg-surface" style={{ fontFamily: 'var(--font-dm-sans, system-ui)' }}>
-
+    <div
+      className="flex min-h-screen flex-col bg-surface"
+      style={{ fontFamily: 'var(--font-dm-sans, system-ui)' }}
+    >
       {/* ── Navbar ── */}
       <header className="sticky top-0 z-50 border-b border-border bg-surface/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/" className="flex items-center gap-2.5 shrink-0">
+          <Link href="/" className="flex shrink-0 items-center gap-2.5">
             <TordoLogo size={30} />
             <span
-              className="font-bold text-primary leading-none tracking-tight"
+              className="font-bold leading-none tracking-tight text-primary"
               style={{ fontFamily: 'var(--font-varien, system-ui)', fontSize: '1.875rem' }}
             >
               TORDO
             </span>
           </Link>
 
-          <nav className="hidden items-center gap-8 text-sm font-medium text-muted md:flex">
+          <nav className="hidden items-center gap-7 text-sm font-medium text-muted lg:flex">
             {navItems.map((item) => (
-              <Link key={item.name} href={item.href} className="transition-colors hover:text-primary">{item.name}</Link>
+              <Link key={item.name} href={item.href} className="transition-colors hover:text-primary">
+                {item.name}
+              </Link>
             ))}
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <Link href="/login" className="rounded-lg px-3 py-2 text-sm font-semibold text-muted transition-colors hover:text-primary">
+            <Link
+              href="/login"
+              className="rounded-lg px-3 py-2 text-sm font-semibold text-muted transition-colors hover:text-primary"
+            >
               Iniciar sesión
             </Link>
-            <Link href="/register" className="hidden sm:inline-flex rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-onAccent transition-all hover:bg-accentDark hover:shadow-md">
+            <Link
+              href="/register"
+              className="hidden rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-onAccent transition-all hover:bg-accentDark hover:shadow-md sm:inline-flex"
+            >
               Probar Pro 14 días
             </Link>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="rounded-lg p-2 text-muted hover:text-primary md:hidden"
+              className="rounded-lg p-2 text-muted hover:text-primary lg:hidden"
               aria-label={mobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
               aria-expanded={mobileMenuOpen}
               aria-controls="menu-movil"
             >
-              {mobileMenuOpen ? <X className="h-5 w-5" aria-hidden="true" /> : <Menu className="h-5 w-5" aria-hidden="true" />}
+              {mobileMenuOpen ? (
+                <X className="h-5 w-5" aria-hidden="true" />
+              ) : (
+                <Menu className="h-5 w-5" aria-hidden="true" />
+              )}
             </button>
           </div>
         </div>
 
         {mobileMenuOpen && (
-          <div id="menu-movil" className="border-t border-border bg-surface px-6 py-4 md:hidden">
+          <div id="menu-movil" className="border-t border-border bg-surface px-6 py-4 lg:hidden">
             <nav className="flex flex-col gap-3">
               {navItems.map((item) => (
-                <Link key={item.name} href={item.href} onClick={() => setMobileMenuOpen(false)} className="text-sm font-medium text-muted hover:text-primary">{item.name}</Link>
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-sm font-medium text-muted hover:text-primary"
+                >
+                  {item.name}
+                </Link>
               ))}
-              <Link href="/register" onClick={() => setMobileMenuOpen(false)} className="inline-flex items-center justify-center rounded-lg bg-accent px-4 py-2.5 text-sm font-bold text-onAccent transition-all hover:bg-accentDark">
+              <Link
+                href="/register"
+                onClick={() => setMobileMenuOpen(false)}
+                className="inline-flex items-center justify-center rounded-lg bg-accent px-4 py-2.5 text-sm font-bold text-onAccent transition-all hover:bg-accentDark"
+              >
                 Probar Pro 14 días
               </Link>
             </nav>
@@ -235,150 +290,177 @@ export default function LandingClient() {
       </header>
 
       <main className="flex-1">
-        {/* ── Hero ── */}
-        <section className="dark relative overflow-hidden bg-brand-navy px-6 py-14 sm:py-20 lg:py-24">
-          <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '28px 28px' }} />
+        {/* ── Hero ─────────────────────────────────────────────────────────
+            El titular es la pregunta que el usuario ya se hace, no una promesa
+            sobre nosotros. Y el mockup que va al lado la responde: abrir con la
+            pregunta y contestarla en el mismo golpe de vista es toda la tesis
+            del producto. */}
+        <section className="dark relative overflow-hidden bg-brand-navy px-6 py-16 sm:py-20 lg:py-24">
+          <div
+            className="absolute inset-0 opacity-[0.04]"
+            style={{
+              backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)',
+              backgroundSize: '28px 28px',
+            }}
+          />
           <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-accent/60 to-transparent" />
 
           <div className="relative mx-auto max-w-6xl">
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-12 lg:gap-8 items-center">
+            <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-5 lg:gap-10">
               <div className="lg:col-span-3">
-                <h1 className="mb-6 text-3xl font-bold leading-[1.15] text-white sm:text-5xl xl:text-[3.5rem]" style={{ fontFamily: 'var(--font-display, system-ui)' }}>
-                  <span className="block">Postula con ventaja</span>
-                  <span className="block">en licitaciones de</span>
-                  <span className="block" style={{ minHeight: '1.1em' }}>
-                    {/* El rubro rota cada 3 s. Sin esto, el encabezado principal
-                        que ven crawlers y lectores de pantalla era una frase
-                        incompleta con un rubro al azar de diez. El texto estable
-                        va al árbol de accesibilidad; la rotación es decorativa. */}
-                    <span className="sr-only">Mercado Público</span>
-                    <span aria-hidden="true">
-                      <RotatingRubro />
-                    </span>
-                  </span>
+                <p className="mb-5 text-xs font-semibold uppercase tracking-[0.18em] text-accent">
+                  Datos públicos de ChileCompra · 2010–2026
+                </p>
+
+                <h1
+                  className="mb-6 text-4xl font-bold leading-[1.08] text-white sm:text-5xl xl:text-[3.75rem]"
+                  style={{ fontFamily: 'var(--font-display, system-ui)' }}
+                >
+                  ¿A cuánto se
+                  <br />
+                  adjudica esto?
                 </h1>
 
-                <p className="mb-8 max-w-xl text-lg text-white/65 leading-relaxed">
-                  Descubre a qué precio cotizar, en qué licitaciones vale la pena participar y cuáles se ajustan a lo que vendes — sin adivinar.
+                <p className="mb-8 max-w-xl text-lg leading-relaxed text-white/70">
+                  Es lo primero que te preguntas antes de armar una oferta. Te respondemos con lo
+                  que ese comprador pagó de verdad — y te avisamos por correo cuando aparece algo
+                  que vendes.
                 </p>
 
-                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-10 sm:mb-12">
-                  <Link href="/register" className="inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-6 py-3.5 text-sm font-bold text-onAccent shadow-lg transition-all hover:bg-accentDark hover:shadow-xl">
-                    Probar Pro 14 días
-                    <ArrowRight className="h-4 w-4" />
+                <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:gap-4">
+                  <Link
+                    href="/register"
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-6 py-3.5 text-sm font-bold text-onAccent shadow-lg transition-all hover:bg-accentDark hover:shadow-xl"
+                  >
+                    Crear cuenta gratis
+                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </Link>
-                  <Link href="#producto" className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/[0.08] px-6 py-3.5 text-sm font-semibold text-white/90 backdrop-blur-sm transition-all hover:bg-white/15">
-                    Ver el producto
+                  <Link
+                    href="#aviso"
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/[0.08] px-6 py-3.5 text-sm font-semibold text-white/90 backdrop-blur-sm transition-all hover:bg-white/15"
+                  >
+                    Ver un aviso
                   </Link>
                 </div>
 
-                {/* Trust line */}
-                <p className="text-xs text-white/60 mb-6">
-                  Sin tarjeta · Cancela cuando quieras
+                <p className="text-xs text-white/60">
+                  14 días de Pro incluidos. Sin tarjeta, y cancelas cuando quieras.
                 </p>
               </div>
 
-              <div className="lg:col-span-2 flex flex-col items-center justify-center gap-3">
-                <div className="w-full max-w-md animate-float rounded-xl" style={{ boxShadow: '0 20px 60px rgba(61,185,187,0.15)' }}>
+              <div className="flex flex-col items-center justify-center gap-3 lg:col-span-2">
+                <div
+                  className="w-full max-w-md animate-float rounded-xl"
+                  style={{ boxShadow: '0 20px 60px rgba(61,185,187,0.15)' }}
+                >
                   <MockupPrecio />
                 </div>
-                <p className="flex items-center gap-1.5 text-xs text-white/60 self-end pr-1">
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
-                  Fuente oficial: datos públicos de ChileCompra
-                </p>
               </div>
             </div>
           </div>
         </section>
 
-        {/* ── Benefits ── */}
-        <section className="bg-band4 px-6 py-16 sm:py-20" id="beneficios">
+        {/* ── El aviso · band4 ─────────────────────────────────────────────
+            Es el elemento firma. El producto se juega en el correo: es lo único
+            que el usuario ve los días que no entra. */}
+        <section id="aviso" className="bg-band4 px-6 py-16 sm:py-20">
           <div className="mx-auto max-w-5xl">
-            <div className="mb-14 text-center">
-              <p className="mb-3 text-xs font-bold uppercase tracking-widest text-accent">
-                QUÉ HACE TORDO
-              </p>
-              <h2 className="text-3xl font-bold text-text sm:text-4xl" style={{ fontFamily: 'var(--font-display, system-ui)' }}>
-                Inteligencia para decidir. Orden para postular.
-              </h2>
-              <p className="mt-4 max-w-2xl mx-auto text-muted leading-relaxed">
-                Te mostramos si tu precio es competitivo y qué tan confiable es el comprador — antes de que inviertas tiempo postulando.
+            <div className="mb-12 max-w-2xl">
+              <Eyebrow>El aviso</Eyebrow>
+              <Titulo>No tienes que entrar a mirar.</Titulo>
+              <p className="mt-4 leading-relaxed text-muted">
+                Revisamos Mercado Público cada hora. Cuando aparece algo que calza con lo que
+                vendes, te llega un correo — y el precio, la competencia y los plazos vienen
+                dentro del mismo aviso.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-0">
-              <div className="lg:pr-10 lg:border-r lg:border-border">
-                <div className="mb-6">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-accent mb-1">ANTES DE POSTULAR</p>
-                  <h3 className="text-xl font-bold text-text" style={{ fontFamily: 'var(--font-display, system-ui)' }}>
-                    Entiende si conviene
-                  </h3>
-                </div>
-                <div className="space-y-5">
-                  {[
-                    { icon: DollarSign, title: 'Precio de mercado', desc: 'Mediana y rango de adjudicación de los productos que vendes.' },
-                    { icon: Target, title: 'Score de oportunidad', desc: 'Las licitaciones que valen tu tiempo, ordenadas por probabilidad de éxito.' },
-                    { icon: Sparkles, title: 'Matching semántico', desc: 'Detectamos licitaciones afines aunque usen otras palabras.' },
-                  ].map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <div key={item.title} className="flex gap-4 group">
-                        <div className="mt-0.5 flex-shrink-0 h-9 w-9 rounded-lg bg-primary/[0.07] flex items-center justify-center group-hover:bg-accent/10 transition-colors">
-                          <Icon className="h-4 w-4 text-primary group-hover:text-accent transition-colors" />
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-bold text-text" style={{ fontFamily: 'var(--font-display, system-ui)' }}>{item.title}</h4>
-                          <p className="text-sm text-muted leading-relaxed">{item.desc}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+            <div className="grid items-start gap-8 lg:grid-cols-12 lg:gap-10">
+              <div className="lg:col-span-7">
+                <MockupAviso />
               </div>
 
-              <div className="lg:pl-10">
-                <div className="mb-6">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-accent mb-1">AL POSTULAR</p>
-                  <h3 className="text-xl font-bold text-text" style={{ fontFamily: 'var(--font-display, system-ui)' }}>
-                    No pierdas por forma
-                  </h3>
-                </div>
-                <div className="space-y-5">
-                  {[
-                    { icon: Bell, title: 'Te avisamos por correo cuando aparece algo que te conviene', desc: 'Con el precio de referencia y la competencia dentro del mismo aviso, y otro 48 y 24 h antes del cierre.' },
-                    { icon: CheckCircle2, title: 'Papeles al día sin adivinar', desc: 'Plantilla de documentos según el tipo de licitación (L1, LE, LP).' },
-                    { icon: FileClock, title: 'No pierdas por un documento vencido', desc: 'Te avisamos antes de que caduque un certificado, garantía o boleta.' },
-                  ].map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <div key={item.title} className="flex gap-4 group">
-                        <div className="mt-0.5 flex-shrink-0 h-9 w-9 rounded-lg bg-primary/[0.07] flex items-center justify-center group-hover:bg-accent/10 transition-colors">
-                          <Icon className="h-4 w-4 text-primary group-hover:text-accent transition-colors" />
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-bold text-text" style={{ fontFamily: 'var(--font-display, system-ui)' }}>{item.title}</h4>
-                          <p className="text-sm text-muted leading-relaxed">{item.desc}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
+              <div className="space-y-6 lg:col-span-5">
+                {[
+                  {
+                    titulo: 'El rango, no una corazonada',
+                    texto:
+                      'Lo que ese comprador ha pagado por ese producto, con los datos de las órdenes de compra reales.',
+                  },
+                  {
+                    titulo: 'Contra quién compites',
+                    texto:
+                      'Cuántos proveedores le venden habitualmente a ese organismo, y quiénes se repiten.',
+                  },
+                  {
+                    titulo: 'A cuántos días paga',
+                    texto:
+                      'Porque ganar una licitación que te paga a 90 días puede ser un problema, no un premio.',
+                  },
+                ].map((item) => (
+                  <div key={item.titulo} className="border-l-2 border-accent/40 pl-4">
+                    <h3 className="text-sm font-bold text-text">{item.titulo}</h3>
+                    <p className="mt-1 text-sm leading-relaxed text-muted">{item.texto}</p>
+                  </div>
+                ))}
+
+                <div className="rounded-xl border border-border bg-surface p-4">
+                  <p className="text-sm leading-relaxed text-muted">
+                    <span className="font-semibold text-text">Si no lo sabemos, no lo decimos.</span>{' '}
+                    Cuando no hay suficientes compras de ese producto para dar un rango confiable,
+                    esa línea no aparece. Preferimos escribir menos que inventar un número.
+                  </p>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* ── Product Demo ── */}
-        <section id="producto" className="bg-band3 px-6 py-16 sm:py-20">
+        {/* ── Qué revisamos · band3 ── */}
+        <section id="mecanismos" className="bg-band3 px-6 py-16 sm:py-20">
           <div className="mx-auto max-w-5xl">
-            <div className="mb-12 text-center">
-              <p className="mb-3 text-xs font-bold uppercase tracking-widest text-accent">EL PRODUCTO</p>
-              <h2 className="text-3xl font-bold text-text sm:text-4xl" style={{ fontFamily: 'var(--font-display, system-ui)' }}>
-                Así se ve tomar mejores decisiones
-              </h2>
+            <div className="mb-10 max-w-2xl">
+              <Eyebrow>Qué revisamos</Eyebrow>
+              <Titulo>Licitaciones, sí. Y también Compra Ágil y Convenio Marco.</Titulo>
+              <p className="mt-4 leading-relaxed text-muted">
+                Cerca de la mitad de lo que compra el Estado no es una licitación grande. Si tu
+                negocio son montos chicos y frecuentes, es justo ahí donde está tu mercado — y es
+                lo que casi nadie te muestra.
+              </p>
             </div>
 
-            <div className="flex flex-wrap justify-center gap-3 mb-10" role="tablist" aria-label="Funcionalidades del producto">
+            <div className="grid gap-4 sm:grid-cols-2">
+              {MECANISMOS.map((m) => (
+                <div
+                  key={m.nombre}
+                  className="rounded-xl border border-border bg-surface p-5 transition-shadow hover:shadow-md"
+                >
+                  <h3
+                    className="text-base font-bold text-text"
+                    style={{ fontFamily: 'var(--font-display, system-ui)' }}
+                  >
+                    {m.nombre}
+                  </h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted">{m.detalle}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── Antes de decidir · band2 ── */}
+        <section id="producto" className="bg-band2 px-6 py-16 sm:py-20">
+          <div className="mx-auto max-w-5xl">
+            <div className="mb-10 text-center">
+              <Eyebrow>Antes de decidir</Eyebrow>
+              <Titulo>Cuatro cosas que cambian tu oferta</Titulo>
+            </div>
+
+            <div
+              className="mb-10 flex flex-wrap justify-center gap-2.5"
+              role="tablist"
+              aria-label="Lo que muestra el producto"
+            >
               {productTabs.map((tab) => (
                 <button
                   key={tab.id}
@@ -389,10 +471,10 @@ export default function LandingClient() {
                   aria-controls={`panel-${tab.id}`}
                   tabIndex={activeTab === tab.id ? 0 : -1}
                   onClick={() => handleTabClick(tab.id)}
-                  className={`rounded-full px-5 py-2.5 text-sm font-semibold transition-all ${
+                  className={`rounded-full px-4 py-2.5 text-sm font-semibold transition-all sm:px-5 ${
                     activeTab === tab.id
                       ? 'bg-primary text-onPrimary shadow-md'
-                      : 'border border-border text-muted hover:border-primary/30 bg-surface'
+                      : 'border border-border bg-surface text-muted hover:border-primary/30'
                   }`}
                 >
                   {tab.label}
@@ -400,7 +482,7 @@ export default function LandingClient() {
               ))}
             </div>
 
-            <div className="max-w-2xl mx-auto">
+            <div className="mx-auto max-w-2xl">
               {productTabs.map((tab) => (
                 <div
                   key={tab.id}
@@ -410,6 +492,7 @@ export default function LandingClient() {
                   hidden={activeTab !== tab.id}
                 >
                   {tab.id === 'precio' && <MockupPrecio />}
+                  {tab.id === 'comprador' && <MockupComprador />}
                   {tab.id === 'score' && <MockupScore />}
                   {tab.id === 'matching' && <MockupMatching />}
                 </div>
@@ -417,131 +500,191 @@ export default function LandingClient() {
             </div>
 
             <div className="mt-10 text-center">
-              <Link href="/register" className="inline-flex items-center gap-2 rounded-lg bg-accent px-6 py-3.5 text-sm font-bold text-onAccent shadow-lg transition-all hover:bg-accentDark hover:shadow-xl">
+              <Link
+                href="/register"
+                className="inline-flex items-center gap-2 rounded-lg bg-accent px-6 py-3.5 text-sm font-bold text-onAccent shadow-lg transition-all hover:bg-accentDark hover:shadow-xl"
+              >
                 Quiero ver esto con mis datos
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Link>
             </div>
           </div>
         </section>
 
-        {/* ── How It Works ── */}
-        <section id="como-funciona" className="bg-band2 px-6 py-16 sm:py-20">
-          <div className="mx-auto max-w-5xl">
-            <div className="mb-12 text-center">
-              <p className="mb-3 text-xs font-bold uppercase tracking-widest text-accent">CÓMO EMPEZAR</p>
-              <h2 className="text-3xl font-bold text-text sm:text-4xl" style={{ fontFamily: 'var(--font-display, system-ui)' }}>
-                Tu primera licitación analizada en minutos
-              </h2>
-            </div>
-
-            <div className="grid gap-8 md:grid-cols-3 relative">
-              <div className="hidden md:block absolute top-6 left-[calc(16.67%+24px)] right-[calc(16.67%+24px)] h-px bg-gradient-to-r from-primary/20 via-accent/30 to-primary/20" />
-              {[
-                { step: '01', title: 'Registra tu empresa', desc: 'Ingresa tu RUT y rubros. Verificamos tu estado hábil automáticamente.' },
-                { step: '02', title: 'Explora oportunidades', desc: 'Encuentra licitaciones que calzan con tu perfil, cada una con su score de oportunidad.' },
-                { step: '03', title: 'Postula informado', desc: 'Revisa precios históricos, competidores y prepara tu documentación con el checklist.' },
-              ].map((s) => (
-                <div key={s.step} className="relative">
-                  <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-onPrimary font-bold text-lg relative z-10" style={{ fontFamily: 'var(--font-display, system-ui)' }}>
-                    {s.step}
-                  </div>
-                  <h3 className="mb-2 text-xl font-bold text-text" style={{ fontFamily: 'var(--font-display, system-ui)' }}>{s.title}</h3>
-                  <p className="text-sm text-muted leading-relaxed">{s.desc}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ── Data Trust ── */}
+        {/* ── El dato · band1 ───────────────────────────────────────────────
+            El centro de la distribución. La marca de la mediana cae justo aquí
+            a propósito: este bloque es la prueba del diferenciador. */}
         <section className="relative bg-band1 px-6 py-20 sm:py-24">
-          {/* La marca de la mediana. Un degradado de 1px se pierde sobre fondo
-              claro, así que se usa el lenguaje del propio PriceBandChart: la
-              línea del rango y el punto que marca el P50 encima. Cae justo
-              aquí a propósito — este bloque es la prueba del diferenciador. */}
-          <div aria-hidden="true" className="absolute top-0 left-0 right-0">
+          <div aria-hidden="true" className="absolute left-0 right-0 top-0">
             <div className="h-px bg-gradient-to-r from-transparent via-accent/45 to-transparent" />
-            <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-accent" />
+            <div className="absolute left-1/2 top-0 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent" />
           </div>
           <div className="mx-auto max-w-5xl">
-            <p className="text-center text-xs font-bold uppercase tracking-widest text-accent mb-10">
+            <p className="mb-10 text-center text-xs font-bold uppercase tracking-[0.18em] text-accent">
               Construido sobre datos públicos de ChileCompra
             </p>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-6">
+            <div className="grid grid-cols-2 gap-8 sm:gap-6 lg:grid-cols-4">
               {[
-                { value: '+3.2M', label: 'transacciones analizadas' },
-                { value: '8 años', label: 'de historial de compras' },
+                { value: '88M', label: 'líneas de compra procesadas' },
+                { value: '16 años', label: 'de historial, desde 2010' },
                 { value: '722K', label: 'bandas de precio calculadas' },
                 { value: '97K', label: 'proveedores perfilados' },
               ].map((item) => (
                 <div key={item.value} className="text-center">
-                  <p className="cifra text-3xl font-bold text-primary sm:text-4xl lg:text-5xl">{item.value}</p>
-                  <p className="mt-2 text-sm text-muted leading-snug">{item.label}</p>
+                  <p className="cifra text-3xl font-bold text-primary sm:text-4xl lg:text-5xl">
+                    {item.value}
+                  </p>
+                  <p className="mt-2 text-sm leading-snug text-muted">{item.label}</p>
                 </div>
               ))}
+            </div>
+            <p className="mx-auto mt-10 max-w-xl text-center text-sm leading-relaxed text-muted">
+              Son los archivos abiertos que publica ChileCompra. Cualquier cifra que te mostremos
+              la puedes contrastar tú mismo en Mercado Público.
+            </p>
+          </div>
+        </section>
+
+        {/* ── Mientras trabajas en otra cosa · band2 ────────────────────────
+            El dispositivo estructural es la CADENCIA, no un 01/02/03: cada
+            tarjeta dice cuándo pasa algo, y ese «cuándo» es información real
+            sobre el producto (ETL horario, recordatorios, informe del lunes). */}
+        <section className="bg-band2 px-6 py-16 sm:py-20">
+          <div className="mx-auto max-w-5xl">
+            <div className="mb-10 max-w-2xl">
+              <Eyebrow>Mientras trabajas en otra cosa</Eyebrow>
+              <Titulo>El lunes ya sabes cómo viene tu semana</Titulo>
+              <p className="mt-4 leading-relaxed text-muted">
+                No hace falta que entres todos los días. TORDO trabaja con un calendario propio y
+                te busca a ti cuando hay algo que decidir.
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {CADENCIA.map((c) => {
+                const Icon = c.icon;
+                return (
+                  <div
+                    key={c.cuando}
+                    className="flex gap-4 rounded-xl border border-border bg-surface p-5"
+                  >
+                    <div className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-primary/[0.07]">
+                      <Icon className="h-4 w-4 text-primary" aria-hidden="true" />
+                    </div>
+                    <div>
+                      <p className="cifra text-sm font-bold text-text">{c.cuando}</p>
+                      <p className="mt-1 text-sm leading-relaxed text-muted">{c.que}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Equipo e integración: dos capacidades construidas que no
+                aparecían en ninguna parte de la página. */}
+            <div className="mt-8 grid gap-4 sm:grid-cols-2">
+              <div className="flex gap-4 rounded-xl border border-border bg-surface p-5">
+                <div className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-accent/10">
+                  <Users className="h-4 w-4 text-accent" aria-hidden="true" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-text">Tu equipo, con permisos</p>
+                  <p className="mt-1 text-sm leading-relaxed text-muted">
+                    Invita a quien prepara las ofertas y a quien las firma, cada uno con lo que le
+                    toca ver. Si manejas varias empresas, cambias entre ellas sin cerrar sesión.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-4 rounded-xl border border-border bg-surface p-5">
+                <div className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-accent/10">
+                  <Plug className="h-4 w-4 text-accent" aria-hidden="true" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-text">Conéctalo a lo que ya usas</p>
+                  <p className="mt-1 text-sm leading-relaxed text-muted">
+                    API documentada con claves propias, y un servidor MCP para consultar los
+                    precios desde tu asistente de IA sin copiar y pegar nada.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* ── Pricing ── */}
-        <section id="precios" className="bg-band2 px-6 py-16 sm:py-20">
+        {/* ── Precios · band3 ── */}
+        <section id="precios" className="bg-band3 px-6 py-16 sm:py-20">
           <div className="mx-auto max-w-5xl">
             <div className="mb-12 text-center">
-              <p className="mb-3 text-xs font-bold uppercase tracking-widest text-accent">PLANES</p>
-              <h2 className="text-3xl font-bold text-text sm:text-4xl" style={{ fontFamily: 'var(--font-display, system-ui)' }}>
-                Empieza gratis. Crece cuando quieras.
-              </h2>
-              <p className="mt-4 text-muted">
-                Precios en CLP. Sin contratos. Cancela cuando quieras.
-              </p>
+              <Eyebrow>Planes</Eyebrow>
+              <Titulo>Empieza gratis. Sube cuando te convenga.</Titulo>
+              <p className="mt-4 text-muted">Precios en CLP. Sin contratos, cancelas cuando quieras.</p>
             </div>
 
             <div className="mx-auto grid max-w-3xl gap-5 sm:grid-cols-2">
-              {/* Free card */}
-              <div className="relative flex flex-col rounded-xl border border-border bg-surface p-6 shadow-sm transition-all hover:shadow-md hover:border-primary/25">
+              {/* Free */}
+              <div className="relative flex flex-col rounded-xl border border-border bg-surface p-6 shadow-sm transition-all hover:border-primary/25 hover:shadow-md">
                 <div className="mb-4">
-                  <h3 className="text-lg font-bold mb-1 text-text" style={{ fontFamily: 'var(--font-display, system-ui)' }}>{FREE_PLAN.name}</h3>
+                  <h3
+                    className="mb-1 text-lg font-bold text-text"
+                    style={{ fontFamily: 'var(--font-display, system-ui)' }}
+                  >
+                    {FREE_PLAN.name}
+                  </h3>
                   <p className="text-xs text-muted">{FREE_PLAN.description}</p>
                 </div>
                 <div className="mb-1">
-                  <span className="font-bold text-3xl text-text" style={{ fontFamily: 'var(--font-display, system-ui)' }}>$0</span>
+                  <span
+                    className="text-3xl font-bold text-text"
+                    style={{ fontFamily: 'var(--font-display, system-ui)' }}
+                  >
+                    $0
+                  </span>
                 </div>
                 <div className="mb-4 h-4" />
                 <ul className="mb-6 flex-1 space-y-2.5">
                   {FREE_PLAN.features.map((f) => (
                     <li key={f} className="flex items-start gap-2 text-sm">
-                      <span className="mt-0.5 text-xs text-accent">&#10003;</span>
+                      <span className="mt-0.5 text-xs text-accent" aria-hidden="true">
+                        &#10003;
+                      </span>
                       <span className="text-muted">{f}</span>
                     </li>
                   ))}
                 </ul>
                 <Link
                   href={FREE_PLAN.href}
-                  className="block rounded-lg py-2.5 text-center text-sm font-bold transition-all border border-primary text-primary hover:bg-primary hover:text-onPrimary"
+                  className="block rounded-lg border border-primary py-2.5 text-center text-sm font-bold text-primary transition-all hover:bg-primary hover:text-onPrimary"
                 >
                   {FREE_PLAN.cta}
                 </Link>
               </div>
 
-              {/* Pro card */}
+              {/* Pro */}
               <div className="dark relative flex flex-col rounded-xl border border-brand-navy bg-brand-navy p-6 text-white shadow-xl">
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-accent px-3 py-1 text-[11px] font-bold text-onAccent whitespace-nowrap">Más elegido</span>
+                  <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-accent px-3 py-1 text-[11px] font-bold text-onAccent">
+                    Más elegido
+                  </span>
                 </div>
 
                 <div className="mb-4">
-                  <h3 className="text-lg font-bold mb-1 text-white" style={{ fontFamily: 'var(--font-display, system-ui)' }}>{PRO_PLAN.name}</h3>
+                  <h3
+                    className="mb-1 text-lg font-bold text-white"
+                    style={{ fontFamily: 'var(--font-display, system-ui)' }}
+                  >
+                    {PRO_PLAN.name}
+                  </h3>
                   <p className="text-xs text-white/60">{PRO_PLAN.description}</p>
                 </div>
 
-                {/* Monthly / Annual toggle */}
                 <div className="mb-4 inline-flex self-start rounded-lg bg-white/10 p-1 text-xs font-semibold">
                   <button
                     type="button"
                     onClick={() => setBillingPeriod('monthly')}
                     className={`rounded-md px-3 py-1.5 transition-all ${
-                      billingPeriod === 'monthly' ? 'bg-white text-brand-navy' : 'text-white/70 hover:text-white'
+                      billingPeriod === 'monthly'
+                        ? 'bg-white text-brand-navy'
+                        : 'text-white/70 hover:text-white'
                     }`}
                   >
                     Mensual
@@ -550,7 +693,9 @@ export default function LandingClient() {
                     type="button"
                     onClick={() => setBillingPeriod('annual')}
                     className={`rounded-md px-3 py-1.5 transition-all ${
-                      billingPeriod === 'annual' ? 'bg-white text-brand-navy' : 'text-white/70 hover:text-white'
+                      billingPeriod === 'annual'
+                        ? 'bg-white text-brand-navy'
+                        : 'text-white/70 hover:text-white'
                     }`}
                   >
                     Anual <span className="ml-1 text-[10px] text-accent">−17%</span>
@@ -558,26 +703,31 @@ export default function LandingClient() {
                 </div>
 
                 <div className="mb-1">
-                  <span className="font-bold text-3xl text-white" style={{ fontFamily: 'var(--font-display, system-ui)' }}>
+                  <span
+                    className="cifra text-3xl font-bold text-white"
+                    style={{ fontFamily: 'var(--font-display, system-ui)' }}
+                  >
                     {PRO_PLAN[billingPeriod].price}
                   </span>
                   <span className="text-sm text-white/60">{PRO_PLAN[billingPeriod].period}</span>
                 </div>
-                <p className="mb-4 text-xs text-white/60 min-h-[1rem]">
+                <p className="mb-4 min-h-[1rem] text-xs text-white/60">
                   {PRO_PLAN[billingPeriod].note}
                 </p>
 
                 <ul className="mb-6 flex-1 space-y-2.5">
                   {PRO_PLAN.features.map((f) => (
                     <li key={f} className="flex items-start gap-2 text-sm">
-                      <span className="mt-0.5 text-xs text-accent">&#10003;</span>
+                      <span className="mt-0.5 text-xs text-accent" aria-hidden="true">
+                        &#10003;
+                      </span>
                       <span className="text-white/80">{f}</span>
                     </li>
                   ))}
                 </ul>
                 <Link
                   href={PRO_PLAN.href}
-                  className="block rounded-lg py-2.5 text-center text-sm font-bold transition-all bg-accent text-onAccent hover:bg-accentDark"
+                  className="block rounded-lg bg-accent py-2.5 text-center text-sm font-bold text-onAccent transition-all hover:bg-accentDark"
                 >
                   {PRO_PLAN.cta}
                 </Link>
@@ -585,25 +735,31 @@ export default function LandingClient() {
             </div>
 
             <p className="mt-6 text-center text-sm text-muted">
-              ¿Equipos o múltiples RUTs?{' '}
-              <Link href="#contacto" className="font-semibold text-primary hover:text-accent transition-colors">
-                Hablemos →
-              </Link>
+              ¿Varias empresas o un equipo más grande? Escríbenos a{' '}
+              <a
+                href="mailto:hola@tordo.cl"
+                className="font-semibold text-primary transition-colors hover:text-accent"
+              >
+                hola@tordo.cl
+              </a>
             </p>
           </div>
         </section>
 
-        {/* ── FAQ ── */}
-        <section id="faq" className="bg-band3 px-6 py-16 sm:py-20">
+        {/* ── FAQ · band4 ── */}
+        <section id="faq" className="bg-band4 px-6 py-16 sm:py-20">
           <div className="mx-auto max-w-2xl">
-            <div className="mb-12 text-center">
-              <h2 className="text-3xl font-bold text-text sm:text-4xl" style={{ fontFamily: 'var(--font-display, system-ui)' }}>
-                Preguntas frecuentes
-              </h2>
+            <div className="mb-10 text-center">
+              <Titulo>Preguntas frecuentes</Titulo>
             </div>
             <div className="space-y-3">
               {faqs.map((faq, i) => (
-                <div key={i} className={`rounded-xl border border-border bg-surface transition-shadow ${openFaq === i ? 'shadow-md' : ''}`}>
+                <div
+                  key={faq.question}
+                  className={`rounded-xl border border-border bg-surface transition-shadow ${
+                    openFaq === i ? 'shadow-md' : ''
+                  }`}
+                >
                   <button
                     type="button"
                     id={`faq-boton-${i}`}
@@ -613,7 +769,12 @@ export default function LandingClient() {
                     className="flex w-full cursor-pointer items-center justify-between gap-4 px-5 py-4 text-left text-sm font-semibold text-text hover:text-primary"
                   >
                     <span>{faq.question}</span>
-                    <ChevronDown aria-hidden="true" className={`h-4 w-4 shrink-0 text-subtle transition-transform duration-200 ${openFaq === i ? 'rotate-180' : ''}`} />
+                    <ChevronDown
+                      aria-hidden="true"
+                      className={`h-4 w-4 shrink-0 text-subtle transition-transform duration-200 ${
+                        openFaq === i ? 'rotate-180' : ''
+                      }`}
+                    />
                   </button>
                   <div
                     id={`faq-panel-${i}`}
@@ -622,7 +783,7 @@ export default function LandingClient() {
                     hidden={openFaq !== i}
                     className="border-t border-border px-5 py-4"
                   >
-                    <p className="text-sm text-muted leading-relaxed">{faq.answer}</p>
+                    <p className="text-sm leading-relaxed text-muted">{faq.answer}</p>
                   </div>
                 </div>
               ))}
@@ -630,24 +791,37 @@ export default function LandingClient() {
           </div>
         </section>
 
-        {/* ── Final CTA ── */}
-        <section id="contacto" className="dark relative bg-brand-navy px-6 py-20 overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-accent/60 to-transparent" />
-          <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '28px 28px' }} />
+        {/* ── CTA final ── */}
+        <section className="dark relative overflow-hidden bg-brand-navy px-6 py-20">
+          <div className="absolute left-0 right-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/60 to-transparent" />
+          <div
+            className="absolute inset-0 opacity-[0.04]"
+            style={{
+              backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)',
+              backgroundSize: '28px 28px',
+            }}
+          />
 
           <div className="relative mx-auto max-w-2xl text-center">
             <div className="mb-6 flex justify-center">
               <TordoLogo size={40} variant="blanco" />
             </div>
-            <h2 className="mb-4 text-3xl font-bold text-white sm:text-4xl" style={{ fontFamily: 'var(--font-display, system-ui)' }}>
-              Tu próxima licitación, con mejor información
+            <h2
+              className="mb-4 text-3xl font-bold text-white sm:text-4xl"
+              style={{ fontFamily: 'var(--font-display, system-ui)' }}
+            >
+              La próxima que postules, ya sabrás a cuánto
             </h2>
-            <p className="mb-8 text-white/65 leading-relaxed">
-              Cuenta gratis en 2 minutos. Sin tarjeta.
+            <p className="mb-8 leading-relaxed text-white/70">
+              Creas la cuenta en dos minutos y describes a qué te dedicas. Del resto nos
+              encargamos nosotros.
             </p>
-            <Link href="/register" className="inline-flex items-center gap-2 rounded-lg bg-accent px-8 py-4 text-base font-bold text-onAccent shadow-lg transition-all hover:bg-accentDark hover:shadow-xl">
-              Probar Pro 14 días
-              <ArrowRight className="h-4 w-4" />
+            <Link
+              href="/register"
+              className="inline-flex items-center gap-2 rounded-lg bg-accent px-8 py-4 text-base font-bold text-onAccent shadow-lg transition-all hover:bg-accentDark hover:shadow-xl"
+            >
+              Crear cuenta gratis
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           </div>
         </section>
@@ -659,26 +833,50 @@ export default function LandingClient() {
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <div className="flex items-center gap-2.5">
               <TordoLogo size={20} />
-              <span className="text-sm font-bold text-primary tracking-tight" style={{ fontFamily: 'var(--font-varien, system-ui)' }}>TORDO</span>
+              <span
+                className="text-sm font-bold tracking-tight text-primary"
+                style={{ fontFamily: 'var(--font-varien, system-ui)' }}
+              >
+                TORDO
+              </span>
             </div>
-            <p className="text-xs text-subtle">© 2026 TORDO · Inteligencia para Mercado Público · Chile</p>
-            <div className="flex gap-5 text-xs text-subtle">
-              <Link href="/login" className="hover:text-primary transition-colors">Iniciar sesión</Link>
-              <Link href="/register" className="hover:text-primary transition-colors">Registrarse</Link>
+            <div className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs text-subtle">
+              <Link href="/terminos" className="transition-colors hover:text-primary">
+                Términos
+              </Link>
+              <Link href="/privacidad" className="transition-colors hover:text-primary">
+                Privacidad
+              </Link>
+              <a href="mailto:hola@tordo.cl" className="transition-colors hover:text-primary">
+                Contacto
+              </a>
+              <Link href="/login" className="transition-colors hover:text-primary">
+                Iniciar sesión
+              </Link>
             </div>
           </div>
-          <p className="mt-4 text-center text-[10px] text-subtle/70">
-            Datos de licitaciones y órdenes de compra de fuentes públicas de ChileCompra. TORDO no está afiliado al gobierno de Chile.
-          </p>
+          <div className="mt-5 flex flex-col items-center gap-2 border-t border-border pt-5">
+            <p className="flex items-center gap-1.5 text-[11px] text-subtle">
+              <ShieldCheck className="h-3 w-3" aria-hidden="true" />
+              Datos de licitaciones y órdenes de compra de fuentes públicas de ChileCompra
+            </p>
+            <p className="text-center text-[10px] text-subtle/70">
+              © 2026 TORDO · Inteligencia para Mercado Público · Chile · No estamos afiliados al
+              gobierno de Chile
+            </p>
+          </div>
         </div>
       </footer>
 
-      {/* ── Sticky Mobile CTA ── */}
+      {/* ── CTA fija en móvil ── */}
       {showMobileCta && (
         <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-surface px-4 py-3 lg:hidden">
-          <Link href="/register" className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-6 py-3 text-sm font-bold text-onAccent transition-all hover:bg-accentDark">
-            Probar Pro 14 días
-            <ArrowRight className="h-4 w-4" />
+          <Link
+            href="/register"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-6 py-3 text-sm font-bold text-onAccent transition-all hover:bg-accentDark"
+          >
+            Crear cuenta gratis
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </Link>
         </div>
       )}

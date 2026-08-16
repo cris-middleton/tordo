@@ -36,29 +36,35 @@ PLANS: list[Plan] = [
     Plan(
         id="basico",
         nombre="Free",
-        descripcion="Para explorar sin compromiso.",
+        descripcion="Para ver si esto te sirve.",
+        # Las capacidades tienen que decir lo que `PLAN_QUOTAS` aplica de verdad.
+        # Decían "3 alertas al mes" y el código aplica **5 alertas activas**; y no
+        # mencionaban el límite que de verdad separa este plan del de pago, que
+        # son las 3 consultas de BI al día. Una lista de capacidades que no
+        # coincide con el gating es una promesa que el producto incumple sola.
         features=[
-            "Exploración de licitaciones",
-            "3 alertas al mes",
+            "Explora licitaciones, Compra Ágil y Convenio Marco",
+            "3 consultas de precio al día",
+            "5 alertas activas",
             "Monitor de estado hábil",
-            "1 usuario",
-            "Sin tarjeta de crédito",
+            "1 usuario · sin tarjeta de crédito",
         ],
         max_usuarios=get_quota("basico")["max_usuarios"],
     ),
     Plan(
         id="pro",
         nombre="Pro",
-        descripcion="Inteligencia completa para ganar más licitaciones.",
+        descripcion="Para cuando postular es parte del negocio.",
         features=[
-            "Alertas ilimitadas",
-            "Benchmarks de precio por producto",
-            "Análisis de competidores",
+            "Consultas de precio sin límite",
+            "Perfil del comprador y competencia",
             "Score de oportunidad",
-            "Matching semántico",
-            "Checklist por tipo de licitación",
-            "Alertas de vencimiento de documentos",
-            "Hasta 5 usuarios en el equipo",
+            "Matching semántico: encaje con lo que vendes",
+            "Informe semanal en PDF",
+            "Vigilancia de precios de tus productos",
+            "Alertas ilimitadas y recordatorios de cierre",
+            "Checklist por tipo y hasta 200 documentos",
+            "Hasta 5 personas en el equipo",
         ],
         max_usuarios=get_quota("pro")["max_usuarios"],
         precio_mensual_clp=11900,
