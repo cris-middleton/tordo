@@ -32,6 +32,7 @@ from app.models.precio import (
     PrecioReferencia,
     SuscripcionPrecio,
 )
+from app.services import notificaciones
 
 logger = logging.getLogger(__name__)
 
@@ -181,13 +182,18 @@ def _mensaje(cambio: CambioDePrecio, nombre_producto: str | None) -> tuple[str, 
     return titulo, cuerpo
 
 
-def emitir_alertas(db, cambios: list[CambioDePrecio]) -> int:
+def emitir_alertas(db, cambios: list[CambioDePrecio], nuevas: list[Alert] | None = None) -> int:
     """Crea una alerta por cada suscripción que el cambio supera.
 
     La clave de idempotencia lleva el día: si el job corre dos veces en la misma
     jornada, la segunda no duplica avisos. Al día siguiente sí puede volver a
     avisar, que es lo correcto si el precio se movió otra vez.
+
+    `nuevas` recoge las alertas recién creadas para que quien orquesta pueda
+    despacharlas **después del commit** — antes de él no tienen id.
     """
+    if nuevas is None:
+        nuevas = []
     if not cambios:
         return 0
 
@@ -228,19 +234,22 @@ def emitir_alertas(db, cambios: list[CambioDePrecio]) -> int:
             )
             if existente:
                 continue
-            db.add(
-                Alert(
-                    user_id=usuario_id,
-                    alert_type=AlertType.CAMBIO_PRECIO,
-                    status=AlertStatus.SENT,
-                    entity_type="producto",
-                    entity_id=0,
-                    title=titulo,
-                    message=cuerpo,
-                    idempotency_key=f"{clave}_{usuario_id}",
-                    notification_channels=["in_app"],
-                )
+            alerta = Alert(
+                user_id=usuario_id,
+                alert_type=AlertType.CAMBIO_PRECIO,
+                # PENDING y no SENT: la ponía como enviada sin haber enviado
+                # nada, lo que dejaba el registro mintiendo y hacía imposible
+                # distinguir la que salió de la que se quedó dentro.
+                status=AlertStatus.PENDING,
+                entity_type="producto",
+                entity_id=0,
+                title=titulo,
+                message=cuerpo,
+                idempotency_key=f"{clave}_{usuario_id}",
+                notification_channels=["in_app"],
             )
+            db.add(alerta)
+            nuevas.append(alerta)
             creadas += 1
     return creadas
 
@@ -250,9 +259,25 @@ def revisar_precios(db) -> dict:
     cambios = detectar_cambios(db)
     logger.info("[Precios] %d productos cambiaron de precio", len(cambios))
 
-    alertas = emitir_alertas(db, cambios)
+    nuevas: list[Alert] = []
+    alertas = emitir_alertas(db, cambios, nuevas)
     referencias = actualizar_referencias(db)
     db.commit()
 
-    logger.info("[Precios] %d alertas creadas, %d referencias al día", alertas, referencias)
-    return {"cambios": len(cambios), "alertas": alertas, "referencias": referencias}
+    # Va en tanda: que un producto suba un 18 % es importante y no urge esta
+    # hora. Un correo por producto vigilado un lunes por la mañana sería el
+    # camino más corto a que el usuario filtre el remitente.
+    enviado = notificaciones.despachar_pendientes(db, [a.id for a in nuevas])
+
+    logger.info(
+        "[Precios] %d alertas creadas, %d referencias al día, %d notificadas",
+        alertas,
+        referencias,
+        enviado.get("en_tanda", 0),
+    )
+    return {
+        "cambios": len(cambios),
+        "alertas": alertas,
+        "referencias": referencias,
+        **enviado,
+    }

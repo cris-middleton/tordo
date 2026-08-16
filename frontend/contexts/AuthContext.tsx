@@ -13,14 +13,12 @@ interface User {
   notification_email?: boolean;
   notification_in_app?: boolean;
   notification_webhook?: boolean;
-  notification_whatsapp?: boolean;
   recibe_informe_semanal?: boolean;
   plan_tier?: string;
   subscription_status?: string;
   trial_ends_at?: string | null;
   onboarding_completed?: boolean;
   onboarding_step?: number;
-  whatsapp_number?: string;
   webhook_url?: string;
   has_google?: boolean;
   created_at?: string;

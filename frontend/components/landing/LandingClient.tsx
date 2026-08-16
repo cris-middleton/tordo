@@ -345,7 +345,7 @@ export default function LandingClient() {
                 </div>
                 <div className="space-y-5">
                   {[
-                    { icon: Bell, title: 'Alertas cuando aparece algo que te conviene', desc: 'Por correo o WhatsApp cuando calzan con tu perfil, y 48 y 24 h antes del cierre.' },
+                    { icon: Bell, title: 'Te avisamos por correo cuando aparece algo que te conviene', desc: 'Con el precio de referencia y la competencia dentro del mismo aviso, y otro 48 y 24 h antes del cierre.' },
                     { icon: CheckCircle2, title: 'Papeles al día sin adivinar', desc: 'Plantilla de documentos según el tipo de licitación (L1, LE, LP).' },
                     { icon: FileClock, title: 'No pierdas por un documento vencido', desc: 'Te avisamos antes de que caduque un certificado, garantía o boleta.' },
                   ].map((item) => {

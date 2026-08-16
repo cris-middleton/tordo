@@ -9,18 +9,29 @@ match_nueva_licitacion  — TF-IDF score every empresa profile, emit NUEVA_LICIT
 """
 
 import logging
-from datetime import UTC, datetime
 from typing import Any, Dict, List
 
-import httpx
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.models.alert import Alert, AlertPreference, AlertStatus, AlertType, NotificationChannel
+from app.models.alert import Alert, AlertPreference, AlertStatus, AlertType
 from app.models.licitacion import Licitacion
 from app.models.orden_compra import OrdenCompra
 from app.models.user import User
+
+# Import por nombre y no `from app.services import notificaciones`: este módulo
+# lo importa `app/services/__init__.py`, así que cuando se ejecuta esta línea el
+# paquete `app.services` está a medio inicializar y todavía no tiene el atributo.
+# Importar el submódulo directamente sí funciona — y `notificaciones` no importa
+# de vuelta a `alert_engine`, así que no hay ciclo.
+from app.services.notificaciones import despachar as despachar_alerta
+
+# Import por nombres y no `from app.services import notificaciones`: este módulo
+# lo importa `app/services/__init__.py`, así que cuando se ejecuta esta línea el
+# paquete `app.services` está a medio inicializar y todavía no tiene el atributo.
+# Importar el submódulo directamente sí funciona — y `notificaciones` no importa
+# de vuelta a `alert_engine`, así que no hay ciclo.
 
 logger = logging.getLogger(__name__)
 
@@ -154,14 +165,22 @@ class AlertEngine:
         metadata: Dict[str, Any] | None = None,
         empresa_id=None,
         notification_channels: List[str] | None = None,
-    ) -> bool:
+    ) -> int | None:
         """
         Insert an alert using PostgreSQL INSERT … ON CONFLICT DO NOTHING.
 
         The idempotency_key column has a UNIQUE index, so concurrent workers
         racing on the same key will result in exactly one row being inserted.
 
-        Returns True if a new row was inserted, False if the key already existed.
+        **Devuelve el id de la fila insertada, o None si la clave ya existía.**
+        Antes devolvía un booleano, y con un booleano no se puede notificar: hace
+        falta saber *cuál* alerta salió nueva. Sin el `RETURNING`, la única forma
+        de despachar sería releer por clave de idempotencia — y ahí ya no se
+        distingue la que acaba de entrar de la que estaba desde ayer, que es
+        exactamente cómo se manda dos veces el mismo correo.
+
+        `notification_channels` queda como valor provisional: los canales reales
+        los escribe el despacho, que es quien sabe cuáles funcionaron.
         """
         stmt = (
             pg_insert(Alert.__table__)
@@ -179,10 +198,11 @@ class AlertEngine:
                 empresa_id=empresa_id,
             )
             .on_conflict_do_nothing(index_elements=["idempotency_key"])
+            .returning(Alert.__table__.c.id)
         )
-        result = self.db.execute(stmt)
+        insertado = self.db.execute(stmt).scalar_one_or_none()
         self.db.commit()
-        return bool(result.rowcount)
+        return insertado
 
     def match_nueva_licitacion(self, licitacion: Licitacion) -> Dict[str, Any]:
         """
@@ -221,6 +241,7 @@ class AlertEngine:
 
         created = 0
         skipped = 0
+        nuevas: List[int] = []
 
         for perfil in perfiles:
             try:
@@ -261,8 +282,9 @@ class AlertEngine:
                     empresa_id=perfil.empresa_id,
                     notification_channels=["in_app"],
                 )
-                if inserted:
+                if inserted is not None:
                     created += 1
+                    nuevas.append(inserted)
                 else:
                     skipped += 1
 
@@ -272,101 +294,25 @@ class AlertEngine:
             created,
             skipped,
         )
-        return {"created": created, "skipped": skipped}
+        # **No se despacha aquí, y es deliberado.** Esta función corre una vez por
+        # licitación nueva; despachar dentro daría un correo por licitación, que
+        # es justo lo que la tanda existe para evitar. Quien orquesta la corrida
+        # —`etl_tasks._run_matching_for_new_licitaciones`— junta los ids de todas
+        # y llama una sola vez a `notificaciones.despachar_pendientes`.
+        return {"created": created, "skipped": skipped, "ids": nuevas}
 
     def send_notifications(self, alert: Alert) -> List[str]:
-        """Send notifications for an alert via configured channels"""
-        user = self.db.query(User).filter(User.id == alert.user_id).first()
-        if not user:
-            logger.error(f"User {alert.user_id} not found for alert {alert.id}")
-            return []
+        """Despacha una alerta por los canales que le tocan.
 
-        channels_used = []
-
-        # Email notification
-        if user.notification_email:
-            try:
-                self._send_email_notification(alert, user)
-                channels_used.append(NotificationChannel.EMAIL.value)
-            except Exception as e:
-                logger.error(f"Failed to send email notification: {e}")
-
-        # In-app notification (already created in database)
-        if user.notification_in_app:
-            channels_used.append(NotificationChannel.IN_APP.value)
-
-        # Webhook notification
-        webhook_url = user.webhook_url
-        if user.notification_webhook and webhook_url:
-            try:
-                self._send_webhook_notification(alert, webhook_url)
-                channels_used.append(NotificationChannel.WEBHOOK.value)
-            except Exception as e:
-                logger.error(f"Failed to send webhook notification: {e}")
-
-        # WhatsApp notification
-        if getattr(user, "notification_whatsapp", False) and user.whatsapp_number:
-            try:
-                self._send_whatsapp_notification(alert, user)
-                channels_used.append(NotificationChannel.WHATSAPP.value)
-            except Exception as e:
-                logger.error(f"Failed to send WhatsApp notification: {e}")
-
-        # Update alert
-        alert.notification_channels = channels_used
+        El despacho vive en `services/notificaciones.py`, no aquí. Estaba dentro
+        del motor y sólo lo llamaba el camino viejo por preferencias, así que
+        todo lo construido después —encaje semántico, plazos, documentos, estado
+        hábil, precio— se quedaba dentro de la aplicación sin que nada avisara.
+        """
+        canales = despachar_alerta(alert, self.db)
         alert.status = AlertStatus.SENT
-        alert.sent_at = datetime.now(UTC)
         self.db.commit()
-
-        return channels_used
-
-    def _send_email_notification(self, alert: Alert, user: User):
-        """Send email notification"""
-        from app.core.email import send_alert_email
-
-        # Construct alert URL
-        alert_url = None
-        if settings.frontend_url:
-            alert_url = f"{settings.frontend_url}/alerts/{alert.id}"
-
-        # Send email
-        send_alert_email(
-            user_email=user.email,
-            alert_title=alert.title,
-            alert_message=alert.message or alert.title,
-            alert_url=alert_url,
-        )
-
-    def _send_whatsapp_notification(self, alert: Alert, user: User):
-        """Send WhatsApp notification via Twilio service"""
-        from app.services.twilio_service import send_whatsapp_alert
-
-        message = f"*{alert.title}*\n\n{alert.message or ''}"
-        success = send_whatsapp_alert(user.whatsapp_number, message)
-        if not success:
-            raise RuntimeError(f"WhatsApp delivery failed for user {user.id}")
-
-    def _send_webhook_notification(self, alert: Alert, webhook_url: str):
-        """Send webhook notification"""
-        try:
-            payload = {
-                "alert_id": alert.id,
-                "alert_type": alert.alert_type.value,
-                "title": alert.title,
-                "message": alert.message,
-                "entity_type": alert.entity_type,
-                "entity_id": alert.entity_id,
-                "alert_metadata": alert.alert_metadata,
-                "created_at": alert.created_at.isoformat(),
-            }
-
-            with httpx.Client(timeout=10.0) as client:
-                response = client.post(webhook_url, json=payload)
-                response.raise_for_status()
-                logger.info(f"Webhook notification sent successfully to {webhook_url}")
-        except Exception as e:
-            logger.error(f"Webhook notification failed: {e}")
-            raise
+        return canales
 
     def process_new_licitacion(self, licitacion_id: int):
         """Process a new licitacion and create alerts for matching preferences"""

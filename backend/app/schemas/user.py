@@ -20,12 +20,10 @@ class UserUpdate(BaseModel):
     notification_email: bool | None = None
     notification_in_app: bool | None = None
     notification_webhook: bool | None = None
-    notification_whatsapp: bool | None = None
     recibe_informe_semanal: bool | None = None
     webhook_url: str | None = None
     onboarding_completed: bool | None = None
     onboarding_step: int | None = None
-    whatsapp_number: str | None = None
 
 
 class UserResponse(UserBase):
@@ -35,14 +33,12 @@ class UserResponse(UserBase):
     notification_email: bool
     notification_in_app: bool
     notification_webhook: bool
-    notification_whatsapp: bool = False
     recibe_informe_semanal: bool = True
     # El plan y el trial NO se exponen aquí: son de la empresa, no del usuario
     # (ADR 0002). El frontend los obtiene de /api/billing/status.
     onboarding_completed: bool = False
     onboarding_step: int = 0
     webhook_url: str | None = None
-    whatsapp_number: str | None = None
     has_google: bool = False  # derived: google_id is not None
     created_at: datetime
     last_login: datetime | None = None

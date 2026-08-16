@@ -27,7 +27,6 @@ class User(Base):
     notification_webhook = Column(Boolean, default=False)
     # La base la creó NOT NULL con server_default. El modelo decía nullable, que
     # es más laxo que la realidad: se alinea con la base, que es la estricta.
-    notification_whatsapp = Column(Boolean, default=False, server_default="false", nullable=False)
     # El informe semanal se manda a quien lo tenga activo. Existir es lo que hace
     # verdadero el pie del correo: prometía «Ajustes → Notificaciones» para
     # desactivarlo, y esa opción no existía en ninguna parte.
@@ -46,9 +45,6 @@ class User(Base):
 
     # OAuth
     google_id = Column(String(100), unique=True, nullable=True)
-
-    # WhatsApp notifications
-    whatsapp_number = Column(String(20), nullable=True)
 
     # Onboarding
     onboarding_completed = Column(Boolean, default=False, nullable=False)

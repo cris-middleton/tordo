@@ -134,11 +134,6 @@ class Settings(BaseSettings):
     # deja de funcionar tras un despliegue, esto es lo primero que hay que mirar.
     google_redirect_uri: str = "http://localhost:8000/api/v1/auth/google/callback"
 
-    # Twilio WhatsApp
-    twilio_account_sid: str | None = None
-    twilio_auth_token: str | None = None
-    twilio_whatsapp_from: str = "whatsapp:+14155238886"  # Twilio sandbox number
-
     # Feature flags — disable unreleased features without code changes
     feature_analytics: bool = False  # BI pre-postulación (requires parquet pipeline)
     feature_billing: bool = False  # Cobro (requiere credenciales de la pasarela)
@@ -146,7 +141,6 @@ class Settings(BaseSettings):
     feature_documentos: bool = True  # Document management
     feature_checklist: bool = True  # Postulation checklists
     feature_tfidf: bool = False  # TF-IDF semantic matching (requires trained model)
-    feature_whatsapp: bool = False  # WhatsApp notifications via Twilio
     analytics_enabled: bool = True  # Legacy /dashboard/analytics page visibility
 
     class Config:

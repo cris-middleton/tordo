@@ -315,13 +315,11 @@
     "users.notification_email",
     "users.notification_in_app",
     "users.notification_webhook",
-    "users.notification_whatsapp",
     "users.onboarding_completed",
     "users.onboarding_step",
     "users.updated_at",
     "users.username",
-    "users.webhook_url",
-    "users.whatsapp_number"
+    "users.webhook_url"
   ],
   "pk_entera": [
     "alert_preferences",

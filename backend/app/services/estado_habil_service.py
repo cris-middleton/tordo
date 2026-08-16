@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models.alert import Alert, AlertStatus, AlertType
 from app.models.empresa import Empresa, EstadoHabilLog
+from app.services import notificaciones
 
 logger = logging.getLogger(__name__)
 
@@ -98,15 +99,23 @@ def _lookup_rut_in_rows(rows: list[dict], rut_normalizado: str) -> str:
     return ESTADO_NO_ENCONTRADO
 
 
-def _create_estado_habil_alert(empresa: Empresa, db: Session) -> None:
-    """Create an in-app alert for all users of the empresa."""
+def _create_estado_habil_alert(empresa: Empresa, db: Session) -> list[Alert]:
+    """Crea la alerta de cambio de estado hábil para cada miembro de la empresa.
+
+    **La clave de idempotencia lleva el usuario dentro, y no lo llevaba.** Sin
+    él, la clave era la misma para toda la empresa: el `autoflush` del segundo
+    `query` encontraba la alerta del primer miembro y saltaba, así que en una
+    empresa de cinco personas se enteraba una. Quedar inhábil es justo el aviso
+    que no puede depender de quién esté mirando.
+    """
     from app.models.empresa import EmpresaUsuario
 
+    creadas: list[Alert] = []
     memberships = db.query(EmpresaUsuario).filter(EmpresaUsuario.empresa_id == empresa.id).all()
     for m in memberships:
         idempotency_key = (
             f"estado_habil_{empresa.id}_{empresa.estado_habil}_"
-            f"{datetime.now(UTC).strftime('%Y%m%d')}"
+            f"{datetime.now(UTC).strftime('%Y%m%d')}_{m.user_id}"
         )
         # Skip if already sent today
         existing = db.query(Alert).filter(Alert.idempotency_key == idempotency_key).first()
@@ -129,6 +138,8 @@ def _create_estado_habil_alert(empresa: Empresa, db: Session) -> None:
             notification_channels=["in_app"],
         )
         db.add(alert)
+        creadas.append(alert)
+    return creadas
 
 
 def run_estado_habil_check(db: Session) -> dict:
@@ -154,6 +165,7 @@ def run_estado_habil_check(db: Session) -> dict:
 
     checked = 0
     changed = 0
+    nuevas: list[Alert] = []
     for empresa in empresas:
         rut_norm = _normalize_rut(empresa.rut_empresa)
         new_state = _lookup_rut_in_rows(rows, rut_norm)
@@ -186,11 +198,20 @@ def run_estado_habil_check(db: Session) -> dict:
         empresa.estado_habil_updated_at = datetime.now(UTC)
 
         # Create alerts for empresa users
-        _create_estado_habil_alert(empresa, db)
+        nuevas.extend(_create_estado_habil_alert(empresa, db))
 
     db.commit()
-    logger.info("Estado hábil check complete: checked=%d changed=%d", checked, changed)
-    return {"checked": checked, "changed": changed}
+    # Quedar inhábil deja a la empresa fuera de todo lo que postule. Es de lo
+    # poco que justifica un correo inmediato: enterarse al entrar a la
+    # aplicación es enterarse cuando ya rechazaron la oferta.
+    enviado = notificaciones.despachar_pendientes(db, [a.id for a in nuevas])
+    logger.info(
+        "Estado hábil check complete: checked=%d changed=%d notificadas=%d",
+        checked,
+        changed,
+        enviado.get("inmediatas", 0),
+    )
+    return {"checked": checked, "changed": changed, **enviado}
 
 
 def check_empresa_now(empresa_id, db: Session) -> dict:

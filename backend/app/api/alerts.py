@@ -5,7 +5,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import check_alert_quota_dep
-from app.config import settings
 from app.core.security import get_current_active_user
 from app.db import get_db
 from app.models.alert import Alert, AlertPreference, AlertStatus, AlertType
@@ -19,7 +18,6 @@ from app.schemas.alert import (
     AlertResponse,
     AlertUpdate,
 )
-from app.services.twilio_service import send_whatsapp_alert
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 
@@ -228,33 +226,3 @@ async def send_test_alert(
     await db.commit()
     await db.refresh(alert)
     return {"created": True, "alert_id": alert.id}
-
-
-@router.post("/test-whatsapp")
-async def send_test_whatsapp(
-    current_user: User = Depends(get_current_active_user),
-):
-    """Manda un WhatsApp de prueba al número registrado del usuario.
-
-    En desarrollo usa el sandbox de Twilio. Necesita `FEATURE_WHATSAPP=true` y
-    credenciales válidas; sin ellas responde `sent: false` en vez de fallar.
-    """
-    if not current_user.whatsapp_number:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No tienes un número de WhatsApp registrado. Configúralo en Ajustes.",
-        )
-
-    message = (
-        "Hola desde *TORDO* — tu número de WhatsApp está conectado correctamente.\n\n"
-        "Recibirás alertas de licitaciones, plazos y documentos por este canal."
-    )
-    success = send_whatsapp_alert(current_user.whatsapp_number, message)
-
-    return {
-        "sent": success,
-        "to": current_user.whatsapp_number,
-        "live": bool(
-            settings.feature_whatsapp and settings.twilio_account_sid and settings.twilio_auth_token
-        ),
-    }

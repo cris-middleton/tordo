@@ -17,6 +17,7 @@ from zoneinfo import ZoneInfo
 from app.celery_app import celery_app
 from app.db import SyncSessionLocal as SessionLocal
 from app.models.task_failure import TaskFailure
+from app.services import notificaciones
 
 logger = logging.getLogger(__name__)
 
@@ -97,14 +98,24 @@ def _run_matching_for_new_licitaciones() -> None:
 
         engine = AlertEngine(db)
         total_created = 0
+        # Se acumulan los ids de TODA la corrida y se despacha una sola vez: es
+        # aquí donde está la frontera de la tanda. Notificar dentro del bucle
+        # daría un correo por licitación, y con 5–15 al día eso se convierte en
+        # una regla de filtro — a partir de la cual el usuario deja de enterarse
+        # de todo, incluido lo urgente.
+        nuevas: list[int] = []
         for lic in new_lics:
             r = engine.match_nueva_licitacion(lic)
             total_created += r.get("created", 0)
+            nuevas.extend(r.get("ids") or [])
+
+        enviado = notificaciones.despachar_pendientes(db, nuevas)
 
         logger.info(
-            "[Matching] Processed %d new licitaciones, %d alerts created",
+            "[Matching] Processed %d new licitaciones, %d alerts created, %d notificadas",
             len(new_lics),
             total_created,
+            enviado.get("en_tanda", 0),
         )
     except Exception as exc:
         logger.error("[Matching] Step failed: %s", exc)

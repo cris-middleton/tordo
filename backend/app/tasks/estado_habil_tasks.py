@@ -16,6 +16,7 @@ from app.models.alert import Alert, AlertStatus, AlertType
 from app.models.empresa import DocumentoEmpresa, EmpresaUsuario
 from app.models.licitacion import Licitacion
 from app.models.postulacion import Postulacion
+from app.services import notificaciones
 from app.services.estado_habil_service import run_estado_habil_check
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,7 @@ def send_deadline_reminders() -> dict:
     db = SessionLocal()
     created = 0
     skipped = 0
+    nuevas: list[Alert] = []
     try:
         now = datetime.now(UTC)
         cutoff_48h = now + timedelta(hours=48)
@@ -107,11 +109,21 @@ def send_deadline_reminders() -> dict:
                     notification_channels=["in_app"],
                 )
                 db.add(alert)
+                nuevas.append(alert)
                 created += 1
 
         db.commit()
-        logger.info("[DeadlineReminders] created=%d skipped=%d", created, skipped)
-        return {"created": created, "skipped": skipped}
+        # Un recordatorio de plazo que sólo se ve entrando a la aplicación no es
+        # un recordatorio. Va por correo y al momento: a 48 o 24 horas del cierre,
+        # esperar a la tanda de la noche es llegar tarde.
+        enviado = notificaciones.despachar_pendientes(db, [a.id for a in nuevas])
+        logger.info(
+            "[DeadlineReminders] created=%d skipped=%d notificadas=%d",
+            created,
+            skipped,
+            enviado.get("inmediatas", 0),
+        )
+        return {"created": created, "skipped": skipped, **enviado}
     except Exception as exc:
         db.rollback()
         logger.error("[DeadlineReminders] Error: %s", exc)
@@ -133,6 +145,7 @@ def check_document_expiry() -> dict:
     db = SessionLocal()
     created = 0
     skipped = 0
+    nuevas: list[Alert] = []
     try:
         today = date.today()
         expiry_window = today + timedelta(days=30)
@@ -180,11 +193,18 @@ def check_document_expiry() -> dict:
                     notification_channels=["in_app"],
                 )
                 db.add(alert)
+                nuevas.append(alert)
                 created += 1
 
         db.commit()
-        logger.info("[DocExpiry] created=%d skipped=%d", created, skipped)
-        return {"created": created, "skipped": skipped}
+        enviado = notificaciones.despachar_pendientes(db, [a.id for a in nuevas])
+        logger.info(
+            "[DocExpiry] created=%d skipped=%d notificadas=%d",
+            created,
+            skipped,
+            enviado.get("inmediatas", 0),
+        )
+        return {"created": created, "skipped": skipped, **enviado}
     except Exception as exc:
         db.rollback()
         logger.error("[DocExpiry] Error: %s", exc)

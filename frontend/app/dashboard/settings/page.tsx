@@ -26,13 +26,9 @@ export default function SettingsPage() {
     notification_email: true,
     notification_in_app: true,
     notification_webhook: false,
-    notification_whatsapp: false,
     recibe_informe_semanal: true,
     webhook_url: '',
-    whatsapp_number: '',
   });
-  const [whatsappTesting, setWhatsappTesting] = useState(false);
-  const [whatsappTestResult, setWhatsappTestResult] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [passwordData, setPasswordData] = useState({ current_password: '', new_password: '', confirm_password: '' });
   const [showPasswordFields, setShowPasswordFields] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
@@ -54,9 +50,7 @@ export default function SettingsPage() {
         recibe_informe_semanal: user.recibe_informe_semanal ?? true,
         notification_in_app: user.notification_in_app ?? true,
         notification_webhook: user.notification_webhook ?? false,
-        notification_whatsapp: user.notification_whatsapp ?? false,
         webhook_url: user.webhook_url || '',
-        whatsapp_number: user.whatsapp_number || '',
       });
     }
   }, [user]);
@@ -128,7 +122,6 @@ export default function SettingsPage() {
     { field: 'notification_email', label: 'Email', icon: Mail, desc: 'Alertas por correo' },
     { field: 'notification_in_app', label: 'App', icon: Bell, desc: 'Alertas en plataforma' },
     { field: 'notification_webhook', label: 'Webhook', icon: Webhook, desc: 'Endpoint personalizado' },
-    { field: 'notification_whatsapp', label: 'WhatsApp', icon: MessageCircle, desc: 'Mensajes urgentes' },
     // El correo del informe lleva un enlace para desactivarlo. Esta casilla es
     // lo que hace que ese enlace no sea mentira.
     { field: 'recibe_informe_semanal', label: 'Informe semanal', icon: FileText, desc: 'Resumen de los lunes, con PDF' },
@@ -268,52 +261,6 @@ export default function SettingsPage() {
                   className="input-field text-sm py-1.5"
                   placeholder="https://tu-servidor.com/webhook"
                 />
-              </div>
-            )}
-
-            {/* WhatsApp number */}
-            {formData.notification_whatsapp && (
-              <div className="pt-1 pb-1 px-2 space-y-2">
-                <input
-                  type="tel"
-                  value={formData.whatsapp_number}
-                  onChange={(e) => handleChange('whatsapp_number', e.target.value)}
-                  className="input-field text-sm py-1.5"
-                  placeholder="+56912345678"
-                />
-                {formData.whatsapp_number && (
-                  <button
-                    type="button"
-                    disabled={whatsappTesting}
-                    onClick={async () => {
-                      setWhatsappTesting(true);
-                      setWhatsappTestResult(null);
-                      try {
-                        if (user) {
-                          await apiClient.updateUser(user.id, { whatsapp_number: formData.whatsapp_number, notification_whatsapp: true });
-                          await refreshUser();
-                        }
-                        const result = await apiClient.sendTestWhatsApp();
-                        setWhatsappTestResult({
-                          type: 'success',
-                          text: result.live ? 'Mensaje enviado. Revisa tu WhatsApp.' : 'Registrado en modo prueba (sandbox).',
-                        });
-                      } catch (error: any) {
-                        setWhatsappTestResult({ type: 'error', text: error.response?.data?.detail || 'Error al enviar' });
-                      } finally {
-                        setWhatsappTesting(false);
-                      }
-                    }}
-                    className="btn-secondary flex items-center gap-1.5 text-xs py-1.5 px-3"
-                  >
-                    {whatsappTesting ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Enviando...</> : <><MessageCircle className="w-3.5 h-3.5" />Probar</>}
-                  </button>
-                )}
-                {whatsappTestResult && (
-                  <div className={whatsappTestResult.type === 'success' ? 'alert-success' : 'alert-error'}>
-                    {whatsappTestResult.text}
-                  </div>
-                )}
               </div>
             )}
 

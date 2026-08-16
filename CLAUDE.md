@@ -513,7 +513,27 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
   en cookies `httpOnly` y renueva solo — ver las reglas de frontend.
   **La ruta de Google sigue sin refresco**: redirige con el token en la URL, y meter ahí un
   refresco sería peor (historial, logs, `Referer`). La solución es un código de un solo uso.
-- **Alertas**: preferencias → AlertEngine → `INSERT ON CONFLICT` idempotente → multicanal.
+- **Alertas**: preferencias → AlertEngine → `INSERT ON CONFLICT` idempotente →
+  **`services/notificaciones.py`**, que es quien despacha.
+  - **El canal lo declara el TIPO de alerta, no quien la crea.** `POLITICA` es la única
+    tabla donde se decide, y `tests/test_notificaciones.py` falla si aparece un tipo sin
+    política — el mismo trinquete que el calendario de Celery. Hizo falta porque **todas
+    las alertas creadas después del camino viejo por preferencias se insertaban con
+    `["in_app"]` y nadie llamaba al envío**: el encaje semántico, los plazos de 48 h y
+    24 h, el vencimiento de documentos, el estado hábil y el cambio de precio se
+    calculaban y no salían de la aplicación.
+  - **Lo que caduca sale al momento; el resto va en tanda.** Un correo por licitación
+    termina en una regla de filtro de Gmail, y a partir de ahí el usuario deja de
+    enterarse de todo, incluido lo urgente. La frontera de la tanda es la **corrida**,
+    no la licitación: quien orquesta junta los ids y despacha una vez.
+  - **El aviso de encaje lleva el BI dentro** (`correo_render.lineas_de_bi`): banda de
+    precio del comprador, competidores habituales, días de pago. Es el mismo canal que
+    usa la competencia y una respuesta que sólo puede escribir quien tiene el histórico.
+    Una línea sin dato **se omite**: un «sin datos» en un correo enseña a no leerlo.
+  - **Sin WhatsApp.** Se retiró: la verificación WABA con Meta tarda 4–8 semanas y nunca
+    se inició, cobra por conversación, y el canal no es el diferenciador. Quedan `email`,
+    `in_app` y `webhook` — el webhook cuesta cero y sostiene el ángulo ERP junto con la
+    API pública. Si vuelve, vuelve como adaptador detrás del despacho.
 - **Informe semanal** (lunes 09:00): un correo por empresa con encaje, cierres, cambios de
   precio, cumplimiento y mercado, más el mismo informe en **PDF adjunto**
   (`services/informe_semanal.py` construye, `informe_render.py` pinta).
@@ -625,7 +645,7 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
   OOM, y cada reinicio recarga el modelo: en la medición se cargó 14 veces para 4 workers.
   La concurrencia se sube con `WEB_CONCURRENCY`, y **exige 1 GB**; con 512 MB el techo son 2.
   Repetible con `make medir-memoria`.
-- **Feature flags**: 7 en `app/config.py`; apagadas devuelven 503 con mensaje accionable.
+- **Feature flags**: 6 en `app/config.py`; apagadas devuelven 503 con mensaje accionable.
 
 ---
 
@@ -708,4 +728,4 @@ Observabilidad: `SENTRY_DSN` (backend, vacío = desactivado), `NEXT_PUBLIC_SENTR
 build funciona igual, pero las trazas del navegador llegan minificadas.
 
 Feature flags: `FEATURE_ANALYTICS`, `FEATURE_TFIDF`, `FEATURE_BILLING`,
-`FEATURE_ESTADO_HABIL`, `FEATURE_DOCUMENTOS`, `FEATURE_CHECKLIST`, `FEATURE_WHATSAPP`.
+`FEATURE_ESTADO_HABIL`, `FEATURE_DOCUMENTOS`, `FEATURE_CHECKLIST`.

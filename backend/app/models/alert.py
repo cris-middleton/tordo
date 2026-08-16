@@ -43,8 +43,10 @@ class NotificationChannel(str, enum.Enum):
 
     EMAIL = "email"
     IN_APP = "in_app"
+    # El webhook se queda aunque casi nadie lo use: cuesta cero mantenerlo y es
+    # lo que sostiene el ángulo de integración con un ERP junto con la API
+    # pública. WhatsApp se retiró — ver `services/notificaciones.py`.
     WEBHOOK = "webhook"
-    WHATSAPP = "whatsapp"
 
 
 class Alert(Base):

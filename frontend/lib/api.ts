@@ -486,12 +486,6 @@ class ApiClient {
     return res.data as import('@/types/dashboardHome').RadarResponse;
   }
 
-  // ── WhatsApp test ──────────────────────────────────────────────────────────
-
-  async sendTestWhatsApp() {
-    const res = await this.client.post(`${API}/alerts/test-whatsapp`);
-    return res.data;
-  }
 
 }
 
