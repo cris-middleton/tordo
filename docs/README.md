@@ -41,6 +41,7 @@ producir — no porque describan el sistema de hoy.
 
 | documento | de cuándo | por qué se conserva |
 |---|---|---|
+| [`COMPETENCIA_KAPTOR_2026-08.md`](COMPETENCIA_KAPTOR_2026-08.md) | 2026-08-15 | El análisis de kaptor.cl función por función contra el código, y el plan de respuesta que salió de él. Kaptor publica ~1 release al día: su columna envejece rápido, el razonamiento no |
 | [`BRECHA_PRODUCTO_2026-08.md`](BRECHA_PRODUCTO_2026-08.md) | 2026-08-07 | La lectura del código contra el plan de negocio que ordenó las prioridades de F6 |
 | [`ANALISIS_PROBLEMAS_DATOS.md`](ANALISIS_PROBLEMAS_DATOS.md) | 2026-04 | Los problemas de estructura de datos que encontró y **que ya están corregidos** |
 | [`VALIDACION_ESTRUCTURA_DATOS.md`](VALIDACION_ESTRUCTURA_DATOS.md) | 2026-04 | La validación de `Listado[0]` y timezone contra la API de Mercado Público |
