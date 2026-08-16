@@ -17,9 +17,11 @@ from app.core.plan_limits import (
 )
 from app.core.security import get_current_active_user
 from app.db import SyncSessionLocal, get_db
+from app.models.competidor import CompetidorSeguido, normalizar_rut
 from app.models.empresa import Empresa, EmpresaUsuario
 from app.models.precio import SuscripcionPrecio
 from app.models.user import User
+from app.repositories import competidores as repo_competidores
 from app.repositories import empresas as repo
 from app.repositories import precios as repo_precios
 from app.schemas.empresa import (
@@ -27,6 +29,8 @@ from app.schemas.empresa import (
     ApiKeyCreada,
     ApiKeyCrear,
     ApiKeyResumen,
+    CompetidorSeguidoCrear,
+    CompetidorSeguidoOut,
     EmpresaConRol,
     EmpresaCreate,
     EmpresaUpdate,
@@ -412,3 +416,77 @@ async def dejar_de_vigilar_precio(
     await db.delete(suscripcion)
     await db.commit()
     return {"message": "Se dejó de vigilar el producto"}
+
+
+# ── Competidores vigilados ───────────────────────────────────────────────────
+
+
+@router.get("/{empresa_id}/competidores", response_model=list[CompetidorSeguidoOut])
+async def listar_competidores(
+    ctx: EmpresaContext = Depends(empresa_ctx),
+    db: AsyncSession = Depends(get_db),
+):
+    """Los proveedores que vigila la empresa.
+
+    Lo consulta cualquier miembro: el seguimiento es del equipo, no de quien lo
+    creó.
+    """
+    return await repo_competidores.listar(db, ctx.empresa_id)
+
+
+@router.post(
+    "/{empresa_id}/competidores",
+    response_model=CompetidorSeguidoOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def seguir_competidor(
+    payload: CompetidorSeguidoCrear,
+    ctx: EmpresaContext = Depends(require_rol("owner", "admin")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Empieza a seguir a un competidor.
+
+    **La marca de «visto» arranca en ahora.** Sin eso, la primera corrida
+    avisaría de todo su historial —cientos de órdenes de golpe— cuando lo que el
+    usuario pidió es enterarse de lo que gane a partir de ahora.
+
+    Seguir dos veces al mismo RUT devuelve el seguimiento existente en vez de
+    crear otro: es lo que espera quien pulsa dos veces el mismo botón, y crear
+    dos duplicaría todos sus avisos.
+    """
+    rut_norm = normalizar_rut(payload.rut)
+    if len(rut_norm) < 7:
+        raise HTTPException(status_code=422, detail="El RUT no parece válido.")
+
+    ya = await repo_competidores.buscar(db, ctx.empresa_id, rut_norm)
+    if ya:
+        return ya
+
+    seguido = CompetidorSeguido(
+        empresa_id=ctx.empresa_id,
+        rut=payload.rut,
+        rut_norm=rut_norm,
+        nombre=payload.nombre,
+        ultimo_visto_en=datetime.now(UTC),
+    )
+    db.add(seguido)
+    await db.commit()
+    await db.refresh(seguido)
+    return seguido
+
+
+@router.delete("/{empresa_id}/competidores/{competidor_id}", status_code=200)
+async def dejar_de_seguir_competidor(
+    competidor_id: int,
+    ctx: EmpresaContext = Depends(require_rol("owner", "admin")),
+    db: AsyncSession = Depends(get_db),
+):
+    # El `empresa_id` viaja al WHERE dentro del repositorio: es lo que impide
+    # borrar el seguimiento de otra empresa pasando su identificador.
+    seguido = await repo_competidores.obtener(db, competidor_id, ctx.empresa_id)
+    if not seguido:
+        raise HTTPException(status_code=404, detail="Ese competidor no está en tu lista.")
+
+    await db.delete(seguido)
+    await db.commit()
+    return {"eliminado": True}

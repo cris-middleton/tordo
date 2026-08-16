@@ -110,6 +110,19 @@ celery_app.conf.update(
             "task": "app.tasks.informe_tasks.enviar_informe_semanal",
             "schedule": crontab(day_of_week=1, hour=9, minute=0),
         },
+        # 07:00, después del precómputo de encajes de las 06:00 y antes del
+        # informe: si un resultado llega el lunes, entra en el correo de ese
+        # mismo lunes en vez de esperar una semana.
+        "resultados-licitaciones": {
+            "task": "app.tasks.resultado_tasks.revisar_resultados",
+            "schedule": crontab(hour=7, minute=0),
+        },
+        # Quince minutos después, y sin depender de aquélla: ésta no llama a la
+        # API, sólo lee las órdenes que el ETL ya trajo.
+        "competidores-vigilados": {
+            "task": "app.tasks.resultado_tasks.revisar_competidores",
+            "schedule": crontab(hour=7, minute=15),
+        },
     },
 )
 
@@ -121,3 +134,4 @@ from app.tasks import dashboard_tasks  # noqa
 from app.tasks import trial_tasks  # noqa
 from app.tasks import precio_tasks  # noqa
 from app.tasks import informe_tasks  # noqa
+from app.tasks import resultado_tasks  # noqa

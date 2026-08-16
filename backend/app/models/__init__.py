@@ -2,6 +2,7 @@ from app.db import Base
 from app.models.alert import Alert, AlertPreference, AlertStatus, AlertType, NotificationChannel
 from app.models.api_key import ApiKey
 from app.models.category import Category
+from app.models.competidor import CompetidorSeguido
 from app.models.empresa import (
     DocumentoEmpresa,
     Empresa,
@@ -44,6 +45,7 @@ __all__ = [
     "BuyerOrganization",
     "Supplier",
     "Category",
+    "CompetidorSeguido",
     "Alert",
     "AlertPreference",
     "AlertStatus",

@@ -125,6 +125,7 @@ _ASUNTOS: dict[AlertType, str] = {
     AlertType.ESTADO_HABIL_CAMBIO: "Cambió tu estado hábil en Mercado Público",
     AlertType.DOCUMENTO_VENCIDO: "Se te vence un documento: {titulo}",
     AlertType.CAMBIO_PRECIO: "Cambió el precio de {titulo}",
+    AlertType.RESULTADO_LICITACION: "{titulo}",
 }
 
 

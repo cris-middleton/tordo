@@ -36,6 +36,12 @@ class AlertType(str, enum.Enum):
     # Los datos de precio ya existían; lo que faltaba era poder compararlos con
     # los de la corrida anterior. Ver `app/models/precio.py`.
     CAMBIO_PRECIO = "cambio_precio"
+    # Cómo terminó una licitación que la empresa seguía. Cierra el único tramo
+    # del ciclo que estaba abierto: se avisaba de la oportunidad y no de su
+    # resultado. Ver `services/resultados.py`.
+    RESULTADO_LICITACION = "resultado_licitacion"
+    # Un proveedor vigilado ganó una orden de compra. Ver `services/competidores.py`.
+    COMPETIDOR_GANO = "competidor_gano"
 
 
 class NotificationChannel(str, enum.Enum):

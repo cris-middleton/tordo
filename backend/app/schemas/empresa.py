@@ -188,3 +188,28 @@ class SuscripcionPrecioOut(BaseModel):
     creada_en: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CompetidorSeguidoCrear(BaseModel):
+    """Alta de seguimiento de un competidor."""
+
+    rut: str = Field(
+        ...,
+        min_length=7,
+        max_length=20,
+        description="RUT del proveedor. Se acepta con o sin puntos y guion.",
+    )
+    nombre: str | None = Field(
+        None,
+        max_length=500,
+        description="Cómo llamarlo en los avisos. Si se omite, se usa el nombre de la orden.",
+    )
+
+
+class CompetidorSeguidoOut(BaseModel):
+    id: int
+    rut: str
+    nombre: str | None
+    ultimo_visto_en: datetime | None
+
+    model_config = ConfigDict(from_attributes=True)

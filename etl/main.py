@@ -5,6 +5,7 @@ Main entry point for ETL processes with detalle and historial support
 
 import logging
 import sys
+import time
 
 from etl.config import config
 from etl.extractors import MercadoPublicoLicitacionesExtractor, MercadoPublicoOrdenesExtractor
@@ -530,6 +531,81 @@ def run_etl_actualizar_detalles_licitaciones(
         return False
 
 
+def run_etl_resultados_licitaciones(limit: int | None = 200, **_kwargs) -> bool:
+    """Vuelve a preguntar por las licitaciones CERRADAS que alguien sigue.
+
+    El ciclo del producto estaba abierto por un extremo: se avisaba de la
+    oportunidad, se acompañaba la preparación, y de cómo terminó no se sabía
+    nunca. `run_etl_actualizar_detalles_licitaciones` sólo revisita estados
+    activos, así que al cerrar el llamado el detalle se congela.
+
+    El dato está en la misma API que ya consumimos —quién ganó, a cuánto y
+    cuándo— y el alcance se limita a lo que alguien sigue: revisitar el catálogo
+    entero serían cientos de miles de llamadas para responder preguntas que nadie
+    hizo.
+    """
+    logger.info("=" * 60)
+    logger.info("Resolviendo licitaciones cerradas que alguien sigue")
+    logger.info("=" * 60)
+
+    try:
+        extractor_config = {
+            "MERCADO_PUBLICO_URL": config.MERCADO_PUBLICO_URL,
+            "MERCADO_PUBLICO_TICKET": config.MERCADO_PUBLICO_TICKET,
+            "MAX_RETRIES": config.MAX_RETRIES,
+            "RETRY_DELAY": config.RETRY_DELAY,
+        }
+
+        extractor = MercadoPublicoLicitacionesExtractor(extractor_config)
+        loader = DatabaseLoaderV2({"DATABASE_URL": config.DATABASE_URL})
+        loader.connect()
+
+        pendientes = loader.query_licitaciones_seguidas_sin_resultado(limit=limit)
+        if not pendientes:
+            logger.info("No hay licitaciones seguidas pendientes de resultado")
+            loader.disconnect()
+            return True
+
+        logger.info(f"{len(pendientes)} licitaciones seguidas sin resultado conocido")
+
+        resueltas = 0
+        sin_novedad = 0
+        errores = 0
+
+        for licitacion_id, codigo_externo, _detalle_id in pendientes:
+            try:
+                datos = extractor.extract_detalle_licitacion(codigo_externo)
+                if not datos:
+                    errores += 1
+                    continue
+
+                cambio = loader.actualizar_licitacion_detalle(
+                    licitacion_id=licitacion_id,
+                    codigo_externo=codigo_externo,
+                    datos_nuevos=datos,
+                )
+                if cambio:
+                    resueltas += 1
+                    logger.info(f"✓ {codigo_externo} actualizada")
+                else:
+                    sin_novedad += 1
+
+                time.sleep(0.5)
+            except Exception as e:
+                logger.error(f"Error resolviendo {codigo_externo}: {e}")
+                errores += 1
+
+        loader.disconnect()
+        logger.info(
+            f"Resultados: {resueltas} con novedad · {sin_novedad} sin cambios · {errores} errores"
+        )
+        return True
+
+    except Exception as e:
+        logger.error(f"Falló la resolución de licitaciones: {e}", exc_info=True)
+        return False
+
+
 def run_etl_actualizar_detalles_ordenes(
     dias_sin_actualizar: int = 1,
     limit: int | None = None,
@@ -763,6 +839,11 @@ def main():
     parser.add_argument(
         "--only-actualizar", action="store_true", help="Only update existing details"
     )
+    parser.add_argument(
+        "--only-resultados",
+        action="store_true",
+        help="Sólo resolver licitaciones cerradas que alguien sigue",
+    )
 
     args = parser.parse_args()
 
@@ -777,6 +858,8 @@ def main():
         if args.skip_ordenes:
             logger.info("⚠️  Skipping órdenes de compra")
         logger.info(f"Days threshold: {args.dias_sin_actualizar} (0 = all records)")
+    elif args.only_resultados:
+        logger.info("Mode: --only-resultados (Resolver licitaciones seguidas ya cerradas)")
     elif args.only_extraer_nuevos:
         logger.info("Mode: --only-extraer-nuevos (Extract details for new records)")
     else:
@@ -793,6 +876,10 @@ def main():
         if not args.skip_ordenes:
             if not run_etl_extraer_detalles_nuevos_ordenes(limit=args.detalles_limit):
                 success = False
+
+    # Standalone mode: resolver licitaciones seguidas que ya cerraron
+    elif args.only_resultados:
+        success = run_etl_resultados_licitaciones(limit=args.detalles_limit or 200)
 
     # Standalone mode: only update existing
     elif args.only_actualizar:

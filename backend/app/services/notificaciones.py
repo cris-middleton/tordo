@@ -74,6 +74,12 @@ POLITICA: dict[AlertType, str] = {
     AlertType.MATCHED_PREFERENCE: Urgencia.TANDA,
     AlertType.NEW_TENDER: Urgencia.TANDA,
     AlertType.CAMBIO_PRECIO: Urgencia.TANDA,
+    # El resultado no urge —ya pasó— pero es de lo que más se agradece recibir:
+    # es la única vez que el producto cierra la historia que empezó él mismo.
+    AlertType.RESULTADO_LICITACION: Urgencia.TANDA,
+    # Que un competidor gane no urge tampoco, y en tanda además se lee mejor:
+    # cinco líneas juntas dibujan un patrón que cinco correos sueltos esconden.
+    AlertType.COMPETIDOR_GANO: Urgencia.TANDA,
     # Ruido para un correo: son cambios de estado que se miran cuando se entra.
     AlertType.TENDER_UPDATE: Urgencia.SIN_CORREO,
     AlertType.NEW_ORDER: Urgencia.SIN_CORREO,

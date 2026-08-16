@@ -993,6 +993,49 @@ class DatabaseLoaderV2(BaseLoader):
 
         return query.all()
 
+    def query_licitaciones_seguidas_sin_resultado(self, limit: int | None = None) -> List[tuple]:
+        """Licitaciones que alguien SIGUE, que ya cerraron y de las que todavía no
+        sabemos cómo terminaron.
+
+        **Por qué hace falta una consulta aparte.** `query_licitaciones_para_actualizar`
+        filtra por estados activos, así que en cuanto una licitación cierra deja de
+        revisitarse: el detalle se captura una vez, con el llamado abierto, y nunca
+        se vuelve a mirar. Resultado: quien siguió una licitación en TORDO no se
+        entera nunca de quién ganó ni a cuánto — el dato existe en la API y no lo
+        pedimos.
+
+        El alcance es deliberadamente estrecho —sólo lo que alguien sigue— porque
+        revisitar el catálogo entero serían cientos de miles de llamadas a una API
+        con cuota para responder una pregunta que nadie hizo.
+
+        Returns:
+            List of tuples (id, codigo_externo, detalle_id)
+        """
+        if not self.session:
+            self.connect()
+
+        query = (
+            self.session.query(
+                Licitacion.id, Licitacion.codigo_externo, LicitacionDetalle.id.label("detalle_id")
+            )
+            .join(LicitacionDetalle, Licitacion.id == LicitacionDetalle.licitacion_id)
+            # Subconsulta en SQL literal: el ETL no importa el modelo
+            # `Postulacion` —vive en el backend— y traerlo por `shared_imports`
+            # sólo para un `IN` acoplaría el pipeline a una tabla de producto.
+            .filter(text("licitaciones.id IN (SELECT licitacion_id FROM postulaciones)"))
+            .filter(Licitacion.fecha_cierre.isnot(None))
+            .filter(Licitacion.fecha_cierre < now_santiago())
+            .filter(LicitacionDetalle.fecha_adjudicacion.is_(None))
+            # Las más recientes primero: si hay tope, interesa lo que el usuario
+            # todavía tiene fresco, no una licitación de hace ocho meses.
+            .order_by(Licitacion.fecha_cierre.desc())
+        )
+
+        if limit:
+            query = query.limit(limit)
+
+        return query.all()
+
     def query_ordenes_para_actualizar(
         self, dias_sin_actualizar: int = 1, limit: int | None = None
     ) -> List[tuple]:
