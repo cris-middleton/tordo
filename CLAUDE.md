@@ -513,6 +513,17 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
   en cookies `httpOnly` y renueva solo — ver las reglas de frontend.
   **La ruta de Google sigue sin refresco**: redirige con el token en la URL, y meter ahí un
   refresco sería peor (historial, logs, `Referer`). La solución es un código de un solo uso.
+  - **Verificación de correo**: `users.is_verified` existía desde la primera migración y
+    **nada la ponía en `True`** — la columna estaba, la promesa no. El registro emite un
+    token (`email_verification_tokens`, 7 días, un solo uso, guardado como SHA-256) y manda
+    el correo de bienvenida en segundo plano. Tabla propia y no una columna `proposito` en
+    `password_reset_tokens`: son dos ciclos de vida distintos —siete días contra una hora—
+    y mezclarlos convierte cada consulta en un filtro que alguien olvidará.
+    **No bloquea el acceso.** Una cuenta sin verificar entra igual: cerrarle la puerta a
+    alguien porque su proveedor de correo tardó es perder al usuario para cubrir un caso
+    raro. Lo que sí acota es a quién se le cobra y a quién se le mandan datos de negocio.
+    **Pedir el reenvío responde lo mismo exista o no la cuenta**, por el mismo motivo que
+    la recuperación de contraseña: distinguir es regalar un verificador de cuentas.
 - **Alertas**: preferencias → AlertEngine → `INSERT ON CONFLICT` idempotente →
   **`services/notificaciones.py`**, que es quien despacha.
   - **El canal lo declara el TIPO de alerta, no quien la crea.** `POLITICA` es la única
@@ -563,6 +574,21 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
   `celery_app.py` produce `Received unregistered task` en el worker y nada más.
   `tests/test_celery_beat.py` comprueba que cada entrada del calendario existe; si añades una
   tarea programada, importa su módulo al final de `celery_app.py`.
+- **Exportar es una consulta de BI y descuenta cuota igual.** `/bi/exportar/*` devuelve el
+  mismo análisis en CSV; si no cobrara, sería la forma de saltarse el medidor. El archivo va
+  **con BOM y separador `;`**: sin BOM Excel en Windows parte las tildes, y con coma Excel en
+  configuración regional chilena mete todo en una columna. Un CSV que se abre mal no es un
+  entregable, y son dos detalles que un refactor bienintencionado rompe sin que falle nada.
+- **Postulaciones: tablero además de lista.** Los seis estados del `CHECK` son las columnas.
+  **No son configurables a propósito**: `adjudicada` es lo que cruza contra el ZIP para
+  cerrar el ciclo del resultado (`services/resultados.py`), así que renombrarlas rompería
+  eso a cambio de nada. Se arrastra con la API nativa de HTML5 —una librería de arrastre son
+  ~30 kB y una entrada más en `make audit` para una pantalla— y cada tarjeta lleva además un
+  selector, que es el único camino con teclado y en móvil.
+- **Lo que el plan no incluye se enseña con candado, no se esconde** (`components/Candado.tsx`).
+  Detrás del candado está el BI, que es el argumento de compra: esconderlo hace que el
+  producto parezca más pobre de lo que es. El 402 del servidor sigue siendo la protección —
+  un candado en el cliente es una cortesía— pero llega **antes** de que el usuario pulse.
 - **Planes**: el `id` del plan que devuelve `/api/v1/billing/plans` **es** el `plan_tier` que se
   guarda en la empresa (`basico | pyme | pro | enterprise`); `nombre` es sólo lo que se
   muestra. Los límites — documentos, consultas BI, alertas y **asientos** — viven todos en

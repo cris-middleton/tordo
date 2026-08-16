@@ -9,7 +9,7 @@ When either flag is off (default in dev), the respective endpoints return 503.
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import (
@@ -615,6 +615,67 @@ def get_rubros(
 
     result = bi_service.get_rubros(limit=limit)
     return result
+
+
+@router.get(
+    "/exportar/precio/{codigo_producto}",
+    summary="Descargar en CSV la banda de precio de un producto",
+    description=(
+        "Devuelve el mismo análisis que `/bi/precio/{codigo_producto}` en un CSV "
+        "listo para Excel. **Descuenta cuota de BI igual que la consulta en "
+        "pantalla**: si no lo hiciera, sería la forma de saltarse el medidor."
+    ),
+    response_class=Response,
+)
+def exportar_precio(
+    codigo_producto: str,
+    organismo_id: str | None = Query(None),
+    unidad_medida: str | None = Query(None),
+    current_user: User = Depends(check_bi_quota_dep),
+):
+    _require_analytics()
+    from app.services import bi as bi_service
+    from app.services import exportar
+
+    datos = bi_service.get_precio_producto(codigo_producto, organismo_id, unidad_medida)
+    if not datos.get("disponible"):
+        raise HTTPException(status_code=404, detail=datos.get("motivo", "Sin datos para exportar"))
+
+    csv_texto = exportar.a_csv(datos.get("resultado") or [], exportar.COLUMNAS_PRECIO)
+    nombre = exportar.nombre_archivo("precio", codigo_producto)
+    return Response(
+        content=csv_texto,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{nombre}"'},
+    )
+
+
+@router.get(
+    "/exportar/competidores/{organismo_id}",
+    summary="Descargar en CSV los competidores de un comprador",
+    response_class=Response,
+)
+def exportar_competidores(
+    organismo_id: str,
+    rubro: str | None = Query(None),
+    top_n: int = Query(50, ge=1, le=200),
+    current_user: User = Depends(check_bi_quota_dep),
+):
+    _require_analytics()
+    from app.services import bi as bi_service
+    from app.services import exportar
+
+    datos = bi_service.get_competidores(organismo_id, rubro, top_n)
+    if not datos.get("disponible"):
+        raise HTTPException(status_code=404, detail=datos.get("motivo", "Sin datos para exportar"))
+
+    csv_texto = exportar.a_csv(datos.get("competidores") or [], exportar.COLUMNAS_COMPETIDORES)
+    nombre = exportar.nombre_archivo("competidores", organismo_id)
+    return Response(
+        content=csv_texto,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{nombre}"'},
+    )
 
 
 @router.get(

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
 import { useDocumentos, useEmpresas, usePostulaciones } from '@/lib/queries';
 import SelectField from '@/components/SelectField';
+import TableroPostulaciones from '@/components/postulaciones/TableroPostulaciones';
 import {
   ClipboardList,
   CheckCircle2,
@@ -15,6 +16,8 @@ import {
   ChevronUp,
   Loader2,
   Building2,
+  LayoutGrid,
+  List,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -198,6 +201,9 @@ function PostulacionCard({
 export default function PostulacionesPage() {
   const router = useRouter();
   const [filtroEstado, setFiltroEstado] = useState('');
+  // El tablero es la vista por defecto: es donde se ve de un vistazo en qué
+  // etapa está cada cosa, que es la pregunta que trae a esta pantalla.
+  const [vista, setVista] = useState<'tablero' | 'lista'>('tablero');
 
   const { data: empresasData } = useEmpresas();
   const empresas = (empresasData ?? []) as Empresa[];
@@ -240,6 +246,17 @@ export default function PostulacionesPage() {
       await loadPostulaciones();
     } catch {
       // ignore
+    }
+  };
+
+  const handleMover = async (postulacionId: string, estado: string) => {
+    try {
+      await apiClient.cambiarEstadoPostulacion(postulacionId, estado);
+      await loadPostulaciones();
+    } catch {
+      // Si falla, la recarga deja la tarjeta donde de verdad está: mover la
+      // vista sin que el servidor lo acepte sería mentirle al usuario.
+      await loadPostulaciones();
     }
   };
 
@@ -289,15 +306,44 @@ export default function PostulacionesPage() {
             className="w-48"
           />
         )}
-        <SelectField
-          value={filtroEstado}
-          onChange={setFiltroEstado}
-          options={[
-            { value: '', label: 'Todos los estados' },
-            ...Object.entries(ESTADO_CONFIG).map(([key, cfg]) => ({ value: key, label: cfg.label })),
-          ]}
-          className="w-48"
-        />
+        {vista === 'lista' && (
+          <SelectField
+            value={filtroEstado}
+            onChange={setFiltroEstado}
+            options={[
+              { value: '', label: 'Todos los estados' },
+              ...Object.entries(ESTADO_CONFIG).map(([key, cfg]) => ({ value: key, label: cfg.label })),
+            ]}
+            className="w-48"
+          />
+        )}
+
+        {/* En el tablero el filtro por estado sobra: las columnas SON el filtro,
+            y aplicarlo vaciaría cinco de las seis. */}
+        <div className="ml-auto inline-flex rounded-lg border border-border p-0.5" role="group" aria-label="Vista">
+          <button
+            type="button"
+            onClick={() => setVista('tablero')}
+            aria-pressed={vista === 'tablero'}
+            className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+              vista === 'tablero' ? 'bg-primary text-onPrimary' : 'text-muted hover:text-text'
+            }`}
+          >
+            <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
+            Tablero
+          </button>
+          <button
+            type="button"
+            onClick={() => setVista('lista')}
+            aria-pressed={vista === 'lista'}
+            className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+              vista === 'lista' ? 'bg-primary text-onPrimary' : 'text-muted hover:text-text'
+            }`}
+          >
+            <List className="h-3.5 w-3.5" aria-hidden="true" />
+            Lista
+          </button>
+        </div>
       </div>
 
       {/* List */}
@@ -327,6 +373,8 @@ export default function PostulacionesPage() {
             </button>
           </div>
         </div>
+      ) : vista === 'tablero' ? (
+        <TableroPostulaciones postulaciones={postulaciones} onMover={handleMover} />
       ) : (
         <div className="space-y-4">
           {postulaciones.map((p) => (

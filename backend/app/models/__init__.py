@@ -30,6 +30,7 @@ from app.models.reference import (
 from app.models.refresh_token import RefreshToken
 from app.models.task_failure import TaskFailure
 from app.models.user import User
+from app.models.verificacion_correo import TokenVerificacionCorreo
 
 __all__ = [
     "ApiKey",
@@ -41,6 +42,7 @@ __all__ = [
     "OrdenCompra",
     "OrdenCompraDetalle",
     "OrdenCompraHistorial",
+    "TokenVerificacionCorreo",
     "User",
     "BuyerOrganization",
     "Supplier",

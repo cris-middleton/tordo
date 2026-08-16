@@ -24,8 +24,10 @@ from app.schemas.user import (
     UserCreate,
     UserLogin,
     UserResponse,
+    VerificacionConfirmar,
+    VerificacionSolicitar,
 )
-from app.services import auth_tokens, password_reset
+from app.services import auth_tokens, password_reset, verificacion_correo
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +40,11 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
+async def register(
+    user_data: UserCreate,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
     existing_user = await repo.existe_email_o_username(db, user_data.email, user_data.username)
     if existing_user:
         raise HTTPException(
@@ -54,6 +60,12 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     db.add(db_user)
     await db.commit()
     await db.refresh(db_user)
+
+    # El correo de bienvenida sale en segundo plano: `send_email` es `smtplib`
+    # síncrono, y un servidor de correo lento no puede hacer que el registro
+    # parezca colgado. Si falla, la cuenta ya está creada y se puede reenviar.
+    await verificacion_correo.emitir(db, db_user, background_tasks=background_tasks)
+
     return db_user
 
 
@@ -230,3 +242,32 @@ async def confirmar_recuperacion(payload: PasswordResetConfirm, db: AsyncSession
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     await db.commit()
     return {"message": "Contraseña actualizada. Entra con la nueva."}
+
+
+@router.post("/verificar/solicitar", status_code=status.HTTP_200_OK)
+async def solicitar_verificacion(
+    payload: VerificacionSolicitar,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
+    """Reenvía el correo de verificación.
+
+    **Responde lo mismo exista o no la cuenta.** Distinguir convertiría el
+    formulario en un verificador de cuentas: se prueba una lista de correos y se
+    sabe cuáles están registrados.
+    """
+    await verificacion_correo.reenviar(db, payload.email, background_tasks=background_tasks)
+    return {"mensaje": "Si el correo está registrado, te llegará el enlace de confirmación."}
+
+
+@router.post("/verificar/confirmar", status_code=status.HTTP_200_OK)
+async def confirmar_verificacion(
+    payload: VerificacionConfirmar,
+    db: AsyncSession = Depends(get_db),
+):
+    """Canjea el enlace y deja la cuenta verificada."""
+    try:
+        await verificacion_correo.confirmar(db, payload.token)
+    except verificacion_correo.ErrorDeVerificacion as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return {"verificado": True}

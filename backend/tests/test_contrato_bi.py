@@ -61,6 +61,11 @@ CONTRATO: dict[tuple[str, str], str] = {
     # cuota de BI pondría un peaje en el onboarding: la empresa gastaría sus
     # consultas del plan básico antes de haber visto un solo dato.
     ("GET", "/bi/rubros/sugerir"): "sesion",
+    # La exportación ES la consulta, sólo que en un archivo. Si no descontara
+    # cuota sería la forma de saltarse el medidor: pedir el CSV en vez de la
+    # pantalla y llevarse lo mismo sin pagar.
+    ("GET", "/bi/exportar/precio/{codigo_producto}"): "cuota",
+    ("GET", "/bi/exportar/competidores/{organismo_id}"): "cuota",
     # El radar comprueba pertenencia a la empresa por dentro
     # (`verificar_acceso_empresa`), no por dependencia. No está listado como
     # capacidad de ningún plan, así que hoy no se cobra.

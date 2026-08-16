@@ -85,6 +85,18 @@ class PasswordResetRequest(BaseModel):
     email: EmailStr
 
 
+class VerificacionSolicitar(BaseModel):
+    """Reenvío del correo de verificación."""
+
+    email: EmailStr
+
+
+class VerificacionConfirmar(BaseModel):
+    """Canje del enlace de verificación."""
+
+    token: str
+
+
 class PasswordResetConfirm(BaseModel):
     """Canje del enlace por una contraseña nueva."""
 

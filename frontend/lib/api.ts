@@ -324,6 +324,11 @@ class ApiClient {
     return res.data;
   }
 
+  async cambiarEstadoPostulacion(postulacionId: string, estado: string) {
+    const res = await this.client.put(`${API}/postulaciones/${postulacionId}`, { estado });
+    return res.data;
+  }
+
   async createPostulacion(data: { empresa_id: string; licitacion_id: number | string; notas?: string }) {
     const res = await this.client.post(`${API}/postulaciones`, data);
     return res.data;
@@ -442,6 +447,33 @@ class ApiClient {
   async updateTFIDFPerfil(empresaId: string, data: Record<string, unknown>) {
     const res = await this.client.put(`${API}/bi/perfil/${empresaId}`, data);
     return res.data;
+  }
+
+  /**
+   * Descarga un CSV a través del proxy autenticado.
+   *
+   * No se puede usar un `href` directo: la sesión vive en una cookie `httpOnly`
+   * que sólo lee el proxy de Next, así que un enlace normal llegaría al backend
+   * sin `Authorization` y el navegador descargaría un archivo con el 401 dentro.
+   */
+  async confirmarVerificacion(token: string) {
+    const res = await this.client.post(`${API}/auth/verificar/confirmar`, { token });
+    return res.data;
+  }
+
+  async reenviarVerificacion(email: string) {
+    const res = await this.client.post(`${API}/auth/verificar/solicitar`, { email });
+    return res.data;
+  }
+
+  async descargarCsv(ruta: string): Promise<{ blob: Blob; nombre: string }> {
+    const res = await this.client.get(`${API}/${ruta}`, { responseType: 'blob' });
+    const disposicion = String(res.headers['content-disposition'] ?? '');
+    const encontrado = /filename="?([^"]+)"?/.exec(disposicion);
+    return {
+      blob: res.data as Blob,
+      nombre: encontrado?.[1] ?? 'tordo.csv',
+    };
   }
 
   async sugerirRubros(descripcion: string, limit = 6) {

@@ -6,6 +6,7 @@ import { Info, Loader2, Search } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { useBuscarProductos } from '@/lib/queries';
 import type { OrganismoConNombre } from '../../types';
+import BotonExportar from '@/components/BotonExportar';
 import VigilarPrecio from './VigilarPrecio';
 import {
   extractErrorMessage,
@@ -189,10 +190,18 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
             {banda.confianza && <> · Confianza: {banda.confianza}</>}
           </p>
           {selected?.codigoProductoONU && (
-            <VigilarPrecio
-              codigoProducto={selected.codigoProductoONU}
-              nombreProducto={selected.nombre}
-            />
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+              <VigilarPrecio
+                codigoProducto={selected.codigoProductoONU}
+                nombreProducto={selected.nombre}
+              />
+              {/* La descarga es lo que convierte esto en un entregable: se pega
+                  en una propuesta interna o se manda al socio que decide. */}
+              <BotonExportar
+                ruta={`bi/exportar/precio/${encodeURIComponent(selected.codigoProductoONU)}`}
+                etiqueta="Descargar"
+              />
+            </div>
           )}
         </div>
       )}
