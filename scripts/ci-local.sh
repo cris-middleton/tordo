@@ -154,6 +154,40 @@ correr "pytest etl" bash -c 'cd etl && uv run --project .. pytest -q'
 
 # ── 🎨 Frontend ──────────────────────────────────────────────────────────────
 paso "🎨 Frontend"
+# El PR #67 llegó rojo porque un `package-lock.json` regenerado en macOS arm64
+# omitía @emnapi/core y @emnapi/runtime — opcionales de un paquete que npm sólo
+# resuelve en linux x64 — y `npm ci` fallaba en el runner con "Missing ... from
+# lock file". Nada de este script corría `npm ci`: sólo miraba si
+# `frontend/node_modules` ya existía y de ahí en más confiaba en lo que
+# hubiera instalado, así que esa clase de fallo era invisible aquí.
+#
+# Correr `npm ci` (con o sin `--dry-run`) EN ESTE HOST no lo detecta: en
+# macOS esos paquetes están correctamente ausentes, así que la resolución
+# local nunca ve el hueco — es la misma razón por la que el bug pasó
+# desapercibido. Lo único que reproduce el fallo es resolver en la MISMA
+# plataforma que el runner (`actions/setup-node`, node 20, ubuntu-latest =
+# linux x64), así que esto corre dentro de un contenedor `--platform
+# linux/amd64`.
+#
+# Sólo se montan los dos manifiestos, de sólo lectura: `node_modules` se
+# instala dentro de la capa efímera del contenedor (se descarta con --rm),
+# nunca en el árbol del host, así que esto no puede dejar archivos de root
+# sobre `frontend/node_modules`. La caché de descargas de npm vive en un
+# volumen aparte (`tordo-ci-npm-cache`, Docker lo crea solo la primera vez)
+# para que las corridas siguientes no vuelvan a bajar ~700 paquetes de cero:
+# medido en ~30s en frío y ~25s en caliente, así que corre siempre.
+#
+# Qué NO cubre: nada de lint/test/build corre dentro del contenedor — eso lo
+# siguen haciendo los pasos de abajo, contra lo que tenga instalado el host.
+# Esto sólo prueba que package.json y package-lock.json están sincronizados
+# para la plataforma en la que corre CI.
+correr "npm ci en linux/amd64 (contenedor)" bash -c '
+  docker run --rm --platform linux/amd64 \
+    -v "$PWD/frontend/package.json:/app/package.json:ro" \
+    -v "$PWD/frontend/package-lock.json:/app/package-lock.json:ro" \
+    -v tordo-ci-npm-cache:/root/.npm \
+    -w /app node:20 npm ci
+'
 if [ -d frontend/node_modules ]; then
   correr "npm run lint"  bash -c 'cd frontend && npm run lint'
   correr "npm test"      bash -c 'cd frontend && npm test -- --run'

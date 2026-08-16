@@ -30,6 +30,10 @@ function LoginForm() {
     searchParams.get('registered') === 'true'
       ? 'Cuenta creada exitosamente. Por favor inicia sesión.'
       : '';
+  const mensajeDeRestablecida =
+    searchParams.get('restablecida') === '1'
+      ? 'Contraseña actualizada. Entra con la nueva.'
+      : '';
   const errorDeOAuth = searchParams.get('error')
     ? decodeURIComponent(searchParams.get('error') as string)
     : '';
@@ -135,9 +139,9 @@ function LoginForm() {
           <h2 className="font-display text-2xl font-bold text-text mb-1">Bienvenido de vuelta</h2>
           <p className="text-sm text-muted mb-7">Ingresa tus credenciales para continuar</p>
 
-          {(success || mensajeDeRegistro) && (
+          {(success || mensajeDeRegistro || mensajeDeRestablecida) && (
             <div className="alert-success mb-5">
-              <span>{success || mensajeDeRegistro}</span>
+              <span>{success || mensajeDeRegistro || mensajeDeRestablecida}</span>
             </div>
           )}
           {(error || errorDeOAuth) && (
@@ -222,6 +226,11 @@ function LoginForm() {
             ¿No tienes cuenta?{' '}
             <Link href="/register" className="font-semibold text-primary hover:underline transition-colors">
               Crear cuenta gratis
+            </Link>
+          </p>
+          <p className="mt-2 text-center text-sm text-muted">
+            <Link href="/recuperar" className="font-semibold text-primary hover:underline transition-colors">
+              ¿Olvidaste tu contraseña?
             </Link>
           </p>
         </div>

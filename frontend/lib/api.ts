@@ -95,6 +95,19 @@ class ApiClient {
     return res.data;
   }
 
+  async solicitarRecuperacion(email: string) {
+    const { data } = await this.client.post(`${API}/auth/password-reset/solicitar`, { email });
+    return data as { message: string };
+  }
+
+  async confirmarRecuperacion(token: string, newPassword: string) {
+    const { data } = await this.client.post(`${API}/auth/password-reset/confirmar`, {
+      token,
+      new_password: newPassword,
+    });
+    return data as { message: string };
+  }
+
   getGoogleAuthUrl(): string {
     // Ruta propia: la URL del backend ya no viaja en el bundle.
     return '/api/sesion/google';
