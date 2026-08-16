@@ -11,6 +11,7 @@ claves configuradas.
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 from typing import Literal
 
 from app.domain.billing import (
@@ -137,6 +138,21 @@ class StripeAdapter:
             customer=customer_id, return_url=url_retorno
         )
         return sesion.url
+
+    def cancelar_suscripcion(self, subscription_id: str) -> str | None:
+        """Cancela en Stripe y devuelve el fin del periodo ya pagado.
+
+        `Subscription.cancel` corta de inmediato en la pasarela; el acceso hasta
+        `current_period_end` lo respeta la aplicación, no Stripe. Se hace así y no
+        con `cancel_at_period_end=True` para que las dos pasarelas se comporten
+        igual: con MercadoPago no existe esa opción, y una diferencia escondida
+        aquí saldría como un cobro de más allá.
+        """
+        suscripcion = self._sdk().Subscription.cancel(subscription_id)
+        fin = getattr(suscripcion, "current_period_end", None)
+        if not fin:
+            return None
+        return datetime.fromtimestamp(fin, tz=UTC).isoformat()
 
     def interpretar_webhook(
         self, payload: bytes, cabeceras: dict[str, str]

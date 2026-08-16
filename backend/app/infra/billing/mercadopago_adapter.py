@@ -205,6 +205,19 @@ class MercadoPagoAdapter:
         """MercadoPago no hospeda portal. El endpoint responde 501 antes de llegar aquí."""
         return None
 
+    def cancelar_suscripcion(self, subscription_id: str) -> str | None:
+        """MercadoPago cancela con un PUT sobre el preapproval.
+
+        No hay DELETE: el recurso sigue existiendo en estado `cancelled`, que es
+        lo que permite seguir consultándolo después. La respuesta trae
+        `next_payment_date`, que es exactamente la fecha hasta la que el cliente
+        ya pagó — y por tanto hasta cuándo le toca conservar el acceso.
+        """
+        respuesta = self._pedir(
+            "PUT", f"/preapproval/{subscription_id}", json={"status": "cancelled"}
+        )
+        return respuesta.get("next_payment_date") or None
+
     def interpretar_webhook(
         self, payload: bytes, cabeceras: dict[str, str]
     ) -> EventoDeSuscripcion | None:

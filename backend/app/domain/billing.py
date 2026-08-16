@@ -23,6 +23,10 @@ declaran como capacidades en vez de esconderse:
 - **`tiene_portal_de_gestion`** — Stripe hospeda un portal donde el cliente
   cambia de plan o cancela. Las pasarelas locales no, así que esa UI hay que
   construirla.
+- **La fecha del periodo pagado.** Stripe la trae en la suscripción
+  (`current_period_end`); MercadoPago, en `next_payment_date` del preapproval.
+  Una pasarela de pago único no tendría ninguna, y ahí `cancelar_suscripcion`
+  devuelve None: no hay periodo que respetar.
 
 Quien consuma el puerto debe consultar esas capacidades, no asumirlas.
 """
@@ -116,6 +120,21 @@ class ProveedorDePago(Protocol):
 
         Devuelve None si el proveedor no tiene uno; en ese caso la aplicación
         debe ofrecer su propia UI de cambio de plan y cancelación.
+        """
+        ...
+
+    def cancelar_suscripcion(self, subscription_id: str) -> str | None:
+        """Cancela la suscripción en la pasarela.
+
+        Devuelve la fecha ISO-8601 hasta la que el periodo YA PAGADO sigue
+        vigente, o None si el proveedor no la informa.
+
+        No es una capacidad opcional como `tiene_portal_de_gestion`: cobrar sin
+        poder dejar de cobrar deja al cliente sin salida, y en Chile el mismo
+        canal por el que se contrata tiene que servir para terminar.
+
+        Devolver la fecha, y no un booleano, es lo que permite no cortar el
+        acceso que el cliente ya pagó. Ver `plan_vigente_hasta` en la empresa.
         """
         ...
 

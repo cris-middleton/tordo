@@ -412,3 +412,38 @@ def test_un_plan_desconocido_no_inventa_un_tier(config, red):
     evento = MercadoPagoAdapter().interpretar_webhook(payload, cabeceras)
     assert evento.plan_tier is None
     assert evento.estado == "past_due"
+
+
+# ── Cancelación ──────────────────────────────────────────────────────────────
+
+
+def test_cancelar_pone_la_suscripcion_en_cancelled(config, red):
+    """MercadoPago cancela con un PUT sobre el preapproval, no con un DELETE."""
+    red.respuestas["/preapproval/preapproval-123"] = RespuestaFalsa(
+        {"status": "cancelled", "next_payment_date": "2026-09-01T00:00:00.000-04:00"}
+    )
+
+    vigente_hasta = MercadoPagoAdapter().cancelar_suscripcion("preapproval-123")
+
+    llamada = red.llamadas[-1]
+    assert llamada["metodo"] == "PUT"
+    assert llamada["url"].endswith("/preapproval/preapproval-123")
+    assert llamada["json"] == {"status": "cancelled"}
+    assert vigente_hasta == "2026-09-01T00:00:00.000-04:00", (
+        "sin la fecha del periodo pagado, cancelar cortaría el acceso que el cliente ya pagó"
+    )
+
+
+def test_cancelar_sin_fecha_de_proximo_cobro_devuelve_none(config, red):
+    """Una suscripción que nunca llegó a cobrarse no tiene periodo que respetar."""
+    red.respuestas["/preapproval/preapproval-123"] = RespuestaFalsa({"status": "cancelled"})
+    assert MercadoPagoAdapter().cancelar_suscripcion("preapproval-123") is None
+
+
+def test_un_error_al_cancelar_no_se_traga(config, red):
+    red.respuestas["/preapproval/no-existe"] = RespuestaFalsa(
+        {"message": "preapproval not found"}, status_code=404
+    )
+    with pytest.raises(ErrorDeCobro) as exc:
+        MercadoPagoAdapter().cancelar_suscripcion("no-existe")
+    assert "404" in str(exc.value)

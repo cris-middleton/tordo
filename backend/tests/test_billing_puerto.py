@@ -28,7 +28,7 @@ from app.infra.billing.stripe_adapter import StripeAdapter
 class ProveedorFalso:
     """Una pasarela local imaginaria: cobro único y sin portal.
 
-    Reproduce a propósito las dos diferencias reales con Stripe, que son las que
+    Reproduce a propósito las diferencias reales con Stripe, que son las que
     un puerto mal diseñado escondería.
     """
 
@@ -57,6 +57,9 @@ class ProveedorFalso:
 
     def url_portal_de_gestion(self, customer_id: str, url_retorno: str) -> str | None:
         return None  # esta pasarela no hospeda portal
+
+    def cancelar_suscripcion(self, subscription_id: str) -> str | None:
+        return None  # pago único: no hay periodo ya pagado que respetar
 
     def interpretar_webhook(self, payload: bytes, cabeceras: dict[str, str]):
         if cabeceras.get("x-firma") != "valida":
@@ -297,3 +300,17 @@ def test_los_identificadores_no_llevan_el_nombre_de_un_proveedor():
         "Los identificadores de cobro no deben llevar el nombre de un proveedor: "
         f"{sorted(c for c in columnas if 'stripe' in c)}"
     )
+
+
+# ── Cancelación ──────────────────────────────────────────────────────────────
+
+
+def test_todo_proveedor_sabe_cancelar():
+    """Cancelar no es una capacidad opcional como el portal: es la contrapartida
+    de cobrar. Un adaptador que no la implemente deja al cliente sin salida."""
+    from app.infra.billing import PROVEEDORES
+
+    for nombre, clase in PROVEEDORES.items():
+        assert hasattr(clase, "cancelar_suscripcion"), (
+            f"el proveedor '{nombre}' no implementa cancelar_suscripcion"
+        )
