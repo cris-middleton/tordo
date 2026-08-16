@@ -26,19 +26,23 @@ def get_descuento(
     """
     Optimal discount recommendations by competitive context (type + rubro + n_oferentes band).
     """
-    df = _load("discount_by_context.parquet")
+    # Los filtros viajan a SQL. Antes se traía la tabla entera y se recortaba en
+    # Polars a cien filas: el 99 % del trabajo era leer lo que se iba a tirar.
+    filtros = {}
+    if tipo:
+        filtros["CodigoTipo"] = str(tipo)
+    if rubro:
+        filtros["Rubro2"] = rubro
+    if n_oferentes_rango:
+        filtros["n_oferentes_rango"] = n_oferentes_rango
+
+    df = _load("discount_by_context.parquet", filtros=filtros or None, limite=100)
     if df is None:
         return {"disponible": False, "motivo": "parquet no generado"}
 
-    mask = df["CodigoTipo"].is_not_null()
-    if tipo:
-        mask = mask & (df["CodigoTipo"].cast(str) == str(tipo))
-    if rubro:
-        mask = mask & (df["Rubro2"] == rubro)
-    if n_oferentes_rango:
-        mask = mask & (df["n_oferentes_rango"] == n_oferentes_rango)
-
-    rows = df.filter(mask).head(100)
+    # `CodigoTipo` nulo nunca sirve: la recomendación de descuento se lee por
+    # tipo de licitación.
+    rows = df.filter(df["CodigoTipo"].is_not_null())
     if rows.is_empty():
         return {"disponible": False, "motivo": "sin datos para los filtros solicitados"}
 
@@ -81,11 +85,13 @@ def get_diversificacion(codigo_proveedor: str) -> dict:
     Provider diversification score and customer-concentration alert.
     High HHI / alerta_dependencia=True indicates risk of single-buyer dependency.
     """
-    df = _load("provider_diversification.parquet")
+    df = _load(
+        "provider_diversification.parquet", filtros={"CodigoProveedor": str(codigo_proveedor)}
+    )
     if df is None:
         return {"disponible": False, "motivo": "parquet no generado"}
 
-    rows = df.filter(df["CodigoProveedor"].cast(str) == str(codigo_proveedor))
+    rows = df
     if rows.is_empty():
         return {"disponible": False, "motivo": "proveedor no encontrado en histórico"}
 

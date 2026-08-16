@@ -421,7 +421,8 @@ services/       Lógica de negocio como funciones de módulo.
                 services/bi/ está partido por dominio (precio, competencia,
                 comprador, oportunidad, temporal, mercado, panel), con _base.py
                 como único punto de acceso a las tablas de analytics.
-core/           security.py (JWT), plan_limits.py (cuotas), limites_api.py
+core/           security.py (JWT), plan_limits.py (cuotas), tiempo.py (el reloj
+                de Chile), limites_api.py
                 (límite por clave), versionado.py, email.py
 mcp/            servidor MCP: 4 herramientas de grano grueso sobre services/bi/
 observability/  logging JSON con request_id (contextvar) + Sentry opt-in
@@ -626,6 +627,36 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
   donde hay 77.720, y tomar una fila suelta como representativa daba tres «líderes del
   rubro» con 99,9 %, 99,9 % y 99,0 %… cada uno de un comprador distinto. Lo fija
   `tests/test_bi_metricas.py`, con un mercado de juguete donde el error se ve.
+- **La identidad de una entidad es su CÓDIGO. El nombre nunca va en la clave de agrupación**
+  (`etl/analytics/identidad.py`). En el histórico de ChileCompra **145 de 1.186 compradores
+  (12,2 %) aparecen con más de un nombre** —los cambios de 2021 dejaron a la misma repartición
+  como «GOBERNACION PROVINCIAL DE …» y «DELEGACIÓN PRESIDENCIAL PROVINCIAL DE …»— y cuatro
+  módulos agrupaban por *(código, nombre, rubro)*. Eso partía un mercado real en varios de
+  mentira: 7 de 11 tablas materializadas tenían su clave natural duplicada. El nombre se
+  arrastra con `nombre_vigente()`, que se queda con el **más reciente** — un organismo
+  renombrado debe salir con su nombre de hoy, y el más frecuente sería siempre el viejo.
+- **El HHI tiene una invariante aritmética: con *n* proveedores no puede bajar de 10.000/*n*,
+  y la cuota del líder no puede quedar por debajo de 100/*n*.** Las dos se violaban a la vez
+  —13,6 % y 98,7 % de las filas— y por separado cada número parecía razonable. De 5.675
+  mercados de **un solo proveedor**, 2.700 salían etiquetados en el tramo más abierto del
+  índice: un monopolio ofrecido como el mercado con más espacio para entrar. Causas: el
+  nombre en la clave, y `top_share_pct` ordenando `rank_monto` al revés, con lo que devolvía
+  la cuota del proveedor **más chico** mientras `top_proveedor` traía el nombre del mayor.
+  `compute_market_concentration` avisa por log si vuelven a aparecer.
+- **Un componente sin dato vale el neutro DE SU ESCALA, no 0,5.** En `opportunity_scorer` los
+  cuatro se rellenaban con 0,5; `score_tendencia_raw` es `cagr × r²` y vive en [-0,5; 1,0] con
+  mediana 0,0008, así que un mercado sin histórico entraba en el **percentil 98,5** de
+  crecimiento. La tabla de neutros es `NEUTRO_POR_COMPONENTE` y un componente nuevo sin
+  entrada hace fallar el test.
+- **Todo lo que se cuenta «por día» se fecha en `America/Santiago`** (`app/core/tiempo.py`,
+  `hoy_chile()`). **Nunca `date.today()`**: devuelve la fecha local del proceso, que en el
+  contenedor es UTC, y con Chile en UTC-4 el día cambiaba a las 20:00 de Santiago. Estaba en
+  siete sitios: la cuota diaria de BI se renovaba al anochecer y un documento que vencía HOY
+  se daba por vencido desde la tarde anterior. Un test en una máquina configurada en Chile no
+  lo habría visto — `tests/test_reloj_chile.py` fija un instante dentro de esa franja.
+- **`app/core/__init__.py` está vacío a propósito**, por lo mismo que `app/api/__init__.py`:
+  re-exportaba nombres de `security`, así que `from app.core.tiempo import ...` arrastraba
+  `app.models.empresa` y cerraba un ciclo. Nadie usaba las re-exportaciones.
 - **No existe ninguna fecha de pago en el dato de ChileCompra.** `mediana_dias_pago` medía
   `FechaEnvio → FechaAceptacion` —lo que tarda el **proveedor** en aceptar la orden, mediana
   real 1,63 días— y el producto lo publicaba como plazo de pago en la pantalla, en el correo

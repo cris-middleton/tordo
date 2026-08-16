@@ -21,14 +21,18 @@ def get_ventana(codigo_externo: str) -> dict:
     Returns alerta_ventana_corta, presion_score, pct_del_tipico.
     Returns 503-style dict if parquet not yet generated.
     """
-    df = _load("window_classified.parquet")
+    # El filtro viaja a SQL. `window_classified` tiene una fila por licitación
+    # del histórico, y esto se traía la tabla ENTERA a memoria para quedarse con
+    # una — en cada carga de la ficha de una licitación, que es la pantalla más
+    # visitada del producto.
+    df = _load("window_classified.parquet", filtros={"CodigoExterno": str(codigo_externo)})
     if df is None:
         return {
             "disponible": False,
             "motivo": "parquet window_classified no generado — ejecute el ETL de analytics",
         }
 
-    rows = df.filter(df["CodigoExterno"] == str(codigo_externo))
+    rows = df
     if rows.is_empty():
         return {"disponible": False, "motivo": "licitación no encontrada en histórico"}
 

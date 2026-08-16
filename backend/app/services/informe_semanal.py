@@ -28,6 +28,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.core.tiempo import hoy_chile
 from app.models.alert import Alert, AlertType
 from app.models.empresa import DocumentoEmpresa, Empresa, EmpresaUsuario
 from app.models.licitacion import Licitacion
@@ -225,7 +226,7 @@ def _cumplimiento(db: Session, empresa_id: UUID, empresa: Empresa) -> Seccion:
             )
         )
 
-    limite = date.today() + timedelta(days=DIAS_AVISO_VENCIMIENTO)
+    limite = hoy_chile() + timedelta(days=DIAS_AVISO_VENCIMIENTO)
     documentos = (
         db.query(DocumentoEmpresa)
         .filter(
@@ -239,7 +240,7 @@ def _cumplimiento(db: Session, empresa_id: UUID, empresa: Empresa) -> Seccion:
         .all()
     )
     for doc in documentos:
-        vencido = doc.fecha_vencimiento < date.today()
+        vencido = doc.fecha_vencimiento < hoy_chile()
         filas.append(
             Fila(
                 titulo=f"{doc.nombre[:120]} {'venció' if vencido else 'vence pronto'}",

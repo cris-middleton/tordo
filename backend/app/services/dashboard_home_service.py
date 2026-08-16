@@ -8,12 +8,13 @@ matching) lo precomputa la tarea Celery `precompute_dashboard_matches` en
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.tiempo import hoy_chile
 from app.models.alert import Alert, AlertStatus, AlertType
 from app.models.empresa import DocumentoEmpresa, Empresa
 from app.models.licitacion import Licitacion
@@ -81,7 +82,7 @@ async def compose_urgencias(db: AsyncSession, user_id: int, empresa_id: UUID) ->
     """Compose the urgency list from 4 sources, sorted by severity then time."""
     items: list[tuple[int, datetime, UrgenciaItem]] = []
     now = datetime.now(UTC)
-    today = date.today()
+    today = hoy_chile()
 
     # ── 1. Postulaciones with fecha_cierre in the next 7 days ────────────────
     cutoff = now + timedelta(days=7)
@@ -265,7 +266,7 @@ async def compose_pipeline(db: AsyncSession, empresa_id: UUID) -> PipelineCounts
 async def compose_resumen(db: AsyncSession, user_id: int, empresa_id: UUID) -> ResumenStats:
     """Counts used by the narrative template + secondary KPIs."""
     now = datetime.now(UTC)
-    today = date.today()
+    today = hoy_chile()
     week_ago = now - timedelta(days=7)
     cutoff_72h = now + timedelta(hours=72)
     month_start = today.replace(day=1)

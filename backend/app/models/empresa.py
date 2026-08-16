@@ -1,5 +1,4 @@
 import uuid
-from datetime import date
 
 from sqlalchemy import (
     BigInteger,
@@ -19,6 +18,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
+from app.core.tiempo import hoy_chile
 from app.db import Base
 
 
@@ -185,7 +185,10 @@ class DocumentoEmpresa(Base):
     @property
     def esta_vigente(self) -> bool:
         """True si el documento no tiene fecha de vencimiento o aún no venció."""
-        return self.fecha_vencimiento is None or self.fecha_vencimiento >= date.today()
+        # `hoy_chile()` y no `date.today()`: la fecha local del proceso es UTC en
+        # el contenedor, así que a partir de las 20:00 de Santiago un documento
+        # que vence HOY ya se daba por vencido. Ver `core/tiempo.py`.
+        return self.fecha_vencimiento is None or self.fecha_vencimiento >= hoy_chile()
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 

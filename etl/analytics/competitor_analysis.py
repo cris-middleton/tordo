@@ -26,6 +26,7 @@ import polars as pl
 
 from .config import MIN_OBSERVATIONS, OUTPUT_DIR
 from .data_loader import iter_oc_parquets
+from .identidad import nombre_vigente, periodo_maximo
 
 logger = logging.getLogger(__name__)
 
@@ -65,31 +66,39 @@ def build_competitor_aggregates() -> tuple[pl.DataFrame, pl.DataFrame]:
             & pl.col("CodigoProveedor").is_not_null()
         )
 
-        # Agregado por mercado (organismo + rubro + proveedor)
+        # Agregado por mercado (organismo + rubro + proveedor).
+        #
+        # **La clave son los CÓDIGOS.** Antes incluía `OrganismoPublico` y
+        # `NombreProveedor`, que son nombres para mostrar: un organismo escrito
+        # de cuatro formas se convertía en cuatro mercados distintos. Ver
+        # `identidad.py` para lo que eso rompía aguas abajo.
         market_agg = base.group_by(
             [
                 "CodigoOrganismoPublico",
-                "OrganismoPublico",
                 "RubroN2",
                 "CodigoProveedor",
-                "NombreProveedor",
             ]
         ).agg(
             [
                 pl.len().alias("n_oc"),
                 pl.col("monto").sum().alias("monto_total"),
+                nombre_vigente("OrganismoPublico"),
+                nombre_vigente("NombreProveedor"),
+                periodo_maximo(),
             ]
         )
         market_frames.append(market_agg)
 
         # Agregado por proveedor (perfil general)
-        prov_agg = base.group_by(["CodigoProveedor", "NombreProveedor"]).agg(
+        prov_agg = base.group_by("CodigoProveedor").agg(
             [
                 pl.len().alias("n_oc"),
                 pl.col("monto").sum().alias("monto_total"),
                 pl.col("CodigoOrganismoPublico").n_unique().alias("n_organismos"),
                 pl.col("RubroN2").n_unique().alias("n_rubros"),
                 pl.col("RegionUnidadCompra").n_unique().alias("n_regiones"),
+                nombre_vigente("NombreProveedor"),
+                periodo_maximo(),
             ]
         )
         provider_frames.append(prov_agg)
@@ -99,27 +108,28 @@ def build_competitor_aggregates() -> tuple[pl.DataFrame, pl.DataFrame]:
     markets = markets.group_by(
         [
             "CodigoOrganismoPublico",
-            "OrganismoPublico",
             "RubroN2",
             "CodigoProveedor",
-            "NombreProveedor",
         ]
     ).agg(
         [
             pl.col("n_oc").sum(),
             pl.col("monto_total").sum(),
+            nombre_vigente("OrganismoPublico"),
+            nombre_vigente("NombreProveedor"),
         ]
     )
 
     # Combinar proveedores
     providers = pl.concat(provider_frames, how="diagonal_relaxed")
-    providers = providers.group_by(["CodigoProveedor", "NombreProveedor"]).agg(
+    providers = providers.group_by("CodigoProveedor").agg(
         [
             pl.col("n_oc").sum(),
             pl.col("monto_total").sum(),
             pl.col("n_organismos").max(),  # approx: max across batches
             pl.col("n_rubros").max(),
             pl.col("n_regiones").max(),
+            nombre_vigente("NombreProveedor"),
         ]
     )
 
@@ -198,19 +208,32 @@ def compute_market_concentration(market_shares: pl.DataFrame) -> pl.DataFrame:
                 (pl.col("market_share_pct").pow(2)).alias("share_sq"),
             ]
         )
-        .group_by(["CodigoOrganismoPublico", "OrganismoPublico", "RubroN2"])
+        .group_by(["CodigoOrganismoPublico", "RubroN2"])
         .agg(
             [
                 pl.col("share_sq").sum().alias("hhi"),
+                pl.col("OrganismoPublico").drop_nulls().first().alias("OrganismoPublico"),
                 pl.col("CodigoProveedor").n_unique().alias("n_proveedores"),
                 pl.col("oc_mercado").first().alias("n_transacciones"),
                 pl.col("monto_mercado").first().alias("monto_total_mercado"),
-                # Top proveedor
-                pl.col("NombreProveedor").sort_by("rank_monto").first().alias("top_proveedor"),
-                pl.col("market_share_pct")
-                .sort_by("rank_monto", descending=True)
+                # Top proveedor.
+                #
+                # **`top_share_pct` traía la cuota del proveedor más CHICO.**
+                # `rank_monto` es 1 para el mayor, y esto ordenaba por ese rango
+                # de forma descendente, así que se quedaba con el último. El
+                # nombre, ordenado al derecho, sí era el del líder: la tarjeta
+                # enseñaba el nombre de uno y el número de otro. Medido sobre
+                # datos reales, el 98,7 % de las filas daba una «cuota del
+                # líder» menor que la cuota media del mercado —imposible— y
+                # 3.541 mercados de un solo proveedor no decían 100 %.
+                #
+                # Se calcula con `max()` y no reordenando: la cuota del líder ES
+                # la cuota máxima, y así no hay dirección que equivocar.
+                pl.col("NombreProveedor")
+                .sort_by("market_share_pct", descending=True)
                 .first()
-                .alias("top_share_pct"),
+                .alias("top_proveedor"),
+                pl.col("market_share_pct").max().alias("top_share_pct"),
             ]
         )
         .with_columns(
@@ -230,7 +253,33 @@ def compute_market_concentration(market_shares: pl.DataFrame) -> pl.DataFrame:
         n = hhi.filter(pl.col("tipo_mercado") == tipo).shape[0]
         logger.info(f"  {tipo}: {n:,} mercados")
 
+    _avisar_de_hhi_imposible(hhi)
     return hhi
+
+
+def _avisar_de_hhi_imposible(hhi: pl.DataFrame) -> None:
+    """Avisa si algún mercado viola la aritmética del índice.
+
+    Con n proveedores repartiéndose el mercado, el HHI no puede bajar de
+    10.000/n —el mínimo se alcanza cuando todos tienen la misma cuota— y la
+    cuota del líder no puede quedar por debajo de la media, 100/n. Las dos
+    cosas pasaban a la vez y en masa (13,6 % y 98,7 % de las filas) sin que
+    nada lo dijera, porque cada número por separado parecía razonable.
+
+    Avisa en vez de fallar: es calidad del dato de entrada, no un contrato roto,
+    y una corrida semanal que muere deja al producto sin analytics.
+    """
+    problemas = {
+        "HHI por debajo del mínimo aritmético (10.000/n)": hhi.filter(
+            pl.col("hhi") < (10_000.0 / pl.col("n_proveedores")) * 0.999
+        ).height,
+        "cuota del líder por debajo de la media (100/n)": hhi.filter(
+            pl.col("top_share_pct") < (100.0 / pl.col("n_proveedores")) * 0.999
+        ).height,
+    }
+    for descripcion, n in problemas.items():
+        if n:
+            logger.warning(f"  ⚠ {n:,} mercados con {descripcion}")
 
 
 def build_provider_profiles(providers: pl.DataFrame) -> pl.DataFrame:

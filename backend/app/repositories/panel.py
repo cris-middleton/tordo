@@ -10,12 +10,13 @@ Tenerlos en un router invitaba a copiar el filtro del de al lado.
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import timedelta
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.tiempo import hoy_chile
 from app.models.alert import Alert, AlertStatus
 from app.models.empresa import DocumentoEmpresa
 from app.models.licitacion import Licitacion
@@ -81,7 +82,7 @@ async def documentos_por_vencer(db: AsyncSession, empresa_ids: list[UUID]) -> in
     """
     if not empresa_ids:
         return 0
-    hoy = date.today()
+    hoy = hoy_chile()
     return await _contar(
         db,
         select(func.count(DocumentoEmpresa.id)).where(

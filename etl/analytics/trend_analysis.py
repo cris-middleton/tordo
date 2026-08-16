@@ -23,6 +23,7 @@ import polars as pl
 
 from .config import MIN_OBSERVATIONS, MIN_YEAR, OUTPUT_DIR
 from .data_loader import iter_oc_parquets
+from .identidad import nombre_vigente, periodo_maximo
 
 logger = logging.getLogger(__name__)
 
@@ -69,12 +70,12 @@ def build_time_series() -> pl.DataFrame:
                     .alias("mes"),
                 ]
             )
-            .group_by(
-                ["CodigoOrganismoPublico", "OrganismoPublico", "RubroN2", "sector", "anio", "mes"]
-            )
+            .group_by(["CodigoOrganismoPublico", "RubroN2", "sector", "anio", "mes"])
             .agg(
                 [
                     pl.len().alias("n_oc"),
+                    nombre_vigente("OrganismoPublico"),
+                    periodo_maximo(),
                     pl.col("monto").sum().alias("monto_total"),
                     pl.col("monto").mean().alias("ticket_promedio"),
                 ]
@@ -87,13 +88,12 @@ def build_time_series() -> pl.DataFrame:
 
     combined = pl.concat(frames, how="diagonal_relaxed")
     result = (
-        combined.group_by(
-            ["CodigoOrganismoPublico", "OrganismoPublico", "RubroN2", "sector", "anio", "mes"]
-        )
+        combined.group_by(["CodigoOrganismoPublico", "RubroN2", "sector", "anio", "mes"])
         .agg(
             [
                 pl.col("n_oc").sum(),
                 pl.col("monto_total").sum(),
+                nombre_vigente("OrganismoPublico"),
             ]
         )
         .sort(["CodigoOrganismoPublico", "RubroN2", "anio", "mes"])
@@ -125,9 +125,13 @@ def compute_market_trends(ts: pl.DataFrame) -> pl.DataFrame:
 
     # Agrupar por mercado y calcular regresión
     markets = (
-        ts_indexed.group_by(["CodigoOrganismoPublico", "OrganismoPublico", "RubroN2"])
+        # El nombre sale de la clave: con él dentro, un organismo renombrado
+        # tenía dos series temporales cortas en vez de una larga, y con menos de
+        # dos años cada una el filtro de abajo las descartaba enteras.
+        ts_indexed.group_by(["CodigoOrganismoPublico", "RubroN2"])
         .agg(
             [
+                pl.col("OrganismoPublico").drop_nulls().last().alias("OrganismoPublico"),
                 pl.col("t").alias("ts"),
                 pl.col("monto_total").alias("montos"),
                 pl.col("n_oc").sum().alias("total_oc"),

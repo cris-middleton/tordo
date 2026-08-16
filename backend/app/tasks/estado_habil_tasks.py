@@ -7,10 +7,11 @@ Compliance periodic Celery tasks.
 """
 
 import logging
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from app.celery_app import celery_app
 from app.config import settings
+from app.core.tiempo import hoy_chile
 from app.db import SyncSessionLocal as SessionLocal
 from app.models.alert import Alert, AlertStatus, AlertType
 from app.models.empresa import DocumentoEmpresa, EmpresaUsuario
@@ -147,7 +148,7 @@ def check_document_expiry() -> dict:
     skipped = 0
     nuevas: list[Alert] = []
     try:
-        today = date.today()
+        today = hoy_chile()
         expiry_window = today + timedelta(days=30)
 
         expiring_docs = (

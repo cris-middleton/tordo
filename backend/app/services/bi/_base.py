@@ -57,6 +57,21 @@ def _load(
     )
 
 
+def _columna_presente(filename: str, *candidatas: str) -> str | None:
+    """La primera de esas columnas que la tabla tenga de verdad.
+
+    Hace falta para poder empujar un filtro sobre una columna cuyo nombre
+    cambia según de dónde venga el dato: `buyer_transparency` identifica al
+    comprador con `CodigoOrganismo` (viene de licitaciones) y `buyer_scores` con
+    `CodigoOrganismoPublico` (viene de órdenes). Filtrar a ciegas por la que no
+    existe no devuelve vacío: Postgres levanta «column does not exist».
+    """
+    if not repo.existe_tabla(_tabla(filename)):
+        return None
+    columnas = repo.columnas_de(_tabla(filename))
+    return next((c for c in candidatas if c in columnas), None)
+
+
 def _primero(fila: dict, *claves: str):
     """El primer valor no nulo entre varias claves posibles.
 

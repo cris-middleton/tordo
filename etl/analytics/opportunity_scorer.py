@@ -7,7 +7,8 @@ mercado para un proveedor?"
 
 Componentes del score:
 1. Predictibilidad de precio (CV bajo = más predecible = más ventaja informacional)
-2. Nivel de competencia (HHI bajo = más competitivo = más espacio para entrar)
+2. Nivel de competencia (el score es máximo en HHI≈1500 y cae hacia los dos
+   extremos: un monopolio no deja entrar, y un mercado atomizado no deja margen)
 3. Estacionalidad clara (consistencia alta = se puede anticipar)
 4. Tendencia de crecimiento (CAGR positivo = mercado en expansión)
 5. Volumen de mercado (más OC = más oportunidades recurrentes)
@@ -26,6 +27,17 @@ from .config import OUTPUT_DIR
 
 logger = logging.getLogger(__name__)
 
+NEUTRO_POR_COMPONENTE = {
+    "score_precio_raw": 0.5,
+    "score_competencia_raw": 0.5,
+    # Sin pico estacional medido no es «media estacionalidad»: es ninguna.
+    # El mínimo observado entre los que sí tienen pico es 0,53, así que 0,5
+    # los deja justo por debajo, que es donde corresponde.
+    "score_estacionalidad_raw": 0.5,
+    "score_tendencia_raw": 0.0,
+}
+
+
 # Pesos de cada componente en el score final
 WEIGHTS = {
     "precio_predecible": 0.25,  # Ventaja informacional
@@ -43,6 +55,25 @@ def _normalize_0_10(series: pl.Series) -> pl.Series:
     if min_val == max_val:
         return pl.Series([5.0] * len(series))
     return ((series - min_val) / (max_val - min_val) * 10).round(2)
+
+
+def _exigir_clave_unica(tablas: dict[str, pl.DataFrame]) -> None:
+    """Falla si alguna tabla trae *(organismo, rubro)* repetido.
+
+    Es una precondición del join, no una comprobación defensiva: si se rompe,
+    el score deja de ser por mercado sin que nada más lo note.
+    """
+    claves = ["CodigoOrganismoPublico", "RubroN2"]
+    for nombre, df in tablas.items():
+        presentes = [c for c in claves if c in df.columns]
+        if len(presentes) < len(claves):
+            continue
+        repetidas = df.height - df.select(presentes).unique().height
+        if repetidas:
+            raise ValueError(
+                f"{nombre} trae {repetidas:,} filas con (organismo, rubro) repetido. "
+                "El join de oportunidad las cruzaría y el score dejaría de ser por mercado."
+            )
 
 
 def build_opportunity_scores(
@@ -125,6 +156,24 @@ def build_opportunity_scores(
     )
 
     # === COMBINAR todos los componentes ===
+    #
+    # Los joins son por *(organismo, rubro)* y **exigen que esa clave sea única
+    # en cada tabla**. No lo era: con el nombre del comprador dentro de la clave
+    # de agregación, un organismo con cuatro grafías producía cuatro filas por
+    # mercado en cada tabla, y el join las cruzaba. El resultado tenía 237.946
+    # filas para 148.966 mercados reales — el mismo mercado repetido hasta
+    # dieciséis veces en «Dónde mirar primero», y la normalización min-max
+    # calculada sobre esa población inflada. Arreglado en origen
+    # (`identidad.py`); aquí queda la comprobación que lo habría destapado.
+    _exigir_clave_unica(
+        {
+            "price_bands": precio_score,
+            "market_concentration": comp_score,
+            "seasonality_patterns": season_score,
+            "trend_by_market": trend_score,
+        }
+    )
+
     # Join progresivo
     combined = (
         precio_score.join(comp_score, on=["CodigoOrganismoPublico", "RubroN2"], how="left")
@@ -132,17 +181,32 @@ def build_opportunity_scores(
         .join(trend_score, on=["CodigoOrganismoPublico", "RubroN2"], how="left")
     )
 
-    # Normalizar cada componente a 0-10
-    for col_name in [
-        "score_precio_raw",
-        "score_competencia_raw",
-        "score_estacionalidad_raw",
-        "score_tendencia_raw",
-    ]:
+    # Qué vale un componente cuando NO hay dato.
+    #
+    # **Todos se rellenaban con 0,5, y eso premiaba la ignorancia.** El 0,5 es
+    # un punto medio sólo si el componente vive en [0, 1], que es el caso de
+    # precio y competencia. `score_tendencia_raw` es `cagr × r²` y vive en
+    # [-0,5, 1,0], con **mediana 0,0008** sobre los datos reales: rellenar con
+    # 0,5 dejaba a un mercado sin histórico de tendencia en el **percentil 98,5**
+    # de crecimiento. 4.078 mercados (1,7 %) entraban al ranking como si
+    # estuvieran entre los que más crecen, por no tener con qué medirlos.
+    #
+    # El neutro correcto es el de la escala de cada componente: para tendencia,
+    # crecimiento cero.
+    # Qué vale un componente cuando NO hay dato.
+    #
+    # **Todos se rellenaban con 0,5, y eso premiaba la ignorancia.** El 0,5 es
+    # un punto medio sólo si el componente vive en [0, 1], que es el caso de
+    # precio y competencia. `score_tendencia_raw` es `cagr × r²` y vive en
+    # [-0,5; 1,0], con mediana 0,0008 sobre los datos reales: rellenar con 0,5
+    # dejaba a un mercado sin histórico de tendencia en el percentil 98,5 de
+    # crecimiento. 4.078 mercados (1,7 %) entraban al ranking como si estuvieran
+    # entre los que más crecen, por no tener con qué medirlos.
+    for col_name, neutro in NEUTRO_POR_COMPONENTE.items():
         if col_name in combined.columns:
             combined = combined.with_columns(
                 [
-                    pl.col(col_name).fill_null(0.5).alias(col_name),
+                    pl.col(col_name).fill_null(neutro).alias(col_name),
                 ]
             )
 

@@ -51,6 +51,7 @@ import polars as pl
 
 from .config import OUTPUT_DIR
 from .data_loader import iter_lic_parquets, iter_oc_parquets
+from .identidad import nombre_vigente, periodo_maximo
 
 logger = logging.getLogger(__name__)
 
@@ -420,9 +421,14 @@ def build_lic_buyer_metrics() -> pl.DataFrame:
                     pl.col("NumeroOferentes").cast(pl.Float64, strict=False).alias("n_oferentes"),
                     pl.col("CantidadReclamos").cast(pl.Float64, strict=False).alias("n_reclamos"),
                     (pl.col("CodigoTipo") == "TD").cast(pl.Int8).alias("es_td"),
+                    pl.lit(periodo).alias("_periodo_archivo"),
                 ]
             )
-            .group_by([org_col, "NombreOrganismo"])
+            # La clave es el CÓDIGO. Con `NombreOrganismo` dentro, un comprador
+            # renombrado salía con DOS filas de score —medido: 111 de 1.192— y
+            # `get_comprador` se quedaba con la primera que llegara. Ver
+            # `identidad.py`.
+            .group_by(org_col)
             .agg(
                 [
                     pl.len().alias("n_lineas_lic"),
@@ -434,6 +440,8 @@ def build_lic_buyer_metrics() -> pl.DataFrame:
                     pl.col("n_oferentes").mean().alias("prom_oferentes"),
                     pl.col("n_reclamos").mean().alias("prom_reclamos"),
                     pl.col("es_td").sum().alias("n_trato_directo"),
+                    nombre_vigente("NombreOrganismo"),
+                    periodo_maximo(),
                 ]
             )
         )
@@ -444,10 +452,11 @@ def build_lic_buyer_metrics() -> pl.DataFrame:
 
     combined = pl.concat(lic_frames, how="diagonal_relaxed")
     result = (
-        combined.group_by([org_col, "NombreOrganismo"])
+        combined.group_by(org_col)
         .agg(
             [
                 pl.col("n_lineas_lic").sum(),
+                nombre_vigente("NombreOrganismo"),
                 pl.col("n_adjudicadas").sum(),
                 pl.col("n_revocadas").sum(),
                 pl.col("n_desiertas").sum(),

@@ -70,10 +70,19 @@ def exigir_datos():
             raise
         pytest.skip(f"sin base de datos ({type(exc).__name__}) — usa `make dev-up-d`")
     if not hay:
-        pytest.skip(
+        mensaje = (
             "el esquema analytics no está materializado — "
             "corre `python -m analytics.materialize` desde etl/"
         )
+        # **En CI esto es un error, no un motivo para saltar.** El guardián sólo
+        # exigía datos cuando la base entera estaba caída; con la base arriba y
+        # el esquema vacío, los 31 casos se saltaban en silencio incluso en CI.
+        # Es exactamente cómo el golden master llegó a pasar meses sin correr:
+        # `make ci` materializa el fixture antes de los tests, pero si ese paso
+        # deja de funcionar, sin esto nadie se entera.
+        if IN_CI:
+            raise AssertionError(mensaje)
+        pytest.skip(mensaje)
 
 
 def _normalizar(v):

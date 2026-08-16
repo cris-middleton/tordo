@@ -27,6 +27,7 @@ import polars as pl
 
 from .config import MIN_OBSERVATIONS, OUTPUT_DIR
 from .data_loader import iter_oc_parquets
+from .identidad import nombre_vigente, periodo_maximo
 
 logger = logging.getLogger(__name__)
 
@@ -71,10 +72,17 @@ def build_price_aggregates() -> pl.DataFrame:
                 & pl.col("CodigoOrganismoPublico").is_not_null()
                 & pl.col("RubroN2").is_not_null()
             )
-            .group_by(["CodigoOrganismoPublico", "OrganismoPublico", "RubroN2"])
+            # La clave es el CÓDIGO del organismo. Con el nombre dentro, un
+            # comprador escrito de varias formas partía su propia banda de
+            # precio en varias bandas más estrechas y con menos observaciones
+            # cada una — justo lo contrario de lo que hace falta. Ver
+            # `identidad.py`.
+            .group_by(["CodigoOrganismoPublico", "RubroN2"])
             .agg(
                 [
                     pl.len().alias("n"),
+                    nombre_vigente("OrganismoPublico"),
+                    periodo_maximo(),
                     pl.col("monto").sum().alias("sum_monto"),
                     (pl.col("monto").pow(2)).sum().alias("sum_sq_monto"),
                     pl.col("monto").min().alias("min_monto"),
@@ -100,10 +108,11 @@ def build_price_aggregates() -> pl.DataFrame:
 
     # Re-agregar por grupo (weighted stats)
     result = (
-        combined.group_by(["CodigoOrganismoPublico", "OrganismoPublico", "RubroN2"])
+        combined.group_by(["CodigoOrganismoPublico", "RubroN2"])
         .agg(
             [
                 pl.col("n").sum().alias("n_transacciones"),
+                nombre_vigente("OrganismoPublico"),
                 pl.col("sum_monto").sum().alias("sum_monto"),
                 pl.col("sum_sq_monto").sum().alias("sum_sq_monto"),
                 pl.col("min_monto").min().alias("min_monto"),

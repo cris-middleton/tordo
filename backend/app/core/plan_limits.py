@@ -11,16 +11,19 @@ Quotas:
 
 Redis keys:
   bi_queries:{empresa_id}:{YYYY-MM-DD}  — TTL 48h, INCR por consulta de BI.
+  La fecha es la de **America/Santiago**, no la del servidor: ver core/tiempo.py.
   Se cuenta por EMPRESA: la cuota es del plan, y el plan es de la empresa.
 """
 
 from __future__ import annotations
 
 import logging
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import HTTPException
+
+from app.core.tiempo import hoy_chile
 
 logger = logging.getLogger(__name__)
 
@@ -186,7 +189,13 @@ def redis_client():
 
 
 def _bi_redis_key(empresa_id) -> str:
-    return f"bi_queries:{empresa_id}:{date.today().isoformat()}"
+    """La clave del contador diario, fechada en la zona de Chile.
+
+    Usaba `date.today()`, que es la fecha local del proceso — UTC dentro del
+    contenedor. El día de la cuota cambiaba entonces a las 20:00 de Santiago.
+    Ver `core/tiempo.py`.
+    """
+    return f"bi_queries:{empresa_id}:{hoy_chile().isoformat()}"
 
 
 def get_bi_query_count(empresa_id) -> int:

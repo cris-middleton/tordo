@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 
-from app.services.bi._base import _load, _primero
+from app.services.bi._base import _columna_presente, _load, _primero
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +20,20 @@ def get_comprador(organismo_id: str) -> dict:
     Combines buyer_scores + buyer_risk_flags + buyer_payment_stats.
     """
     por_organismo = {"CodigoOrganismoPublico": str(organismo_id)}
-    score_df = _load("buyer_scores.parquet", filtros=por_organismo)
-    flags_df = _load("buyer_risk_flags.parquet", filtros=por_organismo)
+    # **`orden` no es cosmético: hace determinista un empate que no debería
+    # existir.** El pipeline agrupaba los scores por *(código, nombre)*, así que
+    # un comprador renombrado —111 de 1.192 en los datos reales— tenía dos filas
+    # con scores distintos (0,8749 y 0,8651) y esto se quedaba con la que
+    # llegara primero: el mismo comprador podía enseñar un score distinto entre
+    # dos cargas de la página. La causa está corregida en el ETL
+    # (`etl/analytics/identidad.py`), pero analytics se re-materializa una vez
+    # por semana y hasta esa corrida las filas duplicadas siguen ahí. Se ordena
+    # por volumen de órdenes: entre dos filas parciales, la construida sobre más
+    # historia es la más representativa.
+    score_df = _load(
+        "buyer_scores.parquet", filtros=por_organismo, orden="n_oc_total", descendente=True
+    )
+    flags_df = _load("buyer_risk_flags.parquet", filtros=por_organismo, orden="n_flags")
     payment_df = _load("buyer_payment_stats.parquet", filtros=por_organismo)
 
     if score_df is None:
@@ -42,18 +54,19 @@ def get_comprador(organismo_id: str) -> dict:
         payment = payment_df.row(0, named=True)
 
     # ── Transparency index ────────────────────────────────────────────────────
-    transp_df = _load("buyer_transparency.parquet")
+    # El filtro viaja a SQL. Antes se traía la tabla entera de transparencia a
+    # memoria en CADA carga del perfil de un comprador, para quedarse con una
+    # fila. `buyer_transparency` usa `CodigoOrganismo` (viene del dato de
+    # licitaciones) y `buyer_scores` usa `CodigoOrganismoPublico` (viene del de
+    # órdenes), así que se prueban los dos nombres — el que no exista devuelve
+    # `None` sin coste.
     transp: dict = {}
-    if transp_df is not None:
-        # buyer_transparency uses CodigoOrganismo (from LIC data); buyer_scores uses
-        # CodigoOrganismoPublico (from OC data).  Try both column names.
-        id_col = (
-            "CodigoOrganismo"
-            if "CodigoOrganismo" in transp_df.columns
-            else "CodigoOrganismoPublico"
-        )
-        t_rows = transp_df.filter(transp_df[id_col].cast(str) == str(organismo_id))
-        if not t_rows.is_empty():
+    id_col = _columna_presente(
+        "buyer_transparency.parquet", "CodigoOrganismo", "CodigoOrganismoPublico"
+    )
+    if id_col:
+        t_rows = _load("buyer_transparency.parquet", filtros={id_col: str(organismo_id)})
+        if t_rows is not None and not t_rows.is_empty():
             transp = t_rows.row(0, named=True)
 
     return {

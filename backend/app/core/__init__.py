@@ -1,22 +1,15 @@
-# Core utilities
-from app.core.security import (
-    create_access_token,
-    decode_access_token,
-    get_current_active_user,
-    get_current_superuser,
-    get_current_user,
-    get_password_hash,
-    oauth2_scheme,
-    verify_password,
-)
+"""Vacío a propósito, por el mismo motivo que `app/api/__init__.py`.
 
-__all__ = [
-    "verify_password",
-    "get_password_hash",
-    "create_access_token",
-    "decode_access_token",
-    "get_current_user",
-    "get_current_active_user",
-    "get_current_superuser",
-    "oauth2_scheme",
-]
+Aquí se re-exportaba media docena de nombres de `app.core.security`, y eso
+convertía cualquier `from app.core.tiempo import ...` en «importa `security`
+entero» — que importa `app.models.empresa`, que a su vez importa de `app.core`.
+Un ciclo real.
+
+**Nadie usaba las re-exportaciones**: todos los consumidores importan el
+submódulo directo (`from app.core import plan_limits`, `from app.core import
+limites_api`). Sólo servían para hacer caro y frágil el import de cualquier otra
+cosa de este paquete.
+
+`tests/test_modulos_importables.py` importa cada módulo en un proceso limpio
+para que el ciclo no vuelva sin que nadie lo note.
+"""
