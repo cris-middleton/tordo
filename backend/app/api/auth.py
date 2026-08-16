@@ -1,7 +1,7 @@
 import logging
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,13 +17,15 @@ from app.models.user import User
 from app.repositories import usuarios as repo
 from app.schemas.user import (
     PasswordChange,
+    PasswordResetConfirm,
+    PasswordResetRequest,
     RefreshRequest,
     Token,
     UserCreate,
     UserLogin,
     UserResponse,
 )
-from app.services import auth_tokens
+from app.services import auth_tokens, password_reset
 
 logger = logging.getLogger(__name__)
 
@@ -192,3 +194,39 @@ async def change_password(
     await db.commit()
     await db.refresh(current_user)
     return {"message": "Contraseña cambiada. Se cerraron las demás sesiones."}
+
+
+@router.post("/password-reset/solicitar", status_code=status.HTTP_200_OK)
+async def solicitar_recuperacion(
+    payload: PasswordResetRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
+    """Manda el enlace de recuperación.
+
+    **Responde 200 siempre**, exista o no el correo. Distinguir los dos casos
+    convierte este formulario en un verificador de cuentas: se prueba una lista
+    de correos y se aprende cuáles están registrados. Por eso el correo se
+    agenda con `background_tasks` en vez de mandarse aquí: un `smtplib`
+    síncrono tarda un round-trip SMTP completo, y sólo la rama del correo
+    conocido lo paga — esa diferencia de tiempo sería el mismo oráculo por
+    otra vía. Ver `services/password_reset.solicitar`.
+    """
+    await password_reset.solicitar(db, payload.email, background_tasks=background_tasks)
+    await db.commit()
+    return {
+        "message": (
+            "Si ese correo tiene una cuenta, te enviamos un enlace para restablecer la contraseña."
+        )
+    }
+
+
+@router.post("/password-reset/confirmar", status_code=status.HTTP_200_OK)
+async def confirmar_recuperacion(payload: PasswordResetConfirm, db: AsyncSession = Depends(get_db)):
+    """Canjea el enlace por una contraseña nueva y cierra las sesiones abiertas."""
+    try:
+        await password_reset.restablecer(db, payload.token, payload.new_password)
+    except password_reset.ErrorDeRecuperacion as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    await db.commit()
+    return {"message": "Contraseña actualizada. Entra con la nueva."}

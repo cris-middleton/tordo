@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class UserBase(BaseModel):
@@ -81,6 +81,19 @@ class PasswordChange(BaseModel):
 
     current_password: str
     new_password: str
+
+
+class PasswordResetRequest(BaseModel):
+    """Petición de enlace de recuperación."""
+
+    email: EmailStr
+
+
+class PasswordResetConfirm(BaseModel):
+    """Canje del enlace por una contraseña nueva."""
+
+    token: str
+    new_password: str = Field(min_length=8)
 
 
 class TokenData(BaseModel):

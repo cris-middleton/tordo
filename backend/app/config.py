@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     # sostiene la sesión es el token de refresco, que sí vive en la base y sí se
     # puede revocar.
     refresh_token_expire_days: int = 30
+    password_reset_expire_minutes: int = 60
 
     # CORS settings
     cors_origins: List[str] | str = ["http://localhost:3000", "http://localhost:3001"]
