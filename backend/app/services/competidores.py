@@ -21,10 +21,11 @@ from datetime import UTC, datetime
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.models.alert import Alert, AlertStatus, AlertType
+from app.models.alert import AlertType
 from app.models.competidor import CompetidorSeguido
 from app.models.orden_compra import OrdenCompra
 from app.services import notificaciones
+from app.services.alert_engine import AlertEngine
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,19 @@ class Adjudicacion:
     fecha: datetime
 
 
+def _condicion_rut(rut_norm: str):
+    """La condición de comparación, aislada para poder probarla sin BD.
+
+    Tiene que ser una igualdad contra `rut_proveedor_norm` —la columna
+    GENERADA por Postgres— y no una expresión sobre `rut_proveedor` evaluada en
+    cada consulta: envolver la columna en `regexp_replace(upper(...))` en el
+    WHERE inutiliza cualquier índice normal, y el filtro pasa a ser un
+    recorrido completo de `ordenes_compra` —la tabla más grande del sistema—
+    una vez por competidor vigilado, cada mañana a las 07:15.
+    """
+    return OrdenCompra.rut_proveedor_norm == rut_norm
+
+
 def detectar(db: Session) -> list[Adjudicacion]:
     """Órdenes nuevas de los proveedores vigilados.
 
@@ -60,19 +74,14 @@ def detectar(db: Session) -> list[Adjudicacion]:
 
     hallazgos: list[Adjudicacion] = []
     for seguido in seguidos:
-        consulta = db.query(OrdenCompra).filter(
-            # Se compara sobre el RUT normalizado por los dos lados: en la base
-            # conviven «76.543.210-K» y «76543210-K» según el mes de ingesta.
-            text("regexp_replace(upper(ordenes_compra.rut_proveedor), '[^0-9K]', '', 'g') = :r")
-        )
+        # Se compara sobre el RUT normalizado por los dos lados: en la base
+        # conviven «76.543.210-K» y «76543210-K» según el mes de ingesta.
+        consulta = db.query(OrdenCompra).filter(_condicion_rut(seguido.rut_norm))
         if seguido.ultimo_visto_en is not None:
             consulta = consulta.filter(OrdenCompra.fecha_publicacion > seguido.ultimo_visto_en)
 
         ordenes = (
-            consulta.params(r=seguido.rut_norm)
-            .order_by(OrdenCompra.fecha_publicacion.desc())
-            .limit(TOPE_POR_COMPETIDOR)
-            .all()
+            consulta.order_by(OrdenCompra.fecha_publicacion.desc()).limit(TOPE_POR_COMPETIDOR).all()
         )
 
         for orden in ordenes:
@@ -120,7 +129,8 @@ def emitir(db: Session, hallazgos: list[Adjudicacion]) -> dict:
     if not hallazgos:
         return {"adjudicaciones": 0, "alertas": 0}
 
-    nuevas: list[Alert] = []
+    motor = AlertEngine(db)
+    ids_nuevas: list[int] = []
     ultimas: dict[int, datetime] = {}
 
     for a in hallazgos:
@@ -136,12 +146,15 @@ def emitir(db: Session, hallazgos: list[Adjudicacion]) -> dict:
         ]
         for user_id in miembros:
             clave = f"competidor_{a.competidor_id}_{a.orden_id}_{user_id}"
-            if db.query(Alert).filter(Alert.idempotency_key == clave).first():
-                continue
-            alerta = Alert(
+            # `INSERT ... ON CONFLICT DO NOTHING`, no `SELECT`-luego-`INSERT`:
+            # con dos corridas cruzadas, la segunda no ve el `INSERT` recién
+            # hecho por la primera (MVCC) y el `UNIQUE` de `idempotency_key`
+            # tumbaba el `commit()` final — el lote entero, no sólo la fila
+            # repetida. Devuelve `None` cuando la clave ya existía: no es un
+            # error, es la propia idempotencia funcionando.
+            id_nueva = motor.create_alert_idempotent(
                 user_id=user_id,
                 alert_type=AlertType.COMPETIDOR_GANO,
-                status=AlertStatus.PENDING,
                 entity_type="orden_compra",
                 entity_id=a.orden_id,
                 title=titulo,
@@ -156,16 +169,16 @@ def emitir(db: Session, hallazgos: list[Adjudicacion]) -> dict:
                 },
                 notification_channels=["in_app"],
             )
-            db.add(alerta)
-            nuevas.append(alerta)
+            if id_nueva is not None:
+                ids_nuevas.append(id_nueva)
 
     for competidor_id, fecha in ultimas.items():
         seguido = db.query(CompetidorSeguido).filter(CompetidorSeguido.id == competidor_id).one()
         seguido.ultimo_visto_en = fecha
 
     db.commit()
-    enviado = notificaciones.despachar_pendientes(db, [a.id for a in nuevas])
-    return {"adjudicaciones": len(hallazgos), "alertas": len(nuevas), **enviado}
+    enviado = notificaciones.despachar_pendientes(db, ids_nuevas)
+    return {"adjudicaciones": len(hallazgos), "alertas": len(ids_nuevas), **enviado}
 
 
 def revisar_competidores(db: Session) -> dict:

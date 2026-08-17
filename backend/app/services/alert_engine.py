@@ -179,9 +179,14 @@ class AlertEngine:
         avisos salían sin el código de la licitación —lo único que permite
         llegar a ella— y sin el nombre de la preferencia que los disparó.
 
-        El camino moderno (`create_alert_idempotent`) nunca tuvo el problema:
-        escribe por `Table.values(alert_metadata=…)`, donde la clave es la del
-        atributo y no la del objeto reservado.
+        El camino moderno (`create_alert_idempotent`) no repite ESTE fallo —el
+        de quedar en `NULL` sin aviso—: escribe contra `Alert.__table__`, la
+        `Table` cruda, así que nunca pasa por el constructor del modelo ni por
+        su atributo sombreado. Pero tiene el suyo propio: ahí la columna se
+        llama `metadata`, no `alert_metadata` —eso es sólo el nombre del
+        atributo Python—, y pasarle la clave equivocada a `Table.values()` no
+        queda en silencio como el bug original: revienta con `CompileError`.
+        Ver el comentario en esa función.
         """
         alert = Alert(
             user_id=user_id,
@@ -229,6 +234,15 @@ class AlertEngine:
 
         `notification_channels` queda como valor provisional: los canales reales
         los escribe el despacho, que es quien sabe cuáles funcionaron.
+
+        **`.values()` recibe `metadata=`, no `alert_metadata=`.** Esto va contra
+        `Alert.__table__` — la `Table` cruda, no la clase mapeada— y ahí la
+        columna se llama `metadata`: es `alert_metadata` sólo como atributo
+        Python de la clase declarativa (ver el comentario en `models/alert.py`).
+        Pasarle `alert_metadata=` aquí no revive el bug silencioso original
+        (`NULL` sin aviso): revienta con `CompileError: Unconsumed column
+        names`, porque `Table.values()` empareja por el nombre de columna de la
+        `Table`, no por el atributo del ORM.
         """
         stmt = (
             pg_insert(Alert.__table__)
@@ -240,7 +254,7 @@ class AlertEngine:
                 entity_id=entity_id,
                 title=title,
                 message=message,
-                alert_metadata=alert_metadata or {},
+                metadata=alert_metadata or {},
                 notification_channels=notification_channels or ["in_app"],
                 idempotency_key=idempotency_key,
                 empresa_id=empresa_id,

@@ -42,6 +42,7 @@ from app.schemas.empresa import (
     UsoPlan,
 )
 from app.services import api_keys
+from app.utils.rut import validar_rut
 
 router = APIRouter(prefix="/empresas", tags=["empresas"])
 
@@ -455,8 +456,11 @@ async def seguir_competidor(
     dos duplicaría todos sus avisos.
     """
     rut_norm = normalizar_rut(payload.rut)
-    if len(rut_norm) < 7:
-        raise HTTPException(status_code=422, detail="El RUT no parece válido.")
+    if not validar_rut(rut_norm):
+        raise HTTPException(
+            status_code=422,
+            detail="El RUT no es válido: revisa el dígito verificador.",
+        )
 
     ya = await repo_competidores.buscar(db, ctx.empresa_id, rut_norm)
     if ya:

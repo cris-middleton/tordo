@@ -153,3 +153,43 @@ class TestMetadataDeLaAlerta:
             firma = inspect.signature(metodo).parameters
             assert "alert_metadata" in firma, metodo.__name__
             assert "metadata" not in firma, metodo.__name__
+
+    def test_create_alert_idempotent_guarda_la_metadata_de_verdad(self, sync_task_db):
+        """El camino atómico tiene su PROPIO fallo con `metadata`, distinto del
+        que resuelve el resto de esta clase.
+
+        `create_alert_idempotent` inserta contra `Alert.__table__` —la `Table`
+        cruda, no la clase mapeada— y ahí la columna se llama `metadata`, no
+        `alert_metadata`: ese nombre sólo existe como atributo Python de la
+        clase declarativa. Pasarle `alert_metadata=` a `Table.values()` no
+        vale — a diferencia del fallo que arregla
+        `test_el_constructor_guarda_la_metadata_en_su_columna`, éste no se
+        queda callado: `CompileError: Unconsumed column names`. Como nada
+        ejercía esta ruta contra una base real, nada lo veía.
+        """
+        from uuid import uuid4
+
+        from app.models.user import User
+
+        session, _ = sync_task_db
+        usuario = User(
+            email=f"u{uuid4().hex[:8]}@pyme.cl",
+            username=f"u{uuid4().hex[:8]}",
+            hashed_password="x",
+            is_active=True,
+        )
+        session.add(usuario)
+        session.flush()
+
+        id_alerta = AlertEngine(session).create_alert_idempotent(
+            user_id=usuario.id,
+            alert_type=AlertType.COMPETIDOR_GANO,
+            entity_type="orden_compra",
+            entity_id=1,
+            title="t",
+            idempotency_key="prueba-metadata-idempotente",
+            alert_metadata={"codigo_oc": "OC-1"},
+        )
+
+        alerta = session.query(Alert).filter(Alert.id == id_alerta).one()
+        assert alerta.alert_metadata == {"codigo_oc": "OC-1"}

@@ -1,4 +1,15 @@
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Computed,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -10,7 +21,19 @@ class OrdenCompra(Base):
     """Model for purchase orders (Órdenes de Compra)"""
 
     __tablename__ = "ordenes_compra"
-    __table_args__ = {"comment": "Órdenes de compra de Mercado Público (listado diario)"}
+    __table_args__ = (
+        # El job de competidores (07:15) filtra por RUT normalizado, una vez
+        # por competidor vigilado. Un índice normal sobre `rut_proveedor` no
+        # sirve para eso: comparar contra una expresión en el WHERE
+        # (`regexp_replace(upper(rut_proveedor), ...)`) lo inutiliza y el
+        # filtro pasa a ser un recorrido completo de la tabla más grande del
+        # sistema. `rut_proveedor_norm` es una columna GENERADA —igual que
+        # `licitaciones.nombre_norm`— justamente para poder indexarla en
+        # crudo: Alembic compara mal los índices por expresión, y con
+        # `alembic check` bloqueante eso sería deriva perpetua.
+        Index("ix_ordenes_compra_rut_proveedor_norm", "rut_proveedor_norm"),
+        {"comment": "Órdenes de compra de Mercado Público (listado diario)"},
+    )
 
     id = Column(Integer, primary_key=True)
 
@@ -73,6 +96,18 @@ class OrdenCompra(Base):
     # esa traducción es un recorrido secuencial de la tabla más grande del
     # sistema, y ocurre en la carga de la pantalla de BI.
     rut_proveedor = Column(String(20), index=True)
+    # Columna GENERADA: mismos dígitos y K que `CompetidorSeguido.rut_norm`
+    # (sin puntos, guion ni espacios, en mayúsculas), calculada por Postgres a
+    # partir de `rut_proveedor`. `upper` y `regexp_replace` son IMMUTABLE en
+    # Postgres —a diferencia de `unaccent`, que necesita el envoltorio
+    # `inmutable_unaccent`—, así que se usan tal cual. El índice normal va
+    # sobre esta columna, no sobre una expresión: es lo que permite que el job
+    # de competidores compare por igualdad en vez de recorrer la tabla entera.
+    rut_proveedor_norm = Column(
+        String(20),
+        Computed("regexp_replace(upper(rut_proveedor), '[^0-9K]', '', 'g')", persisted=True),
+        comment="`rut_proveedor` sin puntos, guion ni espacios. Sostiene el seguimiento de competidores.",
+    )
     proveedor_id = Column(Integer, ForeignKey("suppliers.id"), nullable=True)
     proveedor = relationship(
         "Supplier", back_populates="ordenes_compra", foreign_keys=[proveedor_id]

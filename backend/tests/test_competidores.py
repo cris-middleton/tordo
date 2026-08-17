@@ -171,3 +171,63 @@ def test_sin_competidores_no_hace_nada(sync_task_db):
     session, _ = sync_task_db
     assert competidores.detectar(session) == []
     assert competidores.revisar_competidores(session)["alertas"] == 0
+
+
+def test_el_filtro_de_rut_compara_la_columna_generada_no_una_expresion():
+    """Regresión de rendimiento, no de resultado.
+
+    `regexp_replace(upper(rut_proveedor), ...) = :r` en el WHERE devuelve lo
+    mismo que comparar contra `rut_proveedor_norm`, pero un índice normal sobre
+    `rut_proveedor` no sirve para lo primero: envolver la columna en una
+    expresión la vuelve un recorrido completo de `ordenes_compra` cada mañana,
+    una vez por competidor vigilado. Se comprueba en el SQL compilado, porque
+    el resultado no distingue las dos formas — sólo el plan de ejecución lo
+    hace, y eso es justo lo que se rompería en silencio si alguien revierte
+    esto a la expresión."""
+    condicion = competidores._condicion_rut("99888777K")
+    sql = str(condicion.compile(compile_kwargs={"literal_binds": True})).lower()
+
+    assert "rut_proveedor_norm" in sql
+    assert "regexp_replace" not in sql
+    assert "upper(" not in sql
+
+
+def test_una_colision_de_idempotencia_no_aborta_el_lote(sync_task_db, monkeypatch):
+    """Antes: `SELECT` por la clave y luego `INSERT` si no aparecía. Con dos
+    corridas cruzadas, el `SELECT` de la segunda no ve el `INSERT` recién hecho
+    por la primera (MVCC), las dos intentan insertar la misma clave, y el
+    `UNIQUE` de `idempotency_key` tumba el `commit()` final — **el lote
+    entero**, no sólo la fila repetida.
+
+    Aquí se simula la colisión sin dos conexiones reales: se intercepta
+    `AlertEngine.create_alert_idempotent` (que hace `ON CONFLICT DO NOTHING`
+    de verdad) para que devuelva `None` en la primera orden, como si otra
+    corrida ya la hubiera insertado. Si alguien vuelve al patrón
+    `SELECT`-luego-`INSERT`, este test dejará de llamar al helper y el conteo
+    de alertas no bajará a 1: fallará.
+    """
+    session, _ = sync_task_db
+    empresa, _ = _empresa_con_usuario(session)
+    _seguir(session, empresa, visto=datetime.now(UTC) - timedelta(days=30))
+    o1 = _orden(session, rut_proveedor="99888777-6", dias_atras=3)
+    o2 = _orden(session, rut_proveedor="99888777-6", dias_atras=1)
+
+    llamadas: list[int] = []
+    original = competidores.AlertEngine.create_alert_idempotent
+
+    def espia(self, **kwargs):
+        llamadas.append(kwargs["entity_id"])
+        if kwargs["entity_id"] == o1.id:
+            return None  # ya insertada por "otra corrida"
+        return original(self, **kwargs)
+
+    monkeypatch.setattr(competidores.AlertEngine, "create_alert_idempotent", espia)
+    monkeypatch.setattr(
+        competidores.notificaciones, "despachar_pendientes", lambda db, ids: {"en_tanda": len(ids)}
+    )
+
+    resumen = competidores.revisar_competidores(session)  # no debe lanzar IntegrityError
+
+    assert sorted(llamadas) == sorted([o1.id, o2.id])
+    assert resumen["adjudicaciones"] == 2
+    assert resumen["alertas"] == 1
