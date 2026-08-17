@@ -211,9 +211,9 @@ comprobar el plan. Encontró que no se cumplía: "Matching semántico" se vendí
   Las de ingesta crecen sin techo y `integer` se queda corto; las de negocio se exponen en
   URLs y no conviene que sean adivinables.
 - **Las dos reglas anteriores las verifica `tests/test_convenciones_modelo.py`**, con
-  trinquete: hoy hay deuda (24 tablas y 302 columnas sin comentario, 16 PK `integer`), así que
-  el test **no exige arreglarla** — falla si aparece deuda **nueva**. La deuda vive en
-  `tests/convenciones_baseline.json` y sólo puede encoger.
+  trinquete: **las tablas ya están todas comentadas**; quedan 295 columnas sin comentario y
+  16 PK `integer`, así que el test **no exige arreglarlas** — falla si aparece deuda **nueva**.
+  La deuda vive en `tests/convenciones_baseline.json` y sólo puede encoger.
   Al arreglar algo: `cd backend && uv run --project .. python tests/regenerar_baseline.py`.
 - Los errores de negocio se devuelven con `HTTPException` y mensaje en español — los ve el usuario.
 
@@ -816,7 +816,10 @@ estos patrones, es señal de que hay que arreglar la causa, no de copiarlo:
 - ~~El golden master de BI no corre en CI~~ — **resuelto**: el fixture de analytics está
   versionado (`backend/tests/golden/fixture_analytics`, 1 MB) y `make ci` lo materializa
   antes de los tests. Los 31 casos corren siempre.
-- 56 hallazgos de ruff silenciados en `pyproject.toml` con su conteo y motivo (F3).
+- ~~56 hallazgos de ruff silenciados~~ — **resuelto**: quedan sólo decisiones permanentes.
+  El `zip()` sin `strict=` se arregló con `strict=True` donde el largo está garantizado,
+  **no** con el `strict=False` que propone el autofix: eso conserva el truncamiento
+  silencioso y sólo calla la regla.
 
 ## Hacia dónde va
 

@@ -9,6 +9,9 @@ class BuyerOrganization(Base):
     """Buyer organization model (Organismo Comprador)"""
 
     __tablename__ = "buyer_organizations"
+    __table_args__ = {
+        "comment": "Organismos compradores del Estado, identificados por su código de Mercado Público"
+    }
 
     id = Column(Integer, primary_key=True)
     codigo_organismo = Column(String(50), unique=True, nullable=False)
@@ -49,6 +52,9 @@ class Supplier(Base):
     """Supplier model (Proveedor)"""
 
     __tablename__ = "suppliers"
+    __table_args__ = {
+        "comment": "Proveedores de Mercado Público. `codigo_proveedor` es el identificador interno del portal, NO un RUT"
+    }
 
     id = Column(Integer, primary_key=True)
     codigo_proveedor = Column(String(50), unique=True, nullable=False)

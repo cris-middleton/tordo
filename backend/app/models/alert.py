@@ -9,7 +9,7 @@ from sqlalchemy.sql import func
 from app.db import Base
 
 
-class AlertStatus(str, enum.Enum):
+class AlertStatus(enum.StrEnum):
     """Status of an alert"""
 
     PENDING = "pending"
@@ -18,7 +18,7 @@ class AlertStatus(str, enum.Enum):
     ARCHIVED = "archived"
 
 
-class AlertType(str, enum.Enum):
+class AlertType(enum.StrEnum):
     """Type of alert"""
 
     NEW_TENDER = "new_tender"
@@ -44,7 +44,7 @@ class AlertType(str, enum.Enum):
     COMPETIDOR_GANO = "competidor_gano"
 
 
-class NotificationChannel(str, enum.Enum):
+class NotificationChannel(enum.StrEnum):
     """Notification channel"""
 
     EMAIL = "email"
@@ -59,6 +59,9 @@ class Alert(Base):
     """Alert model for user notifications"""
 
     __tablename__ = "alerts"
+    __table_args__ = {
+        "comment": "Avisos generados para un usuario. `idempotency_key` es única: evita duplicar el mismo aviso entre corridas"
+    }
 
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
@@ -109,6 +112,7 @@ class AlertPreference(Base):
     """User alert preferences for matching"""
 
     __tablename__ = "alert_preferences"
+    __table_args__ = {"comment": "Filtros con los que un usuario acota qué licitaciones le avisan"}
 
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)

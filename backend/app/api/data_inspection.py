@@ -314,7 +314,7 @@ async def get_ordenes_compra(
             )
 
             ranked = sorted(
-                zip(pool, sims, encaje),
+                zip(pool, sims, encaje, strict=True),
                 key=lambda row: row[1],
                 reverse=sort_order != "asc",
             )
@@ -343,7 +343,7 @@ async def get_ordenes_compra(
             texts = [_orden_text(o) for o in pool]
             encaje = tfidf_matcher.score_empresa_texts(perfil_bytes, texts)
             ranked = sorted(
-                zip(pool, encaje),
+                zip(pool, encaje, strict=True),
                 key=lambda row: row[1][0],
                 reverse=sort_order != "asc",
             )
@@ -382,7 +382,7 @@ async def get_ordenes_compra(
             encaje = tfidf_matcher.score_empresa_texts(
                 perfil_bytes, [_orden_text(r) for r in records]
             )
-            data = [_payload(r, encaje=enc) for r, enc in zip(records, encaje)]
+            data = [_payload(r, encaje=enc) for r, enc in zip(records, encaje, strict=True)]
         else:
             data = [model_to_dict(r, OrdenCompra) for r in records]
     else:

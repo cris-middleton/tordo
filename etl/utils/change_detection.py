@@ -323,7 +323,7 @@ def necesita_actualizacion(
         if isinstance(fecha_ultima_actualizacion, str):
             try:
                 fecha_ultima_actualizacion = datetime.fromisoformat(fecha_ultima_actualizacion)
-            except:
+            except ValueError:
                 return True  # If can't parse date, update to be safe
 
         dias_desde_actualizacion = (now_santiago() - fecha_ultima_actualizacion).days
@@ -364,7 +364,7 @@ def priorizar_actualizaciones(
             if isinstance(fecha_cierre, str):
                 try:
                     fecha_cierre = datetime.fromisoformat(fecha_cierre)
-                except:
+                except ValueError:
                     fecha_cierre = None
 
             if fecha_cierre:
@@ -385,7 +385,7 @@ def priorizar_actualizaciones(
             if isinstance(fecha_ultima_act, str):
                 try:
                     fecha_ultima_act = datetime.fromisoformat(fecha_ultima_act)
-                except:
+                except ValueError:
                     fecha_ultima_act = None
 
             if fecha_ultima_act:

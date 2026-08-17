@@ -59,7 +59,7 @@ def build_price_aggregates() -> pl.DataFrame:
 
     # Primera pasada: estadísticas básicas
     stats_frames = []
-    for periodo, df in iter_oc_parquets(columns=cols_needed):
+    for _periodo, df in iter_oc_parquets(columns=cols_needed):
         if "MontoTotalOC_PesosChilenos" not in df.columns:
             continue
 

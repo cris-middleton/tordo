@@ -199,10 +199,9 @@ class MercadoPublicoOrdenesExtractor(BaseExtractor):
 
         # API returns detailed structure for single record
         # Check if it's an error response
-        if isinstance(data, dict):
-            if data.get("Codigo") == 404 or data.get("error"):
-                self.logger.warning(f"OrdenCompra API returned error for codigo: {codigo_oc}")
-                return None
+        if isinstance(data, dict) and (data.get("Codigo") == 404 or data.get("error")):
+            self.logger.warning(f"OrdenCompra API returned error for codigo: {codigo_oc}")
+            return None
 
         self.logger.info(f"Successfully extracted detailed info for orden de compra: {codigo_oc}")
         return data

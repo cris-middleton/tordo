@@ -10,6 +10,9 @@ class LicitacionHistorial(Base):
     """Model for tracking changes to licitaciones over time"""
 
     __tablename__ = "licitaciones_historial"
+    __table_args__ = {
+        "comment": "Cambios detectados en una licitación a lo largo del tiempo, para poder mirar atrás"
+    }
 
     id = Column(Integer, primary_key=True)
 

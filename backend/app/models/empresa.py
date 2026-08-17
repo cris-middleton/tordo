@@ -123,6 +123,9 @@ class Empresa(Base):
             "estado_habil IN ('habil', 'inhabil', 'no_encontrado', 'desconocido')",
             name="ck_empresas_estado_habil",
         ),
+        {
+            "comment": "Empresa proveedora registrada en TORDO. Dueña de la suscripción, el plan y las cuotas (ADR 0002)"
+        },
     )
 
     def __repr__(self) -> str:
@@ -157,6 +160,9 @@ class EmpresaUsuario(Base):
     __table_args__ = (
         CheckConstraint("rol IN ('owner', 'admin', 'viewer')", name="ck_empresas_usuario_rol"),
         UniqueConstraint("user_id", "empresa_id", name="uq_empresas_usuario"),
+        {
+            "comment": "Membresía usuario ↔ empresa con su rol. Es la tabla que sostiene el aislamiento multi-tenant"
+        },
     )
 
 
@@ -196,13 +202,21 @@ class DocumentoEmpresa(Base):
     empresa = relationship("Empresa", back_populates="documentos")
     checklist_items = relationship("ChecklistPostulacion", back_populates="documento")
 
-    __table_args__ = (CheckConstraint("tamano_bytes <= 26214400", name="ck_documentos_tamano"),)
+    __table_args__ = (
+        CheckConstraint("tamano_bytes <= 26214400", name="ck_documentos_tamano"),
+        {
+            "comment": "Documentos de la empresa guardados en S3, con su vencimiento para el aviso de caducidad"
+        },
+    )
 
 
 class EstadoHabilLog(Base):
     """Historial de cambios de estado hábil por empresa."""
 
     __tablename__ = "estado_habil_log"
+    __table_args__ = {
+        "comment": "Historial de cambios de estado hábil en Mercado Público, una fila por transición detectada"
+    }
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     empresa_id = Column(
@@ -226,6 +240,9 @@ class TFIDFPerfil(Base):
     """Perfil TF-IDF serializado para matching semántico."""
 
     __tablename__ = "tfidf_perfiles"
+    __table_args__ = {
+        "comment": "Vector TF-IDF serializado del perfil de una empresa, usado para el encaje semántico"
+    }
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     empresa_id = Column(

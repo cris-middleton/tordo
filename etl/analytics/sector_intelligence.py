@@ -60,7 +60,7 @@ def build_sector_dashboard() -> pl.DataFrame:
         "n_rubros": ContadorDistintos("sector", "RubroN2"),
     }
 
-    for periodo, df in iter_oc_parquets(columns=cols_needed):
+    for _periodo, df in iter_oc_parquets(columns=cols_needed):
         if "sector" not in df.columns:
             continue
 
@@ -152,7 +152,7 @@ def build_region_dashboard() -> pl.DataFrame:
         "n_proveedores": ContadorDistintos("RegionUnidadCompra", "CodigoProveedor"),
     }
 
-    for periodo, df in iter_oc_parquets(columns=cols_needed):
+    for _periodo, df in iter_oc_parquets(columns=cols_needed):
         if "RegionUnidadCompra" not in df.columns:
             continue
 
@@ -228,7 +228,7 @@ def build_sector_region_matrix() -> pl.DataFrame:
 
     frames = []
 
-    for periodo, df in iter_oc_parquets(columns=cols_needed):
+    for _periodo, df in iter_oc_parquets(columns=cols_needed):
         if "sector" not in df.columns or "RegionUnidadCompra" not in df.columns:
             continue
 

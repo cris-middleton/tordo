@@ -9,6 +9,9 @@ class Category(Base):
     """Category model for CPV/UNSPSC classification"""
 
     __tablename__ = "categories"
+    __table_args__ = {
+        "comment": "Taxonomía CPV/UNSPSC. Ni licitaciones ni órdenes están clasificadas contra ella todavía"
+    }
 
     id = Column(Integer, primary_key=True)
     code = Column(String(50), unique=True, nullable=False)  # CPV or UNSPSC code

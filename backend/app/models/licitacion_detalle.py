@@ -10,6 +10,9 @@ class LicitacionDetalle(Base):
     """Model for detailed information about licitaciones (updateable)"""
 
     __tablename__ = "licitaciones_detalle"
+    __table_args__ = {
+        "comment": "Campos extendidos de una licitación, que llegan en una segunda llamada a la API y se actualizan"
+    }
 
     id = Column(Integer, primary_key=True)
 

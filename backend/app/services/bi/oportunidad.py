@@ -61,6 +61,7 @@ def get_oportunidades(
             zip(
                 bs_df["CodigoOrganismoPublico"].cast(str).to_list(),
                 bs_df["NombreOrganismo"].to_list(),
+                strict=True,
             )
         )
         for row in result:

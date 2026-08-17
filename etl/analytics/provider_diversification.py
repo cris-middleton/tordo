@@ -71,7 +71,7 @@ def build_provider_metrics() -> pl.DataFrame:
     rubro_frames = []  # proveedor × rubros únicos
     period_frames = []  # proveedor × períodos (para antigüedad y recurrencia)
 
-    for periodo, df in iter_oc_parquets(columns=cols_needed):
+    for _periodo, df in iter_oc_parquets(columns=cols_needed):
         prov_col = "CodigoProveedor"
         if prov_col not in df.columns:
             continue

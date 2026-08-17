@@ -117,7 +117,7 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
     volume_frames = []
     rating_frames = []
 
-    for periodo, df in iter_oc_parquets(columns=cols_needed):
+    for _periodo, df in iter_oc_parquets(columns=cols_needed):
         org_col = "CodigoOrganismoPublico"
         if org_col not in df.columns:
             continue

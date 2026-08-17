@@ -75,7 +75,7 @@ def build_provider_corpus(max_date: "date | None" = None) -> pl.DataFrame:
     # Esto reduce el volumen de texto de ~100M a ~2-5M únicos
     prov_products: dict[str, dict] = {}
 
-    for periodo, df in iter_oc_parquets(columns=cols_needed, min_year=2018, max_date=max_date):
+    for _periodo, df in iter_oc_parquets(columns=cols_needed, min_year=2018, max_date=max_date):
         if "CodigoProveedor" not in df.columns:
             continue
 
@@ -258,7 +258,7 @@ def match_text_to_providers(
     top_scores = similarities[top_indices]
 
     results = []
-    for idx, score in zip(top_indices, top_scores):
+    for idx, score in zip(top_indices, top_scores, strict=False):
         if score > 0.01:  # Umbral mínimo de relevancia
             row = index_df.filter(pl.col("matrix_row") == int(idx))
             if len(row) > 0:

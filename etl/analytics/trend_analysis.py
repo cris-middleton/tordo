@@ -42,7 +42,7 @@ def build_time_series() -> pl.DataFrame:
     ]
 
     frames = []
-    for periodo, df in iter_oc_parquets(columns=cols_needed):
+    for _periodo, df in iter_oc_parquets(columns=cols_needed):
         if "MontoTotalOC_PesosChilenos" not in df.columns:
             continue
 

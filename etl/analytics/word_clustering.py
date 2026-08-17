@@ -45,7 +45,7 @@ def build_product_vocabulary() -> pl.DataFrame:
 
     vocab_frames = []
 
-    for periodo, df in iter_oc_parquets(columns=cols_needed):
+    for _periodo, df in iter_oc_parquets(columns=cols_needed):
         if "NombreroductoGenerico" not in df.columns:
             continue
 

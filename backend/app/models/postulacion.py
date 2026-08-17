@@ -51,6 +51,9 @@ class Postulacion(Base):
             name="ck_postulaciones_estado",
         ),
         UniqueConstraint("empresa_id", "licitacion_id", name="uq_postulaciones"),
+        {
+            "comment": "Licitación en seguimiento por una empresa. Los seis estados del CHECK son las columnas del tablero y no son configurables: `adjudicada` es lo que cruza contra el ZIP de resultados"
+        },
     )
 
 
@@ -58,6 +61,9 @@ class PlantillaChecklist(Base):
     """Plantilla de items de checklist por tipo de licitación."""
 
     __tablename__ = "plantillas_checklist"
+    __table_args__ = {
+        "comment": "Items de checklist por tipo de licitación, de los que se copia cada postulación nueva"
+    }
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tipo_licitacion = Column(String(10), nullable=False, index=True)
@@ -71,6 +77,9 @@ class ChecklistPostulacion(Base):
     """Item de checklist para una postulación específica."""
 
     __tablename__ = "checklist_postulacion"
+    __table_args__ = {
+        "comment": "Items de checklist de una postulación concreta, copiados de la plantilla al crearla"
+    }
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     postulacion_id = Column(

@@ -157,17 +157,27 @@ ignore = [
     "UP006",  # Dict/List en anotaciones — migración aparte
     "UP035",  # imports deprecados de typing — migración aparte
     "SIM108", # ternarios forzados — daña la legibilidad en varios sitios
+    "SIM102", # ifs anidados colapsables — los 11 que quedan llevan un comentario
+              # entre los dos ifs, y colapsarlos lo dejaría huérfano. Mismo
+              # criterio que SIM108: la regla pide algo más corto, no más claro.
 
     # ── Deuda registrada, NO permanente ──────────────────────────────────────
-    # Se silencian para que CI arranque en verde (un CI rojo desde el día uno se
-    # ignora para siempre). Cada una necesita criterio humano, no un autofix.
-    # Conteo al cierre de F1 (2026-08-05); revisar en F3 y bajarlos a cero.
-    "B007",   # 21 — variable de bucle sin usar; puede ocultar lógica incompleta
-    "SIM102", # 14 — ifs anidados colapsables; cosmético
-    "B905",   # 13 — zip() sin strict=; puede truncar en silencio si los largos difieren
-    "E722",   #  3 — except desnudo; se traga KeyboardInterrupt y SystemExit
-    "UP042",  #  3 — clases que deberían heredar de StrEnum
-    "E741",   #  2 — nombres de variable ambiguos (l, I, O)
+    # (vacía)
+    #
+    # Las cinco que había se resolvieron, no se re-silenciaron:
+    #   B007  (21) → variables de bucle sin usar, renombradas a `_`.
+    #   B905  (13) → `zip()` sin `strict=`. Se puso `strict=True` en todos los
+    #                sitios donde el largo está garantizado por construcción, que
+    #                son todos menos la iteración por pares de `test_splits.py`.
+    #                El autofix propone `strict=False`, que conserva el
+    #                truncamiento silencioso y sólo calla la regla — es lo
+    #                contrario de arreglarlo.
+    #   E722  ( 3) → `except:` desnudo alrededor de `datetime.fromisoformat`,
+    #                acotado a `ValueError`. Un desnudo se traga
+    #                `KeyboardInterrupt` y `SystemExit`, así que un ETL colgado
+    #                no se podía interrumpir.
+    #   UP042 ( 3) → enums que ya heredan de `StrEnum`.
+    #   E741  ( 2) → ya estaba en cero; sobraba en la lista.
 ]
 
 [tool.ruff.lint.per-file-ignores]

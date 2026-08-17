@@ -35,7 +35,7 @@ def test_ground_truth_combines_winners_and_losers(
     winners = truth.filter(pl.col("relevance") == 2)
     losers = truth.filter(pl.col("relevance") == 1)
     assert set(winners["query_id"].to_list()) == {"L-100", "L-101", "L-200"}
-    assert set(zip(losers["query_id"].to_list(), losers["item_id"].to_list())) == {
+    assert set(zip(losers["query_id"].to_list(), losers["item_id"].to_list(), strict=False)) == {
         ("L-100", "P1"),
         ("L-200", "P2"),
         ("L-200", "P3"),

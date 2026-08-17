@@ -164,7 +164,7 @@ def extract_unit_prices() -> pl.DataFrame:
 
     frames = []
 
-    for periodo, df in iter_oc_parquets(columns=cols_needed):
+    for _periodo, df in iter_oc_parquets(columns=cols_needed):
         required = ["codigoProductoONU", "precioNeto", "cantidad", "UnidadMedida"]
         if not all(c in df.columns for c in required):
             continue

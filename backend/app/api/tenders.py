@@ -127,7 +127,9 @@ async def list_tenders(
                 " ".join(filtros.terminos), [_licitacion_text(lic) for lic in pool]
             )
             ordenadas = sorted(
-                zip(pool, similitudes), key=lambda fila: fila[1], reverse=not ascendente
+                zip(pool, similitudes, strict=True),
+                key=lambda fila: fila[1],
+                reverse=not ascendente,
             )
             total = len(ordenadas)
             pagina_filas = ordenadas[skip : skip + limit]

@@ -77,7 +77,7 @@ def extract_lic_discounts() -> pl.DataFrame:
     lic_frames = []
     seen_lics: set[str] = set()
 
-    for periodo, df in iter_lic_parquets(columns=cols_needed):
+    for _periodo, df in iter_lic_parquets(columns=cols_needed):
         if "CodigoExterno" not in df.columns:
             continue
         if "MontoEstimado" not in df.columns or "MontoLineaAdjudica" not in df.columns:

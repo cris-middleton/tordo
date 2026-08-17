@@ -10,6 +10,7 @@ class OrdenCompraHistorial(Base):
     """Model for tracking changes to órdenes de compra over time"""
 
     __tablename__ = "ordenes_compra_historial"
+    __table_args__ = {"comment": "Cambios detectados en una orden de compra a lo largo del tiempo"}
 
     id = Column(Integer, primary_key=True)
 

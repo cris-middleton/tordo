@@ -468,7 +468,7 @@ def run_etl_actualizar_detalles_licitaciones(
         total_records = len(registros_actualizar)
         processed_count = 0
 
-        for licitacion_id, codigo_externo, detalle_id in registros_actualizar:
+        for licitacion_id, codigo_externo, _detalle_id in registros_actualizar:
             try:
                 logger.info(f"Updating licitación: {codigo_externo}")
 
@@ -649,7 +649,7 @@ def run_etl_actualizar_detalles_ordenes(
         total_records = len(registros_actualizar)
         processed_count = 0
 
-        for orden_id, codigo_oc, detalle_id in registros_actualizar:
+        for orden_id, codigo_oc, _detalle_id in registros_actualizar:
             try:
                 logger.info(f"Updating orden: {codigo_oc}")
 
@@ -749,19 +749,16 @@ def run_etl_pipeline_v2(
     success = True
 
     # Step 1: Extract basic data (daily)
-    if extract_licitaciones:
-        if not run_etl_licitaciones_v2(fecha_desde, fecha_hasta):
-            success = False
+    if extract_licitaciones and not run_etl_licitaciones_v2(fecha_desde, fecha_hasta):
+        success = False
 
-    if extract_ordenes:
-        if not run_etl_ordenes_compra_v2(fecha_desde, fecha_hasta):
-            success = False
+    if extract_ordenes and not run_etl_ordenes_compra_v2(fecha_desde, fecha_hasta):
+        success = False
 
     # Compra Ágil va aparte: otra API, otro host, otra autenticación y cuota
     # diaria propia. Sin ticket configurado se omite sin ruido.
-    if extract_compra_agil:
-        if not run_etl_compra_agil():
-            success = False
+    if extract_compra_agil and not run_etl_compra_agil():
+        success = False
 
     # Step 2: Extract details for ACTIVE records without detalle
     if extract_detalles_nuevos and success:

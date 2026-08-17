@@ -54,7 +54,7 @@ def extract_lic_competition() -> pl.DataFrame:
     frames = []
     seen_lics: set[str] = set()
 
-    for periodo, df in iter_lic_parquets(columns=cols_needed):
+    for _periodo, df in iter_lic_parquets(columns=cols_needed):
         if "CodigoExterno" not in df.columns or "NumeroOferentes" not in df.columns:
             continue
 

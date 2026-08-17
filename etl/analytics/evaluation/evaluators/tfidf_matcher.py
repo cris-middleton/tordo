@@ -82,8 +82,8 @@ class TfidfMatcherEvaluable(Evaluable):
         texts = [model._clean_text(t or "") for t in lics["Nombre"].to_list()]
 
         mask = [len(t.split()) >= 3 for t in texts]
-        query_ids = [q for q, ok in zip(query_ids, mask) if ok]
-        texts = [t for t, ok in zip(texts, mask) if ok]
+        query_ids = [q for q, ok in zip(query_ids, mask, strict=True) if ok]
+        texts = [t for t, ok in zip(texts, mask, strict=True) if ok]
         if not texts:
             return pl.DataFrame(
                 schema={

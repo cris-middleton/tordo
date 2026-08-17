@@ -62,7 +62,7 @@ def build_competitor_aggregates() -> tuple[pl.DataFrame, pl.DataFrame]:
         "n_regiones": ContadorDistintos("CodigoProveedor", "RegionUnidadCompra"),
     }
 
-    for periodo, df in iter_oc_parquets(columns=cols_needed):
+    for _periodo, df in iter_oc_parquets(columns=cols_needed):
         if "CodigoProveedor" not in df.columns:
             continue
 

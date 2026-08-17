@@ -10,6 +10,9 @@ class OrdenCompraDetalle(Base):
     """Model for detailed information about órdenes de compra (updateable)"""
 
     __tablename__ = "ordenes_compra_detalle"
+    __table_args__ = {
+        "comment": "Campos extendidos de una orden de compra, que llegan en una segunda llamada y se actualizan"
+    }
 
     id = Column(Integer, primary_key=True)
 

@@ -28,5 +28,8 @@ class TaskFailure(Base):
             "failed_at",
             postgresql_where=text("resolved = false"),
         ),
+        {
+            "comment": "Tareas de Celery que agotaron sus reintentos, para poder verlas y relanzarlas"
+        },
     )
     resolved_at = Column(DateTime(timezone=True), nullable=True)

@@ -34,11 +34,15 @@ def test_walk_forward_yields_4_folds():
 
 def test_walk_forward_folds_are_contiguous():
     splits = build_walk_forward_splits(today=date(2026, 4, 14), n_folds=4, fold_months=6)
-    for prev, nxt in zip(splits, splits[1:]):
+    # `strict=False` a propósito: es la iteración por pares consecutivos, así
+    # que la segunda lista tiene un elemento menos por definición.
+    for prev, nxt in zip(splits, splits[1:], strict=False):
         assert prev.test_end == nxt.test_start
 
 
 def test_walk_forward_train_grows_monotonically():
     splits = build_walk_forward_splits(today=date(2026, 4, 14), n_folds=4, fold_months=6)
-    for prev, nxt in zip(splits, splits[1:]):
+    # `strict=False` a propósito: es la iteración por pares consecutivos, así
+    # que la segunda lista tiene un elemento menos por definición.
+    for prev, nxt in zip(splits, splits[1:], strict=False):
         assert nxt.train_end > prev.train_end

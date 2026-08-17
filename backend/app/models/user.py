@@ -9,6 +9,9 @@ class User(Base):
     """User model for authentication and user management"""
 
     __tablename__ = "users"
+    __table_args__ = {
+        "comment": "Cuentas de acceso. La suscripción y el plan NO viven aquí: pertenecen a la empresa (ADR 0002)"
+    }
 
     id = Column(Integer, primary_key=True)
     email = Column(String(255), unique=True, nullable=False)
