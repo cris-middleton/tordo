@@ -7,8 +7,19 @@ from app.models.alert import AlertStatus, AlertType
 
 
 class AlertPreferenceBase(BaseModel):
+    """Filtros de una preferencia de alerta.
+
+    **`category_id` ya no se acepta.** Estaba declarado y el motor tenía su
+    bloque escrito como `pass`, con un comentario que decía «this would need to
+    be implemented»: quien lo ponía recibía TODAS las licitaciones, no las de su
+    categoría. No es implementable tal cual — ni `Licitacion` ni `OrdenCompra`
+    tienen relación con `categories`, así que no hay nada contra qué comparar.
+    Ofrecer un filtro que no filtra es peor que no ofrecerlo: el usuario cree
+    que acotó y deja de revisar. Lo que sí acota por materia es el encaje
+    semántico (`match_empresa_licitacion`) y `keywords`.
+    """
+
     name: str
-    category_id: int | None = None
     organismo_ids: List[int] | None = None
     min_amount: int | None = None
     max_amount: int | None = None
@@ -28,7 +39,6 @@ class AlertPreferenceCreate(AlertPreferenceBase):
 
 class AlertPreferenceUpdate(BaseModel):
     name: str | None = None
-    category_id: int | None = None
     organismo_ids: List[int] | None = None
     min_amount: int | None = None
     max_amount: int | None = None

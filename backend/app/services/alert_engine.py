@@ -9,6 +9,7 @@ match_nueva_licitacion  — TF-IDF score every empresa profile, emit NUEVA_LICIT
 """
 
 import logging
+import unicodedata
 from typing import Any, Dict, List
 
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -34,6 +35,25 @@ from app.services.notificaciones import despachar as despachar_alerta
 # de vuelta a `alert_engine`, así que no hay ciclo.
 
 logger = logging.getLogger(__name__)
+
+
+def _sin_tildes(texto: str) -> str:
+    """Minúsculas y sin diacríticos, para comparar como compara una persona.
+
+    `NFD` separa la letra de su tilde y el filtro descarta los combinantes, así
+    que «Licitación» y «licitacion» quedan iguales.
+
+    **La ñ también se pliega a n** («Ñuble» → «nuble», «Peñalolén» →
+    «penalolen»). Como criterio lingüístico es discutible —la ñ es una letra
+    aparte, no una n con adorno— pero es exactamente lo que hace
+    `inmutable_unaccent` en la búsqueda del catálogo, y dos reglas distintas
+    para el mismo idioma dentro del mismo producto es peor: el usuario que
+    encuentra «Ñuble» buscando «nuble» en el catálogo esperaría que su alerta
+    hiciera lo mismo.
+    """
+    descompuesto = unicodedata.normalize("NFD", texto.lower())
+    sin_marcas = "".join(c for c in descompuesto if unicodedata.category(c) != "Mn")
+    return unicodedata.normalize("NFC", sin_marcas)
 
 
 class AlertEngine:
@@ -70,14 +90,13 @@ class AlertEngine:
 
     def _matches_preference(self, entity: Any, preference: AlertPreference) -> bool:
         """Check if an entity matches a preference"""
-        # Category match
-        if preference.category_id:
-            # Check if entity has items with matching category
-            # This is a simplified check - you may need to enhance based on your data structure
-            if hasattr(entity, "items") and entity.items:
-                # Check if any item matches the category
-                # This would need to be implemented based on your actual data structure
-                pass
+        # **No hay filtro por categoría, y no es un olvido.** Aquí había un
+        # bloque que terminaba en `pass` con un «this would need to be
+        # implemented»: aceptaba `category_id`, no comparaba nada y dejaba pasar
+        # todo. Quien creía haber acotado sus alertas a una categoría las
+        # recibía todas. No es implementable tal cual — ni `Licitacion` ni
+        # `OrdenCompra` están clasificadas contra `categories` —, así que el
+        # campo salió del esquema de la API en vez de seguir prometiéndose.
 
         # Organismo match
         if preference.organismo_ids:
@@ -85,9 +104,15 @@ class AlertEngine:
             if not entity_org_id or entity_org_id not in preference.organismo_ids:
                 return False
 
-        # Amount filters
+        # Amount filters.
+        #
+        # `is not None` y no un booleano: un monto de 0 es falsy, así que se
+        # saltaba los dos filtros y una licitación sin monto declarado colaba
+        # por debajo de cualquier `min_amount`. El `or` de arriba tiene el mismo
+        # problema, y ahí sí conviene: un `monto_estimado` de 0 debe caer al
+        # `monto_total`.
         amount = getattr(entity, "monto_estimado", None) or getattr(entity, "monto_total", None)
-        if amount:
+        if amount is not None:
             if preference.min_amount and float(amount) < preference.min_amount:
                 return False
             if preference.max_amount and float(amount) > preference.max_amount:
@@ -111,15 +136,20 @@ class AlertEngine:
             if not comuna or comuna not in preference.comunas:
                 return False
 
-        # Keywords match
+        # Keywords match.
+        #
+        # **Se comparan sin tildes, en los dos sentidos.** Es la misma decisión
+        # que la búsqueda del catálogo, y por el mismo motivo: en español de
+        # Chile la gente escribe «licitacion» y el organismo publica
+        # «Licitación». Comparando en crudo, una palabra clave con tilde no
+        # encontraba el texto sin ella ni al revés, y el usuario concluía que no
+        # había nada de lo suyo.
         if preference.keywords:
             nombre = getattr(entity, "nombre", "") or ""
             descripcion = getattr(entity, "descripcion", "") or ""
-            text = f"{nombre} {descripcion}".lower()
+            texto = _sin_tildes(f"{nombre} {descripcion}")
 
-            # Check if any keyword matches
-            matches = any(keyword.lower() in text for keyword in preference.keywords)
-            if not matches:
+            if not any(_sin_tildes(k) in texto for k in preference.keywords if k):
                 return False
 
         return True
@@ -132,9 +162,27 @@ class AlertEngine:
         entity_id: int,
         title: str,
         message: str | None = None,
-        metadata: Dict[str, Any] | None = None,
+        alert_metadata: Dict[str, Any] | None = None,
     ) -> Alert:
-        """Create an alert in the database"""
+        """Crea una alerta en la base.
+
+        **El parámetro se llama `alert_metadata`, y el cambio no es cosmético.**
+        Antes era `metadata` y se pasaba tal cual al constructor del modelo. En
+        un modelo declarativo de SQLAlchemy `metadata` es un atributo reservado
+        —el objeto `MetaData` de la clase—, así que el constructor lo aceptaba
+        sin quejarse, lo sombreaba en la instancia y **dejaba la columna real en
+        `NULL`**. Sin excepción, sin aviso.
+
+        Se perdía en las dos alertas del camino por preferencias
+        (`NEW_TENDER` y `NEW_ORDER`), y `NEW_TENDER` sale por correo en tanda:
+        `correo_render` lee `alert_metadata` para armar el mensaje, así que los
+        avisos salían sin el código de la licitación —lo único que permite
+        llegar a ella— y sin el nombre de la preferencia que los disparó.
+
+        El camino moderno (`create_alert_idempotent`) nunca tuvo el problema:
+        escribe por `Table.values(alert_metadata=…)`, donde la clave es la del
+        atributo y no la del objeto reservado.
+        """
         alert = Alert(
             user_id=user_id,
             alert_type=alert_type,
@@ -142,7 +190,7 @@ class AlertEngine:
             entity_id=entity_id,
             title=title,
             message=message,
-            metadata=metadata or {},
+            alert_metadata=alert_metadata or {},
             status=AlertStatus.PENDING,
         )
 
@@ -162,7 +210,7 @@ class AlertEngine:
         title: str,
         idempotency_key: str,
         message: str | None = None,
-        metadata: Dict[str, Any] | None = None,
+        alert_metadata: Dict[str, Any] | None = None,
         empresa_id=None,
         notification_channels: List[str] | None = None,
     ) -> int | None:
@@ -192,7 +240,7 @@ class AlertEngine:
                 entity_id=entity_id,
                 title=title,
                 message=message,
-                alert_metadata=metadata or {},
+                alert_metadata=alert_metadata or {},
                 notification_channels=notification_channels or ["in_app"],
                 idempotency_key=idempotency_key,
                 empresa_id=empresa_id,
@@ -274,7 +322,7 @@ class AlertEngine:
                         f"con el perfil de tu empresa. Similitud: {score:.1%}."
                     ),
                     idempotency_key=idempotency_key,
-                    metadata={
+                    alert_metadata={
                         "codigo_externo": licitacion.codigo_externo,
                         "score_encaje": round(score, 4),
                         "nivel": nivel,
@@ -339,7 +387,7 @@ class AlertEngine:
                 entity_id=licitacion.id,
                 title=title,
                 message=message,
-                metadata={
+                alert_metadata={
                     "preference_id": preference.id,
                     "preference_name": preference.name,
                     "codigo_externo": licitacion.codigo_externo,
@@ -374,7 +422,7 @@ class AlertEngine:
                 entity_id=orden_compra.id,
                 title=title,
                 message=message,
-                metadata={
+                alert_metadata={
                     "preference_id": preference.id,
                     "preference_name": preference.name,
                     "codigo_oc": orden_compra.codigo_oc,
