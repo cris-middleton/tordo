@@ -57,7 +57,7 @@ export function MockupAviso() {
             </span>
           </div>
           <p className="mt-1 text-xs text-muted">
-            Hospital Regional de Concepción · cierra en 7 días
+            Hospital regional · cierra en 7 días
           </p>
 
           {/* Estas tres líneas son el producto. Van con un filete a la
@@ -76,8 +76,8 @@ export function MockupAviso() {
             una regla de filtro en Gmail. */}
         <div className="space-y-1.5 opacity-60">
           {[
-            ['Insumos de aseo para recintos de salud', 'Servicio de Salud Ñuble'],
-            ['Repuestos de climatización', 'Municipalidad de Talcahuano'],
+            ['Insumos de aseo para recintos de salud', 'Servicio de salud regional'],
+            ['Repuestos de climatización', 'Municipalidad vecina'],
           ].map(([titulo, comprador]) => (
             <div key={titulo} className="rounded-lg border border-border px-3.5 py-2">
               <p className="truncate text-xs font-medium text-text">{titulo}</p>

@@ -38,7 +38,7 @@ interface CompradorEjemplo {
 
 const EJEMPLOS: CompradorEjemplo[] = [
   {
-    nombre: 'Hospital Regional de Concepción',
+    nombre: 'Hospital regional',
     sector: 'Salud',
     tratoDirecto: 12,
     tratoDirectoNota: 'casi todo lo saca a competir',
@@ -48,7 +48,7 @@ const EJEMPLOS: CompradorEjemplo[] = [
     veredicto: 'Adjudica lo que llama y compra en competencia. Vale la pena preparar bien esta oferta.',
   },
   {
-    nombre: 'Municipalidad de Los Ángeles',
+    nombre: 'Municipalidad mediana',
     sector: 'Municipal',
     tratoDirecto: 44,
     tratoDirectoNota: 'casi la mitad no llega a licitarse',
@@ -58,7 +58,7 @@ const EJEMPLOS: CompradorEjemplo[] = [
     veredicto: 'Poca competencia, pero se cae uno de cada tres llamados. No le dediques tu mejor semana.',
   },
   {
-    nombre: 'Servicio de Salud Ñuble',
+    nombre: 'Servicio de salud regional',
     sector: 'Salud',
     tratoDirecto: 19,
     tratoDirectoNota: 'en línea con el sector',

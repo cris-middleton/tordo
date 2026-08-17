@@ -41,8 +41,8 @@ const MATCHING_EXAMPLES: MatchingExample[] = [
   {
     rubro: 'Papelería oficina',
     resultados: [
-      { titulo: 'Resmas papel 75g',                  comprador: 'Mun. de La Florida',     monto: '$480K', diasCierre: 6,  calce: 92 },
-      { titulo: 'Insumos escritorio administrativo', comprador: 'Gob. Regional RM',        monto: '$720K', diasCierre: 11, calce: 84 },
+      { titulo: 'Resmas papel 75g',                  comprador: 'Municipalidad grande',     monto: '$480K', diasCierre: 6,  calce: 92 },
+      { titulo: 'Insumos escritorio administrativo', comprador: 'Gobierno regional',        monto: '$720K', diasCierre: 11, calce: 84 },
       { titulo: 'Suministros oficina ministerio',     comprador: 'Ministerio de Economía', monto: '$1.1M', diasCierre: 18, calce: 76 },
     ],
     insight: "Sólo la primera aparece si buscas 'resmas'. Las otras dos se te pasan.",
@@ -50,9 +50,9 @@ const MATCHING_EXAMPLES: MatchingExample[] = [
   {
     rubro: 'Construcción vial menor',
     resultados: [
-      { titulo: 'Reparación veredas comuna',   comprador: 'Mun. de Talca',  monto: '$8.4M', diasCierre: 22, calce: 91 },
+      { titulo: 'Reparación veredas comuna',   comprador: 'Municipalidad regional',  monto: '$8.4M', diasCierre: 22, calce: 91 },
       { titulo: 'Bacheo calles urbanas',        comprador: 'SERVIU Maule',   monto: '$12M',  diasCierre: 14, calce: 85 },
-      { titulo: 'Reposición aceras peatonales', comprador: 'Mun. de Curicó', monto: '$5.2M', diasCierre: 30, calce: 80 },
+      { titulo: 'Reposición aceras peatonales', comprador: 'Municipalidad chica', monto: '$5.2M', diasCierre: 30, calce: 80 },
     ],
     insight: "Buscando 'veredas' te pierdes 'bacheo' y 'aceras' — 2 de 3 oportunidades.",
   },

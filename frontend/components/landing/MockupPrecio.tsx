@@ -84,9 +84,9 @@ const PRECIO_EXAMPLES: PrecioExample[] = [
     target: '$2.500',
     tendencia: '↑ 1%',
     adjudicaciones: [
-      { comprador: 'Municipalidad de La Florida', fecha: 'Ene 2026', monto: '$2.380' },
-      { comprador: 'Mun. de Maipú',               fecha: 'Dic 2025', monto: '$2.420' },
-      { comprador: 'Gob. Regional RM',             fecha: 'Nov 2025', monto: '$2.510' },
+      { comprador: 'Municipalidad grande', fecha: 'Ene 2026', monto: '$2.380' },
+      { comprador: 'Municipalidad vecina',               fecha: 'Dic 2025', monto: '$2.420' },
+      { comprador: 'Gobierno regional',             fecha: 'Nov 2025', monto: '$2.510' },
     ],
     insight:
       'Este comprador adjudica casi siempre al precio más bajo. Compite en costo o mira mejores licitaciones.',
@@ -106,8 +106,8 @@ const PRECIO_EXAMPLES: PrecioExample[] = [
     tendencia: '↑ 5%',
     adjudicaciones: [
       { comprador: 'JUNAEB Región Metropolitana', fecha: 'Feb 2026', monto: '$17.800' },
-      { comprador: 'Mun. de Pudahuel',             fecha: 'Ene 2026', monto: '$19.200' },
-      { comprador: 'Mun. de San Bernardo',          fecha: 'Dic 2025', monto: '$18.500' },
+      { comprador: 'Municipalidad urbana',             fecha: 'Ene 2026', monto: '$19.200' },
+      { comprador: 'Municipalidad periférica',          fecha: 'Dic 2025', monto: '$18.500' },
     ],
     insight: 'Este comprador adjudica en un rango amplio. Hay margen para no ser el más barato.',
   },
@@ -126,8 +126,8 @@ const PRECIO_EXAMPLES: PrecioExample[] = [
     tendencia: '↑ 4%',
     adjudicaciones: [
       { comprador: 'SERVIU Región del Maule', fecha: 'Mar 2026', monto: '$11.8M' },
-      { comprador: 'Mun. de Talca',            fecha: 'Feb 2026', monto: '$13.2M' },
-      { comprador: 'Mun. de Curicó',           fecha: 'Ene 2026', monto: '$10.9M' },
+      { comprador: 'Municipalidad regional',            fecha: 'Feb 2026', monto: '$13.2M' },
+      { comprador: 'Municipalidad chica',           fecha: 'Ene 2026', monto: '$10.9M' },
     ],
     insight:
       'Este comprador adjudica en el rango alto. No tienes que ser el más barato para ganar acá.',

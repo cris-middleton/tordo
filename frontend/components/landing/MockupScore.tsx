@@ -38,7 +38,7 @@ const SCORE_EXAMPLES: ScoreExample[] = [
   },
   {
     licitacion: 'Resmas papel y toners',
-    comprador: 'Municipalidad de La Florida',
+    comprador: 'Municipalidad grande',
     monto: '$1.2M',
     diasCierre: 8,
     score: 58,
