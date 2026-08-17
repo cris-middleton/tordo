@@ -86,6 +86,13 @@ celery_app.conf.update(
             "task": "app.tasks.etl_tasks.watchdog",
             "schedule": crontab(minute="*/30"),
         },
+        # Cada 30 min: reintenta el correo de una alerta cuyo primer intento
+        # falló. Ver `services/notificaciones.py` — `sent_at` sólo se marca si
+        # el correo salió, así que `sent_at IS NULL` es lo que queda pendiente.
+        "reintentar-notificaciones": {
+            "task": "app.tasks.alert_tasks.reintentar_notificaciones_fallidas",
+            "schedule": crontab(minute="*/30"),
+        },
         # 03:00 SCL daily: downgrade expired reverse-trials
         "trial-downgrade": {
             "task": "app.tasks.trial_tasks.downgrade_expired_trials",

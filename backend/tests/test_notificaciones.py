@@ -10,15 +10,27 @@ dentro de la aplicación. Un fallo así no lo encuentra un test que compruebe qu
 De ahí el trinquete de `test_toda_alerta_declara_su_politica`: un tipo nuevo sin
 política declarada hace fallar la suite, igual que hace `test_celery_beat.py`
 con el calendario.
+
+Un segundo fallo, más sutil, se corrige en este archivo: `sent_at` se marcaba
+al terminar `despachar()`/`despachar_tanda()` sin mirar si el correo había
+salido. Una alerta cuyo correo fallaba los tres reintentos de `_con_reintento`
+quedaba «procesada» para siempre — nada la reintentaba, nada avisaba. Las
+clases `TestDespachoInmediato`/`TestTanda` prueban que un fallo deja `sent_at`
+en NULL, y `TestDespachoPendientesReintento` prueba, contra Postgres real, que
+eso es justo lo que hace falta para que se reintente sin volver a mandar lo
+que ya salió.
 """
 
 from __future__ import annotations
 
+import logging
 from types import SimpleNamespace
 
 import pytest
 
-from app.models.alert import AlertType, NotificationChannel
+from app.models.alert import Alert, AlertType, NotificationChannel
+from app.models.task_failure import TaskFailure
+from app.models.user import User
 from app.services import correo_render, notificaciones
 from app.services.notificaciones import Urgencia
 
@@ -203,6 +215,28 @@ class TestDespachoInmediato:
         canales = notificaciones.despachar(alerta, db)
 
         assert canales == [NotificationChannel.IN_APP.value]
+        # `sent_at` significa que el correo salió. Si falló, tiene que quedar
+        # en NULL — es lo único que permite reintentar más tarde sin volver a
+        # mandar lo que ya salió. Éste es el bug que motivó el fix: antes se
+        # marcaba igual, sin mirar el resultado del envío.
+        assert alerta.sent_at is None
+
+    def test_el_fallo_de_correo_queda_registrado_para_un_operador(self, monkeypatch, caplog):
+        """Perder un correo en silencio es exactamente el fallo que se arregla
+        aquí: tiene que quedar algo que un operador encuentre sin leer logs de
+        Celery a mano — la misma cola de fondo que ya usa el ETL."""
+        monkeypatch.setattr(notificaciones, "send_email", lambda **_: False)
+        monkeypatch.setattr(notificaciones, "contexto_bi", lambda *a, **k: None)
+        alerta = _Alerta(id=42, alert_type=AlertType.ESTADO_HABIL_CAMBIO)
+        db = _Sesion([_Usuario()])
+
+        with caplog.at_level(logging.ERROR, logger="app.services.notificaciones"):
+            notificaciones.despachar(alerta, db)
+
+        fallos = [f for f in db.agregados if isinstance(f, TaskFailure)]
+        assert len(fallos) == 1
+        assert fallos[0].task_args["alert_id"] == 42
+        assert any(r.levelno == logging.ERROR for r in caplog.records)
 
     def test_reintenta_antes_de_rendirse(self, monkeypatch):
         intentos = {"n": 0}
@@ -236,6 +270,7 @@ class TestTanda:
 
         assert len(correos) == 1
         assert resumen == {"usuarios": 1, "correos": 1, "alertas": 5}
+        assert all(a.sent_at is not None for a in alertas)
 
     def test_cada_usuario_recibe_lo_suyo(self, correos):
         db = _Sesion([_Usuario(id=7), _Usuario(id=8, email="socio@pyme.cl")])
@@ -255,6 +290,130 @@ class TestTanda:
     def test_sin_alertas_no_manda_nada(self, correos):
         assert notificaciones.despachar_tanda([], _Sesion([_Usuario()]))["correos"] == 0
         assert correos == []
+
+    def test_si_el_correo_de_tanda_falla_no_queda_como_enviada(self, monkeypatch):
+        """Antes `_marcar_enviada` se llamaba sobre TODA la tanda antes de
+        siquiera intentar el correo — este test habría pasado con el bug
+        presente, porque `sent_at` ya estaba puesto cuando el envío ni había
+        corrido. La corrección mueve la marca a después de conocer el
+        resultado."""
+        monkeypatch.setattr(notificaciones, "send_email", lambda **_: False)
+        monkeypatch.setattr(notificaciones, "contexto_bi", lambda *a, **k: None)
+        alertas = [_Alerta(id=i, title=f"Licitación {i}") for i in range(1, 4)]
+        db = _Sesion([_Usuario()])
+
+        resumen = notificaciones.despachar_tanda(alertas, db)
+
+        assert resumen["correos"] == 0
+        assert all(a.sent_at is None for a in alertas)
+        fallos = [f for f in db.agregados if isinstance(f, TaskFailure)]
+        assert len(fallos) == 3
+
+    def test_quien_no_pidio_correo_queda_enviada_de_inmediato(self, monkeypatch):
+        """Sin correo pendiente no hay nada que esperar: la alerta ya está
+        completa con sólo el `in_app`, así que `sent_at` se marca al tiro."""
+
+        def _no_deberia_llamarse(**_):
+            raise AssertionError("no debía intentarse un correo para este usuario")
+
+        monkeypatch.setattr(notificaciones, "send_email", _no_deberia_llamarse)
+        monkeypatch.setattr(notificaciones, "contexto_bi", lambda *a, **k: None)
+        alertas = [_Alerta(id=1)]
+        db = _Sesion([_Usuario(notification_email=False)])
+
+        resumen = notificaciones.despachar_tanda(alertas, db)
+
+        assert resumen["correos"] == 0
+        assert alertas[0].sent_at is not None
+
+
+# ── Reintento contra Postgres real ───────────────────────────────────────────
+
+
+class TestDespachoPendientesReintento:
+    """`despachar_pendientes` re-lee por `Alert.sent_at.is_(None)` antes de
+    despachar — ya lo hacía para no procesar dos veces la misma tanda de IDs
+    recién insertados. Estos tests comprueban que la misma señal ahora sirve
+    también para el reintento: nada nuevo que aprender, ni para el código ni
+    para quien lo reintente a mano."""
+
+    @staticmethod
+    def _sembrar(session, *, alert_type=AlertType.ESTADO_HABIL_CAMBIO):
+        usuario = User(
+            username=f"user-{id(session)}-{alert_type.value}",
+            email="dueno@pyme.cl",
+            hashed_password="x",
+            full_name="Ana Rojas",
+            is_active=True,
+        )
+        session.add(usuario)
+        session.flush()
+        alerta = Alert(
+            user_id=usuario.id,
+            alert_type=alert_type,
+            entity_type="licitacion",
+            entity_id=1,
+            title="Cambio de estado hábil",
+            message="Tu empresa pasó a inhábil.",
+            notification_channels=["in_app"],
+        )
+        session.add(alerta)
+        session.flush()
+        return usuario, alerta
+
+    def test_un_fallo_no_se_pierde_queda_en_null_y_registrado(self, sync_task_db, monkeypatch):
+        session, _ = sync_task_db
+        monkeypatch.setattr(notificaciones, "send_email", lambda **_: False)
+        monkeypatch.setattr(notificaciones, "contexto_bi", lambda *a, **k: None)
+        _, alerta = self._sembrar(session)
+
+        notificaciones.despachar_pendientes(session, [alerta.id])
+
+        session.refresh(alerta)
+        assert alerta.sent_at is None
+        fallos = [
+            f for f in session.query(TaskFailure).all() if f.task_args.get("alert_id") == alerta.id
+        ]
+        assert len(fallos) == 1
+
+    def test_una_alerta_fallida_se_reintenta_en_la_siguiente_pasada(
+        self, sync_task_db, monkeypatch
+    ):
+        session, _ = sync_task_db
+        monkeypatch.setattr(notificaciones, "send_email", lambda **_: False)
+        monkeypatch.setattr(notificaciones, "contexto_bi", lambda *a, **k: None)
+        _, alerta = self._sembrar(session)
+        notificaciones.despachar_pendientes(session, [alerta.id])
+        session.refresh(alerta)
+        assert alerta.sent_at is None
+
+        monkeypatch.setattr(notificaciones, "send_email", lambda **_: True)
+        notificaciones.despachar_pendientes(session, [alerta.id])
+
+        session.refresh(alerta)
+        assert alerta.sent_at is not None
+
+    def test_una_alerta_ya_enviada_no_se_reenvia(self, sync_task_db, monkeypatch):
+        """La propiedad de idempotencia: reintentar no puede volver a mandar lo
+        que ya salió. Si esto fallara, un reintento —automático o a mano—
+        mandaría un correo duplicado por cada alerta ya entregada."""
+        session, _ = sync_task_db
+        monkeypatch.setattr(notificaciones, "send_email", lambda **_: True)
+        monkeypatch.setattr(notificaciones, "contexto_bi", lambda *a, **k: None)
+        _, alerta = self._sembrar(session)
+        notificaciones.despachar_pendientes(session, [alerta.id])
+        session.refresh(alerta)
+        assert alerta.sent_at is not None
+        primer_envio = alerta.sent_at
+
+        def _no_deberia_llamarse(**_):
+            raise AssertionError("se reenvió una alerta que ya había salido")
+
+        monkeypatch.setattr(notificaciones, "send_email", _no_deberia_llamarse)
+        notificaciones.despachar_pendientes(session, [alerta.id])
+
+        session.refresh(alerta)
+        assert alerta.sent_at == primer_envio
 
 
 # ── Lo que ve el usuario ─────────────────────────────────────────────────────

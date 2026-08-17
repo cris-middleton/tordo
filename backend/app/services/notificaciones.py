@@ -7,7 +7,7 @@ recordatorio de plazo a 48 h y 24 h, el vencimiento de documentos, el cambio de
 estado hábil y la variación de precio— se quedaba dentro de la aplicación. Es
 decir: el producto calculaba el aviso y no lo mandaba.
 
-Tres decisiones que este módulo fija:
+Cuatro decisiones que este módulo fija:
 
 - **El canal lo declara el TIPO de alerta, no quien la crea.** Antes cada sitio
   pasaba su lista a mano y todos pasaban la misma. `POLITICA` es la única tabla
@@ -19,6 +19,22 @@ Tres decisiones que este módulo fija:
   documento vencido, quedar inhábil.
 - **Fallar al notificar no revienta la tarea que la creó.** La alerta ya está en
   la base; que el SMTP esté caído no puede tumbar la corrida del ETL.
+- **`sent_at` significa que el correo salió, no que se intentó.** Antes se
+  marcaba al final de `despachar()`/`despachar_tanda()` sin mirar el resultado
+  del envío, así que una alerta cuyo correo fallaba los tres reintentos de
+  `_con_reintento` quedaba «procesada» para siempre: `despachar_pendientes`
+  sólo reintenta lo que tiene `sent_at IS NULL`, y nada más volvía a mirarla.
+  Ahora un fallo deja `sent_at` en NULL —lo mismo que ya usaba
+  `despachar_pendientes` para no reprocesar una tanda de IDs dos veces, sin
+  mecanismo nuevo— y dos cosas más: la alerta queda en `task_failures` (la
+  misma cola de fondo que ya usa el ETL, ver `app/tasks/etl_tasks.py`) y en el
+  log a nivel `error`, que es lo que llega a Sentry por la integración de
+  logging que ya activa `observability/sentry.py`. `app.tasks.alert_tasks.
+  reintentar_notificaciones_fallidas` reintenta cada 30 min durante
+  `_VENTANA_REINTENTO` desde la creación; pasada esa ventana se deja de
+  intentar, porque una dirección permanentemente inválida no puede generar una
+  cola que crece para siempre — sigue en `task_failures` y en `alerts` con
+  `sent_at IS NULL`, así que no se pierde, sólo deja de reintentarse sola.
 """
 
 from __future__ import annotations
@@ -33,6 +49,7 @@ from sqlalchemy.orm import Session
 from app.core.email import send_email
 from app.models.alert import Alert, AlertType, NotificationChannel
 from app.models.licitacion import Licitacion
+from app.models.task_failure import TaskFailure
 from app.models.user import User
 from app.services import correo_render
 from app.services.bi.panel import get_licitacion_panel
@@ -161,13 +178,21 @@ def despachar(alerta: Alert, db: Session, contexto: dict | None = None) -> list[
 
     canales = canales_para(alerta.alert_type, usuario)
     usados = [NotificationChannel.IN_APP.value]
+    # Sólo el correo bloquea `sent_at`. El webhook es best-effort desde antes
+    # de este fix (casi nadie lo usa, ver el docstring del módulo) y si lo
+    # hiciéramos bloqueante, reintentar por un webhook caído volvería a mandar
+    # un correo que ya salió — justo lo que la idempotencia prohíbe, porque
+    # `despachar()` no recuerda qué canal individual tuvo éxito la vez
+    # anterior, sólo si la alerta completa quedó `sent_at`.
+    correo_ok = True
 
     if NotificationChannel.EMAIL.value in canales:
         asunto, texto, html_ = correo_render.alerta_individual(alerta, contexto)
-        if _con_reintento(
+        correo_ok = _con_reintento(
             lambda: send_email(to=usuario.email, subject=asunto, body=texto, html_body=html_),
             usuario.email,
-        ):
+        )
+        if correo_ok:
             usados.append(NotificationChannel.EMAIL.value)
 
     if NotificationChannel.WEBHOOK.value in canales:
@@ -175,7 +200,10 @@ def despachar(alerta: Alert, db: Session, contexto: dict | None = None) -> list[
         if _con_reintento(lambda: _enviar_webhook(alerta, url), url):
             usados.append(NotificationChannel.WEBHOOK.value)
 
-    _marcar_enviada(alerta, usados, db)
+    if correo_ok:
+        _marcar_enviada(alerta, usados, db)
+    else:
+        _registrar_fallo_envio(alerta, usados, "email", usuario.email, db)
     return usados
 
 
@@ -210,10 +238,14 @@ def despachar_tanda(alertas: Sequence[Alert], db: Session) -> dict[str, int]:
             continue
 
         total += len(del_usuario)
-        for alerta in del_usuario:
-            _marcar_enviada(alerta, [NotificationChannel.IN_APP.value], db)
 
         if not getattr(usuario, "notification_email", False):
+            # Sin correo que esperar, no hay nada más que despachar: el
+            # `in_app` ya está —es la propia fila— y `sent_at` se marca de
+            # inmediato. Antes esto se hacía para TODA la tanda antes de saber
+            # si el correo iba a salir; el fix mueve la marca a después.
+            for alerta in del_usuario:
+                _marcar_enviada(alerta, [NotificationChannel.IN_APP.value], db)
             continue
 
         # El BI se compone sólo de las que van a salir en el correo. Componerlo
@@ -239,15 +271,68 @@ def despachar_tanda(alertas: Sequence[Alert], db: Session) -> dict[str, int]:
             correos += 1
             for alerta in del_usuario:
                 _marcar_enviada(alerta, [NotificationChannel.IN_APP.value, "email"], db)
+        else:
+            for alerta in del_usuario:
+                _registrar_fallo_envio(
+                    alerta, [NotificationChannel.IN_APP.value], "email", usuario.email, db
+                )
 
     db.commit()
     return {"usuarios": len(por_usuario), "correos": correos, "alertas": total}
 
 
 def _marcar_enviada(alerta: Alert, canales: Iterable[str], db: Session) -> None:
+    """`sent_at`: el correo salió (o no hacía falta ninguno). Ver la decisión
+    completa en el docstring del módulo."""
     alerta.notification_channels = list(canales)
     alerta.sent_at = datetime.now(UTC)
     db.add(alerta)
+
+
+def _registrar_fallo_envio(
+    alerta: Alert,
+    canales_logrados: Iterable[str],
+    canal_fallido: str,
+    destinatario: str,
+    db: Session,
+) -> None:
+    """El correo no salió tras los `INTENTOS` de `_con_reintento`.
+
+    `sent_at` se queda en NULL a propósito — es la señal que
+    `despachar_pendientes` ya usaba para no reprocesar una alerta, y ahora es
+    también la que hace elegible a la alerta para
+    `app.tasks.alert_tasks.reintentar_notificaciones_fallidas`. Mientras tanto
+    queda visible por dos vías: en `task_failures` (para quien mire la base) y
+    en el log a nivel `error` (para quien mire Sentry, que ya captura ese nivel
+    por la integración de logging que activa `observability/sentry.py` — no
+    hace falta un `sentry_sdk.capture_exception` explícito aquí).
+
+    `notification_channels` sí se actualiza con lo que haya funcionado —el
+    `in_app` y, si corresponde, el webhook— porque eso es verdad aunque el
+    correo no haya salido.
+    """
+    alerta.notification_channels = list(canales_logrados)
+    db.add(alerta)
+    logger.error(
+        "no se pudo notificar por %s a %s la alerta %s (%s) tras %d intentos",
+        canal_fallido,
+        destinatario,
+        alerta.id,
+        alerta.alert_type.value,
+        INTENTOS,
+    )
+    db.add(
+        TaskFailure(
+            task_name="notificaciones.despachar",
+            task_args={
+                "alert_id": alerta.id,
+                "alert_type": alerta.alert_type.value,
+                "canal": canal_fallido,
+                "destinatario": destinatario,
+            },
+            error_msg=f"Fallo tras {INTENTOS} intentos al notificar por {canal_fallido} a {destinatario}",
+        )
+    )
 
 
 # ── El BI dentro del correo ──────────────────────────────────────────────────
@@ -258,9 +343,14 @@ def contexto_bi(alerta: Alert, db: Session) -> dict | None:
 
     **Es la razón de ser de este correo.** Donde la competencia manda «esta
     licitación calza con tu perfil», aquí va además cuánto paga ese comprador
-    por eso, cuántos proveedores compiten y a cuántos días paga. Mismo canal,
-    misma frecuencia; la diferencia es que esa frase sólo la puede escribir
-    quien tiene el histórico procesado.
+    por eso, cuántos proveedores compiten y qué tan seguido declara desierto el
+    llamado. Mismo canal, misma frecuencia; la diferencia es que esa frase sólo
+    la puede escribir quien tiene el histórico procesado.
+
+    **Nunca «a cuántos días paga».** Ese dato no existe: ChileCompra no publica
+    fecha de pago en ningún archivo, y lo que medía el campo que alimentaba esa
+    frase era `FechaEnvio → FechaAceptacion` —lo que tarda el PROVEEDOR en
+    aceptar la orden, no un plazo de pago— (ver `services/bi/comprador.py`).
 
     Falla en silencio a propósito: que el BI no responda no puede impedir que
     salga el aviso. Un correo sin las líneas de contexto sigue siendo útil; no
