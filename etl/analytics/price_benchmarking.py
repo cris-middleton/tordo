@@ -50,6 +50,11 @@ def build_price_aggregates() -> pl.DataFrame:
         "RubroN2",
         "MontoTotalOC_PesosChilenos",
         "FechaCreacion",
+        # `nombre_vigente()` la necesita para saber cuál es el último nombre del
+        # organismo. `iter_oc_parquets` sólo entrega las columnas que se le
+        # piden, así que omitirla no da un nulo: revienta con
+        # `ColumnNotFoundError` al agregar.
+        "_periodo_archivo",
     ]
 
     # Primera pasada: estadísticas básicas

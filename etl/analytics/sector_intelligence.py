@@ -25,6 +25,7 @@ import logging
 
 import polars as pl
 
+from .agregacion import ContadorDistintos
 from .config import OUTPUT_DIR
 from .data_loader import iter_oc_parquets
 
@@ -49,10 +50,22 @@ def build_sector_dashboard() -> pl.DataFrame:
     ]
 
     frames = []
+    # Los conteos de entidades distintas NO pueden salir de un `n_unique()` por
+    # tanda combinado con `max()`: eso da el mes más movido, no la historia. Ver
+    # `agregacion.py` — el dashboard declaraba 49.116 proveedores donde hay
+    # 313.129.
+    distintos = {
+        "n_organismos": ContadorDistintos("sector", "CodigoOrganismoPublico"),
+        "n_proveedores": ContadorDistintos("sector", "CodigoProveedor"),
+        "n_rubros": ContadorDistintos("sector", "RubroN2"),
+    }
 
     for periodo, df in iter_oc_parquets(columns=cols_needed):
         if "sector" not in df.columns:
             continue
+
+        for contador in distintos.values():
+            contador.añadir(df)
 
         batch = (
             df.filter(
@@ -74,9 +87,6 @@ def build_sector_dashboard() -> pl.DataFrame:
                     pl.col("monto").sum().alias("monto_total"),
                     pl.col("monto").median().alias("ticket_mediana"),
                     pl.col("monto").mean().alias("ticket_promedio"),
-                    pl.col("CodigoOrganismoPublico").n_unique().alias("n_organismos"),
-                    pl.col("CodigoProveedor").n_unique().alias("n_proveedores"),
-                    pl.col("RubroN2").n_unique().alias("n_rubros"),
                 ]
             )
         )
@@ -86,20 +96,23 @@ def build_sector_dashboard() -> pl.DataFrame:
         return pl.DataFrame()
 
     combined = pl.concat(frames, how="diagonal_relaxed")
-    result = (
-        combined.group_by("sector")
-        .agg(
-            [
-                pl.col("n_oc").sum(),
-                pl.col("monto_total").sum(),
-                (pl.col("ticket_mediana") * pl.col("n_oc")).sum().alias("_wt_med"),
-                (pl.col("ticket_promedio") * pl.col("n_oc")).sum().alias("_wt_avg"),
-                pl.col("n_organismos").max().alias("n_organismos"),
-                pl.col("n_proveedores").max().alias("n_proveedores"),
-                pl.col("n_rubros").max().alias("n_rubros"),
-            ]
+    result = combined.group_by("sector").agg(
+        [
+            pl.col("n_oc").sum(),
+            pl.col("monto_total").sum(),
+            (pl.col("ticket_mediana") * pl.col("n_oc")).sum().alias("_wt_med"),
+            (pl.col("ticket_promedio") * pl.col("n_oc")).sum().alias("_wt_avg"),
+        ]
+    )
+    for alias, contador in distintos.items():
+        conteos = contador.conteos(alias)
+        result = (
+            result.join(conteos, on="sector", how="left")
+            if not conteos.is_empty()
+            else result.with_columns(pl.lit(None, dtype=pl.UInt32).alias(alias))
         )
-        .with_columns(
+    result = (
+        result.with_columns(
             [
                 (pl.col("_wt_med") / pl.col("n_oc")).alias("ticket_mediana"),
                 (pl.col("_wt_avg") / pl.col("n_oc")).alias("ticket_promedio"),
@@ -134,10 +147,17 @@ def build_region_dashboard() -> pl.DataFrame:
     ]
 
     frames = []
+    distintos = {
+        "n_organismos": ContadorDistintos("RegionUnidadCompra", "CodigoOrganismoPublico"),
+        "n_proveedores": ContadorDistintos("RegionUnidadCompra", "CodigoProveedor"),
+    }
 
     for periodo, df in iter_oc_parquets(columns=cols_needed):
         if "RegionUnidadCompra" not in df.columns:
             continue
+
+        for contador in distintos.values():
+            contador.añadir(df)
 
         batch = (
             df.filter(
@@ -158,8 +178,6 @@ def build_region_dashboard() -> pl.DataFrame:
                     pl.len().alias("n_oc"),
                     pl.col("monto").sum().alias("monto_total"),
                     pl.col("monto").median().alias("ticket_mediana"),
-                    pl.col("CodigoOrganismoPublico").n_unique().alias("n_organismos"),
-                    pl.col("CodigoProveedor").n_unique().alias("n_proveedores"),
                 ]
             )
         )
@@ -169,18 +187,22 @@ def build_region_dashboard() -> pl.DataFrame:
         return pl.DataFrame()
 
     combined = pl.concat(frames, how="diagonal_relaxed")
-    result = (
-        combined.group_by("RegionUnidadCompra")
-        .agg(
-            [
-                pl.col("n_oc").sum(),
-                pl.col("monto_total").sum(),
-                (pl.col("ticket_mediana") * pl.col("n_oc")).sum().alias("_wt_med"),
-                pl.col("n_organismos").max().alias("n_organismos"),
-                pl.col("n_proveedores").max().alias("n_proveedores"),
-            ]
+    result = combined.group_by("RegionUnidadCompra").agg(
+        [
+            pl.col("n_oc").sum(),
+            pl.col("monto_total").sum(),
+            (pl.col("ticket_mediana") * pl.col("n_oc")).sum().alias("_wt_med"),
+        ]
+    )
+    for alias, contador in distintos.items():
+        conteos = contador.conteos(alias)
+        result = (
+            result.join(conteos, on="RegionUnidadCompra", how="left")
+            if not conteos.is_empty()
+            else result.with_columns(pl.lit(None, dtype=pl.UInt32).alias(alias))
         )
-        .with_columns(
+    result = (
+        result.with_columns(
             [
                 (pl.col("_wt_med") / pl.col("n_oc")).alias("ticket_mediana"),
             ]

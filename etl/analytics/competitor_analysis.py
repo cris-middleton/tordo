@@ -24,6 +24,7 @@ import logging
 
 import polars as pl
 
+from .agregacion import ContadorDistintos
 from .config import MIN_OBSERVATIONS, OUTPUT_DIR
 from .data_loader import iter_oc_parquets
 from .identidad import nombre_vigente, periodo_maximo
@@ -51,6 +52,15 @@ def build_competitor_aggregates() -> tuple[pl.DataFrame, pl.DataFrame]:
 
     market_frames = []
     provider_frames = []
+    # Cuántos organismos, rubros y regiones distintos toca cada proveedor. No
+    # sale de un `n_unique()` por tanda: ver `agregacion.py`. Con `max()` un
+    # proveedor con tres clientes en enero y otros tres en febrero salía con
+    # tres — el 54,8 % quedaba subcontado, con mediana 1 donde la real es 2.
+    distintos = {
+        "n_organismos": ContadorDistintos("CodigoProveedor", "CodigoOrganismoPublico"),
+        "n_rubros": ContadorDistintos("CodigoProveedor", "RubroN2"),
+        "n_regiones": ContadorDistintos("CodigoProveedor", "RegionUnidadCompra"),
+    }
 
     for periodo, df in iter_oc_parquets(columns=cols_needed):
         if "CodigoProveedor" not in df.columns:
@@ -90,13 +100,13 @@ def build_competitor_aggregates() -> tuple[pl.DataFrame, pl.DataFrame]:
         market_frames.append(market_agg)
 
         # Agregado por proveedor (perfil general)
+        for contador in distintos.values():
+            contador.añadir(base)
+
         prov_agg = base.group_by("CodigoProveedor").agg(
             [
                 pl.len().alias("n_oc"),
                 pl.col("monto").sum().alias("monto_total"),
-                pl.col("CodigoOrganismoPublico").n_unique().alias("n_organismos"),
-                pl.col("RubroN2").n_unique().alias("n_rubros"),
-                pl.col("RegionUnidadCompra").n_unique().alias("n_regiones"),
                 nombre_vigente("NombreProveedor"),
                 periodo_maximo(),
             ]
@@ -126,12 +136,16 @@ def build_competitor_aggregates() -> tuple[pl.DataFrame, pl.DataFrame]:
         [
             pl.col("n_oc").sum(),
             pl.col("monto_total").sum(),
-            pl.col("n_organismos").max(),  # approx: max across batches
-            pl.col("n_rubros").max(),
-            pl.col("n_regiones").max(),
             nombre_vigente("NombreProveedor"),
         ]
     )
+    for alias, contador in distintos.items():
+        conteos = contador.conteos(alias)
+        providers = (
+            providers.join(conteos, on="CodigoProveedor", how="left")
+            if not conteos.is_empty()
+            else providers.with_columns(pl.lit(None, dtype=pl.UInt32).alias(alias))
+        )
 
     logger.info(f"Mercados: {len(markets):,} combinaciones | Proveedores: {len(providers):,}")
     return markets, providers
