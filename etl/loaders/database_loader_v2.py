@@ -30,6 +30,7 @@ from etl.utils import (
     calcular_hash,
     detectar_cambios_licitacion,
     detectar_cambios_orden_compra,
+    extraer_datos_adjudicacion,
     now_santiago,
 )
 
@@ -282,6 +283,12 @@ class DatabaseLoaderV2(BaseLoader):
             )
             participantes = main_obj.get("Participantes") or main_obj.get("participantes")
             etapas = main_obj.get("Etapas") or main_obj.get("etapas")
+            # Productor del resultado: si el detalle inicial ya trae adjudicación
+            # (poco común, pero posible si la primera captura llega tarde), no
+            # hay que esperar a `actualizar_licitacion_detalle` para saberlo.
+            # Ver `etl/utils/adjudicacion.py` — forma sin verificar contra
+            # producción.
+            adjudicacion = extraer_datos_adjudicacion(main_obj)
 
             # Create detalle record
             detalle = LicitacionDetalle(
@@ -295,6 +302,9 @@ class DatabaseLoaderV2(BaseLoader):
                 etapas=etapas,
                 estado_actual=estado_actual,
                 numero_actualizaciones=1,
+                fecha_adjudicacion=adjudicacion["fecha_adjudicacion"],
+                monto_adjudicado=adjudicacion["monto_adjudicado"],
+                proveedor_adjudicado=adjudicacion["proveedor_adjudicado"],
             )
 
             self.session.add(detalle)
@@ -395,6 +405,21 @@ class DatabaseLoaderV2(BaseLoader):
             )
             detalle.participantes = main_obj.get("Participantes") or main_obj.get("participantes")
             detalle.etapas = main_obj.get("Etapas") or main_obj.get("etapas")
+
+            # Productor del resultado (Crítico #1): nada más en el pipeline
+            # escribía estas tres columnas, así que `detectar_resultados()`
+            # (backend) nunca encontraba nada y `query_licitaciones_seguidas_
+            # sin_resultado` volvía a pedir esta misma licitación cada día,
+            # para siempre. Se sobreescribe siempre con lo último visto —
+            # también hacia `None` si la API deja de mostrar adjudicación—,
+            # porque ChileCompra puede revocar y volver a adjudicar (ver
+            # ventana de reconsideración en `query_licitaciones_seguidas_
+            # sin_resultado`). Forma del payload sin verificar contra
+            # producción: ver `etl/utils/adjudicacion.py`.
+            adjudicacion = extraer_datos_adjudicacion(main_obj)
+            detalle.fecha_adjudicacion = adjudicacion["fecha_adjudicacion"]
+            detalle.monto_adjudicado = adjudicacion["monto_adjudicado"]
+            detalle.proveedor_adjudicado = adjudicacion["proveedor_adjudicado"]
 
             self.session.commit()
             self.logger.info(f"Updated detalle for {codigo_externo} with {len(cambios)} changes")
@@ -993,9 +1018,21 @@ class DatabaseLoaderV2(BaseLoader):
 
         return query.all()
 
+    #: Tras adjudicar, ChileCompra sigue permitiendo revocar y volver a
+    #: adjudicar (reclamos, impugnaciones). No hay un plazo único documentado
+    #: para todos los tipos de licitación, así que se usa un margen
+    #: conservador: 30 días corridos desde la fecha de adjudicación conocida.
+    #: Pasado ese margen, la licitación deja de re-consultarse — igual que
+    #: antes de este cambio, sólo que más tarde — porque si no la re-consulta
+    #: vuelve a ser ilimitada, que es exactamente el defecto que esto corrige.
+    #: Mismo número en `backend/app/services/resultados.py::VENTANA_
+    #: RECONSIDERACION_DIAS`: uno decide si se vuelve a pedir el dato a la
+    #: API, el otro si se vuelve a examinar con lo que ya hay en la base.
+    VENTANA_RECONSIDERACION_DIAS = 30
+
     def query_licitaciones_seguidas_sin_resultado(self, limit: int | None = None) -> List[tuple]:
         """Licitaciones que alguien SIGUE, que ya cerraron y de las que todavía no
-        sabemos cómo terminaron.
+        sabemos cómo terminaron — o cuya adjudicación es reciente y podría corregirse.
 
         **Por qué hace falta una consulta aparte.** `query_licitaciones_para_actualizar`
         filtra por estados activos, así que en cuanto una licitación cierra deja de
@@ -1008,11 +1045,22 @@ class DatabaseLoaderV2(BaseLoader):
         revisitar el catálogo entero serían cientos de miles de llamadas a una API
         con cuota para responder una pregunta que nadie hizo.
 
+        **Por qué no basta con `fecha_adjudicacion IS NULL`.** Eso deja a una
+        licitación adjudicada ayer fuera de la consulta para siempre, aunque
+        ChileCompra la revoque y readjudique la semana próxima — la corrección
+        nunca llegaría a `licitaciones_detalle`. Por eso una adjudicación
+        DENTRO de `VENTANA_RECONSIDERACION_DIAS` también se vuelve a pedir;
+        pasado ese margen, sale de la consulta y no vuelve a entrar aunque se
+        revoque más tarde — un caso raro, y es la contrapartida deliberada de
+        mantener esto acotado.
+
         Returns:
             List of tuples (id, codigo_externo, detalle_id)
         """
         if not self.session:
             self.connect()
+
+        limite_ventana = now_santiago() - timedelta(days=self.VENTANA_RECONSIDERACION_DIAS)
 
         query = (
             self.session.query(
@@ -1025,7 +1073,12 @@ class DatabaseLoaderV2(BaseLoader):
             .filter(text("licitaciones.id IN (SELECT licitacion_id FROM postulaciones)"))
             .filter(Licitacion.fecha_cierre.isnot(None))
             .filter(Licitacion.fecha_cierre < now_santiago())
-            .filter(LicitacionDetalle.fecha_adjudicacion.is_(None))
+            .filter(
+                or_(
+                    LicitacionDetalle.fecha_adjudicacion.is_(None),
+                    LicitacionDetalle.fecha_adjudicacion >= limite_ventana,
+                )
+            )
             # Las más recientes primero: si hay tope, interesa lo que el usuario
             # todavía tiene fresco, no una licitación de hace ocho meses.
             .order_by(Licitacion.fecha_cierre.desc())

@@ -20,16 +20,19 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
+from datetime import timedelta
 
-from sqlalchemy import text
+from sqlalchemy import and_, or_, text
 from sqlalchemy.orm import Session
 
+from app.core.tiempo import ahora_chile
 from app.models.alert import Alert, AlertStatus, AlertType
 from app.models.empresa import Empresa
 from app.models.licitacion import Licitacion
 from app.models.licitacion_detalle import LicitacionDetalle
 from app.models.postulacion import Postulacion
 from app.services import notificaciones
+from app.utils.rut import validar_rut
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +40,20 @@ logger = logging.getLogger(__name__)
 #: que el usuario ya descartó no se toca: cambiarle el estado por detrás
 #: reescribiría una decisión suya.
 ESTADOS_ABIERTOS = ("en_seguimiento", "en_preparacion", "enviada")
+
+#: Estados ya resueltos por una corrida anterior de este mismo módulo.
+ESTADOS_RESUELTOS = ("adjudicada", "no_adjudicada")
+
+#: ChileCompra permite revocar y volver a adjudicar tras un reclamo o una
+#: impugnación. No hay un plazo único documentado para todos los tipos de
+#: licitación, así que se usa un margen conservador: dentro de los 30 días
+#: siguientes a la fecha de adjudicación conocida, una postulación YA
+#: resuelta se vuelve a examinar; pasado ese margen, se da por firme y no se
+#: vuelve a tocar. Mismo número en
+#: `etl/loaders/database_loader_v2.py::DatabaseLoaderV2.
+#: VENTANA_RECONSIDERACION_DIAS`: uno decide si el ETL vuelve a pedir el dato
+#: a la API, éste si el consumidor vuelve a examinar lo que ya hay en la base.
+VENTANA_RECONSIDERACION_DIAS = 30
 
 
 @dataclass(frozen=True)
@@ -79,22 +96,65 @@ def _a_numero(valor) -> float | None:
         return None
 
 
+#: Un RUT tiene 7 u 8 dígitos de cuerpo más un dígito verificador (0-9 o K).
+#: Los `(?<!\d)`/`(?!\d)` son a propósito: sin ellos, un teléfono o cualquier
+#: corrida de dígitos más larga deja "cortar" un trozo que por casualidad
+#: tiene la forma correcta.
+_PATRON_RUT = re.compile(r"(?<!\d)(\d{7,8}-?[0-9Kk])(?!\d)")
+
+
+def _ruts_del_proveedor(proveedor: str | None) -> set[str]:
+    """Los RUT con forma válida presentes en el texto del proveedor ganador.
+
+    `proveedor_adjudicado` es texto libre: el ETL lo arma a partir del
+    nombre y el RUT de cada línea adjudicada, y una licitación puede tener
+    más de un proveedor ganador (una línea puede ir a un oferente distinto de
+    otra). Antes se comparaba con `in` sobre el campo COMPLETO despojado de
+    todo lo que no fuera dígito o "K" —razón social incluida—: dos RUT
+    distintos podían "coincidir" con que uno apareciera dentro del otro, sin
+    ni siquiera compartir prefijo, con un año, un número de calle o el RUT de
+    otra empresa citado en el texto. Aquí se extraen tokens con forma de RUT
+    y se exige además que pasen el dígito verificador (módulo 11, `rut.py`):
+    eso descarta un número de 7-8 dígitos que tiene la forma pero no es un
+    RUT real, y la comparación final es de **igualdad exacta**, no de
+    contención.
+    """
+    if not proveedor:
+        return set()
+    # Los puntos de miles son la única puntuación que rompería el patrón
+    # (parten el cuerpo en grupos de a 3); el guion antes del verificador ya
+    # lo contempla el patrón.
+    candidatos = _PATRON_RUT.findall(proveedor.replace(".", ""))
+    return {_normalizar_rut(c) for c in candidatos if validar_rut(c)}
+
+
 def detectar_resultados(db: Session) -> list[Resultado]:
-    """Las postulaciones abiertas cuya licitación ya tiene adjudicación conocida."""
+    """Postulaciones con adjudicación conocida: las abiertas, y las ya
+    resueltas cuya adjudicación sigue dentro de la ventana de reconsideración
+    (ver `VENTANA_RECONSIDERACION_DIAS`) — por si ChileCompra la corrigió.
+    """
+    limite_ventana = ahora_chile() - timedelta(days=VENTANA_RECONSIDERACION_DIAS)
     filas = (
         db.query(Postulacion, Licitacion, LicitacionDetalle, Empresa)
         .join(Licitacion, Postulacion.licitacion_id == Licitacion.id)
         .join(LicitacionDetalle, LicitacionDetalle.licitacion_id == Licitacion.id)
         .join(Empresa, Postulacion.empresa_id == Empresa.id)
-        .filter(Postulacion.estado.in_(ESTADOS_ABIERTOS))
         .filter(LicitacionDetalle.fecha_adjudicacion.isnot(None))
+        .filter(
+            or_(
+                Postulacion.estado.in_(ESTADOS_ABIERTOS),
+                and_(
+                    Postulacion.estado.in_(ESTADOS_RESUELTOS),
+                    LicitacionDetalle.fecha_adjudicacion >= limite_ventana,
+                ),
+            )
+        )
         .all()
     )
 
     resultados: list[Resultado] = []
     for postulacion, licitacion, detalle, empresa in filas:
         proveedor = (detalle.proveedor_adjudicado or "").strip() or None
-        rut_ganador = _normalizar_rut(proveedor)
         rut_empresa = _normalizar_rut(empresa.rut_empresa)
         resultados.append(
             Resultado(
@@ -105,12 +165,7 @@ def detectar_resultados(db: Session) -> list[Resultado]:
                 nombre=licitacion.nombre or licitacion.codigo_externo,
                 proveedor=proveedor,
                 monto=_a_numero(detalle.monto_adjudicado),
-                # El nombre del proveedor a veces trae el RUT dentro. Se compara
-                # sobre la forma normalizada y sólo cuando el RUT de la empresa
-                # tiene largo suficiente: un RUT vacío coincidiría con todo.
-                gano_la_empresa=bool(rut_empresa)
-                and len(rut_empresa) >= 7
-                and rut_empresa in rut_ganador,
+                gano_la_empresa=bool(rut_empresa) and rut_empresa in _ruts_del_proveedor(proveedor),
             )
         )
     return resultados
@@ -142,6 +197,29 @@ def _mensaje(resultado: Resultado) -> tuple[str, str]:
     return titulo, " ".join(partes)
 
 
+def _mensaje_correccion(resultado: Resultado) -> tuple[str, str]:
+    """ChileCompra revocó y volvió a adjudicar dentro de la ventana de
+    reconsideración: el título deja claro que esto CAMBIA lo que ya se avisó,
+    no lo repite."""
+    if resultado.gano_la_empresa:
+        titulo = f"Corrección: ahora ganaste — {resultado.nombre[:60]}"
+        cuerpo = (
+            "ChileCompra corrigió la adjudicación y ahora es a tu empresa"
+            + (f", en {_plata(resultado.monto)}" if resultado.monto else "")
+            + f". Licitación {resultado.codigo_externo}."
+        )
+        return titulo, cuerpo
+
+    titulo = f"Corrección en el resultado: {resultado.nombre[:60]}"
+    partes = [f"ChileCompra corrigió la adjudicación de {resultado.codigo_externo}."]
+    if resultado.proveedor:
+        partes.append(f"Ahora está adjudicada a {resultado.proveedor}")
+        if resultado.monto:
+            partes[-1] += f" en {_plata(resultado.monto)}"
+        partes[-1] += "."
+    return titulo, " ".join(partes)
+
+
 def emitir_y_cerrar(db: Session, resultados: list[Resultado]) -> dict:
     """Avisa del resultado y deja la postulación en su estado final.
 
@@ -151,15 +229,47 @@ def emitir_y_cerrar(db: Session, resultados: list[Resultado]) -> dict:
     **La clave de idempotencia lleva la licitación y el usuario, no la fecha.**
     Un resultado ocurre una vez: si llevara el día, cada corrida diaria volvería
     a avisar de lo mismo mientras la postulación siguiera abierta.
+
+    **Tres casos por resultado, no dos.** `detectar_resultados` ahora también
+    trae postulaciones YA resueltas (dentro de la ventana de reconsideración),
+    así que hay que distinguir:
+    1. Primera resolución (`postulacion.estado` sigue abierto): el camino de
+       siempre, con la clave de idempotencia de siempre.
+    2. Corrección (ya resuelta, y el resultado que se acaba de calcular es
+       DISTINTO del que quedó guardado): se avisa de nuevo, con una clave
+       DISTINTA — si llevara la misma, el `ON CONFLICT DO NOTHING` que evita
+       avisos duplicados se comería también a ésta.
+    3. Ya resuelta y sin cambios: no hay nada que hacer, y no se toca ni la
+       base ni las alertas — es el caso normal en cuanto pasan unos días.
     """
     if not resultados:
-        return {"resueltas": 0, "alertas": 0}
+        return {"resueltas": 0, "corregidas": 0, "alertas": 0}
 
     nuevas: list[Alert] = []
     resueltas = 0
+    corregidas = 0
 
     for r in resultados:
-        titulo, cuerpo = _mensaje(r)
+        postulacion = db.query(Postulacion).filter(Postulacion.id == r.postulacion_id).one_or_none()
+        if postulacion is None:
+            continue
+
+        nuevo_estado = "adjudicada" if r.gano_la_empresa else "no_adjudicada"
+
+        if postulacion.estado in ESTADOS_ABIERTOS:
+            titulo, cuerpo = _mensaje(r)
+            prefijo_clave = f"resultado_{r.licitacion_id}"
+            postulacion.estado = nuevo_estado
+            resueltas += 1
+        elif postulacion.estado in ESTADOS_RESUELTOS and postulacion.estado != nuevo_estado:
+            titulo, cuerpo = _mensaje_correccion(r)
+            prefijo_clave = f"resultado_correccion_{r.licitacion_id}_{nuevo_estado}"
+            postulacion.estado = nuevo_estado
+            corregidas += 1
+        else:
+            # Ya resuelta, dentro de la ventana, y el resultado no cambió.
+            continue
+
         miembros = [
             fila[0]
             for fila in db.execute(
@@ -169,7 +279,7 @@ def emitir_y_cerrar(db: Session, resultados: list[Resultado]) -> dict:
         ]
 
         for user_id in miembros:
-            clave = f"resultado_{r.licitacion_id}_{user_id}"
+            clave = f"{prefijo_clave}_{user_id}"
             if db.query(Alert).filter(Alert.idempotency_key == clave).first():
                 continue
             alerta = Alert(
@@ -193,16 +303,9 @@ def emitir_y_cerrar(db: Session, resultados: list[Resultado]) -> dict:
             db.add(alerta)
             nuevas.append(alerta)
 
-        # El estado final lo decide el RUT, no el usuario: es un hecho público,
-        # no una opinión. Lo que NO se toca es una postulación descartada.
-        postulacion = db.query(Postulacion).filter(Postulacion.id == r.postulacion_id).one_or_none()
-        if postulacion is not None and postulacion.estado in ESTADOS_ABIERTOS:
-            postulacion.estado = "adjudicada" if r.gano_la_empresa else "no_adjudicada"
-            resueltas += 1
-
     db.commit()
     enviado = notificaciones.despachar_pendientes(db, [a.id for a in nuevas])
-    return {"resueltas": resueltas, "alertas": len(nuevas), **enviado}
+    return {"resueltas": resueltas, "corregidas": corregidas, "alertas": len(nuevas), **enviado}
 
 
 def revisar_resultados(db: Session) -> dict:
