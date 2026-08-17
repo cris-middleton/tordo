@@ -271,10 +271,13 @@ export default function BillingPage() {
                 : formatCLP(proPlan.precio_anual_mensualizado_clp ?? 0)}
               <span className="ml-1 text-sm font-normal text-white/70">/mes</span>
             </p>
+            {/* «IVA incluido» pegado al precio, igual que en la landing: es
+                parte de la cifra, no letra chica. El hueco ya existía con
+                `min-h` y quedaba vacío en el plan mensual. */}
             <p className="mt-1 min-h-[1rem] text-xs text-white/60">
               {billingPeriod === 'annual' && proPlan.precio_anual_total_clp
-                ? `Facturado anual · ${formatCLP(proPlan.precio_anual_total_clp)}/año`
-                : ''}
+                ? `IVA incluido · facturado anual, ${formatCLP(proPlan.precio_anual_total_clp)}/año`
+                : 'IVA incluido'}
             </p>
 
             <ul className="mt-4 flex-1 space-y-2.5">
@@ -299,7 +302,7 @@ export default function BillingPage() {
       </div>
 
       <p className="text-center text-xs text-subtle">
-        Precios en CLP, sin contrato. Cancelas desde aquí mismo cuando quieras.
+        Sin contrato. Cancelas desde aquí mismo cuando quieras.
       </p>
     </div>
   );

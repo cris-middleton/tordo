@@ -151,8 +151,19 @@ const FREE_PLAN = {
 const PRO_PLAN = {
   name: 'Pro',
   description: 'Para cuando postular es parte del negocio',
-  monthly: { price: '$11.900', period: '/mes', note: '' },
-  annual: { price: '$9.900', period: '/mes', note: 'Facturado anual · ahorras 2 meses' },
+  /* «IVA incluido» va pegado al precio y no en la letra chica del pie, que es
+     donde nadie lo busca: es parte de la cifra, no una nota al margen. Sin
+     decirlo, un comprador chileno acostumbrado a que en B2B se cotice «+ IVA»
+     tiene que asumir cuál de las dos es — y si asume mal, se entera al pagar.
+
+     La línea `note` estaba vacía en el plan mensual, así que el hueco ya estaba
+     reservado (`min-h`) y esto no mueve nada de la maqueta. */
+  monthly: { price: '$11.900', period: '/mes', note: 'IVA incluido' },
+  annual: {
+    price: '$9.900',
+    period: '/mes',
+    note: 'IVA incluido · facturado anual, ahorras 2 meses',
+  },
   features: [
     'Consultas de precio sin límite',
     'Cómo es ese comprador y quién le vende',
@@ -650,9 +661,13 @@ export default function LandingClient() {
             <div className="mb-12 text-center">
               <Eyebrow>Planes</Eyebrow>
               <Titulo>Empieza gratis. Sube cuando te convenga.</Titulo>
+              {/* «Precios en CLP» se cae: el signo peso en una página que sólo se
+                  vende en Chile ya lo dice, y una línea que no aporta le resta
+                  peso a las dos que sí. Lo que sí hacía falta decir —si el IVA
+                  está dentro— ahora va pegado a la cifra. */}
               <p className="mt-4 text-muted">
                 Da igual cuál elijas hoy: los primeros 14 días son Pro completo y no pedimos
-                tarjeta. Después decides tú. Precios en CLP, sin contrato.
+                tarjeta. Después decides tú, sin contrato.
               </p>
             </div>
 
