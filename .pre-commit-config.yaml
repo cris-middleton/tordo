@@ -49,6 +49,18 @@ repos:
         exclude: (^|/)\.env\.example$
         pass_filenames: false
 
+  # Dos cabezas de Alembic dejan la aplicación sin poder arrancar contra una
+  # base nueva, y el control que lo atrapa vive en CI sobre `main` — que el
+  # 2026-08-17 estuvo caído por facturación justo cuando hizo falta.
+  - repo: local
+    hooks:
+      - id: una-sola-cabeza-alembic
+        name: Una sola cabeza de Alembic
+        entry: scripts/una-sola-cabeza.sh
+        language: system
+        files: ^backend/alembic/versions/
+        pass_filenames: false
+
   # El lockfile debe ir sincronizado con pyproject.toml, o `uv sync --frozen`
   # falla en CI y en los builds de Docker.
   - repo: local

@@ -33,6 +33,20 @@ class MercadoPublicoLicitacionesExtractor(BaseExtractor):
             self.retry_delay = etl_config.RETRY_DELAY
         self.api_url = f"{self.base_url}/servicios/v1/publico/licitaciones.json"
 
+        # **Falla aquí y no en la primera petición.** Sin ticket, la API de
+        # Mercado Público responde un error genérico que se confunde con una
+        # caída del servicio, y el ETL reintenta tres veces antes de rendirse
+        # sin decir qué falta. El compose además traía un ticket de
+        # demostración como respaldo, así que un despliegue que olvidara la
+        # variable ni siquiera fallaba: traía datos limitados pareciendo que
+        # funcionaba.
+        if not self.ticket:
+            raise ValueError(
+                "Falta MERCADO_PUBLICO_TICKET. Es obligatorio para consultar la API de "
+                "Mercado Público — se pide en https://api.mercadopublico.cl y se pone en "
+                "el .env (ver .env.example)."
+            )
+
     def _format_date(self, date_str: str) -> str:
         """Convert YYYY-MM-DD to DDMMYYYY format"""
         try:

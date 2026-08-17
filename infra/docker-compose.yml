@@ -254,7 +254,12 @@ services:
       ETL_SCHEDULE_INTERVAL: ${ETL_SCHEDULE_INTERVAL:-3600}
       CHILECOMPRA_API_URL: ${CHILECOMPRA_API_URL:-}
       MERCADO_PUBLICO_URL: ${MERCADO_PUBLICO_URL:-https://api.mercadopublico.cl}
-      MERCADO_PUBLICO_TICKET: ${MERCADO_PUBLICO_TICKET:-F8537A18-6766-4DEF-9E59-426B4FEE2844}
+      # Sin valor por defecto A PROPÓSITO. Aquí había un ticket de demostración
+      # como respaldo, así que un despliegue que olvidara la variable no fallaba:
+      # se iba a la API con la credencial compartida de pruebas y traía datos
+      # limitados, pareciendo que funcionaba. `${VAR:?mensaje}` corta el arranque
+      # con una explicación en vez de degradar en silencio.
+      MERCADO_PUBLICO_TICKET: ${MERCADO_PUBLICO_TICKET:?falta MERCADO_PUBLICO_TICKET en el .env (ver .env.example)}
       PYTHONPATH: /workspace
     volumes:
       - ..:/workspace

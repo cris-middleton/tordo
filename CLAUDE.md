@@ -147,6 +147,12 @@ Tres reglas que salieron de esa auditoría:
   contradecían. Sólo hace falta `DATABASE_URL`; no hace falta levantar el stack.
 - CI valida que haya exactamente una cabeza y que `upgrade head` + `downgrade base` corran
   limpios contra una base vacía. Una migración que no revierte no pasa.
+  **Y ahora también un hook local** (`scripts/una-sola-cabeza.sh`), porque el control de CI
+  vive sobre `main` y la colisión sólo existe al mezclar: cada PR ve una sola cabeza en su
+  propia rama. El 2026-08-17 `main` quedó con dos cabezas —dos worktrees partiendo del mismo
+  commit— y no se supo hasta que `make e2e` murió en las migraciones, porque Actions estaba
+  caído por facturación justo entre los dos merges. El hook avisa **antes de commitear** si
+  tu `down_revision` apunta a un padre que en `origin/main` ya tiene otro hijo.
 - **`alembic check` es bloqueante.** Los modelos y las migraciones ya no divergen: si cambias
   un modelo, la migración va en el mismo PR.
 - **Nada de índices por expresión.** Alembic los compara mal y con el check bloqueante eso es
@@ -220,6 +226,13 @@ comprobar el plan. Encontró que no se cumplía: "Matching semántico" se vendí
 ### Secretos
 Nunca al repo. Un hook de pre-commit bloquea cualquier `.env`. Si una credencial llega a un
 commit, **rótala**: quitarla después no la invalida.
+
+**Y ningún valor por defecto para una credencial.** `infra/docker-compose.yml` traía un
+ticket de demostración de Mercado Público como respaldo de `MERCADO_PUBLICO_TICKET`, así que
+un despliegue que olvidara la variable **no fallaba**: salía a la API con la credencial
+compartida de pruebas y traía datos limitados, pareciendo que funcionaba. Ahora usa
+`${VAR:?mensaje}` y el extractor falla al construirse, no en la primera petición — donde el
+error de la API es indistinguible de una caída del servicio.
 
 ### Skills del plugin `toolkit-de-usuario`
 
