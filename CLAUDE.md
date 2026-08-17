@@ -261,9 +261,14 @@ y no tiene Pub/Sub ni Cloud Tasks.
   - `__tests__/sesion-cookies.test.ts` fija que las cookies sean `httpOnly` y `sameSite=lax`.
     Todo el valor de esto depende de esa palabra, y es lo que se pierde en un refactor sin
     que nada falle.
-  - **Pendiente**: una sesión iniciada con Google sigue caducando a los 30 minutos — el
-    backend sólo manda el token de acceso en su redirección. Mandar el refresco por la URL
-    sería peor. La solución es un código de un solo uso, y toca el backend.
+  - **La vuelta de Google trae un CÓDIGO, no un token.** Antes traía el JWT de acceso y
+    nada más, así que una sesión iniciada con Google moría a los 30 minutos. Mandar el
+    refresco por la URL habría sido peor —dura treinta días y la URL queda en el historial,
+    en los logs de cualquier proxy y en el `Referer`—, así que lo que viaja no sirve por sí
+    solo: caduca en 60 s, se canjea **una vez** y el canje lo hace el servidor de Next
+    contra `POST /auth/google/canjear`, no el navegador. Tabla propia
+    (`oauth_codigos`) y no una columna en `refresh_tokens`: 60 segundos y 30 días son
+    ciclos de vida distintos.
 - **Los límites de plan NO se copian al frontend.** Viven en `PLAN_QUOTAS`
   (`core/plan_limits.py`) y llegan por `GET /api/v1/empresas/{id}/plan`, junto con el consumo
   actual. Una copia en TypeScript se desincroniza al primer cambio de precios **sin que nada
@@ -535,8 +540,7 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
   Cambiar la contraseña cierra todas las sesiones.
   **Resuelto en F5**: el navegador ya no ve ninguno de los dos. El proxy de Next los guarda
   en cookies `httpOnly` y renueva solo — ver las reglas de frontend.
-  **La ruta de Google sigue sin refresco**: redirige con el token en la URL, y meter ahí un
-  refresco sería peor (historial, logs, `Referer`). La solución es un código de un solo uso.
+  **La ruta de Google también tiene refresco**, por código de un solo uso — ver arriba.
   - **Verificación de correo**: `users.is_verified` existía desde la primera migración y
     **nada la ponía en `True`** — la columna estaba, la promesa no. El registro emite un
     token (`email_verification_tokens`, 7 días, un solo uso, guardado como SHA-256) y manda

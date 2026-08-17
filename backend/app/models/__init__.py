@@ -14,6 +14,7 @@ from app.models.licitacion import Licitacion
 from app.models.licitacion_detalle import LicitacionDetalle
 from app.models.licitacion_historial import LicitacionHistorial
 from app.models.match import MatchEmpresaLicitacion
+from app.models.oauth_codigo import OAuthCodigo
 from app.models.orden_compra import OrdenCompra
 from app.models.orden_compra_detalle import OrdenCompraDetalle
 from app.models.orden_compra_historial import OrdenCompraHistorial
@@ -35,6 +36,7 @@ from app.models.verificacion_correo import TokenVerificacionCorreo
 __all__ = [
     "ApiKey",
     "Base",
+    "OAuthCodigo",
     "RefreshToken",
     "Licitacion",
     "LicitacionDetalle",

@@ -104,5 +104,11 @@ class PasswordResetConfirm(BaseModel):
     new_password: str = Field(min_length=8)
 
 
+class CanjeOAuth(BaseModel):
+    """El código de un solo uso que devuelve la vuelta de Google."""
+
+    codigo: str = Field(min_length=1, max_length=128)
+
+
 class TokenData(BaseModel):
     user_id: int | None = None

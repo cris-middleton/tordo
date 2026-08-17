@@ -16,6 +16,7 @@ from app.db import get_db
 from app.models.user import User
 from app.repositories import usuarios as repo
 from app.schemas.user import (
+    CanjeOAuth,
     PasswordChange,
     PasswordResetConfirm,
     PasswordResetRequest,
@@ -27,7 +28,7 @@ from app.schemas.user import (
     VerificacionConfirmar,
     VerificacionSolicitar,
 )
-from app.services import auth_tokens, password_reset, verificacion_correo
+from app.services import auth_tokens, oauth_codigo, password_reset, verificacion_correo
 
 logger = logging.getLogger(__name__)
 
@@ -191,11 +192,45 @@ async def google_callback(
         )
         return RedirectResponse(f"{settings.frontend_url}/login?error=google_db_error")
 
+    # **Por la URL viaja un código de un solo uso, no un token.**
+    #
+    # Antes iba el JWT de acceso, y sin refresco: una sesión iniciada con Google
+    # moría a los 30 minutos en mitad de la jornada. Mandar también el refresco
+    # por aquí habría sido peor —dura treinta días y la URL queda en el
+    # historial, en los logs de cualquier proxy y en el `Referer`—, así que lo
+    # que se manda no sirve para nada por sí solo: caduca en sesenta segundos y
+    # se canjea una vez, de servidor a servidor. Ver `services/oauth_codigo.py`.
+    codigo = await oauth_codigo.emitir(db, user.id)
+    await db.commit()
+    return RedirectResponse(f"{settings.frontend_url}/auth/callback?codigo={codigo}")
+
+
+@router.post("/google/canjear", response_model=Token)
+async def canjear_codigo_google(
+    payload: CanjeOAuth,
+    db: AsyncSession = Depends(get_db),
+):
+    """Cambia el código de la vuelta de Google por el par acceso + refresco.
+
+    Lo llama el servidor de Next, no el navegador: el refresco nunca aparece en
+    una URL ni en un documento. A partir de aquí la sesión de Google es igual
+    que la de contraseña, con la misma rotación y la misma revocación.
+    """
+    try:
+        user_id = await oauth_codigo.canjear(db, payload.codigo)
+    except oauth_codigo.ErrorDeCodigo as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El enlace de acceso ya no es válido. Vuelve a entrar con Google.",
+        ) from exc
+
     access_token = create_access_token(
-        data={"sub": str(user.id)},
+        data={"sub": str(user_id)},
         expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
     )
-    return RedirectResponse(f"{settings.frontend_url}/auth/callback?token={access_token}")
+    refresh = await auth_tokens.emitir(db, user_id)
+    await db.commit()
+    return {"access_token": access_token, "token_type": "bearer", "refresh_token": refresh}
 
 
 @router.post("/change-password", status_code=status.HTTP_200_OK)
