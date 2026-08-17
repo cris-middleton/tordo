@@ -93,7 +93,7 @@ export function ShareMenu({ targetRef, summaryText, filename }: ShareMenuProps) 
           </button>
           <button onClick={copiarLink} className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-primary/5 text-left text-text">
             {copiedKey === 'link' ? <Check className="h-3.5 w-3.5 text-accent" /> : <LinkIcon className="h-3.5 w-3.5 text-muted" />}
-            {copiedKey === 'link' ? 'Copiado' : 'Copiar link'}
+            {copiedKey === 'link' ? 'Copiado' : 'Copiar enlace'}
           </button>
         </div>
       )}

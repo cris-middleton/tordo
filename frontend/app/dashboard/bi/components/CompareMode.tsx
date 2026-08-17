@@ -116,7 +116,7 @@ function RubroColumn({ rubro, data }: { rubro: string; data: RubroData }) {
 
         {topComprador && (
           <div>
-            <p className="text-xs text-muted">Top comprador</p>
+            <p className="text-xs text-muted">Quién más compra</p>
             <p className="font-semibold text-text text-sm" title={topComprador}>
               {topComprador.length > 35 ? `${topComprador.slice(0, 35)}\u2026` : topComprador}
             </p>

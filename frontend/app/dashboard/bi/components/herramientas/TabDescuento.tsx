@@ -46,7 +46,7 @@ export default function TabDescuento({ rubro }: { rubro: string }) {
         <div className="flex-1">
           {isMissingParquet ? (
             <>
-              <p className="font-medium text-text">Datos aún no procesados</p>
+              <p className="font-medium text-text">Todavía no tenemos este dato</p>
               <p className="text-xs mt-0.5">
                 Esta herramienta requiere que el ETL genere el parquet de descuentos. Contacta al administrador.
               </p>

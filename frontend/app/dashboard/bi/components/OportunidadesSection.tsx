@@ -89,7 +89,7 @@ function ExpandedRow({
   return (
     <div className="p-4 bg-surface/60 border-t border-border grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
       <div>
-        <p className="text-xs text-muted mb-1">Score comprador</p>
+        <p className="text-xs text-muted mb-1">Nota del comprador</p>
         {scoreDisplay != null ? (
           <span className={`font-bold text-base ${scoreColor(scoreDisplay)}`}>
             {scoreDisplay.toFixed(1)}/10
@@ -186,7 +186,7 @@ export function OportunidadesSection({ oportunidades, loading, onFocusOrganismo 
     <div className="card flex flex-col items-center gap-3 py-12 text-center">
       <Target className="h-8 w-8 text-muted" />
       <p className="text-sm text-muted">No se encontraron oportunidades para este rubro.</p>
-      <p className="text-xs text-subtle">Prueba bajando el filtro mínimo de score o cambiando el rubro.</p>
+      <p className="text-xs text-subtle">Baja el score mínimo o prueba con otro rubro.</p>
     </div>
   );
 
@@ -245,7 +245,7 @@ export function OportunidadesSection({ oportunidades, loading, onFocusOrganismo 
                   </div>
                 </div>
               </th>
-              <th className="px-4 py-2.5 text-xs font-medium text-muted">Transacciones históricas</th>
+              <th className="px-4 py-2.5 text-xs font-medium text-muted">Órdenes históricas</th>
               <th className="px-4 py-2.5 text-xs font-medium text-muted">Proveedores activos</th>
               <th className="w-8" />
             </tr>

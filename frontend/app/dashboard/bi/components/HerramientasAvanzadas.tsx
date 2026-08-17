@@ -22,7 +22,7 @@ import TabSimulador from './herramientas/TabSimulador';
  */
 
 const TABS: Array<[Tab, string]> = [
-  ['matching', 'Buscador semántico'],
+  ['matching', 'Quién vende esto'],
   ['precio', 'Precio histórico'],
   ['descuento', 'Descuentos'],
   ['forecast', 'Competencia esperada'],
@@ -44,7 +44,7 @@ export function HerramientasAvanzadas({ rubro, topOrganismos, allRubros = [] }: 
           <div>
             <h2 className="section-title">Herramientas avanzadas</h2>
             <p className="text-xs text-muted mt-0.5">
-              Buscador semántico, calculadora de precio, descuentos y pronóstico de competencia.
+              Quién vende cada cosa, a qué precio, con qué descuento y contra cuánta competencia.
             </p>
           </div>
         </div>

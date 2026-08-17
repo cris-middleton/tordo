@@ -20,7 +20,7 @@ export function MarketSummaryCard({ resumen, loading }: MarketSummaryCardProps) 
     return (
       <section className="card flex items-center gap-3 py-6">
         <Loader2 className="h-5 w-5 animate-spin text-primary" />
-        <p className="text-sm text-muted">Analizando el mercado...</p>
+        <p className="text-sm text-muted">Analizando el mercado…</p>
       </section>
     );
   }

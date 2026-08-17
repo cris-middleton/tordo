@@ -21,7 +21,7 @@ export default function TabMatching() {
       if (res.disponible) {
         setResults(res.resultados ?? []);
       } else {
-        setError(res.motivo || 'Buscador no disponible');
+        setError(res.motivo || 'La búsqueda no está disponible ahora mismo.');
         setResults([]);
       }
     } catch (err) {
@@ -64,8 +64,8 @@ export default function TabMatching() {
             <thead>
               <tr className="border-b border-border bg-surface/60 text-left">
                 <th className="px-3 py-2 text-xs font-medium text-muted">Proveedor</th>
-                <th className="px-3 py-2 text-xs font-medium text-muted">Afinidad</th>
-                <th className="px-3 py-2 text-xs font-medium text-muted">OC históricas</th>
+                <th className="px-3 py-2 text-xs font-medium text-muted">Encaje</th>
+                <th className="px-3 py-2 text-xs font-medium text-muted">Órdenes</th>
               </tr>
             </thead>
             <tbody>

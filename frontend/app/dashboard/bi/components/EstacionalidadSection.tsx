@@ -37,7 +37,7 @@ const CustomTooltip = ({ active, payload }: any) => {
         Probabilidad de compra: <span className="text-text font-medium">{prob}%</span>
       </p>
       <p className="text-muted">
-        Consistencia: <span className="text-text font-medium">{consist}%</span>
+        Se repite el <span className="text-text font-medium">{consist}%</span> de los años
       </p>
       {d.es_pico_estacional && (
         <p className="text-accent font-medium mt-1">📈 Mes pico</p>
@@ -100,8 +100,8 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
               content={
                 <div className="space-y-1.5">
                   <p><b>Probabilidad de compra:</b> % de los años en que este comprador compra en ese mes.</p>
-                  <p><b>Consistencia:</b> qué tan repetible es el patrón. 100% = siempre los mismos meses; 0% = errático.</p>
-                  <p><b>Picos</b> (dot grande): meses consistentemente activos.</p>
+                  <p><b>Cuánto se repite:</b> si el patrón se cumple todos los años. 100% = compra siempre en los mismos meses; 0% = impredecible.</p>
+                  <p><b>Picos</b> (punto grande): los meses en que compra de verdad, año tras año.</p>
                 </div>
               }
               side="bottom"
@@ -136,7 +136,7 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
           <span className="font-semibold">{picoMeses.join(', ')}.</span>
           {avgConsist && (
             <span className="flex items-center gap-1">
-              <span>Consistencia promedio:</span>
+              <span>Se repite, en promedio:</span>
               <InfoTooltip
                 content={
                   <div>

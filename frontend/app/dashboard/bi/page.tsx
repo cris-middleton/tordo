@@ -74,10 +74,20 @@ function BIDesactivado() {
         <BarChart3 className="h-10 w-10 text-gold" aria-hidden="true" />
       </div>
       <div>
-        <h2 className="text-xl font-semibold text-text">Módulo de analítica desactivado</h2>
+        {/* Esta pantalla la puede ver un cliente pagando, y decía «falta que el
+            pipeline de analytics haya materializado sus tablas y que
+            FEATURE_ANALYTICS esté activo»: el nombre de una variable de entorno
+            y el estado de nuestro ETL, sobre algo que el usuario no puede
+            tocar. Se dice que es cosa nuestra y qué puede hacer él, que es
+            escribir. */}
+        <h2 className="text-xl font-semibold text-text">Esto todavía no está disponible</h2>
         <p className="mx-auto mt-2 max-w-md text-sm text-muted">
-          Falta que el pipeline de analytics haya materializado sus tablas y que{' '}
-          <code>FEATURE_ANALYTICS</code> esté activo.
+          Estamos terminando de preparar los datos de mercado por acá. Si llevas rato viéndolo
+          así, escríbenos a{' '}
+          <a href="mailto:hola@tordo.cl" className="font-medium text-primary hover:underline">
+            hola@tordo.cl
+          </a>{' '}
+          y lo revisamos.
         </p>
       </div>
     </div>

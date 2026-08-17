@@ -60,7 +60,7 @@ export function RubroFilter({
       await onSavePerfil(selectedClusters);
       setShowModal(false);
     } catch (err: any) {
-      setSaveError(err?.response?.data?.detail || 'Error al guardar. Intenta de nuevo.');
+      setSaveError(err?.response?.data?.detail || 'No pudimos guardar tus rubros. Inténtalo de nuevo.');
     } finally {
       setSaving(false);
     }

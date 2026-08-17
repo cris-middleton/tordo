@@ -123,11 +123,27 @@ export function CompetenciaSection({
             Mercado{' '}
             <InfoTooltip
               content={
+                /* Había una cuarta entrada, «Competitivo: alta rotación entre
+                   proveedores», y sobraba por dos motivos.
+
+                   Uno: `tipoLabelCorto` mapea `competitivo` a «Fragmentado»
+                   —es el nombre viejo del mismo tramo—, así que esa etiqueta no
+                   se puede pintar nunca. El usuario abría la ayuda para
+                   entender qué significa lo que está leyendo y se encontraba
+                   una categoría fantasma.
+
+                   Dos: la definición era falsa. Lo que mide este índice es
+                   CONCENTRACIÓN, no rotación; «competitivo» además se lee al
+                   revés de lo que significa, que es justo por lo que se
+                   renombró el tramo.
+
+                   Los textos se alinean con los de `PanoramaRubro`, que ya
+                   decían qué implica cada tramo para quien va a postular en vez
+                   de describir el índice. */
                 <div className="space-y-1.5">
-                  <p><b>Concentrado:</b> pocos proveedores dominan.</p>
-                  <p><b>Moderado:</b> competencia equilibrada con varios actores.</p>
-                  <p><b>Fragmentado:</b> muchos proveedores compiten.</p>
-                  <p><b>Competitivo:</b> alta rotación entre proveedores.</p>
+                  <p><b>Concentrado:</b> pocos proveedores se llevan casi todo. Entrar cuesta más.</p>
+                  <p><b>Moderado:</b> hay competidores fuertes, pero el mercado no está cerrado.</p>
+                  <p><b>Fragmentado:</b> muchos proveedores se reparten el mercado. Hay espacio.</p>
                 </div>
               }
             >
