@@ -42,7 +42,7 @@ const SCORE_EXAMPLES: ScoreExample[] = [
     monto: '$1.2M',
     diasCierre: 8,
     score: 58,
-    verdict: 'Evaluar',
+    verdict: 'Míralo bien',
     components: [
       { label: 'Rango de precio saludable', value: 6 },
       { label: 'Calce con tu rubro',        value: 7 },
@@ -57,14 +57,14 @@ const SCORE_EXAMPLES: ScoreExample[] = [
     monto: '$11.2M',
     diasCierre: 5,
     score: 24,
-    verdict: 'Prioridad baja',
+    verdict: 'Déjala pasar',
     components: [
       { label: 'Rango de precio saludable', value: 3 },
       { label: 'Calce con tu rubro',        value: 2 },
       { label: 'Calidad del comprador',     value: 6 },
       { label: 'Plazo de preparación',      value: 2 },
     ],
-    insight: 'Solo 1 de cada 3 licitaciones de este tipo se adjudican.',
+    insight: 'Sólo 1 de cada 3 licitaciones de este tipo termina adjudicándose.',
   },
 ];
 

@@ -28,12 +28,12 @@ function mensajeDeError(err: unknown): string {
   const status = e?.response?.status;
   const detail = e?.response?.data?.detail;
   console.error('[Dashboard] getDashboardHome failed:', { status, detail, err });
-  if (status === 500 && detail) return `Error del servidor: ${detail}`;
+  if (status === 500 && detail) return `Se cayó algo de nuestro lado: ${detail}`;
   if (detail) return detail;
   if (e?.message) {
-    return `No pudimos cargar el dashboard — ${e.message}. Reintenta en un momento.`;
+    return `No pudimos cargar tu panel — ${e.message}. Vuelve a intentar en un momento.`;
   }
-  return 'No pudimos cargar el dashboard. Reintenta en un momento.';
+  return 'No pudimos cargar tu panel. Vuelve a intentar en un momento.';
 }
 
 export default function DashboardPage() {
@@ -47,7 +47,9 @@ export default function DashboardPage() {
 
   const error = errorConsulta ? mensajeDeError(errorConsulta) : null;
 
-  const firstName = (user?.full_name || user?.username || 'hola').split(' ')[0];
+  // Sin respaldo 'hola': `buildNarrative` ya sabe saludar sin nombre, y el
+  // respaldo producía «Buenos días, hola.» en cualquier cuenta sin nombre.
+  const firstName = (user?.full_name || user?.username || '').split(' ')[0];
 
   if (!data && !error) {
     return (

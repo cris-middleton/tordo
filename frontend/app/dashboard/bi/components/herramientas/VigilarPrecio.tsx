@@ -89,7 +89,7 @@ export default function VigilarPrecio({
           {/* El 403 se distingue a propósito: «inténtalo otra vez» invitaría a
               reintentar algo que no va a funcionar nunca con ese rol. */}
           {axios.isAxiosError(vigilar.error) && vigilar.error.response?.status === 403
-            ? 'Solo quien administra la cuenta puede activar avisos.'
+            ? 'Sólo quien administra la cuenta puede activar avisos.'
             : 'No se pudo activar el aviso. Inténtalo otra vez.'}
         </span>
       )}

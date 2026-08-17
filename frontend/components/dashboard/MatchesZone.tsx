@@ -35,14 +35,21 @@ export function MatchesZone({ matches, totalDisponibles, cachedAt, plan }: Props
   if (matches.length === 0) {
     return (
       <div className="card">
+        {/* Decía que hacían falta «5–10 postulaciones o compras históricas para
+            aprender tu perfil». No es así: el encaje se calcula sobre la
+            descripción que la empresa escribe en «Perfil de búsqueda», y el job
+            que lo precomputa corre a las 06:00. Quien leía esto se quedaba
+            esperando un histórico que nunca era el requisito, cuando lo que le
+            faltaba era un párrafo. También hardcodeaba «Tordo», que va contra
+            la regla de leer el nombre de APP_NAME. */}
         <h2 className="section-title mb-2">Oportunidades para ti</h2>
         <div className="text-center py-6 space-y-2">
           <p className="text-sm text-muted">
-            Aún no tenemos datos suficientes para darte matches. Tordo necesita 5–10 postulaciones
-            o compras históricas para aprender tu perfil.
+            Todavía no tenemos con qué buscarte. Cuéntanos en una frase a qué se dedica tu
+            empresa y esa misma noche empezamos a cruzarla contra lo que se publica.
           </p>
           <Link href="/dashboard/empresa" className="text-xs text-primary hover:underline">
-            Completar perfil manualmente →
+            Escribir mi perfil de búsqueda →
           </Link>
         </div>
       </div>
@@ -100,15 +107,20 @@ export function MatchesZone({ matches, totalDisponibles, cachedAt, plan }: Props
                   <div className="flex-1 h-1.5 bg-border rounded-full" />
                   <span className="text-sm font-bold text-text w-8 text-right">??</span>
                 </div>
-                <p className="text-sm font-medium text-text">Licitación bloqueada</p>
+                <p className="text-sm font-medium text-text">Otra que te calza</p>
                 <p className="text-xs text-muted mt-0.5">Organismo · Monto</p>
               </div>
+              {/* Decía «Desbloquea con PYME+». Ese plan no existe: no está en
+                  `/billing/plans`, que vende dos —Free y Pro—, y tampoco está
+                  en `PLAN_QUOTAS`, así que ni siquiera es uno de los internos.
+                  Mandaba al usuario a la pantalla de planes a buscar un nombre
+                  que no aparece por ningún lado. */}
               <div className="absolute inset-0 flex items-center justify-center">
                 <Link
                   href="/dashboard/billing"
                   className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary text-onPrimary rounded-lg text-xs font-medium hover:bg-primary/90"
                 >
-                  <Lock size={12} /> Desbloquea con PYME+
+                  <Lock size={12} /> Verla con Pro
                 </Link>
               </div>
             </div>

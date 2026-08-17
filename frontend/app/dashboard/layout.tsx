@@ -28,7 +28,7 @@ export default function DashboardLayout({
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="animate-pulse text-muted">Cargando...</div>
+        <div className="animate-pulse text-muted">Cargando…</div>
       </div>
     );
   }
@@ -44,4 +44,3 @@ export default function DashboardLayout({
     </Layout>
   );
 }
-

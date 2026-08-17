@@ -22,9 +22,13 @@ export interface Miembro {
 }
 
 export const ROL_CONFIG: Record<string, { label: string; Icon: React.ElementType; cls: string }> = {
-  owner: { label: 'Owner', Icon: Crown, cls: 'text-gold bg-gold/10' },
-  admin: { label: 'Admin', Icon: Shield, cls: 'text-info bg-info/10' },
-  viewer: { label: 'Viewer', Icon: Eye, cls: 'text-muted bg-border' },
+  // Las CLAVES son los roles del backend y no se tocan. Las etiquetas sí:
+  // «Owner», «Admin» y «Viewer» son las tres palabras en inglés que le
+  // quedaban a la pantalla de equipo, y son justo las que tiene que entender
+  // quien invita a un contador o a un jefe de operaciones.
+  owner: { label: 'Dueño', Icon: Crown, cls: 'text-gold bg-gold/10' },
+  admin: { label: 'Administra', Icon: Shield, cls: 'text-info bg-info/10' },
+  viewer: { label: 'Sólo mira', Icon: Eye, cls: 'text-muted bg-border' },
 };
 
 export function EtiquetaRol({ rol }: { rol: string }) {
@@ -182,8 +186,8 @@ export default function PanelEquipo({
                 value={rol}
                 onChange={(v) => setRol(v as 'admin' | 'viewer')}
                 options={[
-                  { value: 'viewer', label: 'Viewer — solo puede leer' },
-                  { value: 'admin', label: 'Admin — puede editar y añadir miembros' },
+                  { value: 'viewer', label: 'Sólo mira — puede ver, no tocar nada' },
+                  { value: 'admin', label: 'Administra — puede editar e invitar gente' },
                 ]}
               />
             </div>
@@ -205,7 +209,7 @@ export default function PanelEquipo({
         </div>
       ) : (
         <p className="text-sm text-muted text-center py-4">
-          Solo el owner o admin puede gestionar miembros.
+          Sólo el dueño de la cuenta o quien administra puede invitar y quitar gente.
         </p>
       )}
     </>

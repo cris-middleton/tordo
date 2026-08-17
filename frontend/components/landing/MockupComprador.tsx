@@ -13,15 +13,23 @@ import { useRotatingExample } from './useRotatingExample';
  * invisible.
  *
  * Lo que enseña es lo que un dueño de PYME no puede averiguar de otra forma sin
- * haber trabajado ya con ese organismo: a cuántos días paga y con qué frecuencia
- * declara desierto lo que llama.
+ * haber trabajado ya con ese organismo: cuánto de lo que llama termina
+ * adjudicando, cuánto compra por trato directo y contra cuántos compite.
+ *
+ * **La métrica «Paga a N días» se retiró.** No es un recorte de diseño: en el
+ * dato de ChileCompra no existe ninguna fecha de pago, y el campo que la
+ * alimentaba mide `FechaEnvio → FechaAceptacion` —lo que tarda el proveedor en
+ * aceptar la orden, mediana real 1,4 días—. El panel real
+ * (`BuyerProfilePanel`) ya la había cambiado por trato directo y el correo la
+ * había dejado de mandar; este mockup era el último sitio que la prometía. Los
+ * tres KPI de aquí son los mismos que pinta el panel.
  */
 
 interface CompradorEjemplo {
   nombre: string;
   sector: string;
-  diasPago: number;
-  diasPagoNota: string;
+  tratoDirecto: number;
+  tratoDirectoNota: string;
   desierta: number;
   desiertaNota: string;
   oferentes: string;
@@ -32,32 +40,32 @@ const EJEMPLOS: CompradorEjemplo[] = [
   {
     nombre: 'Hospital Regional de Concepción',
     sector: 'Salud',
-    diasPago: 32,
-    diasPagoNota: 'bajo el promedio del sector (48)',
+    tratoDirecto: 12,
+    tratoDirectoNota: 'casi todo lo saca a competir',
     desierta: 8,
     desiertaNota: 'llama en serio: casi todo lo adjudica',
     oferentes: '4 a 6 ofertas por llamado',
-    veredicto: 'Paga rápido y adjudica. Vale la pena preparar bien esta oferta.',
+    veredicto: 'Adjudica lo que llama y compra en competencia. Vale la pena preparar bien esta oferta.',
   },
   {
     nombre: 'Municipalidad de Los Ángeles',
     sector: 'Municipal',
-    diasPago: 74,
-    diasPagoNota: 'sobre el promedio del sector (52)',
+    tratoDirecto: 44,
+    tratoDirectoNota: 'casi la mitad no llega a licitarse',
     desierta: 31,
     desiertaNota: 'uno de cada tres llamados queda desierto',
     oferentes: '1 a 2 ofertas por llamado',
-    veredicto: 'Poca competencia, pero paga lento y suele declarar desierto. Cuida el flujo de caja.',
+    veredicto: 'Poca competencia, pero se cae uno de cada tres llamados. No le dediques tu mejor semana.',
   },
   {
     nombre: 'Servicio de Salud Ñuble',
     sector: 'Salud',
-    diasPago: 45,
-    diasPagoNota: 'en línea con el sector',
+    tratoDirecto: 19,
+    tratoDirectoNota: 'en línea con el sector',
     desierta: 14,
     desiertaNota: 'adjudica la mayoría de lo que llama',
     oferentes: '3 a 5 ofertas por llamado',
-    veredicto: 'Comprador estable. Compite por precio, no por plazo.',
+    veredicto: 'Comprador parejo y predecible. Acá se compite por precio.',
   },
 ];
 
@@ -107,10 +115,10 @@ export function MockupComprador() {
 
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           <Metrica
-            etiqueta="Paga a"
-            valor={`${c.diasPago} días`}
-            nota={c.diasPagoNota}
-            alerta={c.diasPago > 60}
+            etiqueta="Trato directo"
+            valor={`${c.tratoDirecto}%`}
+            nota={c.tratoDirectoNota}
+            alerta={c.tratoDirecto > 35}
           />
           <Metrica
             etiqueta="Declara desierto"

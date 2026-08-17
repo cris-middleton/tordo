@@ -45,7 +45,7 @@ const MATCHING_EXAMPLES: MatchingExample[] = [
       { titulo: 'Insumos escritorio administrativo', comprador: 'Gob. Regional RM',        monto: '$720K', diasCierre: 11, calce: 84 },
       { titulo: 'Suministros oficina ministerio',     comprador: 'Ministerio de Economía', monto: '$1.1M', diasCierre: 18, calce: 76 },
     ],
-    insight: "Solo la primera aparecería si buscas 'resmas'. Las otras 2 pasan desapercibidas.",
+    insight: "Sólo la primera aparece si buscas 'resmas'. Las otras dos se te pasan.",
   },
   {
     rubro: 'Construcción vial menor',

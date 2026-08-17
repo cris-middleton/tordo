@@ -31,10 +31,14 @@ import { MockupScore } from '@/components/landing/MockupScore';
    Si insertas una sección, mantén la simetría o el gesto se pierde.
    ───────────────────────────────────────────── */
 
+// Las etiquetas dicen qué hay detrás, no cómo se llama la sección por dentro.
+// «El aviso» y «Antes de decidir» eran títulos editoriales: funcionan sobre la
+// sección, y en una barra de navegación —que se escanea en dos segundos— no
+// dicen nada. Quien llega quiere saber qué hace, qué cubre y cuánto cuesta.
 const navItems = [
-  { name: 'El aviso', href: '#aviso' },
+  { name: 'Cómo te avisamos', href: '#aviso' },
   { name: 'Qué revisamos', href: '#mecanismos' },
-  { name: 'Antes de decidir', href: '#producto' },
+  { name: 'Qué vas a ver', href: '#producto' },
   { name: 'Precios', href: '#precios' },
 ];
 
@@ -101,24 +105,45 @@ const faqs = [
   {
     question: '¿Necesito experiencia en licitaciones?',
     answer:
-      'No. Describes a qué se dedica tu empresa en tus propias palabras y nosotros nos encargamos del resto. No hay que aprenderse la taxonomía de rubros ni los tipos de llamado.',
+      'No. Al crear la cuenta marcas tu rubro y describes con tus palabras lo que vendes — «aseo industrial», «mantención de clima», lo que dirías por teléfono. Eso es lo que usamos para buscarte, y pesa más que las etiquetas que marques. No hay que aprenderse los códigos ONU ni la diferencia entre una L1 y una LR.',
   },
   {
     question: '¿Cada cuánto me van a escribir?',
     answer:
       'Depende de tu rubro, pero agrupamos: un correo por revisión con todo lo que apareció, no uno por licitación. Lo urgente —un cierre en 24 horas, un documento que vence, un cambio en tu estado hábil— sí sale al momento. Y puedes ajustar qué te llega desde Configuración.',
   },
+  {
+    question: '¿Qué pasa cuando se acaban los 14 días?',
+    answer:
+      'Nada automático. No pedimos tarjeta al registrarte, así que no hay nada que cobrar: la cuenta baja sola al plan Free y sigue funcionando con 3 consultas de precio al día y 5 alertas. Si quieres seguir con Pro, lo activas tú desde Facturación. Y si después te arrepientes, cancelas ahí mismo y conservas Pro hasta que termine el mes que pagaste.',
+  },
+  {
+    question: '¿En qué se diferencian de los otros portales de licitaciones?',
+    answer:
+      'Casi todos resuelven el mismo problema: encontrar la licitación. Eso lo hacemos también, y le sumamos Compra Ágil y Convenio Marco, que suelen quedar fuera. La diferencia está en lo que viene después: cuánto ha pagado ese comprador por ese producto, cuántos proveedores le venden habitualmente y qué proporción de sus llamados termina adjudicando. Es la parte que exige procesar dieciséis años de órdenes de compra, y es la que decide si te conviene postular.',
+  },
+  {
+    question: '¿Qué hacen con los datos de mi empresa?',
+    answer:
+      'Guardamos lo que necesitamos para que el producto funcione: tu RUT para consultar el estado hábil, tus documentos si decides subirlos y lo que describes de tu negocio para buscar por ti. No vendemos ni compartimos nada de eso, y no se lo mostramos a otras empresas de la plataforma. Lo que sí es público —tus adjudicaciones en Mercado Público— ya lo era antes de que llegaras aquí.',
+  },
 ];
+
+/* Las dos tarjetas mandan al MISMO sitio y con el mismo botón, a propósito.
+   Antes decían «Crear cuenta gratis» y «Probar 14 días gratis», más un tercer
+   texto en la barra de arriba: tres promesas distintas para una sola acción, y
+   ninguna de las tres explicaba que el trial es automático. Quien lee tiene que
+   poder contestarse «¿qué pasa si aprieto?» sin haber leído la letra chica. */
 
 const FREE_PLAN = {
   name: 'Free',
   description: 'Para ver si esto te sirve',
   features: [
-    'Explora licitaciones, Compra Ágil y Convenio Marco',
+    'Licitaciones, Compra Ágil y Convenio Marco',
     '3 consultas de precio al día',
     '5 alertas activas',
-    'Monitor de estado hábil',
-    '1 usuario · sin tarjeta',
+    'Aviso si tu empresa deja de estar hábil',
+    '1 usuario',
   ],
   cta: 'Crear cuenta gratis',
   href: '/register',
@@ -131,15 +156,15 @@ const PRO_PLAN = {
   annual: { price: '$9.900', period: '/mes', note: 'Facturado anual · ahorras 2 meses' },
   features: [
     'Consultas de precio sin límite',
-    'Perfil del comprador y competencia',
-    'Score de oportunidad',
-    'Matching semántico: encaje con lo que vendes',
-    'Informe semanal en PDF',
-    'Vigilancia de precios de tus productos',
+    'Cómo es ese comprador y quién le vende',
+    'Qué tan buena es la oportunidad, en un número',
+    'Te buscamos lo que calza con lo que vendes',
+    'Informe de tu semana, en correo y PDF',
+    'Aviso si cambia el precio de tus productos',
     'Checklist por tipo y hasta 200 documentos',
-    'Hasta 5 personas en el equipo',
+    'Hasta 5 personas del equipo',
   ],
-  cta: 'Probar 14 días gratis',
+  cta: 'Crear cuenta gratis',
   href: '/register',
 };
 
@@ -246,7 +271,7 @@ export default function LandingClient() {
               href="/register"
               className="hidden rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-onAccent transition-all hover:bg-accentDark hover:shadow-md sm:inline-flex"
             >
-              Probar Pro 14 días
+              Crear cuenta gratis
             </Link>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -322,9 +347,9 @@ export default function LandingClient() {
                 </h1>
 
                 <p className="mb-8 max-w-xl text-lg leading-relaxed text-white/70">
-                  Es lo primero que te preguntas antes de armar una oferta. Te respondemos con lo
-                  que ese comprador pagó de verdad — y te avisamos por correo cuando aparece algo
-                  que vendes.
+                  Antes de armar una oferta necesitas saber cuánto ha pagado ese comprador por
+                  esto. Te lo mostramos con sus órdenes de compra, y te escribimos cuando aparece
+                  algo que vendes.
                 </p>
 
                 <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:gap-4">
@@ -344,7 +369,8 @@ export default function LandingClient() {
                 </div>
 
                 <p className="text-xs text-white/60">
-                  14 días de Pro incluidos. Sin tarjeta, y cancelas cuando quieras.
+                  Los primeros 14 días vienen con Pro completo. No pedimos tarjeta: cuando se
+                  acaban, la cuenta baja sola al plan gratis.
                 </p>
               </div>
 
@@ -392,10 +418,18 @@ export default function LandingClient() {
                     texto:
                       'Cuántos proveedores le venden habitualmente a ese organismo, y quiénes se repiten.',
                   },
+                  /* Aquí decía «A cuántos días paga», y ChileCompra no publica
+                     ninguna fecha de pago: el dato que lo alimentaba mide lo
+                     que tarda el PROVEEDOR en aceptar la orden, mediana real
+                     1,4 días. El correo ya dejó de mandar esa línea
+                     (`correo_render.lineas_de_bi`) y el panel del comprador ya
+                     la cambió por trato directo; la landing seguía
+                     prometiéndola. Lo que sí sale del dato y decide algo es
+                     cuánto de lo que llama termina adjudicando. */
                   {
-                    titulo: 'A cuántos días paga',
+                    titulo: 'Si adjudica o te deja botado',
                     texto:
-                      'Porque ganar una licitación que te paga a 90 días puede ser un problema, no un premio.',
+                      'Hay organismos que declaran desierto uno de cada tres llamados. Saberlo antes es lo que decide si vale la pena meterle dos días a la oferta.',
                   },
                 ].map((item) => (
                   <div key={item.titulo} className="border-l-2 border-accent/40 pl-4">
@@ -617,7 +651,10 @@ export default function LandingClient() {
             <div className="mb-12 text-center">
               <Eyebrow>Planes</Eyebrow>
               <Titulo>Empieza gratis. Sube cuando te convenga.</Titulo>
-              <p className="mt-4 text-muted">Precios en CLP. Sin contratos, cancelas cuando quieras.</p>
+              <p className="mt-4 text-muted">
+                Da igual cuál elijas hoy: los primeros 14 días son Pro completo y no pedimos
+                tarjeta. Después decides tú. Precios en CLP, sin contrato.
+              </p>
             </div>
 
             <div className="mx-auto grid max-w-3xl gap-5 sm:grid-cols-2">
@@ -661,9 +698,14 @@ export default function LandingClient() {
 
               {/* Pro */}
               <div className="dark relative flex flex-col rounded-xl border border-brand-navy bg-brand-navy p-6 text-white shadow-xl">
+                {/* Decía «Más elegido». Todavía no hay a quién contar: es
+                    prueba social inventada, y en un mercado donde los dueños de
+                    PYME se conocen entre ellos es de las cosas que se pagan
+                    caro. Lo que sí es verdad y además vende mejor es que el
+                    trial ya lo incluye. */}
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                   <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-accent px-3 py-1 text-[11px] font-bold text-onAccent">
-                    Más elegido
+                    Tus primeros 14 días
                   </span>
                 </div>
 
@@ -813,8 +855,8 @@ export default function LandingClient() {
               La próxima que postules, ya sabrás a cuánto
             </h2>
             <p className="mb-8 leading-relaxed text-white/70">
-              Creas la cuenta en dos minutos y describes a qué te dedicas. Del resto nos
-              encargamos nosotros.
+              Te tomas dos minutos: el RUT de tu empresa y cuatro palabras sobre lo que vendes.
+              De ahí en adelante te buscamos nosotros.
             </p>
             <Link
               href="/register"
@@ -840,13 +882,13 @@ export default function LandingClient() {
                 TORDO
               </span>
             </div>
+            {/* Aquí había un enlace a /terminos y otro a /privacidad. Ninguna
+                de las dos páginas existe —no aparecen en la salida del build— así
+                que eran dos 404 en el pie de una página que pide RUT y cobra en
+                CLP: justo donde alguien va a mirar antes de escribir sus datos.
+                Un enlace roto ahí resta más confianza que la ausencia del
+                enlace. Vuelven cuando existan las páginas. */}
             <div className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs text-subtle">
-              <Link href="/terminos" className="transition-colors hover:text-primary">
-                Términos
-              </Link>
-              <Link href="/privacidad" className="transition-colors hover:text-primary">
-                Privacidad
-              </Link>
               <a href="mailto:hola@tordo.cl" className="transition-colors hover:text-primary">
                 Contacto
               </a>

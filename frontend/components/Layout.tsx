@@ -37,11 +37,18 @@ interface NavSection {
   items: NavItem[];
 }
 
+/* Dos arreglos en el menú, y los dos son de idioma:
+
+   - «Dashboard» era la única entrada en inglés de un producto que se vende
+     como «sólo español». Se llama Panel, y así lo nombran también los correos
+     y la pantalla de verificación («Ir a mi panel»).
+   - «Inteligencia de Mercado» y «Mi Empresa» iban en mayúscula inicial en cada
+     palabra, que es una convención del inglés. En español sólo va la primera. */
 const navSections: NavSection[] = [
   {
     label: 'Operaciones',
     items: [
-      { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+      { name: 'Panel', href: '/dashboard', icon: LayoutDashboard },
       { name: 'Licitaciones', href: '/dashboard/tenders', icon: Briefcase },
       { name: 'Órdenes de compra', href: '/dashboard/orders', icon: Receipt },
       { name: 'Postulaciones', href: '/dashboard/postulaciones', icon: ClipboardList },
@@ -50,13 +57,13 @@ const navSections: NavSection[] = [
   {
     label: 'Análisis',
     items: [
-      { name: 'Inteligencia de Mercado', href: '/dashboard/bi', icon: Radar, badge: 'Pro' },
+      { name: 'Inteligencia de mercado', href: '/dashboard/bi', icon: Radar, badge: 'Pro' },
     ],
   },
   {
     label: 'Cuenta',
     items: [
-      { name: 'Mi Empresa', href: '/dashboard/empresa', icon: Users },
+      { name: 'Mi empresa', href: '/dashboard/empresa', icon: Users },
       { name: 'Configuración', href: '/dashboard/settings', icon: Settings },
     ],
   },
@@ -102,7 +109,7 @@ export default function Layout({ children }: LayoutProps) {
   const currentPage =
     allNavItems.find((n) => isActive(n.href))?.name ??
     Object.entries(extraRouteNames).find(([path]) => pathname.startsWith(path))?.[1] ??
-    'Dashboard';
+    'Panel';
 
   const initials = user?.full_name
     ? user.full_name.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()

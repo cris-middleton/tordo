@@ -511,6 +511,17 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
   `tordo_` sin tocar la base.
   - **JWT de sesión** (30 min) **+ token de refresco con rotación** + Google OAuth. Para el
     navegador.
+    **Se entra con el usuario O con el correo**, indistintamente
+    (`repositories/usuarios.buscar_por_identificador`). El campo del cuerpo se sigue llamando
+    `username` para no romper clientes ya escritos; lo que cambia es que su contenido se
+    interpreta. **No es un `OR` entre las dos columnas, y la diferencia es de seguridad**: con
+    un `OR`, quien se registrara con el username `victima@empresa.cl` competiría por ese
+    identificador con la dueña real de ese correo, y quién gana lo decidiría el orden de filas.
+    Se decide antes por la forma del texto — lleva `@`, es un correo — y se consulta una sola
+    columna. El correo se compara en minúsculas porque se guarda tal cual se escribió;
+    **no se indexa la expresión** (la convención de migraciones lo prohíbe), y si algún día
+    pesa, la solución es normalizar la columna al guardar. Lo fija
+    `tests/test_login_usuario_o_correo.py`.
   - **Clave de API** (`tordo_<prefijo>_<secreto>`). Para clientes sin navegador: MCP, ERP,
     scripts. **Pertenece a la empresa y la fija**: nombrar otra da 403, aunque quien la creó
     pertenezca a las dos. Se guarda el hash; el prefijo queda en claro para poder
@@ -664,6 +675,20 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
   suelta**: sólo como bandera cuando se sale de rango. Lo que sí sale del dato y decide algo
   es `tasa_adjudicacion` (cuánto de lo que llama termina adjudicando). `Forma de Pago`
   tampoco sirve de sustituto: el 98,7 % de las órdenes dice lo mismo.
+  **La landing fue el último sitio en soltarla**, y estuvo meses prometiéndola después de que
+  el correo y el panel del comprador ya la hubieran retirado: `MockupAviso` mostraba «Paga a
+  32 días en promedio» y `MockupComprador` un KPI «Paga a». Cuando se retire un dato, hay que
+  buscarlo también en `components/landing/` — es lo que lee quien todavía no es cliente.
+- **De por qué una empresa queda inhábil no sabemos nada, y el aviso no puede fingir que sí.**
+  El CSV de proveedores hábiles de ChileCompra trae RUT y estado: `habil`, `inhabil` o
+  `no_encontrado`, sin motivo, fecha ni monto. Las causas reales son cinco y de naturalezas
+  distintas —la tarifa anual del registro sin pagar, datos sin actualizar (cada 6 meses),
+  deuda tributaria sobre 500 UTM o previsional de más de 12 meses, sanciones graves, mal uso
+  de la plataforma— y **sólo el proveedor las ve, en la sección «Habilidad» de su ficha**. El
+  aviso decía «revisa documentos en Tesorería»: acierta en un caso de cinco, y cuando falla el
+  usuario va, no encuentra nada y aprende a no leer la alerta más urgente que manda el
+  producto (`Urgencia.INMEDIATA`). Se dice qué pasó, qué implica —que no puede ofertar— y
+  dónde está la razón, con las causas como ejemplos.
 - **El tramo bajo del HHI se llama `fragmentado`, no `competitivo`.** El eje que mide el HHI
   es la concentración; «competitivo» se lee al revés de lo que significa. Convivían las dos
   palabras —el ETL una, los servicios otra— y el usuario veía dos nombres para el mismo
@@ -673,6 +698,11 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
 - **Sólo se venden dos planes: `basico` (Free) y `pro` (Pro).** `pyme` y `enterprise` existen
   en `PLAN_QUOTAS` y **no** en `/api/v1/billing/plans`. Nombrar un plan que no se puede
   comprar manda al usuario a la página de precios a buscar algo que no está.
+  Corregirlo en un sitio no lo corrige en los demás: tras arreglar `PlanGate` seguían
+  ofreciendo planes fantasma `PlanUpgradeBanner` («Ver plan PYME», porque el backend puede
+  sugerir ese tier) y `MatchesZone` («Desbloquea con PYME+», que no existe ni en `PLAN_QUOTAS`).
+  **Todo lo que no sea comprable se enseña como Pro**, y el respaldo de un tier desconocido es
+  Pro, nunca el identificador crudo.
 - **El precio se agrupa por PRODUCTO, no por categoría del catálogo.**
   `codigoProductoONU` es una categoría UNSPSC: medido sobre datos reales, una sola
   categoría en un solo hospital y un solo mes contiene artículos que difieren en cinco

@@ -23,10 +23,13 @@ export default function EstadoHabilBadge({ estado }: { estado?: string }) {
       cls: 'bg-danger/10 text-danger border-danger/30',
       label: 'Tu empresa no está hábil',
     },
+    // «RUT no encontrado en registro» describe lo que le pasó a nuestra
+    // consulta, no lo que le pasa al usuario. Lo que le pasa es que no puede
+    // ofertar: o el RUT está mal escrito, o la empresa no está inscrita.
     no_encontrado: {
       icon: <AlertTriangle className="h-4 w-4" />,
       cls: 'bg-gold/10 text-gold border-gold/30',
-      label: 'RUT no encontrado en registro',
+      label: 'Tu RUT no aparece en el registro',
     },
   };
 

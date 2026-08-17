@@ -28,11 +28,15 @@ interface BuyerProfilePanelProps {
 
 // ── Label / color maps ─────────────────────────────────────────────────────
 
+// «Muy transp.» y «Poco transp.» no son palabras: son abreviaturas que sólo
+// se entienden si ya sabes qué dicen. En una ficha que se lee de un vistazo
+// para decidir si postular, obligar a descifrar la etiqueta cuesta más de lo
+// que ahorra en ancho.
 const transpLabel: Record<string, string> = {
-  muy_transparente: 'Muy transp.',
-  transparente: 'Transparente',
-  moderado: 'Moderado',
-  poco_transparente: 'Poco transp.',
+  muy_transparente: 'Muy abierto',
+  transparente: 'Abierto',
+  moderado: 'Normal',
+  poco_transparente: 'Poco abierto',
   opaco: 'Opaco',
 };
 
@@ -105,7 +109,7 @@ export function BuyerProfilePanel({ comprador }: BuyerProfilePanelProps) {
       {/* Body */}
       {!comprador.disponible ? (
         <p className="text-sm text-muted">
-          {comprador.motivo ?? 'Sin datos del comprador.'}
+          {comprador.motivo ?? 'Todavía no tenemos historial de este comprador.'}
         </p>
       ) : (
         <div className="flex flex-col gap-3">
@@ -113,7 +117,7 @@ export function BuyerProfilePanel({ comprador }: BuyerProfilePanelProps) {
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {/* Score */}
             <KpiTile
-              label="Score comprador"
+              label="Nota del comprador"
               value={
                 comprador.buyer_score != null
                   ? `${comprador.buyer_score.toFixed(1)}/10`
@@ -164,7 +168,7 @@ export function BuyerProfilePanel({ comprador }: BuyerProfilePanelProps) {
 
             {/* Transparencia */}
             <KpiTile
-              label="Transp."
+              label="Transparencia"
               value={
                 comprador.transparencia?.clasificacion
                   ? (transpLabel[comprador.transparencia.clasificacion] ??

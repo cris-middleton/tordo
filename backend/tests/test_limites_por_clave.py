@@ -13,6 +13,8 @@ Lo que se fija aquí:
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 import pytest_asyncio
 
@@ -53,6 +55,36 @@ def redis_falso(monkeypatch) -> RedisFalso:
     falso = RedisFalso()
     monkeypatch.setattr(limites_api, "redis_client", lambda: falso)
     return falso
+
+
+@pytest.fixture
+def minuto_congelado(monkeypatch):
+    """Clava el cubo del limitador en un minuto fijo.
+
+    **La ventana es fija, no deslizante**: `_cubo` mete `YYYYMMDDHHMM` dentro de
+    la clave de Redis, así que al cambiar el minuto el contador vuelve a cero.
+    Eso está bien en producción —la contrapartida la documenta el propio módulo—
+    y es veneno para un test que necesita agotar el cubo: agotar el de `pro` son
+    120 peticiones HTTP seguidas, y si cruzan el borde del minuto el contador se
+    reinicia a media prueba y la petición 121 devuelve 200.
+
+    Falla **según la hora a la que corra**, no según el código. En local entraba
+    dentro del minuto y pasaba; en Actions, más lento, se partió y bloqueó un
+    merge con `assert 200 == 429`. Congelar el minuto prueba lo que el test dice
+    que prueba —que pasado el límite se corta— sin depender del reloj.
+
+    Se congela el RELOJ, no `_cubo`: sustituir la función dejaría de ejercitar
+    la construcción de la clave, que es justo donde vive el minuto. Así el
+    código real sigue corriendo y lo único fijo es qué hora cree que es.
+    """
+    instante = datetime(2026, 8, 17, 3, 30, tzinfo=UTC)
+
+    class RelojParado:
+        @staticmethod
+        def now(tz=None):
+            return instante
+
+    monkeypatch.setattr(limites_api, "datetime", RelojParado)
 
 
 # ── El límite sale del plan ──────────────────────────────────────────────────
@@ -144,7 +176,9 @@ async def test_la_respuesta_dice_cuanto_queda(cliente, clave, redis_falso):
 
 
 @pytest.mark.asyncio
-async def test_al_pasarse_devuelve_429_con_retry_after(cliente, clave, redis_falso, sample_empresa):
+async def test_al_pasarse_devuelve_429_con_retry_after(
+    cliente, clave, redis_falso, minuto_congelado, sample_empresa
+):
     """El `Retry-After` es lo que convierte el corte en algo que un cliente puede
     obedecer solo, en vez de reintentar en bucle."""
     cabeceras = {"Authorization": f"Bearer {clave}"}

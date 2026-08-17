@@ -33,11 +33,11 @@ export default function RegisterPage() {
     setError('');
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Las contraseñas no coinciden');
+      setError('Las dos contraseñas no son iguales.');
       return;
     }
     if (formData.password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres');
+      setError('La contraseña necesita al menos 6 caracteres.');
       return;
     }
 
@@ -54,11 +54,15 @@ export default function RegisterPage() {
       if (err.response?.data?.detail) {
         setError(err.response.data.detail);
       } else if (err.response?.status === 400) {
-        setError('Los datos no son válidos. Verifica que el email y usuario sean únicos.');
+        // «Verifica que el email y usuario sean únicos» le pedía al usuario
+        // que dedujera el problema con vocabulario de base de datos. Que
+        // alguien ya tenga ese correo o ese usuario es lo único que puede
+        // pasar aquí, así que se dice.
+        setError('Ese correo o ese usuario ya están tomados. Prueba con otro.');
       } else if (!err.response) {
-        setError('No se pudo conectar con el servidor.');
+        setError('No pudimos conectar. Revisa tu internet y vuelve a intentar.');
       } else {
-        setError('Error al crear la cuenta. Por favor intenta nuevamente.');
+        setError('No pudimos crear la cuenta. Inténtalo de nuevo en un momento.');
       }
     } finally {
       setLoading(false);
@@ -86,20 +90,27 @@ export default function RegisterPage() {
             <span className="font-brand text-2xl font-bold text-white tracking-tight">TORDO</span>
           </div>
 
+          {/* El panel repetía la promesa de la landing en jerga interna
+              —«matching semántico», «BI pre-postulación»—: son los nombres que
+              usamos entre nosotros, no los que usa quien está a punto de
+              registrarse. Y ninguno de los tres textos mencionaba los 14 días
+              de Pro, que es LA razón para completar el formulario. La landing
+              lo promete tres veces y aquí se caía. */}
           <h1 className="font-display text-3xl xl:text-4xl font-bold text-white leading-[1.15] mb-5">
-            Empieza a postular<br />
-            <span className="text-accent">con ventaja.</span>
+            Tus primeros 14 días,<br />
+            <span className="text-accent">con todo abierto.</span>
           </h1>
           <p className="text-white/65 text-base leading-relaxed max-w-xs">
-            Crea tu cuenta gratis. Sin tarjeta de crédito.
+            No pedimos tarjeta. Cuando se acaben, la cuenta baja sola al plan gratis y sigues
+            usándola.
           </p>
         </div>
 
         <div className="relative z-10 space-y-2.5">
           {[
-            { Icon: Search, text: 'Matching semántico sobre historial de órdenes de compra' },
-            { Icon: BarChart2, text: 'BI pre-postulación: precios, competidores, tasas de éxito' },
-            { Icon: FileCheck, text: 'Checklist guiado por tipo de licitación' },
+            { Icon: BarChart2, text: 'Cuánto ha pagado ese comprador por lo que vendes' },
+            { Icon: Search, text: 'Te avisamos por correo cuando sale algo tuyo' },
+            { Icon: FileCheck, text: 'Qué documentos te piden y cuáles se te vencen' },
           ].map(({ Icon, text }) => (
             <div key={text} className="flex items-start gap-3 rounded-xl bg-white/[0.06] border border-white/[0.08] px-4 py-3">
               <Icon className="h-4 w-4 text-accent shrink-0 mt-0.5" />
@@ -126,8 +137,11 @@ export default function RegisterPage() {
             <span className="font-brand text-xl font-bold text-primary">TORDO</span>
           </div>
 
-          <h2 className="font-display text-2xl font-bold text-text mb-1">Crear cuenta gratuita</h2>
-          <p className="text-sm text-muted mb-7">Comienza en minutos. Sin tarjeta de crédito.</p>
+          <h2 className="font-display text-2xl font-bold text-text mb-1">Crea tu cuenta</h2>
+          <p className="text-sm text-muted mb-7">
+            Son cuatro datos. En la pantalla siguiente pones el RUT de tu empresa y ya empezamos
+            a buscarte licitaciones.
+          </p>
 
           {error && (
             <div className="alert-error mb-5">
@@ -151,6 +165,9 @@ export default function RegisterPage() {
             </div>
 
             <div>
+              {/* Ya no hace falta advertir que con esto se entra: el login
+                  acepta también el correo. Se queda porque identifica a la
+                  persona dentro de la empresa. */}
               <label htmlFor="username" className="label">Usuario <span className="text-danger text-xs">*</span></label>
               <input
                 id="username"
@@ -159,14 +176,14 @@ export default function RegisterPage() {
                 value={formData.username}
                 onChange={update('username')}
                 className="input-field"
-                placeholder="Elige un nombre de usuario"
+                placeholder="Cómo te verá tu equipo"
                 disabled={loading}
                 autoComplete="username"
               />
             </div>
 
             <div>
-              <label htmlFor="email" className="label">Email <span className="text-danger text-xs">*</span></label>
+              <label htmlFor="email" className="label">Correo <span className="text-danger text-xs">*</span></label>
               <input
                 id="email"
                 type="email"

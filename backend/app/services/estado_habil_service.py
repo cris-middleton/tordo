@@ -99,6 +99,52 @@ def _lookup_rut_in_rows(rows: list[dict], rut_normalizado: str) -> str:
     return ESTADO_NO_ENCONTRADO
 
 
+def _titulo_para(empresa: Empresa) -> str:
+    if empresa.estado_habil == ESTADO_INHABIL:
+        return f"{empresa.nombre_empresa} quedó inhábil"
+    if empresa.estado_habil == ESTADO_HABIL:
+        return f"{empresa.nombre_empresa} volvió a estar hábil"
+    return f"No encontramos a {empresa.nombre_empresa} en el registro"
+
+
+def _mensaje_para(empresa: Empresa) -> str:
+    """El aviso, en las palabras de quien lo recibe.
+
+    **Este mensaje decía**: «El estado hábil de X (RUT) cambió a 'inhabil'.» —
+    el valor crudo de la columna, entre comillas, en el aviso más urgente que
+    manda el producto (`Urgencia.INMEDIATA`). Además de leerse a máquina, no
+    decía lo único que importa: que así no puedes ofertar.
+
+    **Y no decimos por qué, porque no lo sabemos.** El CSV de proveedores
+    hábiles de ChileCompra trae el RUT y el estado, nada más: ni la causa ni la
+    fecha. Las causas posibles son varias —la tarifa anual del registro sin
+    pagar, datos sin actualizar, deuda tributaria sobre 500 UTM o previsional
+    de más de 12 meses, sanciones—, y sólo el proveedor las ve, en la sección
+    «Habilidad» de su propia ficha. Nombrar una al azar manda a la persona a
+    buscar donde probablemente no está el problema: se gasta el aviso y la
+    próxima vez no lo lee. Se dice qué pasó, qué implica y dónde está la razón.
+    """
+    if empresa.estado_habil == ESTADO_INHABIL:
+        return (
+            f"{empresa.nombre_empresa} ({empresa.rut_empresa}) aparece inhábil en el "
+            "Registro de Proveedores. Mientras siga así no puedes ofertar, aunque "
+            "alcances a preparar la oferta. El motivo exacto sale en la sección "
+            "«Habilidad» de tu ficha en Mercado Público — puede ser la tarifa anual "
+            "del registro, datos por actualizar o una deuda tributaria o previsional."
+        )
+    if empresa.estado_habil == ESTADO_HABIL:
+        return (
+            f"{empresa.nombre_empresa} ({empresa.rut_empresa}) vuelve a estar hábil. "
+            "Ya puedes ofertar."
+        )
+    return (
+        f"{empresa.nombre_empresa} ({empresa.rut_empresa}) no aparece en la lista de "
+        "proveedores hábiles que publica ChileCompra. Puede ser que el RUT esté mal "
+        "escrito o que la empresa aún no esté inscrita en el Registro de Proveedores; "
+        "sin esa inscripción no se puede ofertar."
+    )
+
+
 def _create_estado_habil_alert(empresa: Empresa, db: Session) -> list[Alert]:
     """Crea la alerta de cambio de estado hábil para cada miembro de la empresa.
 
@@ -128,11 +174,8 @@ def _create_estado_habil_alert(empresa: Empresa, db: Session) -> list[Alert]:
             status=AlertStatus.PENDING,
             entity_type="empresa",
             entity_id=0,
-            title=f"Estado hábil actualizado: {empresa.nombre_empresa}",
-            message=(
-                f"El estado hábil de {empresa.nombre_empresa} "
-                f"({empresa.rut_empresa}) cambió a '{empresa.estado_habil}'."
-            ),
+            title=_titulo_para(empresa),
+            message=_mensaje_para(empresa),
             idempotency_key=idempotency_key,
             empresa_id=empresa.id,
             notification_channels=["in_app"],

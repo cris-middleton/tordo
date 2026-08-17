@@ -233,7 +233,8 @@ async def _usuario_de_jwt(token: str, db: AsyncSession) -> User:
         raise credentials_exception
     if not user.is_active:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Esta cuenta está desactivada. Escríbenos a hola@tordo.cl.",
         )
     return user
 
@@ -241,7 +242,8 @@ async def _usuario_de_jwt(token: str, db: AsyncSession) -> User:
 async def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
     if not current_user.is_active:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Esta cuenta está desactivada. Escríbenos a hola@tordo.cl.",
         )
     return current_user
 

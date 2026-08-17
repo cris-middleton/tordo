@@ -7,7 +7,7 @@ const ACTIONS = [
   { href: '/dashboard/tenders', icon: Search, label: 'Buscar licitaciones' },
   { href: '/dashboard/documentos', icon: Upload, label: 'Subir documento' },
   { href: '/dashboard/calendario', icon: Calendar, label: 'Ver calendario' },
-  { href: '/dashboard/alerts', icon: Bell, label: 'Configurar alertas' },
+  { href: '/dashboard/alerts', icon: Bell, label: 'Ajustar mis alertas' },
 ];
 
 export function QuickActions() {

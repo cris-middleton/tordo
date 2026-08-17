@@ -71,7 +71,7 @@ export default function BillingPage() {
   const cancelar = useCancelarSuscripcion();
   const errorDeCarga =
     consultaPlanes.error || consultaEstado.error
-      ? 'No se pudo cargar la información de facturación.'
+      ? 'No pudimos cargar tus datos de facturación. Vuelve a intentar en un momento.'
       : '';
 
 
@@ -89,7 +89,7 @@ export default function BillingPage() {
       });
       window.location.href = res.checkout_url;
     } catch {
-      setError('No se pudo iniciar el checkout.');
+      setError('No pudimos abrir el pago. Inténtalo de nuevo en un momento.');
       setCheckoutLoading(false);
     }
   };
@@ -100,7 +100,7 @@ export default function BillingPage() {
       const res = await apiClient.createBillingPortal();
       window.location.href = res.portal_url;
     } catch {
-      setError('No se pudo abrir el portal de facturación.');
+      setError('No pudimos abrir el portal de pagos. Inténtalo de nuevo en un momento.');
       setPortalLoading(false);
     }
   };
@@ -161,8 +161,8 @@ export default function BillingPage() {
         <div className="rounded-xl border border-danger/30 bg-danger/5 p-5">
           <p className="text-sm font-semibold text-text">¿Cancelar la suscripción?</p>
           <p className="mt-1 text-sm text-muted">
-            Conservas el plan Pro hasta el final del periodo que ya pagaste. Después la
-            empresa vuelve al plan Free y no se te vuelve a cobrar.
+            Sigues con Pro hasta que termine el mes que ya pagaste. Después la empresa vuelve
+            al plan Free y no te cobramos de nuevo.
           </p>
           <div className="mt-4 flex gap-2">
             <button
@@ -194,14 +194,14 @@ export default function BillingPage() {
       {(error || errorDeCarga) && (
         <div className="flex items-center gap-2 rounded-lg border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
           <AlertTriangle size={16} />
-          {error}
+          {error || errorDeCarga}
         </div>
       )}
 
       {!billingStatus?.billing_enabled && (
         <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-3 text-sm text-muted">
           <Lock size={16} />
-          El módulo de facturación está deshabilitado en este entorno.
+          Los pagos están desactivados por ahora. Escríbenos a hola@tordo.cl y lo vemos.
         </div>
       )}
 
@@ -223,7 +223,7 @@ export default function BillingPage() {
               ))}
             </ul>
             <div className="mt-6 rounded-lg border border-dashed border-border px-3 py-2 text-center text-xs text-subtle">
-              Plan actual si no activas Pro
+              Aquí queda tu cuenta si no activas Pro
             </div>
           </div>
         )}
@@ -236,7 +236,7 @@ export default function BillingPage() {
           <div className="dark relative flex flex-col rounded-xl border border-brand-navy bg-brand-navy p-6 text-white shadow-xl">
             <div className="absolute -top-3 left-1/2 -translate-x-1/2">
               <span className="inline-flex items-center gap-1 rounded-full bg-gold px-3 py-1 text-[11px] font-bold text-onGold">
-                <Star size={10} /> Más elegido
+                <Star size={10} /> Todo incluido
               </span>
             </div>
 
@@ -299,7 +299,7 @@ export default function BillingPage() {
       </div>
 
       <p className="text-center text-xs text-subtle">
-        Precios en CLP. Puedes cancelar cuando quieras desde esta pantalla.
+        Precios en CLP, sin contrato. Cancelas desde aquí mismo cuando quieras.
       </p>
     </div>
   );

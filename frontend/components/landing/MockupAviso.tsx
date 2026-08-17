@@ -15,10 +15,15 @@
  * esto tiene que cambiar con él.
  */
 
+// Las tres frases son, literalmente, las que arma `correo_render.lineas_de_bi`.
+// La tercera decía «Paga a 32 días en promedio» y ese envío ya no existe: se
+// retiró del correo porque ChileCompra no publica fecha de pago, y el campo que
+// la alimentaba medía lo que tarda el proveedor en ACEPTAR la orden (mediana
+// real 1,4 días). La línea que hoy va en su lugar es la tasa de adjudicación.
 const LINEAS_BI = [
   'Este comprador paga entre $2.400.000 y $3.900.000 por esto',
   '3 proveedores habituales en este comprador',
-  'Paga a 32 días en promedio',
+  'Declara desierto el 22% de lo que llama',
 ];
 
 export function MockupAviso() {

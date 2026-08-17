@@ -31,14 +31,17 @@ const RUBRO_KEYWORDS: Record<string, string[]> = {
 
 const RUBROS = Object.keys(RUBRO_KEYWORDS);
 
-type Step = 1 | 2 | 3;
+type Step = 1 | 2;
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
 
 // ─── Progress bar ──────────────────────────────────────────────────────
 
-const STEP_LABELS = ['Tu empresa', 'Tu alerta', 'Listo'];
+// Dos tramos, no tres. El tercero («Listo») correspondía a un paso inalcanzable
+// y quedaba siempre vacío: una barra de progreso que nunca se llena le dice al
+// usuario que dejó algo a medias justo cuando terminó.
+const STEP_LABELS = ['Tu empresa', 'Qué vendes'];
 
 // Definido FUERA del componente a propósito. Estaba dentro, así que cada render
 // creaba un tipo de componente nuevo: React lo desmontaba y lo volvía a montar,
@@ -101,7 +104,7 @@ export default function OnboardingPage() {
   if (authLoading || !user) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-sm text-muted animate-pulse">Cargando...</p>
+        <p className="text-sm text-muted animate-pulse">Cargando…</p>
       </div>
     );
   }
@@ -132,7 +135,7 @@ export default function OnboardingPage() {
 
   const handleStep1 = async () => {
     if (!rut.trim() || !nombreEmpresa.trim()) {
-      setError('RUT y nombre de empresa son obligatorios.');
+      setError('Nos faltan el RUT y el nombre de tu empresa.');
       return;
     }
     setError('');
@@ -149,11 +152,11 @@ export default function OnboardingPage() {
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
       if (typeof detail === 'string' && detail.includes('ya está registrada')) {
-        setError('Esta empresa ya está registrada.');
+        setError('Esa empresa ya tiene cuenta. Si es tuya, pide que te inviten desde Mi empresa.');
       } else if (typeof detail === 'string' && detail.includes('RUT inválido')) {
-        setError('El RUT ingresado no es válido.');
+        setError('Ese RUT no cuadra. Revisa el dígito verificador.');
       } else {
-        setError(detail || 'Error al registrar la empresa.');
+        setError(detail || 'No pudimos guardar la empresa. Inténtalo de nuevo en un momento.');
       }
     } finally {
       setLoading(false);
@@ -172,6 +175,31 @@ export default function OnboardingPage() {
       // Save rubros if selected
       if (empresaId && selectedRubros.length > 0) {
         await apiClient.updateEmpresa(empresaId, { rubros_cpv: selectedRubros }).catch(() => {});
+      }
+
+      // **El mismo texto alimenta las dos cosas, y esto faltaba.** Antes esta
+      // pantalla sólo creaba la alerta: el perfil semántico —que es lo que
+      // decide el encaje— se quedaba vacío hasta que alguien encontrara
+      // «Perfil de búsqueda» dentro de Mi empresa. Casi nadie llega ahí, así
+      // que «Oportunidades para ti» nacía vacío justo el día en que el usuario
+      // decide si esto le sirve.
+      //
+      // Va en el mismo gesto en vez de en un campo aparte porque el onboarding
+      // se abandona por cada campo que se añade. El backend le da a la
+      // descripción el DOBLE de peso que a los rubros al construir el vector
+      // (`app/api/bi.py::update_tfidf_perfil`), así que el texto que la persona
+      // escribe manda sobre las etiquetas que marcó.
+      //
+      // Best-effort a propósito: el endpoint exige la feature flag de TF-IDF y
+      // devuelve 503 si está apagada. Que el perfil no se guarde no puede
+      // impedir terminar el registro.
+      if (empresaId) {
+        await apiClient
+          .updateTFIDFPerfil(empresaId, {
+            descripcion: alertKeywords.trim(),
+            rubros_usados: selectedRubros,
+          })
+          .catch(() => {});
       }
 
       await apiClient.createAlertPreference({
@@ -218,16 +246,17 @@ export default function OnboardingPage() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-lg">
         {/* Header */}
+        {/* `!Todo listo!` llevaba el signo de apertura al revés: es el error de
+            ortografía que más se nota en español, y salía en la pantalla que
+            cierra el registro. */}
         <div className="text-center mb-2">
           <h1 className="text-2xl sm:text-3xl font-bold text-text">
-            {step === 1 && 'Configura tu cuenta'}
-            {step === 2 && 'Recibe oportunidades'}
-            {step === 3 && '!Todo listo!'}
+            {step === 1 && 'Empecemos por tu empresa'}
+            {step === 2 && '¿Qué vendes?'}
           </h1>
           <p className="mt-1 text-muted text-sm">
-            {step === 1 && 'Registra tu empresa para empezar.'}
-            {step === 2 && 'Crea una alerta y encuentra licitaciones para ti.'}
-            {step === 3 && 'Tu cuenta está lista para usar.'}
+            {step === 1 && 'Con el RUT revisamos tu estado hábil y activamos tus 14 días de Pro.'}
+            {step === 2 && 'Con esto sabemos qué buscarte. Lo puedes cambiar cuando quieras.'}
           </p>
         </div>
 
@@ -249,7 +278,8 @@ export default function OnboardingPage() {
                   <Building2 className="h-5 w-5 text-primary" />
                 </div>
                 <p className="text-sm text-muted">
-                  Con tu RUT verificamos tu estado hábil en ChileCompra automáticamente.
+                  Lo consultamos contra ChileCompra y lo volvemos a revisar cada 6 horas. Si
+                  quedas inhábil, te avisamos el mismo día.
                 </p>
               </div>
 
@@ -295,10 +325,15 @@ export default function OnboardingPage() {
                 )}
               </button>
 
+              {/* La salida decía sólo «Ir al dashboard», sin decir qué se
+                  pierde el que la toma. Sin empresa cargada no hay estado
+                  hábil, no hay alertas y no arranca el trial: el panel se ve
+                  vacío y parece que el producto no funciona. */}
               <p className="text-center text-xs text-muted">
                 <button onClick={() => router.push('/dashboard')} className="text-primary hover:underline">
-                  Ir al dashboard
-                </button>
+                  Lo hago después
+                </button>{' '}
+                — hasta entonces el panel se va a ver vacío
               </p>
             </div>
           )}
@@ -311,7 +346,7 @@ export default function OnboardingPage() {
                   {/* Rubro chips — optional, suggest keywords */}
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-text">
-                      Selecciona tus rubros <span className="text-muted font-normal">(opcional)</span>
+                      ¿En qué andas? <span className="text-muted font-normal">(opcional)</span>
                     </label>
                     <div className="flex flex-wrap gap-1.5">
                       {RUBROS.map((rubro) => {
@@ -338,16 +373,26 @@ export default function OnboardingPage() {
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-text flex items-center gap-1.5">
                       <Bell className="h-3.5 w-3.5 text-primary" />
-                      Palabras clave para tu alerta
+                      Descríbelo con tus palabras
                     </label>
+                    {/* Tres filas, no dos: el alto de la caja es lo que le dice
+                        a la persona cuánto se espera que escriba, y este texto
+                        hace dos trabajos — arma la alerta y es el perfil con el
+                        que calculamos el encaje. Cuanto más escriba, mejor
+                        buscamos. */}
                     <textarea
                       className="input-field resize-none"
-                      rows={2}
-                      placeholder="ej: aseo, limpieza de edificios, mantención"
+                      rows={3}
+                      maxLength={2000}
+                      placeholder="aseo industrial, limpieza de edificios, sanitización de recintos de salud"
                       value={alertKeywords}
                       onChange={(e) => setAlertKeywords(e.target.value)}
                     />
-                    <p className="text-xs text-muted">Separa con comas. Recibirás alertas cuando aparezcan licitaciones con estas palabras.</p>
+                    <p className="text-xs text-muted">
+                      Como se lo dirías a alguien por teléfono, separado por comas. Mientras más
+                      nos cuentes, mejor te buscamos — y no hace falta que uses los términos del
+                      portal.
+                    </p>
                   </div>
 
                   {/* Live preview */}
@@ -355,7 +400,7 @@ export default function OnboardingPage() {
                     <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-2">
                       <p className="text-xs font-medium text-primary flex items-center gap-1.5">
                         <Sparkles className="h-3.5 w-3.5" />
-                        Vista previa de tu alerta
+                        Vamos a buscarte esto
                       </p>
                       <div className="flex flex-wrap gap-1.5">
                         {keywordList.map((kw, i) => (
@@ -365,7 +410,7 @@ export default function OnboardingPage() {
                         ))}
                       </div>
                       <p className="text-[11px] text-muted">
-                        Te notificaremos por email cuando aparezcan licitaciones con {keywordList.length === 1 ? 'esta palabra' : 'estas palabras'}.
+                        Te escribimos apenas salga algo con {keywordList.length === 1 ? 'esta palabra' : 'estas palabras'}. Revisamos cada hora.
                       </p>
                     </div>
                   )}
@@ -380,7 +425,7 @@ export default function OnboardingPage() {
                     ) : (
                       <>
                         <Bell className="h-4 w-4" />
-                        Crear alerta
+                        Empezar a buscar
                       </>
                     )}
                   </button>
@@ -393,7 +438,7 @@ export default function OnboardingPage() {
                       onClick={() => { setAlertCreated(true); }}
                       className="flex-1 text-center text-xs text-muted hover:text-primary transition-colors py-2"
                     >
-                      Omitir por ahora
+                      Lo hago después
                     </button>
                   </div>
                 </>
@@ -403,11 +448,43 @@ export default function OnboardingPage() {
                   <div className="flex items-center gap-3 rounded-xl border border-accent/30 bg-accentLight p-4">
                     <CheckCircle2 className="h-8 w-8 text-accent shrink-0" />
                     <div>
-                      <p className="font-semibold text-text">Alerta creada</p>
+                      <p className="font-semibold text-text">Listo, ya estamos buscando</p>
                       <p className="text-sm text-muted">
-                        Recibirás notificaciones cuando aparezcan licitaciones relevantes para ti.
+                        El primer correo te llega en cuanto aparezca algo que calce. Puedes
+                        afinar las palabras después, en Alertas.
                       </p>
                     </div>
+                  </div>
+
+                  {/* Estas tres tarjetas estaban en un tercer paso al que NO
+                      se podía llegar: `setStep(3)` no se llamaba desde ningún
+                      sitio, así que el usuario veía siempre una barra de
+                      progreso de tres tramos con el último vacío.
+
+                      Y el paso muerto escondía un bug: su botón hacía
+                      `router.push('/dashboard')` sin marcar
+                      `onboarding_completed`, y el layout del panel devuelve a
+                      /onboarding a quien lo tenga en `false`. De haberse podido
+                      llegar, habría dejado al usuario dando vueltas. Se
+                      recuperan aquí, que es donde el usuario sí llega. */}
+                  <div className="grid grid-cols-1 gap-2.5 text-left">
+                    {[
+                      { title: 'Mira qué hay abierto', desc: 'Filtra por región, monto y mecanismo', href: '/dashboard/tenders' },
+                      { title: 'Consulta un precio', desc: 'Cuánto ha pagado ese comprador por lo que vendes', href: '/dashboard/bi' },
+                      { title: 'Arma tu primera postulación', desc: 'Con el checklist de documentos que te van a pedir', href: '/dashboard/postulaciones' },
+                    ].map(({ title, desc, href }) => (
+                      <a
+                        key={href}
+                        href={href}
+                        className="flex items-center gap-3 border border-border rounded-xl p-3.5 hover:border-primary/30 hover:bg-primary/5 transition-colors"
+                      >
+                        <ChevronRight className="h-4 w-4 text-primary shrink-0" />
+                        <div>
+                          <p className="font-medium text-sm text-text">{title}</p>
+                          <p className="text-xs text-muted">{desc}</p>
+                        </div>
+                      </a>
+                    ))}
                   </div>
 
                   <button
@@ -419,52 +496,12 @@ export default function OnboardingPage() {
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <>
-                        Ir al dashboard <ChevronRight className="h-4 w-4" />
+                        Ir a mi panel <ChevronRight className="h-4 w-4" />
                       </>
                     )}
                   </button>
                 </div>
               )}
-            </div>
-          )}
-
-          {/* ── Step 3: Done ─────────────────────────────────────────── */}
-          {step === 3 && (
-            <div className="text-center py-4">
-              <div className="w-14 h-14 bg-accent/15 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle2 className="w-7 h-7 text-accent" />
-              </div>
-              <h2 className="text-lg font-semibold text-text mb-1">
-                Bienvenido{user?.full_name ? `, ${user.full_name.split(' ')[0]}` : ''}
-              </h2>
-              <p className="text-muted text-sm mb-6">Tu cuenta está configurada.</p>
-
-              <div className="grid grid-cols-1 gap-2.5 text-left mb-6">
-                {[
-                  { title: 'Busca licitaciones', desc: 'Filtra por región, monto y estado', href: '/dashboard/tenders' },
-                  { title: 'Analiza precios', desc: 'Benchmarks históricos y competidores', href: '/dashboard/bi' },
-                  { title: 'Gestiona postulaciones', desc: 'Checklist automático por licitación', href: '/dashboard/postulaciones' },
-                ].map(({ title, desc, href }) => (
-                  <a
-                    key={href}
-                    href={href}
-                    className="flex items-center gap-3 border border-border rounded-xl p-3.5 hover:border-primary/30 hover:bg-primary/5 transition-colors"
-                  >
-                    <ChevronRight className="h-4 w-4 text-primary shrink-0" />
-                    <div>
-                      <p className="font-medium text-sm text-text">{title}</p>
-                      <p className="text-xs text-muted">{desc}</p>
-                    </div>
-                  </a>
-                ))}
-              </div>
-
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="btn-primary w-full py-3"
-              >
-                Ir al Dashboard
-              </button>
             </div>
           )}
         </div>

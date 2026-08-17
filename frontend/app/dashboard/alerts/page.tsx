@@ -87,7 +87,7 @@ export default function AlertsPage() {
   };
 
   const deleteAlert = async (id: number) => {
-    if (!confirm('¿Estás seguro de eliminar esta alerta?')) return;
+    if (!confirm('¿Borramos este aviso? No se puede recuperar.')) return;
     try {
       await apiClient.deleteAlert(id);
       loadAlerts();
@@ -121,7 +121,7 @@ export default function AlertsPage() {
   }
 
   async function handleSavePref() {
-    if (!formName.trim()) { setPrefError('El nombre es obligatorio'); return; }
+    if (!formName.trim()) { setPrefError('Ponle un nombre para reconocerla después.'); return; }
     setSaving(true); setPrefError(null);
     const payload: Record<string, unknown> = {
       name: formName.trim(),
@@ -137,16 +137,16 @@ export default function AlertsPage() {
       setShowModal(false); loadPreferences();
     } catch (err: unknown) {
       const error = err as { response?: { data?: { detail?: string } } };
-      setPrefError(error?.response?.data?.detail ?? 'Error al guardar preferencia');
+      setPrefError(error?.response?.data?.detail ?? 'No pudimos guardar la alerta. Inténtalo de nuevo.');
     } finally { setSaving(false); }
   }
 
   async function handleDeletePref(p: AlertPreference) {
-    if (!confirm(`¿Eliminar la preferencia "${p.name}"?`)) return;
+    if (!confirm(`¿Borramos la alerta "${p.name}"? Dejaremos de avisarte de eso.`)) return;
     try { await apiClient.deleteAlertPreference(p.id); loadPreferences(); }
     catch (err: unknown) {
       const error = err as { response?: { data?: { detail?: string } } };
-      alert(error?.response?.data?.detail ?? 'Error al eliminar');
+      alert(error?.response?.data?.detail ?? 'No pudimos borrarla. Inténtalo de nuevo.');
     }
   }
 
@@ -167,7 +167,7 @@ export default function AlertsPage() {
           className="btn-primary flex w-full items-center justify-center gap-2 sm:w-auto"
         >
           <Plus className="w-4 h-4" />
-          Gestionar Preferencias
+          Mis alertas
         </button>
       </div>
 
@@ -213,9 +213,9 @@ export default function AlertsPage() {
       {showPrefs && (
         <div className="card">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-text">Preferencias de Alertas</h2>
+            <h2 className="text-lg font-semibold text-text">Qué te avisamos</h2>
             <button onClick={openCreate} className="btn-primary flex items-center gap-2 text-sm">
-              <Plus className="h-4 w-4" /> Nueva preferencia
+              <Plus className="h-4 w-4" /> Nueva alerta
             </button>
           </div>
           {prefsLoading ? (
@@ -224,7 +224,7 @@ export default function AlertsPage() {
             </div>
           ) : preferences.length === 0 ? (
             <p className="py-8 text-center text-muted">
-              No hay preferencias configuradas. Crea una nueva preferencia para recibir alertas.
+              Todavía no nos has dicho qué buscar. Crea una alerta y te escribimos cuando aparezca.
             </p>
           ) : (
             <div className="space-y-3">
@@ -305,7 +305,7 @@ export default function AlertsPage() {
           <div className="w-full max-w-lg rounded-xl bg-surface-elevated border border-borderLight p-4 sm:p-6 shadow-card-lg">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-text">
-                {editingPref ? 'Editar preferencia' : 'Nueva preferencia'}
+                {editingPref ? 'Editar alerta' : 'Nueva alerta'}
               </h2>
               <button onClick={() => setShowModal(false)} className="text-muted hover:text-text">
                 <X className="h-5 w-5" />
@@ -437,7 +437,7 @@ export default function AlertsPage() {
                 className="btn-primary flex items-center gap-2 text-sm disabled:opacity-50"
               >
                 {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-                {editingPref ? 'Guardar cambios' : 'Crear preferencia'}
+                {editingPref ? 'Guardar cambios' : 'Crear alerta'}
               </button>
             </div>
           </div>

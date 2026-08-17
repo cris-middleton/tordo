@@ -51,14 +51,18 @@ export function PlanGate({ children, locked, label, preview, placeholder }: Plan
                 `/billing/plans` vende exactamente dos, «Free» y «Pro»; «PYME»
                 existe en la tabla de cuotas y no en el catálogo, así que este
                 cartel mandaba a la página de planes a buscar algo que no está. */}
-            {label || 'Disponible en plan Pro'}
+            {label || 'Esto lo ves con Pro'}
           </p>
+          {/* `Candado` y `PlanGate` tapan lo mismo y decían cosas distintas:
+              uno ofrecía «Probar Pro 14 días gratis» y el otro «Ver planes»,
+              que es una invitación a comparar tablas en vez de a probar. Se
+              alinean con la del candado, que es la que nombra el trial. */}
           <p className="text-xs text-muted mt-0.5">
-            Actualiza tu plan para ver el detalle completo
+            Los primeros 14 días van incluidos y no pedimos tarjeta
           </p>
         </div>
         <Link href="/dashboard/billing" className="btn-primary text-sm shrink-0">
-          Ver planes
+          Probar Pro
         </Link>
       </div>
     </section>

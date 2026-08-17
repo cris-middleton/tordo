@@ -48,7 +48,8 @@ async def register(
     existing_user = await repo.existe_email_o_username(db, user_data.email, user_data.username)
     if existing_user:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Email or username already registered"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Ese correo o ese usuario ya están tomados. Prueba con otro.",
         )
 
     db_user = User(
@@ -71,16 +72,24 @@ async def register(
 
 @router.post("/login", response_model=Token)
 async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
-    user = await repo.buscar_por_username(db, credentials.username)
+    # Entra con el usuario O con el correo. El campo sigue llamándose
+    # `username` en el cuerpo para no romper a los clientes ya escritos; lo que
+    # cambia es que su contenido se interpreta. El nombre de usuario se elige al
+    # registrarse y se olvida a la semana — el correo no.
+    user = await repo.buscar_por_identificador(db, credentials.username)
     if not user or not verify_password(credentials.password, user.hashed_password):
+        # Un solo mensaje para «no existe» y «contraseña mala», a propósito:
+        # distinguirlos regala un verificador de cuentas, igual que en la
+        # recuperación de contraseña.
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Usuario o contraseña incorrectos.",
             headers={"WWW-Authenticate": "Bearer"},
         )
     if not user.is_active:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Esta cuenta está desactivada. Escríbenos a hola@tordo.cl.",
         )
 
     user.last_login = datetime.now(UTC)

@@ -21,11 +21,11 @@ export function UrgencyZone({ items, empresaPresent }: Props) {
       <div className="card">
         <h2 className="section-title mb-3">Para hoy</h2>
         <div className="text-center py-6 text-sm text-muted space-y-2">
-          <p>Todavía no hay actividad. Empecemos:</p>
+          <p>Aún no hay nada tuyo cargado. Partamos por acá:</p>
           <div className="flex flex-col gap-1 text-primary text-sm">
-            <Link href="/onboarding" className="hover:underline">→ Completa tu perfil</Link>
-            <Link href="/dashboard/documentos" className="hover:underline">→ Sube documentos clave</Link>
-            <Link href="/dashboard/alerts" className="hover:underline">→ Configura una preferencia de alerta</Link>
+            <Link href="/onboarding" className="hover:underline">→ Registra tu empresa</Link>
+            <Link href="/dashboard/documentos" className="hover:underline">→ Sube los documentos que te van a pedir</Link>
+            <Link href="/dashboard/alerts" className="hover:underline">→ Dinos qué vendes para avisarte</Link>
           </div>
         </div>
       </div>
@@ -39,10 +39,10 @@ export function UrgencyZone({ items, empresaPresent }: Props) {
         <div className="flex items-start gap-3 py-2">
           <CheckCircle2 size={20} className="text-accent shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-medium text-text">Estás al día. Ningún plazo en las próximas 72h.</p>
-            <p className="text-xs text-muted mt-1">Tu estado es hábil y no hay documentos próximos a vencer.</p>
+            <p className="text-sm font-medium text-text">Estás al día: nada cierra en las próximas 72 horas.</p>
+            <p className="text-xs text-muted mt-1">Tu empresa está hábil y no se te vence ningún documento.</p>
             <Link href="/dashboard/postulaciones" className="text-xs text-primary hover:underline mt-2 inline-block">
-              Revisar pipeline →
+              Ver mis postulaciones →
             </Link>
           </div>
         </div>

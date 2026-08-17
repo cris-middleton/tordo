@@ -28,7 +28,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const mensajeDeRegistro =
     searchParams.get('registered') === 'true'
-      ? 'Cuenta creada exitosamente. Por favor inicia sesión.'
+      ? 'Cuenta creada. Entra y terminamos de configurarla.'
       : '';
   const mensajeDeRestablecida =
     searchParams.get('restablecida') === '1'
@@ -54,7 +54,8 @@ function LoginForm() {
       await login(username, password);
       router.push('/dashboard');
     } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || err.message || 'Error al iniciar sesión';
+      const errorMessage =
+        err.response?.data?.detail || err.message || 'No pudimos entrar. Revisa tus datos y vuelve a intentar.';
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -92,21 +93,32 @@ function LoginForm() {
             <span className="font-brand text-2xl font-bold text-white tracking-tight">TORDO</span>
           </div>
 
+          {/* Este panel prometía «Gana más licitaciones» —que no depende de
+              nosotros— y lo explicaba con las palabras del documento de
+              arquitectura: «inteligencia pre-postulación», «compliance
+              operativo», «benchmarks». Nadie que venda aseo hospitalario habla
+              así.
+
+              Y es una pantalla de VUELTA: quien la ve ya se convenció. No hay
+              que re-venderle el producto, hay que darle una razón para entrar
+              hoy. Por eso el panel cuenta lo que pasó mientras no estaba, que
+              además es cierto: el ETL corre cada hora y el estado hábil cada
+              seis. */}
           <h1 className="font-display text-4xl xl:text-5xl font-bold text-white leading-[1.15] mb-5">
-            Gana más licitaciones.<br />
-            <span className="text-accent">Sin sorpresas.</span>
+            Mientras no estabas,<br />
+            <span className="text-accent">seguimos mirando.</span>
           </h1>
           <p className="text-white/65 text-base leading-relaxed max-w-xs">
-            Inteligencia pre-postulación y compliance operativo para PYMES proveedoras del Estado en Chile.
+            Revisamos Mercado Público cada hora. Entra y mira qué salió.
           </p>
         </div>
 
         {/* Feature pills */}
         <div className="relative z-10 space-y-2.5">
           {[
-            { Icon: BarChart2, text: 'Benchmarks de precios con análisis profundo por transacción' },
-            { Icon: FileCheck, text: 'Checklist guiado de documentos por tipo de licitación' },
-            { Icon: ShieldAlert, text: 'Monitor de estado hábil y alertas de plazos críticos' },
+            { Icon: BarChart2, text: 'Lo que se publicó desde la última vez que entraste' },
+            { Icon: FileCheck, text: 'Los cierres que tienes encima esta semana' },
+            { Icon: ShieldAlert, text: 'Si tu empresa sigue hábil, y qué documentos se te vencen' },
           ].map(({ Icon, text }) => (
             <div key={text} className="flex items-start gap-3 rounded-xl bg-white/[0.06] border border-white/[0.08] px-4 py-3">
               <Icon className="h-4 w-4 text-accent shrink-0 mt-0.5" />
@@ -136,8 +148,11 @@ function LoginForm() {
             <span className="font-brand text-xl font-bold text-primary">TORDO</span>
           </div>
 
-          <h2 className="font-display text-2xl font-bold text-text mb-1">Bienvenido de vuelta</h2>
-          <p className="text-sm text-muted mb-7">Ingresa tus credenciales para continuar</p>
+          {/* «Bienvenido» está en masculino y a media clientela le llega mal.
+              «Hola de nuevo» no tiene género y suena a persona. Y «credenciales»
+              es una palabra que nadie usa fuera de un manual de sistemas. */}
+          <h2 className="font-display text-2xl font-bold text-text mb-1">Hola de nuevo</h2>
+          <p className="text-sm text-muted mb-7">Entra con tu usuario o con tu correo, el que recuerdes.</p>
 
           {(success || mensajeDeRegistro || mensajeDeRestablecida) && (
             <div className="alert-success mb-5">
@@ -152,7 +167,12 @@ function LoginForm() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="username" className="label">Usuario</label>
+              {/* El backend acepta usuario o correo desde
+                  `repositories/usuarios.buscar_por_identificador`. El nombre
+                  de usuario se elige al registrarse y se olvida; el correo no.
+                  El campo del cuerpo sigue llamándose `username` para no
+                  romper clientes ya escritos. */}
+              <label htmlFor="username" className="label">Usuario o correo</label>
               <input
                 id="username"
                 type="text"
@@ -160,9 +180,9 @@ function LoginForm() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="input-field"
-                placeholder="Tu nombre de usuario"
+                placeholder="Cualquiera de los dos"
                 disabled={loading}
-                autoComplete="username"
+                autoComplete="username email"
               />
             </div>
 

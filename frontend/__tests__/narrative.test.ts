@@ -65,9 +65,36 @@ describe('buildNarrative', () => {
     const morning = buildNarrative({ data: baseResponse, firstName: 'X', now: new Date('2026-04-19T08:00:00-03:00') });
     const afternoon = buildNarrative({ data: baseResponse, firstName: 'X', now: new Date('2026-04-19T15:00:00-03:00') });
     const evening = buildNarrative({ data: baseResponse, firstName: 'X', now: new Date('2026-04-19T20:00:00-03:00') });
-    expect(morning[0].toLowerCase()).toMatch(/buenos días|buen día|hola|arrancando|empezamos|cómo va|bienvenido|listo/);
-    expect(afternoon[0].toLowerCase()).toMatch(/buenas tardes|hola|cómo vas|buen día|en la mitad|de vuelta|espero/);
-    expect(evening[0].toLowerCase()).toMatch(/buenas noches|cerrando|última pasada|hola|resumen/);
+    expect(morning[0].toLowerCase()).toMatch(/^(buenos días|buen día|hola|buenas),/);
+    expect(afternoon[0].toLowerCase()).toMatch(/^(buenas tardes|hola|buenas),/);
+    expect(evening[0].toLowerCase()).toMatch(/^(buenas noches|hola|buenas),/);
+  });
+
+  // Los pools sólo pueden contener SALUDOS, y esta es la prueba que no existía
+  // cuando se colaron «Resumen de cierre» y «Última pasada del día»: la
+  // plantilla es `${saludo}, ${nombre}.`, así que cualquier frase que no sea un
+  // saludo sale como «Resumen de cierre, Ana.».
+  it('greets without gendering the user and without asking a question', () => {
+    for (const hora of ['08:00', '15:00', '20:00']) {
+      const [saludo] = buildNarrative({
+        data: baseResponse,
+        firstName: 'Ana',
+        now: new Date(`2026-04-19T${hora}:00-03:00`),
+      });
+      expect(saludo).toBe(saludo.replace(/bienvenid[oa]/i, '¡GÉNERO!'));
+      expect(saludo).not.toMatch(/cómo (vas|va)/i);
+      expect(saludo).toMatch(/, Ana\.$/);
+    }
+  });
+
+  it('drops the name instead of saying "hola" twice when there is none', () => {
+    const [saludo] = buildNarrative({
+      data: baseResponse,
+      firstName: '',
+      now: new Date('2026-04-19T08:00:00-03:00'),
+    });
+    expect(saludo).not.toMatch(/,/);
+    expect(saludo).toMatch(/\.$/);
   });
 
   it('produces stable output for the same date but rotates across days', () => {

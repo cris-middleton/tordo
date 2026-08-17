@@ -13,10 +13,18 @@ interface QuotaDetail {
   upgrade_sugerido: string | null;
 }
 
+/* Sólo se venden dos planes: Free y Pro. `pyme` y `enterprise` existen en
+   `PLAN_QUOTAS` y NO en `/api/v1/billing/plans`, así que si el backend sugiere
+   uno de ellos —y puede— este banner ofrecía «Ver plan PYME» y mandaba a una
+   página de precios donde ese plan no aparece. `PlanGate` ya se había corregido
+   por esto mismo; el banner se quedó atrás.
+
+   Cualquier sugerencia que no sea comprable se enseña como Pro, que es a lo que
+   la persona puede subir de verdad. */
 const TIER_LABEL: Record<string, string> = {
-  pyme: 'PYME',
+  pyme: 'Pro',
   pro: 'Pro',
-  enterprise: 'Enterprise',
+  enterprise: 'Pro',
 };
 
 export default function PlanUpgradeBanner() {
@@ -37,8 +45,11 @@ export default function PlanUpgradeBanner() {
 
   if (!detail) return null;
 
+  // El respaldo era el identificador crudo del tier, así que un valor
+  // inesperado salía en pantalla como «Ver plan basico», en minúscula y sin
+  // tilde. Si no lo reconocemos, Pro es la respuesta correcta igual.
   const upgradeLabel = detail.upgrade_sugerido
-    ? TIER_LABEL[detail.upgrade_sugerido] ?? detail.upgrade_sugerido
+    ? TIER_LABEL[detail.upgrade_sugerido] ?? 'Pro'
     : null;
 
   return (
