@@ -46,7 +46,6 @@ PLANS: list[Plan] = [
             "Explora licitaciones, Compra Ágil y Convenio Marco",
             "3 consultas de precio al día",
             "5 alertas activas",
-            "Monitor de estado hábil",
             "1 usuario · sin tarjeta de crédito",
         ],
         max_usuarios=get_quota("basico")["max_usuarios"],

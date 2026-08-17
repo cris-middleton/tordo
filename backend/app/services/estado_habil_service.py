@@ -1,14 +1,35 @@
-"""
-Estado hábil checker.
+"""Estado hábil de un proveedor en ChileCompra.
 
-Downloads the proveedores hábiles CSV from ChileCompra's open-data portal,
-looks up each registered empresa by RUT, and records any state changes.
+Qué pasó con la fuente
+----------------------
+Este módulo descargaba un CSV masivo de proveedores hábiles desde el portal de
+datos abiertos. **Ese CSV no existe**, y `ESTADO_HABIL_CSV_URL` no tenía valor
+por defecto, así que el job devolvía `{"skipped": True}` en cada corrida desde el
+primer día. Un skip no es un error: no llega a Sentry, no rompe ningún test, y
+deja el panel diciendo `desconocido` indefinidamente.
+
+La segunda fuente que se dio por validada —el endpoint por RUT de
+`datos-abiertos.chilecompra.cl`— **tampoco es una API**: devuelve el HTML de un
+SPA y responde 200 igual para un RUT real que para uno inventado, así que no
+distingue nada.
+
+La fuente real es `BuscarProveedor` de la API clásica de Mercado Público, que
+exige `MERCADO_PUBLICO_TICKET`. Mientras esa variable esté vacía, `consultar_rut`
+**levanta `FuenteNoConfigurada`**: no adivina, no devuelve `no_encontrado`, y no
+se salta en silencio. Preferir un fallo ruidoso a un `desconocido` mudo es la
+lección entera de este módulo.
+
+**El parseo de la respuesta es provisional.** Está escrito contra la forma
+documentada y NUNCA se ha ejecutado contra la API real, porque no hay ticket con
+el que probar. Por eso `_estado_de_respuesta` lanza en vez de suponer cuando no
+reconoce lo que llega: un parseo que se inventa un valor por defecto convertiría
+un contrato equivocado en un dato plausible y falso. Lo primero que hay que hacer
+con un ticket de verdad es correr una consulta y contrastar (ver
+`docs/deploy_steps/tareas_manuales.md` §1).
 """
 
 from __future__ import annotations
 
-import csv
-import io
 import logging
 from datetime import UTC, datetime
 
@@ -22,7 +43,17 @@ from app.services import notificaciones
 
 logger = logging.getLogger(__name__)
 
-MAX_FILE_BYTES = 50 * 1024 * 1024  # 50 MB safety cap
+API_MP = "https://api.mercadopublico.cl/servicios/v1/Publico/Empresas/BuscarProveedor"
+TIMEOUT = 20
+
+# El valor que trae MERCADO_PUBLICO_TICKET en `.env.example`. Si el ticket vivo
+# es EXACTAMENTE esto, es que alguien copió el marcador de posición y nunca lo
+# reemplazó — no es un ticket real, y hay que tratarlo igual que "vacío".
+# `tests/test_estado_habil_sin_fuente.py` compara este valor contra el
+# contenido real de `.env.example`, para que un cambio ahí no deje este
+# chequeo ciego en silencio (el mismo bug que esta tarea cerró, pero para el
+# ticket en vez del CSV).
+TICKET_PLACEHOLDER = "your-ticket-here"
 
 # Possible estado values stored in our DB
 ESTADO_HABIL = "habil"
@@ -31,72 +62,137 @@ ESTADO_NO_ENCONTRADO = "no_encontrado"
 ESTADO_DESCONOCIDO = "desconocido"
 
 
-def _normalize_rut(rut: str) -> str:
-    """Strip formatting: '12.345.678-9' → '12345678-9' → '123456789' (no hyphen)."""
-    return rut.upper().replace(".", "").replace("-", "").replace(" ", "")
+class FuenteNoConfigurada(Exception):
+    """No hay de dónde leer el estado hábil. Distinto de «la fuente falló»."""
 
 
-def _download_csv(url: str) -> list[dict]:
-    """Fetch the estado hábil CSV and return rows as list of dicts."""
-    resp = requests.get(url, timeout=60, stream=True)
-    resp.raise_for_status()
-
-    chunks: list[bytes] = []
-    total = 0
-    for chunk in resp.iter_content(chunk_size=8192):
-        total += len(chunk)
-        if total > MAX_FILE_BYTES:
-            raise ValueError("Estado hábil CSV exceeds 50 MB safety limit")
-        chunks.append(chunk)
-
-    raw = b"".join(chunks)
-    # Try common encodings
-    for encoding in ("utf-8-sig", "latin-1", "cp1252"):
-        try:
-            text = raw.decode(encoding)
-            break
-        except UnicodeDecodeError:
-            continue
-    else:
-        text = raw.decode("latin-1", errors="replace")
-
-    reader = csv.DictReader(io.StringIO(text), delimiter=";")
-    return list(reader)
+class ErrorDeConsulta(Exception):
+    """La fuente existe y no respondió. **No** es lo mismo que 'inhábil'."""
 
 
-def _lookup_rut_in_rows(rows: list[dict], rut_normalizado: str) -> str:
+def _verificar_fuente_configurada() -> None:
+    """Lanza `FuenteNoConfigurada` si falta el ticket.
+
+    La llaman tanto `consultar_rut` (para no intentar la llamada HTTP) como
+    `run_estado_habil_check` (para que el job de las 6h falle aunque no haya
+    ninguna empresa activa que recorrer: con la base vacía, un chequeo escondido
+    dentro del loop no se ejecutaría nunca, y eso es exactamente el tipo de
+    fallo silencioso que este módulo existe para evitar).
     """
-    Search for the empresa RUT in CSV rows.
+    ticket = settings.mercado_publico_ticket
+    if not ticket:
+        raise FuenteNoConfigurada(
+            "Falta MERCADO_PUBLICO_TICKET: sin él no hay forma de consultar el "
+            "estado hábil. Se solicita en mercadopublico.cl → Portal de APIs."
+        )
+    if ticket == TICKET_PLACEHOLDER:
+        raise FuenteNoConfigurada(
+            f"MERCADO_PUBLICO_TICKET tiene el valor de ejemplo de .env.example "
+            f"('{TICKET_PLACEHOLDER}'), no un ticket real — nadie lo reemplazó "
+            "todavía. Se solicita en mercadopublico.cl → Portal de APIs."
+        )
 
-    The ChileCompra CSV has column names that vary; we try common patterns.
-    Returns 'habil', 'inhabil', or 'no_encontrado'.
+
+def _formatear_rut(rut: str) -> str:
+    """Normaliza el RUT al formato que usa ChileCompra en sus APIs: sin puntos,
+    con guión ('12345678-9'). Misma convención documentada en
+    `services/bi/competencia._normalize_rut`, la única parte del sistema que ya
+    contrastó el formato contra datos reales de ChileCompra."""
+    cleaned = rut.upper().replace(".", "").replace(" ", "")
+    if "-" not in cleaned and len(cleaned) > 1:
+        cleaned = f"{cleaned[:-1]}-{cleaned[-1]}"
+    return cleaned
+
+
+def _estado_de_respuesta(data: dict) -> str:
+    """Interpreta la respuesta de BuscarProveedor.
+
+    **Provisional.** Escrita contra la forma documentada de la API clásica de
+    Mercado Público —el mismo patrón que `BuscarLicitaciones`/`BuscarOrdenes`:
+    un objeto con un `Listado` y un registro por resultado (ver
+    `etl/extractors/mercado_publico_licitaciones.py`)— y nunca ejecutada contra
+    la API real, porque no hay ticket con el que probar. Cualquier forma que no
+    reconoce levanta `ErrorDeConsulta` en vez de adivinar un estado: devolver
+    'inhabil' ante una forma inesperada dispararía una alerta falsa a toda la
+    empresa.
+
+    **Decisión explícita sobre `Listado` vacío**: aunque es una instancia bien
+    formada de la forma documentada —y otros endpoints de Mercado Público sí
+    usan "lista vacía" para "sin resultados"— acá se trata igual que una forma
+    no reconocida, y levanta `ErrorDeConsulta` en vez de `ESTADO_NO_ENCONTRADO`.
+    No es un olvido: es la misma asimetría de costos que el resto del módulo.
+    `_create_estado_habil_alert` dispara ante CUALQUIER cambio de estado, así
+    que adivinar mal acá manda "ya no encontramos tu empresa en el registro" a
+    toda la empresa por error; equivocarse en la otra dirección cuesta una
+    línea más en `docs/deploy_steps/tareas_manuales.md` §1 el día que llegue un
+    ticket real y se pueda confirmar qué significa de verdad un `Listado` vacío.
     """
-    rut_cols = {"rut", "rut_proveedor", "rutproveedor", "rut empresa"}
-    estado_cols = {"estado", "estadohabil", "estado_habil", "habilitado"}
+    listado = data.get("Listado") if isinstance(data, dict) else None
+    if not isinstance(listado, list):
+        raise ErrorDeConsulta(f"Respuesta de {API_MP} sin 'Listado' reconocible: {data!r}")
 
-    for row in rows:
-        # Find RUT column (case-insensitive)
-        rut_val = None
-        for key in row:
-            if key.lower().strip() in rut_cols:
-                rut_val = _normalize_rut(str(row[key]))
-                break
+    if not listado:
+        raise ErrorDeConsulta(
+            f"{API_MP} devolvió 'Listado' vacío: forma válida en teoría, pero sin "
+            "confirmar contra la API real si significa 'proveedor no existe' o "
+            "algo distinto (RUT malformado, cuota agotada, etc.) — ver docstring."
+        )
 
-        if rut_val != rut_normalizado:
-            continue
+    proveedor = listado[0]
+    estado = proveedor.get("Estado") if isinstance(proveedor, dict) else None
+    if not isinstance(estado, str) or not estado.strip():
+        raise ErrorDeConsulta(
+            f"Respuesta de {API_MP} sin campo 'Estado' reconocible: {proveedor!r}"
+        )
 
-        # Found the RUT — now determine estado
-        for key in row:
-            if key.lower().strip() in estado_cols:
-                val = str(row[key]).lower().strip()
-                if val in ("1", "true", "si", "sí", "habilitado", "habil", "hábil"):
-                    return ESTADO_HABIL
-                return ESTADO_INHABIL
-
-        # RUT found but no estado column — assume hábil (listed = hábil)
+    estado_norm = estado.strip().lower()
+    if estado_norm in ("hábil", "habil", "activo", "vigente"):
         return ESTADO_HABIL
+    if estado_norm in ("inhábil", "inhabil", "inactivo", "suspendido"):
+        return ESTADO_INHABIL
+    raise ErrorDeConsulta(f"{API_MP} devolvió un Estado no reconocido: {estado!r}")
 
-    return ESTADO_NO_ENCONTRADO
+
+def consultar_rut(rut: str) -> str:
+    """Estado hábil de un RUT según el Registro de Proveedores.
+
+    Lanza `FuenteNoConfigurada` si falta el ticket y `ErrorDeConsulta` si la API
+    no responde o responde algo que no reconocemos. Devolver 'inhabil' ante un
+    fallo mandaría una alerta falsa a todo el equipo de la empresa.
+    """
+    _verificar_fuente_configurada()
+
+    try:
+        respuesta = requests.get(
+            API_MP,
+            params={
+                "rutempresaproveedor": _formatear_rut(rut),
+                "ticket": settings.mercado_publico_ticket,
+            },
+            timeout=TIMEOUT,
+        )
+    except requests.RequestException as exc:
+        raise ErrorDeConsulta(f"No se pudo consultar {API_MP}: {exc}") from exc
+
+    if respuesta.status_code == 203:
+        # Forma documentada en que esta API avisa un ticket inválido —
+        # comprobado en vivo, ver docs/deploy_steps/tareas_manuales.md §1. No
+        # es un 4xx, así que sin este chequeo pasaría el filtro de abajo y
+        # terminaría en el parseo como si fuera una respuesta cualquiera.
+        raise ErrorDeConsulta(
+            f"{API_MP} respondió 203 Ticket no válido: revisa MERCADO_PUBLICO_TICKET "
+            "(puede ser el placeholder de .env.example, o un ticket vencido/incorrecto)."
+        )
+
+    if respuesta.status_code >= 400:
+        raise ErrorDeConsulta(f"{API_MP} respondió {respuesta.status_code}")
+
+    try:
+        payload = respuesta.json()
+    except ValueError as exc:
+        raise ErrorDeConsulta(f"{API_MP} no devolvió JSON: {exc}") from exc
+
+    return _estado_de_respuesta(payload)
 
 
 def _titulo_para(empresa: Empresa) -> str:
@@ -187,31 +283,24 @@ def _create_estado_habil_alert(empresa: Empresa, db: Session) -> list[Alert]:
 
 def run_estado_habil_check(db: Session) -> dict:
     """
-    Main entry point for the periodic estado hábil check.
+    Main entry point for the periodic estado hábil check (every 6h).
+
+    Se detiene con `FuenteNoConfigurada` ANTES de tocar la base si falta el
+    ticket — incluso si no hay ninguna empresa activa que revisar. Un catálogo
+    vacío no puede disfrazar una fuente que falta: es exactamente el fallo
+    silencioso que este módulo existe para evitar.
 
     Returns a summary dict with counts.
     """
-    csv_url = settings.estado_habil_csv_url
-    if not csv_url:
-        logger.warning("ESTADO_HABIL_CSV_URL not configured — skipping check")
-        return {"skipped": True, "reason": "csv_url_not_configured"}
+    _verificar_fuente_configurada()
 
-    logger.info("Downloading estado hábil CSV from %s", csv_url)
-    try:
-        rows = _download_csv(csv_url)
-    except Exception as exc:
-        logger.error("Failed to download estado hábil CSV: %s", exc)
-        return {"error": str(exc), "checked": 0, "changed": 0}
-
-    logger.info("CSV has %d rows; checking registered empresas", len(rows))
     empresas = db.query(Empresa).filter(Empresa.activo.is_(True)).all()
 
     checked = 0
     changed = 0
     nuevas: list[Alert] = []
     for empresa in empresas:
-        rut_norm = _normalize_rut(empresa.rut_empresa)
-        new_state = _lookup_rut_in_rows(rows, rut_norm)
+        new_state = consultar_rut(empresa.rut_empresa)
         checked += 1
 
         if new_state == empresa.estado_habil:
@@ -232,7 +321,7 @@ def run_estado_habil_check(db: Session) -> dict:
             rut_empresa=empresa.rut_empresa,
             estado_anterior=old_state,
             estado_nuevo=new_state,
-            fuente="csv_datos_abiertos",
+            fuente="mercado_publico_buscarproveedor",
         )
         db.add(log_entry)
 
@@ -261,34 +350,31 @@ def check_empresa_now(empresa_id, db: Session) -> dict:
     """
     On-demand estado hábil check for a single empresa (used during onboarding).
 
-    Downloads the ChileCompra CSV, looks up the RUT, persists the result, and
-    returns immediately.  Returns {"estado_habil": ..., "checked": True/False}.
-    If the CSV is unavailable the current DB value is returned unchanged.
+    A diferencia del job periódico, aquí sí conviene degradar con gracia: es una
+    empresa consultando su propio estado por un botón, con un humano mirando la
+    respuesta — no una corrida de fondo que nadie lee. Si falta el ticket o la
+    consulta falla, se informa el motivo y se conserva el valor que ya había.
     """
     empresa = db.query(Empresa).filter(Empresa.id == empresa_id).first()
     if not empresa:
         return {"estado_habil": ESTADO_DESCONOCIDO, "error": "empresa_not_found"}
 
-    csv_url = settings.estado_habil_csv_url
-    if not csv_url:
-        return {
-            "estado_habil": empresa.estado_habil,
-            "checked": False,
-            "motivo": "ESTADO_HABIL_CSV_URL no configurado",
-        }
-
     try:
-        rows = _download_csv(csv_url)
-    except Exception as exc:
-        logger.warning("check_empresa_now: CSV download failed for %s — %s", empresa_id, exc)
+        new_state = consultar_rut(empresa.rut_empresa)
+    except FuenteNoConfigurada as exc:
         return {
             "estado_habil": empresa.estado_habil,
             "checked": False,
-            "motivo": "No se pudo descargar el registro ChileCompra",
+            "motivo": str(exc),
+        }
+    except ErrorDeConsulta as exc:
+        logger.warning("check_empresa_now: consulta fallida para %s — %s", empresa_id, exc)
+        return {
+            "estado_habil": empresa.estado_habil,
+            "checked": False,
+            "motivo": "No se pudo consultar el Registro de Proveedores de Mercado Público",
         }
 
-    rut_norm = _normalize_rut(empresa.rut_empresa)
-    new_state = _lookup_rut_in_rows(rows, rut_norm)
     old_state = empresa.estado_habil
 
     empresa.estado_habil = new_state

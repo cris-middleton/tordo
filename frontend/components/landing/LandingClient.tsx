@@ -82,7 +82,7 @@ const CADENCIA = [
   {
     cuando: 'Cuando cambia',
     icon: TrendingUp,
-    que: 'Si sube el precio de algo que vendes, o si tu empresa deja de estar hábil en el Registro.',
+    que: 'Si sube el precio de algo que vendes.',
   },
 ];
 
@@ -100,7 +100,7 @@ const faqs = [
   {
     question: '¿Necesito algo de ChileCompra antes de usar TORDO?',
     answer:
-      'Sí. Para postular en Mercado Público tu empresa tiene que estar inscrita como proveedor y mantener el estado hábil al día. TORDO no reemplaza ese registro: te ayuda a usar mejor la información una vez que ya eres proveedor, y revisa tu estado hábil cada 6 horas para avisarte si cambia.',
+      'Sí. Para postular en Mercado Público tu empresa tiene que estar inscrita como proveedor y mantener el estado hábil al día. TORDO no reemplaza ese registro: te ayuda a usar mejor la información una vez que ya eres proveedor.',
   },
   {
     question: '¿Necesito experiencia en licitaciones?',
@@ -142,7 +142,6 @@ const FREE_PLAN = {
     'Licitaciones, Compra Ágil y Convenio Marco',
     '3 consultas de precio al día',
     '5 alertas activas',
-    'Aviso si tu empresa deja de estar hábil',
     '1 usuario',
   ],
   cta: 'Crear cuenta gratis',

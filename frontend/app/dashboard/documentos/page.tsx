@@ -232,7 +232,11 @@ export default function DocumentosPage() {
                 : 'bg-border text-muted'
             }`}>
               <span className={`w-1.5 h-1.5 rounded-full ${
-                estadoHabil === 'habil' ? 'bg-accent' : 'bg-danger'
+                estadoHabil === 'habil'
+                  ? 'bg-accent'
+                  : estadoHabil === 'inhabil'
+                  ? 'bg-danger'
+                  : 'bg-muted'
               }`} />
               {estadoHabil === 'habil' ? 'Hábil' : estadoHabil === 'inhabil' ? 'Inhábil' : estadoHabil}
             </span>

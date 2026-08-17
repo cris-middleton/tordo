@@ -1,7 +1,7 @@
 """
 Compliance periodic Celery tasks.
 
-  check_estado_habil     — every 6h: download CSV, update empresa states, alert changes
+  check_estado_habil     — every 6h: BuscarProveedor por empresa, update states, alert changes
   send_deadline_reminders — 09:00 SCL: alert postulaciones closing in ≤48h / ≤24h
   check_document_expiry  — 09:30 SCL: alert documents expiring within 30 days
 """
@@ -25,7 +25,13 @@ logger = logging.getLogger(__name__)
 
 @celery_app.task(name="app.tasks.estado_habil_tasks.check_estado_habil")
 def check_estado_habil() -> dict:
-    """Every 6h: download proveedores hábiles CSV and update all registered empresas."""
+    """Every 6h: consulta BuscarProveedor por cada empresa activa y actualiza su estado.
+
+    Apagar la feature a propósito (`FEATURE_ESTADO_HABIL=false`) sigue siendo un
+    `{"skipped": True}` legítimo. Cualquier otra cosa —incluida
+    `FuenteNoConfigurada` cuando falta el ticket— se registra y se deja
+    propagar: un job que falla en silencio es el bug que esto reemplaza.
+    """
     if not settings.feature_estado_habil:
         logger.info("[EstadoHabil] Feature disabled — skipping")
         return {"skipped": True}

@@ -8,24 +8,56 @@ o validación en el mundo real. Organizado por el momento en que debes completar
 
 ## Antes de empezar (Semana 0 — junto con Fase 0)
 
-### 1. Validar Endpoint de Estado Hábil — CRÍTICO (VALIDADO ✅)
-**Estado: COMPLETADO** — Se confirmó que el endpoint per-RUT es la única fuente confiable.
+### 1. Endpoint de Estado Hábil — CRÍTICO (⚠️ PENDIENTE, corregido el 2026-08-16)
 
-~~No existe CSV masivo de estado hábil~~ — Ver resultado de validación:
+**Esta sección decía «VALIDADO ✅» y era falso.** Nadie había llamado al endpoint
+en vivo antes de escribirlo así. Comprobado el 2026-08-16, contra la red real:
 
-**Endpoint funcional**:
+~~No existe CSV masivo de estado hábil~~ — sigue siendo cierto, ese camino está
+descartado.
+
+**El endpoint que se había dado por validado NO es una API**:
 ```
 GET https://datos-abiertos.chilecompra.cl/organismos-proveedores/{RUT}
 Ejemplo: https://datos-abiertos.chilecompra.cl/organismos-proveedores/96.895.110-6
 ```
+Devuelve `text/html` — la cáscara de un SPA de React— y responde **200 tanto
+para un RUT real como para uno inventado**. No hay `Proveedor.Estado`, no hay
+404, y no hay forma de distinguir un proveedor que existe de uno que no. El
+bundle de JavaScript no contiene nada sobre estado hábil (una sola aparición de
+la palabra, en prosa, sin relación con el campo que se buscaba).
 
-Respuestas confirmadas:
-- **200 OK**: Proveedor existe (hábil o inhábil)
-  - Campo `Proveedor.Estado` contiene el estado
-- **404 u otro error**: Proveedor no existe
+**La fuente real es la API clásica de Mercado Público**:
+```
+GET https://api.mercadopublico.cl/servicios/v1/Publico/Empresas/BuscarProveedor
+    ?rutempresaproveedor={RUT}&ticket={MERCADO_PUBLICO_TICKET}
+```
+Comprobado el 2026-08-16: responde `203 Ticket no válido`, que es como esta API
+avisa que falta el ticket — es decir, el endpoint es real y existe. Usa el
+**mismo ticket** que el resto de la API clásica (ver §2).
 
-**Acción para Fase 1**: Usar solo el endpoint per-RUT. No hay fallback a CSV.
-El código está simplificado en la SPEC.md sección 7.2.
+**La forma de la respuesta sigue sin confirmarse**: qué campo trae el estado y
+qué devuelve para un RUT que no existe es desconocido hasta que alguien la
+llame con un ticket válido. Codificar contra ella a ciegas sería inventarse un
+contrato.
+
+**Estado actual del código**: `backend/app/services/estado_habil_service.py`
+tiene `consultar_rut(rut)`, escrita contra la forma documentada de
+`BuscarProveedor` pero **inerte** mientras `MERCADO_PUBLICO_TICKET` esté vacío
+**o siga en el placeholder de `.env.example`** (`your-ticket-here`) — ambos
+casos lanzan `FuenteNoConfigurada` en vez de simular una respuesta. Un `203`
+(«Ticket no válido») también se trata como fallo explícito, con el ticket como
+sospechoso. El job de cada 6h (`check_estado_habil`) deja propagar todo eso:
+ya no se salta en silencio.
+
+**Acción pendiente**: cuando exista un ticket real (§2), la primera tarea es
+una llamada real a `BuscarProveedor` para un RUT conocido, comparar la
+respuesta contra `_estado_de_respuesta()`, y ajustar el parseo si no coincide
+— antes de dar por buena ninguna otra parte del flujo. En particular falta
+confirmar **qué significa un `Listado` vacío** (¿proveedor no existe, RUT mal
+formado, cuota agotada?): hoy el código no lo adivina y lanza `ErrorDeConsulta`
+a propósito — es la decisión más discutible del módulo, y está para revisarse
+con una respuesta real en la mano, no para asumir.
 
 ---
 
@@ -39,7 +71,7 @@ Los nombres correctos son estos — este documento traía
 `MERCADOPUBLICO_API_TICKET`, que **no lo lee ningún código**:
 
 ```
-MERCADO_PUBLICO_TICKET=   # API clásica: licitaciones y órdenes de compra
+MERCADO_PUBLICO_TICKET=   # API clásica: licitaciones, órdenes de compra, y (§1) estado hábil
 COMPRA_AGIL_TICKET=       # API v2. Si se deja vacío, cae al de arriba
 ```
 

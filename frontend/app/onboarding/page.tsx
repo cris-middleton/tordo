@@ -278,8 +278,7 @@ export default function OnboardingPage() {
                   <Building2 className="h-5 w-5 text-primary" />
                 </div>
                 <p className="text-sm text-muted">
-                  Lo consultamos contra ChileCompra y lo volvemos a revisar cada 6 horas. Si
-                  quedas inhábil, te avisamos el mismo día.
+                  Con tu RUT y rubros, buscamos las licitaciones que más te calzan.
                 </p>
               </div>
 

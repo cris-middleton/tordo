@@ -117,7 +117,12 @@ export function buildNarrative({ data, firstName, now }: BuildArgs): string[] {
 
   const out: string[] = [greeting];
   const r = data.resumen;
-  const inhabil = data.empresa && data.empresa.estado_habil !== 'habil';
+  // `estado_habil` empieza en 'desconocido' y se queda ahí mientras no haya
+  // fuente configurada (ver backend/app/services/estado_habil_service.py) —
+  // no es lo mismo que 'inhabil'. Comparar contra 'inhabil' explícito, en vez
+  // de "!== 'habil'", evita que cada empresa sin dato reciba la frase de
+  // alarma en cada carga del dashboard.
+  const inhabil = data.empresa?.estado_habil === 'inhabil';
 
   if (r.matches_semana > 0) {
     let p = pick(MATCHES_PHRASES, seed, 1)(r.matches_semana);

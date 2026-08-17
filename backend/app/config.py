@@ -92,8 +92,12 @@ class Settings(BaseSettings):
     # Public-facing endpoint for presigned URLs (may differ from internal Docker URL)
     s3_endpoint_url_public: str | None = None
 
-    # Estado hábil CSV URL (ChileCompra open data)
-    estado_habil_csv_url: str = ""
+    # Ticket de la API clásica de Mercado Público (api.mercadopublico.cl), usado
+    # por `services/estado_habil_service.consultar_rut` para BuscarProveedor.
+    # Es el MISMO ticket que usa el ETL para licitaciones y órdenes de compra
+    # (ver `.env.example`); vacío por defecto, y sin él `consultar_rut` lanza
+    # `FuenteNoConfigurada` en vez de intentar la llamada.
+    mercado_publico_ticket: str = ""
 
     # ETL workspace (for subprocess calls from Celery)
     etl_workspace: str = "/workspace"

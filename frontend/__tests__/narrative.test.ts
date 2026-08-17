@@ -51,7 +51,7 @@ describe('buildNarrative', () => {
     expect(out.join(' ')).not.toMatch(/0 postulaciones|0 documento|0 matches/);
   });
 
-  it('mentions estado inhábil when estado is not habil', () => {
+  it('mentions estado inhábil when estado is inhabil', () => {
     const data = {
       ...baseResponse,
       empresa: { ...baseResponse.empresa!, estado_habil: 'inhabil' },
@@ -59,6 +59,40 @@ describe('buildNarrative', () => {
     };
     const out = buildNarrative({ data, firstName: 'Pedro', now: new Date('2026-04-19T15:00:00-03:00') });
     expect(out.join(' ').toLowerCase()).toMatch(/inhábil|inhabil/);
+  });
+
+  it('says nothing about estado hábil when it is desconocido, but still warns for inhabil', () => {
+    // `estado_habil` arranca en 'desconocido' y se queda ahí mientras no haya
+    // fuente configurada (el job nunca corrió con éxito — ver
+    // backend/app/services/estado_habil_service.py). Antes, cualquier valor
+    // distinto de 'habil' —incluido 'desconocido'— disparaba la frase de
+    // alarma "tu empresa figura inhábil" en CADA carga del dashboard, para
+    // TODAS las empresas. La segunda mitad de este test es la que importa
+    // tanto como la primera: sin ella, pasaría igual con un componente que
+    // nunca advierte nada.
+    const desconocido = {
+      ...baseResponse,
+      empresa: { ...baseResponse.empresa!, estado_habil: 'desconocido' },
+      resumen: { ...baseResponse.resumen, docs_por_vencer_30d: 2 },
+    };
+    const outDesconocido = buildNarrative({
+      data: desconocido,
+      firstName: 'Ana',
+      now: new Date('2026-04-19T15:00:00-03:00'),
+    });
+    expect(outDesconocido.join(' ').toLowerCase()).not.toMatch(/inhábil|inhabil/);
+
+    const inhabil = {
+      ...baseResponse,
+      empresa: { ...baseResponse.empresa!, estado_habil: 'inhabil' },
+      resumen: { ...baseResponse.resumen, docs_por_vencer_30d: 2 },
+    };
+    const outInhabil = buildNarrative({
+      data: inhabil,
+      firstName: 'Ana',
+      now: new Date('2026-04-19T15:00:00-03:00'),
+    });
+    expect(outInhabil.join(' ').toLowerCase()).toMatch(/inhábil|inhabil/);
   });
 
   it('uses morning greeting before noon, afternoon between 12 and 19, evening after 19', () => {

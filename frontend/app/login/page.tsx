@@ -102,8 +102,8 @@ function LoginForm() {
               Y es una pantalla de VUELTA: quien la ve ya se convenció. No hay
               que re-venderle el producto, hay que darle una razón para entrar
               hoy. Por eso el panel cuenta lo que pasó mientras no estaba, que
-              además es cierto: el ETL corre cada hora y el estado hábil cada
-              seis. */}
+              además es cierto: el ETL corre cada hora. (El monitor de estado hábil
+              NO entra aquí: no ha corrido nunca, ver estado_habil_service.) */}
           <h1 className="font-display text-4xl xl:text-5xl font-bold text-white leading-[1.15] mb-5">
             Mientras no estabas,<br />
             <span className="text-accent">seguimos mirando.</span>
@@ -118,7 +118,7 @@ function LoginForm() {
           {[
             { Icon: BarChart2, text: 'Lo que se publicó desde la última vez que entraste' },
             { Icon: FileCheck, text: 'Los cierres que tienes encima esta semana' },
-            { Icon: ShieldAlert, text: 'Si tu empresa sigue hábil, y qué documentos se te vencen' },
+            { Icon: ShieldAlert, text: 'Qué documentos tuyos están por vencer' },
           ].map(({ Icon, text }) => (
             <div key={text} className="flex items-start gap-3 rounded-xl bg-white/[0.06] border border-white/[0.08] px-4 py-3">
               <Icon className="h-4 w-4 text-accent shrink-0 mt-0.5" />
