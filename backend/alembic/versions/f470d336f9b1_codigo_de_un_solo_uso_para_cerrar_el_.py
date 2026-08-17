@@ -6,7 +6,7 @@ Ahora por la URL viaja un código que caduca en 60 s y se canjea una vez, de
 servidor a servidor, por el par acceso + refresco.
 
 Revision ID: f470d336f9b1
-Revises: 593d371cb8fe
+Revises: f19cbdcd6aa9
 Create Date: 2026-08-16 23:27:18.414438
 
 """
@@ -18,7 +18,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'f470d336f9b1'
-down_revision: Union[str, None] = '593d371cb8fe'
+down_revision: Union[str, None] = 'f19cbdcd6aa9'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
