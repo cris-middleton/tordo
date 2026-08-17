@@ -18,6 +18,14 @@ class PrecioBanda(BaseModel):
     #: muestra: la firma es una bolsa de palabras ordenada, buena para agrupar
     #: y mala para leer.
     descripcion: str | None = None
+    #: La unidad en la que está expresado el precio unitario (p10..p90,
+    #: pu_mean). Se seleccionaba internamente en el repositorio pero no estaba
+    #: declarada aquí, así que Pydantic la descartaba al serializar: un precio
+    #: sin unidad es la misma clase de error que la categoría que mezclaba un
+    #: calibrador y un criovial — "$2.380" significa algo distinto por unidad
+    #: que por caja de 100. Ausente en L4, que agrega por rubro y no tiene una
+    #: unidad única que reportar.
+    UnidadMedida: str | None = None
     p10: float | None = None
     p25: float | None = None
     p50: float | None = None

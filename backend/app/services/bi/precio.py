@@ -319,7 +319,26 @@ def get_precio_producto(
                             "cv": r.get("coef_variacion"),
                             "NombreProductoGenerico": r.get("RubroN2"),
                             "n": r.get("n_transacciones"),
-                            "confianza": "referencial" if r.get("precio_predecible") else "baja",
+                            # Esta tabla es organismo × rubro, sin dimensión de
+                            # unidad: no hay una `UnidadMedida` que reportar (a
+                            # diferencia de L0-L3, que sí la traen — ver
+                            # PrecioBanda.UnidadMedida).
+                            "UnidadMedida": r.get("UnidadMedida"),
+                            # `precio_predecible` es un booleano (CV < 0.4), no el
+                            # score continuo 0-1 que `confianza` es en L0-L3 (media
+                            # geométrica de muestra y QCD — ver
+                            # etl/analytics/product_price_bands.py). Meter el
+                            # booleano en esa escala sería inventar un número, no
+                            # traducir uno — y el esquema ya advierte que ESTE MISMO
+                            # bug (un string donde el schema declara float) tumbó el
+                            # endpoint entero una vez (ver el comentario en
+                            # schemas/bi.py junto a `confianza`). `cv`, dos líneas
+                            # más arriba, sigue disponible para quien quiera la
+                            # dispersión real; `nivel_usado` ("L4") ya dice que esto
+                            # es una referencia general del organismo, no del
+                            # producto — no hace falta que `confianza` cargue
+                            # también esa aspereza.
+                            "confianza": None,
                         }
                     )
                 return {

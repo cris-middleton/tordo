@@ -43,12 +43,41 @@ export interface MatchingResult {
 }
 
 export interface PrecioBanda {
-  p10?: number;
-  p50?: number;
-  p90?: number;
-  n?: number;
-  confianza?: string;
+  codigoProductoONU?: string;
   NombreProductoGenerico?: string;
+  /** Sólo en L0/L0N: firma normalizada de `EspecificacionComprador`, usada
+   *  para agrupar. Es una bolsa de palabras — buena para agrupar, mala para
+   *  leer — así que no se enseña; se enseña `descripcion`. */
+  firma_producto?: string;
+  /** Sólo en L0/L0N: cómo escribió el producto quien más veces lo compró.
+   *  Es lo que distingue una banda de otra cuando una categoría UNSPSC se
+   *  separó en varios productos reales — sin esto, dos bandas se ven iguales. */
+  descripcion?: string;
+  /** La unidad en la que está expresado el precio (p10..p90, pu_mean). Un
+   *  precio sin unidad es una respuesta ambigua con forma de respuesta
+   *  exacta — la misma clase de error que la categoría que mezclaba un
+   *  calibrador y un criovial. Ausente en L4 (agrega por rubro, no por
+   *  producto): cuando falta, no se asume una unidad plausible. */
+  UnidadMedida?: string;
+  p10?: number;
+  p25?: number;
+  p50?: number;
+  p75?: number;
+  p90?: number;
+  pu_mean?: number;
+  cv?: number;
+  /** Coeficiente cuartílico de dispersión, (p75−p25)/(p75+p25), en [0,1].
+   *  La medida de dispersión que hay que mirar (ver backend/app/schemas/bi.py). */
+  qcd?: number;
+  /** 'alta' | 'media' | 'baja' — la lectura de `qcd` y `n` que ya hizo el
+   *  backend. 'baja' no es un hueco: significa que este comprador pagó
+   *  precios muy distintos por lo mismo. */
+  predictibilidad?: string;
+  // El backend la produce como Float64 (0–1), no como texto: declararla `string`
+  // aquí es el mismo bug que tuvo el schema del backend hasta que se corrigió
+  // (ver el comentario en backend/app/schemas/bi.py).
+  confianza?: number;
+  n?: number;
 }
 
 export interface PrecioResultado {
@@ -56,6 +85,59 @@ export interface PrecioResultado {
   resultado?: PrecioBanda[];
   nivel_usado?: string;
   motivo?: string;
+}
+
+/**
+ * "L0" | "L0N" | "L1" | "L2" | "L3" | "L4", de más a menos específico (ver
+ * backend/app/services/bi/precio.py). L0 y L0N agrupan por producto real; de
+ * L1 en adelante, por categoría UNSPSC — que puede mezclar artículos que
+ * difieren en varios órdenes de magnitud. Esta función es la única que
+ * traduce el nivel a un texto que un dueño de PYME entiende: si un nivel
+ * nuevo cae en el `default`, aparece el código crudo ("Fuente: L0") en vez
+ * de una frase — que es exactamente el bug que se corrige aquí para L0/L0N.
+ */
+export function nivelLabel(nivel?: string): string {
+  switch (nivel) {
+    case 'L0':
+      return 'este producto exacto, en el organismo consultado';
+    case 'L0N':
+      return 'este producto exacto, a nivel nacional';
+    case 'L1':
+      return 'datos del organismo específico';
+    case 'L2':
+      return 'datos del sector';
+    case 'L3':
+      return 'datos a nivel nacional';
+    case 'L4':
+      return 'contexto general del organismo, sin datos de este producto';
+    default:
+      return nivel || '';
+  }
+}
+
+/**
+ * Traduce `predictibilidad` (ya decidida por el backend a partir de `qcd` y
+ * `n` — ver `etl/analytics/product_price_bands.py`) a una insignia. No se
+ * inventa un umbral aquí: el backend ya clasificó en alta/media/baja: esto
+ * sólo le pone palabras y color a esa clasificación, sin inventar una nueva.
+ *
+ * `null` cuando el backend no manda el campo (ocurre en el nivel L4, que sale
+ * de una tabla distinta sin `qcd`): no mostrar la insignia es más honesto que
+ * mostrar una que no corresponde a ningún cálculo.
+ */
+export function predictibilidadInfo(
+  predictibilidad?: string,
+): { etiqueta: string; clase: string } | null {
+  switch (predictibilidad) {
+    case 'alta':
+      return { etiqueta: 'Precio consistente', clase: 'bg-success/10 text-success' };
+    case 'media':
+      return { etiqueta: 'Precio con variación moderada', clase: 'bg-warning/10 text-warning' };
+    case 'baja':
+      return { etiqueta: 'Precio muy disperso', clase: 'bg-danger/10 text-danger' };
+    default:
+      return null;
+  }
 }
 
 export interface DescuentoItem {

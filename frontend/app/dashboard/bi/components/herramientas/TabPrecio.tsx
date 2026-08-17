@@ -11,6 +11,8 @@ import VigilarPrecio from './VigilarPrecio';
 import {
   extractErrorMessage,
   formatCLPShort,
+  nivelLabel,
+  predictibilidadInfo,
   type PrecioBanda,
   type PrecioResultado,
 } from './comun';
@@ -74,12 +76,12 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
     }
   };
 
-  const banda = resultado?.resultado?.[0];
-  const nivelLabel = (nivel?: string) =>
-    nivel === 'L1' ? 'datos del organismo específico'
-      : nivel === 'L2' ? 'datos del sector'
-      : nivel === 'L3' ? 'datos a nivel nacional'
-      : nivel || '';
+  // Antes se tomaba sólo `resultado.resultado[0]` y se descartaba el resto:
+  // cuando el backend separa una categoría en varios productos reales (L0),
+  // la pantalla volvía a enseñar un solo número, como si no se hubiera
+  // separado nada. Ahora se muestran todas las bandas que trajo el backend.
+  const bandas = (resultado?.resultado ?? []).filter((b) => b.p50 != null);
+  const primeraBanda = bandas[0];
 
   return (
     <div className="space-y-3">
@@ -160,7 +162,7 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
         </button>
       </div>
 
-      {error && !banda && (() => {
+      {error && !primeraBanda && (() => {
         const isMissingParquet = error.toLowerCase().includes('parquet') || error.toLowerCase().includes('sin datos');
         return (
           <div className={`rounded-xl border p-3 text-sm flex items-start gap-2 ${
@@ -172,23 +174,25 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
         );
       })()}
 
-      {banda && banda.p50 != null && (
-        <div className="rounded-xl border border-border bg-surface p-4 text-sm space-y-2">
+      {bandas.length > 0 && (
+        <div className="space-y-3">
           {selected?.nombre && (
             <p className="font-semibold text-text">{selected.nombre}</p>
           )}
-          <p className="text-text">
-            Precio típico: <b>{formatCLPShort(banda.p50)}</b>
-            {banda.p10 != null && banda.p90 != null && (
-              <> · rango habitual: <b>{formatCLPShort(banda.p10)}</b> a <b>{formatCLPShort(banda.p90)}</b></>
-            )}
-            {'.'}
-          </p>
-          <p className="text-xs text-muted">
-            {banda.n != null && <>Basado en <b>{banda.n.toLocaleString('es-CL')}</b> transacciones</>}
-            {resultado?.nivel_usado && <> · Fuente: {nivelLabel(resultado.nivel_usado)}</>}
-            {banda.confianza && <> · Confianza: {banda.confianza}</>}
-          </p>
+          {resultado?.nivel_usado && (
+            <p className="text-xs text-muted">
+              Fuente: {nivelLabel(resultado.nivel_usado)}
+              {/* Sólo se anuncia la cuenta cuando hay más de una: es la
+                  diferencia visible entre "un precio" y "esta categoría son
+                  varios productos distintos" — el hallazgo que motivó L0. */}
+              {bandas.length > 1 && <> · {bandas.length} productos distintos en esta categoría</>}
+            </p>
+          )}
+          <div className="space-y-2">
+            {bandas.map((b, i) => (
+              <BandaPrecioCard key={b.firma_producto || b.codigoProductoONU || i} banda={b} />
+            ))}
+          </div>
           {selected?.codigoProductoONU && (
             <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
               <VigilarPrecio
@@ -204,6 +208,72 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
             </div>
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Una banda de precio. Definido a nivel de módulo (no dentro del cuerpo de
+ * `TabPrecio`) para no reconstruirse en cada render de la pantalla — el mismo
+ * motivo por el que los ayudantes de estado y formato van fuera del
+ * componente, aplicado aquí a un sub-componente en vez de a una función pura.
+ *
+ * `descripcion` sólo viene en L0/L0N: es lo que distingue una banda de otra
+ * cuando la categoría se separó en varios productos reales. En L1-L4 no hay
+ * `descripcion` porque hay una sola banda por categoría, y el título ya lo
+ * puso `TabPrecio` (`selected.nombre`) una sola vez arriba.
+ */
+function BandaPrecioCard({ banda }: { banda: PrecioBanda }) {
+  if (banda.p50 == null) return null;
+  const info = predictibilidadInfo(banda.predictibilidad);
+
+  return (
+    <div className="rounded-xl border border-border bg-surface p-4 text-sm space-y-2">
+      {banda.descripcion && (
+        <p className="font-medium text-text">{banda.descripcion}</p>
+      )}
+      <p className="text-text">
+        Precio típico: <b>{formatCLPShort(banda.p50)}</b>
+        {/* Un precio es siempre precio POR ALGO: "$2.380" significa algo
+            distinto por unidad que por caja de 100. Se pega a la cifra, no a
+            un pie de página, para que nunca se lea el número sin su unidad. */}
+        {banda.UnidadMedida && <> por {banda.UnidadMedida}</>}
+        {banda.p10 != null && banda.p90 != null && (
+          <> · rango habitual: <b>{formatCLPShort(banda.p10)}</b> a <b>{formatCLPShort(banda.p90)}</b></>
+        )}
+        {'.'}
+      </p>
+      {!banda.UnidadMedida && (
+        <p className="text-xs text-warning">
+          Este nivel no trae la unidad de medida: no asumas cuál es antes de cotizar.
+        </p>
+      )}
+      <p className="text-xs text-muted">
+        {banda.n != null && <>Basado en <b>{banda.n.toLocaleString('es-CL')}</b> transacciones</>}
+        {/* `confianza` es un float 0-1 del backend, no el texto que declaraba
+            el tipo antes — se muestra como porcentaje, que es lo que es. */}
+        {banda.confianza != null && <> · Confianza: {Math.round(banda.confianza * 100)}%</>}
+      </p>
+      {info && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${info.clase}`}>
+            {info.etiqueta}
+          </span>
+          {/* El adjetivo no reemplaza el número: se muestra el QCD crudo al
+              lado, para quien quiera verificarlo en vez de confiar en la
+              palabra. No se inventa un corte nuevo aquí — el corte ya lo
+              hizo el backend al calcular `predictibilidad`. */}
+          {banda.qcd != null && (
+            <span className="text-xs text-subtle">dispersión (QCD): {banda.qcd.toFixed(2)}</span>
+          )}
+        </div>
+      )}
+      {banda.predictibilidad === 'baja' && (
+        <p className="text-xs text-danger">
+          Este comprador ha pagado precios muy distintos por el mismo producto: el precio
+          probablemente no sea lo único que decide la adjudicación aquí.
+        </p>
       )}
     </div>
   );
