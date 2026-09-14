@@ -18,7 +18,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.empresa import Empresa, EmpresaUsuario, TFIDFPerfil
+from app.models.empresa import Empresa, EmpresaUsuario, EstadoHabilLog, TFIDFPerfil
 from app.models.user import User
 
 
@@ -131,3 +131,26 @@ async def perfil_tfidf(db: AsyncSession, empresa_id: UUID) -> TFIDFPerfil | None
     return (
         await db.execute(select(TFIDFPerfil).where(TFIDFPerfil.empresa_id == empresa_id))
     ).scalar_one_or_none()
+
+
+async def historial_estado_habil(
+    db: AsyncSession, empresa_id: UUID, limite: int = 30
+) -> list[EstadoHabilLog]:
+    """Las últimas comprobaciones de estado hábil, de la más nueva a la más vieja.
+
+    Vivía en `services/estado_habil_service.py` como función SÍNCRONA que hacía
+    `db.query(...)` —la API de SQLAlchemy 1.x— sobre la `AsyncSession` del
+    router, que ni siquiera tiene ese método. El endpoint además la esperaba con
+    `await`. Nunca funcionó: `GET /empresas/{id}/estado-habil` devolvía 500
+    siempre, y con él la pantalla de documentos, que lo consulta al cargar.
+
+    El resto de ese servicio sí es síncrono a propósito —lo llaman las tareas de
+    Celery—, y ésta era la única función que cruzaba al mundo async.
+    """
+    filas = await db.execute(
+        select(EstadoHabilLog)
+        .where(EstadoHabilLog.empresa_id == empresa_id)
+        .order_by(EstadoHabilLog.checked_at.desc())
+        .limit(limite)
+    )
+    return list(filas.scalars().all())

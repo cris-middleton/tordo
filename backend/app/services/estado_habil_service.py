@@ -398,12 +398,8 @@ def check_empresa_now(empresa_id, db: Session) -> dict:
     }
 
 
-def get_estado_habil_history(empresa_id: str, db: Session, limit: int = 30) -> list[EstadoHabilLog]:
-    """Return the last `limit` estado hábil log entries for an empresa."""
-    return (
-        db.query(EstadoHabilLog)
-        .filter(EstadoHabilLog.empresa_id == empresa_id)
-        .order_by(EstadoHabilLog.checked_at.desc())
-        .limit(limit)
-        .all()
-    )
+# `get_estado_habil_history` vivía aquí y se movió a
+# `repositories/empresas.historial_estado_habil`. Era la única función de este
+# módulo que la llamaba un router async, y hacía `db.query(...)` —API síncrona—
+# sobre una `AsyncSession`: 500 en todas las llamadas. El resto de este archivo
+# es síncrono a propósito, porque lo ejecutan las tareas de Celery.

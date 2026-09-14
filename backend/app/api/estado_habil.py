@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import EmpresaContext, empresa_ctx
 from app.api.empresas import _get_empresa_or_404
 from app.db import get_db
-from app.services.estado_habil_service import get_estado_habil_history
+from app.repositories import empresas as repo_empresas
 
 router = APIRouter(tags=["estado_habil"])
 
@@ -36,7 +36,7 @@ async def get_estado_habil(
     db: AsyncSession = Depends(get_db),
 ):
     empresa = await _get_empresa_or_404(ctx.empresa_id, db)
-    logs = await get_estado_habil_history(ctx.empresa_id, db, limit=30)
+    logs = await repo_empresas.historial_estado_habil(db, ctx.empresa_id, limite=30)
     return EstadoHabilResponse(
         empresa_id=str(empresa.id),
         rut_empresa=empresa.rut_empresa,

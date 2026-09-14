@@ -35,6 +35,52 @@ from etl.utils import (
 )
 
 
+def _sin_claves_repetidas(
+    filas: List[Dict[str, Any]], clave: str, logger, entidad: str
+) -> List[Dict[str, Any]]:
+    """Deja una sola fila por valor de `clave`, quedándose con la última.
+
+    Mercado Público **devuelve el mismo registro varias veces en la misma
+    respuesta**: medido contra la API en producción, una consulta diaria de
+    licitaciones trajo 1.289 registros con sólo 1.265 códigos distintos — doce
+    códigos repetidos tres veces cada uno.
+
+    Y un `INSERT ... ON CONFLICT DO UPDATE` no admite dos filas con la misma
+    clave de conflicto en la MISMA sentencia: Postgres corta con
+    «ON CONFLICT DO UPDATE command cannot affect row a second time». Como el
+    upsert va por tandas de 500, **un solo duplicado tira la tanda entera**, y
+    con doce repartidos entre tres tandas no se cargó ni una licitación. Es el
+    segundo fallo de esta forma en el mismo cargador: el anterior fueron las
+    columnas generadas, y también abortaba la sentencia completa en vez de la
+    fila mala.
+
+    Se conserva la última aparición porque es lo que habría quedado si las
+    filas se hubieran aplicado de a una: cada repetición actualiza a la
+    anterior. Las filas sin `clave` se pasan tal cual — que les falte es otro
+    problema, y descartarlas aquí lo escondería.
+    """
+    vistas: Dict[Any, int] = {}
+    salida: List[Dict[str, Any]] = []
+    for fila in filas:
+        valor = fila.get(clave)
+        if not valor:
+            salida.append(fila)
+            continue
+        if valor in vistas:
+            salida[vistas[valor]] = fila  # la última gana, en el sitio de la primera
+        else:
+            vistas[valor] = len(salida)
+            salida.append(fila)
+
+    repetidas = len(filas) - len(salida)
+    if repetidas:
+        logger.info(
+            f"{entidad}: {repetidas} fila(s) con {clave} repetido en la misma respuesta"
+            f" — se conserva la última de cada una ({len(salida)} a cargar)"
+        )
+    return salida
+
+
 class DatabaseLoaderV2(BaseLoader):
     """Load data into PostgreSQL database using detalle and historial tables
 
@@ -158,6 +204,10 @@ class DatabaseLoaderV2(BaseLoader):
         """
         if not self.session:
             self.connect()
+
+        # Antes de batear: la API repite registros dentro de la misma respuesta y
+        # el upsert no admite dos filas con la misma clave de conflicto.
+        data = _sin_claves_repetidas(data, "codigo_externo", self.logger, "Licitaciones")
 
         BATCH_SIZE = 500
         table = Licitacion.__table__
@@ -438,6 +488,8 @@ class DatabaseLoaderV2(BaseLoader):
         """
         if not self.session:
             self.connect()
+
+        data = _sin_claves_repetidas(data, "codigo_oc", self.logger, "Órdenes de compra")
 
         BATCH_SIZE = 500
         table = OrdenCompra.__table__

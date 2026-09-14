@@ -284,7 +284,24 @@ def _exigir_cuota_bi(empresa: Empresa = Depends(empresa_facturable)) -> Empresa:
     return empresa
 
 
-#: Los 16 endpoints de BI la piden por este nombre.
+#: Los endpoints de BI la piden por este nombre.
+#:
+#: **Devuelve la EMPRESA que paga la consulta, no el usuario que la hace.** Los
+#: diecinueve endpoints que la usaban la recibían en un parámetro llamado
+#: `current_user` y anotado `User`, y FastAPI no comprueba esa anotación: inyecta
+#: lo que devuelve la dependencia. Así que el nombre y el tipo mentían a la vez,
+#: y `current_user.id` era el UUID de la empresa.
+#:
+#: Dos endpoints lo dereferenciaban —`/bi/mi_posicion` y el panel de licitación—
+#: y los dos morían con 500: `invalid input for query argument $2: UUID(...)
+#: (value out of int32 range)`, porque `empresa_usuarios.user_id` es un entero.
+#: Falla cerrado, así que no se escapó ningún dato; lo que se cayó fueron dos
+#: pantallas. Los otros diecisiete no lo usaban y por eso pasaban — eran la
+#: trampa para el siguiente que escribiera `current_user.id` ahí dentro.
+#:
+#: Ahora el parámetro se llama `empresa_cuota` y se anota `Empresa`, y quien
+#: necesita el usuario lo pide aparte con `get_current_active_user`.
+#: `tests/test_depends_no_mienten.py` falla si vuelve a aparecer un desajuste.
 check_bi_quota_dep = _exigir_cuota_bi
 
 

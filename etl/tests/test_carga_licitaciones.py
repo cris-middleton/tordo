@@ -154,3 +154,52 @@ def test_lo_que_no_declara_mecanismo_queda_como_licitacion(loader):
         {"c": f"{PREFIJO}E"},
     ).fetchone()
     assert fila[0] == "licitacion"
+
+
+def test_el_mismo_codigo_repetido_en_la_misma_tanda(loader):
+    """Mercado Público repite registros dentro de una misma respuesta.
+
+    Medido contra la API: una consulta diaria trajo 1.289 registros con 1.265
+    códigos distintos — doce repetidos tres veces. Un `ON CONFLICT DO UPDATE`
+    no admite dos filas con la misma clave de conflicto en la misma sentencia
+    («ON CONFLICT DO UPDATE command cannot affect row a second time»), y como
+    el upsert va por tandas de 500, **un solo duplicado tiraba la tanda entera**.
+    No se cargaba ni una licitación, y el error quedaba en un log que nadie mira:
+    el resumen decía «0 new, 0 updated, 1285 errors» y el proceso terminaba con
+    éxito.
+    """
+    assert loader.load_licitaciones([_fila("DUP"), _fila("DUP")]) == 1
+
+    fila = loader.session.execute(
+        text("SELECT count(*) FROM licitaciones WHERE codigo_externo = :c"),
+        {"c": f"{PREFIJO}DUP"},
+    ).fetchone()
+    assert fila[0] == 1
+
+
+def test_de_un_codigo_repetido_gana_la_ultima_version(loader):
+    """Es lo que habría quedado aplicando las filas de a una."""
+    loader.load_licitaciones(
+        [
+            _fila("DUP2", nombre="Versión vieja", estado="Publicada"),
+            _fila("DUP2", nombre="Versión nueva", estado="Cerrada"),
+        ]
+    )
+
+    fila = loader.session.execute(
+        text("SELECT nombre, estado FROM licitaciones WHERE codigo_externo = :c"),
+        {"c": f"{PREFIJO}DUP2"},
+    ).fetchone()
+    assert fila == ("Versión nueva", "Cerrada")
+
+
+def test_un_duplicado_no_arrastra_a_las_demas(loader):
+    """El fallo real no era perder la repetida: era perder la tanda entera."""
+    cargadas = loader.load_licitaciones([_fila("F"), _fila("DUP3"), _fila("DUP3"), _fila("G")])
+    assert cargadas == 3
+
+    fila = loader.session.execute(
+        text("SELECT count(*) FROM licitaciones WHERE codigo_externo LIKE :p"),
+        {"p": f"{PREFIJO}%"},
+    ).fetchone()
+    assert fila[0] >= 3

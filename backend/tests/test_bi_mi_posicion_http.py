@@ -87,3 +87,54 @@ async def test_mi_posicion_de_otra_empresa_no_se_puede_mirar(cliente, cabeceras_
         headers=cabeceras_owner,
     )
     assert r.status_code in (403, 404, 503), r.text
+
+
+@pytest.mark.asyncio
+async def test_mi_posicion_con_analytics_encendido(
+    cliente, sample_empresa, cabeceras_owner, monkeypatch
+):
+    """Con la bandera APAGADA este endpoint nunca llega a su propio cuerpo.
+
+    `_require_analytics()` corta con 503 en la primera línea, y el test de
+    arriba acepta 503 — así que pasaba en verde sobre un endpoint que en
+    cualquier despliegue real devolvía 500. La bandera está encendida en
+    desarrollo y en producción; apagada sólo en los tests.
+
+    Lo que tapaba: `check_bi_quota_dep` inyecta la EMPRESA, y el parámetro se
+    llamaba `current_user` y se anotaba `User`. Al pasárselo a
+    `verificar_acceso_empresa`, el UUID de la empresa acababa comparándose
+    contra `empresa_usuarios.user_id`, que es un entero:
+    «invalid input for query argument $2: UUID(…) (value out of int32 range)».
+    """
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "feature_analytics", True)
+
+    r = await cliente.get(
+        f"{PREFIJO_API}/bi/mi_posicion",
+        params={"empresa_id": str(sample_empresa.id), "rubro": "Servicios de aseo"},
+        headers=cabeceras_owner,
+    )
+    # Sin las tablas de analytics materializadas, «no disponible» es una
+    # respuesta legítima. Un 500 no.
+    assert r.status_code != 500, r.text
+
+
+@pytest.mark.asyncio
+async def test_mi_posicion_de_otra_empresa_da_403(cliente, cabeceras_owner, monkeypatch):
+    """Y que la comprobación de pertenencia siga siendo la que decide.
+
+    Es lo que se rompió: cuando la consulta de membresía revienta, lo que hay
+    detrás no es un 403, es un 500 — falla cerrado, pero deja de distinguir
+    «no eres miembro» de «se cayó algo».
+    """
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "feature_analytics", True)
+
+    r = await cliente.get(
+        f"{PREFIJO_API}/bi/mi_posicion",
+        params={"empresa_id": str(uuid4()), "rubro": "Servicios de aseo"},
+        headers=cabeceras_owner,
+    )
+    assert r.status_code == 403, r.text
