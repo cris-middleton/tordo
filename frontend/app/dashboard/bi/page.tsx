@@ -141,6 +141,11 @@ function BIContenido() {
     () => params.get('focus') || null,
   );
   const [orgElegido, setOrgElegido] = useState('');
+  // «Explorar sin configurar» es una decisión del usuario, no un dato: se
+  // recuerda aparte. Antes el botón se limitaba a elegir el primer rubro del
+  // catálogo, así que **sin catálogo no hacía nada** — y sin catálogo es
+  // justamente cuando esta pantalla aparece. Ver `saltarConfiguracion`.
+  const [configuracionOmitida, setConfiguracionOmitida] = useState(false);
 
   // ── Contexto de empresa y catálogo ───────────────────────────────────────
   const consultaEmpresas = useEmpresas();
@@ -223,6 +228,25 @@ function BIContenido() {
     };
   }, [focusCodigo, oportunidades]);
 
+  /**
+   * Entrar a la pantalla sin haber declarado rubros.
+   *
+   * Hacía `allRubros[0] && cambiarRubro(allRubros[0])`, que es un no-op cuando
+   * el catálogo viene vacío — y viene vacío siempre que el pipeline de
+   * analytics no se ha materializado, que es el estado de cualquier despliegue
+   * nuevo: `/bi/clusters` responde `{"disponible": false, "motivo":
+   * "cluster_taxonomy.parquet no encontrado"}`. El usuario pulsaba un botón que
+   * no reaccionaba, sin ningún mensaje.
+   *
+   * Saltar la puerta no necesita un rubro: las secciones de abajo ya saben
+   * pintarse vacías y dicen por qué. Si hay catálogo se elige el primero, que
+   * es mejor punto de partida; si no lo hay, se entra igual.
+   */
+  const saltarConfiguracion = useCallback(() => {
+    setConfiguracionOmitida(true);
+    if (allRubros[0]) setRubroElegido(allRubros[0]);
+  }, [allRubros]);
+
   const cambiarRubro = useCallback((nuevo: string) => {
     setCompareMode(false);
     setRubroB('');
@@ -265,7 +289,11 @@ function BIContenido() {
   }, [rubro, focusCodigo, compareMode, rubroB]);
 
   const necesitaOnboarding =
-    !cargandoInicial && !biDesactivado && !perfil?.rubros_usados?.length && !rubro;
+    !cargandoInicial &&
+    !biDesactivado &&
+    !configuracionOmitida &&
+    !perfil?.rubros_usados?.length &&
+    !rubro;
 
   if (cargandoInicial) {
     return (
@@ -339,7 +367,7 @@ function BIContenido() {
             onConfigurarRubros={() =>
               window.dispatchEvent(new CustomEvent('bi:open-rubros-modal'))
             }
-            onExplorarSinConfigurar={() => allRubros[0] && cambiarRubro(allRubros[0])}
+            onExplorarSinConfigurar={saltarConfiguracion}
           />
         ) : (
           <>

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/lib/api';
 import { mensajeDeError } from '@/lib/errores';
+import { useEmpresas } from '@/lib/queries';
 import {
   CheckCircle2,
   ChevronRight,
@@ -80,14 +81,29 @@ export default function OnboardingPage() {
   const router = useRouter();
   const { user, refreshUser, loading: authLoading, isAuthenticated } = useAuth();
 
-  const [step, setStep] = useState<Step>(1);
+  const [pasoElegido, setPasoElegido] = useState<Step | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   // Step 1 — Empresa
   const [rut, setRut] = useState('');
   const [nombreEmpresa, setNombreEmpresa] = useState('');
-  const [empresaId, setEmpresaId] = useState('');
+  const [empresaCreada, setEmpresaCreada] = useState('');
+
+  // La empresa que el usuario YA tiene. Quien cerró la pestaña a medias vuelve
+  // aquí con su empresa creada, y el paso 1 era entonces una puerta cerrada:
+  // crear la misma empresa responde 409 «Ya tienes acceso a esta empresa», el
+  // panel rebotaba al onboarding y «Lo hago después» también. **No había salida
+  // ninguna.** Si ya existe, ese paso está hecho y se empieza en el siguiente.
+  const consultaEmpresas = useEmpresas();
+  const empresaExistente = (consultaEmpresas.data as { id: string }[] | undefined)?.[0];
+  const empresaId = empresaCreada || empresaExistente?.id || '';
+
+  // Se DERIVA en vez de guardarse desde un efecto, como el rubro en la pantalla
+  // de BI: el dato llega después del primer render y un `useEffect` + `setState`
+  // deja una pasada pintando el paso equivocado.
+  const step: Step = pasoElegido ?? (empresaId ? 2 : 1);
+  const setStep = setPasoElegido;
 
   // Step 2 — Alerta
   const [alertKeywords, setAlertKeywords] = useState('');
@@ -134,6 +150,31 @@ export default function OnboardingPage() {
 
   // ─── Step handlers ───────────────────────────────────────────────────────
 
+  /**
+   * Deja constancia de que este usuario ya pasó por aquí.
+   *
+   * Vivía SÓLO dentro de «Ir a mi panel», el botón de la última pantalla. Todo
+   * el trabajo —empresa, rubros, perfil semántico, primera alerta— ya estaba
+   * hecho una pantalla antes, así que quien cerraba la pestaña al leer «Listo,
+   * ya estamos buscando» se quedaba con `onboarding_completed = false`… y la
+   * guarda de `app/dashboard/layout.tsx` lo devolvía aquí para siempre.
+   *
+   * Es idempotente y silencioso a propósito: es contabilidad interna, no una
+   * acción del usuario. Que falle no puede impedirle seguir.
+   */
+  const marcarOnboardingHecho = async (paso: number) => {
+    if (!user || user.onboarding_completed) return;
+    await apiClient
+      .updateUser(user.id, {
+        plan_tier: 'basico',
+        onboarding_completed: true,
+        onboarding_step: paso,
+      })
+      .then(() => refreshUser())
+      .catch(() => {});
+  };
+
+
   const handleStep1 = async () => {
     if (!rut.trim() || !nombreEmpresa.trim()) {
       setError('Nos faltan el RUT y el nombre de tu empresa.');
@@ -146,7 +187,7 @@ export default function OnboardingPage() {
         rut_empresa: rut.replace(/\./g, ''),
         nombre_empresa: nombreEmpresa.trim(),
       });
-      setEmpresaId(empresa.id);
+      setEmpresaCreada(empresa.id);
       // Kick off estado hábil check in background (non-blocking)
       apiClient.checkEstadoHabilNow(empresa.id).catch(() => {});
       setStep(2);
@@ -221,25 +262,20 @@ export default function OnboardingPage() {
     } catch {
       setAlertCreated(true); // Don't block onboarding
     } finally {
+      // Aquí es donde el onboarding está de verdad terminado: lo que viene
+      // después es una pantalla de confirmación, no un paso más.
+      await marcarOnboardingHecho(2);
       setLoadingAlert(false);
     }
   };
 
   const handleFinish = async () => {
-    if (!user) return;
     setLoading(true);
     try {
-      await apiClient.updateUser(user.id, {
-        plan_tier: 'basico',
-        onboarding_completed: true,
-        onboarding_step: 3,
-      });
-      await refreshUser();
-      router.push('/dashboard');
-    } catch {
-      router.push('/dashboard');
+      await marcarOnboardingHecho(3);
     } finally {
       setLoading(false);
+      router.push('/dashboard');
     }
   };
 
@@ -339,7 +375,18 @@ export default function OnboardingPage() {
                   hábil, no hay alertas y no arranca el trial: el panel se ve
                   vacío y parece que el producto no funciona. */}
               <p className="text-center text-xs text-muted">
-                <button onClick={() => router.push('/dashboard')} className="text-primary hover:underline">
+                {/* Marcaba nada y empujaba al panel, que con
+                    `onboarding_completed = false` devuelve aquí: el enlace no
+                    llevaba a ninguna parte. Saltarse esto es una decisión
+                    legítima —el panel ya avisa de lo que falta—, así que se
+                    registra como tal. */}
+                <button
+                  onClick={async () => {
+                    await marcarOnboardingHecho(1);
+                    router.push('/dashboard');
+                  }}
+                  className="text-primary hover:underline"
+                >
                   Lo hago después
                 </button>{' '}
                 — hasta entonces el panel se va a ver vacío
