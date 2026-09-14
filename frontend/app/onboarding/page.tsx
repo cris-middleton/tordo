@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/lib/api';
+import { mensajeDeError } from '@/lib/errores';
 import {
   CheckCircle2,
   ChevronRight,
@@ -149,14 +150,23 @@ export default function OnboardingPage() {
       // Kick off estado hábil check in background (non-blocking)
       apiClient.checkEstadoHabilNow(empresa.id).catch(() => {});
       setStep(2);
-    } catch (err: any) {
-      const detail = err?.response?.data?.detail;
-      if (typeof detail === 'string' && detail.includes('ya está registrada')) {
+    } catch (err: unknown) {
+      // `mensajeDeError` normaliza las tres formas del `detail` de FastAPI. El
+      // RUT inválido llega como 422 —lo levanta el validador de `EmpresaCreate`,
+      // no un `HTTPException`—, así que estas comprobaciones miraban antes un
+      // `typeof detail === 'string'` que NUNCA se cumplía: la rama amable era
+      // código muerto y lo que llegaba al JSX era la lista de errores de
+      // Pydantic, que es con lo que React se cae.
+      const detalle = mensajeDeError(
+        err,
+        'No pudimos guardar la empresa. Inténtalo de nuevo en un momento.',
+      );
+      if (detalle.includes('ya está registrada')) {
         setError('Esa empresa ya tiene cuenta. Si es tuya, pide que te inviten desde Mi empresa.');
-      } else if (typeof detail === 'string' && detail.includes('RUT inválido')) {
+      } else if (detalle.includes('RUT inválido')) {
         setError('Ese RUT no cuadra. Revisa el dígito verificador.');
       } else {
-        setError(detail || 'No pudimos guardar la empresa. Inténtalo de nuevo en un momento.');
+        setError(detalle);
       }
     } finally {
       setLoading(false);

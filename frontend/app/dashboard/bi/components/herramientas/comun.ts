@@ -1,3 +1,5 @@
+import { mensajeDeError } from '@/lib/errores';
+
 import type { OrganismoConNombre } from '../../types';
 
 /**
@@ -6,12 +8,17 @@ import type { OrganismoConNombre } from '../../types';
  * `extractErrorMessage` está aquí porque el backend devuelve el detalle en tres
  * formas distintas según de dónde venga el error, y cada pestaña lo enseña tal
  * cual: es texto escrito para que lo lea una persona.
+ *
+ * Quien lee el `detail` es `mensajeDeError`: esta función tenía su propia copia,
+ * tipada como `string`, y en un 422 no lo es. Lo propio de BI —la cuota agotada,
+ * el módulo apagado, `motivo`— se queda aquí.
  */
 
 export function extractErrorMessage(err: unknown): string {
-  const e = err as { response?: { status?: number; data?: { detail?: string; motivo?: string } }; message?: string };
+  const e = err as { response?: { status?: number; data?: { motivo?: string } }; message?: string };
   const status = e?.response?.status;
-  const detail = e?.response?.data?.detail || e?.response?.data?.motivo;
+  // Respaldo vacío: distingue «el backend explicó» de «no hay nada que enseñar».
+  const detail = mensajeDeError(err, '') || e?.response?.data?.motivo;
 
   if (status === 429) {
     return 'Se agotó tu cuota diaria de búsquedas BI (3 consultas/día en plan básico). Vuelve mañana o actualiza tu plan.';

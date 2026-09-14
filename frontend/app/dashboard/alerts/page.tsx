@@ -5,6 +5,7 @@ import { apiClient } from '@/lib/api';
 import { useAlertaPreferencias, useAlertas } from '@/lib/queries';
 import { Bell, Check, Trash2, Loader2, Plus, Filter, Pencil, X } from 'lucide-react';
 import { format } from 'date-fns';
+import { mensajeDeError } from '@/lib/errores';
 
 interface Alert {
   id: number;
@@ -136,8 +137,7 @@ export default function AlertsPage() {
       else { await apiClient.createAlertPreference(payload); }
       setShowModal(false); loadPreferences();
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { detail?: string } } };
-      setPrefError(error?.response?.data?.detail ?? 'No pudimos guardar la alerta. Inténtalo de nuevo.');
+      setPrefError(mensajeDeError(err, 'No pudimos guardar la alerta. Inténtalo de nuevo.'));
     } finally { setSaving(false); }
   }
 
@@ -145,8 +145,7 @@ export default function AlertsPage() {
     if (!confirm(`¿Borramos la alerta "${p.name}"? Dejaremos de avisarte de eso.`)) return;
     try { await apiClient.deleteAlertPreference(p.id); loadPreferences(); }
     catch (err: unknown) {
-      const error = err as { response?: { data?: { detail?: string } } };
-      alert(error?.response?.data?.detail ?? 'No pudimos borrarla. Inténtalo de nuevo.');
+      alert(mensajeDeError(err, 'No pudimos borrarla. Inténtalo de nuevo.'));
     }
   }
 

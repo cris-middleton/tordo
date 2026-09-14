@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { CheckCircle2, Loader2, MailWarning } from 'lucide-react';
 
 import { apiClient } from '@/lib/api';
+import { mensajeDeError } from '@/lib/errores';
 
 /**
  * Confirmar el correo de la cuenta.
@@ -36,8 +37,7 @@ function Verificacion() {
       await apiClient.confirmarVerificacion(token);
       setEstado('listo');
     } catch (e) {
-      const detalle = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      setMensaje(detalle ?? 'El enlace no es válido o ya venció.');
+      setMensaje(mensajeDeError(e, 'El enlace no es válido o ya venció.'));
       setEstado('error');
     }
   };

@@ -43,7 +43,7 @@ services:
 
   # MinIO — S3-compatible object store for local dev document storage
   minio:
-    image: minio/minio:latest
+    image: quay.io/minio/minio:latest
     container_name: tordo_minio
     command: server /data --console-address ":9001"
     ports:
@@ -64,7 +64,7 @@ services:
 
   # MinIO setup — creates the default bucket on first start
   minio-setup:
-    image: minio/mc:latest
+    image: quay.io/minio/mc:latest
     container_name: tordo_minio_setup
     depends_on:
       minio:

@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { ChevronDown, Settings2, X, Check, Loader2, Search } from 'lucide-react';
 import { TFIDFPerfilData, PlanTier, isPaidPlan } from '../types';
+import { mensajeDeError } from '@/lib/errores';
 
 interface RubroFilterProps {
   rubros: string[];               // available rubros for the dropdown
@@ -60,7 +61,7 @@ export function RubroFilter({
       await onSavePerfil(selectedClusters);
       setShowModal(false);
     } catch (err: any) {
-      setSaveError(err?.response?.data?.detail || 'No pudimos guardar tus rubros. Inténtalo de nuevo.');
+      setSaveError(mensajeDeError(err, 'No pudimos guardar tus rubros. Inténtalo de nuevo.'));
     } finally {
       setSaving(false);
     }

@@ -7,6 +7,7 @@ import { LogIn, Loader2, ArrowLeft, Eye, EyeOff, BarChart2, FileCheck, ShieldAle
 import Link from 'next/link';
 import TordoLogo from '@/components/TordoLogo';
 import { apiClient } from '@/lib/api';
+import { mensajeDeError } from '@/lib/errores';
 
 // El formulario va dentro de un límite de Suspense porque usa
 // `useSearchParams`: sin él, Next no puede prerenderizar la página y el build
@@ -54,8 +55,10 @@ function LoginForm() {
       await login(username, password);
       router.push('/dashboard');
     } catch (err: any) {
-      const errorMessage =
-        err.response?.data?.detail || err.message || 'No pudimos entrar. Revisa tus datos y vuelve a intentar.';
+      const errorMessage = mensajeDeError(
+        err,
+        err?.message || 'No pudimos entrar. Revisa tus datos y vuelve a intentar.',
+      );
       setError(errorMessage);
     } finally {
       setLoading(false);

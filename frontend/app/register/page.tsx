@@ -7,6 +7,7 @@ import { apiClient } from '@/lib/api';
 import { UserPlus, Loader2, ArrowLeft, Search, BarChart2, FileCheck, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
 import TordoLogo from '@/components/TordoLogo';
+import { mensajeDeError } from '@/lib/errores';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -51,8 +52,14 @@ export default function RegisterPage() {
       });
       router.push('/login?registered=true');
     } catch (err: any) {
-      if (err.response?.data?.detail) {
-        setError(err.response.data.detail);
+      // Respaldo vacío a propósito: así «no hay nada legible que enseñar» se
+      // distingue de «el backend explicó el problema», y la escalera de abajo
+      // sigue decidiendo el resto. Aquí es donde caía el registro con una
+      // contraseña corta o un correo mal escrito: son 422, y su `detail` es la
+      // lista de Pydantic, no una cadena.
+      const detalle = mensajeDeError(err, '');
+      if (detalle) {
+        setError(detalle);
       } else if (err.response?.status === 400) {
         // «Verifica que el email y usuario sean únicos» le pedía al usuario
         // que dedujera el problema con vocabulario de base de datos. Que

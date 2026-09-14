@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Save, Loader2, Mail, Bell, Webhook, Lock, Eye, EyeOff, MessageCircle, CreditCard, ExternalLink, Sun, Moon, Monitor, ChevronDown, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { useTheme } from 'next-themes';
+import { mensajeDeError } from '@/lib/errores';
 
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth();
@@ -65,7 +66,7 @@ export default function SettingsPage() {
       await refreshUser();
       setMessage({ type: 'success', text: 'Configuración guardada exitosamente' });
     } catch (error: any) {
-      setMessage({ type: 'error', text: error.response?.data?.detail || 'Error al guardar la configuración' });
+      setMessage({ type: 'error', text: mensajeDeError(error, 'Error al guardar la configuración') });
     } finally {
       setSaving(false);
     }
@@ -98,7 +99,7 @@ export default function SettingsPage() {
       setPasswordData({ current_password: '', new_password: '', confirm_password: '' });
       setShowPasswordFields(false);
     } catch (error: any) {
-      setPasswordMessage({ type: 'error', text: error.response?.data?.detail || 'Error al cambiar la contraseña' });
+      setPasswordMessage({ type: 'error', text: mensajeDeError(error, 'Error al cambiar la contraseña') });
     } finally {
       setChangingPassword(false);
     }

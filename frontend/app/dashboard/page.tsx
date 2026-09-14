@@ -2,6 +2,7 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/lib/api';
+import { mensajeDeError } from '@/lib/errores';
 import { useEmpresaActiva } from '@/lib/empresaActive';
 import type { DashboardHomeResponse } from '@/types/dashboardHome';
 
@@ -19,21 +20,24 @@ import { usePanel } from '@/lib/queries';
  *
  * Estaba dentro del `.catch()`. Se saca para que la pantalla no tenga que
  * manejar el ciclo de vida de la petición, sólo su resultado.
+ *
+ * La lectura del `detail` la hace `mensajeDeError`: esta función tenía su propia
+ * copia, tipada como `string`, y en un 422 el `detail` es una lista de objetos.
+ * Lo que queda aquí es lo único propio de esta pantalla — el encuadre del 500 y
+ * el respaldo del panel.
  */
-function mensajeDeError(err: unknown): string {
-  const e = err as {
-    response?: { status?: number; data?: { detail?: string } };
-    message?: string;
-  };
+function mensajeDelPanel(err: unknown): string {
+  const e = err as { response?: { status?: number }; message?: string };
   const status = e?.response?.status;
-  const detail = e?.response?.data?.detail;
-  console.error('[Dashboard] getDashboardHome failed:', { status, detail, err });
-  if (status === 500 && detail) return `Se cayó algo de nuestro lado: ${detail}`;
-  if (detail) return detail;
-  if (e?.message) {
-    return `No pudimos cargar tu panel — ${e.message}. Vuelve a intentar en un momento.`;
-  }
-  return 'No pudimos cargar tu panel. Vuelve a intentar en un momento.';
+  const respaldo = e?.message
+    ? `No pudimos cargar tu panel — ${e.message}. Vuelve a intentar en un momento.`
+    : 'No pudimos cargar tu panel. Vuelve a intentar en un momento.';
+  // Respaldo vacío para saber si el backend dijo algo o no lo dijo.
+  const detalle = mensajeDeError(err, '');
+  console.error('[Dashboard] getDashboardHome failed:', { status, detalle, err });
+  if (!detalle) return respaldo;
+  if (status === 500) return `Se cayó algo de nuestro lado: ${detalle}`;
+  return detalle;
 }
 
 export default function DashboardPage() {
@@ -45,7 +49,7 @@ export default function DashboardPage() {
   const empresaId = useEmpresaActiva() ?? undefined;
   const { data, error: errorConsulta, refetch } = usePanel(empresaId);
 
-  const error = errorConsulta ? mensajeDeError(errorConsulta) : null;
+  const error = errorConsulta ? mensajeDelPanel(errorConsulta) : null;
 
   // Sin respaldo 'hola': `buildNarrative` ya sabe saludar sin nombre, y el
   // respaldo producía «Buenos días, hola.» en cualquier cuenta sin nombre.

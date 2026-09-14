@@ -16,6 +16,18 @@ import type { ApiKeyCreada, ApiKeyResumen, PlanResumen, PrecioVigilado } from '@
  * sesión moría a los 30 minutos. Ahora vive en cookie y la renovación la hace el
  * proxy sin que nadie se entere.
  */
+/** La ruta con la que se le pregunta al servidor si hay sesión. */
+export const RUTA_SONDA_SESION = `${API}/auth/me`;
+
+/**
+ * Un 401 aquí significa «no hay sesión», que es una respuesta legítima y no una
+ * sesión caída. Se compara por sufijo porque axios guarda en `config.url` la
+ * ruta relativa a `baseURL`.
+ */
+function esSondaDeSesion(url: string | undefined): boolean {
+  return typeof url === 'string' && url.endsWith(RUTA_SONDA_SESION);
+}
+
 class ApiClient {
   private client: AxiosInstance;
 
@@ -33,6 +45,22 @@ class ApiClient {
     // Al 401, al login. Ya no hay token que borrar aquí: de eso se encarga el
     // proxy, que limpia las cookies cuando el refresco deja de valer.
     //
+    // **Salvo cuando quien recibe el 401 es la sonda de sesión** (`/auth/me`).
+    // Esa llamada no es una operación que falló: es la PREGUNTA que hace
+    // `AuthContext` al montar, y en una página pública «no hay sesión» es la
+    // respuesta correcta, no un error. Redirigir ahí dejaba la landing
+    // inalcanzable con un navegador: `/` cargaba, preguntaba, recibía 401 y
+    // rebotaba a `/login` — la home, que es el canal de adquisición, no la veía
+    // nadie que no hubiera entrado ya. `AuthContext` ya lo tenía escrito en un
+    // comentario ("401 sin sesión es lo normal en la landing"); lo que fallaba
+    // era que este interceptor se le adelantaba.
+    //
+    // No abre ningún hueco: lo que protege una pantalla no es este redirect
+    // sino su propia guarda —`app/dashboard/layout.tsx` y
+    // `app/onboarding/page.tsx` mandan a `/login` cuando no hay usuario—, y un
+    // 401 en cualquier OTRA ruta (una sesión que se cae a media faena) sigue
+    // redirigiendo como antes.
+    //
     // El 402 se traduce al evento que escucha `PlanUpgradeBanner`. Va aquí y no
     // en cada pantalla porque el backend devuelve 402 desde cuatro sitios
     // —asientos, cuota de BI, documentos y alertas— y son 22 endpoints de BI
@@ -42,7 +70,7 @@ class ApiClient {
       (response) => response,
       (error) => {
         const status = error.response?.status;
-        if (status === 401 && typeof window !== 'undefined') {
+        if (status === 401 && typeof window !== 'undefined' && !esSondaDeSesion(error.config?.url)) {
           const path = window.location.pathname;
           if (!path.startsWith('/login') && !path.startsWith('/register') && !path.startsWith('/auth')) {
             window.location.href = '/login';
@@ -83,7 +111,7 @@ class ApiClient {
   }
 
   async getCurrentUser(signal?: AbortSignal) {
-    const res = await this.client.get(`${API}/auth/me`, { signal });
+    const res = await this.client.get(RUTA_SONDA_SESION, { signal });
     return res.data;
   }
 

@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { mensajeDeError } from '@/lib/errores';
 
 interface Empresa {
   id: string;
@@ -143,7 +144,7 @@ export default function DocumentosPage() {
       await loadDocumentos();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Error al subir el documento.');
+      setError(mensajeDeError(err, 'Error al subir el documento.'));
     } finally {
       setUploading(false);
     }

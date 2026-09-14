@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { apiClient } from '@/lib/api';
+import { mensajeDeError } from '@/lib/errores';
 
 interface User {
   id: number;
@@ -85,7 +86,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Provide better error message
       if (error.response?.status === 401) {
-        if (error.response?.data?.detail?.includes('validate credentials')) {
+        // Por `mensajeDeError` y no leyendo `detail` a mano: ahí no siempre hay
+        // una cadena, y `.includes` sobre la lista de un 422 devuelve `false`
+        // en silencio — la rama no se cumpliría nunca y nadie se enteraría.
+        if (mensajeDeError(error, '').includes('validate credentials')) {
           // This means getCurrentUser failed, but login might have succeeded
           // Try to get user again or show a different error
           throw new Error('Sesión iniciada pero no se pudo obtener información del usuario. Por favor intenta nuevamente.');
@@ -104,8 +108,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshUser = async () => {
-    const userData = await apiClient.getCurrentUser();
-    setUser(userData);
+    try {
+      const userData = await apiClient.getCurrentUser();
+      setUser(userData);
+    } catch (error: any) {
+      // El interceptor ya no redirige por un 401 de `/auth/me` —en la landing
+      // ése es el caso normal—, así que quien tiene que reaccionar a la sesión
+      // caída es esto: al dejar el usuario en null, la guarda de
+      // `app/dashboard/layout.tsx` manda a /login. Sólo con 401: un fallo de
+      // red no es motivo para echar a nadie.
+      if (error?.response?.status === 401) setUser(null);
+      throw error;
+    }
   };
 
   return (
