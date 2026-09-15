@@ -7,10 +7,14 @@ import { OportunidadItem, CompradorResult, scoreColor, scoreBg } from '../types'
 import { useComprador } from '@/lib/queries';
 import { ShareMenu } from './ShareMenu';
 
+import { EligeRubro } from './EligeRubro';
+
 interface OportunidadesSectionProps {
   oportunidades: OportunidadItem[];
   loading: boolean;
   onFocusOrganismo?: (o: { codigo: string; nombre: string }) => void;
+  /** Vacío mientras el usuario no ha elegido rubro. Ver `EligeRubro`. */
+  rubro?: string;
 }
 
 function ScoreBar({ value, max = 10 }: { value: number; max?: number }) {
@@ -155,7 +159,7 @@ function ExpandedRow({
   );
 }
 
-export function OportunidadesSection({ oportunidades, loading, onFocusOrganismo }: OportunidadesSectionProps) {
+export function OportunidadesSection({ oportunidades, loading, onFocusOrganismo, rubro }: OportunidadesSectionProps) {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const rootRef = useRef<HTMLElement>(null);
 
@@ -181,6 +185,10 @@ export function OportunidadesSection({ oportunidades, loading, onFocusOrganismo 
       <Loader2 className="h-6 w-6 animate-spin text-primary" />
     </div>
   );
+
+  // Sin rubro elegido no hay nada que buscar todavía, y decir «no se
+  // encontraron oportunidades» sugiere que se miró y no había.
+  if (!loading && !rubro) return <EligeRubro que="dónde conviene mirar primero" />;
 
   if (!loading && oportunidades.length === 0) return (
     <div className="card flex flex-col items-center gap-3 py-12 text-center">

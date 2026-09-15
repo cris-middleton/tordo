@@ -6,14 +6,20 @@ import { ResumenMercado } from '../types';
 import { buildFrases } from '../narrative/templates';
 import { ShareMenu } from './ShareMenu';
 
+import { EligeRubro } from './EligeRubro';
+
 interface MarketSummaryCardProps {
   resumen: ResumenMercado | null;
   loading: boolean;
+  /** Vacío mientras el usuario no ha elegido rubro. Ver `EligeRubro`. */
+  rubro?: string;
 }
 
-export function MarketSummaryCard({ resumen, loading }: MarketSummaryCardProps) {
+export function MarketSummaryCard({ resumen, loading, rubro }: MarketSummaryCardProps) {
   // Must be declared before any early returns (hooks rules)
   const rootRef = useRef<HTMLElement>(null);
+
+  if (!loading && !rubro) return <EligeRubro que="el resumen de ese mercado" />;
 
   // Loading state
   if (loading) {

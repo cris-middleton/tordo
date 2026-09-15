@@ -11,6 +11,8 @@ import {
 import { InfoTooltip } from './InfoTooltip';
 import type { Panorama, PanoramaLider } from '../types';
 
+import { EligeRubro } from './EligeRubro';
+
 /**
  * El panorama del rubro: la cabecera de la pantalla de analítica.
  *
@@ -116,15 +118,7 @@ export function PanoramaRubro({
   cargando: boolean;
   rubro: string;
 }) {
-  if (!rubro) {
-    return (
-      <div className="rounded-xl border border-dashed border-border bg-background p-6 text-center">
-        <p className="text-sm text-muted">
-          Elige un rubro arriba para ver cómo está ese mercado.
-        </p>
-      </div>
-    );
-  }
+  if (!rubro) return <EligeRubro que="cómo está ese mercado" />;
 
   if (cargando) {
     return (

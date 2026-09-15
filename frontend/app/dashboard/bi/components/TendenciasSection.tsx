@@ -19,6 +19,8 @@ import { TrendChart } from './TrendChart';
 import { InfoTooltip } from './InfoTooltip';
 import { ShareMenu } from './ShareMenu';
 
+import { EligeRubro } from './EligeRubro';
+
 interface TendenciasSectionProps {
   tendencias: TendenciaItem[];
   emergentes: TendenciaItem[];
@@ -50,6 +52,10 @@ const CustomTooltip = ({ active, payload }: any) => {
 
 export function TendenciasSection({ tendencias, emergentes, loading, selectedRubro, serieAnual, cagrRubro }: TendenciasSectionProps) {
   const rootRef = useRef<HTMLElement>(null);
+
+  // Sin rubro no hay tendencia que enseñar, y decir «sin datos para este
+  // rubro» sobre un rubro que no se ha elegido describe mal el problema.
+  const sinRubro = !selectedRubro;
 
   const summaryText = (() => {
     if (selectedRubro && cagrRubro != null) {
@@ -280,10 +286,14 @@ export function TendenciasSection({ tendencias, emergentes, loading, selectedRub
           </BarChart>
         </ResponsiveContainer>
       ) : (
-        <div className="flex flex-col items-center gap-3 py-10 text-center">
-          <TrendingUp className="h-7 w-7 text-muted" />
-          <p className="text-sm text-muted">No hay datos de tendencias para este rubro.</p>
-        </div>
+        sinRubro ? (
+          <EligeRubro que="cómo viene creciendo ese mercado" />
+        ) : (
+          <div className="flex flex-col items-center gap-3 py-10 text-center">
+            <TrendingUp className="h-7 w-7 text-muted" />
+            <p className="text-sm text-muted">No hay datos de tendencias para este rubro.</p>
+          </div>
+        )
       )}
     </section>
   );

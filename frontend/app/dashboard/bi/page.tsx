@@ -381,7 +381,7 @@ function BIContenido() {
               {/* El párrafo primero y las cifras después: quien abre esto no
                   quiere leer un tablero, quiere que le digan cómo está el
                   mercado. Las cifras están debajo para el que sí. */}
-              <MarketSummaryCard resumen={resumen} loading={consultaResumen.isFetching} />
+              <MarketSummaryCard resumen={resumen} loading={consultaResumen.isFetching} rubro={rubro} />
               <PanoramaRubro
                 panorama={panorama}
                 cargando={consultaPanorama.isPending && !!rubro}
@@ -408,6 +408,7 @@ function BIContenido() {
               <OportunidadesSection
                 oportunidades={oportunidades}
                 loading={consultaOportunidades.isFetching}
+                rubro={rubro}
                 onFocusOrganismo={(o) => {
                   setFocusCodigo(o.codigo);
                   setTimeout(() => {
