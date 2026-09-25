@@ -74,4 +74,7 @@ def campos_base_desde_detalle(datos: Any) -> dict[str, Any]:
         # Lista plana de ítems: es lo que lee el panel de BI (`CodigoProducto`).
         "items": _items_de(main),
     }
+    # La API rellena con espacios: «Región del Biobío », «Región de Tarapacá  ».
+    # Guardadas así, filtrar por región no encontraba 9 de las 16.
+    campos = {k: v.strip() if isinstance(v, str) else v for k, v in campos.items()}
     return {k: v for k, v in campos.items() if v not in (None, "", [])}

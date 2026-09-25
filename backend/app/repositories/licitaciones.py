@@ -17,8 +17,9 @@ en la capa HTTP.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 
-from sqlalchemy import Select, asc, desc, func, or_, select
+from sqlalchemy import Select, and_, asc, case, desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -78,6 +79,32 @@ class Filtros:
     terminos: list[str] = field(default_factory=list)
 
 
+def esta_abierta():
+    """Se puede postular: publicada y sin cerrar.
+
+    Es la primera clave de TODO orden del listado. Sin ella, buscar «limpieza»
+    devolvía primero licitaciones cerradas o adjudicadas —el orden era sólo por
+    fecha de publicación—, y ordenar por cierre ascendente empezaba por las que
+    cerraron hace meses. Quien busca, busca a qué postular.
+    """
+    return and_(
+        Licitacion.estado == "Publicada",
+        or_(Licitacion.fecha_cierre.is_(None), Licitacion.fecha_cierre > func.now()),
+    )
+
+
+def abierta_en_memoria(lic: Licitacion) -> bool:
+    """`esta_abierta`, para filas ya cargadas (el reordenado semántico)."""
+    if lic.estado != "Publicada":
+        return False
+    return lic.fecha_cierre is None or lic.fecha_cierre > datetime.now(UTC)
+
+
+def abiertas_primero():
+    """Clave de orden: 0 para las abiertas, 1 para el resto."""
+    return case((esta_abierta(), 0), else_=1)
+
+
 def _base() -> Select:
     """Sólo licitaciones vigentes, con su detalle cargado.
 
@@ -99,7 +126,11 @@ def _con_filtros(filtros: Filtros, *, aplicar_terminos: bool = True) -> Select:
     if filtros.tipos_convocatoria:
         consulta = consulta.where(Licitacion.tipo_convocatoria.in_(filtros.tipos_convocatoria))
     if filtros.region:
-        consulta = consulta.where(Licitacion.region == filtros.region)
+        # La API manda las regiones con espacios al final («Región del Biobío »,
+        # «Región de Tarapacá  ») y el selector no: comparadas tal cual, filtrar
+        # por región no encontraba nada en 9 de las 16. El ETL ya las limpia al
+        # guardar; el `trim` cubre las filas guardadas antes.
+        consulta = consulta.where(func.trim(Licitacion.region) == filtros.region.strip())
     if filtros.monto_minimo:
         consulta = consulta.where(Licitacion.monto_estimado >= filtros.monto_minimo)
     if filtros.monto_maximo:
@@ -136,7 +167,9 @@ async def buscar(
         ordenada = repo_matches.ordenar_por_encaje(consulta, empresa_id, ascendente=ascendente)
     else:
         columna = COLUMNAS_ORDENABLES.get(orden or "", Licitacion.fecha_publicacion)
-        ordenada = consulta.order_by((asc if ascendente else desc)(columna))
+        ordenada = consulta.order_by(
+            abiertas_primero(), (asc if ascendente else desc)(columna).nulls_last()
+        )
 
     filas = (await db.execute(ordenada.offset(salto).limit(limite))).scalars().all()
     return list(filas), total
@@ -153,7 +186,11 @@ async def pool_para_relevancia(db: AsyncSession, filtros: Filtros) -> list[Licit
     clausulas = [coincide_termino(t) for t in filtros.terminos]
     if clausulas:
         consulta = consulta.where(or_(*clausulas))
-    consulta = consulta.order_by(desc(Licitacion.fecha_publicacion)).limit(POOL_SEMANTICO)
+    # Las abiertas primero también aquí: el pool es de 200, y llenarlo de
+    # cerradas recientes dejaba fuera justo las que se pueden postular.
+    consulta = consulta.order_by(abiertas_primero(), desc(Licitacion.fecha_publicacion)).limit(
+        POOL_SEMANTICO
+    )
     return list((await db.execute(consulta)).scalars().all())
 
 

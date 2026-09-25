@@ -126,10 +126,15 @@ async def list_tenders(
             similitudes = tfidf_matcher.score_texts(
                 " ".join(filtros.terminos), [_licitacion_text(lic) for lic in pool]
             )
+            # Abiertas primero, y dentro de cada grupo por similitud: el mismo
+            # criterio que el orden en SQL (`abiertas_primero`).
+            signo = 1 if ascendente else -1
             ordenadas = sorted(
                 zip(pool, similitudes, strict=True),
-                key=lambda fila: fila[1],
-                reverse=not ascendente,
+                key=lambda fila: (
+                    0 if repo_licitaciones.abierta_en_memoria(fila[0]) else 1,
+                    signo * fila[1],
+                ),
             )
             total = len(ordenadas)
             pagina_filas = ordenadas[skip : skip + limit]

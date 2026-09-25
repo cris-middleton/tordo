@@ -119,6 +119,13 @@ def test_lo_que_no_viene_no_aparece():
     assert "region" not in campos
 
 
+def test_los_textos_llegan_sin_los_espacios_de_relleno():
+    """La API manda «Región del Biobío » con espacio final; el selector no."""
+    con_espacios = copy.deepcopy(DETALLE_REAL)
+    con_espacios["Listado"][0]["Comprador"]["RegionUnidad"] = "Región de Tarapacá  "
+    assert campos_base_desde_detalle(con_espacios)["region"] == "Región de Tarapacá"
+
+
 def test_un_codigo_de_organismo_numerico_se_guarda_como_texto():
     numerico = copy.deepcopy(DETALLE_REAL)
     numerico["Listado"][0]["Comprador"]["CodigoOrganismo"] = 7326
