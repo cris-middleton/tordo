@@ -6,6 +6,7 @@ import { Check, Loader2, Sparkles, X } from 'lucide-react';
 import { mensajeDeError } from '@/lib/errores';
 import { apiClient } from '@/lib/api';
 import { useGuardarPerfilSemantico, usePerfilSemantico } from '@/lib/queries';
+import { motivoParaPersona } from '@/lib/motivos';
 
 /**
  * El perfil de búsqueda de la empresa.
@@ -72,7 +73,7 @@ export default function PanelPerfilSemantico({
       const r = await apiClient.sugerirRubros(textoActual);
       setSugerencias(r.disponible ? (r.sugerencias ?? []) : []);
       if (r.disponible && !(r.sugerencias ?? []).length) {
-        setError(r.motivo ?? 'No encontramos rubros parecidos.');
+        setError(motivoParaPersona(r.motivo, 'No encontramos rubros parecidos.'));
       }
     } catch (e) {
       setError(mensajeDeError(e));

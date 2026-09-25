@@ -50,7 +50,9 @@ export function Candado({
         </span>
         <p className="text-sm font-semibold text-text">Con el plan Pro ves {capacidad}</p>
         <Link href="/dashboard/billing" className="btn-primary text-xs">
-          Probar Pro 14 días gratis
+          {/* No «Probar 14 días gratis»: el trial arranca al crear la empresa,
+              así que quien ve un candado ya lo usó. */}
+          Ver el plan Pro
         </Link>
       </div>
     </div>

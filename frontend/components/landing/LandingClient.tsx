@@ -50,7 +50,7 @@ const MECANISMOS = [
   {
     nombre: 'Compra Ágil',
     detalle:
-      'Compras bajo 30 UTM, rápidas y frecuentes. Tienen su propia API y ahí es donde muchas PYMES hacen su volumen.',
+      'Compras de hasta 100 UTM, rápidas y frecuentes, y en su primer llamado sólo pueden cotizar empresas de menor tamaño. Ahí es donde muchas PYMES hacen su volumen.',
   },
   {
     nombre: 'Licitación privada',

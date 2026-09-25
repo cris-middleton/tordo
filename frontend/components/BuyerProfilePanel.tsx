@@ -2,6 +2,7 @@
 
 import { AlertTriangle } from 'lucide-react';
 import { ConfidenceBadge } from './ConfidenceBadge';
+import { motivoParaPersona } from '@/lib/motivos';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -109,7 +110,7 @@ export function BuyerProfilePanel({ comprador }: BuyerProfilePanelProps) {
       {/* Body */}
       {!comprador.disponible ? (
         <p className="text-sm text-muted">
-          {comprador.motivo ?? 'Todavía no tenemos historial de este comprador.'}
+          {motivoParaPersona(comprador.motivo, 'Todavía no tenemos historial de este comprador.')}
         </p>
       ) : (
         <div className="flex flex-col gap-3">

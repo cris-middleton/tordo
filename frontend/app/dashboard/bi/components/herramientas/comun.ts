@@ -1,6 +1,7 @@
 import { mensajeDeError } from '@/lib/errores';
 
 import type { OrganismoConNombre } from '../../types';
+import { motivoParaPersona } from '@/lib/motivos';
 
 /**
  * Lo que comparten las cinco herramientas avanzadas de BI.
@@ -18,7 +19,7 @@ export function extractErrorMessage(err: unknown): string {
   const e = err as { response?: { status?: number; data?: { motivo?: string } }; message?: string };
   const status = e?.response?.status;
   // Respaldo vacío: distingue «el backend explicó» de «no hay nada que enseñar».
-  const detail = mensajeDeError(err, '') || e?.response?.data?.motivo;
+  const detail = mensajeDeError(err, '') || motivoParaPersona(e?.response?.data?.motivo, '');
 
   if (status === 429) {
     return 'Se agotó tu cuota diaria de búsquedas BI (3 consultas/día en plan básico). Vuelve mañana o actualiza tu plan.';

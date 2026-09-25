@@ -13,7 +13,7 @@ import { PipelineZone } from '@/components/dashboard/PipelineZone';
 import { TrendWidget } from '@/components/dashboard/TrendWidget';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { RadarWidget } from '@/components/dashboard/RadarWidget';
-import { usePanel } from '@/lib/queries';
+import { usePanel, usePerfilSemantico } from '@/lib/queries';
 
 /**
  * Traduce el error de la API a algo que el usuario pueda leer.
@@ -48,6 +48,9 @@ export default function DashboardPage() {
   // empresa en el selector no actualizaba esta pantalla hasta recargar.
   const empresaId = useEmpresaActiva() ?? undefined;
   const { data, error: errorConsulta, refetch } = usePanel(empresaId);
+  // Sin esto, un panel sin encajes no distingue «no escribiste tu perfil» de
+  // «lo escribiste y el cruce corre esta madrugada».
+  const perfil = usePerfilSemantico(data?.empresa?.id ?? empresaId);
 
   const error = errorConsulta ? mensajeDelPanel(errorConsulta) : null;
 
@@ -88,6 +91,7 @@ export default function DashboardPage() {
           totalDisponibles={data.matches_total_disponibles}
           cachedAt={data.matches_cached_at}
           plan={data.plan}
+          tienePerfil={Boolean(perfil.data?.descripcion)}
         />
       </div>
 

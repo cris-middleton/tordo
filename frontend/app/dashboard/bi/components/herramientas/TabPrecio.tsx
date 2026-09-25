@@ -16,6 +16,7 @@ import {
   type PrecioBanda,
   type PrecioResultado,
 } from './comun';
+import { motivoParaPersona } from '@/lib/motivos';
 
 interface ProductoOption {
   codigoProductoONU?: string;
@@ -66,7 +67,7 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
       });
       setResultado(res);
       if (!res.disponible) {
-        setError(res.motivo || 'Sin datos para este producto.');
+        setError(motivoParaPersona(res.motivo, 'Sin datos para este producto.'));
       }
     } catch (err) {
       setError(extractErrorMessage(err));

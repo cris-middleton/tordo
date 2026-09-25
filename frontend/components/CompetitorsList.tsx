@@ -4,6 +4,7 @@ import { Lock } from 'lucide-react';
 import { usePlanActual } from '@/lib/queries';
 import { incluyePro } from '@/lib/plan';
 import { ConfidenceBadge } from './ConfidenceBadge';
+import { motivoParaPersona } from '@/lib/motivos';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -161,9 +162,7 @@ export function CompetitorsList({ competidores }: CompetidoresPanelProps) {
         </div>
       ) : !competidores.disponible ? (
         <p className="text-sm text-muted">
-          {competidores.motivo
-            ? competidores.motivo
-            : 'Sin datos de competidores para esta licitación.'}
+          {motivoParaPersona(competidores.motivo, 'Todavía no tenemos competidores registrados para este comprador.')}
         </p>
       ) : !competidores.top5 || competidores.top5.length === 0 ? (
         <p className="text-sm text-muted">

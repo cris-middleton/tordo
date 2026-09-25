@@ -53,16 +53,15 @@ export function PlanGate({ children, locked, label, preview, placeholder }: Plan
                 cartel mandaba a la página de planes a buscar algo que no está. */}
             {label || 'Esto lo ves con Pro'}
           </p>
-          {/* `Candado` y `PlanGate` tapan lo mismo y decían cosas distintas:
-              uno ofrecía «Probar Pro 14 días gratis» y el otro «Ver planes»,
-              que es una invitación a comparar tablas en vez de a probar. Se
-              alinean con la del candado, que es la que nombra el trial. */}
+          {/* Prometía «los primeros 14 días van incluidos». El trial arranca
+              solo al crear la empresa, y sin empresa no se llega aquí: quien
+              ve este cartel ya lo usó. `Candado` dice lo mismo. */}
           <p className="text-xs text-muted mt-0.5">
-            Los primeros 14 días van incluidos y no pedimos tarjeta
+            Sin contrato: se cancela desde Facturación cuando quieras
           </p>
         </div>
         <Link href="/dashboard/billing" className="btn-primary text-sm shrink-0">
-          Probar Pro
+          Ver el plan Pro
         </Link>
       </div>
     </section>

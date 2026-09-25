@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { CheckCircle2, Loader2, MinusCircle, Sparkles, XCircle } from 'lucide-react';
 
 import type { PerfilMatchResult } from '@/types/licitacionDetalle';
+import { motivoParaPersona } from '@/lib/motivos';
 
 // ¿Tu perfil encaja? widget
 const nivelConfig: Record<string, { icon: JSX.Element; color: string; label: string; description: string }> = {
@@ -49,7 +50,9 @@ export default function PerfilEncajeWidget({
     );
   }
   if (!result) return null;
-  if (!result.disponible && result.motivo?.includes('deshabilitado')) return null;
+  // Sin modelo no hay encaje que mostrar: el motivo es una instrucción de
+  // consola («Ejecute: python -m …»), no algo que el cliente pueda resolver.
+  if (!result.disponible && /deshabilitado|no entrenado/i.test(result.motivo ?? '')) return null;
 
   return (
     <div className="card space-y-3">
@@ -60,19 +63,23 @@ export default function PerfilEncajeWidget({
 
       {result.nivel === 'sin_perfil' && (
         <div className="rounded-lg border border-border bg-background p-4 space-y-2">
-          <p className="text-sm text-muted">{result.motivo}</p>
+          {/* Decía «no tiene perfil TF-IDF configurado» y mandaba a
+              Inteligencia BI; el perfil se escribe en Mi empresa. */}
+          <p className="text-sm text-muted">
+            Cuéntanos qué vende tu empresa y te decimos cuánto se parece cada licitación a lo tuyo.
+          </p>
           <Link
-            href="/dashboard/bi"
+            href="/dashboard/empresa"
             className="btn-secondary text-xs inline-flex items-center gap-1"
           >
             <Sparkles className="h-3.5 w-3.5" />
-            Configurar perfil en Inteligencia BI
+            Escribir mi perfil de búsqueda
           </Link>
         </div>
       )}
 
       {!result.disponible && result.nivel !== 'sin_perfil' && (
-        <p className="text-sm text-muted">{result.motivo || 'Matching no disponible.'}</p>
+        <p className="text-sm text-muted">{motivoParaPersona(result.motivo, 'No pudimos calcular el encaje ahora. Vuelve a intentarlo más tarde.')}</p>
       )}
 
       {result.disponible && result.nivel && result.nivel !== 'sin_perfil' && (

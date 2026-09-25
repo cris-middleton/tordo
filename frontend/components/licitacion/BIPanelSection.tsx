@@ -21,6 +21,7 @@ import { usePlanActual } from '@/lib/queries';
 import { fmtCLP, fmtDays, fmtPct } from '@/lib/licitacionDetalle';
 import type { BIPanel, TenderDetail } from '@/types/licitacionDetalle';
 import type { PlanTier } from '@/app/dashboard/bi/types';
+import { motivoParaPersona } from '@/lib/motivos';
 
 export default function BIPanelSection({ panel, tender }: { panel: BIPanel; tender?: TenderDetail }) {
   const tier = usePlanActual().data?.tier;
@@ -60,7 +61,7 @@ export default function BIPanelSection({ panel, tender }: { panel: BIPanel; tend
             Ventana de preparación
           </div>
           {!ventana.disponible ? (
-            <p className="text-xs text-muted">{ventana.motivo || 'Sin datos históricos.'}</p>
+            <p className="text-xs text-muted">{motivoParaPersona(ventana.motivo, 'Todavía no tenemos plazos históricos de este comprador.')}</p>
           ) : (
             <div className="space-y-2 text-sm">
               {ventana.alerta_ventana_corta && (

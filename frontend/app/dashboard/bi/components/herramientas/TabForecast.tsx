@@ -5,6 +5,7 @@ import { Info, Loader2 } from 'lucide-react';
 
 import { apiClient } from '@/lib/api';
 import { extractErrorMessage, formatCLPShort, type ForecastResultado } from './comun';
+import { motivoParaPersona } from '@/lib/motivos';
 
 export default function TabForecast({ rubro }: { rubro: string }) {
   const [tipo, setTipo] = useState('LP');
@@ -24,7 +25,7 @@ export default function TabForecast({ rubro }: { rubro: string }) {
       });
       setResultado(res);
       if (!res.disponible) {
-        setError(res.motivo || 'Sin datos para esta combinación.');
+        setError(motivoParaPersona(res.motivo, 'Sin datos para esta combinación.'));
       }
     } catch (err) {
       setError(extractErrorMessage(err));

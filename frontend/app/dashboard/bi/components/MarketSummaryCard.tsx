@@ -7,6 +7,7 @@ import { buildFrases } from '../narrative/templates';
 import { ShareMenu } from './ShareMenu';
 
 import { EligeRubro } from './EligeRubro';
+import { motivoParaPersona } from '@/lib/motivos';
 
 interface MarketSummaryCardProps {
   resumen: ResumenMercado | null;
@@ -41,8 +42,7 @@ export function MarketSummaryCard({ resumen, loading, rubro }: MarketSummaryCard
         <div className="flex items-start gap-3">
           <Info className="h-4 w-4 text-muted shrink-0 mt-0.5" />
           <p className="text-sm text-muted">
-            Resumen no disponible
-            {resumen.motivo ? <> — {resumen.motivo}</> : null}.
+            {motivoParaPersona(resumen.motivo, 'Resumen no disponible para este rubro.')}
           </p>
         </div>
       </section>

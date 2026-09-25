@@ -29,9 +29,30 @@ interface Props {
   totalDisponibles: number;
   cachedAt: string | null;
   plan: PlanInfo;
+  /** Si la empresa ya escribió su perfil de búsqueda. */
+  tienePerfil?: boolean;
 }
 
-export function MatchesZone({ matches, totalDisponibles, cachedAt, plan }: Props) {
+export function MatchesZone({ matches, totalDisponibles, cachedAt, plan, tienePerfil }: Props) {
+  if (matches.length === 0 && tienePerfil) {
+    // El onboarding ya guarda el perfil, pero el encaje lo calcula el job de
+    // las 06:00: el primer día el panel está vacío CON perfil. Antes le pedía
+    // que lo escribiera — lo que acababa de hacer — y parecía que se perdió.
+    return (
+      <div className="card">
+        <h2 className="section-title mb-2">Oportunidades para ti</h2>
+        <div className="text-center py-6 space-y-2">
+          <p className="text-sm text-muted">
+            Ya tenemos tu perfil. Cada madrugada lo cruzamos con todo lo que se publica: mañana
+            temprano aparecen aquí las licitaciones que más se parecen a lo que vendes.
+          </p>
+          <Link href="/dashboard/tenders" className="text-xs text-primary hover:underline">
+            Mientras tanto, ver lo que está abierto →
+          </Link>
+        </div>
+      </div>
+    );
+  }
   if (matches.length === 0) {
     return (
       <div className="card">

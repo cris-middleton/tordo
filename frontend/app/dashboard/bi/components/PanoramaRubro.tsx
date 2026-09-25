@@ -12,6 +12,7 @@ import { InfoTooltip } from './InfoTooltip';
 import type { Panorama, PanoramaLider } from '../types';
 
 import { EligeRubro } from './EligeRubro';
+import { motivoParaPersona } from '@/lib/motivos';
 
 /**
  * El panorama del rubro: la cabecera de la pantalla de analítica.
@@ -132,7 +133,7 @@ export function PanoramaRubro({
     return (
       <div className="rounded-xl border border-border bg-surface p-6">
         <p className="text-sm text-muted">
-          {panorama?.motivo ?? 'No tenemos histórico de este rubro todavía.'}
+          {motivoParaPersona(panorama?.motivo, 'No tenemos histórico de este rubro todavía.')}
         </p>
       </div>
     );

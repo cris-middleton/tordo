@@ -5,6 +5,7 @@ import { Loader2, Search } from 'lucide-react';
 
 import { apiClient } from '@/lib/api';
 import { extractErrorMessage, type MatchingResult } from './comun';
+import { motivoParaPersona } from '@/lib/motivos';
 
 export default function TabMatching() {
   const [texto, setTexto] = useState('');
@@ -21,7 +22,7 @@ export default function TabMatching() {
       if (res.disponible) {
         setResults(res.resultados ?? []);
       } else {
-        setError(res.motivo || 'La búsqueda no está disponible ahora mismo.');
+        setError(motivoParaPersona(res.motivo, 'La búsqueda no está disponible ahora mismo.'));
         setResults([]);
       }
     } catch (err) {

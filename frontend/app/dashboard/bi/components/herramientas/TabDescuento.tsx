@@ -4,6 +4,7 @@ import { Info, Loader2 } from 'lucide-react';
 
 import { useDescuento } from '@/lib/queries';
 import { extractErrorMessage, type DescuentoItem } from './comun';
+import { motivoParaPersona } from '@/lib/motivos';
 
 export default function TabDescuento({ rubro }: { rubro: string }) {
   const consulta = useDescuento(rubro || undefined);
@@ -16,7 +17,7 @@ export default function TabDescuento({ rubro }: { rubro: string }) {
   const error = consulta.error
     ? extractErrorMessage(consulta.error)
     : res && !res.disponible
-      ? (res.motivo || 'Sin datos de descuento para este rubro.')
+      ? motivoParaPersona(res.motivo, 'Sin datos de descuento para este rubro.')
       : '';
 
   if (!rubro) {
