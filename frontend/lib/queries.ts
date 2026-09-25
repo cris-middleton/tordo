@@ -87,6 +87,28 @@ export function usePlanEmpresa(empresaId?: string) {
   });
 }
 
+/**
+ * ¿Encaja esta licitación con lo que vende la empresa?
+ *
+ * Es capacidad Pro y el backend responde 402 a los demás, así que quien llama
+ * decide `habilitada` según el plan: sin eso, cada ficha abierta por un usuario
+ * Free dispararía el aviso de mejora sin que hubiera pedido nada.
+ */
+export function useEncajeLicitacion(
+  codigo: string,
+  empresaId: string | undefined,
+  texto: string,
+  habilitada: boolean,
+) {
+  return useQuery({
+    queryKey: claves.bi('encaje', { codigo, empresaId, texto }),
+    queryFn: () =>
+      apiClient.getBILicitacionMatch(codigo, { empresa_id: empresaId as string, texto }),
+    enabled: habilitada && Boolean(codigo && empresaId) && texto.length >= 3,
+    retry: false,
+  });
+}
+
 export function useApiKeys(empresaId?: string) {
   return useQuery({
     queryKey: claves.empresaApiKeys(empresaId ?? ''),

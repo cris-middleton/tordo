@@ -19,12 +19,14 @@ import {
 } from 'lucide-react';
 
 import { apiClient } from '@/lib/api';
+import { useEncajeLicitacion, usePlanEmpresa } from '@/lib/queries';
+import { Candado } from '@/components/Candado';
 import { useAuth } from '@/contexts/AuthContext';
 import BIPanelSection from '@/components/licitacion/BIPanelSection';
 import EstadoHabilBadge from '@/components/licitacion/EstadoHabilBadge';
 import PerfilEncajeWidget from '@/components/licitacion/PerfilEncajeWidget';
 import { fmtCLP, normalizeTenderDetail } from '@/lib/licitacionDetalle';
-import type { BIPanel, PerfilMatchResult, TenderDetail } from '@/types/licitacionDetalle';
+import type { BIPanel, TenderDetail } from '@/types/licitacionDetalle';
 import { BICard } from './components/BICard';
 import type { PlanTier } from '../../bi/types';
 
@@ -54,12 +56,22 @@ export default function TenderDetailPage() {
   const [biLoading, setBiLoading] = useState(false);
 
   // TF-IDF encaje
-  const [perfilMatch, setPerfilMatch] = useState<PerfilMatchResult | null>(null);
-  const [loadingMatch, setLoadingMatch] = useState(false);
 
   // Postulación
   const [creatingPost, setCreatingPost] = useState(false);
   const [firstEmpresaId, setFirstEmpresaId] = useState<string | null>(null);
+
+  // Encaje. El plan se lee de la EMPRESA y es el efectivo (en trial es Pro):
+  // el encaje es capacidad Pro y a un plan que no lo trae se le enseña el
+  // candado en vez de pedirlo y recibir un 402.
+  const planEmpresa = usePlanEmpresa(firstEmpresaId ?? undefined);
+  const encajeIncluido = planEmpresa.data?.tier === 'pro' || planEmpresa.data?.tier === 'enterprise';
+  const encaje = useEncajeLicitacion(
+    codigoRuta,
+    firstEmpresaId ?? undefined,
+    tender?.nombre ?? '',
+    encajeIncluido,
+  );
 
   useEffect(() => {
     const loadTender = async () => {
@@ -97,17 +109,6 @@ export default function TenderDetailPage() {
         .then((data: BIPanel) => { if (active) setBiPanel(data) })
         .catch(() => { if (active) setBiPanel(null) })   // 503 = feature disabled — fail silently
         .finally(() => { if (active) setBiLoading(false) });
-
-      // Encaje
-      const textoLicitacion = tender.nombre || '';
-      if (textoLicitacion && empresaId) {
-        setLoadingMatch(true);
-        apiClient
-          .getBILicitacionMatch(codigo, { empresa_id: empresaId, texto: textoLicitacion })
-          .then((res: PerfilMatchResult) => { if (active) setPerfilMatch(res) })
-          .catch(() => {/* TF-IDF not enabled — skip */})
-          .finally(() => { if (active) setLoadingMatch(false) });
-      }
     }).catch(() => {/* no empresas — skip */});
 
     return () => { active = false };
@@ -380,7 +381,11 @@ export default function TenderDetailPage() {
           </div>
 
           {/* ── ¿Tu perfil encaja? ──────────────────────────────── */}
-          <PerfilEncajeWidget loading={loadingMatch} result={perfilMatch} />
+          {planEmpresa.data && !encajeIncluido ? (
+            <Candado capacidad="si esta licitación encaja con lo que vendes" />
+          ) : (
+            <PerfilEncajeWidget loading={encaje.isLoading} result={encaje.data ?? null} />
+          )}
 
           {/* ── Inteligencia de mercado (collapsible summary) ─── */}
           <BICard

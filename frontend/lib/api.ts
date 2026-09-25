@@ -524,7 +524,7 @@ class ApiClient {
   }
 
   async getBILicitacionMatch(codigoExterno: string, params: { empresa_id: string; texto: string }) {
-    const res = await this.client.get(`${API}/bi/licitacion/${encodeURIComponent(codigoExterno)}/match`, { params })
+    const res = await this.client.get(`${API}/bi/licitacion-match/${encodeURIComponent(codigoExterno)}`, { params })
     return res.data
   }
 
