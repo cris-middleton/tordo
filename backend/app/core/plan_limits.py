@@ -287,13 +287,13 @@ def consumir_cuota_bi(empresa) -> None:
 # ── Document quota helper (called inline, not as Depends) ─────────────────────
 
 
-def enforce_doc_quota(user, existing_docs: list, new_file_bytes: int) -> None:
+def enforce_doc_quota(empresa, existing_docs: list, new_file_bytes: int) -> None:
     """
     Raise HTTP 402 if adding new_file_bytes would exceed plan document quotas.
 
-    Accepts the full User ORM object so trial status is considered.
+    Recibe la EMPRESA, dueña del plan y del trial (ADR 0002) — no el usuario.
     """
-    tier = effective_plan_tier(user)
+    tier = effective_plan_tier(empresa)
     quota = get_quota(tier)
     max_docs: int | None = quota["max_docs"]
     max_mb: float | None = quota["max_docs_mb"]

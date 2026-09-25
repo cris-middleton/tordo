@@ -1,5 +1,6 @@
 """Document management API."""
 
+from datetime import date
 from pathlib import Path
 from uuid import UUID
 
@@ -10,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import EmpresaContext, empresa_ctx, require_rol
 from app.api.empresas import _get_empresa_or_404
 from app.config import settings
+from app.core.plan_limits import enforce_doc_quota
 from app.core.security import get_current_active_user
 from app.db import get_db
 from app.models.empresa import DocumentoEmpresa
@@ -39,7 +41,7 @@ async def upload_documento(
     current_user: User = Depends(get_current_active_user),
 ):
     empresa_id = ctx.empresa_id
-    await _get_empresa_or_404(empresa_id, db)
+    empresa = await _get_empresa_or_404(empresa_id, db)
 
     file_bytes = await file.read()
     if len(file_bytes) > MAX_UPLOAD_BYTES:
@@ -48,23 +50,21 @@ async def upload_documento(
             detail="El archivo supera el límite de 25 MB",
         )
 
-    from app.core.plan_limits import enforce_doc_quota
-
     existing_docs = await repo.listar_de_empresa(db, empresa_id)
-    enforce_doc_quota(current_user, existing_docs, len(file_bytes))
+    # La cuota es la del plan de la EMPRESA (ADR 0002). Aquí se pasaba el
+    # usuario, que desde F3 no tiene `plan_tier`: toda subida daba 500.
+    enforce_doc_quota(empresa, existing_docs, len(file_bytes))
 
     display_name = nombre or file.filename or "sin_nombre"
     key = make_document_key(str(empresa_id), file.filename or display_name)
     storage = get_storage_service()
     stored = storage.upload(file_bytes, key, file.content_type)
 
-    from datetime import date as _date
-
     def _parse_date(s):
         if not s:
             return None
         try:
-            return _date.fromisoformat(s)
+            return date.fromisoformat(s)
         except ValueError:
             return None
 
