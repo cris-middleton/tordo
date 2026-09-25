@@ -19,9 +19,9 @@ import {
 } from 'lucide-react';
 
 import { apiClient } from '@/lib/api';
-import { useEncajeLicitacion, usePlanEmpresa } from '@/lib/queries';
+import { useEncajeLicitacion, usePlanActual } from '@/lib/queries';
+import { incluyePro } from '@/lib/plan';
 import { Candado } from '@/components/Candado';
-import { useAuth } from '@/contexts/AuthContext';
 import BIPanelSection from '@/components/licitacion/BIPanelSection';
 import EstadoHabilBadge from '@/components/licitacion/EstadoHabilBadge';
 import PerfilEncajeWidget from '@/components/licitacion/PerfilEncajeWidget';
@@ -46,7 +46,9 @@ import type { PlanTier } from '../../bi/types';
 export default function TenderDetailPage() {
   const router = useRouter();
   const codigoRuta = decodeURIComponent(String(useParams().codigo ?? ''));
-  const { user } = useAuth();
+  // El plan EFECTIVO de la empresa: en trial, Pro.
+  const planActual = usePlanActual();
+  const tier = planActual.data?.tier;
   const [tender, setTender] = useState<TenderDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,11 +63,9 @@ export default function TenderDetailPage() {
   const [creatingPost, setCreatingPost] = useState(false);
   const [firstEmpresaId, setFirstEmpresaId] = useState<string | null>(null);
 
-  // Encaje. El plan se lee de la EMPRESA y es el efectivo (en trial es Pro):
-  // el encaje es capacidad Pro y a un plan que no lo trae se le enseña el
-  // candado en vez de pedirlo y recibir un 402.
-  const planEmpresa = usePlanEmpresa(firstEmpresaId ?? undefined);
-  const encajeIncluido = planEmpresa.data?.tier === 'pro' || planEmpresa.data?.tier === 'enterprise';
+  // Encaje. Es capacidad Pro: a un plan que no lo trae se le enseña el candado
+  // en vez de pedirlo y recibir un 402 (que dispararía el aviso de mejora).
+  const encajeIncluido = incluyePro(tier);
   const encaje = useEncajeLicitacion(
     codigoRuta,
     firstEmpresaId ?? undefined,
@@ -381,7 +381,7 @@ export default function TenderDetailPage() {
           </div>
 
           {/* ── ¿Tu perfil encaja? ──────────────────────────────── */}
-          {planEmpresa.data && !encajeIncluido ? (
+          {planActual.data && !encajeIncluido ? (
             <Candado capacidad="si esta licitación encaja con lo que vendes" />
           ) : (
             <PerfilEncajeWidget loading={encaje.isLoading} result={encaje.data ?? null} />
@@ -391,7 +391,7 @@ export default function TenderDetailPage() {
           <BICard
             codigoExterno={tenderData.codigo_externo}
             empresaId={firstEmpresaId ?? undefined}
-            plan={(user?.plan_tier ?? 'basico') as PlanTier}
+            plan={(tier ?? 'basico') as PlanTier}
           />
         </div>
       )}

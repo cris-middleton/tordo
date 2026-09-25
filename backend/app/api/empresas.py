@@ -217,10 +217,12 @@ async def resumen_de_plan(
     usuarios = await repo.contar_miembros(db, ctx.empresa_id)
 
     contratado = (empresa.plan_tier or "basico").lower()
+    en_trial = esta_en_trial(empresa)
     return PlanResumen(
         tier=tier,
         etiqueta=etiqueta_de_tier(tier),
-        en_trial=esta_en_trial(empresa),
+        en_trial=en_trial,
+        trial_termina=empresa.trial_ends_at if en_trial else None,
         tier_contratado=contratado,
         siguiente_tier=siguiente_tier(tier),
         limites=LimitesPlan(**{k: quota[k] for k in LimitesPlan.model_fields}),

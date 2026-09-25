@@ -17,13 +17,13 @@ import { OpportunityScoreCard } from '@/components/OpportunityScoreCard';
 import OpportunityTimeline from '@/components/licitacion/OpportunityTimeline';
 import { CompetitorsList } from '@/components/CompetitorsList';
 import { PriceBandChart } from '@/components/PriceBandChart';
-import { useAuth } from '@/contexts/AuthContext';
+import { usePlanActual } from '@/lib/queries';
 import { fmtCLP, fmtDays, fmtPct } from '@/lib/licitacionDetalle';
 import type { BIPanel, TenderDetail } from '@/types/licitacionDetalle';
 import type { PlanTier } from '@/app/dashboard/bi/types';
 
 export default function BIPanelSection({ panel, tender }: { panel: BIPanel; tender?: TenderDetail }) {
-  const { user } = useAuth();
+  const tier = usePlanActual().data?.tier;
   const { comprador, ventana, competidores, precios } = panel;
 
   const ventanaColor =
@@ -39,7 +39,7 @@ export default function BIPanelSection({ panel, tender }: { panel: BIPanel; tend
       </h3>
 
       {/* ── Score de oportunidad ── */}
-      <OpportunityScoreCard panel={panel} plan={user?.plan_tier ?? 'basico'} />
+      <OpportunityScoreCard panel={panel} plan={tier ?? 'basico'} />
 
       {/* ── Timeline de hitos ── */}
       {tender && (tender.fecha_publicacion || tender.fecha_cierre) && (

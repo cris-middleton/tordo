@@ -25,6 +25,8 @@ export interface PlanResumen {
   tier: string;
   etiqueta: string;
   en_trial: boolean;
+  /** ISO. Sólo mientras dura el trial; null en cualquier otro caso. */
+  trial_termina: string | null;
   tier_contratado: string;
   siguiente_tier: string | null;
   limites: LimitesPlan;

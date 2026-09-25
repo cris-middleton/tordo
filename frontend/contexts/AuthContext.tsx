@@ -15,9 +15,9 @@ interface User {
   notification_in_app?: boolean;
   notification_webhook?: boolean;
   recibe_informe_semanal?: boolean;
-  plan_tier?: string;
-  subscription_status?: string;
-  trial_ends_at?: string | null;
+  // Sin `plan_tier`, `subscription_status` ni `trial_ends_at`: son de la
+  // EMPRESA (ADR 0002) y `/auth/me` no los trae. Declararlos aquí los dejaba
+  // en `undefined` sin que el compilador dijera nada. El plan: `usePlanActual`.
   onboarding_completed?: boolean;
   onboarding_step?: number;
   webhook_url?: string;

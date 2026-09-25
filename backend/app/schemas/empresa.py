@@ -115,6 +115,9 @@ class PlanResumen(BaseModel):
     tier: str = Field(..., description="Tier EFECTIVO: en trial es 'pro' aunque se pague otro.")
     etiqueta: str
     en_trial: bool
+    trial_termina: datetime | None = Field(
+        None, description="Cuándo acaba el trial. Null si la empresa no está en trial."
+    )
     tier_contratado: str
     siguiente_tier: str | None = Field(None, description="A qué plan subir. Null si es el mayor.")
     limites: LimitesPlan

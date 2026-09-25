@@ -1,7 +1,8 @@
 'use client';
 
 import { Lock } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { usePlanActual } from '@/lib/queries';
+import { incluyePro } from '@/lib/plan';
 import { ConfidenceBadge } from './ConfidenceBadge';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -131,8 +132,7 @@ function CompetitorRow({
 // ── Main component ─────────────────────────────────────────────────────────
 
 export function CompetitorsList({ competidores }: CompetidoresPanelProps) {
-  const { user } = useAuth();
-  const isPro = user?.plan_tier === 'pro' || user?.plan_tier === 'enterprise';
+  const isPro = incluyePro(usePlanActual().data?.tier);
   const nBase = competidores.top5?.[0]?.n_proveedores ?? 0;
 
   return (

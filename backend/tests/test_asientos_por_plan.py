@@ -249,7 +249,8 @@ async def test_el_resumen_declara_el_trial_sin_deducirlo_del_tier(async_db, empr
     """
     empresa_con_owner.plan_tier = "pro"
     empresa_con_owner.subscription_status = "trialing"
-    empresa_con_owner.trial_ends_at = datetime.now(UTC) + timedelta(days=7)
+    fin = datetime.now(UTC) + timedelta(days=7)
+    empresa_con_owner.trial_ends_at = fin
     await async_db.flush()
 
     resumen = await resumen_de_plan(
@@ -258,6 +259,24 @@ async def test_el_resumen_declara_el_trial_sin_deducirlo_del_tier(async_db, empr
     assert resumen.tier == "pro"
     assert resumen.tier_contratado == "pro"
     assert resumen.en_trial is True
+    # La cuenta atrás de la barra lateral sale de aquí: `/auth/me` ya no trae
+    # nada del plan desde que es de la empresa (ADR 0002).
+    assert resumen.trial_termina == fin
+
+
+@pytest.mark.asyncio
+async def test_sin_trial_no_hay_fecha_de_fin(async_db, empresa_con_owner):
+    """Un trial vencido conserva `trial_ends_at` en la base; la UI no debe contarlo."""
+    empresa_con_owner.plan_tier = "basico"
+    empresa_con_owner.subscription_status = "trialing"
+    empresa_con_owner.trial_ends_at = datetime.now(UTC) - timedelta(days=1)
+    await async_db.flush()
+
+    resumen = await resumen_de_plan(
+        ctx=EmpresaContext(empresa_id=empresa_con_owner.id, rol="owner"), db=async_db
+    )
+    assert resumen.en_trial is False
+    assert resumen.trial_termina is None
 
 
 @pytest.mark.asyncio

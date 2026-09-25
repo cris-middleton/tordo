@@ -10,7 +10,8 @@ import {
   Cell,
 } from 'recharts';
 import { Lock } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { usePlanActual } from '@/lib/queries';
+import { incluyePro } from '@/lib/plan';
 import { ConfidenceBadge } from './ConfidenceBadge';
 
 interface PrecioFallback {
@@ -162,8 +163,7 @@ function ProductPriceSection({ p, isPro }: { p: PrecioFallback; isPro: boolean }
 }
 
 export function PriceBandChart({ precios }: PriceBandChartProps) {
-  const { user } = useAuth();
-  const isPro = user?.plan_tier === 'pro' || user?.plan_tier === 'enterprise';
+  const isPro = incluyePro(usePlanActual().data?.tier);
 
   if (!precios || precios.length === 0) {
     return (

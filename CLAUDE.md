@@ -286,6 +286,12 @@ y no tiene Pub/Sub ni Cloud Tasks.
   (`core/plan_limits.py`) y llegan por `GET /api/v1/empresas/{id}/plan`, junto con el consumo
   actual. Una copia en TypeScript se desincroniza al primer cambio de precios **sin que nada
   falle**: el cliente ve un límite que no es el suyo. `null` es *ilimitado*, no cero.
+- **El plan también: `usePlanActual()` y nada más.** Devuelve el tier EFECTIVO de la empresa
+  activa (en trial, `pro`), y `incluyePro()` (`lib/plan.ts`) decide qué se desbloquea.
+  `User` **no** declara `plan_tier`: `/auth/me` dejó de traerlo en F3, y siete pantallas
+  siguieron leyéndolo — valía `undefined`, así que todo el mundo, **también quien pagaba
+  Pro**, veía «Plan Free» y los candados puestos. Quitarlo del tipo es lo que hace que
+  volver a leerlo no compile.
 - **Un 402 del backend se traduce a `plan-upgrade-needed` en el interceptor de `lib/api.ts`**,
   y `PlanUpgradeBanner` lo pinta. Va ahí y no en cada pantalla porque el backend devuelve 402
   desde cuatro sitios y uno de ellos son los 26 endpoints de BI. **El banner llevaba

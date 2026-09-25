@@ -3,6 +3,8 @@
 import { useState, useEffect, useSyncExternalStore, FormEvent } from 'react';
 import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePlanActual } from '@/lib/queries';
+import { incluyePro } from '@/lib/plan';
 import { Save, Loader2, Mail, Bell, Webhook, Lock, Eye, EyeOff, MessageCircle, CreditCard, ExternalLink, Sun, Moon, Monitor, ChevronDown, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { useTheme } from 'next-themes';
@@ -10,6 +12,7 @@ import { mensajeDeError } from '@/lib/errores';
 
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth();
+  const { data: plan } = usePlanActual();
   const { theme, setTheme } = useTheme();
   // `mounted` existe porque next-themes no sabe el tema hasta hidratar.
   // `useSyncExternalStore` lo expresa sin efecto: en el servidor devuelve false,
@@ -172,12 +175,16 @@ export default function SettingsPage() {
         <div className="card py-3 px-4 flex items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold text-muted uppercase tracking-wide">Plan actual</p>
-            <p className="text-base font-semibold text-text capitalize mt-0.5">{user.plan_tier || 'Básico'}</p>
+            <p className="text-base font-semibold text-text mt-0.5">
+              {plan ? (incluyePro(plan.tier) ? 'Pro' : 'Free') : '—'}
+            </p>
             <p className="text-xs text-muted">
-              {user.subscription_status === 'active'
-                ? 'Suscripción activa'
-                : user.subscription_status === 'trialing'
+              {!plan
+                ? ''
+                : plan.en_trial
                 ? 'Prueba gratuita'
+                : plan.tier_contratado !== 'basico'
+                ? 'Suscripción activa'
                 : 'Plan gratuito'}
             </p>
           </div>

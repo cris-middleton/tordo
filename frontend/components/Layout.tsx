@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePlanActual } from '@/lib/queries';
+import { incluyePro } from '@/lib/plan';
 import { useAvatar } from '@/lib/avatar';
 import TordoLogo from '@/components/TordoLogo';
 import {
@@ -81,6 +83,8 @@ export default function Layout({ children }: LayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  // El plan es de la EMPRESA y es el efectivo: en trial, Pro.
+  const { data: plan } = usePlanActual();
 
   const handleLogout = () => {
     logout();
@@ -210,22 +214,18 @@ export default function Layout({ children }: LayoutProps) {
 
         {/* User section */}
         <div className="border-t border-borderLight px-4 py-4">
-          {user && (() => {
-            const isTrial =
-              user.subscription_status === 'trialing' && !!user.trial_ends_at;
+          {user && plan && (() => {
+            const isTrial = plan.en_trial && !!plan.trial_termina;
             const daysLeft = isTrial
               ? Math.max(
                   0,
                   Math.ceil(
-                    (new Date(user.trial_ends_at as string).getTime() - montadoEn)
+                    (new Date(plan.trial_termina as string).getTime() - montadoEn)
                       / (1000 * 60 * 60 * 24)
                   )
                 )
               : 0;
-            const planLabel =
-              user.plan_tier === 'pro' || user.subscription_status === 'active'
-                ? 'Pro'
-                : 'Free';
+            const planLabel = incluyePro(plan.tier) ? 'Pro' : 'Free';
             return (
               <div className="mb-3 flex items-center gap-2 rounded-lg bg-background px-3 py-2">
                 <div className={`h-1.5 w-1.5 rounded-full ${isTrial ? 'bg-gold' : 'bg-accent'}`} />

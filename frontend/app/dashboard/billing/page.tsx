@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/lib/api';
-import { useCancelarSuscripcion, useCobroEstado, useCobroPlanes } from '@/lib/queries';
+import { useCancelarSuscripcion, useCobroEstado, useCobroPlanes, usePlanActual } from '@/lib/queries';
 import {
   CheckCircle2,
   CreditCard,
@@ -60,6 +60,9 @@ export default function BillingPage() {
   // sigue mostrándose. Antes un fallo en cualquiera vaciaba la pantalla entera.
   const consultaPlanes = useCobroPlanes();
   const consultaEstado = useCobroEstado();
+  // El plan que se TIENE, no el que se paga: en trial se paga «basico» y se
+  // tiene Pro, y el encabezado decía «Plan Free» junto a «Prueba gratuita».
+  const { data: planActual } = usePlanActual();
   const plans = (consultaPlanes.data ?? []) as Plan[];
   const billingStatus = (consultaEstado.data ?? null) as BillingStatus | null;
   const loading = consultaPlanes.isPending || consultaEstado.isPending;
@@ -128,7 +131,7 @@ export default function BillingPage() {
               Tu suscripción
             </p>
             <p className="mt-1 text-lg font-bold text-text">
-              Plan {TIER_LABELS[billingStatus?.plan_tier ?? ''] ?? 'Free'}
+              Plan {TIER_LABELS[planActual?.tier ?? billingStatus?.plan_tier ?? ''] ?? 'Free'}
             </p>
           </div>
           <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${statusBadge.color}`}>

@@ -22,6 +22,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from './api';
+import { useEmpresaActiva } from './empresaActive';
 
 // ── Claves ───────────────────────────────────────────────────────────────────
 //
@@ -107,6 +108,24 @@ export function useEncajeLicitacion(
     enabled: habilitada && Boolean(codigo && empresaId) && texto.length >= 3,
     retry: false,
   });
+}
+
+/**
+ * El plan EFECTIVO de la empresa activa — la única fuente del plan en la UI.
+ *
+ * El plan es de la empresa desde F3 (ADR 0002) y `/auth/me` dejó de traerlo,
+ * pero siete pantallas seguían leyendo `user.plan_tier`: valía `undefined`, así
+ * que la barra decía «Plan Free» y las bandas de precio y los competidores se
+ * quedaban con candado **también para quien paga Pro**. En trial el tier
+ * efectivo es `pro`; eso sólo lo sabe el backend, y por eso no se deduce aquí.
+ *
+ * La empresa se resuelve como en el selector: la guardada, o la primera.
+ */
+export function usePlanActual() {
+  const guardada = useEmpresaActiva();
+  const { data: empresas } = useEmpresas();
+  const primera = Array.isArray(empresas) ? (empresas[0]?.id as string | undefined) : undefined;
+  return usePlanEmpresa(guardada ?? primera);
 }
 
 export function useApiKeys(empresaId?: string) {

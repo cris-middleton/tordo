@@ -166,7 +166,6 @@ export default function OnboardingPage() {
     if (!user || user.onboarding_completed) return;
     await apiClient
       .updateUser(user.id, {
-        plan_tier: 'basico',
         onboarding_completed: true,
         onboarding_step: paso,
       })

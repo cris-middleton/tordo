@@ -5,7 +5,6 @@ import { useSearchParams } from 'next/navigation';
 import { BarChart3, Columns, Loader2, Target } from 'lucide-react';
 
 import { apiClient } from '@/lib/api';
-import { useAuth } from '@/contexts/AuthContext';
 import {
   useBIOportunidades,
   useBIPanorama,
@@ -15,6 +14,7 @@ import {
   useEmpresas,
   useMiPosicion,
   usePerfilSemantico,
+  usePlanActual,
 } from '@/lib/queries';
 
 import {
@@ -120,8 +120,7 @@ function Seccion({
 }
 
 function BIContenido() {
-  const { user } = useAuth();
-  const plan = (user?.plan_tier ?? 'basico') as PlanTier;
+  const plan = (usePlanActual().data?.tier ?? 'basico') as PlanTier;
   const paid = isPaidPlan(plan);
 
   // La URL se LEE al montar, no sólo se escribe. Antes esta pantalla la
