@@ -119,8 +119,11 @@ class Empresa(Base):
     )
 
     __table_args__ = (
+        # `inscrito`: figura en el Registro de Proveedores. Es lo único que la
+        # API pública confirma — la habilidad sólo la ve el propio proveedor en
+        # su ficha. Ver `services/estado_habil_service.py`.
         CheckConstraint(
-            "estado_habil IN ('habil', 'inhabil', 'no_encontrado', 'desconocido')",
+            "estado_habil IN ('habil', 'inhabil', 'inscrito', 'no_encontrado', 'desconocido')",
             name="ck_empresas_estado_habil",
         ),
         {

@@ -26,6 +26,9 @@ from pathlib import Path
 
 import pytest
 
+from app.models.alert import Alert
+from app.models.empresa import Empresa, EmpresaUsuario
+from app.models.user import User
 from app.services import estado_habil_service as svc
 
 
@@ -134,31 +137,120 @@ def test_203_ticket_no_valido_es_error_de_consulta(monkeypatch):
     assert "ticket" in str(exc.value).lower()
 
 
-def test_estado_de_respuesta_reconoce_habil():
-    assert svc._estado_de_respuesta({"Listado": [{"Estado": "Hábil"}]}) == svc.ESTADO_HABIL
+# ── La forma REAL de BuscarProveedor (contrastada en vivo el 2026-09-24) ─────
+#
+# No trae ningún estado de habilidad: sólo si el RUT está inscrito. Los tests
+# que había aquí fijaban una forma supuesta (`Listado[0].Estado`) que la API no
+# devuelve nunca, así que en producción TODA consulta terminaba en error.
+
+INSCRITO = {
+    "Cantidad": 1,
+    "FechaCreacion": "2026-09-25T02:51:19.4155404Z",
+    "listaEmpresas": [{"CodigoEmpresa": "141927", "NombreEmpresa": "PRONOMED SPA"}],
+}
+NO_INSCRITO = {"Codigo": 10200, "Mensaje": "No hay resultados de empresas."}
 
 
-def test_estado_de_respuesta_reconoce_inhabil():
-    assert svc._estado_de_respuesta({"Listado": [{"Estado": "Inhábil"}]}) == svc.ESTADO_INHABIL
+def test_un_rut_inscrito_es_inscrito_no_habil():
+    """La API confirma la inscripción; la habilidad sólo la ve el proveedor."""
+    assert svc._estado_de_respuesta(INSCRITO) == svc.ESTADO_INSCRITO
 
 
-def test_estado_de_respuesta_listado_vacio_no_adivina():
-    """Un `Listado` vacío es, en teoría, una instancia bien formada de la forma
-    documentada — pero nadie la ha visto en una respuesta real, y podría
-    significar 'no existe', un RUT malformado, o una cuota agotada. Como
-    `_create_estado_habil_alert` dispara ante CUALQUIER cambio de estado,
-    adivinar mal acá manda una alerta falsa a toda la empresa. Se prefiere
-    fallar y confirmar con un ticket real antes de mapear esto a
-    `no_encontrado`."""
+def test_sin_resultados_es_no_encontrado():
+    assert svc._estado_de_respuesta(NO_INSCRITO) == svc.ESTADO_NO_ENCONTRADO
+
+
+def test_una_forma_desconocida_no_adivina():
+    for rara in ({"algoDistinto": True}, {"listaEmpresas": []}, {"Listado": [{"Estado": "Hábil"}]}):
+        with pytest.raises(svc.ErrorDeConsulta):
+            svc._estado_de_respuesta(rara)
+
+
+@pytest.mark.parametrize("entrada", ["76286670-6", "76.286.670-6", "762866706", " 76.286.670-6 "])
+def test_el_rut_va_con_puntos(entrada):
+    """Sin puntos la API responde «no hay resultados» también a un inscrito."""
+    assert svc._formatear_rut(entrada) == "76.286.670-6"
+
+
+def test_rut_corto_y_con_k():
+    assert svc._formatear_rut("1234567-k") == "1.234.567-K"
+
+
+def test_no_inscrito_llega_como_500_y_no_es_un_error(monkeypatch):
+    monkeypatch.setattr(svc.settings, "mercado_publico_ticket", "t", raising=False)
+    monkeypatch.setattr(svc.requests, "get", lambda *a, **k: _RespuestaFalsa(500, NO_INSCRITO))
+    assert svc.consultar_rut("11.111.111-1") == svc.ESTADO_NO_ENCONTRADO
+
+
+def test_otro_500_si_es_un_error(monkeypatch):
+    monkeypatch.setattr(svc.settings, "mercado_publico_ticket", "t", raising=False)
+    monkeypatch.setattr(
+        svc.requests, "get", lambda *a, **k: _RespuestaFalsa(500, {"Codigo": 99, "Mensaje": "x"})
+    )
     with pytest.raises(svc.ErrorDeConsulta):
-        svc._estado_de_respuesta({"Listado": []})
+        svc.consultar_rut("76.286.670-6")
 
 
-def test_estado_de_respuesta_sin_listado_no_adivina():
-    with pytest.raises(svc.ErrorDeConsulta):
-        svc._estado_de_respuesta({"algoDistinto": True})
+# ── El job ───────────────────────────────────────────────────────────────────
 
 
-def test_estado_de_respuesta_estado_no_reconocido_no_adivina():
-    with pytest.raises(svc.ErrorDeConsulta):
-        svc._estado_de_respuesta({"Listado": [{"Estado": "Pendiente"}]})
+def _empresa(session, rut: str, estado: str = "desconocido"):
+    usuario = User(username=f"u{rut}", email=f"{rut}@x.cl", hashed_password="x", is_active=True)
+    empresa = Empresa(rut_empresa=rut, nombre_empresa=f"E {rut}", estado_habil=estado)
+    session.add_all([usuario, empresa])
+    session.flush()
+    session.add(EmpresaUsuario(user_id=usuario.id, empresa_id=empresa.id, rol="owner"))
+    session.flush()
+    return empresa
+
+
+def _alertas_de(session, empresa):
+    return session.query(Alert).filter(Alert.empresa_id == empresa.id).all()
+
+
+def test_una_consulta_fallida_no_tumba_la_corrida(monkeypatch, sync_task_db):
+    session, _ = sync_task_db
+    monkeypatch.setattr(svc.settings, "mercado_publico_ticket", "t", raising=False)
+    monkeypatch.setattr(svc.notificaciones, "despachar_pendientes", lambda *a, **k: {})
+    falla = _empresa(session, "11.111.111-1")
+    bien = _empresa(session, "76.286.670-6")
+
+    def consultar(rut):
+        if rut == falla.rut_empresa:
+            raise svc.ErrorDeConsulta("caída")
+        return svc.ESTADO_INSCRITO
+
+    monkeypatch.setattr(svc, "consultar_rut", consultar)
+
+    resumen = svc.run_estado_habil_check(session)
+
+    assert resumen["fallidas"] >= 1
+    session.refresh(bien)
+    assert bien.estado_habil == svc.ESTADO_INSCRITO
+
+
+def test_confirmar_la_inscripcion_no_es_noticia(monkeypatch, sync_task_db):
+    """`desconocido` → `inscrito` es la primera consulta: avisar sería ruido."""
+    session, _ = sync_task_db
+    monkeypatch.setattr(svc.settings, "mercado_publico_ticket", "t", raising=False)
+    monkeypatch.setattr(svc.notificaciones, "despachar_pendientes", lambda *a, **k: {})
+    monkeypatch.setattr(svc, "consultar_rut", lambda rut: svc.ESTADO_INSCRITO)
+    empresa = _empresa(session, "76.286.670-6")
+
+    svc.run_estado_habil_check(session)
+
+    assert _alertas_de(session, empresa) == []
+
+
+def test_dejar_de_figurar_si_avisa(monkeypatch, sync_task_db):
+    session, _ = sync_task_db
+    monkeypatch.setattr(svc.settings, "mercado_publico_ticket", "t", raising=False)
+    monkeypatch.setattr(svc.notificaciones, "despachar_pendientes", lambda *a, **k: {})
+    monkeypatch.setattr(svc, "consultar_rut", lambda rut: svc.ESTADO_NO_ENCONTRADO)
+    empresa = _empresa(session, "76.286.670-6", estado="inscrito")
+
+    svc.run_estado_habil_check(session)
+
+    alertas = _alertas_de(session, empresa)
+    assert len(alertas) == 1
+    assert "no figura en el Registro de Proveedores" in alertas[0].message

@@ -28,6 +28,19 @@ from app.schemas.dashboard_home import (
     UrgenciaItem,
 )
 
+# Qué decir cuando el estado impide ofertar. Sin causa inventada: de la
+# inhabilidad no sabemos el motivo (ver `services/estado_habil_service.py`).
+AVISOS_ESTADO = {
+    "no_encontrado": (
+        "Tu RUT no figura en el Registro de Proveedores",
+        "Sin inscripción no puedes ofertar. Revisa el RUT o inscríbete en Mercado Público",
+    ),
+    "inhabil": (
+        "Tu empresa figura inhábil",
+        "No puedes ofertar hasta resolverlo. El motivo está en «Habilidad», en tu ficha de Mercado Público",
+    ),
+}
+
 
 def _hours_label(delta: timedelta) -> str:
     total_seconds = int(delta.total_seconds())
@@ -173,16 +186,19 @@ async def compose_urgencias(db: AsyncSession, user_id: int, empresa_id: UUID) ->
     empresa = (
         await db.execute(select(Empresa).where(Empresa.id == empresa_id))
     ).scalar_one_or_none()
-    if empresa and empresa.estado_habil != "habil":
-        ts = empresa.estado_habil_updated_at
-        ts_label = ts.strftime("%d %b") if ts else "fecha desconocida"
+    # Sólo lo que impide ofertar. Antes entraba todo lo que no fuera `habil`,
+    # incluido `desconocido` —«todavía no lo sabemos»—, así que la primera tarea
+    # de toda empresa nueva era «Estado desconocido desde fecha desconocida:
+    # revisa deudas en Tesorería»: una alarma sobre nada, con una causa inventada.
+    if empresa and empresa.estado_habil in AVISOS_ESTADO:
+        titulo, subtitulo = AVISOS_ESTADO[empresa.estado_habil]
         item = UrgenciaItem(
             id=f"estado_{empresa.id}",
             tipo="estado_inhabil",
             severidad="amarillo",
             tiempo_label="—",
-            titulo=f"Estado {empresa.estado_habil} desde {ts_label}",
-            subtitulo="Revisa deudas en Tesorería para volver a hábil",
+            titulo=titulo,
+            subtitulo=subtitulo,
             cta_label="Ver detalle",
             cta_href="/dashboard/empresa",
         )

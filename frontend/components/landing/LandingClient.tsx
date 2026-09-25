@@ -110,7 +110,7 @@ const faqs = [
   {
     question: '¿Cada cuánto me van a escribir?',
     answer:
-      'Depende de tu rubro, pero agrupamos: un correo por revisión con todo lo que apareció, no uno por licitación. Lo urgente —un cierre en 24 horas, un documento que vence, un cambio en tu estado hábil— sí sale al momento. Y puedes ajustar qué te llega desde Configuración.',
+      'Depende de tu rubro, pero agrupamos: un correo por revisión con todo lo que apareció, no uno por licitación. Lo urgente —un cierre en 24 horas, un documento que vence, que tu RUT deje de figurar en el Registro de Proveedores— sí sale al momento. Y puedes ajustar qué te llega desde Configuración.',
   },
   {
     question: '¿Qué pasa cuando se acaban los 14 días?',
@@ -125,7 +125,7 @@ const faqs = [
   {
     question: '¿Qué hacen con los datos de mi empresa?',
     answer:
-      'Guardamos lo que necesitamos para que el producto funcione: tu RUT para consultar el estado hábil, tus documentos si decides subirlos y lo que describes de tu negocio para buscar por ti. No vendemos ni compartimos nada de eso, y no se lo mostramos a otras empresas de la plataforma. Lo que sí es público —tus adjudicaciones en Mercado Público— ya lo era antes de que llegaras aquí.',
+      'Guardamos lo que necesitamos para que el producto funcione: tu RUT para confirmar tu inscripción en Mercado Público, tus documentos si decides subirlos y lo que describes de tu negocio para buscar por ti. No vendemos ni compartimos nada de eso, y no se lo mostramos a otras empresas de la plataforma. Lo que sí es público —tus adjudicaciones en Mercado Público— ya lo era antes de que llegaras aquí.',
   },
 ];
 

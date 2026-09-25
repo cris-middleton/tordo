@@ -300,7 +300,7 @@ export default function OnboardingPage() {
             {step === 2 && '¿Qué vendes?'}
           </h1>
           <p className="mt-1 text-muted text-sm">
-            {step === 1 && 'Con el RUT revisamos tu estado hábil y activamos tus 14 días de Pro.'}
+            {step === 1 && 'Con el RUT confirmamos tu inscripción en Mercado Público y activamos tus 14 días de Pro.'}
             {step === 2 && 'Con esto sabemos qué buscarte. Lo puedes cambiar cuando quieras.'}
           </p>
         </div>

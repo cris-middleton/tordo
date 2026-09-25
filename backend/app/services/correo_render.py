@@ -133,7 +133,7 @@ def lineas_de_bi(contexto: dict | None) -> list[str]:
 _ASUNTOS: dict[AlertType, str] = {
     AlertType.PLAZO_24H: "Cierra mañana: {titulo}",
     AlertType.PLAZO_48H: "Cierra en 2 días: {titulo}",
-    AlertType.ESTADO_HABIL_CAMBIO: "Cambió tu estado hábil en Mercado Público",
+    AlertType.ESTADO_HABIL_CAMBIO: "Cambió tu situación en el Registro de Proveedores",
     AlertType.DOCUMENTO_VENCIDO: "Se te vence un documento: {titulo}",
     AlertType.CAMBIO_PRECIO: "Cambió el precio de {titulo}",
     AlertType.RESULTADO_LICITACION: "{titulo}",

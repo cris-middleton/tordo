@@ -188,6 +188,19 @@ def test_no_estar_habil_se_avisa(db):
     assert any("hábil" in f.titulo for f in cumplimiento.filas)
 
 
+def test_no_saber_el_estado_no_se_avisa_cada_lunes(db):
+    """La API pública sólo confirma la inscripción: `inscrito` y `desconocido`
+    no son un problema, y avisarlos cada semana enseña a ignorar la sección."""
+    for estado in ("desconocido", "inscrito"):
+        empresa = _empresa(db, estado_habil=estado)
+
+        informe = informe_semanal.construir(db, empresa.id)
+
+        cumplimiento = next(s for s in informe.secciones if s.titulo == "Cumplimiento")
+        assert cumplimiento.filas == []
+        assert "hábil" not in cumplimiento.vacio
+
+
 # ── Cómo se ve ───────────────────────────────────────────────────────────────
 
 

@@ -716,9 +716,14 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
   el correo y el panel del comprador ya la hubieran retirado: `MockupAviso` mostraba «Paga a
   32 días en promedio» y `MockupComprador` un KPI «Paga a». Cuando se retire un dato, hay que
   buscarlo también en `components/landing/` — es lo que lee quien todavía no es cliente.
-- **De por qué una empresa queda inhábil no sabemos nada, y el aviso no puede fingir que sí.**
-  El CSV de proveedores hábiles de ChileCompra trae RUT y estado: `habil`, `inhabil` o
-  `no_encontrado`, sin motivo, fecha ni monto. Las causas reales son cinco y de naturalezas
+- **De si una empresa está hábil no sabemos nada: la API pública no lo dice.** Contrastado en
+  vivo (2026-09-24): `BuscarProveedor` sólo responde si el RUT figura en el Registro de
+  Proveedores —y sólo lo encuentra **con puntos**, `76.286.670-6`—; «no inscrito» llega como
+  500 con `Codigo 10200`. De ahí salen `inscrito` y `no_encontrado`, que es todo lo que el
+  producto afirma. `desconocido` («aún no consultado») e `inscrito` **no son un problema** y
+  no se avisan: el panel y el informe semanal decían a TODA empresa «Estado desconocido —
+  revisa deudas en Tesorería». Sólo `no_encontrado` e `inhabil` impiden ofertar.
+- **Y de por qué una quedaría inhábil, tampoco.** Ninguna fuente trae motivo, fecha ni monto. Las causas reales son cinco y de naturalezas
   distintas —la tarifa anual del registro sin pagar, datos sin actualizar (cada 6 meses),
   deuda tributaria sobre 500 UTM o previsional de más de 12 meses, sanciones graves, mal uso
   de la plataforma— y **sólo el proveedor las ve, en la sección «Habilidad» de su ficha**. El

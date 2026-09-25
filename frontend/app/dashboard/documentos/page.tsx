@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/lib/api';
+import { ETIQUETA_ESTADO, impideOfertar } from '@/lib/estadoHabil';
 import { useDocumentos, useEmpresas, useEstadoHabil } from '@/lib/queries';
 import SelectField from '@/components/SelectField';
 import {
@@ -224,22 +225,16 @@ export default function DocumentosPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <h1 className="page-title">Documentos</h1>
-          {estadoHabil && (
+          {estadoHabil && ETIQUETA_ESTADO[estadoHabil] && (
             <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${
-              estadoHabil === 'habil'
-                ? 'bg-accent/10 text-accent'
-                : estadoHabil === 'inhabil'
+              impideOfertar(estadoHabil)
                 ? 'bg-danger/10 text-danger'
-                : 'bg-border text-muted'
+                : 'bg-accent/10 text-accent'
             }`}>
               <span className={`w-1.5 h-1.5 rounded-full ${
-                estadoHabil === 'habil'
-                  ? 'bg-accent'
-                  : estadoHabil === 'inhabil'
-                  ? 'bg-danger'
-                  : 'bg-muted'
+                impideOfertar(estadoHabil) ? 'bg-danger' : 'bg-accent'
               }`} />
-              {estadoHabil === 'habil' ? 'Hábil' : estadoHabil === 'inhabil' ? 'Inhábil' : estadoHabil}
+              {ETIQUETA_ESTADO[estadoHabil]}
             </span>
           )}
         </div>

@@ -35,6 +35,7 @@ from app.models.licitacion import Licitacion
 from app.models.match import MatchEmpresaLicitacion
 from app.models.postulacion import Postulacion
 from app.services import radar_service
+from app.services.dashboard_home_service import AVISOS_ESTADO
 
 logger = logging.getLogger(__name__)
 
@@ -211,20 +212,17 @@ def _precios(db: Session, empresa_id: UUID) -> Seccion:
 
 
 def _cumplimiento(db: Session, empresa_id: UUID, empresa: Empresa) -> Seccion:
-    """Lo que deja fuera por forma: estado hábil y documentos por vencer."""
+    """Lo que deja fuera por forma: inscripción y documentos por vencer."""
     filas: list[Fila] = []
 
-    if (empresa.estado_habil or "").lower() != "habil":
-        filas.append(
-            Fila(
-                titulo="La empresa no figura como hábil",
-                detalle=(
-                    f"Estado registrado: {empresa.estado_habil or 'desconocido'}. "
-                    "Sin estado hábil, la oferta se rechaza por forma."
-                ),
-                url="/dashboard/empresa",
-            )
-        )
+    # Sólo lo que impide ofertar. Antes entraba todo lo que no fuera `habil` —y
+    # la API pública no confirma nunca `habil`—, así que TODAS las empresas
+    # recibían cada lunes «La empresa no figura como hábil. Estado registrado:
+    # desconocido». Un aviso que llega siempre enseña a no leer la sección.
+    aviso = AVISOS_ESTADO.get((empresa.estado_habil or "").lower())
+    if aviso:
+        titulo, detalle = aviso
+        filas.append(Fila(titulo=titulo, detalle=detalle, url="/dashboard/empresa"))
 
     limite = hoy_chile() + timedelta(days=DIAS_AVISO_VENCIMIENTO)
     documentos = (
@@ -253,8 +251,9 @@ def _cumplimiento(db: Session, empresa_id: UUID, empresa: Empresa) -> Seccion:
         titulo="Cumplimiento",
         filas=filas[:MAX_FILAS],
         vacio=(
-            f"Estado hábil al día y ningún documento vence en los próximos "
-            f"{DIAS_AVISO_VENCIMIENTO} días."
+            # No afirma «estado hábil al día»: eso no lo sabemos (lo ve sólo el
+            # proveedor en su ficha), y un informe no puede certificarlo.
+            f"Ningún documento vence en los próximos {DIAS_AVISO_VENCIMIENTO} días."
         ),
     )
 

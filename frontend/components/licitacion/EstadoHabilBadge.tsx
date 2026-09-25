@@ -26,10 +26,17 @@ export default function EstadoHabilBadge({ estado }: { estado?: string }) {
     // «RUT no encontrado en registro» describe lo que le pasó a nuestra
     // consulta, no lo que le pasa al usuario. Lo que le pasa es que no puede
     // ofertar: o el RUT está mal escrito, o la empresa no está inscrita.
+    // Lo único que confirma la API pública. No se dice «hábil»: eso lo ve
+    // sólo el proveedor en su ficha, y afirmarlo sería inventarlo.
+    inscrito: {
+      icon: <ShieldCheck className="h-4 w-4" />,
+      cls: 'bg-accent/10 text-accent border-accent/30',
+      label: 'Tu empresa está inscrita en Mercado Público',
+    },
     no_encontrado: {
       icon: <AlertTriangle className="h-4 w-4" />,
       cls: 'bg-gold/10 text-gold border-gold/30',
-      label: 'Tu RUT no aparece en el registro',
+      label: 'Tu RUT no figura en el Registro de Proveedores',
     },
   };
 

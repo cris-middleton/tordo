@@ -88,6 +88,30 @@ async def test_compose_urgencias_includes_estado_inhabil(
     assert any(u.tipo == "estado_inhabil" and u.severidad == "amarillo" for u in items)
 
 
+@pytest.mark.parametrize("estado", ["desconocido", "inscrito"])
+@pytest.mark.asyncio
+async def test_no_saber_el_estado_no_es_una_urgencia(async_db, sample_user, sample_empresa, estado):
+    """Toda empresa nueva empieza en `desconocido`, y la API sólo confirma la
+    inscripción. Antes la primera tarea del panel era «Estado desconocido desde
+    fecha desconocida — revisa deudas en Tesorería»: alarma sobre nada."""
+    sample_empresa.estado_habil = estado
+    await async_db.commit()
+    items = await compose_urgencias(async_db, sample_user.id, sample_empresa.id)
+    assert not any(u.tipo == "estado_inhabil" for u in items)
+
+
+@pytest.mark.asyncio
+async def test_no_figurar_en_el_registro_si_es_urgente_y_no_inventa_causa(
+    async_db, sample_user, sample_empresa
+):
+    sample_empresa.estado_habil = "no_encontrado"
+    await async_db.commit()
+    items = await compose_urgencias(async_db, sample_user.id, sample_empresa.id)
+    [aviso] = [u for u in items if u.tipo == "estado_inhabil"]
+    assert "Registro de Proveedores" in aviso.titulo
+    assert "Tesorería" not in aviso.subtitulo
+
+
 @pytest.mark.asyncio
 async def test_compose_urgencias_returns_empty_when_nothing_urgent(
     async_db,

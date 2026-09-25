@@ -19,13 +19,21 @@ exige `MERCADO_PUBLICO_TICKET`. Mientras esa variable esté vacía, `consultar_r
 se salta en silencio. Preferir un fallo ruidoso a un `desconocido` mudo es la
 lección entera de este módulo.
 
-**El parseo de la respuesta es provisional.** Está escrito contra la forma
-documentada y NUNCA se ha ejecutado contra la API real, porque no hay ticket con
-el que probar. Por eso `_estado_de_respuesta` lanza en vez de suponer cuando no
-reconoce lo que llega: un parseo que se inventa un valor por defecto convertiría
-un contrato equivocado en un dato plausible y falso. Lo primero que hay que hacer
-con un ticket de verdad es correr una consulta y contrastar (ver
-`docs/deploy_steps/tareas_manuales.md` §1).
+**Contrastado contra la API real (2026-09-24), y no dice lo que se suponía.**
+`BuscarProveedor` no devuelve ningún estado de habilidad. Responde:
+
+- inscrito:     200 `{"Cantidad": 1, "listaEmpresas": [{"CodigoEmpresa", "NombreEmpresa"}]}`
+- no inscrito:  500 `{"Codigo": 10200, "Mensaje": "No hay resultados de empresas."}`
+
+y sólo encuentra el RUT **con puntos** (`76.286.670-6`); sin ellos responde
+«no hay resultados» también para un proveedor real. El parseo anterior buscaba
+`Listado[0].Estado` —la forma de otros endpoints— y quitaba los puntos, así que
+toda consulta terminaba en error y toda empresa se quedaba en `desconocido`.
+
+Lo que sí se puede afirmar es la **inscripción** (`inscrito` / `no_encontrado`).
+Si está hábil lo ve sólo el proveedor, en la sección «Habilidad» de su ficha:
+este módulo no lo inventa. `habil` e `inhabil` quedan en el esquema por si algún
+día aparece una fuente que los dé.
 """
 
 from __future__ import annotations
@@ -58,8 +66,13 @@ TICKET_PLACEHOLDER = "your-ticket-here"
 # Possible estado values stored in our DB
 ESTADO_HABIL = "habil"
 ESTADO_INHABIL = "inhabil"
+ESTADO_INSCRITO = "inscrito"
 ESTADO_NO_ENCONTRADO = "no_encontrado"
 ESTADO_DESCONOCIDO = "desconocido"
+
+# Los estados que impiden ofertar. Sólo se avisa al entrar o salir de ellos:
+# pasar de `desconocido` a `inscrito` es la primera consulta, no una noticia.
+PROBLEMAS = {ESTADO_INHABIL, ESTADO_NO_ENCONTRADO}
 
 
 class FuenteNoConfigurada(Exception):
@@ -94,63 +107,45 @@ def _verificar_fuente_configurada() -> None:
 
 
 def _formatear_rut(rut: str) -> str:
-    """Normaliza el RUT al formato que usa ChileCompra en sus APIs: sin puntos,
-    con guión ('12345678-9'). Misma convención documentada en
-    `services/bi/competencia._normalize_rut`, la única parte del sistema que ya
-    contrastó el formato contra datos reales de ChileCompra."""
-    cleaned = rut.upper().replace(".", "").replace(" ", "")
-    if "-" not in cleaned and len(cleaned) > 1:
-        cleaned = f"{cleaned[:-1]}-{cleaned[-1]}"
-    return cleaned
+    """El RUT como lo pide `BuscarProveedor`: con puntos y guión ('76.286.670-6').
+
+    Sin puntos la API responde «no hay resultados» incluso para un proveedor
+    inscrito — comprobado en vivo. Por eso NO se reutiliza la normalización
+    sin puntos de `services/bi/competencia`, que sirve para otra cosa.
+    """
+    limpio = rut.upper().replace(".", "").replace("-", "").replace(" ", "")
+    if len(limpio) < 2:
+        return rut
+    cuerpo, dv = limpio[:-1], limpio[-1]
+    grupos = []
+    while cuerpo:
+        grupos.insert(0, cuerpo[-3:])
+        cuerpo = cuerpo[:-3]
+    return f"{'.'.join(grupos)}-{dv}"
+
+
+# Lo que responde `BuscarProveedor` cuando el RUT no figura en el registro.
+CODIGO_SIN_RESULTADOS = 10200
 
 
 def _estado_de_respuesta(data: dict) -> str:
-    """Interpreta la respuesta de BuscarProveedor.
+    """Interpreta la respuesta de BuscarProveedor (forma verificada, ver arriba).
 
-    **Provisional.** Escrita contra la forma documentada de la API clásica de
-    Mercado Público —el mismo patrón que `BuscarLicitaciones`/`BuscarOrdenes`:
-    un objeto con un `Listado` y un registro por resultado (ver
-    `etl/extractors/mercado_publico_licitaciones.py`)— y nunca ejecutada contra
-    la API real, porque no hay ticket con el que probar. Cualquier forma que no
-    reconoce levanta `ErrorDeConsulta` en vez de adivinar un estado: devolver
-    'inhabil' ante una forma inesperada dispararía una alerta falsa a toda la
-    empresa.
-
-    **Decisión explícita sobre `Listado` vacío**: aunque es una instancia bien
-    formada de la forma documentada —y otros endpoints de Mercado Público sí
-    usan "lista vacía" para "sin resultados"— acá se trata igual que una forma
-    no reconocida, y levanta `ErrorDeConsulta` en vez de `ESTADO_NO_ENCONTRADO`.
-    No es un olvido: es la misma asimetría de costos que el resto del módulo.
-    `_create_estado_habil_alert` dispara ante CUALQUIER cambio de estado, así
-    que adivinar mal acá manda "ya no encontramos tu empresa en el registro" a
-    toda la empresa por error; equivocarse en la otra dirección cuesta una
-    línea más en `docs/deploy_steps/tareas_manuales.md` §1 el día que llegue un
-    ticket real y se pueda confirmar qué significa de verdad un `Listado` vacío.
+    Sólo distingue inscrito de no inscrito: la API no dice nada más. Cualquier
+    otra forma levanta `ErrorDeConsulta` en vez de adivinar — un `no_encontrado`
+    inventado mandaría a toda la empresa un aviso de «no puedes ofertar».
     """
-    listado = data.get("Listado") if isinstance(data, dict) else None
-    if not isinstance(listado, list):
-        raise ErrorDeConsulta(f"Respuesta de {API_MP} sin 'Listado' reconocible: {data!r}")
+    if not isinstance(data, dict):
+        raise ErrorDeConsulta(f"Respuesta de {API_MP} no reconocible: {data!r}")
 
-    if not listado:
-        raise ErrorDeConsulta(
-            f"{API_MP} devolvió 'Listado' vacío: forma válida en teoría, pero sin "
-            "confirmar contra la API real si significa 'proveedor no existe' o "
-            "algo distinto (RUT malformado, cuota agotada, etc.) — ver docstring."
-        )
+    if data.get("Codigo") == CODIGO_SIN_RESULTADOS:
+        return ESTADO_NO_ENCONTRADO
 
-    proveedor = listado[0]
-    estado = proveedor.get("Estado") if isinstance(proveedor, dict) else None
-    if not isinstance(estado, str) or not estado.strip():
-        raise ErrorDeConsulta(
-            f"Respuesta de {API_MP} sin campo 'Estado' reconocible: {proveedor!r}"
-        )
+    empresas = data.get("listaEmpresas")
+    if isinstance(empresas, list) and empresas:
+        return ESTADO_INSCRITO
 
-    estado_norm = estado.strip().lower()
-    if estado_norm in ("hábil", "habil", "activo", "vigente"):
-        return ESTADO_HABIL
-    if estado_norm in ("inhábil", "inhabil", "inactivo", "suspendido"):
-        return ESTADO_INHABIL
-    raise ErrorDeConsulta(f"{API_MP} devolvió un Estado no reconocido: {estado!r}")
+    raise ErrorDeConsulta(f"Respuesta de {API_MP} no reconocible: {data!r}")
 
 
 def consultar_rut(rut: str) -> str:
@@ -184,13 +179,17 @@ def consultar_rut(rut: str) -> str:
             "(puede ser el placeholder de .env.example, o un ticket vencido/incorrecto)."
         )
 
-    if respuesta.status_code >= 400:
-        raise ErrorDeConsulta(f"{API_MP} respondió {respuesta.status_code}")
-
+    # «No inscrito» llega como 500 con un código propio, así que el cuerpo se
+    # lee antes de mirar el estado HTTP: filtrar primero lo convertía en error.
     try:
         payload = respuesta.json()
     except ValueError as exc:
-        raise ErrorDeConsulta(f"{API_MP} no devolvió JSON: {exc}") from exc
+        raise ErrorDeConsulta(
+            f"{API_MP} respondió {respuesta.status_code} sin JSON: {exc}"
+        ) from exc
+
+    if respuesta.status_code >= 400 and payload.get("Codigo") != CODIGO_SIN_RESULTADOS:
+        raise ErrorDeConsulta(f"{API_MP} respondió {respuesta.status_code}: {payload!r}")
 
     return _estado_de_respuesta(payload)
 
@@ -200,7 +199,9 @@ def _titulo_para(empresa: Empresa) -> str:
         return f"{empresa.nombre_empresa} quedó inhábil"
     if empresa.estado_habil == ESTADO_HABIL:
         return f"{empresa.nombre_empresa} volvió a estar hábil"
-    return f"No encontramos a {empresa.nombre_empresa} en el registro"
+    if empresa.estado_habil == ESTADO_INSCRITO:
+        return f"{empresa.nombre_empresa} vuelve a figurar en el Registro de Proveedores"
+    return f"No encontramos a {empresa.nombre_empresa} en el Registro de Proveedores"
 
 
 def _mensaje_para(empresa: Empresa) -> str:
@@ -233,11 +234,15 @@ def _mensaje_para(empresa: Empresa) -> str:
             f"{empresa.nombre_empresa} ({empresa.rut_empresa}) vuelve a estar hábil. "
             "Ya puedes ofertar."
         )
+    if empresa.estado_habil == ESTADO_INSCRITO:
+        return (
+            f"{empresa.nombre_empresa} ({empresa.rut_empresa}) vuelve a aparecer en el "
+            "Registro de Proveedores de Mercado Público."
+        )
     return (
-        f"{empresa.nombre_empresa} ({empresa.rut_empresa}) no aparece en la lista de "
-        "proveedores hábiles que publica ChileCompra. Puede ser que el RUT esté mal "
-        "escrito o que la empresa aún no esté inscrita en el Registro de Proveedores; "
-        "sin esa inscripción no se puede ofertar."
+        f"{empresa.nombre_empresa} ({empresa.rut_empresa}) no figura en el Registro de "
+        "Proveedores de Mercado Público. Puede ser que el RUT esté mal escrito o que la "
+        "empresa aún no esté inscrita; sin esa inscripción no se puede ofertar."
     )
 
 
@@ -299,8 +304,16 @@ def run_estado_habil_check(db: Session) -> dict:
     checked = 0
     changed = 0
     nuevas: list[Alert] = []
+    fallidas = 0
     for empresa in empresas:
-        new_state = consultar_rut(empresa.rut_empresa)
+        # Una consulta fallida es de ESA empresa: antes abortaba la corrida
+        # entera y las demás se quedaban sin revisar hasta la siguiente.
+        try:
+            new_state = consultar_rut(empresa.rut_empresa)
+        except ErrorDeConsulta as exc:
+            fallidas += 1
+            logger.warning("Estado hábil: no se pudo consultar %s — %s", empresa.rut_empresa, exc)
+            continue
         checked += 1
 
         if new_state == empresa.estado_habil:
@@ -329,8 +342,9 @@ def run_estado_habil_check(db: Session) -> dict:
         empresa.estado_habil = new_state
         empresa.estado_habil_updated_at = datetime.now(UTC)
 
-        # Create alerts for empresa users
-        nuevas.extend(_create_estado_habil_alert(empresa, db))
+        # Sólo es noticia entrar en un problema o salir de él.
+        if new_state in PROBLEMAS or old_state in PROBLEMAS:
+            nuevas.extend(_create_estado_habil_alert(empresa, db))
 
     db.commit()
     # Quedar inhábil deja a la empresa fuera de todo lo que postule. Es de lo
@@ -338,12 +352,13 @@ def run_estado_habil_check(db: Session) -> dict:
     # aplicación es enterarse cuando ya rechazaron la oferta.
     enviado = notificaciones.despachar_pendientes(db, [a.id for a in nuevas])
     logger.info(
-        "Estado hábil check complete: checked=%d changed=%d notificadas=%d",
+        "Estado hábil check complete: checked=%d changed=%d fallidas=%d notificadas=%d",
         checked,
         changed,
+        fallidas,
         enviado.get("inmediatas", 0),
     )
-    return {"checked": checked, "changed": changed, **enviado}
+    return {"checked": checked, "changed": changed, "fallidas": fallidas, **enviado}
 
 
 def check_empresa_now(empresa_id, db: Session) -> dict:

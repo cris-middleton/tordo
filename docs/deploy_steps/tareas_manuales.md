@@ -8,56 +8,35 @@ o validación en el mundo real. Organizado por el momento en que debes completar
 
 ## Antes de empezar (Semana 0 — junto con Fase 0)
 
-### 1. Endpoint de Estado Hábil — CRÍTICO (⚠️ PENDIENTE, corregido el 2026-08-16)
+### 1. Endpoint de Estado Hábil — ✅ contrastado en vivo el 2026-09-24 (y no da el estado)
 
-**Esta sección decía «VALIDADO ✅» y era falso.** Nadie había llamado al endpoint
-en vivo antes de escribirlo así. Comprobado el 2026-08-16, contra la red real:
+**Contrastado con una llamada real** a
+`GET https://api.mercadopublico.cl/servicios/v1/Publico/Empresas/BuscarProveedor?rutempresaproveedor={RUT}&ticket=…`:
 
-~~No existe CSV masivo de estado hábil~~ — sigue siendo cierto, ese camino está
-descartado.
+| Caso | Respuesta |
+|---|---|
+| RUT inscrito, **con puntos** (`76.286.670-6`) | `200 {"Cantidad":1, "listaEmpresas":[{"CodigoEmpresa":"141927","NombreEmpresa":"PRONOMED SPA"}]}` |
+| El mismo RUT **sin puntos** (`76286670-6`) | `500 {"Codigo":10200,"Mensaje":"No hay resultados de empresas."}` |
+| RUT no inscrito | `500 {"Codigo":10200, …}` |
+| Ticket inválido | `203 Ticket no válido` |
 
-**El endpoint que se había dado por validado NO es una API**:
-```
-GET https://datos-abiertos.chilecompra.cl/organismos-proveedores/{RUT}
-Ejemplo: https://datos-abiertos.chilecompra.cl/organismos-proveedores/96.895.110-6
-```
-Devuelve `text/html` — la cáscara de un SPA de React— y responde **200 tanto
-para un RUT real como para uno inventado**. No hay `Proveedor.Estado`, no hay
-404, y no hay forma de distinguir un proveedor que existe de uno que no. El
-bundle de JavaScript no contiene nada sobre estado hábil (una sola aparición de
-la palabra, en prosa, sin relación con el campo que se buscaba).
+La búsqueda es exacta: el `CodigoEmpresa` de Pronomed (141927) es el mismo
+`CodigoProveedor` que traen sus órdenes de compra. Un RUT de relleno como
+`11.111.111-1` devuelve **11** empresas —gente inscrita con ese RUT—, así que
+`inscrito` significa «el registro devuelve algo para este RUT», no más.
 
-**La fuente real es la API clásica de Mercado Público**:
-```
-GET https://api.mercadopublico.cl/servicios/v1/Publico/Empresas/BuscarProveedor
-    ?rutempresaproveedor={RUT}&ticket={MERCADO_PUBLICO_TICKET}
-```
-Comprobado el 2026-08-16: responde `203 Ticket no válido`, que es como esta API
-avisa que falta el ticket — es decir, el endpoint es real y existe. Usa el
-**mismo ticket** que el resto de la API clásica (ver §2).
+**Conclusión: la API pública no dice si una empresa está hábil.** Sólo si figura en
+el Registro de Proveedores. La habilidad la ve únicamente el proveedor, en la
+sección «Habilidad» de su ficha. El código se ajustó a lo que sí se puede afirmar:
+`inscrito` / `no_encontrado` (migración `91d4eefa77c9`), RUT con puntos, y el 500
+con `Codigo 10200` interpretado como «no inscrito» en vez de error.
 
-**La forma de la respuesta sigue sin confirmarse**: qué campo trae el estado y
-qué devuelve para un RUT que no existe es desconocido hasta que alguien la
-llame con un ticket válido. Codificar contra ella a ciegas sería inventarse un
-contrato.
+Descartado antes, y sigue descartado: el CSV masivo (no existe) y
+`datos-abiertos.chilecompra.cl/organismos-proveedores/{RUT}` (devuelve el HTML de
+un SPA con 200 para cualquier RUT).
 
-**Estado actual del código**: `backend/app/services/estado_habil_service.py`
-tiene `consultar_rut(rut)`, escrita contra la forma documentada de
-`BuscarProveedor` pero **inerte** mientras `MERCADO_PUBLICO_TICKET` esté vacío
-**o siga en el placeholder de `.env.example`** (`your-ticket-here`) — ambos
-casos lanzan `FuenteNoConfigurada` en vez de simular una respuesta. Un `203`
-(«Ticket no válido») también se trata como fallo explícito, con el ticket como
-sospechoso. El job de cada 6h (`check_estado_habil`) deja propagar todo eso:
-ya no se salta en silencio.
-
-**Acción pendiente**: cuando exista un ticket real (§2), la primera tarea es
-una llamada real a `BuscarProveedor` para un RUT conocido, comparar la
-respuesta contra `_estado_de_respuesta()`, y ajustar el parseo si no coincide
-— antes de dar por buena ninguna otra parte del flujo. En particular falta
-confirmar **qué significa un `Listado` vacío** (¿proveedor no existe, RUT mal
-formado, cuota agotada?): hoy el código no lo adivina y lanza `ErrorDeConsulta`
-a propósito — es la decisión más discutible del módulo, y está para revisarse
-con una respuesta real en la mano, no para asumir.
+**Pendiente, y no es de código:** si algún día hace falta el estado hábil de verdad,
+la única vía conocida es que el propio proveedor lo informe. No hay fuente pública.
 
 ---
 

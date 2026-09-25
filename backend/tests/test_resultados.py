@@ -428,7 +428,10 @@ def test_una_correccion_dentro_de_la_ventana_reabre_y_avisa_de_nuevo(sync_task_d
     assert segundo_resumen["resueltas"] == 0
     assert segundo_resumen["corregidas"] == 1
     assert session.query(Postulacion).filter_by(id=postulacion.id).one().estado == "adjudicada"
-    alertas = session.query(Alert).order_by(Alert.created_at).all()
+    # Por id y no por `created_at`: las dos alertas nacen en la misma
+    # transacción, y `now()` es constante dentro de una — empataban y el orden
+    # quedaba al azar. Falló así en un `make ci`.
+    alertas = session.query(Alert).order_by(Alert.id).all()
     assert len(alertas) == 2
     assert "orrección" in alertas[-1].title
 
