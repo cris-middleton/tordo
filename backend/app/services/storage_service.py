@@ -16,6 +16,11 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 
+# A nivel de módulo, no dentro de `_client`: diferido y SIN declarar en
+# pyproject, su falta sólo aparecía al subir el primer documento — un 500 para
+# el cliente con STORAGE_BACKEND=s3, que es el del compose y el de producción.
+import boto3
+
 from app.config import settings
 from app.core.versionado import PREFIJO_API
 
@@ -87,7 +92,6 @@ class S3StorageService(StorageService):
         self.endpoint_url_public = endpoint_url_public or endpoint_url  # browser-facing URL
 
     def _client(self, public: bool = False):  # type: ignore[return]
-        import boto3  # lazy import — not required in dev
 
         endpoint = self.endpoint_url_public if public else self.endpoint_url
         kwargs: dict = {"region_name": self.region}

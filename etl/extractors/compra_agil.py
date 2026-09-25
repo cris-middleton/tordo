@@ -153,6 +153,19 @@ class CompraAgilExtractor(BaseExtractor):
             )
             return None
 
+        # 500 y 504 intermitentes, vistos en la API real: el mismo tramo
+        # responde bien al reintentar. Sin esto se perdía el resto del tramo
+        # hasta la pasada siguiente.
+        if respuesta.status_code >= 500 and intento < self.max_retries:
+            self.logger.warning(
+                "Compra Ágil: %d, reintento %d/%d",
+                respuesta.status_code,
+                intento + 1,
+                self.max_retries,
+            )
+            time.sleep(self.retry_delay)
+            return self._pedir(params, intento + 1, url)
+
         try:
             respuesta.raise_for_status()
         except requests.exceptions.HTTPError as exc:

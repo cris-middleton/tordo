@@ -59,6 +59,11 @@ api = [
     # cairo y pango del sistema, que hay que meter en una imagen que ya se mide
     # contra 512 MB. reportlab es Python puro.
     "reportlab>=4.2,<5",
+    # Almacenamiento de documentos en S3 / R2 / MinIO (STORAGE_BACKEND=s3, el
+    # del compose y el de producción). **No estaba declarado**: el servicio lo
+    # importaba en diferido con un comentario «not required in dev», así que la
+    # falta sólo aparecía al subir el primer documento — un 500 para el cliente.
+    "boto3>=1.35,<2",
     # Base de datos
     "asyncpg>=0.30,<1",
     "alembic>=1.14,<2",

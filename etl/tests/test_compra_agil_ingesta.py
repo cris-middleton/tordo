@@ -198,3 +198,19 @@ def test_el_ticket_no_queda_en_los_logs():
     limpio = sin_ticket(error)
     assert "F8537A18" not in limpio
     assert "ticket=***" in limpio
+
+
+def test_un_500_intermitente_se_reintenta(monkeypatch):
+    """La API real responde 500/504 de vez en cuando, y al reintentar, bien."""
+    respuestas = [_Respuesta({}, status_code=500), _Respuesta(_pagina([ITEM_REAL]))]
+    monkeypatch.setattr(
+        "etl.extractors.compra_agil.requests.get",
+        lambda url, params=None, headers=None, timeout=None: respuestas.pop(0),
+    )
+    monkeypatch.setattr("etl.extractors.compra_agil.time.sleep", lambda s: None)
+
+    registros = CompraAgilExtractor({"COMPRA_AGIL_TICKET": "T"}).extract(
+        cambio_desde=datetime(2026, 9, 24, 8, 0), cambio_hasta=datetime(2026, 9, 24, 9, 0)
+    )
+
+    assert [r["codigo"] for r in registros] == ["3193-380-COT26"]
