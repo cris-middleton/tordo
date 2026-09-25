@@ -189,6 +189,37 @@ def build_empresa_vector(rubros_text: str) -> bytes:
     return buf.getvalue()
 
 
+def texto_de_perfil(descripcion: str | None, rubros: list[str] | None) -> str:
+    """El texto con que se vectoriza el perfil de una empresa.
+
+    **La descripción va primero y pesa el doble.** Repetirla es la forma barata de
+    ponderar en TF-IDF sin tocar el modelo: los rubros son etiquetas de una
+    taxonomía compartida, y sin este peso dos empresas del mismo rubro tendrían
+    casi el mismo vector. Una sola definición, para que guardar y reconstruir den
+    el mismo vector.
+    """
+    partes = [descripcion or "", descripcion or "", *(rubros or [])]
+    return " ".join(p for p in partes if p and p.strip())
+
+
+def vector_o_reconstruido(perfil) -> bytes | None:
+    """El vector del perfil, reconstruyéndolo si se guardó vacío.
+
+    Si el modelo no estaba disponible al guardar, el perfil queda con `b""` —el
+    endpoint lo documentaba como «se puede reconstruir después»— y nada lo
+    reconstruía: el job de encajes fallaba en cada empresa con «No data left in
+    file» y «Oportunidades para ti» quedaba vacío para siempre. Deja el vector
+    en el objeto; quien llama hace commit. `None` si no hay con qué construirlo.
+    """
+    if perfil.vector_bytes:
+        return perfil.vector_bytes
+    texto = texto_de_perfil(perfil.descripcion, perfil.rubros_usados)
+    if not texto or not is_available():
+        return None
+    perfil.vector_bytes = build_empresa_vector(texto)
+    return perfil.vector_bytes
+
+
 def score_empresa_licitacion(vector_bytes: bytes, licitacion_text: str) -> tuple[float, str]:
     """
     Calcula el score de encaje entre el perfil serializado de una empresa

@@ -464,7 +464,10 @@ async def get_licitacion_match(
 
     # Load empresa TF-IDF profile
     perfil = await repo_empresas.perfil_tfidf(db, empresa_id)
-    if not perfil or not perfil.vector_bytes:
+    vector = tfidf_matcher.vector_o_reconstruido(perfil) if perfil else None
+    if perfil is not None and vector and db.is_modified(perfil):
+        await db.commit()  # el vector reconstruido queda guardado
+    if not vector:
         return PerfilMatchResponse(
             disponible=True,
             codigo_externo=codigo_externo,
@@ -474,7 +477,7 @@ async def get_licitacion_match(
         )
 
     try:
-        score, nivel = tfidf_matcher.score_empresa_licitacion(perfil.vector_bytes, texto)
+        score, nivel = tfidf_matcher.score_empresa_licitacion(vector, texto)
     except Exception:
         return PerfilMatchResponse(
             disponible=True,
@@ -554,8 +557,7 @@ async def update_tfidf_perfil(
         # rubros son etiquetas de una taxonomía compartida, así que sin este
         # peso dos empresas del mismo rubro vuelven a tener casi el mismo
         # vector — que es justo el problema que la descripción viene a resolver.
-        partes = [body.descripcion or "", body.descripcion or ""] + list(body.rubros_usados)
-        rubros_text = " ".join(p for p in partes if p.strip())
+        rubros_text = tfidf_matcher.texto_de_perfil(body.descripcion, list(body.rubros_usados))
         try:
             vector_bytes = tfidf_matcher.build_empresa_vector(rubros_text)
         except Exception:

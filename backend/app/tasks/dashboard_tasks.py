@@ -29,7 +29,7 @@ from app.db import SyncSessionLocal
 from app.models.empresa import TFIDFPerfil
 from app.models.licitacion import Licitacion
 from app.models.match import MatchEmpresaLicitacion
-from app.services.tfidf_matcher import score_empresa_licitacion
+from app.services.tfidf_matcher import score_empresa_licitacion, vector_o_reconstruido
 
 logger = logging.getLogger(__name__)
 
@@ -146,12 +146,13 @@ def actualizar_matches_de_licitaciones(db, licitacion_ids: list[int]) -> int:
     ahora = datetime.now(UTC)
     filas: list[dict] = []
     for perfil in db.query(TFIDFPerfil).all():
-        if not perfil.vector_bytes:
+        vector = vector_o_reconstruido(perfil)
+        if not vector:
             continue
         for lic_id, texto in textos.items():
             if not texto:
                 continue
-            score, nivel = score_empresa_licitacion(perfil.vector_bytes, texto)
+            score, nivel = score_empresa_licitacion(vector, texto)
             if score < UMBRAL_MINIMO:
                 continue
             filas.append(
@@ -197,7 +198,11 @@ def precompute_dashboard_matches() -> dict:
         perfiles = db.query(TFIDFPerfil).all()
         for perfil in perfiles:
             try:
-                filas = _puntuar_empresa(db, perfil.vector_bytes)
+                vector = vector_o_reconstruido(perfil)
+                if not vector:
+                    # Sin descripción ni rubros no hay a qué parecerse: no es un fallo.
+                    continue
+                filas = _puntuar_empresa(db, vector)
                 _guardar(db, perfil.empresa_id, filas, datetime.now(UTC))
                 # Commit por empresa: con uno solo al final, un fallo en la
                 # última tiraba el trabajo de todas las demás.
