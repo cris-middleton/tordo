@@ -27,7 +27,7 @@ import polars as pl
 
 from .agregacion import ContadorDistintos
 from .config import OUTPUT_DIR
-from .data_loader import iter_oc_parquets
+from .data_loader import iter_oc_parquets, orden_por_fila
 
 logger = logging.getLogger(__name__)
 
@@ -68,18 +68,15 @@ def build_sector_dashboard() -> pl.DataFrame:
             contador.añadir(df)
 
         batch = (
-            df.filter(
+            orden_por_fila(df)
+            .filter(
                 pl.col("sector").is_not_null()
                 & (pl.col("sector") != "null")
                 & (pl.col("sector") != "")
             )
-            .with_columns(
-                [
-                    pl.col("MontoTotalOC_PesosChilenos")
-                    .cast(pl.Float64, strict=False)
-                    .alias("monto"),
-                ]
-            )
+            # El total de la ORDEN, una vez por orden: sector y región son de
+            # la orden, y el ticket es por orden, no por línea.
+            .with_columns(pl.col("MontoTotalOC_PesosChilenos").alias("monto"))
             .group_by("sector")
             .agg(
                 [
@@ -160,18 +157,15 @@ def build_region_dashboard() -> pl.DataFrame:
             contador.añadir(df)
 
         batch = (
-            df.filter(
+            orden_por_fila(df)
+            .filter(
                 pl.col("RegionUnidadCompra").is_not_null()
                 & (pl.col("RegionUnidadCompra") != "null")
                 & (pl.col("RegionUnidadCompra") != "")
             )
-            .with_columns(
-                [
-                    pl.col("MontoTotalOC_PesosChilenos")
-                    .cast(pl.Float64, strict=False)
-                    .alias("monto"),
-                ]
-            )
+            # El total de la ORDEN, una vez por orden: sector y región son de
+            # la orden, y el ticket es por orden, no por línea.
+            .with_columns(pl.col("MontoTotalOC_PesosChilenos").alias("monto"))
             .group_by("RegionUnidadCompra")
             .agg(
                 [
@@ -233,19 +227,16 @@ def build_sector_region_matrix() -> pl.DataFrame:
             continue
 
         batch = (
-            df.filter(
+            orden_por_fila(df)
+            .filter(
                 pl.col("sector").is_not_null()
                 & (pl.col("sector") != "null")
                 & pl.col("RegionUnidadCompra").is_not_null()
                 & (pl.col("RegionUnidadCompra") != "null")
             )
-            .with_columns(
-                [
-                    pl.col("MontoTotalOC_PesosChilenos")
-                    .cast(pl.Float64, strict=False)
-                    .alias("monto"),
-                ]
-            )
+            # El total de la ORDEN, una vez por orden: sector y región son de
+            # la orden, y el ticket es por orden, no por línea.
+            .with_columns(pl.col("MontoTotalOC_PesosChilenos").alias("monto"))
             .group_by(["sector", "RegionUnidadCompra"])
             .agg(
                 [

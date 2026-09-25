@@ -80,7 +80,8 @@ def build_provider_metrics() -> pl.DataFrame:
             pl.col(prov_col).is_not_null() & (pl.col(prov_col) != "null")
         ).with_columns(
             [
-                pl.col("MontoTotalOC_PesosChilenos").cast(pl.Float64, strict=False).alias("monto"),
+                # Por línea: ver `data_loader.con_monto_por_linea`.
+                pl.col("monto_linea_clp").alias("monto"),
             ]
         )
 
@@ -89,7 +90,7 @@ def build_provider_metrics() -> pl.DataFrame:
             org_rev = base.group_by([prov_col, "CodigoOrganismoPublico"]).agg(
                 [
                     pl.col("monto").sum().alias("monto_org"),
-                    pl.len().alias("n_oc_org"),
+                    pl.col("Codigo").n_unique().alias("n_oc_org"),
                 ]
             )
             org_revenue_frames.append(org_rev)
@@ -125,7 +126,7 @@ def build_provider_metrics() -> pl.DataFrame:
                 [
                     pl.col("NombreProveedor").first(),
                     pl.col("_periodo_archivo").n_unique().alias("n_periodos"),
-                    pl.len().alias("n_oc"),
+                    pl.col("Codigo").n_unique().alias("n_oc"),
                     pl.col("monto").sum().alias("monto_total"),
                     pl.col("_periodo_archivo").min().alias("primer_periodo"),
                     pl.col("_periodo_archivo").max().alias("ultimo_periodo"),

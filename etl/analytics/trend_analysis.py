@@ -50,9 +50,8 @@ def build_time_series() -> pl.DataFrame:
         agg = (
             df.with_columns(
                 [
-                    pl.col("MontoTotalOC_PesosChilenos")
-                    .cast(pl.Float64, strict=False)
-                    .alias("monto"),
+                    # Por línea: ver `data_loader.con_monto_por_linea`.
+                    pl.col("monto_linea_clp").alias("monto"),
                 ]
             )
             .filter(pl.col("monto").is_not_null() & (pl.col("monto") > 0))
@@ -73,11 +72,13 @@ def build_time_series() -> pl.DataFrame:
             .group_by(["CodigoOrganismoPublico", "RubroN2", "sector", "anio", "mes"])
             .agg(
                 [
-                    pl.len().alias("n_oc"),
+                    # Órdenes distintas, no líneas.
+                    pl.col("Codigo").n_unique().alias("n_oc"),
                     nombre_vigente("OrganismoPublico"),
                     periodo_maximo(),
                     pl.col("monto").sum().alias("monto_total"),
-                    pl.col("monto").mean().alias("ticket_promedio"),
+                    # Por ORDEN: la media por fila era el ticket de una línea.
+                    (pl.col("monto").sum() / pl.col("Codigo").n_unique()).alias("ticket_promedio"),
                 ]
             )
         )

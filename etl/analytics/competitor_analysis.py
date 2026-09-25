@@ -68,12 +68,16 @@ def build_competitor_aggregates() -> tuple[pl.DataFrame, pl.DataFrame]:
 
         base = df.with_columns(
             [
-                pl.col("MontoTotalOC_PesosChilenos").cast(pl.Float64, strict=False).alias("monto"),
+                # Por LÍNEA, no el total de la orden repetido: ver
+                # `data_loader.con_monto_por_linea`.
+                pl.col("monto_linea_clp").alias("monto"),
             ]
         ).filter(
             pl.col("monto").is_not_null()
             & (pl.col("monto") > 0)
             & pl.col("CodigoProveedor").is_not_null()
+            # Sin rubro no hay mercado: era el «NA», el más grande de la tabla.
+            & pl.col("RubroN2").is_not_null()
         )
 
         # Agregado por mercado (organismo + rubro + proveedor).
@@ -90,7 +94,10 @@ def build_competitor_aggregates() -> tuple[pl.DataFrame, pl.DataFrame]:
             ]
         ).agg(
             [
-                pl.len().alias("n_oc"),
+                # Órdenes distintas, no filas: el archivo trae una por línea.
+                # Una orden vive en un solo archivo mensual, así que sumar esto
+                # entre tandas no la cuenta dos veces.
+                pl.col("Codigo").n_unique().alias("n_oc"),
                 pl.col("monto").sum().alias("monto_total"),
                 nombre_vigente("OrganismoPublico"),
                 nombre_vigente("NombreProveedor"),
@@ -105,7 +112,10 @@ def build_competitor_aggregates() -> tuple[pl.DataFrame, pl.DataFrame]:
 
         prov_agg = base.group_by("CodigoProveedor").agg(
             [
-                pl.len().alias("n_oc"),
+                # Órdenes distintas, no filas: el archivo trae una por línea.
+                # Una orden vive en un solo archivo mensual, así que sumar esto
+                # entre tandas no la cuenta dos veces.
+                pl.col("Codigo").n_unique().alias("n_oc"),
                 pl.col("monto").sum().alias("monto_total"),
                 nombre_vigente("NombreProveedor"),
                 periodo_maximo(),

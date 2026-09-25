@@ -50,7 +50,7 @@ import logging
 import polars as pl
 
 from .config import OUTPUT_DIR
-from .data_loader import iter_lic_parquets, iter_oc_parquets
+from .data_loader import iter_lic_parquets, iter_oc_parquets, orden_por_fila
 from .identidad import nombre_vigente, periodo_maximo
 
 logger = logging.getLogger(__name__)
@@ -96,6 +96,7 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
     logger.info("Calculando métricas de OC por comprador...")
 
     cols_needed = [
+        "Codigo",
         "CodigoOrganismoPublico",
         "OrganismoPublico",
         "sector",
@@ -121,6 +122,13 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
         org_col = "CodigoOrganismoPublico"
         if org_col not in df.columns:
             continue
+
+        # **Una fila por ORDEN, no por línea.** El archivo trae una fila por ítem
+        # (≈2,9 por orden, medido), y todo lo de abajo contaba filas: «órdenes
+        # emitidas» eran líneas, y la tasa de aceptación y los días de
+        # aceptación quedaban ponderados por cuántos ítems tenía cada orden.
+        # Todo lo que se mira aquí —fechas, estado, organismo— es de la orden.
+        df = orden_por_fila(df)
 
         # --- Velocidad de ACEPTACIÓN: días entre FechaEnvio y FechaAceptacion ---
         #

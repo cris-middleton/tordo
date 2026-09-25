@@ -36,6 +36,7 @@ def build_monthly_aggregates() -> pl.DataFrame:
     logger.info("Construyendo agregados mensuales de OC...")
 
     cols_needed = [
+        "Codigo",
         "FechaCreacion",
         "CodigoOrganismoPublico",
         "OrganismoPublico",
@@ -70,8 +71,10 @@ def build_monthly_aggregates() -> pl.DataFrame:
             .filter(pl.col("anio").is_not_null() & pl.col("mes").is_not_null())
         )
 
-        if "MontoTotalOC_PesosChilenos" in parsed.columns:
-            monto_expr = pl.col("MontoTotalOC_PesosChilenos").cast(pl.Float64, strict=False)
+        # Por línea (ver `data_loader.con_monto_por_linea`), y órdenes contadas
+        # como órdenes: el archivo trae una fila por línea.
+        if "monto_linea_clp" in parsed.columns:
+            monto_expr = pl.col("monto_linea_clp")
         else:
             monto_expr = pl.lit(0.0)
 
@@ -79,9 +82,9 @@ def build_monthly_aggregates() -> pl.DataFrame:
             ["CodigoOrganismoPublico", "OrganismoPublico", "RubroN2", "anio", "mes"]
         ).agg(
             [
-                pl.len().alias("n_compras"),
+                pl.col("Codigo").n_unique().alias("n_compras"),
                 monto_expr.sum().alias("monto_total"),
-                monto_expr.mean().alias("monto_promedio"),
+                (monto_expr.sum() / pl.col("Codigo").n_unique()).alias("monto_promedio"),
             ]
         )
         agg_frames.append(agg)

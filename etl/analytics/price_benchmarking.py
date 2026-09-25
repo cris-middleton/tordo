@@ -63,20 +63,23 @@ def build_price_aggregates() -> pl.DataFrame:
         if "MontoTotalOC_PesosChilenos" not in df.columns:
             continue
 
+        # Una observación = lo que UNA orden gastó en el rubro. Antes cada fila
+        # era una línea con el total de la orden repetido: la banda pesaba cada
+        # orden por su número de líneas y mezclaba el total de órdenes con
+        # ítems de otros rubros. Ver `data_loader.con_monto_por_linea`.
+        por_orden = (
+            df.filter(
+                pl.col("CodigoOrganismoPublico").is_not_null() & pl.col("RubroN2").is_not_null()
+            )
+            .group_by(["Codigo", "CodigoOrganismoPublico", "RubroN2"])
+            .agg(
+                pl.col("monto_linea_clp").sum().alias("monto"),
+                pl.col("OrganismoPublico").first(),
+                pl.col("_periodo_archivo").first(),
+            )
+        )
         agg = (
-            df.with_columns(
-                [
-                    pl.col("MontoTotalOC_PesosChilenos")
-                    .cast(pl.Float64, strict=False)
-                    .alias("monto"),
-                ]
-            )
-            .filter(
-                pl.col("monto").is_not_null()
-                & (pl.col("monto") > 0)
-                & pl.col("CodigoOrganismoPublico").is_not_null()
-                & pl.col("RubroN2").is_not_null()
-            )
+            por_orden.filter(pl.col("monto").is_not_null() & (pl.col("monto") > 0))
             # La clave es el CÓDIGO del organismo. Con el nombre dentro, un
             # comprador escrito de varias formas partía su propia banda de
             # precio en varias bandas más estrechas y con menos observaciones
