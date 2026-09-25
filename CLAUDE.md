@@ -398,12 +398,18 @@ make db-shell
 make front-dev
 ```
 
-ETL (desde `etl/`):
+ETL — **desde la raíz**, como módulo (`cd etl && python main.py` falla con
+`No module named 'etl'`):
 ```bash
-uv run --project .. python main.py
-uv run --project .. python -m etl.analytics.run_all [--modulo seasonality]
-uv run --project .. python -m analytics.evaluation --model tfidf_matcher --walk-forward
+uv run python -m etl.main --horario            # lo que corre cada hora
+uv run python -m etl.main --fecha-desde 2026-09-01 --fecha-hasta 2026-09-01
+uv run python -m etl.analytics.run_all [--modulo seasonality]
+cd etl && uv run --project .. python -m analytics.evaluation --model tfidf_matcher --walk-forward
 ```
+
+**La pasada horaria es `--horario`**: licitaciones publicadas hoy, Compra Ágil de las
+últimas 2 h y detalles nuevos. La tarea «horaria» corría `--only-extraer-nuevos`, que sólo
+pide el detalle de lo que ya está en la base: lo nuevo entraba una vez al día.
 
 **Cualquier cambio a un modelo de scoring pasa por el harness de evaluación**
 (`etl/analytics/evaluation/`: splits, walk-forward, métricas, variantes). No se toca un

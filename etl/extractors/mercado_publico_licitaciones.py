@@ -8,7 +8,7 @@ from typing import Any, Dict, List
 
 import requests
 
-from etl.extractors.base import BaseExtractor
+from etl.extractors.base import BaseExtractor, sin_ticket
 from etl.utils import now_santiago
 
 
@@ -73,12 +73,14 @@ class MercadoPublicoLicitacionesExtractor(BaseExtractor):
         except requests.exceptions.RequestException as e:
             if retry_count < self.max_retries:
                 self.logger.warning(
-                    f"Request failed, retrying ({retry_count + 1}/{self.max_retries}): {str(e)}"
+                    f"Request failed, retrying ({retry_count + 1}/{self.max_retries}): {sin_ticket(e)}"
                 )
                 time.sleep(self.retry_delay)
                 return self._make_request(params, retry_count + 1)
             else:
-                self.logger.error(f"Request failed after {self.max_retries} retries: {str(e)}")
+                self.logger.error(
+                    f"Request failed after {self.max_retries} retries: {sin_ticket(e)}"
+                )
                 return None
 
     def extract(
@@ -268,7 +270,7 @@ class MercadoPublicoLicitacionesExtractor(BaseExtractor):
 
                 except Exception as e:
                     self.logger.error(
-                        f"Error extracting details for licitación {codigo_externo}: {str(e)}"
+                        f"Error extracting details for licitación {codigo_externo}: {sin_ticket(e)}"
                     )
                     error_count += 1
 
@@ -282,5 +284,5 @@ class MercadoPublicoLicitacionesExtractor(BaseExtractor):
             return detailed_records
 
         except Exception as e:
-            self.logger.error(f"Failed to extract detalles from database: {str(e)}")
+            self.logger.error(f"Failed to extract detalles from database: {sin_ticket(e)}")
             raise

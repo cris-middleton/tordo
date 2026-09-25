@@ -10,7 +10,8 @@ import sys
 from datetime import timedelta
 from typing import Any, Dict, List
 
-from sqlalchemy import create_engine, func, or_, text
+from sqlalchemy import String, Text, create_engine, func, literal_column, or_, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import sessionmaker
 
@@ -25,6 +26,8 @@ from etl.shared_imports import (
     OrdenCompra,
     OrdenCompraDetalle,
     OrdenCompraHistorial,
+    TipoConvocatoria,
+    convocatoria_de_orden,
 )
 from etl.utils import (
     calcular_hash,
@@ -80,6 +83,22 @@ def _sin_claves_repetidas(
             f" — se conserva la última de cada una ({len(salida)} a cargar)"
         )
     return salida
+
+
+def _vacio_a_null(valor, columna):
+    """Lo que para el upsert significa «no vino»: `''` en texto, `null` en JSONB.
+
+    SQLAlchemy guarda un `None` de Python en una columna JSONB como el valor
+    JSON `null`, no como NULL de SQL: sin esto, `COALESCE` lo tomaba por un dato
+    y los ítems que había copiado el detalle se perdían igual.
+    """
+    if isinstance(columna.type, (String, Text)):
+        return func.nullif(valor, "")
+    if isinstance(columna.type, JSONB):
+        # Literal y no `cast("null", JSONB)`: el cast pasa el texto por el
+        # serializador JSON y compara contra el STRING `"null"`.
+        return func.nullif(valor, literal_column("'null'::jsonb"))
+    return valor
 
 
 class DatabaseLoaderV2(BaseLoader):
@@ -224,7 +243,10 @@ class DatabaseLoaderV2(BaseLoader):
         #
         # Filtrar por `col.computed` y no por una lista de nombres es lo que
         # hace que la próxima columna generada no repita el problema.
-        skip_on_update = {"id", "codigo_externo", "fecha_extraccion"}
+        # `fecha_publicacion` tampoco: no cambia una vez publicada, y el listado
+        # de la API clásica no la trae — el transformer rellena con la hora de
+        # ingesta. Sobrescribirla deshacía la fecha real que copia el detalle.
+        skip_on_update = {"id", "codigo_externo", "fecha_extraccion", "fecha_publicacion"}
         total_loaded = 0
         total_updated = 0
         total_errors = 0
@@ -247,8 +269,16 @@ class DatabaseLoaderV2(BaseLoader):
                 }
 
                 stmt = pg_insert(table).values(batch)
+                # **Lo que la fila nueva no trae, no borra lo que había.** Los
+                # listados traen muy poco (el de licitaciones: código, nombre,
+                # estado y cierre); con `excluded` a secas, cada pasada diaria
+                # dejaba en NULL lo que había copiado el detalle —monto,
+                # comprador, región, mecanismo— y los textos en "". Un vacío que
+                # llega no es un dato nuevo.
                 update_dict = {
-                    col.name: stmt.excluded[col.name]
+                    col.name: func.coalesce(
+                        _vacio_a_null(stmt.excluded[col.name], col), table.c[col.name]
+                    )
                     for col in table.columns
                     if col.name not in skip_on_update and col.computed is None
                 }
@@ -543,6 +573,45 @@ class DatabaseLoaderV2(BaseLoader):
             self.logger.info(f"{reparadas} licitaciones completadas desde su detalle")
         return reparadas
 
+    def sincronizar_ordenes_desde_detalle(self, limite: int = 5000) -> int:
+        """Rellena el mecanismo de las órdenes que ya tienen detalle y no lo tienen.
+
+        Mismo motivo que `sincronizar_licitaciones_desde_detalle`: el detalle de
+        una orden ya cerrada no cambia, así que la copia nunca se dispararía.
+        """
+        if not self.session:
+            self.connect()
+        filas = self.session.execute(
+            text(
+                """
+                SELECT o.id, d.datos_completos
+                FROM ordenes_compra o
+                JOIN ordenes_compra_detalle d ON d.orden_compra_id = o.id
+                WHERE o.tipo_oc IS NULL
+                ORDER BY o.id DESC
+                LIMIT :limite
+                """
+            ),
+            {"limite": limite},
+        ).all()
+        reparadas = 0
+        try:
+            for orden_id, datos in filas:
+                orden = self.session.get(OrdenCompra, orden_id)
+                if orden is None:
+                    continue
+                self._sync_orden_compra_base_from_detalle(orden, datos)
+                if orden.tipo_oc is not None:
+                    reparadas += 1
+            self.session.commit()
+        except Exception as e:
+            self.session.rollback()
+            self.logger.error(f"No se pudieron sincronizar órdenes desde su detalle: {e}")
+            return 0
+        if reparadas:
+            self.logger.info(f"{reparadas} órdenes con su mecanismo de compra desde el detalle")
+        return reparadas
+
     def load_ordenes_compra(self, data: List[Dict[str, Any]]) -> int:
         """
         Load órdenes de compra into basic table using bulk upsert (INSERT ... ON CONFLICT DO UPDATE).
@@ -577,8 +646,16 @@ class DatabaseLoaderV2(BaseLoader):
                 }
 
                 stmt = pg_insert(table).values(batch)
+                # **Lo que la fila nueva no trae, no borra lo que había.** Los
+                # listados traen muy poco (el de licitaciones: código, nombre,
+                # estado y cierre); con `excluded` a secas, cada pasada diaria
+                # dejaba en NULL lo que había copiado el detalle —monto,
+                # comprador, región, mecanismo— y los textos en "". Un vacío que
+                # llega no es un dato nuevo.
                 update_dict = {
-                    col.name: stmt.excluded[col.name]
+                    col.name: func.coalesce(
+                        _vacio_a_null(stmt.excluded[col.name], col), table.c[col.name]
+                    )
                     for col in table.columns
                     if col.name not in skip_on_update and col.computed is None
                 }
@@ -763,6 +840,16 @@ class DatabaseLoaderV2(BaseLoader):
                 or listado.get("estadoProveedor")
                 or orden_compra.estado_proveedor
             )
+
+            # Mecanismo de compra. El listado no trae `Tipo`, sólo el detalle,
+            # así que sin esto `tipo_oc` quedaba NULL en TODAS las órdenes y
+            # nada se veía como Compra Ágil, Convenio Marco ni Trato Directo.
+            codigo_tipo = listado.get("CodigoTipo")
+            if codigo_tipo is None:
+                codigo_tipo = listado.get("Tipo")
+            if codigo_tipo is not None:
+                orden_compra.tipo_oc = str(codigo_tipo).strip()
+                orden_compra.tipo_convocatoria = convocatoria_de_orden(codigo_tipo)
 
             # Monetary fields
             if listado.get("TipoMoneda"):
@@ -1041,12 +1128,43 @@ class DatabaseLoaderV2(BaseLoader):
             .outerjoin(LicitacionDetalle, Licitacion.id == LicitacionDetalle.licitacion_id)
             .filter(LicitacionDetalle.id.is_(None))
             .filter(Licitacion.estado.in_(self.LICITACION_ESTADOS_ACTIVOS))
+            # Sólo licitaciones: una Compra Ágil «Publicada» también calzaba, y
+            # su código (…-COT26) se pedía a la API CLÁSICA, que no la conoce:
+            # fallaba y volvía a la cola en cada pasada, para siempre. Su
+            # detalle es otro endpoint (`compras_agiles_sin_detalle`).
+            .filter(Licitacion.tipo_convocatoria == TipoConvocatoria.LICITACION.value)
+            # Las más nuevas primero: con `limit`, sin orden, podía quedarse
+            # siempre con las mismas viejas.
+            .order_by(Licitacion.id.desc())
         )
 
         if limit:
             query = query.limit(limit)
 
         return query.all()
+
+    def compras_agiles_sin_detalle(self, limite: int) -> List[tuple]:
+        """Compras Ágiles publicadas que todavía no tienen descripción, nuevas primero."""
+        if not self.session:
+            self.connect()
+        return (
+            self.session.query(Licitacion.id, Licitacion.codigo_externo)
+            .filter(Licitacion.tipo_convocatoria == TipoConvocatoria.COMPRA_AGIL.value)
+            .filter(Licitacion.estado.in_(self.LICITACION_ESTADOS_ACTIVOS))
+            .filter(or_(Licitacion.descripcion.is_(None), Licitacion.descripcion == ""))
+            .order_by(Licitacion.id.desc())
+            .limit(limite)
+            .all()
+        )
+
+    def completar_desde_detalle(self, licitacion_id: int, campos: Dict[str, Any]) -> None:
+        """Escribe en una licitación lo que trajo su detalle. Commit incluido."""
+        licitacion = self.session.get(Licitacion, licitacion_id)
+        if licitacion is None or not campos:
+            return
+        for campo, valor in campos.items():
+            setattr(licitacion, campo, valor)
+        self.session.commit()
 
     def query_ordenes_para_detalle(self, limit: int | None = None) -> List[tuple]:
         """

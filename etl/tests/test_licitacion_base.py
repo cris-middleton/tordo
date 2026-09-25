@@ -233,3 +233,58 @@ def test_las_ya_cargadas_se_reparan_sin_llamar_a_la_api(loader):
     assert loader.sincronizar_licitaciones_desde_detalle() >= 1
 
     assert _fila(loader, codigo)[0] == "7326"
+
+
+def test_releer_el_listado_no_borra_lo_que_trajo_el_detalle(loader):
+    """El listado se vuelve a leer cada día. Con `excluded` a secas en el upsert,
+    cada pasada dejaba en NULL el monto, el comprador y la región, devolvía la
+    publicación a la hora de ingesta y la descripción a ""."""
+    lid, codigo = _licitacion_del_listado(loader, "C")
+    loader.load_licitacion_detalle_inicial(lid, codigo, DETALLE_REAL)
+
+    # La pasada siguiente: la misma licitación, como la trae el listado.
+    loader.load_licitaciones(
+        [
+            {
+                "codigo_externo": codigo,
+                "nombre": "ADQUISICIÓN DE INSUMOS PARA IMAGENOLOGÍA",
+                "descripcion": "",
+                "fecha_publicacion": datetime(2026, 9, 25, 9, 0),  # la hora de ingesta
+                "fecha_cierre": datetime(2026, 10, 5, 15, 30),
+                "estado": "Cerrada",
+                "items": None,
+                "activo": True,
+            }
+        ]
+    )
+
+    org, monto, region, publicada, n_items = _fila(loader, codigo)
+    assert (org, monto, region) == ("7326", 65_000_000, "Región Metropolitana de Santiago")
+    assert str(publicada) == "2026-09-22"
+    assert n_items == 1
+    (estado, descripcion) = loader.session.execute(
+        text("SELECT estado, descripcion FROM licitaciones WHERE codigo_externo = :c"),
+        {"c": codigo},
+    ).one()
+    assert estado == "Cerrada"  # lo que SÍ trae el listado se actualiza
+    assert descripcion.startswith("Que, este Hospital")
+
+
+def test_una_compra_agil_no_se_pide_a_la_api_clasica(loader):
+    """Su código (…-COT26) no existe en la API clásica: fallaba y volvía a la
+    cola en cada pasada, para siempre."""
+    loader.load_licitaciones(
+        [
+            {
+                "codigo_externo": f"{PREFIJO}CA-COT26",
+                "nombre": "Compra ágil de prueba",
+                "fecha_publicacion": datetime(2026, 9, 24, 10, 0),
+                "estado": "Publicada",
+                "tipo_convocatoria": "compra_agil",
+                "activo": True,
+            }
+        ]
+    )
+    codigos = {c for _, c in loader.query_licitaciones_para_detalle()}
+    assert f"{PREFIJO}CA-COT26" not in codigos
+    assert f"{PREFIJO}CA-COT26" in {c for _, c in loader.compras_agiles_sin_detalle(1000)}

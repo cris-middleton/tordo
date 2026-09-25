@@ -48,13 +48,17 @@ def _log_task_failure(task_name: str, error_msg: str, task_args: dict | None = N
     default_retry_delay=120,
 )
 def run_etl_licitaciones_activas() -> dict:
-    """Hourly: extract active licitaciones from Mercado Público API and upsert to DB."""
+    """Cada hora: licitaciones publicadas hoy, Compra Ágil reciente y detalles nuevos.
+
+    Corría `--only-extraer-nuevos`, que sólo pedía el detalle de lo que ya
+    estaba en la base: lo NUEVO entraba una vez al día, en la de las 02:00.
+    """
     logger.info("[ETL] Starting hourly licitaciones extraction")
     etl_dir = os.path.join(ETL_WORKSPACE, "etl")
 
     try:
         result = subprocess.run(
-            [sys.executable, "main.py", "--only-extraer-nuevos"],
+            [sys.executable, "main.py", "--horario"],
             cwd=etl_dir,
             capture_output=True,
             text=True,

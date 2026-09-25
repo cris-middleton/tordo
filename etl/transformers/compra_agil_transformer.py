@@ -64,9 +64,9 @@ class CompraAgilTransformer(BaseTransformer):
         return {
             "codigo_externo": str(codigo),
             "nombre": data.get("nombre") or "",
-            # El listado no trae descripción; sólo el detalle, y el detalle
-            # cuesta una petición por registro contra una API con cuota diaria.
-            "descripcion": "",
+            # El listado no trae descripción: la pone `campos_desde_detalle`.
+            # None y no "": en el upsert, un vacío no borra la que ya haya.
+            "descripcion": None,
             "tipo_convocatoria": TipoConvocatoria.COMPRA_AGIL.value,
             "fecha_publicacion": fecha_publicacion,
             "fecha_cierre": _fecha(fechas.get("fecha_cierre")),
@@ -79,7 +79,8 @@ class CompraAgilTransformer(BaseTransformer):
             "moneda": montos.get("moneda") or "CLP",
             "nombre_organismo": institucion.get("organismo_comprador"),
             "rut_organismo": institucion.get("rut"),
-            "region": institucion.get("nombre_region"),
+            # La API la manda con espacios de relleno («Región del Biobío »).
+            "region": (institucion.get("nombre_region") or "").strip() or None,
             "activo": True,
             "informacion_adicional": {
                 "estado_codigo": estado.get("codigo"),
@@ -97,5 +98,33 @@ class CompraAgilTransformer(BaseTransformer):
                 "motivos": data.get("motivos") or {},
                 "monto_disponible_original": montos.get("monto_disponible"),
             },
-            "items": [],
+            "items": None,
         }
+
+
+def campos_desde_detalle(detalle: Dict[str, Any]) -> Dict[str, Any]:
+    """Lo que añade el detalle de una Compra Ágil a su fila de `licitaciones`.
+
+    Los ítems se guardan con los nombres de la API clásica (`CodigoProducto`,
+    `NombreProducto`…): es lo que leen el panel de BI y el matching, así que
+    una Compra Ágil entra a las bandas de precio por producto igual que una
+    licitación. Forma verificada contra la API real el 2026-09-24.
+    """
+    if not isinstance(detalle, dict):
+        return {}
+    items = [
+        {
+            "CodigoProducto": p.get("codigo_producto"),
+            "NombreProducto": p.get("nombre"),
+            "Descripcion": p.get("descripcion"),
+            "Cantidad": p.get("cantidad"),
+            "UnidadMedida": p.get("unidad_medida"),
+        }
+        for p in detalle.get("productos_solicitados") or []
+        if isinstance(p, dict)
+    ]
+    campos: Dict[str, Any] = {
+        "descripcion": (detalle.get("descripcion") or "").strip() or None,
+        "items": items or None,
+    }
+    return {k: v for k, v in campos.items() if v is not None}

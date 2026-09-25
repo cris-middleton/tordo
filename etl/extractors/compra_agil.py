@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import time
 from datetime import datetime, timedelta
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterator, List
 
 import requests
 
@@ -36,12 +36,44 @@ from etl.utils import now_santiago
 #: La API v2 vive en otro host que la clásica.
 URL_BASE = "https://api2.mercadopublico.cl"
 
-#: Tope que impone la propia API (§5.1, grupo 6). Pedir más no da más.
-TAMANO_PAGINA_MAX = 50
+#: La API acepta entre 10 y 50 (lo dice su propio 400). **Con 50 responde 504**
+#: «Endpoint request timed out» — medido el 2026-09-24 sobre ventanas de 3 h y de
+#: 24 h —, y con 25 no. Se usa 25.
+TAMANO_PAGINA_MAX = 25
+
+#: Cada consulta cubre como mucho esto. Una ventana de 24 h devolvía
+#: `total_resultados = 10000` exacto —un tope del buscador, no el número real— y
+#: además caía en 504: la sincronización diaria de un día entero era INCOMPLETA
+#: sin avisar. Una hora de cambios son unos cientos, lejos de ambos límites.
+VENTANA_MAXIMA = timedelta(hours=1)
+
+#: Lo que cubre una pasada sin ventana explícita. Es la horaria, y se solapa una
+#: hora con la anterior: un registro que se cae de una pasada entra en la otra.
+VENTANA_POR_DEFECTO = timedelta(hours=2)
+
+#: Formato de las fechas de la consulta. La API las marca con `Z`, pero sus
+#: horas son de Chile: los cierres llegan a las 10:00 «Z», que en UTC serían las
+#: 07:00 en Chile. Se consulta en hora de Chile, igual que responde.
+FORMATO_CONSULTA = "%Y-%m-%dT%H:%M:%SZ"
 
 #: Cortafuegos: si la paginación se descontrolara, esto evita un bucle infinito
 #: contra una API con cuota diaria.
 MAX_PAGINAS = 400
+
+
+def _a_datetime(valor: str | datetime | None) -> datetime | None:
+    if valor is None or isinstance(valor, datetime):
+        return valor
+    return datetime.strptime(valor.replace("Z", ""), "%Y-%m-%dT%H:%M:%S")
+
+
+def tramos(desde: datetime, hasta: datetime) -> Iterator[tuple[datetime, datetime]]:
+    """La ventana [desde, hasta) en tramos de como mucho `VENTANA_MAXIMA`."""
+    inicio = desde
+    while inicio < hasta:
+        fin = min(inicio + VENTANA_MAXIMA, hasta)
+        yield inicio, fin
+        inicio = fin
 
 
 class CuotaDiariaAgotada(RuntimeError):
@@ -82,10 +114,12 @@ class CompraAgilExtractor(BaseExtractor):
 
     # ── HTTP ─────────────────────────────────────────────────────────────────
 
-    def _pedir(self, params: Dict[str, Any], intento: int = 0) -> Dict[str, Any] | None:
+    def _pedir(
+        self, params: Dict[str, Any], intento: int = 0, url: str | None = None
+    ) -> Dict[str, Any] | None:
         try:
             respuesta = requests.get(
-                self.api_url,
+                url or self.api_url,
                 params=params,
                 # La cabecera, no la query. Es la diferencia con la API clásica
                 # que más veces se escribe mal.
@@ -101,7 +135,7 @@ class CompraAgilExtractor(BaseExtractor):
                     exc,
                 )
                 time.sleep(self.retry_delay)
-                return self._pedir(params, intento + 1)
+                return self._pedir(params, intento + 1, url)
             self.logger.error(
                 "Compra Ágil: sin respuesta tras %d intentos: %s", self.max_retries, exc
             )
@@ -145,21 +179,38 @@ class CompraAgilExtractor(BaseExtractor):
 
     def extract(
         self,
-        cambio_desde: str | None = None,
-        cambio_hasta: str | None = None,
+        cambio_desde: str | datetime | None = None,
+        cambio_hasta: str | datetime | None = None,
         estados: str | None = None,
         **kwargs,
     ) -> List[Dict[str, Any]]:
         """Todas las Compras Ágiles con cambios en la ventana indicada.
 
-        Sin ventana, se toman las últimas 24 horas: es la cadencia con la que
-        corre el ETL y evita pedir el histórico entero en cada pasada.
+        Sin ventana, las últimas `VENTANA_POR_DEFECTO`. La ventana se parte en
+        tramos de `VENTANA_MAXIMA`: ver ahí por qué una consulta ancha pierde
+        datos en silencio.
         """
-        if not cambio_desde:
-            cambio_desde = (now_santiago() - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        if not cambio_hasta:
-            cambio_hasta = now_santiago().strftime("%Y-%m-%dT%H:%M:%SZ")
+        hasta = _a_datetime(cambio_hasta) or now_santiago().replace(tzinfo=None)
+        desde = _a_datetime(cambio_desde) or hasta - VENTANA_POR_DEFECTO
 
+        registros: List[Dict[str, Any]] = []
+        vistos: set[str] = set()
+        for inicio, fin in tramos(desde, hasta):
+            for registro in self._extraer_tramo(
+                inicio.strftime(FORMATO_CONSULTA), fin.strftime(FORMATO_CONSULTA), estados
+            ):
+                # Un registro que cambia justo en el borde sale en dos tramos.
+                codigo = registro.get("codigo")
+                if codigo in vistos:
+                    continue
+                vistos.add(codigo)
+                registros.append(registro)
+        self.logger.info("Compra Ágil: %d registros entre %s y %s", len(registros), desde, hasta)
+        return registros
+
+    def _extraer_tramo(
+        self, cambio_desde: str, cambio_hasta: str, estados: str | None
+    ) -> List[Dict[str, Any]]:
         self.logger.info("Compra Ágil: cambios entre %s y %s", cambio_desde, cambio_hasta)
 
         registros: List[Dict[str, Any]] = []
@@ -203,6 +254,16 @@ class CompraAgilExtractor(BaseExtractor):
 
         self.logger.info("Compra Ágil: %d registros en %d página(s)", len(registros), pagina)
         return registros
+
+    def extract_detalle(self, codigo: str) -> Dict[str, Any] | None:
+        """El detalle de una Compra Ágil: descripción e ítems, que el listado no trae.
+
+        Trae además cada cotización con su precio y quién fue seleccionado
+        (`proveedores_cotizando`) — verificado en vivo. Hoy se usa la
+        descripción y los ítems; el resto queda en `informacion_adicional`.
+        """
+        cuerpo = self._pedir({}, url=f"{self.api_url}/{codigo}")
+        return self._payload(cuerpo)
 
     def extract_por_fecha_publicacion(
         self, desde: datetime, hasta: datetime, **kwargs

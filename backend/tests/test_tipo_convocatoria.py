@@ -34,6 +34,13 @@ from app.repositories import licitaciones as repo
         ("9", TipoConvocatoria.CONVENIO_MARCO),
         (" 9 ", TipoConvocatoria.CONVENIO_MARCO),
         (2, TipoConvocatoria.TRATO_DIRECTO),
+        # Lo que traen los detalles REALES: número y letras.
+        (13, TipoConvocatoria.COMPRA_AGIL),
+        ("AG", TipoConvocatoria.COMPRA_AGIL),
+        (16, TipoConvocatoria.TRATO_DIRECTO),
+        ("TD", TipoConvocatoria.TRATO_DIRECTO),
+        ("CM", TipoConvocatoria.CONVENIO_MARCO),
+        ("SE", None),
         # 1 y 8 describen CÓMO se emitió la orden, no por qué mecanismo se
         # compró. Meterlos en una categoría sería inventar información.
         (1, None),

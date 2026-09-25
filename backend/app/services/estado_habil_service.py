@@ -39,6 +39,7 @@ día aparece una fuente que los dé.
 from __future__ import annotations
 
 import logging
+import re
 from datetime import UTC, datetime
 
 import requests
@@ -106,6 +107,13 @@ def _verificar_fuente_configurada() -> None:
         )
 
 
+_TICKET_EN_URL = re.compile(r"(ticket=)[^&\s]+", re.IGNORECASE)
+
+
+def _sin_ticket(texto: object) -> str:
+    return _TICKET_EN_URL.sub(r"\1***", str(texto))
+
+
 def _formatear_rut(rut: str) -> str:
     """El RUT como lo pide `BuscarProveedor`: con puntos y guión ('76.286.670-6').
 
@@ -167,7 +175,8 @@ def consultar_rut(rut: str) -> str:
             timeout=TIMEOUT,
         )
     except requests.RequestException as exc:
-        raise ErrorDeConsulta(f"No se pudo consultar {API_MP}: {exc}") from exc
+        # El mensaje de `requests` trae la URL, y la URL trae el ticket.
+        raise ErrorDeConsulta(f"No se pudo consultar {API_MP}: {_sin_ticket(exc)}") from exc
 
     if respuesta.status_code == 203:
         # Forma documentada en que esta API avisa un ticket inválido —

@@ -159,7 +159,9 @@ class LicitacionTransformer(BaseTransformer):
             "rut_organismo": rut_organismo,
             "region": region,
             "comuna": comuna,
-            "items": data.get("Items") or data.get("items") or [],
+            # None y no []: en el upsert, un vacío no borra los ítems que haya
+            # copiado el detalle.
+            "items": data.get("Items") or data.get("items") or None,
             "url_licitacion": data.get("UrlLicitacion")
             or data.get("urlLicitacion")
             or data.get("Link"),

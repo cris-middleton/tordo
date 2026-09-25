@@ -66,10 +66,28 @@ registrada.
 | sin ticket | responde `203` | responde `401` |
 | cuota | — | **diaria**; al agotarla `429` y **no se restablece hasta el día siguiente** |
 
-**Lo primero que hay que hacer con un ticket real es una pasada y comparar**, no
-una feature encima: el cliente de Compra Ágil (`etl/extractors/compra_agil.py`)
-está escrito contra la «Guía de uso API Compra Ágil v3» y probado con respuestas
-simuladas, pero nunca ha recibido una de verdad.
+**✅ Contrastado en vivo el 2026-09-24** (con el ticket de `.env`), y la primera
+pasada real ingirió 327 Compras Ágiles. Lo que enseñó:
+
+- **`tamano_pagina` va de 10 a 50, pero con 50 responde 504** («Endpoint request
+  timed out»). Con 25, no. El cliente usa 25.
+- **Una ventana de 24 h devuelve `total_resultados = 10000` exacto**: un tope del
+  buscador, no el total. La sincronización diaria era incompleta sin avisar. El
+  cliente consulta en tramos de una hora; la pasada horaria mira 2 h.
+- **Cada detalle tarda hasta ~30 s.** La pasada limita cuántos pide y cuánto tiempo.
+- Las horas vienen marcadas con `Z` pero son de Chile (cierres a las «10:00Z»).
+- Las regiones llegan con espacios de relleno (`'Región del Biobío '`).
+- **El detalle (`/v2/compra-agil/{codigo}`) trae mucho más que el listado**:
+  descripción, `productos_solicitados` con código UNSPSC, `id_orden_compra` y
+  **`proveedores_cotizando`: cada cotización con proveedor, RUT, si es empresa de
+  menor tamaño, precio neto y total por producto, y cuál fue seleccionada.** Es
+  decir, las ofertas PERDEDORAS con su precio — algo que las órdenes de compra no
+  muestran nunca. Hoy se usan la descripción y los ítems; las cotizaciones son la
+  materia prima de una inteligencia de precios propia de Compra Ágil.
+
+**Pendiente, y no es de código:** pedir un ticket propio (el de `.env` es el de
+demostración de Mercado Público, compartido y con 429 frecuentes) y medir la
+cuota diaria real antes de subir el ritmo de detalles.
 
 ---
 

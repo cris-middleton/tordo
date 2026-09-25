@@ -1,8 +1,21 @@
 import logging
+import re
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
+
+
+_TICKET_EN_URL = re.compile(r"(ticket=)[^&\s]+", re.IGNORECASE)
+
+
+def sin_ticket(texto: object) -> str:
+    """El texto con el ticket de la API tapado.
+
+    La API clásica lleva el ticket en la URL, y `requests` mete la URL entera en
+    el mensaje de cada error: un 429 dejaba la credencial escrita en los logs.
+    """
+    return _TICKET_EN_URL.sub(r"\1***", str(texto))
 
 
 class BaseExtractor(ABC):

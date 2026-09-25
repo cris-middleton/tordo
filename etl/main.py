@@ -6,13 +6,14 @@ Main entry point for ETL processes with detalle and historial support
 import logging
 import sys
 import time
+from datetime import timedelta
 
 from etl.config import config
 from etl.extractors import MercadoPublicoLicitacionesExtractor, MercadoPublicoOrdenesExtractor
 from etl.extractors.compra_agil import CompraAgilExtractor, CuotaDiariaAgotada
 from etl.loaders import DatabaseLoaderV2
 from etl.transformers import LicitacionTransformer, OrdenCompraTransformer
-from etl.transformers.compra_agil_transformer import CompraAgilTransformer
+from etl.transformers.compra_agil_transformer import CompraAgilTransformer, campos_desde_detalle
 from etl.utils import now_santiago
 
 # Configure logging
@@ -99,7 +100,18 @@ def run_etl_licitaciones_v2(fecha_desde: str | None = None, fecha_hasta: str | N
         return False
 
 
-def run_etl_compra_agil(cambio_desde: str | None = None, cambio_hasta: str | None = None) -> bool:
+#: Detalles de Compra Ágil por pasada. Cada uno es una petición contra una API
+#: con cuota diaria que nadie ha medido: se limita, y los que faltan entran en
+#: la pasada siguiente (nuevas primero).
+DETALLES_COMPRA_AGIL_POR_PASADA = 150
+
+#: Y como mucho este tiempo: un detalle tarda hasta ~30 s (medido), así que 150
+#: podían pasar de una hora y la tarea horaria muere a los 30 min. Lo que no
+#: cabe entra en la pasada siguiente, nuevas primero.
+PRESUPUESTO_DETALLES_COMPRA_AGIL_S = 7 * 60
+
+
+def run_etl_compra_agil(cambio_desde=None, cambio_hasta=None) -> bool:
     """Ingiere Compras Ágiles desde la API v2.
 
     Compra Ágil **no está en la API clásica**: tiene host propio, el ticket va
@@ -133,6 +145,11 @@ def run_etl_compra_agil(cambio_desde: str | None = None, cambio_hasta: str | Non
         crudos = extractor.extract(cambio_desde=cambio_desde, cambio_hasta=cambio_hasta)
         logger.info("Compra Ágil: %d registros crudos", len(crudos))
         if not crudos:
+            loader.connect()
+            try:
+                _completar_compras_agiles(extractor, loader)
+            finally:
+                loader.disconnect()
             return True
 
         filas = []
@@ -152,6 +169,7 @@ def run_etl_compra_agil(cambio_desde: str | None = None, cambio_hasta: str | Non
         try:
             cargadas = loader.load_licitaciones(filas)
             logger.info("Compra Ágil: %d filas cargadas", cargadas)
+            _completar_compras_agiles(extractor, loader)
         finally:
             loader.disconnect()
         return True
@@ -164,6 +182,32 @@ def run_etl_compra_agil(cambio_desde: str | None = None, cambio_hasta: str | Non
     except Exception as exc:
         logger.error("ETL de Compra Ágil falló: %s", exc, exc_info=True)
         return False
+
+
+def _completar_compras_agiles(extractor, loader) -> None:
+    """Descripción e ítems desde el detalle, para las publicadas que no los tienen.
+
+    El listado no los trae, y sin ellos el encaje se calculaba sólo sobre el
+    nombre y el panel de BI no tenía productos que buscar. Si se agota la cuota,
+    se deja para mañana sin marcar la corrida como fallida.
+    """
+    pendientes = loader.compras_agiles_sin_detalle(DETALLES_COMPRA_AGIL_POR_PASADA)
+    completadas = 0
+    limite = time.monotonic() + PRESUPUESTO_DETALLES_COMPRA_AGIL_S
+    for licitacion_id, codigo in pendientes:
+        if time.monotonic() > limite:
+            logger.info("Compra Ágil: se acabó el tiempo de esta pasada; el resto, en la siguiente")
+            break
+        try:
+            detalle = extractor.extract_detalle(codigo)
+        except CuotaDiariaAgotada as exc:
+            logger.warning("Compra Ágil: %s — detalles pendientes para mañana", exc)
+            break
+        campos = campos_desde_detalle(detalle or {})
+        if campos:
+            loader.completar_desde_detalle(licitacion_id, campos)
+            completadas += 1
+    logger.info("Compra Ágil: %d de %d completadas desde su detalle", completadas, len(pendientes))
 
 
 def run_etl_ordenes_compra_v2(
@@ -356,6 +400,8 @@ def run_etl_extraer_detalles_nuevos_ordenes(limit: int | None = None) -> bool:
         loader = DatabaseLoaderV2({"DATABASE_URL": config.DATABASE_URL})
 
         loader.connect()
+        # Sin API: el mecanismo de compra de las que ya tienen detalle.
+        loader.sincronizar_ordenes_desde_detalle()
         registros_sin_detalle = loader.query_ordenes_para_detalle(limit=limit)
 
         if not registros_sin_detalle:
@@ -760,7 +806,10 @@ def run_etl_pipeline_v2(
 
     # Compra Ágil va aparte: otra API, otro host, otra autenticación y cuota
     # diaria propia. Sin ticket configurado se omite sin ruido.
-    if extract_compra_agil and not run_etl_compra_agil():
+    # 26 h y no las 2 h de la pasada horaria: la diaria es la red que recoge lo
+    # que se haya caído de las horarias (la API corta en 504 de vez en cuando).
+    ventana_diaria = now_santiago().replace(tzinfo=None) - timedelta(hours=26)
+    if extract_compra_agil and not run_etl_compra_agil(cambio_desde=ventana_diaria):
         success = False
 
     # Step 2: Extract details for ACTIVE records without detalle
@@ -837,6 +886,11 @@ def main():
         "--only-extraer-nuevos", action="store_true", help="Only extract details for new records"
     )
     parser.add_argument(
+        "--horario",
+        action="store_true",
+        help="Pasada horaria: licitaciones publicadas hoy, Compra Ágil de las últimas 2 h y detalles nuevos",
+    )
+    parser.add_argument(
         "--only-actualizar", action="store_true", help="Only update existing details"
     )
     parser.add_argument(
@@ -860,6 +914,8 @@ def main():
         logger.info(f"Days threshold: {args.dias_sin_actualizar} (0 = all records)")
     elif args.only_resultados:
         logger.info("Mode: --only-resultados (Resolver licitaciones seguidas ya cerradas)")
+    elif args.horario:
+        logger.info("Mode: --horario (listado de hoy + Compra Ágil + detalles nuevos)")
     elif args.only_extraer_nuevos:
         logger.info("Mode: --only-extraer-nuevos (Extract details for new records)")
     else:
@@ -867,8 +923,24 @@ def main():
     logger.info("=" * 80)
     logger.info("")
 
+    # Pasada horaria. **Antes no traía licitaciones nuevas**: la tarea «horaria»
+    # corría `--only-extraer-nuevos`, que sólo pide el detalle de lo que ya está
+    # en la base, y lo nuevo entraba en la diaria de las 02:00 — que pide el día
+    # ANTERIOR. Una licitación publicada a las 09:00 aparecía al día siguiente,
+    # con plazos de 48 h y la promesa de «revisamos cada hora».
+    if args.horario:
+        success = True
+        hoy = now_santiago().date().isoformat()
+        if not args.skip_licitaciones:
+            if not run_etl_licitaciones_v2(hoy, hoy):
+                success = False
+            if not run_etl_compra_agil():
+                success = False
+            if not run_etl_extraer_detalles_nuevos_licitaciones(limit=args.detalles_limit):
+                success = False
+
     # Standalone mode: only extract new details
-    if args.only_extraer_nuevos:
+    elif args.only_extraer_nuevos:
         success = True
         if not args.skip_licitaciones:
             if not run_etl_extraer_detalles_nuevos_licitaciones(limit=args.detalles_limit):

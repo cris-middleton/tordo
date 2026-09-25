@@ -53,9 +53,19 @@ ETIQUETAS: dict[str, str] = {
 #
 # Es la ÚNICA forma de ver Convenio Marco en los datos: la API no tiene un
 # endpoint propio para ese mecanismo, las compras aparecen como órdenes.
+#
+# **Contrastado con detalles reales (2026-09-24)**, que traen las dos formas:
+# `Tipo` en letras y `CodigoTipo` en número — `AG`/13 (Compra Ágil, que el
+# diccionario no lista), `CM`/9, `TD`/16 y `SE`/8. El trato directo real llega
+# como 16, no como el 2 del diccionario; se conservan los dos.
 TIPO_OC_A_CONVOCATORIA: dict[str, str] = {
     "2": TipoConvocatoria.TRATO_DIRECTO,
+    "16": TipoConvocatoria.TRATO_DIRECTO,
+    "TD": TipoConvocatoria.TRATO_DIRECTO,
     "9": TipoConvocatoria.CONVENIO_MARCO,
+    "CM": TipoConvocatoria.CONVENIO_MARCO,
+    "13": TipoConvocatoria.COMPRA_AGIL,
+    "AG": TipoConvocatoria.COMPRA_AGIL,
 }
 
 
@@ -68,4 +78,4 @@ def convocatoria_de_orden(tipo_oc: str | int | None) -> str | None:
     """
     if tipo_oc is None:
         return None
-    return TIPO_OC_A_CONVOCATORIA.get(str(tipo_oc).strip())
+    return TIPO_OC_A_CONVOCATORIA.get(str(tipo_oc).strip().upper())

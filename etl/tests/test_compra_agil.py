@@ -205,7 +205,9 @@ def test_sin_fecha_de_publicacion_se_descarta():
     assert CompraAgilTransformer().transform(roto) is None
 
 
-def test_la_descripcion_queda_vacia_a_proposito():
-    """El listado de la API no la trae; el detalle cuesta una petición por
-    registro contra una API con cuota diaria."""
-    assert CompraAgilTransformer().transform(ITEM)["descripcion"] == ""
+def test_la_descripcion_del_listado_no_borra_la_del_detalle():
+    """El listado no la trae: va `None`, no `""`. En el upsert un `""` pisaba la
+    descripción que había traído el detalle en la pasada anterior."""
+    fila = CompraAgilTransformer().transform(ITEM)
+    assert fila["descripcion"] is None
+    assert fila["items"] is None
