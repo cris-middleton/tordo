@@ -91,6 +91,24 @@ cuota diaria real antes de subir el ritmo de detalles.
 
 ---
 
+### 2b. El modelo TF-IDF tiene que llegar a la API y al worker — ⚠️ PENDIENTE (decisión)
+
+Todo lo semántico —encaje en la ficha, orden por relevancia, «Oportunidades para
+ti»— lee tres archivos que produce el ETL (`tfidf_model.joblib`,
+`tfidf_provider_vectors.npz`, `tfidf_provider_index.parquet`) desde
+`ANALYTICS_DATA_PATH`. **Son archivos en el disco del ETL.** En el compose ahora se
+comparten por volumen (API de sólo lectura, worker en `/workspace`), pero en Railway
+API, worker y ETL son servicios separados y **no comparten disco**: sin decidir cómo
+llegan, el encaje responde «Modelo TF-IDF no entrenado» y el panel no muestra
+oportunidades — sin error visible (el widget se oculta).
+
+Opciones: (a) subirlos al mismo bucket R2 de los documentos al terminar el ETL y
+que API/worker los descarguen al arrancar; (b) guardarlos en Postgres como el resto
+de analytics (ADR 0006); (c) un volumen de Railway montado en los tres servicios, si
+el plan lo permite. (a) es la más barata de construir. Encontrado en la revisión del
+2026-09-25: además, el worker del compose no declaraba `FEATURE_TFIDF` y el valor por
+defecto es `false`, así que el job de las 06:00 no hacía nada.
+
 ### 3. Iniciar proceso de WhatsApp Business API (WABA) con Twilio
 **Hacer esto el primer día — toma 4 a 8 semanas.**
 

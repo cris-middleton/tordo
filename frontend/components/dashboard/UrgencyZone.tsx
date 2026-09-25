@@ -40,7 +40,10 @@ export function UrgencyZone({ items, empresaPresent }: Props) {
           <CheckCircle2 size={20} className="text-accent shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-medium text-text">Estás al día: nada cierra en las próximas 72 horas.</p>
-            <p className="text-xs text-muted mt-1">Tu empresa está hábil y no se te vence ningún documento.</p>
+            {/* Decía «Tu empresa está hábil»: eso no lo sabe nadie más que el
+                proveedor (ver `services/estado_habil_service.py`), y afirmarlo
+                en el panel es justo lo que no se puede. */}
+            <p className="text-xs text-muted mt-1">No se te vence ningún documento.</p>
             <Link href="/dashboard/postulaciones" className="text-xs text-primary hover:underline mt-2 inline-block">
               Ver mis postulaciones →
             </Link>

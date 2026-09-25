@@ -110,9 +110,15 @@ services:
       FEATURE_WHATSAPP: ${FEATURE_WHATSAPP:-false}
       FEATURE_ANALYTICS: ${FEATURE_ANALYTICS:-true}
       FEATURE_TFIDF: ${FEATURE_TFIDF:-true}
+      # Dónde están los artefactos del modelo TF-IDF que produce el ETL. Sin
+      # esto la ruta por defecto es relativa (`etl/data/analytics`) y dentro del
+      # contenedor apunta a /app/etl/…, que no existe: el encaje y el orden por
+      # relevancia respondían «Modelo TF-IDF no entrenado» con el modelo ahí.
+      ANALYTICS_DATA_PATH: /analytics
     volumes:
       - ../backend:/app
       - /app/__pycache__
+      - ../etl/data/analytics:/analytics:ro
     depends_on:
       db:
         condition: service_healthy
@@ -163,6 +169,11 @@ services:
       TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
       TWILIO_WHATSAPP_FROM: ${TWILIO_WHATSAPP_FROM:-whatsapp:+14155238886}
       FEATURE_WHATSAPP: ${FEATURE_WHATSAPP:-false}
+      # El worker no las declaraba y el valor por defecto es `false`: el job de
+      # las 06:00 que llena «Oportunidades para ti» salía sin hacer nada.
+      FEATURE_ANALYTICS: ${FEATURE_ANALYTICS:-true}
+      FEATURE_TFIDF: ${FEATURE_TFIDF:-true}
+      ANALYTICS_DATA_PATH: /workspace/etl/data/analytics
     volumes:
       - ../backend:/app
       - /app/__pycache__

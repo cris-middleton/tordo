@@ -79,9 +79,12 @@ def _load_model() -> dict[str, Any] | None:
     index_path = base / "tfidf_provider_index.parquet"
 
     if not (model_path.exists() and vectors_path.exists() and index_path.exists()):
+        # La ruta RESUELTA: la por defecto es relativa, y en un contenedor lo
+        # que falla casi siempre es dónde se busca, no que falte el modelo.
         logger.warning(
-            "TF-IDF artifacts not found at %s — run: python -m etl.analytics.run_all --modulo tfidf_matcher",
-            base,
+            "TF-IDF artifacts not found at %s (ANALYTICS_DATA_PATH) — run: "
+            "python -m etl.analytics.run_all --modulo tfidf_matcher",
+            base.resolve(),
         )
         return None
 
