@@ -253,6 +253,8 @@ export interface ResumenMercado {
     codigo?: string | null;
     nombre?: string | null;
     n_oc_total?: number | null;
+    /** Sus órdenes en ESTE rubro; `n_oc_total` son todas. */
+    n_oc_rubro?: number | null;
   } | null;
   teaser_competencia?: {
     lider_nombre?: string | null;

@@ -120,8 +120,11 @@ export function frase3(r: ResumenMercado): string | null {
   const t = r.top_comprador;
   if (!t?.nombre) return null;
 
-  if (t.n_oc_total != null && t.n_oc_total > 0) {
-    return `El comprador más activo es <b>${esc(t.nombre)}</b>, con <b>${t.n_oc_total.toLocaleString('es-CL')} órdenes</b> emitidas.`;
+  // Las del RUBRO: es por eso que se le eligió como «el más activo». Con
+  // `n_oc_total` —todas las suyas— salía «con 1.596.100 órdenes» en un rubro
+  // que en total tenía 6.377.
+  if (t.n_oc_rubro != null && t.n_oc_rubro > 0) {
+    return `El comprador más activo es <b>${esc(t.nombre)}</b>, con <b>${t.n_oc_rubro.toLocaleString('es-CL')} órdenes</b> en este rubro.`;
   }
   return `El comprador más activo es <b>${esc(t.nombre)}</b>.`;
 }

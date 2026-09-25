@@ -499,6 +499,8 @@ class ResumenTopComprador(BaseModel):
     #: Se quitó `clasificacion_pago`: cortaba en 30 y 45 días un dato cuyo
     #: máximo es 12,8, así que todos los compradores salían «bueno» siempre.
     n_oc_total: int | None = None
+    #: Órdenes de este comprador EN EL RUBRO consultado. `n_oc_total` son todas.
+    n_oc_rubro: int | None = None
 
 
 class ResumenTeaserCompetencia(BaseModel):

@@ -224,8 +224,8 @@ def get_resumen(rubro: str | None = None) -> dict:
             .head(10)
         )
         if len(opps_rubro) > 0:
-            codes = opps_rubro.select("CodigoOrganismoPublico").to_series().cast(str).to_list()
-            for code in codes:
+            for opp in opps_rubro.to_dicts():
+                code = str(opp["CodigoOrganismoPublico"])
                 row = df_buyers.filter(df_buyers["CodigoOrganismoPublico"].cast(str) == code)
                 if len(row) > 0:
                     b = row.to_dicts()[0]
@@ -241,6 +241,11 @@ def get_resumen(rubro: str | None = None) -> dict:
                         "codigo": code,
                         "nombre": b.get("NombreOrganismo"),
                         "n_oc_total": b.get("n_oc_total"),
+                        # Las de ESTE rubro, que es por lo que se le eligió. La
+                        # frase decía «el comprador más activo [del rubro], con
+                        # N órdenes» usando `n_oc_total`, que son TODAS las
+                        # suyas, de cualquier rubro.
+                        "n_oc_rubro": opp.get("n_transacciones"),
                     }
                     top_organismo_code = code
                     break  # el primero con datos en buyer_scores
