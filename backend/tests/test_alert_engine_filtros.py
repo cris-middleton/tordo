@@ -7,6 +7,7 @@ alertas equivocadas, o las recibía sin lo que hace falta para actuar.
 
 from __future__ import annotations
 
+import inspect
 from types import SimpleNamespace
 
 import pytest
@@ -144,15 +145,15 @@ class TestMetadataDeLaAlerta:
         )
         assert alerta.alert_metadata == {"codigo_externo": "1234-56-LP26"}
 
-    def test_los_dos_metodos_nombran_igual_el_parametro(self):
-        """Tener uno `metadata` y otro `alert_metadata` es lo que hizo fácil
-        equivocarse. Trinquete para que no vuelvan a divergir."""
-        import inspect
-
-        for metodo in (AlertEngine.create_alert, AlertEngine.create_alert_idempotent):
-            firma = inspect.signature(metodo).parameters
-            assert "alert_metadata" in firma, metodo.__name__
-            assert "metadata" not in firma, metodo.__name__
+    def test_hay_un_solo_camino_para_crear_alertas_y_nombra_bien_el_parametro(self):
+        """Había dos: `create_alert` y `create_alert_idempotent`, y tener uno con
+        `metadata` y otro con `alert_metadata` fue lo que hizo fácil equivocarse.
+        Queda sólo el idempotente: una licitación se evalúa dos veces —al entrar
+        y cuando llega su detalle— y el otro mandaba la alerta dos veces."""
+        firma = inspect.signature(AlertEngine.create_alert_idempotent).parameters
+        assert "alert_metadata" in firma
+        assert "metadata" not in firma
+        assert not hasattr(AlertEngine, "create_alert")
 
     def test_create_alert_idempotent_guarda_la_metadata_de_verdad(self, sync_task_db):
         """El camino atómico tiene su PROPIO fallo con `metadata`, distinto del

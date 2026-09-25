@@ -154,57 +154,6 @@ class AlertEngine:
 
         return True
 
-    def create_alert(
-        self,
-        user_id: int,
-        alert_type: AlertType,
-        entity_type: str,
-        entity_id: int,
-        title: str,
-        message: str | None = None,
-        alert_metadata: Dict[str, Any] | None = None,
-    ) -> Alert:
-        """Crea una alerta en la base.
-
-        **El parámetro se llama `alert_metadata`, y el cambio no es cosmético.**
-        Antes era `metadata` y se pasaba tal cual al constructor del modelo. En
-        un modelo declarativo de SQLAlchemy `metadata` es un atributo reservado
-        —el objeto `MetaData` de la clase—, así que el constructor lo aceptaba
-        sin quejarse, lo sombreaba en la instancia y **dejaba la columna real en
-        `NULL`**. Sin excepción, sin aviso.
-
-        Se perdía en las dos alertas del camino por preferencias
-        (`NEW_TENDER` y `NEW_ORDER`), y `NEW_TENDER` sale por correo en tanda:
-        `correo_render` lee `alert_metadata` para armar el mensaje, así que los
-        avisos salían sin el código de la licitación —lo único que permite
-        llegar a ella— y sin el nombre de la preferencia que los disparó.
-
-        El camino moderno (`create_alert_idempotent`) no repite ESTE fallo —el
-        de quedar en `NULL` sin aviso—: escribe contra `Alert.__table__`, la
-        `Table` cruda, así que nunca pasa por el constructor del modelo ni por
-        su atributo sombreado. Pero tiene el suyo propio: ahí la columna se
-        llama `metadata`, no `alert_metadata` —eso es sólo el nombre del
-        atributo Python—, y pasarle la clave equivocada a `Table.values()` no
-        queda en silencio como el bug original: revienta con `CompileError`.
-        Ver el comentario en esa función.
-        """
-        alert = Alert(
-            user_id=user_id,
-            alert_type=alert_type,
-            entity_type=entity_type,
-            entity_id=entity_id,
-            title=title,
-            message=message,
-            alert_metadata=alert_metadata or {},
-            status=AlertStatus.PENDING,
-        )
-
-        self.db.add(alert)
-        self.db.commit()
-        self.db.refresh(alert)
-
-        return alert
-
     def create_alert_idempotent(
         self,
         *,
@@ -394,22 +343,28 @@ class AlertEngine:
             title = f"Nueva Licitación: {licitacion.nombre}"
             message = f"Se encontró una nueva licitación que coincide con tu preferencia '{preference.name}'"
 
-            alert = self.create_alert(
+            # Idempotente por (licitación, preferencia): la misma licitación se
+            # vuelve a evaluar cuando llega su detalle —con monto, región y
+            # descripción, que el listado no trae— y sólo deben salir las
+            # preferencias que calzan AHORA y no calzaban antes.
+            alert_id = self.create_alert_idempotent(
                 user_id=preference.user_id,
                 alert_type=AlertType.NEW_TENDER,
                 entity_type="licitacion",
                 entity_id=licitacion.id,
                 title=title,
                 message=message,
+                idempotency_key=f"nueva_licitacion_{licitacion.id}_{preference.id}",
                 alert_metadata={
                     "preference_id": preference.id,
                     "preference_name": preference.name,
                     "codigo_externo": licitacion.codigo_externo,
                 },
             )
+            if alert_id is None:
+                continue
 
-            # Send notifications
-            self.send_notifications(alert)
+            self.send_notifications(self.db.get(Alert, alert_id))
 
     def process_new_orden_compra(self, orden_compra_id: int):
         """Process a new orden_compra and create alerts for matching preferences"""
@@ -429,19 +384,22 @@ class AlertEngine:
             title = f"Nueva Orden de Compra: {orden_compra.nombre}"
             message = f"Se encontró una nueva orden de compra que coincide con tu preferencia '{preference.name}'"
 
-            alert = self.create_alert(
+            # Idempotente por el mismo motivo que las licitaciones.
+            alert_id = self.create_alert_idempotent(
                 user_id=preference.user_id,
                 alert_type=AlertType.NEW_ORDER,
                 entity_type="orden_compra",
                 entity_id=orden_compra.id,
                 title=title,
                 message=message,
+                idempotency_key=f"nueva_orden_{orden_compra.id}_{preference.id}",
                 alert_metadata={
                     "preference_id": preference.id,
                     "preference_name": preference.name,
                     "codigo_oc": orden_compra.codigo_oc,
                 },
             )
+            if alert_id is None:
+                continue
 
-            # Send notifications
-            self.send_notifications(alert)
+            self.send_notifications(self.db.get(Alert, alert_id))

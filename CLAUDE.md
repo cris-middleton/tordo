@@ -583,9 +583,10 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
     `metadata` es un atributo reservado —el objeto `MetaData` de la clase—, así que el
     constructor lo acepta, lo sombrea en la instancia y **deja la columna en `NULL` sin
     error ni traza**. La columna se llama `metadata` en la base y `alert_metadata` en
-    Python; los dos métodos de `AlertEngine` nombran el parámetro `alert_metadata` y un
-    test lo fija. Se perdía en `NEW_TENDER` y `NEW_ORDER`, y `NEW_TENDER` sale por correo:
-    los avisos iban sin el código de la licitación, que es lo único que lleva a ella.
+    Python; el único método que crea alertas, `create_alert_idempotent`, nombra el
+    parámetro `alert_metadata` y un test lo fija. Se perdía en `NEW_TENDER` y `NEW_ORDER`, y
+    `NEW_TENDER` sale por correo: los avisos iban sin el código de la licitación, que es lo
+    único que lleva a ella.
   - **Un filtro que no filtra es peor que no ofrecerlo.** `category_id` se aceptaba en la
     API y su bloque en el motor era un `pass`: quien acotaba sus alertas a una categoría
     recibía el catálogo entero y dejaba de revisar. No es implementable —ni `Licitacion` ni

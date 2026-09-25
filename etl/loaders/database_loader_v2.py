@@ -393,10 +393,16 @@ class DatabaseLoaderV2(BaseLoader):
 
             detalle_id = detalle.id
 
-            self._sync_licitacion_base_desde_detalle(licitacion_id, datos_api)
+            copiados = self._sync_licitacion_base_desde_detalle(licitacion_id, datos_api)
 
             self.session.commit()
             self.logger.info(f"Created detalle for licitacion {codigo_externo}")
+            if copiados:
+                # Se evaluó al entrar, sin monto, región ni descripción: las
+                # preferencias que dependen de eso no podían calzar. La alerta es
+                # idempotente por (licitación, preferencia), así que sólo salen
+                # las que calzan AHORA.
+                self._trigger_licitacion_alerts([licitacion_id])
 
             return detalle_id
 
@@ -540,6 +546,10 @@ class DatabaseLoaderV2(BaseLoader):
         horas y no hace falta acordarse de un paso manual tras el despliegue.
 
         Sin comprador es la señal porque es lo que TODO detalle real trae.
+
+        **No vuelve a evaluar alertas**, a diferencia de la carga del detalle:
+        estas son licitaciones viejas, muchas ya cerradas, y avisar de ellas
+        como «nueva licitación» sería ruido.
         """
         if not self.session:
             self.connect()
@@ -1158,13 +1168,18 @@ class DatabaseLoaderV2(BaseLoader):
         )
 
     def completar_desde_detalle(self, licitacion_id: int, campos: Dict[str, Any]) -> None:
-        """Escribe en una licitación lo que trajo su detalle. Commit incluido."""
+        """Escribe en una licitación lo que trajo su detalle y vuelve a evaluar alertas.
+
+        La descripción llega aquí: las palabras clave que sólo aparecen en ella
+        no podían calzar cuando la Compra Ágil entró desde el listado.
+        """
         licitacion = self.session.get(Licitacion, licitacion_id)
         if licitacion is None or not campos:
             return
         for campo, valor in campos.items():
             setattr(licitacion, campo, valor)
         self.session.commit()
+        self._trigger_licitacion_alerts([licitacion_id])
 
     def query_ordenes_para_detalle(self, limit: int | None = None) -> List[tuple]:
         """

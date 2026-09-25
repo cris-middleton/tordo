@@ -288,3 +288,36 @@ def test_una_compra_agil_no_se_pide_a_la_api_clasica(loader):
     codigos = {c for _, c in loader.query_licitaciones_para_detalle()}
     assert f"{PREFIJO}CA-COT26" not in codigos
     assert f"{PREFIJO}CA-COT26" in {c for _, c in loader.compras_agiles_sin_detalle(1000)}
+
+
+def test_cargar_el_detalle_vuelve_a_evaluar_alertas(loader, monkeypatch):
+    """Al entrar desde el listado no había región ni monto: las preferencias
+    que dependen de eso sólo pueden calzar después del detalle."""
+    evaluadas = []
+    monkeypatch.setattr(loader, "_trigger_licitacion_alerts", lambda ids: evaluadas.extend(ids))
+    lid, codigo = _licitacion_del_listado(loader, "D")
+
+    loader.load_licitacion_detalle_inicial(lid, codigo, DETALLE_REAL)
+
+    assert lid in evaluadas
+
+
+def test_reparar_las_viejas_no_manda_alertas(loader, monkeypatch):
+    """Son licitaciones antiguas, muchas cerradas: avisarlas como nuevas es ruido."""
+    evaluadas = []
+    monkeypatch.setattr(loader, "_trigger_licitacion_alerts", lambda ids: evaluadas.extend(ids))
+    lid, codigo = _licitacion_del_listado(loader, "E")
+    loader.session.execute(
+        text(
+            "INSERT INTO licitaciones_detalle "
+            "(licitacion_id, codigo_externo, hash_contenido, datos_completos, numero_actualizaciones) "
+            "VALUES (:lid, :c, 'h', CAST(:d AS jsonb), 1)"
+        ),
+        {"lid": lid, "c": codigo, "d": json.dumps(DETALLE_REAL)},
+    )
+    loader.session.commit()
+    evaluadas.clear()  # la carga del listado dispara la evaluación de entrada
+
+    loader.sincronizar_licitaciones_desde_detalle()
+
+    assert evaluadas == []
