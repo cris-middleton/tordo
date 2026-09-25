@@ -130,15 +130,23 @@ PLAN_QUOTAS: dict[str, dict[str, Any]] = {
     },
 }
 
+# A qué plan subir: siempre uno que se pueda COMPRAR. `/billing/plans` vende
+# sólo Free y Pro; «pyme» y «enterprise» existen en las cuotas y no en el
+# catálogo. Sugerir uno de ellos —el 402 de `basico` decía «pyme», el de `pro`
+# lleno decía «enterprise»— mandaba a Facturación a buscar un plan que no está.
+# Con Pro no hay a dónde subir: `None`, y la UI no ofrece «Ampliar plan».
 _UPGRADE_MAP: dict[str, str | None] = {
-    "basico": "pyme",
+    "basico": "pro",
     "pyme": "pro",
-    "pro": "enterprise",
+    "pro": None,
     "enterprise": None,
 }
 
 _TIER_LABEL: dict[str, str] = {
-    "basico": "Básico",
+    # «Free», como se vende en `/billing/plans` y se ve en toda la UI. Decía
+    # «Básico»: el 402 hablaba de un plan con un nombre que no aparece en
+    # ninguna otra parte del producto.
+    "basico": "Free",
     "pyme": "PYME",
     "pro": "Pro",
     "enterprise": "Enterprise",

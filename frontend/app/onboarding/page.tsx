@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/lib/api';
 import { mensajeDeError } from '@/lib/errores';
 import { useEmpresas } from '@/lib/queries';
+import { setEmpresaActiva } from '@/lib/empresaActive';
 import {
   CheckCircle2,
   ChevronRight,
@@ -79,6 +81,7 @@ return (
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { user, refreshUser, loading: authLoading, isAuthenticated } = useAuth();
 
   const [pasoElegido, setPasoElegido] = useState<Step | null>(null);
@@ -187,6 +190,9 @@ export default function OnboardingPage() {
         nombre_empresa: nombreEmpresa.trim(),
       });
       setEmpresaCreada(empresa.id);
+      // La recién creada es la activa: si no, el panel resolvía «la primera» de
+      // una lista que la caché todavía tenía vacía.
+      setEmpresaActiva(empresa.id);
       // Kick off estado hábil check in background (non-blocking)
       apiClient.checkEstadoHabilNow(empresa.id).catch(() => {});
       setStep(2);
@@ -202,7 +208,13 @@ export default function OnboardingPage() {
         'No pudimos guardar la empresa. Inténtalo de nuevo en un momento.',
       );
       if (detalle.includes('ya está registrada')) {
-        setError('Esa empresa ya tiene cuenta. Si es tuya, pide que te inviten desde Mi empresa.');
+        // Cualquiera puede registrar un RUT, y quien llega después sólo tenía
+        // «pide que te inviten» — inútil si nadie de su empresa lo registró.
+        // Sin verificación de titularidad (decisión de producto pendiente), al
+        // menos hay a quién recurrir.
+        setError(
+          'Esa empresa ya tiene cuenta. Si alguien de tu equipo la creó, pídele que te invite desde Mi empresa. Si nadie de tu empresa la registró, escríbenos a hola@tordo.cl con el RUT y lo resolvemos.',
+        );
       } else if (detalle.includes('RUT inválido')) {
         setError('Ese RUT no cuadra. Revisa el dígito verificador.');
       } else {
@@ -274,8 +286,19 @@ export default function OnboardingPage() {
       await marcarOnboardingHecho(3);
     } finally {
       setLoading(false);
-      router.push('/dashboard');
+      await irAlPanel();
     }
+  };
+
+  // **El onboarding cambia la cuenta entera** —empresa, plan, perfil, alerta—
+  // y lo hace por `apiClient`, fuera de TanStack Query. Con `staleTime` de un
+  // minuto, el panel reusaba lo que había pedido ANTES del onboarding (el login
+  // pasa por /dashboard y rebota aquí): recién creada la empresa, decía
+  // «Registra tu empresa», pedía el perfil y no mostraba plan. Lo encontró el
+  // E2E del recorrido de cliente. Se invalida todo: es un cambio de cuenta.
+  const irAlPanel = async () => {
+    await queryClient.invalidateQueries();
+    router.push('/dashboard');
   };
 
   // ─── Keyword preview ──────────────────────────────────────────────────
@@ -382,7 +405,7 @@ export default function OnboardingPage() {
                 <button
                   onClick={async () => {
                     await marcarOnboardingHecho(1);
-                    router.push('/dashboard');
+                    await irAlPanel();
                   }}
                   className="text-primary hover:underline"
                 >

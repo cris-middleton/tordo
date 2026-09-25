@@ -54,9 +54,13 @@ describe('el onboarding no puede dejar a nadie encerrado', () => {
 
   it('«Lo hago después» deja constancia ANTES de irse al panel', () => {
     // Sin esto el enlace no lleva a ninguna parte: el panel rebota.
-    expect(FUENTE).toMatch(
-      /await marcarOnboardingHecho\(1\);\s*\n\s*router\.push\('\/dashboard'\)/,
-    );
+    // Se va por `irAlPanel()`, que además invalida la caché: el onboarding
+    // cambia la cuenta entera y el panel mostraba lo de antes.
+    expect(FUENTE).toMatch(/await marcarOnboardingHecho\(1\);\s*\n\s*await irAlPanel\(\)/);
+  });
+
+  it('al salir se invalida la caché, porque la cuenta cambió', () => {
+    expect(FUENTE).toMatch(/await queryClient\.invalidateQueries\(\);\s*\n\s*router\.push\('\/dashboard'\)/);
   });
 
   it('marcar es idempotente y no bloquea', () => {

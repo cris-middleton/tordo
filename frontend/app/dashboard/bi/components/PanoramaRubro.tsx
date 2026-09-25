@@ -246,12 +246,18 @@ export function PanoramaRubro({
                   const alto = Math.max(6, (m.pct / (estacionalidad.pct_pico || 1)) * 100);
                   const esPico = m.nombre === estacionalidad.mes_pico;
                   return (
-                    <div key={m.mes} className="flex flex-1 flex-col items-center gap-1">
-                      <div
-                        className={`w-full rounded-sm ${esPico ? 'bg-accent' : 'bg-primary/25'}`}
-                        style={{ height: `${alto}%` }}
-                        title={`${m.nombre}: ${m.pct}%`}
-                      />
+                    // `h-full` en la columna y la barra dentro de una caja
+                    // `flex-1`: el alto en % de la barra se resuelve contra su
+                    // padre, y sin alto definido en la columna valía cero — el
+                    // gráfico salía con las letras de los meses y sin barras.
+                    <div key={m.mes} className="flex h-full flex-1 flex-col items-center gap-1">
+                      <div className="flex w-full flex-1 items-end">
+                        <div
+                          className={`w-full rounded-sm ${esPico ? 'bg-accent' : 'bg-primary/25'}`}
+                          style={{ height: `${alto}%` }}
+                          title={`${m.nombre}: ${m.pct}%`}
+                        />
+                      </div>
                       <span className="text-[9px] text-subtle">{m.nombre[0]}</span>
                     </div>
                   );

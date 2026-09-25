@@ -22,7 +22,7 @@ from fastapi import HTTPException
 
 from app.api.deps import EmpresaContext
 from app.api.empresas import agregar_miembro, resumen_de_plan
-from app.core.plan_limits import get_quota, verificar_asiento_disponible
+from app.core.plan_limits import etiqueta_de_tier, get_quota, verificar_asiento_disponible
 from app.models.empresa import Empresa, EmpresaUsuario
 from app.models.user import User
 from app.schemas.empresa import AddMiembroRequest
@@ -66,7 +66,8 @@ def test_el_error_dice_el_plan_el_limite_y_a_donde_subir():
     assert detalle["plan_actual"] == "basico"
     assert detalle["limite"] == 1
     assert detalle["usado"] == 1
-    assert detalle["upgrade_sugerido"] == "pyme"
+    # «pyme» no se vende: se sugiere el plan que sí se puede comprar.
+    assert detalle["upgrade_sugerido"] == "pro"
     # Singular con un asiento: "incluye 1 usuarios" se lee mal en un 402 que el
     # cliente ve tal cual.
     assert "1 usuario." in detalle["mensaje"]
@@ -290,3 +291,23 @@ async def test_ilimitado_viaja_como_null_no_como_cero(async_db, empresa_con_owne
     )
     assert resumen.limites.max_usuarios is None
     assert resumen.siguiente_tier is None
+
+
+@pytest.mark.asyncio
+async def test_con_pro_no_hay_a_donde_subir(async_db, empresa_con_owner):
+    """«enterprise» existe en las cuotas pero no se vende. Sugerirlo dejaba un
+    «Ampliar plan» que llevaba a Facturación a buscar algo que no está."""
+    empresa_con_owner.plan_tier = "pro"
+    empresa_con_owner.trial_ends_at = None
+    empresa_con_owner.subscription_status = "active"
+    await async_db.flush()
+
+    resumen = await resumen_de_plan(
+        ctx=EmpresaContext(empresa_id=empresa_con_owner.id, rol="owner"), db=async_db
+    )
+    assert resumen.siguiente_tier is None
+    assert resumen.etiqueta == "Pro"
+
+
+def test_el_plan_gratis_se_llama_free_en_todas_partes():
+    assert etiqueta_de_tier("basico") == "Free"
