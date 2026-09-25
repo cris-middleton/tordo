@@ -260,6 +260,9 @@ def run_etl_extraer_detalles_nuevos_licitaciones(limit: int | None = None) -> bo
         loader = DatabaseLoaderV2({"DATABASE_URL": config.DATABASE_URL})
 
         loader.connect()
+        # Primero lo que no cuesta API: las que ya tienen detalle y no lo
+        # tienen copiado en `licitaciones`. Ver `utils/licitacion_base.py`.
+        loader.sincronizar_licitaciones_desde_detalle()
         registros_sin_detalle = loader.query_licitaciones_para_detalle(limit=limit)
 
         if not registros_sin_detalle:

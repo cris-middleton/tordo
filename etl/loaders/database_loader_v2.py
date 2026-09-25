@@ -33,6 +33,7 @@ from etl.utils import (
     extraer_datos_adjudicacion,
     now_santiago,
 )
+from etl.utils.licitacion_base import campos_base_desde_detalle
 
 
 def _sin_claves_repetidas(
@@ -362,6 +363,8 @@ class DatabaseLoaderV2(BaseLoader):
 
             detalle_id = detalle.id
 
+            self._sync_licitacion_base_desde_detalle(licitacion_id, datos_api)
+
             self.session.commit()
             self.logger.info(f"Created detalle for licitacion {codigo_externo}")
 
@@ -471,6 +474,8 @@ class DatabaseLoaderV2(BaseLoader):
             detalle.monto_adjudicado = adjudicacion["monto_adjudicado"]
             detalle.proveedor_adjudicado = adjudicacion["proveedor_adjudicado"]
 
+            self._sync_licitacion_base_desde_detalle(licitacion_id, datos_nuevos)
+
             self.session.commit()
             self.logger.info(f"Updated detalle for {codigo_externo} with {len(cambios)} changes")
 
@@ -480,6 +485,63 @@ class DatabaseLoaderV2(BaseLoader):
             self.session.rollback()
             self.logger.error(f"Error updating detalle for {codigo_externo}: {str(e)}")
             return False
+
+    def _sync_licitacion_base_desde_detalle(self, licitacion_id: int, datos: Dict[str, Any]) -> int:
+        """Copia a `licitaciones` lo que sólo trae el detalle. Ver `utils/licitacion_base.py`.
+
+        Dentro de la transacción de quien llama: si falla la carga del detalle,
+        tampoco queda a medias la fila base. Devuelve cuántos campos escribió.
+        """
+        licitacion = self.session.get(Licitacion, licitacion_id)
+        if licitacion is None:
+            return 0
+        campos = campos_base_desde_detalle(datos)
+        for campo, valor in campos.items():
+            setattr(licitacion, campo, valor)
+        return len(campos)
+
+    def sincronizar_licitaciones_desde_detalle(self, limite: int = 2000) -> int:
+        """Rellena las licitaciones que ya tienen detalle y no tienen comprador.
+
+        Las cargadas antes de existir `_sync_licitacion_base_desde_detalle` sólo
+        se reparaban si su detalle cambiaba, y el de una licitación cerrada no
+        cambia nunca. Esto no llama a la API — el JSON ya está guardado —, así
+        que es barato correrlo en cada pasada: la base se cura sola en unas
+        horas y no hace falta acordarse de un paso manual tras el despliegue.
+
+        Sin comprador es la señal porque es lo que TODO detalle real trae.
+        """
+        if not self.session:
+            self.connect()
+
+        filas = self.session.execute(
+            text(
+                """
+                SELECT l.id, d.datos_completos
+                FROM licitaciones l
+                JOIN licitaciones_detalle d ON d.licitacion_id = l.id
+                WHERE l.codigo_organismo IS NULL
+                ORDER BY l.id DESC
+                LIMIT :limite
+                """
+            ),
+            {"limite": limite},
+        ).all()
+
+        reparadas = 0
+        try:
+            for licitacion_id, datos in filas:
+                if self._sync_licitacion_base_desde_detalle(licitacion_id, datos):
+                    reparadas += 1
+            self.session.commit()
+        except Exception as e:
+            self.session.rollback()
+            self.logger.error(f"No se pudieron sincronizar licitaciones desde su detalle: {e}")
+            return 0
+
+        if reparadas:
+            self.logger.info(f"{reparadas} licitaciones completadas desde su detalle")
+        return reparadas
 
     def load_ordenes_compra(self, data: List[Dict[str, Any]]) -> int:
         """
