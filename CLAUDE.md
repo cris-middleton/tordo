@@ -858,6 +858,11 @@ estos patrones, es señal de que hay que arreglar la causa, no de copiarlo:
 
 ## Hacia dónde va
 
+> **Pivote decidido el 2026-10-11: TORDO pasa a ser un sitio público y gratuito** — sin
+> cuentas ni cobros, financiado con donaciones, en Vercel Hobby + Railway con dos cron. Todo
+> lo que sigue en este archivo describe el SaaS **hasta que cada paso del pivote lo
+> retire**. Especificación: `docs/PIVOTE_PUBLICO_2026-10.md`.
+
 Decisiones tomadas el 2026-08-05, con su ADR en `docs/decisiones/`:
 sólo Chile (sin multi-país), suscripción por empresa con planes por capacidades, nombre TORDO,
 LLM acotado a un servidor MCP sobre la base histórica, y pasarela de pago local en v1.

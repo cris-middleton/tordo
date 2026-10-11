@@ -22,6 +22,7 @@ usa el resto del repo: la decisión la toma una persona, no el descuido.
 | documento | qué contiene | cuándo mirarlo |
 |---|---|---|
 | [`../CLAUDE.md`](../CLAUDE.md) | **El estado real del backend, el frontend y el ETL**, con las decisiones que el código no explica solo. Es el documento que más se actualiza. | Antes de tocar cualquier cosa |
+| [`PIVOTE_PUBLICO_2026-10.md`](PIVOTE_PUBLICO_2026-10.md) | **El plan en curso**: TORDO pasa de SaaS a sitio público y gratuito. Las 20 decisiones, la arquitectura objetivo, costos, datos personales y el orden de los diez PR | Antes de cualquier paso del pivote — y para saber qué partes de este índice describen algo que se va a retirar |
 | [`ARQUITECTURA_REVISION_2026-08.md`](ARQUITECTURA_REVISION_2026-08.md) | La revisión que originó las siete fases (F0–F6) y su estado de cierre, con lo que queda abierto y por qué | Para entender por qué el sistema es así |
 | [`decisiones/`](decisiones/README.md) | **10 ADRs**: sólo Chile, suscripción por empresa, nombre, LLM/MCP, pasarela local, analytics en Postgres, no migrar a Supabase, MercadoPago, API versionada, extracción de bases | Antes de re-discutir algo que ya se decidió |
 | [`API_PUBLICA.md`](API_PUBLICA.md) | Qué parte de la API es pública, límites, errores, el servidor MCP y **lo que no hay** | Para integrar desde fuera |
