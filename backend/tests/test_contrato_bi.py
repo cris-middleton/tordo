@@ -1,23 +1,19 @@
-"""Contrato de los 22 endpoints de BI.
+"""Contrato de los 26 endpoints de BI.
 
 El golden master verifica `services/bi/`: que las funciones devuelvan los mismos
-números. **No verifica la capa HTTP.** Un cambio en un schema de respuesta, o un
-endpoint nuevo que se olvide del gating por plan, no lo detecta nadie — y el
-gating por plan es de lo que depende que el producto cobre.
-
-Este archivo cubre esa capa, con el mismo enfoque que
-`test_tenancy_estructural.py`: se declara lo esperado y el test recorre las rutas
-reales. Un endpoint nuevo aparece como fallo hasta que alguien decida
+números. **No verifica la capa HTTP.** Este archivo cubre esa capa, con el mismo
+enfoque que `test_tenancy_estructural.py`: se declara lo esperado y el test recorre
+las rutas reales. Un endpoint nuevo aparece como fallo hasta que alguien decida
 explícitamente qué protección le toca.
 
-Qué significa cada nivel
+Qué significa cada nivel (pivote público, docs/PIVOTE_PUBLICO_2026-10.md)
 ------------------------
-- `cuota`   — `check_bi_quota_dep`: exige empresa, mira el plan efectivo y
-              descuenta consulta. Es lo normal para la inteligencia de BI.
-- `empresa` — sólo pertenencia a la empresa (`empresa_ctx` / `require_rol`).
-- `sesion`  — sólo estar autenticado. **Es el nivel más laxo y hay que
-              justificarlo caso por caso**, porque significa que un plan gratuito
-              accede sin límite.
+- `publica` — **ninguna** dependencia de sesión, empresa, plan ni cuota. La única
+              protección es el límite por IP de `/api/v1/bi/*`. Es lo normal desde
+              que TORDO es un sitio público.
+- `cuenta`  — **transitorio.** Rutas que dependen de una empresa y se retiran
+              enteras en el paso 3 del pivote, junto con las empresas. Este nivel
+              desaparece con ellas.
 """
 
 from __future__ import annotations
@@ -28,65 +24,59 @@ from app.core.versionado import PREFIJO_API
 from app.main import app
 from tests.rutas import comprobar_recorrido, rutas_con_metodo
 
-# Ruta → nivel de protección esperado. Las excepciones llevan su motivo escrito:
-# si alguien la cambia, tiene que cambiar también la razón.
 CONTRATO: dict[tuple[str, str], str] = {
-    ("GET", "/bi/clusters"): "cuota",
-    ("GET", "/bi/competidores/{organismo_id}"): "cuota",
-    ("GET", "/bi/comprador/{organismo_id}"): "cuota",
-    ("GET", "/bi/descuento"): "cuota",
-    ("GET", "/bi/diversificacion/{codigo_proveedor}"): "cuota",
-    ("GET", "/bi/estacionalidad/{organismo_id}"): "cuota",
-    ("GET", "/bi/forecast_competidores"): "cuota",
-    ("GET", "/bi/licitacion/{codigo_externo}/panel"): "cuota",
-    ("GET", "/bi/matching"): "cuota",
-    ("GET", "/bi/mi_posicion"): "cuota",
-    ("GET", "/bi/oportunidades"): "cuota",
-    ("GET", "/bi/precio/{codigo_producto}"): "cuota",
-    ("GET", "/bi/resumen"): "cuota",
-    ("GET", "/bi/sector"): "cuota",
-    ("GET", "/bi/tendencia"): "cuota",
-    ("GET", "/bi/ventana/{codigo_externo}"): "cuota",
-    # El perfil TF-IDF es de la empresa: basta con pertenecer a ella. Escribirlo
-    # exige además rol de escritura.
-    ("GET", "/bi/perfil/{empresa_id}"): "empresa",
-    ("PUT", "/bi/perfil/{empresa_id}"): "empresa",
-    # Catálogos que alimentan los desplegables de los filtros. Cobrar por leer la
-    # lista de rubros dejaría la pantalla inservible antes de poder consultar
-    # nada, así que van sin cuota a propósito.
-    ("GET", "/bi/rubros"): "sesion",
-    ("GET", "/bi/productos"): "sesion",
-    # Sugerir rubros a partir de la descripción es parte de ARMAR el perfil, y
-    # el perfil es lo que hay que tener antes de recibir nada. Cobrarlo con
-    # cuota de BI pondría un peaje en el onboarding: la empresa gastaría sus
-    # consultas del plan básico antes de haber visto un solo dato.
-    ("GET", "/bi/rubros/sugerir"): "sesion",
-    # La exportación ES la consulta, sólo que en un archivo. Si no descontara
-    # cuota sería la forma de saltarse el medidor: pedir el CSV en vez de la
-    # pantalla y llevarse lo mismo sin pagar.
-    # El panorama sustituye a cinco consultas que la pantalla hacía por
-    # separado, así que descuenta una y no cinco. Cobrar por cada bloque sería
-    # cobrar cinco veces la misma pregunta.
-    ("GET", "/bi/panorama"): "cuota",
-    ("GET", "/bi/exportar/precio/{codigo_producto}"): "cuota",
-    ("GET", "/bi/exportar/competidores/{organismo_id}"): "cuota",
-    # El radar comprueba pertenencia a la empresa por dentro
-    # (`verificar_acceso_empresa`), no por dependencia. No está listado como
-    # capacidad de ningún plan, así que hoy no se cobra.
-    ("GET", "/bi/radar_semanal"): "sesion",
-    # `/licitacion-match` NO está aquí a propósito: ver test_matching_semantico_*.
-    ("GET", "/bi/licitacion-match/{codigo_externo}"): "plan_pro",
+    ("GET", "/bi/clusters"): "publica",
+    ("GET", "/bi/competidores/{organismo_id}"): "publica",
+    ("GET", "/bi/comprador/{organismo_id}"): "publica",
+    ("GET", "/bi/descuento"): "publica",
+    ("GET", "/bi/diversificacion/{codigo_proveedor}"): "publica",
+    ("GET", "/bi/estacionalidad/{organismo_id}"): "publica",
+    ("GET", "/bi/forecast_competidores"): "publica",
+    # El panel deja de enriquecerse con la postulación y el estado hábil de la
+    # empresa: sin cuentas no hay empresa a la que mirar.
+    ("GET", "/bi/licitacion/{codigo_externo}/panel"): "publica",
+    ("GET", "/bi/matching"): "publica",
+    ("GET", "/bi/oportunidades"): "publica",
+    ("GET", "/bi/precio/{codigo_producto}"): "publica",
+    ("GET", "/bi/resumen"): "publica",
+    ("GET", "/bi/sector"): "publica",
+    ("GET", "/bi/tendencia"): "publica",
+    ("GET", "/bi/ventana/{codigo_externo}"): "publica",
+    ("GET", "/bi/rubros"): "publica",
+    ("GET", "/bi/productos"): "publica",
+    ("GET", "/bi/panorama"): "publica",
+    # La exportación ya no descuenta cuota porque no hay cuota. El tope de filas
+    # que la acota llega en el paso 10 del pivote (spec §7.4).
+    ("GET", "/bi/exportar/precio/{codigo_producto}"): "publica",
+    ("GET", "/bi/exportar/competidores/{organismo_id}"): "publica",
+    # ── Se retiran en el paso 3, con las empresas ──
+    ("GET", "/bi/perfil/{empresa_id}"): "cuenta",
+    ("PUT", "/bi/perfil/{empresa_id}"): "cuenta",
+    ("GET", "/bi/rubros/sugerir"): "cuenta",
+    ("GET", "/bi/mi_posicion"): "cuenta",
+    ("GET", "/bi/radar_semanal"): "cuenta",
+    ("GET", "/bi/licitacion-match/{codigo_externo}"): "cuenta",
 }
 
-# Los nombres internos de `plan_limits.py` eran los tres `_check`, así que al
-# introspeccionar las rutas no se podían distinguir "exige plan" de "descuenta
-# cuota". Se renombraron para que esta tabla signifique algo — y de paso las
-# trazas dicen qué falló.
-DEPENDENCIAS_POR_NIVEL = {
-    "cuota": {"_exigir_cuota_bi"},
-    "empresa": {"empresa_ctx", "_dep"},
-    "sesion": {"get_current_active_user"},
-    "plan_pro": {"_exigir_plan"},
+#: Lo que una ruta `publica` NO puede declarar. Son los nombres de las funciones
+#: de dependencia, que es lo que `rutas_con_metodo` devuelve.
+PROHIBIDAS_EN_PUBLICA = {
+    "_exigir_cuota_bi",
+    "_exigir_plan",
+    "empresa_facturable",
+    "empresa_ctx",
+    "_dep",
+    "get_current_user",
+    "get_current_active_user",
+}
+
+#: Lo que una ruta `cuenta` sigue declarando hasta que se retire.
+DEPENDENCIAS_DE_CUENTA = {
+    "_exigir_cuota_bi",
+    "_exigir_plan",
+    "empresa_ctx",
+    "_dep",
+    "get_current_active_user",
 }
 
 
@@ -142,37 +132,22 @@ def test_cada_endpoint_declara_la_proteccion_que_le_toca(metodo, path, deps):
     if esperado is None:
         pytest.skip("cubierto por test_no_hay_endpoints_de_bi_sin_contrato_declarado")
 
-    admitidas = DEPENDENCIAS_POR_NIVEL[esperado]
-    assert deps & admitidas, (
-        f"{metodo} {path} debería tener protección '{esperado}' "
-        f"(una de {sorted(admitidas)}) y declara {sorted(deps)}."
-    )
+    if esperado == "publica":
+        sobran = deps & PROHIBIDAS_EN_PUBLICA
+        assert not sobran, (
+            f"{metodo} {path} es pública y declara {sorted(sobran)}: "
+            "pediría sesión o cuota en un sitio sin cuentas."
+        )
+    else:
+        assert deps & DEPENDENCIAS_DE_CUENTA, (
+            f"{metodo} {path} depende de una empresa y declara {sorted(deps)}."
+        )
 
 
-def test_la_mayoria_de_bi_pasa_por_la_cuota():
-    """Guarda contra la erosión.
-
-    El día que la mitad de BI esté en 'sesion', el medidor de consultas —y con él
-    la diferencia entre el plan gratuito y el de pago— no significa nada. Este
-    número es un tope, no un objetivo: si sube, alguien tiene que explicarlo.
-
-    **Subió de 3 a 4 el 2026-08-16, y ésta es la explicación.** Entró
-    `/bi/rubros/sugerir`, que convierte la descripción libre de la empresa en
-    rubros propuestos. Es parte de ARMAR el perfil, no de consultarlo: cobrarlo
-    con cuota de BI haría que una empresa del plan básico —3 consultas al día—
-    gastara un tercio de su cuota antes de haber visto un solo dato. El peaje
-    estaría puesto justo en el paso que hay que completar para que el producto
-    sirva de algo.
-
-    Sigue protegido por el límite por IP de `/api/v1/bi/*`, que es la capa que
-    corresponde a un endpoint de onboarding: acota el abuso sin cobrarle al uso
-    legítimo.
-    """
-    laxos = [k for k, v in CONTRATO.items() if v == "sesion"]
-    assert len(laxos) <= 4, (
-        f"{len(laxos)} endpoints de BI sin cuota: {sorted(laxos)}. "
-        "Cada uno es acceso ilimitado desde el plan gratuito."
-    )
+def test_el_nivel_transitorio_no_crece():
+    """`cuenta` sólo puede encoger hasta desaparecer en el paso 3 del pivote."""
+    cuenta = [k for k, v in CONTRATO.items() if v == "cuenta"]
+    assert len(cuenta) <= 6, f"{len(cuenta)} rutas de cuenta: {sorted(cuenta)}"
 
 
 def test_matching_semantico_exige_plan_pro():
@@ -192,7 +167,7 @@ def test_matching_semantico_exige_plan_pro():
     )
 
     deps = next(d for m, p, d in _rutas_bi() if p == "/bi/licitacion-match/{codigo_externo}")
-    assert deps & DEPENDENCIAS_POR_NIVEL["plan_pro"], (
+    assert deps & {"_exigir_plan"}, (
         f"/licitacion-match declara {sorted(deps)} y no comprueba el plan, "
         "pero el matching semántico se vende como capacidad Pro."
     )
@@ -238,3 +213,32 @@ async def test_un_plan_basico_recibe_402_en_el_matching(async_db, sample_user, s
 
     assert r.status_code == 402, f"esperaba 402 por plan, llegó {r.status_code}: {r.text[:200]}"
     assert r.json()["detail"]["bloqueada_por_plan"] is True
+
+
+@pytest.mark.asyncio
+async def test_una_ruta_publica_responde_sin_sesion(async_db):
+    """Lo declarado no basta: se pide sin cabecera `Authorization` y no puede
+    llegar ni 401 (sesión) ni 402 (cuota). Un 503 por `FEATURE_ANALYTICS`
+    apagado en el entorno de tests es aceptable: significa que pasó la puerta."""
+    from httpx import ASGITransport, AsyncClient
+
+    from app.db import get_db
+
+    async def _get_db():
+        yield async_db
+
+    app.dependency_overrides[get_db] = _get_db
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+            respuestas = [
+                await c.get(f"{PREFIJO_API}/bi/rubros"),
+                await c.get(f"{PREFIJO_API}/bi/precio/41116000"),
+                await c.get(f"{PREFIJO_API}/bi/licitacion/NO-EXISTE/panel"),
+            ]
+    finally:
+        app.dependency_overrides.clear()
+
+    for r in respuestas:
+        assert r.status_code not in (401, 402, 403), (
+            f"{r.request.url.path} pidió sesión o cuota: {r.status_code} {r.text[:200]}"
+        )

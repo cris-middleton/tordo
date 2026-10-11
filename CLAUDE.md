@@ -195,14 +195,15 @@ tests estructurales pasaron a encontrar **cero rutas** — y lo dijeron sólo po
 guardas explícitas ("se esperaban ≥10, hay 0"). **Un test estructural sin esa guarda se
 queda mudo comprobando el vacío.**
 
-### Gating por plan en BI
+### Contrato de BI
 `backend/tests/test_contrato_bi.py` declara, ruta por ruta, qué protección le toca a cada uno
 de los 26 endpoints de BI. **Un endpoint nuevo hace fallar el test hasta que alguien decida
 explícitamente su nivel** — igual que con tenancy.
 
-Si una capacidad se vende en `/api/v1/billing/plans`, el endpoint que la implementa tiene que
-comprobar el plan. Encontró que no se cumplía: "Matching semántico" se vendía como Pro y
-`/licitacion-match` no lo comprobaba.
+Desde el pivote público hay dos niveles: `publica` (ni sesión, ni empresa, ni cuota; la
+protege sólo el límite por IP de `/api/v1/bi/*`) y `cuenta`, **transitorio**, con las seis
+rutas que dependen de una empresa y se retiran en el paso 3 del pivote. Que lo público no
+pida sesión se prueba también por HTTP, sin cabecera `Authorization`: lo declarado no basta.
 
 ### Convenciones de código
 - **Imports a nivel de módulo.** Nada de imports dentro de funciones. El código heredado
@@ -643,8 +644,8 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
   `celery_app.py` produce `Received unregistered task` en el worker y nada más.
   `tests/test_celery_beat.py` comprueba que cada entrada del calendario existe; si añades una
   tarea programada, importa su módulo al final de `celery_app.py`.
-- **Exportar es una consulta de BI y descuenta cuota igual.** `/bi/exportar/*` devuelve el
-  mismo análisis en CSV; si no cobrara, sería la forma de saltarse el medidor. El archivo va
+- **Exportar es la misma consulta en CSV.** `/bi/exportar/*` devuelve el mismo análisis que
+  la pantalla, sin sesión ni cuota desde el pivote público. El archivo va
   **con BOM y separador `;`**: sin BOM Excel en Windows parte las tildes, y con coma Excel en
   configuración regional chilena mete todo en una columna. Un CSV que se abre mal no es un
   entregable, y son dos detalles que un refactor bienintencionado rompe sin que falle nada.
@@ -805,7 +806,8 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
     una sola IP de oficina: limitar ahí metería a toda la empresa en el mismo cubo, y quien
     quisiera saltárselo sólo tendría que usar varias IP. Se anuncia con `X-RateLimit-*`
     **también al dejar pasar** — enterarse por el 429 es enterarse tarde.
-  - **Cuota diaria por empresa** en BI, que es la capacidad que se vende.
+  - **Cuota diaria por empresa** — ya sólo en las seis rutas de BI de nivel `cuenta`, que se
+    retiran en el paso 3 del pivote. Las públicas no la tienen.
 
   Las tres fallan abiertas si Redis no responde.
 - **Las dependencias de cuota viven en `api/deps.py`, no en `core/`.** Estaban en

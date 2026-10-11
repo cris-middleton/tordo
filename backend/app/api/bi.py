@@ -1,6 +1,10 @@
 """
 BI API — pre-bid intelligence endpoints.
 
+Desde el pivote público (docs/PIVOTE_PUBLICO_2026-10.md) las rutas de análisis no
+piden sesión ni cuota: las protege sólo el límite por IP de `/api/v1/bi/*`. Las que
+dependen de una empresa se retiran enteras en el paso 3.
+
 Analytics routes are gated behind `feature_analytics`.
 TF-IDF matching routes are gated behind `feature_tfidf`.
 When either flag is off (default in dev), the respective endpoints return 503.
@@ -27,7 +31,6 @@ from app.models.empresa import Empresa, TFIDFPerfil
 from app.models.user import User
 from app.repositories import empresas as repo_empresas
 from app.repositories import licitaciones as repo_licitaciones
-from app.repositories import postulaciones as repo_postulaciones
 from app.repositories import proveedores as repo_proveedores
 from app.schemas.bi import (
     ClustersResponse,
@@ -93,7 +96,6 @@ def get_precio_producto(
     codigo_producto: str,
     organismo_id: str | None = Query(None, description="Filtrar por CodigoOrganismoPublico"),
     unidad_medida: str | None = Query(None, description="Filtrar por UnidadMedida"),
-    empresa_cuota: Empresa = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
     from app.services import bi as bi_service
@@ -111,7 +113,6 @@ def get_competidores(
     organismo_id: str,
     rubro: str | None = Query(None, description="Filtrar por RubroN2"),
     top_n: int = Query(20, ge=1, le=100),
-    empresa_cuota: Empresa = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
     from app.services import bi as bi_service
@@ -130,7 +131,6 @@ def get_oportunidades(
     rubro: str | None = Query(None),
     min_score: float = Query(6.0, ge=0, le=10),
     limit: int = Query(50, ge=1, le=200),
-    empresa_cuota: Empresa = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
     from app.services import bi as bi_service
@@ -151,7 +151,6 @@ def get_oportunidades(
 )
 def get_ventana(
     codigo_externo: str,
-    empresa_cuota: Empresa = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
     from app.services import bi as bi_service
@@ -167,7 +166,6 @@ def get_ventana(
 )
 def get_comprador(
     organismo_id: str,
-    empresa_cuota: Empresa = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
     from app.services import bi as bi_service
@@ -183,22 +181,14 @@ def get_comprador(
     description=(
         "Agrega en una sola llamada: perfil comprador (score + transparencia), "
         "clasificación de ventana de preparación, top-5 competidores e índice de precios "
-        "con fallback L1→L2→L3. Opcionalmente incluye postulación activa y estado hábil "
-        "de la empresa si se provee empresa_id."
+        "con fallback L1→L2→L3."
     ),
 )
 async def get_licitacion_panel(
     codigo_externo: str,
-    empresa_id: str | None = Query(
-        None, description="UUID empresa para postulación y estado hábil"
-    ),
     db: AsyncSession = Depends(get_db),
-    empresa_cuota: Empresa = Depends(check_bi_quota_dep),
-    current_user: User = Depends(get_current_active_user),
 ):
     _require_analytics()
-    from uuid import UUID as _UUID
-
     from app.services import bi as bi_service
 
     lic = await repo_licitaciones.obtener_por_codigo(db, codigo_externo)
@@ -231,26 +221,6 @@ async def get_licitacion_panel(
         product_codes=product_codes,
     )
 
-    # Inject empresa-specific data when empresa_id is provided
-    if empresa_id:
-        try:
-            empresa_uuid = _UUID(empresa_id)
-        except ValueError:
-            raise HTTPException(status_code=422, detail="empresa_id inválido")
-
-        # Chequeo blando a propósito: si no es miembro simplemente no se enriquece
-        # la respuesta, no se rechaza la petición.
-        membership = await repo_empresas.membresia(db, empresa_uuid, current_user.id)
-        if membership:
-            existing = await repo_postulaciones.buscar_de_empresa_para_licitacion(
-                db, empresa_uuid, lic.id
-            )
-            panel["postulacion_id"] = str(existing.id) if existing else None
-
-            empresa = await repo_empresas.obtener(db, empresa_uuid)
-            if empresa:
-                panel["estado_habil"] = empresa.estado_habil
-
     return panel
 
 
@@ -270,7 +240,6 @@ async def get_licitacion_panel(
 def get_estacionalidad(
     organismo_id: str,
     rubro: str | None = Query(None, description="Filtrar por RubroN2"),
-    empresa_cuota: Empresa = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
     from app.services import bi as bi_service
@@ -293,7 +262,6 @@ def get_tendencia(
     tendencia: str | None = Query(None, description="creciente | decreciente | estable"),
     solo_emergentes: bool = Query(False, description="Retornar solo mercados emergentes"),
     limit: int = Query(50, ge=1, le=200),
-    empresa_cuota: Empresa = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
     from app.services import bi as bi_service
@@ -315,7 +283,6 @@ def get_descuento(
     tipo: str | None = Query(None, description="CodigoTipo de licitación"),
     rubro: str | None = Query(None, description="Filtrar por Rubro2"),
     n_oferentes_rango: str | None = Query(None, description="Ej: '1', '2-3', '4+'"),
-    empresa_cuota: Empresa = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
     from app.services import bi as bi_service
@@ -337,7 +304,6 @@ def get_forecast_competidores(
     organismo_id: str | None = Query(None, description="CodigoOrganismo para L1"),
     rubro: str | None = Query(None, description="Rubro2 para L1/L2"),
     tipo: str | None = Query(None, description="CodigoTipo de licitación"),
-    empresa_cuota: Empresa = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
     from app.services import bi as bi_service
@@ -357,7 +323,6 @@ def get_forecast_competidores(
 )
 def get_diversificacion(
     codigo_proveedor: str,
-    empresa_cuota: Empresa = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
     from app.services import bi as bi_service
@@ -378,7 +343,6 @@ def get_diversificacion(
 def get_sector(
     sector: str | None = Query(None, description="Filtrar por sector específico"),
     limit: int = Query(50, ge=1, le=200),
-    empresa_cuota: Empresa = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
     from app.services import bi as bi_service
@@ -405,7 +369,6 @@ def get_matching(
         ..., min_length=3, description="Texto a buscar (nombre producto, servicio, etc.)"
     ),
     top_n: int = Query(20, ge=1, le=100, description="Número máximo de proveedores a retornar"),
-    empresa_cuota: Empresa = Depends(check_bi_quota_dep),
 ):
     _require_tfidf_flag()
     from app.services import tfidf_matcher
@@ -613,7 +576,6 @@ async def update_tfidf_perfil(
 )
 def get_rubros(
     limit: int = Query(354, ge=1, le=500),
-    current_user: User = Depends(get_current_active_user),
 ):
     _require_analytics()
     from app.services import bi as bi_service
@@ -636,7 +598,6 @@ def exportar_precio(
     codigo_producto: str,
     organismo_id: str | None = Query(None),
     unidad_medida: str | None = Query(None),
-    empresa_cuota: Empresa = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
     from app.services import bi as bi_service
@@ -664,7 +625,6 @@ def exportar_competidores(
     organismo_id: str,
     rubro: str | None = Query(None),
     top_n: int = Query(50, ge=1, le=200),
-    empresa_cuota: Empresa = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
     from app.services import bi as bi_service
@@ -747,7 +707,6 @@ def sugerir_rubros(
 )
 def get_panorama(
     rubro: str = Query(..., min_length=1, description="RubroN2 de la taxonomía de ChileCompra"),
-    empresa_cuota: Empresa = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
     from app.services import bi as bi_service
@@ -767,7 +726,6 @@ def get_panorama(
 )
 def get_resumen(
     rubro: str = Query(..., min_length=1, description="RubroN2 a resumir"),
-    empresa_cuota: Empresa = Depends(check_bi_quota_dep),
 ):
     _require_analytics()
     from app.services import bi as bi_service
@@ -787,7 +745,6 @@ def get_resumen(
 )
 def get_clusters(
     limit: int = Query(100, ge=1, le=200),
-    empresa_cuota: Empresa = Depends(check_bi_quota_dep),
 ):
     _require_tfidf_flag()
     from app.services import tfidf_matcher
@@ -872,7 +829,6 @@ async def get_mi_posicion(
 def get_productos(
     q: str = Query(..., min_length=2, description="Texto a buscar en el nombre del producto"),
     limit: int = Query(20, ge=1, le=50),
-    current_user: User = Depends(get_current_active_user),
 ):
     _require_analytics()
     from app.services import bi as bi_service
