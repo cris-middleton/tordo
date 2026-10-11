@@ -6,13 +6,13 @@ import { motivoParaPersona } from '@/lib/motivos';
 /**
  * Lo que comparten las cinco herramientas avanzadas de BI.
  *
- * `extractErrorMessage` está aquí porque el backend devuelve el detalle en tres
+ * `extractErrorMessage` está aquí porque el backend devuelve el detalle en
  * formas distintas según de dónde venga el error, y cada pestaña lo enseña tal
  * cual: es texto escrito para que lo lea una persona.
  *
  * Quien lee el `detail` es `mensajeDeError`: esta función tenía su propia copia,
- * tipada como `string`, y en un 422 no lo es. Lo propio de BI —la cuota agotada,
- * el módulo apagado, `motivo`— se queda aquí.
+ * tipada como `string`, y en un 422 no lo es. Lo propio de BI —el límite de
+ * consultas, el módulo apagado, `motivo`— se queda aquí.
  */
 
 export function extractErrorMessage(err: unknown): string {
@@ -21,14 +21,13 @@ export function extractErrorMessage(err: unknown): string {
   // Respaldo vacío: distingue «el backend explicó» de «no hay nada que enseñar».
   const detail = mensajeDeError(err, '') || motivoParaPersona(e?.response?.data?.motivo, '');
 
+  // Sin cuentas no hay cuota diaria ni plan que mejorar: un 429 es el límite
+  // de peticiones por minuto, y basta con esperar.
   if (status === 429) {
-    return 'Se agotó tu cuota diaria de búsquedas BI (3 consultas/día en plan básico). Vuelve mañana o actualiza tu plan.';
+    return 'Demasiadas consultas seguidas. Espera un momento y vuelve a intentarlo.';
   }
   if (status === 503) {
     return detail || 'Módulo no disponible en esta instalación.';
-  }
-  if (status === 401) {
-    return 'Sesión expirada. Recarga la página.';
   }
   if (detail) return detail;
   if (e?.message) return `Error: ${e.message}`;

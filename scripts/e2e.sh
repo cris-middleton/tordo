@@ -41,10 +41,9 @@ IMAGEN_PLAYWRIGHT="mcr.microsoft.com/playwright:v1.62.1-noble"
 NAVEGADOR="${E2E_NAVEGADOR:-auto}"
 
 export DATABASE_URL="postgresql://postgres:postgres@localhost:${PUERTO_PG}/tordo_test"
-export SECRET_KEY="e2e-secret"
 export API_URL="http://localhost:${PUERTO_API}"
-# Sin Redis: el límite de peticiones y la cuota de BI fallan abiertos, que es lo
-# que interesa aquí. Levantar otro contenedor sólo para eso alarga el ciclo sin
+# Sin Redis: el límite de peticiones de BI falla abierto, que es lo que interesa
+# aquí. Levantar otro contenedor sólo para eso alarga el ciclo sin
 # probar nada más.
 export REDIS_URL="redis://localhost:6399/0"
 

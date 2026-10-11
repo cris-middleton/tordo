@@ -30,17 +30,23 @@ import inspect
 import typing
 from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator
 
-import pytest
 from fastapi.params import Depends as DependsParam
 
 from app.main import app
-from tests.rutas import MINIMO_PLAUSIBLE, iter_rutas
+from tests.rutas import iter_rutas
 
 #: `get_db` es un generador que **cede** una `AsyncSession`, así que el
 #: parámetro se anota con lo cedido y no con el generador. Sin desenvolverlo,
-#: las 60 rutas que piden `db` saldrían como falsos positivos y el test sería
+#: las rutas que piden `db` saldrían como falsos positivos y el test sería
 #: ruido que alguien acabaría borrando.
 ENVOLTORIOS = (AsyncGenerator, AsyncIterator, Generator, Iterator)
+
+#: Cuántos parámetros con `Depends` y anotación tiene que encontrar el recorrido.
+#: Antes era `MINIMO_PLAUSIBLE` (50); el pivote público retiró las cuentas y con
+#: ellas las dependencias de sesión, empresa y cuota. Quedan las rutas que piden
+#: `db` —las tres del catálogo y el panel de licitación—. La guarda sigue: un
+#: recorrido roto daría cero.
+MINIMO_REVISADOS = 4
 
 
 def _tipo_inyectado(dependencia) -> object | None:
@@ -93,7 +99,7 @@ def test_ninguna_firma_declara_un_tipo_que_no_recibe():
     # La guarda importa tanto como la comprobación: si el recorrido de rutas se
     # rompe —ya pasó al subir de FastAPI 0.104— este test se quedaría mudo
     # dando el vacío por bueno.
-    assert revisados >= MINIMO_PLAUSIBLE, (
+    assert revisados >= MINIMO_REVISADOS, (
         f"sólo se revisaron {revisados} parámetros con Depends y anotación; "
         "el recorrido de rutas está roto, no es que no haya nada que revisar"
     )
@@ -101,21 +107,3 @@ def test_ninguna_firma_declara_un_tipo_que_no_recibe():
     assert not mentiras, "FastAPI inyecta lo que devuelve la dependencia, no lo " + (
         "que dice la anotación:\n  " + "\n  ".join(sorted(mentiras))
     )
-
-
-@pytest.mark.parametrize("ruta_esperada", ["/api/v1/bi/mi_posicion"])
-def test_quien_comprueba_pertenencia_recibe_un_usuario(ruta_esperada):
-    """El caso concreto que se cayó, nombrado.
-
-    `verificar_acceso_empresa` cruza `empresa_usuarios.user_id`, que es un
-    entero. Pasarle la empresa hace que la consulta ni siquiera llegue a
-    ejecutarse.
-    """
-    from app.models.user import User
-
-    usuarios = [
-        (ruta, nombre)
-        for ruta, nombre, declarado, _ in _parametros_con_depends()
-        if ruta == ruta_esperada and declarado is User
-    ]
-    assert usuarios, f"{ruta_esperada} comprueba pertenencia y no recibe ningún User"

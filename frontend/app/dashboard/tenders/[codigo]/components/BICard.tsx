@@ -1,16 +1,13 @@
 // frontend/app/dashboard/tenders/[codigo]/components/BICard.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { ChevronDown, ChevronUp, BarChart3, Loader2, AlertTriangle, Clock, Users, DollarSign } from 'lucide-react';
-import Link from 'next/link';
 import { usePanelLicitacion } from '@/lib/queries';
-import { scoreBg, scoreColor, PlanTier, isPaidPlan } from '../../../bi/types';
+import { scoreBg, scoreColor } from '../../../bi/types';
 
 interface BICardProps {
   codigoExterno: string;
-  empresaId?: string;
-  plan?: PlanTier;
 }
 
 interface BIPanelData {
@@ -49,13 +46,12 @@ interface BIPanelData {
   }>;
 }
 
-export function BICard({ codigoExterno, empresaId, plan = 'basico' }: BICardProps) {
+export function BICard({ codigoExterno }: BICardProps) {
   const [open, setOpen] = useState(false);
   // El `loaded` que había evitaba repetir la petición; lo cubre la caché por
   // clave, que además comparte la respuesta si la tarjeta se monta dos veces.
-  const { data: respuesta, isPending: loading } = usePanelLicitacion(codigoExterno, empresaId);
+  const { data: respuesta, isPending: loading } = usePanelLicitacion(codigoExterno);
   const data = (respuesta ?? null) as BIPanelData | null;
-  const paid = isPaidPlan(plan);
 
   // buyer_score is 0-1; ×10 for display and color thresholds
   const buyerScore = data?.comprador?.buyer_score != null ? data.comprador.buyer_score * 10 : undefined;
@@ -101,12 +97,7 @@ export function BICard({ codigoExterno, empresaId, plan = 'basico' }: BICardProp
       {/* Expanded content */}
       {open && (
         <div className="border-t border-border px-5 py-4">
-          {!paid ? (
-            <div className="flex flex-col items-center gap-3 py-4 text-center">
-              <p className="text-sm text-muted">Análisis detallado disponible en plan Pro.</p>
-              <Link href="/dashboard/billing" className="btn-primary text-sm">Ver planes</Link>
-            </div>
-          ) : loading ? (
+          {loading ? (
             <div className="flex items-center justify-center py-6">
               <Loader2 className="h-5 w-5 animate-spin text-primary" />
             </div>

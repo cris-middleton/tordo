@@ -4,7 +4,7 @@ Sin esta declaración, «la API pública» sería «todo lo que resultó estar
 montado» — una promesa de estabilidad que nadie decidió dar, y que se ampliaría
 sola con cada router nuevo.
 
-Es el mismo patrón que `test_contrato_bi.py` y que el de tenancy: **un endpoint
+Es el mismo patrón que `test_contrato_bi.py`: **un endpoint
 nuevo hace fallar el test hasta que alguien decida explícitamente qué es**.
 """
 
@@ -23,7 +23,9 @@ ETIQUETAS_EN_USO = sorted({(r.tags or ["sin-etiqueta"])[0] for _, r in iter_ruta
 def test_hay_rutas_que_clasificar():
     """La guarda de siempre: sin ella, los tests de abajo comprobarían el vacío
     en cuanto el recorrido de rutas dejara de encontrar nada."""
-    assert len(ETIQUETAS_EN_USO) >= 10, f"se esperaban ≥10 etiquetas, hay {len(ETIQUETAS_EN_USO)}"
+    # Antes ≥10; el pivote público retiró las cuentas y quedan cuatro grupos
+    # (tenders, bi, health, raiz).
+    assert len(ETIQUETAS_EN_USO) >= 4, f"se esperaban ≥4 etiquetas, hay {len(ETIQUETAS_EN_USO)}"
 
 
 @pytest.mark.parametrize("etiqueta", ETIQUETAS_EN_USO, ids=ETIQUETAS_EN_USO)
@@ -60,6 +62,6 @@ def test_la_descripcion_llega_al_esquema():
     `/docs` y cualquier cliente generado."""
     esquema = app.openapi()
 
-    assert "Clave de API" in esquema["info"]["description"]
-    assert "X-RateLimit-Limit" in esquema["info"]["description"]
+    assert "Anónimo" in esquema["info"]["description"]
+    assert "Retry-After" in esquema["info"]["description"]
     assert {e["name"] for e in esquema.get("tags", [])} >= set(ETIQUETAS_EN_USO)

@@ -9,22 +9,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
-from app.api import (
-    alerts,
-    auth,
-    bi,
-    billing,
-    dashboard,
-    data_inspection,
-    documentos,
-    empresas,
-    estado_habil,
-    health,
-    postulaciones,
-    tenders,
-    users,
-    webhooks,
-)
+from app.api import bi, health, tenders
 from app.api.documentacion import DESCRIPCION, ETIQUETAS
 from app.config import settings
 from app.core.versionado import PREFIJO_API
@@ -69,11 +54,12 @@ app = FastAPI(
     openapi_tags=ETIQUETAS,
 )
 
-# CORS middleware
+# CORS middleware. Sin credenciales: desde el pivote público no hay sesión ni
+# cookie que mandar, y quien habla con el backend es el servidor de Next.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -164,7 +150,6 @@ async def catch_all_exception_handler(request: Request, exc: Exception):
     headers = {"X-Request-ID": request_id}
     if origin in settings.cors_origins:
         headers["Access-Control-Allow-Origin"] = origin
-        headers["Access-Control-Allow-Credentials"] = "true"
 
     detail = "Error interno del servidor."
     if settings.debug:
@@ -180,29 +165,14 @@ async def catch_all_exception_handler(request: Request, exc: Exception):
 # ── Rutas ────────────────────────────────────────────────────────────────────
 #
 # El prefijo vive AQUÍ y en un solo sitio. Los routers declaran su ruta relativa
-# (`/tenders`, `/empresas`…) y no saben nada de la versión: publicar una v2 es
-# montar los mismos routers bajo otro prefijo, no editar catorce ficheros.
+# (`/tenders`, `/bi`) y no saben nada de la versión: publicar una v2 es montar
+# los mismos routers bajo otro prefijo, no editar cada fichero.
 #
 # `/health` queda FUERA de la versión a propósito: lo consulta el healthcheck de
 # la plataforma, no un cliente de la API. Versionarlo obligaría a tocar la
 # configuración de Railway cada vez que suba la versión, que es justo lo que el
 # versionado intenta evitar.
-for router in (
-    data_inspection.router,
-    auth.router,
-    users.router,
-    tenders.router,
-    alerts.router,
-    empresas.router,
-    documentos.router,
-    documentos.file_router,
-    postulaciones.router,
-    estado_habil.router,
-    bi.router,
-    dashboard.router,
-    billing.router,
-    webhooks.router,
-):
+for router in (tenders.router, bi.router):
     app.include_router(router, prefix=PREFIJO_API)
 
 app.include_router(health.router)

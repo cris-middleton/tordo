@@ -1,10 +1,9 @@
 """Routers HTTP.
 
-**Vacío a propósito.** Importaba aquí los catorce routers, y eso convertía
-cualquier `from app.api.deps import ...` en «importa la aplicación entera»: de
-ahí salía una importación circular con `core.plan_limits`, que a su vez importa
-`api.deps` para declarar sus dependencias de cuota.
+**Vacío a propósito.** Importar aquí los routers convertía cualquier
+`from app.api.x import ...` en «importa la aplicación entera», y de ahí salió una
+importación circular que dependía del orden de importación.
 
-`from app.api import alerts` sigue funcionando sin este fichero — Python importa
-el submódulo igual. Lo que ya no ocurre es arrastrar los otros trece.
+`from app.api import bi` sigue funcionando sin este fichero — Python importa el
+submódulo igual. Lo que ya no ocurre es arrastrar los demás.
 """

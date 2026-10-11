@@ -2,7 +2,6 @@
 Periodic ETL Celery tasks.
 
   run_etl_licitaciones_activas — every hour, fetch active tenders from API
-                                  + TF-IDF matching for newly-extracted licitaciones
   run_etl_licitaciones_diario  — 02:00 SCL, fetch previous day by fecha_desde/hasta
   watchdog                     — every 30 min, verify critical tasks ran
 """
@@ -17,8 +16,6 @@ from zoneinfo import ZoneInfo
 from app.celery_app import celery_app
 from app.db import SyncSessionLocal as SessionLocal
 from app.models.task_failure import TaskFailure
-from app.services import notificaciones
-from app.tasks.dashboard_tasks import actualizar_matches_de_licitaciones
 
 logger = logging.getLogger(__name__)
 
@@ -79,59 +76,7 @@ def run_etl_licitaciones_activas() -> dict:
 
     logger.info("[ETL] Licitaciones extraction complete:\n%s", result.stdout[-500:])
 
-    # ── TF-IDF matching for newly-extracted licitaciones ─────────────────────
-    _run_matching_for_new_licitaciones()
-
     return {"status": "ok", "returncode": result.returncode}
-
-
-def _run_matching_for_new_licitaciones() -> None:
-    """
-    Query licitaciones extracted in the last 2 hours and run TF-IDF matching
-    for each. Called after the hourly and daily ETL tasks complete.
-    """
-    from app.models.licitacion import Licitacion
-    from app.services.alert_engine import AlertEngine
-
-    db = SessionLocal()
-    try:
-        since = datetime.now(_SCL_TZ) - timedelta(hours=2)
-        new_lics = db.query(Licitacion).filter(Licitacion.fecha_extraccion >= since).all()
-        if not new_lics:
-            logger.info("[Matching] No new licitaciones in last 2h — skipping")
-            return
-
-        engine = AlertEngine(db)
-        total_created = 0
-        # Se acumulan los ids de TODA la corrida y se despacha una sola vez: es
-        # aquí donde está la frontera de la tanda. Notificar dentro del bucle
-        # daría un correo por licitación, y con 5–15 al día eso se convierte en
-        # una regla de filtro — a partir de la cual el usuario deja de enterarse
-        # de todo, incluido lo urgente.
-        nuevas: list[int] = []
-        for lic in new_lics:
-            r = engine.match_nueva_licitacion(lic)
-            total_created += r.get("created", 0)
-            nuevas.extend(r.get("ids") or [])
-
-        enviado = notificaciones.despachar_pendientes(db, nuevas)
-
-        # El encaje que se VE en pantalla se recalculaba entero a las 06:00, así
-        # que una licitación ingerida a las 10:00 salía sin score hasta el día
-        # siguiente. Puntuar aquí lo nuevo lo baja de veinte horas a una.
-        filas = actualizar_matches_de_licitaciones(db, [lic.id for lic in new_lics])
-
-        logger.info(
-            "[Matching] %d licitaciones nuevas · %d alertas · %d notificadas · %d encajes",
-            len(new_lics),
-            total_created,
-            enviado.get("en_tanda", 0),
-            filas,
-        )
-    except Exception as exc:
-        logger.error("[Matching] Step failed: %s", exc)
-    finally:
-        db.close()
 
 
 @celery_app.task(
@@ -184,9 +129,6 @@ def run_etl_licitaciones_diario() -> dict:
         raise RuntimeError(msg)
 
     logger.info("[ETL-diario] Complete for %s:\n%s", yesterday, result.stdout[-500:])
-
-    # Run TF-IDF matching for any licitaciones loaded in this run
-    _run_matching_for_new_licitaciones()
 
     return {"status": "ok", "fecha": yesterday, "returncode": result.returncode}
 

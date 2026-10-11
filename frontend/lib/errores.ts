@@ -1,20 +1,21 @@
 /**
  * El mensaje que se le enseña al usuario cuando una llamada falla.
  *
- * El backend responde en español y con detalle —"El plan Básico incluye 1
- * usuario…"— porque ese texto lo lee una persona. Un "algo salió mal" genérico
- * tira esa información justo cuando hace falta.
+ * El backend responde en español y con detalle porque ese texto lo lee una
+ * persona. Un "algo salió mal" genérico tira esa información justo cuando hace
+ * falta.
  *
- * `detail` llega de TRES formas, y la tercera es la que rompía la pantalla:
+ * `detail` llega de DOS formas, y la segunda es la que rompía la pantalla:
  *
  * 1. Una **cadena**, en los errores de negocio que levanta `HTTPException`.
- * 2. Un **objeto con `mensaje`**, en los 402 de cuota, que además traen plan,
- *    límite y consumo.
- * 3. Una **lista de objetos** `{type, loc, msg, input, ctx}` — la forma que
+ * 2. Una **lista de objetos** `{type, loc, msg, input, ctx}` — la forma que
  *    FastAPI le da a un 422, y que no la elige nadie: la impone Pydantic
  *    cuando un validador de esquema levanta `ValueError`.
  *
- * La tercera no estaba contemplada, y cada pantalla metía ese `detail` crudo en
+ * (Había una tercera, el objeto con `mensaje` de los 402 de cuota; se fue con
+ * los planes en el pivote a sitio público.)
+ *
+ * La lista no estaba contemplada, y cada pantalla metía ese `detail` crudo en
  * el JSX. React no sabe pintar un objeto: el onboarding moría con «Objects are
  * not valid as a React child» en cuanto alguien escribía un RUT con el dígito
  * verificador cambiado. Y no era un caso raro — es el primer formulario que ve
@@ -73,11 +74,6 @@ function textoDeValidaciones(detalle: unknown[]): string | null {
 export function mensajeDeError(error: unknown, respaldo = 'No se pudo completar la operación.'): string {
   const detalle = (error as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
   if (typeof detalle === 'string') return detalle;
-  // Antes que la comprobación de objeto: en JavaScript una lista TAMBIÉN es un
-  // objeto, y ordenarlo al revés manda los 422 al respaldo genérico.
   if (Array.isArray(detalle)) return textoDeValidaciones(detalle) ?? respaldo;
-  if (detalle && typeof detalle === 'object' && 'mensaje' in detalle) {
-    return String((detalle as { mensaje: unknown }).mensaje);
-  }
   return respaldo;
 }

@@ -10,7 +10,7 @@ filtros empujados a SQL. Ver docs/decisiones/0006-analytics-en-postgres.md.
 """
 
 from app.services.bi._base import _load, _tabla
-from app.services.bi.competencia import get_competidores, get_forecast_competidores, get_mi_posicion
+from app.services.bi.competencia import get_competidores, get_forecast_competidores
 from app.services.bi.comprador import get_comprador
 from app.services.bi.mercado import get_descuento, get_diversificacion, get_resumen, get_sector
 from app.services.bi.oportunidad import get_oportunidades, get_rubros
@@ -36,7 +36,6 @@ __all__ = [
     "get_estacionalidad",
     "get_forecast_competidores",
     "get_licitacion_panel",
-    "get_mi_posicion",
     "get_oportunidades",
     "get_panorama",
     "get_precio_producto",

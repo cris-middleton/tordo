@@ -17,7 +17,9 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://tordo.cl';
    exactamente cuánto cotizar?» → «No»), y una promesa que se rompe sola es peor
    que una promesa chica. Se queda con lo que sí entregamos: el histórico.
    Debajo de 160 caracteres para que Google no la corte. */
-const TITLE = `${APP_NAME} — Precios de adjudicación y alertas de Mercado Público`;
+// «y alertas» se fue con las cuentas en el pivote a sitio público: sin cuenta
+// no hay a quién avisar.
+const TITLE = `${APP_NAME} — Precios de adjudicación y licitaciones de Mercado Público`;
 const DESCRIPTION =
   'Cuánto ha pagado cada comprador por lo que vendes y contra quién compites. ' +
   'Sobre las órdenes de compra públicas de ChileCompra, desde 2010.';

@@ -3,13 +3,12 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { KeyboardEvent } from 'react';
 import Link from 'next/link';
-import { useEmpresas, useLicitaciones, usePanelLicitacion } from '@/lib/queries';
+import { useLicitaciones, usePanelLicitacion } from '@/lib/queries';
 import SelectField from '@/components/SelectField';
 import {
   Search,
   Loader2,
   ExternalLink,
-  Calendar,
   MapPin,
   BookmarkPlus,
   BookmarkCheck,
@@ -47,18 +46,12 @@ export default function TendersPage() {
 
   const [selectedTender, setSelectedTender] = useState<Tender | null>(null);
 
-  const { data: empresasLista } = useEmpresas();
-  const firstEmpresaId =
-    (empresasLista as Array<{ id: string }> | undefined)?.[0]?.id ?? null;
   const [mobileTab, setMobileTab] = useState<'filtros' | 'lista' | 'detalle'>('lista');
 
 
   // La cancelación con `active` y el vaciado al cambiar de licitación los hace
   // la clave de la consulta: otra licitación, otra clave, otro resultado.
-  const consultaPanel = usePanelLicitacion(
-    selectedTender?.codigo_externo,
-    firstEmpresaId ?? undefined,
-  );
+  const consultaPanel = usePanelLicitacion(selectedTender?.codigo_externo);
   const biPanel = (consultaPanel.data ?? null) as BIPanel | null;
   const biLoading = Boolean(selectedTender) && consultaPanel.isFetching;
   const biError = Boolean(consultaPanel.error);
@@ -78,7 +71,6 @@ export default function TendersPage() {
   if (filters.min_amount) params.min_amount = parseFloat(filters.min_amount);
   if (filters.max_amount) params.max_amount = parseFloat(filters.max_amount);
   if (keywords.length) params.search = keywords.join(' ');
-  if (firstEmpresaId) params.empresa_id = firstEmpresaId;
 
   const { data: respuesta, isFetching: loading, refetch: loadTenders } = useLicitaciones(params);
   const tenders: Tender[] = respuesta?.items ?? [];
@@ -127,10 +119,6 @@ export default function TendersPage() {
           <h1 className="page-title">Licitaciones</h1>
           <p className="text-sm text-muted mt-0.5">Busca y explora licitaciones públicas</p>
         </div>
-        <Link href="/dashboard/calendario" className="btn-secondary gap-2 text-sm hidden sm:inline-flex">
-          <Calendar size={15} />
-          Calendario
-        </Link>
       </div>
 
       {/* Search + Filters */}
@@ -224,7 +212,6 @@ export default function TendersPage() {
             className="rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
           >
             {keywords.length > 0 && <option value="relevance">Relevancia</option>}
-            {firstEmpresaId && <option value="score_encaje">Encaje</option>}
             <option value="fecha_publicacion">Publicación</option>
             <option value="fecha_cierre">Cierre</option>
             <option value="monto_estimado">Monto</option>

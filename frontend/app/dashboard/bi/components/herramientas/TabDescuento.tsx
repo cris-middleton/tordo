@@ -12,7 +12,7 @@ export default function TabDescuento({ rubro }: { rubro: string }) {
   const data: DescuentoItem[] = res?.disponible ? (res.descuentos ?? []) : [];
   const loading = Boolean(rubro) && consulta.isFetching;
   // Se conservan los dos tipos de mensaje: el del backend cuando dice que no hay
-  // datos, y el traducido cuando la petición falla (cuota agotada, módulo
+  // datos, y el traducido cuando la petición falla (límite de consultas, módulo
   // apagado…). Perder esa distinción dejaría "no hay datos" ante un 429.
   const error = consulta.error
     ? extractErrorMessage(consulta.error)

@@ -6,15 +6,15 @@ repite sólo lo que no se puede ignorar.
 
 ## Qué es esto
 
-TORDO — SaaS B2B para PYMES chilenas que licitan en Mercado Público. FastAPI + PostgreSQL +
+TORDO — sitio público, sin cuentas, de inteligencia sobre Mercado Público. FastAPI + PostgreSQL +
 Celery + Next.js + un pipeline ETL/analytics en Polars. Monorepo: `backend/`, `frontend/`,
 `etl/`, `infra/`.
 
 ## Reglas que no se saltan
 
-1. **Multi-tenancy.** Todo endpoint que reciba un `empresa_id` debe verificar la membresía
-   del usuario con `_get_membership_or_403()`. Omitirla es una fuga de datos entre empresas.
-   Ver `.claude/skills/endpoint-empresa/SKILL.md`.
+1. **Sin cuentas.** Desde el pivote público (`docs/PIVOTE_PUBLICO_2026-10.md`) no hay
+   usuarios, empresas, sesiones ni claves de API. No reintroduzcas un endpoint que dependa
+   de quién llama sin rehacer antes esa decisión.
 2. **Migraciones.** Siempre `make migrate-create MSG="..."`. **Nunca `alembic revision`.**
    Ver `.claude/skills/migracion-alembic/SKILL.md`.
 3. **Secretos.** Ningún `.env` al repo — hay un hook que lo bloquea. Si una credencial llega
@@ -22,7 +22,7 @@ Celery + Next.js + un pipeline ETL/analytics en Polars. Monorepo: `backend/`, `f
 4. **Pre-commit.** Nunca `git commit --no-verify`. Si un hook falla, arregla la causa.
    Los hooks son por clone (los worktrees comparten el .git): `make hooks`.
 5. **Imports a nivel de módulo.** Nada de imports dentro de funciones (ya causó un bug real
-   en los webhooks de Stripe).
+   en los webhooks de cobro, hoy retirados).
 6. **Schemas Pydantic** sólo en `backend/app/schemas/`.
 7. **Ramas.** **Toda feature va en un worktree**, nunca ramificando en el checkout
    principal: `make worktree NOMBRE=mi-feature` (crea la rama, copia el `.env` y

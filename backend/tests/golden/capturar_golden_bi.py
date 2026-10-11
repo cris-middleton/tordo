@@ -5,7 +5,7 @@ datos reales del pipeline. El resultado es el contrato que la versión sobre
 Postgres tiene que reproducir exactamente.
 
     cd backend
-    ANALYTICS_DATA_PATH=../etl/data/analytics SECRET_KEY=x \
+    ANALYTICS_DATA_PATH=../etl/data/analytics \
         uv run --project .. python tests/golden/capturar_golden_bi.py
 
 No es un test: es la herramienta que genera el fichero contra el que testean

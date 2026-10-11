@@ -99,17 +99,6 @@ export interface ClusterItem {
   rubro_dominante?: string;
 }
 
-export interface TFIDFPerfilData {
-  empresa_id: string;
-  /** El backend la devuelve y `PUT /bi/perfil` la reescribe entera: guardar sin
-   *  mandarla la borra. Faltaba en este tipo, así que nada avisaba. */
-  descripcion?: string | null;
-  rubros_usados?: string[];
-  modelo_version?: string;
-  actualizado_en?: string;
-  tiene_vector: boolean;
-}
-
 // Months in Spanish for chart labels
 export const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
@@ -124,12 +113,6 @@ export function scoreBg(score: number): string {
   if (score >= 7) return 'bg-accent/15 text-accent border-accent/25';
   if (score >= 4.5) return 'bg-gold/15 text-gold border-gold/25';
   return 'bg-danger/15 text-danger border-danger/25';
-}
-
-// Plan check helpers
-export type PlanTier = 'basico' | 'pyme' | 'pro' | 'enterprise';
-export function isPaidPlan(tier: PlanTier | undefined): boolean {
-  return tier === 'pyme' || tier === 'pro' || tier === 'enterprise';
 }
 
 export interface OrganismoConNombre {
@@ -151,41 +134,6 @@ export interface TendenciaApiResponse {
   cagr_rubro?: number | null;
   total?: number;
   motivo?: string;
-}
-
-export interface MiPosicion {
-  disponible: boolean;
-  tiene_historial: boolean;
-  /** Cuota sobre el monto de TODO el rubro. Antes era la cuota dentro de un
-   *  solo comprador, presentada como si fuera la del rubro. */
-  participacion_pct?: number | null;
-  /** Posición entre los proveedores del rubro ordenados por monto. */
-  rank?: number | null;
-  /** Proveedores DISTINTOS. Antes contaba filas (organismo × proveedor). */
-  total_proveedores?: number | null;
-  monto_rubro_clp?: number | null;
-  monto_propio_clp?: number | null;
-  n_oc_propias?: number | null;
-  n_organismos_atendidos?: number | null;
-  /** Mediana y no media: la distribución tiene cola larga y la media la sigue. */
-  n_organismos_mediana_rubro?: number | null;
-  /** Explícito porque la tabla puede no estar materializada, y unos campos en
-   *  `null` no distinguen «no lo sabemos» de «no tiene riesgo». */
-  diversificacion_disponible?: boolean;
-  diversificacion?: Diversificacion | null;
-  motivo?: string;
-}
-
-/** Concentración de cartera del proveedor, sobre TODOS sus rubros. */
-export interface Diversificacion {
-  /** Herfindahl de sus compradores: 10.000 es «un único cliente». */
-  hhi_compradores?: number | null;
-  n_compradores_total?: number | null;
-  n_rubros_total?: number | null;
-  n_regiones_total?: number | null;
-  score?: number | null;
-  clasificacion?: string | null;
-  alerta_dependencia: boolean;
 }
 
 export interface PanoramaLider {

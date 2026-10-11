@@ -6,19 +6,18 @@ esto son de montaje, no de lógica:
 - montar una app ASGI dentro de otra **no ejecuta su ciclo de vida**, y sin el
   gestor de sesiones el servidor acepta la conexión y revienta en la primera
   herramienta;
-- la credencial llega por una cabecera que **no pasa por el enrutador de
-  FastAPI**, así que ninguna dependencia la ve.
+- la protección contra DNS rebinding mira la cabecera `Host` **antes** de que
+  la petición llegue a ninguna herramienta, así que sólo se ve por HTTP.
 
 Ninguno de los dos lo detecta un test que importe el módulo y llame a la función.
 
-Lo demás que se fija aquí son las decisiones del ADR 0004:
+Lo demás que se fija aquí son las decisiones del ADR 0004 que sobreviven al
+pivote público (el MCP es anónimo desde entonces):
 
-- **cuatro herramientas, no veintidós** — un modelo encadena unas quince llamadas
-  donde una persona hace tres, y con `basico` a 3 consultas/día eso agota el plan
-  en una conversación;
-- **la empresa sale de la clave**, no de un argumento: un modelo inventa
-  identificadores en cuanto se lo pides;
-- **cada llamada descuenta cuota**, con la misma regla que la API;
+- **cuatro herramientas, no veinte** — un modelo encadena unas quince llamadas
+  donde una persona hace tres;
+- **ninguna pide empresa**: un modelo inventa identificadores en cuanto se lo
+  pides, y ya no hay empresa a la que pertenecer;
 - **`confianza` y `n` no se filtran**: un modelo que recibe una banda de precio
   sin saber que salió de cuatro observaciones la presentará como un hecho.
 """
@@ -90,110 +89,38 @@ async def cliente(esquema_migrado):
     from asgi_lifespan import LifespanManager
     from httpx import ASGITransport, AsyncClient
 
+    from app.db import async_engine
     from app.main import app
+
+    # `dispose(close=False)` abandona las conexiones que otro bucle de eventos
+    # dejó en el pozo en vez de intentar cerrarlas —cerrarlas desde el bucle
+    # equivocado es justamente lo que revienta—. El MCP abre sus propias
+    # sesiones con `AsyncSessionLocal`, así que heredaría esas conexiones.
+    await async_engine.dispose(close=False)
 
     async with (
         LifespanManager(app) as gestionada,
-        AsyncClient(transport=ASGITransport(app=gestionada.app), base_url="http://test") as c,
+        # `localhost` y no `test`: el `Host` tiene que estar en la lista blanca
+        # de `MCP_HOSTS_PERMITIDOS`, o la protección contra DNS rebinding
+        # responde 421 a todo.
+        AsyncClient(transport=ASGITransport(app=gestionada.app), base_url="http://localhost") as c,
     ):
         yield c
 
 
-@pytest_asyncio.fixture(scope="module", loop_scope="module")
-async def datos(cliente):
-    """Empresa, usuario y clave **comprometidos de verdad**, y borrados después.
-
-    Depende de `cliente` por el orden, no por lo que devuelve: es quien suelta el
-    pozo de conexiones al entrar en el bucle de este módulo. Creado antes, este
-    fixture reutilizaría conexiones de otro bucle y fallaría con «attached to a
-    different loop» — pero sólo cuando el fichero corre dentro de la suite.
-
-    Es la contrapartida de que el MCP abra sus propias conexiones: no puede ver
-    una transacción sin cerrar. Por eso aquí se hace commit y se limpia a mano en
-    vez de apoyarse en el rollback del resto de la suite.
-    """
-    import uuid as _uuid
-
-    from sqlalchemy import delete
-
-    from app.db import AsyncSessionLocal, async_engine
-
-    # También aquí, y no sólo en `cliente`: el orden de creación de fixtures no
-    # es algo sobre lo que convenga apostar, y `dispose(close=False)` abandona
-    # las conexiones de otro bucle en vez de intentar cerrarlas —cerrarlas desde
-    # el bucle equivocado es justamente lo que revienta—.
-    await async_engine.dispose(close=False)
-    from app.models.empresa import Empresa, EmpresaUsuario
-    from app.models.user import User
-    from app.services import api_keys as _api_keys
-
-    async with AsyncSessionLocal() as db:
-        usuario = User(
-            username=f"mcp-{_uuid.uuid4().hex[:8]}",
-            email=f"mcp-{_uuid.uuid4().hex[:8]}@tordo-pruebas.cl",
-            hashed_password="x",
-            is_active=True,
-        )
-        db.add(usuario)
-        await db.flush()
-        empresa = Empresa(
-            rut_empresa=f"7{_uuid.uuid4().int % 10_000_000}-9",
-            nombre_empresa="MCP SpA",
-            estado_habil="habil",
-        )
-        db.add(empresa)
-        await db.flush()
-        db.add(EmpresaUsuario(empresa_id=empresa.id, user_id=usuario.id, rol="owner"))
-        secreto, _ = await _api_keys.crear(
-            db, empresa_id=empresa.id, nombre="mcp", creada_por=usuario.id
-        )
-        revocada, fila_revocada = await _api_keys.crear(
-            db, empresa_id=empresa.id, nombre="revocada", creada_por=usuario.id
-        )
-        await _api_keys.revocar(db, fila_revocada.id, empresa.id)
-        await db.commit()
-        ids = {
-            "clave": secreto,
-            "clave_revocada": revocada,
-            "empresa_id": empresa.id,
-            "usuario_id": usuario.id,
-            "empresa_nombre": empresa.nombre_empresa,
-        }
-
-    try:
-        yield ids
-    finally:
-        async with AsyncSessionLocal() as db:
-            # La empresa arrastra en cascada sus claves y su membresía.
-            await db.execute(delete(Empresa).where(Empresa.id == ids["empresa_id"]))
-            await db.execute(delete(User).where(User.id == ids["usuario_id"]))
-            await db.commit()
-
-
-@pytest_asyncio.fixture(scope="module", loop_scope="module")
-async def clave(datos) -> str:
-    return datos["clave"]
-
-
-async def _listar_herramientas(cliente, autorizacion: str | None = None) -> dict:
-    cabeceras = dict(CABECERAS_MCP)
-    if autorizacion:
-        cabeceras["Authorization"] = autorizacion
-    await cliente.post(RUTA, json=_inicializar(), headers=cabeceras)
-    r = await cliente.post(RUTA, json=_rpc("tools/list", {}, id_=2), headers=cabeceras)
+async def _listar_herramientas(cliente) -> dict:
+    await cliente.post(RUTA, json=_inicializar(), headers=CABECERAS_MCP)
+    r = await cliente.post(RUTA, json=_rpc("tools/list", {}, id_=2), headers=CABECERAS_MCP)
     assert r.status_code == 200, r.text
     return _payload(r)
 
 
-async def _llamar(cliente, herramienta: str, argumentos: dict, autorizacion: str | None) -> dict:
-    cabeceras = dict(CABECERAS_MCP)
-    if autorizacion:
-        cabeceras["Authorization"] = autorizacion
-    await cliente.post(RUTA, json=_inicializar(), headers=cabeceras)
+async def _llamar(cliente, herramienta: str, argumentos: dict) -> dict:
+    await cliente.post(RUTA, json=_inicializar(), headers=CABECERAS_MCP)
     r = await cliente.post(
         RUTA,
         json=_rpc("tools/call", {"name": herramienta, "arguments": argumentos}, id_=3),
-        headers=cabeceras,
+        headers=CABECERAS_MCP,
     )
     assert r.status_code == 200, r.text
     return _payload(r)
@@ -217,9 +144,8 @@ async def test_el_servidor_responde_al_handshake(cliente):
 
 
 async def test_expone_cuatro_herramientas_y_son_de_grano_grueso(cliente):
-    """Veintidós herramientas —una por endpoint de BI— agotarían el plan `basico`
-    (3 consultas/día) en una sola conversación. Si alguien añade una quinta, que
-    sea decidiéndolo."""
+    """Veinte herramientas —una por endpoint de BI— multiplicarían la carga de
+    cada conversación. Si alguien añade una quinta, que sea decidiéndolo."""
     herramientas = {h["name"] for h in (await _listar_herramientas(cliente))["result"]["tools"]}
 
     assert herramientas == {
@@ -231,9 +157,8 @@ async def test_expone_cuatro_herramientas_y_son_de_grano_grueso(cliente):
 
 
 async def test_ninguna_herramienta_pide_empresa(cliente):
-    """La empresa sale de la CLAVE. Si fuera un argumento, un modelo lo
-    rellenaría con lo que le pareciera — y ésa es la definición de fuga entre
-    empresas."""
+    """No hay empresas desde el pivote público. Si un argumento la pidiera, un
+    modelo lo rellenaría con lo que le pareciera."""
     for herramienta in (await _listar_herramientas(cliente))["result"]["tools"]:
         propiedades = set((herramienta.get("inputSchema") or {}).get("properties") or {})
         # La guarda importa: si el esquema dejara de llegar —o cambiara de
@@ -243,82 +168,50 @@ async def test_ninguna_herramienta_pide_empresa(cliente):
         assert not {"empresa_id", "empresa", "rut_empresa"} & propiedades, herramienta["name"]
 
 
-# ── Credencial ───────────────────────────────────────────────────────────────
+# ── DNS rebinding ────────────────────────────────────────────────────────────
 
 
-async def test_sin_credencial_no_devuelve_datos(cliente):
-    resultado = await _llamar(cliente, "buscar_productos", {"texto": "guantes"}, None)
-
-    assert "credencial" in _texto(resultado).lower()
-
-
-async def test_un_jwt_de_sesion_no_sirve(cliente, datos):
-    """El MCP es para clientes sin navegador. Aceptar un token de sesión invitaría
-    a pegarlo en un cliente de terceros, y caduca a los 30 minutos igual."""
-    from app.core.security import create_access_token
-
-    token = create_access_token({"sub": str(datos["usuario_id"])})
-
-    resultado = await _llamar(cliente, "buscar_productos", {"texto": "guantes"}, f"Bearer {token}")
-
-    assert "clave de api" in _texto(resultado).lower()
-
-
-async def test_una_clave_revocada_no_sirve(cliente, datos):
-    resultado = await _llamar(
-        cliente, "buscar_productos", {"texto": "guantes"}, f"Bearer {datos['clave_revocada']}"
+async def test_un_host_fuera_de_la_lista_blanca_recibe_421(cliente):
+    """La protección volvió a encenderse cuando el MCP dejó de pedir clave: una
+    página que rebota DNS hacia este servidor llega con un `Host` ajeno."""
+    r = await cliente.post(
+        RUTA, json=_inicializar(), headers={**CABECERAS_MCP, "Host": "atacante.example"}
     )
 
-    assert "revocada" in _texto(resultado).lower()
+    assert r.status_code == 421, r.text
 
 
-# ── Cuota ────────────────────────────────────────────────────────────────────
-
-
-async def test_cada_llamada_descuenta_cuota(cliente, datos, clave, monkeypatch):
-    """Se cobra por herramienta, con la misma función que la API. Es lo que hace
-    que la cuota signifique lo mismo por los dos canales."""
-    cobradas: list = []
-    from app.mcp import autenticacion
-
-    monkeypatch.setattr(
-        autenticacion, "consumir_cuota_bi", lambda empresa: cobradas.append(empresa.id)
+async def test_un_origen_ajeno_recibe_403(cliente):
+    r = await cliente.post(
+        RUTA,
+        json=_inicializar(),
+        headers={**CABECERAS_MCP, "Origin": "https://atacante.example"},
     )
 
-    await _llamar(cliente, "buscar_productos", {"texto": "guantes"}, f"Bearer {clave}")
-
-    assert cobradas == [datos["empresa_id"]]
+    assert r.status_code == 403, r.text
 
 
-async def test_sin_cuota_lo_dice_en_vez_de_reventar(cliente, clave, monkeypatch):
-    """Un error de protocolo deja al modelo sin nada que contar. «No te queda
-    cuota» es información útil, no una avería."""
-    from fastapi import HTTPException
+async def test_la_lista_blanca_sale_de_la_configuracion(monkeypatch):
+    """El dominio público se añade por `MCP_HOSTS_PERMITIDOS`, con y sin puerto."""
+    from app.config import settings
+    from app.mcp.servidor import seguridad_de_transporte
 
-    from app.mcp import autenticacion
+    monkeypatch.setattr(settings, "mcp_hosts_permitidos", ["tordo.cl"])
+    seguridad = seguridad_de_transporte()
 
-    def _sin_cuota(_empresa):
-        raise HTTPException(
-            status_code=402,
-            detail={"bloqueada_por_plan": True, "mensaje": "Se acabaron las consultas de hoy."},
-        )
-
-    monkeypatch.setattr(autenticacion, "consumir_cuota_bi", _sin_cuota)
-
-    resultado = await _llamar(cliente, "buscar_productos", {"texto": "guantes"}, f"Bearer {clave}")
-
-    assert "consultas de hoy" in _texto(resultado)
+    assert seguridad.enable_dns_rebinding_protection is True
+    assert {"tordo.cl", "tordo.cl:*"} <= set(seguridad.allowed_hosts)
+    assert "https://tordo.cl" in seguridad.allowed_origins
+    assert "localhost" not in seguridad.allowed_hosts
 
 
 # ── Contenido ────────────────────────────────────────────────────────────────
 
 
-async def test_una_licitacion_inexistente_se_explica(cliente, clave):
+async def test_una_licitacion_inexistente_se_explica(cliente):
     """Y no como un error de protocolo: el modelo tiene que poder decirle al
     usuario que revise el código."""
-    resultado = await _llamar(
-        cliente, "panel_de_licitacion", {"codigo": "NO-EXISTE-1"}, f"Bearer {clave}"
-    )
+    resultado = await _llamar(cliente, "panel_de_licitacion", {"codigo": "NO-EXISTE-1"})
 
     assert "NO-EXISTE-1" in _texto(resultado)
 
@@ -330,3 +223,30 @@ async def test_las_instrucciones_avisan_del_tamano_de_muestra(cliente):
 
     instrucciones = _payload(r)["result"].get("instructions", "")
     assert "confianza" in instrucciones and "n" in instrucciones
+
+
+def test_un_error_interno_no_viaja_al_cliente_anonimo():
+    """El MCP es anónimo: un error de Postgres o Polars trae SQL y rutas, y no
+    puede llegar a quien llama. Sale un mensaje genérico y el `request_id`."""
+    from app.mcp import servidor as modulo
+
+    resultado = modulo._error(RuntimeError('relation "analytics.secreta" does not exist'))
+
+    assert "secreta" not in str(resultado)
+    assert resultado["error"] == "No se pudo completar la consulta."
+    assert "request_id" in resultado
+
+
+@pytest.mark.parametrize("pedido,esperado", [(-1, 1), (0, 1), (20, 20), (500, 50)])
+async def test_el_limite_de_productos_se_acota_por_los_dos_lados(monkeypatch, pedido, esperado):
+    """`limite=-1` llegaba a Polars como `.head(-1)`: todo menos la última fila."""
+    from app.mcp import servidor as modulo
+
+    recibidos: list[int] = []
+    monkeypatch.setattr(
+        modulo.bi_service, "get_productos", lambda q, limit: recibidos.append(limit) or {}
+    )
+
+    await modulo.buscar_productos("guantes", limite=pedido)
+
+    assert recibidos == [esperado]

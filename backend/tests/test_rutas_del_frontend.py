@@ -40,7 +40,9 @@ def _como_patron(ruta_backend: str) -> re.Pattern[str]:
 
 
 def test_el_recorrido_encuentra_rutas_en_los_dos_lados():
-    assert len(rutas_del_frontend()) >= 40, "el cliente cambió de forma; revisa _LLAMADA"
+    # Antes ≥40; el pivote público retiró las cuentas y el cliente sólo llama al
+    # catálogo y al BI (~20 rutas). La guarda sigue: con la regex rota serían 0.
+    assert len(rutas_del_frontend()) >= 15, "el cliente cambió de forma; revisa _LLAMADA"
     assert len(list(iter_rutas(app))) >= MINIMO_PLAUSIBLE
 
 

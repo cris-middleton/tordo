@@ -1,8 +1,5 @@
 'use client';
 
-import { Lock } from 'lucide-react';
-import { usePlanActual } from '@/lib/queries';
-import { incluyePro } from '@/lib/plan';
 import { ConfidenceBadge } from './ConfidenceBadge';
 import { motivoParaPersona } from '@/lib/motivos';
 
@@ -133,7 +130,6 @@ function CompetitorRow({
 // ── Main component ─────────────────────────────────────────────────────────
 
 export function CompetitorsList({ competidores }: CompetidoresPanelProps) {
-  const isPro = incluyePro(usePlanActual().data?.tier);
   const nBase = competidores.top5?.[0]?.n_proveedores ?? 0;
 
   return (
@@ -147,20 +143,7 @@ export function CompetitorsList({ competidores }: CompetidoresPanelProps) {
       </div>
 
       {/* Body */}
-      {!isPro ? (
-        <div className="flex flex-col items-center gap-3 py-4 text-center">
-          <div className="rounded-full bg-border/60 p-3">
-            <Lock size={18} className="text-muted" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-text">Análisis de competidores</p>
-            <p className="text-xs text-muted mt-0.5">Ve quién compite en este segmento</p>
-          </div>
-          <a href="/dashboard/billing" className="btn-primary inline-flex items-center gap-1.5 text-sm">
-            Disponible en plan Pro
-          </a>
-        </div>
-      ) : !competidores.disponible ? (
+      {!competidores.disponible ? (
         <p className="text-sm text-muted">
           {motivoParaPersona(competidores.motivo, 'Todavía no tenemos competidores registrados para este comprador.')}
         </p>
@@ -181,20 +164,18 @@ export function CompetitorsList({ competidores }: CompetidoresPanelProps) {
         </div>
       )}
 
-      {/* Footer — only shown when Pro and data available */}
-      {isPro && (
-        <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
-          <ConfidenceBadge n={nBase} />
-          {competidores.hhi != null && (
-            <span className="text-xs text-muted">
-              HHI:{' '}
-              <span className="font-semibold tabular-nums text-text">
-                {competidores.hhi.toFixed(3)}
-              </span>
+      {/* Footer */}
+      <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+        <ConfidenceBadge n={nBase} />
+        {competidores.hhi != null && (
+          <span className="text-xs text-muted">
+            HHI:{' '}
+            <span className="font-semibold tabular-nums text-text">
+              {competidores.hhi.toFixed(3)}
             </span>
-          )}
-        </div>
-      )}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

@@ -9,9 +9,6 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
-import { Lock } from 'lucide-react';
-import { usePlanActual } from '@/lib/queries';
-import { incluyePro } from '@/lib/plan';
 import { ConfidenceBadge } from './ConfidenceBadge';
 
 interface PrecioFallback {
@@ -45,7 +42,7 @@ const nivelLabel: Record<string, string> = {
   L3: 'datos nacionales',
 };
 
-function ProductPriceSection({ p, isPro }: { p: PrecioFallback; isPro: boolean }) {
+function ProductPriceSection({ p }: { p: PrecioFallback }) {
   const n = p.n ?? 0;
 
   if (!p.disponible) {
@@ -73,20 +70,13 @@ function ProductPriceSection({ p, isPro }: { p: PrecioFallback; isPro: boolean }
     );
   }
 
-  // For non-Pro: show only P25/P50/P75; P10 and P90 are blurred with upgrade CTA
-  const chartData = isPro
-    ? [
-        { label: 'P10', value: p.p10, color: '#54637A' },
-        { label: 'P25', value: p.p25, color: '#5F7089' },
-        { label: 'P50', value: p.p50, color: '#3DB9BB' },
-        { label: 'P75', value: p.p75, color: '#5F7089' },
-        { label: 'P90', value: p.p90, color: '#54637A' },
-      ]
-    : [
-        { label: 'P25', value: p.p25, color: '#5F7089' },
-        { label: 'P50', value: p.p50, color: '#3DB9BB' },
-        { label: 'P75', value: p.p75, color: '#5F7089' },
-      ];
+  const chartData = [
+    { label: 'P10', value: p.p10, color: '#54637A' },
+    { label: 'P25', value: p.p25, color: '#5F7089' },
+    { label: 'P50', value: p.p50, color: '#3DB9BB' },
+    { label: 'P75', value: p.p75, color: '#5F7089' },
+    { label: 'P90', value: p.p90, color: '#54637A' },
+  ];
 
   const nivelDesc = p.nivel_usado ? nivelLabel[p.nivel_usado] ?? p.nivel_usado : null;
 
@@ -132,20 +122,6 @@ function ProductPriceSection({ p, isPro }: { p: PrecioFallback; isPro: boolean }
             </Bar>
           </BarChart>
         </ResponsiveContainer>
-
-        {!isPro && (
-          <div className="absolute inset-0 flex items-center justify-end pr-4 pointer-events-none">
-            <div className="flex items-center gap-1.5 rounded-md bg-surface/90 border border-border px-2.5 py-1.5 backdrop-blur-sm pointer-events-auto">
-              <Lock size={12} className="text-muted" />
-              <span className="text-xs text-muted">
-                P10/P90 disponibles en{' '}
-                <a href="/dashboard/billing" className="text-primary hover:underline font-medium">
-                  plan Pro
-                </a>
-              </span>
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="flex flex-col gap-1">
@@ -163,8 +139,6 @@ function ProductPriceSection({ p, isPro }: { p: PrecioFallback; isPro: boolean }
 }
 
 export function PriceBandChart({ precios }: PriceBandChartProps) {
-  const isPro = incluyePro(usePlanActual().data?.tier);
-
   if (!precios || precios.length === 0) {
     return (
       <div className="card">
@@ -189,7 +163,7 @@ export function PriceBandChart({ precios }: PriceBandChartProps) {
               </h3>
               {p.disponible && <ConfidenceBadge n={n} />}
             </div>
-            <ProductPriceSection p={p} isPro={isPro} />
+            <ProductPriceSection p={p} />
           </div>
         );
       })}

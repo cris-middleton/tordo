@@ -5,8 +5,6 @@ Loads transformed data into PostgreSQL database
 
 from __future__ import annotations
 
-import os
-import sys
 from datetime import timedelta
 from typing import Any, Dict, List
 
@@ -250,7 +248,6 @@ class DatabaseLoaderV2(BaseLoader):
         total_loaded = 0
         total_updated = 0
         total_errors = 0
-        all_new_ids = []
 
         for batch_start in range(0, len(data), BATCH_SIZE):
             batch = data[batch_start : batch_start + BATCH_SIZE]
@@ -285,18 +282,15 @@ class DatabaseLoaderV2(BaseLoader):
                 update_dict["fecha_actualizacion"] = func.now()
                 stmt = stmt.on_conflict_do_update(
                     index_elements=["codigo_externo"], set_=update_dict
-                ).returning(table.c.id)
+                )
 
-                result = self.session.execute(stmt)
-                returned_ids = [row[0] for row in result]
+                self.session.execute(stmt)
                 self.session.commit()
 
                 new_count = sum(1 for r in batch if r.get("codigo_externo") not in existing_codes)
                 updated_count = len(batch) - new_count
                 total_loaded += new_count
                 total_updated += updated_count
-                # Collect IDs of new records for alert triggering
-                all_new_ids.extend(returned_ids[:new_count])
 
                 self.logger.info(
                     f"Licitaciones batch {batch_num}: {new_count} new, {updated_count} updated"
@@ -312,8 +306,6 @@ class DatabaseLoaderV2(BaseLoader):
         self.logger.info(
             f"Licitaciones loaded: {total_loaded} new, {total_updated} updated, {total_errors} errors"
         )
-        if all_new_ids:
-            self._trigger_licitacion_alerts(all_new_ids)
 
         return total_loaded + total_updated
 
@@ -393,16 +385,10 @@ class DatabaseLoaderV2(BaseLoader):
 
             detalle_id = detalle.id
 
-            copiados = self._sync_licitacion_base_desde_detalle(licitacion_id, datos_api)
+            self._sync_licitacion_base_desde_detalle(licitacion_id, datos_api)
 
             self.session.commit()
             self.logger.info(f"Created detalle for licitacion {codigo_externo}")
-            if copiados:
-                # Se evaluó al entrar, sin monto, región ni descripción: las
-                # preferencias que dependen de eso no podían calzar. La alerta es
-                # idempotente por (licitación, preferencia), así que sólo salen
-                # las que calzan AHORA.
-                self._trigger_licitacion_alerts([licitacion_id])
 
             return detalle_id
 
@@ -495,16 +481,11 @@ class DatabaseLoaderV2(BaseLoader):
             detalle.participantes = main_obj.get("Participantes") or main_obj.get("participantes")
             detalle.etapas = main_obj.get("Etapas") or main_obj.get("etapas")
 
-            # Productor del resultado (Crítico #1): nada más en el pipeline
-            # escribía estas tres columnas, así que `detectar_resultados()`
-            # (backend) nunca encontraba nada y `query_licitaciones_seguidas_
-            # sin_resultado` volvía a pedir esta misma licitación cada día,
-            # para siempre. Se sobreescribe siempre con lo último visto —
-            # también hacia `None` si la API deja de mostrar adjudicación—,
-            # porque ChileCompra puede revocar y volver a adjudicar (ver
-            # ventana de reconsideración en `query_licitaciones_seguidas_
-            # sin_resultado`). Forma del payload sin verificar contra
-            # producción: ver `etl/utils/adjudicacion.py`.
+            # El resultado de la adjudicación se sobreescribe siempre con lo
+            # último visto —también hacia `None` si la API deja de mostrarla—,
+            # porque ChileCompra puede revocar y volver a adjudicar. Forma del
+            # payload sin verificar contra producción: ver
+            # `etl/utils/adjudicacion.py`.
             adjudicacion = extraer_datos_adjudicacion(main_obj)
             detalle.fecha_adjudicacion = adjudicacion["fecha_adjudicacion"]
             detalle.monto_adjudicado = adjudicacion["monto_adjudicado"]
@@ -639,7 +620,6 @@ class DatabaseLoaderV2(BaseLoader):
         total_loaded = 0
         total_updated = 0
         total_errors = 0
-        all_new_ids = []
 
         for batch_start in range(0, len(data), BATCH_SIZE):
             batch = data[batch_start : batch_start + BATCH_SIZE]
@@ -670,20 +650,15 @@ class DatabaseLoaderV2(BaseLoader):
                     if col.name not in skip_on_update and col.computed is None
                 }
                 update_dict["fecha_actualizacion"] = func.now()
-                stmt = stmt.on_conflict_do_update(
-                    index_elements=["codigo_oc"], set_=update_dict
-                ).returning(table.c.id)
+                stmt = stmt.on_conflict_do_update(index_elements=["codigo_oc"], set_=update_dict)
 
-                result = self.session.execute(stmt)
-                returned_ids = [row[0] for row in result]
+                self.session.execute(stmt)
                 self.session.commit()
 
                 new_count = sum(1 for r in batch if r.get("codigo_oc") not in existing_codes)
                 updated_count = len(batch) - new_count
                 total_loaded += new_count
                 total_updated += updated_count
-                # Collect IDs of new records for alert triggering
-                all_new_ids.extend(returned_ids[:new_count])
 
                 self.logger.info(
                     f"Órdenes batch {batch_num}: {new_count} new, {updated_count} updated"
@@ -697,8 +672,6 @@ class DatabaseLoaderV2(BaseLoader):
         self.logger.info(
             f"Órdenes de compra loaded: {total_loaded} new, {total_updated} updated, {total_errors} errors"
         )
-        if all_new_ids:
-            self._trigger_orden_compra_alerts(all_new_ids)
 
         return total_loaded + total_updated
 
@@ -1168,7 +1141,7 @@ class DatabaseLoaderV2(BaseLoader):
         )
 
     def completar_desde_detalle(self, licitacion_id: int, campos: Dict[str, Any]) -> None:
-        """Escribe en una licitación lo que trajo su detalle y vuelve a evaluar alertas.
+        """Escribe en una licitación lo que trajo su detalle.
 
         La descripción llega aquí: las palabras clave que sólo aparecen en ella
         no podían calzar cuando la Compra Ágil entró desde el listado.
@@ -1179,7 +1152,6 @@ class DatabaseLoaderV2(BaseLoader):
         for campo, valor in campos.items():
             setattr(licitacion, campo, valor)
         self.session.commit()
-        self._trigger_licitacion_alerts([licitacion_id])
 
     def query_ordenes_para_detalle(self, limit: int | None = None) -> List[tuple]:
         """
@@ -1265,77 +1237,6 @@ class DatabaseLoaderV2(BaseLoader):
 
         return query.all()
 
-    #: Tras adjudicar, ChileCompra sigue permitiendo revocar y volver a
-    #: adjudicar (reclamos, impugnaciones). No hay un plazo único documentado
-    #: para todos los tipos de licitación, así que se usa un margen
-    #: conservador: 30 días corridos desde la fecha de adjudicación conocida.
-    #: Pasado ese margen, la licitación deja de re-consultarse — igual que
-    #: antes de este cambio, sólo que más tarde — porque si no la re-consulta
-    #: vuelve a ser ilimitada, que es exactamente el defecto que esto corrige.
-    #: Mismo número en `backend/app/services/resultados.py::VENTANA_
-    #: RECONSIDERACION_DIAS`: uno decide si se vuelve a pedir el dato a la
-    #: API, el otro si se vuelve a examinar con lo que ya hay en la base.
-    VENTANA_RECONSIDERACION_DIAS = 30
-
-    def query_licitaciones_seguidas_sin_resultado(self, limit: int | None = None) -> List[tuple]:
-        """Licitaciones que alguien SIGUE, que ya cerraron y de las que todavía no
-        sabemos cómo terminaron — o cuya adjudicación es reciente y podría corregirse.
-
-        **Por qué hace falta una consulta aparte.** `query_licitaciones_para_actualizar`
-        filtra por estados activos, así que en cuanto una licitación cierra deja de
-        revisitarse: el detalle se captura una vez, con el llamado abierto, y nunca
-        se vuelve a mirar. Resultado: quien siguió una licitación en TORDO no se
-        entera nunca de quién ganó ni a cuánto — el dato existe en la API y no lo
-        pedimos.
-
-        El alcance es deliberadamente estrecho —sólo lo que alguien sigue— porque
-        revisitar el catálogo entero serían cientos de miles de llamadas a una API
-        con cuota para responder una pregunta que nadie hizo.
-
-        **Por qué no basta con `fecha_adjudicacion IS NULL`.** Eso deja a una
-        licitación adjudicada ayer fuera de la consulta para siempre, aunque
-        ChileCompra la revoque y readjudique la semana próxima — la corrección
-        nunca llegaría a `licitaciones_detalle`. Por eso una adjudicación
-        DENTRO de `VENTANA_RECONSIDERACION_DIAS` también se vuelve a pedir;
-        pasado ese margen, sale de la consulta y no vuelve a entrar aunque se
-        revoque más tarde — un caso raro, y es la contrapartida deliberada de
-        mantener esto acotado.
-
-        Returns:
-            List of tuples (id, codigo_externo, detalle_id)
-        """
-        if not self.session:
-            self.connect()
-
-        limite_ventana = now_santiago() - timedelta(days=self.VENTANA_RECONSIDERACION_DIAS)
-
-        query = (
-            self.session.query(
-                Licitacion.id, Licitacion.codigo_externo, LicitacionDetalle.id.label("detalle_id")
-            )
-            .join(LicitacionDetalle, Licitacion.id == LicitacionDetalle.licitacion_id)
-            # Subconsulta en SQL literal: el ETL no importa el modelo
-            # `Postulacion` —vive en el backend— y traerlo por `shared_imports`
-            # sólo para un `IN` acoplaría el pipeline a una tabla de producto.
-            .filter(text("licitaciones.id IN (SELECT licitacion_id FROM postulaciones)"))
-            .filter(Licitacion.fecha_cierre.isnot(None))
-            .filter(Licitacion.fecha_cierre < now_santiago())
-            .filter(
-                or_(
-                    LicitacionDetalle.fecha_adjudicacion.is_(None),
-                    LicitacionDetalle.fecha_adjudicacion >= limite_ventana,
-                )
-            )
-            # Las más recientes primero: si hay tope, interesa lo que el usuario
-            # todavía tiene fresco, no una licitación de hace ocho meses.
-            .order_by(Licitacion.fecha_cierre.desc())
-        )
-
-        if limit:
-            query = query.limit(limit)
-
-        return query.all()
-
     def query_ordenes_para_actualizar(
         self, dias_sin_actualizar: int = 1, limit: int | None = None
     ) -> List[tuple]:
@@ -1370,42 +1271,6 @@ class DatabaseLoaderV2(BaseLoader):
             query = query.limit(limit)
 
         return query.all()
-
-    def _trigger_licitacion_alerts(self, licitacion_ids: List[int]):
-        """Trigger alert processing for new licitaciones"""
-        try:
-            sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../backend"))
-            from app.utils.alert_trigger import trigger_licitacion_alert
-
-            for licitacion_id in licitacion_ids:
-                try:
-                    trigger_licitacion_alert(licitacion_id, use_celery=True)
-                except Exception as e:
-                    self.logger.warning(
-                        f"Failed to trigger alert for licitacion {licitacion_id}: {e}"
-                    )
-        except ImportError:
-            self.logger.debug("Alert trigger not available, skipping alert processing")
-        except Exception as e:
-            self.logger.warning(f"Failed to trigger alerts: {e}")
-
-    def _trigger_orden_compra_alerts(self, orden_compra_ids: List[int]):
-        """Trigger alert processing for new órdenes de compra"""
-        try:
-            sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../backend"))
-            from app.utils.alert_trigger import trigger_orden_compra_alert
-
-            for orden_compra_id in orden_compra_ids:
-                try:
-                    trigger_orden_compra_alert(orden_compra_id, use_celery=True)
-                except Exception as e:
-                    self.logger.warning(
-                        f"Failed to trigger alert for orden_compra {orden_compra_id}: {e}"
-                    )
-        except ImportError:
-            self.logger.debug("Alert trigger not available, skipping alert processing")
-        except Exception as e:
-            self.logger.warning(f"Failed to trigger alerts: {e}")
 
     def load(self, data: List[Dict[str, Any]]) -> int:
         """

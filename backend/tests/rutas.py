@@ -2,8 +2,8 @@
 
 Por qué existe
 --------------
-Dos tests de seguridad se apoyan en introspeccionar las rutas: el estructural de
-multi-tenancy y el de contrato de BI. Ambos recorrían `app.routes` directamente.
+Varios tests estructurales se apoyan en introspeccionar las rutas —entonces el de
+multi-tenancy y el de contrato de BI—, y recorrían `app.routes` directamente.
 
 **FastAPI 0.141 dejó de aplanar los routers incluidos**: `app.routes` devuelve
 envoltorios `_IncludedRouter` en vez de las `APIRoute` de dentro. Al actualizar
@@ -25,10 +25,11 @@ from collections.abc import Iterator
 
 from fastapi.routing import APIRoute
 
-# Por debajo de esto, el recorrido está roto y no es que falten rutas. La app
-# tiene ~90; el margen es amplio a propósito para que no haya que tocarlo cada
-# vez que se añade o se quita un endpoint.
-MINIMO_PLAUSIBLE = 50
+# Por debajo de esto, el recorrido está roto y no es que falten rutas. Antes 50,
+# con ~90 rutas; el pivote público retiró las cuentas y quedan 26 (tenders 3,
+# bi 20, health 2, raíz 1). El margen sigue siendo amplio a propósito para que no
+# haya que tocarlo cada vez que se añade o se quita un endpoint.
+MINIMO_PLAUSIBLE = 20
 
 
 def iter_rutas(app) -> Iterator[tuple[str, APIRoute]]:
@@ -80,7 +81,7 @@ def comprobar_recorrido(app) -> None:
 
     Hace falta porque el prefijo se saca de `include_context`, que es detalle
     interno de FastAPI. Si un día deja de existir, esto lo dice — en vez de que
-    los tests de tenancy y de contrato de BI se queden comparando `/tenders/`
+    los tests estructurales se queden comparando `/tenders/`
     contra `/api/v1/tenders/` y encuentren cero coincidencias.
     """
 

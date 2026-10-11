@@ -53,7 +53,6 @@ interface BIPanel {
 
 interface OpportunityScoreCardProps {
   panel: BIPanel;
-  plan?: string; // "basico" | "pyme" | "pro" | "enterprise"
 }
 
 // ── Driver derivation ──────────────────────────────────────────────────────
@@ -206,44 +205,9 @@ function ScoreDial({ score }: { score: number | null }) {
   );
 }
 
-function BasicBadge({ score }: { score: number | null }) {
-  if (score === null) {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full border border-border bg-border/60 px-3 py-1 text-sm font-semibold text-muted">
-        Sin datos
-      </span>
-    );
-  }
-
-  if (score >= 7) {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/25 bg-accent/15 px-3 py-1 text-sm font-semibold text-accent">
-        Score alto
-      </span>
-    );
-  }
-  if (score >= 4.5) {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-gold/25 bg-gold/15 px-3 py-1 text-sm font-semibold text-gold">
-        Score medio
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-danger/25 bg-danger/15 px-3 py-1 text-sm font-semibold text-danger">
-      Score bajo
-    </span>
-  );
-}
-
 // ── Main component ─────────────────────────────────────────────────────────
 
-export function OpportunityScoreCard({
-  panel,
-  plan = 'basico',
-}: OpportunityScoreCardProps) {
-  const isPro = plan === 'pro' || plan === 'enterprise';
-
+export function OpportunityScoreCard({ panel }: OpportunityScoreCardProps) {
   const drivers = deriveDrivers(panel);
   const score = computeScore(drivers);
   const explanation = buildExplanation(drivers, score);
@@ -262,56 +226,34 @@ export function OpportunityScoreCard({
         <ConfidenceBadge n={n} />
       </div>
 
-      {isPro ? (
-        <>
-          {/* Score dial */}
-          <ScoreDial score={score} />
+      {/* Score dial */}
+      <ScoreDial score={score} />
 
-          {/* Driver bars */}
-          <div className="flex flex-col gap-2.5">
-            <DriverBar
-              label="Confiabilidad"
-              value={drivers.fit}
-            />
-            <DriverBar
-              label="Precio ref."
-              value={drivers.precio}
-              note={precioNote}
-            />
-            <DriverBar
-              label="Competencia"
-              value={drivers.competencia}
-            />
-            <DriverBar
-              label="Timing"
-              value={drivers.timing}
-            />
-          </div>
+      {/* Driver bars */}
+      <div className="flex flex-col gap-2.5">
+        <DriverBar
+          label="Confiabilidad"
+          value={drivers.fit}
+        />
+        <DriverBar
+          label="Precio ref."
+          value={drivers.precio}
+          note={precioNote}
+        />
+        <DriverBar
+          label="Competencia"
+          value={drivers.competencia}
+        />
+        <DriverBar
+          label="Timing"
+          value={drivers.timing}
+        />
+      </div>
 
-          {/* Explanatory text */}
-          <p className="rounded-lg border border-border bg-surface px-3 py-2.5 text-sm italic text-muted">
-            &ldquo;{explanation}&rdquo;
-          </p>
-        </>
-      ) : (
-        <>
-          {/* Basic / PYME: badge only + upgrade CTA */}
-          <div className="flex flex-col items-center gap-4 py-4">
-            <BasicBadge score={score} />
-            <div className="flex flex-col items-center gap-2 text-center">
-              <p className="text-sm text-muted">
-                Desglosa los 4 factores del score y el análisis detallado
-              </p>
-              <a
-                href="/dashboard/billing"
-                className="btn-primary inline-flex items-center gap-1.5 text-sm"
-              >
-                Disponible en plan Pro
-              </a>
-            </div>
-          </div>
-        </>
-      )}
+      {/* Explanatory text */}
+      <p className="rounded-lg border border-border bg-surface px-3 py-2.5 text-sm italic text-muted">
+        &ldquo;{explanation}&rdquo;
+      </p>
     </div>
   );
 }

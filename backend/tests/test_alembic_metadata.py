@@ -36,7 +36,9 @@ def test_los_modelos_se_registran_en_la_metadata():
     """Sin DB: el import de `app.models` puebla `Base.metadata`."""
     import app.models  # noqa: F401
 
-    assert len(Base.metadata.tables) > 20, (
+    # Antes `> 20`; el pivote público retiró las cuentas y quedan 13 tablas. La
+    # guarda sigue: con `__init__` vacío serían cero.
+    assert len(Base.metadata.tables) >= 12, (
         "Base.metadata está casi vacía. Si `app/models/__init__.py` dejó de "
         "reexportar los modelos, autogenerate propondrá borrar la base entera."
     )
@@ -70,7 +72,7 @@ def test_autogenerate_no_propone_borrar_tablas():
     if not url:
         pytest.skip("sin DATABASE_URL")
 
-    entorno = {**os.environ, "SECRET_KEY": os.getenv("SECRET_KEY", "test")}
+    entorno = dict(os.environ)
     try:
         resultado = subprocess.run(
             ["alembic", "check"],

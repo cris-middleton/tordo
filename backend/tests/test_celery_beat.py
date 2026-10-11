@@ -27,5 +27,8 @@ def test_la_tarea_programada_esta_registrada(nombre: str, tarea: str):
 
 def test_hay_calendario():
     """Si `beat_schedule` quedara vacío, el test parametrizado pasaría con cero
-    casos y diría que todo está bien sin haber comprobado nada."""
-    assert len(PROGRAMADAS) >= 10
+    casos y diría que todo está bien sin haber comprobado nada.
+
+    Antes ≥10; el pivote público retiró las cuentas y quedan las cuatro del ETL
+    (horaria, diaria, bulk semanal y watchdog)."""
+    assert len(PROGRAMADAS) >= 4

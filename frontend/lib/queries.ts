@@ -14,49 +14,22 @@
  * de lo que parece**: son lo que permite invalidar con precisión después de una
  * mutación — sin ellas, o refrescas todo o te quedas con datos viejos.
  *
- * Los hooks envuelven `lib/api.ts`, no `fetch`. Esa capa es la que permitirá
- * mover el transporte a un proxy con cookie `httpOnly` sin tocar una sola
- * pantalla.
+ * Los hooks envuelven `lib/api.ts`, no `fetch`: el transporte (hoy, el proxy de
+ * Next) se cambia ahí sin tocar una sola pantalla.
  */
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 
 import { apiClient } from './api';
-import { useEmpresaActiva } from './empresaActive';
 
 // ── Claves ───────────────────────────────────────────────────────────────────
 //
-// Jerárquicas a propósito: invalidar `claves.empresas()` alcanza también a
-// `claves.empresaMiembros(id)`, porque la primera es prefijo de la segunda.
+// Jerárquicas a propósito: invalidar `['bi']` alcanza a todas las consultas de
+// analítica, porque es prefijo de cada una.
 
 export const claves = {
-  usuario: () => ['usuario'] as const,
-
-  empresas: () => ['empresas'] as const,
-  empresaPlan: (empresaId: string) => ['empresas', empresaId, 'plan'] as const,
-  empresaMiembros: (empresaId: string) => ['empresas', empresaId, 'miembros'] as const,
-  empresaDocumentos: (empresaId: string) => ['empresas', empresaId, 'documentos'] as const,
-  empresaEstadoHabil: (empresaId: string) => ['empresas', empresaId, 'estado-habil'] as const,
-  empresaApiKeys: (empresaId: string) => ['empresas', empresaId, 'api-keys'] as const,
-  empresaPrecios: (empresaId: string) => ['empresas', empresaId, 'precios-vigilados'] as const,
-  empresaPerfil: (empresaId: string) => ['empresas', empresaId, 'perfil-semantico'] as const,
-
   licitaciones: (params: Record<string, unknown>) => ['licitaciones', params] as const,
   licitacion: (codigo: string) => ['licitaciones', codigo] as const,
-
-  ordenes: (params: Record<string, unknown>) => ['ordenes', params] as const,
-
-  alertas: (params: Record<string, unknown>) => ['alertas', params] as const,
-  alertaPreferencias: (soloActivas: boolean) => ['alertas', 'preferencias', soloActivas] as const,
-
-  postulaciones: (empresaId: string, params: Record<string, unknown>) =>
-    ['postulaciones', empresaId, params] as const,
-
-  panel: (empresaId?: string) => ['panel', empresaId ?? null] as const,
-  panelEstadisticas: () => ['panel', 'estadisticas'] as const,
-
-  cobroPlanes: () => ['cobro', 'planes'] as const,
-  cobroEstado: () => ['cobro', 'estado'] as const,
 
   // BI: todas bajo el mismo prefijo, así que una invalidación las alcanza a
   // todas si algún día hace falta.
@@ -64,77 +37,6 @@ export const claves = {
 };
 
 // ── Consultas ────────────────────────────────────────────────────────────────
-
-export function useUsuario(habilitada = true) {
-  return useQuery({
-    queryKey: claves.usuario(),
-    queryFn: ({ signal }) => apiClient.getCurrentUser(signal),
-    enabled: habilitada,
-    // El usuario no cambia mientras navega. Pedirlo en cada pantalla era una
-    // llamada por montaje.
-    staleTime: 5 * 60_000,
-  });
-}
-
-export function useEmpresas() {
-  return useQuery({ queryKey: claves.empresas(), queryFn: () => apiClient.getEmpresas() });
-}
-
-export function usePlanEmpresa(empresaId?: string) {
-  return useQuery({
-    queryKey: claves.empresaPlan(empresaId ?? ''),
-    queryFn: () => apiClient.getPlanEmpresa(empresaId as string),
-    enabled: Boolean(empresaId),
-  });
-}
-
-/**
- * ¿Encaja esta licitación con lo que vende la empresa?
- *
- * Es capacidad Pro y el backend responde 402 a los demás, así que quien llama
- * decide `habilitada` según el plan: sin eso, cada ficha abierta por un usuario
- * Free dispararía el aviso de mejora sin que hubiera pedido nada.
- */
-export function useEncajeLicitacion(
-  codigo: string,
-  empresaId: string | undefined,
-  texto: string,
-  habilitada: boolean,
-) {
-  return useQuery({
-    queryKey: claves.bi('encaje', { codigo, empresaId, texto }),
-    queryFn: () =>
-      apiClient.getBILicitacionMatch(codigo, { empresa_id: empresaId as string, texto }),
-    enabled: habilitada && Boolean(codigo && empresaId) && texto.length >= 3,
-    retry: false,
-  });
-}
-
-/**
- * El plan EFECTIVO de la empresa activa — la única fuente del plan en la UI.
- *
- * El plan es de la empresa desde F3 (ADR 0002) y `/auth/me` dejó de traerlo,
- * pero siete pantallas seguían leyendo `user.plan_tier`: valía `undefined`, así
- * que la barra decía «Plan Free» y las bandas de precio y los competidores se
- * quedaban con candado **también para quien paga Pro**. En trial el tier
- * efectivo es `pro`; eso sólo lo sabe el backend, y por eso no se deduce aquí.
- *
- * La empresa se resuelve como en el selector: la guardada, o la primera.
- */
-export function usePlanActual() {
-  const guardada = useEmpresaActiva();
-  const { data: empresas } = useEmpresas();
-  const primera = Array.isArray(empresas) ? (empresas[0]?.id as string | undefined) : undefined;
-  return usePlanEmpresa(guardada ?? primera);
-}
-
-export function useApiKeys(empresaId?: string) {
-  return useQuery({
-    queryKey: claves.empresaApiKeys(empresaId ?? ''),
-    queryFn: () => apiClient.getApiKeys(empresaId as string),
-    enabled: Boolean(empresaId),
-  });
-}
 
 /**
  * Los datos de la pantalla de analítica.
@@ -190,57 +92,6 @@ export function useBIRubros() {
   });
 }
 
-export function usePerfilSemantico(empresaId?: string) {
-  return useQuery({
-    queryKey: claves.empresaPerfil(empresaId ?? ''),
-    queryFn: () => apiClient.getTFIDFPerfil(empresaId as string),
-    enabled: Boolean(empresaId),
-  });
-}
-
-export function useGuardarPerfilSemantico(empresaId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (datos: { descripcion: string; rubros_usados: string[] }) =>
-      apiClient.updateTFIDFPerfil(empresaId, datos),
-    onSuccess: () => qc.invalidateQueries({ queryKey: claves.empresaPerfil(empresaId) }),
-  });
-}
-
-export function useEmpresaMiembros(empresaId?: string) {
-  return useQuery({
-    queryKey: claves.empresaMiembros(empresaId ?? ''),
-    queryFn: () => apiClient.getEmpresaMembers(empresaId as string),
-    // `enabled` es lo que evita el patrón `if (!id) return` dentro de un efecto:
-    // sin empresa no se pide, y el hook sigue siendo incondicional.
-    enabled: Boolean(empresaId),
-  });
-}
-
-export function usePreciosVigilados(empresaId?: string) {
-  return useQuery({
-    queryKey: claves.empresaPrecios(empresaId ?? ''),
-    queryFn: () => apiClient.getPreciosVigilados(empresaId as string),
-    enabled: Boolean(empresaId),
-  });
-}
-
-export function useDocumentos(empresaId?: string) {
-  return useQuery({
-    queryKey: claves.empresaDocumentos(empresaId ?? ''),
-    queryFn: () => apiClient.getDocumentos(empresaId as string),
-    enabled: Boolean(empresaId),
-  });
-}
-
-export function useEstadoHabil(empresaId?: string) {
-  return useQuery({
-    queryKey: claves.empresaEstadoHabil(empresaId ?? ''),
-    queryFn: () => apiClient.getEstadoHabil(empresaId as string),
-    enabled: Boolean(empresaId),
-  });
-}
-
 export function useLicitaciones(params: Record<string, unknown> = {}) {
   return useQuery({
     queryKey: claves.licitaciones(params),
@@ -256,146 +107,6 @@ export function useLicitacion(codigo?: string) {
     queryKey: claves.licitacion(codigo ?? ''),
     queryFn: () => apiClient.getTenderByCode(codigo as string),
     enabled: Boolean(codigo),
-  });
-}
-
-export function useOrdenes(params: Record<string, unknown> = {}) {
-  return useQuery({
-    queryKey: claves.ordenes(params),
-    queryFn: () => apiClient.getOrders(params),
-    placeholderData: (anterior) => anterior,
-  });
-}
-
-export function useAlertas(params: Record<string, unknown> = {}) {
-  return useQuery({ queryKey: claves.alertas(params), queryFn: () => apiClient.getAlerts(params) });
-}
-
-export function useAlertaPreferencias(soloActivas = true) {
-  return useQuery({
-    queryKey: claves.alertaPreferencias(soloActivas),
-    queryFn: () => apiClient.getAlertPreferences(soloActivas),
-  });
-}
-
-export function usePostulaciones(empresaId?: string, params: Record<string, unknown> = {}) {
-  return useQuery({
-    queryKey: claves.postulaciones(empresaId ?? '', params),
-    queryFn: () => apiClient.getPostulaciones(empresaId as string, params),
-    enabled: Boolean(empresaId),
-  });
-}
-
-export function usePanel(empresaId?: string) {
-  return useQuery({
-    queryKey: claves.panel(empresaId),
-    queryFn: () => apiClient.getDashboardHome(empresaId),
-  });
-}
-
-export function useCobroPlanes() {
-  return useQuery({
-    queryKey: claves.cobroPlanes(),
-    queryFn: () => apiClient.getBillingPlans(),
-    // Los planes cambian con un despliegue, no durante una sesión.
-    staleTime: 30 * 60_000,
-  });
-}
-
-export function useCobroEstado() {
-  return useQuery({ queryKey: claves.cobroEstado(), queryFn: () => apiClient.getBillingStatus() });
-}
-
-// ── Mutaciones ───────────────────────────────────────────────────────────────
-//
-// Cada una invalida lo que deja obsoleto. Es la mitad que se olvida: sin
-// invalidar, la pantalla sigue mostrando lo de antes hasta que alguien recarga.
-
-export function useCancelarSuscripcion() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (empresaId?: string) => apiClient.cancelarSuscripcion(empresaId),
-    // Invalidar es el motivo de que las claves vivan en un solo sitio: tras
-    // cancelar, el estado de cobro y el plan de la empresa dejan de ser válidos.
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: claves.cobroEstado() });
-      qc.invalidateQueries({ queryKey: claves.empresas() });
-    },
-  });
-}
-
-// Sumar o quitar a alguien mueve DOS cosas: la lista y los asientos
-// consumidos. Invalidar sólo la lista deja el contador "2 de 3" congelado justo
-// al lado de la fila que acaba de aparecer.
-function invalidarEquipo(qc: ReturnType<typeof useQueryClient>, empresaId: string) {
-  qc.invalidateQueries({ queryKey: claves.empresaMiembros(empresaId) });
-  qc.invalidateQueries({ queryKey: claves.empresaPlan(empresaId) });
-}
-
-export function useAgregarMiembro(empresaId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ email, rol }: { email: string; rol: 'admin' | 'viewer' }) =>
-      apiClient.addEmpresaMember(empresaId, email, rol),
-    onSuccess: () => invalidarEquipo(qc, empresaId),
-  });
-}
-
-export function useEliminarMiembro(empresaId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (userId: number) => apiClient.removeEmpresaMember(empresaId, userId),
-    onSuccess: () => invalidarEquipo(qc, empresaId),
-  });
-}
-
-export function useCrearApiKey(empresaId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (nombre: string) => apiClient.crearApiKey(empresaId, nombre),
-    onSuccess: () => qc.invalidateQueries({ queryKey: claves.empresaApiKeys(empresaId) }),
-  });
-}
-
-export function useRevocarApiKey(empresaId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (claveId: string) => apiClient.revocarApiKey(empresaId, claveId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: claves.empresaApiKeys(empresaId) }),
-  });
-}
-
-export function useVigilarPrecio(empresaId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (datos: { codigo_producto: string; nombre_producto?: string; umbral_pct?: number }) =>
-      apiClient.vigilarPrecio(empresaId, datos),
-    onSuccess: () => qc.invalidateQueries({ queryKey: claves.empresaPrecios(empresaId) }),
-  });
-}
-
-export function useDejarDeVigilarPrecio(empresaId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (suscripcionId: number) => apiClient.dejarDeVigilarPrecio(empresaId, suscripcionId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: claves.empresaPrecios(empresaId) }),
-  });
-}
-
-export function useMarcarAlertaLeida() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (alertId: number) => apiClient.markAlertAsRead(alertId),
-    // Prefijo: alcanza a todas las combinaciones de filtros de alertas.
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['alertas'] }),
-  });
-}
-
-export function useEliminarAlerta() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (alertId: number) => apiClient.deleteAlert(alertId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['alertas'] }),
   });
 }
 
@@ -419,15 +130,6 @@ export function useBI<T>(
     // frescura es conservador y ahorra la mayoría de las llamadas.
     staleTime: 5 * 60_000,
   });
-}
-
-export function useRadarSemanal(empresaId?: string) {
-  return useBI(
-    'radar',
-    () => apiClient.getBIRadarSemanal(empresaId as string),
-    empresaId,
-    Boolean(empresaId),
-  );
 }
 
 export function useComprador(organismoId?: string) {
@@ -455,22 +157,11 @@ export function useCompetidores(organismoId?: string, rubro?: string) {
   );
 }
 
-export function useMiPosicion(empresaId?: string, rubro?: string) {
-  // `enabled` sustituye al efecto que disparaba la carga cuando ambos valores
-  // estaban disponibles: la consulta simplemente no corre hasta que lo están.
-  return useBI(
-    'mi-posicion',
-    () => apiClient.getBIMiPosicion({ empresa_id: empresaId as string, rubro: rubro as string }),
-    { empresaId, rubro },
-    Boolean(empresaId && rubro),
-  );
-}
-
-export function usePanelLicitacion(codigoExterno?: string, empresaId?: string) {
+export function usePanelLicitacion(codigoExterno?: string) {
   return useBI(
     'panel-licitacion',
-    () => apiClient.getBIPanel(codigoExterno as string, empresaId),
-    { codigoExterno, empresaId },
+    () => apiClient.getBIPanel(codigoExterno as string),
+    codigoExterno,
     Boolean(codigoExterno),
   );
 }

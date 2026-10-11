@@ -8,8 +8,7 @@ import { useState } from 'react';
  * El cliente se crea DENTRO del componente, no como constante de módulo.
  *
  * Un `new QueryClient()` a nivel de módulo se comparte entre peticiones en el
- * servidor: los datos de una empresa acabarían en la caché que ve otra. En un
- * producto multi-inquilino eso no es un detalle de rendimiento.
+ * servidor: lo que pidió un visitante acabaría en la caché del siguiente.
  *
  * `useState` con inicializador perezoso lo crea una vez por montaje del árbol,
  * que es lo que hace falta.
@@ -22,7 +21,7 @@ function crearCliente() {
         // a los 30 segundos no devuelve nada nuevo. Un minuto de frescura evita
         // el refetch en cada navegación sin mostrar nada rancio.
         staleTime: 60_000,
-        // Reintentar un 401 o un 403 no arregla nada y multiplica el ruido en
+        // Reintentar un 404 o un 422 no arregla nada y multiplica el ruido en
         // los logs. Sólo se reintenta lo que puede ser un fallo transitorio.
         retry: (fallos, error: unknown) => {
           const status = (error as { response?: { status?: number } })?.response?.status;

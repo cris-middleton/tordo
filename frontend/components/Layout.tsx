@@ -1,27 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
-import { usePlanActual } from '@/lib/queries';
-import { incluyePro } from '@/lib/plan';
-import { useAvatar } from '@/lib/avatar';
 import TordoLogo from '@/components/TordoLogo';
-import {
-  LayoutDashboard,
-  Bell,
-  Settings,
-  LogOut,
-  Menu,
-  X,
-  Star,
-  ClipboardList,
-  ChevronRight,
-  Users,
-  Briefcase,
-  Receipt,
-  Radar,
-} from 'lucide-react';
+import SelectorTema from '@/components/SelectorTema';
+import { Menu, X, ChevronRight, Briefcase, Radar } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -31,7 +14,6 @@ interface NavItem {
   name: string;
   href: string;
   icon: React.ElementType;
-  badge?: string;
 }
 
 interface NavSection {
@@ -39,60 +21,29 @@ interface NavSection {
   items: NavItem[];
 }
 
-/* Dos arreglos en el menú, y los dos son de idioma:
+/* «Inteligencia de mercado» va con mayúscula sólo en la primera palabra: la
+   mayúscula en cada palabra es una convención del inglés.
 
-   - «Dashboard» era la única entrada en inglés de un producto que se vende
-     como «sólo español». Se llama Panel, y así lo nombran también los correos
-     y la pantalla de verificación («Ir a mi panel»).
-   - «Inteligencia de Mercado» y «Mi Empresa» iban en mayúscula inicial en cada
-     palabra, que es una convención del inglés. En español sólo va la primera. */
+   Desde el pivote a sitio público el menú sólo lleva lo que ve un visitante
+   anónimo. Panel, Postulaciones, Órdenes y el grupo «Cuenta» se fueron con las
+   cuentas. */
 const navSections: NavSection[] = [
   {
-    label: 'Operaciones',
-    items: [
-      { name: 'Panel', href: '/dashboard', icon: LayoutDashboard },
-      { name: 'Licitaciones', href: '/dashboard/tenders', icon: Briefcase },
-      { name: 'Órdenes de compra', href: '/dashboard/orders', icon: Receipt },
-      { name: 'Postulaciones', href: '/dashboard/postulaciones', icon: ClipboardList },
-    ],
+    label: 'Explorar',
+    items: [{ name: 'Licitaciones', href: '/dashboard/tenders', icon: Briefcase }],
   },
   {
     label: 'Análisis',
-    items: [
-      { name: 'Inteligencia de mercado', href: '/dashboard/bi', icon: Radar, badge: 'Pro' },
-    ],
-  },
-  {
-    label: 'Cuenta',
-    items: [
-      { name: 'Mi empresa', href: '/dashboard/empresa', icon: Users },
-      { name: 'Configuración', href: '/dashboard/settings', icon: Settings },
-    ],
+    items: [{ name: 'Inteligencia de mercado', href: '/dashboard/bi', icon: Radar }],
   },
 ];
 
 export default function Layout({ children }: LayoutProps) {
-  // `Date.now()` se llamaba en pleno render, lo que lo hace no determinista:
-  // dos renders del mismo estado podían pintar cifras distintas. Se fija al
-  // montar. Los días de trial no cambian mientras la página está abierta, así
-  // que no se pierde nada. Lo detectó `react-hooks/purity` al subir a Next 16.
-  const [montadoEn] = useState(() => Date.now());
-
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const avatar = useAvatar();
   const router = useRouter();
   const pathname = usePathname();
-  const { user, logout } = useAuth();
-  // El plan es de la EMPRESA y es el efectivo: en trial, Pro.
-  const { data: plan } = usePlanActual();
 
-  const handleLogout = () => {
-    logout();
-    router.push('/login');
-  };
-
-  const isActive = (href: string) =>
-    href === '/dashboard' ? pathname === href : pathname.startsWith(href);
+  const isActive = (href: string) => pathname.startsWith(href);
 
   const navigate = (href: string) => {
     router.push(href);
@@ -101,23 +52,7 @@ export default function Layout({ children }: LayoutProps) {
 
   const allNavItems = navSections.flatMap((s) => s.items);
 
-
-  // Routes that exist but are not listed in the sidebar nav
-  const extraRouteNames: Record<string, string> = {
-    '/dashboard/alerts': 'Alertas',
-    '/dashboard/billing': 'Facturación',
-    '/dashboard/calendario': 'Calendario',
-    '/dashboard/documentos': 'Documentos',
-  };
-
-  const currentPage =
-    allNavItems.find((n) => isActive(n.href))?.name ??
-    Object.entries(extraRouteNames).find(([path]) => pathname.startsWith(path))?.[1] ??
-    'Panel';
-
-  const initials = user?.full_name
-    ? user.full_name.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()
-    : user?.username?.slice(0, 2).toUpperCase() ?? 'U';
+  const currentPage = allNavItems.find((n) => isActive(n.href))?.name ?? 'Licitaciones';
 
   return (
     <div className="min-h-screen bg-background">
@@ -143,7 +78,7 @@ export default function Layout({ children }: LayoutProps) {
         {/* Logo */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-borderLight">
           <button
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate('/')}
             className="group flex items-center gap-2.5 focus-visible:outline-none"
           >
             <TordoLogo size={24} />
@@ -198,12 +133,6 @@ export default function Layout({ children }: LayoutProps) {
                         />
                         <span className="truncate">{item.name}</span>
                       </div>
-                      {item.badge ? (
-                        <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-gold px-1.5 py-0.5 text-[10px] font-bold text-onGold">
-                          <Star size={9} />
-                          {item.badge}
-                        </span>
-                      ) : null}
                     </button>
                   );
                 })}
@@ -212,64 +141,12 @@ export default function Layout({ children }: LayoutProps) {
           ))}
         </nav>
 
-        {/* User section */}
+        {/* Apariencia: vivía en Configuración, que se fue con las cuentas. */}
         <div className="border-t border-borderLight px-4 py-4">
-          {user && plan && (() => {
-            const isTrial = plan.en_trial && !!plan.trial_termina;
-            const daysLeft = isTrial
-              ? Math.max(
-                  0,
-                  Math.ceil(
-                    (new Date(plan.trial_termina as string).getTime() - montadoEn)
-                      / (1000 * 60 * 60 * 24)
-                  )
-                )
-              : 0;
-            const planLabel = incluyePro(plan.tier) ? 'Pro' : 'Free';
-            return (
-              <div className="mb-3 flex items-center gap-2 rounded-lg bg-background px-3 py-2">
-                <div className={`h-1.5 w-1.5 rounded-full ${isTrial ? 'bg-gold' : 'bg-accent'}`} />
-                <span className="text-xs font-medium text-muted">
-                  {isTrial ? (
-                    <>
-                      Prueba Pro ·{' '}
-                      <span className="font-bold text-text">
-                        {daysLeft === 1 ? '1 día' : `${daysLeft} días`} restantes
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      Plan <span className="font-bold text-text">{planLabel}</span>
-                    </>
-                  )}
-                </span>
-              </div>
-            );
-          })()}
-
-          <div className="flex items-center gap-3 mb-3">
-            <button
-              onClick={() => navigate('/dashboard/empresa')}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-onPrimary text-sm font-medium hover:ring-2 hover:ring-primary/40 hover:ring-offset-1 hover:ring-offset-background transition-all"
-              aria-label="Mi perfil"
-            >
-              {avatar ? <span className="text-xl leading-none">{avatar}</span> : initials}
-            </button>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-text">
-                {user?.full_name || user?.username}
-              </p>
-              <p className="truncate text-xs text-muted">{user?.email}</p>
-            </div>
-          </div>
-
-          <button
-            onClick={handleLogout}
-            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-muted transition-all hover:bg-danger/8 hover:text-danger"
-          >
-            <LogOut size={15} />
-            <span>Cerrar sesión</span>
-          </button>
+          <p className="mb-2 px-1 text-[10px] font-bold tracking-widest text-subtle uppercase">
+            Apariencia
+          </p>
+          <SelectorTema />
         </div>
       </aside>
 
@@ -292,7 +169,7 @@ export default function Layout({ children }: LayoutProps) {
             {/* Breadcrumb */}
             <div className="flex items-center gap-2 text-sm">
               <button
-                onClick={() => navigate('/dashboard')}
+                onClick={() => navigate('/')}
                 className="font-brand font-bold text-subtle hidden sm:block tracking-tighter hover:text-primary transition-colors"
               >
                 Tordo
@@ -301,13 +178,6 @@ export default function Layout({ children }: LayoutProps) {
               <span className="font-semibold text-text">{currentPage}</span>
             </div>
             <div className="flex-1" />
-            <button
-              onClick={() => navigate('/dashboard/alerts')}
-              className="relative rounded-lg p-2 text-muted transition-colors hover:bg-primary/8 hover:text-primary"
-              aria-label="Alertas"
-            >
-              <Bell size={17} aria-hidden="true" />
-            </button>
           </div>
         </header>
 

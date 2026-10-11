@@ -1,21 +1,20 @@
 """Las herramientas que el MCP expone.
 
-**Cuatro, no veintidós, y es la decisión de diseño que hay que respetar.**
+**Cuatro, no veinte, y es la decisión de diseño que hay que respetar.**
 
-La razón es económica y está medida en el [ADR 0004]: una persona hace unas tres
-consultas de BI para evaluar una licitación; **un modelo encadena unas quince**
-para responder una sola pregunta. Con las cuotas actuales —`basico` 3/día,
-`pyme` 50/día— exponer los 22 endpoints uno a uno agotaría el plan de un usuario
-en una sola conversación, y la culpa parecería del plan.
+La razón está medida en el [ADR 0004]: una persona hace unas tres consultas de BI
+para evaluar una licitación; **un modelo encadena unas quince** para responder
+una sola pregunta. Nació para no agotar la cuota diaria de un plan en una
+conversación; desde el pivote público ya no hay cuotas, pero el motivo de fondo
+sigue: cada llamada es carga sobre la base, y **menos herramientas que devuelvan
+más** —`panel_de_licitacion` responde en una llamada lo que en la API son
+cuatro— es lo que mantiene acotada la de un cliente anónimo.
 
-La salida es **menos herramientas que devuelvan más**: `panel_de_licitacion`
-responde en una llamada lo que en la API son cuatro. Si algún día se exponen los
-endpoints uno a uno, **hay que rehacer las cuotas primero**.
+Vive DENTRO de la aplicación, no como cliente de su propia API (ADR 0004): llama
+a `services/bi/` directo.
 
-Vive DENTRO de la aplicación, no como cliente de su propia API (ADR 0004). Así
-hereda la autenticación por clave, la cuota y `services/bi/` llamado directo. La
-razón de fondo no es la latencia: reimplementar la autorización es de donde salió
-la fuga de `/licitacion-match`.
+**Es anónimo** desde el pivote a sitio público (docs/PIVOTE_PUBLICO_2026-10.md):
+no hay cuentas, así que no hay clave que pedir.
 
 [ADR 0004]: ../../../docs/decisiones/0004-llm-solo-mcp.md
 """
@@ -27,10 +26,10 @@ from typing import Any
 
 from app.config import settings
 from app.db import AsyncSessionLocal
-from app.mcp import autenticacion
+from app.observability import request_id_ctx
 from app.repositories import licitaciones as repo_licitaciones
 from app.services import bi as bi_service
-from mcp.server.mcpserver import Context, MCPServer
+from mcp.server.mcpserver import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 
 logger = logging.getLogger(__name__)
@@ -41,11 +40,10 @@ logger = logging.getLogger(__name__)
 MAX_PRODUCTOS = 10
 
 INSTRUCCIONES = """\
-Datos de Mercado Público (ChileCompra) para la empresa dueña de la clave de API.
+Datos públicos de Mercado Público (ChileCompra).
 
-Cada llamada descuenta de la cuota diaria de consultas del plan, así que conviene
-`panel_de_licitacion` —que responde de una vez precio, competencia, comprador y
-ventana— antes que encadenar herramientas sueltas.
+Conviene `panel_de_licitacion` —que responde de una vez precio, competencia,
+comprador y ventana— antes que encadenar herramientas sueltas.
 
 **Las bandas de precio vienen siempre con `confianza` y `n` (tamaño de muestra).
 Menciónalos.** Una mediana calculada con cuatro órdenes no es un precio de
@@ -62,45 +60,35 @@ servidor = MCPServer(
 )
 
 
-async def _llamante(ctx: Context) -> autenticacion.Llamante:
-    """Resuelve quién llama y le cobra la consulta. Una sesión propia por
-    llamada: el MCP no pasa por `get_db`, que es una dependencia de FastAPI."""
-    async with AsyncSessionLocal() as db:
-        llamante = await autenticacion.resolver(db, ctx.headers)
-    autenticacion.cobrar_consulta(llamante)
-    return llamante
-
-
 def _error(exc: Exception) -> dict[str, Any]:
-    """Un error que el modelo pueda contar al usuario.
+    """Un error que el modelo pueda contar al usuario, SIN el detalle interno.
 
     Se devuelve como resultado y no como excepción del protocolo a propósito: un
-    fallo de transporte deja al modelo sin nada que decir, y «no tienes cuota»
-    es información útil, no una avería.
+    fallo de transporte deja al modelo sin nada que decir.
+
+    El texto de la excepción no sale: el MCP es anónimo, y un error de Postgres o
+    de Polars trae SQL y rutas de ficheros — lo mismo que el manejador de 500 de
+    la API REST esconde. Lo que sí sale es el `request_id`, que lleva al
+    traceback en los logs.
     """
-    detalle = getattr(exc, "detail", None)
-    if isinstance(detalle, dict):
-        return {"error": detalle.get("mensaje", "No se pudo completar la consulta.")}
-    return {"error": str(exc) or "No se pudo completar la consulta."}
+    return {
+        "error": "No se pudo completar la consulta.",
+        "request_id": request_id_ctx.get(),
+    }
 
 
 @servidor.tool(
     title="Panel de una licitación",
     description=(
         "Todo lo que hace falta para decidir si postular a una licitación, en una "
-        "sola llamada: perfil del comprador y cómo paga, si la ventana de "
+        "sola llamada: perfil del comprador, si la ventana de "
         "preparación es holgada o apretada, los competidores habituales, y las "
         "bandas de precio de sus productos con su confianza. Úsala en vez de "
         "encadenar varias herramientas."
     ),
 )
-async def panel_de_licitacion(ctx: Context, codigo: str) -> dict[str, Any]:
+async def panel_de_licitacion(codigo: str) -> dict[str, Any]:
     """`codigo` es el código externo de Mercado Público, p. ej. `1057401-1-LP24`."""
-    try:
-        llamante = await _llamante(ctx)
-    except Exception as exc:
-        return _error(exc)
-
     try:
         async with AsyncSessionLocal() as db:
             lic = await repo_licitaciones.obtener_por_codigo(db, codigo)
@@ -141,7 +129,6 @@ async def panel_de_licitacion(ctx: Context, codigo: str) -> dict[str, Any]:
                 "organismo": lic.nombre_organismo,
             },
             **panel,
-            "empresa": llamante.empresa.nombre_empresa,
         }
     except Exception as exc:
         logger.error("[MCP] panel_de_licitacion(%s) falló: %s", codigo, exc, exc_info=True)
@@ -158,13 +145,8 @@ async def panel_de_licitacion(ctx: Context, codigo: str) -> dict[str, Any]:
     ),
 )
 async def precio_de_producto(
-    ctx: Context, codigo_producto: str, organismo_id: str | None = None
+    codigo_producto: str, organismo_id: str | None = None
 ) -> dict[str, Any]:
-    try:
-        await _llamante(ctx)
-    except Exception as exc:
-        return _error(exc)
-
     try:
         # `confianza` y `n` vienen dentro y NO se filtran: un modelo que recibe
         # una banda sin saber que se calculó con cuatro observaciones la
@@ -180,17 +162,13 @@ async def precio_de_producto(
 @servidor.tool(
     title="Perfil de un comprador",
     description=(
-        "Cómo se comporta un organismo público: en cuántos días paga, qué tan "
-        "transparente es su historial y sus señales de riesgo. Sirve para decidir "
-        "si conviene trabajar con él antes de mirar el precio."
+        "Cómo se comporta un organismo público: qué tan transparente es su "
+        "historial, cuánto de lo que llama termina adjudicando y sus señales de "
+        "riesgo. Sirve para decidir si conviene trabajar con él antes de mirar el "
+        "precio."
     ),
 )
-async def perfil_de_comprador(ctx: Context, organismo_id: str) -> dict[str, Any]:
-    try:
-        await _llamante(ctx)
-    except Exception as exc:
-        return _error(exc)
-
+async def perfil_de_comprador(organismo_id: str) -> dict[str, Any]:
     try:
         return bi_service.get_comprador(organismo_id)
     except Exception as exc:
@@ -207,17 +185,39 @@ async def perfil_de_comprador(ctx: Context, organismo_id: str) -> dict[str, Any]
         "uno, que es lo que indica si el precio será fiable."
     ),
 )
-async def buscar_productos(ctx: Context, texto: str, limite: int = 20) -> dict[str, Any]:
+async def buscar_productos(texto: str, limite: int = 20) -> dict[str, Any]:
     try:
-        await _llamante(ctx)
-    except Exception as exc:
-        return _error(exc)
-
-    try:
-        return bi_service.get_productos(q=texto, limit=min(limite, 50))
+        return bi_service.get_productos(q=texto, limit=max(1, min(limite, 50)))
     except Exception as exc:
         logger.error("[MCP] buscar_productos(%s) falló: %s", texto, exc)
         return _error(exc)
+
+
+def seguridad_de_transporte() -> TransportSecuritySettings:
+    """La protección contra DNS rebinding, con la lista blanca de `MCP_HOSTS_PERMITIDOS`.
+
+    Estuvo apagada mientras cada llamada exigía una clave de API: una petición
+    rebotada llegaba sin credencial y no obtenía nada. **Desde que el MCP es
+    anónimo ese argumento ya no vale**, así que vuelve a encenderse.
+
+    El `Host` llega con puerto (`localhost:8000`), así que cada nombre se acepta
+    solo y con cualquier puerto. Lo mismo el `Origin`, en http y https: un
+    cliente sin navegador no lo manda, y entonces no se comprueba.
+
+    Un dominio real que no esté en la lista responde **421** a todo. Al
+    desplegar, `MCP_HOSTS_PERMITIDOS` tiene que llevar el dominio público.
+    """
+    hosts = settings.mcp_hosts_permitidos
+    return TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=[h for host in hosts for h in (host, f"{host}:*")],
+        allowed_origins=[
+            o
+            for host in hosts
+            for esquema in ("http", "https")
+            for o in (f"{esquema}://{host}", f"{esquema}://{host}:*")
+        ],
+    )
 
 
 def aplicacion():
@@ -227,18 +227,10 @@ def aplicacion():
     obligatorio aquí — el despliegue puede tener varias réplicas, y una sesión en
     memoria haría que la segunda petición cayera en un proceso que no sabe nada
     de la primera.
-
-    **La protección contra DNS rebinding se apaga a propósito**, y conviene decir
-    por qué porque viene activada. Su defecto es una lista blanca de `Host` que
-    sólo contiene `localhost`: con ella, servido desde un dominio real, **todas**
-    las peticiones responden `421 Misdirected Request`. Y lo que protege no
-    aplica aquí — el ataque es una página web que alcanza un servidor **local**
-    del visitante; éste es remoto y **exige una clave de API en cada llamada**,
-    así que una petición rebotada llega sin credencial y no obtiene nada.
     """
     return servidor.streamable_http_app(
         streamable_http_path="/",
         stateless_http=True,
         json_response=True,
-        transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+        transport_security=seguridad_de_transporte(),
     )

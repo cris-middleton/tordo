@@ -41,44 +41,6 @@ services:
     networks:
       - licitaciones_network
 
-  # MinIO — S3-compatible object store for local dev document storage
-  minio:
-    image: quay.io/minio/minio:latest
-    container_name: tordo_minio
-    command: server /data --console-address ":9001"
-    ports:
-      - "${MINIO_PORT:-9000}:9000"
-      - "${MINIO_CONSOLE_PORT:-9001}:9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
-    volumes:
-      - minio_data:/data
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - licitaciones_network
-
-  # MinIO setup — creates the default bucket on first start
-  minio-setup:
-    image: quay.io/minio/mc:latest
-    container_name: tordo_minio_setup
-    depends_on:
-      minio:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-        mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin};
-        mc mb --ignore-existing local/${AWS_BUCKET:-tordo-docs};
-        mc anonymous set download local/${AWS_BUCKET:-tordo-docs};
-        exit 0;
-      "
-    networks:
-      - licitaciones_network
-
   # Backend API
   backend:
     build:
@@ -90,30 +52,20 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-licitaciones}
       REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
       DEBUG: ${DEBUG:-false}
       ENVIRONMENT: ${ENVIRONMENT:-development}
       SENTRY_DSN: ${SENTRY_DSN:-}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       LOG_JSON: ${LOG_JSON:-false}
-      STORAGE_BACKEND: s3
-      AWS_BUCKET: ${AWS_BUCKET:-tordo-docs}
-      AWS_REGION: ${AWS_REGION:-us-east-1}
-      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
-      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
-      S3_ENDPOINT_URL: http://minio:9000
-      S3_ENDPOINT_URL_PUBLIC: ${S3_ENDPOINT_URL_PUBLIC:-http://localhost:9000}
-      MERCADO_PUBLICO_TICKET: ${MERCADO_PUBLICO_TICKET:-}
-      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
-      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
-      TWILIO_WHATSAPP_FROM: ${TWILIO_WHATSAPP_FROM:-whatsapp:+14155238886}
-      FEATURE_WHATSAPP: ${FEATURE_WHATSAPP:-false}
+      # Lista blanca de `Host` del MCP (protección contra DNS rebinding). En
+      # producción tiene que llevar el dominio público.
+      MCP_HOSTS_PERMITIDOS: ${MCP_HOSTS_PERMITIDOS:-localhost,127.0.0.1}
       FEATURE_ANALYTICS: ${FEATURE_ANALYTICS:-true}
       FEATURE_TFIDF: ${FEATURE_TFIDF:-true}
       # Dónde están los artefactos del modelo TF-IDF que produce el ETL. Sin
       # esto la ruta por defecto es relativa (`etl/data/analytics`) y dentro del
-      # contenedor apunta a /app/etl/…, que no existe: el encaje y el orden por
-      # relevancia respondían «Modelo TF-IDF no entrenado» con el modelo ahí.
+      # contenedor apunta a /app/etl/…, que no existe: el orden por relevancia
+      # respondía «Modelo TF-IDF no entrenado» con el modelo ahí.
       ANALYTICS_DATA_PATH: /analytics
     volumes:
       - ../backend:/app
@@ -123,8 +75,6 @@ services:
       db:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      minio:
         condition: service_healthy
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     networks:
@@ -151,26 +101,14 @@ services:
       LOG_FILE: ""
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-licitaciones}
       REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
       DEBUG: ${DEBUG:-false}
       ENVIRONMENT: ${ENVIRONMENT:-development}
       SENTRY_DSN: ${SENTRY_DSN:-}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       LOG_JSON: ${LOG_JSON:-false}
-      STORAGE_BACKEND: s3
-      AWS_BUCKET: ${AWS_BUCKET:-tordo-docs}
-      AWS_REGION: ${AWS_REGION:-us-east-1}
-      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
-      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
-      S3_ENDPOINT_URL: http://minio:9000
-      S3_ENDPOINT_URL_PUBLIC: ${S3_ENDPOINT_URL_PUBLIC:-http://localhost:9000}
+      # El worker lanza el ETL como subproceso con su `os.environ`: el ticket
+      # tiene que estar aquí aunque la API ya no lo use.
       MERCADO_PUBLICO_TICKET: ${MERCADO_PUBLICO_TICKET:-}
-      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
-      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
-      TWILIO_WHATSAPP_FROM: ${TWILIO_WHATSAPP_FROM:-whatsapp:+14155238886}
-      FEATURE_WHATSAPP: ${FEATURE_WHATSAPP:-false}
-      # El worker no las declaraba y el valor por defecto es `false`: el job de
-      # las 06:00 que llena «Oportunidades para ti» salía sin hacer nada.
       FEATURE_ANALYTICS: ${FEATURE_ANALYTICS:-true}
       FEATURE_TFIDF: ${FEATURE_TFIDF:-true}
       ANALYTICS_DATA_PATH: /workspace/etl/data/analytics
@@ -185,8 +123,6 @@ services:
       db:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      minio:
         condition: service_healthy
     command: celery -A app.celery_app worker --loglevel=info --concurrency=4
     healthcheck:
@@ -206,7 +142,6 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-licitaciones}
       REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
       DEBUG: ${DEBUG:-false}
       ENVIRONMENT: ${ENVIRONMENT:-development}
       SENTRY_DSN: ${SENTRY_DSN:-}
@@ -319,8 +254,6 @@ volumes:
   postgres_data:
     driver: local
   redis_data:
-    driver: local
-  minio_data:
     driver: local
 
 networks:

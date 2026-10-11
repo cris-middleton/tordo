@@ -1,13 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { entrar } from './ayudas';
 import { CODIGO_ADJUDICADA, CODIGO_VALVULAS, TERMINO } from './datos';
 
 /**
  * El bucle central del producto: buscar una licitación y abrirla.
  *
- * Recorre las tres capas de una vez —proxy con cookie, backend, búsqueda de
- * Postgres— que es justo lo que ningún test unitario cubre. Ya encontró dos
+ * Recorre las tres capas de una vez —proxy de Next, backend, búsqueda de
+ * Postgres— que es justo lo que ningún test unitario cubre. Y lo hace SIN
+ * iniciar sesión: desde el pivote a sitio público el catálogo es de todos. Ya encontró dos
  * fallos que sólo se ven así: el proxy entraba en bucle de redirecciones con
  * cualquier ruta terminada en `/`, y `sort_by=relevance` sin modelo TF-IDF
  * ignoraba el término y devolvía el catálogo entero.
@@ -28,10 +28,6 @@ async function buscar(page: Page, termino: string) {
   await buscador.fill(termino);
   await buscador.press('Enter');
 }
-
-test.beforeEach(async ({ page }) => {
-  await entrar(page);
-});
 
 test('buscar sin tildes encuentra lo que sí las lleva', async ({ page }) => {
   // "valvulas" sin tilde: en Chile se escribe así la mayoría de las veces, así

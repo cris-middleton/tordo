@@ -29,18 +29,22 @@ class Settings(BaseSettings):
     # Redis settings
     redis_url: str = "redis://redis:6379/0"
 
-    # Security settings
-    secret_key: str
-    algorithm: str = "HS256"
-    access_token_expire_minutes: int = 30
-    # El acceso dura poco a propósito: es un JWT y no se puede revocar. Lo que
-    # sostiene la sesión es el token de refresco, que sí vive en la base y sí se
-    # puede revocar.
-    refresh_token_expire_days: int = 30
-    password_reset_expire_minutes: int = 60
-
     # CORS settings
     cors_origins: List[str] | str = ["http://localhost:3000", "http://localhost:3001"]
+
+    # Lista blanca de `Host` del MCP (coma-separada). La protección contra DNS
+    # rebinding vuelve a estar encendida desde que el MCP es anónimo: ver
+    # `app/mcp/servidor.py::seguridad_de_transporte`. No es una credencial, así
+    # que lleva valor por defecto; en producción tiene que incluir el dominio.
+    mcp_hosts_permitidos: List[str] | str = ["localhost", "127.0.0.1"]
+
+    @field_validator("mcp_hosts_permitidos", mode="before")
+    @classmethod
+    def parse_mcp_hosts(cls, v):
+        """`MCP_HOSTS_PERMITIDOS=a.cl,b.cl` → `["a.cl", "b.cl"]`."""
+        if isinstance(v, str):
+            return [host.strip() for host in v.split(",") if host.strip()]
+        return v
 
     @field_validator("cors_origins", mode="before")
     @classmethod
@@ -68,84 +72,12 @@ class Settings(BaseSettings):
                 return v.replace("postgres://", "postgresql+asyncpg://", 1)
         return v
 
-    # ETL settings
-    etl_schedule_interval: int = 3600  # seconds
-
-    # Email settings (for alert notifications)
-    smtp_host: str | None = None
-    smtp_port: int = 587
-    smtp_user: str | None = None
-    smtp_password: str | None = None
-    smtp_from_email: str | None = None
-    smtp_use_tls: bool = True
-
-    # Frontend URL (for alert links in emails)
-    frontend_url: str | None = "http://localhost:3000"
-
-    # Storage (documents)
-    storage_backend: str = "local"  # "local" | "s3"
-    local_storage_path: str = "./documents"
-    aws_bucket: str | None = None
-    aws_region: str = "us-east-1"
-    # S3-compatible endpoint (MinIO in dev, leave blank for real AWS)
-    s3_endpoint_url: str | None = None
-    # Public-facing endpoint for presigned URLs (may differ from internal Docker URL)
-    s3_endpoint_url_public: str | None = None
-
-    # Ticket de la API clásica de Mercado Público (api.mercadopublico.cl), usado
-    # por `services/estado_habil_service.consultar_rut` para BuscarProveedor.
-    # Es el MISMO ticket que usa el ETL para licitaciones y órdenes de compra
-    # (ver `.env.example`); vacío por defecto, y sin él `consultar_rut` lanza
-    # `FuenteNoConfigurada` en vez de intentar la llamada.
-    mercado_publico_ticket: str = ""
-
-    # ETL workspace (for subprocess calls from Celery)
-    etl_workspace: str = "/workspace"
-
     # Analytics — path where pre-computed parquets live (relative to repo root or absolute)
     analytics_data_path: str = "etl/data/analytics"
 
-    # Pasarela de pago: "mercadopago" | "stripe". Ver app/domain/billing.py y
-    # app/infra/billing/. El ICP paga con medios locales, por eso la principal es
-    # MercadoPago (ADR 0008); Stripe se conserva y es el que mantiene honesto al
-    # puerto — un puerto con una sola implementación no demuestra nada.
-    billing_provider: str = "mercadopago"
-
-    # Stripe billing
-    stripe_secret_key: str | None = None
-    stripe_publishable_key: str | None = None
-    stripe_webhook_secret: str | None = None
-    stripe_price_pro: str | None = None  # Stripe price ID for Pro monthly
-    stripe_price_pro_annual: str | None = None  # Stripe price ID for Pro annual
-    stripe_price_enterprise: str | None = None  # Stripe price ID for Enterprise plan
-
-    # MercadoPago (ADR 0008). Los planes se crean una vez en MercadoPago
-    # (`POST /preapproval_plan`) y aquí se guardan sus ids, igual que los price
-    # ids de Stripe. El token de acceso es el de producción o el de prueba según
-    # el entorno; MercadoPago distingue por el propio token.
-    mercadopago_access_token: str | None = None
-    mercadopago_webhook_secret: str | None = None
-    mercadopago_plan_pro: str | None = None  # preapproval_plan_id — Pro mensual
-    mercadopago_plan_pro_annual: str | None = None  # preapproval_plan_id — Pro anual
-    mercadopago_plan_enterprise: str | None = None  # preapproval_plan_id — Enterprise
-
-    # Google OAuth
-    google_client_id: str | None = None
-    google_client_secret: str | None = None
-    # Tiene que coincidir EXACTAMENTE con lo registrado en Google Cloud Console:
-    # Google compara la cadena completa y rechaza el intercambio si difiere en un
-    # carácter. Cambió al versionar la API (ADR 0009) — si el login con Google
-    # deja de funcionar tras un despliegue, esto es lo primero que hay que mirar.
-    google_redirect_uri: str = "http://localhost:8000/api/v1/auth/google/callback"
-
     # Feature flags — disable unreleased features without code changes
     feature_analytics: bool = False  # BI pre-postulación (requires parquet pipeline)
-    feature_billing: bool = False  # Cobro (requiere credenciales de la pasarela)
-    feature_estado_habil: bool = True  # Estado hábil monitoring
-    feature_documentos: bool = True  # Document management
-    feature_checklist: bool = True  # Postulation checklists
     feature_tfidf: bool = False  # TF-IDF semantic matching (requires trained model)
-    analytics_enabled: bool = True  # Legacy /dashboard/analytics page visibility
 
     class Config:
         env_file = ".env"

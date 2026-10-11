@@ -56,7 +56,7 @@ def test_ningun_router_declara_la_version_por_su_cuenta():
     """El prefijo vive en un solo sitio.
 
     Si un router volviera a traer `/api` en su propio prefijo, publicar una v2
-    dejaría de ser cambiar una línea y volvería a ser editar catorce ficheros —
+    dejaría de ser cambiar una línea y volvería a ser editar cada router —
     que es exactamente de donde se viene.
     """
     import pathlib
@@ -76,11 +76,11 @@ def test_ningun_router_declara_la_version_por_su_cuenta():
 @pytest.mark.parametrize(
     "ruta",
     [
-        "/auth/me",
         "/tenders/",
-        "/empresas/",
-        "/billing/plans",
-        "/dashboard/home",
+        "/tenders/codigo/{codigo_externo}",
+        "/bi/rubros",
+        "/bi/precio/{codigo_producto}",
+        "/bi/licitacion/{codigo_externo}/panel",
     ],
 )
 def test_las_rutas_conocidas_siguen_existiendo_bajo_la_version(ruta):

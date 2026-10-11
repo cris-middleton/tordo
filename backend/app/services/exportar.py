@@ -6,11 +6,8 @@ sirve de mucho: ya está en Mercado Público. Exportar la banda de precio de un
 producto o el mapa de competidores de un comprador **es un entregable**: se pega
 en una propuesta interna, se manda al socio que decide, se archiva con la oferta.
 
-Dos reglas que no son obvias:
+Una regla que no es obvia:
 
-- **Una exportación es una consulta de BI y descuenta cuota igual.** Si no lo
-  hiciera, sería la forma de saltarse el medidor: pedir el CSV en vez de la
-  pantalla y llevarse lo mismo sin pagar.
 - **El CSV va con BOM y separador de punto y coma.** Sin BOM, Excel en Windows
   parte los acentos; con coma como separador, Excel en configuración regional
   chilena mete todo en una columna. Es un archivo que se abre en Excel el 95 % de

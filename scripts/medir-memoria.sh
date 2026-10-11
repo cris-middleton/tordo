@@ -75,14 +75,14 @@ fi
 # Endpoints que representan el peor caso de memoria: el listado carga el modelo
 # TF-IDF al ordenar por relevancia, y los de BI tocan las tablas de analytics.
 #
-# TODOS exigen sesión. Sin token devuelven 401 sin hacer nada, y entonces esto
-# mide el proceso en reposo creyendo que mide la carga — que es exactamente lo
-# que pasó la primera vez: los números con y sin TF-IDF salían idénticos.
+# Son anónimos desde el pivote público. Antes exigían sesión, y una ruta que
+# responde 401 sin hacer nada mide el proceso en reposo creyendo que mide la
+# carga — que es lo que pasó la primera vez. Por eso abajo se comprueba que el
+# catálogo responda 200 antes de medir.
 CAMINOS=(
-  "/api/tenders/?limit=20"
-  "/api/tenders/?limit=20&search=servicio&sort_by=relevance"
-  "/api/billing/plans"
-  "/api/auth/me"
+  "/api/v1/tenders/?limit=20"
+  "/api/v1/tenders/?limit=20&search=servicio&sort_by=relevance"
+  "/api/v1/bi/rubros"
 )
 
 medir() {
@@ -96,7 +96,6 @@ medir() {
     --memory="$LIMITE" --memory-swap="$LIMITE" \
     -p "${PUERTO}:8000" \
     -e DATABASE_URL="postgresql://postgres:postgres@${PG}:5432/tordo_test" \
-    -e SECRET_KEY=medicion \
     -e REDIS_URL="redis://localhost:6399/0" \
     -e FEATURE_TFIDF="$tfidf" \
     -e ANALYTICS_DATA_PATH="/app/etl/data/analytics" \
@@ -118,16 +117,10 @@ medir() {
     return 1
   fi
 
-  # Sesión: los datos de prueba y el usuario los pone el mismo sembrador que usa
-  # el E2E, así que no hay un segundo juego de credenciales que mantener.
+  # Los datos de prueba los pone el mismo sembrador que usa el E2E.
   docker exec "$API" python scripts/sembrar_e2e.py >/dev/null 2>&1 || true
-  local token
-  token="$(curl -s -X POST "http://localhost:${PUERTO}/api/auth/login" \
-    -H 'Content-Type: application/json' \
-    -d '{"username":"e2e","password":"contrasena-de-prueba-e2e"}' \
-    | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')"
-  if [ -z "$token" ]; then
-    printf "%s   w=%s tfidf=%s → sin sesión: la medición no valdría nada%s\n" \
+  if ! curl -sf -o /dev/null "http://localhost:${PUERTO}${CAMINOS[0]}"; then
+    printf "%s   w=%s tfidf=%s → el catálogo no responde: la medición no valdría nada%s\n" \
       "$rojo" "$workers" "$tfidf" "$fin"
     return 1
   fi
@@ -140,8 +133,7 @@ medir() {
   # el punto del ejercicio, y con una sola pasada se mide un solo proceso.
   for _ in $(seq 1 40); do
     for ruta in "${CAMINOS[@]}"; do
-      curl -sf -o /dev/null --max-time 20 -H "Authorization: Bearer $token" \
-        "http://localhost:${PUERTO}${ruta}" || true
+      curl -sf -o /dev/null --max-time 20 "http://localhost:${PUERTO}${ruta}" || true
     done
   done
 

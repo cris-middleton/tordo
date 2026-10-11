@@ -7,7 +7,6 @@ import { apiClient } from '@/lib/api';
 import { useBuscarProductos } from '@/lib/queries';
 import type { OrganismoConNombre } from '../../types';
 import BotonExportar from '@/components/BotonExportar';
-import VigilarPrecio from './VigilarPrecio';
 import {
   extractErrorMessage,
   formatCLPShort,
@@ -195,11 +194,7 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
             ))}
           </div>
           {selected?.codigoProductoONU && (
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-              <VigilarPrecio
-                codigoProducto={selected.codigoProductoONU}
-                nombreProducto={selected.nombre}
-              />
+            <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
               {/* La descarga es lo que convierte esto en un entregable: se pega
                   en una propuesta interna o se manda al socio que decide. */}
               <BotonExportar

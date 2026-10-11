@@ -2,7 +2,6 @@ import React from 'react';
 import type { Metadata } from 'next';
 import { Archivo, DM_Sans } from 'next/font/google';
 import './globals.css';
-import { AuthProvider } from '@/contexts/AuthContext';
 import { Providers } from './providers';
 
 // Archivo en vez de Outfit: es una grotesca institucional, estructuralmente
@@ -52,9 +51,7 @@ export default function RootLayout({
   return (
     <html lang="es" className={`${display.variable} ${dmSans.variable}`} suppressHydrationWarning>
       <body className="font-sans bg-background text-text">
-        <Providers>
-          <AuthProvider>{children}</AuthProvider>
-        </Providers>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

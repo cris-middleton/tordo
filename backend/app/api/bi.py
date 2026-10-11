@@ -1,9 +1,9 @@
 """
 BI API — pre-bid intelligence endpoints.
 
-Desde el pivote público (docs/PIVOTE_PUBLICO_2026-10.md) las rutas de análisis no
-piden sesión ni cuota: las protege sólo el límite por IP de `/api/v1/bi/*`. Las que
-dependen de una empresa se retiran enteras en el paso 3.
+Desde el pivote público (docs/PIVOTE_PUBLICO_2026-10.md) no hay cuentas: las rutas
+de análisis no piden sesión ni cuota y las protege sólo el límite por IP de
+`/api/v1/bi/*`.
 
 Analytics routes are gated behind `feature_analytics`.
 TF-IDF matching routes are gated behind `feature_tfidf`.
@@ -11,27 +11,13 @@ When either flag is off (default in dev), the respective endpoints return 503.
 """
 
 import logging
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import (
-    EmpresaContext,
-    check_bi_quota_dep,
-    empresa_ctx,
-    require_plan,
-    require_rol,
-    verificar_acceso_empresa,
-)
 from app.config import settings
-from app.core.security import get_current_active_user
 from app.db import get_db
-from app.models.empresa import Empresa, TFIDFPerfil
-from app.models.user import User
-from app.repositories import empresas as repo_empresas
 from app.repositories import licitaciones as repo_licitaciones
-from app.repositories import proveedores as repo_proveedores
 from app.schemas.bi import (
     ClustersResponse,
     CompetidoresResponse,
@@ -42,22 +28,18 @@ from app.schemas.bi import (
     ForecastCompetidoresResponse,
     LicitacionBIPanel,
     MatchingResponse,
-    MiPosicionResponse,
     OportunidadesResponse,
     PanoramaResponse,
-    PerfilMatchResponse,
     PrecioResponse,
     ProductosResponse,
-    RadarResponse,
     ResumenResponse,
     RubrosResponse,
     SectorResponse,
-    SugerenciaRubrosResponse,
     TendenciaResponse,
-    TFIDFPerfilResponse,
-    TFIDFPerfilUpdate,
     VentanaResponse,
 )
+from app.services import bi as bi_service
+from app.services import exportar, tfidf_matcher
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +80,6 @@ def get_precio_producto(
     unidad_medida: str | None = Query(None, description="Filtrar por UnidadMedida"),
 ):
     _require_analytics()
-    from app.services import bi as bi_service
 
     result = bi_service.get_precio_producto(codigo_producto, organismo_id, unidad_medida)
     return result
@@ -115,7 +96,6 @@ def get_competidores(
     top_n: int = Query(20, ge=1, le=100),
 ):
     _require_analytics()
-    from app.services import bi as bi_service
 
     result = bi_service.get_competidores(organismo_id, rubro, top_n)
     return result
@@ -133,7 +113,6 @@ def get_oportunidades(
     limit: int = Query(50, ge=1, le=200),
 ):
     _require_analytics()
-    from app.services import bi as bi_service
 
     result = bi_service.get_oportunidades(organismo_id, rubro, min_score, limit)
     return result
@@ -153,7 +132,6 @@ def get_ventana(
     codigo_externo: str,
 ):
     _require_analytics()
-    from app.services import bi as bi_service
 
     result = bi_service.get_ventana(codigo_externo)
     return result
@@ -168,7 +146,6 @@ def get_comprador(
     organismo_id: str,
 ):
     _require_analytics()
-    from app.services import bi as bi_service
 
     result = bi_service.get_comprador(organismo_id)
     return result
@@ -189,7 +166,6 @@ async def get_licitacion_panel(
     db: AsyncSession = Depends(get_db),
 ):
     _require_analytics()
-    from app.services import bi as bi_service
 
     lic = await repo_licitaciones.obtener_por_codigo(db, codigo_externo)
     if not lic:
@@ -242,7 +218,6 @@ def get_estacionalidad(
     rubro: str | None = Query(None, description="Filtrar por RubroN2"),
 ):
     _require_analytics()
-    from app.services import bi as bi_service
 
     return bi_service.get_estacionalidad(organismo_id, rubro)
 
@@ -264,7 +239,6 @@ def get_tendencia(
     limit: int = Query(50, ge=1, le=200),
 ):
     _require_analytics()
-    from app.services import bi as bi_service
 
     return bi_service.get_tendencia(rubro, tendencia, solo_emergentes, limit)
 
@@ -285,7 +259,6 @@ def get_descuento(
     n_oferentes_rango: str | None = Query(None, description="Ej: '1', '2-3', '4+'"),
 ):
     _require_analytics()
-    from app.services import bi as bi_service
 
     return bi_service.get_descuento(tipo, rubro, n_oferentes_rango)
 
@@ -306,7 +279,6 @@ def get_forecast_competidores(
     tipo: str | None = Query(None, description="CodigoTipo de licitación"),
 ):
     _require_analytics()
-    from app.services import bi as bi_service
 
     return bi_service.get_forecast_competidores(organismo_id, rubro, tipo)
 
@@ -325,7 +297,6 @@ def get_diversificacion(
     codigo_proveedor: str,
 ):
     _require_analytics()
-    from app.services import bi as bi_service
 
     return bi_service.get_diversificacion(codigo_proveedor)
 
@@ -345,7 +316,6 @@ def get_sector(
     limit: int = Query(50, ge=1, le=200),
 ):
     _require_analytics()
-    from app.services import bi as bi_service
 
     return bi_service.get_sector(sector, limit)
 
@@ -371,7 +341,6 @@ def get_matching(
     top_n: int = Query(20, ge=1, le=100, description="Número máximo de proveedores a retornar"),
 ):
     _require_tfidf_flag()
-    from app.services import tfidf_matcher
 
     if not tfidf_matcher.is_available():
         return MatchingResponse(
@@ -389,183 +358,6 @@ def get_matching(
 
 
 @router.get(
-    "/licitacion-match/{codigo_externo}",
-    response_model=PerfilMatchResponse,
-    summary="¿Tu perfil encaja? Score de encaje empresa-licitación",
-    description=(
-        "Compara el perfil TF-IDF de la empresa contra el texto de la licitación. "
-        "Retorna score 0–1 y nivel {alto, medio, bajo, sin_encaje}. "
-        "Si la empresa no tiene perfil guardado, retorna nivel=sin_perfil. "
-        "Requiere FEATURE_TFIDF=true."
-    ),
-)
-async def get_licitacion_match(
-    codigo_externo: str,
-    empresa_id: UUID = Query(..., description="UUID de la empresa a evaluar"),
-    texto: str = Query(..., min_length=3, description="Nombre/descripción de la licitación"),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
-    # "Matching semántico" se VENDE como capacidad del plan Pro
-    # (`/api/billing/plans`), y este endpoint sólo comprobaba el flag de la
-    # feature y la pertenencia a la empresa. Con FEATURE_TFIDF apagado no se
-    # notaba —responde 503 para todos— pero encenderlo regalaba una capacidad
-    # de pago. Lo detectó tests/test_contrato_bi.py.
-    _plan: Empresa = Depends(require_plan("pro")),
-):
-    _require_tfidf_flag()
-    from app.services import tfidf_matcher
-
-    # Verify user membership in empresa
-    await verificar_acceso_empresa(empresa_id, current_user, db)
-
-    if not tfidf_matcher.is_available():
-        return PerfilMatchResponse(
-            disponible=False,
-            codigo_externo=codigo_externo,
-            motivo="Modelo TF-IDF no entrenado",
-        )
-
-    # Load empresa TF-IDF profile
-    perfil = await repo_empresas.perfil_tfidf(db, empresa_id)
-    vector = tfidf_matcher.vector_o_reconstruido(perfil) if perfil else None
-    if perfil is not None and vector and db.is_modified(perfil):
-        await db.commit()  # el vector reconstruido queda guardado
-    if not vector:
-        return PerfilMatchResponse(
-            disponible=True,
-            codigo_externo=codigo_externo,
-            licitacion_nombre=texto[:120],
-            nivel="sin_perfil",
-            motivo="La empresa no tiene perfil TF-IDF configurado. Configura tus rubros en Inteligencia BI.",
-        )
-
-    try:
-        score, nivel = tfidf_matcher.score_empresa_licitacion(vector, texto)
-    except Exception:
-        return PerfilMatchResponse(
-            disponible=True,
-            codigo_externo=codigo_externo,
-            licitacion_nombre=texto[:120],
-            nivel="error",
-            motivo="Error al calcular similitud — el perfil puede necesitar recalibración.",
-        )
-    return PerfilMatchResponse(
-        disponible=True,
-        codigo_externo=codigo_externo,
-        licitacion_nombre=texto[:120],
-        score_encaje=score,
-        nivel=nivel,
-    )
-
-
-@router.get(
-    "/perfil/{empresa_id}",
-    response_model=TFIDFPerfilResponse,
-    summary="Obtener perfil TF-IDF de una empresa",
-)
-async def get_tfidf_perfil(
-    ctx: EmpresaContext = Depends(empresa_ctx),
-    db: AsyncSession = Depends(get_db),
-):
-    _require_tfidf_flag()
-    empresa_id = ctx.empresa_id
-
-    perfil = await repo_empresas.perfil_tfidf(db, empresa_id)
-    if not perfil:
-        return TFIDFPerfilResponse(
-            empresa_id=str(empresa_id),
-            descripcion=None,
-            rubros_usados=None,
-            modelo_version=None,
-            actualizado_en=None,
-            tiene_vector=False,
-        )
-
-    return TFIDFPerfilResponse(
-        empresa_id=str(empresa_id),
-        descripcion=perfil.descripcion,
-        rubros_usados=perfil.rubros_usados,
-        modelo_version=perfil.modelo_version,
-        actualizado_en=perfil.updated_at.isoformat() if perfil.updated_at else None,
-        tiene_vector=bool(perfil.vector_bytes),
-    )
-
-
-@router.put(
-    "/perfil/{empresa_id}",
-    response_model=TFIDFPerfilResponse,
-    summary="Actualizar perfil TF-IDF de una empresa",
-    description=(
-        "Recibe una lista de textos (rubros, productos, descripciones) que representan "
-        "la actividad de la empresa. Calcula el vector TF-IDF y lo persiste en DB. "
-        "Este vector se usa en /licitacion-match para calcular encaje semántico."
-    ),
-)
-async def update_tfidf_perfil(
-    body: TFIDFPerfilUpdate,
-    ctx: EmpresaContext = Depends(require_rol("owner", "admin")),
-    db: AsyncSession = Depends(get_db),
-):
-    _require_tfidf_flag()
-    from app.services import tfidf_matcher
-
-    empresa_id = ctx.empresa_id
-
-    # Try to build TF-IDF vector — best-effort, don't block saving rubros if unavailable
-    # Use b'' as placeholder to satisfy NOT NULL constraint when model is unavailable
-    vector_bytes: bytes = b""
-    if tfidf_matcher.is_available():
-        # **La descripción va primero y pesa el doble.** Repetirla es la forma
-        # barata de ponderar en TF-IDF sin tocar el modelo, y hace falta: los
-        # rubros son etiquetas de una taxonomía compartida, así que sin este
-        # peso dos empresas del mismo rubro vuelven a tener casi el mismo
-        # vector — que es justo el problema que la descripción viene a resolver.
-        rubros_text = tfidf_matcher.texto_de_perfil(body.descripcion, list(body.rubros_usados))
-        try:
-            vector_bytes = tfidf_matcher.build_empresa_vector(rubros_text)
-        except Exception:
-            # Se mantiene el placeholder b''; el vector se puede reconstruir después.
-            # `(ValueError, Exception)` era redundante — ValueError ya es Exception.
-            # Sin log, un fallo permanente del matcher era invisible.
-            logger.warning(
-                "No se pudo construir el vector TF-IDF para la empresa %s; "
-                "se guardan los rubros con vector vacío",
-                empresa_id,
-                exc_info=True,
-            )
-
-    # Upsert TFIDFPerfil — always save rubros regardless of vector availability
-    perfil = await repo_empresas.perfil_tfidf(db, empresa_id)
-    if perfil:
-        if vector_bytes:  # Only overwrite existing vector if we built a real one
-            perfil.vector_bytes = vector_bytes
-        perfil.descripcion = body.descripcion
-        perfil.rubros_usados = body.rubros_usados
-        perfil.modelo_version = "v1"
-    else:
-        perfil = TFIDFPerfil(
-            empresa_id=empresa_id,
-            vector_bytes=vector_bytes,
-            descripcion=body.descripcion,
-            rubros_usados=body.rubros_usados,
-            modelo_version="v1",
-        )
-        db.add(perfil)
-
-    await db.commit()
-    await db.refresh(perfil)
-
-    return TFIDFPerfilResponse(
-        empresa_id=str(empresa_id),
-        descripcion=perfil.descripcion,
-        rubros_usados=perfil.rubros_usados,
-        modelo_version=perfil.modelo_version,
-        actualizado_en=perfil.updated_at.isoformat() if perfil.updated_at else None,
-        tiene_vector=bool(vector_bytes),
-    )
-
-
-@router.get(
     "/rubros",
     response_model=RubrosResponse,
     summary="Lista de rubros estandarizados de ChileCompra (RubroN2)",
@@ -578,7 +370,6 @@ def get_rubros(
     limit: int = Query(354, ge=1, le=500),
 ):
     _require_analytics()
-    from app.services import bi as bi_service
 
     result = bi_service.get_rubros(limit=limit)
     return result
@@ -589,8 +380,8 @@ def get_rubros(
     summary="Descargar en CSV la banda de precio de un producto",
     description=(
         "Devuelve el mismo análisis que `/bi/precio/{codigo_producto}` en un CSV "
-        "listo para Excel. **Descuenta cuota de BI igual que la consulta en "
-        "pantalla**: si no lo hiciera, sería la forma de saltarse el medidor."
+        "listo para Excel: con BOM y separador `;`, para que Excel en configuración "
+        "chilena lo abra bien."
     ),
     response_class=Response,
 )
@@ -600,8 +391,6 @@ def exportar_precio(
     unidad_medida: str | None = Query(None),
 ):
     _require_analytics()
-    from app.services import bi as bi_service
-    from app.services import exportar
 
     datos = bi_service.get_precio_producto(codigo_producto, organismo_id, unidad_medida)
     if not datos.get("disponible"):
@@ -627,8 +416,6 @@ def exportar_competidores(
     top_n: int = Query(50, ge=1, le=200),
 ):
     _require_analytics()
-    from app.services import bi as bi_service
-    from app.services import exportar
 
     datos = bi_service.get_competidores(organismo_id, rubro, top_n)
     if not datos.get("disponible"):
@@ -644,55 +431,6 @@ def exportar_competidores(
 
 
 @router.get(
-    "/rubros/sugerir",
-    response_model=SugerenciaRubrosResponse,
-    summary="Rubros propuestos a partir de una descripción en lenguaje natural",
-    description=(
-        "Recibe lo que la empresa dice que hace y devuelve los rubros de la taxonomía "
-        "de ChileCompra más cercanos, para que el usuario **corrija** en vez de elegir "
-        "a ciegas entre 354 opciones que no escribió él."
-    ),
-)
-def sugerir_rubros(
-    descripcion: str = Query(..., min_length=10, max_length=2000),
-    limit: int = Query(6, ge=1, le=20),
-    current_user: User = Depends(get_current_active_user),
-):
-    _require_analytics()
-    _require_tfidf_flag()
-    from app.services import bi as bi_service
-    from app.services import tfidf_matcher
-
-    catalogo = bi_service.get_rubros(limit=354)
-    if not catalogo.get("disponible"):
-        return {"disponible": False, "sugerencias": [], "motivo": catalogo.get("motivo")}
-
-    nombres = catalogo["rubros"]
-    similitudes = tfidf_matcher.score_texts(descripcion, nombres)
-
-    # Se desempata por nombre: muchos rubros dan la misma similitud sobre una
-    # descripción corta, y con `head` el empate decide QUÉ rubros entran, no
-    # sólo en qué orden. Sin esto, dos llamadas iguales devuelven listas
-    # distintas según el orden físico de las filas.
-    pares = sorted(zip(nombres, similitudes, strict=True), key=lambda p: (-p[1], p[0]))
-
-    # Por debajo de esto la sugerencia es ruido: proponer un rubro al azar es
-    # peor que no proponer ninguno, porque el usuario lo acepta sin mirar.
-    UMBRAL = 0.05
-    sugerencias = [
-        {"codigo": None, "nombre": nombre, "similitud": round(sim, 4)}
-        for nombre, sim in pares[:limit]
-        if sim >= UMBRAL
-    ]
-
-    return {
-        "disponible": True,
-        "sugerencias": sugerencias,
-        "motivo": None if sugerencias else "la descripción no se parece a ningún rubro conocido",
-    }
-
-
-@router.get(
     "/panorama",
     response_model=PanoramaResponse,
     summary="Panorama completo de un rubro",
@@ -701,15 +439,14 @@ def sugerir_rubros(
         "compradores con banderas de riesgo — todo del **rubro**, no de un par "
         "organismo×rubro.\n\n"
         "Va en una sola llamada porque la pantalla los necesita juntos: cinco peticiones "
-        "serían cinco estados de carga, cinco formas de fallar a medias y cinco descuentos "
-        "de cuota por una sola pregunta del usuario."
+        "serían cinco estados de carga y cinco formas de fallar a medias por una sola "
+        "pregunta del usuario."
     ),
 )
 def get_panorama(
     rubro: str = Query(..., min_length=1, description="RubroN2 de la taxonomía de ChileCompra"),
 ):
     _require_analytics()
-    from app.services import bi as bi_service
 
     return bi_service.get_panorama(rubro)
 
@@ -717,18 +454,16 @@ def get_panorama(
 @router.get(
     "/resumen",
     response_model=ResumenResponse,
-    summary="Resumen narrativo de un rubro (para MarketSummaryCard + teasers paywall)",
+    summary="Resumen narrativo de un rubro (para MarketSummaryCard)",
     description=(
         "Combina time_series + market_concentration + buyer_scores + opportunity_scores + "
-        "seasonality_patterns en una sola respuesta liviana. Incluye teasers para las "
-        "secciones gated que el plan básico ve sin gastar quota."
+        "seasonality_patterns en una sola respuesta liviana."
     ),
 )
 def get_resumen(
     rubro: str = Query(..., min_length=1, description="RubroN2 a resumir"),
 ):
     _require_analytics()
-    from app.services import bi as bi_service
 
     return bi_service.get_resumen(rubro)
 
@@ -736,10 +471,9 @@ def get_resumen(
 @router.get(
     "/clusters",
     response_model=ClustersResponse,
-    summary="Taxonomía de clusters de productos (para UI de perfil TF-IDF)",
+    summary="Taxonomía de clusters de productos",
     description=(
         "Retorna los clusters de tipos de compra generados por word_clustering.py. "
-        "Útil para que el usuario seleccione sus categorías al configurar el perfil TF-IDF. "
         "Requiere que el ETL haya generado cluster_taxonomy.parquet."
     ),
 )
@@ -747,7 +481,6 @@ def get_clusters(
     limit: int = Query(100, ge=1, le=200),
 ):
     _require_tfidf_flag()
-    from app.services import tfidf_matcher
 
     clusters = tfidf_matcher.get_clusters(limit=limit)
     if not clusters:
@@ -766,61 +499,6 @@ def get_clusters(
 
 
 @router.get(
-    "/mi_posicion",
-    response_model=MiPosicionResponse,
-    summary="Posición de la empresa del usuario en un rubro (personalización)",
-    description=(
-        "Traduce el RUT de la empresa a su código de proveedor de Mercado Público y "
-        "lo cruza con las tablas de competencia y diversificación. Devuelve puesto, "
-        "participación en el rubro, compradores atendidos y concentración de cartera. "
-        "Requiere acceso a la empresa (EmpresaUsuario)."
-    ),
-)
-async def get_mi_posicion(
-    empresa_id: UUID = Query(..., description="UUID de la empresa del usuario"),
-    rubro: str = Query(..., min_length=1, description="RubroN2 a analizar"),
-    db: AsyncSession = Depends(get_db),
-    empresa_cuota: Empresa = Depends(check_bi_quota_dep),
-    current_user: User = Depends(get_current_active_user),
-):
-    _require_analytics()
-    from app.services import bi as bi_service
-
-    # Verificar membership a la empresa
-    await verificar_acceso_empresa(empresa_id, current_user, db)
-
-    empresa = await repo_empresas.obtener(db, empresa_id)
-
-    # La columna es `rut_empresa`. Esto decía `empresa.rut`, que no existe en el
-    # modelo, así que el endpoint lanzaba AttributeError y devolvía 500 en TODAS
-    # las llamadas — en la pantalla principal de BI. No lo destapó ningún test
-    # porque los que había llamaban a la función del servicio, no al endpoint:
-    # un atributo que no existe sólo aparece ejecutando la ruta.
-    if not empresa or not empresa.rut_empresa:
-        return {
-            "disponible": False,
-            "tiene_historial": False,
-            "motivo": "La empresa no tiene RUT registrado",
-        }
-
-    # El RUT no sirve para cruzar con analytics: allí el proveedor se identifica
-    # por `CodigoProveedor`, el código interno de Mercado Público. La traducción
-    # sale de `ordenes_compra`, que guarda los dos.
-    codigo = await repo_proveedores.codigo_por_rut(db, empresa.rut_empresa)
-    if not codigo:
-        return {
-            "disponible": True,
-            "tiene_historial": False,
-            "motivo": (
-                "No encontramos órdenes de compra a nombre de este RUT. "
-                "Si tu empresa ya vendió al Estado, revisa que el RUT esté bien escrito."
-            ),
-        }
-
-    return bi_service.get_mi_posicion(codigo, rubro)
-
-
-@router.get(
     "/productos",
     response_model=ProductosResponse,
     summary="Buscar productos por nombre (autocomplete)",
@@ -831,37 +509,5 @@ def get_productos(
     limit: int = Query(20, ge=1, le=50),
 ):
     _require_analytics()
-    from app.services import bi as bi_service
 
     return bi_service.get_productos(q, limit)
-
-
-@router.get(
-    "/radar_semanal",
-    response_model=RadarResponse,
-    summary="Radar semanal de movimientos para una empresa",
-    description=(
-        "Detecta los 3 movimientos más relevantes en los rubros de la empresa: "
-        "nueva licitación con score TF-IDF alto, oportunidad destacada, comprador activo. "
-        "Computado on-demand. Misma data que el email semanal del lunes."
-    ),
-)
-async def get_radar_semanal(
-    empresa_id: UUID = Query(..., description="UUID de la empresa"),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
-):
-    _require_analytics()
-    from app.services import radar_service
-
-    # Verificar membership
-    await verificar_acceso_empresa(empresa_id, current_user, db)
-
-    # radar_service usa session síncrona → abrir una sesión sync para esto
-    from app.db import SyncSessionLocal
-
-    sync_db = SyncSessionLocal()
-    try:
-        return radar_service.compute_radar_for_empresa(sync_db, empresa_id)
-    finally:
-        sync_db.close()

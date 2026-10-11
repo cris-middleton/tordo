@@ -117,7 +117,10 @@ def test_la_linea_base_solo_puede_encoger():
     arreglarla, estos números suben y el test lo dice. Bajarlos al arreglar cosas
     es parte del trabajo.
     """
-    topes = {"tablas_sin_comentario": 24, "columnas_sin_comentario": 302, "pk_entera": 16}
+    # Antes 24 / 302 / 16. El pivote público retiró las cuentas y con sus tablas
+    # se fueron 123 columnas sin comentario y 4 PK enteras; los topes bajan a lo
+    # que queda para que no vuelva a crecer hasta ahí.
+    topes = {"tablas_sin_comentario": 0, "columnas_sin_comentario": 172, "pk_entera": 12}
     base = _baseline()
     excedidos = {
         clave: (len(base[clave]), tope) for clave, tope in topes.items() if len(base[clave]) > tope

@@ -1,6 +1,6 @@
 """Pydantic schemas for BI API responses."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class BINotAvailable(BaseModel):
@@ -224,16 +224,6 @@ class MatchingResponse(BaseModel):
     motivo: str | None = None
 
 
-class PerfilMatchResponse(BaseModel):
-    disponible: bool
-    codigo_externo: str | None = None
-    licitacion_nombre: str | None = None
-    score_encaje: float | None = None
-    # nivel ∈ {alto, medio, bajo, sin_encaje, sin_perfil}
-    nivel: str | None = None
-    motivo: str | None = None
-
-
 class ClusterItem(BaseModel):
     cluster_id: int | None = None
     label: str | None = None
@@ -254,44 +244,6 @@ class RubrosResponse(BaseModel):
     disponible: bool
     rubros: list[str] | None = None
     total: int | None = None
-
-
-class TFIDFPerfilResponse(BaseModel):
-    empresa_id: str
-    #: Lo que la empresa dice que hace, en sus palabras. Es la entrada principal
-    #: del perfil desde que existe: los rubros solos no distinguen a dos empresas
-    #: del mismo rubro, y elegirlos exige entender la taxonomía de ChileCompra
-    #: antes de recibir el primer resultado.
-    descripcion: str | None = None
-    rubros_usados: list[str] | None = None
-    modelo_version: str | None = None
-    actualizado_en: str | None = None
-    tiene_vector: bool = False
-
-
-class TFIDFPerfilUpdate(BaseModel):
-    #: Texto libre. Se puede mandar sola, sin rubros.
-    descripcion: str | None = Field(
-        default=None,
-        max_length=2000,
-        description="A qué se dedica la empresa, en sus propias palabras",
-    )
-    rubros_usados: list[str] = []
-
-
-class RubroSugerido(BaseModel):
-    codigo: str | None = None
-    nombre: str
-    similitud: float
-
-
-class SugerenciaRubrosResponse(BaseModel):
-    """Rubros propuestos a partir de la descripción, para que el usuario corrija
-    en vez de elegir a ciegas."""
-
-    disponible: bool
-    sugerencias: list[RubroSugerido] = []
-    motivo: str | None = None
 
 
 # ─── Licitación BI Panel schemas ─────────────────────────────────────────────
@@ -354,8 +306,6 @@ class LicitacionBIPanel(BaseModel):
     ventana: VentanaPanel
     competidores: CompetidoresPanel
     precios: list[PrecioFallback] = []
-    postulacion_id: str | None = None
-    estado_habil: str | None = None
 
 
 # ─── Paso D: extended BI schemas ─────────────────────────────────────────────
@@ -533,42 +483,6 @@ class ResumenResponse(BaseModel):
     motivo: str | None = None
 
 
-# ─── Mi Posición (personalización por empresa) ───────────────────────────────
-
-
-class Diversificacion(BaseModel):
-    """Concentración de cartera del proveedor, sobre TODOS sus rubros."""
-
-    #: Herfindahl de sus compradores. 10.000 es «un único cliente».
-    hhi_compradores: float | None = None
-    n_compradores_total: int | None = None
-    n_rubros_total: int | None = None
-    n_regiones_total: int | None = None
-    score: float | None = None
-    clasificacion: str | None = None
-    alerta_dependencia: bool = False
-
-
-class MiPosicionResponse(BaseModel):
-    disponible: bool
-    tiene_historial: bool = False
-    participacion_pct: float | None = None
-    rank: int | None = None
-    total_proveedores: int | None = None
-    monto_rubro_clp: float | None = None
-    monto_propio_clp: float | None = None
-    n_oc_propias: int | None = None
-    n_organismos_atendidos: int | None = None
-    #: MEDIANA y no promedio: la cola de la distribución arrastra la media hasta
-    #: un número que casi ningún proveedor alcanza.
-    n_organismos_mediana_rubro: float | None = None
-    #: Explícito porque la tabla puede no estar materializada, y unos campos en
-    #: `null` no distinguen «no lo sabemos» de «no tiene riesgo».
-    diversificacion_disponible: bool = False
-    diversificacion: Diversificacion | None = None
-    motivo: str | None = None
-
-
 class ProductoItem(BaseModel):
     codigoProductoONU: str | None = None
     nombre: str | None = None
@@ -579,25 +493,6 @@ class ProductosResponse(BaseModel):
     disponible: bool
     resultados: list[ProductoItem] | None = None
     total: int | None = None
-    motivo: str | None = None
-
-
-# ─── Radar semanal ────────────────────────────────────────────────────────────
-
-
-class RadarMovimiento(BaseModel):
-    tipo: str  # "nueva_licitacion" | "oportunidad_top" | "comprador_activo"
-    titulo: str
-    detalle: str
-    accion_url: str | None = None  # link relativo (ej: /dashboard/tenders/XYZ)
-
-
-class RadarResponse(BaseModel):
-    disponible: bool
-    empresa_id: str | None = None
-    empresa_nombre: str | None = None
-    semana_inicio: str | None = None  # ISO date lunes
-    movimientos: list[RadarMovimiento] | None = None
     motivo: str | None = None
 
 

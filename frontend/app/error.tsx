@@ -39,7 +39,7 @@ export default function Error({
             <RotateCcw size={15} />
             Reintentar
           </button>
-          <Link href="/dashboard" className="btn-secondary">
+          <Link href="/" className="btn-secondary">
             Ir al inicio
           </Link>
         </div>

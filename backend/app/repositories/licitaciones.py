@@ -1,13 +1,13 @@
 """Acceso a licitaciones.
 
-Cuatro routers consultan esta tabla —`tenders`, `postulaciones`, `dashboard` y
-`bi`— y los cuatro repetían la misma condición: `activo == True`.
+Los routers que consultan esta tabla —`tenders` y `bi`— repetían la misma
+condición: `activo == True`.
 
 Esa condición no es un detalle de estilo. `activo=False` es como el ETL marca lo
 que Mercado Público retiró; una licitación retirada que se cuela en un listado
-es una invitación a preparar una postulación imposible. Repetida en cuatro
-sitios, es cuestión de tiempo que la quinta no la lleve — y de hecho **faltaba**
-en el endpoint que crea postulaciones.
+es una invitación a preparar una oferta imposible. Repetida en varios sitios, es
+cuestión de tiempo que el siguiente no la lleve — y de hecho llegó a **faltar**
+en un endpoint.
 
 El módulo **ejecuta**, no sólo construye. Devolver un `Select` para que el router
 lo ejecutara dejaba media consulta a cada lado y el `db.execute` seguía viviendo
@@ -24,15 +24,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.licitacion import Licitacion
-from app.repositories import matches as repo_matches
 
 # Cuántas candidatas se traen para reordenar por similitud semántica. El coseno
 # se calcula en memoria, así que el tope es lo que impide que una búsqueda de
 # una palabra común cargue el catálogo entero.
 POOL_SEMANTICO = 200
 
-# Columnas por las que se puede ordenar en SQL. `relevance` y `score_encaje` no
-# están: los resuelven caminos propios.
+# Columnas por las que se puede ordenar en SQL. `relevance` no está: lo resuelve
+# un camino propio.
 COLUMNAS_ORDENABLES = {
     "fecha_publicacion": Licitacion.fecha_publicacion,
     "fecha_cierre": Licitacion.fecha_cierre,
@@ -149,13 +148,11 @@ async def buscar(
     ascendente: bool = False,
     salto: int = 0,
     limite: int = 20,
-    empresa_id=None,
 ) -> tuple[list[Licitacion], int]:
     """Una página de licitaciones y el total que cumple los filtros.
 
-    `orden="score_encaje"` con una empresa ordena por el encaje precomputado, en
-    SQL. El resto de valores ordenan por columna; uno desconocido cae en fecha de
-    publicación, que es el orden por defecto del producto.
+    Se ordena por columna; un valor desconocido cae en fecha de publicación, que
+    es el orden por defecto del producto.
     """
     consulta = _con_filtros(filtros)
 
@@ -163,13 +160,10 @@ async def buscar(
         (await db.execute(select(func.count()).select_from(consulta.subquery()))).scalar() or 0
     )
 
-    if orden == "score_encaje" and empresa_id:
-        ordenada = repo_matches.ordenar_por_encaje(consulta, empresa_id, ascendente=ascendente)
-    else:
-        columna = COLUMNAS_ORDENABLES.get(orden or "", Licitacion.fecha_publicacion)
-        ordenada = consulta.order_by(
-            abiertas_primero(), (asc if ascendente else desc)(columna).nulls_last()
-        )
+    columna = COLUMNAS_ORDENABLES.get(orden or "", Licitacion.fecha_publicacion)
+    ordenada = consulta.order_by(
+        abiertas_primero(), (asc if ascendente else desc)(columna).nulls_last()
+    )
 
     filas = (await db.execute(ordenada.offset(salto).limit(limite))).scalars().all()
     return list(filas), total
@@ -203,18 +197,4 @@ async def obtener_por_codigo(db: AsyncSession, codigo_externo: str) -> Licitacio
     """Por el código de Mercado Público, que es el que se ve en la URL."""
     return (
         await db.execute(_base().where(Licitacion.codigo_externo == codigo_externo))
-    ).scalar_one_or_none()
-
-
-async def obtener_para_postular(db: AsyncSession, licitacion_id: int) -> Licitacion | None:
-    """Como `obtener`, pero sin cargar el detalle.
-
-    Al crear una postulación sólo se necesita el tipo de licitación para elegir
-    la plantilla del checklist; traer el detalle sería una consulta de más en el
-    camino más caliente del producto.
-    """
-    return (
-        await db.execute(
-            select(Licitacion).where(Licitacion.id == licitacion_id, Licitacion.activo.is_(True))
-        )
     ).scalar_one_or_none()

@@ -80,10 +80,8 @@ class TenderResponse(TenderBase):
     fecha_actualizacion: datetime | None = None
     detalle: LicitacionDetalleResponse | None = None
 
-    # Populated only when TF-IDF re-ranking or empresa-fit scoring is applied.
+    # Populated only when TF-IDF re-ranking is applied.
     similarity_score: float | None = None
-    score_encaje: float | None = None
-    nivel_encaje: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -3,7 +3,8 @@
 Por qué hay un test y no sólo una regla escrita
 -----------------------------------------------
 La regla llevaba escrita desde F3 y el código la incumplía en once routers: 120
-consultas repartidas entre los handlers. Una convención que nada comprueba es
+consultas repartidas entre los handlers. (Desde el pivote público quedan dos
+routers de dominio, `tenders` y `bi`, pero la regla y su motivo siguen.) Una convención que nada comprueba es
 una convención que se cumple mientras alguien se acuerda.
 
 Y no es cosmética. Cada uno de estos casos apareció al mover las consultas:
@@ -17,15 +18,11 @@ Y no es cosmética. Cada uno de estos casos apareció al mover las consultas:
 - `Licitacion.activo` estaba en cuatro routers, y **faltaba** en el que crea
   postulaciones: se podía abrir una sobre algo ya retirado de Mercado Público.
 
-Las dos excepciones
--------------------
-`deps.py` — las dependencias de tenancy SON acceso a datos, y concentrarlas ahí
-es justo el patrón que el repositorio persigue. Moverlas a otro fichero sólo
-alejaría la comprobación del sitio donde se declara.
-
-`data_inspection.py` — es un explorador genérico de tablas: construir la
-consulta a partir de los parámetros **es** la funcionalidad. Un repositorio ahí
-sería un fichero con la misma consulta y otro nombre.
+La excepción
+------------
+`health.py` — `SELECT 1` es una prueba de conectividad, no una consulta de
+dominio. (`deps.py` y `data_inspection.py` también lo eran; se fueron con las
+cuentas en el pivote público.)
 """
 
 from __future__ import annotations
@@ -38,8 +35,6 @@ import pytest
 API = pathlib.Path(__file__).resolve().parents[1] / "app" / "api"
 
 EXCEPCIONES = {
-    "deps.py": "las dependencias de tenancy SON el acceso a datos, y viven juntas a propósito",
-    "data_inspection.py": "explorador genérico de tablas: construir la consulta es la feature",
     "health.py": "`SELECT 1` es una prueba de conectividad, no una consulta de dominio",
 }
 
@@ -53,7 +48,9 @@ def _routers() -> list[pathlib.Path]:
 
 def test_hay_routers_que_revisar():
     """Guarda: si el recorrido encuentra pocos ficheros, no está comprobando nada."""
-    assert len(_routers()) >= 10, f"se esperaban ≥10 routers, hay {len(_routers())}"
+    # Antes ≥10; el pivote público retiró las cuentas y quedan cuatro ficheros
+    # (bi, documentacion, health, tenders).
+    assert len(_routers()) >= 4, f"se esperaban ≥4 routers, hay {len(_routers())}"
 
 
 @pytest.mark.parametrize("router", _routers(), ids=lambda f: f.name)

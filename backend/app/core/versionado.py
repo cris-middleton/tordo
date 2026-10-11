@@ -12,10 +12,9 @@ después obliga a sostener las dos formas para siempre.
 
 Cómo se publica una v2
 ----------------------
-Los routers declaran su ruta **relativa** (`/tenders`, `/empresas`…) y no saben
-nada de la versión: `main.py` los monta bajo este prefijo. Sacar una v2 es
-montar los mismos routers —o los que cambien— bajo `/api/v2`, no editar catorce
-ficheros.
+Los routers declaran su ruta **relativa** (`/tenders`, `/bi`) y no saben nada
+de la versión: `main.py` los monta bajo este prefijo. Sacar una v2 es montar los
+mismos routers —o los que cambien— bajo `/api/v2`, no editar cada fichero.
 
 Por qué vive en `core/` y no en `api/`
 --------------------------------------

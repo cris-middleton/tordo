@@ -1,6 +1,6 @@
 # Tordo
 
-Plataforma SaaS para PYMES chilenas que participan en licitaciones públicas. Gestiona alertas, seguimiento de oportunidades y **compliance operativo** (estado hábil, documentos, checklist de postulaciones).
+Sitio público y gratuito de inteligencia sobre las compras del Estado chileno: catálogo de licitaciones y Compra Ágil, bandas de precio, competidores y perfiles de comprador, sin cuentas. Fue un SaaS B2B hasta el pivote del 2026-10-11 — ver `docs/PIVOTE_PUBLICO_2026-10.md`; el último estado SaaS está en la etiqueta `saas-v1`.
 
 > **Nombre del producto: TORDO.** Decidido el 2026-08-05. El nombre se lee siempre desde
 > `APP_NAME` / `BRAND_NAME`; no hardcodear. (Un pivot de marca a "YUCA" quedó descartado —
@@ -82,7 +82,7 @@ tordo/
    | Redis | localhost:6379 |
 
    > **El navegador no habla con el backend.** Todo pasa por `/api/proxy` del servidor de
-   > Next, que es quien guarda la sesión en cookies `httpOnly`. Por eso la URL del backend es
+   > Next, que sólo reenvía (no hay sesión). Por eso la URL del backend es
    > `API_URL`, **de servidor y sin prefijo `NEXT_PUBLIC_`**: cualquier variable con ese
    > prefijo se inlinea en el bundle del navegador.
 
@@ -94,8 +94,7 @@ tordo/
 2. **Leer** `docs/ARQUITECTURA_REVISION_2026-08.md` antes de cualquier cambio estructural
 3. **Consultar** `docs/SPEC.md` para el alcance de producto
 4. **Consultar** `docs/decisiones/` antes de re-discutir algo ya decidido
-5. **Revisar** `docs/deploy_steps/tareas_manuales.md` — servicios externos aún pendientes
-   (MercadoPago, Google OAuth, Twilio WABA, dominio + SSL)
+5. **Consultar** `docs/PIVOTE_PUBLICO_2026-10.md` — el plan en curso y su orden de pasos
 
 **Toda feature se desarrolla en un worktree**, nunca ramificando en el checkout
 principal:
@@ -135,7 +134,7 @@ Las dependencias viven en un único `pyproject.toml` en la raíz, con grupos
 
 ```bash
 cd backend
-SECRET_KEY=dev uv run --project .. uvicorn app.main:app --reload
+uv run --project .. uvicorn app.main:app --reload
 ```
 
 ### Frontend
@@ -159,11 +158,10 @@ uv run --project .. python main.py
 | **backend** | API REST FastAPI |
 | **frontend** | Aplicación Next.js |
 | **etl** | Pipeline de extracción de datos |
-| **celery_worker** | Procesamiento asíncrono de alertas |
+| **celery_worker** | Corre el ETL programado (horario, diario, bulk semanal) |
 | **celery_beat** | Programador de tareas periódicas |
 | **db** | PostgreSQL 15 |
 | **redis** | Cola de tareas y caché |
-| **minio** | Almacenamiento S3-compatible de documentos (dev) |
 | **flower** | Monitoreo de tareas Celery |
 
 > Las imágenes de backend y ETL se construyen con **contexto en la raíz del repo**
@@ -209,7 +207,6 @@ Ver `.env.example` para la lista completa. Variables críticas:
 
 - `DATABASE_URL` — Conexión PostgreSQL
 - `REDIS_URL` — Cola Celery
-- `SECRET_KEY` — JWT (cambiar en producción)
 - `MERCADO_PUBLICO_TICKET` — API ChileCompra (ticket demo incluido en .env.example)
 - `APP_NAME` — Nombre de la aplicación (`TORDO`)
 
@@ -223,7 +220,7 @@ Ver `.env.example` para la lista completa. Variables críticas:
 | `CLAUDE.md` | **Reglas de trabajo y mapa de arquitectura. Empieza aquí.** |
 | `AGENTS.md` | Versión corta de las reglas, para herramientas que leen `AGENTS.md` |
 | `docs/decisiones/` | ADRs — decisiones caras de revertir, una por archivo |
-| `.claude/skills/` | Procedimientos para lo que ya salió mal aquí: endpoints con `empresa_id`, migraciones |
+| `.claude/skills/` | Procedimientos para lo que ya salió mal aquí: migraciones |
 | `docs/ARQUITECTURA_REVISION_2026-08.md` | Revisión de arquitectura y plan de remediación por fases |
 | `docs/SPEC.md` | Especificación técnica de producto |
 | `docs/tordo_plan_saas.md` | Plan de negocio |

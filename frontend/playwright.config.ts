@@ -3,10 +3,9 @@ import { defineConfig, devices } from '@playwright/test';
 /**
  * Tests de extremo a extremo.
  *
- * Prueban lo que ninguna otra capa puede: que un navegador de verdad, con su
- * propio almacenamiento y sus cookies, no pueda leer la sesión. El resto de la
- * suite comprueba que el servidor pone `httpOnly` — sólo un navegador comprueba
- * que eso sirve para algo.
+ * Prueban lo que ninguna otra capa puede: el recorrido entero con un navegador
+ * de verdad —pantalla, proxy de Next, backend y Postgres— tal como lo hace un
+ * visitante anónimo.
  *
  * **No levanta nada**: la pila entera —Postgres, migraciones, semilla, backend y
  * Next— la monta `scripts/e2e.sh`. Que Playwright arrancara el servidor no
@@ -20,22 +19,16 @@ import { defineConfig, devices } from '@playwright/test';
 
 const PUERTO = Number(process.env.E2E_PUERTO_FRONT ?? 3210);
 
-// `localhost` y no el nombre del host: las cookies de sesión son `Secure`, y un
-// navegador las DESCARTA en un origen que no considera de confianza.
-// `http://localhost` es la excepción que la especificación reconoce como
-// potencialmente segura; `http://host.docker.internal` no lo es — con ella el
-// login devuelve 200, no se guarda nada y el test falla sin decir por qué.
-//
-// Por eso el servidor de Next corre DENTRO del mismo contenedor que el
-// navegador. Es también lo que evita tener que montar un terminador TLS o
-// pasarle a Chrome banderas que relajan su modelo de seguridad justo en los
-// tests que existen para comprobarlo.
+// `localhost` y no el nombre del host, con el servidor de Next DENTRO del mismo
+// contenedor que el navegador. Lo obligaban las cookies `Secure` de la sesión,
+// que se fueron con las cuentas; se mantiene porque `http://localhost` es el
+// único origen sin TLS que un navegador trata como de confianza, y así nada de
+// lo que dependa de eso puede fallar sólo en los tests.
 const BASE = `http://localhost:${PUERTO}`;
 
 export default defineConfig({
   testDir: './e2e',
-  // Sin paralelismo entre ficheros: comparten una sola base sembrada, y dos
-  // tests invitando al mismo colega a la vez se pisan.
+  // Sin paralelismo entre ficheros: comparten una sola base sembrada.
   workers: 1,
   fullyParallel: false,
   // En CI un `.only` olvidado haría pasar la suite ejecutando un solo test.
@@ -65,7 +58,8 @@ export default defineConfig({
     // El build lo hace `scripts/e2e.sh` fuera del contenedor; aquí sólo se
     // arranca lo ya construido.
     command: `HOSTNAME=0.0.0.0 PORT=${PUERTO} node .next/standalone/server.js`,
-    url: `${BASE}/login`,
+    // La portada: es estática y no depende del backend para responder.
+    url: `${BASE}/`,
     reuseExistingServer: false,
     timeout: 120_000,
     // El backend sí vive en el host: esta llamada la hace el servidor de Next,

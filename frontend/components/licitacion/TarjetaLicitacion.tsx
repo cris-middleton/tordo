@@ -19,28 +19,8 @@ import {
   normalizeText,
   shortRegion,
 } from '@/lib/licitacionEstado';
-import type { NivelEncaje, Tender } from '@/types/licitacion';
+import type { Tender } from '@/types/licitacion';
 import type { StoredTender } from '@/hooks/useDashboardCollections';
-
-/** La afinidad con el perfil de la empresa. Sin encaje no se pinta nada. */
-function insigniaEncaje(nivel?: NivelEncaje | null) {
-  if (!nivel || nivel === 'sin_encaje') return null;
-  const map: Record<string, { label: string; cls: string }> = {
-    alto: { label: 'Encaje alto', cls: 'bg-accent/10 text-accent border-accent/20' },
-    medio: { label: 'Encaje medio', cls: 'bg-primary/10 text-primary border-primary/20' },
-    bajo: { label: 'Encaje bajo', cls: 'bg-border/50 text-subtle border-border' },
-  };
-  const config = map[nivel];
-  if (!config) return null;
-  return (
-    <span
-      title="Afinidad con el perfil de tu empresa (TF-IDF)"
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold leading-none ${config.cls}`}
-    >
-      {config.label}
-    </span>
-  );
-}
 
 /**
  * Una licitación en el listado.
@@ -95,7 +75,6 @@ export default function TarjetaLicitacion({
                 {normalizeText(estadoDisplay)}
               </span>
             )}
-            {insigniaEncaje(tender.nivel_encaje)}
           </div>
           {tender.region && (
             <span className="flex items-center gap-0.5 text-[11px] text-muted shrink-0">

@@ -1,6 +1,5 @@
-# Business logic services
-from app.services.alert_engine import AlertEngine
+"""Lógica de negocio como funciones de módulo.
 
-__all__ = [
-    "AlertEngine",
-]
+Vacío a propósito: re-exportar aquí haría que cualquier `from app.services import bi`
+arrastrase módulos que no necesita.
+"""

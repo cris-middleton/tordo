@@ -28,15 +28,6 @@ export interface TenderDetail {
   informacion_adicional?: Record<string, any>;
 }
 
-export interface PerfilMatchResult {
-  disponible: boolean;
-  codigo_externo?: string;
-  licitacion_nombre?: string;
-  score_encaje?: number;
-  nivel?: string;
-  motivo?: string;
-}
-
 export interface Transparencia {
   transparencia_score?: number;
   clasificacion?: string;
@@ -107,6 +98,4 @@ export interface BIPanel {
   ventana: VentanaPanel;
   competidores: CompetidoresPanel;
   precios: PrecioFallback[];
-  postulacion_id?: string;
-  estado_habil?: string;
 }

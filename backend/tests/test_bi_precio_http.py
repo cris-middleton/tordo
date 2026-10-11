@@ -13,15 +13,13 @@ llegar a construir la respuesta en el entorno donde corrían los tests. Esta
 vez el motivo es distinto y más simple: **`test_bi_precio_nivel_producto.py`
 llama a `servicio.get_precio_producto()` directamente** — nunca pasa por la
 capa HTTP, así que nunca pasa por `response_model=PrecioResponse`, que es
-donde Pydantic valida y donde el bug se manifiesta. Es la misma lección que
-`test_bi_mi_posicion_http.py` ya dejó escrita: "un atributo que no existe en
-el modelo sólo aparece ejecutando la ruta completa". El nivel L4 nunca tuvo
+donde Pydantic valida y donde el bug se manifiesta: un atributo que no existe
+en el modelo sólo aparece ejecutando la ruta completa. El nivel L4 nunca tuvo
 ese tipo de test, ni antes ni ahora — hasta este archivo.
 
-**Cliente propio y no la fixture `client`.** Mismo motivo que en
-`test_bi_mi_posicion_http.py`: `AsyncClient` sobre `ASGITransport` habla con la
-aplicación real sin depender de un servidor de sesiones que sólo admite un
-`.run()`.
+**Cliente propio y no la fixture `client`.** `AsyncClient` sobre
+`ASGITransport` habla con la aplicación real sin depender de un servidor de
+sesiones que sólo admite un `.run()`.
 """
 
 from __future__ import annotations
@@ -90,14 +88,13 @@ def solo_nivel_4(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_nivel_4_no_revienta_con_500(cliente, sample_empresa, cabeceras_owner, solo_nivel_4):
+async def test_nivel_4_no_revienta_con_500(cliente, solo_nivel_4):
     """El fallo real: `ResponseValidationError` por mandar un string donde el
     schema declara `float`. Antes del fix esto devolvía 500 siempre que la
     cascada llegaba a L4 con un organismo — que es su caso normal de uso."""
     r = await cliente.get(
         f"{PREFIJO_API}/bi/precio/{CODIGO}",
-        params={"organismo_id": "7416", "empresa_id": str(sample_empresa.id)},
-        headers=cabeceras_owner,
+        params={"organismo_id": "7416"},
     )
 
     assert r.status_code == 200, r.text
@@ -113,9 +110,7 @@ async def test_nivel_4_no_revienta_con_500(cliente, sample_empresa, cabeceras_ow
 
 
 @pytest.mark.asyncio
-async def test_la_unidad_de_medida_llega_al_cliente(
-    cliente, sample_empresa, cabeceras_owner, monkeypatch
-):
+async def test_la_unidad_de_medida_llega_al_cliente(cliente, monkeypatch):
     """`UnidadMedida` se seleccionaba en el repositorio pero no estaba declarada
     en `PrecioBanda`: Pydantic la descartaba en silencio al serializar. Un
     precio sin unidad es una respuesta ambigua con forma de respuesta exacta —
@@ -153,8 +148,7 @@ async def test_la_unidad_de_medida_llega_al_cliente(
 
     r = await cliente.get(
         f"{PREFIJO_API}/bi/precio/{CODIGO}",
-        params={"organismo_id": "7416", "empresa_id": str(sample_empresa.id)},
-        headers=cabeceras_owner,
+        params={"organismo_id": "7416"},
     )
 
     assert r.status_code == 200, r.text

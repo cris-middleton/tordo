@@ -3,7 +3,7 @@ Database session management.
 
 Exports:
   AsyncSessionLocal, async_engine, get_db   — for FastAPI routes (asyncpg)
-  SyncSessionLocal,  sync_engine,  get_sync_db — for Celery tasks + Stripe webhook (psycopg2)
+  SyncSessionLocal,  sync_engine,  get_sync_db — for Celery tasks (psycopg2)
   Base                                       — shared declarative base
 """
 
@@ -60,7 +60,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 
-# ── Sync engine (Celery tasks + Stripe webhook / psycopg2) ───────────────────
+# ── Sync engine (Celery tasks / psycopg2) ───────────────────
 # Uses DATABASE_URL_SYNC when set, otherwise strips the +asyncpg driver prefix.
 
 

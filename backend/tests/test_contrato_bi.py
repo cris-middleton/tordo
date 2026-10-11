@@ -1,19 +1,17 @@
-"""Contrato de los 26 endpoints de BI.
+"""Contrato de los 20 endpoints de BI.
 
 El golden master verifica `services/bi/`: que las funciones devuelvan los mismos
-números. **No verifica la capa HTTP.** Este archivo cubre esa capa, con el mismo
-enfoque que `test_tenancy_estructural.py`: se declara lo esperado y el test recorre
-las rutas reales. Un endpoint nuevo aparece como fallo hasta que alguien decida
-explícitamente qué protección le toca.
+números. **No verifica la capa HTTP.** Este archivo cubre esa capa: se declara lo
+esperado y el test recorre las rutas reales. Un endpoint nuevo aparece como fallo
+hasta que alguien decida explícitamente qué protección le toca.
 
-Qué significa cada nivel (pivote público, docs/PIVOTE_PUBLICO_2026-10.md)
-------------------------
+Desde el pivote público (docs/PIVOTE_PUBLICO_2026-10.md) queda un solo nivel:
+
 - `publica` — **ninguna** dependencia de sesión, empresa, plan ni cuota. La única
-              protección es el límite por IP de `/api/v1/bi/*`. Es lo normal desde
-              que TORDO es un sitio público.
-- `cuenta`  — **transitorio.** Rutas que dependen de una empresa y se retiran
-              enteras en el paso 3 del pivote, junto con las empresas. Este nivel
-              desaparece con ellas.
+              protección es el límite por IP de `/api/v1/bi/*`.
+
+El nivel `cuenta` desapareció con las cuentas. Si vuelve a hacer falta otro
+nivel, se declara aquí con su motivo.
 """
 
 from __future__ import annotations
@@ -49,46 +47,25 @@ CONTRATO: dict[tuple[str, str], str] = {
     # que la acota llega en el paso 10 del pivote (spec §7.4).
     ("GET", "/bi/exportar/precio/{codigo_producto}"): "publica",
     ("GET", "/bi/exportar/competidores/{organismo_id}"): "publica",
-    # ── Se retiran en el paso 3, con las empresas ──
-    ("GET", "/bi/perfil/{empresa_id}"): "cuenta",
-    ("PUT", "/bi/perfil/{empresa_id}"): "cuenta",
-    ("GET", "/bi/rubros/sugerir"): "cuenta",
-    ("GET", "/bi/mi_posicion"): "cuenta",
-    ("GET", "/bi/radar_semanal"): "cuenta",
-    ("GET", "/bi/licitacion-match/{codigo_externo}"): "cuenta",
 }
 
-#: Lo que una ruta `publica` NO puede declarar. Son los nombres de las funciones
-#: de dependencia, que es lo que `rutas_con_metodo` devuelve.
-PROHIBIDAS_EN_PUBLICA = {
-    "_exigir_cuota_bi",
-    "_exigir_plan",
-    "empresa_facturable",
-    "empresa_ctx",
-    "_dep",
-    "get_current_user",
-    "get_current_active_user",
-}
-
-#: Lo que una ruta `cuenta` sigue declarando hasta que se retire.
-DEPENDENCIAS_DE_CUENTA = {
-    "_exigir_cuota_bi",
-    "_exigir_plan",
-    "empresa_ctx",
-    "_dep",
-    "get_current_active_user",
-}
+#: Lo ÚNICO que una ruta `publica` puede declarar: la sesión de base de datos.
+#: Son los nombres de las funciones de dependencia, que es lo que
+#: `rutas_con_metodo` devuelve. Era una lista de prohibidas (sesión, empresa,
+#: plan, cuota); sin cuentas, una lista de permitidas es más estricta — una
+#: dependencia nueva de cualquier tipo obliga a decidir si cabe aquí.
+PERMITIDAS_EN_PUBLICA = {"get_db"}
 
 
 def _rutas_bi() -> list[tuple[str, str, set[str]]]:
     """Las rutas de BI, con la ruta SIN el prefijo de versión.
 
     La tabla de arriba se escribe relativa (`/bi/clusters`) a propósito: sacar
-    una v2 no debería obligar a reescribir 22 líneas que no han cambiado de
+    una v2 no debería obligar a reescribir 20 líneas que no han cambiado de
     significado.
 
-    El recorrido vive en tests/rutas.py, compartido con el test estructural de
-    multi-tenancy: FastAPI 0.141 dejó de aplanar los routers incluidos y los dos
+    El recorrido vive en tests/rutas.py, compartido con otros tests
+    estructurales: FastAPI 0.141 dejó de aplanar los routers incluidos y todos
     pasaron a encontrar cero rutas a la vez.
     """
     marca = f"{PREFIJO_API}/bi/"
@@ -132,87 +109,12 @@ def test_cada_endpoint_declara_la_proteccion_que_le_toca(metodo, path, deps):
     if esperado is None:
         pytest.skip("cubierto por test_no_hay_endpoints_de_bi_sin_contrato_declarado")
 
-    if esperado == "publica":
-        sobran = deps & PROHIBIDAS_EN_PUBLICA
-        assert not sobran, (
-            f"{metodo} {path} es pública y declara {sorted(sobran)}: "
-            "pediría sesión o cuota en un sitio sin cuentas."
-        )
-    else:
-        assert deps & DEPENDENCIAS_DE_CUENTA, (
-            f"{metodo} {path} depende de una empresa y declara {sorted(deps)}."
-        )
-
-
-def test_el_nivel_transitorio_no_crece():
-    """`cuenta` sólo puede encoger hasta desaparecer en el paso 3 del pivote."""
-    cuenta = [k for k, v in CONTRATO.items() if v == "cuenta"]
-    assert len(cuenta) <= 6, f"{len(cuenta)} rutas de cuenta: {sorted(cuenta)}"
-
-
-def test_matching_semantico_exige_plan_pro():
-    """`/licitacion-match` implementa "Matching semántico", que se VENDE como Pro.
-
-    Está en la lista de capacidades del plan Pro que devuelve `/api/billing/plans`,
-    y el endpoint no comprobaba el plan: sólo el flag de la feature y la
-    pertenencia a la empresa. Con `FEATURE_TFIDF` apagado no se notaba —responde
-    503 para todos— pero encenderlo regalaba una capacidad de pago.
-    """
-    from app.api.billing import PLANS
-
-    pro = next(p for p in PLANS if p.id == "pro")
-    assert any("Matching semántico" in f for f in pro.features), (
-        "Si el matching deja de venderse como Pro, este test y el gating del "
-        "endpoint tienen que cambiar juntos."
+    assert esperado == "publica", f"{metodo} {path}: nivel desconocido {esperado!r}"
+    sobran = deps - PERMITIDAS_EN_PUBLICA
+    assert not sobran, (
+        f"{metodo} {path} es pública y declara {sorted(sobran)}: "
+        "pediría sesión o cuota en un sitio sin cuentas."
     )
-
-    deps = next(d for m, p, d in _rutas_bi() if p == "/bi/licitacion-match/{codigo_externo}")
-    assert deps & {"_exigir_plan"}, (
-        f"/licitacion-match declara {sorted(deps)} y no comprueba el plan, "
-        "pero el matching semántico se vende como capacidad Pro."
-    )
-
-
-# ── Que el gating funcione, no sólo que esté declarado ───────────────────────
-
-
-@pytest.mark.asyncio
-async def test_un_plan_basico_recibe_402_en_el_matching(async_db, sample_user, sample_empresa):
-    """Prueba de extremo a extremo del arreglo.
-
-    La dependencia se resuelve ANTES del cuerpo, así que el 402 del plan llega
-    antes que el 503 del feature flag. Es el orden correcto: al usuario le
-    interesa saber que le falta plan, no que la feature está apagada.
-    """
-    from httpx import ASGITransport, AsyncClient
-
-    from app.core.security import get_current_active_user
-    from app.db import get_db
-    from app.main import app
-
-    # La empresa nace con trial, que da acceso `pro`. Se le quita para probar
-    # el plan gratuito de verdad.
-    sample_empresa.plan_tier = "basico"
-    sample_empresa.subscription_status = "active"
-    sample_empresa.trial_ends_at = None
-    await async_db.flush()
-
-    async def _get_db():
-        yield async_db
-
-    app.dependency_overrides[get_db] = _get_db
-    app.dependency_overrides[get_current_active_user] = lambda: sample_user
-    try:
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-            r = await c.get(
-                f"{PREFIJO_API}/bi/licitacion-match/ABC-1",
-                params={"empresa_id": str(sample_empresa.id), "texto": "servicios de aseo"},
-            )
-    finally:
-        app.dependency_overrides.clear()
-
-    assert r.status_code == 402, f"esperaba 402 por plan, llegó {r.status_code}: {r.text[:200]}"
-    assert r.json()["detail"]["bloqueada_por_plan"] is True
 
 
 @pytest.mark.asyncio

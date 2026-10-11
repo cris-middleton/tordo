@@ -1,3 +1,8 @@
+> 🟡 **Histórico** desde el pivote público (2026-10-11). Describe el despliegue del SaaS
+> —`SECRET_KEY`, Google, Stripe, MercadoPago, almacenamiento de documentos, Celery— que ya no
+> existe. La guía nueva (Vercel + Railway con dos cron, `MCP_HOSTS_PERMITIDOS`, latidos) llega
+> en el paso 12 de `docs/PIVOTE_PUBLICO_2026-10.md`. **No configures nada siguiendo esto.**
+
 # TORDO — Railway Deployment Guide
 
 ## Current state

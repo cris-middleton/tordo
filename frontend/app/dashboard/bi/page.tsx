@@ -4,41 +4,29 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { BarChart3, Columns, Loader2, Target } from 'lucide-react';
 
-import { apiClient } from '@/lib/api';
 import {
   useBIOportunidades,
   useBIPanorama,
   useBIResumen,
   useBIRubros,
   useBITendencia,
-  useEmpresas,
-  useMiPosicion,
-  usePerfilSemantico,
-  usePlanActual,
 } from '@/lib/queries';
 
 import {
-  MiPosicion,
   OportunidadItem,
   OrganismoConNombre,
   Panorama,
-  PlanTier,
   ResumenMercado,
   TendenciaApiResponse,
-  TFIDFPerfilData,
-  isPaidPlan,
 } from './types';
-import { BIOnboarding } from './components/BIOnboarding';
 import { CompareMode } from './components/CompareMode';
 import { CompetenciaSection } from './components/CompetenciaSection';
 import { CompradoresSection } from './components/CompradoresSection';
 import { EstacionalidadSection } from './components/EstacionalidadSection';
 import { HerramientasAvanzadas } from './components/HerramientasAvanzadas';
 import { MarketSummaryCard } from './components/MarketSummaryCard';
-import { MyPositionCard } from './components/MyPositionCard';
 import { OportunidadesSection } from './components/OportunidadesSection';
 import { PanoramaRubro } from './components/PanoramaRubro';
-import { PlanGate } from './components/PlanGate';
 import { RubroFilter } from './components/RubroFilter';
 import { SectorOverview } from './components/SectorOverview';
 import { TendenciasSection } from './components/TendenciasSection';
@@ -58,10 +46,14 @@ import { TendenciasSection } from './components/TendenciasSection';
  * lo que el pipeline sabe calcular:
  *
  *   1. Panorama del rubro — ¿cómo está este mercado?
- *   2. Dónde estoy yo — ¿tengo algo que defender aquí?
- *   3. Oportunidades — ¿qué hago esta semana?
- *   4. Detalle por comprador — ¿y si miro uno en concreto?
- *   5. Herramientas — cálculos puntuales, plegados.
+ *   2. Oportunidades — ¿qué hago esta semana?
+ *   3. Detalle por comprador — ¿y si miro uno en concreto?
+ *   4. Herramientas — cálculos puntuales, plegados.
+ *
+ * Desde el pivote a sitio público no hay cuenta ni empresa: no hay «tu
+ * posición», ni rubros guardados en un perfil, ni secciones con candado. Sin
+ * rubro en la URL la pantalla arranca sin ninguno y cada sección invita a
+ * elegirlo arriba.
  *
  * Antes eran cinco secciones del mismo peso visual en un scroll largo, y la
  * primera pregunta —la que trae al usuario— no se respondía en ninguna.
@@ -120,9 +112,6 @@ function Seccion({
 }
 
 function BIContenido() {
-  const plan = (usePlanActual().data?.tier ?? 'basico') as PlanTier;
-  const paid = isPaidPlan(plan);
-
   // La URL se LEE al montar, no sólo se escribe. Antes esta pantalla la
   // escribía en un efecto y nunca la leía: compartir el enlace de un rubro
   // abría el rubro por defecto del que lo recibía.
@@ -140,19 +129,6 @@ function BIContenido() {
     () => params.get('focus') || null,
   );
   const [orgElegido, setOrgElegido] = useState('');
-  // «Explorar sin configurar» es una decisión del usuario, no un dato: se
-  // recuerda aparte. Antes el botón se limitaba a elegir el primer rubro del
-  // catálogo, así que **sin catálogo no hacía nada** — y sin catálogo es
-  // justamente cuando esta pantalla aparece. Ver `saltarConfiguracion`.
-  const [configuracionOmitida, setConfiguracionOmitida] = useState(false);
-
-  // ── Contexto de empresa y catálogo ───────────────────────────────────────
-  const consultaEmpresas = useEmpresas();
-  const empresas = (consultaEmpresas.data ?? []) as { id: string; rubros_cpv?: string[] }[];
-  const empresaId = empresas[0]?.id;
-
-  const consultaPerfil = usePerfilSemantico(empresaId);
-  const perfil = consultaPerfil.data as TFIDFPerfilData | undefined;
 
   const consultaRubros = useBIRubros();
   const allRubros = useMemo<string[]>(() => {
@@ -161,12 +137,7 @@ function BIContenido() {
     return [...(datos.rubros ?? [])].sort((a, b) => a.localeCompare(b, 'es'));
   }, [consultaRubros.data]);
 
-  // El rubro se DERIVA mientras el usuario no elija uno: de la URL, de la
-  // empresa o del perfil. Guardarlo en estado desde un efecto era lo que
-  // obligaba al `eslint-disable` y lo que dejaba un render con el valor vacío.
-  const rubroPorDefecto =
-    empresas[0]?.rubros_cpv?.[0] ?? perfil?.rubros_usados?.[0] ?? '';
-  const rubro = rubroElegido ?? rubroPorDefecto;
+  const rubro = rubroElegido ?? '';
 
   // ── Datos de la pantalla ─────────────────────────────────────────────────
   const consultaPanorama = useBIPanorama(rubro || undefined);
@@ -184,16 +155,13 @@ function BIContenido() {
   const consultaResumen = useBIResumen(rubro || undefined);
   const resumen = (consultaResumen.data ?? null) as ResumenMercado | null;
 
-  const consultaMiPosicion = useMiPosicion(empresaId, rubro);
-  const miPosicion = (consultaMiPosicion.data ?? null) as MiPosicion | null;
-
   // El módulo está apagado si la primera consulta devolvió 503. Se lee del
   // error de la consulta en vez de mantenerse en un estado propio.
   const biDesactivado =
     (consultaOportunidades.error as { response?: { status?: number } } | null)?.response?.status ===
     503;
 
-  const cargandoInicial = consultaEmpresas.isPending || consultaRubros.isPending;
+  const cargandoInicial = consultaRubros.isPending;
 
   const topOrganismos = useMemo<OrganismoConNombre[]>(() => {
     const vistos = new Set<string>();
@@ -227,25 +195,6 @@ function BIContenido() {
     };
   }, [focusCodigo, oportunidades]);
 
-  /**
-   * Entrar a la pantalla sin haber declarado rubros.
-   *
-   * Hacía `allRubros[0] && cambiarRubro(allRubros[0])`, que es un no-op cuando
-   * el catálogo viene vacío — y viene vacío siempre que el pipeline de
-   * analytics no se ha materializado, que es el estado de cualquier despliegue
-   * nuevo: `/bi/clusters` responde `{"disponible": false, "motivo":
-   * "cluster_taxonomy.parquet no encontrado"}`. El usuario pulsaba un botón que
-   * no reaccionaba, sin ningún mensaje.
-   *
-   * Saltar la puerta no necesita un rubro: las secciones de abajo ya saben
-   * pintarse vacías y dicen por qué. Si hay catálogo se elige el primero, que
-   * es mejor punto de partida; si no lo hay, se entra igual.
-   */
-  const saltarConfiguracion = useCallback(() => {
-    setConfiguracionOmitida(true);
-    if (allRubros[0]) setRubroElegido(allRubros[0]);
-  }, [allRubros]);
-
   const cambiarRubro = useCallback((nuevo: string) => {
     setCompareMode(false);
     setRubroB('');
@@ -253,27 +202,6 @@ function BIContenido() {
     setOrgElegido('');
     setFocusCodigo(null);
   }, []);
-
-  /**
-   * Guarda el perfil semántico desde el selector de rubros.
-   *
-   * **Manda la descripción aunque no se toque aquí.** `PUT /bi/perfil` escribe
-   * todos los campos del cuerpo, así que enviar sólo los rubros —como hacía
-   * esta pantalla— dejaba `descripcion` en `None` y **borraba lo que el usuario
-   * había escrito** en la pantalla de empresa. Un guardado silencioso que
-   * destruye el dato que alimenta todo el matching.
-   */
-  const guardarPerfil = useCallback(
-    async (rubros: string[]) => {
-      if (!empresaId) return;
-      await apiClient.updateTFIDFPerfil(empresaId, {
-        descripcion: perfil?.descripcion ?? null,
-        rubros_usados: rubros,
-      });
-      await consultaPerfil.refetch();
-    },
-    [empresaId, perfil?.descripcion, consultaPerfil],
-  );
 
   // ── Sincronizar la URL ───────────────────────────────────────────────────
   // Único efecto de la pantalla, y no toca estado de React: escribe fuera. Va
@@ -286,13 +214,6 @@ function BIContenido() {
     const qs = siguiente.toString();
     window.history.replaceState({}, '', qs ? `?${qs}` : window.location.pathname);
   }, [rubro, focusCodigo, compareMode, rubroB]);
-
-  const necesitaOnboarding =
-    !cargandoInicial &&
-    !biDesactivado &&
-    !configuracionOmitida &&
-    !perfil?.rubros_usados?.length &&
-    !rubro;
 
   if (cargandoInicial) {
     return (
@@ -320,11 +241,6 @@ function BIContenido() {
         rubros={allRubros}
         selectedRubro={rubro}
         onRubroChange={cambiarRubro}
-        plan={plan}
-        allRubros={allRubros}
-        perfil={perfil ?? null}
-        empresaId={empresaId ?? null}
-        onSavePerfil={guardarPerfil}
         focusedOrganismo={focusedOrganismo}
         onClearFocus={() => setFocusCodigo(null)}
       />
@@ -361,13 +277,6 @@ function BIContenido() {
               setRubroB('');
             }}
           />
-        ) : necesitaOnboarding ? (
-          <BIOnboarding
-            onConfigurarRubros={() =>
-              window.dispatchEvent(new CustomEvent('bi:open-rubros-modal'))
-            }
-            onExplorarSinConfigurar={saltarConfiguracion}
-          />
         ) : (
           <>
             <SectorOverview />
@@ -388,18 +297,7 @@ function BIContenido() {
               />
             </Seccion>
 
-            {/* ── 2 · ¿Tengo algo que defender aquí? ─────────────────────── */}
-            {rubro && miPosicion && (
-              <Seccion titulo="Tu posición">
-                <MyPositionCard
-                  posicion={miPosicion}
-                  loading={consultaMiPosicion.isFetching}
-                  rubro={rubro}
-                />
-              </Seccion>
-            )}
-
-            {/* ── 3 · ¿Qué hago esta semana? ─────────────────────────────── */}
+            {/* ── 2 · ¿Qué hago esta semana? ─────────────────────────────── */}
             <Seccion
               titulo="Dónde mirar primero"
               descripcion="Los mercados con mejor combinación de precio, competencia y regularidad."
@@ -427,7 +325,7 @@ function BIContenido() {
               />
             </Seccion>
 
-            {/* ── 4 · Detalle de un comprador ────────────────────────────── */}
+            {/* ── 3 · Detalle de un comprador ────────────────────────────── */}
             <div data-section="detalle-comprador" className="space-y-6">
               {focusedOrganismo && (
                 <div className="flex items-center gap-3 rounded-xl border-l-4 border-accent bg-accent/10 px-4 py-3">
@@ -451,43 +349,38 @@ function BIContenido() {
                 titulo="Un comprador en concreto"
                 descripcion="Quién le vende, cómo tramita y en qué meses compra."
               >
-                {/* El plan que se nombra es el que se puede comprar. Antes decía
-                    «plan PYME o superior» y ese plan no está a la venta: existe
-                    en `PLAN_QUOTAS` y no en `/billing/plans`. */}
-                <PlanGate locked={!paid} label="Análisis por comprador — plan Pro">
-                  <div className="space-y-6">
-                    <CompetenciaSection
-                      topOrganismos={topOrganismos}
-                      selectedOrganismo={focusedOrganismo?.codigo || organismoComparado}
-                      onOrganismoChange={setOrgElegido}
-                      rubro={rubro}
-                      disabled={!!focusedOrganismo}
-                      focused={!!focusedOrganismo}
-                      focusedNombre={focusedOrganismo?.nombre}
-                    />
-                    {(topOrganismos.length > 0 || focusedOrganismo) && (
-                      <>
-                        <CompradoresSection
-                          topOrganismos={topOrganismos}
-                          rubro={rubro}
-                          focusedOrganismo={focusedOrganismo}
-                          focusedNombre={focusedOrganismo?.nombre}
-                        />
-                        <EstacionalidadSection
-                          topOrganismos={topOrganismos}
-                          rubro={rubro}
-                          focusedOrganismo={focusedOrganismo}
-                          focused={!!focusedOrganismo}
-                          focusedNombre={focusedOrganismo?.nombre}
-                        />
-                      </>
-                    )}
-                  </div>
-                </PlanGate>
+                <div className="space-y-6">
+                  <CompetenciaSection
+                    topOrganismos={topOrganismos}
+                    selectedOrganismo={focusedOrganismo?.codigo || organismoComparado}
+                    onOrganismoChange={setOrgElegido}
+                    rubro={rubro}
+                    disabled={!!focusedOrganismo}
+                    focused={!!focusedOrganismo}
+                    focusedNombre={focusedOrganismo?.nombre}
+                  />
+                  {(topOrganismos.length > 0 || focusedOrganismo) && (
+                    <>
+                      <CompradoresSection
+                        topOrganismos={topOrganismos}
+                        rubro={rubro}
+                        focusedOrganismo={focusedOrganismo}
+                        focusedNombre={focusedOrganismo?.nombre}
+                      />
+                      <EstacionalidadSection
+                        topOrganismos={topOrganismos}
+                        rubro={rubro}
+                        focusedOrganismo={focusedOrganismo}
+                        focused={!!focusedOrganismo}
+                        focusedNombre={focusedOrganismo?.nombre}
+                      />
+                    </>
+                  )}
+                </div>
               </Seccion>
             </div>
 
-            {/* ── 5 · Cálculos puntuales ─────────────────────────────────── */}
+            {/* ── 4 · Cálculos puntuales ─────────────────────────────────── */}
             <HerramientasAvanzadas
               rubro={rubro}
               topOrganismos={topOrganismos}

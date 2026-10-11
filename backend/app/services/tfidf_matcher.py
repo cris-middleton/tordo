@@ -8,11 +8,8 @@ Lee artefactos pre-entrenados por el pipeline ETL de analytics:
 
 Expone:
   match(query_text, top_n)               → proveedores más afines al texto
-  build_empresa_vector(rubros_text)      → vector serializado del perfil empresa
-  score_empresa_licitacion(vec, texto)   → (score, nivel) encaje empresa-licitación
   score_texts(query, texts)              → cosine sim batch query vs lista de textos
-  score_empresa_texts(vec, texts)        → [(score, nivel)] batch para un perfil
-  get_clusters(limit)                    → taxonomía de clusters para UI perfil
+  get_clusters(limit)                    → taxonomía de clusters de productos
   is_available()                         → True si el modelo está entrenado
 
 Lazy-loads con TTL de 24h igual que BIService.
@@ -20,7 +17,6 @@ Lazy-loads con TTL de 24h igual que BIService.
 
 from __future__ import annotations
 
-import io
 import logging
 import re
 import time
@@ -167,104 +163,6 @@ def match(query_text: str, top_n: int = 20) -> list[dict]:
     return results
 
 
-def build_empresa_vector(rubros_text: str) -> bytes:
-    """
-    Genera el vector TF-IDF serializado para el perfil de una empresa.
-    Recibe texto libre (rubros, productos, descripción) y lo vectoriza
-    con el mismo TfidfVectorizer del modelo entrenado.
-
-    Retorna bytes (scipy sparse CSR serializado con io.BytesIO).
-    Lanza ValueError si el modelo no está disponible o el texto está vacío.
-    """
-    from scipy import sparse
-
-    model = _require_tfidf()
-    clean = _clean_text(rubros_text)
-    if not clean:
-        raise ValueError("El texto de rubros está vacío después de normalización")
-
-    vec = model["vectorizer"].transform([clean])  # CSR sparse (1, n_features)
-    buf = io.BytesIO()
-    sparse.save_npz(buf, vec)
-    return buf.getvalue()
-
-
-def texto_de_perfil(descripcion: str | None, rubros: list[str] | None) -> str:
-    """El texto con que se vectoriza el perfil de una empresa.
-
-    **La descripción va primero y pesa el doble.** Repetirla es la forma barata de
-    ponderar en TF-IDF sin tocar el modelo: los rubros son etiquetas de una
-    taxonomía compartida, y sin este peso dos empresas del mismo rubro tendrían
-    casi el mismo vector. Una sola definición, para que guardar y reconstruir den
-    el mismo vector.
-    """
-    partes = [descripcion or "", descripcion or "", *(rubros or [])]
-    return " ".join(p for p in partes if p and p.strip())
-
-
-def vector_o_reconstruido(perfil) -> bytes | None:
-    """El vector del perfil, reconstruyéndolo si se guardó vacío.
-
-    Si el modelo no estaba disponible al guardar, el perfil queda con `b""` —el
-    endpoint lo documentaba como «se puede reconstruir después»— y nada lo
-    reconstruía: el job de encajes fallaba en cada empresa con «No data left in
-    file» y «Oportunidades para ti» quedaba vacío para siempre. Deja el vector
-    en el objeto; quien llama hace commit. `None` si no hay con qué construirlo.
-    """
-    if perfil.vector_bytes:
-        return perfil.vector_bytes
-    texto = texto_de_perfil(perfil.descripcion, perfil.rubros_usados)
-    if not texto or not is_available():
-        return None
-    perfil.vector_bytes = build_empresa_vector(texto)
-    return perfil.vector_bytes
-
-
-def score_empresa_licitacion(vector_bytes: bytes, licitacion_text: str) -> tuple[float, str]:
-    """
-    Calcula el score de encaje entre el perfil serializado de una empresa
-    y el texto de una licitación.
-
-    Returns:
-        (score: float, nivel: str)
-        nivel ∈ {alto, medio, bajo, sin_encaje}
-
-    Umbrales calibrados sobre cosine similarity en vectores TF-IDF sparse:
-      - alto:       score >= 0.15  (solapamiento vocabular significativo)
-      - medio:      score >= 0.05
-      - bajo:       score >= 0.01
-      - sin_encaje: score < 0.01
-    """
-    from scipy import sparse
-    from sklearn.metrics.pairwise import cosine_similarity
-
-    try:
-        model = _require_tfidf()
-    except ValueError:
-        return 0.0, "sin_encaje"
-
-    buf = io.BytesIO(vector_bytes)
-    empresa_vec = sparse.load_npz(buf)
-
-    clean_lic = _clean_text(licitacion_text)
-    if not clean_lic:
-        return 0.0, "sin_encaje"
-
-    lic_vec = model["vectorizer"].transform([clean_lic])
-    score = float(cosine_similarity(empresa_vec, lic_vec)[0][0])
-    return round(score, 4), _nivel_from_score(score)
-
-
-def _nivel_from_score(score: float) -> str:
-    if score >= 0.15:
-        return "alto"
-    if score >= 0.05:
-        return "medio"
-    if score >= 0.01:
-        return "bajo"
-    return "sin_encaje"
-
-
 def score_texts(query_text: str, texts: list[str]) -> list[float]:
     """
     Vectoriza `query_text` y cada elemento de `texts`, retorna cosine similarity
@@ -294,33 +192,9 @@ def score_texts(query_text: str, texts: list[str]) -> list[float]:
     return [float(s) for s in sims]
 
 
-def score_empresa_texts(vector_bytes: bytes, texts: list[str]) -> list[tuple[float, str]]:
-    """
-    Para un perfil TF-IDF serializado, retorna [(score, nivel)] para cada texto
-    en el orden dado. Batch-eficiente: vectoriza todos los textos con una sola
-    llamada al vectorizador.
-    """
-    from scipy import sparse
-    from sklearn.metrics.pairwise import cosine_similarity
-
-    try:
-        model = _require_tfidf()
-    except ValueError:
-        return [(0.0, "sin_encaje")] * len(texts)
-
-    buf = io.BytesIO(vector_bytes)
-    empresa_vec = sparse.load_npz(buf)
-
-    cleaned = [_clean_text(t or "") for t in texts]
-    doc_vecs = model["vectorizer"].transform(cleaned)
-    sims = cosine_similarity(empresa_vec, doc_vecs).flatten()
-    return [(round(float(s), 4), _nivel_from_score(float(s))) for s in sims]
-
-
 def get_clusters(limit: int = 100) -> list[dict]:
     """
     Retorna la taxonomía de clusters de productos generada por word_clustering.
-    Útil para que el usuario seleccione sus categorías en el perfil TF-IDF.
 
     Retorna [] si cluster_taxonomy.parquet no existe (requiere run_all).
     """

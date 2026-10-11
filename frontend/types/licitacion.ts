@@ -12,8 +12,6 @@ export interface TenderDetalle {
   participantes?: any[];
 }
 
-export type NivelEncaje = 'alto' | 'medio' | 'bajo' | 'sin_encaje';
-
 export interface Tender {
   id: number;
   codigo_externo: string;
@@ -29,8 +27,6 @@ export interface Tender {
   url_licitacion?: string;
   detalle?: TenderDetalle;
   similarity_score?: number | null;
-  score_encaje?: number | null;
-  nivel_encaje?: NivelEncaje | null;
 }
 
 export interface BIPanel {
@@ -78,5 +74,4 @@ export interface BIPanel {
     confianza?: string | null;
     n?: number | null;
   }>;
-  postulacion_id?: string | null;
 }

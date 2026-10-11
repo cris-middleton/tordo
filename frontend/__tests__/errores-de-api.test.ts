@@ -5,16 +5,15 @@
  * En un 422 —el que produce cualquier validador de esquema de Pydantic— `detail`
  * es una LISTA de objetos `{type, loc, msg, input, ctx}`. Cada pantalla lo
  * tipaba como `string` y lo metía en el JSX, así que React moría con «Objects
- * are not valid as a React child». Pasó en el onboarding: es el primer
- * formulario de un usuario nuevo, y basta escribir un RUT con el dígito
- * verificador cambiado para reventarlo. El TypeScript no lo vio porque la
+ * are not valid as a React child». Pasó en el antiguo onboarding, con un RUT
+ * con el dígito verificador cambiado. El TypeScript no lo vio porque la
  * mentira estaba en el `as` con que se leía la respuesta.
  *
  * Aquí se fija el contrato en tres niveles:
- *   1. `mensajeDeError` entiende las tres formas del `detail`.
+ *   1. `mensajeDeError` entiende las formas del `detail`.
  *   2. Ninguna pantalla vuelve a leer `response.data.detail` por su cuenta.
- *   3. El 401 de la sonda de sesión NO redirige — o la landing se vuelve
- *      inalcanzable para quien no ha entrado.
+ *   3. Ningún error de la API saca al visitante de la página: desde el pivote
+ *      a sitio público no hay login al que mandarlo ni plan que mejorar.
  */
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -26,8 +25,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mensajeDeError } from '@/lib/errores';
 
 /**
- * La respuesta LITERAL del backend ante `{"rut_empresa": "12345678-9"}`, que es
- * el RUT del placeholder del onboarding. Capturada contra la API corriendo, no
+ * La respuesta LITERAL del backend ante `{"rut_empresa": "12345678-9"}`, que era
+ * el RUT del placeholder del antiguo onboarding. Capturada contra la API corriendo, no
  * escrita a mano: el valor de este test depende de que la forma sea la real.
  */
 const DETALLE_422 = [
@@ -89,7 +88,7 @@ describe('mensajeDeError con el 422 de Pydantic', () => {
 // ─── Que no vuelva a repartirse por las pantallas ────────────────────────────
 
 const RAIZ = join(__dirname, '..');
-const CARPETAS = ['app', 'components', 'contexts'];
+const CARPETAS = ['app', 'components'];
 
 /** `data.detail` / `data?.detail`, que es como se leía a mano en cada catch. */
 const LECTURA_CRUDA = /data\s*\??\s*\.\s*detail/;
@@ -128,9 +127,13 @@ describe('la forma del error la conoce un solo sitio', () => {
   });
 });
 
-// ─── El 401 de la sonda de sesión no echa a nadie de la landing ──────────────
+// ─── Un error de la API no saca a nadie de la página ─────────────────────────
 
-async function provocar401En(ruta: string): Promise<string | undefined> {
+/**
+ * Hace que la llamada al catálogo falle con `status` y devuelve a dónde habría
+ * ido el navegador y si alguien pidió el aviso de mejora de plan.
+ */
+async function provocarError(status: number): Promise<{ href?: string; avisoDePlan: boolean }> {
   vi.spyOn(axios, 'create').mockReturnValue(
     axios as unknown as ReturnType<typeof axios.create>,
   );
@@ -143,9 +146,13 @@ async function provocar401En(ruta: string): Promise<string | undefined> {
       response?: unknown;
       config?: unknown;
     };
-    error.response = { status: 401, data: { detail: 'Not authenticated' }, config, headers: {}, statusText: '' };
-    // Axios pone `config` también en el error, y es de ahí de donde el
-    // interceptor saca la ruta para saber si el 401 es la sonda de sesión.
+    error.response = {
+      status,
+      data: { detail: { bloqueada_por_plan: true, mensaje: 'antiguo 402' } },
+      config,
+      headers: {},
+      statusText: '',
+    };
     error.config = config;
     throw error;
   };
@@ -154,31 +161,33 @@ async function provocar401En(ruta: string): Promise<string | undefined> {
   // objeto espía para poder ver a dónde habría ido el navegador.
   const destino: { href?: string } = {};
   Object.defineProperty(window, 'location', {
-    value: { pathname: '/', get href() { return destino.href ?? ''; }, set href(v: string) { destino.href = v; } },
+    value: { pathname: '/dashboard/tenders', get href() { return destino.href ?? ''; }, set href(v: string) { destino.href = v; } },
     writable: true,
     configurable: true,
   });
 
-  if (ruta === 'sonda') await apiClient.getCurrentUser().catch(() => undefined);
-  else await apiClient.getEmpresas().catch(() => undefined);
-
-  return destino.href;
+  let avisoDePlan = false;
+  const escuchar = () => { avisoDePlan = true; };
+  window.addEventListener('plan-upgrade-needed', escuchar);
+  try {
+    await apiClient.getTenders().catch(() => undefined);
+  } finally {
+    window.removeEventListener('plan-upgrade-needed', escuchar);
+  }
+  return { href: destino.href, avisoDePlan };
 }
 
-describe('401 y redirección al login', () => {
+describe('sin cuentas, el cliente no redirige ni anuncia planes', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('NO redirige cuando el 401 viene de preguntar si hay sesión', async () => {
-    // La landing monta AuthContext, que pregunta por `/auth/me`. Para un
-    // visitante anónimo la respuesta es 401 y es la correcta. Cuando esto
-    // redirigía, `/` rebotaba a `/login` y la home no la veía nadie.
-    expect(await provocar401En('sonda')).toBeUndefined();
-  });
-
-  it('SÍ redirige cuando el 401 viene de cualquier otra llamada', async () => {
-    // Una sesión que se cae a media faena sigue mandando al login.
-    expect(await provocar401En('otra')).toBe('/login');
+  it.each([401, 402, 403])('un %i no manda al visitante a ninguna parte', async (status) => {
+    // Antes un 401 mandaba a la página de entrada. Ya no existe: redirigir ahí
+    // sería un 404 en vez del mensaje de error de la pantalla.
+    const { href, avisoDePlan } = await provocarError(status);
+    expect(href).toBeUndefined();
+    // Y un 402 ya no se traduce al aviso de mejora: no hay plan que comprar.
+    expect(avisoDePlan).toBe(false);
   });
 });

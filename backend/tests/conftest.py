@@ -17,8 +17,8 @@ modelos, y divergió una y otra vez:
 - Cada columna nueva había que añadirla a mano en dos o tres sitios.
 
 Ahora el esquema lo crean **las migraciones**, que es lo mismo que corre en
-producción. Un test de aislamiento entre inquilinos que sólo puede correr contra
-SQLite no prueba lo que hace falta probar.
+producción. Un test que sólo puede correr contra SQLite no prueba lo que hace
+falta probar.
 
 Aislamiento
 -----------
@@ -34,7 +34,6 @@ from __future__ import annotations
 
 import os
 import subprocess
-import uuid
 from pathlib import Path
 
 import pytest
@@ -44,12 +43,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.api.empresas import aplicar_trial_inicial
-from app.core.security import create_access_token
 from app.db import get_db
 from app.main import app
-from app.models.empresa import Empresa, EmpresaUsuario
-from app.models.user import User
 
 IN_CI = os.getenv("CI", "").lower() in ("1", "true")
 BACKEND = Path(__file__).resolve().parents[1]
@@ -91,7 +86,7 @@ def esquema_migrado() -> str:
     ya documenta la revisión (§5.0), justamente la que se quiere detectar.
     """
     url = url_base()
-    entorno = {**os.environ, "DATABASE_URL": _url_sync(url), "SECRET_KEY": "test"}
+    entorno = {**os.environ, "DATABASE_URL": _url_sync(url)}
     try:
         resultado = subprocess.run(
             ["alembic", "upgrade", "head"],
@@ -139,7 +134,7 @@ async def async_db(esquema_migrado) -> AsyncSession:
 def sync_task_db(esquema_migrado):
     """Sesión síncrona sobre una transacción que se revierte al terminar.
 
-    Para las tareas que usan `SyncSessionLocal` (Celery, webhooks): el
+    Para las tareas que usan `SyncSessionLocal` (Celery): el
     esquema async normal (`async_db`) corre en otra conexión/driver
     (asyncpg vs. psycopg2), así que una fixture creada ahí no es visible
     desde una sesión síncrona aparte. Ésta da una conexión síncrona real
@@ -188,73 +183,3 @@ def client(async_db):
 @pytest.fixture
 def db(async_db):
     return async_db
-
-
-@pytest_asyncio.fixture
-async def sample_user(async_db: AsyncSession) -> User:
-    user = User(
-        username="testuser",
-        email="test@example.com",
-        hashed_password="x",
-        full_name="Test User",
-        is_active=True,
-    )
-    async_db.add(user)
-    await async_db.flush()
-    await async_db.refresh(user)
-    return user
-
-
-@pytest_asyncio.fixture
-async def sample_empresa(async_db: AsyncSession, sample_user: User) -> Empresa:
-    empresa = Empresa(
-        rut_empresa="76543210-K",
-        nombre_empresa="Constructora Test",
-        estado_habil="habil",
-    )
-    # Igual que en producción: crear una empresa arranca el reverse-trial de 14
-    # días (app/api/empresas.py::aplicar_trial_inicial). Sin esto el fixture
-    # representaría un estado que la aplicación nunca produce.
-    aplicar_trial_inicial(empresa)
-    async_db.add(empresa)
-    await async_db.flush()
-    async_db.add(EmpresaUsuario(user_id=sample_user.id, empresa_id=empresa.id, rol="owner"))
-    await async_db.flush()
-    await async_db.refresh(empresa)
-    return empresa
-
-
-# ── Cabeceras de autorización por rol ────────────────────────────────────────
-#
-# `sample_empresa` ya deja a `sample_user` como owner. Estas dos fixtures dan
-# el JWT listo para usar en la cabecera `Authorization`, para tests que
-# necesitan comprobar qué puede hacer cada rol (Tareas 4, 5, 13).
-
-
-@pytest_asyncio.fixture
-async def cabeceras_owner(sample_user: User) -> dict[str, str]:
-    """Cabeceras con el JWT del owner de `sample_empresa` (=`sample_user`)."""
-    token = create_access_token({"sub": str(sample_user.id)})
-    return {"Authorization": f"Bearer {token}"}
-
-
-@pytest_asyncio.fixture
-async def cabeceras_viewer(async_db: AsyncSession, sample_empresa: Empresa) -> dict[str, str]:
-    """Cabeceras con el JWT de un usuario `viewer` sobre `sample_empresa`.
-
-    Un usuario nuevo, no `sample_user`: ése ya es owner, y lo que hace falta
-    para probar la barrera de rol es alguien SIN permiso de escritura.
-    """
-    sufijo = uuid.uuid4().hex[:8]
-    usuario = User(
-        username=f"viewer-{sufijo}",
-        email=f"viewer-{sufijo}@example.com",
-        hashed_password="x",
-        is_active=True,
-    )
-    async_db.add(usuario)
-    await async_db.flush()
-    async_db.add(EmpresaUsuario(user_id=usuario.id, empresa_id=sample_empresa.id, rol="viewer"))
-    await async_db.flush()
-    token = create_access_token({"sub": str(usuario.id)})
-    return {"Authorization": f"Bearer {token}"}

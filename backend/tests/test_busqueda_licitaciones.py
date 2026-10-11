@@ -174,7 +174,7 @@ async def test_la_sintaxis_de_tsquery_no_se_interpreta(async_db, licitaciones):
 
 @pytest.mark.asyncio
 async def test_relevancia_sin_modelo_sigue_filtrando_por_el_termino(
-    async_db, licitaciones, sample_user, monkeypatch
+    async_db, licitaciones, monkeypatch
 ):
     """`sort_by=relevance` sin artefactos TF-IDF devolvía TODO.
 
@@ -202,11 +202,9 @@ async def test_relevancia_sin_modelo_sigue_filtrando_por_el_termino(
         min_amount=None,
         max_amount=None,
         search="hospital",
-        empresa_id=None,
         sort_by="relevance",
         sort_order="desc",
         db=async_db,
-        current_user=sample_user,
     )
 
     codigos = {i.codigo_externo for i in respuesta.items if i.codigo_externo.startswith("T-")}
@@ -214,7 +212,7 @@ async def test_relevancia_sin_modelo_sigue_filtrando_por_el_termino(
 
 
 @pytest.mark.asyncio
-async def test_relevancia_sin_termino_no_filtra_nada(async_db, licitaciones, sample_user):
+async def test_relevancia_sin_termino_no_filtra_nada(async_db, licitaciones):
     """El caso simétrico: ordenar por relevancia sin escribir nada lista todo."""
     respuesta = await list_tenders(
         skip=0,
@@ -226,11 +224,9 @@ async def test_relevancia_sin_termino_no_filtra_nada(async_db, licitaciones, sam
         min_amount=None,
         max_amount=None,
         search=None,
-        empresa_id=None,
         sort_by="relevance",
         sort_order="desc",
         db=async_db,
-        current_user=sample_user,
     )
     codigos = {i.codigo_externo for i in respuesta.items if i.codigo_externo.startswith("T-")}
     assert codigos == {"T-1", "T-2", "T-3"}

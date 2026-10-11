@@ -81,7 +81,7 @@ async def _licitacion(db, codigo: str, tipo: str) -> Licitacion:
     return lic
 
 
-async def _listar(db, usuario, **kwargs):
+async def _listar(db, **kwargs):
     return await list_tenders(
         skip=0,
         limit=100,
@@ -92,11 +92,9 @@ async def _listar(db, usuario, **kwargs):
         min_amount=None,
         max_amount=None,
         search=None,
-        empresa_id=None,
         sort_by=None,
         sort_order="desc",
         db=db,
-        current_user=usuario,
         **kwargs,
     )
 
@@ -118,47 +116,47 @@ async def test_lo_ya_ingerido_queda_como_licitacion(async_db):
 
 
 @pytest.mark.asyncio
-async def test_el_filtro_acota_al_mecanismo(async_db, sample_user):
+async def test_el_filtro_acota_al_mecanismo(async_db):
     await _licitacion(async_db, "TC-LIC", TipoConvocatoria.LICITACION)
     await _licitacion(async_db, "TC-AGIL", TipoConvocatoria.COMPRA_AGIL)
 
-    respuesta = await _listar(async_db, sample_user, tipo_convocatoria="compra_agil")
+    respuesta = await _listar(async_db, tipo_convocatoria="compra_agil")
     codigos = {i.codigo_externo for i in respuesta.items if i.codigo_externo.startswith("TC-")}
     assert codigos == {"TC-AGIL"}
 
 
 @pytest.mark.asyncio
-async def test_varios_mecanismos_se_combinan_con_o(async_db, sample_user):
+async def test_varios_mecanismos_se_combinan_con_o(async_db):
     """Quien filtra «ágil o convenio marco» pregunta por el mercado que NO es
     licitación, no por uno de los dos."""
     await _licitacion(async_db, "TC-LIC2", TipoConvocatoria.LICITACION)
     await _licitacion(async_db, "TC-AGIL2", TipoConvocatoria.COMPRA_AGIL)
     await _licitacion(async_db, "TC-CM2", TipoConvocatoria.CONVENIO_MARCO)
 
-    respuesta = await _listar(async_db, sample_user, tipo_convocatoria="compra_agil,convenio_marco")
+    respuesta = await _listar(async_db, tipo_convocatoria="compra_agil,convenio_marco")
     codigos = {i.codigo_externo for i in respuesta.items if i.codigo_externo.startswith("TC-")}
     assert codigos == {"TC-AGIL2", "TC-CM2"}
 
 
 @pytest.mark.asyncio
-async def test_sin_filtro_salen_todos(async_db, sample_user):
+async def test_sin_filtro_salen_todos(async_db):
     await _licitacion(async_db, "TC-LIC3", TipoConvocatoria.LICITACION)
     await _licitacion(async_db, "TC-AGIL3", TipoConvocatoria.COMPRA_AGIL)
 
-    respuesta = await _listar(async_db, sample_user)
+    respuesta = await _listar(async_db)
     codigos = {i.codigo_externo for i in respuesta.items if i.codigo_externo.startswith("TC-")}
     assert codigos == {"TC-LIC3", "TC-AGIL3"}
 
 
 @pytest.mark.asyncio
-async def test_un_mecanismo_desconocido_se_rechaza(async_db, sample_user):
+async def test_un_mecanismo_desconocido_se_rechaza(async_db):
     """Ignorarlo devolvería el catálogo entero.
 
     Quien escribe `compra_agiles` vería todos los resultados y concluiría que su
     filtro no encuentra nada especial — cuando lo que pasa es que no se aplicó.
     """
     with pytest.raises(HTTPException) as exc:
-        await _listar(async_db, sample_user, tipo_convocatoria="compra_agiles")
+        await _listar(async_db, tipo_convocatoria="compra_agiles")
     assert exc.value.status_code == 422
     assert "compra_agiles" in exc.value.detail
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { format } from 'date-fns';
@@ -11,24 +11,16 @@ import {
   Calendar,
   DollarSign,
   ExternalLink,
-  FileCheck2,
-  FilePlus,
   Info,
   Loader2,
   MapPin,
 } from 'lucide-react';
 
-import { apiClient } from '@/lib/api';
-import { useEncajeLicitacion, usePlanActual } from '@/lib/queries';
-import { incluyePro } from '@/lib/plan';
-import { Candado } from '@/components/Candado';
+import { useLicitacion, usePanelLicitacion } from '@/lib/queries';
 import BIPanelSection from '@/components/licitacion/BIPanelSection';
-import EstadoHabilBadge from '@/components/licitacion/EstadoHabilBadge';
-import PerfilEncajeWidget from '@/components/licitacion/PerfilEncajeWidget';
-import { fmtCLP, normalizeTenderDetail } from '@/lib/licitacionDetalle';
+import { normalizeTenderDetail } from '@/lib/licitacionDetalle';
 import type { BIPanel, TenderDetail } from '@/types/licitacionDetalle';
 import { BICard } from './components/BICard';
-import type { PlanTier } from '../../bi/types';
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
@@ -46,99 +38,21 @@ import type { PlanTier } from '../../bi/types';
 export default function TenderDetailPage() {
   const router = useRouter();
   const codigoRuta = decodeURIComponent(String(useParams().codigo ?? ''));
-  // El plan EFECTIVO de la empresa: en trial, Pro.
-  const planActual = usePlanActual();
-  const tier = planActual.data?.tier;
-  const [tender, setTender] = useState<TenderDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  // BI panel
-  const [biPanel, setBiPanel] = useState<BIPanel | null>(null);
-  const [biLoading, setBiLoading] = useState(false);
+  // La licitación y su panel de BI salen de TanStack Query, como el resto del
+  // estado de servidor. El panel comparte clave con `BICard`, así que las dos
+  // piezas de la ficha hacen una sola petición. Un 503 (analítica apagada) o
+  // un 404 dejan `panel` vacío y la sección lo dice.
+  const consultaLicitacion = useLicitacion(codigoRuta || undefined);
+  const tender = (consultaLicitacion.data ?? null) as TenderDetail | null;
+  const loading = consultaLicitacion.isPending && Boolean(codigoRuta);
+  const error = consultaLicitacion.isError
+    ? 'No pudimos cargar la información de la licitación seleccionada.'
+    : null;
 
-  // TF-IDF encaje
-
-  // Postulación
-  const [creatingPost, setCreatingPost] = useState(false);
-  const [firstEmpresaId, setFirstEmpresaId] = useState<string | null>(null);
-
-  // Encaje. Es capacidad Pro: a un plan que no lo trae se le enseña el candado
-  // en vez de pedirlo y recibir un 402 (que dispararía el aviso de mejora).
-  const encajeIncluido = incluyePro(tier);
-  const encaje = useEncajeLicitacion(
-    codigoRuta,
-    firstEmpresaId ?? undefined,
-    tender?.nombre ?? '',
-    encajeIncluido,
-  );
-
-  useEffect(() => {
-    const loadTender = async () => {
-      const codigo = codigoRuta;
-      try {
-        const response = await apiClient.getTenderByCode(codigo);
-        setTender(response);
-      } catch {
-        setError('No pudimos cargar la información de la licitación seleccionada.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadTender();
-  }, [codigoRuta]);
-
-  // Load BI panel + encaje after tender is ready
-  useEffect(() => {
-    if (!tender) return;
-    let active = true;
-    const codigo = codigoRuta;
-
-    // Get first empresa for per-empresa BI data and encaje check
-    apiClient.getEmpresas().then((empresas: any[]) => {
-      if (!active) return;
-      const empresaId: string | undefined = empresas?.[0]?.id;
-      if (empresaId) setFirstEmpresaId(empresaId);
-
-      // BI panel
-      const cod = tender?.codigo_externo ?? codigo
-      if (!cod) return
-      setBiLoading(true);
-      apiClient
-        .getBIPanel(cod, empresaId)
-        .then((data: BIPanel) => { if (active) setBiPanel(data) })
-        .catch(() => { if (active) setBiPanel(null) })   // 503 = feature disabled — fail silently
-        .finally(() => { if (active) setBiLoading(false) });
-    }).catch(() => {/* no empresas — skip */});
-
-    return () => { active = false };
-  }, [tender, codigoRuta]);
-
-  const handleIniciarPostulacion = async () => {
-    if (!tender || !firstEmpresaId) return;
-
-    // If already tracked, go to postulaciones list
-    if (biPanel?.postulacion_id) {
-      router.push('/dashboard/postulaciones');
-      return;
-    }
-
-    setCreatingPost(true);
-    try {
-      await apiClient.createPostulacion({
-        empresa_id: firstEmpresaId,
-        licitacion_id: tender.id,
-      });
-      router.push('/dashboard/postulaciones');
-    } catch (err: any) {
-      // Duplicate — already tracked
-      if (err?.response?.status === 409) {
-        router.push('/dashboard/postulaciones');
-      }
-    } finally {
-      setCreatingPost(false);
-    }
-  };
+  const consultaPanel = usePanelLicitacion(tender?.codigo_externo ?? undefined);
+  const biPanel = (consultaPanel.data ?? null) as BIPanel | null;
+  const biLoading = consultaPanel.isLoading;
 
   const formatCurrency = (amount?: number, currency: string = 'CLP') => {
     if (amount === undefined || amount === null || Number.isNaN(amount)) return 'N/A';
@@ -158,8 +72,6 @@ export default function TenderDetailPage() {
     tenderData?.moneda && typeof tenderData.moneda === 'string' && tenderData.moneda.length
       ? tenderData.moneda
       : 'CLP';
-
-  const isTracked = Boolean(biPanel?.postulacion_id);
 
   return (
     <div className="space-y-6">
@@ -193,8 +105,6 @@ export default function TenderDetailPage() {
               <div className="space-y-2">
                 <p className="text-sm text-muted">Código externo</p>
                 <h2 className="text-2xl font-semibold text-text">{tenderData.codigo_externo}</h2>
-                {/* Estado hábil badge from BI panel */}
-                <EstadoHabilBadge estado={biPanel?.estado_habil} />
               </div>
 
               <div className="flex flex-col gap-2 sm:items-end sm:shrink-0">
@@ -210,28 +120,6 @@ export default function TenderDetailPage() {
                   </Link>
                 )}
 
-                {/* Postulación button — only shown when empresa exists */}
-                {firstEmpresaId && (
-                  <button
-                    type="button"
-                    onClick={handleIniciarPostulacion}
-                    disabled={creatingPost}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      isTracked
-                        ? 'btn-secondary'
-                        : 'bg-primary text-onPrimary hover:bg-primaryDark'
-                    }`}
-                  >
-                    {creatingPost ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : isTracked ? (
-                      <FileCheck2 className="h-4 w-4" />
-                    ) : (
-                      <FilePlus className="h-4 w-4" />
-                    )}
-                    {isTracked ? 'Ver postulación' : 'Iniciar postulación'}
-                  </button>
-                )}
               </div>
             </div>
 
@@ -380,19 +268,8 @@ export default function TenderDetailPage() {
             )}
           </div>
 
-          {/* ── ¿Tu perfil encaja? ──────────────────────────────── */}
-          {planActual.data && !encajeIncluido ? (
-            <Candado capacidad="si esta licitación encaja con lo que vendes" />
-          ) : (
-            <PerfilEncajeWidget loading={encaje.isLoading} result={encaje.data ?? null} />
-          )}
-
           {/* ── Inteligencia de mercado (collapsible summary) ─── */}
-          <BICard
-            codigoExterno={tenderData.codigo_externo}
-            empresaId={firstEmpresaId ?? undefined}
-            plan={(tier ?? 'basico') as PlanTier}
-          />
+          <BICard codigoExterno={tenderData.codigo_externo} />
         </div>
       )}
     </div>

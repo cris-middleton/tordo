@@ -38,10 +38,6 @@ vi.mock('@/lib/queries', () => ({
   }),
 }));
 
-// VigilarPrecio depende de la empresa activa y de mutaciones de TanStack
-// Query — no es lo que se prueba aquí, así que se aísla.
-vi.mock('./VigilarPrecio', () => ({ default: () => null }));
-
 function banda(parcial: Partial<PrecioBanda>): PrecioBanda {
   return { p10: 40000, p50: 45000, p90: 60000, n: 20, ...parcial };
 }

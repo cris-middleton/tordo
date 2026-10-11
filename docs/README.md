@@ -28,8 +28,6 @@ usa el resto del repo: la decisión la toma una persona, no el descuido.
 | [`API_PUBLICA.md`](API_PUBLICA.md) | Qué parte de la API es pública, límites, errores, el servidor MCP y **lo que no hay** | Para integrar desde fuera |
 | [`SPEC.md`](SPEC.md) | La especificación de producto | Para saber qué se prometió |
 | [`tordo_plan_saas.md`](tordo_plan_saas.md) | El plan de negocio: segmento, precios, competencia | Para decisiones de producto |
-| [`deploy_steps/railway_deployment_guide.md`](deploy_steps/railway_deployment_guide.md) | Cómo se despliega | Al desplegar |
-| [`deploy_steps/tareas_manuales.md`](deploy_steps/tareas_manuales.md) | Lo que hay que hacer a mano en consolas de terceros | Al configurar credenciales |
 
 **La referencia de endpoints no está en ningún `.md`, y es deliberado**: se
 genera del código y vive en `/docs`, `/redoc` y `/openapi.json`. Una lista de
@@ -48,6 +46,7 @@ producir — no porque describan el sistema de hoy.
 | [`VALIDACION_ESTRUCTURA_DATOS.md`](VALIDACION_ESTRUCTURA_DATOS.md) | 2026-04 | La validación de `Listado[0]` y timezone contra la API de Mercado Público |
 | [`tordo_analytics_bi_dashboard_plan_v3.md`](tordo_analytics_bi_dashboard_plan_v3.md) | 2026-03 | El plan del que salió el módulo de BI |
 | [`COMANDOS_ETL.md`](COMANDOS_ETL.md) | 2026-04 | Referencia de comandos del ETL. **Los vigentes están en `CLAUDE.md`** |
+| [`deploy_steps/railway_deployment_guide.md`](deploy_steps/railway_deployment_guide.md) y [`tareas_manuales.md`](deploy_steps/tareas_manuales.md) | hasta 2026-10 | El despliegue del SaaS. **La guía nueva llega en el paso 12 del pivote** — hasta entonces, la spec (§3) es la referencia |
 | [`deploy_steps/fase_*.md`](deploy_steps/) | 2026 | El roadmap original de implementación, anterior a la revisión de arquitectura |
 | [`_archive/`](_archive/README.md) | hasta F0 | 44 documentos retirados en la limpieza de F0. Tiene su propia advertencia |
 

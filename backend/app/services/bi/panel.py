@@ -111,9 +111,6 @@ def get_licitacion_panel(
         "ventana": ventana,
         "competidores": competidores,
         "precios": precios,
-        # postulacion_id and estado_habil injected by the API layer (need DB)
-        "postulacion_id": None,
-        "estado_habil": None,
     }
 
 

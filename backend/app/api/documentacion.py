@@ -26,19 +26,7 @@ from app.core.versionado import PREFIJO_API, VERSION_API
 SUPERFICIE: dict[str, str] = {
     "tenders": "publica",
     "bi": "publica",
-    "alerts": "publica",
-    "empresas": "publica",
-    "postulaciones": "publica",
-    "documentos": "publica",
-    "estado_habil": "publica",
-    "dashboard": "interna",
-    "authentication": "interna",
-    "users": "interna",
-    "billing": "interna",
-    "webhooks": "interna",
     "health": "interna",
-    "data-inspection": "interna",
-    "files": "interna",
     "raiz": "interna",
 }
 
@@ -55,29 +43,10 @@ ETIQUETAS: list[dict[str, str]] = [
         "name": "bi",
         "description": (
             "Inteligencia de mercado: bandas de precio, competencia, compradores "
-            "y oportunidad. **Los endpoints de BI consumen cuota diaria del plan** "
-            "además del límite por minuto."
+            "y oportunidad. Limitados por IP y por minuto."
         ),
     },
-    {"name": "alerts", "description": "Alertas y sus preferencias de envío."},
-    {
-        "name": "empresas",
-        "description": (
-            "Empresas, miembros, claves de API y vigilancia de precios. La "
-            "suscripción y los límites son de la empresa, no del usuario."
-        ),
-    },
-    {"name": "postulaciones", "description": "Seguimiento de postulaciones y su checklist."},
-    {"name": "documentos", "description": "Documentos de la empresa y su vencimiento."},
-    {"name": "estado_habil", "description": "Estado hábil en el Registro de Proveedores."},
-    {"name": "dashboard", "description": "Agregados de la pantalla de inicio. **Interna.**"},
-    {"name": "authentication", "description": "Sesión de navegador. **Interna.**"},
-    {"name": "users", "description": "Perfil del usuario. **Interna.**"},
-    {"name": "billing", "description": "Suscripción y pagos. **Interna.**"},
-    {"name": "webhooks", "description": "Notificaciones de la pasarela. **Interna.**"},
     {"name": "health", "description": "Sonda de la plataforma. Fuera de la versión."},
-    {"name": "data-inspection", "description": "Explorador de datos. **Interna.**"},
-    {"name": "files", "description": "Descarga de adjuntos. **Interna.**"},
     {
         "name": "raiz",
         "description": "Punto de entrada: versión y enlaces a la documentación.",
@@ -87,24 +56,10 @@ ETIQUETAS: list[dict[str, str]] = [
 DESCRIPCION = f"""
 API de {settings.app_name} sobre datos de Mercado Público (ChileCompra).
 
-## Autenticación
+## Acceso
 
-Todo pasa por `Authorization: Bearer <credencial>`, y hay dos tipos de
-credencial:
-
-| credencial | para qué | caduca |
-|---|---|---|
-| **Clave de API** — `tordo_<prefijo>_<secreto>` | integraciones sin navegador: ERP, scripts, MCP | no, hasta que se revoca |
-| JWT de sesión | la aplicación web | 30 minutos |
-
-**Para integrar, usa una clave de API.** Se emite en
-`POST {PREFIJO_API}/empresas/{{empresa_id}}/api-keys` con rol `owner` o `admin`, y
-**el secreto sólo se devuelve en esa respuesta**: no hay forma de recuperarlo
-después, porque en la base sólo queda su hash.
-
-Una clave **pertenece a una empresa y la fija**. Pedir datos de otra devuelve
-403 aunque quien la creó pertenezca a las dos: es la barrera que hace que
-filtrar una clave no exponga el resto de la cuenta.
+**Anónimo.** No hay cuentas, claves ni sesiones: desde el pivote a sitio público
+(octubre de 2026) todo lo que expone esta API se lee sin credencial.
 
 ## Versionado
 
@@ -119,45 +74,30 @@ un cliente.
 ## Formato de las respuestas
 
 Planas, sin sobre. El éxito lo lleva el código HTTP; no hay `{{"success": ...}}`
-que mirar aparte. Los errores traen `{{"detail": ...}}` — texto en los normales,
-y un objeto con `bloqueada_por_plan`, `limite`, `usado` y `upgrade_sugerido`
-cuando el bloqueo es de plan (402).
+que mirar aparte. Los errores traen `{{"detail": "..."}}`.
 
 ## Límites de uso
 
-Las peticiones autenticadas **con clave de API** se cuentan por clave y por
-minuto, según el plan de la empresa. Cada respuesta lo anuncia:
-
-    X-RateLimit-Limit: 120
-    X-RateLimit-Remaining: 118
-
-Al pasarse, la respuesta es **429** con `Retry-After: 60`. Se cuenta por clave y
-no por IP porque una integración sale por una sola IP de oficina: limitar ahí
-mezclaría a toda la empresa en el mismo cubo.
-
-Los endpoints de **BI** consumen además **cuota diaria** del plan, y al agotarla
-devuelven **402** con el detalle de cuánto se usó y qué plan lo levanta.
+Los endpoints de **BI** se limitan **por IP y por minuto**. Al pasarse, la
+respuesta es **429** con `Retry-After: 60`.
 
 ## Servidor MCP
 
 Los mismos datos, para un cliente de modelo de lenguaje, en `/mcp/` — **fuera de
 `/api/v1`**, porque MCP versiona su propio protocolo.
 
-Se autentica con la misma clave de API, expone **cuatro** herramientas de grano
-grueso y **cada llamada descuenta de la cuota diaria de BI**. Son cuatro y no
-veintidós a propósito: un modelo encadena unas quince llamadas donde una persona
+Es anónimo y expone **cuatro** herramientas de grano grueso. Son cuatro y no
+veinte a propósito: un modelo encadena unas quince llamadas donde una persona
 hace tres. Ver `docs/API_PUBLICA.md`.
 
 ## Errores
 
 | código | qué significa |
 |---|---|
-| 401 | credencial ausente, inválida, revocada o caducada |
-| 403 | la credencial es válida pero no alcanza a esa empresa o ese rol |
-| 402 | tope del plan — mira `detail.upgrade_sugerido` |
-| 404 | no existe, o no es de tu empresa (no se distingue a propósito) |
+| 404 | no existe |
 | 422 | parámetros inválidos |
 | 429 | límite por minuto — espera lo que diga `Retry-After` |
+| 503 | el módulo está desactivado en este despliegue (feature flag) |
 
 Toda respuesta lleva `X-Request-ID`. **Cítalo al reportar un problema**: es lo
 que permite encontrar la traza del servidor.

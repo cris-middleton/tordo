@@ -8,11 +8,10 @@ import { apiClient } from '@/lib/api';
 /**
  * Descargar el análisis de la pantalla como CSV.
  *
- * **La descarga pasa por el proxy autenticado, no por un `href` directo.** Un
- * enlace normal iría al backend sin la cabecera `Authorization` —la sesión vive
- * en una cookie `httpOnly` que sólo lee el proxy de Next— así que devolvería
- * 401 y el navegador descargaría un archivo con el error dentro. Por eso se pide
- * como `blob` y se dispara la descarga a mano.
+ * **La descarga pasa por el proxy de Next, no por un `href` directo**: la URL
+ * del backend es de servidor y el navegador sólo conoce `/api/proxy`. Se pide
+ * como `blob` y se dispara la descarga a mano, así un error se queda en el
+ * botón en vez de bajarse como un archivo con el error dentro.
  *
  * Y por eso también el `revokeObjectURL`: sin él, cada descarga deja el archivo
  * entero retenido en memoria hasta que se recargue la pestaña.
@@ -42,8 +41,7 @@ export default function BotonExportar({
       a.remove();
       URL.revokeObjectURL(url);
     } catch {
-      // El 402 por cuota agotada ya lo pinta `PlanUpgradeBanner` desde el
-      // interceptor. Aquí sólo hace falta que el botón deje de girar y diga algo.
+      // Basta con que el botón deje de girar y diga algo.
       setError('No se pudo descargar. Inténtalo de nuevo.');
     } finally {
       setBajando(false);

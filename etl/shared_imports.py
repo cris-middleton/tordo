@@ -13,19 +13,10 @@ if str(BACKEND_PATH) not in sys.path:
     sys.path.insert(0, str(BACKEND_PATH))
 
 # El ETL importa los modelos del backend, y eso instancia app.config.Settings.
-# Settings tiene campos obligatorios que sólo tienen sentido en la API; sin
-# valor, un `import` del ETL revienta con ValidationError.
-#
-# CORS_ORIGINS ya estaba contemplado. SECRET_KEY no, y es obligatorio y sin
-# default: el contenedor del ETL no lo recibe en docker-compose, así que hasta
-# ahora sólo funcionaba si por casualidad había un .env en la raíz que
-# load_dotenv() alcanzara a leer.
-#
-# Estos valores son inertes: el ETL no firma tokens ni atiende peticiones HTTP.
+# Este valor es inerte: el ETL no atiende peticiones HTTP. (`SECRET_KEY` también
+# se rellenaba aquí; desapareció con las cuentas en el pivote público.)
 if "CORS_ORIGINS" not in os.environ:
     os.environ["CORS_ORIGINS"] = '["http://localhost:3000"]'
-if "SECRET_KEY" not in os.environ:
-    os.environ["SECRET_KEY"] = "etl-no-firma-tokens"
 
 # Now import models (these may trigger config loading)
 from app.db import Base

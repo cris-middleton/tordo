@@ -1,13 +1,10 @@
 'use client';
 
-import Link from 'next/link';
 import {
   AlertTriangle,
-  ArrowRight,
   BadgeAlert,
   Calendar,
   Clock,
-  FileCheck2,
   TrendingUp,
   Users,
 } from 'lucide-react';
@@ -17,14 +14,11 @@ import { OpportunityScoreCard } from '@/components/OpportunityScoreCard';
 import OpportunityTimeline from '@/components/licitacion/OpportunityTimeline';
 import { CompetitorsList } from '@/components/CompetitorsList';
 import { PriceBandChart } from '@/components/PriceBandChart';
-import { usePlanActual } from '@/lib/queries';
 import { fmtCLP, fmtDays, fmtPct } from '@/lib/licitacionDetalle';
 import type { BIPanel, TenderDetail } from '@/types/licitacionDetalle';
-import type { PlanTier } from '@/app/dashboard/bi/types';
 import { motivoParaPersona } from '@/lib/motivos';
 
 export default function BIPanelSection({ panel, tender }: { panel: BIPanel; tender?: TenderDetail }) {
-  const tier = usePlanActual().data?.tier;
   const { comprador, ventana, competidores, precios } = panel;
 
   const ventanaColor =
@@ -40,7 +34,7 @@ export default function BIPanelSection({ panel, tender }: { panel: BIPanel; tend
       </h3>
 
       {/* ── Score de oportunidad ── */}
-      <OpportunityScoreCard panel={panel} plan={tier ?? 'basico'} />
+      <OpportunityScoreCard panel={panel} />
 
       {/* ── Timeline de hitos ── */}
       {tender && (tender.fecha_publicacion || tender.fecha_cierre) && (
@@ -105,24 +99,6 @@ export default function BIPanelSection({ panel, tender }: { panel: BIPanel; tend
 
         {/* ── Referencia de precios ── */}
         <PriceBandChart precios={precios} />
-      </div>
-
-      {/* ── Checklist link ── */}
-      <div className="flex items-center justify-between rounded-lg border border-border bg-background px-4 py-3">
-        <div className="flex items-center gap-2 text-sm text-text">
-          <FileCheck2 className="h-4 w-4 text-primary" />
-          <span>Checklist de preparación</span>
-        </div>
-        {panel.postulacion_id ? (
-          <Link
-            href="/dashboard/postulaciones"
-            className="text-xs font-medium text-primary hover:underline flex items-center gap-1"
-          >
-            Ver checklist <ArrowRight className="h-3 w-3" />
-          </Link>
-        ) : (
-          <span className="text-xs text-muted">Crea una postulación para activar el checklist</span>
-        )}
       </div>
     </div>
   );

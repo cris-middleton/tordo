@@ -29,7 +29,6 @@ cd "$RAIZ"
 CONTENEDOR="tordo-ci-local"
 PUERTO="${CI_LOCAL_PG_PORT:-55432}"
 export DATABASE_URL="postgresql://postgres:postgres@localhost:${PUERTO}/tordo_test"
-export SECRET_KEY="ci-secret"
 # Los tests distinguen CI de local: en local se saltan si falta la base o los
 # datos de analytics; en CI eso es un error. Sin esta variable, `make ci` era más
 # permisivo que el CI que dice reproducir — que es como el golden master llevaba

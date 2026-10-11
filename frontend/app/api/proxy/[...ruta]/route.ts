@@ -1,28 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import {
-  borrarSesion,
-  guardarSesion,
-  leerSesion,
-  rotar,
-  urlBackend,
-} from '@/lib/servidor/sesion';
-
 /**
  * Proxy hacia el backend. Todo el tráfico del navegador pasa por aquí.
  *
- * Qué resuelve
- * ------------
- * 1. **El navegador deja de ver los tokens.** El acceso viaja en una cookie
- *    `httpOnly` que este handler lee y convierte en `Authorization`. Un XSS ya
- *    no se puede llevar la sesión, porque no hay nada que leer.
- * 2. **La renovación es transparente.** Si el backend responde 401, se rota el
- *    refresco y se reintenta UNA vez. El usuario no ve nada; antes se le echaba
- *    al login cada 30 minutos.
+ * Desde el pivote a sitio público no hay cuentas: el proxy ya no lee cookies,
+ * no pone `Authorization` ni renueva nada. Sigue existiendo por dos motivos:
  *
- * Se reintenta una sola vez a propósito: si el 401 persiste con un token recién
- * emitido, el problema no es la caducidad y repetir sólo multiplica peticiones.
+ * 1. **La URL del backend es de servidor** (`API_URL`). El navegador habla con
+ *    `/api/proxy` en su mismo origen y no necesita saber dónde vive la API.
+ * 2. **Las redirecciones internas del backend se resuelven aquí** — ver
+ *    `seguirRedirecciones`.
+ *
+ * Tampoco reenvía las cabeceras del navegador: no hay nada que el backend
+ * necesite de ellas, y reenviarlas tal cual le pasaría las cookies de este
+ * dominio a un tercero.
  */
+
+const BACKEND = process.env.API_URL || 'http://localhost:8000';
+
+function urlBackend(ruta: string): string {
+  return `${BACKEND}${ruta.startsWith('/') ? ruta : `/${ruta}`}`;
+}
 
 const SIN_CUERPO = new Set(['GET', 'HEAD']);
 
@@ -33,22 +31,25 @@ const SIN_CUERPO = new Set(['GET', 'HEAD']);
  */
 const MAX_REDIRECCIONES = 3;
 
+/** Cabeceras de la respuesta del backend que sí le importan al navegador. */
+const CABECERAS_DE_VUELTA = ['content-type', 'content-disposition'];
+
 /**
  * Sigue las redirecciones del backend AQUÍ, sin devolvérselas al navegador.
  *
- * Sin esto, cualquier ruta terminada en `/` —`/api/tenders/`, `/api/empresas/`,
- * `/api/alerts/`— entraba en un bucle infinito y **nunca cargaba**:
+ * Sin esto, cualquier ruta terminada en `/` —`/api/v1/tenders/`— entraba en un
+ * bucle infinito y **nunca cargaba**:
  *
- *   1. El navegador pide `/api/proxy/api/tenders/`.
- *   2. Next normaliza y responde **308** a `/api/proxy/api/tenders`.
- *   3. El proxy reenvía a `/api/tenders`, y FastAPI (`redirect_slashes`)
- *      responde **307** a `/api/tenders/`.
+ *   1. El navegador pide `/api/proxy/api/v1/tenders/`.
+ *   2. Next normaliza y responde **308** a `/api/proxy/api/v1/tenders`.
+ *   3. El proxy reenvía a `/api/v1/tenders`, y FastAPI (`redirect_slashes`)
+ *      responde **307** a `/api/v1/tenders/`.
  *   4. Ese 307 se le pasaba al navegador, que volvía al paso 1.
  *
  * Son redirecciones del enrutado interno del backend: al navegador no le
  * incumben. Se siguen sólo si apuntan al MISMO backend — `redirect: 'follow'`
- * a secas convertiría un Location manipulado en una petición nuestra, con la
- * cabecera `Authorization` puesta, hacia donde dijera ese Location.
+ * a secas convertiría un Location manipulado en una petición nuestra hacia
+ * donde dijera ese Location.
  */
 async function seguirRedirecciones(
   respuesta: Response,
@@ -68,55 +69,35 @@ async function seguirRedirecciones(
 
 async function manejar(req: NextRequest, ctx: { params: Promise<{ ruta: string[] }> }) {
   const { ruta } = await ctx.params;
-  // El cliente ya manda la ruta completa del backend (`/api/auth/me`), así que
-  // aquí sólo se quita el prefijo del proxy. Volver a prefijar `/api` daría
-  // `/api/api/...`.
+  // El cliente ya manda la ruta completa del backend (`/api/v1/tenders`), así
+  // que aquí sólo se quita el prefijo del proxy.
   const destino = urlBackend(`/${ruta.join('/')}${req.nextUrl.search}`);
-  const { acceso, refresco } = await leerSesion();
 
-  // El cuerpo se lee UNA vez y se reutiliza: un `Request` no se puede consumir
-  // dos veces, y el reintento necesita el mismo cuerpo.
+  // El cuerpo se lee UNA vez: un `Request` no se puede consumir dos veces, y
+  // seguir una redirección necesita el mismo cuerpo.
   const cuerpo = SIN_CUERPO.has(req.method) ? undefined : await req.arrayBuffer();
 
-  const pedir = (url: string, token?: string) =>
+  const pedir = (url: string) =>
     fetch(url, {
       method: req.method,
-      headers: {
-        // Sólo lo necesario: reenviar las cabeceras del navegador tal cual
-        // filtraría cookies de sesión de este dominio al backend.
-        'Content-Type': req.headers.get('content-type') ?? 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
+      headers: { 'Content-Type': req.headers.get('content-type') ?? 'application/json' },
       body: cuerpo && cuerpo.byteLength > 0 ? cuerpo : undefined,
       cache: 'no-store',
       redirect: 'manual',
     });
 
-  const enviar = async (token?: string) =>
-    seguirRedirecciones(await pedir(destino, token), (url) => pedir(url, token));
+  const respuesta = await seguirRedirecciones(await pedir(destino), pedir);
 
-  let respuesta = await enviar(acceso);
-
-  if (respuesta.status === 401 && refresco) {
-    const nueva = await rotar(refresco);
-    if (!nueva) {
-      // El refresco ya no vale: sesión terminada. Se limpian las cookies para
-      // que el siguiente intento no vuelva a pasar por aquí.
-      return borrarSesion(
-        NextResponse.json({ detail: 'Sesión expirada' }, { status: 401 }),
-      );
-    }
-    respuesta = await enviar(nueva.acceso);
-    const salida = new NextResponse(await respuesta.arrayBuffer(), {
-      status: respuesta.status,
-      headers: { 'Content-Type': respuesta.headers.get('content-type') ?? 'application/json' },
-    });
-    return guardarSesion(salida, nueva.acceso, nueva.refresco);
+  const cabeceras = new Headers();
+  for (const nombre of CABECERAS_DE_VUELTA) {
+    const valor = respuesta.headers.get(nombre);
+    if (valor) cabeceras.set(nombre, valor);
   }
+  if (!cabeceras.has('content-type')) cabeceras.set('content-type', 'application/json');
 
   return new NextResponse(await respuesta.arrayBuffer(), {
     status: respuesta.status,
-    headers: { 'Content-Type': respuesta.headers.get('content-type') ?? 'application/json' },
+    headers: cabeceras,
   });
 }
 
@@ -126,6 +107,5 @@ export const PUT = manejar;
 export const PATCH = manejar;
 export const DELETE = manejar;
 
-// Sin caché: son datos por usuario y una respuesta cacheada podría servirse a
-// otra sesión.
+// Sin caché en el proxy: el backend decide qué se puede cachear y cuánto.
 export const dynamic = 'force-dynamic';

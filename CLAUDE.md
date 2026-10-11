@@ -16,13 +16,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Qué es
 
-**TORDO** — SaaS B2B para PYMES chilenas que licitan en Mercado Público. Dos propuestas de valor:
+**TORDO** — sitio público de inteligencia sobre Mercado Público, para PYMES chilenas que
+licitan. **Sin cuentas** desde el pivote de octubre de 2026 (`docs/PIVOTE_PUBLICO_2026-10.md`):
+no hay usuarios, empresas, planes, cobro ni sesiones.
 
-1. **Inteligencia pre-postulación** — bandas de precio históricas, análisis de competidores,
-   matching semántico TF-IDF, scoring de oportunidad y perfilado de compradores. Responde
-   *"¿me conviene postular, y a qué precio?"*
-2. **Compliance operativo** — monitoreo de estado hábil, vencimiento de documentos, checklist
-   de postulación, recordatorios de plazo. Responde *"¿me van a rechazar por forma?"*
+**Inteligencia pre-postulación** — catálogo de licitaciones, bandas de precio históricas,
+análisis de competidores, matching semántico TF-IDF, scoring de oportunidad y perfilado de
+compradores. Responde *"¿me conviene postular, y a qué precio?"*
+
+El compliance operativo (estado hábil, documentos, checklist, recordatorios), las alertas, el
+informe semanal y el encaje personalizado **se retiraron con las cuentas**: todos dependían de
+saber quién era el usuario.
 
 Desktop-first, responsive, sólo español, sólo Chile.
 
@@ -132,11 +136,11 @@ Tres reglas que salieron de esa auditoría:
   `ratelimit`) — y tres de ellas cargaban CVE. **Quitarlas es mejor que actualizarlas.**
 - **Una librería sin releases es una señal, aunque no tenga CVE.** `passlib` llevaba 70 meses
   sin publicar y era lo que obligaba a clavar `bcrypt` en 4.0.1.
-- **Cambiar de librería en autenticación exige test de interoperabilidad.** Un JWT y un hash
-  de contraseña son *formatos*, no librerías: lo que puede salir mal no es que falle, es que
-  funcione con lo nuevo y rechace lo que ya está emitido, echando a todos los usuarios en el
-  despliegue. Ver `tests/test_jwt_interoperable.py` y `tests/test_passwords_interoperable.py`,
-  donde los valores de referencia los generó **la librería anterior**.
+- **Cambiar de librería en algo que tenga un formato persistido exige test de
+  interoperabilidad.** Salió de la autenticación (hoy retirada): un JWT y un hash de
+  contraseña son *formatos*, no librerías, y lo que puede salir mal no es que falle, es que
+  funcione con lo nuevo y rechace lo ya emitido. Los valores de referencia los genera **la
+  librería anterior**.
 
 ### Migraciones
 - **Siempre `make migrate-create MSG="descripción"`. Nunca `alembic revision` directo.**
@@ -170,47 +174,36 @@ Tres reglas que salieron de esa auditoría:
   la base entera con toda naturalidad. Corregido y con test (`tests/test_alembic_metadata.py`),
   pero la lección se mantiene: autogenerate propone, no decide.
 
-### Multi-tenancy — CRÍTICO PARA LA SEGURIDAD
-Todo endpoint que toque datos de una empresa **debe** resolver el contexto de empresa por
-dependencia, no a mano:
-
-```python
-from app.api.deps import EmpresaContext, empresa_ctx, require_rol
-
-async def leer(ctx: EmpresaContext = Depends(empresa_ctx)): ...
-async def escribir(ctx: EmpresaContext = Depends(require_rol("owner", "admin"))): ...
-```
-
-Cuando el `empresa_id` no viene por path (cuerpo del request, o de una entidad ya cargada)
-se usa `verificar_acceso_empresa(...)`, que es **la misma implementación**. Nunca escribas
-una consulta propia de membresía en un router.
-
-`backend/tests/test_tenancy_estructural.py` falla en CI si una ruta con `{empresa_id}` no
-declara la dependencia. Ver `.claude/skills/endpoint-empresa/`.
+### Sin cuentas — no hay multi-tenancy
+Desde el pivote público no hay usuarios, empresas, roles, sesiones ni claves de API, y por
+tanto no hay datos de una empresa que aislar de otra. Todo lo que expone la API es público y
+anónimo. **No reintroduzcas un endpoint que dependa de quién llama** sin rehacer antes esa
+decisión (spec del pivote): con cuentas vuelve todo lo que se borró — dependencias de tenancy,
+test estructural de `empresa_id`, cuotas.
 
 **El recorrido de rutas vive en `backend/tests/rutas.py`, en un solo sitio.** No uses
 `app.routes` directamente: desde FastAPI 0.115 los routers incluidos **no se aplanan** ahí,
-y `app.routes` devuelve envoltorios `_IncludedRouter`. Al actualizar desde 0.104 los dos
-tests estructurales pasaron a encontrar **cero rutas** — y lo dijeron sólo porque llevan
-guardas explícitas ("se esperaban ≥10, hay 0"). **Un test estructural sin esa guarda se
-queda mudo comprobando el vacío.**
+y `app.routes` devuelve envoltorios `_IncludedRouter`. Al actualizar desde 0.104 los tests
+estructurales pasaron a encontrar **cero rutas** — y lo dijeron sólo porque llevan guardas
+explícitas ("se esperaban ≥10, hay 0"). **Un test estructural sin esa guarda se queda mudo
+comprobando el vacío.** Por eso, cuando el pivote retiró las cuentas, las guardas **bajaron
+con su motivo escrito junto al número**, no se borraron.
 
 ### Contrato de BI
 `backend/tests/test_contrato_bi.py` declara, ruta por ruta, qué protección le toca a cada uno
-de los 26 endpoints de BI. **Un endpoint nuevo hace fallar el test hasta que alguien decida
-explícitamente su nivel** — igual que con tenancy.
+de los 20 endpoints de BI. **Un endpoint nuevo hace fallar el test hasta que alguien decida
+explícitamente su nivel.**
 
-Desde el pivote público hay dos niveles: `publica` (ni sesión, ni empresa, ni cuota; la
-protege sólo el límite por IP de `/api/v1/bi/*`) y `cuenta`, **transitorio**, con las seis
-rutas que dependen de una empresa y se retiran en el paso 3 del pivote. Que lo público no
-pida sesión se prueba también por HTTP, sin cabecera `Authorization`: lo declarado no basta.
+Queda un solo nivel, `publica`: ni sesión, ni empresa, ni cuota; la protege sólo el límite por
+IP de `/api/v1/bi/*`. Que lo público no pida sesión se prueba también por HTTP, sin cabecera
+`Authorization`: lo declarado no basta.
 
 ### Convenciones de código
 - **Imports a nivel de módulo.** Nada de imports dentro de funciones. El código heredado
   los usa para diferir dependencias pesadas — es un síntoma del problema de servicio de
   analytics (F2), no un patrón a copiar. **No añadas imports diferidos nuevos.**
   Ya causó un bug real: `subscription_status_from_stripe` importado dentro de una función y
-  usado en otra rompía todos los webhooks `customer.subscription.updated`.
+  usado en otra rompía todos los webhooks `customer.subscription.updated` (hoy retirados).
 - **Todos los schemas Pydantic en `app/schemas/`.** Nunca inline en endpoints o servicios.
 - **Toda tabla y columna nueva lleva `comment=`.** Es un producto de datos con 78 columnas
   por orden de compra; sin comentarios se vuelve inusable en meses.
@@ -218,8 +211,8 @@ pida sesión se prueba también por HTTP, sin cabecera `Authorization`: lo decla
   Las de ingesta crecen sin techo y `integer` se queda corto; las de negocio se exponen en
   URLs y no conviene que sean adivinables.
 - **Las dos reglas anteriores las verifica `tests/test_convenciones_modelo.py`**, con
-  trinquete: **las tablas ya están todas comentadas**; quedan 295 columnas sin comentario y
-  16 PK `integer`, así que el test **no exige arreglarlas** — falla si aparece deuda **nueva**.
+  trinquete: **las tablas ya están todas comentadas**; quedan 172 columnas sin comentario y
+  12 PK `integer`, así que el test **no exige arreglarlas** — falla si aparece deuda **nueva**.
   La deuda vive en `tests/convenciones_baseline.json` y sólo puede encoger.
   Al arreglar algo: `cd backend && uv run --project .. python tests/regenerar_baseline.py`.
 - Los errores de negocio se devuelven con `HTTPException` y mensaje en español — los ve el usuario.
@@ -262,42 +255,24 @@ TORDO usa su propio Sentry (`SENTRY_DSN`), su propio Celery beat en vez de Cloud
 y no tiene Pub/Sub ni Cloud Tasks.
 
 ### Frontend
-- **El navegador nunca ve un token.** La sesión vive en cookies `httpOnly`
-  (`tordo_acceso`, `tordo_refresco`) que pone el servidor de Next, y todo el tráfico va por
-  `/api/proxy`, que lee la cookie y pone `Authorization`. Un XSS ya no puede llevarse la
-  sesión, porque no hay nada que leer.
-  - **El proxy renueva solo.** Al 401 rota el refresco y reintenta una vez. Antes el usuario
-    quedaba fuera a los 30 minutos.
-  - **`lib/api.ts` no maneja tokens.** No hay `setToken` ni `localStorage`: si te ves
-    añadiéndolos, es que algo se saltó el proxy.
-  - **La URL del backend es `API_URL`, de SERVIDOR.** `NEXT_PUBLIC_API_URL` desapareció:
-    cualquier variable `NEXT_PUBLIC_*` se inlinea en el bundle.
-  - `__tests__/sesion-cookies.test.ts` fija que las cookies sean `httpOnly` y `sameSite=lax`.
-    Todo el valor de esto depende de esa palabra, y es lo que se pierde en un refactor sin
-    que nada falle.
-  - **La vuelta de Google trae un CÓDIGO, no un token.** Antes traía el JWT de acceso y
-    nada más, así que una sesión iniciada con Google moría a los 30 minutos. Mandar el
-    refresco por la URL habría sido peor —dura treinta días y la URL queda en el historial,
-    en los logs de cualquier proxy y en el `Referer`—, así que lo que viaja no sirve por sí
-    solo: caduca en 60 s, se canjea **una vez** y el canje lo hace el servidor de Next
-    contra `POST /auth/google/canjear`, no el navegador. Tabla propia
-    (`oauth_codigos`) y no una columna en `refresh_tokens`: 60 segundos y 30 días son
-    ciclos de vida distintos.
-- **Los límites de plan NO se copian al frontend.** Viven en `PLAN_QUOTAS`
-  (`core/plan_limits.py`) y llegan por `GET /api/v1/empresas/{id}/plan`, junto con el consumo
-  actual. Una copia en TypeScript se desincroniza al primer cambio de precios **sin que nada
-  falle**: el cliente ve un límite que no es el suyo. `null` es *ilimitado*, no cero.
-- **El plan también: `usePlanActual()` y nada más.** Devuelve el tier EFECTIVO de la empresa
-  activa (en trial, `pro`), y `incluyePro()` (`lib/plan.ts`) decide qué se desbloquea.
-  `User` **no** declara `plan_tier`: `/auth/me` dejó de traerlo en F3, y siete pantallas
-  siguieron leyéndolo — valía `undefined`, así que todo el mundo, **también quien pagaba
-  Pro**, veía «Plan Free» y los candados puestos. Quitarlo del tipo es lo que hace que
-  volver a leerlo no compile.
-- **Un 402 del backend se traduce a `plan-upgrade-needed` en el interceptor de `lib/api.ts`**,
-  y `PlanUpgradeBanner` lo pinta. Va ahí y no en cada pantalla porque el backend devuelve 402
-  desde cuatro sitios y uno de ellos son los 26 endpoints de BI. **El banner llevaba
-  escuchando ese evento sin que nadie lo emitiera**: cada tope de plan se topaba en silencio.
-  Lo fija `__tests__/cuota-402.test.ts`, contra el interceptor real.
+- **No hay sesión en el navegador, y es deliberado (pivote público).** Todo el tráfico va
+  por `/api/proxy`, que **sólo reenvía**: no lee ni pone cookies, no añade `Authorization`
+  y no reenvía las cabeceras del navegador (le pasaría a un tercero las cookies de este
+  dominio). Existe por dos motivos: la URL del backend es de servidor, y las redirecciones
+  internas de FastAPI se siguen ahí y no en el navegador. `__tests__/proxy-sin-sesion.test.ts`
+  lo fija.
+  - **La URL del backend es `API_URL`, de SERVIDOR.** Cualquier variable `NEXT_PUBLIC_*` se
+    inlinea en el bundle.
+  - **El proxy NO reenvía todavía la IP del visitante**: el backend ve a todo el sitio como
+    una sola IP. Lo corrige el paso 5 del pivote (`docs/PIVOTE_PUBLICO_2026-10.md`), con la
+    cabecera secreta de §7.4.
+  - El proxy devuelve `Content-Disposition`: sin ella cada CSV se descargaba con el nombre
+    genérico.
+- **No hay planes, candados ni 402 en el frontend.** Todo lo que el producto calcula se ve
+  entero, sin cuenta. Si un día vuelve algo de pago, el límite vive en el backend y llega por
+  la API: una copia en TypeScript se desincroniza sin que nada falle.
+- **Un 401, 402 o 403 no manda al visitante a ninguna parte** (`__tests__/errores-de-api.test.ts`):
+  no hay login al que redirigir. El 429 dice «espera un momento».
 - **Sentry cubre los tres runtimes** (navegador, Node y edge) y las opciones salen de un solo
   sitio, `lib/sentry-comun.ts`. Ponerlas en dos de los tres es la forma fácil de equivocarse,
   así que hay un test estructural que exige que las tres partan de `OPCIONES_COMUNES`.
@@ -307,7 +282,7 @@ y no tiene Pub/Sub ni Cloud Tasks.
   - **Sin replay de sesión**, a propósito: graba la pantalla. Un `maskAllText` es una
     salvaguarda que hay que acertar; no grabar no hay que acertarlo.
   - `AbortError` y los 401 se descartan: cancelar peticiones es el comportamiento **correcto**
-    (el proxy renueva, TanStack Query cancela lo obsoleto) y reportarlo convierte lo normal
+    (TanStack Query cancela lo obsoleto) y reportarlo convierte lo normal
     en alarma.
   - **`app/error.tsx` y `app/global-error.tsx`.** No existía ninguna frontera de error: un
     fallo al renderizar dejaba una página en blanco y **nada registrado**. `global-error`
@@ -329,25 +304,23 @@ y no tiene Pub/Sub ni Cloud Tasks.
 - **Si tocas un token de color, revalida el contraste.** Los 166 pares del sistema están
   verificados contra WCAG AA — cada tinta contra cada superficie, en ambos temas. El bug de
   `.alert-info` (texto invisible en tema claro) nació de cambiar un token a ojo.
-- Las superficies que deben verse oscuras siempre —el hero, la tarjeta Pro, los paneles de
-  autenticación— se marcan con la clase `dark` sobre `bg-brand-navy`, y los tokens se
+- Las superficies que deben verse oscuras siempre —el hero, por ejemplo— se marcan con la clase `dark` sobre `bg-brand-navy`, y los tokens se
   invierten solos dentro. No repintes a mano.
 - **El estado de servidor va en TanStack Query, sin excepciones.** Las consultas y sus claves
   viven en `lib/queries.ts`, en un solo sitio: las claves son lo que permite invalidar con
-  precisión tras una mutación. Los hooks envuelven `lib/api.ts`, no `fetch` — esa capa es la
-  que permitirá mover el transporte a un proxy con cookie `httpOnly` sin tocar una pantalla.
+  precisión tras una mutación. Los hooks envuelven `lib/api.ts`, no `fetch`: el transporte
+  se cambia en un solo sitio sin tocar una pantalla.
   **`react-hooks/set-state-in-effect` e `immutability` son `error`**: reintroducir el patrón
   `useEffect` + `setState` para pedir datos no compila.
 - **Nada de `useEffect` + `setState` para leer algo que vive fuera de React.** Para
   `localStorage`, `matchMedia` o un evento del navegador, la API correcta es
-  `useSyncExternalStore` — ya lo usan `useEmpresaActiva`, `useAvatar` y
-  `usePrefersReducedMotion`. Además de dejar el lint limpio, arregla un fallo que el efecto
-  tenía: **sólo corría al montar**, así que cambiar de empresa no actualizaba las pantallas
-  ya montadas.
-- **Hay tres excepciones en todo el frontend**, cada una marcada en su línea con el motivo:
-  inicializar desde la URL (`bi/page`), sincronizar un formulario con datos que llegan después
-  (`settings`) y arrancar la sesión (`AuthContext`). Si necesitas una cuarta, escribe por qué
-  ahí mismo — nunca desactives la regla globalmente.
+  `useSyncExternalStore` — ya lo usan `useMediaQuery`, `usePrefersReducedMotion` y
+  `SelectorTema`. Además de dejar el lint limpio, arregla un fallo que el efecto tenía:
+  **sólo corría al montar**, así que un cambio externo no llegaba a las pantallas ya montadas.
+- **No queda ninguna excepción a esa regla.** Las tres que había (`bi/page`, `settings` y
+  `AuthContext`) desaparecieron: las dos últimas con las cuentas, y la de `bi/page` con un
+  inicializador perezoso. Si necesitas una, escribe por qué en su línea — nunca desactives la
+  regla globalmente.
 - **Ninguna pantalla pasa de 700 líneas.** Las tres que lo hacían están partidas por su
   seam natural: el detalle de licitación en `components/licitacion/` + `lib/licitacionDetalle.ts`,
   el listado en `TarjetaLicitacion` + `lib/licitacionEstado.ts`, y las herramientas de BI en
@@ -358,8 +331,8 @@ y no tiene Pub/Sub ni Cloud Tasks.
   efímera y corre Playwright. Encontró **tres fallos que ninguna otra capa veía**, y los
   tres compilaban y pasaban el lint:
   - el proxy entraba en **bucle de redirecciones** con cualquier ruta terminada en `/`
-    (Next quita la barra, FastAPI la vuelve a pedir), así que `/api/v1/tenders/`,
-    `/api/v1/empresas/` y `/api/v1/alerts/` **nunca cargaban**;
+    (Next quita la barra, FastAPI la vuelve a pedir), así que rutas como `/api/v1/tenders/`
+    **nunca cargaban**;
   - `sort_by=relevance` **sin artefactos TF-IDF ignoraba el término** y devolvía el
     catálogo entero — el estado normal de un despliegue nuevo;
   - **`params` es una Promesa desde Next 16**, y las dos páginas de detalle la leían como
@@ -371,11 +344,10 @@ y no tiene Pub/Sub ni Cloud Tasks.
   Actions tardaba cuatro minutos y moría con `connection reset by peer`** — por eso el job
   instala Chromium y fuerza `nativo`. Lo único que cambia entre los dos caminos es de dónde
   sale el binario: misma versión, mismos tests, misma pila.
-- **El navegador y el servidor de Next tienen que verse en `http://localhost`.** Las cookies
-  de sesión son `Secure`, y ése es el único origen sin TLS que un navegador trata como de
-  confianza. Servido desde otro nombre, el login devuelve 200, no guarda nada y el test falla
-  sin decir por qué. Por eso, en el camino de contenedor, Next arranca DENTRO del contenedor.
-  El backend sí vive siempre en el host, y por eso escucha en `0.0.0.0`.
+- **En los E2E, Next arranca DENTRO del contenedor** del navegador, y el backend vive en el
+  host escuchando en `0.0.0.0`. Hacía falta por las cookies `Secure` de la sesión, que ya no
+  existe; se conserva porque funciona y no hay motivo para moverlo. **Los E2E recorren el
+  sitio sin iniciar sesión** (`e2e/licitaciones.spec.ts`).
 - **El lint es `eslint .`, no `next lint`** — desapareció en Next 16. La configuración es plana
   (`eslint.config.mjs`), porque ESLint 9 abandonó `.eslintrc`.
 
@@ -433,54 +405,49 @@ scorer sin correrlo.
 
 ### Backend — `backend/app/`
 
-Monolito modular **por capas**. Los routers hacen HTTP y autorización; **no arman
-consultas**: eso vive en `repositories/`, y `tests/test_capas_sin_sql_en_routers.py` lo
+Monolito modular **por capas**. Los routers hacen HTTP; **no arman consultas**: eso vive en `repositories/`, y `tests/test_capas_sin_sql_en_routers.py` lo
 comprueba fichero a fichero.
 
 Había 120 consultas repartidas por once routers, y mover cada filtro repetido a un solo sitio
-destapó tres cosas que no rompían nada visible: `Alert.user_id` escrito **seis veces**
-(la garantía de que nadie lee la alerta de otro), `documento.eliminado` en cuatro
-(un documento borrado reaparecía con su enlace de descarga) y `Licitacion.activo` **ausente**
-en el endpoint que crea postulaciones (se podía postular a algo ya retirado).
+destapó cosas que no rompían nada visible — entre ellas `Licitacion.activo` **ausente** en un
+endpoint (se podía actuar sobre algo ya retirado). Desde el pivote quedan dos routers de
+dominio, y la regla sigue.
 
-Tres excepciones, cada una con su motivo en el test: `deps.py` (las dependencias de tenancy
-SON el acceso a datos), `data_inspection.py` (explorador genérico: construir la consulta es la
-feature) y `health.py` (`SELECT 1` no es una consulta de dominio).
+Una excepción, con su motivo en el test: `health.py` (`SELECT 1` no es una consulta de dominio).
 
-**`app/api/__init__.py` está vacío a propósito.** Importar ahí los routers convertía cualquier
-`from app.api.deps import ...` en «importa la aplicación entera», y de ahí salía una
-importación circular con `core.plan_limits`. Peor: **dependía del orden de importación**, así
-que CI estaba en verde mientras un script de operaciones no arrancaba.
+**Los `__init__.py` de `api/`, `core/`, `services/`, `tasks/` y `utils/` están vacíos a
+propósito, y los de `models/` y `schemas/` sólo re-exportan lo que existe.** Importar ahí los
+routers convertía cualquier `from app.api.x import ...` en «importa la aplicación entera», y
+de ahí salió una importación circular. Peor: **dependía del orden de importación**, así que CI
+estaba en verde mientras un script de operaciones no arrancaba. Y un `__init__` que importa
+un módulo borrado rompe todo lo que cuelga del paquete — el BI, el MCP, Celery y el ETL.
 `tests/test_modulos_importables.py` importa cada módulo en un proceso limpio para que no
 vuelva a pasar.
 
 ```
-api/            14 routers. HTTP y autorización por dependencia (deps.py).
-domain/         Reglas puras, sin IO. Hoy: el puerto de cobro.
-infra/          Adaptadores externos. Hoy: billing/ (MercadoPago + Stripe).
-repositories/   Acceso a datos. Hoy: analytics (sync y async).
-services/       Lógica de negocio como funciones de módulo.
+api/            routers: tenders, bi, health; documentacion.py (superficie pública)
+repositories/   Acceso a datos: licitaciones (catálogo) y analytics (sync y async).
+services/       Lógica de negocio como funciones de módulo: bi/, tfidf_matcher, exportar.
                 services/bi/ está partido por dominio (precio, competencia,
-                comprador, oportunidad, temporal, mercado, panel), con _base.py
-                como único punto de acceso a las tablas de analytics.
-core/           security.py (JWT), plan_limits.py (cuotas), tiempo.py (el reloj
-                de Chile), limites_api.py
-                (límite por clave), versionado.py, email.py
-mcp/            servidor MCP: 4 herramientas de grano grueso sobre services/bi/
+                comprador, oportunidad, temporal, mercado, panel, rubro), con
+                _base.py como único punto de acceso a las tablas de analytics.
+core/           tiempo.py (el reloj de Chile), versionado.py
+mcp/            servidor MCP anónimo: 4 herramientas de grano grueso sobre services/bi/
 observability/  logging JSON con request_id (contextvar) + Sentry opt-in
 db/             sesión async (asyncpg) y sync (psycopg2)
 models/         SQLAlchemy
 schemas/        Pydantic — todos van aquí
-tasks/          Celery
+tasks/          Celery: sólo etl_tasks
+utils/          rut.py (sin uso hoy; lo usará el enmascarado de personas naturales)
 ```
 
-**Routers**: auth, users, tenders, alerts, empresas, documentos, postulaciones, estado_habil,
-bi (26 endpoints), dashboard, billing, webhooks, health, data_inspection.
-`data_inspection` requiere auth a nivel de router — **no añadas rutas ahí que la salten**.
+**Routers**: tenders (3 rutas), bi (20), health. Todos anónimos. Los de cuenta (auth, users,
+empresas, alerts, documentos, postulaciones, estado_habil, dashboard, billing, webhooks) y el
+explorador `data_inspection` se borraron en el pivote público.
 
 **Todo cuelga de `/api/v1`, y el prefijo lo pone `main.py`** (ADR 0009). Los routers declaran
-su ruta relativa (`/tenders`, `/empresas`…) y **nunca `/api` por su cuenta**: publicar una v2
-es montar los mismos routers bajo otro prefijo, no editar catorce ficheros. `/health` queda
+su ruta relativa (`/tenders`, `/bi`) y **nunca `/api` por su cuenta**: publicar una v2
+es montar los mismos routers bajo otro prefijo, no editar cada fichero. `/health` queda
 fuera de la versión — lo consulta el healthcheck de la plataforma, no un cliente.
 La versión vive en `app/core/versionado.py` y, duplicada a propósito, en
 `frontend/lib/versionApi.ts`: si se desincronizan, **todas** las llamadas fallan a la vez.
@@ -489,14 +456,16 @@ La versión vive en `app/core/versionado.py` y, duplicada a propósito, en
 un `{success, data}` termina siempre en 200 con `success: false`, que obliga a cada cliente a
 mirar dos sitios. Lo fija `tests/test_versionado_api.py`.
 
-**Celery**: 13 jobs. ETL horario, backfill diario, bulk semanal + analytics, estado hábil
-cada 6 h, recordatorios de plazo y de vencimiento, precómputo nocturno de matches, watchdog
-cada 30 min, trials (vencimiento de reverse-trial y de periodo pagado tras cancelar), informe
-semanal, vigilancia de precios. Todo en `America/Santiago`.
+**Celery**: 4 jobs, todos del ETL. Horario (`--horario`), backfill diario, bulk semanal +
+analytics, y watchdog cada 30 min. Todo en `America/Santiago`. Los de cuenta (estado hábil,
+recordatorios, encajes, trials, informe semanal, vigilancia de precios, resultados,
+competidores, reintento de notificaciones) se fueron con el pivote.
 
 ### Datos
 
-- **PostgreSQL** — transaccional.
+- **PostgreSQL** — 13 tablas: licitaciones, órdenes de compra (cada una con detalle e
+  historial), compradores y proveedores, cuatro de referencia y `task_failures`. Las 21 de
+  cuenta y `categories` las borró `3d73beca994e_retirar_cuentas`.
 - **Parquet + Polars** — sólo cómputo batch. La API **no lee parquets**: el pipeline
   materializa los resultados en el esquema `analytics` de Postgres con índices
   (`etl/analytics/materialize.py`), y `bi_service` los consulta con SQL. Ver
@@ -506,8 +475,10 @@ semanal, vigilancia de precios. Todo en `America/Santiago`.
 ### Frontend — `frontend/`
 
 Next.js 16 App Router + TypeScript + Tailwind + Recharts. Componentes propios. El estado de
-servidor va en TanStack Query (`lib/queries.ts`) y la sesión en cookies `httpOnly` servidas
-por `/api/proxy` — ver las reglas de frontend más arriba.
+servidor va en TanStack Query (`lib/queries.ts`) y todo el tráfico pasa por `/api/proxy`,
+sin sesión — ver las reglas de frontend más arriba. Hay dos pantallas: el catálogo de
+licitaciones (`/dashboard/tenders`, con su detalle) y la inteligencia de mercado
+(`/dashboard/bi`); `/dashboard` redirige al catálogo.
 
 **La pantalla de analítica (`app/dashboard/bi/`) está ordenada por la decisión, no por lo
 que el pipeline sabe calcular**: cómo está el mercado → dónde estoy yo → qué hago esta
@@ -536,7 +507,8 @@ negro con tornasol azul-verdoso:
 - Tipografía: **Archivo** display, **DM Sans** cuerpo, **Varien** sólo para la marca.
   `.cifra` para cifras que se comparan en columna — DM Sans no trae figuras tabulares y
   Archivo sí.
-- Tema claro por defecto, con toggle claro/oscuro/sistema en Configuración.
+- Tema claro por defecto, con selector claro/oscuro/sistema al pie de la barra lateral
+  (`components/SelectorTema.tsx`).
 
 La landing es server component (`app/page.tsx`) y toda su interactividad vive en
 `components/landing/LandingClient.tsx`: **no le devuelvas el `'use client'`**, porque Next
@@ -549,108 +521,10 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
 `analytics/evaluation/` es el harness de evaluación.
 
 ### Patrones vigentes
-- **Auth**: dos vías por el mismo `Authorization: Bearer`, distinguidas por el prefijo
-  `tordo_` sin tocar la base.
-  - **JWT de sesión** (30 min) **+ token de refresco con rotación** + Google OAuth. Para el
-    navegador.
-    **Se entra con el usuario O con el correo**, indistintamente
-    (`repositories/usuarios.buscar_por_identificador`). El campo del cuerpo se sigue llamando
-    `username` para no romper clientes ya escritos; lo que cambia es que su contenido se
-    interpreta. **No es un `OR` entre las dos columnas, y la diferencia es de seguridad**: con
-    un `OR`, quien se registrara con el username `victima@empresa.cl` competiría por ese
-    identificador con la dueña real de ese correo, y quién gana lo decidiría el orden de filas.
-    Se decide antes por la forma del texto — lleva `@`, es un correo — y se consulta una sola
-    columna. El correo se compara en minúsculas porque se guarda tal cual se escribió;
-    **no se indexa la expresión** (la convención de migraciones lo prohíbe), y si algún día
-    pesa, la solución es normalizar la columna al guardar. Lo fija
-    `tests/test_login_usuario_o_correo.py`.
-  - **Clave de API** (`tordo_<prefijo>_<secreto>`). Para clientes sin navegador: MCP, ERP,
-    scripts. **Pertenece a la empresa y la fija**: nombrar otra da 403, aunque quien la creó
-    pertenezca a las dos. Se guarda el hash; el prefijo queda en claro para poder
-    identificarla. Se emite en `POST /api/v1/empresas/{id}/api-keys` con rol de escritura, y
-    **el secreto sólo se devuelve ahí**.
-
-  Roles empresa (owner/admin/viewer) + cuotas por plan aplican igual por las dos vías.
-  El acceso es un JWT y no se puede revocar; lo que sostiene la sesión es el refresco, que
-  vive en `refresh_tokens` y sí se revoca. **Rota en cada uso**, y presentar uno ya canjeado
-  revoca la familia entera: sin eso, quien roba un token se queda dentro para siempre.
-  Cambiar la contraseña cierra todas las sesiones.
-  **Resuelto en F5**: el navegador ya no ve ninguno de los dos. El proxy de Next los guarda
-  en cookies `httpOnly` y renueva solo — ver las reglas de frontend.
-  **La ruta de Google también tiene refresco**, por código de un solo uso — ver arriba.
-  - **Verificación de correo**: `users.is_verified` existía desde la primera migración y
-    **nada la ponía en `True`** — la columna estaba, la promesa no. El registro emite un
-    token (`email_verification_tokens`, 7 días, un solo uso, guardado como SHA-256) y manda
-    el correo de bienvenida en segundo plano. Tabla propia y no una columna `proposito` en
-    `password_reset_tokens`: son dos ciclos de vida distintos —siete días contra una hora—
-    y mezclarlos convierte cada consulta en un filtro que alguien olvidará.
-    **No bloquea el acceso.** Una cuenta sin verificar entra igual: cerrarle la puerta a
-    alguien porque su proveedor de correo tardó es perder al usuario para cubrir un caso
-    raro. Lo que sí acota es a quién se le cobra y a quién se le mandan datos de negocio.
-    **Pedir el reenvío responde lo mismo exista o no la cuenta**, por el mismo motivo que
-    la recuperación de contraseña: distinguir es regalar un verificador de cuentas.
-- **Alertas**: preferencias → AlertEngine → `INSERT ON CONFLICT` idempotente →
-  **`services/notificaciones.py`**, que es quien despacha.
-  - **Nunca `metadata=` al construir un `Alert`.** En un modelo declarativo de SQLAlchemy
-    `metadata` es un atributo reservado —el objeto `MetaData` de la clase—, así que el
-    constructor lo acepta, lo sombrea en la instancia y **deja la columna en `NULL` sin
-    error ni traza**. La columna se llama `metadata` en la base y `alert_metadata` en
-    Python; el único método que crea alertas, `create_alert_idempotent`, nombra el
-    parámetro `alert_metadata` y un test lo fija. Se perdía en `NEW_TENDER` y `NEW_ORDER`, y
-    `NEW_TENDER` sale por correo: los avisos iban sin el código de la licitación, que es lo
-    único que lleva a ella.
-  - **Un filtro que no filtra es peor que no ofrecerlo.** `category_id` se aceptaba en la
-    API y su bloque en el motor era un `pass`: quien acotaba sus alertas a una categoría
-    recibía el catálogo entero y dejaba de revisar. No es implementable —ni `Licitacion` ni
-    `OrdenCompra` están clasificadas contra `categories`—, así que **salió del esquema**.
-  - **Las palabras clave se comparan sin tildes, en los dos sentidos** (`_sin_tildes`),
-    igual que la búsqueda del catálogo y por el mismo motivo. La ñ se pliega a n para no
-    tener dos reglas del mismo idioma en el mismo producto.
-  - **El canal lo declara el TIPO de alerta, no quien la crea.** `POLITICA` es la única
-    tabla donde se decide, y `tests/test_notificaciones.py` falla si aparece un tipo sin
-    política — el mismo trinquete que el calendario de Celery. Hizo falta porque **todas
-    las alertas creadas después del camino viejo por preferencias se insertaban con
-    `["in_app"]` y nadie llamaba al envío**: el encaje semántico, los plazos de 48 h y
-    24 h, el vencimiento de documentos, el estado hábil y el cambio de precio se
-    calculaban y no salían de la aplicación.
-  - **Lo que caduca sale al momento; el resto va en tanda.** Un correo por licitación
-    termina en una regla de filtro de Gmail, y a partir de ahí el usuario deja de
-    enterarse de todo, incluido lo urgente. La frontera de la tanda es la **corrida**,
-    no la licitación: quien orquesta junta los ids y despacha una vez.
-  - **El aviso de encaje lleva el BI dentro** (`correo_render.lineas_de_bi`): banda de
-    precio del comprador, competidores habituales y qué proporción de sus llamados
-    termina adjudicando. Es el mismo canal que
-    usa la competencia y una respuesta que sólo puede escribir quien tiene el histórico.
-    Una línea sin dato **se omite**: un «sin datos» en un correo enseña a no leerlo.
-  - **Sin WhatsApp.** Se retiró: la verificación WABA con Meta tarda 4–8 semanas y nunca
-    se inició, cobra por conversación, y el canal no es el diferenciador. Quedan `email`,
-    `in_app` y `webhook` — el webhook cuesta cero y sostiene el ángulo ERP junto con la
-    API pública. Si vuelve, vuelve como adaptador detrás del despacho.
-- **Informe semanal** (lunes 09:00): un correo por empresa con encaje, cierres, cambios de
-  precio, cumplimiento y mercado, más el mismo informe en **PDF adjunto**
-  (`services/informe_semanal.py` construye, `informe_render.py` pinta).
-  - **Sustituyó al radar semanal**, que ahora es una de sus secciones. Dos correos el mismo
-    lunes serían dos correos que se ignoran igual.
-  - **El encaje se LEE de `match_empresa_licitacion`**, no se recalcula: el radar cargaba
-    TF-IDF y puntuaba 200 licitaciones por empresa, y podía dar un número distinto al del panel.
-  - **Una sección vacía se pinta igual**, con su frase: omitirla no distingue entre «no hay
-    nada» y «no se miró».
-  - **Todo el texto que viene de fuera se escapa** (`html.escape`). Los nombres son datos de
-    ChileCompra: el correo anterior los metía en crudo y un `&` rompía la maqueta.
-  - **`send_email` acepta adjuntos**, y con ellos la estructura es `mixed` por fuera y
-    `alternative` por dentro. Al revés, el cliente esconde el PDF o lo muestra en lugar del
-    mensaje — y el envío no falla, así que no hay traza.
-  - Lo reciben **owners y admins con `users.recibe_informe_semanal`**. Esa columna existe
-    porque el pie del correo prometía «Ajustes → Notificaciones» para desactivarlo y esa
-    opción no existía.
-- **Vigilancia de precios**: `analytics.product_price_bands_l1` **se reemplaza entera** en cada
-  materialización, así que por sí sola no permite detectar un cambio — no queda con qué comparar.
-  `precio_referencia` guarda el último precio conocido por producto **y unidad** (se actualiza en
-  el sitio, no es un histórico) y `suscripcion_precio` dice a qué empresa le importa, **con su
-  propio umbral**: por eso el umbral se aplica al avisar y no al detectar. El job corre los lunes
-  a las 04:30, después de la reconstrucción de analytics: en paralelo compararía contra una tabla
-  a medio reemplazar. Se avisa **a cada miembro** de la empresa, porque `alerts.user_id` es de
-  usuario y la suscripción es de la empresa.
+- **Sin cuentas.** Lo que había aquí sobre sesión (JWT, refresco con rotación, Google,
+  verificación de correo), claves de API, alertas y notificaciones, informe semanal,
+  vigilancia de precios, encaje precomputado y planes se fue con el pivote público. Está en
+  la historia de git (antes de `3d73beca994e_retirar_cuentas`) si alguna vez vuelve.
 - **Tareas Celery**: `beat_schedule` las nombra **por cadena**, así que un módulo sin importar en
   `celery_app.py` produce `Received unregistered task` en el worker y nada más.
   `tests/test_celery_beat.py` comprueba que cada entrada del calendario existe; si añades una
@@ -660,23 +534,9 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
   **con BOM y separador `;`**: sin BOM Excel en Windows parte las tildes, y con coma Excel en
   configuración regional chilena mete todo en una columna. Un CSV que se abre mal no es un
   entregable, y son dos detalles que un refactor bienintencionado rompe sin que falle nada.
-- **Postulaciones: tablero además de lista.** Los seis estados del `CHECK` son las columnas.
-  **No son configurables a propósito**: `adjudicada` es lo que cruza contra el ZIP para
-  cerrar el ciclo del resultado (`services/resultados.py`), así que renombrarlas rompería
-  eso a cambio de nada. Se arrastra con la API nativa de HTML5 —una librería de arrastre son
-  ~30 kB y una entrada más en `make audit` para una pantalla— y cada tarjeta lleva además un
-  selector, que es el único camino con teclado y en móvil.
-- **Lo que el plan no incluye se enseña con candado, no se esconde** (`components/Candado.tsx`).
-  Detrás del candado está el BI, que es el argumento de compra: esconderlo hace que el
-  producto parezca más pobre de lo que es. El 402 del servidor sigue siendo la protección —
-  un candado en el cliente es una cortesía— pero llega **antes** de que el usuario pulse.
-- **Planes**: el `id` del plan que devuelve `/api/v1/billing/plans` **es** el `plan_tier` que se
-  guarda en la empresa (`basico | pyme | pro | enterprise`); `nombre` es sólo lo que se
-  muestra. Los límites — documentos, consultas BI, alertas y **asientos** — viven todos en
-  `PLAN_QUOTAS` (`core/plan_limits.py`), que es la única tabla que hay que editar.
 - **BI**: batch en Polars → tablas materializadas en `analytics.*` → consulta con filtros
   empujados a SQL → fallback jerárquico **L0→L0N→L1→L2→L3→L4** con dispersión y tamaño de
-  muestra → gating por plan (de la empresa). Hay un golden master (`backend/tests/golden/`) que fija
+  muestra. Hay un golden master (`backend/tests/golden/`) que fija
   el contrato: **cualquier cambio a `services/bi/` tiene que pasarlo**, y corre en CI.
   Si cambias los datos del fixture, recaptura con
   `python tests/golden/capturar_golden_bi.py --desde-golden` — **sin `--desde-golden` el
@@ -684,11 +544,9 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
   otros distintos (la primera vez pasó de 31 casos a 7).
 - **`CodigoProveedor` NO es un RUT.** Es el identificador interno de Mercado Público: de
   los 4.204.598 registros de `competitors_by_market`, **cero** llevan guion. La traducción
-  RUT → código sale de `ordenes_compra`, que guarda los dos, y vive en
-  `repositories/proveedores.py`. Hizo falta porque `get_mi_posicion` comparaba el RUT
-  normalizado contra esa columna: **no coincidía nunca**, así que «Tu posición» le decía a
-  todo el mundo —también a quien tenía historial— que no tenía órdenes en el rubro. Un test
-  de `_normalize_rut` pasaba en verde comprobando la mitad equivocada del problema.
+  RUT → código sale de `ordenes_compra`, que guarda los dos (`rut_proveedor`,
+  `rut_proveedor_norm`). «Tu posición» comparaba el RUT normalizado contra esa columna y **no
+  coincidía nunca**; esa pantalla se retiró con las cuentas, pero el dato sigue siendo así.
 - **`competitors_by_market` tiene una fila por *(organismo, rubro, proveedor)*.** Cualquier
   métrica de rubro **agrega por proveedor primero**. Contar filas decía 128.462 proveedores
   donde hay 77.720, y tomar una fila suelta como representativa daba tres «líderes del
@@ -719,11 +577,12 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
   `hoy_chile()`). **Nunca `date.today()`**: devuelve la fecha local del proceso, que en el
   contenedor es UTC, y con Chile en UTC-4 el día cambiaba a las 20:00 de Santiago. Estaba en
   siete sitios: la cuota diaria de BI se renovaba al anochecer y un documento que vencía HOY
-  se daba por vencido desde la tarde anterior. Un test en una máquina configurada en Chile no
+  se daba por vencido desde la tarde anterior (los dos se fueron con las cuentas; `hoy_chile()`
+  se queda para el autolímite del paso 5). Un test en una máquina configurada en Chile no
   lo habría visto — `tests/test_reloj_chile.py` fija un instante dentro de esa franja.
 - **`app/core/__init__.py` está vacío a propósito**, por lo mismo que `app/api/__init__.py`:
-  re-exportaba nombres de `security`, así que `from app.core.tiempo import ...` arrastraba
-  `app.models.empresa` y cerraba un ciclo. Nadie usaba las re-exportaciones.
+  re-exportaba nombres de un módulo de seguridad (hoy borrado), así que `from app.core.tiempo
+  import ...` arrastraba los modelos de cuenta y cerraba un ciclo.
 - **No existe ninguna fecha de pago en el dato de ChileCompra.** `mediana_dias_pago` medía
   `FechaEnvio → FechaAceptacion` —lo que tarda el **proveedor** en aceptar la orden, mediana
   real 1,63 días— y el producto lo publicaba como plazo de pago en la pantalla, en el correo
@@ -735,35 +594,17 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
   el correo y el panel del comprador ya la hubieran retirado: `MockupAviso` mostraba «Paga a
   32 días en promedio» y `MockupComprador` un KPI «Paga a». Cuando se retire un dato, hay que
   buscarlo también en `components/landing/` — es lo que lee quien todavía no es cliente.
-- **De si una empresa está hábil no sabemos nada: la API pública no lo dice.** Contrastado en
-  vivo (2026-09-24): `BuscarProveedor` sólo responde si el RUT figura en el Registro de
-  Proveedores —y sólo lo encuentra **con puntos**, `76.286.670-6`—; «no inscrito» llega como
-  500 con `Codigo 10200`. De ahí salen `inscrito` y `no_encontrado`, que es todo lo que el
-  producto afirma. `desconocido` («aún no consultado») e `inscrito` **no son un problema** y
-  no se avisan: el panel y el informe semanal decían a TODA empresa «Estado desconocido —
-  revisa deudas en Tesorería». Sólo `no_encontrado` e `inhabil` impiden ofertar.
-- **Y de por qué una quedaría inhábil, tampoco.** Ninguna fuente trae motivo, fecha ni monto. Las causas reales son cinco y de naturalezas
-  distintas —la tarifa anual del registro sin pagar, datos sin actualizar (cada 6 meses),
-  deuda tributaria sobre 500 UTM o previsional de más de 12 meses, sanciones graves, mal uso
-  de la plataforma— y **sólo el proveedor las ve, en la sección «Habilidad» de su ficha**. El
-  aviso decía «revisa documentos en Tesorería»: acierta en un caso de cinco, y cuando falla el
-  usuario va, no encuentra nada y aprende a no leer la alerta más urgente que manda el
-  producto (`Urgencia.INMEDIATA`). Se dice qué pasó, qué implica —que no puede ofertar— y
-  dónde está la razón, con las causas como ejemplos.
+- **Estado hábil (retirado con las cuentas): la API pública no dice si una empresa está
+  hábil, ni por qué no lo estaría.** Contrastado en vivo (2026-09-24): `BuscarProveedor` sólo
+  responde si el RUT figura en el Registro de Proveedores —y sólo lo encuentra **con puntos**,
+  `76.286.670-6`—; «no inscrito» llega como 500 con `Codigo 10200`. Las causas de
+  inhabilidad sólo las ve el proveedor en su ficha. Si la feature vuelve, empieza aquí.
 - **El tramo bajo del HHI se llama `fragmentado`, no `competitivo`.** El eje que mide el HHI
   es la concentración; «competitivo» se lee al revés de lo que significa. Convivían las dos
   palabras —el ETL una, los servicios otra— y el usuario veía dos nombres para el mismo
   mercado en la misma pantalla. Los cortes 1.500 / 2.500 son los de las guías DOJ/FTC y no
   se mueven por intuición. `market_concentration` se re-materializa una vez por semana, así
   que el frontend **mapea también la palabra vieja** hasta esa corrida.
-- **Sólo se venden dos planes: `basico` (Free) y `pro` (Pro).** `pyme` y `enterprise` existen
-  en `PLAN_QUOTAS` y **no** en `/api/v1/billing/plans`. Nombrar un plan que no se puede
-  comprar manda al usuario a la página de precios a buscar algo que no está.
-  Corregirlo en un sitio no lo corrige en los demás: tras arreglar `PlanGate` seguían
-  ofreciendo planes fantasma `PlanUpgradeBanner` («Ver plan PYME», porque el backend puede
-  sugerir ese tier) y `MatchesZone` («Desbloquea con PYME+», que no existe ni en `PLAN_QUOTAS`).
-  **Todo lo que no sea comprable se enseña como Pro**, y el respaldo de un tier desconocido es
-  Pro, nunca el identificador crudo.
 - **El precio se agrupa por PRODUCTO, no por categoría del catálogo.**
   `codigoProductoONU` es una categoría UNSPSC: medido sobre datos reales, una sola
   categoría en un solo hospital y un solo mes contiene artículos que difieren en cinco
@@ -784,18 +625,6 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
   - **Deflactar por inflación no sirve, y está medido**: el CV dentro de un solo mes es
     0,83–0,88 y mezclando 2016–2026 es 0,88, con +38 % de inflación en la década. No lo
     reabras sin un número nuevo.
-- **Encaje empresa × licitación: `match_empresa_licitacion`, precomputado.** Una fila por par,
-  con `score` 0-100 y `nivel`. Lo llena el job de las 06:00 (`precompute_dashboard_matches`),
-  que es donde vive el modelo TF-IDF; la API **no lo carga para esto**.
-  - Los datos de la licitación se leen con **join**, nunca copiados. La versión anterior
-    guardaba un blob JSON con nombre, monto y fecha dentro: eran una foto de las 06:00 y el
-    ETL horario los dejaba rancios sin que nada avisara.
-  - **Se lee por `repositories/matches.py`**, no con SELECT propios en el router.
-  - **Ordenar por encaje usa join EXTERNO con `NULLS LAST`.** Con join interno, "ordenar por
-    encaje" pasaría a ser "filtrar por encaje" y el catálogo encogería al cambiar el orden.
-  - **Contrapartida, dicha claro**: una licitación ingerida hoy no tiene fila hasta las 06:00
-    siguientes y sale sin score. El score se guarda entero (0-100) y la API lo devuelve como
-    coseno 0-1, así que se pierde precisión por debajo del 1 %.
 - **Mecanismo de compra: `tipo_convocatoria`** (`app/models/convocatoria.py`, importado por el
   ETL a través de `etl/shared_imports.py` — **no se copia**). El modelo daba por hecho que todo
   lo ingerido era una licitación; Compra Ágil y Convenio Marco son cerca de la mitad del
@@ -809,22 +638,15 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
     v2, ticket por cabecera) — ver `etl/extractors/compra_agil.py`.
   - Un filtro con un mecanismo desconocido devuelve **422**, no el catálogo entero: ignorarlo
     haría creer que no hay compras de ese tipo.
-- **Rate limiting**: tres capas, cada una por un motivo distinto.
-  - **Por IP** en `/api/v1/bi/*` — para el navegador, que es donde una IP es
-    aproximadamente una persona.
-  - **Por CLAVE de API y por minuto** (`core/limites_api.py`, aplicado en
-    `autenticar()`), según el plan. Por clave y no por IP porque una integración sale por
-    una sola IP de oficina: limitar ahí metería a toda la empresa en el mismo cubo, y quien
-    quisiera saltárselo sólo tendría que usar varias IP. Se anuncia con `X-RateLimit-*`
-    **también al dejar pasar** — enterarse por el 429 es enterarse tarde.
-  - **Cuota diaria por empresa** — ya sólo en las seis rutas de BI de nivel `cuenta`, que se
-    retiran en el paso 3 del pivote. Las públicas no la tienen.
-
-  Las tres fallan abiertas si Redis no responde.
-- **Las dependencias de cuota viven en `api/deps.py`, no en `core/`.** Estaban en
-  `plan_limits.py` importando `app.api.deps` **dentro de una función**: `core` importando de
-  `api`, un ciclo real que sólo se sostenía por estar diferido. `core` se queda con la tabla
-  de cuotas y las funciones puras; las `Depends` van donde va el resto.
+- **Rate limiting**: **por IP** en `/api/v1/bi/*` (60/min, `BIRateLimitMiddleware` en
+  `main.py`). Falla abierto si Redis no responde. El catálogo y el MCP **no tienen límite
+  todavía**: aceptable con producción pausada, y el paso 5 del pivote lo extiende a toda la
+  superficie pública. Las capas por clave de API y por cuota diaria se fueron con las cuentas.
+- **El MCP es anónimo y tiene la protección contra DNS rebinding ENCENDIDA**, con la lista
+  blanca de `MCP_HOSTS_PERMITIDOS` (coma-separada; por defecto `localhost,127.0.0.1`). Estuvo
+  apagada mientras cada llamada exigía clave: una petición rebotada llegaba sin credencial.
+  Sin clave ese argumento no vale. **Al desplegar, la lista tiene que llevar el dominio
+  público**, o `/mcp/` responde 421 a todo.
 - **La API pública está declarada, no deducida.** `app/api/documentacion.py` clasifica cada
   grupo de endpoints como `publica` o `interna` y publica la guía dentro del propio OpenAPI
   (la ve quien abre `/docs` o genera un cliente). `tests/test_superficie_publica.py` falla si
@@ -835,7 +657,8 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
   OOM, y cada reinicio recarga el modelo: en la medición se cargó 14 veces para 4 workers.
   La concurrencia se sube con `WEB_CONCURRENCY`, y **exige 1 GB**; con 512 MB el techo son 2.
   Repetible con `make medir-memoria`.
-- **Feature flags**: 6 en `app/config.py`; apagadas devuelven 503 con mensaje accionable.
+- **Feature flags**: 2 en `app/config.py` (`feature_analytics`, `feature_tfidf`); apagadas
+  devuelven 503 con mensaje accionable.
 
 ---
 
@@ -845,16 +668,18 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
 estos patrones, es señal de que hay que arreglar la causa, no de copiarlo:
 
 - ~~Analytics servido desde caché de parquet en el proceso de la API~~ — **resuelto en F2**: se sirve desde `analytics.*` en Postgres con índices.
-- ~~Verificación de membresía repetida a mano en cada endpoint~~ — **resuelto en F3**: `app/api/deps.py`, con test estructural.
+- ~~Verificación de membresía repetida a mano en cada endpoint~~ — **resuelto en F3**, y
+  desaparecido con las cuentas en el pivote público.
 - ~~`Column(JSON)` donde corresponde `JSONB`~~ — **resuelto en F4**: las 26 columnas son JSONB.
   **Toda columna JSON nueva se declara `JSONB`**; `JSON` guarda texto y lo reparsea en cada
   lectura, y no se puede indexar.
 - ~~Búsqueda con `ILIKE '%término%'`~~ — **resuelto en F4**: columna generada `busqueda`
   (tsvector español) + GIN, más trigrama sobre `nombre`. **La búsqueda no se escribe a mano**:
-  usa `_coincide_termino()` en `api/tenders.py`, que combina las dos vías.
+  usa `coincide_termino()` en `repositories/licitaciones.py`, que combina las dos vías.
   **Ignora las tildes** en los dos sentidos: el texto se indexa normalizado con
   `inmutable_unaccent` y el término se normaliza igual antes de comparar.
-- ~~Suscripción y `plan_tier` colgando de `User`~~ — **resuelto en F3**: pertenecen a la empresa.
+- ~~Suscripción y `plan_tier` colgando de `User`~~ — **resuelto en F3**; hoy no hay ni
+  suscripciones ni usuarios.
 - `subprocess.run` desde Celery hacia el ETL (F2).
 - ~~`Base.metadata.create_all()` en el loader del ETL~~ — **resuelto en F4**: verifica el
   esquema y falla con instrucciones. **El esquema sólo lo crean las migraciones.**
@@ -872,30 +697,31 @@ estos patrones, es señal de que hay que arreglar la causa, no de copiarlo:
 ## Hacia dónde va
 
 > **Pivote decidido el 2026-10-11: TORDO pasa a ser un sitio público y gratuito** — sin
-> cuentas ni cobros, financiado con donaciones, en Vercel Hobby + Railway con dos cron. Todo
-> lo que sigue en este archivo describe el SaaS **hasta que cada paso del pivote lo
-> retire**. Especificación: `docs/PIVOTE_PUBLICO_2026-10.md`.
+> cuentas ni cobros, financiado con donaciones, en Vercel Hobby + Railway con dos cron.
+> Especificación: `docs/PIVOTE_PUBLICO_2026-10.md`. **Los pasos 3 y 4 (fuera las cuentas,
+> backend y frontend) están hechos**; lo que queda del pivote —límite por IP en toda la
+> superficie (5), R2 y enmascarado (6), páginas públicas (10)…— está en la spec.
 
-Decisiones tomadas el 2026-08-05, con su ADR en `docs/decisiones/`:
-sólo Chile (sin multi-país), suscripción por empresa con planes por capacidades, nombre TORDO,
-LLM acotado a un servidor MCP sobre la base histórica, y pasarela de pago local en v1.
+Decisiones tomadas el 2026-08-05, con su ADR en `docs/decisiones/`: sólo Chile (sin
+multi-país), nombre TORDO y LLM acotado a un servidor MCP sobre la base histórica siguen
+vigentes. La suscripción por empresa con planes y la pasarela de pago local **las dejó sin
+objeto el pivote**.
 
 **El MCP está construido** (ADR 0004, retomado el 2026-08-08 al cumplirse su propia
 condición: la API pública ya está, así que dejó de ser superficie nueva). Vive en `app/mcp/`,
 montado en `/mcp` **fuera de `/api/v1`** — MCP versiona su propio protocolo.
-- **Cuatro herramientas de grano grueso, no veintidós.** Un modelo encadena unas quince
-  llamadas donde una persona hace tres: con `basico` a 3 consultas/día, exponer los endpoints
-  uno a uno agotaría el plan en una conversación. **Si se exponen uno a uno, hay que rehacer
-  las cuotas primero**, y hay un test que falla si aparece una quinta herramienta.
-- **La empresa sale de la CLAVE, no de un argumento.** Ninguna herramienta acepta
-  `empresa_id`: un modelo rellenaría ese hueco con lo que le pareciera. Un test lo comprueba.
-- **La cuota de BI se aplica con la MISMA función que la API** (`plan_limits.consumir_cuota_bi`).
-  Escrita dos veces, una de las dos se queda atrás — y es la que no cobra.
+- **Anónimo** desde el pivote: sin clave ni cuota. Ver «Patrones vigentes» para la
+  protección contra DNS rebinding y `MCP_HOSTS_PERMITIDOS`.
+- **Cuatro herramientas de grano grueso, no veinte.** Un modelo encadena unas quince
+  llamadas donde una persona hace tres. Nació para no agotar una cuota en una conversación;
+  sin cuotas, sigue acotando la carga que mete un cliente anónimo. Hay un test que falla si
+  aparece una quinta herramienta.
+- **Ninguna herramienta acepta `empresa_id`**: un modelo rellenaría ese hueco con lo que le
+  pareciera. Un test lo comprueba.
 - **`tests/test_mcp.py` habla el protocolo por HTTP**, no llama a las funciones. Es la única
   forma de ver los dos fallos que tiene esto: que montar una app ASGI dentro de otra **no
-  ejecuta su ciclo de vida**, y que la protección anti-DNS-rebinding del SDK viene activada
-  con una lista blanca que sólo trae `localhost` — desde un dominio real, **todo** responde
-  `421`.
+  ejecuta su ciclo de vida**, y que la lista blanca de `Host` deja fuera un dominio que no
+  esté en ella — **todo** responde `421`.
 
 **La extracción de bases con LLM está aplazada** (ADR 0010), y no por precio: **la API no
 entrega las bases ni los datos que se iban a sacar de ellas** — en su diccionario oficial,
@@ -913,8 +739,12 @@ decididos y aplazados, cada uno con su motivo — no como pendientes sin dueño.
 
 ## Entorno
 
-`cp .env.example .env`. Críticas: `DATABASE_URL`, `REDIS_URL`, `SECRET_KEY`,
-`MERCADO_PUBLICO_TICKET`, `API_URL`, `APP_NAME`.
+`cp .env.example .env`. Críticas: `DATABASE_URL`, `REDIS_URL`, `MERCADO_PUBLICO_TICKET`
+(lo usan el ETL y el worker de Celery, no la API), `API_URL`, `APP_NAME`, y en producción
+`MCP_HOSTS_PERMITIDOS` con el dominio público.
+
+**No hay `SECRET_KEY`.** Se borró con las cuentas: nada firma tokens, y un secreto
+obligatorio que nadie usa enseña a rellenar variables sin mirar.
 
 **`API_URL` es de servidor y no lleva prefijo `NEXT_PUBLIC_`.** Cualquier variable que sí lo
 lleve se inlinea en el bundle del navegador, y la URL del backend ya no tiene por qué estar
@@ -925,5 +755,4 @@ Observabilidad: `SENTRY_DSN` (backend, vacío = desactivado), `NEXT_PUBLIC_SENTR
 `SENTRY_ORG` / `SENTRY_PROJECT` / `SENTRY_AUTH_TOKEN` son **sólo de build**: sin ellas el
 build funciona igual, pero las trazas del navegador llegan minificadas.
 
-Feature flags: `FEATURE_ANALYTICS`, `FEATURE_TFIDF`, `FEATURE_BILLING`,
-`FEATURE_ESTADO_HABIL`, `FEATURE_DOCUMENTOS`, `FEATURE_CHECKLIST`.
+Feature flags: `FEATURE_ANALYTICS`, `FEATURE_TFIDF`.
