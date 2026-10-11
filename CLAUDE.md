@@ -402,11 +402,22 @@ make front-dev
 ETL — **desde la raíz**, como módulo (`cd etl && python main.py` falla con
 `No module named 'etl'`):
 ```bash
-uv run python -m etl.main --horario            # lo que corre cada hora
+uv run python -m etl.cron frecuente [--forzar] # cron de Railway, cada hora UTC (se autolimita)
+uv run python -m etl.cron semanal              # cron de Railway: descarga masiva + analytics + materializa
+uv run python -m etl.main --horario            # lo que corre cada hora (Celery, hasta retirarlo)
 uv run python -m etl.main --fecha-desde 2026-09-01 --fecha-hasta 2026-09-01
 uv run python -m etl.analytics.run_all [--modulo seasonality]
 cd etl && uv run --project .. python -m analytics.evaluation --model tfidf_matcher --walk-forward
 ```
+
+**`etl.cron` sustituye a las tareas de ETL de Celery** (paso 5 del pivote,
+`docs/PIVOTE_PUBLICO_2026-10.md` §3.1). `frecuente` se dispara **cada hora en UTC** y
+decide él si le toca —10, 13, 16 y 19 h de Santiago entre semana, 12 h el fin de semana—
+porque Chile cambia de hora y Railway no. Corre en proceso, sin `subprocess`. La ventana
+de Compra Ágil va desde la corrida **programada** anterior menos 1 h; la primera del día
+mira 26 h atrás y barre además el día anterior, como hacía la diaria de las 02:00. Latido
+a Healthchecks.io con `LATIDO_URL_FRECUENTE` / `LATIDO_URL_SEMANAL`; un ping roto no
+tumba la corrida.
 
 **La pasada horaria es `--horario`**: licitaciones publicadas hoy, Compra Ágil de las
 últimas 2 h y detalles nuevos. La tarea «horaria» corría `--only-extraer-nuevos`, que sólo

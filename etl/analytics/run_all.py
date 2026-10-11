@@ -168,8 +168,13 @@ def run_module(name: str):
     logger.info(f"  Módulo '{name}' completado en {elapsed:.0f}s ({elapsed / 60:.1f} min)")
 
 
-def _run_modules(modules: list) -> None:
-    """Ejecuta una lista de (nombre, descripción) con manejo de errores."""
+def _run_modules(modules: list) -> list[str]:
+    """Ejecuta una lista de (nombre, descripción) y devuelve los que fallaron.
+
+    Un módulo roto no detiene a los demás, pero quien orquesta tiene que
+    enterarse: el cron semanal lo convierte en un /fail del latido.
+    """
+    fallidos: list[str] = []
     for mod_name, mod_desc in modules:
         logger.info(f"\n{'─' * 50}")
         logger.info(f"Iniciando: {mod_desc}")
@@ -179,6 +184,20 @@ def _run_modules(modules: list) -> None:
         except Exception as e:
             logger.error(f"Error en módulo '{mod_name}': {e}", exc_info=True)
             logger.info("Continuando con el siguiente módulo...")
+            fallidos.append(mod_name)
+    return fallidos
+
+
+def ejecutar_todos() -> list[str]:
+    """Reconstrucción completa en su orden (OC, LIC, scorer al final).
+
+    Devuelve los módulos que fallaron.
+    """
+    return (
+        _run_modules(_MODULOS_OC[:-1])  # OC sin scorer
+        + _run_modules(_MODULOS_LIC)  # LIC
+        + _run_modules(_MODULOS_OC[-1:])  # scorer al final: usa los anteriores
+    )
 
 
 def main():
@@ -233,10 +252,7 @@ def main():
         logger.info("Grupo: LIC — módulos basados en Licitaciones")
         _run_modules(_MODULOS_LIC)
     else:
-        # Sin filtro: ejecutar todos en orden (OC primero, LIC después, scorer al final)
-        _run_modules(_MODULOS_OC[:-1])  # OC sin scorer
-        _run_modules(_MODULOS_LIC)  # LIC
-        _run_modules(_MODULOS_OC[-1:])  # scorer al final
+        ejecutar_todos()
 
     elapsed_total = time.time() - t_total
     logger.info(f"\n{'=' * 70}")

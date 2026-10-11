@@ -111,7 +111,7 @@ DETALLES_COMPRA_AGIL_POR_PASADA = 150
 PRESUPUESTO_DETALLES_COMPRA_AGIL_S = 7 * 60
 
 
-def run_etl_compra_agil(cambio_desde=None, cambio_hasta=None) -> bool:
+def run_etl_compra_agil(cambio_desde=None, cambio_hasta=None, cuota_agotada_es_fallo=False) -> bool:
     """Ingiere Compras Ágiles desde la API v2.
 
     Compra Ágil **no está en la API clásica**: tiene host propio, el ticket va
@@ -121,6 +121,11 @@ def run_etl_compra_agil(cambio_desde=None, cambio_hasta=None) -> bool:
     sin credencial gasta reintentos para acabar en 401, y llenaría el log de
     errores en cada pasada horaria de una instalación que simplemente no tiene
     la integración activada.
+
+    Con `cuota_agotada_es_fallo`, una cuota agotada se propaga como
+    `CuotaDiariaAgotada` en vez de darse por buena. Lo pide el cron (`etl.cron`):
+    ahí nadie mira el worker, y sólo el latido puede avisar de que Compra Ágil
+    dejó de entrar.
     """
     logger.info("=" * 60)
     logger.info("ETL de Compra Ágil")
@@ -147,7 +152,7 @@ def run_etl_compra_agil(cambio_desde=None, cambio_hasta=None) -> bool:
         if not crudos:
             loader.connect()
             try:
-                _completar_compras_agiles(extractor, loader)
+                _completar_compras_agiles(extractor, loader, cuota_agotada_es_fallo)
             finally:
                 loader.disconnect()
             return True
@@ -169,12 +174,14 @@ def run_etl_compra_agil(cambio_desde=None, cambio_hasta=None) -> bool:
         try:
             cargadas = loader.load_licitaciones(filas)
             logger.info("Compra Ágil: %d filas cargadas", cargadas)
-            _completar_compras_agiles(extractor, loader)
+            _completar_compras_agiles(extractor, loader, cuota_agotada_es_fallo)
         finally:
             loader.disconnect()
         return True
 
     except CuotaDiariaAgotada as exc:
+        if cuota_agotada_es_fallo:
+            raise
         # No es un fallo del pipeline: la cuota vuelve mañana. Se registra como
         # aviso para que el watchdog no lo cuente como corrida rota.
         logger.warning("Compra Ágil: %s", exc)
@@ -184,7 +191,7 @@ def run_etl_compra_agil(cambio_desde=None, cambio_hasta=None) -> bool:
         return False
 
 
-def _completar_compras_agiles(extractor, loader) -> None:
+def _completar_compras_agiles(extractor, loader, cuota_agotada_es_fallo=False) -> None:
     """Descripción e ítems desde el detalle, para las publicadas que no los tienen.
 
     El listado no los trae, y sin ellos el encaje se calculaba sólo sobre el
@@ -201,6 +208,8 @@ def _completar_compras_agiles(extractor, loader) -> None:
         try:
             detalle = extractor.extract_detalle(codigo)
         except CuotaDiariaAgotada as exc:
+            if cuota_agotada_es_fallo:
+                raise
             logger.warning("Compra Ágil: %s — detalles pendientes para mañana", exc)
             break
         campos = campos_desde_detalle(detalle or {})

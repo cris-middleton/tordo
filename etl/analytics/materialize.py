@@ -119,23 +119,28 @@ def main(argv: list[str] | None = None) -> int:
     engine = create_engine(_url_sync(), pool_pre_ping=True)
     total, omitidas, fallidas = 0, [], []
 
-    for spec in seleccion:
-        try:
-            filas = materializar_desde_parquet(directorio, spec, engine)
-        except Exception:
-            logger.exception("falló la materialización de %s", spec.tabla)
-            fallidas.append(spec.tabla)
-            continue
-        if filas is None:
-            omitidas.append(spec.tabla)
-        else:
-            total += filas
+    # Se cierra al acabar: el cron semanal lo llama en proceso, y una conexión
+    # abierta deja la ejecución viva — Railway descartaría la siguiente.
+    try:
+        for spec in seleccion:
+            try:
+                filas = materializar_desde_parquet(directorio, spec, engine)
+            except Exception:
+                logger.exception("falló la materialización de %s", spec.tabla)
+                fallidas.append(spec.tabla)
+                continue
+            if filas is None:
+                omitidas.append(spec.tabla)
+            else:
+                total += filas
 
-    if not fallidas:
-        try:
-            _crear_indice_busqueda_productos(engine)
-        except Exception:
-            logger.exception("falló la creación del índice de búsqueda de productos")
+        if not fallidas:
+            try:
+                _crear_indice_busqueda_productos(engine)
+            except Exception:
+                logger.exception("falló la creación del índice de búsqueda de productos")
+    finally:
+        engine.dispose()
 
     logger.info(
         "materialización terminada: %d tablas, %d filas, %d omitidas, %d fallidas",
