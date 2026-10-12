@@ -49,14 +49,7 @@ def loader():
     try:
         yield cargador
     finally:
-        # Historial y detalle antes que licitaciones, por las FK.
-        cargador.session.execute(
-            text(
-                "DELETE FROM licitaciones_historial WHERE licitacion_id IN "
-                "(SELECT id FROM licitaciones WHERE codigo_externo LIKE :p)"
-            ),
-            {"p": f"{PREFIJO}%"},
-        )
+        # El detalle antes que licitaciones, por la FK.
         cargador.session.execute(
             text(
                 "DELETE FROM licitaciones_detalle WHERE licitacion_id IN "

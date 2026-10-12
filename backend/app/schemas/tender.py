@@ -18,20 +18,6 @@ class TenderBase(BaseModel):
     comuna: str | None = None
 
 
-class TenderCreate(TenderBase):
-    codigo_interno: str | None = None
-    organismo_id: int | None = None
-
-
-class TenderUpdate(BaseModel):
-    nombre: str | None = None
-    descripcion: str | None = None
-    fecha_cierre: datetime | None = None
-    monto_estimado: Decimal | None = None
-    estado: str | None = None
-    organismo_id: int | None = None
-
-
 class LicitacionDetalleResponse(BaseModel):
     """Schema for licitacion detalle information"""
 
@@ -42,10 +28,9 @@ class LicitacionDetalleResponse(BaseModel):
     fecha_ultima_actualizacion: datetime | None = None
     numero_actualizaciones: int | None = None
     hash_contenido: str | None = None
-    # Sin `datos_completos` ni `participantes`, a propósito: son el payload
-    # crudo de la API y la lista de oferentes, y el catálogo es público. Se
-    # guardan ya limpios de personas naturales (`etl/analytics/personas.py`),
-    # pero no hay nada en ellos que el sitio use. Ver docs/API_PUBLICA.md.
+    # Sin `datos_completos` ni `participantes`: eran el payload crudo de la API
+    # y la lista de oferentes, y el catálogo es público. Desde el paso 7 del
+    # pivote ni siquiera se guardan. Ver docs/API_PUBLICA.md.
     items: Any | None = None
     documentos: Any | None = None
     etapas: Any | None = None
@@ -71,7 +56,6 @@ class TenderResponse(TenderBase):
     codigo_organismo: str | None = None
     nombre_organismo: str | None = None
     rut_organismo: str | None = None
-    organismo_id: int | None = None
     fecha_inicio: datetime | None = None
     fecha_final: datetime | None = None
     informacion_adicional: Dict[str, Any] | None = None
@@ -81,9 +65,6 @@ class TenderResponse(TenderBase):
     fecha_extraccion: datetime
     fecha_actualizacion: datetime | None = None
     detalle: LicitacionDetalleResponse | None = None
-
-    # Populated only when TF-IDF re-ranking is applied.
-    similarity_score: float | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

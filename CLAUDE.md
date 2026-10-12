@@ -395,7 +395,9 @@ que la leía lo sustituye el latido. En local no hay programador; los cron se la
 decide él si le toca —10, 13, 16 y 19 h de Santiago entre semana, 12 h el fin de semana—
 porque Chile cambia de hora y Railway no. Corre en proceso, sin `subprocess`. La ventana
 de Compra Ágil va desde la corrida **programada** anterior menos 1 h; la primera del día
-mira 26 h atrás y barre además el día anterior, como hacía la diaria de las 02:00.
+mira 26 h atrás y barre además el día anterior, como hacía la diaria de las 02:00 — sólo
+licitaciones: **las órdenes de compra ya no se ingieren por la API** (paso 7); salen de la
+descarga masiva, y cada una costaba un detalle de la cuota.
 **La primera del día re-consulta además los resultados** de las licitaciones cerradas en los
 últimos 30 días sin adjudicación (tope 500/día, el 5 % de la cuota de la API clásica; ni
 desiertas, ni revocadas, ni Compra Ágil). Sin esto la adjudicación sólo se llenaba si
@@ -415,6 +417,18 @@ ChileCompra, que es su fuente.
   publicaría. En `r2`, una credencial que falta (`R2_ENDPOINT_URL`, `R2_ACCESS_KEY_ID`,
   `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`) hace fallar la corrida al construirse, con su nombre
   en el `/fail`.
+- **Al final, la retención del catálogo** (`etl/retencion.py`, spec §5.2): fuera la Compra
+  Ágil publicada hace más de **30 días, y nunca del mes anterior** (en hora de Chile), y las
+  licitaciones cerradas hace más de 90 (sin cierre, desde la publicación). Lo del mes no es
+  redundante: con 30 días móviles ninguna corrida semanal ve un mes entero, y el máximo que
+  acumula `publicadas` se quedaba con un trozo — hasta una semana menos cada mes. Lo fija una
+  simulación de semanas cruzando fronteras de mes en `etl/tests/test_retencion.py`; en
+  Postgres quedan entre 30 y ~62 días de Compra Ágil. **Sólo si `compra_agil_mensual` terminó bien y ya se subió**: es la
+  única fuente de `publicadas` y la acumula leyendo esa misma tabla, así que borrar lo que no
+  contó lo perdería para siempre. Si no, la Compra Ágil espera una semana más. Un código
+  purgado da **404** en el catálogo (`etl/tests/test_retencion.py`). **Nada que lea
+  Postgres puede contar con lo purgado**: un conteo de Compra Ágil de 90–180 días (el ranking
+  del paso 9) sale de `analytics.compra_agil_mensual`, nunca de `licitaciones`.
 - **Purga ZIP Y consolidado** de los 3 meses que rehace. Antes sólo el ZIP, y
   `consolidar_tipo` se salta un mes ya consolidado: lo que ChileCompra corregía de los meses
   recientes nunca llegaba a analytics.
@@ -495,10 +509,15 @@ mirar dos sitios. Lo fija `tests/test_versionado_api.py`.
 
 ### Datos
 
-- **PostgreSQL** — 12 tablas: licitaciones, órdenes de compra (cada una con detalle e
-  historial), compradores y proveedores y cuatro de referencia. Las 21 de cuenta y
-  `categories` las borró `3d73beca994e_retirar_cuentas`; `task_failures`,
-  `08c6653fd4dc_retirar_task_failures`.
+- **PostgreSQL** — sólo lo que se sirve hoy (spec §5.2): `licitaciones` y
+  `licitaciones_detalle`, con retención (ver el cron `semanal`), más el esquema `analytics`.
+  Las 21 de cuenta y `categories` las borró `3d73beca994e_retirar_cuentas`;
+  `task_failures`, `08c6653fd4dc_retirar_task_failures`; y **`e3afe71ab019_adelgazar_postgres_paso_7`**
+  las tres de órdenes de compra, el historial de cambios, compradores, proveedores y los cuatro
+  catálogos `ref_*` — nada los leía —, más el payload crudo del detalle (`datos_completos`,
+  `participantes`): el hash basta para saber si un detalle cambió. La historia de órdenes vive
+  entera en los parquets de R2. **El tamaño real está sin medir** (producción pausada); las
+  consultas para medirlo van en la descripción del PR del paso 7.
 - **Parquet + Polars** — sólo cómputo batch. La API **no lee parquets**: el pipeline
   materializa los resultados en el esquema `analytics` de Postgres con índices
   (`etl/analytics/materialize.py`), y `bi_service` los consulta con SQL. Ver
@@ -612,23 +631,22 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
     once.
   - **El catálogo se limpia al ENTRAR, no al servir** (`personas.enmascarar_payload`). Todo
     payload de la API —listado y detalle de licitaciones, Compra Ágil— pasa por él en el
-    transformador o en el loader, y de ahí salen `datos_completos`, `items`, `participantes`,
-    `informacion_adicional`, el historial de cambios y `proveedor_adjudicado`. Lo que la base
+    transformador o en el loader, y de ahí salen `items`, `informacion_adicional`, el hash del
+    detalle y `proveedor_adjudicado`. Lo que la base
     no tiene, ninguna ruta ni ningún `select *` lo puede filtrar (Ley 21.719: minimizar lo
     que se conserva). La forma de esos payloads no está verificada contra producción, así que
     no busca rutas: recorre el JSON y reconoce al proveedor por el **nombre de la clave**
     (`Rut*`/`Nombre*`/`RazonSocial` con «proveedor», «oferente», «sucursal»…, o dentro de
     `Participantes`, `Adjudicacion`, cotizaciones). El lado del comprador no se toca.
     **Si añades una fuente de la API, pásala por ahí antes de guardar nada.**
-  - **El detalle público ya no trae `datos_completos` ni `participantes`**: eran el payload
-    crudo y la lista de oferentes, y nada los usaba (`docs/API_PUBLICA.md`).
+  - **El detalle ya no trae `datos_completos` ni `participantes`**: eran el payload crudo y la
+    lista de oferentes, y nada los usaba (`docs/API_PUBLICA.md`). Desde el paso 7 tampoco se
+    guardan.
   - `proveedor_adjudicado` nombra a las empresas, «NOMBRE (RUT)», y añade «Persona natural»
     una vez si ganó alguna — sin contar cuántas: en un payload ya limpio no se distinguen,
     y el texto tiene que salir igual del crudo que del guardado.
   - La migración `6e47ba0cd7c9` limpió lo ya guardado con una **copia congelada** de la regla;
     `etl/tests/test_migracion_personas_catalogo.py` fija que la copia y la viva coinciden.
-  - `ordenes_compra` crudas guardan nombre y RUT del proveedor y **no** se limpian: ninguna
-    ruta pública las sirve y el paso 7 las saca de Postgres.
 - **`analytics.compra_agil_mensual`**: Compras Ágiles publicadas y adjudicadas por comprador y
   mes (spec del pivote §6.2). Dos fuentes, porque ninguna tiene las dos cifras:
   - **`adjudicadas / publicadas` NO es una tasa: son dos conteos de cosas distintas**, en
@@ -641,7 +659,8 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
     ágil: 1510-140-COT24») en el 37,9 % y algún código `-COT` en el texto libre del 78,2 %.
     Donde se enlaza, **1 Compra Ágil → 1 orden en el 99,996 %**: contar órdenes es contar
     adjudicadas; lo que falla es el mes. Sin las canceladas.
-  - `publicadas` sale de `licitaciones` (lo que ingiere el ETL), que sólo guarda 30 días: **se
+  - `publicadas` sale de `licitaciones` (lo que ingiere el ETL), que guarda 30 días y nunca
+    purga el mes anterior (`etl/retencion.py`): **se
     acumula**, quedándose cada semana con el máximo por (comprador, mes) entre la tabla
     anterior y lo que se ve ahora. No hay historia previa: se llena desde el despliegue.
   - La Compra Ágil ingerida trae el RUT del comprador, no su código: se traduce con las OC
@@ -668,8 +687,8 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
     locales (6 meses) la ventana no recorta nada.
 - **`CodigoProveedor` NO es un RUT.** Es el identificador interno de Mercado Público: de
   los 4.204.598 registros de `competitors_by_market`, **cero** llevan guion. La traducción
-  RUT → código sale de `ordenes_compra`, que guarda los dos (`rut_proveedor`,
-  `rut_proveedor_norm`). «Tu posición» comparaba el RUT normalizado contra esa columna y **no
+  RUT → código sale de las OC masivas, que traen los dos (`RutSucursal` y `CodigoProveedor`;
+  la tabla `ordenes_compra` que también los tenía se fue en el paso 7). «Tu posición» comparaba el RUT normalizado contra esa columna y **no
   coincidía nunca**; esa pantalla se retiró con las cuentas, pero el dato sigue siendo así.
 - **`competitors_by_market` tiene una fila por *(organismo, rubro, proveedor)*.** Cualquier
   métrica de rubro **agrega por proveedor primero**. Contar filas decía 128.462 proveedores
@@ -755,7 +774,8 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   mercado chileno.
   - **Convenio Marco sólo se ve por la orden de compra.** La API de Mercado Público no le da
     endpoint propio: las compras por catálogo llegan como órdenes con `Tipo=9` (§3.1 del
-    diccionario de datos oficial). Se guarda el código crudo (`tipo_oc`) **y** su traducción.
+    diccionario de datos oficial). `convocatoria_de_orden` traduce el código; desde el paso 7
+    no hay tabla de órdenes en Postgres, así que lo que lo necesite lo lee de las OC masivas.
   - Los tipos `1` (Automática) y `8` (Sin emisión automática) describen **cómo se emitió** la
     orden, no por qué mecanismo se compró: quedan en `NULL` a propósito.
   - **Compra Ágil NO está en la API clásica.** Tiene su propia API (`api2.mercadopublico.cl`,
@@ -848,10 +868,11 @@ estos patrones, es señal de que hay que arreglar la causa, no de copiarlo:
 
 > **Pivote decidido el 2026-10-11: TORDO pasa a ser un sitio público y gratuito** — sin
 > cuentas ni cobros, financiado con donaciones, en Vercel Hobby + Railway con dos cron.
-> Especificación: `docs/PIVOTE_PUBLICO_2026-10.md`. **Los pasos 3 y 4 (fuera las cuentas,
-> backend y frontend) y el 5 (cron en vez de Celery y Redis, límite por IP en memoria en
-> toda la superficie) están hechos**; lo que queda —R2 y enmascarado (6), páginas públicas
-> (10)…— está en la spec.
+> Especificación: `docs/PIVOTE_PUBLICO_2026-10.md`. **Del 3 al 8 están hechos**: fuera las
+> cuentas (3 y 4), cron en vez de Celery y Redis (5), R2, enmascarado y ventana de analytics
+> (6), Postgres adelgazado (7) y TF-IDF fuera de la API (8); y el 11, legal, como borrador
+> pendiente de revisión. Lo que queda —«lo mejor de hoy» en Compra Ágil (9), páginas públicas
+> (10), lanzamiento (12)— está en la spec.
 
 Decisiones tomadas el 2026-08-05, con su ADR en `docs/decisiones/`: sólo Chile (sin
 multi-país), nombre TORDO y LLM acotado a un servidor MCP sobre la base histórica siguen

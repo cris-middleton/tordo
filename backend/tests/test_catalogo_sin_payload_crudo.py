@@ -6,9 +6,15 @@ y nada los usaba. Ver docs/API_PUBLICA.md, «Personas naturales».
 
 from types import SimpleNamespace
 
+from app.models.licitacion_detalle import LicitacionDetalle
 from app.schemas.tender import LicitacionDetalleResponse
 
 CAMPOS_RETIRADOS = {"datos_completos", "participantes"}
+
+
+def test_ni_siquiera_se_guardan():
+    """Paso 7 del pivote: lo que la base no tiene, ningún `select *` lo filtra."""
+    assert not CAMPOS_RETIRADOS & set(LicitacionDetalle.__table__.columns.keys())
 
 
 def test_el_esquema_no_los_declara():

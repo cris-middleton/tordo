@@ -26,7 +26,6 @@ export interface Tender {
   nombre_organismo?: string;
   url_licitacion?: string;
   detalle?: TenderDetalle;
-  similarity_score?: number | null;
 }
 
 export interface BIPanel {

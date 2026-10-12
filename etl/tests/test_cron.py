@@ -340,9 +340,18 @@ def test_semanal_en_orden_y_falla_si_falla_un_modulo():
         analytics=lambda: (r.llamadas.append(("analytics",)), ["scorer"])[1],
         materializar=r.paso("materializar"),
         subir=r.paso("subir"),
+        retener=r.paso("retener"),
     )
     ok = cron.correr_semanal(_chile("2026-10-11T03:00:00"), pasos)
-    assert r.nombres() == ["bajar", "purgar", "descargar", "analytics", "materializar", "subir"]
+    assert r.nombres() == [
+        "bajar",
+        "purgar",
+        "descargar",
+        "analytics",
+        "materializar",
+        "subir",
+        "retener",
+    ]
     assert r.llamadas[1] == ("purgar", [(2026, 8), (2026, 9), (2026, 10)])
     # Un módulo de analytics roto no impide materializar ni subir lo que sí
     # salió, pero la corrida no es buena: es para eso el /fail.
@@ -359,10 +368,71 @@ def test_semanal_no_materializa_si_la_descarga_falla():
         analytics=lambda: [],
         materializar=r.paso("materializar"),
         subir=r.paso("subir"),
+        retener=r.paso("retener"),
     )
     assert not cron.correr_semanal(_chile("2026-10-11T03:00:00"), pasos)
-    # Tampoco se sube: el bucket conserva la versión anterior entera.
+    # Tampoco se sube ni se purga: el bucket conserva la versión anterior entera.
     assert r.nombres() == ["bajar", "purgar", "descargar"]
+
+
+def _pasos_semanal(r, fallidos=()):
+    return cron.PasosSemanal(
+        bajar=r.paso("bajar"),
+        purgar=r.paso("purgar"),
+        descargar=r.paso("descargar"),
+        analytics=lambda: list(fallidos),
+        materializar=r.paso("materializar"),
+        subir=r.paso("subir"),
+        retener=r.paso("retener"),
+    )
+
+
+def test_semanal_retiene_con_el_instante_de_la_corrida():
+    r = _Registro()
+    instante = _chile("2026-10-11T03:00:00")
+    assert cron.correr_semanal(instante, _pasos_semanal(r))
+    assert r.llamadas[-1] == ("retener", instante)
+
+
+def test_sin_compra_agil_mensual_no_se_purga_el_catalogo():
+    """`publicadas` se acumula leyendo la Compra Ágil de Postgres: purgar lo que
+    no se contó lo perdería para siempre."""
+    r = _Registro()
+    assert not cron.correr_semanal(
+        _chile("2026-10-11T03:00:00"), _pasos_semanal(r, ["compra_agil_mensual"])
+    )
+    assert "retener" not in r.nombres()
+    assert r.nombres()[-1] == "subir"
+
+
+def test_otro_modulo_roto_no_impide_la_retencion():
+    r = _Registro()
+    assert not cron.correr_semanal(_chile("2026-10-11T03:00:00"), _pasos_semanal(r, ["scorer"]))
+    assert r.nombres()[-1] == "retener"
+
+
+def test_si_la_subida_falla_no_se_purga():
+    """El parquet acumulado tiene que estar en R2 antes de borrar lo que cuenta."""
+
+    def subir():
+        raise RuntimeError("R2 caído")
+
+    r = _Registro()
+    pasos = _pasos_semanal(r)
+    pasos.subir = subir
+    with pytest.raises(RuntimeError):
+        cron.correr_semanal(_chile("2026-10-11T03:00:00"), pasos)
+    assert "retener" not in r.nombres()
+
+
+def test_una_retencion_que_falla_hace_fallar_la_corrida():
+    def retener(_instante):
+        raise RuntimeError("base caída")
+
+    r = _Registro()
+    pasos = _pasos_semanal(r)
+    pasos.retener = retener
+    assert not cron.correr_semanal(_chile("2026-10-11T03:00:00"), pasos)
 
 
 def test_purgar_borra_tambien_los_consolidados(tmp_path, monkeypatch):

@@ -25,10 +25,12 @@ tasa de verdad haría falta enlazar cada orden con su Compra Ágil (por el códi
 del texto, con ~78 % de cobertura) y fecharla por la PUBLICACIÓN.
 - **`publicadas`** sale de lo que ingiere el ETL de Compra Ágil (`licitaciones`
   con `tipo_convocatoria = 'compra_agil'`), por mes de publicación en Chile.
-  **Postgres sólo guarda los últimos 30 días** (§5.2), así que esta cifra no se
-  puede recalcular hacia atrás: se ACUMULA. Cada semana se lee la tabla de la
-  semana anterior y, por (comprador, mes), se queda el MÁXIMO entre lo que había
-  y lo que se ve ahora: un mes a medio purgar nunca rebaja lo ya contado.
+  **Postgres sólo guarda los últimos 30 días, y nunca purga el mes anterior**
+  (§5.2, `etl/retencion.py`), así que esta cifra no se puede recalcular hacia
+  atrás: se ACUMULA. Cada semana se lee la tabla de la semana anterior y, por
+  (comprador, mes), se queda el MÁXIMO entre lo que había y lo que se ve ahora:
+  un mes a medio purgar nunca rebaja lo ya contado. El máximo solo no basta:
+  sin la regla del mes anterior, ninguna corrida vería un mes entero.
   **No hay historia previa**: los meses anteriores al primer despliegue salen con
   `publicadas` nulo y se van llenando.
 

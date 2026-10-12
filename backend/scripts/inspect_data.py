@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Script to inspect all fields and data saved in ETL tables
-Usage: python scripts/inspect_data.py [--table licitaciones|ordenes_compra] [--limit N] [--format json|csv|table]
+Usage: python scripts/inspect_data.py [--table licitaciones|licitaciones_detalle] [--limit N] [--format json|csv|table]
 """
 
 import argparse
@@ -19,7 +19,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.config import settings
 from app.models.licitacion import Licitacion
-from app.models.orden_compra import OrdenCompra
+from app.models.licitacion_detalle import LicitacionDetalle
 
 
 def get_table_info(session, model_class):
@@ -113,8 +113,8 @@ def inspect_table(
         # Select model
         if table_name == "licitaciones":
             model_class = Licitacion
-        elif table_name == "ordenes_compra":
-            model_class = OrdenCompra
+        elif table_name == "licitaciones_detalle":
+            model_class = LicitacionDetalle
         else:
             print(f"Unknown table: {table_name}")
             return
@@ -207,14 +207,14 @@ def inspect_all_tables(limit: int | None = None, output_format: str = "table"):
 
     inspect_table("licitaciones", limit=limit, output_format=output_format)
     print("\n\n")
-    inspect_table("ordenes_compra", limit=limit, output_format=output_format)
+    inspect_table("licitaciones_detalle", limit=limit, output_format=output_format)
 
 
 def main():
     parser = argparse.ArgumentParser(description="Inspect all fields and data saved in ETL tables")
     parser.add_argument(
         "--table",
-        choices=["licitaciones", "ordenes_compra"],
+        choices=["licitaciones", "licitaciones_detalle"],
         help="Specific table to inspect (default: all tables)",
     )
     parser.add_argument(

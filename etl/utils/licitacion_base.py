@@ -2,16 +2,14 @@
 
 **Por qué existe.** El listado diario de la API clásica devuelve cuatro cosas por
 licitación: código, nombre, estado y fecha de cierre. Fecha de publicación,
-monto, comprador, región e ítems vienen sólo en el detalle, que se guardaba
-íntegro en `licitaciones_detalle.datos_completos` — y nada los copiaba a
-`licitaciones`, que es la tabla que lee todo lo demás. Medido sobre la base de
+monto, comprador, región e ítems vienen sólo en el detalle —que entonces se
+guardaba íntegro en `licitaciones_detalle.datos_completos`, retirada en el paso 7
+del pivote— y nada los copiaba a `licitaciones`, que es la tabla que lee todo lo demás. Medido sobre la base de
 desarrollo: 0 de 4.379 licitaciones con monto, región u organismo, y la fecha de
 publicación era la hora de ingesta (`LicitacionTransformer` rellena con
 `now_santiago()` lo que no viene). Consecuencias: toda tarjeta decía «Sin monto»,
 los filtros por monto y región no podían encontrar nada y el panel de BI de una
-licitación respondía «organismo_id no disponible». Las órdenes de compra tenían
-esto resuelto desde siempre (`_sync_orden_compra_base_from_detalle`); a las
-licitaciones les faltaba el gemelo.
+licitación respondía «organismo_id no disponible».
 
 **La forma SÍ está verificada contra respuestas reales** (detalles guardados en
 2026-09, ver `tests/test_licitacion_base.py`): las fechas vienen anidadas en

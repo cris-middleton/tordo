@@ -14,7 +14,6 @@ plana presente pero nula, comprador en `Comprador`, ítems en `Items.Listado`.
 from __future__ import annotations
 
 import copy
-import json
 import os
 from datetime import datetime
 
@@ -213,26 +212,6 @@ def test_al_cargar_el_detalle_se_completa_la_licitacion(loader):
     assert region == "Región Metropolitana de Santiago"
     assert str(publicada) == "2026-09-22"  # la de la API, no la de ingesta
     assert n_items == 1
-
-
-def test_las_ya_cargadas_se_reparan_sin_llamar_a_la_api(loader):
-    """Las de antes del arreglo tienen detalle y la fila vacía, y su detalle —el
-    de una licitación cerrada— no va a cambiar nunca para disparar la copia."""
-    lid, codigo = _licitacion_del_listado(loader, "B")
-    loader.session.execute(
-        text(
-            "INSERT INTO licitaciones_detalle "
-            "(licitacion_id, codigo_externo, hash_contenido, datos_completos, numero_actualizaciones) "
-            "VALUES (:lid, :c, 'h', CAST(:d AS jsonb), 1)"
-        ),
-        {"lid": lid, "c": codigo, "d": json.dumps(DETALLE_REAL)},
-    )
-    loader.session.commit()
-    assert _fila(loader, codigo)[0] is None
-
-    assert loader.sincronizar_licitaciones_desde_detalle() >= 1
-
-    assert _fila(loader, codigo)[0] == "7326"
 
 
 def test_releer_el_listado_no_borra_lo_que_trajo_el_detalle(loader):

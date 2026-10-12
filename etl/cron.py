@@ -14,7 +14,8 @@ de lunes a viernes, y a las 12 h el fin de semana; si no, sale con 0 en
 segundos, sin red ni base. `--forzar` se salta la puerta.
 
 **`semanal`** reconstruye analytics: descarga masiva de los últimos tres meses,
-módulos Polars y materialización en Postgres. Va en un servicio aparte porque
+módulos Polars y materialización en Postgres; al final purga del catálogo lo que
+ya no se sirve (`etl/retencion.py`). Va en un servicio aparte porque
 Railway descarta una ejecución si la anterior sigue activa, y un reconstruido de
 domingo se comería las corridas de Compra Ágil.
 
@@ -44,7 +45,7 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
-from etl import almacen
+from etl import almacen, retencion
 from etl import main as etl
 from etl.analytics import materialize, run_all
 from etl.analytics.config import DATA_DIR
@@ -240,6 +241,7 @@ class PasosSemanal:
     analytics: Callable[[], list[str]]
     materializar: Callable[[], bool]
     subir: Callable[[], int]
+    retener: Callable[[datetime], object]
 
     @classmethod
     def reales(cls) -> PasosSemanal:
@@ -253,6 +255,7 @@ class PasosSemanal:
             analytics=run_all.ejecutar_todos,
             materializar=lambda: materialize.main([]) == 0,
             subir=destino.subir,
+            retener=retencion.purgar_catalogo,
         )
 
 
@@ -315,6 +318,20 @@ def correr_semanal(instante: datetime, pasos: PasosSemanal) -> bool:
     materializado = pasos.materializar()
     # Y se sube igual: los consolidados nuevos valen aunque un módulo fallara.
     pasos.subir()
+
+    # La retención del catálogo (`etl/retencion.py`), al final y con guarda:
+    # `compra_agil_mensual` acumula `publicadas` leyendo la Compra Ágil de
+    # Postgres, así que sólo se purga si acaba de contarla Y su parquet ya está
+    # en R2 (un `subir` que falla lanza y no llega aquí). Si no, la Compra Ágil
+    # espera una semana más: crecer siete días es barato, perder un mes no.
+    if "compra_agil_mensual" in fallidos:
+        logger.error("semanal: sin retención — compra_agil_mensual no terminó")
+        return False
+    try:
+        pasos.retener(instante)
+    except Exception:
+        logger.exception("semanal: la retención del catálogo falló")
+        return False
     return materializado and not fallidos
 
 

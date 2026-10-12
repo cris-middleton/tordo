@@ -3,7 +3,6 @@ from sqlalchemy import (
     Column,
     Computed,
     DateTime,
-    ForeignKey,
     Index,
     Integer,
     Numeric,
@@ -146,10 +145,6 @@ class Licitacion(Base):
     codigo_organismo = Column(String(50), index=True)
     nombre_organismo = Column(String(500))
     rut_organismo = Column(String(20))
-    organismo_id = Column(Integer, ForeignKey("buyer_organizations.id"), nullable=True)
-    organismo = relationship(
-        "BuyerOrganization", back_populates="licitaciones", foreign_keys=[organismo_id]
-    )
 
     # Location
     region = Column(String(100))
@@ -179,15 +174,12 @@ class Licitacion(Base):
         ),
     )
 
-    # Relationships to detailed info and history
+    # El detalle, que llega en una segunda llamada a la API
     detalle = relationship(
         "LicitacionDetalle",
         back_populates="licitacion",
         uselist=False,
         cascade="all, delete-orphan",
-    )
-    historial = relationship(
-        "LicitacionHistorial", back_populates="licitacion", cascade="all, delete-orphan"
     )
 
     def __repr__(self):

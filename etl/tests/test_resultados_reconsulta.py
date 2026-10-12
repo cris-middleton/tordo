@@ -42,14 +42,13 @@ def _url() -> str:
 
 
 def _borrar(sesion) -> None:
-    for tabla in ("licitaciones_historial", "licitaciones_detalle"):
-        sesion.execute(
-            text(
-                f"DELETE FROM {tabla} WHERE licitacion_id IN "
-                "(SELECT id FROM licitaciones WHERE codigo_externo LIKE :p)"
-            ),
-            {"p": f"{PREFIJO}%"},
-        )
+    sesion.execute(
+        text(
+            "DELETE FROM licitaciones_detalle WHERE licitacion_id IN "
+            "(SELECT id FROM licitaciones WHERE codigo_externo LIKE :p)"
+        ),
+        {"p": f"{PREFIJO}%"},
+    )
     sesion.execute(
         text("DELETE FROM licitaciones WHERE codigo_externo LIKE :p"), {"p": f"{PREFIJO}%"}
     )

@@ -24,9 +24,8 @@ en dos fuentes, ninguna de las cuales es una captura real:
 Por eso cada campo se busca en varias formas plausibles y, si ninguna calza,
 se devuelve `None` en vez de inventar un valor: es preferible no saber el
 resultado todavía a decirle a una empresa algo que no se pudo confirmar.
-`LicitacionDetalle.datos_completos` guarda el payload íntegro tal cual llegó
-—cuando corra por primera vez con ticket real contra producción, ese campo es
-lo que hay que mirar para confirmar o corregir las rutas de abajo—.
+El payload íntegro ya no se guarda (paso 7 del pivote): para confirmar o
+corregir las rutas de abajo, hay que pedir detalles reales a la API con ticket.
 """
 
 from __future__ import annotations
@@ -36,8 +35,7 @@ from typing import Any
 
 from etl.analytics.personas import NOMBRE_ENMASCARADO, es_persona_natural, rut_numero
 
-# Mismos formatos que `LicitacionTransformer._parse_date` /
-# `OrdenCompraTransformer._parse_date`: duplicado a propósito, como esos dos,
+# Mismos formatos que `LicitacionTransformer._parse_date`: duplicado a propósito,
 # en vez de hacer que este módulo dependa de una instancia de transformer.
 _FORMATOS_FECHA = [
     "%Y-%m-%dT%H:%M:%S",

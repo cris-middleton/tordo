@@ -72,11 +72,35 @@ volver a identificarlo. La regla vive en `etl/analytics/personas.py` y se aplica
 filtrar.
 
 **Por eso el detalle de una licitación dejó de traer `datos_completos` y
-`participantes`** (octubre de 2026). Es la única vez que `v1` ha quitado campos:
-eran el payload crudo de Mercado Público y la lista de oferentes, publicaban el
-nombre y el RUT de personas naturales —también de las que no ganaron—, y ni el
-sitio ni nadie integrado los usaba. Los ganadores siguen en
-`detalle.proveedor_adjudicado` y en `items[].Adjudicacion`, ya limpios.
+`participantes`** (octubre de 2026): eran el payload crudo de Mercado Público y la
+lista de oferentes, publicaban el nombre y el RUT de personas naturales —también
+de las que no ganaron—, y ni el sitio ni nadie integrado los usaba. Los ganadores
+siguen en `detalle.proveedor_adjudicado` y en `items[].Adjudicacion`, ya limpios.
+Desde el paso 7 del pivote, ni siquiera se guardan.
+
+## Campos retirados de `v1`
+
+`v1` sólo ha quitado campos dos veces, y en ningún caso se perdió un dato que
+alguien pudiera estar usando:
+
+| campo | dónde | cuándo | por qué |
+|---|---|---|---|
+| `datos_completos`, `participantes` | `detalle` de una licitación | octubre de 2026 | personas naturales (ver arriba) |
+| `organismo_id` | cada licitación del catálogo | octubre de 2026 | **siempre fue nulo**: la tabla de organismos que lo llenaría nunca se llenó. El comprador está en `codigo_organismo` y `nombre_organismo` |
+| `similarity_score` | cada licitación del catálogo | octubre de 2026 | **siempre fue nulo** desde que la búsqueda pasó a `ts_rank` (paso 8 del pivote); el orden por relevancia ya es el orden de la lista |
+
+## Cuánto guarda el catálogo
+
+`/tenders` es lo que se puede postular **hoy**, no un archivo histórico: la
+historia completa de compras vive en el análisis (`/bi/*`), que sale de la
+descarga masiva de ChileCompra.
+
+- **Compra Ágil**: los últimos **30 días** desde su publicación, y nunca menos que
+  el mes anterior completo (entre 30 y ~62 días).
+- **Licitaciones**: abiertas, y cerradas hasta **90 días** después del cierre.
+
+Lo anterior se purga una vez por semana, y su código responde **404** igual que uno
+que nunca existió.
 
 ## Versionado
 
@@ -169,8 +193,8 @@ un 404:
 
 `sort_by=relevance` en `/tenders/` **sigue**, pero ahora lo ordena Postgres
 (rango de texto completo sobre nombre y descripción, sin tildes). El campo
-`similarity_score` de cada licitación queda siempre en `null`: era el coseno del
-modelo y no hay un número equivalente que prometer.
+`similarity_score`, que era el coseno del modelo, quedó siempre en `null` y se
+retiró después (ver «Campos retirados de `v1`»).
 
 ## Lo que todavía no está
 

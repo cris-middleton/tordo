@@ -2,8 +2,6 @@ from etl.utils.adjudicacion import extraer_datos_adjudicacion
 from etl.utils.change_detection import (
     calcular_hash,
     detectar_cambios,
-    detectar_cambios_licitacion,
-    detectar_cambios_orden_compra,
     necesita_actualizacion,
     now_santiago,
     now_utc,
@@ -13,8 +11,6 @@ from etl.utils.change_detection import (
 __all__ = [
     "calcular_hash",
     "detectar_cambios",
-    "detectar_cambios_licitacion",
-    "detectar_cambios_orden_compra",
     "extraer_datos_adjudicacion",
     "necesita_actualizacion",
     "priorizar_actualizaciones",

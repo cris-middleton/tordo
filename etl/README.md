@@ -1,285 +1,51 @@
-# ETL Pipeline V2 for Mercado Público
+# ETL
 
-> 🚀 **ETL de última generación** con arquitectura mejorada, detección de cambios y sistema de historial.
+Ingesta de Mercado Público y análisis batch. La referencia viva es `CLAUDE.md`
+(secciones «Comandos» y «ETL»); esto es sólo el mapa.
 
-ETL pipeline para extraer, transformar y cargar datos de las APIs de Mercado Público (Licitaciones y Órdenes de Compra) hacia PostgreSQL con soporte completo para información detallada y seguimiento de cambios.
+Todo se corre **desde la raíz del repo, como módulo** (`cd etl && python main.py`
+falla con `No module named 'etl'`).
 
-## 📋 Inicio Rápido
-
-**¿Primera vez? Lee esto:**
-
-```bash
-# 1. Valida tu entorno
-python validar_etl.py
-
-# 2. Ejecuta el pipeline completo (recomendado)
-python -m etl.main
-
-# 3. Ve a COMANDOS_ETL.md para más opciones
-```
-
-👉 **[VER GUÍA COMPLETA DE EJECUCIÓN](GUIA_EJECUCION.md)** ← Instrucciones detalladas aquí
-
----
-
-## ✨ Características V2
-
-- ✅ **Extracción diaria** de licitaciones y órdenes de compra
-- ✅ **Información detallada** en tablas dedicadas (`_detalle`)
-- ✅ **Detección automática de cambios** con hashing SHA256
-- ✅ **Registro de historial** completo en tablas `_historial`
-- ✅ **UPSERT inteligente** - no genera duplicados
-- ✅ **Context managers** para gestión segura de conexiones
-- ✅ **Priorización de actualizaciones** según estado y antigüedad
-
----
-
-## 🏗️ Arquitectura
-
-### Tablas Base (Snapshot Diario)
-- `licitaciones` - Datos básicos de licitaciones publicadas
-- `ordenes_compra` - Datos básicos de órdenes de compra
-
-### Tablas Detalle (Información Completa)
-- `licitaciones_detalle` - Detalles completos de cada licitación
-- `ordenes_compra_detalle` - Detalles completos de cada orden
-
-### Tablas Historial (Auditoría de Cambios)
-- `licitaciones_historial` - Log de todos los cambios detectados
-- `ordenes_compra_historial` - Log de cambios en órdenes
-
----
-
-## 🚀 Comandos Esenciales
-
-### Uso Diario (Recomendado)
-```bash
-# Pipeline completo: datos del día + detalles de registros nuevos
-python -m etl.main
-
-# O con el wrapper
-./run_etl.sh
-```
-
-### Solo Datos Básicos del Día
-```bash
-# Ambos tipos (rápido: ~2-5 min)
-python -m etl.main --skip-detalles-nuevos
-
-# Solo licitaciones
-python -m etl.main --skip-ordenes
-
-# Solo órdenes
-python -m etl.main --skip-licitaciones
-```
-
-### Extraer Detalles
-```bash
-# Detalles de registros nuevos (sin detalles previos)
-python -m etl.main --only-extraer-nuevos --detalles-limit 50
-
-# Actualizar detalles existentes (detecta cambios)
-python -m etl.main --only-actualizar --detalles-limit 100
-```
-
-### Fechas Específicas
-```bash
-# Rango de fechas
-python -m etl.main --fecha-desde 2024-11-01 --fecha-hasta 2024-11-15
-
-# Un solo día
-python -m etl.main --fecha-desde 2024-11-15 --fecha-hasta 2024-11-15
-```
-
----
-
-## ⚙️ Configuración
-
-Crea un archivo `.env` en la raíz del proyecto:
+## Lo que corre solo: los dos cron (`etl/cron.py`)
 
 ```bash
-# Base de datos
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/licitaciones
-
-# API Mercado Público
-MERCADO_PUBLICO_TICKET=tu_ticket_aqui
-MERCADO_PUBLICO_URL=https://api.mercadopublico.cl
-
-# ETL Config
-ETL_BATCH_SIZE=100
-ETL_MAX_RETRIES=3
-ETL_RETRY_DELAY=5
-LOG_LEVEL=INFO
+uv run python -m etl.cron frecuente [--forzar]       # cada hora UTC; se autolimita
+ETL_ALMACEN=disco uv run python -m etl.cron semanal  # R2 → descarga masiva → analytics → materializa → R2 → retención
 ```
 
-**¿Dónde conseguir el ticket?** https://www.mercadopublico.cl/
+- **`frecuente`**: licitaciones del día, Compra Ágil (API v2) y sus detalles; la
+  primera del día barre además el día anterior y re-consulta resultados.
+- **`semanal`**: descarga masiva de órdenes y licitaciones (parquets en R2),
+  los módulos de `analytics/`, la materialización en el esquema `analytics` de
+  Postgres y, al final, la retención del catálogo (`etl/retencion.py`).
 
----
+## Qué guarda en Postgres
 
-## ❓ FAQ Rápido
+Sólo lo que se sirve hoy: `licitaciones` y `licitaciones_detalle` —Compra Ágil de
+los últimos 30 días y nunca del mes anterior, licitaciones abiertas y cerradas
+hasta hace 90— y las tablas de `analytics.*`. **Las órdenes de compra no se ingieren por la API**: salen de la
+descarga masiva, que vive entera en R2. Todo payload pasa por
+`analytics/personas.py` antes de guardarse (personas naturales fuera).
 
-### ¿Puedo ejecutar el ETL varias veces al día?
-**Sí, es completamente seguro.** El sistema usa UPSERT, no creará duplicados. Si un registro ya existe, simplemente lo actualiza.
-
-### ¿Cómo sé si algo cambió en una licitación?
-Revisa la tabla `licitaciones_historial`:
-```sql
-SELECT * FROM licitaciones_historial 
-WHERE codigo_externo = '1234-56-LQ24' 
-ORDER BY fecha_cambio DESC;
-```
-
-### ¿Cuánto tarda el ETL?
-- **Solo datos diarios**: 2-5 minutos
-- **Datos + detalles nuevos**: 10-30 minutos
-- **Actualizar detalles (100 registros)**: 15-20 minutos
-
-### ¿Qué diferencia hay entre extraer y actualizar detalles?
-- **Extraer detalles nuevos**: Solo registros SIN información detallada previa
-- **Actualizar detalles**: Registros CON detalles, para detectar cambios
-
----
-
-## 📚 Documentación Completa
-
-- 📖 **[Guía de Ejecución Completa](GUIA_EJECUCION.md)** - Todos los comandos y casos de uso
-- 🏗️ **[Arquitectura V2](README_V2.md)** - Detalles técnicos de implementación
-- 🔄 **[Migración V1→V2](scripts/migrate_to_v2.py)** - Script de migración con `--help`
-- 🔍 **[Revisión de Código](REVISION_CODIGO.md)** - Decisiones de diseño
-
----
-
-## 🛠️ Instalación y Setup
-
-### Requisitos
-- Python 3.8+
-- PostgreSQL 12+
-- Ticket válido de Mercado Público
-
-### Instalación
-```bash
-# 1. Instalar dependencias
-pip install -r requirements.txt
-
-# 2. Aplicar migraciones de BD
-cd ../backend
-alembic upgrade head
-
-# 3. Validar entorno
-cd ..
-python validar_etl.py
-
-# 4. Ejecutar ETL
-python etl/main.py --full-pipeline
-```
-
----
-
-## 🚨 Migración desde V1
-
-Si tienes datos del ETL v1 (con `informacion_adicional` en JSON):
+## A mano
 
 ```bash
-# 1. Dry-run para ver qué se migrará
-python etl/scripts/migrate_to_v2.py --dry-run
-
-# 2. Ejecutar migración real
-python etl/scripts/migrate_to_v2.py
-
-# 3. Verificar resultados
-python etl/scripts/migrate_to_v2.py --verify
+uv run python -m etl.main --horario                                   # una pasada «horaria»
+uv run python -m etl.main --fecha-desde 2026-09-01 --fecha-hasta 2026-09-01
+uv run python -m etl.main --only-actualizar --detalles-limit 100      # re-pide detalles abiertos
+uv run python -m etl.analytics.run_all [--modulo seasonality]
 ```
 
----
+## Estructura
 
-## 📊 Monitoreo
-
-### Ver logs
-```bash
-tail -f etl/etl.log
-
-# Ver solo errores
-grep ERROR etl/etl.log | tail -20
 ```
-
-### SQL útiles
-```sql
--- Registros sin detalles
-SELECT COUNT(*) FROM licitaciones l 
-LEFT JOIN licitaciones_detalle ld ON l.id = ld.licitacion_id 
-WHERE ld.id IS NULL;
-
--- Cambios últimas 24h
-SELECT COUNT(*) FROM licitaciones_historial 
-WHERE fecha_cambio > NOW() - INTERVAL '24 hours';
+cron.py            los dos cron de Railway
+main.py            pasos del pipeline de ingesta
+retencion.py       qué se purga del catálogo y cuándo
+almacen.py         sincronización de parquets con R2
+extractors/        API clásica (licitaciones) y API v2 (Compra Ágil)
+transformers/      del payload a filas
+loaders/           carga a Postgres (database_loader_v2) y materialización
+analytics/         módulos Polars, harness de evaluación
+scripts/           descarga masiva y utilidades
 ```
-
----
-
-## 🔧 Solución de Problemas
-
-| Error | Solución |
-|-------|----------|
-| `No module named 'etl'` | Usa `python -m etl.main` o `./run_etl.sh` |
-| `Connection refused` | Verifica PostgreSQL: `brew services list \| grep postgres` |
-| `Invalid ticket` | Verifica tu ticket en `.env` |
-| Duplicados | No deberían existir, reporta el bug con logs |
-
-👉 **[Ver todos los comandos](../COMANDOS_ETL.md)**
-
----
-
-## 🤝 Contribuir
-
-### Estructura del código
-```
-etl/
-├── main.py                 # Entry point principal (V2)
-├── config.py              # Configuración
-├── extractors/            # Extracción de APIs
-├── transformers/          # Transformación de datos
-├── loaders/               # Carga a BD
-│   ├── database_loader_v2.py  # Loader V2 (usar este)
-├── utils/                 # Utilidades (change detection, etc)
-└── scripts/               # Scripts auxiliares
-```
-
-### Agregar nueva funcionalidad
-1. Crea una rama: `git checkout -b feature/mi-feature`
-2. Implementa los cambios
-3. Prueba: `python etl/main.py --dry-run`
-4. Commit y push
-
----
-
-## 📝 Comandos Más Usados (Cheatsheet)
-
-```bash
-# Diario
-python -m etl.main
-
-# Solo hoy (rápido)
-python -m etl.main --skip-detalles-nuevos
-
-# Actualizar cambios (semanal)
-python -m etl.main --only-actualizar --detalles-limit 500
-
-# Fecha específica
-python -m etl.main --fecha-desde 2024-11-15 --fecha-hasta 2024-11-15
-
-# Ver ayuda completa
-python -m etl.main --help
-```
-
----
-
-## 🎉 ¡Listo para Usar!
-
-Tu ETL V2 está completamente configurado y listo. 
-
-**Siguiente paso**: 
-```bash
-python -m etl.main
-```
-
-¿Problemas? Consulta **[Todos los Comandos](../COMANDOS_ETL.md)** o revisa los logs en `etl/etl.log`.

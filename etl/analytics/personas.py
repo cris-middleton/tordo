@@ -279,10 +279,9 @@ def enmascarar(frame, codigos: frozenset[str], sal: bytes = _SAL):
 # ── Payloads de la API ───────────────────────────────────────────────────────
 #
 # Lo que entra por la API de Mercado Público (listado, detalle, Compra Ágil) se
-# guarda en JSON —`datos_completos`, `items`, `participantes`,
-# `informacion_adicional`— y parte se sirve tal cual en el catálogo. Se limpia
-# UNA vez, al entrar: todo lo que se guarda o se deriva después (el historial de
-# cambios, `proveedor_adjudicado`) sale ya limpio.
+# guarda en JSON —`items`, `informacion_adicional`— y parte se sirve tal cual en
+# el catálogo. Se limpia UNA vez, al entrar: todo lo que se guarda o se deriva
+# después (`proveedor_adjudicado`, el hash del detalle) sale ya limpio.
 #
 # La forma de esos payloads no está verificada contra producción (ver
 # `etl/utils/adjudicacion.py`), así que no se busca una ruta concreta: se recorre

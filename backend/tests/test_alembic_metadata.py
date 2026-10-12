@@ -36,9 +36,10 @@ def test_los_modelos_se_registran_en_la_metadata():
     """Sin DB: el import de `app.models` puebla `Base.metadata`."""
     import app.models  # noqa: F401
 
-    # Antes `> 20`; el pivote público retiró las cuentas y quedan 13 tablas. La
-    # guarda sigue: con `__init__` vacío serían cero.
-    assert len(Base.metadata.tables) >= 12, (
+    # Antes `> 20`; el pivote público retiró las cuentas (13 tablas) y el paso 7
+    # dejó sólo las dos del catálogo (`e3afe71ab019`). La guarda sigue, ahora por
+    # nombre: con `__init__` vacío serían cero.
+    assert {"licitaciones", "licitaciones_detalle"} <= set(Base.metadata.tables), (
         "Base.metadata está casi vacía. Si `app/models/__init__.py` dejó de "
         "reexportar los modelos, autogenerate propondrá borrar la base entera."
     )

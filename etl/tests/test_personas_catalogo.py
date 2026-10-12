@@ -1,8 +1,9 @@
 """Personas naturales en lo que se GUARDA del catálogo, no sólo en lo que se sirve.
 
 El payload de la API se limpia una vez, al entrar (`personas.enmascarar_payload`),
-y de él sale todo lo demás: `datos_completos`, `items`, `participantes`,
-`informacion_adicional`, el historial de cambios y `proveedor_adjudicado`.
+y de él sale todo lo demás: `items`, `informacion_adicional` y
+`proveedor_adjudicado` (el payload entero, la lista de oferentes y el historial
+de cambios ya no se guardan desde el paso 7 del pivote).
 """
 
 import copy
@@ -170,7 +171,7 @@ def test_el_transformador_de_compra_agil_tambien():
 
 
 def test_la_lista_de_oferentes_a_secas_necesita_el_contexto():
-    """La columna `participantes` no tiene una clave «Participantes» encima."""
+    """Una lista de oferentes suelta no tiene una clave «Participantes» encima."""
     oferentes = [{"Rut": PERSONA_RUT, "Nombre": PERSONA}, {"Rut": EMPRESA_RUT, "Nombre": EMPRESA}]
     assert enmascarar_payload(oferentes) == oferentes  # sin contexto, nada que decir
     limpio = enmascarar_payload(oferentes, en_contexto=True)
