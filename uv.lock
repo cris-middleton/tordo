@@ -1439,7 +1439,9 @@ dev = [
     { name = "uvicorn", extra = ["standard"] },
 ]
 etl = [
+    { name = "asyncpg" },
     { name = "boto3" },
+    { name = "greenlet" },
     { name = "httpx" },
     { name = "joblib" },
     { name = "numpy" },
@@ -1459,6 +1461,8 @@ etl = [
     { name = "structlog" },
 ]
 shared = [
+    { name = "asyncpg" },
+    { name = "greenlet" },
     { name = "httpx" },
     { name = "polars" },
     { name = "psycopg2-binary" },
@@ -1525,7 +1529,9 @@ dev = [
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32,<1" },
 ]
 etl = [
+    { name = "asyncpg", specifier = ">=0.30,<1" },
     { name = "boto3", specifier = ">=1.35,<2" },
+    { name = "greenlet", specifier = ">=3.1,<4" },
     { name = "httpx", specifier = ">=0.27,<1" },
     { name = "joblib", specifier = ">=1.4,<2" },
     { name = "numpy", specifier = "==1.26.2" },
@@ -1545,6 +1551,8 @@ etl = [
     { name = "structlog", specifier = ">=24.4,<27" },
 ]
 shared = [
+    { name = "asyncpg", specifier = ">=0.30,<1" },
+    { name = "greenlet", specifier = ">=3.1,<4" },
     { name = "httpx", specifier = ">=0.27,<1" },
     { name = "polars", specifier = ">=0.20.31,<0.21" },
     { name = "psycopg2-binary", specifier = ">=2.9.10,<3" },

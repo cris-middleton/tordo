@@ -193,6 +193,28 @@ async def buscar_productos(texto: str, limite: int = 20) -> dict[str, Any]:
         return _error(exc)
 
 
+#: Los hosts con los que arranca `MCP_HOSTS_PERMITIDOS` si nadie la toca.
+HOSTS_LOCALES = frozenset({"localhost", "127.0.0.1"})
+
+
+def aviso_de_hosts(*, entorno: str, hosts: list[str]) -> str | None:
+    """Lo que conviene avisar al arrancar sobre la lista blanca del MCP.
+
+    En producción, una lista con sólo nombres locales es casi seguro un olvido:
+    el MCP responde 421 a todo lo que llega por el dominio público y nada falla
+    al desplegar. Como los avisos del límite por IP, no impide arrancar.
+    """
+    if entorno != "production":
+        return None
+    if {h.strip().lower() for h in hosts if h.strip()} <= HOSTS_LOCALES:
+        return (
+            "MCP_HOSTS_PERMITIDOS sólo tiene localhost/127.0.0.1 en producción: el MCP "
+            "responderá 421 a todo lo que llegue por el dominio público. Añade el dominio "
+            "(p. ej. MCP_HOSTS_PERMITIDOS=api.tordo.cl)."
+        )
+    return None
+
+
 def seguridad_de_transporte() -> TransportSecuritySettings:
     """La protección contra DNS rebinding, con la lista blanca de `MCP_HOSTS_PERMITIDOS`.
 

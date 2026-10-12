@@ -321,5 +321,12 @@ jobs:
           context: .
           file: etl/Dockerfile
           push: false
+          load: true
+          tags: tordo-etl:ci
           cache-from: type=gha,scope=etl
           cache-to: type=gha,mode=max,scope=etl
+
+      # Construir no basta: la imagen del ETL construía bien y ningún cron
+      # arrancaba (`No module named 'app'`). Se importa lo que corren los cron.
+      - name: Cron importable en la imagen del ETL
+        run: docker run --rm tordo-etl:ci python -c "import etl.cron, etl.retencion, etl.analytics.materialize"

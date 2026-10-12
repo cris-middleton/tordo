@@ -1,0 +1,364 @@
+# Despliegue
+
+La guía para poner TORDO en producción: **Railway** (API, Postgres y dos cron),
+**Cloudflare R2** (parquets), **Vercel Hobby** (el sitio), **Healthchecks.io**
+(latido de los cron) y **Sentry**. Sustituye a las guías del SaaS
+(`deploy_steps/`), que describen otro sistema.
+
+Es una lista **en orden**: cada paso usa algo del anterior. Cada uno termina con
+una línea **Verifica**; si no se cumple, no sigas. Los nombres de variables y los
+comandos salen del código (`backend/Dockerfile`, `etl/Dockerfile`,
+`backend/app/config.py`, `etl/config.py`, `etl/cron.py`, `etl/almacen.py`,
+`frontend/`); si cambian allí, esta guía se corrige en el mismo PR.
+
+**Nunca copies un secreto en este archivo, en un commit ni en un issue.** Se
+generan donde se usan y se pegan en el panel de cada servicio.
+
+---
+
+## Antes de empezar
+
+- Dominio `tordo.cl` registrado en NIC Chile.
+- Ticket de la API de Mercado Público **propio** (el de demostración es compartido
+  y devuelve 429 con frecuencia): <https://api.mercadopublico.cl>.
+- Cuentas: Railway, Vercel, Cloudflare, Healthchecks.io, Sentry.
+- `main` con CI en verde.
+
+**Los nombres de host que usa esta guía** (cámbialos en todos los pasos si eliges
+otros):
+
+| host | sirve | dónde |
+|---|---|---|
+| `tordo.cl` (y `www.tordo.cl`) | el sitio | Vercel |
+| `api.tordo.cl` | la API pública y el MCP (`/api/v1/*`, `/mcp/`) | Railway |
+
+La API necesita un nombre propio porque **los integradores y los modelos hablan
+con ella directamente**, no a través de Vercel (spec §3): el proxy de Next sólo
+lo usa el navegador. Por eso `MCP_HOSTS_PERMITIDOS` lleva `api.tordo.cl`, que es
+el `Host` con el que llegan esas peticiones, y no `tordo.cl`.
+
+---
+
+## 1. DNS en Cloudflare
+
+Delega `tordo.cl` a Cloudflare (NIC Chile → servidores de nombres que indique
+Cloudflare). Cloudflare da además el reenvío de correo del paso 11, y R2 vive en la
+misma cuenta.
+
+- Los registros hacia Vercel y Railway van **sin proxy** («DNS only», nube gris):
+  los dos emiten su propio certificado y necesitan ver el tráfico directo. Con el
+  proxy de Cloudflare delante, además, el `X-Forwarded-For` que llega a Railway
+  dejaría de ser el del visitante (paso 10).
+
+**Verifica:** `dig NS tordo.cl +short` devuelve los servidores de Cloudflare.
+
+## 2. R2: el bucket de los parquets
+
+1. Cloudflare → R2 → *Create bucket*: `tordo-parquets` (región automática).
+2. R2 → *Manage API tokens* → *Create API token*: permiso **Object Read & Write**,
+   limitado a ese bucket. Guarda `Access Key ID`, `Secret Access Key` y el
+   endpoint de la cuenta (`https://<id-de-cuenta>.r2.cloudflarestorage.com`).
+
+El cron semanal sube `consolidated/` (toda la descarga masiva) y `analytics/`;
+`raw/` no se sube (`etl/almacen.py`). **La capa gratuita es de 10 GB**: ver el
+paso 13.
+
+**Verifica:** el bucket aparece vacío en el panel y el token sólo tiene acceso a él.
+
+## 3. Healthchecks.io: un chequeo por cron
+
+Dos chequeos. Cada cron manda `/start` al empezar, la URL sola al terminar bien y
+`/fail` con la cola del error al fallar (`etl/cron.py`). Un `frecuente` que sale
+por la puerta horaria **no hace ping**: no es una corrida.
+
+| chequeo | horario | gracia |
+|---|---|---|
+| `tordo-frecuente` | *Simple*, período **1 día** | **2 h** |
+| `tordo-semanal` | *Cron* `0 6 * * 0`, zona **UTC** (la misma expresión que Railway, paso 8) | **12 h** |
+
+`frecuente` corre a las 10, 13, 16 y 19 h los días hábiles y a las 12 h el fin de
+semana: el hueco más largo es de 24 h (sábado → domingo a mediodía), de ahí el
+período. La gracia del semanal es larga porque la corrida dura horas y, con
+`/start`, Healthchecks cuenta el tiempo hasta el ping de fin.
+
+Añade una integración de aviso (correo, como mínimo) a los dos. Copia las URL de
+ping, **sin barra final**.
+
+**Verifica:** los dos chequeos están en estado *new* y la integración de correo
+manda la notificación de prueba.
+
+## 4. Sentry: dos proyectos, sin IP
+
+1. Un proyecto **Python/FastAPI** (la API) y otro **Next.js** (el sitio).
+2. En **cada** proyecto: *Settings → Security & Privacy* → activa **Prevent
+   Storing of IP Addresses**. El código ya manda `send_default_pii=False`
+   (backend y `frontend/lib/sentry-comun.ts`), pero Sentry deduce la IP de la
+   conexión del navegador si no se le prohíbe en el servidor.
+3. Guarda el DSN de cada uno. Para que las trazas del navegador lleguen legibles:
+   *Settings → Auth Tokens* → un token con `project:releases`
+   (`SENTRY_AUTH_TOKEN`, sólo de build), más `SENTRY_ORG` y `SENTRY_PROJECT`.
+
+Los cron **no** mandan a Sentry: su canal es el latido.
+
+**Verifica:** la opción aparece activada en los dos proyectos.
+
+## 5. Railway: Postgres
+
+1. Proyecto nuevo, región **US East** (spec §3.2).
+2. *New → Database → PostgreSQL*.
+3. *Settings → Backups*: activa los **diarios** (spec D19).
+
+**Verifica:** el servicio está *Active* y el panel muestra la variable
+`DATABASE_URL` del servicio.
+
+## 6. Railway: la API
+
+*New → GitHub repo* → este repo. En *Settings*:
+
+- **Root directory** `/`, **Dockerfile path** `backend/Dockerfile` (el contexto de
+  build es la raíz: ahí viven `pyproject.toml` y `uv.lock`).
+- **Start command**: vacío. El `CMD` de la imagen corre `alembic upgrade head` y
+  luego uvicorn con **un** worker y `--no-proxy-headers`.
+- **Healthcheck path**: `/health/`.
+- **Recursos**: **512 MB** de RAM. Medido con `make medir-memoria`: 127 MB de pico
+  con un worker.
+- **Networking → Custom domain**: `api.tordo.cl`. Crea en Cloudflare el `CNAME`
+  que indique Railway (sin proxy).
+
+**Variables:**
+
+| variable | valor |
+|---|---|
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (la de la red privada; la API la pasa a asyncpg sola) |
+| `ENVIRONMENT` | `production` |
+| `APP_NAME` | `Tordo` |
+| `FEATURE_ANALYTICS` | **`true`** — por defecto es `false` y todo `/bi/*` responde 503 |
+| `PROXY_SECRETO` | `openssl rand -hex 32` (**el mismo valor va en Vercel**, paso 9) |
+| `CONFIAR_X_FORWARDED_FOR` | `true` (se comprueba en vivo en el paso 10) |
+| `MCP_HOSTS_PERMITIDOS` | `api.tordo.cl` |
+| `CORS_ORIGINS` | `https://tordo.cl,https://www.tordo.cl` |
+| `LIMITE_POR_MINUTO` | `60` |
+| `WEB_CONCURRENCY` | `1` — el límite por IP vive en memoria: con N workers, el límite real es N× |
+| `SENTRY_DSN` | el DSN del proyecto de la API |
+| `LOG_JSON` | `true` |
+| `LOG_LEVEL` | `INFO` |
+
+En producción la API **avisa en el log al arrancar** si falta `PROXY_SECRETO`, si
+`CONFIAR_X_FORWARDED_FOR` es `false`, si hay más de un worker o si
+`MCP_HOSTS_PERMITIDOS` sólo tiene `localhost`/`127.0.0.1`.
+
+**Verifica:**
+- `curl -s https://api.tordo.cl/health/` responde 200.
+- El log de arranque **no** tiene ninguno de esos avisos.
+- `curl -s https://api.tordo.cl/api/v1/tenders/ -o /dev/null -w '%{http_code}'`
+  responde 200 (con el catálogo vacío: los cron aún no corrieron).
+
+## 7. Railway: `cron-frecuente`
+
+*New → GitHub repo* → el mismo repo, **otro servicio**. En *Settings*:
+
+- **Root directory** `/`, **Dockerfile path** `etl/Dockerfile`.
+- **Start command**: `python -m etl.cron frecuente`
+- **Cron schedule** (en el **panel**, no en `railway.json`: con cron como código
+  Railway tiene un fallo conocido que los deja en *Active*): `0 * * * *` — **cada
+  hora en UTC**. El script decide si le toca en hora de Chile; si no, sale en
+  segundos.
+- **Recursos**: 1 GB basta (descarga de la API, sin analytics).
+
+**Variables:**
+
+| variable | valor |
+|---|---|
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
+| `MERCADO_PUBLICO_TICKET` | el ticket propio. **Sin valor por defecto, a propósito** |
+| `COMPRA_AGIL_TICKET` | vacío para usar el mismo ticket; otro si ChileCompra separa las cuotas |
+| `LATIDO_URL_FRECUENTE` | la URL de ping de `tordo-frecuente` |
+| `ENVIRONMENT` | `production` |
+| `LOG_LEVEL` | `INFO` |
+
+**Verifica:** en *Deployments*, lanza una ejecución a mano con el start command
+`python -m etl.cron frecuente --forzar`. Termina sin `Traceback`, el log dice
+`frecuente: terminada`, y en Healthchecks `tordo-frecuente` pasa a *up*.
+Luego `curl -s 'https://api.tordo.cl/api/v1/tenders/?size=1'` trae `total` > 0.
+
+> **Ojo:** hoy un ticket inválido NO hace fallar la corrida —la API clásica
+> devuelve 0 registros y Compra Ágil un 401 que se registra como error, pero la
+> corrida termina «bien» y el latido da verde—. Comprueba a mano que el catálogo
+> se llenó; no basta con el verde de Healthchecks.
+
+## 8. Railway: `cron-semanal`
+
+Un tercer servicio, igual que el anterior salvo:
+
+- **Start command**: `python -m etl.cron semanal`
+- **Cron schedule**: `0 6 * * 0` (domingo 06:00 UTC: 02:00 en Chile en invierno,
+  03:00 en verano; da igual, no compite con `frecuente`, que es otro servicio).
+  No necesita el ticket de Mercado Público: la descarga masiva es pública.
+- **Recursos**: **8 GB** de RAM (decidido el 2026-10-11; pico proyectado ~6,3 GB
+  con las ventanas de 36 y 12 meses — CLAUDE.md, «Analytics lee una VENTANA»).
+
+**Variables:**
+
+| variable | valor |
+|---|---|
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
+| `ETL_ALMACEN` | `r2` — **obligatoria, sin valor por defecto**: caer a disco reconstruiría el análisis sólo con los 3 meses recién bajados |
+| `R2_ENDPOINT_URL` | el endpoint de la cuenta (paso 2) |
+| `R2_ACCESS_KEY_ID` | del token del paso 2 |
+| `R2_SECRET_ACCESS_KEY` | del token del paso 2 |
+| `R2_BUCKET` | `tordo-parquets` |
+| `LATIDO_URL_SEMANAL` | la URL de ping de `tordo-semanal` |
+| `ENVIRONMENT` | `production` |
+| `LOG_LEVEL` | `INFO` |
+
+Con `ETL_ALMACEN=r2` y una credencial que falte, la corrida falla **al
+construirse**, antes de descargar nada, y el `/fail` dice qué variable es.
+
+**Verifica:** no lances la primera corrida todavía: va en el paso 13, con la
+historia completa y midiendo. Basta con que el servicio construya.
+
+## 9. Vercel: el sitio
+
+*Add New → Project* → este repo.
+
+- **Root directory**: `frontend`. Framework: Next.js.
+- **Functions region**: `iad1` (Washington), junto a Railway US East (spec §3.2).
+- **Domains**: `tordo.cl` y `www.tordo.cl` (redirige uno al otro); crea en
+  Cloudflare los registros que indique Vercel, sin proxy.
+- **Analytics → Web Analytics**: actívalo (sin cookies; spec §4).
+
+**Variables** (*Settings → Environment Variables*, entorno **Production**):
+
+| variable | valor | cuándo se lee |
+|---|---|---|
+| `API_URL` | `https://api.tordo.cl` | servidor — **sin** prefijo `NEXT_PUBLIC_` |
+| `PROXY_SECRETO` | **el mismo valor que en Railway** | servidor — nunca `NEXT_PUBLIC_` |
+| `RESPONSABLE_LEGAL` | el nombre del responsable | **build**: las páginas legales se prerenderizan; cambiarlo exige redeploy |
+| `NEXT_PUBLIC_SENTRY_DSN` | el DSN del proyecto Next.js | build (se inlinea en el bundle) |
+| `NEXT_PUBLIC_ENVIRONMENT` | `production` | build |
+| `NEXT_PUBLIC_APP_NAME` | `Tordo` | build |
+| `NEXT_PUBLIC_SITE_URL` | `https://tordo.cl` | build (metadatos y tarjetas de preview) |
+| `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` | del paso 4 | sólo build (mapas de fuente) |
+
+Sin `RESPONSABLE_LEGAL` las páginas legales muestran `[[definir RESPONSABLE_LEGAL]]`
+(`frontend/lib/responsable.ts`).
+
+**Verifica:**
+- `https://tordo.cl` carga, y el catálogo muestra las licitaciones del paso 7.
+- `/terminos` y `/privacidad` muestran el nombre del responsable, no el marcador.
+- En el log de la API, las peticiones del sitio llegan sin aviso de `PROXY_SECRETO`.
+
+## 10. Comprobar en vivo de qué IP cuenta el límite
+
+El modelo de confianza (`backend/app/core/limite_ip.py`) da por hecho dos cosas que
+sólo se pueden ver desplegado: que el borde de Railway **reescribe**
+`X-Forwarded-For` (así un cliente no puede inventarse otra IP) y que el proxy de
+Vercel manda la IP del visitante.
+
+**A. Un `X-Forwarded-For` inventado no cambia de cubo.** Desde tu máquina:
+
+```bash
+URL=https://api.tordo.cl/api/v1/tenders/
+curl -s -o /dev/null -D - "$URL" | grep -i x-ratelimit-remaining
+curl -s -o /dev/null -D - -H 'X-Forwarded-For: 203.0.113.7' "$URL" | grep -i x-ratelimit-remaining
+curl -s -o /dev/null -D - "$URL" | grep -i x-ratelimit-remaining
+```
+
+**Verifica:** los tres valores bajan de uno en uno (59, 58, 57): las tres cuentan
+en **tu** cubo. Si el segundo vuelve a 59, el borde dejó pasar la cabecera
+inventada → pon `CONFIAR_X_FORWARDED_FOR=false` en Railway y avisa (cualquiera
+podría saltarse el límite rotando IP falsas).
+
+**B. El sitio cuenta a cada visitante, no a Vercel.** Justo después de A:
+
+```bash
+curl -s -o /dev/null -D - 'https://tordo.cl/api/proxy/api/v1/tenders' | grep -i x-ratelimit-remaining
+```
+
+Sin barra final a propósito: con ella Next responde un 308 antes de llegar al
+proxy, y ese 308 no trae las cabeceras del límite.
+
+**Verifica:** sigue la cuenta de A (56): el proxy mandó tu IP con el secreto. Si
+vuelve a 59, el backend está contando a Vercel → revisa que `PROXY_SECRETO` sea
+idéntico en los dos lados.
+
+## 11. Correo: `hola@tordo.cl`
+
+Es el contacto que publican la privacidad y la declaración de uso de datos. Sólo
+reenvío, sin buzón propio: Cloudflare → *Email → Email Routing* → activa, añade
+los registros MX y TXT que propone, y una regla `hola@tordo.cl` → tu correo
+personal (verifícalo desde el enlace que llega).
+
+**Verifica:** un correo enviado a `hola@tordo.cl` desde otra cuenta llega a tu
+bandeja.
+
+## 12. MCP
+
+**Verifica:** desde un cliente MCP, o a mano:
+
+```bash
+MCP=(-s https://api.tordo.cl/mcp/ -H 'Accept: application/json, text/event-stream'
+     -H 'Content-Type: application/json')
+curl "${MCP[@]}" -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"verificacion","version":"0"}}}'
+curl "${MCP[@]}" -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
+```
+
+la segunda devuelve las **cuatro** herramientas. Un `421` significa que `api.tordo.cl` no está
+en `MCP_HOSTS_PERMITIDOS`.
+
+## 13. Después del primer despliegue
+
+### 13.1 La primera corrida semanal, con toda la historia — y medirla
+
+Es la que llena R2 y `analytics.*`, y la primera vez que corre con años de datos:
+**nada de lo que sigue está medido con esa escala** (en local sólo había 6 meses).
+Lánzala a mano (*Deployments → Run*) un día de semana, mirando:
+
+- **RAM**: el pico de la gráfica de *Metrics*. Proyectado ~6,3 GB; si se acerca a
+  8 GB, no subas la máquina sin antes mirar qué módulo manda (el log dice cuánto
+  tardó cada uno).
+- **Tiempo** total, y el de la descarga masiva aparte.
+- **Disco**: `bajar` trae `consolidated/` entero al contenedor, y la descarga
+  masiva cubre desde 2010. Compara el tamaño de `consolidated/` en R2 con el disco
+  efímero del servicio **y con los 10 GB gratis de R2**. Si no cabe, hay que
+  decidir cuánta historia se conserva antes de la segunda corrida.
+
+**Verifica:** termina con `/fail` ausente en Healthchecks (`tordo-semanal` *up*),
+R2 tiene `consolidated/` y `analytics/`, y el panel de inteligencia de mercado de
+`https://tordo.cl` muestra datos. Anota RAM, tiempo y tamaño en el PR o issue del
+lanzamiento.
+
+### 13.2 Postgres: recuperar el espacio y medirlo
+
+La migración `e3afe71ab019` (paso 7) borra tablas y columnas, y la retención borra
+filas cada semana. `DROP TABLE` libera el espacio enseguida; **el de las columnas
+borradas y las filas purgadas no vuelve hasta un `VACUUM FULL`**, que bloquea la
+tabla mientras corre: hazlo fuera de las horas de `frecuente`.
+
+```sql
+VACUUM FULL licitaciones;
+VACUUM FULL licitaciones_detalle;
+
+SELECT pg_size_pretty(pg_database_size(current_database()));
+
+SELECT schemaname, relname, n_live_tup,
+       pg_size_pretty(pg_total_relation_size(relid)) AS total
+FROM pg_stat_user_tables ORDER BY pg_total_relation_size(relid) DESC;
+```
+
+**Verifica:** el total es **< 1 GB** (spec §5.2). Si no, la tabla grande de la
+segunda consulta dice por dónde seguir; el candidato conocido es
+`analytics.time_series`, que crece lineal con la ventana de 36 meses.
+
+---
+
+## Si algo falla
+
+| síntoma | causa probable |
+|---|---|
+| Todo `/bi/*` responde 503 | `FEATURE_ANALYTICS` no está en `true` |
+| `/mcp/` responde 421 | falta el host en `MCP_HOSTS_PERMITIDOS` (la API avisa al arrancar) |
+| El sitio entero recibe 429 a la vez | `PROXY_SECRETO` distinto en Vercel y Railway, o vacío |
+| `semanal` falla en segundos con `ETL_ALMACEN` en el `/fail` | variable de R2 ausente o vacía |
+| Un cron no arranca: `No module named 'app'` | imagen del ETL vieja (antes de copiar `backend/app`); redeploy |
+| Las páginas legales dicen `[[definir RESPONSABLE_LEGAL]]` | variable ausente en el build de Vercel |

@@ -15,6 +15,7 @@ from app.config import settings
 from app.core.limite_ip import LimitadorEnMemoria, LimitePorIPMiddleware, avisos_de_configuracion
 from app.core.versionado import PREFIJO_API
 from app.mcp.servidor import aplicacion as aplicacion_mcp
+from app.mcp.servidor import aviso_de_hosts
 from app.mcp.servidor import servidor as servidor_mcp
 from app.observability import request_id_ctx, setup_logging, setup_sentry
 
@@ -36,6 +37,8 @@ for _aviso in avisos_de_configuracion(
     workers=os.environ.get("WEB_CONCURRENCY"),
 ):
     logger.warning(_aviso)
+if _aviso_mcp := aviso_de_hosts(entorno=settings.environment, hosts=settings.mcp_hosts_permitidos):
+    logger.warning(_aviso_mcp)
 
 
 @asynccontextmanager

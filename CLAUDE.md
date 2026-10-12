@@ -922,12 +922,24 @@ decididos y aplazados, cada uno con su motivo — no como pendientes sin dueño.
 
 `cp .env.example .env`. Críticas: `DATABASE_URL`, `MERCADO_PUBLICO_TICKET` (lo usan el ETL
 y los cron, no la API), `API_URL`, `APP_NAME`, y en producción `MCP_HOSTS_PERMITIDOS` con el
-dominio público.
+dominio **de la API** (`api.tordo.cl`: los integradores y el MCP le hablan directo, no por
+Vercel) y `FEATURE_ANALYTICS=true` (por defecto `false`: todo `/bi/*` da 503).
+
+**Producción: `docs/DESPLIEGUE.md`**, una lista ordenada con una comprobación por paso
+(Railway, R2, Healthchecks, Sentry, Vercel, DNS, correo y la prueba en vivo del
+`X-Forwarded-For`). Las variables de cada servicio están ahí; si cambias una aquí o en un
+Dockerfile, se corrige allí en el mismo PR.
+
+**La imagen del ETL lleva `backend/app`**, y `asyncpg`/`greenlet` están en el grupo `shared`:
+el ETL importa los modelos, y `app.db` crea el motor async al importarse. Faltaban las dos
+cosas y **ningún cron arrancaba en la imagen** (`No module named 'app'`); en compose no se
+veía porque el repo se monta entero sobre `/workspace`.
 
 **Límite por IP**: `PROXY_SECRETO` va en la API **y** en el servidor de Next, sin valor por
 defecto y nunca con prefijo `NEXT_PUBLIC_` (`openssl rand -hex 32`); `CONFIAR_X_FORWARDED_FOR`
 es `true` sólo en Railway; `LIMITE_POR_MINUTO` (60). En producción la API avisa al arrancar si
-falta alguna de las dos primeras. No hay `REDIS_URL`.
+falta alguna de las dos primeras, y si `MCP_HOSTS_PERMITIDOS` sólo tiene `localhost`/`127.0.0.1`
+(`app/mcp/servidor.py`, `aviso_de_hosts`). No hay `REDIS_URL`.
 
 **No hay `SECRET_KEY`.** Se borró con las cuentas: nada firma tokens, y un secreto
 obligatorio que nadie usa enseña a rellenar variables sin mirar.

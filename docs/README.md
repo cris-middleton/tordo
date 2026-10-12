@@ -26,6 +26,7 @@ usa el resto del repo: la decisión la toma una persona, no el descuido.
 | [`ARQUITECTURA_REVISION_2026-08.md`](ARQUITECTURA_REVISION_2026-08.md) | La revisión que originó las siete fases (F0–F6) y su estado de cierre, con lo que queda abierto y por qué | Para entender por qué el sistema es así |
 | [`decisiones/`](decisiones/README.md) | **10 ADRs**: sólo Chile, suscripción por empresa, nombre, LLM/MCP, pasarela local, analytics en Postgres, no migrar a Supabase, MercadoPago, API versionada, extracción de bases | Antes de re-discutir algo que ya se decidió |
 | [`DECLARACION_USO_DATOS.md`](DECLARACION_USO_DATOS.md) | **Bajo qué condiciones se usan los datos de ChileCompra**: la cita literal de la fuente (pie de cada página y primera línea de cada CSV), que ChileCompra no respalda el sitio, y por qué omitir a las personas naturales no es modificar el dato. Sustituye al PDF | Antes de tocar el pie, la exportación CSV o el enmascarado de personas |
+| [`DESPLIEGUE.md`](DESPLIEGUE.md) | **Cómo se pone en producción**: Railway (API y dos cron), R2, Healthchecks, Sentry, Vercel, DNS y correo, como lista ordenada con una comprobación por paso; y qué medir tras la primera corrida | Al desplegar, y al cambiar una variable de entorno o un Dockerfile |
 | [`API_PUBLICA.md`](API_PUBLICA.md) | Qué parte de la API es pública, límites, errores, el servidor MCP y **lo que no hay** | Para integrar desde fuera |
 | [`SPEC.md`](SPEC.md) | La especificación de producto | Para saber qué se prometió |
 | [`tordo_plan_saas.md`](tordo_plan_saas.md) | El plan de negocio: segmento, precios, competencia | Para decisiones de producto |
@@ -47,7 +48,7 @@ producir — no porque describan el sistema de hoy.
 | [`VALIDACION_ESTRUCTURA_DATOS.md`](VALIDACION_ESTRUCTURA_DATOS.md) | 2026-04 | La validación de `Listado[0]` y timezone contra la API de Mercado Público |
 | [`tordo_analytics_bi_dashboard_plan_v3.md`](tordo_analytics_bi_dashboard_plan_v3.md) | 2026-03 | El plan del que salió el módulo de BI |
 | [`COMANDOS_ETL.md`](COMANDOS_ETL.md) | 2026-04 | Referencia de comandos del ETL. **Los vigentes están en `CLAUDE.md`** |
-| [`deploy_steps/railway_deployment_guide.md`](deploy_steps/railway_deployment_guide.md) y [`tareas_manuales.md`](deploy_steps/tareas_manuales.md) | hasta 2026-10 | El despliegue del SaaS. **La guía nueva llega en el paso 12 del pivote** — hasta entonces, la spec (§3) es la referencia |
+| [`deploy_steps/railway_deployment_guide.md`](deploy_steps/railway_deployment_guide.md) y [`tareas_manuales.md`](deploy_steps/tareas_manuales.md) | hasta 2026-10 | El despliegue del SaaS (Celery, Redis, MinIO, Next en Railway). **Sustituidas por la guía de despliegue** (en «Vivo», arriba) |
 | [`deploy_steps/fase_*.md`](deploy_steps/) | 2026 | El roadmap original de implementación, anterior a la revisión de arquitectura |
 | [`_archive/`](_archive/README.md) | hasta F0 | 44 documentos retirados en la limpieza de F0. Tiene su propia advertencia |
 

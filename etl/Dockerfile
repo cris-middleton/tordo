@@ -38,5 +38,10 @@ RUN uv sync --frozen --no-default-groups --group etl
 
 WORKDIR /workspace/etl
 COPY etl/ ./
+# El ETL importa los modelos y el vocabulario del backend (`etl/shared_imports.py`
+# añade /workspace/backend al path). Sin esta línea la imagen construía bien y
+# ningún cron arrancaba: `ModuleNotFoundError: No module named 'app'`. En compose
+# no se veía porque el repo entero se monta sobre /workspace.
+COPY backend/app/ /workspace/backend/app/
 
 CMD ["python", "main.py"]

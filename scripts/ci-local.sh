@@ -206,6 +206,10 @@ if [ "${SIN_DOCKER:-0}" = "1" ]; then
 else
   correr "Build backend" docker build -f backend/Dockerfile -t tordo-backend:ci-local .
   correr "Build ETL"     docker build -f etl/Dockerfile     -t tordo-etl:ci-local .
+  # Construir no basta: la imagen del ETL construía bien y ningún cron arrancaba
+  # (`No module named 'app'`). Se importa lo que corren los dos cron.
+  correr "Cron importable en la imagen" docker run --rm tordo-etl:ci-local \
+    python -c "import etl.cron, etl.retencion, etl.analytics.materialize"
 fi
 
 # ── Informe ──────────────────────────────────────────────────────────────────

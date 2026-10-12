@@ -40,6 +40,11 @@ shared = [
     "polars>=0.20.31,<0.21",
     "pyarrow>=18,<26",
     "httpx>=0.27,<1",
+    # El ETL importa los modelos del backend, y `app.db` crea el motor async al
+    # importarse: sin estos dos, la imagen del ETL no arrancaba ningún cron
+    # (estaban sólo en `api`, y en compose no se notaba).
+    "asyncpg>=0.30,<1",
+    "greenlet>=3.1,<4",
 ]
 
 api = [
@@ -51,10 +56,8 @@ api = [
     # parte porque el protocolo se mueve rápido, y un rango abierto convertiría
     # una rotura suya en una rotura nuestra sin aviso.
     "mcp>=2,<3",
-    # Base de datos
-    "asyncpg>=0.30,<1",
+    # Base de datos (asyncpg y greenlet van en `shared`)
     "alembic>=1.14,<2",
-    "greenlet>=3.1,<4",
     # Observabilidad
     "sentry-sdk[fastapi]>=2.0.0,<3.0.0",
     "python-json-logger>=2.0.7,<4.0.0",
