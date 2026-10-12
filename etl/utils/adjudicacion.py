@@ -34,6 +34,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from etl.analytics.personas import NOMBRE_ENMASCARADO, es_persona_natural, rut_numero
+
 # Mismos formatos que `LicitacionTransformer._parse_date` /
 # `OrdenCompraTransformer._parse_date`: duplicado a propósito, como esos dos,
 # en vez de hacer que este módulo dependa de una instancia de transformer.
@@ -91,29 +93,41 @@ def _items_de(main_obj: dict) -> list[dict]:
     return [i for i in items if isinstance(i, dict)]
 
 
-def _formatear_proveedores(ganadores: dict[str, dict[str, Any]]) -> str | None:
-    """Un texto legible con cada proveedor ganador y su RUT entre paréntesis.
+def componer_proveedores(partes: list[str], hay_personas_naturales: bool) -> str | None:
+    """Las empresas, «NOMBRE (RUT)», y al final «Persona natural» si ganó alguna.
 
-    El paréntesis no es cosmético: es lo que permite a
-    `services/resultados.py` encontrar el RUT dentro de un texto que también
-    trae el nombre, cuando hay más de un proveedor ganador en la misma
-    licitación.
+    Sin contar cuántas: en un payload ya enmascarado (`personas.
+    enmascarar_payload`) dos personas distintas son indistinguibles, y el texto
+    tiene que salir igual se calcule del payload crudo o del guardado.
     """
-    partes = []
-    for datos in ganadores.values():
-        nombre = (datos.get("nombre") or "").strip()
-        rut = (datos.get("rut") or "").strip()
-        if nombre and rut:
-            partes.append(f"{nombre} ({rut})")
-        elif nombre:
-            partes.append(nombre)
-        elif rut:
-            partes.append(rut)
-    if not partes:
+    todas = partes + ([NOMBRE_ENMASCARADO] if hay_personas_naturales else [])
+    if not todas:
         return None
     # String(500) en la base: se trunca en vez de fallar la carga por un
     # nombre de proveedor largo.
-    return "; ".join(partes)[:500]
+    return "; ".join(todas)[:500]
+
+
+def _formatear_proveedores(ganadores: dict[str, dict[str, Any]]) -> str | None:
+    """Un texto legible con cada EMPRESA ganadora y su RUT entre paréntesis.
+
+    **Las personas naturales no se nombran** (spec del pivote §8): el catálogo
+    es público y `proveedor_adjudicado` se sirve tal cual. Se reconocen con la
+    misma regla que analytics (`personas.es_persona_natural`): RUT bajo
+    50.000.000 **o sin RUT legible**.
+    """
+    partes = []
+    hay_personas = False
+    for datos in ganadores.values():
+        nombre = (datos.get("nombre") or "").strip()
+        rut = (datos.get("rut") or "").strip()
+        if es_persona_natural(rut_numero(rut)):
+            hay_personas = True
+        elif nombre:
+            partes.append(f"{nombre} ({rut})")
+        else:
+            partes.append(rut)
+    return componer_proveedores(partes, hay_personas)
 
 
 def extraer_datos_adjudicacion(main_obj: dict) -> dict[str, Any]:

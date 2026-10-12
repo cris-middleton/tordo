@@ -61,6 +61,23 @@ Un cliente IPv6 cuenta por su /64. El límite vive en memoria de la API, que cor
 solo proceso; los detalles y el modelo de confianza sobre la IP están en
 `backend/app/core/limite_ip.py`.
 
+## Personas naturales
+
+Un proveedor con RUT bajo 50.000.000 es una persona natural, y **ninguna
+respuesta lo nombra**: ni el catálogo, ni el BI, ni el MCP, ni los CSV. Sale como
+«Persona natural»; en el BI, con un código `PN-…` que lo distingue de otras
+personas dentro del mismo análisis, pero que cambia cada semana y no permite
+volver a identificarlo. La regla vive en `etl/analytics/personas.py` y se aplica
+**al guardar**, no al servir: lo que la base no tiene, ninguna ruta lo puede
+filtrar.
+
+**Por eso el detalle de una licitación dejó de traer `datos_completos` y
+`participantes`** (octubre de 2026). Es la única vez que `v1` ha quitado campos:
+eran el payload crudo de Mercado Público y la lista de oferentes, publicaban el
+nombre y el RUT de personas naturales —también de las que no ganaron—, y ni el
+sitio ni nadie integrado los usaba. Los ganadores siguen en
+`detalle.proveedor_adjudicado` y en `items[].Adjudicacion`, ya limpios.
+
 ## Versionado
 
 Todo cuelga de `/api/v1`, y el prefijo lo pone la aplicación al montar los

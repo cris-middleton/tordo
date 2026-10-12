@@ -376,8 +376,16 @@ SALIDAS_CON_PROVEEDOR = (
 
 
 def test_las_salidas_con_proveedor_existen_y_la_persona_esta_seudonimizada(salida):
+    log = salida / "analytics.log"
+    errores = [
+        linea
+        for linea in (log.read_text().splitlines() if log.exists() else [])
+        if "ERROR" in linea
+    ]
     for nombre in SALIDAS_CON_PROVEEDOR:
-        assert (salida / nombre).exists(), f"{nombre} no se generó: el recorrido no probaría nada"
+        assert (salida / nombre).exists(), (
+            f"{nombre} no se generó: el recorrido no probaría nada.\n" + "\n".join(errores)
+        )
 
     competidores = pl.read_parquet(salida / "competitors_by_market.parquet")
     personas_naturales = competidores.filter(pl.col("NombreProveedor") == NOMBRE_ENMASCARADO)

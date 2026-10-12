@@ -576,8 +576,25 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   - `etl/tests/test_personas_naturales.py` pasa una persona conocida por `run_all` entero y la
     busca en **cada** archivo de salida, joblib y npz incluidos. Sin el enmascarado aparece en
     once.
-  - **El catálogo (`proveedor_adjudicado`) todavía no está cubierto**: va en el PR siguiente,
-    con la misma regla (`personas.es_persona_natural`).
+  - **El catálogo se limpia al ENTRAR, no al servir** (`personas.enmascarar_payload`). Todo
+    payload de la API —listado y detalle de licitaciones, Compra Ágil— pasa por él en el
+    transformador o en el loader, y de ahí salen `datos_completos`, `items`, `participantes`,
+    `informacion_adicional`, el historial de cambios y `proveedor_adjudicado`. Lo que la base
+    no tiene, ninguna ruta ni ningún `select *` lo puede filtrar (Ley 21.719: minimizar lo
+    que se conserva). La forma de esos payloads no está verificada contra producción, así que
+    no busca rutas: recorre el JSON y reconoce al proveedor por el **nombre de la clave**
+    (`Rut*`/`Nombre*`/`RazonSocial` con «proveedor», «oferente», «sucursal»…, o dentro de
+    `Participantes`, `Adjudicacion`, cotizaciones). El lado del comprador no se toca.
+    **Si añades una fuente de la API, pásala por ahí antes de guardar nada.**
+  - **El detalle público ya no trae `datos_completos` ni `participantes`**: eran el payload
+    crudo y la lista de oferentes, y nada los usaba (`docs/API_PUBLICA.md`).
+  - `proveedor_adjudicado` nombra a las empresas, «NOMBRE (RUT)», y añade «Persona natural»
+    una vez si ganó alguna — sin contar cuántas: en un payload ya limpio no se distinguen,
+    y el texto tiene que salir igual del crudo que del guardado.
+  - La migración `6e47ba0cd7c9` limpió lo ya guardado con una **copia congelada** de la regla;
+    `etl/tests/test_migracion_personas_catalogo.py` fija que la copia y la viva coinciden.
+  - `ordenes_compra` crudas guardan nombre y RUT del proveedor y **no** se limpian: ninguna
+    ruta pública las sirve y el paso 7 las saca de Postgres.
 - **`CodigoProveedor` NO es un RUT.** Es el identificador interno de Mercado Público: de
   los 4.204.598 registros de `competitors_by_market`, **cero** llevan guion. La traducción
   RUT → código sale de `ordenes_compra`, que guarda los dos (`rut_proveedor`,

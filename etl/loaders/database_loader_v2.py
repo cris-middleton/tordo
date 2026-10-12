@@ -13,6 +13,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import sessionmaker
 
+from etl.analytics.personas import enmascarar_payload
 from etl.loaders.base import BaseLoader
 
 # Import models using shared module
@@ -344,6 +345,10 @@ class DatabaseLoaderV2(BaseLoader):
                 self.logger.warning(f"Detalle already exists for licitacion_id={licitacion_id}")
                 return existing.id
 
+            # Personas naturales tapadas ANTES de guardar nada: el payload, sus
+            # ítems y participantes y lo que se derive de él salen ya limpios.
+            datos_api = enmascarar_payload(datos_api)
+
             # Calculate hash
             hash_contenido = calcular_hash(datos_api)
 
@@ -437,6 +442,10 @@ class DatabaseLoaderV2(BaseLoader):
                     )
                     is not None
                 )
+
+            # Antes del hash y de detectar cambios: el historial guarda los
+            # valores de `Items` y `Participantes`, y tienen que salir limpios.
+            datos_nuevos = enmascarar_payload(datos_nuevos)
 
             # Calculate new hash
             hash_nuevo = calcular_hash(datos_nuevos)

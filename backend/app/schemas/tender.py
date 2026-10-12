@@ -42,10 +42,12 @@ class LicitacionDetalleResponse(BaseModel):
     fecha_ultima_actualizacion: datetime | None = None
     numero_actualizaciones: int | None = None
     hash_contenido: str | None = None
-    datos_completos: Dict[str, Any] | None = None
+    # Sin `datos_completos` ni `participantes`, a propósito: son el payload
+    # crudo de la API y la lista de oferentes, y el catálogo es público. Se
+    # guardan ya limpios de personas naturales (`etl/analytics/personas.py`),
+    # pero no hay nada en ellos que el sitio use. Ver docs/API_PUBLICA.md.
     items: Any | None = None
     documentos: Any | None = None
-    participantes: Any | None = None
     etapas: Any | None = None
     adjuntos: Any | None = None
     estado_actual: str | None = None

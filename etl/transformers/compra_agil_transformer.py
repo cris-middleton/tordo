@@ -20,6 +20,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict
 
+from etl.analytics.personas import enmascarar_payload
 from etl.shared_imports import TipoConvocatoria
 from etl.transformers.base import BaseTransformer
 
@@ -40,6 +41,8 @@ class CompraAgilTransformer(BaseTransformer):
     """De la forma de la API v2 a la del modelo `Licitacion`."""
 
     def transform(self, data: Dict[str, Any]) -> Dict[str, Any] | None:
+        # Personas naturales tapadas al entrar: el resto se guarda tal cual.
+        data = enmascarar_payload(data)
         codigo = data.get("codigo")
         if not codigo:
             # Sin código no hay clave de negocio: la fila no se puede upsertar
@@ -110,6 +113,7 @@ def campos_desde_detalle(detalle: Dict[str, Any]) -> Dict[str, Any]:
     una Compra Ágil entra a las bandas de precio por producto igual que una
     licitación. Forma verificada contra la API real el 2026-09-24.
     """
+    detalle = enmascarar_payload(detalle)
     if not isinstance(detalle, dict):
         return {}
     items = [

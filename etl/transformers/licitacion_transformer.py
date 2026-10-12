@@ -6,6 +6,7 @@ Normalizes API response to database schema
 from datetime import datetime
 from typing import Any, Dict
 
+from etl.analytics.personas import enmascarar_payload
 from etl.transformers.base import BaseTransformer
 from etl.utils import now_santiago
 
@@ -71,6 +72,10 @@ class LicitacionTransformer(BaseTransformer):
         Returns:
             Transformed data record matching database schema
         """
+        # `items` e `informacion_adicional` se guardan y se sirven tal cual:
+        # las personas naturales se tapan aquí, al entrar (spec del pivote §8).
+        data = enmascarar_payload(data)
+
         # Extract basic information
         codigo_externo = (
             data.get("CodigoExterno") or data.get("codigoExterno") or data.get("codigo_externo")

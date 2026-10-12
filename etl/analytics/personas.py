@@ -38,6 +38,7 @@ import re
 import secrets
 import unicodedata
 from pathlib import Path
+from typing import Any
 
 import polars as pl
 
@@ -273,3 +274,90 @@ def enmascarar(frame, codigos: frozenset[str], sal: bytes = _SAL):
                 pl.when(es_persona).then(None).otherwise(pl.col(columna)).alias(columna)
             )
     return frame.with_columns(reemplazos)
+
+
+# ── Payloads de la API ───────────────────────────────────────────────────────
+#
+# Lo que entra por la API de Mercado Público (listado, detalle, Compra Ágil) se
+# guarda en JSON —`datos_completos`, `items`, `participantes`,
+# `informacion_adicional`— y parte se sirve tal cual en el catálogo. Se limpia
+# UNA vez, al entrar: todo lo que se guarda o se deriva después (el historial de
+# cambios, `proveedor_adjudicado`) sale ya limpio.
+#
+# La forma de esos payloads no está verificada contra producción (ver
+# `etl/utils/adjudicacion.py`), así que no se busca una ruta concreta: se recorre
+# el JSON entero y se reconoce un bloque de proveedor por el NOMBRE de sus
+# claves, o por estar dentro de uno de estos contextos.
+
+#: Dentro de una clave que contenga alguna de éstas, `Rut`, `Nombre` o
+#: `RazonSocial` a secas son de un proveedor u oferente.
+_CONTEXTOS_PROVEEDOR = ("participante", "oferente", "proveedor", "adjudicacion", "cotizacion")
+#: Fuera de contexto, la clave misma tiene que decir de quién es.
+_CALIFICADORES = ("proveedor", "oferente", "participante", "sucursal")
+#: Nunca: el lado del comprador es un organismo público y se publica.
+_DEL_COMPRADOR = ("comprador", "organismo", "unidad", "usuario", "responsable")
+
+
+def _clave_norm(clave: Any) -> str:
+    return _sin_tildes(str(clave)).lower().replace("_", "")
+
+
+#: Claves que NOMBRAN a la parte: con un texto como valor, ese texto es su
+#: nombre («proveedor_seleccionado»: «JUAN PÉREZ»).
+_CLAVES_PARTE = frozenset(
+    {"proveedor", "oferente", "participante", "proveedorseleccionado", "proveedoradjudicado"}
+)
+
+
+def _tipo_de_clave(clave: Any, en_contexto: bool, valor: Any = None) -> str | None:
+    """'rut', 'nombre', 'codigo' si la clave identifica a un proveedor; si no, None."""
+    n = _clave_norm(clave)
+    if any(c in n for c in _DEL_COMPRADOR):
+        return None
+    if n in _CLAVES_PARTE and isinstance(valor, str):
+        return "nombre"
+    calificada = any(c in n for c in _CALIFICADORES)
+    if n.startswith("rut") and (calificada or en_contexto):
+        return "rut"
+    if ("nombre" in n or "razonsocial" in n) and (calificada or en_contexto):
+        return "nombre"
+    if n.startswith("codigo") and calificada:
+        return "codigo"
+    return None
+
+
+def enmascarar_payload(dato: Any, *, en_contexto: bool = False) -> Any:
+    """Copia de `dato` con las personas naturales tapadas, a cualquier profundidad.
+
+    En cada diccionario con claves de identidad de proveedor se decide con
+    `es_persona_natural` sobre el RUT de ESE diccionario (sin RUT legible,
+    persona natural): el nombre pasa a «Persona natural» y RUT y código a nulo.
+    Una empresa queda intacta.
+
+    `en_contexto=True` cuando `dato` YA es un bloque de proveedores sin la clave
+    que lo dice —la columna `participantes`, que es la lista de oferentes a
+    secas—: así `Rut` y `Nombre` genéricos se reconocen igual.
+    """
+    if isinstance(dato, list):
+        return [enmascarar_payload(v, en_contexto=en_contexto) for v in dato]
+    if not isinstance(dato, dict):
+        return dato
+
+    tipos = {k: _tipo_de_clave(k, en_contexto, v) for k, v in dato.items()}
+    ruts = [dato[k] for k, t in tipos.items() if t == "rut"]
+    tiene_identidad = any(t is not None and dato[k] not in (None, "") for k, t in tipos.items())
+    persona = tiene_identidad and es_persona_natural(
+        next((n for n in map(rut_numero, ruts) if n is not None), None)
+    )
+
+    salida = {}
+    for clave, valor in dato.items():
+        tipo = tipos[clave]
+        if persona and tipo == "nombre" and valor not in (None, ""):
+            salida[clave] = NOMBRE_ENMASCARADO
+        elif persona and tipo in ("rut", "codigo"):
+            salida[clave] = None
+        else:
+            contexto = en_contexto or any(c in _clave_norm(clave) for c in _CONTEXTOS_PROVEEDOR)
+            salida[clave] = enmascarar_payload(valor, en_contexto=contexto)
+    return salida
