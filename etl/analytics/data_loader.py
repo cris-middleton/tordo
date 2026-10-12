@@ -12,6 +12,7 @@ from pathlib import Path
 import polars as pl
 
 from .config import LIC_COLS_CORE, LIC_PARQUET_DIR, MIN_YEAR, OC_COLS_CORE, OC_PARQUET_DIR
+from .personas import codigos_persona_natural, columnas_para_enmascarar, enmascarar
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +130,34 @@ def _columnas_para_montos(cols: list[str]) -> list[str]:
     return list(dict.fromkeys([*cols, "Codigo", "totalLineaNeto"]))
 
 
+def _personas_naturales() -> frozenset[str]:
+    """Los códigos a tapar, clasificados con TODA la historia de OC y LIC.
+
+    Todo lo que sale de este módulo pasa por aquí: es el único camino hacia los
+    parquets consolidados, y por eso el enmascarado vive en él (ver `personas`).
+    """
+    return codigos_persona_natural(OC_PARQUET_DIR, LIC_PARQUET_DIR)
+
+
+def _leer(p: Path, cols: list[str]) -> pl.DataFrame:
+    """Lee las columnas pedidas, con las personas naturales ya tapadas.
+
+    Para decidir hacen falta el código y el RUT aunque el módulo no los pida;
+    se leen y se descartan después.
+    """
+    esquema = pl.read_parquet_schema(p)
+    pedidas = [c for c in cols if c in esquema]
+    df = pl.read_parquet(p, columns=columnas_para_enmascarar(pedidas, esquema))
+    return enmascarar(df, _personas_naturales()).select(pedidas)
+
+
+def _escanear(p: Path, cols: list[str]) -> pl.LazyFrame:
+    esquema = pl.read_parquet_schema(p)
+    pedidas = [c for c in cols if c in esquema]
+    lf = pl.scan_parquet(p).select(columnas_para_enmascarar(pedidas, esquema))
+    return enmascarar(lf, _personas_naturales()).select(pedidas)
+
+
 def _parse_periodo(periodo_str: str) -> tuple[int, int]:
     """Parsea '2024-3' → (2024, 3)."""
     parts = periodo_str.split("-")
@@ -163,11 +192,8 @@ def scan_oc(
     frames = []
     for p in filtered:
         try:
-            lf = pl.scan_parquet(p)
-            # Seleccionar solo columnas disponibles en este archivo
             file_schema = pl.read_parquet_schema(p)
-            file_cols = [c for c in available if c in file_schema]
-            lf = lf.select(file_cols)
+            lf = _escanear(p, available)
             if max_date is not None and "FechaCreacion" in file_schema:
                 lf = lf.filter(pl.col("FechaCreacion").cast(pl.Date) <= pl.lit(max_date))
             frames.append(lf)
@@ -201,10 +227,8 @@ def scan_lic(
     frames = []
     for p in filtered:
         try:
-            lf = pl.scan_parquet(p)
             file_schema = pl.read_parquet_schema(p)
-            file_cols = [c for c in available if c in file_schema]
-            lf = lf.select(file_cols)
+            lf = _escanear(p, available)
             if max_date is not None and "FechaCreacion" in file_schema:
                 lf = lf.filter(pl.col("FechaCreacion").cast(pl.Date) <= pl.lit(max_date))
             frames.append(lf)
@@ -234,9 +258,7 @@ def iter_oc_parquets(
         if year < min_year:
             continue
         try:
-            schema = pl.read_parquet_schema(p)
-            avail = [c for c in cols if c in schema]
-            df = pl.read_parquet(p, columns=avail)
+            df = _leer(p, cols)
             if max_date is not None and "FechaCreacion" in df.columns:
                 df = df.filter(pl.col("FechaCreacion").cast(pl.Date) <= max_date)
             yield p.stem, con_monto_por_linea(con_numeros(con_vacios(df)))
@@ -259,9 +281,7 @@ def iter_lic_parquets(
         if year < min_year:
             continue
         try:
-            schema = pl.read_parquet_schema(p)
-            avail = [c for c in cols if c in schema]
-            df = pl.read_parquet(p, columns=avail)
+            df = _leer(p, cols)
             if max_date is not None and "FechaCreacion" in df.columns:
                 df = df.filter(pl.col("FechaCreacion").cast(pl.Date) <= max_date)
             yield p.stem, df

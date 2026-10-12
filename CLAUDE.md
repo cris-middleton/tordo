@@ -520,6 +520,10 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
 `analytics/` tiene 15 módulos Polars; `opportunity_scorer` corre último y agrega el resto.
 `analytics/evaluation/` es el harness de evaluación.
 
+`ETL_DATA_DIR` mueve la raíz de los datos (`raw/`, `consolidated/`, `analytics/`) sin tocar
+código. Para correr analytics desde un worktree sobre los datos del checkout principal:
+`ETL_DATA_DIR=~/…/tordo/etl/data uv run python -m etl.analytics.run_all`.
+
 ### Patrones vigentes
 - **Sin cuentas.** Lo que había aquí sobre sesión (JWT, refresco con rotación, Google,
   verificación de correo), claves de API, alertas y notificaciones, informe semanal,
@@ -542,6 +546,29 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
   `python tests/golden/capturar_golden_bi.py --desde-golden` — **sin `--desde-golden` el
   script redescubre los casos muestreando los datos** y sobre el fixture recortado produce
   otros distintos (la primera vez pasó de 31 casos a 7).
+- **Las personas naturales no salen en ninguna salida de analytics** (spec del pivote §8,
+  `etl/analytics/personas.py`). Un proveedor con RUT bajo 50.000.000 es una persona; el RUT
+  del proveedor es `RutSucursal` en las OC masivas y `RutProveedor` en LIC.
+  - **Se enmascara al LEER, en `data_loader`**, que es el único camino hacia los parquets
+    consolidados. Así ninguna columna derivada —`top_proveedor`, la `descripcion` de las
+    bandas L0, el índice TF-IDF que sirve `/bi/matching`— puede olvidarlo, incluida la
+    próxima que se escriba. **No leas un consolidado con `pl.read_parquet` por tu cuenta.**
+  - **Por código y con toda la historia**: un código es persona si cualquiera de sus RUT
+    está bajo el umbral **o si no tiene ninguno legible** (66 de 55.297 en los datos locales;
+    hay personas con `RutSucursal = "NA"`). Tapar alguna SpA de más es el error barato.
+  - **Seudónimo, no un código único.** Colapsarlas en uno las sumaría en un proveedor gigante
+    y el HHI mentiría. `PN-` + HMAC-SHA256 con una sal **del proceso** que no se guarda:
+    estable dentro de la corrida, distinto entre corridas, irreversible. `run_all --modulo X`
+    suelto da seudónimos distintos de los del resto; el cron semanal corre todo en un proceso.
+  - Se tapan nombre, código, RUT, `CodigoSucursal`, `Sucursal` y `EspecificacionProveedor`, y
+    se borra el nombre de la persona del **texto libre del comprador en sus propias filas**
+    (`EspecificacionComprador`, `Nombre`, `Descripcion`). Límite: una mención en una fila
+    ajena no se detecta.
+  - `etl/tests/test_personas_naturales.py` pasa una persona conocida por `run_all` entero y la
+    busca en **cada** archivo de salida, joblib y npz incluidos. Sin el enmascarado aparece en
+    once.
+  - **El catálogo (`proveedor_adjudicado`) todavía no está cubierto**: va en el PR siguiente,
+    con la misma regla (`personas.es_persona_natural`).
 - **`CodigoProveedor` NO es un RUT.** Es el identificador interno de Mercado Público: de
   los 4.204.598 registros de `competitors_by_market`, **cero** llevan guion. La traducción
   RUT → código sale de `ordenes_compra`, que guarda los dos (`rut_proveedor`,

@@ -1,15 +1,21 @@
 """Configuración compartida para el módulo de analytics."""
 
+import os
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
+#: Raíz de los datos: `raw/`, `consolidated/` y `analytics/`. `ETL_DATA_DIR` la
+#: mueve sin tocar código — para correr el pipeline sobre los datos de otro
+#: checkout, o sobre un directorio de prueba.
+DATA_DIR = Path(os.environ.get("ETL_DATA_DIR") or PROJECT_ROOT / "etl" / "data")
+
 # Datos consolidados (parquets por mes)
-OC_PARQUET_DIR = PROJECT_ROOT / "etl" / "data" / "consolidated" / "oc"
-LIC_PARQUET_DIR = PROJECT_ROOT / "etl" / "data" / "consolidated" / "lic"
+OC_PARQUET_DIR = DATA_DIR / "consolidated" / "oc"
+LIC_PARQUET_DIR = DATA_DIR / "consolidated" / "lic"
 
 # Salida de analytics
-OUTPUT_DIR = PROJECT_ROOT / "etl" / "data" / "analytics"
+OUTPUT_DIR = DATA_DIR / "analytics"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # Columnas clave — OC

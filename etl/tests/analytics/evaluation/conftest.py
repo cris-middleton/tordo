@@ -77,6 +77,14 @@ def empty_preds() -> pl.DataFrame:
 # ─── Synthetic OC/LIC parquets for integration tests ──────────────────────────
 
 
+def _rut_de_empresa(df: pl.DataFrame, columna: str) -> pl.DataFrame:
+    """P1, P2, P3 son EMPRESAS: RUT sobre 50M. Sin RUT legible, el cargador las
+    trataría como personas naturales y las seudonimizaría (`analytics.personas`)."""
+    return df.with_columns(
+        pl.col("CodigoProveedor").str.replace("P", "76.000.00").add("-1").alias(columna)
+    )
+
+
 @pytest.fixture
 def synthetic_oc_parquets(tmp_path, monkeypatch):
     """Write 3 tiny OC parquets to a tmp dir and point OC_PARQUET_DIR to it."""
@@ -99,7 +107,7 @@ def synthetic_oc_parquets(tmp_path, monkeypatch):
             "Nombre": ["resma papel A4", "detergente industrial", "papel higienico"],
             "CodigoLicitacion": ["L-001", None, "L-002"],
         }
-    ).write_parquet(oc_dir / "2024-1.parquet")
+    ).pipe(_rut_de_empresa, "RutSucursal").write_parquet(oc_dir / "2024-1.parquet")
 
     pl.DataFrame(
         {
@@ -111,7 +119,7 @@ def synthetic_oc_parquets(tmp_path, monkeypatch):
             "Nombre": ["notebooks oficina", "servicio aseo"],
             "CodigoLicitacion": ["L-003", "L-004"],
         }
-    ).write_parquet(oc_dir / "2024-2.parquet")
+    ).pipe(_rut_de_empresa, "RutSucursal").write_parquet(oc_dir / "2024-2.parquet")
 
     pl.DataFrame(
         {
@@ -123,7 +131,7 @@ def synthetic_oc_parquets(tmp_path, monkeypatch):
             "Nombre": ["resma"],
             "CodigoLicitacion": [None],
         }
-    ).write_parquet(oc_dir / "2024-3.parquet")
+    ).pipe(_rut_de_empresa, "RutSucursal").write_parquet(oc_dir / "2024-3.parquet")
 
     monkeypatch.setattr(analytics_config, "OC_PARQUET_DIR", oc_dir)
     from analytics import data_loader as _dl
@@ -151,7 +159,7 @@ def synthetic_lic_parquets(tmp_path, monkeypatch):
             "NombreProveedor": ["Prov2", "Prov1", "Prov3"],
             "Oferta seleccionada": [True, False, True],
         }
-    ).write_parquet(lic_dir / "2026-3.parquet")
+    ).pipe(_rut_de_empresa, "RutProveedor").write_parquet(lic_dir / "2026-3.parquet")
 
     # 2026-4: L-200 with 3 offers
     pl.DataFrame(
@@ -163,7 +171,7 @@ def synthetic_lic_parquets(tmp_path, monkeypatch):
             "NombreProveedor": ["Prov1", "Prov2", "Prov3"],
             "Oferta seleccionada": [True, False, False],
         }
-    ).write_parquet(lic_dir / "2026-4.parquet")
+    ).pipe(_rut_de_empresa, "RutProveedor").write_parquet(lic_dir / "2026-4.parquet")
 
     monkeypatch.setattr(analytics_config, "LIC_PARQUET_DIR", lic_dir)
     monkeypatch.setattr(_dl, "LIC_PARQUET_DIR", lic_dir)
@@ -186,7 +194,7 @@ def synthetic_test_window_ocs(tmp_path, synthetic_oc_parquets, monkeypatch):
             "Nombre": ["servicio aseo", "notebook hp"],
             "CodigoLicitacion": ["L-100", "L-101"],
         }
-    ).write_parquet(oc_dir / "2026-3.parquet")
+    ).pipe(_rut_de_empresa, "RutSucursal").write_parquet(oc_dir / "2026-3.parquet")
     # 2026-4
     pl.DataFrame(
         {
@@ -198,5 +206,5 @@ def synthetic_test_window_ocs(tmp_path, synthetic_oc_parquets, monkeypatch):
             "Nombre": ["resma"],
             "CodigoLicitacion": ["L-200"],
         }
-    ).write_parquet(oc_dir / "2026-4.parquet")
+    ).pipe(_rut_de_empresa, "RutSucursal").write_parquet(oc_dir / "2026-4.parquet")
     return oc_dir
