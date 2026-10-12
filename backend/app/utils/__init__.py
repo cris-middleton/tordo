@@ -1,1 +1,0 @@
-"""Utilidades sin estado."""

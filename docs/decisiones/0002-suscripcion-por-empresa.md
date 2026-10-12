@@ -1,5 +1,7 @@
 # 0002 — La suscripción pertenece a la empresa, no al usuario
 
+> **Supersedido** por [0011](0011-sitio-publico-sin-cuentas.md) (2026-10-11): sin cuentas ni cobros, esta decisión quedó sin objeto.
+
 **Estado**: Aceptada · **Fecha**: 2026-08-05 · **Implementada**: 2026-08-06 (F3)
 
 ## Contexto

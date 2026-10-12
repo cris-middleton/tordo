@@ -23,13 +23,10 @@ usa el resto del repo: la decisión la toma una persona, no el descuido.
 |---|---|---|
 | [`../CLAUDE.md`](../CLAUDE.md) | **El estado real del backend, el frontend y el ETL**, con las decisiones que el código no explica solo. Es el documento que más se actualiza. | Antes de tocar cualquier cosa |
 | [`PIVOTE_PUBLICO_2026-10.md`](PIVOTE_PUBLICO_2026-10.md) | **El plan en curso**: TORDO pasa de SaaS a sitio público y gratuito. Las 20 decisiones, la arquitectura objetivo, costos, datos personales y el orden de los diez PR | Antes de cualquier paso del pivote — y para saber qué partes de este índice describen algo que se va a retirar |
-| [`ARQUITECTURA_REVISION_2026-08.md`](ARQUITECTURA_REVISION_2026-08.md) | La revisión que originó las siete fases (F0–F6) y su estado de cierre, con lo que queda abierto y por qué | Para entender por qué el sistema es así |
-| [`decisiones/`](decisiones/README.md) | **10 ADRs**: sólo Chile, suscripción por empresa, nombre, LLM/MCP, pasarela local, analytics en Postgres, no migrar a Supabase, MercadoPago, API versionada, extracción de bases | Antes de re-discutir algo que ya se decidió |
+| [`decisiones/`](decisiones/README.md) | **11 ADRs**: sólo Chile, suscripción por empresa, nombre, LLM/MCP, pasarela local, analytics en Postgres, no migrar a Supabase, MercadoPago, API versionada, extracción de bases y el sitio público sin cuentas (0011, que supersede a 0002, 0005 y 0008) | Antes de re-discutir algo que ya se decidió |
 | [`DECLARACION_USO_DATOS.md`](DECLARACION_USO_DATOS.md) | **Bajo qué condiciones se usan los datos de ChileCompra**: la cita literal de la fuente (pie de cada página y primera línea de cada CSV), que ChileCompra no respalda el sitio, y por qué omitir a las personas naturales no es modificar el dato. Sustituye al PDF | Antes de tocar el pie, la exportación CSV o el enmascarado de personas |
 | [`DESPLIEGUE.md`](DESPLIEGUE.md) | **Cómo se pone en producción**: Railway (API y dos cron), R2, Healthchecks, Sentry, Vercel, DNS y correo, como lista ordenada con una comprobación por paso; y qué medir tras la primera corrida | Al desplegar, y al cambiar una variable de entorno o un Dockerfile |
 | [`API_PUBLICA.md`](API_PUBLICA.md) | Qué parte de la API es pública, límites, errores, el servidor MCP y **lo que no hay** | Para integrar desde fuera |
-| [`SPEC.md`](SPEC.md) | La especificación de producto | Para saber qué se prometió |
-| [`tordo_plan_saas.md`](tordo_plan_saas.md) | El plan de negocio: segmento, precios, competencia | Para decisiones de producto |
 
 **La referencia de endpoints no está en ningún `.md`, y es deliberado**: se
 genera del código y vive en `/docs`, `/redoc` y `/openapi.json`. Una lista de
@@ -42,6 +39,10 @@ producir — no porque describan el sistema de hoy.
 
 | documento | de cuándo | por qué se conserva |
 |---|---|---|
+| [`ARQUITECTURA_REVISION_2026-08.md`](ARQUITECTURA_REVISION_2026-08.md) | 2026-08-05 | La revisión que originó las fases F0–F6 del SaaS y su cierre. **Anterior al pivote**; sus puntos de deuda y aplazados conservan el razonamiento |
+| [`SPEC.md`](SPEC.md) | 2026-03 | La especificación del SaaS (cuentas, planes, alertas). **Anterior al pivote** |
+| [`tordo_plan_saas.md`](tordo_plan_saas.md) | 2026-03 | El plan de negocio del SaaS: segmento, precios, competencia. **Anterior al pivote** |
+| [`mercado_publico_faq.md`](mercado_publico_faq.md) | sin fecha | Un resumen de cómo funciona Mercado Público, **de origen no trazable y con cifras sin verificar** (traía marcas de cita rotas). Útil como vocabulario; para montos y requisitos, ChileCompra |
 | [`COMPETENCIA_KAPTOR_2026-08.md`](COMPETENCIA_KAPTOR_2026-08.md) | 2026-08-15 | El análisis de kaptor.cl función por función contra el código, y el plan de respuesta que salió de él. Kaptor publica ~1 release al día: su columna envejece rápido, el razonamiento no |
 | [`BRECHA_PRODUCTO_2026-08.md`](BRECHA_PRODUCTO_2026-08.md) | 2026-08-07 | La lectura del código contra el plan de negocio que ordenó las prioridades de F6 |
 | [`ANALISIS_PROBLEMAS_DATOS.md`](ANALISIS_PROBLEMAS_DATOS.md) | 2026-04 | Los problemas de estructura de datos que encontró y **que ya están corregidos** |
@@ -59,7 +60,6 @@ producir — no porque describan el sistema de hoy.
 | `Documentación API Mercado Publico - Licitaciones.pdf` | Diccionario de datos oficial de ChileCompra. **Es la fuente cuando hay dudas sobre un campo** — se usó para decidir el [ADR 0010](decisiones/0010-extraccion-de-bases-con-llm.md) |
 | `Documentación API de Mercado Público - Órdenes de Compra.pdf` | Ídem, para órdenes de compra |
 | `Declaración de Uso de Datos Oficiales.pdf` | La versión de la etapa SaaS de la declaración. **La vigente es [`DECLARACION_USO_DATOS.md`](DECLARACION_USO_DATOS.md)**; el PDF se conserva como registro |
-| [`mercado_publico_faq.md`](mercado_publico_faq.md) | Cómo funciona Mercado Público: mecanismos de compra, plazos, vocabulario |
 
 ## Dónde va cada cosa
 

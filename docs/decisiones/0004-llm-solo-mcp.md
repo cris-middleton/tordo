@@ -1,5 +1,7 @@
 # 0004 — LLM acotado a un servidor MCP sobre la base histórica
 
+> **Modificado** por [0011](0011-sitio-publico-sin-cuentas.md) (2026-10-11): el MCP sigue, pero anónimo y con límite por IP, no «cobrado dentro del plan».
+
 **Estado**: Aceptada · **en pausa** 2026-08-07 → **construido** 2026-08-08 · **Fecha**: 2026-08-05
 
 ## Contexto

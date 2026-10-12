@@ -1,5 +1,7 @@
 # 0008 — MercadoPago como pasarela principal, y sólo una para empezar
 
+> **Supersedido** por [0011](0011-sitio-publico-sin-cuentas.md) (2026-10-11): sin cuentas ni cobros, esta decisión quedó sin objeto.
+
 **Estado**: Aceptada · **Fecha**: 2026-08-06
 **Supersede parcialmente** a [0005](0005-pasarela-local-v1.md), que dejaba abierta la elección.
 

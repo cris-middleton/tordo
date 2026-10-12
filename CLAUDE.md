@@ -4,7 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > **Este documento describe el estado REAL del código, no el objetivo.** Lo que está
 > planificado pero no construido vive en "Hacia dónde va" y en
-> `docs/ARQUITECTURA_REVISION_2026-08.md`. Si encuentras una diferencia entre este
+> `docs/PIVOTE_PUBLICO_2026-10.md` (`docs/ARQUITECTURA_REVISION_2026-08.md` es la revisión
+> del SaaS, histórica desde el pivote). Si encuentras una diferencia entre este
 > archivo y el código, **el código gana** — y corrige este archivo en el mismo PR.
 >
 > **`docs/README.md` es el mapa de la documentación**: dice, documento a documento, cuál
@@ -488,7 +489,7 @@ dominio, y la regla sigue.
 
 Una excepción, con su motivo en el test: `health.py` (`SELECT 1` no es una consulta de dominio).
 
-**Los `__init__.py` de `api/`, `core/`, `services/` y `utils/` están vacíos a
+**Los `__init__.py` de `api/`, `core/` y `services/` están vacíos a
 propósito, y los de `models/` y `schemas/` sólo re-exportan lo que existe.** Importar ahí los
 routers convertía cualquier `from app.api.x import ...` en «importa la aplicación entera», y
 de ahí salió una importación circular. Peor: **dependía del orden de importación**, así que CI
@@ -510,7 +511,6 @@ observability/  logging JSON con request_id (contextvar) + Sentry opt-in
 db/             sesión async (asyncpg) y motor sync (psycopg2, para analytics_sync)
 models/         SQLAlchemy
 schemas/        Pydantic — todos van aquí
-utils/          rut.py (sin uso hoy; lo usará el enmascarado de personas naturales)
 ```
 
 **Routers**: tenders (3 rutas), bi (20), compra_agil (1), publico (5), health. Todos anónimos. Los de cuenta (auth, users,
@@ -964,7 +964,8 @@ estos patrones, es señal de que hay que arreglar la causa, no de copiarlo:
 Decisiones tomadas el 2026-08-05, con su ADR en `docs/decisiones/`: sólo Chile (sin
 multi-país), nombre TORDO y LLM acotado a un servidor MCP sobre la base histórica siguen
 vigentes. La suscripción por empresa con planes y la pasarela de pago local **las dejó sin
-objeto el pivote**.
+objeto el pivote**: [ADR 0011](docs/decisiones/0011-sitio-publico-sin-cuentas.md) supersede a
+0002, 0005 y 0008, modifica a 0004 (MCP anónimo) y dice qué lo reabriría.
 
 **El MCP está construido** (ADR 0004, retomado el 2026-08-08 al cumplirse su propia
 condición: la API pública ya está, así que dejó de ser superficie nueva). Vive en `app/mcp/`,

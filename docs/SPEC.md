@@ -1,4 +1,6 @@
 # SPEC.md — TORDO v1.1
+
+> 🟡 **Histórico: anterior al pivote** (2026-10-11). Describe el SaaS con cuentas, planes y cobro, que se retiró ([ADR 0011](decisiones/0011-sitio-publico-sin-cuentas.md)). Se conserva por el razonamiento de producto. Lo vigente: `CLAUDE.md` y `docs/PIVOTE_PUBLICO_2026-10.md`.
 ## Especificaciones Técnicas de Producto
 
 > **Versión**: 1.1 · **Fecha**: Marzo 2026 · **Estado**: Aprobado para desarrollo
