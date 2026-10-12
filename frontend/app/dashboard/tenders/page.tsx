@@ -483,8 +483,13 @@ export default function TendersPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center py-24">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
+        // El título va también en el respaldo: es lo que sirve el servidor, y
+        // sin él el HTML del catálogo no tenía <h1>.
+        <div className="space-y-5">
+          <h1 className="page-title">Licitaciones</h1>
+          <div className="flex items-center justify-center py-24">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
+          </div>
         </div>
       }
     >

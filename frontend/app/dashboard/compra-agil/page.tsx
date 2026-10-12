@@ -168,8 +168,13 @@ export default function CompraAgilPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center py-24">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
+        // El título va también en el respaldo: es lo que sirve el servidor (la
+        // página entera se pinta en el cliente), y sin él el HTML no tenía <h1>.
+        <div className="space-y-5">
+          <h1 className="page-title">Lo mejor de hoy en Compra Ágil</h1>
+          <div className="flex items-center justify-center py-24">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
+          </div>
         </div>
       }
     >
