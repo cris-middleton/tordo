@@ -44,8 +44,10 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
+from etl import almacen
 from etl import main as etl
 from etl.analytics import materialize, run_all
+from etl.analytics.config import DATA_DIR
 from etl.extractors.compra_agil import CuotaDiariaAgotada
 from etl.scripts import descargar_datos_masivos as descarga
 
@@ -232,29 +234,44 @@ def correr_frecuente(instante: datetime, pasos: PasosFrecuente) -> bool:
 
 @dataclass
 class PasosSemanal:
+    bajar: Callable[[], int]
     purgar: Callable[[list[tuple[int, int]]], bool]
     descargar: Callable[[list[tuple[int, int]]], bool]
     analytics: Callable[[], list[str]]
     materializar: Callable[[], bool]
+    subir: Callable[[], int]
 
     @classmethod
     def reales(cls) -> PasosSemanal:
+        # Falla AQUÍ si `ETL_ALMACEN` falta o le faltan credenciales: antes de
+        # descargar nada, y con un /fail que dice qué variable es.
+        destino = almacen.desde_entorno(DATA_DIR)
         return cls(
-            purgar=_purgar_zips,
+            bajar=destino.bajar,
+            purgar=_purgar,
             descargar=_descargar,
             analytics=run_all.ejecutar_todos,
             materializar=lambda: materialize.main([]) == 0,
+            subir=destino.subir,
         )
 
 
-def _purgar_zips(periodos: list[tuple[int, int]]) -> bool:
-    """Borra los ZIPs en caché de esos meses para obligar a redescargarlos."""
+def _purgar(periodos: list[tuple[int, int]]) -> bool:
+    """Borra los ZIPs Y los consolidados de esos meses, para rehacerlos.
+
+    Sólo los ZIPs no bastaba: `consolidar_tipo` se salta un mes cuyo parquet ya
+    existe, así que el ZIP nuevo se bajaba y nunca llegaba a analytics — lo que
+    ChileCompra corrige de los meses recientes no entraba jamás.
+    """
     for tipo in ("oc", "lic"):
         for anio, mes in periodos:
-            ruta = descarga.RAW_DIR / tipo / f"{anio}-{mes}.zip"
-            if ruta.exists():
-                ruta.unlink()
-                logger.info("semanal: borrado %s", ruta)
+            for ruta in (
+                descarga.RAW_DIR / tipo / f"{anio}-{mes}.zip",
+                descarga.CONSOLIDATED_DIR / tipo / f"{anio}-{mes}.parquet",
+            ):
+                if ruta.exists():
+                    ruta.unlink()
+                    logger.info("semanal: borrado %s", ruta)
     return True
 
 
@@ -281,10 +298,13 @@ def correr_semanal(instante: datetime, pasos: PasosSemanal) -> bool:
     periodos = periodos_recientes(instante, MESES_A_REDESCARGAR)
     logger.info("semanal: meses %s", periodos)
 
+    # La historia vive en R2 (`etl/almacen.py`): el contenedor arranca vacío.
+    pasos.bajar()
     pasos.purgar(periodos)
     if not pasos.descargar(periodos):
-        # Los ZIPs ya están purgados: reconstruir ahora sería hacerlo sin esos
-        # meses, y materializarlo, publicar un análisis con un agujero.
+        # Los meses ya están purgados en local: reconstruir ahora sería hacerlo
+        # sin ellos y publicar un análisis con un agujero. Tampoco se sube nada,
+        # así que el bucket conserva la versión anterior intacta.
         return False
 
     fallidos = pasos.analytics()
@@ -293,6 +313,8 @@ def correr_semanal(instante: datetime, pasos: PasosSemanal) -> bool:
     # Se materializa igual: un módulo roto deja su parquet de la semana pasada,
     # y lo que sí se reconstruyó merece llegar a la API.
     materializado = pasos.materializar()
+    # Y se sube igual: los consolidados nuevos valen aunque un módulo fallara.
+    pasos.subir()
     return materializado and not fallidos
 
 

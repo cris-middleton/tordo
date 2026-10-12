@@ -30,7 +30,7 @@ Uso:
 
 Grupos por fuente de datos:
   oc  — seasonality, price, competitors, tfidf, clustering, trends, product_prices,
-         buyers, sectors, discounts, diversification, scorer
+         buyers, sectors, discounts, diversification, compra_agil_mensual, scorer
   lic — transparency, windows, competitor_predictor
 """
 
@@ -47,6 +47,7 @@ _MODULOS_OC = [
     ("sectors", "Inteligencia por sector y región"),
     ("discounts", "Descuento óptimo por contexto"),
     ("diversification", "Score de diversificación de proveedores"),
+    ("compra_agil_mensual", "Compra Ágil por comprador y mes"),
     ("scorer", "Scoring de oportunidades"),  # al final: usa outputs anteriores
 ]
 
@@ -67,6 +68,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from etl.analytics.compra_agil_mensual import run_compra_agil_mensual
 from etl.analytics.config import OUTPUT_DIR
 
 logging.basicConfig(
@@ -160,6 +162,9 @@ def run_module(name: str):
 
         run_provider_diversification()
 
+    elif name == "compra_agil_mensual":
+        run_compra_agil_mensual()
+
     else:
         logger.error(f"Módulo desconocido: {name}")
         return
@@ -220,6 +225,7 @@ def main():
             "transparency",
             "windows",
             "diversification",
+            "compra_agil_mensual",
         ],
         default=None,
         help="Ejecutar solo un módulo específico.",

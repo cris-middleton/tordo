@@ -147,3 +147,23 @@ def test_omite_un_indice_si_falta_la_columna(engine, df):
         }
     assert any("codigoProductoONU" in i for i in indices)
     assert not any("columna_que_no_existe" in i for i in indices)
+
+
+def test_los_comentarios_de_columna_llegan_a_la_tabla_final(engine, df):
+    spec = TablaAnalytics(
+        tabla="tabla_de_prueba",
+        parquet="irrelevante.parquet",
+        comentarios={"codigoProductoONU": "Categoría UNSPSC, no producto.", "no_existe": "x"},
+    )
+    materializar(df, spec, engine)
+    with engine.begin() as conn:
+        comentario = conn.execute(
+            text(
+                "SELECT col_description(c.oid, a.attnum) FROM pg_class c "
+                "JOIN pg_namespace n ON n.oid = c.relnamespace "
+                "JOIN pg_attribute a ON a.attrelid = c.oid "
+                "WHERE n.nspname = :s AND c.relname = :t AND a.attname = 'codigoProductoONU'"
+            ),
+            {"s": SCHEMA, "t": spec.tabla},
+        ).scalar()
+    assert comentario == "Categoría UNSPSC, no producto."

@@ -382,7 +382,7 @@ ETL — **desde la raíz**, como módulo (`cd etl && python main.py` falla con
 `No module named 'etl'`):
 ```bash
 uv run python -m etl.cron frecuente [--forzar] # cron de Railway, cada hora UTC (se autolimita)
-uv run python -m etl.cron semanal              # cron de Railway: descarga masiva + analytics + materializa
+ETL_ALMACEN=disco uv run python -m etl.cron semanal  # cron de Railway: R2 → descarga masiva → analytics → materializa → R2
 uv run python -m etl.main --horario            # una pasada «horaria» a mano
 uv run python -m etl.main --fecha-desde 2026-09-01 --fecha-hasta 2026-09-01
 uv run python -m etl.analytics.run_all [--modulo seasonality]
@@ -404,6 +404,31 @@ una preguntada no vuelve en 3 días aunque no haya novedad, o el tope nunca lleg
 demás. Va **después** del listado de Compra Ágil, como todo lo que gasta cuota. Latido
 a Healthchecks.io con `LATIDO_URL_FRECUENTE` / `LATIDO_URL_SEMANAL`; un ping roto no
 tumba la corrida.
+
+**`semanal` guarda la historia en R2** (`etl/almacen.py`): el contenedor de Railway arranca
+con el disco vacío. Baja `consolidated/` y `analytics/` al empezar y sube lo que cambió al
+terminar (MD5 contra ETag: sólo viaja lo que cambió). Todo lo demás del pipeline sigue leyendo
+disco, sin una línea distinta entre local y producción. `raw/` no se sube: los ZIPs vienen de
+ChileCompra, que es su fuente.
+- **`ETL_ALMACEN` es obligatoria, sin valor por defecto** (`r2` | `disco`). Caer a disco en
+  producción no fallaría: reconstruiría el análisis sólo con los 3 meses recién bajados y lo
+  publicaría. En `r2`, una credencial que falta (`R2_ENDPOINT_URL`, `R2_ACCESS_KEY_ID`,
+  `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`) hace fallar la corrida al construirse, con su nombre
+  en el `/fail`.
+- **Purga ZIP Y consolidado** de los 3 meses que rehace. Antes sólo el ZIP, y
+  `consolidar_tipo` se salta un mes ya consolidado: lo que ChileCompra corregía de los meses
+  recientes nunca llegaba a analytics.
+- **RAM medida** (run_all + materialize en un proceso, como el cron; RSS máximo en macOS, Mac de
+  10 núcleos): **1,68 GB con 3 meses de OC, 3,17 GB con 6**. Manda `product_prices`: 3,25 GB
+  sólo él con 6 meses, **lineal con la historia (~0,5 GB por mes)**, porque no tiene ventana
+  —lee todo desde `MIN_YEAR`— y concatena cada línea de ítem. El siguiente es `competitors`
+  con 1,29 GB; TF-IDF y clustering juntos, ~0,3 GB del pico. **Con años de historia no cabe en
+  ningún tamaño razonable: el servicio semanal no se puede dimensionar hasta que
+  `product_prices` tenga ventana**. **Decidido (2026-10-11): ventana móvil de 12 meses para las
+  bandas de precio** (~6,5 GB de pico) **y servicio semanal de 8 GB** en Railway; va en su
+  propio PR, que mide además qué otros módulos crecen con la historia. No lo arregles
+  subiendo la máquina. Los módulos de LIC (`buyers` incluido) no se pudieron medir: no hay
+  parquets de LIC en local.
 
 **La pasada horaria es `--horario`**: licitaciones publicadas hoy, Compra Ágil de las
 últimas 2 h y detalles nuevos. La tarea «horaria» corría `--only-extraer-nuevos`, que sólo
@@ -594,6 +619,24 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
     `etl/tests/test_migracion_personas_catalogo.py` fija que la copia y la viva coinciden.
   - `ordenes_compra` crudas guardan nombre y RUT del proveedor y **no** se limpian: ninguna
     ruta pública las sirve y el paso 7 las saca de Postgres.
+- **`analytics.compra_agil_mensual`**: Compras Ágiles publicadas y adjudicadas por comprador y
+  mes (spec del pivote §6.2). Dos fuentes, porque ninguna tiene las dos cifras:
+  - **`adjudicadas / publicadas` NO es una tasa: son dos conteos de cosas distintas**, en
+    meses que no se corresponden (la orden sale días después de publicar): en los bordes de
+    mes el cociente se desplaza y puede pasar de 1. Lo dicen también los `COMMENT ON COLUMN`
+    de la tabla (`TablaAnalytics.comentarios`).
+  - `adjudicadas` sale de las OC masivas (`EsCompraAgil = "Si"`) y **cuenta ÓRDENES**, fechadas
+    por la orden. Ningún campo enlaza la orden con su Compra Ágil (`CodigoLicitacion` va
+    vacío); el texto sí, a veces: el `Nombre` de sistema («…generada por invitación a compra
+    ágil: 1510-140-COT24») en el 37,9 % y algún código `-COT` en el texto libre del 78,2 %.
+    Donde se enlaza, **1 Compra Ágil → 1 orden en el 99,996 %**: contar órdenes es contar
+    adjudicadas; lo que falla es el mes. Sin las canceladas.
+  - `publicadas` sale de `licitaciones` (lo que ingiere el ETL), que sólo guarda 30 días: **se
+    acumula**, quedándose cada semana con el máximo por (comprador, mes) entre la tabla
+    anterior y lo que se ve ahora. No hay historia previa: se llena desde el despliegue.
+  - La Compra Ágil ingerida trae el RUT del comprador, no su código: se traduce con las OC
+    (`RutUnidadCompra` → `CodigoOrganismoPublico`, el más frecuente). Lo que no se traduce
+    cuenta igual, con código nulo.
 - **`CodigoProveedor` NO es un RUT.** Es el identificador interno de Mercado Público: de
   los 4.204.598 registros de `competitors_by_market`, **cero** llevan guion. La traducción
   RUT → código sale de `ordenes_compra`, que guarda los dos (`rut_proveedor`,

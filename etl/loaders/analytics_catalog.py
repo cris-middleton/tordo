@@ -173,6 +173,31 @@ CATALOGO: list[TablaAnalytics] = [
         parquet="sector_dashboard.parquet",
         indices=[["sector"]],
     ),
+    # ── Compra Ágil ──────────────────────────────────────────────────────────
+    # Tasa de adjudicación del ranking «lo mejor de hoy» (spec del pivote §6.2):
+    # se consulta por comprador, y el mes acota la ventana.
+    #
+    # `adjudicadas / publicadas` NO es una tasa: son dos conteos de cosas
+    # distintas, en meses que no se corresponden (la orden sale días después de
+    # publicar). Ver el comentario de cada columna y etl/analytics/compra_agil_mensual.py.
+    TablaAnalytics(
+        tabla="compra_agil_mensual",
+        parquet="compra_agil_mensual.parquet",
+        indices=[["CodigoOrganismoPublico", "mes"]],
+        comentarios={
+            "publicadas": (
+                "Compras Ágiles PUBLICADAS por el comprador ese mes (fecha de publicación, "
+                "hora de Chile), según lo ingerido por el ETL. Se acumula semana a semana: "
+                "nulo = mes anterior al despliegue, sin dato. No es el denominador de una tasa."
+            ),
+            "adjudicadas": (
+                "ÓRDENES DE COMPRA de Compra Ágil vigentes emitidas ese mes (FechaCreacion "
+                "de la OC), de la descarga masiva. Cuenta órdenes, no solicitudes; medido: "
+                "1 Compra Ágil → 1 orden en el 99,996 % de los casos enlazables. El mes es "
+                "el de la orden, no el de la publicación: adjudicadas/publicadas NO es una tasa."
+            ),
+        },
+    ),
 ]
 
 POR_TABLA: dict[str, TablaAnalytics] = {t.tabla: t for t in CATALOGO}

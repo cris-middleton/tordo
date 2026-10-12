@@ -80,6 +80,9 @@ class TablaAnalytics:
     tabla: str
     parquet: str
     indices: list[list[str]] = field(default_factory=list)
+    #: columna → `COMMENT ON COLUMN`. Para lo que se lee mal sin explicación:
+    #: estas tablas no tienen modelo SQLAlchemy donde poner `comment=`.
+    comentarios: dict[str, str] = field(default_factory=dict)
 
 
 def _tipo_pg(dtype) -> str:
@@ -140,8 +143,18 @@ def materializar(
         raw.close()
 
     # Los índices se crean sobre la tabla nueva, antes del swap: así la tabla
-    # entra en servicio ya indexada y nunca hay una ventana sin índices.
+    # entra en servicio ya indexada y nunca hay una ventana sin índices. Los
+    # comentarios también: sobreviven al RENAME.
     with engine.begin() as conn:
+        for columna, comentario in spec.comentarios.items():
+            if columna not in df.columns:
+                logger.warning("%s: comentario sobre %s, que no existe", spec.tabla, columna)
+                continue
+            conn.execute(
+                text(f"COMMENT ON COLUMN {q_tmp}.{_identificador(columna)} IS :c").bindparams(
+                    c=comentario
+                )
+            )
         for cols in spec.indices:
             faltantes = [c for c in cols if c not in df.columns]
             if faltantes:

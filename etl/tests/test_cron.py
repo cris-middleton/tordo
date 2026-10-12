@@ -334,16 +334,18 @@ def test_periodos_recientes_cruzan_el_año():
 def test_semanal_en_orden_y_falla_si_falla_un_modulo():
     r = _Registro()
     pasos = cron.PasosSemanal(
+        bajar=r.paso("bajar"),
         purgar=r.paso("purgar"),
         descargar=r.paso("descargar"),
         analytics=lambda: (r.llamadas.append(("analytics",)), ["scorer"])[1],
         materializar=r.paso("materializar"),
+        subir=r.paso("subir"),
     )
     ok = cron.correr_semanal(_chile("2026-10-11T03:00:00"), pasos)
-    assert r.nombres() == ["purgar", "descargar", "analytics", "materializar"]
-    assert r.llamadas[0] == ("purgar", [(2026, 8), (2026, 9), (2026, 10)])
-    # Un módulo de analytics roto no impide materializar lo que sí salió, pero
-    # la corrida no es buena: es para eso el /fail.
+    assert r.nombres() == ["bajar", "purgar", "descargar", "analytics", "materializar", "subir"]
+    assert r.llamadas[1] == ("purgar", [(2026, 8), (2026, 9), (2026, 10)])
+    # Un módulo de analytics roto no impide materializar ni subir lo que sí
+    # salió, pero la corrida no es buena: es para eso el /fail.
     assert not ok
 
 
@@ -351,13 +353,46 @@ def test_semanal_no_materializa_si_la_descarga_falla():
     """Con la descarga rota, analytics reconstruiría sobre ZIPs purgados."""
     r = _Registro(fallan={"descargar"})
     pasos = cron.PasosSemanal(
+        bajar=r.paso("bajar"),
         purgar=r.paso("purgar"),
         descargar=r.paso("descargar"),
         analytics=lambda: [],
         materializar=r.paso("materializar"),
+        subir=r.paso("subir"),
     )
     assert not cron.correr_semanal(_chile("2026-10-11T03:00:00"), pasos)
-    assert r.nombres() == ["purgar", "descargar"]
+    # Tampoco se sube: el bucket conserva la versión anterior entera.
+    assert r.nombres() == ["bajar", "purgar", "descargar"]
+
+
+def test_purgar_borra_tambien_los_consolidados(tmp_path, monkeypatch):
+    """Sólo los ZIPs no bastaba: `consolidar_tipo` se salta un mes ya consolidado."""
+    monkeypatch.setattr(cron.descarga, "RAW_DIR", tmp_path / "raw")
+    monkeypatch.setattr(cron.descarga, "CONSOLIDATED_DIR", tmp_path / "consolidated")
+    for ruta in (
+        "raw/oc/2026-9.zip",
+        "consolidated/oc/2026-9.parquet",
+        "consolidated/lic/2026-9.parquet",
+        "consolidated/oc/2026-6.parquet",  # fuera de la ventana: se queda
+    ):
+        (tmp_path / ruta).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / ruta).write_bytes(b"x")
+    cron._purgar([(2026, 9)])
+    quedan = sorted(p.relative_to(tmp_path).as_posix() for p in tmp_path.rglob("*.*"))
+    assert quedan == ["consolidated/oc/2026-6.parquet"]
+
+
+def test_semanal_sin_almacen_configurado_falla_con_el_motivo(monkeypatch):
+    monkeypatch.delenv("ETL_ALMACEN", raising=False)
+    transporte = _Transporte()
+    codigo = cron.ejecutar(
+        "semanal",
+        ahora=lambda: _utc("2026-10-11T06:00:00"),
+        latido=cron.Latido(URL, httpx.Client(transport=httpx.MockTransport(transporte))),
+    )
+    assert codigo == 1
+    assert transporte.urls() == [f"{URL}/start", f"{URL}/fail"]
+    assert "ETL_ALMACEN" in transporte.peticiones[-1].content.decode()
 
 
 # ── Cuota de Compra Ágil ─────────────────────────────────────────────────────

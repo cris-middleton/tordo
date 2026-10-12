@@ -51,10 +51,6 @@ api = [
     # parte porque el protocolo se mueve rápido, y un rango abierto convertiría
     # una rotura suya en una rotura nuestra sin aviso.
     "mcp>=2,<3",
-    # Hoy sin uso: guardaba los documentos de las empresas, que se fueron con las
-    # cuentas en el pivote público. Se conserva porque el paso 6 lo necesita para
-    # subir los parquets de analytics a R2 (docs/PIVOTE_PUBLICO_2026-10.md, D3).
-    "boto3>=1.35,<2",
     # Base de datos
     "asyncpg>=0.30,<1",
     "alembic>=1.14,<2",
@@ -80,6 +76,10 @@ etl = [
     "scikit-learn>=1.5,<2",
     "scipy>=1.14,<2",
     "joblib>=1.4,<2",
+    # Los parquets viven en R2 (S3-compatible) entre corridas del cron semanal:
+    # ver etl/almacen.py. Estaba en `api` para los documentos de las empresas,
+    # que se fueron con las cuentas; la API ya no lo importa.
+    "boto3>=1.35,<2",
 ]
 
 dev = [

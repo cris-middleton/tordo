@@ -16,6 +16,7 @@ Uso:
 import argparse
 import io
 import logging
+import os
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -38,9 +39,12 @@ CHUNK_SIZE = 8192  # Bytes por chunk en streaming download
 REQUEST_TIMEOUT = 120  # Segundos
 CSV_ENCODINGS = ["latin-1", "utf-8", "cp1252"]  # Encodings a intentar
 
-# Paths relativos a la raíz del proyecto
+# Paths relativos a la raíz del proyecto. `ETL_DATA_DIR` la mueve: es la MISMA
+# regla que `etl/analytics/config.py::DATA_DIR`, repetida porque este script
+# también se corre suelto (`python etl/scripts/...`), sin el paquete `etl` en el
+# path. `etl/tests/test_almacen.py` fija que las dos coinciden.
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = PROJECT_ROOT / "etl" / "data"
+DATA_DIR = Path(os.environ.get("ETL_DATA_DIR") or PROJECT_ROOT / "etl" / "data")
 RAW_DIR = DATA_DIR / "raw"
 CONSOLIDATED_DIR = DATA_DIR / "consolidated"
 

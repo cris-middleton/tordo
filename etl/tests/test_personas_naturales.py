@@ -211,6 +211,12 @@ RUBROS = [
 
 #: Variantes del producto: TF-IDF descarta a un proveedor con menos de 20
 #: caracteres de texto, y el clustering necesita vocabulario.
+#:
+#: Cada proveedor ve SÓLO 3 de las 6 (las suyas, fijas), así que cada palabra
+#: aparece en ~la mitad de los proveedores: dentro de [min_df=5, max_df=80 %].
+#: Rotarlas todas para todos hacía que cada palabra estuviera en todos, TF-IDF
+#: las podaba y sólo quedaban bigramas que cruzan productos — y ésos dependen del
+#: orden de un `set`, que cambia en cada proceso. El test fallaba una de cada pocas.
 VARIANTES = [
     "nocturno perimetral bodega central",
     "diurno acceso principal recepcion",
@@ -226,7 +232,7 @@ def _ordenes(anio: int, mes: int) -> pl.DataFrame:
     n = 0
     for org_cod, org_nom in ORGANISMOS:
         for rubro1, rubro2, onu, producto in RUBROS:
-            for codigo, nombre, rut, peso in PROVEEDORES:
+            for indice, (codigo, nombre, rut, peso) in enumerate(PROVEEDORES):
                 for k in range(peso):
                     n += 1
                     es_persona = codigo == CODIGO
@@ -269,7 +275,7 @@ def _ordenes(anio: int, mes: int) -> pl.DataFrame:
                             "codigoCategoria": onu[:6] + "00",
                             "Categoria": f"{rubro1} / {rubro2} / {producto}",
                             "codigoProductoONU": onu,
-                            "NombreroductoGenerico": f"{producto} {VARIANTES[(n + k + mes) % len(VARIANTES)]}",
+                            "NombreroductoGenerico": f"{producto} {VARIANTES[(indice + mes % 3) % len(VARIANTES)]}",
                             "RubroN1": rubro1,
                             "RubroN2": rubro2,
                             "RubroN3": producto,
