@@ -30,7 +30,7 @@ const RUTAS_PERMITIDAS = [
   '/rubros/',
   '/productos/',
   '/compradores/',
-  '/explicativos/',
+  '/guias/',
 ];
 
 interface Frontmatter {

@@ -28,6 +28,10 @@ export function PieAtribucion({ className = '' }: { className?: string }) {
           Privacidad
         </Link>
       </nav>
+      {/* Fuera de la navegación legal: no es un documento. Discreto a propósito. */}
+      <Link href="/apoyar" className="text-[11px] text-subtle transition-colors hover:text-primary">
+        Apoyar el sitio
+      </Link>
     </div>
   );
 }

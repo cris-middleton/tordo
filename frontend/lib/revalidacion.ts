@@ -32,6 +32,13 @@ export const ETIQUETAS_REVALIDABLES: readonly string[] = [ETIQUETA_ANALYTICS, ET
 export const SEGUNDOS_CACHE_ANALYTICS = 604800;
 
 /**
+ * Media hora: el bloque «Lo mejor de hoy» de la portada. El cron frecuente lo
+ * adelanta con la etiqueta `compra-agil`; la media hora es la red por si el
+ * aviso no llega, y lo que tarda en caer una que ya cerró.
+ */
+export const SEGUNDOS_CACHE_COMPRA_AGIL = 1800;
+
+/**
  * Compara en tiempo constante. Se comparan los SHA-256 y no las cadenas: así
  * los dos lados miden lo mismo y `timingSafeEqual` no delata la longitud del
  * secreto lanzando con largos distintos.

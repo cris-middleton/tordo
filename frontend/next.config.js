@@ -5,6 +5,12 @@
 const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
+  // Las guías (`/guias/*`) se generan en el build, pero el sitemap se genera al
+  // pedirlo y lee `content/explicativos` del disco: sin esto, el contenido no
+  // entraría en la traza del servidor y el sitemap saldría sin guías.
+  outputFileTracingIncludes: {
+    '/sitemap.xml': ['./content/explicativos/**/*'],
+  },
 }
 
 const { withSentryConfig } = require('@sentry/nextjs')

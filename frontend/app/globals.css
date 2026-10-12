@@ -325,10 +325,6 @@
     @apply inline-flex items-center gap-1 rounded-full bg-dangerLight px-2.5 py-0.5 text-xs font-semibold text-danger;
   }
 
-  .badge-pro {
-    @apply inline-flex items-center gap-1 rounded-full bg-gold px-2.5 py-0.5 text-xs font-bold text-onGold;
-  }
-
   /* ──────────────────────────────────────────────
      THEME TRANSITIONS
   ────────────────────────────────────────────── */

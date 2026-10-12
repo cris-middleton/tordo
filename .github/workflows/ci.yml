@@ -240,12 +240,14 @@ jobs:
         env:
           PROXY_SECRETO: centinela-proxy-secreto-no-debe-llegar-al-navegador
           REVALIDAR_SECRETO: centinela-revalidar-secreto-no-debe-llegar
+          DONAR_TRANSFERENCIA: centinela-datos-de-transferencia-no-van-en-el-html
         run: npm run build
 
       - name: Los secretos de servidor no están en el bundle
         env:
           PROXY_SECRETO: centinela-proxy-secreto-no-debe-llegar-al-navegador
           REVALIDAR_SECRETO: centinela-revalidar-secreto-no-debe-llegar
+          DONAR_TRANSFERENCIA: centinela-datos-de-transferencia-no-van-en-el-html
         run: npm run check:secreto
 
   # ───────────────────────────────────────────────────────────────────────────

@@ -2,13 +2,19 @@
 /**
  * Los secretos de servidor no llegan al navegador (Foco de revisión nº 2 del pivote).
  *
- *   PROXY_SECRETO=<centinela> REVALIDAR_SECRETO=<otro> npm run build
- *   PROXY_SECRETO=<centinela> REVALIDAR_SECRETO=<otro> npm run check:secreto
+ *   PROXY_SECRETO=<c1> REVALIDAR_SECRETO=<c2> DONAR_TRANSFERENCIA=<c3> npm run build
+ *   PROXY_SECRETO=<c1> REVALIDAR_SECRETO=<c2> DONAR_TRANSFERENCIA=<c3> npm run check:secreto
  *
  * `REVALIDAR_SECRETO` (paso 10) protege `POST /api/revalidar`: con él, cualquiera
  * vaciaría la caché de las páginas públicas y mandaría cada visita al backend.
  * Es opcional AQUÍ sólo para no romper un CI que todavía construya sin él: si
  * no viene se avisa y se busca sólo el del proxy.
+ *
+ * `DONAR_TRANSFERENCIA` (paso 12) no es una credencial, pero son datos
+ * bancarios del dueño: `/apoyar` los pide con un clic a
+ * `GET /api/apoyar/transferencia` y no los lleva en su HTML. Si la página
+ * pasara a leerlos en el render, o la ruta se prerenderizara en el build,
+ * acabarían en `.next/server/app/` — y aquí se ve.
  *
  * `PROXY_SECRETO` es lo que exime al servidor de Next del límite por IP del
  * backend. Si acaba en el bundle, cualquiera lo lee en las herramientas del
@@ -25,7 +31,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const RAIZ = new URL('..', import.meta.url).pathname;
-const OBLIGATORIOS = ['PROXY_SECRETO', 'REVALIDAR_SECRETO'];
+const OBLIGATORIOS = ['PROXY_SECRETO', 'REVALIDAR_SECRETO', 'DONAR_TRANSFERENCIA'];
 const OPCIONALES = [];
 
 const secretos = [];

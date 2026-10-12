@@ -37,6 +37,8 @@ export const claves = {
 
   productosPublicos: (q: string) => ['publico', 'productos', q] as const,
 
+  datosTransferencia: () => ['apoyar', 'transferencia'] as const,
+
   // BI: todas bajo el mismo prefijo, así que una invalidación las alcanza a
   // todas si algún día hace falta.
   bi: (nombre: string, params: unknown = null) => ['bi', nombre, params] as const,
@@ -128,6 +130,21 @@ export function useCompraAgilDestacadas(params: ParamsDestacadas) {
  * cambian con el cron semanal: una hora de frescura sobra.
  */
 export const MINIMO_BUSQUEDA_PRODUCTOS = 2;
+
+/**
+ * Los datos para transferir de `/apoyar`, sólo cuando se piden con el clic
+ * (`habilitada`). Sin reintentos: un 404 dice que no está configurada, y
+ * reintentarlo no lo arregla.
+ */
+export function useDatosTransferencia(habilitada: boolean) {
+  return useQuery({
+    queryKey: claves.datosTransferencia(),
+    queryFn: () => apiClient.getDatosTransferencia(),
+    enabled: habilitada,
+    retry: false,
+    staleTime: Infinity,
+  });
+}
 
 export function useBuscarProductosPublicos(texto: string) {
   const q = texto.trim();

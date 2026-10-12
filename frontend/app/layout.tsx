@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { Archivo, DM_Sans } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
+import { AnaliticaWeb } from '@/components/AnaliticaWeb';
 
 // Archivo en vez de Outfit: es una grotesca institucional, estructuralmente
 // distinta de DM Sans (geométrica-humanista), así que por primera vez hay
@@ -31,7 +32,8 @@ export const metadata: Metadata = {
     default: APP_NAME,
     template: `%s · ${APP_NAME}`,
   },
-  description: `${APP_NAME} — Inteligencia pre-postulación y cumplimiento para proveedores del Estado en Chile`,
+  // «y cumplimiento» se fue con las cuentas: sin empresa no hay estado hábil ni documentos.
+  description: `${APP_NAME} — Inteligencia de compras públicas para proveedores del Estado en Chile, gratis y sin cuenta`,
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: '48x48' },
@@ -52,6 +54,7 @@ export default function RootLayout({
     <html lang="es" className={`${display.variable} ${dmSans.variable}`} suppressHydrationWarning>
       <body className="font-sans bg-background text-text">
         <Providers>{children}</Providers>
+        <AnaliticaWeb />
       </body>
     </html>
   );

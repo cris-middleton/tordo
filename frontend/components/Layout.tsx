@@ -5,7 +5,9 @@ import { useRouter, usePathname } from 'next/navigation';
 import TordoLogo from '@/components/TordoLogo';
 import SelectorTema from '@/components/SelectorTema';
 import { PieAtribucion } from '@/components/legal/PieAtribucion';
-import { Menu, X, ChevronRight, Briefcase, Radar, Zap, Bookmark } from 'lucide-react';
+import { Menu, X, ChevronRight, Briefcase, Radar, Zap, Bookmark, Heart, Tag, BookOpen } from 'lucide-react';
+
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -39,7 +41,18 @@ const navSections: NavSection[] = [
   },
   {
     label: 'Análisis',
-    items: [{ name: 'Inteligencia de mercado', href: '/dashboard/bi', icon: Radar }],
+    items: [
+      { name: 'Inteligencia de mercado', href: '/dashboard/bi', icon: Radar },
+      // Las páginas públicas viven fuera del panel; se cruzan en los dos sentidos.
+      { name: 'Precios por producto', href: '/productos', icon: Tag },
+    ],
+  },
+  {
+    label: 'El sitio',
+    items: [
+      { name: 'Guías', href: '/guias', icon: BookOpen },
+      { name: 'Apoyar', href: '/apoyar', icon: Heart },
+    ],
   },
 ];
 
@@ -91,7 +104,7 @@ export default function Layout({ children }: LayoutProps) {
               className="font-brand font-bold text-primary block transition-colors group-hover:text-accent leading-none tracking-tight"
               style={{ fontSize: '1.375rem' }}
             >
-              Tordo
+              {APP_NAME}
             </span>
           </button>
           <button
@@ -177,7 +190,7 @@ export default function Layout({ children }: LayoutProps) {
                 onClick={() => navigate('/')}
                 className="font-brand font-bold text-subtle hidden sm:block tracking-tighter hover:text-primary transition-colors"
               >
-                Tordo
+                {APP_NAME}
               </button>
               <ChevronRight className="h-3.5 w-3.5 text-subtle hidden sm:block" />
               <span className="font-semibold text-text">{currentPage}</span>

@@ -640,9 +640,26 @@ negro con tornasol azul-verdoso:
 - Tema claro por defecto, con selector claro/oscuro/sistema al pie de la barra lateral
   (`components/SelectorTema.tsx`).
 
-La landing es server component (`app/page.tsx`) y toda su interactividad vive en
-`components/landing/LandingClient.tsx`: **no le devuelvas el `'use client'`**, porque Next
-ignora `metadata` en componentes cliente y la home perdería título y tarjeta de preview.
+**La portada es server component** (`app/page.tsx` + `components/portada/`), sin JS de cliente,
+con ISR de 30 min: **no le pongas `'use client'`**, porque Next ignora `metadata` en
+componentes cliente y la home perdería título y tarjeta de preview. Su bloque vivo «Lo mejor de
+hoy» se pide en el servidor (etiqueta `compra-agil`, la revalida el cron frecuente) y **se oculta
+si el backend falla, nunca lanza**: la portada no puede caerse por la API.
+
+**Guías** (`/guias`, `/guias/[slug]`): el contenido vive en `frontend/content/explicativos/*.mdx`
+(Markdown plano; el test de frontmatter prohíbe `{` y `<`) y se publica en **`/guias/`** — los
+enlaces internos ya apuntan ahí. Se renderiza con `lib/markdown.ts`, sin `@next/mdx`: el
+contenido no usa JSX y cinco dependencias para eso no valen la pena. Si una guía necesita algo
+que el parser no soporta, se amplía el parser con su test. `guias.test.tsx` comprueba que cada
+enlace interno de cada guía resuelve. El texto dice «TORDO» y se sustituye por `APP_NAME` al
+pintar.
+
+**Apoyar** (`/apoyar`): tres enlaces, sin integración (spec §4.2), desde variables de
+SERVIDOR — `DONAR_MERCADO_PAGO_URL`, `DONAR_GITHUB_SPONSORS_URL` (https) y `DONAR_TRANSFERENCIA`
+(texto). **Los datos de transferencia no van en el HTML**: se piden con un clic a
+`GET /api/apoyar/transferencia` (`no-store`, `noindex`), y `check:secreto` busca su centinela
+en el bundle. Un medio sin variable no se muestra. **Vercel Web Analytics** es el script
+oficial, sin dependencia, sólo cuando `VERCEL=1`.
 
 ### ETL — `etl/`
 
@@ -676,7 +693,7 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   (`docs/DECLARACION_USO_DATOS.md`). La frase literal «Fuente: Dirección de Compras y
   Contratación Pública (ChileCompra / Mercado Público)» y que ChileCompra no respalda el
   sitio van en el **pie de cada página** (`components/legal/PieAtribucion.tsx`, puesto por la
-  landing, el `Layout` del panel y `DocumentoLegal`) y en la **primera línea de cada CSV**.
+  portada, el layout público `app/(publico)/`, el `Layout` del panel y `DocumentoLegal`) y en la **primera línea de cada CSV**.
   Vive en `frontend/lib/atribucion.ts` y en `exportar.ATRIBUCION`; un test comprueba que
   coincidan. **Una página nueva fuera de esos tres marcos hace fallar
   `__tests__/legal-enlazado.test.tsx`** hasta que lleve el pie. `/terminos` y `/privacidad`
@@ -822,7 +839,8 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   **La landing fue el último sitio en soltarla**, y estuvo meses prometiéndola después de que
   el correo y el panel del comprador ya la hubieran retirado: `MockupAviso` mostraba «Paga a
   32 días en promedio» y `MockupComprador` un KPI «Paga a». Cuando se retire un dato, hay que
-  buscarlo también en `components/landing/` — es lo que lee quien todavía no es cliente.
+  buscarlo también en la portada (`components/portada/`) y en las guías — es lo que lee quien
+  llega por primera vez.
 - **Estado hábil (retirado con las cuentas): la API pública no dice si una empresa está
   hábil, ni por qué no lo estaría.** Contrastado en vivo (2026-09-24): `BuscarProveedor` sólo
   responde si el RUT figura en el Registro de Proveedores —y sólo lo encuentra **con puntos**,

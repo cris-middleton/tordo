@@ -17,8 +17,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 import LayoutPublico from '@/app/(publico)/layout';
 import Layout from '@/components/Layout';
-import LandingClient from '@/components/landing/LandingClient';
 import { DocumentoLegal } from '@/components/legal/DocumentoLegal';
+import { Portada } from '@/components/portada/Portada';
 import { DESCARGO_CHILECOMPRA, FUENTE_DATOS } from '@/lib/atribucion';
 
 vi.mock('next/navigation', () => ({
@@ -55,8 +55,8 @@ describe('atribución y enlaces legales', () => {
     expect(DESCARGO_CHILECOMPRA).toMatch(/^ChileCompra no participa ni respalda/);
   });
 
-  it('en la landing', () => {
-    render(<LandingClient />);
+  it('en la portada, también si el backend falló', () => {
+    render(<Portada destacadas={null} />);
     comprobarPie();
   });
 
@@ -112,7 +112,7 @@ function tienePie(ruta: string): boolean {
   // `app/(publico)/layout.tsx` pone el pie a las fichas públicas.
   if (rel.startsWith('(publico)/')) return true;
   const fuente = readFileSync(ruta, 'utf-8');
-  return /\b(PieAtribucion|DocumentoLegal|LandingClient)\b/.test(fuente);
+  return /\b(PieAtribucion|DocumentoLegal|Portada)\b/.test(fuente);
 }
 
 describe('ninguna página sin atribución', () => {

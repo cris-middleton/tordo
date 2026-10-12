@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect, RefObject } from 'react';
 import { MoreHorizontal, Copy, Download, Link as LinkIcon, Check } from 'lucide-react';
 
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
+
 interface ShareMenuProps {
   /** Ref al elemento a capturar como PNG */
   targetRef: RefObject<HTMLElement | null>;
@@ -34,7 +36,7 @@ export function ShareMenu({ targetRef, summaryText, filename }: ShareMenuProps) 
 
   const copiarResumen = async () => {
     try {
-      await navigator.clipboard.writeText(`${summaryText}\n\nVer en Tordo → ${window.location.href}`);
+      await navigator.clipboard.writeText(`${summaryText}\n\nVer en ${APP_NAME} → ${window.location.href}`);
       setCopiedKey('text');
       setTimeout(() => setCopiedKey(null), 1500);
     } catch {

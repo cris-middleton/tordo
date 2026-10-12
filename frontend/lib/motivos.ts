@@ -13,12 +13,11 @@
  * nuevo cae en el respaldo sin que nadie tenga que acordarse de bloquearlo.
  */
 
+// Los motivos que hablaban de «tu empresa», su RUT o su inscripción en el
+// Registro de Proveedores se fueron con las cuentas: el backend ya no los emite.
 const PARA_PERSONAS = [
-  /^Tu empresa no tiene historial de órdenes en /,
   /^sin movimientos relevantes esta semana$/,
   /^sin datos( históricos)? para el rubro /,
-  /^No se pudo consultar el Registro de Proveedores/,
-  /^La empresa no tiene RUT registrado$/,
   /^la descripción no se parece a ningún rubro conocido$/,
 ];
 

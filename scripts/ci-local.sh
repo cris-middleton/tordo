@@ -191,8 +191,8 @@ if [ -d frontend/node_modules ]; then
   correr "npm run lint"  bash -c 'cd frontend && npm run lint'
   correr "npm test"      bash -c 'cd frontend && npm test -- --run'
   # Con un centinela en PROXY_SECRETO, que luego se busca en el bundle.
-  correr "npm run build" bash -c 'cd frontend && PROXY_SECRETO=centinela-proxy-secreto-no-debe-llegar-al-navegador REVALIDAR_SECRETO=centinela-revalidar-secreto-no-debe-llegar npm run build'
-  correr "secreto fuera del bundle" bash -c 'cd frontend && PROXY_SECRETO=centinela-proxy-secreto-no-debe-llegar-al-navegador REVALIDAR_SECRETO=centinela-revalidar-secreto-no-debe-llegar npm run check:secreto'
+  correr "npm run build" bash -c 'cd frontend && PROXY_SECRETO=centinela-proxy-secreto-no-debe-llegar-al-navegador REVALIDAR_SECRETO=centinela-revalidar-secreto-no-debe-llegar DONAR_TRANSFERENCIA=centinela-datos-de-transferencia-no-van-en-el-html npm run build'
+  correr "secreto fuera del bundle" bash -c 'cd frontend && PROXY_SECRETO=centinela-proxy-secreto-no-debe-llegar-al-navegador REVALIDAR_SECRETO=centinela-revalidar-secreto-no-debe-llegar DONAR_TRANSFERENCIA=centinela-datos-de-transferencia-no-van-en-el-html npm run check:secreto'
 else
   malo "frontend/node_modules no existe — corre 'cd frontend && npm ci'"
 fi

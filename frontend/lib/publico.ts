@@ -37,6 +37,8 @@ export const PAGINAS_FIJAS = [
   '/dashboard/compra-agil',
   '/dashboard/tenders',
   '/productos',
+  '/guias',
+  '/apoyar',
   '/terminos',
   '/privacidad',
 ] as const;

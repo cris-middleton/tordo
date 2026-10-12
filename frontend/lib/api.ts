@@ -50,6 +50,17 @@ class ApiClient {
     return res.data;
   }
 
+  // ── Donaciones ──────────────────────────────────────────────────────────────
+
+  /**
+   * Los datos para transferir (`/api/apoyar/transferencia`). Es una ruta del
+   * propio Next, no del backend: `baseURL: ''` la saca del proxy.
+   */
+  async getDatosTransferencia(): Promise<{ texto: string }> {
+    const res = await this.client.get('/api/apoyar/transferencia', { baseURL: '' });
+    return res.data;
+  }
+
   // ── BI / Analytics ─────────────────────────────────────────────────────────
 
   async getBIOportunidades(params: Record<string, unknown> = {}) {

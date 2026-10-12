@@ -22,6 +22,8 @@ describe('motivoParaPersona', () => {
     'Modelo TF-IDF no entrenado. Ejecute: python -m etl.analytics.run_all --modulo tfidf_matcher',
     'producto no encontrado en histórico (L1+L2+L3+L4)',
     'un motivo nuevo que nadie revisó',
+    // De cuando había cuentas: ya no hay una empresa a la que referirse.
+    "Tu empresa no tiene historial de órdenes en 'Aseo'",
   ])('«%s» no se enseña', (motivo) => {
     expect(motivoParaPersona(motivo, RESPALDO)).toBe(RESPALDO);
   });
@@ -30,8 +32,8 @@ describe('motivoParaPersona', () => {
     expect(motivoParaPersona("sin datos para el rubro 'Aseo'", RESPALDO)).toBe(
       "Sin datos para el rubro 'Aseo'",
     );
-    expect(motivoParaPersona("Tu empresa no tiene historial de órdenes en 'Aseo'", RESPALDO)).toBe(
-      "Tu empresa no tiene historial de órdenes en 'Aseo'",
+    expect(motivoParaPersona('la descripción no se parece a ningún rubro conocido', RESPALDO)).toBe(
+      'La descripción no se parece a ningún rubro conocido',
     );
   });
 

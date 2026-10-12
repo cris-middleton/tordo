@@ -8,6 +8,7 @@ import {
   rutaProducto,
   rutaRubro,
 } from '@/lib/publico';
+import { leerGuias, rutaGuia } from '@/lib/guias';
 import { pedirPublico } from '@/lib/publicoServidor';
 import type { SitemapPublico } from '@/types/publico';
 
@@ -28,6 +29,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const fijas: MetadataRoute.Sitemap = PAGINAS_FIJAS.map((ruta) => ({
     url: `${origen}${ruta === '/' ? '' : ruta}`,
   }));
+  // Las guías salen del disco (`content/explicativos`, en la traza del sitemap
+  // por `next.config.js`). Si no se pudieran leer, el sitemap sigue sin ellas.
+  try {
+    fijas.push(
+      ...leerGuias().map((g) => ({ url: `${origen}${rutaGuia(g.slug)}`, lastModified: g.actualizado })),
+    );
+  } catch (error) {
+    console.error('sitemap: no se pudieron leer las guías', error);
+  }
 
   let indice: SitemapPublico | null = null;
   try {
