@@ -17,7 +17,7 @@ import {
 import { CompetidorItem, ConcentracionItem, OrganismoConNombre } from '../types';
 import { textoPeriodo } from '@/lib/periodo';
 import { useCompetidores } from '@/lib/queries';
-import { InfoTooltip } from './InfoTooltip';
+import { InfoTooltip } from '@/components/bi/InfoTooltip';
 
 interface CompetenciaSectionProps {
   topOrganismos: OrganismoConNombre[];

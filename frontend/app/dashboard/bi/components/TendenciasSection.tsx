@@ -16,10 +16,10 @@ import {
 } from 'recharts';
 import { TendenciaItem, SerieAnualPunto } from '../types';
 import { TrendChart } from './TrendChart';
-import { InfoTooltip } from './InfoTooltip';
+import { InfoTooltip } from '@/components/bi/InfoTooltip';
 import { ShareMenu } from './ShareMenu';
 
-import { EligeRubro } from './EligeRubro';
+import { EligeRubro } from '@/components/bi/EligeRubro';
 
 interface TendenciasSectionProps {
   tendencias: TendenciaItem[];

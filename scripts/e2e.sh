@@ -47,6 +47,9 @@ export API_URL="http://localhost:${PUERTO_API}"
 # Lo que sí se ejercita es el camino de la cabecera secreta: el proxy de Next
 # la manda y el backend la valida, como en producción.
 export LIMITE_POR_MINUTO=100000
+# Las páginas públicas y el BI leen el esquema `analytics`: sin esto todo /bi y
+# /publico responden 503 y los E2E de las páginas públicas no tienen qué recorrer.
+export FEATURE_ANALYTICS=true
 export PROXY_SECRETO="e2e-$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
 
 azul=$'\e[36m'; rojo=$'\e[31m'; fin=$'\e[0m'
@@ -103,6 +106,10 @@ esperar_postgres 90 || {
 paso "Migraciones y semilla"
 (cd backend && uv run --project .. alembic upgrade head >/dev/null)
 (cd backend && uv run --project .. python scripts/sembrar_e2e.py)
+# El fixture del golden master (versionado, con productos sintéticos): da a las
+# páginas públicas compradores, rubros y productos que recorrer.
+(cd etl && uv run --project .. python -m analytics.materialize \
+   --data-dir ../backend/tests/golden/fixture_analytics >/dev/null)
 
 paso "Backend en el puerto $PUERTO_API"
 # `--host 0.0.0.0` y no el 127.0.0.1 por defecto de uvicorn: quien llama al

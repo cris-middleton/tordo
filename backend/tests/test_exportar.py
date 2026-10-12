@@ -111,3 +111,22 @@ def test_el_codigo_de_proveedor_no_se_rotula_como_rut():
     cruzarlo con RUT reales."""
     encabezados = dict(exportar.COLUMNAS_COMPETIDORES)
     assert encabezados["CodigoProveedor"] != "RUT"
+
+
+def test_corta_en_el_tope_y_lo_dice_en_la_ultima_linea():
+    """Spec del pivote §7.4: sin cuota, el tope es lo que acota el coste.
+    Recortar en silencio haría creer a quien sume la columna que tiene el total."""
+    filas = [{"a": i} for i in range(exportar.MAX_FILAS_CSV + 7)]
+    lineas = exportar.a_csv(filas, [("a", "A")]).splitlines()
+
+    # Cita + encabezados + las filas del tope + el aviso.
+    assert len(lineas) == 2 + exportar.MAX_FILAS_CSV + 1
+    assert lineas[-1] == f"# recortado a {exportar.MAX_FILAS_CSV} filas"
+    assert lineas[-2] == str(exportar.MAX_FILAS_CSV - 1)
+
+
+def test_en_el_tope_justo_no_avisa_de_nada():
+    filas = [{"a": i} for i in range(exportar.MAX_FILAS_CSV)]
+    lineas = exportar.a_csv(filas, [("a", "A")]).splitlines()
+    assert len(lineas) == 2 + exportar.MAX_FILAS_CSV
+    assert not lineas[-1].startswith("#")

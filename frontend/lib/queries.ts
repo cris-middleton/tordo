@@ -35,6 +35,8 @@ export const claves = {
 
   compraAgilDestacadas: (params: ParamsDestacadas) => ['compra-agil', 'destacadas', params] as const,
 
+  productosPublicos: (q: string) => ['publico', 'productos', q] as const,
+
   // BI: todas bajo el mismo prefijo, así que una invalidación las alcanza a
   // todas si algún día hace falta.
   bi: (nombre: string, params: unknown = null) => ['bi', nombre, params] as const,
@@ -117,6 +119,24 @@ export function useCompraAgilDestacadas(params: ParamsDestacadas) {
     queryFn: () => apiClient.getCompraAgilDestacadas(params),
     placeholderData: (anterior) => anterior,
     staleTime: 5 * 60_000,
+  });
+}
+
+/**
+ * La búsqueda de `/productos`. Quien llama pasa el texto ya retardado
+ * (`useValorRetardado`); con menos de dos letras no se pide. Los productos
+ * cambian con el cron semanal: una hora de frescura sobra.
+ */
+export const MINIMO_BUSQUEDA_PRODUCTOS = 2;
+
+export function useBuscarProductosPublicos(texto: string) {
+  const q = texto.trim();
+  return useQuery({
+    queryKey: claves.productosPublicos(q),
+    queryFn: () => apiClient.getProductosPublicos(q),
+    enabled: q.length >= MINIMO_BUSQUEDA_PRODUCTOS,
+    placeholderData: (anterior) => anterior,
+    staleTime: 60 * 60_000,
   });
 }
 

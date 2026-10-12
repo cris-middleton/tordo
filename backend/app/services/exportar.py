@@ -18,6 +18,11 @@ Dos reglas que no son obvias:
   publicación de los datos, y un CSV es justo la forma en que los datos salen del
   sitio y se reenvían sin él. En el pie de la web no basta: el archivo viaja solo.
   Quien lo lea con pandas necesita `skiprows=1`.
+- **Hay un tope de filas, y el archivo dice que se recortó** (spec del pivote
+  §7.4). Sin cuentas ni cuota, el CSV es lo más caro que un anónimo puede pedir;
+  el tope acota ese coste. Recortar en silencio sería peor que no recortar: quien
+  sume la columna creería tener el total. Por eso la última línea lo avisa, con
+  `#` delante para que pandas la salte con `comment="#"`.
 """
 
 from __future__ import annotations
@@ -38,6 +43,11 @@ SEPARADOR = ";"
 #: La cita que exige la Declaración, literal. Duplicada a propósito en
 #: `frontend/lib/atribucion.ts` (pie de cada página); un test comprueba que las
 #: dos digan lo mismo.
+#: Cuántas filas de datos lleva un CSV como mucho. Las exportaciones de hoy
+#: (bandas de un producto, competidores de un comprador) rara vez pasan de unos
+#: cientos; el tope existe para la próxima que no se acote sola.
+MAX_FILAS_CSV = 5000
+
 ATRIBUCION = "Fuente: Dirección de Compras y Contratación Pública (ChileCompra / Mercado Público)"
 
 
@@ -62,8 +72,10 @@ def a_csv(filas: list[dict], columnas: list[tuple[str, str]]) -> str:
     escritor = csv.writer(salida, delimiter=SEPARADOR, quoting=csv.QUOTE_MINIMAL)
     escritor.writerow([ATRIBUCION])
     escritor.writerow([encabezado for _, encabezado in columnas])
-    for fila in filas:
+    for fila in filas[:MAX_FILAS_CSV]:
         escritor.writerow([_valor(fila.get(clave)) for clave, _ in columnas])
+    if len(filas) > MAX_FILAS_CSV:
+        escritor.writerow([f"# recortado a {MAX_FILAS_CSV} filas"])
     return BOM + salida.getvalue()
 
 

@@ -32,6 +32,7 @@ import argparse
 import shutil
 from pathlib import Path
 
+import fixture_productos
 import polars as pl
 
 # Las claves que aparecen en los 31 casos de bi_golden.json. Si añades un caso
@@ -51,6 +52,11 @@ CLAVES = {
     "Otros",
     "FFAA",  # sectores
 }
+
+# Bandas por producto: NO se recortan de la descarga. Son sintéticas y las
+# escribe `fixture_productos.py` (con un código ONU que no existe, para no tocar
+# la cascada de los casos del golden). Recortarlas de datos reales las cambiaría.
+SINTETICAS = {"product_price_bands_L0.parquet", "product_price_bands_L0N.parquet"}
 
 # Tope por tabla. Suficiente para que las agregaciones globales sean
 # representativas sin que el fixture crezca.
@@ -88,6 +94,8 @@ def main() -> None:
 
     total = 0
     for parquet in sorted(args.origen.glob("*.parquet")):
+        if parquet.name in SINTETICAS:
+            continue
         try:
             df = pl.read_parquet(parquet)
         except Exception as exc:  # noqa: BLE001
@@ -101,6 +109,7 @@ def main() -> None:
         print(f"  {parquet.name:44} {len(df):>7} → {len(recorte):>5} filas  {tam / 1024:>7.0f} KB")
 
     print(f"\ntotal: {total / 1024 / 1024:.2f} MB")
+    fixture_productos.main(args.destino)
 
 
 if __name__ == "__main__":

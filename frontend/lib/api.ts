@@ -2,6 +2,7 @@ import axios, { AxiosInstance } from 'axios';
 
 import { API } from '@/lib/versionApi';
 import type { CompraAgilDestacadasResponse, ParamsDestacadas } from '@/types/compraAgil';
+import type { ProductoEncontrado } from '@/types/publico';
 
 /**
  * Cliente HTTP del navegador.
@@ -38,6 +39,14 @@ class ApiClient {
 
   async getCompraAgilDestacadas(params: ParamsDestacadas = {}): Promise<CompraAgilDestacadasResponse> {
     const res = await this.client.get(`${API}/compra-agil/destacadas`, { params });
+    return res.data;
+  }
+
+  // ── Páginas públicas ────────────────────────────────────────────────────────
+
+  /** Búsqueda de productos, indexables o no: es como se llega a los segundos. */
+  async getProductosPublicos(q: string, limite = 20): Promise<ProductoEncontrado[]> {
+    const res = await this.client.get(`${API}/publico/productos`, { params: { q, limite } });
     return res.data;
   }
 

@@ -15,7 +15,7 @@ en `/docs`.
 
 | pública | interna |
 |---|---|
-| `tenders`, `bi`, `compra-agil` | `health`, `raiz` |
+| `tenders`, `bi`, `compra-agil`, `publico` | `health`, `raiz` |
 
 - **Pública** — pensada para integrarse. Dentro de `/api/v1` no se quitan campos
   ni cambia el significado de los que hay.
@@ -60,6 +60,10 @@ al 429.
 Un cliente IPv6 cuenta por su /64. El límite vive en memoria de la API, que corre un
 solo proceso; los detalles y el modelo de confianza sobre la IP están en
 `backend/app/core/limite_ip.py`.
+
+Los CSV de `/bi/exportar/*` llevan además un **tope de 5.000 filas**. Cuando se
+corta, la última línea lo dice —`# recortado a 5000 filas`— para que nadie sume
+una columna creyendo tener el total; con pandas, `comment="#"` la salta.
 
 ## Personas naturales
 
@@ -108,6 +112,11 @@ que nunca existió.
 Compras Ágiles abiertas que **cierran en más de 2 horas** (menos no da tiempo a
 cotizar), de mejor a peor puntaje. `limite` va de 1 a 50 (otro valor: 422).
 
+`codigo_organismo=<código>` deja sólo las de ese comprador (lo usa su página
+pública). Una Compra Ágil sólo trae el RUT del comprador, y el código se alcanza
+por la tabla RUT → código del análisis: **sin análisis materializado, la lista
+sale vacía** —no se puede saber de quién es cada una—, nunca el listado entero.
+
 **El puntaje es una heurística, no un modelo.** No hay todavía una verdad contra
 la que evaluarlo —no sabemos qué Compra Ágil le convenía cotizar a nadie—, así
 que ordena, no predice, y no es una probabilidad. Es el producto de tres
@@ -132,6 +141,45 @@ típico **por orden**. **Ningún dato de proveedor**: sólo conteos.
 
 `actualizado_en` es la última ingesta de Compra Ágil, en hora de Chile. Si es
 vieja, la corrida falló y la lista puede incluir cosas que ya no están abiertas.
+
+## Páginas públicas: comprador, rubro y producto
+
+`/api/v1/publico/*` es lo que sirve las páginas indexables del sitio (paso 10 del
+pivote): una por comprador, por rubro y por producto, más su sitemap. Son
+**pública** y se pueden integrar, pero están pensadas para pintar una página: cada
+respuesta trae ya los enlaces a las demás.
+
+| ruta | qué devuelve |
+|---|---|
+| `GET /publico/sitemap` | `actualizado` y los códigos y slugs **indexables** de cada tipo |
+| `GET /publico/compradores/{codigo}` | el perfil de `/bi/comprador`, su Compra Ágil y sus 10 rubros de más monto |
+| `GET /publico/rubros/{slug}` | el panorama de `/bi/panorama` y sus 10 compradores de más monto |
+| `GET /publico/productos/{slug}` | una banda nacional por unidad de medida y los 10 compradores que más lo compran |
+| `GET /publico/productos?q=&limite=` | búsqueda por palabras, también de los no indexados |
+
+**Rubros y productos van por `slug`**, porque no tienen código: sin tildes,
+minúsculas, todo lo demás a `-`, hasta 80 caracteres. **El slug lo da la API**;
+un cliente no lo calcula ni lo deshace, y la ruta sólo acepta el slug exacto
+(`Equipos-Medicos` es 404). Si dos nombres dan el mismo slug —pasa con
+«Servicios Legales» y «Servicios legales»—, gana el de más órdenes y el otro no
+tiene página.
+
+**`indexable`** dice si la página tiene datos suficientes para ofrecerla a un
+buscador; el criterio está escrito, con sus cifras, en
+`backend/app/services/publico/indexables.py`:
+
+- comprador: al menos 50 órdenes y algún mercado en la ventana de análisis;
+- rubro: todos;
+- producto: alguna banda nacional con 10 compras o más y predictibilidad alta o
+  media.
+
+Una página no indexable **responde igual, con 200**: existe, pero el sitio la marca
+`noindex`. Sólo lo que no existe es 404. La búsqueda de productos ignora tildes,
+mayúsculas y el orden de las palabras, y devuelve primero los indexables.
+
+Como el resto: **ningún dato de proveedor** que identifique a nadie. Los líderes de
+un rubro salen por nombre (las personas naturales, con su seudónimo `PN-`), sin
+código ni RUT.
 
 ## Versionado
 

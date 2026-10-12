@@ -125,9 +125,19 @@ async def destacadas(
     limite: int,
     region: str | None = None,
     terminos: list[str] | None = None,
+    codigo_organismo: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Las `limite` mejores candidatas, ya puntuadas. Una fila = un dict plano."""
+    """Las `limite` mejores candidatas, ya puntuadas. Una fila = un dict plano.
+
+    `codigo_organismo` filtra por comprador (la página pública del comprador).
+    Una Compra Ágil ingerida sólo trae el RUT del comprador, así que el código
+    se alcanza por `analytics.comprador_rut`; **sin analytics no hay forma de
+    saber de quién es cada una, y la respuesta es una lista vacía**, no un
+    error: la página del comprador se pinta igual, sin ese bloque.
+    """
     con_historia = await _hay_historia(db)
+    if codigo_organismo is not None and not con_historia:
+        return []
     ofertas = _ofertas_recibidas()
     horas = _horas_restantes()
 
@@ -187,6 +197,8 @@ async def destacadas(
         consulta = consulta.where(func.trim(Licitacion.region) == region.strip())
     for termino in terminos or []:
         consulta = consulta.where(coincide_termino(termino))
+    if codigo_organismo is not None:
+        consulta = consulta.where(_rut.c.CodigoOrganismoPublico == codigo_organismo.strip())
 
     consulta = consulta.order_by(
         puntaje.desc(), Licitacion.fecha_cierre.asc(), Licitacion.codigo_externo.asc()

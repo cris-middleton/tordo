@@ -7,7 +7,7 @@ import { OportunidadItem, CompradorResult, scoreColor, scoreBg } from '../types'
 import { useComprador } from '@/lib/queries';
 import { ShareMenu } from './ShareMenu';
 
-import { EligeRubro } from './EligeRubro';
+import { EligeRubro } from '@/components/bi/EligeRubro';
 
 interface OportunidadesSectionProps {
   oportunidades: OportunidadItem[];

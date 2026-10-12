@@ -26,7 +26,7 @@ import { EstacionalidadSection } from './components/EstacionalidadSection';
 import { HerramientasAvanzadas } from './components/HerramientasAvanzadas';
 import { MarketSummaryCard } from './components/MarketSummaryCard';
 import { OportunidadesSection } from './components/OportunidadesSection';
-import { PanoramaRubro } from './components/PanoramaRubro';
+import { PanoramaRubro } from '@/components/bi/PanoramaRubro';
 import { RubroFilter } from './components/RubroFilter';
 import { SectorOverview } from './components/SectorOverview';
 import { TendenciasSection } from './components/TendenciasSection';

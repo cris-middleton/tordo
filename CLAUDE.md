@@ -513,7 +513,7 @@ schemas/        Pydantic — todos van aquí
 utils/          rut.py (sin uso hoy; lo usará el enmascarado de personas naturales)
 ```
 
-**Routers**: tenders (3 rutas), bi (20), compra_agil (1), health. Todos anónimos. Los de cuenta (auth, users,
+**Routers**: tenders (3 rutas), bi (20), compra_agil (1), publico (5), health. Todos anónimos. Los de cuenta (auth, users,
 empresas, alerts, documentos, postulaciones, estado_habil, dashboard, billing, webhooks) y el
 explorador `data_inspection` se borraron en el pivote público.
 
@@ -571,6 +571,30 @@ escala**. Es una heurística sin verdad contra la que evaluarla: ordena, no pred
   lo normal enseña a ignorarlo. Si cambias el horario del cron, cambia los dos.
 - **Las fechas de Compra Ágil son hora de Chile aunque digan `Z`** (spec §6.1): el
   transformador las lee así. Leídas como UTC, cada cierre quedaba 3–4 h antes.
+
+**Páginas públicas indexables (paso 10)** — `/compradores/[codigo]`, `/rubros/[slug]`,
+`/productos/[slug]` y la búsqueda `/productos`, en el grupo `app/(publico)/` con su pie de
+atribución. Datos de `GET /publico/*` (`api/publico.py`, `services/publico/`).
+- **ISR, nada en el deploy**: `generateStaticParams` devuelve `[]` y cada página se genera al
+  primer pedido con `fetch(…, { next: { revalidate: 604800, tags: ['analytics'] } })` desde
+  `lib/publicoServidor.ts`, **como renderizado del servidor** (`cabecerasHaciaElBackend(null)`,
+  exento del límite por IP). Un error que no sea 404 lanza: una página rota no se cachea.
+- **Revalidación desde los cron**: `POST /api/revalidar` con `X-Revalidar-Secreto`
+  (`REVALIDAR_SECRETO`, servidor, sin valor por defecto: sin él responde 503) y
+  `{"etiquetas": ["analytics" | "compra-agil"]}` → `revalidateTag(tag, 'max')`. Lo llama
+  `Revalidador` en `etl/cron.py`. CI construye con un centinela y `check:secreto` lo busca.
+- **Qué se indexa vive en un solo sitio**, `services/publico/indexables.py`, con sus umbrales
+  y conteos medidos (≈1.039 compradores, 309 rubros, 6.572 productos). El resto existe con
+  `noindex` (producto) o 404. `sitemap.xml` sale de `GET /publico/sitemap` con el mismo filtro.
+- **Slugs: una sola función, `app/utils/slug.py`, y el frontend nunca des-slugifica.** Los
+  rubros no tienen código y las firmas llevan tildes; dos nombres con el mismo slug → gana el
+  de más observaciones y el otro no tiene página (`slug` nulo donde se enlaza).
+- Las páginas muestran nombres de proveedores desde analytics: **la primera corrida semanal
+  en producción tiene que terminar antes de abrir el dominio** (los parquets anteriores al
+  11-10 no están enmascarados). Está en `docs/DESPLIEGUE.md`.
+- La exportación CSV corta en `MAX_FILAS_CSV` (5.000) y lo dice en la última línea (§7.4).
+- `make e2e` materializa el fixture del golden (con productos **sintéticos**) y exporta
+  `FEATURE_ANALYTICS=true`.
 
 **Favoritos, búsquedas guardadas y RSS (sin cuentas).** Viven en `localStorage`
 (`licit_dashboard_collections_v1`, `tordo_busquedas_v1`). Cada búsqueda guardada tiene su feed:
@@ -923,11 +947,11 @@ estos patrones, es señal de que hay que arreglar la causa, no de copiarlo:
 
 > **Pivote decidido el 2026-10-11: TORDO pasa a ser un sitio público y gratuito** — sin
 > cuentas ni cobros, financiado con donaciones, en Vercel Hobby + Railway con dos cron.
-> Especificación: `docs/PIVOTE_PUBLICO_2026-10.md`. **Del 3 al 9 están hechos**: fuera las
+> Especificación: `docs/PIVOTE_PUBLICO_2026-10.md`. **Del 3 al 10 están hechos** (el 10 sin los explicativos): fuera las
 > cuentas (3 y 4), cron en vez de Celery y Redis (5), R2, enmascarado y ventana de analytics
 > (6), Postgres adelgazado (7), TF-IDF fuera de la API (8) y «lo mejor de hoy», RSS y
-> favoritos (9); y el 11, legal: hecho; faltan
-> nombre, correo y fecha al lanzar. Lo que queda —páginas públicas (10) y
+> favoritos (9), páginas públicas, sitemap y revalidación (10); y el 11, legal: hecho; faltan
+> nombre, correo y fecha al lanzar. Lo que queda —explicativos y portada (10b) y
 > lanzamiento (12, guía en `docs/DESPLIEGUE.md`)— está en la spec.
 
 Decisiones tomadas el 2026-08-05, con su ADR en `docs/decisiones/`: sólo Chile (sin

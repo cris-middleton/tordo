@@ -52,6 +52,14 @@ async def destacadas(
     limite: int = Query(20, ge=1, le=50, description="Cuántas devolver (1–50)."),
     region: str | None = Query(None, description="Región, como la escribe Mercado Público."),
     search: str | None = Query(None, description="Palabras que tienen que aparecer (todas)."),
+    codigo_organismo: str | None = Query(
+        None,
+        max_length=20,
+        description=(
+            "Sólo las de este comprador (código de Mercado Público). Sin analytics "
+            "no se puede saber de quién es cada una y la lista sale vacía."
+        ),
+    ),
     db: AsyncSession = Depends(get_db),
 ):
     """Compras Ágiles abiertas que cierran en más de 2 h, de mejor a peor puntaje.
@@ -65,6 +73,7 @@ async def destacadas(
         limite=limite,
         region=region,
         terminos=[t.strip() for t in (search or "").split() if t.strip()],
+        codigo_organismo=codigo_organismo,
     )
     desde, hasta = await repo_compra_agil.ventana(db)
     return CompraAgilDestacadasResponse(

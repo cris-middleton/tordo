@@ -19,7 +19,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
+from app.api.dependencias import requiere_analytics as _require_analytics
 from app.db import get_db
 from app.repositories import licitaciones as repo_licitaciones
 from app.schemas.bi import (
@@ -46,17 +46,6 @@ from app.services import exportar
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/bi", tags=["bi"])
-
-
-def _require_analytics():
-    if not settings.feature_analytics:
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "BI module is disabled. "
-                "Set FEATURE_ANALYTICS=true and generate analytics parquets first."
-            ),
-        )
 
 
 @router.get(

@@ -239,11 +239,13 @@ jobs:
       - name: Build
         env:
           PROXY_SECRETO: centinela-proxy-secreto-no-debe-llegar-al-navegador
+          REVALIDAR_SECRETO: centinela-revalidar-secreto-no-debe-llegar
         run: npm run build
 
-      - name: El secreto del proxy no está en el bundle
+      - name: Los secretos de servidor no están en el bundle
         env:
           PROXY_SECRETO: centinela-proxy-secreto-no-debe-llegar-al-navegador
+          REVALIDAR_SECRETO: centinela-revalidar-secreto-no-debe-llegar
         run: npm run check:secreto
 
   # ───────────────────────────────────────────────────────────────────────────

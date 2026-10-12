@@ -253,3 +253,26 @@ async def test_sin_compras_agiles_la_lista_va_vacia(cliente, async_db):
     r = await cliente.get(RUTA, params={"search": "zzzznoexiste"})
     assert r.status_code == 200
     assert r.json()["items"] == []
+
+
+async def test_filtra_por_comprador_a_traves_del_rut(cliente, mercado):
+    """La página del comprador pide las suyas. La Compra Ágil sólo trae el RUT:
+    el código se alcanza por `analytics.comprador_rut`."""
+    r = await cliente.get(RUTA, params={"codigo_organismo": "7084"})
+    assert r.status_code == 200
+    assert _codigos(r) == ["CA-BUENA", "CA-SUR"]
+
+    r = await cliente.get(RUTA, params={"codigo_organismo": "115167"})
+    assert _codigos(r) == ["CA-POCO-DATO"]
+
+    r = await cliente.get(RUTA, params={"codigo_organismo": "999999"})
+    assert r.status_code == 200 and _codigos(r) == []
+
+
+async def test_filtro_por_comprador_sin_analytics_es_lista_vacia(cliente, mercado):
+    """Sin la tabla de RUT no se sabe de quién es cada una: vacía, no error, y
+    sobre todo no el listado entero de otros compradores."""
+    await _sin_analytics(mercado)
+    r = await cliente.get(RUTA, params={"codigo_organismo": "7084"})
+    assert r.status_code == 200
+    assert _codigos(r) == []

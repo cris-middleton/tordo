@@ -6,7 +6,7 @@ import { ResumenMercado } from '../types';
 import { buildFrases } from '../narrative/templates';
 import { ShareMenu } from './ShareMenu';
 
-import { EligeRubro } from './EligeRubro';
+import { EligeRubro } from '@/components/bi/EligeRubro';
 import { motivoParaPersona } from '@/lib/motivos';
 
 interface MarketSummaryCardProps {

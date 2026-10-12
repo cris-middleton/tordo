@@ -14,7 +14,7 @@ import {
 } from 'recharts';
 import { EstacionalidadMes, MESES, OrganismoConNombre } from '../types';
 import { useEstacionalidad } from '@/lib/queries';
-import { InfoTooltip } from './InfoTooltip';
+import { InfoTooltip } from '@/components/bi/InfoTooltip';
 
 interface EstacionalidadSectionProps {
   topOrganismos: OrganismoConNombre[];

@@ -1,0 +1,79 @@
+import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+
+/**
+ * Las páginas públicas indexables (paso 10 del pivote), de punta a punta y SIN
+ * sesión: una de cada tipo —comprador, rubro, producto—, con el backend real
+ * detrás del servidor de Next (ISR) y no un simulacro.
+ *
+ * **Las URL salen del propio `/sitemap.xml`**, que las saca de
+ * `/publico/sitemap`. Así no se duplican aquí códigos ni slugs del fixture, y
+ * de paso se prueba que el sitemap enlaza páginas que existen. Requiere que
+ * `scripts/e2e.sh` materialice el fixture de analytics antes de arrancar el
+ * backend; sin eso el sitemap trae sólo las páginas fijas y estos tests fallan
+ * diciendo qué tipo falta, que es lo que se quiere.
+ */
+
+type Tipo = 'compradores' | 'rubros' | 'productos';
+
+async function primeraDelSitemap(request: APIRequestContext, tipo: Tipo): Promise<string> {
+  const respuesta = await request.get('/sitemap.xml');
+  expect(respuesta.status()).toBe(200);
+  const xml = await respuesta.text();
+  // El sitemap lleva URL absolutas sobre NEXT_PUBLIC_SITE_URL, que en el E2E no
+  // es este servidor: se queda la ruta.
+  const rutas = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => new URL(m[1]).pathname);
+  const ruta = rutas.find((r) => r.startsWith(`/${tipo}/`));
+  expect(ruta, `el sitemap no trae ninguna página de /${tipo}/`).toBeTruthy();
+  return ruta as string;
+}
+
+async function comprobarFicha(page: Page, ruta: string) {
+  const respuesta = await page.goto(ruta);
+  expect(respuesta?.status()).toBe(200);
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  // Indexable (viene del sitemap): canonical a sí misma y sin noindex.
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', new RegExp(`${ruta}$`));
+  await expect(page.locator('meta[name="robots"][content*="noindex"]')).toHaveCount(0);
+  // La cita de la fuente y los enlaces legales, como en todo el sitio.
+  await expect(page.getByText(/^Fuente: Dirección de Compras y Contratación Pública/)).toBeVisible();
+  await expect(page.getByRole('navigation', { name: /documentos legales/i })).toBeVisible();
+}
+
+test('una ficha de comprador', async ({ page, request }) => {
+  const ruta = await primeraDelSitemap(request, 'compradores');
+  await comprobarFicha(page, ruta);
+  await expect(page.getByText(/perfil del comprador/i)).toBeVisible();
+});
+
+test('una ficha de rubro, y de ahí al panel', async ({ page, request }) => {
+  const ruta = await primeraDelSitemap(request, 'rubros');
+  await comprobarFicha(page, ruta);
+  await page.getByRole('link', { name: /analizar este rubro en el panel/i }).click();
+  await expect(page).toHaveURL(/\/dashboard\/bi\?rubro=/);
+});
+
+test('una ficha de producto', async ({ page, request }) => {
+  const ruta = await primeraDelSitemap(request, 'productos');
+  await comprobarFicha(page, ruta);
+  await expect(page.getByRole('heading', { name: /bandas de precio/i })).toBeVisible();
+});
+
+test('el buscador de productos se carga sin sesión', async ({ page }) => {
+  const respuesta = await page.goto('/productos');
+  expect(respuesta?.status()).toBe(200);
+  await expect(page.getByLabel(/buscar un producto/i)).toBeVisible();
+  await expect(page.getByText(/al menos dos letras/i)).toBeVisible();
+});
+
+test('lo que no existe es un 404, no una página vacía', async ({ page }) => {
+  for (const ruta of ['/compradores/no-existe-e2e', '/rubros/no-existe-e2e', '/productos/no-existe-e2e']) {
+    const respuesta = await page.goto(ruta);
+    expect(respuesta?.status(), ruta).toBe(404);
+  }
+});
+
+test('robots.txt enlaza el sitemap y deja fuera la API', async ({ request }) => {
+  const texto = await (await request.get('/robots.txt')).text();
+  expect(texto).toMatch(/Disallow: \/api\//);
+  expect(texto).toMatch(/Sitemap: .*\/sitemap\.xml/);
+});

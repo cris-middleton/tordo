@@ -22,7 +22,7 @@ import { describe, expect, it } from 'vitest';
 
 import { MarketSummaryCard } from '@/app/dashboard/bi/components/MarketSummaryCard';
 import { OportunidadesSection } from '@/app/dashboard/bi/components/OportunidadesSection';
-import { PanoramaRubro } from '@/app/dashboard/bi/components/PanoramaRubro';
+import { PanoramaRubro } from '@/components/bi/PanoramaRubro';
 
 /** Lo que tiene que aparecer: qué falta y dónde se arregla. */
 const INVITACION = /elige un rubro arriba/i;

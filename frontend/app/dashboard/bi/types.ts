@@ -128,58 +128,9 @@ export interface TendenciaApiResponse {
   motivo?: string;
 }
 
-export interface PanoramaLider {
-  nombre?: string | null;
-  /** Cuota por monto. La puede dominar una sola compra enorme. */
-  share_pct?: number | null;
-  /** Cuota por órdenes: cuántas veces gana, no cuánto factura. */
-  share_oc_pct?: number | null;
-  n_oc?: number | null;
-  n_compradores?: number | null;
-}
-
-export interface Panorama {
-  disponible: boolean;
-  rubro?: string | null;
-  motivo?: string | null;
-  mercado?: {
-    disponible: boolean;
-    anio?: number | null;
-    monto_clp?: number | null;
-    n_oc?: number | null;
-    ticket_promedio_clp?: number | null;
-  } | null;
-  competencia?: {
-    disponible: boolean;
-    n_proveedores?: number | null;
-    n_compradores?: number | null;
-    monto_clp?: number | null;
-    n_oc?: number | null;
-    hhi?: number | null;
-    tipo_mercado?: string | null;
-    share_top5_pct?: number | null;
-    lideres: PanoramaLider[];
-  } | null;
-  estacionalidad?: {
-    disponible: boolean;
-    meses: { mes: number; nombre: string; pct: number }[];
-    mes_pico?: string | null;
-    pct_pico?: number | null;
-    pct_top3?: number | null;
-    tiene_temporada: boolean;
-  } | null;
-  vigilar?: {
-    disponible: boolean;
-    n_con_banderas: number;
-    n_compradores_rubro?: number | null;
-    compradores: {
-      codigo: string;
-      nombre?: string | null;
-      n_banderas: number;
-      motivos: string[];
-    }[];
-  } | null;
-}
+// El panorama lo pintan el panel y la página pública de cada rubro: vive en
+// `types/bi.ts` y se re-exporta aquí para no tocar a quien ya lo importaba.
+export type { Panorama, PanoramaLider } from '@/types/bi';
 
 export interface ResumenMercado {
   disponible: boolean;

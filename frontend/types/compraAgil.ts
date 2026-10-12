@@ -53,4 +53,9 @@ export interface ParamsDestacadas {
   limite?: number;
   region?: string;
   search?: string;
+  /**
+   * Sólo las de este comprador (`CodigoOrganismoPublico`). Las Compras Ágiles
+   * se guardan sin código de organismo: el backend lo cruza por el RUT.
+   */
+  codigo_organismo?: string;
 }

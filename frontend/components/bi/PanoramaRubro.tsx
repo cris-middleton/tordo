@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 
 import { InfoTooltip } from './InfoTooltip';
-import type { Panorama, PanoramaLider } from '../types';
+import type { Panorama, PanoramaLider } from '@/types/bi';
 
 import { EligeRubro } from './EligeRubro';
 import { motivoParaPersona } from '@/lib/motivos';

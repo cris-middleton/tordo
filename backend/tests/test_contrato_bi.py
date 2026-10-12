@@ -41,8 +41,8 @@ CONTRATO: dict[tuple[str, str], str] = {
     ("GET", "/bi/rubros"): "publica",
     ("GET", "/bi/productos"): "publica",
     ("GET", "/bi/panorama"): "publica",
-    # La exportación ya no descuenta cuota porque no hay cuota. El tope de filas
-    # que la acota llega en el paso 10 del pivote (spec §7.4).
+    # La exportación ya no descuenta cuota porque no hay cuota. La acota el tope
+    # de filas de `exportar.MAX_FILAS_CSV` (spec del pivote §7.4).
     ("GET", "/bi/exportar/precio/{codigo_producto}"): "publica",
     ("GET", "/bi/exportar/competidores/{organismo_id}"): "publica",
 }

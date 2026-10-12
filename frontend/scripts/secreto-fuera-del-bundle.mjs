@@ -1,9 +1,14 @@
 #!/usr/bin/env node
 /**
- * El secreto del proxy no llega al navegador (Foco de revisión nº 2 del pivote).
+ * Los secretos de servidor no llegan al navegador (Foco de revisión nº 2 del pivote).
  *
- *   PROXY_SECRETO=<centinela> npm run build
- *   PROXY_SECRETO=<centinela> npm run check:secreto
+ *   PROXY_SECRETO=<centinela> REVALIDAR_SECRETO=<otro> npm run build
+ *   PROXY_SECRETO=<centinela> REVALIDAR_SECRETO=<otro> npm run check:secreto
+ *
+ * `REVALIDAR_SECRETO` (paso 10) protege `POST /api/revalidar`: con él, cualquiera
+ * vaciaría la caché de las páginas públicas y mandaría cada visita al backend.
+ * Es opcional AQUÍ sólo para no romper un CI que todavía construya sin él: si
+ * no viene se avisa y se busca sólo el del proxy.
  *
  * `PROXY_SECRETO` es lo que exime al servidor de Next del límite por IP del
  * backend. Si acaba en el bundle, cualquiera lo lee en las herramientas del
@@ -20,14 +25,24 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const RAIZ = new URL('..', import.meta.url).pathname;
-const centinela = process.env.PROXY_SECRETO ?? '';
+const OBLIGATORIOS = ['PROXY_SECRETO', 'REVALIDAR_SECRETO'];
+const OPCIONALES = [];
 
-if (centinela.length < 16) {
-  console.error(
-    'PROXY_SECRETO tiene que traer el centinela con que se construyó (≥16 caracteres).\n' +
-      'Con un valor corto o vacío la búsqueda no demostraría nada.',
-  );
-  process.exit(2);
+const secretos = [];
+for (const nombre of [...OBLIGATORIOS, ...OPCIONALES]) {
+  const valor = process.env[nombre] ?? '';
+  if (!valor && OPCIONALES.includes(nombre)) {
+    console.warn(`${nombre} no viene: no se busca (constrúyelo con un centinela para comprobarlo).`);
+    continue;
+  }
+  if (valor.length < 16) {
+    console.error(
+      `${nombre} tiene que traer el centinela con que se construyó (≥16 caracteres).\n` +
+        'Con un valor corto o vacío la búsqueda no demostraría nada.',
+    );
+    process.exit(2);
+  }
+  secretos.push([nombre, Buffer.from(valor)]);
 }
 
 function* ficheros(dir, filtro = () => true) {
@@ -60,12 +75,16 @@ if (servidos.length < MINIMO) {
   process.exit(2);
 }
 
-const buscado = Buffer.from(centinela);
-const filtrados = servidos.filter((r) => readFileSync(r).includes(buscado));
-
-if (filtrados.length) {
-  console.error('PROXY_SECRETO aparece en lo que se sirve al navegador:');
-  for (const r of filtrados) console.error(`  ${r.slice(RAIZ.length)}`);
-  process.exit(1);
+let filtrado = false;
+const contenidos = servidos.map((r) => [r, readFileSync(r)]);
+for (const [nombre, buscado] of secretos) {
+  const donde = contenidos.filter(([, datos]) => datos.includes(buscado)).map(([r]) => r);
+  if (donde.length) {
+    filtrado = true;
+    console.error(`${nombre} aparece en lo que se sirve al navegador:`);
+    for (const r of donde) console.error(`  ${r.slice(RAIZ.length)}`);
+  } else {
+    console.log(`${nombre} no aparece en ${servidos.length} ficheros servidos al navegador.`);
+  }
 }
-console.log(`PROXY_SECRETO no aparece en ${servidos.length} ficheros servidos al navegador.`);
+if (filtrado) process.exit(1);

@@ -27,6 +27,7 @@ SUPERFICIE: dict[str, str] = {
     "tenders": "publica",
     "bi": "publica",
     "compra-agil": "publica",
+    "publico": "publica",
     "health": "interna",
     "raiz": "interna",
 }
@@ -54,6 +55,16 @@ ETIQUETAS: list[dict[str, str]] = [
             "ordenadas por un puntaje HEURÍSTICO (producto de competencia, historia "
             "del comprador y tiempo para cotizar; 0,5 el factor sin dato). Ningún "
             "dato de proveedor: sólo conteos."
+        ),
+    },
+    {
+        "name": "publico",
+        "description": (
+            "Páginas públicas de comprador, rubro y producto, y su sitemap. Las "
+            "URL van por código de comprador o por `slug` (sin tildes, minúsculas, "
+            "guiones): el slug lo da la API, no se calcula del lado del cliente. "
+            "`indexable` dice si la página tiene datos suficientes para ofrecerse "
+            "a un buscador; una no indexable responde igual, con 200."
         ),
     },
     {"name": "health", "description": "Sonda de la plataforma. Fuera de la versión."},
