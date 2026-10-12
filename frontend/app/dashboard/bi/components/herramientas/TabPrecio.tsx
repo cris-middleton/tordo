@@ -16,6 +16,7 @@ import {
   type PrecioResultado,
 } from './comun';
 import { motivoParaPersona } from '@/lib/motivos';
+import { textoPeriodo } from '@/lib/periodo';
 
 interface ProductoOption {
   codigoProductoONU?: string;
@@ -186,6 +187,9 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
                   diferencia visible entre "un precio" y "esta categoría son
                   varios productos distintos" — el hallazgo que motivó L0. */}
               {bandas.length > 1 && <> · {bandas.length} productos distintos en esta categoría</>}
+              {/* Sin esto la banda se lee como histórica, y son sólo los
+                  últimos 12 meses de datos (36 en la referencia del organismo). */}
+              {textoPeriodo(resultado.periodo) && <> · Precios de {textoPeriodo(resultado.periodo)}</>}
             </p>
           )}
           <div className="space-y-2">

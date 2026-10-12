@@ -70,11 +70,19 @@ import logging
 
 import polars as pl
 
-from .config import OUTPUT_DIR
-from .data_loader import iter_oc_parquets
+from .config import OC_PARQUET_DIR, OUTPUT_DIR
+from .data_loader import con_ventana, iter_oc_parquets, limites_ventana
 from .normalizacion import canonizar_unidad, firma_es_utilizable, firma_producto
 
 logger = logging.getLogger(__name__)
+
+#: Las bandas miran sólo los últimos 12 meses de datos, no los 36 del resto de
+#: analytics. Un precio de hace tres años no informa el de hoy, y deflactarlo no
+#: lo arregla (medido: el CV dentro de un solo mes es 0,83–0,88 y mezclando
+#: 2016–2026 es 0,88; ver CLAUDE.md). Además es el módulo que más RAM pide —0,5 GB
+#: por mes de historia, medido—, así que su ventana fija el tamaño del semanal.
+#: La API lo devuelve como `periodo`: nadie debe leer la banda como histórica.
+VENTANA_BANDAS_PRECIO_MESES = 12
 
 # Mínimo de transacciones por nivel.
 #
@@ -164,7 +172,7 @@ def extract_unit_prices() -> pl.DataFrame:
 
     frames = []
 
-    for _periodo, df in iter_oc_parquets(columns=cols_needed):
+    for _periodo, df in iter_oc_parquets(columns=cols_needed, meses=VENTANA_BANDAS_PRECIO_MESES):
         required = ["codigoProductoONU", "precioNeto", "cantidad", "UnidadMedida"]
         if not all(c in df.columns for c in required):
             continue
@@ -607,13 +615,15 @@ def run_product_price_bands() -> dict[str, pl.DataFrame]:
     l2 = build_level_2(items)
     l3 = build_level_3(items)
 
-    # Guardar
+    # Guardar, cada nivel con su periodo: la API lo devuelve para que la banda
+    # no se lea como histórica.
+    limites = limites_ventana(OC_PARQUET_DIR, VENTANA_BANDAS_PRECIO_MESES)
     for name, df in [("L0", l0), ("L0N", l0n), ("L1", l1), ("L2", l2), ("L3", l3)]:
         if df.is_empty():
             logger.warning(f"  {name}: vacío, no se escribe parquet")
             continue
         path = OUTPUT_DIR / f"product_price_bands_{name}.parquet"
-        df.write_parquet(path, compression="snappy")
+        con_ventana(df, limites).write_parquet(path, compression="snappy")
         logger.info(f"Guardado: {path.name} ({path.stat().st_size / 1024 / 1024:.1f} MB)")
 
     # Cobertura

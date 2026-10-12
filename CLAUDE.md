@@ -419,16 +419,12 @@ ChileCompra, que es su fuente.
   `consolidar_tipo` se salta un mes ya consolidado: lo que ChileCompra corregía de los meses
   recientes nunca llegaba a analytics.
 - **RAM medida** (run_all + materialize en un proceso, como el cron; RSS máximo en macOS, Mac de
-  10 núcleos): **1,68 GB con 3 meses de OC, 3,17 GB con 6**. Manda `product_prices`: 3,25 GB
-  sólo él con 6 meses, **lineal con la historia (~0,5 GB por mes)**, porque no tiene ventana
-  —lee todo desde `MIN_YEAR`— y concatena cada línea de ítem. El siguiente es `competitors`
-  con 1,29 GB; TF-IDF y clustering juntos, ~0,3 GB del pico. **Con años de historia no cabe en
-  ningún tamaño razonable: el servicio semanal no se puede dimensionar hasta que
-  `product_prices` tenga ventana**. **Decidido (2026-10-11): ventana móvil de 12 meses para las
-  bandas de precio** (~6,5 GB de pico) **y servicio semanal de 8 GB** en Railway; va en su
-  propio PR, que mide además qué otros módulos crecen con la historia. No lo arregles
-  subiendo la máquina. Los módulos de LIC (`buyers` incluido) no se pudieron medir: no hay
-  parquets de LIC en local.
+  10 núcleos): **1,68 GB con 3 meses de OC, 3,17 GB con 6**. Manda `product_prices` (3,25 GB
+  sólo él con 6 meses, ~0,5 GB por mes de historia); el siguiente es `competitors` con 1,29 GB.
+  **Cada módulo crece con la historia**, así que lo que acota el pico es la ventana de
+  analytics (ver «Analytics lee una VENTANA de historia» en Patrones vigentes): **servicio
+  semanal de 8 GB** en Railway. No lo arregles subiendo la máquina. Los módulos de LIC
+  (`buyers` incluido) no se pudieron medir: no hay parquets de LIC en local.
 
 **La pasada horaria es `--horario`**: licitaciones publicadas hoy, Compra Ágil de las
 últimas 2 h y detalles nuevos. La tarea «horaria» corría `--only-extraer-nuevos`, que sólo
@@ -637,6 +633,25 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   - La Compra Ágil ingerida trae el RUT del comprador, no su código: se traduce con las OC
     (`RutUnidadCompra` → `CodigoOrganismoPublico`, el más frecuente). Lo que no se traduce
     cuenta igual, con código nulo.
+- **Analytics lee una VENTANA de historia, no toda** (`data_loader.VENTANA_ANALYTICS_MESES` = 36;
+  las bandas de precio por producto, `VENTANA_BANDAS_PRECIO_MESES` = 12). Medido: **cada**
+  módulo sube de RAM con los meses de historia —de 0,04 GB/mes (clustering) a 0,5 GB/mes
+  (`product_prices`)—, así que con años en R2 el semanal no cabría en ninguna máquina. Con la
+  ventana, el pico proyectado es ~6,3 GB (las bandas, a 12 meses): **servicio semanal de 8 GB**.
+  Y es lo correcto en producto: precios o cuotas de hace años describen otro mercado.
+  - **Se ancla en el período más reciente de los DATOS, no en hoy**: si ChileCompra se atrasa,
+    la ventana se queda con los datos en vez de irse vaciando. `max_date` (harness) la ancla ahí.
+  - Se salta por nombre los archivos anteriores (una orden está en el archivo de su mes de
+    envío, nunca en uno anterior a su creación) y filtra las filas por `FechaCreacion`.
+  - **Las tablas que la llevan lo publican**: `ventana_desde`/`ventana_hasta` en las bandas,
+    `price_bands`, `competitors_by_market` y `market_concentration`, y `periodo` en la API de
+    precio y de competidores. Una cifra sin periodo se lee como «de siempre».
+  - **Sin ventana, a propósito**: el harness de evaluación (`meses=None`) y `tfidf_matcher`,
+    cuyos splits fija el harness —cambiar su historia es cambiar el modelo.
+  - `MIN_YEAR` ya no filtra: queda sólo como origen del índice temporal de `trend_analysis`.
+    La descarga masiva sigue guardando TODA la historia en R2, que es barato.
+  - `etl/tests/test_ventana_analytics.py` lo fija con cuatro años sintéticos: con los datos
+    locales (6 meses) la ventana no recorta nada.
 - **`CodigoProveedor` NO es un RUT.** Es el identificador interno de Mercado Público: de
   los 4.204.598 registros de `competitors_by_market`, **cero** llevan guion. La traducción
   RUT → código sale de `ordenes_compra`, que guarda los dos (`rut_proveedor`,

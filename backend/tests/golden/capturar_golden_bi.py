@@ -146,7 +146,8 @@ def main() -> int:
             )
 
     SALIDA.parent.mkdir(parents=True, exist_ok=True)
-    SALIDA.write_text(json.dumps(golden, ensure_ascii=False, indent=1, default=str))
+    # Con salto final: sin él, el hook `end-of-file-fixer` rechaza cada recapturado.
+    SALIDA.write_text(json.dumps(golden, ensure_ascii=False, indent=1, default=str) + "\n")
     con_datos = sum(
         1
         for g in golden

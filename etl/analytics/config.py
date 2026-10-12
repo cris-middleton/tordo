@@ -79,5 +79,7 @@ LIC_COLS_CORE = [
 # Mínimo de observaciones para considerar un par (organismo, rubro) estadísticamente válido
 MIN_OBSERVATIONS = 5
 
-# Años a incluir en análisis (filtrar datos muy antiguos si hay ruido)
+# Origen del índice temporal `t` de `trend_analysis` (meses desde enero de este
+# año). NO filtra datos: cuánta historia lee analytics lo decide
+# `data_loader.VENTANA_ANALYTICS_MESES`.
 MIN_YEAR = 2010

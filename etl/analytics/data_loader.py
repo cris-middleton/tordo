@@ -11,7 +11,7 @@ from pathlib import Path
 
 import polars as pl
 
-from .config import LIC_COLS_CORE, LIC_PARQUET_DIR, MIN_YEAR, OC_COLS_CORE, OC_PARQUET_DIR
+from .config import LIC_COLS_CORE, LIC_PARQUET_DIR, OC_COLS_CORE, OC_PARQUET_DIR
 from .personas import codigos_persona_natural, columnas_para_enmascarar, enmascarar
 
 logger = logging.getLogger(__name__)
@@ -164,126 +164,194 @@ def _parse_periodo(periodo_str: str) -> tuple[int, int]:
     return int(parts[0]), int(parts[1])
 
 
-def scan_oc(
-    columns: list[str] | None = None,
-    min_year: int = MIN_YEAR,
-    max_date: date | None = None,
+#: Meses de historia que lee analytics, por defecto. Con más, la RAM del
+#: semanal crece sin techo: medido, CADA módulo sube con los meses de historia
+#: (de 0,04 a 0,5 GB por mes), y con años en R2 el servicio no cabría en ningún
+#: tamaño razonable. Y es lo correcto en producto: cuotas o precios de hace cinco
+#: años describen otro mercado. 36 y no menos porque estacionalidad y tendencia
+#: necesitan varios años para tener algo que decir.
+VENTANA_ANALYTICS_MESES = 36
+
+
+def _periodos(directorio: Path) -> list[tuple[tuple[int, int], Path]]:
+    """Los parquets mensuales en orden CRONOLÓGICO (por nombre, «2025-10»
+    quedaba antes que «2025-2»)."""
+    return sorted((_parse_periodo(p.stem), p) for p in directorio.glob("*.parquet"))
+
+
+def inicio_ventana(
+    directorio: Path, meses: int | None, max_date: date | None = None
+) -> date | None:
+    """Primer día de la ventana de `meses`, o None si no hay ventana.
+
+    **Se ancla en el período más reciente de los DATOS, no en hoy**: si
+    ChileCompra se atrasa en publicar, la ventana se queda donde están los datos
+    en vez de ir vaciándose. Con `max_date` (el harness de evaluación) se ancla ahí.
+    """
+    if meses is None:
+        return None
+    periodos = [periodo for periodo, _ in _periodos(directorio)]
+    if max_date is not None:
+        periodos = [p for p in periodos if p <= (max_date.year, max_date.month)]
+    if not periodos:
+        return None
+    anio, mes = periodos[-1]
+    indice = anio * 12 + (mes - 1) - (meses - 1)
+    return date(indice // 12, indice % 12 + 1, 1)
+
+
+def limites_ventana(directorio: Path, meses: int) -> tuple[date, date] | None:
+    """(primer día, último día) de la ventana de `meses` sobre `directorio`.
+
+    Es lo que se escribe como `ventana_desde`/`ventana_hasta` en las tablas que
+    lo publican: una cuota o una banda sin periodo se lee como «de siempre».
+    """
+    desde = inicio_ventana(directorio, meses)
+    if desde is None:
+        return None
+    anio, mes = _periodos(directorio)[-1][0]
+    siguiente = date(anio + mes // 12, mes % 12 + 1, 1)
+    return desde, date.fromordinal(siguiente.toordinal() - 1)
+
+
+def con_ventana(df: pl.DataFrame, limites: tuple[date, date] | None) -> pl.DataFrame:
+    """Añade `ventana_desde` y `ventana_hasta` (nulas si no hay datos)."""
+    desde, hasta = limites or (None, None)
+    return df.with_columns(
+        pl.lit(desde, dtype=pl.Date).alias("ventana_desde"),
+        pl.lit(hasta, dtype=pl.Date).alias("ventana_hasta"),
+    )
+
+
+def _archivos(
+    directorio: Path, min_year: int | None, max_date: date | None, meses: int | None
+) -> tuple[list[Path], date | None]:
+    """Los archivos a leer y desde qué fecha filtrar las filas.
+
+    Saltarse por nombre un archivo anterior a la ventana es seguro: una orden
+    aparece en el archivo de su mes de envío, así que su `FechaCreacion` nunca es
+    posterior al período del archivo. Las filas de los que SÍ se leen se filtran
+    igual, porque un archivo trae órdenes creadas meses antes.
+    """
+    desde = inicio_ventana(directorio, meses, max_date)
+    archivos = [
+        p
+        for (anio, mes), p in _periodos(directorio)
+        if (min_year is None or anio >= min_year)
+        and (desde is None or (anio, mes) >= (desde.year, desde.month))
+    ]
+    return archivos, desde
+
+
+def _filtro_fechas(desde: date | None, max_date: date | None) -> pl.Expr | None:
+    fecha = pl.col("FechaCreacion").cast(pl.Date, strict=False)
+    filtro = None
+    if desde is not None:
+        filtro = fecha >= pl.lit(desde)
+    if max_date is not None:
+        tope = fecha <= pl.lit(max_date)
+        filtro = tope if filtro is None else filtro & tope
+    return filtro
+
+
+def _escanear_todos(
+    directorio: Path,
+    nombre: str,
+    cols: list[str],
+    min_year: int | None,
+    max_date: date | None,
+    meses: int | None,
 ) -> pl.LazyFrame:
-    """
-    Carga lazy de todas las OC históricas, filtrando por año mínimo.
-    Selecciona solo las columnas solicitadas (o core por defecto).
-    """
-    cols = columns or OC_COLS_CORE
-    available = _available_cols(OC_PARQUET_DIR, cols)
-
-    parquets = sorted(OC_PARQUET_DIR.glob("*.parquet"))
-    # Filtrar por año basándose en el nombre del archivo
-    filtered = []
-    for p in parquets:
-        year, _ = _parse_periodo(p.stem)
-        if year >= min_year:
-            filtered.append(p)
-
-    if not filtered:
-        raise FileNotFoundError(f"No OC parquets found for year >= {min_year}")
-
-    logger.info(f"Scanning {len(filtered)} OC parquets ({filtered[0].stem} → {filtered[-1].stem})")
-
+    available = _available_cols(directorio, cols)
+    archivos, desde = _archivos(directorio, min_year, max_date, meses)
+    if not archivos:
+        raise FileNotFoundError(f"No hay parquets de {nombre} en la ventana pedida")
+    logger.info(
+        f"Scanning {len(archivos)} {nombre} parquets ({archivos[0].stem} → {archivos[-1].stem})"
+        + (f", desde {desde}" if desde else "")
+    )
+    filtro = _filtro_fechas(desde, max_date)
     frames = []
-    for p in filtered:
+    for p in archivos:
         try:
-            file_schema = pl.read_parquet_schema(p)
             lf = _escanear(p, available)
-            if max_date is not None and "FechaCreacion" in file_schema:
-                lf = lf.filter(pl.col("FechaCreacion").cast(pl.Date) <= pl.lit(max_date))
+            if filtro is not None and "FechaCreacion" in pl.read_parquet_schema(p):
+                lf = lf.filter(filtro)
             frames.append(lf)
         except Exception as e:
             logger.warning(f"Skip {p.name}: {e}")
-
     return pl.concat(frames, how="diagonal_relaxed")
+
+
+def _iterar(
+    directorio: Path,
+    cols: list[str],
+    min_year: int | None,
+    max_date: date | None,
+    meses: int | None,
+):
+    archivos, desde = _archivos(directorio, min_year, max_date, meses)
+    filtro = _filtro_fechas(desde, max_date)
+    # Para filtrar hace falta la fecha aunque el módulo no la pida; se quita
+    # después, para que nadie reciba una columna que no pidió.
+    anadida = filtro is not None and "FechaCreacion" not in cols
+    if anadida:
+        cols = [*cols, "FechaCreacion"]
+    for p in archivos:
+        try:
+            df = _leer(p, cols)
+            if filtro is not None and "FechaCreacion" in df.columns:
+                df = df.filter(filtro)
+            if anadida and "FechaCreacion" in df.columns:
+                df = df.drop("FechaCreacion")
+            yield p.stem, df
+        except Exception as e:
+            logger.warning(f"Skip {p.name}: {e}")
+
+
+def scan_oc(
+    columns: list[str] | None = None,
+    min_year: int | None = None,
+    max_date: date | None = None,
+    meses: int | None = VENTANA_ANALYTICS_MESES,
+) -> pl.LazyFrame:
+    """Carga lazy de las OC de la ventana (`meses`; None = toda la historia)."""
+    return _escanear_todos(OC_PARQUET_DIR, "OC", columns or OC_COLS_CORE, min_year, max_date, meses)
 
 
 def scan_lic(
     columns: list[str] | None = None,
-    min_year: int = MIN_YEAR,
+    min_year: int | None = None,
     max_date: date | None = None,
+    meses: int | None = VENTANA_ANALYTICS_MESES,
 ) -> pl.LazyFrame:
-    """Carga lazy de todas las licitaciones históricas."""
-    cols = columns or LIC_COLS_CORE
-    available = _available_cols(LIC_PARQUET_DIR, cols)
-
-    parquets = sorted(LIC_PARQUET_DIR.glob("*.parquet"))
-    filtered = []
-    for p in parquets:
-        year, _ = _parse_periodo(p.stem)
-        if year >= min_year:
-            filtered.append(p)
-
-    if not filtered:
-        raise FileNotFoundError(f"No LIC parquets found for year >= {min_year}")
-
-    logger.info(f"Scanning {len(filtered)} LIC parquets ({filtered[0].stem} → {filtered[-1].stem})")
-
-    frames = []
-    for p in filtered:
-        try:
-            file_schema = pl.read_parquet_schema(p)
-            lf = _escanear(p, available)
-            if max_date is not None and "FechaCreacion" in file_schema:
-                lf = lf.filter(pl.col("FechaCreacion").cast(pl.Date) <= pl.lit(max_date))
-            frames.append(lf)
-        except Exception as e:
-            logger.warning(f"Skip {p.name}: {e}")
-
-    return pl.concat(frames, how="diagonal_relaxed")
+    """Carga lazy de las licitaciones de la ventana."""
+    return _escanear_todos(
+        LIC_PARQUET_DIR, "LIC", columns or LIC_COLS_CORE, min_year, max_date, meses
+    )
 
 
 def iter_oc_parquets(
     columns: list[str] | None = None,
-    min_year: int = MIN_YEAR,
+    min_year: int | None = None,
     max_date: date | None = None,
+    meses: int | None = VENTANA_ANALYTICS_MESES,
 ):
-    """
-    Iterador que yield un DataFrame a la vez (para procesamiento batch
-    cuando no se puede materializar todo en memoria).
+    """Un DataFrame de OC por archivo, dentro de la ventana de `meses`.
 
-    Si `max_date` está seteado, filtra in-place cada DF a FechaCreacion <= max_date.
+    `max_date` (harness de evaluación) corta además por arriba, y ancla la
+    ventana en su mes. `meses=None` lee toda la historia.
     """
     cols = _columnas_para_montos(columns or OC_COLS_CORE)
-    if max_date is not None and "FechaCreacion" not in cols:
-        cols = list(cols) + ["FechaCreacion"]
-
-    for p in sorted(OC_PARQUET_DIR.glob("*.parquet")):
-        year, _ = _parse_periodo(p.stem)
-        if year < min_year:
-            continue
-        try:
-            df = _leer(p, cols)
-            if max_date is not None and "FechaCreacion" in df.columns:
-                df = df.filter(pl.col("FechaCreacion").cast(pl.Date) <= max_date)
-            yield p.stem, con_monto_por_linea(con_numeros(con_vacios(df)))
-        except Exception as e:
-            logger.warning(f"Skip {p.name}: {e}")
+    for periodo, df in _iterar(OC_PARQUET_DIR, cols, min_year, max_date, meses):
+        yield periodo, con_monto_por_linea(con_numeros(con_vacios(df)))
 
 
 def iter_lic_parquets(
     columns: list[str] | None = None,
-    min_year: int = MIN_YEAR,
+    min_year: int | None = None,
     max_date: date | None = None,
+    meses: int | None = VENTANA_ANALYTICS_MESES,
 ):
-    """Iterador de LIC parquets uno a la vez."""
-    cols = columns or LIC_COLS_CORE
-    if max_date is not None and "FechaCreacion" not in cols:
-        cols = list(cols) + ["FechaCreacion"]
-
-    for p in sorted(LIC_PARQUET_DIR.glob("*.parquet")):
-        year, _ = _parse_periodo(p.stem)
-        if year < min_year:
-            continue
-        try:
-            df = _leer(p, cols)
-            if max_date is not None and "FechaCreacion" in df.columns:
-                df = df.filter(pl.col("FechaCreacion").cast(pl.Date) <= max_date)
-            yield p.stem, df
-        except Exception as e:
-            logger.warning(f"Skip {p.name}: {e}")
+    """Un DataFrame de licitaciones por archivo, dentro de la ventana de `meses`."""
+    yield from _iterar(LIC_PARQUET_DIR, list(columns or LIC_COLS_CORE), min_year, max_date, meses)

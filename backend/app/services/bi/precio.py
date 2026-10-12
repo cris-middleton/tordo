@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import logging
 
-from app.services.bi._base import _load
+from app.services.bi._base import _load, periodo_de
 
 logger = logging.getLogger(__name__)
 
@@ -197,6 +197,7 @@ def get_precio_producto(
                     "resultado": _to_dicts(rows, COLS_L0),
                     "total_registros": len(rows),
                     "nivel_usado": "L0",
+                    "periodo": periodo_de(df0),
                     "fallback": False,
                 }
 
@@ -219,6 +220,7 @@ def get_precio_producto(
                 "resultado": _to_dicts(rows, COLS_L0N),
                 "total_registros": len(rows),
                 "nivel_usado": "L0N",
+                "periodo": periodo_de(df0n),
                 "fallback": True,
                 "fallback_motivo": (
                     "sin datos de este comprador para estos productos — referencia nacional "
@@ -251,6 +253,7 @@ def get_precio_producto(
                     "resultado": _to_dicts(rows, COLS_L1),
                     "total_registros": len(rows),
                     "nivel_usado": "L1",
+                    "periodo": periodo_de(df1),
                     "fallback": False,
                 }
 
@@ -272,6 +275,7 @@ def get_precio_producto(
                 "resultado": _to_dicts(rows, COLS_L2),
                 "total_registros": len(rows),
                 "nivel_usado": "L2",
+                "periodo": periodo_de(df2),
                 "fallback": True,
                 "fallback_motivo": "sin datos del organismo específico — referencia por sector",
             }
@@ -294,6 +298,7 @@ def get_precio_producto(
                 "resultado": _to_dicts(rows, COLS_L3),
                 "total_registros": len(rows),
                 "nivel_usado": "L3",
+                "periodo": periodo_de(df3),
                 "fallback": True,
                 "fallback_motivo": "sin datos por organismo ni sector — referencia nacional",
             }
@@ -347,6 +352,7 @@ def get_precio_producto(
                     "resultado": mapped,
                     "total_registros": len(mapped),
                     "nivel_usado": "L4",
+                    "periodo": periodo_de(df4),
                     "fallback": True,
                     "fallback_motivo": "sin datos por producto — referencia general del organismo por rubro",
                 }

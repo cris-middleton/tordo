@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 
-from app.services.bi._base import _load
+from app.services.bi._base import _load, periodo_de
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +65,7 @@ def get_competidores(
         "organismo_id": organismo_id,
         "competidores": result,
         "concentracion": hhi_rows,
+        "periodo": periodo_de(df),
     }
 
 

@@ -92,3 +92,20 @@ def _primero(fila: dict, *claves: str):
 # ─────────────────────────────────────────────────────────────────────────────
 # Public API
 # ─────────────────────────────────────────────────────────────────────────────
+
+
+def periodo_de(df) -> dict | None:
+    """Los meses de datos de los que sale una tabla de analytics, o None.
+
+    El pipeline escribe `ventana_desde`/`ventana_hasta` en las tablas que llevan
+    ventana (`etl/analytics/data_loader.py`): 12 meses las bandas por producto,
+    36 el resto. Se devuelve en la respuesta porque una banda o una cuota sin
+    periodo se lee como «de siempre».
+    """
+    if df is None or df.is_empty() or "ventana_desde" not in df.columns:
+        return None
+    fila = df.row(0, named=True)
+    desde, hasta = fila.get("ventana_desde"), fila.get("ventana_hasta")
+    if desde is None:
+        return None
+    return {"desde": str(desde)[:10], "hasta": str(hasta)[:10] if hasta else None}

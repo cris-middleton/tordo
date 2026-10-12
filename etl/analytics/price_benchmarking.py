@@ -25,8 +25,8 @@ import warnings
 import numpy as np
 import polars as pl
 
-from .config import MIN_OBSERVATIONS, OUTPUT_DIR
-from .data_loader import iter_oc_parquets
+from .config import MIN_OBSERVATIONS, OC_PARQUET_DIR, OUTPUT_DIR
+from .data_loader import VENTANA_ANALYTICS_MESES, con_ventana, iter_oc_parquets, limites_ventana
 from .identidad import nombre_vigente, periodo_maximo
 
 logger = logging.getLogger(__name__)
@@ -288,8 +288,12 @@ def run_price_benchmarking() -> dict[str, pl.DataFrame]:
     if price_bands.is_empty():
         return {}
 
+    # Es el último recurso (L4) de la API de precio, que devuelve su periodo:
+    # 36 meses aquí, no los 12 de las bandas por producto.
     bands_path = OUTPUT_DIR / "price_bands.parquet"
-    price_bands.write_parquet(bands_path, compression="snappy")
+    con_ventana(
+        price_bands, limites_ventana(OC_PARQUET_DIR, VENTANA_ANALYTICS_MESES)
+    ).write_parquet(bands_path, compression="snappy")
     logger.info(f"Guardado: {bands_path.name} ({bands_path.stat().st_size / 1024 / 1024:.1f} MB)")
 
     # Modelo de probabilidad

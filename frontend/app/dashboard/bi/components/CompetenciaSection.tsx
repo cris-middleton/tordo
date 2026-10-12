@@ -15,6 +15,7 @@ import {
   Cell,
 } from 'recharts';
 import { CompetidorItem, ConcentracionItem, OrganismoConNombre } from '../types';
+import { textoPeriodo } from '@/lib/periodo';
 import { useCompetidores } from '@/lib/queries';
 import { InfoTooltip } from './InfoTooltip';
 
@@ -61,6 +62,8 @@ export function CompetenciaSection({
   const competidores = ((res?.disponible ? res.competidores : []) ?? []) as CompetidorItem[];
   const concentracion = ((res?.disponible ? res.concentracion : []) ?? []) as ConcentracionItem[];
   const loading = Boolean(selectedOrganismo) && isPending;
+  // Una cuota sin periodo se lee como «de siempre»: son los últimos 36 meses.
+  const periodo = res?.disponible ? textoPeriodo(res.periodo) : null;
   const [showTable, setShowTable] = useState(false);
 
   const tipoMercado = concentracion[0]?.tipo_mercado;
@@ -152,6 +155,8 @@ export function CompetenciaSection({
           </span>
         </div>
       )}
+
+      {periodo && <p className="text-xs text-muted">Cuotas de {periodo}</p>}
 
       {loading ? (
         <div className="flex items-center justify-center py-10">

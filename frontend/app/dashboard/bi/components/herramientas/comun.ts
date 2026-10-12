@@ -1,5 +1,7 @@
 import { mensajeDeError } from '@/lib/errores';
 
+import type { Periodo } from '@/lib/periodo';
+
 import type { OrganismoConNombre } from '../../types';
 import { motivoParaPersona } from '@/lib/motivos';
 
@@ -85,6 +87,8 @@ export interface PrecioResultado {
   resultado?: PrecioBanda[];
   nivel_usado?: string;
   motivo?: string;
+  /** De qué meses sale la banda: ver `lib/periodo.ts`. */
+  periodo?: Periodo | null;
 }
 
 /**

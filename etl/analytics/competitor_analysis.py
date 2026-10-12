@@ -25,8 +25,8 @@ import logging
 import polars as pl
 
 from .agregacion import ContadorDistintos
-from .config import MIN_OBSERVATIONS, OUTPUT_DIR
-from .data_loader import iter_oc_parquets
+from .config import MIN_OBSERVATIONS, OC_PARQUET_DIR, OUTPUT_DIR
+from .data_loader import VENTANA_ANALYTICS_MESES, con_ventana, iter_oc_parquets, limites_ventana
 from .identidad import nombre_vigente, periodo_maximo
 
 logger = logging.getLogger(__name__)
@@ -329,14 +329,16 @@ def run_competitor_analysis() -> dict[str, pl.DataFrame]:
 
     # Market shares
     market_shares = compute_market_shares(markets)
+    # Con su periodo: una cuota sin fechas se lee como «de siempre».
+    limites = limites_ventana(OC_PARQUET_DIR, VENTANA_ANALYTICS_MESES)
     ms_path = OUTPUT_DIR / "competitors_by_market.parquet"
-    market_shares.write_parquet(ms_path, compression="snappy")
+    con_ventana(market_shares, limites).write_parquet(ms_path, compression="snappy")
     logger.info(f"Guardado: {ms_path.name} ({ms_path.stat().st_size / 1024 / 1024:.1f} MB)")
 
     # Concentración
     concentration = compute_market_concentration(market_shares)
     conc_path = OUTPUT_DIR / "market_concentration.parquet"
-    concentration.write_parquet(conc_path, compression="snappy")
+    con_ventana(concentration, limites).write_parquet(conc_path, compression="snappy")
     logger.info(f"Guardado: {conc_path.name}")
 
     # Provider profiles

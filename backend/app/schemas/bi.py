@@ -1,5 +1,7 @@
 """Pydantic schemas for BI API responses."""
 
+from datetime import date
+
 from pydantic import BaseModel
 
 
@@ -51,6 +53,17 @@ class PrecioBanda(BaseModel):
     n: int | None = None
 
 
+class Periodo(BaseModel):
+    """Los meses de datos de los que sale un análisis (ambos inclusive).
+
+    Bandas por producto: 12 meses; cuotas, concentración y la referencia L4 del
+    organismo: 36. Una cifra sin periodo se lee como «de siempre».
+    """
+
+    desde: date | None = None
+    hasta: date | None = None
+
+
 class PrecioResponse(BaseModel):
     disponible: bool
     codigo_producto: str | None = None
@@ -64,6 +77,7 @@ class PrecioResponse(BaseModel):
     fallback: bool = False
     fallback_motivo: str | None = None
     motivo: str | None = None
+    periodo: Periodo | None = None
 
 
 class Competidor(BaseModel):
@@ -93,6 +107,7 @@ class CompetidoresResponse(BaseModel):
     competidores: list[Competidor] | None = None
     concentracion: list[Concentracion] | None = None
     motivo: str | None = None
+    periodo: Periodo | None = None
 
 
 class Oportunidad(BaseModel):
