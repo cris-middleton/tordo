@@ -20,6 +20,13 @@ análisis sólo con los tres meses recién bajados, y lo publicaría, sin que na
 avisara. Por la misma razón, en `r2` falta una credencial ⇒ falla al
 construirse, nombrando lo que falta, antes de tocar nada.
 
+**R2 guarda sólo lo que la corrida lee** (`conservar`): los meses de
+`consolidated/` que caen en la ventana de analytics, más un margen. La descarga
+masiva entera (2007 en adelante) son ~26 GB —medido: 18 GB de OC y 8 GB de LIC—,
+y la capa gratuita de R2 son 10 GB; la ventana, ~4,5 GB. `bajar` no trae lo que
+quedó fuera y `subir` lo borra del bucket. Lo decide `etl.cron`, que conoce la
+ventana; aquí sólo se aplica. `analytics/` se conserva siempre.
+
 Un archivo se transfiere sólo si cambió: se compara el MD5 local con el ETag del
 objeto, que en una subida de una sola parte ES el MD5. Por eso las subidas no se
 parten (`MULTIPART_DESDE`): un parquet mensual pesa ~100 MB.
@@ -38,6 +45,9 @@ import boto3
 from boto3.s3.transfer import TransferConfig
 
 logger = logging.getLogger(__name__)
+
+#: Decide, por clave (`consolidated/oc/2026-3.parquet`), si un archivo se queda.
+Conservar = Callable[[str], bool]
 
 #: Lo que se conserva entre corridas.
 SUBDIRECTORIOS = ("consolidated", "analytics")
@@ -85,11 +95,12 @@ class AlmacenDisco:
 
 
 class AlmacenR2:
-    def __init__(self, cliente: Any, bucket: str, raiz: Path):
+    def __init__(self, cliente: Any, bucket: str, raiz: Path, conservar: Conservar | None = None):
         self.cliente = cliente
         self.bucket = bucket
         self.raiz = Path(raiz)
         self.transferencia = TransferConfig(multipart_threshold=MULTIPART_DESDE)
+        self.conservar = conservar or (lambda _clave: True)
 
     def _remotos(self, subdirectorio: str) -> dict[str, str]:
         """clave → ETag sin comillas."""
@@ -106,7 +117,7 @@ class AlmacenR2:
         bajados = 0
         for subdirectorio in SUBDIRECTORIOS:
             for clave, etag in self._remotos(subdirectorio).items():
-                if _ignorado(clave):
+                if _ignorado(clave) or not self.conservar(clave):
                     continue
                 local = self.raiz / clave
                 if local.exists() and _md5(local) == etag:
@@ -126,24 +137,39 @@ class AlmacenR2:
         for subdirectorio in SUBDIRECTORIOS:
             remotos = self._remotos(subdirectorio)
             base = self.raiz / subdirectorio
-            if not base.exists():
-                continue
-            for local in sorted(p for p in base.rglob("*") if p.is_file()):
+            locales = sorted(p for p in base.rglob("*") if p.is_file()) if base.exists() else []
+            for local in locales:
                 if _ignorado(local.name):
                     continue
                 clave = local.relative_to(self.raiz).as_posix()
-                if remotos.get(clave) == _md5(local):
+                if not self.conservar(clave) or remotos.get(clave) == _md5(local):
                     continue
                 self.cliente.upload_file(str(local), self.bucket, clave, Config=self.transferencia)
                 subidos += 1
+            # Después de subir, no antes: si la subida falla a medias, el bucket
+            # conserva la versión anterior entera.
+            self._borrar([c for c in remotos if not self.conservar(c)])
         logger.info("almacén: %d archivos subidos a %s", subidos, self.bucket)
         return subidos
+
+    def _borrar(self, claves: list[str]) -> None:
+        # `delete_objects` admite hasta 1.000 claves por petición.
+        for i in range(0, len(claves), 1000):
+            lote = claves[i : i + 1000]
+            self.cliente.delete_objects(
+                Bucket=self.bucket, Delete={"Objects": [{"Key": c} for c in lote]}
+            )
+        if claves:
+            logger.info(
+                "almacén: %d archivos fuera de la ventana borrados de %s", len(claves), self.bucket
+            )
 
 
 def desde_entorno(
     raiz: Path,
     entorno: Mapping[str, str] = os.environ,
     crear_cliente: Callable[..., Any] = boto3.client,
+    conservar: Conservar | None = None,
 ) -> Almacen:
     """El almacén que pide `ETL_ALMACEN`. Falla aquí, antes de tocar nada."""
     modo = (entorno.get(VARIABLE_MODO) or "").strip().lower()
@@ -168,4 +194,4 @@ def desde_entorno(
         aws_secret_access_key=entorno["R2_SECRET_ACCESS_KEY"],
         region_name="auto",
     )
-    return AlmacenR2(cliente, entorno["R2_BUCKET"], raiz)
+    return AlmacenR2(cliente, entorno["R2_BUCKET"], raiz, conservar)

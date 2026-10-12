@@ -407,11 +407,33 @@ demás. Va **después** del listado de Compra Ágil, como todo lo que gasta cuot
 a Healthchecks.io con `LATIDO_URL_FRECUENTE` / `LATIDO_URL_SEMANAL`; un ping roto no
 tumba la corrida.
 
+**Un ticket rechazado hace fallar la corrida** (`CredencialRechazada`, `etl/extractors/base.py`).
+La API clásica responde a un ticket inválido con **HTTP 203** —un 2xx— y `{"Codigo": 203,
+"Mensaje": "Ticket no válido."}`, que pasaba por «0 registros»; Compra Ágil, con un 401 que se
+registraba y seguía. Con el ticket roto los cron terminaban bien y el latido daba verde. Ahora
+no se reintenta, `main.py` la deja pasar por sus `except Exception` y llega al `/fail`. **Un
+`except Exception` nuevo en el ETL tiene que dejarla pasar.**
+
+**Los cron revalidan las páginas públicas** (`Revalidador` en `etl/cron.py`): `POST
+REVALIDAR_URL` con `X-Revalidar-Secreto: REVALIDAR_SECRETO` y `{"etiquetas": [...]}`; la
+semanal manda `["analytics"]` tras materializar y la frecuente `["compra-agil"]` al final. Sin
+las variables no hace nada; un fallo queda en ERROR y **no** tumba la corrida (la página sólo
+se queda vieja). El mismo secreto en Vercel y en los dos cron.
+
 **`semanal` guarda la historia en R2** (`etl/almacen.py`): el contenedor de Railway arranca
 con el disco vacío. Baja `consolidated/` y `analytics/` al empezar y sube lo que cambió al
 terminar (MD5 contra ETag: sólo viaja lo que cambió). Todo lo demás del pipeline sigue leyendo
 disco, sin una línea distinta entre local y producción. `raw/` no se sube: los ZIPs vienen de
 ChileCompra, que es su fuente.
+- **R2 guarda sólo lo que la corrida lee**: `MESES_EN_R2` = la ventana de analytics (36) más
+  los 3 que se rehacen. Lo anterior ni se baja ni se queda en el bucket (`almacen` lo borra al
+  subir). Medido: la descarga masiva 2007–2026 son ~26 GB (18 de OC, 8 de LIC), la capa
+  gratuita de R2 son 10 GB, y los 39 meses ~4,5 GB. La descarga recibe la ventana entera y baja
+  por tipo los meses sin consolidado: la primera corrida, con R2 vacío, llena la ventana (antes
+  bajaba 3 meses y analytics corría sobre 3). **Si un módulo pasa a leer más historia, sube
+  `MESES_EN_R2` en el mismo PR**, o leerá una ventana con agujeros sin avisar.
+  - Consecuencia: `personas.codigos_persona_natural` clasifica con la historia que hay en
+    disco, es decir, esos 39 meses, ya no desde 2007.
 - **`ETL_ALMACEN` es obligatoria, sin valor por defecto** (`r2` | `disco`). Caer a disco en
   producción no fallaría: reconstruiría el análisis sólo con los 3 meses recién bajados y lo
   publicaría. En `r2`, una credencial que falta (`R2_ENDPOINT_URL`, `R2_ACCESS_KEY_ID`,
@@ -647,7 +669,8 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
     consolidados. Así ninguna columna derivada —`top_proveedor`, la `descripcion` de las
     bandas L0, el índice TF-IDF del harness— puede olvidarlo, incluida la
     próxima que se escriba. **No leas un consolidado con `pl.read_parquet` por tu cuenta.**
-  - **Por código y con toda la historia**: un código es persona si cualquiera de sus RUT
+  - **Por código y con toda la historia que hay en disco** (en producción, los 39 meses que
+    guarda R2: ver el cron `semanal`): un código es persona si cualquiera de sus RUT
     está bajo el umbral **o si no tiene ninguno legible** (66 de 55.297 en los datos locales;
     hay personas con `RutSucursal = "NA"`). Tapar alguna SpA de más es el error barato.
   - **Seudónimo, no un código único.** Colapsarlas en uno las sumaría en un proveedor gigante

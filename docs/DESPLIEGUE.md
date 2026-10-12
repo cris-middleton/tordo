@@ -59,9 +59,12 @@ misma cuenta.
    limitado a ese bucket. Guarda `Access Key ID`, `Secret Access Key` y el
    endpoint de la cuenta (`https://<id-de-cuenta>.r2.cloudflarestorage.com`).
 
-El cron semanal sube `consolidated/` (toda la descarga masiva) y `analytics/`;
-`raw/` no se sube (`etl/almacen.py`). **La capa gratuita es de 10 GB**: ver el
-paso 13.
+El cron semanal guarda en R2 `analytics/` y **sólo los meses de `consolidated/`
+que lee** —la ventana de 36 meses más los 3 que rehace, `MESES_EN_R2` en
+`etl/cron.py`—; lo anterior ni se baja ni se queda en el bucket, y `raw/` no se
+sube (`etl/almacen.py`). Medido sobre la descarga masiva entera: 2007–2026 son
+~26 GB (18 de OC, 8 de LIC); los 39 meses, **~4,5 GB**. Cabe en la capa gratuita
+de 10 GB con margen.
 
 **Verifica:** el bucket aparece vacío en el panel y el token sólo tiene acceso a él.
 
@@ -173,6 +176,8 @@ En producción la API **avisa en el log al arrancar** si falta `PROXY_SECRETO`, 
 | `MERCADO_PUBLICO_TICKET` | el ticket propio. **Sin valor por defecto, a propósito** |
 | `COMPRA_AGIL_TICKET` | vacío para usar el mismo ticket; otro si ChileCompra separa las cuotas |
 | `LATIDO_URL_FRECUENTE` | la URL de ping de `tordo-frecuente` |
+| `REVALIDAR_URL` | `https://tordo.cl/api/revalidar` — al final de cada corrida, Next regenera las páginas de Compra Ágil |
+| `REVALIDAR_SECRETO` | `openssl rand -hex 32`, **el mismo en los dos cron y en Vercel** (paso 9). Sin valor por defecto: vacía, la corrida no revalida y lo dice en el log |
 | `ENVIRONMENT` | `production` |
 | `LOG_LEVEL` | `INFO` |
 
@@ -181,10 +186,12 @@ En producción la API **avisa en el log al arrancar** si falta `PROXY_SECRETO`, 
 `frecuente: terminada`, y en Healthchecks `tordo-frecuente` pasa a *up*.
 Luego `curl -s 'https://api.tordo.cl/api/v1/tenders/?size=1'` trae `total` > 0.
 
-> **Ojo:** hoy un ticket inválido NO hace fallar la corrida —la API clásica
-> devuelve 0 registros y Compra Ágil un 401 que se registra como error, pero la
-> corrida termina «bien» y el latido da verde—. Comprueba a mano que el catálogo
-> se llenó; no basta con el verde de Healthchecks.
+Hasta el paso 9 no hay Next al que avisar: la línea `revalidación … ERROR` del
+log es esperada y no hace fallar la corrida.
+
+Un ticket inválido o vencido **hace fallar la corrida**: la API clásica lo dice
+con un HTTP 203 y Compra Ágil con un 401, y los dos llegan al `/fail` como
+`CredencialRechazada` (sin el ticket en el texto).
 
 ## 8. Railway: `cron-semanal`
 
@@ -208,14 +215,48 @@ Un tercer servicio, igual que el anterior salvo:
 | `R2_SECRET_ACCESS_KEY` | del token del paso 2 |
 | `R2_BUCKET` | `tordo-parquets` |
 | `LATIDO_URL_SEMANAL` | la URL de ping de `tordo-semanal` |
+| `REVALIDAR_URL` | `https://tordo.cl/api/revalidar` — tras materializar, Next regenera las páginas de analytics |
+| `REVALIDAR_SECRETO` | el mismo valor que en `cron-frecuente` y en Vercel |
 | `ENVIRONMENT` | `production` |
 | `LOG_LEVEL` | `INFO` |
 
 Con `ETL_ALMACEN=r2` y una credencial que falte, la corrida falla **al
-construirse**, antes de descargar nada, y el `/fail` dice qué variable es.
+construirse**, antes de descargar nada, y el `/fail` dice qué variable es. Una
+revalidación que falla (Next caído, secreto distinto) queda en ERROR en el log
+pero **no** hace fallar la corrida: la página sólo se queda una semana más vieja.
 
-**Verifica:** no lances la primera corrida todavía: va en el paso 13, con la
-historia completa y midiendo. Basta con que el servicio construya.
+**Verifica:** el servicio construye. La primera corrida es el paso siguiente.
+
+### 8.1 La primera corrida semanal — antes de abrir el dominio
+
+**El dominio no se abre hasta que esta corrida termine bien.** Las páginas
+públicas muestran nombres de proveedores que salen de `analytics.*`, y sólo lo
+que reconstruye esta corrida lleva a las personas naturales tapadas (seudónimos
+`PN-…`). **Nunca materialices en producción los parquets de analytics de una
+máquina local**: son anteriores al enmascarado. Hasta que termine, no crees en
+Cloudflare los registros de `tordo.cl` del paso 9 (las comprobaciones de los
+pasos 9 y 10 pueden hacerse contra el dominio `*.vercel.app`). Mientras tanto,
+`REVALIDAR_URL` puede apuntar a ese mismo `*.vercel.app/api/revalidar`, o fallar
+en ERROR sin consecuencias.
+
+Es la que llena R2 y `analytics.*`: con el bucket vacío, descarga los 39 meses
+de la ventana (las siguientes, sólo los 3 recientes). Es la primera vez que corre
+con años de datos, y **nada de lo que sigue está medido con esa escala** (en
+local sólo había 6 meses). Lánzala a mano (*Deployments → Run*), mirando:
+
+- **RAM**: el pico de la gráfica de *Metrics*. Proyectado ~6,3 GB; si se acerca a
+  8 GB, no subas la máquina sin antes mirar qué módulo manda (el log dice cuánto
+  tardó cada uno).
+- **Tiempo** total, y el de la descarga masiva aparte.
+- **Disco**: en la primera corrida el contenedor tiene a la vez los ZIPs y los
+  parquets de los 39 meses (~4,5 GB cada uno, ~9 GB de pico); en las siguientes,
+  los ~4,5 GB que baja de R2 más tres meses. Compáralo con el disco efímero del
+  servicio. El bucket debería quedar en ~4,5 GB más `analytics/`.
+
+**Verifica:** termina con `/fail` ausente en Healthchecks (`tordo-semanal` *up*),
+R2 tiene `consolidated/` y `analytics/`, y el panel de inteligencia de mercado de
+sitio muestra datos. Anota RAM, tiempo y tamaño en el PR o issue del
+lanzamiento. Recién entonces, el paso 9 completo con el dominio.
 
 ## 9. Vercel: el sitio
 
@@ -224,7 +265,8 @@ historia completa y midiendo. Basta con que el servicio construya.
 - **Root directory**: `frontend`. Framework: Next.js.
 - **Functions region**: `iad1` (Washington), junto a Railway US East (spec §3.2).
 - **Domains**: `tordo.cl` y `www.tordo.cl` (redirige uno al otro); crea en
-  Cloudflare los registros que indique Vercel, sin proxy.
+  Cloudflare los registros que indique Vercel, sin proxy — **sólo después de que
+  termine la primera corrida semanal** (paso 8.1).
 - **Analytics → Web Analytics**: actívalo (sin cookies; spec §4).
 
 **Variables** (*Settings → Environment Variables*, entorno **Production**):
@@ -233,6 +275,7 @@ historia completa y midiendo. Basta con que el servicio construya.
 |---|---|---|
 | `API_URL` | `https://api.tordo.cl` | servidor — **sin** prefijo `NEXT_PUBLIC_` |
 | `PROXY_SECRETO` | **el mismo valor que en Railway** | servidor — nunca `NEXT_PUBLIC_` |
+| `REVALIDAR_SECRETO` | **el mismo valor que en los dos cron** | servidor — nunca `NEXT_PUBLIC_`. Sin él, `/api/revalidar` responde 503 |
 | `RESPONSABLE_LEGAL` | el nombre del responsable | **build**: las páginas legales se prerenderizan; cambiarlo exige redeploy |
 | `NEXT_PUBLIC_SENTRY_DSN` | el DSN del proyecto Next.js | build (se inlinea en el bundle) |
 | `NEXT_PUBLIC_ENVIRONMENT` | `production` | build |
@@ -308,27 +351,7 @@ en `MCP_HOSTS_PERMITIDOS`.
 
 ## 13. Después del primer despliegue
 
-### 13.1 La primera corrida semanal, con toda la historia — y medirla
-
-Es la que llena R2 y `analytics.*`, y la primera vez que corre con años de datos:
-**nada de lo que sigue está medido con esa escala** (en local sólo había 6 meses).
-Lánzala a mano (*Deployments → Run*) un día de semana, mirando:
-
-- **RAM**: el pico de la gráfica de *Metrics*. Proyectado ~6,3 GB; si se acerca a
-  8 GB, no subas la máquina sin antes mirar qué módulo manda (el log dice cuánto
-  tardó cada uno).
-- **Tiempo** total, y el de la descarga masiva aparte.
-- **Disco**: `bajar` trae `consolidated/` entero al contenedor, y la descarga
-  masiva cubre desde 2010. Compara el tamaño de `consolidated/` en R2 con el disco
-  efímero del servicio **y con los 10 GB gratis de R2**. Si no cabe, hay que
-  decidir cuánta historia se conserva antes de la segunda corrida.
-
-**Verifica:** termina con `/fail` ausente en Healthchecks (`tordo-semanal` *up*),
-R2 tiene `consolidated/` y `analytics/`, y el panel de inteligencia de mercado de
-`https://tordo.cl` muestra datos. Anota RAM, tiempo y tamaño en el PR o issue del
-lanzamiento.
-
-### 13.2 Postgres: recuperar el espacio y medirlo
+### 13.1 Postgres: recuperar el espacio y medirlo
 
 La migración `e3afe71ab019` (paso 7) borra tablas y columnas, y la retención borra
 filas cada semana. `DROP TABLE` libera el espacio enseguida; **el de las columnas
@@ -362,3 +385,7 @@ segunda consulta dice por dónde seguir; el candidato conocido es
 | `semanal` falla en segundos con `ETL_ALMACEN` en el `/fail` | variable de R2 ausente o vacía |
 | Un cron no arranca: `No module named 'app'` | imagen del ETL vieja (antes de copiar `backend/app`); redeploy |
 | Las páginas legales dicen `[[definir RESPONSABLE_LEGAL]]` | variable ausente en el build de Vercel |
+| Un cron falla con `CredencialRechazada` | ticket de Mercado Público inválido o vencido: pide otro y cámbialo en los dos cron |
+| `revalidación … HTTP 401` en el log de un cron | `REVALIDAR_SECRETO` distinto en Vercel y en ese cron |
+| `revalidación … HTTP 503` | Vercel no tiene `REVALIDAR_SECRETO` |
+| Las páginas públicas no cambian tras la semanal | revalidación sin configurar (`… omitida` en INFO): falta `REVALIDAR_URL` o `REVALIDAR_SECRETO` en el cron |

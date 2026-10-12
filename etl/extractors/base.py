@@ -18,6 +18,18 @@ def sin_ticket(texto: object) -> str:
     return _TICKET_EN_URL.sub(r"\1***", str(texto))
 
 
+class CredencialRechazada(RuntimeError):
+    """La API rechazó el ticket: inválido, vencido o sin permisos.
+
+    No es «no hay datos» y no se reintenta. Antes cada extractor lo tragaba —la
+    API clásica responde **HTTP 203** con `{"Codigo": 203, "Mensaje": "Ticket no
+    válido."}`, un 2xx que pasaba por «0 registros», y Compra Ágil un 401 que se
+    registraba y seguía—, así que con el ticket roto los cron terminaban bien y el
+    latido daba verde. Ahora sube hasta `etl.cron.ejecutar`, que la convierte en
+    `/fail` y salida distinta de cero.
+    """
+
+
 class BaseExtractor(ABC):
     """Base class for all data extractors"""
 

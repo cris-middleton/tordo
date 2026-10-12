@@ -353,6 +353,10 @@ def test_semanal_en_orden_y_falla_si_falla_un_modulo():
         "retener",
     ]
     assert r.llamadas[1] == ("purgar", [(2026, 8), (2026, 9), (2026, 10)])
+    # La descarga recibe la ventana entera (39 meses): rellena lo que falte.
+    ventana = r.llamadas[2][1]
+    assert len(ventana) == cron.MESES_EN_R2 == 39
+    assert ventana[0] == (2023, 8) and ventana[-1] == (2026, 10)
     # Un módulo de analytics roto no impide materializar ni subir lo que sí
     # salió, pero la corrida no es buena: es para eso el /fail.
     assert not ok
@@ -585,3 +589,51 @@ def test_configurar_log_no_pisa_una_configuracion_existente(monkeypatch):
     monkeypatch.setattr(raiz, "handlers", [existente])
     cron.configurar_log()
     assert raiz.handlers == [existente]
+
+
+# ── La ventana en R2 ─────────────────────────────────────────────────────────
+
+
+def test_conservar_ventana_decide_por_mes_y_deja_lo_demas():
+    conservar = cron.conservar_ventana([(2026, 9), (2026, 10)])
+    assert conservar("consolidated/oc/2026-9.parquet")
+    assert conservar("consolidated/lic/2026-10.parquet")
+    assert not conservar("consolidated/oc/2026-8.parquet")
+    assert not conservar("consolidated/lic/2010-1.parquet")
+    # Lo que no es un consolidado mensual se queda: no se borra lo que no se entiende.
+    assert conservar("analytics/time_series.parquet")
+    assert conservar("consolidated/oc/raro.parquet")
+
+
+@pytest.mark.parametrize("atraso", [0, 1, 2, 3])
+def test_la_ventana_de_analytics_cabe_entera_en_la_de_r2(atraso):
+    """`data_loader` ancla sus 36 meses en el último período con DATOS, que va
+    detrás del mes en curso. Con hasta 3 meses de atraso, todo lo que lee está
+    en R2; si no, analytics leería una ventana con agujeros sin avisar."""
+    instante = _chile("2026-10-11T03:00:00")
+    en_r2 = set(cron.periodos_recientes(instante, cron.MESES_EN_R2))
+    indice = 2026 * 12 + 10 - 1 - atraso
+    ultimo_con_datos = (indice // 12, indice % 12 + 1)
+    lee = [
+        (i // 12, i % 12 + 1) for i in range(indice - cron.VENTANA_ANALYTICS_MESES + 1, indice + 1)
+    ]
+    assert ultimo_con_datos in en_r2
+    assert set(lee) <= en_r2
+
+
+def test_descargar_baja_solo_los_meses_sin_consolidado(tmp_path, monkeypatch):
+    """La primera corrida (R2 vacío) llena la ventana; las demás, sólo lo purgado."""
+    monkeypatch.setattr(cron.descarga, "CONSOLIDATED_DIR", tmp_path)
+    (tmp_path / "oc").mkdir()
+    (tmp_path / "oc" / "2026-8.parquet").write_bytes(b"x")  # bajado de R2
+    pedidos = {}
+
+    def descargar_tipo(tipo, periodos):
+        pedidos[tipo] = periodos
+        return {"ok": len(periodos), "skip_404": 0, "error": 0}
+
+    monkeypatch.setattr(cron.descarga, "descargar_tipo", descargar_tipo)
+    monkeypatch.setattr(cron.descarga, "consolidar_tipo", lambda tipo: tmp_path / tipo)
+
+    assert cron._descargar([(2026, 8), (2026, 9), (2026, 10)])
+    assert pedidos == {"oc": [(2026, 9), (2026, 10)], "lic": [(2026, 8), (2026, 9), (2026, 10)]}

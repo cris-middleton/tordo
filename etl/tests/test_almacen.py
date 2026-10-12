@@ -19,6 +19,7 @@ class S3Falso:
         self.objetos: dict[str, bytes] = {}
         self.subidas: list[str] = []
         self.bajadas: list[str] = []
+        self.borradas: list[str] = []
 
     def get_paginator(self, nombre):
         assert nombre == "list_objects_v2"
@@ -38,6 +39,12 @@ class S3Falso:
         self.bajadas.append(clave)
         with open(ruta, "wb") as f:
             f.write(self.objetos[clave])
+
+    def delete_objects(self, Bucket, Delete):  # noqa: N803 — firma de boto3
+        assert len(Delete["Objects"]) <= 1000
+        for objeto in Delete["Objects"]:
+            self.borradas.append(objeto["Key"])
+            del self.objetos[objeto["Key"]]
 
     def upload_file(self, ruta, bucket, clave, Config=None):  # noqa: N803
         assert Config.multipart_threshold >= 1024**3, "una subida partida no tiene el MD5 de ETag"
@@ -175,3 +182,63 @@ def test_el_script_de_descarga_y_analytics_usan_la_misma_raiz(tmp_path):
             check=True,
         ).stdout
         assert salida.startswith("True"), salida
+
+
+# ── La ventana: R2 guarda sólo lo que la corrida lee ─────────────────────────
+
+
+def _solo_2026(clave: str) -> bool:
+    return not clave.startswith("consolidated/") or "/2026-" in clave
+
+
+def test_bajar_no_trae_lo_que_quedo_fuera_de_la_ventana(tmp_path):
+    s3 = S3Falso()
+    s3.objetos = {
+        "consolidated/oc/2019-5.parquet": b"viejo",
+        "consolidated/oc/2026-2.parquet": b"febrero",
+        "analytics/time_series.parquet": b"serie",
+    }
+    AlmacenR2(s3, "b", tmp_path, _solo_2026).bajar()
+    assert sorted(s3.bajadas) == [
+        "analytics/time_series.parquet",
+        "consolidated/oc/2026-2.parquet",
+    ]
+
+
+def test_subir_borra_del_bucket_lo_que_quedo_fuera_y_no_lo_sube(tmp_path):
+    s3 = S3Falso()
+    s3.objetos = {
+        "consolidated/oc/2019-5.parquet": b"viejo",
+        "consolidated/lic/2019-5.parquet": b"viejo",
+        "consolidated/oc/2026-2.parquet": b"febrero",
+        "analytics/time_series.parquet": b"serie",
+    }
+    _escribir(tmp_path, "consolidated/oc/2018-1.parquet", b"local viejo")
+    _escribir(tmp_path, "consolidated/oc/2026-3.parquet", b"marzo")
+
+    AlmacenR2(s3, "b", tmp_path, _solo_2026).subir()
+
+    assert s3.subidas == ["consolidated/oc/2026-3.parquet"]
+    assert sorted(s3.borradas) == [
+        "consolidated/lic/2019-5.parquet",
+        "consolidated/oc/2019-5.parquet",
+    ]
+    assert sorted(s3.objetos) == [
+        "analytics/time_series.parquet",
+        "consolidated/oc/2026-2.parquet",
+        "consolidated/oc/2026-3.parquet",
+    ]
+
+
+def test_sin_ventana_no_se_borra_nada(tmp_path):
+    s3 = S3Falso()
+    s3.objetos = {"consolidated/oc/2019-5.parquet": b"viejo"}
+    AlmacenR2(s3, "b", tmp_path).subir()
+    assert s3.borradas == []
+
+
+def test_borra_en_lotes_de_mil(tmp_path):
+    s3 = S3Falso()
+    s3.objetos = {f"consolidated/oc/2000-{i}.parquet": b"x" for i in range(2500)}
+    AlmacenR2(s3, "b", tmp_path, lambda clave: False).subir()
+    assert len(s3.borradas) == 2500 and not s3.objetos

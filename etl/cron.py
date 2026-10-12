@@ -38,7 +38,7 @@ import logging
 import os
 import sys
 import traceback
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -49,6 +49,7 @@ from etl import almacen, retencion
 from etl import main as etl
 from etl.analytics import materialize, run_all
 from etl.analytics.config import DATA_DIR
+from etl.analytics.data_loader import VENTANA_ANALYTICS_MESES
 from etl.extractors.compra_agil import CuotaDiariaAgotada
 from etl.scripts import descargar_datos_masivos as descarga
 
@@ -94,6 +95,15 @@ REINTENTO_RESULTADOS = timedelta(days=3)
 #: Meses que la semanal vuelve a descargar: ChileCompra regenera los ZIPs de
 #: varios meses recientes en cada tanda, cada 2–4 semanas.
 MESES_A_REDESCARGAR = 3
+
+#: Meses de `consolidated/` que viven en R2 y se bajan cada semana: la ventana
+#: de analytics (36; las bandas de precio leen 12, dentro de ella) más los que se
+#: rehacen. La ventana se ancla en el último período con DATOS, que va a lo sumo
+#: unas semanas detrás del mes en curso: con este margen, el último período de
+#: datos y sus 36 meses caen dentro. Medido sobre la descarga masiva entera:
+#: 2007–2026 son ~26 GB (18 de OC, 8 de LIC) y la capa gratuita de R2 son 10 GB;
+#: 39 meses son ~4,5 GB. Ver `etl/almacen.py`.
+MESES_EN_R2 = VENTANA_ANALYTICS_MESES + MESES_A_REDESCARGAR
 
 
 # ── El calendario ────────────────────────────────────────────────────────────
@@ -169,6 +179,7 @@ class PasosFrecuente:
     detalles_nuevos: Callable[[], bool]
     barrido: Callable[[str], bool]
     resultados: Callable[[], bool]
+    revalidar: Callable[[list[str]], object] = lambda _etiquetas: None
 
     @classmethod
     def reales(cls) -> PasosFrecuente:
@@ -186,6 +197,7 @@ class PasosFrecuente:
                 limite=TOPE_RESULTADOS_DIARIO,
                 reintento=REINTENTO_RESULTADOS,
             ),
+            revalidar=Revalidador.desde_entorno().revalidar,
         )
 
 
@@ -230,6 +242,9 @@ def correr_frecuente(instante: datetime, pasos: PasosFrecuente) -> bool:
         resultados.append(pasos.barrido(ayer))
         logger.info("frecuente: re-consulta de resultados de licitaciones cerradas")
         resultados.append(pasos.resultados())
+    # Al final y pase lo que pase con los pasos: lo que sí entró merece verse.
+    # No cuenta para el resultado (ver `Revalidador`).
+    pasos.revalidar(ETIQUETAS_FRECUENTE)
     return all(resultados)
 
 
@@ -242,12 +257,15 @@ class PasosSemanal:
     materializar: Callable[[], bool]
     subir: Callable[[], int]
     retener: Callable[[datetime], object]
+    revalidar: Callable[[list[str]], object] = lambda _etiquetas: None
 
     @classmethod
-    def reales(cls) -> PasosSemanal:
+    def reales(cls, instante: datetime) -> PasosSemanal:
         # Falla AQUÍ si `ETL_ALMACEN` falta o le faltan credenciales: antes de
         # descargar nada, y con un /fail que dice qué variable es.
-        destino = almacen.desde_entorno(DATA_DIR)
+        destino = almacen.desde_entorno(
+            DATA_DIR, conservar=conservar_ventana(periodos_recientes(instante, MESES_EN_R2))
+        )
         return cls(
             bajar=destino.bajar,
             purgar=_purgar,
@@ -256,7 +274,26 @@ class PasosSemanal:
             materializar=lambda: materialize.main([]) == 0,
             subir=destino.subir,
             retener=retencion.purgar_catalogo,
+            revalidar=Revalidador.desde_entorno().revalidar,
         )
+
+
+def conservar_ventana(meses: list[tuple[int, int]]) -> almacen.Conservar:
+    """Qué se queda en R2: los consolidados de esos meses, y todo lo que no sea
+    un consolidado mensual (`analytics/`, o un nombre que no se entiende)."""
+    dentro = set(meses)
+
+    def conservar(clave: str) -> bool:
+        partes = clave.split("/")
+        if len(partes) != 3 or partes[0] != "consolidated" or not partes[2].endswith(".parquet"):
+            return True
+        try:
+            anio, mes = (int(x) for x in partes[2].removesuffix(".parquet").split("-"))
+        except ValueError:
+            return True
+        return (anio, mes) in dentro
+
+    return conservar
 
 
 def _purgar(periodos: list[tuple[int, int]]) -> bool:
@@ -279,10 +316,22 @@ def _purgar(periodos: list[tuple[int, int]]) -> bool:
 
 
 def _descargar(periodos: list[tuple[int, int]]) -> bool:
-    """Descarga y consolida OC y LIC. Un mes aún no publicado (404) no es error."""
+    """Descarga y consolida, de OC y LIC, los meses de `periodos` sin consolidado.
+
+    Recibe la ventana entera: lo que `bajar` trajo de R2 se salta, y lo que se
+    purgó para rehacerlo, no. Así la primera corrida, con R2 vacío, llena la
+    ventana completa, y las siguientes bajan sólo los meses recientes. Un mes aún
+    no publicado (404) no es error.
+    """
     ok = True
     for tipo in ("oc", "lic"):
-        resultado = descarga.descargar_tipo(tipo, periodos)
+        faltan = [
+            (anio, mes)
+            for anio, mes in periodos
+            if not (descarga.CONSOLIDATED_DIR / tipo / f"{anio}-{mes}.parquet").exists()
+        ]
+        logger.info("semanal: %s, %d meses por descargar", tipo, len(faltan))
+        resultado = descarga.descargar_tipo(tipo, faltan)
         if resultado["error"]:
             logger.error("semanal: %d descargas de %s fallaron", resultado["error"], tipo)
             ok = False
@@ -299,12 +348,13 @@ def correr_semanal(instante: datetime, pasos: PasosSemanal) -> bool:
     el análisis de la semana anterior.
     """
     periodos = periodos_recientes(instante, MESES_A_REDESCARGAR)
-    logger.info("semanal: meses %s", periodos)
+    ventana = periodos_recientes(instante, MESES_EN_R2)
+    logger.info("semanal: se rehacen %s; ventana desde %s", periodos, ventana[0])
 
     # La historia vive en R2 (`etl/almacen.py`): el contenedor arranca vacío.
     pasos.bajar()
     pasos.purgar(periodos)
-    if not pasos.descargar(periodos):
+    if not pasos.descargar(ventana):
         # Los meses ya están purgados en local: reconstruir ahora sería hacerlo
         # sin ellos y publicar un análisis con un agujero. Tampoco se sube nada,
         # así que el bucket conserva la versión anterior intacta.
@@ -316,6 +366,10 @@ def correr_semanal(instante: datetime, pasos: PasosSemanal) -> bool:
     # Se materializa igual: un módulo roto deja su parquet de la semana pasada,
     # y lo que sí se reconstruyó merece llegar a la API.
     materializado = pasos.materializar()
+    if materializado:
+        # Las páginas públicas salen de `analytics.*`: sin esto seguirían
+        # mostrando la semana anterior hasta que caducara su caché.
+        pasos.revalidar(ETIQUETAS_SEMANAL)
     # Y se sube igual: los consolidados nuevos valen aunque un módulo fallara.
     pasos.subir()
 
@@ -373,6 +427,67 @@ class Latido:
             logger.warning("latido: falló el ping%s: %s", sufijo, exc)
 
 
+# ── Revalidación de las páginas de Vercel ────────────────────────────────────
+
+#: Lo que cada cron revalida en Next (`frontend/app/api/revalidar`): el contrato
+#: es la etiqueta, no la ruta. La semanal, todo lo que sale de analytics; la
+#: frecuente, lo que depende de la Compra Ágil abierta.
+ETIQUETAS_SEMANAL = ["analytics"]
+ETIQUETAS_FRECUENTE = ["compra-agil"]
+
+
+class Revalidador:
+    """Pide a Next que regenere las páginas de unas etiquetas. Nunca lanza.
+
+    `POST REVALIDAR_URL` (la URL completa de `/api/revalidar`) con la cabecera
+    `X-Revalidar-Secreto` y `{"etiquetas": [...]}`. Next responde 200 con
+    `{"revalidadas": [...]}`; 401 con el secreto mal, 400 con el cuerpo mal y 503
+    si Next no tiene secreto configurado.
+
+    **Un fallo no tumba la corrida**: los datos ya están en Postgres y la página
+    sólo se queda vieja hasta la próxima revalidación. Se registra en ERROR para
+    que se vea. Sin las dos variables (en local) no hace nada.
+    """
+
+    def __init__(self, url: str, secreto: str, cliente: httpx.Client | None = None):
+        self.url = url
+        self.secreto = secreto
+        self.cliente = cliente or httpx.Client(timeout=30)
+
+    @classmethod
+    def desde_entorno(cls, entorno: Mapping[str, str] = os.environ) -> Revalidador:
+        return cls(
+            (entorno.get("REVALIDAR_URL") or "").strip(),
+            (entorno.get("REVALIDAR_SECRETO") or "").strip(),
+        )
+
+    def revalidar(self, etiquetas: list[str]) -> bool:
+        if not (self.url and self.secreto):
+            logger.info(
+                "revalidación: sin REVALIDAR_URL o REVALIDAR_SECRETO — %s omitida", etiquetas
+            )
+            return False
+        try:
+            respuesta = self.cliente.post(
+                self.url,
+                json={"etiquetas": etiquetas},
+                headers={"X-Revalidar-Secreto": self.secreto},
+            )
+        except Exception as exc:
+            logger.error("revalidación de %s: Next no respondió: %s", etiquetas, exc)
+            return False
+        if respuesta.status_code == 200:
+            logger.info("revalidación: %s", respuesta.text[:200])
+            return True
+        motivo = {
+            401: "secreto rechazado: REVALIDAR_SECRETO no coincide con el de Vercel",
+            400: "cuerpo rechazado",
+            503: "Next no tiene REVALIDAR_SECRETO configurado",
+        }.get(respuesta.status_code, "respuesta inesperada")
+        logger.error("revalidación de %s: HTTP %d, %s", etiquetas, respuesta.status_code, motivo)
+        return False
+
+
 class _ColaDeErrores(logging.Handler):
     """Guarda los últimos avisos y errores: los pasos del ETL los registran y
     devuelven `False`, así que la causa de un fallo vive en el log."""
@@ -398,7 +513,7 @@ Corrida = Callable[[datetime], bool]
 def _corridas_reales() -> dict[str, Corrida]:
     return {
         "frecuente": lambda instante: correr_frecuente(instante, PasosFrecuente.reales()),
-        "semanal": lambda instante: correr_semanal(instante, PasosSemanal.reales()),
+        "semanal": lambda instante: correr_semanal(instante, PasosSemanal.reales(instante)),
     }
 
 

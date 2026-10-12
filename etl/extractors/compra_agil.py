@@ -30,7 +30,7 @@ from typing import Any, Dict, Iterator, List
 import requests
 
 from etl.config import config as etl_config
-from etl.extractors.base import BaseExtractor
+from etl.extractors.base import BaseExtractor, CredencialRechazada
 from etl.utils import now_santiago
 
 #: La API v2 vive en otro host que la clásica.
@@ -147,11 +147,14 @@ class CompraAgilExtractor(BaseExtractor):
             raise CuotaDiariaAgotada(
                 "La API de Compra Ágil agotó su cuota diaria. Se restablece mañana."
             )
-        if respuesta.status_code == 401:
-            self.logger.error(
-                "Compra Ágil: 401. El ticket va en la CABECERA `ticket`, no en la URL."
+        if respuesta.status_code in (401, 403):
+            # Verificado en vivo (2026-10-12): un ticket inválido responde 401 con
+            # «El ticket no existe, es inválido o no tiene permisos». Antes se
+            # registraba y se devolvía None, y la corrida terminaba bien.
+            raise CredencialRechazada(
+                f"API de Compra Ágil: HTTP {respuesta.status_code}. El ticket va en la "
+                "CABECERA `ticket`, no en la URL; si ya va ahí, es inválido o venció."
             )
-            return None
 
         # 500 y 504 intermitentes, vistos en la API real: el mismo tramo
         # responde bien al reintentar. Sin esto se perdía el resto del tramo

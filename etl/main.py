@@ -10,6 +10,7 @@ from datetime import timedelta
 
 from etl.config import config
 from etl.extractors import MercadoPublicoLicitacionesExtractor
+from etl.extractors.base import CredencialRechazada
 from etl.extractors.compra_agil import CompraAgilExtractor, CuotaDiariaAgotada
 from etl.loaders import DatabaseLoaderV2
 from etl.transformers import LicitacionTransformer
@@ -73,6 +74,8 @@ def run_etl_licitaciones_v2(fecha_desde: str | None = None, fecha_hasta: str | N
                 transformed = transformer.transform(record)
                 if transformer.validate_transformed(transformed):
                     transformed_data.append(transformed)
+            except CredencialRechazada:
+                raise
             except Exception as e:
                 logger.error(f"Error transforming record: {str(e)}")
                 continue
@@ -95,6 +98,8 @@ def run_etl_licitaciones_v2(fecha_desde: str | None = None, fecha_hasta: str | N
         logger.info("ETL V2 pipeline for Licitaciones completed successfully")
         return True
 
+    except CredencialRechazada:
+        raise
     except Exception as e:
         logger.error(f"ETL V2 pipeline for Licitaciones failed: {str(e)}", exc_info=True)
         return False
@@ -163,6 +168,8 @@ def run_etl_compra_agil(cambio_desde=None, cambio_hasta=None, cuota_agotada_es_f
                 fila = transformer.transform(registro)
                 if fila:
                     filas.append(fila)
+            except CredencialRechazada:
+                raise
             except Exception as exc:
                 logger.error("Compra Ágil: registro no transformable: %s", exc)
 
@@ -186,6 +193,8 @@ def run_etl_compra_agil(cambio_desde=None, cambio_hasta=None, cuota_agotada_es_f
         # aviso para que el watchdog no lo cuente como corrida rota.
         logger.warning("Compra Ágil: %s", exc)
         return True
+    except CredencialRechazada:
+        raise
     except Exception as exc:
         logger.error("ETL de Compra Ágil falló: %s", exc, exc_info=True)
         return False
@@ -282,6 +291,8 @@ def run_etl_extraer_detalles_nuevos_licitaciones(limit: int | None = None) -> bo
 
                 time.sleep(0.5)
 
+            except CredencialRechazada:
+                raise
             except Exception as e:
                 logger.error(f"Error processing licitación {codigo_externo}: {str(e)}")
                 error_count += 1
@@ -305,6 +316,8 @@ def run_etl_extraer_detalles_nuevos_licitaciones(limit: int | None = None) -> bo
 
         return True
 
+    except CredencialRechazada:
+        raise
     except Exception as e:
         logger.error(f"Failed to extract detailed info for licitaciones: {str(e)}", exc_info=True)
         return False
@@ -384,6 +397,8 @@ def run_etl_actualizar_detalles_licitaciones(
 
                 time.sleep(0.5)
 
+            except CredencialRechazada:
+                raise
             except Exception as e:
                 logger.error(f"Error updating licitación {codigo_externo}: {str(e)}")
                 error_count += 1
@@ -411,6 +426,8 @@ def run_etl_actualizar_detalles_licitaciones(
 
         return True
 
+    except CredencialRechazada:
+        raise
     except Exception as e:
         logger.error(f"Failed to update licitaciones: {str(e)}", exc_info=True)
         return False
@@ -443,6 +460,8 @@ def run_etl_resultados_licitaciones(*, dias: int, limite: int, reintento: timede
         )
         loader = DatabaseLoaderV2({"DATABASE_URL": config.DATABASE_URL})
         loader.connect()
+    except CredencialRechazada:
+        raise
     except Exception as e:
         logger.error(f"resultados: no se pudo empezar: {e}", exc_info=True)
         return False
@@ -466,6 +485,8 @@ def run_etl_resultados_licitaciones(*, dias: int, limite: int, reintento: timede
                     con_novedad += 1
                 else:
                     sin_novedad += 1
+            except CredencialRechazada:
+                raise
             except Exception as e:
                 logger.warning(f"resultados: {codigo_externo}: {e}")
                 errores += 1
@@ -479,6 +500,8 @@ def run_etl_resultados_licitaciones(*, dias: int, limite: int, reintento: timede
             logger.error("resultados: fallaron todas las consultas (¿API caída o cuota agotada?)")
             return False
         return True
+    except CredencialRechazada:
+        raise
     except Exception as e:
         logger.error(f"resultados: {e}", exc_info=True)
         return False

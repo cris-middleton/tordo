@@ -8,8 +8,26 @@ from typing import Any, Dict, List
 
 import requests
 
-from etl.extractors.base import BaseExtractor, sin_ticket
+from etl.extractors.base import BaseExtractor, CredencialRechazada, sin_ticket
 from etl.utils import now_santiago
+
+#: Lo que la API clásica responde a un ticket inválido, verificado en vivo
+#: (2026-10-12): HTTP 203 —un 2xx— con este `Codigo` en el cuerpo.
+CODIGO_TICKET_INVALIDO = 203
+
+
+def credencial_rechazada(response: requests.Response) -> str | None:
+    """El motivo, si la API rechazó el ticket; si no, None."""
+    if response.status_code in (401, 403):
+        return f"HTTP {response.status_code}"
+    if response.status_code != CODIGO_TICKET_INVALIDO:
+        return None
+    try:
+        cuerpo = response.json()
+    except ValueError:
+        cuerpo = None
+    mensaje = cuerpo.get("Mensaje") if isinstance(cuerpo, dict) else None
+    return f"HTTP 203 ({mensaje or 'ticket no válido'})"
 
 
 class MercadoPublicoLicitacionesExtractor(BaseExtractor):
@@ -68,6 +86,11 @@ class MercadoPublicoLicitacionesExtractor(BaseExtractor):
             response = requests.get(
                 self.api_url, params=params_with_ticket, headers=headers, timeout=30
             )
+            # Antes de `raise_for_status`: el ticket inválido llega como HTTP 203,
+            # que es un 2xx. No se reintenta: no se va a arreglar solo.
+            rechazo = credencial_rechazada(response)
+            if rechazo:
+                raise CredencialRechazada(f"API clásica de Mercado Público: {rechazo}")
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
@@ -268,6 +291,8 @@ class MercadoPublicoLicitacionesExtractor(BaseExtractor):
                     # Rate limiting
                     time.sleep(0.5)
 
+                except CredencialRechazada:
+                    raise
                 except Exception as e:
                     self.logger.error(
                         f"Error extracting details for licitación {codigo_externo}: {sin_ticket(e)}"
