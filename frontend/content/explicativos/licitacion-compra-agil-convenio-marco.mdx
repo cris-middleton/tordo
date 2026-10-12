@@ -1,0 +1,67 @@
+---
+titulo: "Licitación, Compra Ágil y Convenio Marco: qué es cada una y dónde verlas"
+descripcion: "Los mecanismos con que compra el Estado, cómo aparecen en los datos de Mercado Público y cuáles puedes ver y filtrar en TORDO."
+slug: "licitacion-compra-agil-convenio-marco"
+actualizado: "2026-10-12"
+fuentes:
+  - "Diccionario de datos oficial de la API de Mercado Público (Órdenes de Compra), §3.1"
+  - "API de Licitaciones y API de Compra Ágil de Mercado Público"
+  - "Detalles reales de órdenes de compra, contrastados el 24 de septiembre de 2026"
+---
+
+El Estado no compra todo de la misma forma, y cada forma pide algo distinto a quien
+vende. Estas son las que distinguimos en los datos. Los montos y requisitos de cada
+una los fija la normativa y cambian: **revísalos en ChileCompra** antes de postular.
+
+## Licitación
+
+El organismo publica unas bases y cualquier proveedor puede ofertar hasta una fecha de
+cierre. Es el mecanismo más formal y el de más plazo de preparación.
+
+- **Dónde está en los datos**: la API de licitaciones de Mercado Público y la descarga
+  masiva de licitaciones.
+- **En TORDO**: el [catálogo de licitaciones](/dashboard/tenders), con filtros por
+  estado, región, monto y texto.
+
+## Compra Ágil
+
+Compras de monto chico en que el organismo pide cotizaciones y elige. Plazos de horas o
+pocos días: ninguna de las que medimos cerró antes de 24 horas, y la mitad cerró en 42
+horas o menos (ver [Compra Ágil: cómo funciona](/explicativos/compra-agil-como-funciona)).
+
+- **Dónde está en los datos**: **no está en la API clásica**. Tiene su propia API, con
+  otro servidor y otra forma de autenticarse.
+- **En TORDO**: en el catálogo (filtrando por mecanismo) y en
+  [Lo mejor de hoy](/dashboard/compra-agil), que ordena las abiertas.
+
+## Convenio Marco
+
+El Estado acuerda de antemano precios y condiciones con un grupo de proveedores, y los
+organismos compran directamente desde ese catálogo, sin una licitación por cada
+compra.
+
+- **Dónde está en los datos**: **sólo en las órdenes de compra.** La API de Mercado
+  Público no tiene un listado propio de Convenio Marco: estas compras aparecen como
+  órdenes cuyo tipo es `CM` (código 9 en el diccionario oficial).
+- **En TORDO**: no hay «convenios abiertos» que mostrar en el catálogo, porque no se
+  postula a cada compra. Sí cuentan en el análisis de precios y competencia, que sale
+  de las órdenes.
+
+## Trato directo
+
+El organismo contrata a un proveedor sin concurso, por causales que la ley permite.
+
+- **Dónde está en los datos**: órdenes de compra de tipo `TD`. En los detalles reales
+  llega como código 16, aunque el diccionario oficial dice 2; reconocemos los dos.
+- **En TORDO**: como el Convenio Marco, sólo en el análisis.
+
+## Un detalle de los datos que conviene saber
+
+Las órdenes de compra también traen los tipos **1 (Automática)** y **8 (Sin emisión
+automática)**. Esos no dicen *por qué* mecanismo se compró, sino *cómo se emitió* la
+orden. No los asignamos a ningún mecanismo: preferimos dejarlos sin clasificar antes
+que inventar.
+
+Si filtras el catálogo por un mecanismo que no existe, la API responde con un error y
+no con el catálogo entero: así nunca creerás que no hay compras de un tipo cuando en
+realidad el filtro no se aplicó.

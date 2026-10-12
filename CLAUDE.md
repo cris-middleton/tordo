@@ -596,6 +596,13 @@ atribución. Datos de `GET /publico/*` (`api/publico.py`, `services/publico/`).
 - `make e2e` materializa el fixture del golden (con productos **sintéticos**) y exporta
   `FEATURE_ANALYTICS=true`.
 
+**Explicativos (spec D18)** en `frontend/content/explicativos/*.mdx`: contenido estático, sin
+JSX. **Toda cifra sale de un dato medido del repo y su fuente se nombra en el frontmatter**
+(`fuentes`); no se inventan estadísticas, ni se publican umbrales legales (montos en UTM):
+cambian y se remiten a ChileCompra. `__tests__/explicativos-frontmatter.test.ts` fija el
+frontmatter, el largo de la `descripcion` (≤ 155), los enlaces internos permitidos y que no
+haya `{`/`<` fuera de código (MDX los lee como JSX).
+
 **Favoritos, búsquedas guardadas y RSS (sin cuentas).** Viven en `localStorage`
 (`licit_dashboard_collections_v1`, `tordo_busquedas_v1`). Cada búsqueda guardada tiene su feed:
 `/rss/licitaciones?<params del catálogo>` y `/rss/compra-agil` son route handlers de Next (la

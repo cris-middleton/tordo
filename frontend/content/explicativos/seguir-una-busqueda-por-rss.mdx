@@ -1,0 +1,57 @@
+---
+titulo: "Cómo seguir una búsqueda por RSS, sin crear una cuenta"
+descripcion: "Guarda una búsqueda de licitaciones o de Compra Ágil y recibe lo nuevo en tu lector de RSS, tu correo o Slack. Paso a paso."
+slug: "seguir-una-busqueda-por-rss"
+actualizado: "2026-10-12"
+fuentes:
+  - "API pública de Mercado Público y API de Compra Ágil, vía el catálogo de TORDO"
+---
+
+TORDO no tiene cuentas: no te pedimos correo ni contraseña. Para enterarte de lo nuevo
+sin volver a mirar, cada búsqueda tiene su **feed RSS**: una dirección que tu lector
+consulta solo y te muestra lo que va apareciendo.
+
+## Paso a paso
+
+1. Arma tu búsqueda en el [catálogo de licitaciones](/dashboard/tenders): texto,
+   región, estado, mecanismo de compra, monto mínimo o máximo.
+2. Pulsa **«Guardar esta búsqueda»**.
+3. En [Guardados](/dashboard/guardados), pulsa **«Copiar URL de RSS»**.
+4. Pégala como suscripción nueva en tu lector: Feedly, Inoreader, NetNewsWire,
+   Thunderbird o el que uses. Muchos clientes de correo y Slack también aceptan feeds.
+
+## Qué trae el feed
+
+- Las **50 licitaciones más recientes** que cumplen la búsqueda.
+- Se renueva **cada media hora**. Como TORDO consulta Mercado Público a las 10, 13, 16 y
+  19 horas los días hábiles (12 horas los fines de semana), lo nuevo entra en tu lector
+  poco después.
+- Cada ítem lleva la cita de la fuente: los datos son de ChileCompra.
+
+La dirección tiene esta forma, con los filtros de tu búsqueda:
+
+```
+https://tordo.cl/rss/licitaciones?search=aseo&min_amount=1000000
+```
+
+Sólo se tienen en cuenta los filtros (`search`, `estado`, `tipo_convocatoria`,
+`region`, `min_amount`, `max_amount`); el orden y la página se ignoran.
+
+## Compra Ágil tiene su propio feed
+
+[Lo mejor de hoy en Compra Ágil](/dashboard/compra-agil) se sigue en
+`/rss/compra-agil`, y acepta `region` y `search`:
+
+```
+https://tordo.cl/rss/compra-agil?search=resmas
+```
+
+Como una Compra Ágil puede cerrar a las 24 horas de publicarse, aquí el feed sirve
+más que en ninguna parte.
+
+## Dónde queda guardado
+
+Tus búsquedas y licitaciones guardadas viven **en este navegador**, no en un servidor.
+Si borras los datos del navegador o cambias de equipo, desaparecen. Pero el feed no:
+la URL de RSS lleva la búsqueda dentro y funciona sola, en cualquier lector. Si la
+copiaste, la tienes.

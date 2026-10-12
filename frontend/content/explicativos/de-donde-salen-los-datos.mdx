@@ -1,0 +1,75 @@
+---
+titulo: "De dónde salen los datos de TORDO, y sus límites"
+descripcion: "Las fuentes oficiales, cada cuánto se actualizan, cuánta historia usamos, qué no está en los datos y cómo protegemos a los proveedores que son personas."
+slug: "de-donde-salen-los-datos"
+actualizado: "2026-10-12"
+fuentes:
+  - "API pública de Mercado Público y API de Compra Ágil"
+  - "Archivos de datos abiertos de ChileCompra (descargas masivas de órdenes de compra y licitaciones)"
+  - "Declaración de Uso de Datos Oficiales de ChileCompra"
+---
+
+Todo lo que ves en TORDO sale de datos públicos de **ChileCompra**. No compramos
+datos ni los completamos con otras fuentes.
+
+> Fuente: Dirección de Compras y Contratación Pública (ChileCompra / Mercado Público)
+
+ChileCompra no respalda este sitio ni es responsable de cómo interpretamos sus datos.
+
+## Las dos fuentes
+
+1. **La API de Mercado Público** (y la de Compra Ágil): lo que está abierto hoy. La
+   consultamos a las 10, 13, 16 y 19 horas los días hábiles y a las 12 horas los fines
+   de semana.
+2. **Las descargas masivas de ChileCompra**: todas las órdenes de compra y
+   licitaciones, mes a mes. Son la base de los precios, la competencia y los
+   compradores. Del orden de **417.000 líneas de órdenes de compra al mes**.
+   Las rehacemos cada semana, y volvemos a bajar los **tres meses más recientes**,
+   porque ChileCompra los corrige.
+
+## Cuánta historia usamos
+
+- **Precios**: los últimos **12 meses**. Precios de hace años describen otro mercado.
+- **Competencia, concentración, compradores**: los últimos **36 meses**.
+- **Catálogo**: Compra Ágil de los últimos 30 días como mínimo, y licitaciones
+  abiertas o cerradas hace menos de 90 días. Lo más antiguo sigue en el análisis, pero
+  sale del catálogo.
+
+Cada cifra dice de qué período es.
+
+## Lo que no está en los datos
+
+- **Las bases y los anexos de cada licitación.** La API no los entrega: en su
+  diccionario oficial no aparecen «adjuntos», «garantía», «criterios» ni
+  «ponderación». Para leerlos hay que ir a la ficha en Mercado Público.
+- **Cuándo paga un organismo.** No hay ninguna fecha de pago en las órdenes de compra
+  (ver [cómo leer a un comprador](/explicativos/como-leer-un-comprador)).
+
+## Las personas naturales no aparecen
+
+Muchos proveedores del Estado son **personas naturales**, que venden con su propio
+RUT. Medido en las órdenes de marzo de 2026: **6.529 de 22.509 proveedores (29 %)
+tienen un RUT bajo 50.000.000**, que es el rango de las personas naturales.
+
+En ninguna página, descarga, feed ni respuesta de la API mostramos su nombre ni su
+RUT. Aparecen como **«Persona natural»**:
+
+- **Se cuentan igual.** Su participación entra en la concentración de mercado y sus
+  compras en los precios; si no, las cifras mentirían.
+- **Cada una con un seudónimo propio** (que empieza por `PN-`) dentro de un mismo
+  análisis, para no sumarlas como si fueran un solo proveedor gigante. El seudónimo
+  **cambia cada semana** y no permite volver a identificar a nadie.
+- Una **EIRL o SpA** tiene RUT de empresa aunque su nombre sea el de una persona: es
+  una persona jurídica y sí se muestra.
+- Si un proveedor **no tiene un RUT legible**, lo tratamos como persona natural. Tapar
+  de más es el error barato.
+
+El nombre de una persona natural tampoco aparece en el texto que escribe el
+comprador en sus propias órdenes. Una mención en una orden de otro organismo no la
+podemos detectar.
+
+## Si ves algo raro
+
+Los datos los publica ChileCompra tal como los registran los organismos, con sus
+errores. Si una cifra no te cuadra, escríbenos a
+[hola@tordo.cl](mailto:hola@tordo.cl).

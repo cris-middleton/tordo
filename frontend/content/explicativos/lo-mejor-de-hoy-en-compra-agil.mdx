@@ -1,0 +1,55 @@
+---
+titulo: "«Lo mejor de hoy» en Compra Ágil: cómo se ordena"
+descripcion: "Qué mira el ranking de Compras Ágiles abiertas: cuánta competencia llevan, si el comprador suele adjudicar y cuánto plazo queda. Y qué no es."
+slug: "lo-mejor-de-hoy-en-compra-agil"
+actualizado: "2026-10-12"
+fuentes:
+  - "API de Compra Ágil de Mercado Público (Compras Ágiles abiertas)"
+  - "Descarga masiva de órdenes de compra de ChileCompra (historia del comprador, 6 meses)"
+  - "Código del ranking: backend/app/repositories/compra_agil.py"
+---
+
+Cada día se publican unas 5.000 Compras Ágiles. [Lo mejor de hoy](/dashboard/compra-agil)
+las ordena para que empieces por las que tienen más sentido. **No sabemos qué te
+conviene a ti** —no tenemos tu perfil—, así que ordena por tres cosas que valen para
+cualquier proveedor.
+
+## Qué entra
+
+Sólo Compras Ágiles **abiertas que cierran en más de 2 horas**. Con menos no da tiempo
+a preparar una cotización, y ponerlas arriba sería hacerte perder el tiempo.
+
+## Los tres factores
+
+Cada uno va de 0 a 1, y el puntaje es su producto:
+
+1. **Competencia**: `1 / (1 + cotizaciones recibidas)`. Sin cotizaciones todavía vale
+   1; con una, 0,5; con tres, 0,25. Es el único dato de competencia que trae una
+   Compra Ágil abierta.
+2. **Comprador**: cuántas órdenes de Compra Ágil emitió en los últimos 6 meses frente a
+   cuántas publicó, con tope en 1. Un comprador que publica mucho y casi no adjudica
+   baja en la lista. Si publicó menos de 5 en ese período, el dato no dice nada y vale
+   0,5.
+3. **Tiempo**: horas hasta el cierre divididas por 24, con tope en 1. Un día entero
+   para cotizar ya es holgado.
+
+**Un factor sin dato vale 0,5**, el punto medio de su escala: ni premia ni castiga.
+Una Compra Ágil sin información no sube ni baja por eso.
+
+## Lo que no es
+
+- **No es una probabilidad de ganar.** No hay datos con los que comprobar qué Compras
+  Ágiles le convenía cotizar a cada proveedor, así que el ranking ordena; no predice.
+- **No mira tu rubro.** Usa la búsqueda y el filtro de región para quedarte con lo
+  tuyo.
+- **No reemplaza leer la Compra Ágil.** Plazo de entrega, lugar y especificaciones
+  pueden descartarla en un minuto.
+
+## Cada cuánto cambia
+
+La lista se actualiza cuando TORDO consulta la API: a las 10, 13, 16 y 19 horas los
+días hábiles, y a las 12 horas los fines de semana. La página dice a qué hora fue la
+última, y avisa si se saltó una.
+
+Para no tener que entrar a mirarla, síguela por RSS: `/rss/compra-agil` (ver
+[cómo seguir una búsqueda por RSS](/explicativos/seguir-una-busqueda-por-rss)).
