@@ -78,8 +78,6 @@ services:
       LOG_FILE: ""
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-licitaciones}
       LOG_LEVEL: ${ETL_LOG_LEVEL:-INFO}
-      ETL_SCHEDULE_INTERVAL: ${ETL_SCHEDULE_INTERVAL:-3600}
-      CHILECOMPRA_API_URL: ${CHILECOMPRA_API_URL:-}
       MERCADO_PUBLICO_URL: ${MERCADO_PUBLICO_URL:-https://api.mercadopublico.cl}
       # Sin valor por defecto A PROPÓSITO. Aquí había un ticket de demostración
       # como respaldo, así que un despliegue que olvidara la variable no fallaba:

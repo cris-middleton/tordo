@@ -1004,7 +1004,15 @@ y los cron, no la API), `API_URL`, `APP_NAME`, y en producción `MCP_HOSTS_PERMI
 dominio **de la API** (`api.tordo.cl`: los integradores y el MCP le hablan directo, no por
 Vercel) y `FEATURE_ANALYTICS=true` (por defecto `false`: todo `/bi/*` da 503).
 
-**Producción: `docs/DESPLIEGUE.md`**, una lista ordenada con una comprobación por paso
+**Producción: `docs/DESPLIEGUE.md`**, con **una sola tabla de variables** (servicio, obligatoria,
+formato, de dónde sale), `scripts/generar-secretos.sh` (imprime `PROXY_SECRETO` y
+`REVALIDAR_SECRETO` y dónde va cada uno; nunca los escribe a disco) y
+`scripts/verificar-produccion.sh <sitio> <api>` (prueba de humo de sólo lectura, ✓/✗ por
+comprobación, sale con el número de fallos). **No hay `railway.json` ni `vercel.json`, a
+propósito**: el Config as Code de Railway no admite servicios nuevos y deja de leerse el
+2026-12-01, su IaC no documenta cron ni ruta del Dockerfile (se usa la variable
+`RAILWAY_DOCKERFILE_PATH`), y la región de Vercel ya es `iad1` por defecto. La guía es
+una lista ordenada con una comprobación por paso
 (Railway, R2, Healthchecks, Sentry, Vercel, DNS, correo y la prueba en vivo del
 `X-Forwarded-For`). Las variables de cada servicio están ahí; si cambias una aquí o en un
 Dockerfile, se corrige allí en el mismo PR.

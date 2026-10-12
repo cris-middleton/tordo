@@ -5,7 +5,10 @@ La guía para poner TORDO en producción: **Railway** (API, Postgres y dos cron)
 (latido de los cron) y **Sentry**. Sustituye a las guías del SaaS
 (`deploy_steps/`), que describen otro sistema.
 
-Es una lista **en orden**: cada paso usa algo del anterior. Cada uno termina con
+Es una lista **en orden**: cada paso usa algo del anterior. Las variables de todos
+los servicios están en **una sola tabla** ([Variables](#variables)); los secretos
+compartidos los genera `scripts/generar-secretos.sh` (paso 0) y la comprobación
+final la hace `scripts/verificar-produccion.sh` (paso 14). Cada uno termina con
 una línea **Verifica**; si no se cumple, no sigas. Los nombres de variables y los
 comandos salen del código (`backend/Dockerfile`, `etl/Dockerfile`,
 `backend/app/config.py`, `etl/config.py`, `etl/cron.py`, `etl/almacen.py`,
@@ -36,6 +39,85 @@ La API necesita un nombre propio porque **los integradores y los modelos hablan
 con ella directamente**, no a través de Vercel (spec §3): el proxy de Next sólo
 lo usa el navegador. Por eso `MCP_HOSTS_PERMITIDOS` lleva `api.tordo.cl`, que es
 el `Host` con el que llegan esas peticiones, y no `tordo.cl`.
+
+---
+
+## Por qué no hay archivos de configuración de Railway ni de Vercel
+
+- **Railway**: su «Config as Code» (`railway.json` / `railway.toml`) está
+  **deprecado**: *«New services cannot opt into Config as Code»*, y los archivos
+  existentes dejan de leerse el **2026-12-01**. Su sustituto, «Infrastructure as
+  Code» (`.railway/railway.ts`, aplicado con la CLI), **no documenta** cron, ruta del
+  Dockerfile, política de reinicio ni límites de memoria — justo lo que hace falta
+  aquí. Así que los tres servicios se configuran en el panel, con los valores
+  exactos de los pasos 6–8. La ruta del Dockerfile sí tiene una forma documentada
+  fuera del panel: la variable `RAILWAY_DOCKERFILE_PATH`.
+  Fuentes: <https://docs.railway.com/config-as-code>,
+  <https://docs.railway.com/infrastructure-as-code/reference>,
+  <https://docs.railway.com/cron-jobs>, <https://docs.railway.com/builds/dockerfiles>
+  (consultadas el 2026-10-12).
+- **Vercel**: lo único que pondría un `vercel.json` es la región de las funciones, y
+  **`iad1` ya es el valor por defecto de los proyectos nuevos**
+  (<https://vercel.com/docs/functions/configuring-functions/region>). No hay cron en
+  Vercel: los dos cron viven en Railway. Un archivo que repite el valor por defecto
+  sólo añade un sitio más donde puede quedar desfasado.
+
+## Variables
+
+Una fila por variable y una columna por servicio: **API**, **frecuente** y
+**semanal** son los tres servicios de Railway; **Vercel**, el sitio. «Obligatoria»
+quiere decir que sin ella algo deja de funcionar o queda inseguro; las demás tienen
+un valor por defecto razonable o desactivan algo prescindible.
+
+| variable | API | frecuente | semanal | Vercel | ¿obligatoria? | ejemplo / formato | cómo se obtiene |
+|---|:-:|:-:|:-:|:-:|---|---|---|
+| `RAILWAY_DOCKERFILE_PATH` | ✓ | ✓ | ✓ | | sí | `/backend/Dockerfile` (API) · `/etl/Dockerfile` (los dos cron) | fijo |
+| `DATABASE_URL` | ✓ | ✓ | ✓ | | sí | `${{Postgres.DATABASE_URL}}` | referencia a la variable del servicio Postgres de Railway (red privada) |
+| `ENVIRONMENT` | ✓ | | | | sí | `production` | fijo. Activa los avisos de arranque de la API |
+| `FEATURE_ANALYTICS` | ✓ | | | | **sí** | `true` | fijo. Por defecto `false`: todo `/bi/*` y las páginas públicas responden 503 |
+| `PROXY_SECRETO` | ✓ | | | ✓ | sí | 64 caracteres hex | `scripts/generar-secretos.sh` — **el mismo** en la API y en Vercel |
+| `CONFIAR_X_FORWARDED_FOR` | ✓ | | | | sí | `true` | fijo; se comprueba en vivo en el paso 10 |
+| `MCP_HOSTS_PERMITIDOS` | ✓ | | | | sí | `api.tordo.cl` | el dominio de la API (paso 6). Sin él el MCP responde 421 |
+| `CORS_ORIGINS` | ✓ | | | | no | `https://tordo.cl,https://www.tordo.cl` | los dominios del sitio |
+| `LIMITE_POR_MINUTO` | ✓ | | | | no | `60` | por defecto 60 |
+| `WEB_CONCURRENCY` | ✓ | | | | no | `1` | **déjala en 1**: el límite por IP vive en memoria de cada worker |
+| `SENTRY_DSN` | ✓ | | | | no | `https://…@….ingest.sentry.io/…` | Sentry → proyecto de la API → *Client Keys* (paso 4). Vacía, sin Sentry |
+| `LOG_JSON` / `LOG_LEVEL` | ✓ | | | | no | `true` / `INFO` | por defecto `true` / `INFO` |
+| `MERCADO_PUBLICO_TICKET` | | ✓ | | | **sí** | UUID | <https://api.mercadopublico.cl>. Sin valor por defecto: el extractor no arranca sin él |
+| `COMPRA_AGIL_TICKET` | | ✓ | | | no | UUID | vacía usa `MERCADO_PUBLICO_TICKET` |
+| `LATIDO_URL_FRECUENTE` | | ✓ | | | recomendada | `https://hc-ping.com/<uuid>` (sin barra final) | Healthchecks.io, chequeo `tordo-frecuente` (paso 3) |
+| `LATIDO_URL_SEMANAL` | | | ✓ | | recomendada | `https://hc-ping.com/<uuid>` | Healthchecks.io, chequeo `tordo-semanal` |
+| `ETL_ALMACEN` | | | ✓ | | **sí** | `r2` | fijo. Sin valor por defecto, a propósito |
+| `R2_ENDPOINT_URL` | | | ✓ | | sí | `https://<id-de-cuenta>.r2.cloudflarestorage.com` | Cloudflare → R2 (paso 2) |
+| `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | | | ✓ | | sí | | Cloudflare → R2 → *Manage API tokens* (paso 2) |
+| `R2_BUCKET` | | | ✓ | | sí | `tordo-parquets` | el nombre del bucket |
+| `REVALIDAR_URL` | | ✓ | ✓ | | recomendada | `https://tordo.cl/api/revalidar` | la URL del sitio. Vacía, los cron no revalidan (y lo dicen en INFO) |
+| `REVALIDAR_SECRETO` | | ✓ | ✓ | ✓ | recomendada | 64 caracteres hex | `scripts/generar-secretos.sh` — **el mismo** en los dos cron y en Vercel. Sin él en Vercel, `/api/revalidar` responde 503 |
+| `API_URL` | | | | ✓ | sí | `https://api.tordo.cl` | el dominio de la API. Servidor: **sin** `NEXT_PUBLIC_` |
+| `NEXT_PUBLIC_SITE_URL` | | | | ✓ | sí | `https://tordo.cl` | el dominio del sitio (canonical, sitemap, tarjetas). Se lee en el build |
+| `RESPONSABLE_LEGAL` | | | | ✓ | sí, para publicar | `Nombre Apellido` | quien responde por el sitio. Se lee en el build; sin ella `/terminos` y `/privacidad` muestran `[[definir RESPONSABLE_LEGAL]]` |
+| `DONAR_MERCADO_PAGO_URL` | | | | ✓ | no | `https://link.mercadopago.cl/…` | Mercado Pago → *Link de pago* de monto abierto. Servidor |
+| `DONAR_GITHUB_SPONSORS_URL` | | | | ✓ | no | `https://github.com/sponsors/<usuario>` | GitHub Sponsors. Servidor |
+| `DONAR_TRANSFERENCIA` | | | | ✓ | no | varias líneas: banco, tipo y número de cuenta, nombre, RUT, correo | los datos de la cuenta. Servidor (spec §4.2: se muestran tras un clic, no en el HTML) |
+| `NEXT_PUBLIC_SENTRY_DSN` | | | | ✓ | no | DSN del proyecto Next.js | Sentry (paso 4). Se inlinea en el bundle |
+| `NEXT_PUBLIC_ENVIRONMENT` / `NEXT_PUBLIC_APP_NAME` | | | | ✓ | no | `production` / `Tordo` | fijos |
+| `SENTRY_ORG` / `SENTRY_PROJECT` / `SENTRY_AUTH_TOKEN` | | | | ✓ | no | | Sentry (paso 4). Sólo de build: trazas legibles |
+
+`ENVIRONMENT=production` y `LOG_LEVEL=INFO` pueden ponerse también en los cron; no
+cambian su comportamiento.
+
+## 0. Generar los secretos
+
+```bash
+scripts/generar-secretos.sh
+```
+
+Imprime `PROXY_SECRETO` y `REVALIDAR_SECRETO` y dice en qué servicios va cada uno.
+**No los escribe en ningún archivo**: cópialos de la terminal al panel de cada
+servicio a medida que los pasos los pidan. Si pierdes uno, vuelve a correr el script
+y reemplázalo en **todos** sus destinos.
+
+**Verifica:** tienes los dos valores a mano (sin guardarlos en el repo).
 
 ---
 
@@ -118,8 +200,9 @@ Los cron **no** mandan a Sentry: su canal es el latido.
 
 *New → GitHub repo* → este repo. En *Settings*:
 
-- **Root directory** `/`, **Dockerfile path** `backend/Dockerfile` (el contexto de
-  build es la raíz: ahí viven `pyproject.toml` y `uv.lock`).
+- **Root directory** `/` (el contexto de build es la raíz: ahí viven
+  `pyproject.toml` y `uv.lock`). La ruta del Dockerfile va en la variable
+  `RAILWAY_DOCKERFILE_PATH=/backend/Dockerfile` (ver la tabla de variables).
 - **Start command**: vacío. El `CMD` de la imagen corre `alembic upgrade head` y
   luego uvicorn con **un** worker y `--no-proxy-headers`.
 - **Healthcheck path**: `/health/`.
@@ -128,23 +211,7 @@ Los cron **no** mandan a Sentry: su canal es el latido.
 - **Networking → Custom domain**: `api.tordo.cl`. Crea en Cloudflare el `CNAME`
   que indique Railway (sin proxy).
 
-**Variables:**
-
-| variable | valor |
-|---|---|
-| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (la de la red privada; la API la pasa a asyncpg sola) |
-| `ENVIRONMENT` | `production` |
-| `APP_NAME` | `Tordo` |
-| `FEATURE_ANALYTICS` | **`true`** — por defecto es `false` y todo `/bi/*` responde 503 |
-| `PROXY_SECRETO` | `openssl rand -hex 32` (**el mismo valor va en Vercel**, paso 9) |
-| `CONFIAR_X_FORWARDED_FOR` | `true` (se comprueba en vivo en el paso 10) |
-| `MCP_HOSTS_PERMITIDOS` | `api.tordo.cl` |
-| `CORS_ORIGINS` | `https://tordo.cl,https://www.tordo.cl` |
-| `LIMITE_POR_MINUTO` | `60` |
-| `WEB_CONCURRENCY` | `1` — el límite por IP vive en memoria: con N workers, el límite real es N× |
-| `SENTRY_DSN` | el DSN del proyecto de la API |
-| `LOG_JSON` | `true` |
-| `LOG_LEVEL` | `INFO` |
+**Variables:** las de la columna **API** de la [tabla de variables](#variables).
 
 En producción la API **avisa en el log al arrancar** si falta `PROXY_SECRETO`, si
 `CONFIAR_X_FORWARDED_FOR` es `false`, si hay más de un worker o si
@@ -160,31 +227,19 @@ En producción la API **avisa en el log al arrancar** si falta `PROXY_SECRETO`, 
 
 *New → GitHub repo* → el mismo repo, **otro servicio**. En *Settings*:
 
-- **Root directory** `/`, **Dockerfile path** `etl/Dockerfile`.
+- **Root directory** `/`, y `RAILWAY_DOCKERFILE_PATH=/etl/Dockerfile` en sus variables.
 - **Start command**: `python -m etl.cron frecuente`
-- **Cron schedule** (en el **panel**, no en `railway.json`: con cron como código
-  Railway tiene un fallo conocido que los deja en *Active*): `0 * * * *` — **cada
-  hora en UTC**. El script decide si le toca en hora de Chile; si no, sale en
+- **Cron schedule** (*Settings → Cron Schedule*; es el único sitio donde Railway lo
+  documenta, ver arriba): `0 * * * *` — **cada hora en UTC**. El script decide si le toca en hora de Chile; si no, sale en
   segundos.
 - **Recursos**: 1 GB basta (descarga de la API, sin analytics).
 
-**Variables:**
-
-| variable | valor |
-|---|---|
-| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
-| `MERCADO_PUBLICO_TICKET` | el ticket propio. **Sin valor por defecto, a propósito** |
-| `COMPRA_AGIL_TICKET` | vacío para usar el mismo ticket; otro si ChileCompra separa las cuotas |
-| `LATIDO_URL_FRECUENTE` | la URL de ping de `tordo-frecuente` |
-| `REVALIDAR_URL` | `https://tordo.cl/api/revalidar` — al final de cada corrida, Next regenera las páginas de Compra Ágil |
-| `REVALIDAR_SECRETO` | `openssl rand -hex 32`, **el mismo en los dos cron y en Vercel** (paso 9). Sin valor por defecto: vacía, la corrida no revalida y lo dice en el log |
-| `ENVIRONMENT` | `production` |
-| `LOG_LEVEL` | `INFO` |
+**Variables:** las de la columna **frecuente** de la [tabla de variables](#variables).
 
 **Verifica:** en *Deployments*, lanza una ejecución a mano con el start command
 `python -m etl.cron frecuente --forzar`. Termina sin `Traceback`, el log dice
 `frecuente: terminada`, y en Healthchecks `tordo-frecuente` pasa a *up*.
-Luego `curl -s 'https://api.tordo.cl/api/v1/tenders/?size=1'` trae `total` > 0.
+Luego `curl -s 'https://api.tordo.cl/api/v1/tenders/?limit=1'` trae `total` > 0.
 
 Hasta el paso 9 no hay Next al que avisar: la línea `revalidación … ERROR` del
 log es esperada y no hace fallar la corrida.
@@ -204,21 +259,7 @@ Un tercer servicio, igual que el anterior salvo:
 - **Recursos**: **8 GB** de RAM (decidido el 2026-10-11; pico proyectado ~6,3 GB
   con las ventanas de 36 y 12 meses — CLAUDE.md, «Analytics lee una VENTANA»).
 
-**Variables:**
-
-| variable | valor |
-|---|---|
-| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
-| `ETL_ALMACEN` | `r2` — **obligatoria, sin valor por defecto**: caer a disco reconstruiría el análisis sólo con los 3 meses recién bajados |
-| `R2_ENDPOINT_URL` | el endpoint de la cuenta (paso 2) |
-| `R2_ACCESS_KEY_ID` | del token del paso 2 |
-| `R2_SECRET_ACCESS_KEY` | del token del paso 2 |
-| `R2_BUCKET` | `tordo-parquets` |
-| `LATIDO_URL_SEMANAL` | la URL de ping de `tordo-semanal` |
-| `REVALIDAR_URL` | `https://tordo.cl/api/revalidar` — tras materializar, Next regenera las páginas de analytics |
-| `REVALIDAR_SECRETO` | el mismo valor que en `cron-frecuente` y en Vercel |
-| `ENVIRONMENT` | `production` |
-| `LOG_LEVEL` | `INFO` |
+**Variables:** las de la columna **semanal** de la [tabla de variables](#variables).
 
 Con `ETL_ALMACEN=r2` y una credencial que falte, la corrida falla **al
 construirse**, antes de descargar nada, y el `/fail` dice qué variable es. Una
@@ -263,25 +304,16 @@ lanzamiento. Recién entonces, el paso 9 completo con el dominio.
 *Add New → Project* → este repo.
 
 - **Root directory**: `frontend`. Framework: Next.js.
-- **Functions region**: `iad1` (Washington), junto a Railway US East (spec §3.2).
+- **Functions region**: `iad1` (Washington), junto a Railway US East (spec §3.2). Es
+  el valor por defecto de Vercel para proyectos nuevos: sólo compruébalo en
+  *Settings → Functions → Function Regions*.
 - **Domains**: `tordo.cl` y `www.tordo.cl` (redirige uno al otro); crea en
   Cloudflare los registros que indique Vercel, sin proxy — **sólo después de que
   termine la primera corrida semanal** (paso 8.1).
 - **Analytics → Web Analytics**: actívalo (sin cookies; spec §4).
 
-**Variables** (*Settings → Environment Variables*, entorno **Production**):
-
-| variable | valor | cuándo se lee |
-|---|---|---|
-| `API_URL` | `https://api.tordo.cl` | servidor — **sin** prefijo `NEXT_PUBLIC_` |
-| `PROXY_SECRETO` | **el mismo valor que en Railway** | servidor — nunca `NEXT_PUBLIC_` |
-| `REVALIDAR_SECRETO` | **el mismo valor que en los dos cron** | servidor — nunca `NEXT_PUBLIC_`. Sin él, `/api/revalidar` responde 503 |
-| `RESPONSABLE_LEGAL` | el nombre del responsable | **build**: las páginas legales se prerenderizan; cambiarlo exige redeploy |
-| `NEXT_PUBLIC_SENTRY_DSN` | el DSN del proyecto Next.js | build (se inlinea en el bundle) |
-| `NEXT_PUBLIC_ENVIRONMENT` | `production` | build |
-| `NEXT_PUBLIC_APP_NAME` | `Tordo` | build |
-| `NEXT_PUBLIC_SITE_URL` | `https://tordo.cl` | build (metadatos y tarjetas de preview) |
-| `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` | del paso 4 | sólo build (mapas de fuente) |
+**Variables** (*Settings → Environment Variables*, entorno **Production**): las de la columna
+**Vercel** de la [tabla de variables](#variables).
 
 Sin `RESPONSABLE_LEGAL` las páginas legales muestran `[[definir RESPONSABLE_LEGAL]]`
 (`frontend/lib/responsable.ts`).
@@ -297,6 +329,9 @@ El modelo de confianza (`backend/app/core/limite_ip.py`) da por hecho dos cosas 
 sólo se pueden ver desplegado: que el borde de Railway **reescribe**
 `X-Forwarded-For` (así un cliente no puede inventarse otra IP) y que el proxy de
 Vercel manda la IP del visitante.
+
+`scripts/verificar-produccion.sh` (paso 14) hace la prueba A sola; aquí está a
+mano, para entender qué mira.
 
 **A. Un `X-Forwarded-For` inventado no cambia de cubo.** Desde tu máquina:
 
@@ -374,6 +409,25 @@ segunda consulta dice por dónde seguir; el candidato conocido es
 `analytics.time_series`, que crece lineal con la ventana de 36 meses.
 
 ---
+
+## 14. Verificación final
+
+```bash
+scripts/verificar-produccion.sh https://tordo.cl https://api.tordo.cl
+```
+
+Sólo lectura, sin secretos. Una línea ✓/✗ por comprobación: salud de la API, sitemap
+de la API con datos, una página de comprador, rubro y producto con canonical, un 404
+para un código inventado (en la API y en el sitio), `robots.txt`, `sitemap.xml`, los
+dos RSS, la frescura de «lo mejor de hoy», el MCP, las cabeceras del límite, la
+prueba del `X-Forwarded-For` inventado del paso 10, `/api/revalidar` sin secreto
+(401, no 503) y `/apoyar`. Sale con el número de fallos.
+
+Lo que no puede ver desde fuera, y hay que mirar a mano: Healthchecks (los dos
+chequeos *up*), el log de arranque de la API sin avisos, y el tamaño de Postgres
+(paso 13.1).
+
+**Verifica:** `✓ Todo en orden.`
 
 ## Si algo falla
 
