@@ -79,8 +79,8 @@ manuales se salta, un comando no.
 
 Este archivo decía que Actions no estaba habilitado y que `.github/workflows/ci.yml` no
 corría. **Ya no es cierto**: `actions/permissions` devuelve `enabled=true` y el workflow
-ejecuta sus seis jobs —lint, migraciones, tests de backend, tests de ETL, frontend y build
-de imágenes— en cada `pull_request` contra `main`. Verificado sobre once PRs seguidos.
+ejecuta sus siete jobs —lint, migraciones, tests de backend, tests de ETL, frontend, extremo
+a extremo y build de imágenes— en cada `pull_request` contra `main`. Verificado sobre once PRs seguidos.
 
 Dos cosas que sí conviene saber:
 
@@ -205,14 +205,14 @@ IP de `/api/v1/bi/*`. Que lo público no pida sesión se prueba también por HTT
   Ya causó un bug real: `subscription_status_from_stripe` importado dentro de una función y
   usado en otra rompía todos los webhooks `customer.subscription.updated` (hoy retirados).
 - **Todos los schemas Pydantic en `app/schemas/`.** Nunca inline en endpoints o servicios.
-- **Toda tabla y columna nueva lleva `comment=`.** Es un producto de datos con 78 columnas
-  por orden de compra; sin comentarios se vuelve inusable en meses.
+- **Toda tabla y columna nueva lleva `comment=`.** Es un producto de datos con decenas de
+  columnas por tabla; sin comentarios se vuelve inusable en meses.
 - **Clave primaria: `UUID` para entidades de negocio, `BigInteger` para las de ingesta.**
   Las de ingesta crecen sin techo y `integer` se queda corto; las de negocio se exponen en
   URLs y no conviene que sean adivinables.
 - **Las dos reglas anteriores las verifica `tests/test_convenciones_modelo.py`**, con
-  trinquete: **las tablas ya están todas comentadas**; quedan 172 columnas sin comentario y
-  12 PK `integer`, así que el test **no exige arreglarlas** — falla si aparece deuda **nueva**.
+  trinquete: **las tablas ya están todas comentadas**; quedan 43 columnas sin comentario y
+  2 PK `integer`, así que el test **no exige arreglarlas** — falla si aparece deuda **nueva**.
   La deuda vive en `tests/convenciones_baseline.json` y sólo puede encoger.
   Al arreglar algo: `cd backend && uv run --project .. python tests/regenerar_baseline.py`.
 - Los errores de negocio se devuelven con `HTTPException` y mensaje en español — los ve el usuario.
@@ -240,8 +240,8 @@ ni Notion, ni Sentry, ni GCP.
 |---|---|
 | `grill-me` | Estresar un plan antes de construirlo. Obligatorio en proyectos medianos o grandes. |
 | `handoff` | Comprimir la sesión para que otra continúe. Útil: estas sesiones se alargan. |
-| `feature` | Pipeline completo staff-engineer → dev → review por chunk → review de integración. Encaja bien con las fases F2–F5. |
-| `demo-video` | Grabar una demo con Playwright y editarla con Remotion. Relevante para competir de igual a igual con LicitaLab. |
+| `feature` | Pipeline completo staff-engineer → dev → review por chunk → review de integración. Para cambios de varias piezas. |
+| `demo-video` | Grabar una demo con Playwright y editarla con Remotion. Para enseñar el sitio. |
 | agentes `staff-engineer`, `dev`, `chunk-reviewer`, `integration-reviewer`, `git-commit-generator` | Genéricos. |
 
 **NO usar aquí — apuntan a sistemas de otra empresa y modificarían infraestructura ajena:**
@@ -285,7 +285,7 @@ Cloud Scheduler, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
   sitio, `lib/sentry-comun.ts`. Ponerlas en dos de los tres es la forma fácil de equivocarse,
   así que hay un test estructural que exige que las tres partan de `OPCIONES_COMUNES`.
   - **`sendDefaultPii: false`**, como el backend: por aquí pasan RUTs, montos y documentos.
-    Cambiarlo no rompe nada y empieza a mandar datos de clientes a un tercero —
+    Cambiarlo no rompe nada y empieza a mandar datos personales a un tercero —
     `__tests__/sentry-privacidad.test.ts` lo fija.
   - **Sin replay de sesión**, a propósito: graba la pantalla. Un `maskAllText` es una
     salvaguarda que hay que acertar; no grabar no hay que acertarlo.
@@ -332,7 +332,7 @@ Cloud Scheduler, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
 - **Ninguna pantalla pasa de 700 líneas.** Las tres que lo hacían están partidas por su
   seam natural: el detalle de licitación en `components/licitacion/` + `lib/licitacionDetalle.ts`,
   el listado en `TarjetaLicitacion` + `lib/licitacionEstado.ts`, y las herramientas de BI en
-  `bi/components/herramientas/` (una pestaña por fichero). **Los ayudantes de estado y formato
+  `app/(panel)/mercado/components/herramientas/` (una pestaña por fichero). **Los ayudantes de estado y formato
   van en `lib/`, no dentro del componente**: definidos dentro se reconstruían en cada render
   y no se podían reutilizar desde la tarjeta.
 - **Tests de extremo a extremo: `make e2e`.** Monta la pila entera contra una base
@@ -504,9 +504,11 @@ un módulo borrado rompe todo lo que cuelga del paquete — el BI, el MCP y el E
 vuelva a pasar.
 
 ```
-api/            routers: tenders, bi, health; documentacion.py (superficie pública)
-repositories/   Acceso a datos: licitaciones (catálogo) y analytics (sync y async).
-services/       Lógica de negocio como funciones de módulo: bi/, exportar.
+api/            routers: tenders, bi, compra_agil, publico, health; documentacion.py
+                (superficie pública), limites.py (cotas de parámetros), dependencias.py
+repositories/   Acceso a datos: licitaciones (catálogo), compra_agil y analytics (sync y async).
+services/       Lógica de negocio como funciones de módulo: bi/, publico/ (páginas
+                indexables), exportar.
                 services/bi/ está partido por dominio (precio, competencia,
                 comprador, oportunidad, temporal, mercado, panel, rubro), con
                 _base.py como único punto de acceso a las tablas de analytics.
@@ -516,9 +518,10 @@ observability/  logging JSON con request_id (contextvar) + Sentry opt-in
 db/             sesión async (asyncpg) y motor sync (psycopg2, para analytics_sync)
 models/         SQLAlchemy
 schemas/        Pydantic — todos van aquí
+utils/          slug.py (la única función de slugs)
 ```
 
-**Routers**: tenders (3 rutas), bi (20), compra_agil (1), publico (5), health. Todos anónimos. Los de cuenta (auth, users,
+**Routers**: tenders (3 rutas), bi (18), compra_agil (1), publico (5), health. Todos anónimos. Los de cuenta (auth, users,
 empresas, alerts, documentos, postulaciones, estado_habil, dashboard, billing, webhooks) y el
 explorador `data_inspection` se borraron en el pivote público.
 
@@ -546,7 +549,7 @@ mirar dos sitios. Lo fija `tests/test_versionado_api.py`.
   catálogos `ref_*` — nada los leía —, más el payload crudo del detalle (`datos_completos`,
   `participantes`): el hash basta para saber si un detalle cambió. La historia de órdenes vive
   entera en los parquets de R2. **El tamaño real está sin medir** (producción pausada); las
-  consultas para medirlo van en la descripción del PR del paso 7.
+  consultas para medirlo están en `docs/DESPLIEGUE.md`, paso 13.1.
 - **Parquet + Polars** — sólo cómputo batch. La API **no lee parquets**: el pipeline
   materializa los resultados en el esquema `analytics` de Postgres con índices
   (`etl/analytics/materialize.py`), y `bi_service` los consulta con SQL. Ver
@@ -965,7 +968,8 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
 
 ## Deuda conocida — no la refuerces
 
-`docs/ARQUITECTURA_REVISION_2026-08.md` es la referencia. Si necesitas apoyarte en alguno de
+El razonamiento de cada punto está en `docs/ARQUITECTURA_REVISION_2026-08.md` (anterior al
+pivote). Si necesitas apoyarte en alguno de
 estos patrones, es señal de que hay que arreglar la causa, no de copiarlo:
 
 - ~~Analytics servido desde caché de parquet en el proceso de la API~~ — **resuelto en F2**: se sirve desde `analytics.*` en Postgres con índices.
@@ -1005,12 +1009,12 @@ estos patrones, es señal de que hay que arreglar la causa, no de copiarlo:
 
 > **Pivote decidido el 2026-10-11: TORDO pasa a ser un sitio público y gratuito** — sin
 > cuentas ni cobros, financiado con donaciones, en Vercel Hobby + Railway con dos cron.
-> Especificación: `docs/PIVOTE_PUBLICO_2026-10.md`. **Del 3 al 10 están hechos** (el 10 sin los explicativos): fuera las
+> Especificación: `docs/PIVOTE_PUBLICO_2026-10.md`. **Del 3 al 11 están hechos**: fuera las
 > cuentas (3 y 4), cron en vez de Celery y Redis (5), R2, enmascarado y ventana de analytics
 > (6), Postgres adelgazado (7), TF-IDF fuera de la API (8) y «lo mejor de hoy», RSS y
-> favoritos (9), páginas públicas, sitemap y revalidación (10); y el 11, legal: hecho; faltan
-> nombre, correo y fecha al lanzar. Lo que queda —explicativos y portada (10b) y
-> lanzamiento (12, guía en `docs/DESPLIEGUE.md`)— está en la spec.
+> favoritos (9), páginas públicas, sitemap y revalidación (10), guías y portada (10b) y legal (11; faltan
+> nombre, correo y fecha al lanzar). La preparación del lanzamiento (12) también; queda
+> desplegar, con la guía de `docs/DESPLIEGUE.md`.
 
 Decisiones tomadas el 2026-08-05, con su ADR en `docs/decisiones/`: sólo Chile (sin
 multi-país), nombre TORDO y LLM acotado a un servidor MCP sobre la base histórica siguen
