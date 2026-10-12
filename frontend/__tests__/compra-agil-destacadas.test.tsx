@@ -112,7 +112,7 @@ describe('la página', () => {
     expect(within(item).getByText('1 cotización hasta ahora')).toBeInTheDocument();
     expect(within(item).getByText('Adjudica 120 de 150 en 6 meses')).toBeInTheDocument();
     expect(within(item).getByText('Cierra en 20 h')).toBeInTheDocument();
-    expect(within(item).getByText(/Suele comprar entre \$400K y \$1\.5M/)).toBeInTheDocument();
+    expect(within(item).getByText(/Suele comprar entre \$400K y \$1,5M/)).toBeInTheDocument();
   });
 
   it('enlaza al detalle y a Mercado Público', async () => {

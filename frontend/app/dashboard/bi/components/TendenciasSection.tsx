@@ -20,6 +20,7 @@ import { InfoTooltip } from '@/components/bi/InfoTooltip';
 import { ShareMenu } from './ShareMenu';
 
 import { EligeRubro } from '@/components/bi/EligeRubro';
+import { decimal } from '@/lib/formato';
 
 interface TendenciasSectionProps {
   tendencias: TendenciaItem[];
@@ -38,7 +39,7 @@ const CustomTooltip = ({ active, payload }: any) => {
       <p className="font-semibold text-text mb-1">{d.RubroN2}</p>
       <p className="text-muted">
         Crecimiento anual: <span className={`font-bold ${d.cagr >= 0 ? 'text-accent' : 'text-danger'}`}>
-          {d.cagr > 0 ? '+' : ''}{d.cagr.toFixed(1)}%
+          {d.cagr > 0 ? '+' : ''}{decimal(d.cagr, 1)}%
         </span>
       </p>
       {d.n_anios && (
@@ -59,7 +60,7 @@ export function TendenciasSection({ tendencias, emergentes, loading, selectedRub
 
   const summaryText = (() => {
     if (selectedRubro && cagrRubro != null) {
-      return `Tendencias — ${selectedRubro}: ${cagrRubro > 0 ? '+' : ''}${cagrRubro.toFixed(1)}% anual promedio.`;
+      return `Tendencias — ${selectedRubro}: ${cagrRubro > 0 ? '+' : ''}${decimal(cagrRubro, 1)}% anual promedio.`;
     }
     return `Tendencias del mercado: ${emergentes.length} rubros emergentes identificados.`;
   })();
@@ -145,7 +146,7 @@ export function TendenciasSection({ tendencias, emergentes, loading, selectedRub
 
                     {/* CAGR grande */}
                     <p className={`text-3xl font-bold mt-1 ${(cagrToShow ?? 0) >= 0 ? 'text-accent' : 'text-danger'}`}>
-                      {(cagrToShow ?? 0) > 0 ? '+' : ''}{(cagrToShow ?? 0).toFixed(1)}%
+                      {(cagrToShow ?? 0) > 0 ? '+' : ''}{decimal(cagrToShow ?? 0, 1)}%
                     </p>
                     <p className="text-xs text-muted mt-0.5">{cagrLabel}</p>
 
@@ -153,7 +154,7 @@ export function TendenciasSection({ tendencias, emergentes, loading, selectedRub
                     {yoyPct !== null && (
                       <div className="mt-3 flex items-baseline gap-2">
                         <span className={`text-sm font-semibold ${yoyPct >= 0 ? 'text-accent' : 'text-danger'}`}>
-                          {yoyPct > 0 ? '+' : ''}{yoyPct.toFixed(1)}%
+                          {yoyPct > 0 ? '+' : ''}{decimal(yoyPct, 1)}%
                         </span>
                         <span className="text-xs text-muted">
                           en {yoyToYear} vs. {yoyFromYear}
@@ -245,7 +246,7 @@ export function TendenciasSection({ tendencias, emergentes, loading, selectedRub
               key={e.RubroN2}
               className="flex items-center gap-1.5 rounded-full bg-accent/15 border border-accent/25 px-3 py-1 text-xs font-semibold text-accent"
             >
-              ↗ {e.RubroN2} {e.cagr > 0 ? '+' : ''}{e.cagr.toFixed(0)}% anual
+              ↗ {e.RubroN2} {e.cagr > 0 ? '+' : ''}{decimal(e.cagr, 0)}% anual
             </span>
           ))}
         </div>
@@ -262,7 +263,7 @@ export function TendenciasSection({ tendencias, emergentes, loading, selectedRub
             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#DCE3ED" />
             <XAxis
               type="number"
-              tickFormatter={(v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%`}
+              tickFormatter={(v) => `${v > 0 ? '+' : ''}${decimal(v, 1)}%`}
               tick={{ fontSize: 11, fill: '#5F7089' }}
               label={{ value: 'Crecimiento anual (%)', position: 'insideBottom', offset: -2, fontSize: 11, fill: '#5F7089' }}
             />

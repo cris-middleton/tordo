@@ -107,7 +107,7 @@ describe('TabPrecio', () => {
       expect(screen.getByText(/disperso/i)).toBeInTheDocument();
     });
     // El número crudo de dispersión sigue visible, no sólo el adjetivo.
-    expect(screen.getByText(/0\.42/)).toBeInTheDocument();
+    expect(screen.getByText(/0,42/)).toBeInTheDocument();
     // Y el tamaño de muestra, junto al adjetivo, no oculto detrás de él.
     expect(screen.getByText('6')).toBeInTheDocument();
   });

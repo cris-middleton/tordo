@@ -17,6 +17,7 @@ import {
 } from './comun';
 import { motivoParaPersona } from '@/lib/motivos';
 import { textoPeriodo } from '@/lib/periodo';
+import { decimal } from '@/lib/formato';
 
 interface ProductoOption {
   codigoProductoONU?: string;
@@ -265,7 +266,7 @@ function BandaPrecioCard({ banda }: { banda: PrecioBanda }) {
               palabra. No se inventa un corte nuevo aquí — el corte ya lo
               hizo el backend al calcular `predictibilidad`. */}
           {banda.qcd != null && (
-            <span className="text-xs text-subtle">dispersión (QCD): {banda.qcd.toFixed(2)}</span>
+            <span className="text-xs text-subtle">dispersión (QCD): {decimal(banda.qcd, 2)}</span>
           )}
         </div>
       )}

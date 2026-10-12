@@ -1,4 +1,5 @@
 import { ResumenMercado } from '../types';
+import { decimal } from '@/lib/formato';
 
 /**
  * Escapa lo que viene de fuera.
@@ -19,9 +20,9 @@ function esc(texto: string): string {
 
 function formatCLP(value: number): string {
   const abs = Math.abs(value);
-  if (abs >= 1e12) return `CLP ${(value / 1e12).toFixed(1)} billones`;
-  if (abs >= 1e9) return `CLP ${(value / 1e9).toFixed(1)} mil millones`;
-  if (abs >= 1e6) return `CLP ${(value / 1e6).toFixed(1)} millones`;
+  if (abs >= 1e12) return `CLP ${decimal(value / 1e12, 1)} billones`;
+  if (abs >= 1e9) return `CLP ${decimal(value / 1e9, 1)} mil millones`;
+  if (abs >= 1e6) return `CLP ${decimal(value / 1e6, 1)} millones`;
   return `CLP ${value.toLocaleString('es-CL')}`;
 }
 
@@ -53,7 +54,7 @@ export function frase2(r: ResumenMercado): string | null {
   if (cagr == null && yoy == null) return null;
 
   // Helpers
-  const fmtPct = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(0)}%`;
+  const fmtPct = (v: number) => `${v > 0 ? '+' : ''}${decimal(v, 0)}%`;
 
   // Clasificación del CAGR histórico (lenguaje en pasado/promedio, no "está")
   let leading: string;

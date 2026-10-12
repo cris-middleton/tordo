@@ -3,13 +3,15 @@ import { expect, test } from '@playwright/test';
 /**
  * «Lo mejor de hoy en Compra Ágil», de punta a punta y SIN sesión.
  *
- * La semilla del E2E no garantiza Compras Ágiles abiertas que cierren en más
- * de 2 h —el reloj corre y la semilla no—, así que se acepta la lista o el
- * estado vacío. Lo que no se acepta es un error: es lo que veríamos si el
- * proxy, la ruta del backend o la forma de la respuesta no casan.
+ * La semilla (`backend/scripts/sembrar_e2e.py`) deja tres Compras Ágiles
+ * abiertas que cierran en dos días y las re-fecha en cada corrida, así que la
+ * lista tiene que estar: el estado vacío aquí sería un fallo que antes se daba
+ * por bueno. El vacío se prueba aparte, con una búsqueda que no casa con nada.
  */
 
-test('la página carga sin sesión y responde la API', async ({ page }) => {
+const CODIGOS_SEMBRADOS = ['E2E-2001-COT26', 'E2E-2002-COT26', 'E2E-2003-COT26'];
+
+test('la página carga sin sesión y lista las abiertas', async ({ page }) => {
   const respuesta = page.waitForResponse((r) => r.url().includes('/compra-agil/destacadas'));
   await page.goto('/dashboard/compra-agil');
 
@@ -17,10 +19,22 @@ test('la página carga sin sesión y responde la API', async ({ page }) => {
   expect((await respuesta).status()).toBe(200);
 
   const lista = page.getByRole('list', { name: /compras ágiles destacadas/i });
-  const vacio = page.getByText(/no hay compras ágiles abiertas/i);
-  await expect(lista.or(vacio)).toBeVisible({ timeout: 15_000 });
+  await expect(lista).toBeVisible({ timeout: 15_000 });
+  // `:scope > li`: cada tarjeta lleva su propia lista de datos dentro.
+  await expect(lista.locator(':scope > li')).toHaveCount(CODIGOS_SEMBRADOS.length);
+  for (const codigo of CODIGOS_SEMBRADOS) {
+    await expect(lista.locator(`a[href="/dashboard/tenders/${codigo}"]`).first()).toBeVisible();
+  }
   // Dentro de <main>: Next monta su propio anunciador de rutas con role="alert", vacío.
   await expect(page.getByRole('main').getByRole('alert')).toHaveCount(0);
+});
+
+test('una búsqueda sin coincidencias muestra el estado vacío', async ({ page }) => {
+  await page.goto('/dashboard/compra-agil?search=xyzzyqwerty-no-existe');
+  await expect(page.getByText(/no hay compras ágiles abiertas con estos filtros/i)).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.getByRole('list', { name: /compras ágiles destacadas/i })).toHaveCount(0);
 });
 
 test('se llega desde el menú', async ({ page }) => {

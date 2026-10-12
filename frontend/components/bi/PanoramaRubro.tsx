@@ -13,6 +13,7 @@ import type { Panorama, PanoramaLider } from '@/types/bi';
 
 import { EligeRubro } from './EligeRubro';
 import { motivoParaPersona } from '@/lib/motivos';
+import { decimal } from '@/lib/formato';
 
 /**
  * El panorama del rubro: la cabecera de la pantalla de analítica.
@@ -70,9 +71,9 @@ function SinDatos({ que }: { que: string }) {
 
 function plata(clp?: number | null): string {
   if (clp == null) return '—';
-  if (clp >= 1e12) return `$${(clp / 1e12).toFixed(1)} billones`;
-  if (clp >= 1e9) return `$${(clp / 1e9).toFixed(1)} mil millones`;
-  if (clp >= 1e6) return `$${(clp / 1e6).toFixed(0)} millones`;
+  if (clp >= 1e12) return `$${decimal(clp / 1e12, 1)} billones`;
+  if (clp >= 1e9) return `$${decimal(clp / 1e9, 1)} mil millones`;
+  if (clp >= 1e6) return `$${decimal(clp / 1e6, 0)} millones`;
   return `$${Math.round(clp).toLocaleString('es-CL')}`;
 }
 
@@ -97,13 +98,13 @@ function Lider({ lider }: { lider: PanoramaLider }) {
     <li className="flex items-baseline justify-between gap-3 text-sm">
       <span className="min-w-0 truncate text-text">{lider.nombre ?? 'Sin nombre'}</span>
       <span className="cifra shrink-0 text-xs text-muted">
-        {lider.share_pct?.toFixed(1)}% del monto
+        {lider.share_pct != null ? `${decimal(lider.share_pct, 1)}%` : '—'} del monto
         {/* La cuota por órdenes va al lado a propósito: en varios rubros el
             monto lo domina una sola compra enorme, y sin este número la lectura
             sería «este mercado está tomado» cuando lo que hay son compras
             chicas repartidas entre muchos. */}
         {lider.share_oc_pct != null && (
-          <span className="text-subtle"> · {lider.share_oc_pct.toFixed(1)}% de las órdenes</span>
+          <span className="text-subtle"> · {decimal(lider.share_oc_pct, 1)}% de las órdenes</span>
         )}
       </span>
     </li>

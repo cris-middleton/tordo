@@ -116,6 +116,19 @@ def consultar(
     return _a_polars([], columnas or sorted(columnas_de(tabla)))
 
 
+def distintos(tabla: str, columna: str) -> list[Any] | None:
+    """Los valores distintos de una columna, o None si la tabla no existe.
+
+    Lo usa el índice de páginas públicas para saber qué rubros tienen datos sin
+    traer las filas: la columna va indexada, y Postgres lo resuelve sin tocar
+    el resto de la tabla.
+    """
+    if not existe_tabla(tabla):
+        return None
+    with _engine().connect() as conn:
+        return [fila[0] for fila in conn.execute(text(sql.sql_distintos(tabla, columna)))]
+
+
 def buscar_texto(
     tabla: str,
     columna: str,

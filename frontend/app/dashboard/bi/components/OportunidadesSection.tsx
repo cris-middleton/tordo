@@ -8,6 +8,7 @@ import { useComprador } from '@/lib/queries';
 import { ShareMenu } from './ShareMenu';
 
 import { EligeRubro } from '@/components/bi/EligeRubro';
+import { decimal } from '@/lib/formato';
 
 interface OportunidadesSectionProps {
   oportunidades: OportunidadItem[];
@@ -26,7 +27,7 @@ function ScoreBar({ value, max = 10 }: { value: number; max?: number }) {
         <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
       <span className="text-xs font-mono text-muted w-6 text-right">
-        {value.toFixed(1)}
+        {decimal(value, 1)}
       </span>
     </div>
   );
@@ -58,7 +59,7 @@ function CompetitionBadge({ n }: { n: number }) {
 }
 
 function pctOpc(v?: number | null): string {
-  return v == null ? '—' : `${(v * 100).toFixed(0)}%`;
+  return v == null ? '—' : `${decimal(v * 100, 0)}%`;
 }
 
 function ExpandedRow({
@@ -96,7 +97,7 @@ function ExpandedRow({
         <p className="text-xs text-muted mb-1">Nota del comprador</p>
         {scoreDisplay != null ? (
           <span className={`font-bold text-base ${scoreColor(scoreDisplay)}`}>
-            {scoreDisplay.toFixed(1)}/10
+            {decimal(scoreDisplay, 1)}/10
           </span>
         ) : <span className="text-muted">—</span>}
         {data.clasificacion && (
@@ -174,7 +175,7 @@ export function OportunidadesSection({ oportunidades, loading, onFocusOrganismo,
     const parts: string[] = [];
     parts.push(`Oportunidades destacadas: ${oportunidades.length} encontradas`);
     if (oportunidades.length > 0) {
-      parts.push(`mejor score ${maxScore.toFixed(1)}`);
+      parts.push(`mejor score ${decimal(maxScore, 1)}`);
       parts.push(`competencia promedio ${Math.round(avgCompetidores)} proveedores`);
     }
     return parts.join(' · ') + '.';
@@ -224,7 +225,7 @@ export function OportunidadesSection({ oportunidades, loading, onFocusOrganismo,
         <div className="rounded-xl border border-border bg-surface p-3">
           <p className="text-xs text-muted mb-1">Mejor score</p>
           <p className={`text-2xl font-bold ${maxScore > 0 ? scoreColor(maxScore) : 'text-muted'}`}>
-            {maxScore > 0 ? maxScore.toFixed(1) : '—'}
+            {maxScore > 0 ? decimal(maxScore, 1) : '—'}
           </p>
         </div>
         <div className="rounded-xl border border-border bg-surface p-3">

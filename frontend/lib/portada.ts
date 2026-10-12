@@ -58,7 +58,7 @@ export const PREGUNTAS: Pregunta[] = [
   {
     pregunta: '¿De dónde salen los datos?',
     respuesta:
-      'De ChileCompra: los archivos abiertos de órdenes de compra desde 2010 y la API de Mercado Público, que consultamos varias veces al día. Son datos oficiales y cualquier cifra se puede contrastar en Mercado Público.',
+      'De ChileCompra: los archivos abiertos de órdenes de compra de los últimos tres años —para los precios, sólo el último— y la API de Mercado Público, que consultamos varias veces al día. Son datos oficiales y cualquier cifra se puede contrastar en Mercado Público.',
     enlace: { href: '/guias/de-donde-salen-los-datos', texto: 'De dónde salen los datos' },
   },
   {

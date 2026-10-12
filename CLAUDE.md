@@ -585,7 +585,10 @@ atribución. Datos de `GET /publico/*` (`api/publico.py`, `services/publico/`).
   `Revalidador` en `etl/cron.py`. CI construye con un centinela y `check:secreto` lo busca.
 - **Qué se indexa vive en un solo sitio**, `services/publico/indexables.py`, con sus umbrales
   y conteos medidos (≈1.039 compradores, 309 rubros, 6.572 productos). El resto existe con
-  `noindex` (producto) o 404. `sitemap.xml` sale de `GET /publico/sitemap` con el mismo filtro.
+  `noindex` (producto, comprador o rubro) o 404. **Un rubro se indexa sólo si tiene filas en
+  `competitors_by_market`**: sin ellas el panorama sale vacío y la página dice «Sin datos
+  históricos». Recontado el 12-10 en la copia local: los 309 la tienen; en el fixture del
+  golden, 72 de 124 — ahí se vio. `sitemap.xml` sale de `GET /publico/sitemap` con el mismo filtro.
 - **Slugs: una sola función, `app/utils/slug.py`, y el frontend nunca des-slugifica.** Los
   rubros no tienen código y las firmas llevan tildes; dos nombres con el mismo slug → gana el
   de más observaciones y el otro no tiene página (`slug` nulo donde se enlaza).

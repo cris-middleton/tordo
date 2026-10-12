@@ -1,6 +1,7 @@
 'use client';
 
 import { ConfidenceBadge } from './ConfidenceBadge';
+import { decimal } from '@/lib/formato';
 
 // ── BIPanel type definitions ───────────────────────────────────────────────
 
@@ -185,7 +186,7 @@ function DriverBar({
 }
 
 function ScoreDial({ score }: { score: number | null }) {
-  const display = score !== null ? score.toFixed(1) : '—';
+  const display = score !== null ? decimal(score, 1) : '—';
   const color =
     score === null
       ? 'text-muted'

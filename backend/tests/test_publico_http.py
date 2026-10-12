@@ -189,7 +189,9 @@ class TestSitemap:
         assert r.json() == {
             "actualizado": "2026-09-30",
             "compradores": ["7297"],
-            "rubros": ["aseo-limpieza", "equipos-medicos"],
+            # Aseo no tiene competidores: su panorama sale vacío, así que tiene
+            # página pero no sitemap.
+            "rubros": ["equipos-medicos"],
             # El látex no llega a 10 compras: tiene página, no sitemap.
             "productos": ["guante-nitrilo"],
         }
@@ -269,7 +271,6 @@ class TestRubro:
         cuerpo = r.json()
         assert set(cuerpo) == {"slug", "nombre", "indexable", "panorama", "compradores"}
         assert cuerpo["nombre"] == "Aseo / Limpieza"
-        assert cuerpo["indexable"] is True
         assert "disponible" in cuerpo["panorama"]
         assert cuerpo["compradores"] == [
             {
@@ -280,6 +281,18 @@ class TestRubro:
             },
             {"codigo": "1", "nombre": "MUNICIPALIDAD CHICA", "monto": 50_000.0, "ordenes": 2},
         ]
+
+    def test_sin_datos_existe_pero_no_se_indexa(self, analytics, cliente):
+        """Una página que dice «Sin datos históricos» no va al índice, pero
+        responde 200: se llega a ella desde la ficha de un comprador."""
+        cuerpo = _get(cliente, "/rubros/aseo-limpieza").json()
+        assert cuerpo["panorama"]["disponible"] is False
+        assert cuerpo["indexable"] is False
+
+    def test_con_competidores_se_indexa(self, analytics, cliente):
+        cuerpo = _get(cliente, "/rubros/equipos-medicos").json()
+        assert cuerpo["panorama"]["disponible"] is True
+        assert cuerpo["indexable"] is True
 
     def test_el_panorama_es_el_del_bi(self, analytics, cliente):
         cuerpo = _get(cliente, "/rubros/equipos-medicos").json()

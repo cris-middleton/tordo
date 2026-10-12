@@ -27,6 +27,10 @@ def _mercado(codigo: str, rubro: str, n: int = 5, nombre: str | None = None) -> 
     }
 
 
+def _competidor(rubro: str) -> dict:
+    return {"CodigoOrganismoPublico": "1", "RubroN2": rubro, "CodigoProveedor": "9"}
+
+
 def _banda(firma: str, n: int, predictibilidad: str = "alta", unidad: str = "unidad") -> dict:
     return {
         "firma_producto": firma,
@@ -84,6 +88,10 @@ class TestRubros:
             _mercado("1", "Equipos médicos", n=5),
             _mercado("1", "NA", n=999),
         ]
+        analytics["competitors_by_market.parquet"] = [
+            _competidor("Servicios legales"),
+            _competidor("Equipos médicos"),
+        ]
         df = indexables.construir().rubros
         por_slug = dict(zip(df["slug"], df["nombre"], strict=True))
 
@@ -93,6 +101,42 @@ class TestRubros:
             "equipos-medicos": "Equipos médicos",
         }
         assert df["indexable"].all()
+
+    def test_indexable_solo_con_competidores(self, analytics):
+        """Sin filas en `competitors_by_market` el panorama sale vacío —la
+        página dice «Sin datos históricos»—: existe, pero no se indexa."""
+        analytics["market_concentration.parquet"] = [
+            _mercado("1", "Aseo"),
+            _mercado("1", "Equipos médicos"),
+        ]
+        analytics["competitors_by_market.parquet"] = [_competidor("Equipos médicos")]
+        df = indexables.construir().rubros
+        estado = dict(zip(df["slug"], df["indexable"], strict=True))
+        assert estado == {"aseo": False, "equipos-medicos": True}
+
+    def test_sin_tabla_de_competidores_no_se_indexa_ninguno(self, analytics):
+        analytics["market_concentration.parquet"] = [_mercado("1", "Aseo")]
+        df = indexables.construir().rubros
+        assert df["slug"].to_list() == ["aseo"]
+        assert not df["indexable"].any()
+
+    def test_la_colision_se_resuelve_antes_que_el_criterio(self, analytics):
+        """El ganador del slug es el de más órdenes aunque no tenga datos: la
+        URL no cambia de destino según qué tabla se llenó esta semana."""
+        analytics["market_concentration.parquet"] = [
+            _mercado("1", "Servicios Legales", n=85),
+            _mercado("2", "Servicios legales", n=10),
+        ]
+        analytics["competitors_by_market.parquet"] = [_competidor("Servicios legales")]
+        df = indexables.construir().rubros
+        assert df.to_dicts() == [
+            {
+                "slug": "servicios-legales",
+                "nombre": "Servicios Legales",
+                "n": 85,
+                "indexable": False,
+            }
+        ]
 
 
 class TestProductos:

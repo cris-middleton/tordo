@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 
+import polars as pl
 import pytest
 from fastapi.testclient import TestClient
 
@@ -82,15 +83,28 @@ def test_los_slugs_de_rubro_son_unicos_y_no_vacios(cliente):
     assert (rubros["slug"] != "").all()
 
 
-def test_cada_rubro_del_sitemap_resuelve(cliente):
+def test_cada_rubro_del_sitemap_resuelve_con_datos(cliente):
     for slug in _get(cliente, "/sitemap")["rubros"]:
         cuerpo = _get(cliente, f"/rubros/{slug}")
         assert cuerpo["slug"] == slug
         assert cuerpo["indexable"] is True
+        # Lo que el sitemap anuncia no puede ser «Sin datos históricos».
+        assert cuerpo["panorama"]["disponible"] is True, slug
+
+
+def test_un_rubro_sin_datos_existe_con_noindex(cliente):
+    """El fixture recortado trae rubros en `market_concentration` sin
+    competidores: son justo las páginas delgadas que no se indexan."""
+    sin_datos = indexables.indice().rubros.filter(~pl.col("indexable"))
+    assert not sin_datos.is_empty(), "¿cambió el fixture?"
+    cuerpo = _get(cliente, f"/rubros/{sin_datos['slug'][0]}")
+    assert cuerpo["indexable"] is False
 
 
 def test_los_compradores_indexables_tienen_perfil_y_rubros_enlazables(cliente):
-    rubros_con_pagina = set(_get(cliente, "/sitemap")["rubros"])
+    # Con página, no necesariamente indexable: un rubro sin datos se enlaza
+    # igual desde el comprador, y su página existe con noindex.
+    rubros_con_pagina = set(indexables.indice().rubros["slug"].to_list())
     for codigo in _get(cliente, "/sitemap")["compradores"][:15]:
         cuerpo = _get(cliente, f"/compradores/{codigo}")
         assert cuerpo["indexable"] is True

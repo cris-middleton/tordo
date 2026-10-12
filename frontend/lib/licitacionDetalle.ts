@@ -8,6 +8,7 @@
  */
 
 import type { TenderDetail } from '@/types/licitacionDetalle';
+import { decimal } from '@/lib/formato';
 
 export const normalizeKey = (key: string) => key.toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -133,7 +134,7 @@ export const fmtCLP = (n?: number) => {
 };
 
 export const fmtPct = (n?: number) =>
-  n == null ? '—' : `${(n * 100).toFixed(1)}%`;
+  n == null ? '—' : `${decimal(n * 100, 1)}%`;
 
 export const fmtDays = (n?: number) =>
   n == null ? '—' : `${n} días`;

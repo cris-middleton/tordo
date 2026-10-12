@@ -3,6 +3,7 @@
 import { AlertTriangle } from 'lucide-react';
 import { ConfidenceBadge } from './ConfidenceBadge';
 import { motivoParaPersona } from '@/lib/motivos';
+import { decimal } from '@/lib/formato';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -121,7 +122,7 @@ export function BuyerProfilePanel({ comprador }: BuyerProfilePanelProps) {
               label="Nota del comprador"
               value={
                 comprador.buyer_score != null
-                  ? `${comprador.buyer_score.toFixed(1)}/10`
+                  ? `${decimal(comprador.buyer_score, 1)}/10`
                   : '—'
               }
               valueColor={

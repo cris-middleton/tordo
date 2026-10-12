@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { ChevronDown, ChevronUp, BarChart3, Loader2, AlertTriangle, Clock, Users, DollarSign } from 'lucide-react';
 import { usePanelLicitacion } from '@/lib/queries';
 import { scoreBg, scoreColor } from '../../../bi/types';
+import { decimal } from '@/lib/formato';
 
 interface BICardProps {
   codigoExterno: string;
@@ -60,7 +61,7 @@ export function BICard({ codigoExterno }: BICardProps) {
   const hasAlert = data?.ventana?.alerta_ventana_corta;
 
   const summaryParts = [
-    buyerScore != null && `Comprador: ${buyerScore.toFixed(1)}/10`,
+    buyerScore != null && `Comprador: ${decimal(buyerScore, 1)}/10`,
     `Plazo: ${ventanaClasif}`,
     nProveedores != null && `${nProveedores} competidores`,
   ].filter(Boolean);
@@ -123,7 +124,7 @@ export function BICard({ codigoExterno }: BICardProps) {
                     </p>
                     {data.ventana.pct_del_tipico != null && (
                       <p className="text-xs text-muted mt-0.5">
-                        {data.ventana.pct_del_tipico.toFixed(0)}% del plazo típico
+                        {decimal(data.ventana.pct_del_tipico, 0)}% del plazo típico
                       </p>
                     )}
                   </>
@@ -143,7 +144,7 @@ export function BICard({ codigoExterno }: BICardProps) {
                     {buyerScore != null && (
                       <div className="flex items-center gap-2 mb-1">
                         <span className={`text-base font-bold ${scoreColor(buyerScore)}`}>
-                          {buyerScore.toFixed(1)}
+                          {decimal(buyerScore, 1)}
                         </span>
                         {data.comprador.clasificacion && (
                           <span className={`text-xs rounded-full border px-2 py-0.5 ${scoreBg(buyerScore)}`}>

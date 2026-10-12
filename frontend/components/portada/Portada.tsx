@@ -34,7 +34,7 @@ export function Portada({ destacadas }: { destacadas: CompraAgilDestacadasRespon
         <section className="dark bg-brand-navy px-4 py-16 sm:px-6 sm:py-20">
           <div className="mx-auto max-w-4xl">
             <p className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-accent">
-              Datos públicos de ChileCompra · desde 2010
+              Datos públicos de ChileCompra · últimos tres años
             </p>
             <h1 className="text-4xl font-bold leading-tight text-text sm:text-5xl">
               Inteligencia de compras públicas, gratis y sin cuenta
@@ -89,8 +89,9 @@ export function Portada({ destacadas }: { destacadas: CompraAgilDestacadasRespon
                 De dónde salen los datos
               </h2>
               <p className="mt-3 text-sm leading-relaxed text-muted">
-                De los archivos abiertos de órdenes de compra desde 2010 y de la API de Mercado
-                Público, que se consulta varias veces al día. Datos oficiales: cualquier cifra se
+                De los archivos abiertos de órdenes de compra de los últimos tres años (los
+                precios, del último) y de la API de Mercado Público, que se consulta varias veces
+                al día. Datos oficiales: cualquier cifra se
                 puede contrastar en Mercado Público. La cita de la fuente va al pie de cada
                 página.
               </p>

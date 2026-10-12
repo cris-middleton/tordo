@@ -2,6 +2,7 @@
 
 import { ConfidenceBadge } from './ConfidenceBadge';
 import { motivoParaPersona } from '@/lib/motivos';
+import { decimal } from '@/lib/formato';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -106,7 +107,7 @@ function CompetitorRow({
 
       {/* Share % */}
       <span className="w-10 shrink-0 text-right text-xs font-semibold tabular-nums text-text">
-        {share.toFixed(0)}%
+        {decimal(share, 0)}%
       </span>
 
       {/* OC count */}
@@ -171,7 +172,7 @@ export function CompetitorsList({ competidores }: CompetidoresPanelProps) {
           <span className="text-xs text-muted">
             HHI:{' '}
             <span className="font-semibold tabular-nums text-text">
-              {competidores.hhi.toFixed(3)}
+              {decimal(competidores.hhi, 3)}
             </span>
           </span>
         )}

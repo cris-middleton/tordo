@@ -15,6 +15,7 @@ import {
 import { EstacionalidadMes, MESES, OrganismoConNombre } from '../types';
 import { useEstacionalidad } from '@/lib/queries';
 import { InfoTooltip } from '@/components/bi/InfoTooltip';
+import { decimal } from '@/lib/formato';
 
 interface EstacionalidadSectionProps {
   topOrganismos: OrganismoConNombre[];
@@ -28,8 +29,8 @@ const CustomTooltip = ({ active, payload }: any) => {
   if (!active || !payload?.length) return null;
   const d = payload[0]?.payload as any;
   if (!d) return null;
-  const prob = d.prob_mes != null ? (d.prob_mes * 100).toFixed(0) : '?';
-  const consist = d.consistencia != null ? (d.consistencia * 100).toFixed(0) : '?';
+  const prob = d.prob_mes != null ? decimal(d.prob_mes * 100, 0) : '?';
+  const consist = d.consistencia != null ? decimal(d.consistencia * 100, 0) : '?';
   return (
     <div className="rounded-xl border border-border bg-surface shadow-lg px-4 py-3 text-sm max-w-xs">
       <p className="font-semibold text-text mb-1">{d.label}</p>
@@ -86,7 +87,7 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
 
   const picoMeses = chartData.filter((d) => d.es_pico_estacional).map((d) => d.label);
   const avgConsist = patrones.length > 0
-    ? (patrones.reduce((s, p) => s + (p.consistencia ?? 0), 0) / patrones.length * 100).toFixed(0)
+    ? decimal(patrones.reduce((s, p) => s + (p.consistencia ?? 0), 0) / patrones.length * 100, 0)
     : null;
 
   return (
@@ -176,7 +177,7 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
             <CartesianGrid strokeDasharray="3 3" stroke="#DCE3ED" />
             <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#5F7089' }} />
             <YAxis
-              tickFormatter={(v) => `${(v).toFixed(0)}%`}
+              tickFormatter={(v) => `${decimal(v, 0)}%`}
               tick={{ fontSize: 11, fill: '#5F7089' }}
               domain={[0, 'auto']}
               width={70}

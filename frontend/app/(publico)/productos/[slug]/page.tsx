@@ -3,7 +3,14 @@ import { notFound } from 'next/navigation';
 
 import { BandaPrecio } from '@/components/publico/BandaPrecio';
 import { CabeceraFicha, EnlacePanel, Seccion, TablaEnlaces } from '@/components/publico/Piezas';
-import { entero, metadataProducto, nombreProducto, plata, rutaComprador } from '@/lib/publico';
+import {
+  categoriaProducto,
+  entero,
+  metadataProducto,
+  nombreProducto,
+  plata,
+  rutaComprador,
+} from '@/lib/publico';
 import { pedirPublico, segmento } from '@/lib/publicoServidor';
 import type { ProductoPublico } from '@/types/publico';
 
@@ -13,6 +20,8 @@ import type { ProductoPublico } from '@/types/publico';
  * El producto es una FIRMA de la especificación del comprador (palabras
  * ordenadas, sin códigos), no una categoría del catálogo: dentro de una sola
  * categoría UNSPSC conviven artículos que difieren en cinco órdenes de magnitud.
+ * Por eso la firma es el título, y la categoría va debajo como contexto: si el
+ * título fuera la categoría, miles de páginas se llamarían igual.
  *
  * Un producto con pocas compras o precio muy disperso responde igual
  * (`indexable: false`): la página existe, con `noindex`, y se llega por
@@ -42,19 +51,21 @@ export default async function PaginaProducto({ params }: Props) {
   const { slug } = await params;
   const p = await obtener(slug);
   const nombre = nombreProducto(p);
+  const categoria = categoriaProducto(p);
 
   return (
     <article>
       <CabeceraFicha
         tipo="Precio de referencia"
         titulo={nombre}
-        subtitulo={
-          <>
-            Lo que pagan los compradores públicos en Chile
-            {p.codigo_onu ? ` · categoría ONU ${p.codigo_onu}` : ''}
-          </>
-        }
+        subtitulo="Lo que pagan los compradores públicos en Chile."
       >
+        {(categoria || p.codigo_onu) && (
+          <p className="mt-1 text-sm text-subtle">
+            Categoría del catálogo: {categoria ?? 'sin nombre'}
+            {p.codigo_onu ? ` (código ONU ${p.codigo_onu})` : ''}
+          </p>
+        )}
         {p.descripcion && <p className="mt-3 max-w-3xl text-sm text-muted">{p.descripcion}</p>}
         {!p.indexable && (
           <p className="mt-3 max-w-3xl rounded-lg border border-gold/25 bg-gold/10 px-3 py-2 text-xs text-gold">

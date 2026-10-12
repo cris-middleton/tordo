@@ -86,6 +86,11 @@ def _buscar(
     )
 
 
+def _distintos(filename: str, columna: str) -> list[Any] | None:
+    """Los valores distintos y no nulos de una columna, o None sin tabla."""
+    return repo.distintos(_tabla(filename), columna)
+
+
 def _columna_presente(filename: str, *candidatas: str) -> str | None:
     """La primera de esas columnas que la tabla tenga de verdad.
 

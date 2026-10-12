@@ -86,10 +86,24 @@ export function fechaCorta(iso?: string | null): string | null {
   return `${Number(m[3])} ${MESES[Number(m[2]) - 1]} ${m[1]}`;
 }
 
-/** El nombre con que se presenta un producto: el genérico si lo hay, si no la firma. */
-export function nombreProducto(p: Pick<ProductoPublico, 'nombre_generico' | 'firma'>): string {
-  const nombre = p.nombre_generico?.trim() || p.firma;
-  return nombre.charAt(0).toUpperCase() + nombre.slice(1);
+const capitalizar = (texto: string) => texto.charAt(0).toUpperCase() + texto.slice(1);
+
+/**
+ * El nombre con que se presenta un producto: su FIRMA, con mayúscula inicial.
+ *
+ * No el nombre genérico: ése es la categoría UNSPSC, y miles de productos
+ * comparten la misma —«Guantes protectores» para el de nitrilo, el de látex y
+ * el de vinilo—. Titular por ella daba miles de páginas con el mismo `<title>`,
+ * que para un buscador son duplicados y para quien llega no dicen qué es.
+ */
+export function nombreProducto(p: Pick<ProductoPublico, 'firma'>): string {
+  return capitalizar(p.firma.trim());
+}
+
+/** La categoría del catálogo, como contexto debajo del nombre; null si no hay. */
+export function categoriaProducto(p: Pick<ProductoPublico, 'nombre_generico'>): string | null {
+  const generico = p.nombre_generico?.trim();
+  return generico ? capitalizar(generico) : null;
 }
 
 /** La banda con más observaciones: la que resume el producto en el título. */
@@ -192,6 +206,7 @@ export function metadataRubro(r: RubroPublico): Metadata {
 
 export function metadataProducto(p: ProductoPublico): Metadata {
   const nombre = nombreProducto(p);
+  const categoria = categoriaProducto(p);
   const banda = bandaPrincipal(p.unidades);
   const cifra =
     banda?.p50 != null
@@ -200,7 +215,8 @@ export function metadataProducto(p: ProductoPublico): Metadata {
   return base(
     rutaProducto(p.slug),
     `Precio de ${nombre} en compras públicas`,
-    `${nombre}: ${cifra}. Bandas de precio por unidad y quién lo compra, con datos de ChileCompra.`,
+    `${nombre}${categoria ? ` (${categoria})` : ''}: ${cifra}. ` +
+      'Bandas de precio por unidad y quién lo compra, con datos de ChileCompra.',
     p.indexable,
   );
 }

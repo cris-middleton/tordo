@@ -6,6 +6,7 @@ import { Info, Loader2 } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { extractErrorMessage, formatCLPShort, type ForecastResultado } from './comun';
 import { motivoParaPersona } from '@/lib/motivos';
+import { decimal } from '@/lib/formato';
 
 export default function TabForecast({ rubro }: { rubro: string }) {
   const [tipo, setTipo] = useState('LP');
@@ -104,7 +105,7 @@ export default function TabForecast({ rubro }: { rubro: string }) {
         if (!row) return null;
         const p10 = row.p10 != null ? Math.round(row.p10) : null;
         const p90 = row.p90 != null ? Math.round(row.p90) : null;
-        const media = row.media != null ? row.media.toFixed(1) : null;
+        const media = row.media != null ? decimal(row.media, 1) : null;
         const nCasos = row.n != null ? row.n.toLocaleString('es-CL') : null;
 
         return (

@@ -17,6 +17,7 @@ import { PriceBandChart } from '@/components/PriceBandChart';
 import { fmtCLP, fmtDays, fmtPct } from '@/lib/licitacionDetalle';
 import type { BIPanel, TenderDetail } from '@/types/licitacionDetalle';
 import { motivoParaPersona } from '@/lib/motivos';
+import { decimal } from '@/lib/formato';
 
 export default function BIPanelSection({ panel, tender }: { panel: BIPanel; tender?: TenderDetail }) {
   const { comprador, ventana, competidores, precios } = panel;
@@ -81,13 +82,13 @@ export default function BIPanelSection({ panel, tender }: { panel: BIPanel; tend
               {ventana.pct_del_tipico != null && (
                 <div className="flex items-center justify-between">
                   <span className="text-muted">% del plazo típico</span>
-                  <span className="text-text">{(ventana.pct_del_tipico).toFixed(0)}%</span>
+                  <span className="text-text">{decimal(ventana.pct_del_tipico, 0)}%</span>
                 </div>
               )}
               {ventana.presion_score != null && (
                 <div className="flex items-center justify-between">
                   <span className="text-muted">Score de presión</span>
-                  <span className="text-text">{ventana.presion_score.toFixed(2)}</span>
+                  <span className="text-text">{decimal(ventana.presion_score, 2)}</span>
                 </div>
               )}
             </div>

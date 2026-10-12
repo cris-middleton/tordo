@@ -18,6 +18,7 @@ import { CompetidorItem, ConcentracionItem, OrganismoConNombre } from '../types'
 import { textoPeriodo } from '@/lib/periodo';
 import { useCompetidores } from '@/lib/queries';
 import { InfoTooltip } from '@/components/bi/InfoTooltip';
+import { decimal } from '@/lib/formato';
 
 interface CompetenciaSectionProps {
   topOrganismos: OrganismoConNombre[];
@@ -40,8 +41,8 @@ const CustomTooltip = ({ active, payload }: any) => {
   return (
     <div className="rounded-xl border border-border bg-surface shadow-lg px-4 py-3 text-sm max-w-xs">
       <p className="font-semibold text-text">{d.NombreProveedor}</p>
-      <p className="text-muted mt-1">Participación: <span className="text-text font-medium">{d.market_share_pct.toFixed(1)}%</span></p>
-      <p className="text-muted">Tasa adjudicación: <span className="text-text font-medium">{d.win_rate_pct.toFixed(1)}%</span></p>
+      <p className="text-muted mt-1">Participación: <span className="text-text font-medium">{decimal(d.market_share_pct, 1)}%</span></p>
+      <p className="text-muted">Tasa adjudicación: <span className="text-text font-medium">{decimal(d.win_rate_pct, 1)}%</span></p>
       <p className="text-muted">{d.n_oc.toLocaleString('es-CL')} órdenes de compra</p>
     </div>
   );
@@ -235,8 +236,8 @@ export function CompetenciaSection({
                     <tr key={c.CodigoProveedor} className="border-b border-border last:border-0 hover:bg-primary/5">
                       <td className="cifra px-4 py-2.5 text-muted text-xs">{i + 1}</td>
                       <td className="px-4 py-2.5 font-medium text-text">{c.NombreProveedor}</td>
-                      <td className="cifra px-4 py-2.5">{c.market_share_pct.toFixed(1)}%</td>
-                      <td className="cifra px-4 py-2.5">{c.win_rate_pct.toFixed(1)}%</td>
+                      <td className="cifra px-4 py-2.5">{decimal(c.market_share_pct, 1)}%</td>
+                      <td className="cifra px-4 py-2.5">{decimal(c.win_rate_pct, 1)}%</td>
                       <td className="cifra px-4 py-2.5 text-muted">{c.n_oc.toLocaleString('es-CL')}</td>
                     </tr>
                   ))}

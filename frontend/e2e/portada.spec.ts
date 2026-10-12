@@ -5,10 +5,11 @@ import { expect, test } from '@playwright/test';
  *
  * El bloque «Lo mejor de hoy» sale del servidor con ISR. El E2E construye sin
  * backend —la portada nace sin el bloque— y la regenera a la media hora, así
- * que aquí se aceptan los dos estados: con el bloque (lista o «no hay abiertas»)
- * o sin él. Lo que no se acepta es que la portada caiga o quede a medias: es el
- * caso «sin destacadas» (backend caído), que el test unitario fija con detalle
- * (`__tests__/portada.test.tsx`).
+ * que aquí se aceptan los dos estados: con el bloque o sin él. **Si está, trae
+ * la lista**: la semilla deja tres Compras Ágiles abiertas, y «no hay abiertas»
+ * sería un fallo. Lo que no se acepta es que la portada caiga o quede a medias:
+ * es el caso «sin destacadas» (backend caído), que el test unitario fija con
+ * detalle (`__tests__/portada.test.tsx`).
  */
 
 test('responde qué es y qué hacer, sin cuenta', async ({ page }) => {
@@ -22,11 +23,10 @@ test('responde qué es y qué hacer, sin cuenta', async ({ page }) => {
   await expect(page.getByRole('heading', { name: /qué hay en el sitio/i })).toBeVisible();
   await expect(page.getByText(/^Fuente: Dirección de Compras y Contratación Pública/)).toBeVisible();
 
-  // Con o sin destacadas: si el bloque está, trae su lista o dice que no hay.
+  // Con o sin bloque (ISR); si está, con la lista de lo sembrado.
   const bloque = page.locator('#hoy');
   if (await bloque.count()) {
-    const lista = bloque.getByRole('list', { name: /compras ágiles destacadas de hoy/i });
-    await expect(lista.or(bloque.getByText(/no hay compras ágiles abiertas/i))).toBeVisible();
+    await expect(bloque.getByRole('list', { name: /compras ágiles destacadas de hoy/i })).toBeVisible();
   }
 
   // Nada de lo que se fue con las cuentas.

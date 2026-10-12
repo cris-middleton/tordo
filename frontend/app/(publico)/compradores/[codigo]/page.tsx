@@ -22,6 +22,7 @@ import {
 } from '@/lib/publico';
 import { pedirPublico, segmento } from '@/lib/publicoServidor';
 import type { CompradorPublico } from '@/types/publico';
+import { decimal } from '@/lib/formato';
 
 /**
  * `/compradores/{codigo}` — la ficha pública de un comprador del Estado.
@@ -85,7 +86,7 @@ export default async function PaginaComprador({ params }: Props) {
               etiqueta="Ofertas por licitación"
               valor={
                 perfil.volumen.prom_oferentes != null
-                  ? perfil.volumen.prom_oferentes.toFixed(1).replace('.', ',')
+                  ? decimal(perfil.volumen.prom_oferentes, 1)
                   : '—'
               }
             />

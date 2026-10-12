@@ -4,7 +4,12 @@ Es idempotente: se puede correr sobre una base ya sembrada sin duplicar nada.
 Hace falta porque Playwright arranca contra una base recién migrada y vacía, y un
 test que primero tiene que esperar al ETL no prueba el flujo — prueba la
 preparación. Desde el pivote público no hay cuentas: sólo se siembran
-licitaciones.
+licitaciones y tres Compras Ágiles abiertas.
+
+**Las Compras Ágiles se re-fechan en cada corrida**: «Lo mejor de hoy» sólo
+enseña las que cierran en más de 2 h, y una semilla con fecha fija se quedaría
+vacía en una base reutilizada. Todo nombre y RUT es inventado: ni compradores
+ni personas reales.
 
 **Sólo escribe si la base parece de pruebas.** Mezclar licitaciones inventadas
 con el catálogo real de producción sería publicarlas, y la diferencia entre una
@@ -26,6 +31,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from sqlalchemy import create_engine, select  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
+from app.models.convocatoria import TipoConvocatoria  # noqa: E402
 from app.models.licitacion import Licitacion  # noqa: E402
 
 # El término que buscan los tests. Es inventado para que no colisione con datos
@@ -85,14 +91,58 @@ def _licitaciones(ahora: datetime) -> list[dict]:
     ]
 
 
+#: Las Compras Ágiles abiertas: cierran en dos días, holgado sobre las 2 h que
+#: exige `repositories/compra_agil.py`.
+CIERRE_COMPRA_AGIL = timedelta(days=2)
+
+
+def _compras_agiles(ahora: datetime) -> list[dict]:
+    """Tres abiertas, para que «Lo mejor de hoy» tenga lista y no sólo el vacío.
+
+    Sin «Zafiro» en el nombre: el catálogo cuenta los resultados de ese término.
+    El RUT es inventado (sobre 50.000.000, así que tampoco pasa por persona).
+    """
+    comun = {
+        "tipo_convocatoria": TipoConvocatoria.COMPRA_AGIL.value,
+        "estado": "Publicada",
+        "nombre_organismo": "Organismo Ficticio E2E",
+        "rut_organismo": "99.999.001-0",
+        "region": "Región de Antofagasta",
+        "fecha_cierre": ahora + CIERRE_COMPRA_AGIL,
+    }
+    return [
+        {
+            **comun,
+            "codigo_externo": "E2E-2001-COT26",
+            "nombre": "Resmas de papel ficticias para pruebas E2E",
+            "monto_estimado": 450_000,
+        },
+        {
+            **comun,
+            "codigo_externo": "E2E-2002-COT26",
+            "nombre": "Guantes ficticios de prueba E2E",
+            "monto_estimado": 780_000,
+        },
+        {
+            **comun,
+            "codigo_externo": "E2E-2003-COT26",
+            "nombre": "Mantención ficticia de prueba E2E",
+            "monto_estimado": 1_200_000,
+        },
+    ]
+
+
 def sembrar(db: Session) -> None:
     ahora = datetime.now(UTC)
 
-    for datos in _licitaciones(ahora):
+    for datos in _licitaciones(ahora) + _compras_agiles(ahora):
         existente = db.execute(
             select(Licitacion).where(Licitacion.codigo_externo == datos["codigo_externo"])
         ).scalar_one_or_none()
         if existente is not None:
+            if datos.get("tipo_convocatoria") == TipoConvocatoria.COMPRA_AGIL.value:
+                # Re-fechar: ver el docstring del módulo.
+                existente.fecha_cierre = datos["fecha_cierre"]
             continue
         db.add(
             Licitacion(
@@ -115,7 +165,7 @@ def main() -> None:
     motor = create_engine(url.replace("postgresql+asyncpg://", "postgresql://"))
     with Session(motor) as db:
         sembrar(db)
-    print("Sembrado: 3 licitaciones", file=sys.stderr)
+    print("Sembrado: 3 licitaciones y 3 Compras Ágiles abiertas", file=sys.stderr)
 
 
 if __name__ == "__main__":

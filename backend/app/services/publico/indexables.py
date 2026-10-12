@@ -18,10 +18,27 @@ Tres tipos de página:
   filtros. Con ≥ 200 órdenes serían 1.022 y con ≥ 6 meses activos 1.037: el
   umbral no muerde mucho porque casi todo comprador con mercado en la ventana
   compra bastante, y precisamente por eso es seguro.
-- **Rubro** — por slug del nombre RubroN2 (no tienen código). Indexables todos:
-  310 en la copia local. Dos nombres que dan el mismo slug —en la copia local,
-  «Servicios Legales» y «Servicios legales»— se resuelven a favor del de más
-  órdenes; el otro no tiene página.
+- **Rubro** — por slug del nombre RubroN2 (no tienen código). Existe si está en
+  `market_concentration`; se indexa sólo si además tiene filas en
+  `competitors_by_market`. Sin eso la página pinta «Sin datos históricos para
+  el rubro» —o, como mucho, la estacionalidad suelta— y es una página delgada
+  que no conviene ofrecer a un buscador.
+
+  **Por qué esa tabla y no el panorama entero.** `get_panorama` da datos si
+  cualquiera de sus cuatro bloques los tiene, y dos de ellos (competencia y
+  compradores a vigilar) salen de `competitors_by_market`: tener filas ahí
+  basta para que el panorama no esté vacío. Es una sola consulta `DISTINCT`
+  sobre una columna indexada, en vez de armar cuatro bloques por cada uno de
+  ~300 rubros. El criterio es conservador a propósito: un rubro con sólo
+  estacionalidad o sólo tamaño (`time_series`, `seasonality_patterns`) queda
+  `noindex`, pero su página sigue existiendo. Medido el 12-10 sobre la copia
+  local: los 310 rubros de `market_concentration` tienen competidores, y tras
+  resolver colisiones quedan **309** indexables. Sobre el fixture recortado del
+  golden, 72 de 124 — que es donde se vio el fallo.
+
+  Dos nombres que dan el mismo slug —en la copia local, «Servicios Legales» y
+  «Servicios legales»— se resuelven a favor del de más órdenes; el otro no
+  tiene página.
 - **Producto** — por slug de la firma (`etl/analytics/normalizacion.py`), con
   una banda por unidad de medida. Indexable si alguna de sus bandas nacionales
   (L0N) tiene `n ≥ MIN_COMPRAS_PRODUCTO` y predictibilidad alta o media: una
@@ -50,7 +67,7 @@ from dataclasses import dataclass
 
 import polars as pl
 
-from app.services.bi._base import _load, periodo_de
+from app.services.bi._base import _distintos, _load, periodo_de
 from app.utils.slug import slug
 
 logger = logging.getLogger(__name__)
@@ -157,7 +174,8 @@ def _compradores(mercados: pl.DataFrame | None) -> pl.DataFrame:
     )
 
 
-def _rubros(mercados: pl.DataFrame | None) -> pl.DataFrame:
+def _rubros(mercados: pl.DataFrame | None, con_competencia: set[str]) -> pl.DataFrame:
+    """Los rubros con página; `indexable` si tienen competidores (ver docstring)."""
     if mercados is None or mercados.is_empty():
         return pl.DataFrame(
             schema={"slug": pl.Utf8, "nombre": pl.Utf8, "n": pl.Int64, "indexable": pl.Boolean}
@@ -170,8 +188,13 @@ def _rubros(mercados: pl.DataFrame | None) -> pl.DataFrame:
         .agg(pl.col("n_transacciones").cast(pl.Int64).sum().alias("n"))
         .rename({"RubroN2": "nombre"})
     )
+    # La colisión de slug se resuelve ANTES de mirar si es indexable: si no, un
+    # rubro sin datos podría quedarse la URL que el otro sí llenaría.
     return _ganador_por_slug(por_rubro, "nombre").select(
-        "slug", "nombre", "n", pl.lit(True).alias("indexable")
+        "slug",
+        "nombre",
+        "n",
+        pl.col("nombre").is_in(list(con_competencia)).alias("indexable"),
     )
 
 
@@ -212,9 +235,12 @@ def construir() -> Indice:
     # lista de columnas porque una tabla materializada antes de que existiera
     # la ventana no tiene esas columnas, y pedirlas por nombre levantaría error.
     primera = _load("market_concentration.parquet", limite=1)
+    con_competencia = {
+        str(r) for r in (_distintos("competitors_by_market.parquet", "RubroN2") or [])
+    }
     return Indice(
         compradores=_compradores(mercados),
-        rubros=_rubros(mercados),
+        rubros=_rubros(mercados, con_competencia),
         productos=_productos(),
         periodo=periodo_de(primera),
     )

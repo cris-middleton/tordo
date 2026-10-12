@@ -117,8 +117,17 @@ describe('metadatos', () => {
   it('producto: precio mediano de la unidad con más compras', async () => {
     simularBackend({ '/productos/guante-latex-nitrilo': PRODUCTO });
     const m = await metaProducto(params({ slug: 'guante-latex-nitrilo' }));
-    expect(m.title).toBe('Precio de Guante de nitrilo en compras públicas');
+    // La firma, no la categoría del catálogo: miles de productos comparten
+    // categoría, y con ella de título serían páginas duplicadas.
+    expect(m.title).toBe('Precio de Guante latex nitrilo en compras públicas');
+    expect(m.description).toMatch(/^Guante latex nitrilo \(Guante de nitrilo\): /);
     expect(m.description).toMatch(/precio mediano \$5\.000 por caja \(120 compras\)/);
+  });
+
+  it('producto sin categoría: la descripción no deja paréntesis vacíos', async () => {
+    simularBackend({ '/productos/guante-latex-nitrilo': { ...PRODUCTO, nombre_generico: null } });
+    const m = await metaProducto(params({ slug: 'guante-latex-nitrilo' }));
+    expect(m.description).toMatch(/^Guante latex nitrilo: /);
   });
 
   it.each([
@@ -153,6 +162,15 @@ describe('enlaces entre fichas', () => {
       'href',
       '/dashboard/bi?rubro=Equipos%20m%C3%A9dicos',
     );
+  });
+
+  it('el producto se titula por su firma, con la categoría como contexto', async () => {
+    simularBackend({ '/productos/guante-latex-nitrilo': PRODUCTO });
+    render(await PaginaProducto(params({ slug: 'guante-latex-nitrilo' })));
+    expect(screen.getByRole('heading', { level: 1, name: 'Guante latex nitrilo' })).toBeInTheDocument();
+    expect(
+      screen.getByText('Categoría del catálogo: Guante de nitrilo (código ONU 42132203)'),
+    ).toBeInTheDocument();
   });
 
   it('el producto pinta una banda por unidad y enlaza a quien lo compra', async () => {

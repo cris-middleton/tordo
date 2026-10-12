@@ -3,6 +3,7 @@
 import { useState, useSyncExternalStore } from 'react';
 import { Map, X } from 'lucide-react';
 import { useSectores } from '@/lib/queries';
+import { decimal } from '@/lib/formato';
 
 const DISMISS_KEY = 'tordo-bi-sector-dismiss-date';
 
@@ -23,9 +24,9 @@ interface SectorRow {
 
 function formatCLP(v: number): string {
   const abs = Math.abs(v);
-  if (abs >= 1e12) return `CLP ${(v / 1e12).toFixed(1)} billones`;
-  if (abs >= 1e9) return `CLP ${(v / 1e9).toFixed(1)} mil millones`;
-  if (abs >= 1e6) return `CLP ${(v / 1e6).toFixed(0)} millones`;
+  if (abs >= 1e12) return `CLP ${decimal(v / 1e12, 1)} billones`;
+  if (abs >= 1e9) return `CLP ${decimal(v / 1e9, 1)} mil millones`;
+  if (abs >= 1e6) return `CLP ${decimal(v / 1e6, 0)} millones`;
   return `CLP ${v.toLocaleString('es-CL')}`;
 }
 

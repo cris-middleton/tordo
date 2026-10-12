@@ -4,6 +4,8 @@ Hace falta para lo que el fixture del golden master no trae: las bandas por
 producto (L0/L0N) y la historia de Compra Ágil. Añadirlas al fixture cambiaría
 la cascada de `/bi/precio` y con ella el golden, que se capturó sin esos niveles.
 
+También dobla `_distintos` en los módulos que lo usan.
+
 Respeta `filtros`, `columnas`, `orden` y `limite` como el SQL de verdad
 (`repositories/_analytics_sql.py`). **Respetar `columnas` es lo importante**:
 es lo que permite comprobar que una columna que no se pide —un RUT— no puede
@@ -55,6 +57,14 @@ class AnalyticsEnMemoria:
             df = df.select(columnas)
         return df
 
+    def _distintos(self, filename: str, columna: str) -> list[Any] | None:
+        df = self.tablas.get(filename)
+        if df is None:
+            return None
+        return df.get_column(columna).drop_nulls().unique().to_list()
+
     def instalar(self, monkeypatch, *modulos) -> None:
         for modulo in modulos:
             monkeypatch.setattr(modulo, "_load", self._load)
+            if hasattr(modulo, "_distintos"):
+                monkeypatch.setattr(modulo, "_distintos", self._distintos)

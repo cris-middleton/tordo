@@ -64,6 +64,19 @@ if [ "$fallidos" -ne 0 ]; then
   exit 1
 fi
 
+# ── Qué entra ────────────────────────────────────────────────────────────────
+# Los archivos que el squash va a cambiar en `main`, con sus líneas. Un PR que
+# toca algo que su descripción no menciona se ve aquí y no después: el
+# 2026-10-12 un squash hecho con `reset --soft origin/main` mientras
+# `origin/main` avanzaba revirtió un PR entero (#143) con CI en verde, porque se
+# revirtieron también sus tests.
+printf "\n%s── Archivos que cambia%s\n" "$azul" "$fin"
+gh pr diff "$PR" --name-only | sed 's/^/   /'
+borrados=$(gh pr view "$PR" --json files -q '[.files[] | select(.additions == 0 and .deletions > 0)] | length')
+if [ "$borrados" -gt 0 ]; then
+  printf "%s   ⚠ %s archivo(s) sólo pierden líneas: comprueba que sea a propósito.%s\n" "$rojo" "$borrados" "$fin"
+fi
+
 printf "\n%s── Mergeando%s\n" "$azul" "$fin"
 rama=$(gh pr view "$PR" --json headRefName -q .headRefName)
 

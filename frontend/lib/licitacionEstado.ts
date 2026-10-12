@@ -7,6 +7,7 @@
  */
 
 import { format } from 'date-fns';
+import { decimal } from '@/lib/formato';
 
 /**
  * Los nombres llegan en MAYÚSCULAS desde Mercado Público. Aquí se pasan a
@@ -22,9 +23,9 @@ export const normalizeText = (text: string | undefined): string => {
 
 export const formatCurrency = (amount?: number) => {
   if (amount == null) return null;
-  if (amount >= 1_000_000_000) return `$${(amount / 1_000_000_000).toFixed(1)}B`;
-  if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
-  if (amount >= 1_000) return `$${(amount / 1_000).toFixed(0)}K`;
+  if (amount >= 1_000_000_000) return `$${decimal(amount / 1_000_000_000, 1)}B`;
+  if (amount >= 1_000_000) return `$${decimal(amount / 1_000_000, 1)}M`;
+  if (amount >= 1_000) return `$${decimal(amount / 1_000, 0)}K`;
   return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 0 }).format(amount);
 };
 

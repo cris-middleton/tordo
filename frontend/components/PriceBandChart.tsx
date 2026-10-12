@@ -10,6 +10,7 @@ import {
   Cell,
 } from 'recharts';
 import { ConfidenceBadge } from './ConfidenceBadge';
+import { decimal } from '@/lib/formato';
 
 interface PrecioFallback {
   disponible: boolean;
@@ -31,9 +32,9 @@ interface PriceBandChartProps {
 
 const fmtCLP = (v?: number | null): string => {
   if (v == null) return '—';
-  if (v >= 1_000_000) return `CLP ${(v / 1_000_000).toFixed(1)}M`;
-  if (v >= 1_000) return `CLP ${(v / 1_000).toFixed(0)}K`;
-  return `CLP ${v.toFixed(0)}`;
+  if (v >= 1_000_000) return `CLP ${decimal(v / 1_000_000, 1)}M`;
+  if (v >= 1_000) return `CLP ${decimal(v / 1_000, 0)}K`;
+  return `CLP ${decimal(v, 0)}`;
 };
 
 const nivelLabel: Record<string, string> = {

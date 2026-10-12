@@ -92,6 +92,16 @@ def sql_consulta(
     return sql, params
 
 
+def sql_distintos(tabla: str, columna: str, *, schema: str = SCHEMA) -> str:
+    """Los valores distintos y no nulos de una columna.
+
+    Existe para preguntar «¿qué rubros tienen filas?» sin traer las filas: en
+    `competitors_by_market` serían millones para quedarse con unos cientos.
+    """
+    col = ident(columna)
+    return f"SELECT DISTINCT {col} FROM {tabla_calificada(tabla, schema)} WHERE {col} IS NOT NULL"
+
+
 def sql_busqueda_texto(
     tabla: str,
     columna: str,

@@ -5,6 +5,7 @@ import { Info, Loader2 } from 'lucide-react';
 import { useDescuento } from '@/lib/queries';
 import { extractErrorMessage, type DescuentoItem } from './comun';
 import { motivoParaPersona } from '@/lib/motivos';
+import { decimal } from '@/lib/formato';
 
 export default function TabDescuento({ rubro }: { rubro: string }) {
   const consulta = useDescuento(rubro || undefined);
@@ -83,9 +84,9 @@ export default function TabDescuento({ rubro }: { rubro: string }) {
             </span>
             <span className="text-text">
               descuento típico{' '}
-              <b>{d.p50 != null ? `${d.p50.toFixed(1)}%` : '—'}</b>
+              <b>{d.p50 != null ? `${decimal(d.p50, 1)}%` : '—'}</b>
               {d.p90 != null && (
-                <span className="text-muted"> (hasta {d.p90.toFixed(0)}% en casos competitivos)</span>
+                <span className="text-muted"> (hasta {decimal(d.p90, 0)}% en casos competitivos)</span>
               )}
               {d.n != null && (
                 <span className="text-xs text-subtle"> · {d.n.toLocaleString('es-CL')} casos</span>

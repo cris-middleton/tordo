@@ -29,6 +29,7 @@ import {
 } from '@/lib/filtrosCatalogo';
 import { normalizeText } from '@/lib/licitacionEstado';
 import type { BIPanel, Tender } from '@/types/licitacion';
+import { decimal } from '@/lib/formato';
 
 type CampoFiltro = 'estado' | 'tipo_convocatoria' | 'region' | 'min_amount' | 'max_amount';
 
@@ -398,7 +399,7 @@ function CatalogoContenido() {
                     {biPanel.comprador.buyer_score != null && (
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-muted">Score</span>
-                        <span className="font-semibold text-text">{biPanel.comprador.buyer_score.toFixed(1)}/10</span>
+                        <span className="font-semibold text-text">{decimal(biPanel.comprador.buyer_score, 1)}/10</span>
                       </div>
                     )}
                     {biPanel.comprador.tasa_adjudicacion != null && (
@@ -422,15 +423,15 @@ function CatalogoContenido() {
                     <span className="text-muted">P50</span>
                     <span className="font-semibold text-primary">
                       {biPanel.precios[0].p50 >= 1_000_000
-                        ? `CLP ${(biPanel.precios[0].p50 / 1_000_000).toFixed(1)}M`
-                        : `CLP ${(biPanel.precios[0].p50 / 1_000).toFixed(0)}K`}
+                        ? `CLP ${decimal(biPanel.precios[0].p50 / 1_000_000, 1)}M`
+                        : `CLP ${decimal(biPanel.precios[0].p50 / 1_000, 0)}K`}
                     </span>
                   </div>
                   {biPanel.precios[0].p25 != null && biPanel.precios[0].p75 != null && (
                     <p className="text-[10px] text-muted">
-                      Rango: {biPanel.precios[0].p25 >= 1_000_000 ? `${(biPanel.precios[0].p25/1_000_000).toFixed(1)}M` : `${(biPanel.precios[0].p25/1_000).toFixed(0)}K`}
+                      Rango: {biPanel.precios[0].p25 >= 1_000_000 ? `${decimal(biPanel.precios[0].p25/1_000_000, 1)}M` : `${decimal(biPanel.precios[0].p25/1_000, 0)}K`}
                       {' – '}
-                      {biPanel.precios[0].p75 >= 1_000_000 ? `${(biPanel.precios[0].p75/1_000_000).toFixed(1)}M` : `${(biPanel.precios[0].p75/1_000).toFixed(0)}K`}
+                      {biPanel.precios[0].p75 >= 1_000_000 ? `${decimal(biPanel.precios[0].p75/1_000_000, 1)}M` : `${decimal(biPanel.precios[0].p75/1_000, 0)}K`}
                     </p>
                   )}
                 </div>
@@ -445,7 +446,7 @@ function CatalogoContenido() {
                     <div key={i} className="flex items-center justify-between text-xs">
                       <span className="text-text truncate max-w-[200px]">{i + 1}. {c.NombreProveedor ?? '—'}</span>
                       <span className="text-muted shrink-0 ml-1">
-                        {c.market_share_pct != null ? `${c.market_share_pct.toFixed(0)}%` : '—'}
+                        {c.market_share_pct != null ? `${decimal(c.market_share_pct, 0)}%` : '—'}
                       </span>
                     </div>
                   ))}

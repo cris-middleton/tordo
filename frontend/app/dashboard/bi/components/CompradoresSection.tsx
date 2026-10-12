@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { ChevronDown, ChevronUp, Loader2, Building2 } from 'lucide-react';
 import { CompradorResult, OrganismoConNombre, scoreColor, scoreBg } from '../types';
 import { useComprador } from '@/lib/queries';
+import { decimal } from '@/lib/formato';
 
 interface CompradorSectionProps {
   topOrganismos: OrganismoConNombre[];
@@ -14,7 +15,7 @@ interface CompradorSectionProps {
 }
 
 function pctOpc(v?: number | null): string {
-  return v == null ? '—' : `${(v * 100).toFixed(0)}%`;
+  return v == null ? '—' : `${decimal(v * 100, 0)}%`;
 }
 
 function CompradorCard({ organismoId }: { organismoId: string }) {
@@ -54,7 +55,7 @@ function CompradorCard({ organismoId }: { organismoId: string }) {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {scoreDisplay != null && (
-            <span className={`text-sm font-bold ${scoreColorClass}`}>{scoreDisplay.toFixed(1)}</span>
+            <span className={`text-sm font-bold ${scoreColorClass}`}>{decimal(scoreDisplay, 1)}</span>
           )}
           {data.clasificacion && (
             <span className={`text-xs rounded-full border px-2 py-0.5 ${scoreClass}`}>

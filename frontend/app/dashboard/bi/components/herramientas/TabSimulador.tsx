@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react';
 
 import { apiClient } from '@/lib/api';
 import type { OrganismoConNombre } from '../../types';
+import { decimal } from '@/lib/formato';
 
 interface SimuladorResult {
   forecast: {
@@ -78,7 +79,7 @@ export default function TabSimulador({ rubroInicial, organismosConNombre, allRub
         forecast = {
           min: row.p10 != null ? Math.round(row.p10) : null,
           max: row.p90 != null ? Math.round(row.p90) : null,
-          promedio: row.media != null ? parseFloat(row.media.toFixed(1)) : null,
+          promedio: row.media ?? null,
           confianza: row.pct_sin_competencia != null && row.pct_sin_competencia < 0.1 ? 'alta' : 'media',
           nivel: forecastRes.value.nivel_usado || null,
         };
@@ -91,8 +92,8 @@ export default function TabSimulador({ rubroInicial, organismosConNombre, allRub
       const d = descuentoRes.value.descuentos?.[0];
       if (d) {
         descuento = {
-          p50: d.p50 != null ? parseFloat(d.p50.toFixed(1)) : null,
-          p90: d.p90 != null ? parseFloat(d.p90.toFixed(1)) : null,
+          p50: d.p50 ?? null,
+          p90: d.p90 ?? null,
           rango_oferentes: d.n_oferentes_rango || null,
         };
       }
@@ -129,20 +130,20 @@ export default function TabSimulador({ rubroInicial, organismosConNombre, allRub
       bullets.push(
         <li key="forecast">
           Esperas entre <b>{forecast.min}</b> y <b>{forecast.max}</b> competidores
-          {forecast.promedio != null && <> (promedio: {forecast.promedio})</>}.
+          {forecast.promedio != null && <> (promedio: {decimal(forecast.promedio, 1)})</>}.
         </li>
       );
     } else if (forecast?.promedio != null) {
       bullets.push(
-        <li key="forecast-avg">Competencia promedio: <b>{forecast.promedio}</b> oferentes.</li>
+        <li key="forecast-avg">Competencia promedio: <b>{decimal(forecast.promedio, 1)}</b> oferentes.</li>
       );
     }
 
     if (descuento?.p50 != null) {
       bullets.push(
         <li key="descuento">
-          Descuento típico: <b>{descuento.p50}%</b>
-          {descuento.p90 != null && <> (hasta {descuento.p90}% en casos muy competitivos)</>}.
+          Descuento típico: <b>{decimal(descuento.p50, 1)}%</b>
+          {descuento.p90 != null && <> (hasta {decimal(descuento.p90, 1)}% en casos muy competitivos)</>}.
         </li>
       );
     }
