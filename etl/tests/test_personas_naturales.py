@@ -251,7 +251,9 @@ def _ordenes(anio: int, mes: int) -> pl.DataFrame:
                             if es_persona
                             else "Compra",
                             "Tipo": "SE",
-                            "EsCompraAgil": "No",
+                            # Una orden de cada proveedor es Compra Ágil: la persona
+                            # natural también gana en `compra_agil_comprador`.
+                            "EsCompraAgil": "Si" if k == 0 else "No",
                             "CodigoTipo": "8",
                             "Estado": "Aceptada",
                             "FechaCreacion": date(anio, mes, 1 + k % 27).isoformat(),
@@ -263,6 +265,7 @@ def _ordenes(anio: int, mes: int) -> pl.DataFrame:
                             "TotalNetoOC": str(monto),
                             "CodigoUnidadCompra": "1",
                             "CodigoOrganismoPublico": org_cod,
+                            "RutUnidadCompra": f"61.{org_cod[:3]}.000-1",
                             "OrganismoPublico": org_nom,
                             "sector": "Salud",
                             "RegionUnidadCompra": "Región Metropolitana de Santiago",
@@ -381,6 +384,9 @@ SALIDAS_CON_PROVEEDOR = (
     "tfidf_corpus.parquet",
     "tfidf_provider_index.parquet",
     "product_price_bands_L0.parquet",
+    # Sólo conteos de proveedores, pero la persona gana órdenes de Compra Ágil.
+    "compra_agil_comprador.parquet",
+    "comprador_rut.parquet",
 )
 
 
@@ -404,6 +410,11 @@ def test_las_salidas_con_proveedor_existen_y_la_persona_esta_seudonimizada(salid
     # Es la dominante de su rubro: `top_proveedor` la nombraría si no estuviera tapada.
     concentracion = pl.read_parquet(salida / "market_concentration.parquet")
     assert NOMBRE_ENMASCARADO in concentracion["top_proveedor"].to_list()
+
+    # La persona gana Compras Ágiles en los dos organismos: se cuenta (sin nombre).
+    compra_agil = pl.read_parquet(salida / "compra_agil_comprador.parquet")
+    assert len(compra_agil) == len(ORGANISMOS)
+    assert (compra_agil["proveedores_distintos"] == len(PROVEEDORES)).all()
 
 
 def test_ninguna_salida_contiene_a_la_persona_natural(salida):

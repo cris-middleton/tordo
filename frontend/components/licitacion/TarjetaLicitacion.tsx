@@ -26,9 +26,9 @@ import type { StoredTender } from '@/hooks/useDashboardCollections';
  * Una licitación en el listado.
  *
  * `hydrated`, `estaGuardada` y `alternar` llegan por props y no de
- * `useDashboardCollections()` directamente: ese hook mantiene su estado con
- * `useState`, así que una instancia por tarjeta serían N copias
- * independientes que dejarían de estar sincronizadas al guardar una.
+ * `useDashboardCollections()` directamente: la tarjeta se queda sin saber
+ * dónde se guarda lo guardado. (Hoy el hook vive en `useSyncExternalStore` y
+ * N instancias verían lo mismo; no es ése el motivo.)
  */
 export default function TarjetaLicitacion({
   tender,

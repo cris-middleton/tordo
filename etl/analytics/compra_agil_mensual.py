@@ -85,8 +85,15 @@ def _mes(columna: str) -> pl.Expr:
     )
 
 
-def ordenes_compra_agil(frames: Iterable[pl.DataFrame]) -> pl.DataFrame:
-    """Una fila por ORDEN de Compra Ágil vigente: código, comprador, RUT y mes."""
+def ordenes_compra_agil(frames: Iterable[pl.DataFrame], extra: Iterable[str] = ()) -> pl.DataFrame:
+    """Una fila por ORDEN de Compra Ágil vigente: código, comprador, RUT y mes.
+
+    `extra` son columnas de la orden que se arrastran tal cual (nulas si el
+    archivo no las trae). Se toma la primera línea de cada orden, así que sólo
+    sirve para lo que es de la ORDEN y se repite en cada línea —el proveedor,
+    `MontoTotalOC_PesosChilenos`—, nunca para lo que es de la línea.
+    """
+    extra = list(extra)
     partes = []
     for df in frames:
         if not {"EsCompraAgil", "Codigo"} <= set(df.columns):
@@ -100,6 +107,12 @@ def ordenes_compra_agil(frames: Iterable[pl.DataFrame]) -> pl.DataFrame:
                 pl.col("CodigoOrganismoPublico").cast(pl.Utf8),
                 rut_normalizado("RutUnidadCompra").alias("rut"),
                 _mes("FechaCreacion").alias("mes"),
+                *[
+                    pl.col(c).cast(pl.Utf8)
+                    if c in df.columns
+                    else pl.lit(None, dtype=pl.Utf8).alias(c)
+                    for c in extra
+                ],
             )
         )
     if not partes:
@@ -109,6 +122,7 @@ def ordenes_compra_agil(frames: Iterable[pl.DataFrame]) -> pl.DataFrame:
                 "CodigoOrganismoPublico": pl.Utf8,
                 "rut": pl.Utf8,
                 "mes": pl.Date,
+                **dict.fromkeys(extra, pl.Utf8),
             }
         )
     # Un archivo mensual trae órdenes de otros meses, y la misma orden puede

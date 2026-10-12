@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 
 import { API } from '@/lib/versionApi';
+import type { CompraAgilDestacadasResponse, ParamsDestacadas } from '@/types/compraAgil';
 
 /**
  * Cliente HTTP del navegador.
@@ -30,6 +31,13 @@ class ApiClient {
 
   async getTenderByCode(codigo: string) {
     const res = await this.client.get(`${API}/tenders/codigo/${encodeURIComponent(codigo)}`);
+    return res.data;
+  }
+
+  // ── Compra Ágil ─────────────────────────────────────────────────────────────
+
+  async getCompraAgilDestacadas(params: ParamsDestacadas = {}): Promise<CompraAgilDestacadasResponse> {
+    const res = await this.client.get(`${API}/compra-agil/destacadas`, { params });
     return res.data;
   }
 

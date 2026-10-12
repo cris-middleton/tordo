@@ -15,7 +15,7 @@ en `/docs`.
 
 | pública | interna |
 |---|---|
-| `tenders`, `bi` | `health`, `raiz` |
+| `tenders`, `bi`, `compra-agil` | `health`, `raiz` |
 
 - **Pública** — pensada para integrarse. Dentro de `/api/v1` no se quitan campos
   ni cambia el significado de los que hay.
@@ -101,6 +101,37 @@ descarga masiva de ChileCompra.
 
 Lo anterior se purga una vez por semana, y su código responde **404** igual que uno
 que nunca existió.
+
+## «Lo mejor de hoy» en Compra Ágil
+
+`GET /api/v1/compra-agil/destacadas?limite=20&region=…&search=…` devuelve las
+Compras Ágiles abiertas que **cierran en más de 2 horas** (menos no da tiempo a
+cotizar), de mejor a peor puntaje. `limite` va de 1 a 50 (otro valor: 422).
+
+**El puntaje es una heurística, no un modelo.** No hay todavía una verdad contra
+la que evaluarlo —no sabemos qué Compra Ágil le convenía cotizar a nadie—, así
+que ordena, no predice, y no es una probabilidad. Es el producto de tres
+factores en [0, 1], que la respuesta trae por separado en `factores`:
+
+| factor | cálculo | sin dato |
+|---|---|---|
+| `competencia` | `1 / (1 + cotizaciones recibidas hasta ahora)` | 0,5 |
+| `comprador` | `min(1, órdenes / publicadas)` del comprador en la ventana | 0,5 (también con < 5 publicadas) |
+| `tiempo` | `min(1, horas hasta el cierre / 24)` | — (sin cierre no entra) |
+
+Un factor sin dato vale **el centro de su escala**, no cero ni uno: inventarle
+una ventaja o un castigo a quien no tiene historia sesgaría la lista.
+
+`órdenes / publicadas` **no es una tasa de adjudicación**: la orden de compra sale
+días después de publicar y no dice de qué Compra Ágil viene, así que sólo se usa
+sobre la ventana entera y acotado a 1. La historia del comprador (`comprador`, nulo
+si no tiene) cubre **seis meses** anclados en el último mes con datos
+(`ventana_desde`/`ventana_hasta`), y sale de las órdenes de compra de la descarga
+masiva: órdenes vigentes, proveedores distintos, cuota del que más gana y el monto
+típico **por orden**. **Ningún dato de proveedor**: sólo conteos.
+
+`actualizado_en` es la última ingesta de Compra Ágil, en hora de Chile. Si es
+vieja, la corrida falló y la lista puede incluir cosas que ya no están abiertas.
 
 ## Versionado
 

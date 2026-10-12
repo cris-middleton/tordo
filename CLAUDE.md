@@ -321,8 +321,8 @@ Cloud Scheduler, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
   `useEffect` + `setState` para pedir datos no compila.
 - **Nada de `useEffect` + `setState` para leer algo que vive fuera de React.** Para
   `localStorage`, `matchMedia` o un evento del navegador, la API correcta es
-  `useSyncExternalStore` — ya lo usan `useMediaQuery`, `usePrefersReducedMotion` y
-  `SelectorTema`. Además de dejar el lint limpio, arregla un fallo que el efecto tenía:
+  `useSyncExternalStore` — ya lo usan `useMediaQuery`, `usePrefersReducedMotion`,
+  `SelectorTema` y los favoritos y búsquedas guardadas (`lib/almacenLocal.ts`). Además de dejar el lint limpio, arregla un fallo que el efecto tenía:
   **sólo corría al montar**, así que un cambio externo no llegaba a las pantallas ya montadas.
 - **No queda ninguna excepción a esa regla.** Las tres que había (`bi/page`, `settings` y
   `AuthContext`) desaparecieron: las dos últimas con las cuentas, y la de `bi/page` con un
@@ -491,7 +491,7 @@ schemas/        Pydantic — todos van aquí
 utils/          rut.py (sin uso hoy; lo usará el enmascarado de personas naturales)
 ```
 
-**Routers**: tenders (3 rutas), bi (20), health. Todos anónimos. Los de cuenta (auth, users,
+**Routers**: tenders (3 rutas), bi (20), compra_agil (1), health. Todos anónimos. Los de cuenta (auth, users,
 empresas, alerts, documentos, postulaciones, estado_habil, dashboard, billing, webhooks) y el
 explorador `data_inspection` se borraron en el pivote público.
 
@@ -530,9 +530,32 @@ mirar dos sitios. Lo fija `tests/test_versionado_api.py`.
 
 Next.js 16 App Router + TypeScript + Tailwind + Recharts. Componentes propios. El estado de
 servidor va en TanStack Query (`lib/queries.ts`) y todo el tráfico pasa por `/api/proxy`,
-sin sesión — ver las reglas de frontend más arriba. Hay dos pantallas: el catálogo de
-licitaciones (`/dashboard/tenders`, con su detalle) y la inteligencia de mercado
-(`/dashboard/bi`); `/dashboard` redirige al catálogo.
+sin sesión — ver las reglas de frontend más arriba. Pantallas: el catálogo de
+licitaciones (`/dashboard/tenders`, con su detalle; **los filtros viven en la URL**, así que
+una búsqueda es una URL), «Lo mejor de hoy en Compra Ágil» (`/dashboard/compra-agil`),
+`/dashboard/guardados` y la inteligencia de mercado (`/dashboard/bi`); `/dashboard` redirige
+al catálogo.
+
+**«Lo mejor de hoy» (paso 9)** — `GET /compra-agil/destacadas`, `repositories/compra_agil.py`.
+Ranking público de Compras Ágiles abiertas que cierran en más de 2 h: producto de tres
+factores en [0, 1] —competencia `1/(1+cotizaciones recibidas)`, comprador
+`min(1, órdenes/publicadas)` sobre 6 meses de `analytics.compra_agil_comprador` (≥ 5
+publicadas), tiempo `min(1, horas/24)`— y **un factor sin dato vale 0,5, el neutro de su
+escala**. Es una heurística sin verdad contra la que evaluarla: ordena, no predice. La Compra
+Ágil sólo trae el RUT del comprador; `analytics.comprador_rut` lo traduce a código.
+- **La pantalla dice a qué hora se actualizó** y avisa sólo si **se saltó una corrida
+  programada** (`ultimaCorridaEsperada` en `lib/compraAgil.ts`, copia del horario de
+  `etl/cron.py`): un umbral fijo de horas saltaba cada fin de semana, y un aviso que salta en
+  lo normal enseña a ignorarlo. Si cambias el horario del cron, cambia los dos.
+- **Las fechas de Compra Ágil son hora de Chile aunque digan `Z`** (spec §6.1): el
+  transformador las lee así. Leídas como UTC, cada cierre quedaba 3–4 h antes.
+
+**Favoritos, búsquedas guardadas y RSS (sin cuentas).** Viven en `localStorage`
+(`licit_dashboard_collections_v1`, `tordo_busquedas_v1`). Cada búsqueda guardada tiene su feed:
+`/rss/licitaciones?<params del catálogo>` y `/rss/compra-agil` son route handlers de Next (la
+API sigue siendo sólo JSON) con caché de CDN de 30 min, lista blanca de parámetros, XML
+escapado y la cita de la fuente en cada ítem. Llaman al backend **como el visitante**
+(`cabecerasHaciaElBackend(ipDelVisitante(...))`), no como renderizado exento.
 
 **La pantalla de analítica (`app/dashboard/bi/`) está ordenada por la decisión, no por lo
 que el pipeline sabe calcular**: cómo está el mercado → dónde estoy yo → qué hago esta
@@ -877,11 +900,12 @@ estos patrones, es señal de que hay que arreglar la causa, no de copiarlo:
 
 > **Pivote decidido el 2026-10-11: TORDO pasa a ser un sitio público y gratuito** — sin
 > cuentas ni cobros, financiado con donaciones, en Vercel Hobby + Railway con dos cron.
-> Especificación: `docs/PIVOTE_PUBLICO_2026-10.md`. **Del 3 al 8 están hechos**: fuera las
+> Especificación: `docs/PIVOTE_PUBLICO_2026-10.md`. **Del 3 al 9 están hechos**: fuera las
 > cuentas (3 y 4), cron en vez de Celery y Redis (5), R2, enmascarado y ventana de analytics
-> (6), Postgres adelgazado (7) y TF-IDF fuera de la API (8); y el 11, legal: hecho; faltan
-> nombre, correo y fecha al lanzar. Lo que queda —«lo mejor de hoy» en Compra Ágil (9), páginas públicas
-> (10), lanzamiento (12)— está en la spec.
+> (6), Postgres adelgazado (7), TF-IDF fuera de la API (8) y «lo mejor de hoy», RSS y
+> favoritos (9); y el 11, legal: hecho; faltan
+> nombre, correo y fecha al lanzar. Lo que queda —páginas públicas (10) y
+> lanzamiento (12, guía en `docs/DESPLIEGUE.md`)— está en la spec.
 
 Decisiones tomadas el 2026-08-05, con su ADR en `docs/decisiones/`: sólo Chile (sin
 multi-país), nombre TORDO y LLM acotado a un servidor MCP sobre la base histórica siguen

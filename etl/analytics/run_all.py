@@ -29,7 +29,8 @@ Uso:
 
 Grupos por fuente de datos:
   oc  — seasonality, price, competitors, trends, product_prices,
-         buyers, sectors, discounts, diversification, compra_agil_mensual, scorer
+         buyers, sectors, discounts, diversification, compra_agil_mensual,
+         compra_agil_comprador, scorer
   lic — transparency, windows, competitor_predictor
 
 **`tfidf` no está en ningún grupo, y el cron semanal no lo corre.** Desde el
@@ -52,6 +53,7 @@ _MODULOS_OC = [
     ("discounts", "Descuento óptimo por contexto"),
     ("diversification", "Score de diversificación de proveedores"),
     ("compra_agil_mensual", "Compra Ágil por comprador y mes"),
+    ("compra_agil_comprador", "Compra Ágil por comprador, últimos 6 meses"),  # tras la mensual
     ("scorer", "Scoring de oportunidades"),  # al final: usa outputs anteriores
 ]
 
@@ -72,6 +74,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from etl.analytics.compra_agil_comprador import run_compra_agil_comprador
 from etl.analytics.compra_agil_mensual import run_compra_agil_mensual
 from etl.analytics.config import OUTPUT_DIR
 
@@ -164,6 +167,9 @@ def run_module(name: str):
     elif name == "compra_agil_mensual":
         run_compra_agil_mensual()
 
+    elif name == "compra_agil_comprador":
+        run_compra_agil_comprador()
+
     else:
         logger.error(f"Módulo desconocido: {name}")
         return
@@ -224,6 +230,7 @@ def main():
             "windows",
             "diversification",
             "compra_agil_mensual",
+            "compra_agil_comprador",
         ],
         default=None,
         help="Ejecutar solo un módulo específico.",

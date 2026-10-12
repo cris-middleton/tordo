@@ -18,7 +18,9 @@ if str(BACKEND_PATH) not in sys.path:
 if "CORS_ORIGINS" not in os.environ:
     os.environ["CORS_ORIGINS"] = '["http://localhost:3000"]'
 
-# Now import models (these may trigger config loading)
+# Now import models (these may trigger config loading).
+# El reloj del producto se importa igual: una sola definición de «hora de Chile».
+from app.core.tiempo import ZONA_CHILE
 from app.db import Base
 
 # El vocabulario de mecanismos de compra se importa, no se copia: el ETL decide
@@ -29,6 +31,7 @@ from app.models.licitacion import Licitacion
 from app.models.licitacion_detalle import LicitacionDetalle
 
 __all__ = [
+    "ZONA_CHILE",
     "TipoConvocatoria",
     "Licitacion",
     "LicitacionDetalle",

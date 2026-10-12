@@ -17,6 +17,7 @@ que un refactor puede deshacer sin que nada falle:
 from __future__ import annotations
 
 import sys
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -27,6 +28,7 @@ from etl.extractors.compra_agil import (  # noqa: E402
     CompraAgilExtractor,
     CuotaDiariaAgotada,
 )
+from etl.shared_imports import ZONA_CHILE  # noqa: E402
 from etl.transformers.compra_agil_transformer import CompraAgilTransformer  # noqa: E402
 
 # Un item tal como lo documenta §6.1 de la guía oficial.
@@ -211,3 +213,36 @@ def test_la_descripcion_del_listado_no_borra_la_del_detalle():
     fila = CompraAgilTransformer().transform(ITEM)
     assert fila["descripcion"] is None
     assert fila["items"] is None
+
+
+# ── Las fechas de la API son hora de Chile, aunque digan `Z` ─────────────────
+#
+# Spec del pivote §6.1, medido. Leídas como UTC, cada cierre quedaba 3–4 h antes:
+# una Compra Ágil salía cerrada horas antes de cerrar.
+
+
+def _cierre(texto):
+    item = dict(ITEM, fechas={**ITEM["fechas"], "fecha_cierre": texto})
+    return CompraAgilTransformer().transform(item)["fecha_cierre"]
+
+
+def test_la_z_es_hora_de_chile_en_invierno():
+    """Julio: Chile en UTC-4. Las 10:00 «Z» son las 14:00 UTC, no las 10:00."""
+    cierre = _cierre("2026-07-15T10:00:00Z")
+    assert cierre == datetime(2026, 7, 15, 10, 0, tzinfo=ZONA_CHILE)
+    assert cierre.astimezone(UTC) == datetime(2026, 7, 15, 14, 0, tzinfo=UTC)
+
+
+def test_la_z_es_hora_de_chile_en_verano():
+    """Enero: Chile en UTC-3. El desfase lo pone la zona, no una constante."""
+    cierre = _cierre("2026-01-15T10:00:00Z")
+    assert cierre.astimezone(UTC) == datetime(2026, 1, 15, 13, 0, tzinfo=UTC)
+
+
+def test_sin_zona_tambien_es_hora_de_chile():
+    assert _cierre("2026-07-15 10:00").utcoffset() == timedelta(hours=-4)
+
+
+def test_un_desfase_explicito_se_respeta():
+    cierre = _cierre("2026-07-15T10:00:00+00:00")
+    assert cierre.astimezone(UTC) == datetime(2026, 7, 15, 10, 0, tzinfo=UTC)

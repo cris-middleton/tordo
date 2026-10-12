@@ -65,3 +65,13 @@ test('un término sin resultados no rompe la pantalla', async ({ page }) => {
   await expect(page.getByText(/0 resultados/i)).toBeVisible({ timeout: 15_000 });
   await expect(page.getByPlaceholder(/Nombre, organismo o descripción/i)).toBeVisible();
 });
+
+test('la búsqueda queda en la URL y sobrevive a recargar', async ({ page }) => {
+  await buscar(page, TERMINO);
+  await expect(page).toHaveURL(new RegExp(`search=${TERMINO}`));
+  await expect(tarjeta(page, CODIGO_VALVULAS)).toBeVisible({ timeout: 15_000 });
+
+  await page.reload();
+  await expect(tarjeta(page, CODIGO_VALVULAS)).toBeVisible({ timeout: 15_000 });
+  await expect(tarjeta(page, CODIGO_ADJUDICADA)).toBeHidden();
+});

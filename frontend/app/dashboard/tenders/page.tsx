@@ -1,53 +1,68 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useLicitaciones, usePanelLicitacion } from '@/lib/queries';
 import SelectField from '@/components/SelectField';
 import {
   Search,
   Loader2,
-  ExternalLink,
-  MapPin,
   BookmarkPlus,
   BookmarkCheck,
-  Send,
-  CheckCircle2,
   X,
   ArrowRight,
   AlertTriangle,
 } from 'lucide-react';
-import { format } from 'date-fns';
 
 import { useDashboardCollections } from '@/hooks/useDashboardCollections';
+import { consultaDe, useBusquedasGuardadas } from '@/hooks/useBusquedasGuardadas';
 import TarjetaLicitacion from '@/components/licitacion/TarjetaLicitacion';
 import { ESTADOS_LICITACION, REGIONES_CHILE, TIPOS_CONVOCATORIA } from '@/lib/constantesChile';
-import { formatCurrency, normalizeText, shortRegion } from '@/lib/licitacionEstado';
+import {
+  type FiltrosCatalogo,
+  type Orden,
+  escribirFiltros,
+  leerFiltros,
+  paramsDeApi,
+} from '@/lib/filtrosCatalogo';
+import { normalizeText } from '@/lib/licitacionEstado';
 import type { BIPanel, Tender } from '@/types/licitacion';
 
-export default function TendersPage() {
-  const [page, setPage] = useState(1);
-  const [pages, setPages] = useState(1);
-  const [filters, setFilters] = useState({
-    estado: '',
-    tipo_convocatoria: '',
-    region: '',
-    min_amount: '',
-    max_amount: '',
-  });
-  const [searchInput, setSearchInput] = useState('');
-  const [keywords, setKeywords] = useState<string[]>([]);
-  const { hydrated, isTenderStored, toggleTender } = useDashboardCollections();
+type CampoFiltro = 'estado' | 'tipo_convocatoria' | 'region' | 'min_amount' | 'max_amount';
 
-  const [limit, setLimit] = useState(20);
-  const [sortBy, setSortBy] = useState('fecha_publicacion');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+/**
+ * El catálogo de licitaciones.
+ *
+ * **Los filtros viven en la URL** (`lib/filtrosCatalogo.ts`): se leen una vez
+ * al montar, con `useSearchParams` en un inicializador perezoso, y se escriben
+ * con `replaceState` — el mismo patrón que la pantalla de analítica. Antes
+ * vivían sólo en `useState`: recargar los perdía y una búsqueda no se podía
+ * compartir, guardar ni seguir por RSS.
+ */
+function CatalogoContenido() {
+  const urlInicial = useSearchParams();
+  const [filtros, setFiltros] = useState<FiltrosCatalogo>(() => leerFiltros(urlInicial));
+  const [searchInput, setSearchInput] = useState('');
+  const { hydrated, isTenderStored, toggleTender } = useDashboardCollections();
+  const busquedas = useBusquedasGuardadas();
 
   const [selectedTender, setSelectedTender] = useState<Tender | null>(null);
 
-  const [mobileTab, setMobileTab] = useState<'filtros' | 'lista' | 'detalle'>('lista');
+  const { page, limit, terminos: keywords, sort_by: sortBy, sort_order: sortOrder } = filtros;
 
+  // ── Sincronizar la URL ───────────────────────────────────────────────────
+  // No toca estado de React: escribe fuera. `replaceState` para no llenar el
+  // historial con cada tecla.
+  const consultaUrl = escribirFiltros(filtros).toString();
+  useEffect(() => {
+    window.history.replaceState({}, '', consultaUrl ? `?${consultaUrl}` : window.location.pathname);
+  }, [consultaUrl]);
+
+  // Lo que identifica la búsqueda guardada: sólo los filtros, sin orden ni página.
+  const consultaGuardable = consultaDe(new URLSearchParams(consultaUrl));
+  const busquedaGuardada = busquedas.estaGuardada(consultaGuardable);
 
   // La cancelación con `active` y el vaciado al cambiar de licitación los hace
   // la clave de la consulta: otra licitación, otra clave, otro resultado.
@@ -59,40 +74,37 @@ export default function TendersPage() {
   // Los parámetros SON la clave: cambiar un filtro cambia la clave y se pide de
   // nuevo. `placeholderData` mantiene la tabla anterior mientras llega la nueva,
   // así que ya no parpadea en cada tecleo del buscador.
-  const params: Record<string, unknown> = {
-    offset: (page - 1) * limit,
-    limit,
-    sort_by: sortBy,
-    sort_order: sortOrder,
-  };
-  if (filters.estado) params.estado = filters.estado;
-  if (filters.tipo_convocatoria) params.tipo_convocatoria = filters.tipo_convocatoria;
-  if (filters.region) params.region = filters.region;
-  if (filters.min_amount) params.min_amount = parseFloat(filters.min_amount);
-  if (filters.max_amount) params.max_amount = parseFloat(filters.max_amount);
-  if (keywords.length) params.search = keywords.join(' ');
-
-  const { data: respuesta, isFetching: loading, refetch: loadTenders } = useLicitaciones(params);
+  const { data: respuesta, isFetching: loading } = useLicitaciones(paramsDeApi(filtros));
   const tenders: Tender[] = respuesta?.items ?? [];
-  const total = respuesta?.total ?? 0;
+  const total: number = respuesta?.total ?? 0;
+  // Las páginas las calcula el backend. Antes había un `useState` que nadie
+  // actualizaba, y la paginación no aparecía nunca.
+  const pages: number = respuesta?.pages ?? 1;
 
-  const handleFilterChange = (key: string, value: string) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
-    setPage(1);
-  };
+  /** Cambia filtros y vuelve a la primera página, salvo que se cambie la página. */
+  const cambiar = useCallback((cambios: Partial<FiltrosCatalogo>) => {
+    setFiltros((prev) => ({ ...prev, page: 1, ...cambios }));
+  }, []);
+
+  const handleFilterChange = (key: CampoFiltro, value: string) => cambiar({ [key]: value });
 
   const addKeyword = useCallback((value: string) => {
     const normalized = value.trim();
     if (!normalized) return;
-    setKeywords((prev) => {
-      if (prev.some((k) => k.toLowerCase() === normalized.toLowerCase())) return prev;
-      return [...prev, normalized];
+    setFiltros((prev) => {
+      if (prev.terminos.some((k) => k.toLowerCase() === normalized.toLowerCase())) return prev;
+      return {
+        ...prev,
+        // Un término con espacios son varios para el backend; en la URL
+        // también, así que se parten aquí para que el chip y la URL coincidan.
+        terminos: [...prev.terminos, ...normalized.split(/\s+/)],
+        // Con el primer término, relevancia si el usuario seguía en el orden
+        // por defecto. Puede cambiarlo luego en el desplegable.
+        sort_by: prev.sort_by === 'fecha_publicacion' ? 'relevance' : prev.sort_by,
+        page: 1,
+      };
     });
-    // On first keyword, switch to relevance ranking if the user is still on
-    // the default sort. They can override via the dropdown afterward.
-    setSortBy((prev) => (prev === 'fecha_publicacion' ? 'relevance' : prev));
     setSearchInput('');
-    setPage(1);
   }, []);
 
   const handleKeywordKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -102,15 +114,25 @@ export default function TendersPage() {
     } else if (event.key === 'Backspace' && searchInput === '' && keywords.length) {
       event.preventDefault();
       const lastKeyword = keywords[keywords.length - 1];
-      setKeywords((prev) => prev.slice(0, -1));
+      cambiar({ terminos: keywords.slice(0, -1) });
       setSearchInput(lastKeyword);
     }
   };
 
   const removeKeyword = useCallback((value: string) => {
-    setKeywords((prev) => prev.filter((keyword) => keyword.toLowerCase() !== value.toLowerCase()));
-    setPage(1);
+    setFiltros((prev) => {
+      const terminos = prev.terminos.filter((k) => k.toLowerCase() !== value.toLowerCase());
+      return {
+        ...prev,
+        terminos,
+        sort_by: !terminos.length && prev.sort_by === 'relevance' ? 'fecha_publicacion' : prev.sort_by,
+        page: 1,
+      };
+    });
   }, []);
+
+  const setPage = (actualizar: (p: number) => number) =>
+    setFiltros((prev) => ({ ...prev, page: actualizar(prev.page) }));
 
   return (
     <div className="space-y-5">
@@ -137,7 +159,7 @@ export default function TendersPage() {
         </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
           <SelectField
-            value={filters.tipo_convocatoria}
+            value={filtros.tipo_convocatoria}
             onChange={(v) => handleFilterChange('tipo_convocatoria', v)}
             options={[
               { value: '', label: 'Todos los mecanismos' },
@@ -145,7 +167,7 @@ export default function TendersPage() {
             ]}
           />
           <SelectField
-            value={filters.estado}
+            value={filtros.estado}
             onChange={(v) => handleFilterChange('estado', v)}
             options={[
               { value: '', label: 'Todos los estados' },
@@ -153,7 +175,7 @@ export default function TendersPage() {
             ]}
           />
           <SelectField
-            value={filters.region}
+            value={filtros.region}
             onChange={(v) => handleFilterChange('region', v)}
             options={[
               { value: '', label: 'Todas las regiones' },
@@ -163,14 +185,14 @@ export default function TendersPage() {
           <input
             type="number"
             placeholder="Monto mínimo"
-            value={filters.min_amount}
+            value={filtros.min_amount}
             onChange={(e) => handleFilterChange('min_amount', e.target.value)}
             className="input-field text-sm"
           />
           <input
             type="number"
             placeholder="Monto máximo"
-            value={filters.max_amount}
+            value={filtros.max_amount}
             onChange={(e) => handleFilterChange('max_amount', e.target.value)}
             className="input-field text-sm"
           />
@@ -187,11 +209,12 @@ export default function TendersPage() {
             ))}
             <button
               type="button"
-              onClick={() => {
-                setKeywords([]);
-                setSortBy((prev) => (prev === 'relevance' ? 'fecha_publicacion' : prev));
-                setPage(1);
-              }}
+              onClick={() =>
+                cambiar({
+                  terminos: [],
+                  sort_by: sortBy === 'relevance' ? 'fecha_publicacion' : sortBy,
+                })
+              }
               className="text-xs text-muted hover:text-danger transition-colors"
             >
               Limpiar
@@ -206,9 +229,27 @@ export default function TendersPage() {
           <span className="font-semibold text-text">{total.toLocaleString()}</span> resultado{total !== 1 ? 's' : ''}
         </p>
         <div className="flex items-center gap-1.5">
+          {busquedaGuardada ? (
+            <Link
+              href="/dashboard/guardados"
+              className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-primary hover:bg-primary/5"
+            >
+              <BookmarkCheck className="h-3.5 w-3.5" aria-hidden="true" />
+              Búsqueda guardada
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={() => busquedas.guardar(consultaGuardable)}
+              className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-muted hover:bg-primary/5 hover:text-primary"
+            >
+              <BookmarkPlus className="h-3.5 w-3.5" aria-hidden="true" />
+              Guardar esta búsqueda
+            </button>
+          )}
           <select
             value={sortBy}
-            onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
+            onChange={(e) => cambiar({ sort_by: e.target.value as Orden })}
             className="rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
           >
             {keywords.length > 0 && <option value="relevance">Relevancia</option>}
@@ -219,7 +260,7 @@ export default function TendersPage() {
           </select>
           <select
             value={sortOrder}
-            onChange={(e) => { setSortOrder(e.target.value as 'asc' | 'desc'); setPage(1); }}
+            onChange={(e) => cambiar({ sort_order: e.target.value as 'asc' | 'desc' })}
             className="rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
           >
             <option value="desc">↓ Mayor</option>
@@ -227,7 +268,7 @@ export default function TendersPage() {
           </select>
           <select
             value={String(limit)}
-            onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+            onChange={(e) => cambiar({ limit: Number(e.target.value) })}
             className="rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
           >
             <option value="10">10</option>
@@ -282,7 +323,7 @@ export default function TendersPage() {
                 key={tender.id}
                 tender={tender}
                 seleccionada={selectedTender?.id === tender.id}
-                onSeleccionar={() => { setSelectedTender(tender); setMobileTab('detalle'); }}
+                onSeleccionar={() => setSelectedTender(tender)}
                 hydrated={hydrated}
                 estaGuardada={isTenderStored}
                 alternar={toggleTender}
@@ -430,5 +471,23 @@ export default function TendersPage() {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * `useSearchParams` obliga a una frontera de Suspense: sin ella el build
+ * estático falla en esta ruta.
+ */
+export default function TendersPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
+        </div>
+      }
+    >
+      <CatalogoContenido />
+    </Suspense>
   );
 }

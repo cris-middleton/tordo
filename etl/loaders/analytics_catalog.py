@@ -198,6 +198,50 @@ CATALOGO: list[TablaAnalytics] = [
             ),
         },
     ),
+    # «Lo mejor de hoy» (paso 9): la historia del comprador de cada Compra Ágil
+    # abierta. La API une por RUT normalizado (`comprador_rut.rut`) y de ahí por
+    # código a `compra_agil_comprador`. Ver etl/analytics/compra_agil_comprador.py.
+    TablaAnalytics(
+        tabla="compra_agil_comprador",
+        parquet="compra_agil_comprador.parquet",
+        indices=[["CodigoOrganismoPublico"]],
+        comentarios={
+            "CodigoOrganismoPublico": "Comprador (código de Mercado Público). Una fila por comprador.",
+            "ordenes": (
+                "ÓRDENES DE COMPRA de Compra Ágil vigentes (sin canceladas) en la ventana. "
+                "Equivale a Compras Ágiles adjudicadas: 1 → 1 en el 99,996 % de los casos enlazables."
+            ),
+            "publicadas": (
+                "Suma de compra_agil_mensual.publicadas en la ventana. Nula = sin dato, no cero. "
+                "ordenes/publicadas es una aproximación: la orden sale días después de publicar."
+            ),
+            "proveedores_distintos": (
+                "Proveedores distintos que ganaron alguna orden en la ventana. Las personas "
+                "naturales se cuentan por seudónimo; ningún proveedor se nombra."
+            ),
+            "cuota_lider_pct": "% de las órdenes que se llevó el proveedor que más ganó (0–100).",
+            "monto_p25": "Percentil 25 del monto TOTAL por orden, en CLP (una vez por orden, no por línea).",
+            "monto_mediana": "Mediana del monto TOTAL por orden, en CLP (una vez por orden, no por línea).",
+            "monto_p75": "Percentil 75 del monto TOTAL por orden, en CLP (una vez por orden, no por línea).",
+            "ventana_desde": "Primer día de la ventana (6 meses anclados en el último mes con datos).",
+            "ventana_hasta": "Último día de la ventana.",
+        },
+    ),
+    TablaAnalytics(
+        tabla="comprador_rut",
+        parquet="comprador_rut.parquet",
+        indices=[["rut"]],
+        comentarios={
+            "rut": (
+                "RUT del comprador sin puntos ni guion, K mayúscula. Así identifica al "
+                "comprador la Compra Ágil ingerida (licitaciones.rut_organismo)."
+            ),
+            "CodigoOrganismoPublico": (
+                "Código de comprador más frecuente para ese RUT en las órdenes de Compra "
+                "Ágil de la ventana. Traduce RUT → código para unir con la analítica."
+            ),
+        },
+    ),
 ]
 
 POR_TABLA: dict[str, TablaAnalytics] = {t.tabla: t for t in CATALOGO}

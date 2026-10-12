@@ -1,9 +1,24 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
+
+import { crearAlmacenLocal } from '@/lib/almacenLocal';
+
+/**
+ * Licitaciones guardadas («favoritos») y marcadas como postuladas, en el
+ * navegador del visitante. Sin cuentas no hay otro sitio donde guardarlas.
+ *
+ * **La clave y la forma son las de siempre** (`licit_dashboard_collections_v1`,
+ * `{tenders: {saved, applied}}`): cambiarlas borraría en silencio lo que cada
+ * visitante tenía guardado. Lo que se fue es `orders` —no queda pantalla de
+ * órdenes—, y se descarta al leer: la próxima escritura ya no lo lleva.
+ *
+ * Vive en `useSyncExternalStore` sobre `lib/almacenLocal.ts`, no en `useState` +
+ * `useEffect`: así todas las instancias del hook ven lo mismo y un cambio en
+ * otra pestaña llega a esta.
+ */
 
 export type CollectionType = 'saved' | 'applied';
-export type ItemCategory = 'tenders' | 'orders';
 
 export interface StoredTender {
   id: number;
@@ -17,63 +32,29 @@ export interface StoredTender {
   storedAt: string;
 }
 
-export interface StoredOrder {
-  id: number;
-  codigo_oc: string;
-  nombre: string;
-  fecha_publicacion?: string;
-  monto_total: number;
-  moneda?: string;
-  estado?: string;
-  region?: string;
-  nombre_organismo?: string;
-  nombre_proveedor?: string;
-  storedAt: string;
-}
-
 export interface DashboardCollectionsState {
   tenders: {
     saved: StoredTender[];
     applied: StoredTender[];
   };
-  orders: {
-    saved: StoredOrder[];
-    applied: StoredOrder[];
-  };
 }
 
-const STORAGE_KEY = 'licit_dashboard_collections_v1';
+export const STORAGE_KEY = 'licit_dashboard_collections_v1';
 
-const defaultState: DashboardCollectionsState = {
-  tenders: {
-    saved: [],
-    applied: [],
-  },
-  orders: {
-    saved: [],
-    applied: [],
-  },
-};
+const defaultState: DashboardCollectionsState = { tenders: { saved: [], applied: [] } };
 
-const parseState = (raw: string | null): DashboardCollectionsState => {
-  if (!raw) return defaultState;
-  try {
-    const parsed = JSON.parse(raw);
-    return {
-      tenders: {
-        saved: Array.isArray(parsed?.tenders?.saved) ? parsed.tenders.saved : [],
-        applied: Array.isArray(parsed?.tenders?.applied) ? parsed.tenders.applied : [],
-      },
-      orders: {
-        saved: Array.isArray(parsed?.orders?.saved) ? parsed.orders.saved : [],
-        applied: Array.isArray(parsed?.orders?.applied) ? parsed.orders.applied : [],
-      },
-    };
-  } catch (error) {
-    console.warn('Error parsing dashboard collections from storage', error);
-    return defaultState;
-  }
-};
+function esTender(x: unknown): x is StoredTender {
+  const t = x as StoredTender | null;
+  return typeof t === 'object' && t !== null && typeof t.id === 'number' && typeof t.codigo_externo === 'string';
+}
+
+export function parseState(crudo: unknown): DashboardCollectionsState {
+  const c = crudo as { tenders?: { saved?: unknown; applied?: unknown } } | null;
+  const lista = (v: unknown) => (Array.isArray(v) ? v.filter(esTender) : []);
+  return {
+    tenders: { saved: lista(c?.tenders?.saved), applied: lista(c?.tenders?.applied) },
+  };
+}
 
 type TenderInput = {
   id: number;
@@ -84,19 +65,6 @@ type TenderInput = {
   estado?: string;
   region?: string;
   nombre_organismo?: string;
-};
-
-type OrderInput = {
-  id: number;
-  codigo_oc: string;
-  nombre: string;
-  fecha_publicacion?: string;
-  monto_total: number;
-  moneda?: string;
-  estado?: string;
-  region?: string;
-  nombre_organismo?: string;
-  nombre_proveedor?: string;
 };
 
 export const toStoredTender = (tender: TenderInput): StoredTender => ({
@@ -111,93 +79,39 @@ export const toStoredTender = (tender: TenderInput): StoredTender => ({
   storedAt: new Date().toISOString(),
 });
 
-export const toStoredOrder = (order: OrderInput): StoredOrder => ({
-  id: order.id,
-  codigo_oc: order.codigo_oc,
-  nombre: order.nombre,
-  fecha_publicacion: order.fecha_publicacion,
-  monto_total: order.monto_total,
-  moneda: order.moneda,
-  estado: order.estado,
-  region: order.region,
-  nombre_organismo: order.nombre_organismo,
-  nombre_proveedor: order.nombre_proveedor,
-  storedAt: new Date().toISOString(),
-});
+const almacen = crearAlmacenLocal(STORAGE_KEY, defaultState, parseState);
+
+const suscribirNada = () => () => {};
 
 export function useDashboardCollections() {
-  // El estado arranca directamente de localStorage con un inicializador
-  // perezoso, en vez de un efecto que lo corregía tras montar. Ese efecto
-  // provocaba un render con el estado vacío y otro con el real — visible como
-  // un parpadeo en las listas guardadas.
-  //
-  // `typeof window` dentro del inicializador cubre el servidor, donde devuelve
-  // el estado por defecto: es el mismo valor que el cliente pinta en la
-  // hidratación, así que no hay desajuste.
-  const [collections, setCollections] = useState<DashboardCollectionsState>(() =>
-    typeof window === 'undefined'
-      ? defaultState
-      : parseState(window.localStorage.getItem(STORAGE_KEY)),
-  );
-
-  // Escribir SÍ es un efecto: es una sincronización con algo externo, no un
-  // cálculo de estado. `hydrated` desaparece porque ya no hay dos fases.
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(collections));
-  }, [collections]);
+  const collections = useSyncExternalStore(almacen.suscribir, almacen.leer, almacen.leerEnServidor);
+  // En el servidor y durante la hidratación se pinta el estado vacío; los
+  // botones de guardar esperan a saber lo que hay de verdad.
+  const hydrated = useSyncExternalStore(suscribirNada, () => true, () => false);
 
   const isTenderStored = useCallback(
     (collection: CollectionType, id: number) =>
       collections.tenders[collection].some((item) => item.id === id),
-    [collections.tenders],
+    [collections],
   );
 
-  const isOrderStored = useCallback(
-    (collection: CollectionType, id: number) =>
-      collections.orders[collection].some((item) => item.id === id),
-    [collections.orders],
-  );
-
-  const toggleTender = useCallback(
-    (collection: CollectionType, tender: TenderInput) => {
-      const exists = collections.tenders[collection].some((item) => item.id === tender.id);
-      setCollections((prev) => {
-        const nextCollection = exists
-          ? prev.tenders[collection].filter((item) => item.id !== tender.id)
-          : [...prev.tenders[collection], toStoredTender(tender)];
-        return {
-          ...prev,
-          tenders: {
-            ...prev.tenders,
-            [collection]: nextCollection,
-          },
-        };
-      });
-      return !exists;
-    },
-    [collections.tenders],
-  );
-
-  const toggleOrder = useCallback(
-    (collection: CollectionType, order: OrderInput) => {
-      const exists = collections.orders[collection].some((item) => item.id === order.id);
-      setCollections((prev) => {
-        const nextCollection = exists
-          ? prev.orders[collection].filter((item) => item.id !== order.id)
-          : [...prev.orders[collection], toStoredOrder(order)];
-        return {
-          ...prev,
-          orders: {
-            ...prev.orders,
-            [collection]: nextCollection,
-          },
-        };
-      });
-      return !exists;
-    },
-    [collections.orders],
-  );
+  const toggleTender = useCallback((collection: CollectionType, tender: TenderInput) => {
+    let agregada = false;
+    almacen.escribir((prev) => {
+      const lista = prev.tenders[collection];
+      const existe = lista.some((item) => item.id === tender.id);
+      agregada = !existe;
+      return {
+        tenders: {
+          ...prev.tenders,
+          [collection]: existe
+            ? lista.filter((item) => item.id !== tender.id)
+            : [...lista, toStoredTender(tender)],
+        },
+      };
+    });
+    return agregada;
+  }, []);
 
   const counts = useMemo(
     () => ({
@@ -205,23 +119,9 @@ export function useDashboardCollections() {
         saved: collections.tenders.saved.length,
         applied: collections.tenders.applied.length,
       },
-      orders: {
-        saved: collections.orders.saved.length,
-        applied: collections.orders.applied.length,
-      },
     }),
     [collections],
   );
 
-  return {
-    collections,
-    counts,
-    //  siempre fue true tras el primer render; ahora lo es desde el
-    // primero, así que se conserva como constante para no romper a quien lo lea.
-    hydrated: true,
-    isTenderStored,
-    isOrderStored,
-    toggleTender,
-    toggleOrder,
-  };
+  return { collections, counts, hydrated, isTenderStored, toggleTender };
 }

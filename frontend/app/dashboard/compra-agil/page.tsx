@@ -1,0 +1,179 @@
+'use client';
+
+import { Suspense, useEffect, useState } from 'react';
+import type { FormEvent } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { AlertTriangle, Loader2, Rss, Search, Zap } from 'lucide-react';
+
+import SelectField from '@/components/SelectField';
+import TarjetaDestacada from '@/components/compraAgil/TarjetaDestacada';
+import { useAhora } from '@/hooks/useAhora';
+import { frescura, mesesDeVentana } from '@/lib/compraAgil';
+import { REGIONES_CHILE } from '@/lib/constantesChile';
+import { mensajeDeError } from '@/lib/errores';
+import { useCompraAgilDestacadas } from '@/lib/queries';
+
+/**
+ * «Lo mejor de hoy en Compra Ágil».
+ *
+ * Las Compras Ágiles abiertas que cierran en más de 2 h, ordenadas por un
+ * puntaje que calcula el backend (`GET /compra-agil/destacadas`): poca
+ * competencia hasta ahora, un comprador que adjudica lo que publica y tiempo
+ * para cotizar. **Es una heurística, no un modelo**, y la página lo dice.
+ *
+ * **La hora de la última actualización va a la vista**, y si falta una
+ * corrida del horario del cron (`seSaltoUnaCorrida`) se avisa: una corrida
+ * fallida no puede dejar la página ofreciendo como «lo mejor de hoy» lo de
+ * anteayer.
+ *
+ * Región y búsqueda viven en la URL, con el patrón de la analítica: el enlace
+ * se comparte con sus filtros, y el RSS de la misma búsqueda es la misma URL
+ * bajo `/rss/compra-agil`.
+ */
+function CompraAgilContenido() {
+  const urlInicial = useSearchParams();
+  const [region, setRegion] = useState(() => urlInicial.get('region') ?? '');
+  const [busqueda, setBusqueda] = useState(() => urlInicial.get('search') ?? '');
+  const [texto, setTexto] = useState(busqueda);
+  const ahora = useAhora();
+
+  const consultaUrl = new URLSearchParams(
+    Object.entries({ region, search: busqueda }).filter(([, v]) => v),
+  ).toString();
+  useEffect(() => {
+    window.history.replaceState({}, '', consultaUrl ? `?${consultaUrl}` : window.location.pathname);
+  }, [consultaUrl]);
+
+  const consulta = useCompraAgilDestacadas({
+    limite: 20,
+    region: region || undefined,
+    search: busqueda || undefined,
+  });
+  const datos = consulta.data;
+  const items = datos?.items ?? [];
+  const actualizacion = frescura(datos?.actualizado_en ?? null, ahora);
+  const meses = mesesDeVentana(datos?.ventana_desde ?? null, datos?.ventana_hasta ?? null);
+
+  const buscar = (e: FormEvent) => {
+    e.preventDefault();
+    setBusqueda(texto.trim());
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="page-title flex items-center gap-2">
+            <Zap className="h-6 w-6 text-accent" aria-hidden="true" />
+            Lo mejor de hoy en Compra Ágil
+          </h1>
+          <p className="mt-0.5 max-w-2xl text-sm text-muted">
+            Compras Ágiles abiertas donde cotizar tiene más sentido: pocas cotizaciones hasta ahora,
+            un comprador que adjudica lo que publica y tiempo para preparar la oferta. Es una
+            heurística, no una predicción.
+          </p>
+        </div>
+        <div className="text-right">
+          {actualizacion ? (
+            <p className="text-sm font-semibold text-text">
+              Actualizado a las <span className="cifra">{actualizacion.hora}</span>
+              {actualizacion.dia && <span className="font-normal text-muted"> del {actualizacion.dia}</span>}
+            </p>
+          ) : (
+            datos && <p className="text-sm text-muted">Sin fecha de actualización</p>
+          )}
+          {/* `<a>` y no `Link`: es un route handler, no una página que Next
+              pueda navegar en el cliente. */}
+          <a
+            href={`/rss/compra-agil${consultaUrl ? `?${consultaUrl}` : ''}`}
+            className="mt-1 inline-flex items-center gap-1 text-xs text-muted hover:text-primary"
+          >
+            <Rss className="h-3 w-3" aria-hidden="true" /> Seguir por RSS
+          </a>
+          <Link href="/dashboard/guardados#rss" className="ml-2 text-xs text-muted hover:text-primary">
+            ¿Qué es esto?
+          </Link>
+        </div>
+      </div>
+
+      {actualizacion?.desactualizado && (
+        <div className="alert-warning" role="status">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <p>
+            Esta lista se saltó al menos una actualización programada y puede estar
+            desactualizada: algunas de estas compras quizá ya cerraron o ya tienen más cotizaciones.
+            Confirma en Mercado Público antes de cotizar.
+          </p>
+        </div>
+      )}
+
+      <form onSubmit={buscar} className="card grid grid-cols-1 gap-2 px-4 py-3 sm:grid-cols-[1fr_16rem_auto]">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+          <input
+            type="search"
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+            placeholder="Qué vendes: «resmas», «mantención», «guantes»…"
+            aria-label="Buscar en las Compras Ágiles destacadas"
+            className="input-field pl-9 text-sm"
+            autoComplete="off"
+          />
+        </div>
+        <SelectField
+          value={region}
+          onChange={setRegion}
+          options={[
+            { value: '', label: 'Todas las regiones' },
+            ...REGIONES_CHILE.map((r) => ({ value: r, label: r.replace(/^Región (de |del )?/, '') })),
+          ]}
+        />
+        <button type="submit" className="btn-secondary text-sm">
+          Buscar
+        </button>
+      </form>
+
+      {consulta.isPending ? (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
+        </div>
+      ) : consulta.isError ? (
+        <div className="alert-error" role="alert">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <p>{mensajeDeError(consulta.error)}</p>
+        </div>
+      ) : items.length === 0 ? (
+        <div className="card py-12 text-center">
+          <p className="font-medium text-text">No hay Compras Ágiles abiertas con estos filtros</p>
+          <p className="mt-1 text-sm text-muted">
+            Sólo salen las que cierran en más de 2 horas. Prueba con otra región o sin búsqueda.
+          </p>
+        </div>
+      ) : (
+        <ol className="space-y-3" aria-label="Compras Ágiles destacadas">
+          {items.map((item, i) => (
+            <li key={item.codigo_externo}>
+              <TarjetaDestacada item={item} posicion={i + 1} mesesVentana={meses} />
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+/** `useSearchParams` obliga a una frontera de Suspense. */
+export default function CompraAgilPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
+        </div>
+      }
+    >
+      <CompraAgilContenido />
+    </Suspense>
+  );
+}

@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
-from app.api import bi, health, tenders
+from app.api import bi, compra_agil, health, tenders
 from app.api.documentacion import DESCRIPCION, ETIQUETAS
 from app.config import settings
 from app.core.limite_ip import LimitadorEnMemoria, LimitePorIPMiddleware, avisos_de_configuracion
@@ -157,7 +157,7 @@ async def catch_all_exception_handler(request: Request, exc: Exception):
 # la plataforma, no un cliente de la API. Versionarlo obligaría a tocar la
 # configuración de Railway cada vez que suba la versión, que es justo lo que el
 # versionado intenta evitar.
-for router in (tenders.router, bi.router):
+for router in (tenders.router, bi.router, compra_agil.router):
     app.include_router(router, prefix=PREFIJO_API)
 
 app.include_router(health.router)

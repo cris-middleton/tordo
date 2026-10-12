@@ -22,7 +22,7 @@ export const metadata: Metadata = {
  *   - IP en memoria, sin guardar: `backend/app/core/limite_ip.py`;
  *   - IP del visitante reenviada por el servidor de Next: `app/api/proxy`;
  *   - Sentry sin PII: `lib/sentry-comun.ts` y `app/observability/sentry.py`;
- *   - localStorage: `hooks/useDashboardCollections.ts`, el tema (next-themes)
+ *   - localStorage: `hooks/useDashboardCollections.ts`, `hooks/useBusquedasGuardadas.ts`, el tema (next-themes)
  *     y el aviso descartado de `SectorOverview`;
  *   - personas naturales: `etl/analytics/personas.py`.
  * Si alguno cambia, esta página se corrige en el mismo PR.
@@ -122,10 +122,11 @@ export default function PrivacidadPage() {
 
       <h2>5. Lo que queda en tu navegador</h2>
       <p>
-        Tu preferencia de tema (claro u oscuro), las licitaciones y órdenes que marcas como
-        favoritas y algún aviso que hayas descartado se guardan en el almacenamiento local de
-        tu propio navegador. <strong>Nunca se envían al sitio</strong>: no los vemos, y se
-        borran al limpiar los datos del navegador.
+        Tu preferencia de tema (claro u oscuro), las licitaciones que marcas como favoritas,
+        las búsquedas que guardas y algún aviso que hayas descartado se guardan en el
+        almacenamiento local de tu propio navegador. <strong>Nunca se envían al sitio</strong>:
+        no los vemos, y se borran al limpiar los datos del navegador. (Al abrir una búsqueda o
+        su feed RSS, sus filtros viajan en la dirección de la página, como cualquier búsqueda.)
       </p>
 
       <h2>6. Con quién se comparten</h2>

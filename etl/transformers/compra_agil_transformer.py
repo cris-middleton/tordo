@@ -21,20 +21,36 @@ from datetime import datetime
 from typing import Any, Dict
 
 from etl.analytics.personas import enmascarar_payload
-from etl.shared_imports import TipoConvocatoria
+from etl.shared_imports import ZONA_CHILE, TipoConvocatoria
 from etl.transformers.base import BaseTransformer
 
 
 def _fecha(valor: Any) -> datetime | None:
-    """ISO-8601 con `Z` incluido, que Python 3.11 no acepta directamente."""
+    """Una fecha de la API v2, como instante con zona.
+
+    **La API marca sus horas con `Z`, pero son hora de CHILE** (medido, spec del
+    pivote §6.1; el extractor ya consulta así). Leer la `Z` como UTC guardaba
+    cada cierre y cada publicación 3–4 h antes de la cuenta: una Compra Ágil
+    salía cerrada horas antes de cerrar, y el corte de 2 h de «lo mejor de
+    hoy» quedaba corrido lo mismo. Así que una `Z`, o una fecha sin zona, se
+    lee como hora de pared de `America/Santiago` —con su cambio de hora, no con
+    un desfase fijo—. Un desfase explícito distinto de `Z` se respeta.
+    """
     if not valor:
         return None
     if isinstance(valor, datetime):
-        return valor
-    try:
-        return datetime.fromisoformat(str(valor).replace("Z", "+00:00"))
-    except ValueError:
-        return None
+        fecha = valor
+    else:
+        texto = str(valor).strip()
+        if texto.endswith(("Z", "z")):
+            texto = texto[:-1]
+        try:
+            fecha = datetime.fromisoformat(texto)
+        except ValueError:
+            return None
+    if fecha.tzinfo is None:
+        return fecha.replace(tzinfo=ZONA_CHILE)
+    return fecha
 
 
 class CompraAgilTransformer(BaseTransformer):

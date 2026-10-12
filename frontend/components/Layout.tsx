@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import TordoLogo from '@/components/TordoLogo';
 import SelectorTema from '@/components/SelectorTema';
 import { PieAtribucion } from '@/components/legal/PieAtribucion';
-import { Menu, X, ChevronRight, Briefcase, Radar } from 'lucide-react';
+import { Menu, X, ChevronRight, Briefcase, Radar, Zap, Bookmark } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -31,7 +31,11 @@ interface NavSection {
 const navSections: NavSection[] = [
   {
     label: 'Explorar',
-    items: [{ name: 'Licitaciones', href: '/dashboard/tenders', icon: Briefcase }],
+    items: [
+      { name: 'Lo mejor de hoy', href: '/dashboard/compra-agil', icon: Zap },
+      { name: 'Licitaciones', href: '/dashboard/tenders', icon: Briefcase },
+      { name: 'Guardados', href: '/dashboard/guardados', icon: Bookmark },
+    ],
   },
   {
     label: 'Análisis',

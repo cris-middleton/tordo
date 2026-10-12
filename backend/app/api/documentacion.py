@@ -26,6 +26,7 @@ from app.core.versionado import PREFIJO_API, VERSION_API
 SUPERFICIE: dict[str, str] = {
     "tenders": "publica",
     "bi": "publica",
+    "compra-agil": "publica",
     "health": "interna",
     "raiz": "interna",
 }
@@ -44,6 +45,15 @@ ETIQUETAS: list[dict[str, str]] = [
         "description": (
             "Inteligencia de mercado: bandas de precio, competencia, compradores "
             "y oportunidad. Limitados por IP y por minuto."
+        ),
+    },
+    {
+        "name": "compra-agil",
+        "description": (
+            "«Lo mejor de hoy»: Compras Ágiles abiertas que cierran en más de 2 h, "
+            "ordenadas por un puntaje HEURÍSTICO (producto de competencia, historia "
+            "del comprador y tiempo para cotizar; 0,5 el factor sin dato). Ningún "
+            "dato de proveedor: sólo conteos."
         ),
     },
     {"name": "health", "description": "Sonda de la plataforma. Fuera de la versión."},

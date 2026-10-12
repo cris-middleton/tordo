@@ -64,3 +64,13 @@ export function cabecerasHaciaElBackend(visitante: string | null): Record<string
   if (visitante !== null) cabeceras[CABECERA_VISITANTE] = visitante;
   return cabeceras;
 }
+
+/**
+ * La URL de una ruta del backend, para las rutas de servidor que lo llaman
+ * directamente (el proxy y los feeds RSS). `API_URL` es de servidor: nunca con
+ * prefijo `NEXT_PUBLIC_`.
+ */
+export function urlDelBackend(ruta: string): string {
+  const base = process.env.API_URL || 'http://localhost:8000';
+  return `${base}${ruta.startsWith('/') ? ruta : `/${ruta}`}`;
+}

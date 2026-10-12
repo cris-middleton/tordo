@@ -20,6 +20,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 
+import type { ParamsDestacadas } from '@/types/compraAgil';
+
 import { apiClient } from './api';
 
 // ── Claves ───────────────────────────────────────────────────────────────────
@@ -30,6 +32,8 @@ import { apiClient } from './api';
 export const claves = {
   licitaciones: (params: Record<string, unknown>) => ['licitaciones', params] as const,
   licitacion: (codigo: string) => ['licitaciones', codigo] as const,
+
+  compraAgilDestacadas: (params: ParamsDestacadas) => ['compra-agil', 'destacadas', params] as const,
 
   // BI: todas bajo el mismo prefijo, así que una invalidación las alcanza a
   // todas si algún día hace falta.
@@ -99,6 +103,20 @@ export function useLicitaciones(params: Record<string, unknown> = {}) {
     // Al cambiar de filtro o de página, mantiene lo anterior en pantalla en vez
     // de vaciarla. Sin esto la tabla parpadea en cada tecleo del buscador.
     placeholderData: (anterior) => anterior,
+  });
+}
+
+/**
+ * «Lo mejor de hoy en Compra Ágil». La lista cambia con cada corrida del cron
+ * (cuatro al día), pero `horas_restantes` y el filtro de «cierra en más de
+ * 2 h» los calcula el backend en cada petición: cinco minutos de frescura.
+ */
+export function useCompraAgilDestacadas(params: ParamsDestacadas) {
+  return useQuery({
+    queryKey: claves.compraAgilDestacadas(params),
+    queryFn: () => apiClient.getCompraAgilDestacadas(params),
+    placeholderData: (anterior) => anterior,
+    staleTime: 5 * 60_000,
   });
 }
 

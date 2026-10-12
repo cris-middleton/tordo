@@ -22,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from etl.extractors import compra_agil  # noqa: E402
 from etl.extractors.base import sin_ticket  # noqa: E402
 from etl.extractors.compra_agil import CompraAgilExtractor, tramos  # noqa: E402
+from etl.shared_imports import ZONA_CHILE  # noqa: E402
 from etl.transformers.compra_agil_transformer import (  # noqa: E402
     CompraAgilTransformer,
     campos_desde_detalle,
@@ -160,7 +161,9 @@ def test_el_detalle_se_pide_a_su_propio_endpoint(monkeypatch):
 def test_el_listado_real_se_transforma_y_la_region_sale_limpia():
     fila = CompraAgilTransformer().transform(ITEM_REAL)
 
-    assert fila["fecha_publicacion"] == datetime(2026, 9, 24, 23, 44)
+    # Sin zona en el texto: es hora de Chile (septiembre, horario de verano: -03).
+    assert fila["fecha_publicacion"] == datetime(2026, 9, 24, 23, 44, tzinfo=ZONA_CHILE)
+    assert fila["fecha_publicacion"].utcoffset() == timedelta(hours=-3)
     assert fila["region"] == "Región del Biobío"
     assert fila["monto_estimado"] == 376666
 
