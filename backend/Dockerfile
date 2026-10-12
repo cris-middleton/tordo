@@ -50,16 +50,16 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Railway (postgres.railway.internal) sea alcanzable.
 #
 # UN worker, y explícito. Ya no por memoria: medido con `make medir-memoria`
-# sobre esta misma imagen (2026-10-11), sin el TF-IDF que la API cargaba hasta el
-# paso 8 del pivote público:
+# sobre esta misma imagen (2026-10-12), con seis meses de analytics reales y el
+# índice en memoria de las páginas públicas (`ANALYTICS_DIR=… make medir-memoria`):
 #
-#   límite   workers  pico      (antes, con TF-IDF)
-#   512 MB      1     127 MB    289 MB
-#   512 MB      2     229 MB    384 MB
-#   512 MB      4     433 MB    OOM
+#   límite   workers  reposo   pico
+#   512 MB      1     103 MB   171 MB
+#   512 MB      2     225 MB   378 MB
+#   512 MB      4     419 MB   OOM
+#   256 MB      1     101 MB   176 MB
 #
-# Cada worker cuesta ~100 MB y nada pesado se carga perezosamente, así que 2
-# caben holgados en 512 MB y 4 caben justos. Lo que obliga a uno es el límite
+# Uno cabe en 256 MB, pero Railway cobra la memoria usada y no el límite. Lo que obliga a uno es el límite
 # por IP, que vive en memoria de cada proceso (`app/core/limite_ip.py`): con N
 # workers hay N cubos por IP y el límite real es N veces el anunciado. Subir
 # `WEB_CONCURRENCY` exige antes sacar ese contador del proceso.

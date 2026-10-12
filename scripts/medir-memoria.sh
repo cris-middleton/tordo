@@ -16,6 +16,13 @@
 # Uso:
 #   make medir-memoria                     # 1, 2 y 4 workers
 #   WORKERS=2 ./scripts/medir-memoria.sh   # un solo escenario
+#   LIMITE=256m WORKERS=1 ./scripts/medir-memoria.sh
+#   ANALYTICS_DIR=~/…/tordo/etl/data/analytics make medir-memoria
+#
+# **Sin `ANALYTICS_DIR` la medición se queda corta**: las tablas de analytics van
+# vacías, y el índice en memoria de las páginas públicas (`services/publico`,
+# miles de slugs) no se construye. Con él, se materializan esos parquets en el
+# Postgres de la medición (efímero) y se mide con el BI encendido.
 #
 # Hasta el paso 8 del pivote público había también escenarios «con TF-IDF»: la
 # API cargaba el modelo del ETL (~165 MB por proceso). Ya no lo carga, así que no
@@ -52,7 +59,7 @@ printf "   %s\n" "$IMAGEN"
 paso "Postgres"
 limpiar
 docker network create "$RED" >/dev/null
-docker run -d --name "$PG" --network "$RED" \
+docker run -d --name "$PG" --network "$RED" -p "${MEDICION_PG_PUERTO:-8311}:5432" \
   -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=tordo_test \
   postgres:15-alpine >/dev/null
 # `-h 127.0.0.1` fuerza TCP: por socket unix, `pg_isready` acierta durante la
@@ -62,6 +69,14 @@ for _ in $(seq 1 90); do
   docker exec "$PG" pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1 && break
   sleep 1
 done
+
+if [ -n "${ANALYTICS_DIR:-}" ]; then
+  paso "Analytics de $ANALYTICS_DIR"
+  URL_PG="postgresql://postgres:postgres@localhost:${MEDICION_PG_PUERTO:-8311}/tordo_test"
+  (cd backend && DATABASE_URL="$URL_PG" uv run --project .. alembic upgrade head >/dev/null)
+  (cd etl && DATABASE_URL="$URL_PG" uv run --project .. python -m analytics.materialize \
+    --data-dir "$ANALYTICS_DIR" 2>&1 | tail -1 | sed 's/^/   /')
+fi
 
 # ── Un escenario ─────────────────────────────────────────────────────────────
 
@@ -77,6 +92,11 @@ CAMINOS=(
   "/api/v1/tenders/?limit=20"
   "/api/v1/tenders/?limit=20&search=servicio&sort_by=relevance"
   "/api/v1/bi/rubros"
+  # Las páginas públicas (paso 10): el sitemap construye el índice en memoria de
+  # compradores, rubros y productos; la búsqueda lo recorre.
+  "/api/v1/publico/sitemap"
+  "/api/v1/publico/productos?q=guante&limite=20"
+  "/api/v1/compra-agil/destacadas"
 )
 
 medir() {
@@ -90,6 +110,7 @@ medir() {
     -p "${PUERTO}:8000" \
     -e DATABASE_URL="postgresql://postgres:postgres@${PG}:5432/tordo_test" \
     -e LIMITE_POR_MINUTO=1000000 \
+    -e FEATURE_ANALYTICS=true \
     "$IMAGEN" \
     sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${workers}" \
     >/dev/null

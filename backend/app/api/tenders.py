@@ -1,8 +1,9 @@
 """Catálogo de licitaciones. Anónimo desde el pivote público: no hay cuentas."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api import limites
 from app.db import get_db
 from app.models.convocatoria import TipoConvocatoria
 from app.models.licitacion import Licitacion
@@ -24,21 +25,22 @@ def _paginacion(total: int, salto: int, limite: int) -> tuple[int, int]:
 
 @router.get("/", response_model=TenderListResponse)
 async def list_tenders(
-    skip: int = Query(0, ge=0, alias="offset"),
+    skip: int = Query(0, ge=0, le=limites.OFFSET_MAX, alias="offset"),
     limit: int = Query(20, ge=1, le=100, alias="limit"),
-    estado: str | None = None,
-    codigo_organismo: str | None = None,
+    estado: str | None = Query(None, max_length=limites.NOMBRE),
+    codigo_organismo: str | None = Query(None, max_length=limites.CODIGO),
     tipo_convocatoria: str | None = Query(
         None,
+        max_length=limites.NOMBRE,
         description=(
             "Mecanismo de compra, separado por comas: "
             "licitacion, compra_agil, convenio_marco, trato_directo."
         ),
     ),
-    region: str | None = None,
-    min_amount: float | None = None,
-    max_amount: float | None = None,
-    search: str | None = None,
+    region: str | None = Query(None, max_length=limites.NOMBRE),
+    min_amount: float | None = Query(None, ge=0),
+    max_amount: float | None = Query(None, ge=0),
+    search: str | None = Query(None, max_length=limites.TEXTO),
     sort_by: str | None = Query(
         None,
         pattern="^(fecha_publicacion|fecha_cierre|monto_estimado|nombre|relevance)$",
@@ -96,7 +98,7 @@ async def list_tenders(
 
 @router.get("/{tender_id}", response_model=TenderResponse)
 async def get_tender(
-    tender_id: int,
+    tender_id: int = Path(ge=1, le=limites.ID_MAX),
     db: AsyncSession = Depends(get_db),
 ):
     tender = await repo_licitaciones.obtener(db, tender_id)
@@ -107,7 +109,7 @@ async def get_tender(
 
 @router.get("/codigo/{codigo_externo}", response_model=TenderResponse)
 async def get_tender_by_code(
-    codigo_externo: str,
+    codigo_externo: str = Path(max_length=limites.CODIGO),
     db: AsyncSession = Depends(get_db),
 ):
     tender = await repo_licitaciones.obtener_por_codigo(db, codigo_externo)

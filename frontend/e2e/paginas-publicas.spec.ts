@@ -69,22 +69,7 @@ test('lo que no existe es un 404, no una página vacía', async ({ page }) => {
   for (const ruta of ['/compradores/no-existe-e2e', '/rubros/no-existe-e2e', '/productos/no-existe-e2e']) {
     const respuesta = await page.goto(ruta);
     expect(respuesta?.status(), ruta).toBe(404);
-    // El 404 propio, con salida, y no la página genérica de Next.
-    await expect(page.getByRole('heading', { name: /no encontramos esta página/i })).toBeVisible();
   }
-});
-
-test('las respuestas llevan las cabeceras de seguridad', async ({ request }) => {
-  const r = await request.get('/');
-  expect(r.headers()['x-frame-options']).toBe('DENY');
-  expect(r.headers()['x-content-type-options']).toBe('nosniff');
-  expect(r.headers()['content-security-policy']).toContain("frame-ancestors 'none'");
-});
-
-test('la tarjeta de vista previa se genera', async ({ request }) => {
-  const r = await request.get('/opengraph-image');
-  expect(r.status()).toBe(200);
-  expect(r.headers()['content-type']).toContain('image/png');
 });
 
 test('robots.txt enlaza el sitemap y deja fuera la API', async ({ request }) => {

@@ -1,9 +1,9 @@
 [project]
 name = "tordo"
 version = "0.0.0"  # placeholder — la versión del servicio vive en backend/app/config.py
-description = "TORDO — SaaS de inteligencia y compliance para licitaciones públicas de Chile"
-# Techo en 3.13: las imágenes son python:3.11-slim y numpy 1.26.2 / pandas 2.1.3
-# no compilan en 3.13. Subir el techo requiere subir esos dos pines primero.
+description = "TORDO — sitio público de inteligencia sobre las compras del Estado de Chile"
+# Techo en 3.13: las imágenes son python:3.11-slim y numpy 1.26.2
+# no compila en 3.13. Subir el techo requiere subir ese pin primero.
 requires-python = ">=3.11,<3.13"
 # Sin dependencias a nivel de proyecto: cada componente declara las suyas en
 # [dependency-groups]. Ver el grupo `shared` para lo que backend y ETL comparten.
@@ -45,6 +45,11 @@ shared = [
     # (estaban sólo en `api`, y en compose no se notaba).
     "asyncpg>=0.30,<1",
     "greenlet>=3.1,<4",
+    # La base de zonas horarias de `ZoneInfo("America/Santiago")` (el reloj del
+    # producto, `app/core/tiempo.py` y `etl/cron.py`). zoneinfo usa la del sistema
+    # y cae a este paquete si no la hay. Llegaba de rebote con pandas; al quitarlo,
+    # quedaba dependiendo de que la imagen base trajera `/usr/share/zoneinfo`.
+    "tzdata>=2025.2",
 ]
 
 api = [
@@ -68,7 +73,6 @@ etl = [
     # 2.31 filtraba credenciales de .netrc con URLs maliciosas
     # (GHSA-9hjg-9r4m-mvj7). El ETL llama a Mercado Público con ticket.
     "requests>=2.34,<3",
-    "pandas==2.1.3",
     "numpy==1.26.2",
     "python-dateutil>=2.9,<3",
     "pytz>=2025.2",

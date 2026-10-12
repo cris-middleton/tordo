@@ -906,6 +906,18 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
     abierta para la disponibilidad.
   - IPv6 cuenta por /64. Uvicorn arranca con `--no-proxy-headers`: la regla es una sola.
   - Las capas por clave de API y por cuota diaria se fueron con las cuentas.
+- **Todo parámetro público tiene cota** (`app/api/limites.py`): textos con `max_length`,
+  enteros con `le=`, `offset` hasta 100.000, ids dentro de un `integer` de Postgres (uno
+  mayor llegaba a la base y volvía **500**), y como mucho 8 términos en la búsqueda de
+  Compra Ágil. `tests/test_parametros_acotados.py` recorre el OpenAPI y falla con un
+  parámetro nuevo sin cota. **Y nada que se pida gratis carga una tabla entera**:
+  `/bi/productos?q=` traía `product_price_bands_l3` completa a Polars en cada petición
+  (~70 ms con seis meses); ahora filtra en SQL sobre el índice de trigramas, con tope de
+  filas (`_base._buscar`), y se queda con la unidad de más compras de cada producto.
+- **CORS abierto en producción (`CORS_ORIGINS=*`), sin credenciales**: la API es pública y
+  anónima, y limitarla a los dominios del sitio dejaba fuera a los integradores que la
+  llaman desde una aplicación web. No abre el MCP: su lista de `Host`/`Origin` es otra
+  capa (`tests/test_cors_publico.py`).
 - **El MCP es anónimo y tiene la protección contra DNS rebinding ENCENDIDA**, con la lista
   blanca de `MCP_HOSTS_PERMITIDOS` (coma-separada; por defecto `localhost,127.0.0.1`). Estuvo
   apagada mientras cada llamada exigía clave: una petición rebotada llegaba sin credencial.
@@ -920,9 +932,14 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   del pivote, la API cargaba el TF-IDF del ETL en cada proceso: pico de **289 MB con un
   worker** y OOM con 4 en 512 MB. **La API ya no carga ningún artefacto del ETL**
   (`tests/test_api_sin_tfidf.py` falla si `sklearn`, `scipy` o `joblib` se importan al
-  arrancar; están en el grupo `etl` de `pyproject.toml`). Medido el 2026-10-11 en 512 MB:
-  **1 worker 127 MB, 2 → 229 MB, 4 → 433 MB**, unos 100 MB por proceso. La memoria ya
-  permitiría 2 holgados. **No se sube igual**: el límite por IP vive en memoria de cada
+  arrancar; están en el grupo `etl` de `pyproject.toml`). **Medido el 2026-10-12 con datos
+  reales** (seis meses de analytics materializados y el índice en memoria de las páginas
+  públicas, ~8.000 slugs; `ANALYTICS_DIR=… make medir-memoria`): **1 worker, 103 MB en reposo
+  y 171–176 MB de pico**; 2 → 378 MB; 4 → OOM en 512 MB. Sin analytics la medición daba
+  127 MB: el índice de `/publico` pesa ~45 MB. **1 worker cabe en 256 MB** (pico 176 MiB,
+  ~30 % de margen), pero **bajar el límite no ahorra nada: Railway cobra la memoria usada,
+  no la reservada** (~US$1,7/mes por estos ~170 MB). Se deja en 512 MB, como red para la
+  ventana de producción (36 y 12 meses, más que los 6 medidos). **No se sube a 2 workers**: el límite por IP vive en memoria de cada
   proceso, así que con `WEB_CONCURRENCY=N` el límite real es N× el anunciado. Subirlo exige
   antes sacar ese contador del proceso. Repetible con `make medir-memoria`.
 - **Feature flags**: 1 en `app/config.py` (`feature_analytics`); apagada, el BI devuelve 503

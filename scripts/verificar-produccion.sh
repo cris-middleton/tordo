@@ -105,6 +105,15 @@ else
   mal "/api/v1/tenders/ ($codigo) sin cabeceras X-RateLimit-*"
 fi
 
+# CORS abierto (`CORS_ORIGINS=*`): la API es pública; un integrador la llama
+# desde el navegador de su propia aplicación.
+codigo=$(pedir "$API/health/" -H 'Origin: https://integrador.example')
+if [ "$(cabecera access-control-allow-origin)" = "*" ]; then
+  ok "CORS: un origen cualquiera recibe Access-Control-Allow-Origin: *"
+else
+  mal "CORS: un origen ajeno recibe «$(cabecera access-control-allow-origin)» — pon CORS_ORIGINS=* en la API"
+fi
+
 codigo=$(pedir "$API/api/v1/publico/compradores/codigo-que-no-existe-0000")
 [ "$codigo" = 404 ] && ok "un comprador inventado da 404 en la API" || mal "un comprador inventado da $codigo en la API (se esperaba 404)"
 
@@ -191,6 +200,25 @@ esac
 
 codigo=$(pedir "$SITIO/apoyar")
 [ "$codigo" = 200 ] && ok "/apoyar responde 200" || mal "/apoyar responde $codigo"
+
+# Los datos de transferencia: 200 si DONAR_TRANSFERENCIA está, 404 si no (el
+# botón tampoco aparece). Los dos son correctos; lo que no puede pasar es que se
+# guarden en una caché.
+codigo=$(pedir "$SITIO/api/apoyar/transferencia")
+case $codigo in
+  200 | 404)
+    if grep -qi '^cache-control:.*no-store' "$TMP/cabeceras"; then
+      ok "/api/apoyar/transferencia: $codigo ($([ "$codigo" = 200 ] && echo con datos || echo sin DONAR_TRANSFERENCIA)), sin caché"
+    else
+      mal "/api/apoyar/transferencia responde $codigo SIN Cache-Control: no-store"
+    fi
+    ;;
+  *) mal "/api/apoyar/transferencia responde $codigo" ;;
+esac
+
+codigo=$(pedir "$SITIO/guias")
+[ "$codigo" = 200 ] && ok "/guias responde 200" || mal "/guias responde $codigo"
+pagina "/guias/compra-agil-como-funciona" "una guía"
 
 # ── Resumen ──────────────────────────────────────────────────────────────────
 echo

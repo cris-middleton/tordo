@@ -57,6 +57,35 @@ def _load(
     )
 
 
+#: Tope de filas que trae una búsqueda por subcadena antes de deduplicar. Un
+#: término corto («de») casa con casi toda la tabla: sin tope, cada petición
+#: anónima traería decenas de miles de filas a memoria.
+MAX_FILAS_BUSQUEDA = 2000
+
+
+def _buscar(
+    filename: str,
+    columna: str,
+    texto: str,
+    *,
+    columnas: list[str] | None = None,
+    orden: str | None = None,
+) -> Any:
+    """Búsqueda por subcadena empujada a SQL (`lower(col) LIKE`, índice pg_trgm).
+
+    Devuelve las coincidencias ordenadas por `orden` (descendente), como mucho
+    `MAX_FILAS_BUSQUEDA`; None si la tabla no existe todavía.
+    """
+    return repo.buscar_texto(
+        _tabla(filename),
+        columna,
+        texto,
+        columnas=columnas,
+        orden=orden,
+        limite=MAX_FILAS_BUSQUEDA,
+    )
+
+
 def _columna_presente(filename: str, *candidatas: str) -> str | None:
     """La primera de esas columnas que la tabla tenga de verdad.
 

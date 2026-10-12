@@ -78,7 +78,7 @@ un valor por defecto razonable o desactivan algo prescindible.
 | `PROXY_SECRETO` | ✓ | | | ✓ | sí | 64 caracteres hex | `scripts/generar-secretos.sh` — **el mismo** en la API y en Vercel |
 | `CONFIAR_X_FORWARDED_FOR` | ✓ | | | | sí | `true` | fijo; se comprueba en vivo en el paso 10 |
 | `MCP_HOSTS_PERMITIDOS` | ✓ | | | | sí | `api.tordo.cl` | el dominio de la API (paso 6). Sin él el MCP responde 421 |
-| `CORS_ORIGINS` | ✓ | | | | no | `https://tordo.cl,https://www.tordo.cl` | los dominios del sitio |
+| `CORS_ORIGINS` | ✓ | | | | sí | `*` | **`*`**: la API es pública, anónima y de sólo lectura (spec D6). Limitarla a los dominios del sitio bloqueaba a los integradores que la llaman desde una aplicación web. Va sin credenciales (no hay cookie ni sesión), el límite por IP no cambia, y el MCP sigue protegido por su lista de `Host`/`Origin`, que CORS no toca (`tests/test_cors_publico.py`) |
 | `LIMITE_POR_MINUTO` | ✓ | | | | no | `60` | por defecto 60 |
 | `WEB_CONCURRENCY` | ✓ | | | | no | `1` | **déjala en 1**: el límite por IP vive en memoria de cada worker |
 | `SENTRY_DSN` | ✓ | | | | no | `https://…@….ingest.sentry.io/…` | Sentry → proyecto de la API → *Client Keys* (paso 4). Vacía, sin Sentry |
@@ -96,9 +96,9 @@ un valor por defecto razonable o desactivan algo prescindible.
 | `API_URL` | | | | ✓ | sí | `https://api.tordo.cl` | el dominio de la API. Servidor: **sin** `NEXT_PUBLIC_` |
 | `NEXT_PUBLIC_SITE_URL` | | | | ✓ | sí | `https://tordo.cl` | el dominio del sitio (canonical, sitemap, tarjetas). Se lee en el build |
 | `RESPONSABLE_LEGAL` | | | | ✓ | sí, para publicar | `Nombre Apellido` | quien responde por el sitio. Se lee en el build; sin ella `/terminos` y `/privacidad` muestran `[[definir RESPONSABLE_LEGAL]]` |
-| `DONAR_MERCADO_PAGO_URL` | | | | ✓ | no | `https://link.mercadopago.cl/…` | Mercado Pago → *Link de pago* de monto abierto. Servidor |
-| `DONAR_GITHUB_SPONSORS_URL` | | | | ✓ | no | `https://github.com/sponsors/<usuario>` | GitHub Sponsors. Servidor |
-| `DONAR_TRANSFERENCIA` | | | | ✓ | no | varias líneas: banco, tipo y número de cuenta, nombre, RUT, correo | los datos de la cuenta. Servidor (spec §4.2: se muestran tras un clic, no en el HTML) |
+| `DONAR_MERCADO_PAGO_URL` | | | | ✓ | no | `https://link.mercadopago.cl/…` (**sólo `https://`**) | Mercado Pago → *Link de pago* de monto abierto. Servidor, **se lee en el build**: `/apoyar` se prerenderiza, así que cambiarla exige redeploy. Sin ella, o sin `https://`, el botón no aparece |
+| `DONAR_GITHUB_SPONSORS_URL` | | | | ✓ | no | `https://github.com/sponsors/<usuario>` (**sólo `https://`**) | GitHub Sponsors. Servidor, **se lee en el build** (redeploy para cambiarla). Sin ella, no aparece |
+| `DONAR_TRANSFERENCIA` | | | | ✓ | no | varias líneas: banco, tipo y número de cuenta, nombre, RUT, correo | los datos de la cuenta. Servidor, **se lee en cada petición**: sólo la sirve `GET /api/apoyar/transferencia` tras el clic de «Ver datos para transferir», sin caché y con `noindex`; nunca va en el HTML. Cambiarla no exige redeploy. Sin ella, el botón no aparece y la ruta da 404 |
 | `NEXT_PUBLIC_SENTRY_DSN` | | | | ✓ | no | DSN del proyecto Next.js | Sentry (paso 4). Se inlinea en el bundle |
 | `NEXT_PUBLIC_ENVIRONMENT` / `NEXT_PUBLIC_APP_NAME` | | | | ✓ | no | `production` / `Tordo` | fijos |
 | `SENTRY_ORG` / `SENTRY_PROJECT` / `SENTRY_AUTH_TOKEN` | | | | ✓ | no | | Sentry (paso 4). Sólo de build: trazas legibles |
@@ -206,8 +206,10 @@ Los cron **no** mandan a Sentry: su canal es el latido.
 - **Start command**: vacío. El `CMD` de la imagen corre `alembic upgrade head` y
   luego uvicorn con **un** worker y `--no-proxy-headers`.
 - **Healthcheck path**: `/health/`.
-- **Recursos**: **512 MB** de RAM. Medido con `make medir-memoria`: 127 MB de pico
-  con un worker.
+- **Recursos**: límite de **512 MB** de RAM. Medido con `make medir-memoria` y seis
+  meses de analytics reales: **171–176 MB de pico** con un worker (cabría en 256 MB, con
+  ~30 % de margen). Railway cobra la memoria **usada**, no el límite: bajarlo no ahorra,
+  y 512 MB deja margen para la ventana de producción, más larga que la medida.
 - **Networking → Custom domain**: `api.tordo.cl`. Crea en Cloudflare el `CNAME`
   que indique Railway (sin proxy).
 

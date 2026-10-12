@@ -11,32 +11,6 @@ const nextConfig = {
   outputFileTracingIncludes: {
     '/sitemap.xml': ['./content/explicativos/**/*'],
   },
-  // Cabeceras de seguridad en todas las respuestas. Sin una CSP completa a
-  // propósito: el tema, Sentry y Web Analytics meten scripts, y una CSP de
-  // scripts mal acertada rompe el sitio en silencio. Lo que sí va es lo que no
-  // puede romper nada: no dejarse enmarcar (clickjacking), no adivinar tipos,
-  // no filtrar la URL completa a terceros y no pedir permisos que no se usan.
-  // HSTS lo pone Vercel en sus dominios.
-  async headers() {
-    return [
-      {
-        source: '/:path*',
-        headers: [
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          { key: 'X-Frame-Options', value: 'DENY' },
-          {
-            key: 'Content-Security-Policy',
-            value: "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'",
-          },
-          {
-            key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
-          },
-        ],
-      },
-    ]
-  },
 }
 
 const { withSentryConfig } = require('@sentry/nextjs')

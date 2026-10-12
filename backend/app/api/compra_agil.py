@@ -6,9 +6,10 @@ se valida la entrada y se da forma a la respuesta.
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api import limites
 from app.db import get_db
 from app.repositories import compra_agil as repo_compra_agil
 from app.schemas.compra_agil import (
@@ -50,8 +51,12 @@ def _item(fila: dict[str, Any]) -> CompraAgilDestacada:
 @router.get("/destacadas", response_model=CompraAgilDestacadasResponse)
 async def destacadas(
     limite: int = Query(20, ge=1, le=50, description="Cuántas devolver (1–50)."),
-    region: str | None = Query(None, description="Región, como la escribe Mercado Público."),
-    search: str | None = Query(None, description="Palabras que tienen que aparecer (todas)."),
+    region: str | None = Query(
+        None, max_length=limites.NOMBRE, description="Región, como la escribe Mercado Público."
+    ),
+    search: str | None = Query(
+        None, max_length=limites.TEXTO, description="Palabras que tienen que aparecer (todas)."
+    ),
     codigo_organismo: str | None = Query(
         None,
         max_length=20,
@@ -68,11 +73,20 @@ async def destacadas(
     factores en [0, 1] —poca competencia, un comprador que adjudica, tiempo para
     cotizar—, con 0,5 para el que no tiene dato. Ver `docs/API_PUBLICA.md`.
     """
+    terminos = [t.strip() for t in (search or "").split() if t.strip()]
+    if len(terminos) > limites.MAX_TERMINOS:
+        # Cada término es un filtro más sobre el texto: sin tope, una búsqueda de
+        # 50 palabras de una letra es una consulta cara y gratis de pedir. Se
+        # rechaza en vez de recortar, que devolvería resultados de otra búsqueda.
+        raise HTTPException(
+            status_code=422,
+            detail=f"Como mucho {limites.MAX_TERMINOS} palabras en la búsqueda.",
+        )
     filas = await repo_compra_agil.destacadas(
         db,
         limite=limite,
         region=region,
-        terminos=[t.strip() for t in (search or "").split() if t.strip()],
+        terminos=terminos,
         codigo_organismo=codigo_organismo,
     )
     desde, hasta = await repo_compra_agil.ventana(db)

@@ -16,9 +16,10 @@ por contenedor».
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api import limites
 from app.api.dependencias import requiere_analytics as _require_analytics
 from app.db import get_db
 from app.repositories import licitaciones as repo_licitaciones
@@ -54,9 +55,13 @@ router = APIRouter(prefix="/bi", tags=["bi"])
     summary="Bandas de precio históricas para un producto ONU",
 )
 def get_precio_producto(
-    codigo_producto: str,
-    organismo_id: str | None = Query(None, description="Filtrar por CodigoOrganismoPublico"),
-    unidad_medida: str | None = Query(None, description="Filtrar por UnidadMedida"),
+    codigo_producto: str = Path(max_length=limites.CODIGO),
+    organismo_id: str | None = Query(
+        None, max_length=limites.CODIGO, description="Filtrar por CodigoOrganismoPublico"
+    ),
+    unidad_medida: str | None = Query(
+        None, max_length=limites.NOMBRE, description="Filtrar por UnidadMedida"
+    ),
 ):
     _require_analytics()
 
@@ -70,8 +75,8 @@ def get_precio_producto(
     summary="Top competidores en el mercado de un comprador",
 )
 def get_competidores(
-    organismo_id: str,
-    rubro: str | None = Query(None, description="Filtrar por RubroN2"),
+    organismo_id: str = Path(max_length=limites.CODIGO),
+    rubro: str | None = Query(None, max_length=limites.NOMBRE, description="Filtrar por RubroN2"),
     top_n: int = Query(20, ge=1, le=100),
 ):
     _require_analytics()
@@ -86,8 +91,8 @@ def get_competidores(
     summary="Mercados con mejor score de oportunidad (0–10)",
 )
 def get_oportunidades(
-    organismo_id: str | None = Query(None),
-    rubro: str | None = Query(None),
+    organismo_id: str | None = Query(None, max_length=limites.CODIGO),
+    rubro: str | None = Query(None, max_length=limites.NOMBRE),
     min_score: float = Query(6.0, ge=0, le=10),
     limit: int = Query(50, ge=1, le=200),
 ):
@@ -108,7 +113,7 @@ def get_oportunidades(
     ),
 )
 def get_ventana(
-    codigo_externo: str,
+    codigo_externo: str = Path(max_length=limites.CODIGO),
 ):
     _require_analytics()
 
@@ -122,7 +127,7 @@ def get_ventana(
     summary="Perfil del comprador: score, tiempos de pago y risk flags",
 )
 def get_comprador(
-    organismo_id: str,
+    organismo_id: str = Path(max_length=limites.CODIGO),
 ):
     _require_analytics()
 
@@ -141,7 +146,7 @@ def get_comprador(
     ),
 )
 async def get_licitacion_panel(
-    codigo_externo: str,
+    codigo_externo: str = Path(max_length=limites.CODIGO),
     db: AsyncSession = Depends(get_db),
 ):
     _require_analytics()
@@ -193,8 +198,8 @@ async def get_licitacion_panel(
     ),
 )
 def get_estacionalidad(
-    organismo_id: str,
-    rubro: str | None = Query(None, description="Filtrar por RubroN2"),
+    organismo_id: str = Path(max_length=limites.CODIGO),
+    rubro: str | None = Query(None, max_length=limites.NOMBRE, description="Filtrar por RubroN2"),
 ):
     _require_analytics()
 
@@ -212,8 +217,10 @@ def get_estacionalidad(
     ),
 )
 def get_tendencia(
-    rubro: str | None = Query(None, description="Filtrar por RubroN2"),
-    tendencia: str | None = Query(None, description="creciente | decreciente | estable"),
+    rubro: str | None = Query(None, max_length=limites.NOMBRE, description="Filtrar por RubroN2"),
+    tendencia: str | None = Query(
+        None, max_length=limites.NOMBRE, description="creciente | decreciente | estable"
+    ),
     solo_emergentes: bool = Query(False, description="Retornar solo mercados emergentes"),
     limit: int = Query(50, ge=1, le=200),
 ):
@@ -233,9 +240,13 @@ def get_tendencia(
     ),
 )
 def get_descuento(
-    tipo: str | None = Query(None, description="CodigoTipo de licitación"),
-    rubro: str | None = Query(None, description="Filtrar por Rubro2"),
-    n_oferentes_rango: str | None = Query(None, description="Ej: '1', '2-3', '4+'"),
+    tipo: str | None = Query(
+        None, max_length=limites.CODIGO, description="CodigoTipo de licitación"
+    ),
+    rubro: str | None = Query(None, max_length=limites.NOMBRE, description="Filtrar por Rubro2"),
+    n_oferentes_rango: str | None = Query(
+        None, max_length=limites.CODIGO, description="Ej: '1', '2-3', '4+'"
+    ),
 ):
     _require_analytics()
 
@@ -253,9 +264,13 @@ def get_descuento(
     ),
 )
 def get_forecast_competidores(
-    organismo_id: str | None = Query(None, description="CodigoOrganismo para L1"),
-    rubro: str | None = Query(None, description="Rubro2 para L1/L2"),
-    tipo: str | None = Query(None, description="CodigoTipo de licitación"),
+    organismo_id: str | None = Query(
+        None, max_length=limites.CODIGO, description="CodigoOrganismo para L1"
+    ),
+    rubro: str | None = Query(None, max_length=limites.NOMBRE, description="Rubro2 para L1/L2"),
+    tipo: str | None = Query(
+        None, max_length=limites.CODIGO, description="CodigoTipo de licitación"
+    ),
 ):
     _require_analytics()
 
@@ -273,7 +288,7 @@ def get_forecast_competidores(
     ),
 )
 def get_diversificacion(
-    codigo_proveedor: str,
+    codigo_proveedor: str = Path(max_length=limites.CODIGO),
 ):
     _require_analytics()
 
@@ -291,7 +306,9 @@ def get_diversificacion(
     ),
 )
 def get_sector(
-    sector: str | None = Query(None, description="Filtrar por sector específico"),
+    sector: str | None = Query(
+        None, max_length=limites.NOMBRE, description="Filtrar por sector específico"
+    ),
     limit: int = Query(50, ge=1, le=200),
 ):
     _require_analytics()
@@ -328,9 +345,9 @@ def get_rubros(
     response_class=Response,
 )
 def exportar_precio(
-    codigo_producto: str,
-    organismo_id: str | None = Query(None),
-    unidad_medida: str | None = Query(None),
+    codigo_producto: str = Path(max_length=limites.CODIGO),
+    organismo_id: str | None = Query(None, max_length=limites.CODIGO),
+    unidad_medida: str | None = Query(None, max_length=limites.NOMBRE),
 ):
     _require_analytics()
 
@@ -353,8 +370,8 @@ def exportar_precio(
     response_class=Response,
 )
 def exportar_competidores(
-    organismo_id: str,
-    rubro: str | None = Query(None),
+    organismo_id: str = Path(max_length=limites.CODIGO),
+    rubro: str | None = Query(None, max_length=limites.NOMBRE),
     top_n: int = Query(50, ge=1, le=200),
 ):
     _require_analytics()
@@ -386,7 +403,12 @@ def exportar_competidores(
     ),
 )
 def get_panorama(
-    rubro: str = Query(..., min_length=1, description="RubroN2 de la taxonomía de ChileCompra"),
+    rubro: str = Query(
+        ...,
+        max_length=limites.NOMBRE,
+        min_length=1,
+        description="RubroN2 de la taxonomía de ChileCompra",
+    ),
 ):
     _require_analytics()
 
@@ -403,7 +425,9 @@ def get_panorama(
     ),
 )
 def get_resumen(
-    rubro: str = Query(..., min_length=1, description="RubroN2 a resumir"),
+    rubro: str = Query(
+        ..., max_length=limites.NOMBRE, min_length=1, description="RubroN2 a resumir"
+    ),
 ):
     _require_analytics()
 
@@ -417,7 +441,12 @@ def get_resumen(
     description="Busca en product_price_bands_L3 por substring en el nombre del producto.",
 )
 def get_productos(
-    q: str = Query(..., min_length=2, description="Texto a buscar en el nombre del producto"),
+    q: str = Query(
+        ...,
+        max_length=limites.TEXTO,
+        min_length=2,
+        description="Texto a buscar en el nombre del producto",
+    ),
     limit: int = Query(20, ge=1, le=50),
 ):
     _require_analytics()

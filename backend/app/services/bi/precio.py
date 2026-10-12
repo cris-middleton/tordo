@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import logging
 
-from app.services.bi._base import _load, periodo_de
+from app.services.bi._base import _buscar, _columna_presente, _load, periodo_de
 
 logger = logging.getLogger(__name__)
 
@@ -370,25 +370,34 @@ def get_productos(q: str, limit: int = 20) -> dict:
     if not q or len(q.strip()) < 2:
         return {"disponible": True, "resultados": []}
 
-    df = _load("product_price_bands_L3.parquet")
+    # El nombre en la tabla está como NombreroductoGenerico (sin 'P' — typo histórico)
+    nombre_col = _columna_presente(
+        "product_price_bands_L3.parquet", "NombreroductoGenerico", "NombreProductoGenerico"
+    )
+    if nombre_col is None:
+        if _columna_presente("product_price_bands_L3.parquet", "codigoProductoONU") is None:
+            return {"disponible": False, "motivo": "parquet no generado"}
+        return {"disponible": False, "motivo": "columna de nombre no encontrada"}
+
+    # El filtro va a SQL, sobre el índice de trigramas que crea `materialize`.
+    # Antes se traía la tabla entera a Polars en cada petición y se filtraba
+    # aquí: ~70 ms por búsqueda con seis meses de datos, gratis de pedir.
+    df = _buscar(
+        "product_price_bands_L3.parquet",
+        nombre_col,
+        q,
+        columnas=["codigoProductoONU", nombre_col, "n"],
+        orden="n",
+    )
     if df is None:
         return {"disponible": False, "motivo": "parquet no generado"}
 
-    # El nombre en el parquet está como NombreroductoGenerico (sin 'P' — typo histórico)
-    nombre_col = None
-    for c in ("NombreroductoGenerico", "NombreProductoGenerico"):
-        if c in df.columns:
-            nombre_col = c
-            break
-    if nombre_col is None:
-        return {"disponible": False, "motivo": "columna de nombre no encontrada"}
-
-    q_norm = q.strip().lower()
-    # Filtrar por contains, case-insensitive
     matches = (
-        df.filter(pl.col(nombre_col).str.to_lowercase().str.contains(q_norm, literal=True))
-        .select(["codigoProductoONU", pl.col(nombre_col).alias("nombre"), "n"])
-        .unique(subset=["codigoProductoONU"])
+        df.select(["codigoProductoONU", pl.col(nombre_col).alias("nombre"), "n"])
+        # Viene ordenado por `n` descendente: `keep="first"` se queda con la
+        # unidad de más compras de cada producto, y el resultado no depende del
+        # orden físico de la tabla.
+        .unique(subset=["codigoProductoONU"], keep="first", maintain_order=True)
         # Mismo motivo que en get_rubros: con `head(limit)` el empate en `n`
         # decide qué productos entran. Se desempata por código, que es único.
         .sort(["n", "codigoProductoONU"], descending=[True, False])

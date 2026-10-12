@@ -9,8 +9,9 @@ Un producto **no indexable** responde 200 con `indexable: false`: la página
 existe, con `noindex`, y se llega a ella por la búsqueda.
 """
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Path, Query
 
+from app.api import limites
 from app.api.dependencias import requiere_analytics
 from app.schemas.publico import (
     CompradorPublico,
@@ -39,7 +40,7 @@ def get_sitemap():
     response_model=CompradorPublico,
     summary="Página pública de un comprador",
 )
-def get_comprador(codigo: str):
+def get_comprador(codigo: str = Path(max_length=limites.CODIGO)):
     requiere_analytics()
     pagina = paginas.comprador(codigo)
     if pagina is None:
@@ -52,7 +53,7 @@ def get_comprador(codigo: str):
     response_model=RubroPublico,
     summary="Página pública de un rubro",
 )
-def get_rubro(slug: str):
+def get_rubro(slug: str = Path(max_length=limites.NOMBRE)):
     requiere_analytics()
     pagina = paginas.rubro(slug)
     if pagina is None:
@@ -66,7 +67,9 @@ def get_rubro(slug: str):
     summary="Buscar productos por palabras (también los no indexados)",
 )
 def buscar_productos(
-    q: str = Query(..., min_length=2, max_length=100, description="Palabras del producto."),
+    q: str = Query(
+        ..., min_length=2, max_length=limites.TEXTO, description="Palabras del producto."
+    ),
     limite: int = Query(20, ge=1, le=paginas.MAX_RESULTADOS_BUSQUEDA),
 ):
     requiere_analytics()
@@ -78,7 +81,7 @@ def buscar_productos(
     response_model=ProductoPublico,
     summary="Página pública de un producto: su banda de precio por unidad",
 )
-def get_producto(slug: str):
+def get_producto(slug: str = Path(max_length=limites.NOMBRE)):
     requiere_analytics()
     pagina = paginas.producto(slug)
     if pagina is None:

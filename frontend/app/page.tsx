@@ -49,13 +49,21 @@ export const metadata: Metadata = {
     siteName: APP_NAME,
     title: TITLE,
     description: DESCRIPTION,
-    // La imagen la pone `app/opengraph-image.tsx` (archivo de metadatos).
+    images: [
+      {
+        url: '/og.png',
+        width: 1200,
+        height: 630,
+        alt: `${APP_NAME} — inteligencia de compras públicas en Chile`,
+      },
+    ],
   },
   twitter: {
     // `summary_large_image` necesita una imagen 1200×630.
     card: 'summary_large_image',
     title: TITLE,
     description: DESCRIPTION,
+    images: ['/og.png'],
   },
 };
 
