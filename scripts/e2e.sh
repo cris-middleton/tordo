@@ -51,6 +51,10 @@ export LIMITE_POR_MINUTO=100000
 # /publico responden 503 y los E2E de las páginas públicas no tienen qué recorrer.
 export FEATURE_ANALYTICS=true
 export PROXY_SECRETO="e2e-$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+# El de `/api/revalidar`, igual: aleatorio en cada corrida. Lo lee el servidor de
+# Next y también `e2e/revalidacion.spec.ts`, que comprueba el contrato y que
+# revalidar marca la caché.
+export REVALIDAR_SECRETO="e2e-$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
 
 azul=$'\e[36m'; rojo=$'\e[31m'; fin=$'\e[0m'
 paso() { printf "\n%s── %s %s\n" "$azul" "$1" "$fin"; }
@@ -194,6 +198,7 @@ else
     -e HOME=/tmp -e CI="${CI:-}" -e E2E_PUERTO_FRONT="$PUERTO_FRONT" \
     -e API_URL="http://host.docker.internal:${PUERTO_API}" \
     -e PROXY_SECRETO="$PROXY_SECRETO" \
+    -e REVALIDAR_SECRETO="$REVALIDAR_SECRETO" \
     "$IMAGEN_PLAYWRIGHT" \
     npx playwright test ${ARGS:-}
 fi

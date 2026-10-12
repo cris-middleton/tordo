@@ -346,6 +346,11 @@ Cloud Scheduler, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
   - **`params` es una Promesa desde Next 16**, y las dos páginas de detalle la leían como
     objeto: pedían `/codigo/undefined`. Rotas desde la actualización.
   - En un componente cliente el parámetro de ruta se lee con **`useParams()`**.
+  - **La revalidación se prueba ahí** (`e2e/revalidacion.spec.ts`): el contrato de
+    `/api/revalidar` y que revalidar `analytics` pasa una ficha de HIT a STALE y de vuelta a
+    HIT, sobre el servidor standalone del build de producción. `scripts/e2e.sh` genera
+    `REVALIDAR_SECRETO` como `PROXY_SECRETO`. Que el dato cambie de verdad se comprueba a
+    mano (docs/DESPLIEGUE.md, «Si algo falla»).
 - **El navegador de los E2E se elige solo** (`E2E_NAVEGADOR=auto`): nativo si puede
   lanzarse, y si no, la imagen oficial de Playwright. En una máquina de trabajo
   `playwright install --with-deps` pide sudo; en CI no, y **bajar la imagen de 2 GB desde
