@@ -431,6 +431,57 @@ chequeos *up*), el log de arranque de la API sin avisos, y el tamaño de Postgre
 
 **Verifica:** `✓ Todo en orden.`
 
+## Después del lanzamiento
+
+Lo que queda pendiente a propósito: nada de esto bloquea abrir el sitio, pero cada
+punto tiene su momento. En orden.
+
+1. **Search Console: verificar el dominio y enviar el sitemap.**
+   *Cuándo:* el mismo día que se abre el dominio.
+   Agrega `tordo.cl` como propiedad de **dominio** (cubre `www` y `https`); Google pide un
+   registro TXT, que va en Cloudflare (DNS). Luego *Sitemaps* → `https://tordo.cl/sitemap.xml`.
+   **Verifica:** el sitemap aparece como «Correcto» con las URL descubiertas.
+   Sin esto no hay datos para los puntos 4 y 5.
+
+2. **Protección de rama de verdad.**
+   *Cuándo:* antes de que haya un segundo par de manos en el repo, o el primer susto.
+   `main` no tiene protección: GitHub la reserva a repos públicos o a cuentas Pro, y este
+   repo es privado en cuenta gratuita. Lo que hay es `make merge`, que es local y se puede
+   saltar (CLAUDE.md, «Ramas y worktrees»). Dos caminos:
+   - **GitHub Pro, ~US$4/mes**, y una regla sobre `main` que exija los checks de CI en verde.
+   - **Hacer público el repositorio**, que trae la protección gratis — es la decisión que la
+     spec deja para después del lanzamiento (§12). Si se toma, no hace falta Pro.
+
+3. **Las vulnerabilidades de desarrollo del frontend.**
+   *Cuándo:* en el primer mes, con calma; ninguna llega al sitio.
+   `npm audit --omit=dev` está en 0. Quedan 10 de **desarrollo** (8 altas, 2 moderadas),
+   todas atadas a un salto de versión mayor:
+   - **Tailwind 3 → 4**: arregla `braces`, `chokidar`, `micromatch`, `picomatch` y los dos de
+     `postcss-*`. Es una **migración**, no un parche: cambia la configuración
+     (`tailwind.config.js` pasa a CSS) y conviene revisarla pantalla por pantalla, con los
+     tokens de color y el contraste que exige CLAUDE.md.
+   - **`eslint-config-next`**: npm propone *bajarlo* a 14.2.35 para arreglar
+     `@next/eslint-plugin-next` y `fast-glob`. No tiene sentido con Next 16: se espera a que
+     la serie 16 publique el arreglo y se sube entonces.
+   **Verifica:** `make audit` sin vulnerabilidades del frontend.
+
+4. **¿Alguien usa el RSS? → resumen por correo (v2).**
+   *Cuándo:* tras ~2 meses de datos de Web Analytics.
+   Las PYMES usan poco RSS, y las alertas eran lo que más valoraba el producto anterior
+   (spec §7.1). Mira en Web Analytics las visitas a `/dashboard/guardados` (donde se copian
+   las URL de RSS) y a la ayuda del RSS, y en el uso de Vercel las peticiones a `/rss/*`. Si
+   hay demanda, la v2 añade un **resumen por correo con enlace mágico, sin contraseñas**; no
+   reabre el ADR 0011, pero una cuenta con contraseña sí. Si no la hay, se deja como está.
+
+5. **Promover las páginas comprador × rubro que la gente busca.**
+   *Cuándo:* cuando Search Console muestre impresiones, del orden de 2–3 meses después del
+   punto 1.
+   Hoy se indexan comprador, rubro y producto; las **42.163** combinaciones comprador × rubro
+   (9.534 con al menos 20 transacciones) no tienen página propia indexada (spec §7.2). En
+   *Rendimiento → Consultas*, busca las que mezclan un organismo con un rubro («aseo
+   municipalidad de …»): esas son las que conviene construir e indexar primero. Lo decide el
+   dato, no una lista: 42.000 páginas finas arrastrarían al dominio entero (D10).
+
 ## Si algo falla
 
 | síntoma | causa probable |
