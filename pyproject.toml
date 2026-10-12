@@ -62,9 +62,6 @@ api = [
     "asyncpg>=0.30,<1",
     "alembic>=1.14,<2",
     "greenlet>=3.1,<4",
-    # Tareas asíncronas
-    "celery>=5.4,<6",
-    "redis>=5.2,<7",
     # Observabilidad
     "sentry-sdk[fastapi]>=2.0.0,<3.0.0",
     "python-json-logger>=2.0.7,<4.0.0",
@@ -167,8 +164,6 @@ ignore = [
 "etl/analytics/run_all.py" = ["E402"]
 "etl/scripts/**" = ["E402"]
 "backend/scripts/**" = ["E402"]
-# Celery exige registrar las tareas después de construir la app.
-"backend/app/celery_app.py" = ["E402"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["app", "etl"]

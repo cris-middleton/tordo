@@ -126,14 +126,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-      redis:
-        image: redis:7-alpine
-        ports: ["6379:6379"]
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     steps:
       - uses: actions/checkout@v4
 
@@ -168,7 +160,6 @@ jobs:
         working-directory: backend
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tordo_test
-          REDIS_URL: redis://localhost:6379/0
         run: uv run --project .. pytest --cov=app --cov-report=term-missing
 
   # ───────────────────────────────────────────────────────────────────────────
@@ -242,8 +233,18 @@ jobs:
 
       # Sin `NEXT_PUBLIC_API_URL`: desapareció al pasar el tráfico por
       # /api/proxy. La URL del backend es de servidor (`API_URL`).
+      #
+      # Se construye con un CENTINELA en `PROXY_SECRETO` para buscarlo después
+      # en lo que se sirve al navegador (Foco de revisión nº 2 del pivote).
       - name: Build
+        env:
+          PROXY_SECRETO: centinela-proxy-secreto-no-debe-llegar-al-navegador
         run: npm run build
+
+      - name: El secreto del proxy no está en el bundle
+        env:
+          PROXY_SECRETO: centinela-proxy-secreto-no-debe-llegar-al-navegador
+        run: npm run check:secreto
 
   # ───────────────────────────────────────────────────────────────────────────
   e2e:

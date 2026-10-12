@@ -25,22 +25,6 @@ services:
     networks:
       - licitaciones_network
 
-  # Redis Cache/Queue
-  redis:
-    image: redis:7-alpine
-    container_name: tordo_redis
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - licitaciones_network
-
   # Backend API
   backend:
     build:
@@ -51,7 +35,6 @@ services:
       - "${BACKEND_PORT:-8000}:8000"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-licitaciones}
-      REDIS_URL: redis://redis:6379/0
       DEBUG: ${DEBUG:-false}
       ENVIRONMENT: ${ENVIRONMENT:-development}
       SENTRY_DSN: ${SENTRY_DSN:-}
@@ -60,6 +43,10 @@ services:
       # Lista blanca de `Host` del MCP (protección contra DNS rebinding). En
       # producción tiene que llevar el dominio público.
       MCP_HOSTS_PERMITIDOS: ${MCP_HOSTS_PERMITIDOS:-localhost,127.0.0.1}
+      # Límite por IP (app/core/limite_ip.py). El secreto va también en el
+      # servicio `frontend`, y SIN valor por defecto: es una credencial.
+      LIMITE_POR_MINUTO: ${LIMITE_POR_MINUTO:-60}
+      PROXY_SECRETO: ${PROXY_SECRETO:-}
       FEATURE_ANALYTICS: ${FEATURE_ANALYTICS:-true}
       FEATURE_TFIDF: ${FEATURE_TFIDF:-true}
       # Dónde están los artefactos del modelo TF-IDF que produce el ETL. Sin
@@ -74,9 +61,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      redis:
-        condition: service_healthy
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --no-proxy-headers
     networks:
       - licitaciones_network
     healthcheck:
@@ -84,105 +69,6 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-
-  # Celery Worker
-  celery_worker:
-    build:
-      context: ..
-      dockerfile: backend/Dockerfile
-      args:
-        # Este worker lanza el ETL como subproceso: necesita sus dependencias
-        # (pandas, numpy, pytz, structlog). La API no las lleva a propósito.
-        UV_GROUPS: "--group api --group etl"
-    container_name: tordo_celery_worker
-    environment:
-      # Vacío = logs a stdout (etl/main.py usa StreamHandler). Escribir
-      # etl.log dentro del repo no sirve en contenedores.
-      LOG_FILE: ""
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-licitaciones}
-      REDIS_URL: redis://redis:6379/0
-      DEBUG: ${DEBUG:-false}
-      ENVIRONMENT: ${ENVIRONMENT:-development}
-      SENTRY_DSN: ${SENTRY_DSN:-}
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      LOG_JSON: ${LOG_JSON:-false}
-      # El worker lanza el ETL como subproceso con su `os.environ`: el ticket
-      # tiene que estar aquí aunque la API ya no lo use.
-      MERCADO_PUBLICO_TICKET: ${MERCADO_PUBLICO_TICKET:-}
-      FEATURE_ANALYTICS: ${FEATURE_ANALYTICS:-true}
-      FEATURE_TFIDF: ${FEATURE_TFIDF:-true}
-      ANALYTICS_DATA_PATH: /workspace/etl/data/analytics
-    volumes:
-      - ../backend:/app
-      - /app/__pycache__
-      # Lectura Y ESCRITURA: la tarea run_bulk_semanal descarga ZIPs y genera
-      # parquets bajo etl/data. Con `:ro` fallaba con OSError read-only, así
-      # que el bulk semanal nunca pudo funcionar en Docker.
-      - ..:/workspace
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    command: celery -A app.celery_app worker --loglevel=info --concurrency=4
-    healthcheck:
-      test: ["CMD", "celery", "-A", "app.celery_app", "inspect", "active", "--timeout=5"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    networks:
-      - licitaciones_network
-
-  # Celery Beat (Scheduler)
-  celery_beat:
-    build:
-      context: ..
-      dockerfile: backend/Dockerfile
-    container_name: tordo_celery_beat
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-licitaciones}
-      REDIS_URL: redis://redis:6379/0
-      DEBUG: ${DEBUG:-false}
-      ENVIRONMENT: ${ENVIRONMENT:-development}
-      SENTRY_DSN: ${SENTRY_DSN:-}
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      LOG_JSON: ${LOG_JSON:-false}
-    volumes:
-      - ../backend:/app
-      - /app/__pycache__
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    command: celery -A app.celery_app beat --loglevel=info
-    healthcheck:
-      test: ["CMD-SHELL", "pgrep -f 'celery.*beat' > /dev/null"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    networks:
-      - licitaciones_network
-
-  # Flower — Celery task monitoring UI
-  flower:
-    image: mher/flower:2.0.0
-    container_name: tordo_flower
-    command: celery --broker=redis://redis:6379/0 flower --port=5555
-    ports:
-      - "${FLOWER_PORT:-5555}:5555"
-    environment:
-      CELERY_BROKER_URL: redis://redis:6379/0
-    depends_on:
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5555/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    networks:
-      - licitaciones_network
 
   # ETL Service
   etl:
@@ -195,7 +81,6 @@ services:
       # etl.log dentro del repo no sirve en contenedores.
       LOG_FILE: ""
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-licitaciones}
-      REDIS_URL: redis://redis:6379/0
       LOG_LEVEL: ${ETL_LOG_LEVEL:-INFO}
       ETL_SCHEDULE_INTERVAL: ${ETL_SCHEDULE_INTERVAL:-3600}
       CHILECOMPRA_API_URL: ${CHILECOMPRA_API_URL:-}
@@ -214,8 +99,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      redis:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
       interval: 60s
@@ -223,8 +106,10 @@ services:
       retries: 3
     networks:
       - licitaciones_network
-    # Uncomment to run ETL on a schedule
-    # command: python -m schedule main.py
+    # No hay programador en local: lo que en Railway hacen los dos cron se corre
+    # a mano (ver `etl/cron.py`):
+    #   docker compose run --rm etl python -m etl.cron frecuente --forzar
+    #   docker compose run --rm etl python -m etl.cron semanal
 
   # Frontend (Next.js)
   frontend:
@@ -245,6 +130,8 @@ services:
       # Nombre interno de Docker: ahora es correcto porque quien resuelve esta
       # URL es el servidor de Next, no el navegador.
       API_URL: ${API_URL:-http://backend:8000}
+      # De SERVIDOR: con prefijo NEXT_PUBLIC_ acabaría en el bundle del navegador.
+      PROXY_SECRETO: ${PROXY_SECRETO:-}
     depends_on:
       - backend
     networks:
@@ -252,8 +139,6 @@ services:
 
 volumes:
   postgres_data:
-    driver: local
-  redis_data:
     driver: local
 
 networks:

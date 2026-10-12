@@ -1,7 +1,7 @@
 import logging
+import os
 import uuid
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,6 +12,7 @@ from starlette.requests import Request
 from app.api import bi, health, tenders
 from app.api.documentacion import DESCRIPCION, ETIQUETAS
 from app.config import settings
+from app.core.limite_ip import LimitadorEnMemoria, LimitePorIPMiddleware, avisos_de_configuracion
 from app.core.versionado import PREFIJO_API
 from app.mcp.servidor import aplicacion as aplicacion_mcp
 from app.mcp.servidor import servidor as servidor_mcp
@@ -27,6 +28,14 @@ setup_sentry(
 )
 
 logger = logging.getLogger(__name__)
+
+for _aviso in avisos_de_configuracion(
+    entorno=settings.environment,
+    secreto=settings.proxy_secreto,
+    confiar_xff=settings.confiar_x_forwarded_for,
+    workers=os.environ.get("WEB_CONCURRENCY"),
+):
+    logger.warning(_aviso)
 
 
 @asynccontextmanager
@@ -54,6 +63,23 @@ app = FastAPI(
     openapi_tags=ETIQUETAS,
 )
 
+# Límite por IP sobre `/api/v1/*` y `/mcp`, en memoria (`app/core/limite_ip.py`,
+# donde está el modelo de confianza). Se añade ANTES que CORS para quedar por
+# dentro: así un 429 sale con sus cabeceras CORS, y un preflight lo contesta
+# CORS sin gastar cupo.
+#
+# El prefijo se compone con `PREFIJO_API` y no se escribe a mano. Con la ruta
+# literal, versionar la API dejó al limitador anterior sin coincidir con nada —
+# y no falla: simplemente deja de limitar, en silencio.
+limitador_ip = LimitadorEnMemoria(settings.limite_por_minuto)
+app.add_middleware(
+    LimitePorIPMiddleware,
+    limitador=limitador_ip,
+    prefijo_api=PREFIJO_API,
+    secreto=settings.proxy_secreto,
+    confiar_xff=settings.confiar_x_forwarded_for,
+)
+
 # CORS middleware. Sin credenciales: desde el pivote público no hay sesión ni
 # cookie que mandar, y quien habla con el backend es el servidor de Next.
 app.add_middleware(
@@ -63,50 +89,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-class BIRateLimitMiddleware(BaseHTTPMiddleware):
-    """60 peticiones por minuto y por IP sobre los endpoints de BI.
-
-    Falla abierto si Redis no responde: quedarse sin límite es peor que quedarse
-    sin BI.
-
-    El prefijo se compone con `PREFIJO_API` y no se escribe a mano. Con la ruta
-    literal, versionar la API dejó este middleware sin coincidir con nada — y no
-    falla: simplemente deja de limitar, en silencio, los 22 endpoints más caros
-    del producto.
-    """
-
-    RUTA_BI = f"{PREFIJO_API}/bi/"
-
-    async def dispatch(self, request: Request, call_next):
-        if not request.url.path.startswith(self.RUTA_BI):
-            return await call_next(request)
-
-        ip = (request.client.host if request.client else None) or "unknown"
-        minute = datetime.now(UTC).strftime("%Y%m%d%H%M")
-        key = f"rl:bi:{ip}:{minute}"
-
-        try:
-            import redis as _redis
-
-            r = _redis.from_url(settings.redis_url, decode_responses=True, socket_connect_timeout=1)
-            count = r.incr(key)
-            if count == 1:
-                r.expire(key, 60)
-            if count > 60:
-                return JSONResponse(
-                    status_code=429,
-                    content={"detail": "Demasiadas solicitudes. Intenta de nuevo en un minuto."},
-                    headers={"Retry-After": "60"},
-                )
-        except Exception as exc:
-            logger.warning("BIRateLimitMiddleware Redis error: %s", exc)
-
-        return await call_next(request)
-
-
-app.add_middleware(BIRateLimitMiddleware)
 
 
 class RequestIDMiddleware(BaseHTTPMiddleware):

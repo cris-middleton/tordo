@@ -32,7 +32,6 @@ etl/data
 !.env.example
 **/.env
 **/.env.local
-backend/celerybeat-schedule*
 .claude
 
 # Documentación

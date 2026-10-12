@@ -78,8 +78,10 @@ que mirar aparte. Los errores traen `{{"detail": "..."}}`.
 
 ## Límites de uso
 
-Los endpoints de **BI** se limitan **por IP y por minuto**. Al pasarse, la
-respuesta es **429** con `Retry-After: 60`.
+Todo `/api/v1/*` y el MCP se limitan **por IP y por minuto** (60). Cada
+respuesta lleva `X-RateLimit-Limit`, `X-RateLimit-Remaining` y
+`X-RateLimit-Reset` (segundos) también cuando se deja pasar; al pasarse, la
+respuesta es **429** con `Retry-After` en segundos.
 
 ## Servidor MCP
 

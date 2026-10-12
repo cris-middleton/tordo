@@ -167,6 +167,17 @@ class Licitacion(Base):
     fecha_extraccion = Column(DateTime(timezone=True), server_default=func.now())
     fecha_actualizacion = Column(DateTime(timezone=True), onupdate=func.now())
     activo = Column(Boolean, default=True)
+    # Lo escribe SÓLO la re-consulta de resultados del cron (`etl/cron.py`):
+    # sin ella, las cerradas que la API devuelve sin cambios se pedirían todos
+    # los días y el tope diario nunca llegaría a las demás.
+    resultado_consultado_en = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment=(
+            "Última vez que el cron re-consultó la licitación ya cerrada buscando su "
+            "adjudicación. NULL = nunca. Rota la cola de la re-consulta."
+        ),
+    )
 
     # Relationships to detailed info and history
     detalle = relationship(

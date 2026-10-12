@@ -12,7 +12,6 @@ from app.models.reference import (
     TipoOrdenCompraRef,
     UnidadMonetariaRef,
 )
-from app.models.task_failure import TaskFailure
 
 __all__ = [
     "Base",
@@ -28,5 +27,4 @@ __all__ = [
     "UnidadMonetariaRef",
     "TipoDespachoRef",
     "FormaPagoRef",
-    "TaskFailure",
 ]

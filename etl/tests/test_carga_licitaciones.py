@@ -14,11 +14,6 @@ cargar la primera Compra Ágil, que pasa por el mismo camino.
 
 Estos tests son la red que faltaba, y sólo valen contra Postgres: una columna
 generada no existe en ninguna otra cosa.
-
-Tardan más de lo que parece razonable, y es a propósito que se diga: cada carga
-publica una tarea Celery por registro nuevo, y **con el broker caído cada
-publicación cuesta ~6 s**. En CI y en producción Redis está arriba y es
-instantáneo; en una máquina sin Redis, este fichero tarda minutos.
 """
 
 from __future__ import annotations

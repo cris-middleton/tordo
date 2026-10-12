@@ -190,7 +190,9 @@ correr "npm ci en linux/amd64 (contenedor)" bash -c '
 if [ -d frontend/node_modules ]; then
   correr "npm run lint"  bash -c 'cd frontend && npm run lint'
   correr "npm test"      bash -c 'cd frontend && npm test -- --run'
-  correr "npm run build" bash -c 'cd frontend && npm run build'
+  # Con un centinela en PROXY_SECRETO, que luego se busca en el bundle.
+  correr "npm run build" bash -c 'cd frontend && PROXY_SECRETO=centinela-proxy-secreto-no-debe-llegar-al-navegador npm run build'
+  correr "secreto fuera del bundle" bash -c 'cd frontend && PROXY_SECRETO=centinela-proxy-secreto-no-debe-llegar-al-navegador npm run check:secreto'
 else
   malo "frontend/node_modules no existe — corre 'cd frontend && npm ci'"
 fi

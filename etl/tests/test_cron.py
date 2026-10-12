@@ -143,6 +143,7 @@ def _pasos_frecuente(registro):
         licitaciones=registro.paso("licitaciones"),
         detalles_nuevos=registro.paso("detalles_nuevos"),
         barrido=registro.paso("barrido"),
+        resultados=registro.paso("resultados"),
     )
 
 
@@ -155,11 +156,51 @@ def test_frecuente_corre_compra_agil_primero():
     assert r.llamadas[1] == ("licitaciones", "2026-07-14")
 
 
-def test_la_primera_del_dia_barre_el_dia_anterior():
+def test_la_primera_del_dia_barre_el_dia_anterior_y_reconsulta_resultados():
     r = _Registro()
     cron.correr_frecuente(_chile("2026-07-13T10:00:00"), _pasos_frecuente(r))
-    assert r.nombres()[-1] == "barrido"
-    assert r.llamadas[-1] == ("barrido", "2026-07-12")
+    # Compra Ágil sigue siendo lo primero; los resultados, lo último.
+    assert r.nombres() == [
+        "compra_agil",
+        "licitaciones",
+        "detalles_nuevos",
+        "barrido",
+        "resultados",
+    ]
+    assert ("barrido", "2026-07-12") in r.llamadas
+
+
+@pytest.mark.parametrize("hora", ["13:00", "16:00", "19:00"])
+def test_resultados_solo_en_la_primera_del_dia(hora):
+    """El tope es diario: correrlo en cada pasada lo multiplicaría por cuatro."""
+    r = _Registro()
+    cron.correr_frecuente(_chile(f"2026-07-13T{hora}:00"), _pasos_frecuente(r))
+    assert "resultados" not in r.nombres()
+
+
+def test_resultados_en_la_primera_del_fin_de_semana():
+    r = _Registro()
+    cron.correr_frecuente(_chile("2026-07-12T12:00:00"), _pasos_frecuente(r))  # domingo
+    assert r.nombres()[-1] == "resultados"
+
+
+def test_los_pasos_reales_reconsultan_con_ventana_y_tope(monkeypatch):
+    """Lo que se cablea en producción: la ventana y el tope diario declarados."""
+    recibido = {}
+
+    def falso(**kwargs):
+        recibido.update(kwargs)
+        return True
+
+    monkeypatch.setattr(cron.etl, "run_etl_resultados_licitaciones", falso)
+    assert cron.PasosFrecuente.reales().resultados() is True
+    assert recibido == {
+        "dias": cron.DIAS_RESULTADOS,
+        "limite": cron.TOPE_RESULTADOS_DIARIO,
+        "reintento": cron.REINTENTO_RESULTADOS,
+    }
+    # Contra la cuota de la API clásica (10.000 al día): margen de sobra.
+    assert cron.TOPE_RESULTADOS_DIARIO <= 1000
 
 
 def test_un_paso_fallido_no_corta_los_demas_pero_falla_la_corrida():
@@ -377,7 +418,7 @@ def _etl_sin_cuota(monkeypatch):
 
 @pytest.mark.parametrize("listado_agota", [True, False], ids=["listado", "detalles"])
 def test_sin_cuota_el_etl_de_siempre_lo_da_por_bueno(_etl_sin_cuota, listado_agota):
-    """`--horario` (Celery) no cambia: allí la cuota agotada es sólo un aviso."""
+    """`--horario` (a mano, por CLI) no cambia: allí la cuota agotada es sólo un aviso."""
     _etl_sin_cuota(listado_agota=listado_agota)
     assert etl_main.run_etl_compra_agil() is True
 
@@ -400,6 +441,7 @@ def test_sin_cuota_el_latido_manda_fail_con_el_motivo(_etl_sin_cuota):
         licitaciones=r.paso("licitaciones"),
         detalles_nuevos=r.paso("detalles_nuevos"),
         barrido=r.paso("barrido"),
+        resultados=r.paso("resultados"),
     )
     transporte = _Transporte()
     codigo = cron.ejecutar(

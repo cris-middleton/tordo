@@ -18,7 +18,7 @@ Sitio público y gratuito de inteligencia sobre las compras del Estado chileno: 
 
 ```
 tordo/
-├── backend/          # FastAPI + SQLAlchemy + Celery
+├── backend/          # FastAPI + SQLAlchemy (API de sólo lectura + MCP)
 ├── frontend/         # Next.js 16 (App Router) + Tailwind CSS
 ├── etl/              # Pipeline de extracción (Mercado Público, estado hábil)
 ├── infra/            # Docker Compose
@@ -79,7 +79,6 @@ tordo/
    | Servidor MCP | http://localhost:8000/mcp/ |
    | Frontend | http://localhost:3000 |
    | PostgreSQL | localhost:5432 |
-   | Redis | localhost:6379 |
 
    > **El navegador no habla con el backend.** Todo pasa por `/api/proxy` del servidor de
    > Next, que sólo reenvía (no hay sesión). Por eso la URL del backend es
@@ -158,11 +157,11 @@ uv run --project .. python main.py
 | **backend** | API REST FastAPI |
 | **frontend** | Aplicación Next.js |
 | **etl** | Pipeline de extracción de datos |
-| **celery_worker** | Corre el ETL programado (horario, diario, bulk semanal) |
-| **celery_beat** | Programador de tareas periódicas |
 | **db** | PostgreSQL 15 |
-| **redis** | Cola de tareas y caché |
-| **flower** | Monitoreo de tareas Celery |
+
+> **No hay programador en local.** En Railway las corridas las disparan dos cron
+> (`python -m etl.cron frecuente` cada hora, `semanal` el domingo — ver `etl/cron.py`).
+> En local se lanzan a mano: `uv run python -m etl.cron frecuente --forzar`.
 
 > Las imágenes de backend y ETL se construyen con **contexto en la raíz del repo**
 > (ahí viven `pyproject.toml` y `uv.lock`), no dentro de `backend/` o `etl/`.
@@ -192,7 +191,7 @@ make test-cov      # backend con cobertura
 ```
 
 `test_readiness_check` necesita una base de datos real: se salta en local si el
-stack no está levantado, y es obligatorio en CI (que provisiona Postgres y Redis).
+stack no está levantado, y es obligatorio en CI (que provisiona Postgres).
 
 ## CI
 
@@ -206,7 +205,7 @@ y construcción de ambas imágenes Docker.
 Ver `.env.example` para la lista completa. Variables críticas:
 
 - `DATABASE_URL` — Conexión PostgreSQL
-- `REDIS_URL` — Cola Celery
+- `PROXY_SECRETO` — secreto compartido entre el servidor de Next y la API (límite por IP)
 - `MERCADO_PUBLICO_TICKET` — API ChileCompra (ticket demo incluido en .env.example)
 - `APP_NAME` — Nombre de la aplicación (`TORDO`)
 

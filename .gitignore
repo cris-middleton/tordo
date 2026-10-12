@@ -87,11 +87,6 @@ etl/data/
 
 .DS_Store
 
-# Celery runtime state
-celerybeat-schedule
-celerybeat-schedule.*
-celerybeat.pid
-
 # Git worktrees
 .worktrees/
 

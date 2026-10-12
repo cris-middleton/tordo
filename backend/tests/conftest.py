@@ -39,12 +39,10 @@ from pathlib import Path
 import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import sessionmaker
 
 from app.db import get_db
-from app.main import app
+from app.main import app, limitador_ip
 
 IN_CI = os.getenv("CI", "").lower() in ("1", "true")
 BACKEND = Path(__file__).resolve().parents[1]
@@ -130,40 +128,17 @@ async def async_db(esquema_migrado) -> AsyncSession:
         await engine.dispose()
 
 
-@pytest.fixture
-def sync_task_db(esquema_migrado):
-    """Sesión síncrona sobre una transacción que se revierte al terminar.
+@pytest.fixture(autouse=True)
+def _limite_por_ip_limpio():
+    """Cada test empieza con los contadores del límite por IP a cero.
 
-    Para las tareas que usan `SyncSessionLocal` (Celery): el
-    esquema async normal (`async_db`) corre en otra conexión/driver
-    (asyncpg vs. psycopg2), así que una fixture creada ahí no es visible
-    desde una sesión síncrona aparte. Ésta da una conexión síncrona real
-    para que el código bajo prueba, con su `SyncSessionLocal` inyectado por
-    `monkeypatch`, vea las filas que el test acaba de sembrar.
+    Viven en memoria del proceso (`app/core/limite_ip.py`) y todos los tests
+    llaman desde la misma IP: sin esto, el test número 61 de un mismo minuto
+    recibiría un 429 que no tiene nada que ver con lo que comprueba.
     """
-    url = esquema_migrado.replace("postgresql+asyncpg://", "postgresql://", 1)
-    engine = create_engine(url, future=True)
-    conexion = engine.connect()
-    transaccion = conexion.begin()
-    # `create_savepoint`: el código bajo prueba hace su propio `commit()` (y a
-    # veces `rollback()`), y sin esto ese commit/rollback afectaría a la
-    # transacción del PROPIO test —incluidas las filas que acaba de sembrar—.
-    # Con savepoints, cada commit/rollback del código bajo prueba queda
-    # contenido, que es lo que se quiere comprobar.
-    SyncSessionMaker = sessionmaker(
-        autocommit=False,
-        autoflush=False,
-        bind=conexion,
-        join_transaction_mode="create_savepoint",
-    )
-    session = SyncSessionMaker()
-    try:
-        yield session, SyncSessionMaker
-    finally:
-        session.close()
-        transaccion.rollback()
-        conexion.close()
-        engine.dispose()
+    limitador_ip.reiniciar()
+    yield
+    limitador_ip.reiniciar()
 
 
 @pytest.fixture

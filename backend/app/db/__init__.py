@@ -3,7 +3,7 @@ Database session management.
 
 Exports:
   AsyncSessionLocal, async_engine, get_db   — for FastAPI routes (asyncpg)
-  SyncSessionLocal,  sync_engine,  get_sync_db — for Celery tasks (psycopg2)
+  sync_engine                                — for sync analytics reads (psycopg2)
   Base                                       — shared declarative base
 """
 
@@ -13,7 +13,7 @@ from typing import AsyncGenerator
 
 from sqlalchemy import MetaData, create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.orm import DeclarativeBase
 
 from app.config import settings
 
@@ -60,7 +60,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 
-# ── Sync engine (Celery tasks / psycopg2) ───────────────────
+# ── Sync engine (repositories/analytics_sync.py / psycopg2) ─
 # Uses DATABASE_URL_SYNC when set, otherwise strips the +asyncpg driver prefix.
 
 
@@ -79,14 +79,3 @@ sync_engine = create_engine(
     pool_size=5,
     max_overflow=10,
 )
-
-SyncSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=sync_engine)
-
-
-def get_sync_db():
-    """Sync dependency for Celery tasks."""
-    db = SyncSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()

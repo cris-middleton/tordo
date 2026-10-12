@@ -26,8 +26,14 @@ class Settings(BaseSettings):
     database_url_sync: str | None = None
     database_echo: bool = False
 
-    # Redis settings
-    redis_url: str = "redis://redis:6379/0"
+    # Límite por IP sobre /api/v1 y /mcp, en memoria (ver app/core/limite_ip.py).
+    limite_por_minuto: int = 60
+    # Secreto compartido con el servidor de Next. Es una credencial: SIN valor
+    # por defecto. Vacío, la API no exime ni cree a nadie (falla cerrada para la
+    # confianza) y avisa al arrancar en producción.
+    proxy_secreto: str | None = None
+    # Sólo detrás de un borde que REESCRIBE X-Forwarded-For (Railway).
+    confiar_x_forwarded_for: bool = False
 
     # CORS settings
     cors_origins: List[str] | str = ["http://localhost:3000", "http://localhost:3001"]

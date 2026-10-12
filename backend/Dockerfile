@@ -1,4 +1,4 @@
-# Backend API (FastAPI) — también usada por celery_worker y celery_beat.
+# Backend API (FastAPI).
 #
 # IMPORTANTE: el contexto de build es la RAÍZ del repo, no backend/, porque
 # pyproject.toml y uv.lock viven en la raíz.
@@ -32,16 +32,10 @@ ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
 # mientras el código cambia.
 #
 # La API sólo necesita el grupo `api` (sin pandas/numpy/bs4: imagen más chica).
-# Pero el celery_worker lanza el ETL como subproceso, y ése sí necesita el grupo
-# `etl`. Por eso los grupos son un build arg en vez de estar fijos: en compose,
-# celery_worker construye con ambos.
-#
-# Sin esto el worker revienta con ModuleNotFoundError (pytz, pandas...) en cuanto
-# corre la tarea horaria, y el ETL deja de funcionar en silencio.
-ARG UV_GROUPS="--group api"
+# El ETL y los cron tienen su propia imagen (etl/Dockerfile).
 WORKDIR /deps
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-default-groups ${UV_GROUPS}
+RUN uv sync --frozen --no-default-groups --group api
 
 # Código de la aplicación
 WORKDIR /app
@@ -70,5 +64,11 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # modelo se cargó 14 veces para 4 workers.
 #
 # Subir la concurrencia se hace por `WEB_CONCURRENCY`, y exige 1 GB. Con 512 MB
-# el techo son 2.
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers ${WEB_CONCURRENCY:-1}"]
+# el techo son 2. Y además multiplica el límite por IP, que vive en memoria de
+# cada proceso (`app/core/limite_ip.py`): con N workers, N cubos por IP.
+#
+# `--no-proxy-headers`: de qué IP viene una petición lo decide
+# `app/core/limite_ip.py`, con su modelo de confianza escrito. Uvicorn por su
+# cuenta reescribe `client` desde X-Forwarded-For si la conexión llega de
+# 127.0.0.1, y serían dos reglas distintas para la misma pregunta.
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers ${WEB_CONCURRENCY:-1} --no-proxy-headers"]

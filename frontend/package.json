@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "vitest"
+    "test": "vitest",
+    "check:secreto": "node scripts/secreto-fuera-del-bundle.mjs"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.69.0",

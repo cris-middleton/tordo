@@ -16,7 +16,7 @@ from contextvars import ContextVar
 
 from pythonjsonlogger import jsonlogger
 
-# El middleware lo setea por petición; las tareas de Celery pueden setearlo por job.
+# El middleware lo setea por petición.
 request_id_ctx: ContextVar[str | None] = ContextVar("request_id", default=None)
 
 

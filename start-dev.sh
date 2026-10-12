@@ -9,8 +9,8 @@ echo "🚀 Iniciando entorno de desarrollo..."
 cd "$(dirname "$0")/infra" || exit
 
 # Iniciar servicios de Docker (sin frontend)
-echo "📦 Iniciando servicios Docker (DB, Redis, Backend)..."
-docker-compose up -d db redis backend
+echo "📦 Iniciando servicios Docker (DB, Backend)..."
+docker-compose up -d db backend
 
 # Esperar a que el backend esté listo
 echo "⏳ Esperando a que el backend esté listo..."
@@ -40,4 +40,3 @@ echo "Presiona Ctrl+C para detener todo"
 
 # Iniciar el frontend
 npm run dev
-

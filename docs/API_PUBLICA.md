@@ -41,15 +41,25 @@ según el plan. Se fueron con las cuentas.
 
 ## Límites
 
-Los endpoints de **BI** (`/api/v1/bi/*`) se limitan **por IP y por minuto**: 60
-peticiones. Al pasarse, la respuesta es **429** con `Retry-After: 60`.
+Toda la superficie pública —`/api/v1/*` y el MCP (`/mcp/`)— se limita **por IP y
+por minuto**: 60 peticiones en una ventana fija de un minuto. `/health` y `/docs`
+no cuentan.
 
-**Si Redis no responde, se deja pasar.** Quedarse sin límite un rato es peor que
-quedarse sin BI.
+Cada respuesta limitada lleva, **también cuando se deja pasar**:
 
-El catálogo (`/api/v1/tenders`) y el MCP (`/mcp/`) **no tienen límite todavía**.
-Es aceptable mientras producción está pausada; el paso 5 del pivote extiende el
-límite a toda la superficie pública.
+| cabecera | qué es |
+|---|---|
+| `X-RateLimit-Limit` | peticiones por minuto |
+| `X-RateLimit-Remaining` | las que quedan en este minuto |
+| `X-RateLimit-Reset` | segundos hasta que empieza el minuto siguiente |
+
+Al pasarse, la respuesta es **429** con `Retry-After` en segundos (lo que falta para
+el minuto siguiente). Un cliente bien hecho mira `X-RateLimit-Remaining` y no llega
+al 429.
+
+Un cliente IPv6 cuenta por su /64. El límite vive en memoria de la API, que corre un
+solo proceso; los detalles y el modelo de confianza sobre la IP están en
+`backend/app/core/limite_ip.py`.
 
 ## Versionado
 

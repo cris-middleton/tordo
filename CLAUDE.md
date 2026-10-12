@@ -251,8 +251,8 @@ ni Notion, ni Sentry, ni GCP.
 manifest-first sobre el repo `infra`) · `drd`, `crear-proyecto` (Notion de otra empresa) ·
 `setup` (instala el toolkit de otra empresa).
 
-TORDO usa su propio Sentry (`SENTRY_DSN`), su propio Celery beat en vez de Cloud Scheduler,
-y no tiene Pub/Sub ni Cloud Tasks.
+TORDO usa su propio Sentry (`SENTRY_DSN`), dos cron de Railway (`etl/cron.py`) en vez de
+Cloud Scheduler, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
 
 ### Frontend
 - **No hay sesión en el navegador, y es deliberado (pivote público).** Todo el tráfico va
@@ -263,10 +263,18 @@ y no tiene Pub/Sub ni Cloud Tasks.
   lo fija.
   - **La URL del backend es `API_URL`, de SERVIDOR.** Cualquier variable `NEXT_PUBLIC_*` se
     inlinea en el bundle.
-  - **El proxy NO reenvía todavía la IP del visitante**: el backend ve a todo el sitio como
-    una sola IP. Lo corrige el paso 5 del pivote (`docs/PIVOTE_PUBLICO_2026-10.md`), con la
-    cabecera secreta de §7.4.
-  - El proxy devuelve `Content-Disposition`: sin ella cada CSV se descargaba con el nombre
+  - **El proxy le dice al backend quién es el visitante** (`lib/backendServidor.ts`):
+    `X-Tordo-Visitante` con la IP que da la plataforma y `X-Tordo-Proxy` con `PROXY_SECRETO`.
+    Sin eso el límite por IP del backend contaba a todo el sitio como UN cliente. **Una
+    cabecera propia y no `X-Forwarded-For`**: el borde de Railway la reescribe, y lo que
+    mandara el proxy no llegaría. Sin IP manda `desconocido`, no nada — sin visitante, el
+    backend lo tomaría por un renderizado del servidor y lo eximiría.
+    `__tests__/proxy-ip-visitante.test.ts` lo fija.
+  - **`PROXY_SECRETO` es de SERVIDOR y no puede llegar al navegador.** CI construye con un
+    centinela y `npm run check:secreto` lo busca en `.next/static` y en las páginas
+    prerenderizadas (comprobado que salta si se filtra por el `env` de `next.config`). El
+    módulo que lo lee no se importa desde un componente cliente.
+  - El proxy devuelve `Content-Disposition` y las cabeceras del límite: sin la primera cada CSV se descargaba con el nombre
     genérico.
 - **No hay planes, candados ni 402 en el frontend.** Todo lo que el producto calcula se ve
   entero, sin cuenta. Si un día vuelve algo de pago, el límite vive en el backend y llega por
@@ -376,18 +384,25 @@ ETL — **desde la raíz**, como módulo (`cd etl && python main.py` falla con
 ```bash
 uv run python -m etl.cron frecuente [--forzar] # cron de Railway, cada hora UTC (se autolimita)
 uv run python -m etl.cron semanal              # cron de Railway: descarga masiva + analytics + materializa
-uv run python -m etl.main --horario            # lo que corre cada hora (Celery, hasta retirarlo)
+uv run python -m etl.main --horario            # una pasada «horaria» a mano
 uv run python -m etl.main --fecha-desde 2026-09-01 --fecha-hasta 2026-09-01
 uv run python -m etl.analytics.run_all [--modulo seasonality]
 cd etl && uv run --project .. python -m analytics.evaluation --model tfidf_matcher --walk-forward
 ```
 
-**`etl.cron` sustituye a las tareas de ETL de Celery** (paso 5 del pivote,
-`docs/PIVOTE_PUBLICO_2026-10.md` §3.1). `frecuente` se dispara **cada hora en UTC** y
+**`etl.cron` es el único programador.** Celery, Redis y Flower se retiraron en el paso 5 del
+pivote (`docs/PIVOTE_PUBLICO_2026-10.md` §3.1), con la tabla `task_failures`: el watchdog
+que la leía lo sustituye el latido. En local no hay programador; los cron se lanzan a mano. `frecuente` se dispara **cada hora en UTC** y
 decide él si le toca —10, 13, 16 y 19 h de Santiago entre semana, 12 h el fin de semana—
 porque Chile cambia de hora y Railway no. Corre en proceso, sin `subprocess`. La ventana
 de Compra Ágil va desde la corrida **programada** anterior menos 1 h; la primera del día
-mira 26 h atrás y barre además el día anterior, como hacía la diaria de las 02:00. Latido
+mira 26 h atrás y barre además el día anterior, como hacía la diaria de las 02:00.
+**La primera del día re-consulta además los resultados** de las licitaciones cerradas en los
+últimos 30 días sin adjudicación (tope 500/día, el 5 % de la cuota de la API clásica; ni
+desiertas, ni revocadas, ni Compra Ágil). Sin esto la adjudicación sólo se llenaba si
+aparecía con el llamado aún publicado. `licitaciones.resultado_consultado_en` rota la cola:
+una preguntada no vuelve en 3 días aunque no haya novedad, o el tope nunca llegaría a las
+demás. Va **después** del listado de Compra Ágil, como todo lo que gasta cuota. Latido
 a Healthchecks.io con `LATIDO_URL_FRECUENTE` / `LATIDO_URL_SEMANAL`; un ping roto no
 tumba la corrida.
 
@@ -415,12 +430,12 @@ dominio, y la regla sigue.
 
 Una excepción, con su motivo en el test: `health.py` (`SELECT 1` no es una consulta de dominio).
 
-**Los `__init__.py` de `api/`, `core/`, `services/`, `tasks/` y `utils/` están vacíos a
+**Los `__init__.py` de `api/`, `core/`, `services/` y `utils/` están vacíos a
 propósito, y los de `models/` y `schemas/` sólo re-exportan lo que existe.** Importar ahí los
 routers convertía cualquier `from app.api.x import ...` en «importa la aplicación entera», y
 de ahí salió una importación circular. Peor: **dependía del orden de importación**, así que CI
 estaba en verde mientras un script de operaciones no arrancaba. Y un `__init__` que importa
-un módulo borrado rompe todo lo que cuelga del paquete — el BI, el MCP, Celery y el ETL.
+un módulo borrado rompe todo lo que cuelga del paquete — el BI, el MCP y el ETL.
 `tests/test_modulos_importables.py` importa cada módulo en un proceso limpio para que no
 vuelva a pasar.
 
@@ -431,13 +446,12 @@ services/       Lógica de negocio como funciones de módulo: bi/, tfidf_matcher
                 services/bi/ está partido por dominio (precio, competencia,
                 comprador, oportunidad, temporal, mercado, panel, rubro), con
                 _base.py como único punto de acceso a las tablas de analytics.
-core/           tiempo.py (el reloj de Chile), versionado.py
+core/           tiempo.py (el reloj de Chile), versionado.py, limite_ip.py (límite por IP)
 mcp/            servidor MCP anónimo: 4 herramientas de grano grueso sobre services/bi/
 observability/  logging JSON con request_id (contextvar) + Sentry opt-in
-db/             sesión async (asyncpg) y sync (psycopg2)
+db/             sesión async (asyncpg) y motor sync (psycopg2, para analytics_sync)
 models/         SQLAlchemy
 schemas/        Pydantic — todos van aquí
-tasks/          Celery: sólo etl_tasks
 utils/          rut.py (sin uso hoy; lo usará el enmascarado de personas naturales)
 ```
 
@@ -456,16 +470,15 @@ La versión vive en `app/core/versionado.py` y, duplicada a propósito, en
 un `{success, data}` termina siempre en 200 con `success: false`, que obliga a cada cliente a
 mirar dos sitios. Lo fija `tests/test_versionado_api.py`.
 
-**Celery**: 4 jobs, todos del ETL. Horario (`--horario`), backfill diario, bulk semanal +
-analytics, y watchdog cada 30 min. Todo en `America/Santiago`. Los de cuenta (estado hábil,
-recordatorios, encajes, trials, informe semanal, vigilancia de precios, resultados,
-competidores, reintento de notificaciones) se fueron con el pivote.
+**No hay Celery ni Redis.** Lo programado son los dos cron de `etl/cron.py` (ver
+«Comandos»), en servicios de Railway aparte de la API.
 
 ### Datos
 
-- **PostgreSQL** — 13 tablas: licitaciones, órdenes de compra (cada una con detalle e
-  historial), compradores y proveedores, cuatro de referencia y `task_failures`. Las 21 de
-  cuenta y `categories` las borró `3d73beca994e_retirar_cuentas`.
+- **PostgreSQL** — 12 tablas: licitaciones, órdenes de compra (cada una con detalle e
+  historial), compradores y proveedores y cuatro de referencia. Las 21 de cuenta y
+  `categories` las borró `3d73beca994e_retirar_cuentas`; `task_failures`,
+  `08c6653fd4dc_retirar_task_failures`.
 - **Parquet + Polars** — sólo cómputo batch. La API **no lee parquets**: el pipeline
   materializa los resultados en el esquema `analytics` de Postgres con índices
   (`etl/analytics/materialize.py`), y `bi_service` los consulta con SQL. Ver
@@ -529,10 +542,6 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   verificación de correo), claves de API, alertas y notificaciones, informe semanal,
   vigilancia de precios, encaje precomputado y planes se fue con el pivote público. Está en
   la historia de git (antes de `3d73beca994e_retirar_cuentas`) si alguna vez vuelve.
-- **Tareas Celery**: `beat_schedule` las nombra **por cadena**, así que un módulo sin importar en
-  `celery_app.py` produce `Received unregistered task` en el worker y nada más.
-  `tests/test_celery_beat.py` comprueba que cada entrada del calendario existe; si añades una
-  tarea programada, importa su módulo al final de `celery_app.py`.
 - **Exportar es la misma consulta en CSV.** `/bi/exportar/*` devuelve el mismo análisis que
   la pantalla, sin sesión ni cuota desde el pivote público. El archivo va
   **con BOM y separador `;`**: sin BOM Excel en Windows parte las tildes, y con coma Excel en
@@ -665,10 +674,26 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
     v2, ticket por cabecera) — ver `etl/extractors/compra_agil.py`.
   - Un filtro con un mecanismo desconocido devuelve **422**, no el catálogo entero: ignorarlo
     haría creer que no hay compras de ese tipo.
-- **Rate limiting**: **por IP** en `/api/v1/bi/*` (60/min, `BIRateLimitMiddleware` en
-  `main.py`). Falla abierto si Redis no responde. El catálogo y el MCP **no tienen límite
-  todavía**: aceptable con producción pausada, y el paso 5 del pivote lo extiende a toda la
-  superficie pública. Las capas por clave de API y por cuota diaria se fueron con las cuentas.
+- **Límite por IP en memoria, sobre `/api/v1/*` y `/mcp`** (`app/core/limite_ip.py`).
+  `LIMITE_POR_MINUTO` (60), ventana fija de un minuto, `X-RateLimit-*` **también al dejar
+  pasar** y 429 con `Retry-After`. No cuenta `/health`, `/docs`, `/openapi.json` ni `/`.
+  - **En memoria exige UN worker**: con `WEB_CONCURRENCY=N` cada proceso lleva sus
+    contadores y el límite real es N×. Avisa al arrancar si lo ve.
+  - **La memoria está acotada**: al cambiar de minuto se tira el diccionario entero, y hay
+    techo de 50.000 IP por minuto; pasado, una IP nueva entra sin contarse (no se desaloja a
+    las que ya se cuentan, que son las que más piden).
+  - **De dónde sale la IP — el modelo de confianza.** `request.client.host` detrás de
+    Railway es el balanceador: contar por él metía a todo internet en un cubo. En orden:
+    (1) con `X-Tordo-Proxy` == `PROXY_SECRETO` (tiempo constante), la IP de
+    `X-Tordo-Visitante`, y **sin ella la petición va exenta** — es un renderizado del
+    servidor de Next, y contarlo estrangularía al sitio desde las IP compartidas de Vercel;
+    (2) con `CONFIAR_X_FORWARDED_FOR=true`, la **primera** entrada de `X-Forwarded-For`, que
+    sólo es de fiar porque el borde de Railway descarta la del cliente (medido por su
+    comunidad; **verificarlo al desplegar** con una cabecera inventada); (3) la conexión.
+    Sin `PROXY_SECRETO` no se exime ni se cree a nadie: falla cerrada para la confianza,
+    abierta para la disponibilidad.
+  - IPv6 cuenta por /64. Uvicorn arranca con `--no-proxy-headers`: la regla es una sola.
+  - Las capas por clave de API y por cuota diaria se fueron con las cuentas.
 - **El MCP es anónimo y tiene la protección contra DNS rebinding ENCENDIDA**, con la lista
   blanca de `MCP_HOSTS_PERMITIDOS` (coma-separada; por defecto `localhost,127.0.0.1`). Estuvo
   apagada mientras cada llamada exigía clave: una petición rebotada llegaba sin credencial.
@@ -683,7 +708,7 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   por proceso** y no se comparte entre workers. Con `-w 4` en 512 MB el contenedor muere por
   OOM, y cada reinicio recarga el modelo: en la medición se cargó 14 veces para 4 workers.
   La concurrencia se sube con `WEB_CONCURRENCY`, y **exige 1 GB**; con 512 MB el techo son 2.
-  Repetible con `make medir-memoria`.
+  Repetible con `make medir-memoria`. **Y multiplica el límite por IP**, que vive en memoria.
 - **Feature flags**: 2 en `app/config.py` (`feature_analytics`, `feature_tfidf`); apagadas
   devuelven 503 con mensaje accionable.
 
@@ -707,7 +732,8 @@ estos patrones, es señal de que hay que arreglar la causa, no de copiarlo:
   `inmutable_unaccent` y el término se normaliza igual antes de comparar.
 - ~~Suscripción y `plan_tier` colgando de `User`~~ — **resuelto en F3**; hoy no hay ni
   suscripciones ni usuarios.
-- `subprocess.run` desde Celery hacia el ETL (F2).
+- ~~`subprocess.run` desde Celery hacia el ETL (F2)~~ — **resuelto en el paso 5 del pivote**:
+  sin Celery; `etl/cron.py` llama al ETL en proceso.
 - ~~`Base.metadata.create_all()` en el loader del ETL~~ — **resuelto en F4**: verifica el
   esquema y falla con instrucciones. **El esquema sólo lo crean las migraciones.**
 - ~~`conftest.py` mantiene a mano el DDL de 11 tablas en SQLite~~ — **resuelto**: el esquema
@@ -726,8 +752,9 @@ estos patrones, es señal de que hay que arreglar la causa, no de copiarlo:
 > **Pivote decidido el 2026-10-11: TORDO pasa a ser un sitio público y gratuito** — sin
 > cuentas ni cobros, financiado con donaciones, en Vercel Hobby + Railway con dos cron.
 > Especificación: `docs/PIVOTE_PUBLICO_2026-10.md`. **Los pasos 3 y 4 (fuera las cuentas,
-> backend y frontend) están hechos**; lo que queda del pivote —límite por IP en toda la
-> superficie (5), R2 y enmascarado (6), páginas públicas (10)…— está en la spec.
+> backend y frontend) y el 5 (cron en vez de Celery y Redis, límite por IP en memoria en
+> toda la superficie) están hechos**; lo que queda —R2 y enmascarado (6), páginas públicas
+> (10)…— está en la spec.
 
 Decisiones tomadas el 2026-08-05, con su ADR en `docs/decisiones/`: sólo Chile (sin
 multi-país), nombre TORDO y LLM acotado a un servidor MCP sobre la base histórica siguen
@@ -766,9 +793,14 @@ decididos y aplazados, cada uno con su motivo — no como pendientes sin dueño.
 
 ## Entorno
 
-`cp .env.example .env`. Críticas: `DATABASE_URL`, `REDIS_URL`, `MERCADO_PUBLICO_TICKET`
-(lo usan el ETL y el worker de Celery, no la API), `API_URL`, `APP_NAME`, y en producción
-`MCP_HOSTS_PERMITIDOS` con el dominio público.
+`cp .env.example .env`. Críticas: `DATABASE_URL`, `MERCADO_PUBLICO_TICKET` (lo usan el ETL
+y los cron, no la API), `API_URL`, `APP_NAME`, y en producción `MCP_HOSTS_PERMITIDOS` con el
+dominio público.
+
+**Límite por IP**: `PROXY_SECRETO` va en la API **y** en el servidor de Next, sin valor por
+defecto y nunca con prefijo `NEXT_PUBLIC_` (`openssl rand -hex 32`); `CONFIAR_X_FORWARDED_FOR`
+es `true` sólo en Railway; `LIMITE_POR_MINUTO` (60). En producción la API avisa al arrancar si
+falta alguna de las dos primeras. No hay `REDIS_URL`.
 
 **No hay `SECRET_KEY`.** Se borró con las cuentas: nada firma tokens, y un secreto
 obligatorio que nadie usa enseña a rellenar variables sin mirar.

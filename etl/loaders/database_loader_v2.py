@@ -5,7 +5,7 @@ Loads transformed data into PostgreSQL database
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any, Dict, List
 
 from sqlalchemy import String, Text, create_engine, func, literal_column, or_, text
@@ -244,7 +244,15 @@ class DatabaseLoaderV2(BaseLoader):
         # `fecha_publicacion` tampoco: no cambia una vez publicada, y el listado
         # de la API clásica no la trae — el transformer rellena con la hora de
         # ingesta. Sobrescribirla deshacía la fecha real que copia el detalle.
-        skip_on_update = {"id", "codigo_externo", "fecha_extraccion", "fecha_publicacion"}
+        # `resultado_consultado_en` es sólo de la re-consulta de resultados: un
+        # listado no sabe nada de ella.
+        skip_on_update = {
+            "id",
+            "codigo_externo",
+            "fecha_extraccion",
+            "fecha_publicacion",
+            "resultado_consultado_en",
+        }
         total_loaded = 0
         total_updated = 0
         total_errors = 0
@@ -1139,6 +1147,77 @@ class DatabaseLoaderV2(BaseLoader):
             .limit(limite)
             .all()
         )
+
+    #: Estados en que una licitación cerrada ya no va a tener adjudicación.
+    #: Se comparan por contenido y en minúsculas: la API los escribe con
+    #: variantes («Desierta (o se rechazan las ofertas)»).
+    ESTADOS_SIN_ADJUDICACION = ("desierta", "revocada")
+
+    def licitaciones_cerradas_sin_resultado(
+        self,
+        *,
+        dias: int,
+        limite: int,
+        reintento: timedelta,
+        ahora: datetime | None = None,
+    ) -> List[tuple]:
+        """Licitaciones cerradas en los últimos `dias` de las que no se sabe quién ganó.
+
+        **Por qué hace falta.** `query_licitaciones_para_detalle` sólo mira las
+        publicadas: el detalle se pide una vez, con el llamado abierto, y la
+        adjudicación —que llega días o semanas después de cerrar— no se vuelve a
+        preguntar. La única re-consulta que había (`--only-resultados`) miraba
+        las licitaciones SEGUIDAS por alguna empresa, y se fue con las cuentas.
+        Ésta es impersonal: cualquier licitación cerrada.
+
+        - Sólo `licitacion`: una Compra Ágil se pide a otra API.
+        - Fuera las desiertas y revocadas, que ya no tendrán adjudicación.
+        - Una ya consultada no vuelve antes de `reintento`, y las nunca
+          consultadas van primero; entre ellas, las que cerraron antes, que son
+          las que más probablemente ya se adjudicaron y antes salen de la
+          ventana. Sin esa rotación, las que la API devuelve sin novedad se
+          pedirían todos los días y el tope no llegaría a las demás.
+
+        Devuelve `(id, codigo_externo)`, como mucho `limite`.
+        """
+        if not self.session:
+            self.connect()
+        ahora = ahora or now_santiago()
+        estado = func.lower(func.coalesce(LicitacionDetalle.estado_actual, Licitacion.estado, ""))
+        return (
+            self.session.query(Licitacion.id, Licitacion.codigo_externo)
+            .outerjoin(LicitacionDetalle, Licitacion.id == LicitacionDetalle.licitacion_id)
+            .filter(Licitacion.tipo_convocatoria == TipoConvocatoria.LICITACION.value)
+            .filter(Licitacion.fecha_cierre.isnot(None))
+            .filter(Licitacion.fecha_cierre < ahora)
+            .filter(Licitacion.fecha_cierre >= ahora - timedelta(days=dias))
+            .filter(LicitacionDetalle.fecha_adjudicacion.is_(None))
+            .filter(~or_(*(estado.contains(e) for e in self.ESTADOS_SIN_ADJUDICACION)))
+            .filter(
+                or_(
+                    Licitacion.resultado_consultado_en.is_(None),
+                    Licitacion.resultado_consultado_en < ahora - reintento,
+                )
+            )
+            .order_by(
+                Licitacion.resultado_consultado_en.asc().nulls_first(),
+                Licitacion.fecha_cierre.asc(),
+            )
+            .limit(limite)
+            .all()
+        )
+
+    def marcar_resultado_consultado(self, licitacion_id: int, cuando: datetime) -> None:
+        """Anota que se preguntó por el resultado, haya cambiado algo o no.
+
+        SQL directo y no el ORM: `fecha_actualizacion` lleva `onupdate` y diría
+        que la licitación cambió cuando sólo se preguntó por ella.
+        """
+        self.session.execute(
+            text("UPDATE licitaciones SET resultado_consultado_en = :c WHERE id = :id"),
+            {"c": cuando, "id": licitacion_id},
+        )
+        self.session.commit()
 
     def completar_desde_detalle(self, licitacion_id: int, campos: Dict[str, Any]) -> None:
         """Escribe en una licitación lo que trajo su detalle.

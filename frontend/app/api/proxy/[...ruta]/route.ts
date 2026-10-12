@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { cabecerasHaciaElBackend, ipDelVisitante } from '@/lib/backendServidor';
+
 /**
  * Proxy hacia el backend. Todo el tráfico del navegador pasa por aquí.
  *
@@ -14,6 +16,10 @@ import { NextRequest, NextResponse } from 'next/server';
  * Tampoco reenvía las cabeceras del navegador: no hay nada que el backend
  * necesite de ellas, y reenviarlas tal cual le pasaría las cookies de este
  * dominio a un tercero.
+ *
+ * Lo que sí añade es **quién es el visitante** y el secreto que hace que el
+ * backend lo crea (`lib/backendServidor.ts`): sin eso el límite por IP del
+ * backend contaría a todo el sitio como un solo cliente.
  */
 
 const BACKEND = process.env.API_URL || 'http://localhost:8000';
@@ -32,7 +38,15 @@ const SIN_CUERPO = new Set(['GET', 'HEAD']);
 const MAX_REDIRECCIONES = 3;
 
 /** Cabeceras de la respuesta del backend que sí le importan al navegador. */
-const CABECERAS_DE_VUELTA = ['content-type', 'content-disposition'];
+const CABECERAS_DE_VUELTA = [
+  'content-type',
+  'content-disposition',
+  // El límite por IP: sin ellas el cliente sólo se entera por el 429.
+  'retry-after',
+  'x-ratelimit-limit',
+  'x-ratelimit-remaining',
+  'x-ratelimit-reset',
+];
 
 /**
  * Sigue las redirecciones del backend AQUÍ, sin devolvérselas al navegador.
@@ -77,10 +91,15 @@ async function manejar(req: NextRequest, ctx: { params: Promise<{ ruta: string[]
   // seguir una redirección necesita el mismo cuerpo.
   const cuerpo = SIN_CUERPO.has(req.method) ? undefined : await req.arrayBuffer();
 
+  const cabecerasHaciaBackend = {
+    'Content-Type': req.headers.get('content-type') ?? 'application/json',
+    ...cabecerasHaciaElBackend(ipDelVisitante(req.headers)),
+  };
+
   const pedir = (url: string) =>
     fetch(url, {
       method: req.method,
-      headers: { 'Content-Type': req.headers.get('content-type') ?? 'application/json' },
+      headers: cabecerasHaciaBackend,
       body: cuerpo && cuerpo.byteLength > 0 ? cuerpo : undefined,
       cache: 'no-store',
       redirect: 'manual',

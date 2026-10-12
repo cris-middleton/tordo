@@ -1,7 +1,7 @@
 """El reloj del producto es el de Chile.
 
 TORDO es sólo para Chile: los plazos de Mercado Público, los envíos de correo,
-el calendario de Celery y las cuotas diarias se cuentan en `America/Santiago`.
+el calendario de los cron y los días del BI se cuentan en `America/Santiago`.
 Este módulo existe para que esa decisión esté escrita **una vez**.
 
 Hizo falta porque no lo estaba: Celery declaraba su zona, las tareas de ETL

@@ -92,11 +92,13 @@ medir() {
   local montaje=()
   [ -d "$ARTEFACTOS" ] && montaje=(-v "$ARTEFACTOS:/app/etl/data/analytics:ro")
 
+  # Sin límite por IP: son 120 peticiones desde la misma IP en segundos, y un
+  # 429 no carga nada — mediría el proceso en reposo.
   docker run -d --name "$API" --network "$RED" \
     --memory="$LIMITE" --memory-swap="$LIMITE" \
     -p "${PUERTO}:8000" \
     -e DATABASE_URL="postgresql://postgres:postgres@${PG}:5432/tordo_test" \
-    -e REDIS_URL="redis://localhost:6399/0" \
+    -e LIMITE_POR_MINUTO=1000000 \
     -e FEATURE_TFIDF="$tfidf" \
     -e ANALYTICS_DATA_PATH="/app/etl/data/analytics" \
     "${montaje[@]}" \

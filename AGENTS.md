@@ -7,7 +7,7 @@ repite sólo lo que no se puede ignorar.
 ## Qué es esto
 
 TORDO — sitio público, sin cuentas, de inteligencia sobre Mercado Público. FastAPI + PostgreSQL +
-Celery + Next.js + un pipeline ETL/analytics en Polars. Monorepo: `backend/`, `frontend/`,
+Next.js + un pipeline ETL/analytics en Polars. Monorepo: `backend/`, `frontend/`,
 `etl/`, `infra/`.
 
 ## Reglas que no se saltan

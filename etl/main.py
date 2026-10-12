@@ -589,6 +589,76 @@ def run_etl_actualizar_detalles_licitaciones(
         return False
 
 
+def run_etl_resultados_licitaciones(*, dias: int, limite: int, reintento: timedelta) -> bool:
+    """Re-pregunta por las licitaciones cerradas sin adjudicación conocida.
+
+    Impersonal: cualquier licitación cerrada en los últimos `dias`, con tope
+    `limite` por llamada contra la cuota de la API clásica (10.000 al día). La
+    selección y su orden viven en
+    `DatabaseLoaderV2.licitaciones_cerradas_sin_resultado`; quien escribe las
+    columnas de adjudicación es `actualizar_licitacion_detalle`.
+
+    Cada licitación preguntada queda marcada (`resultado_consultado_en`) haya
+    novedad o no, y aunque la API no devuelva nada: si no, una que falla
+    siempre se pediría todos los días por delante de las demás.
+
+    Falla sólo si no se pudo empezar, o si fallaron TODAS: eso es la API caída
+    o la cuota agotada, y lo tiene que ver el latido.
+    """
+    try:
+        extractor = MercadoPublicoLicitacionesExtractor(
+            {
+                "MERCADO_PUBLICO_URL": config.MERCADO_PUBLICO_URL,
+                "MERCADO_PUBLICO_TICKET": config.MERCADO_PUBLICO_TICKET,
+                "MAX_RETRIES": config.MAX_RETRIES,
+                "RETRY_DELAY": config.RETRY_DELAY,
+            }
+        )
+        loader = DatabaseLoaderV2({"DATABASE_URL": config.DATABASE_URL})
+        loader.connect()
+    except Exception as e:
+        logger.error(f"resultados: no se pudo empezar: {e}", exc_info=True)
+        return False
+
+    try:
+        pendientes = loader.licitaciones_cerradas_sin_resultado(
+            dias=dias, limite=limite, reintento=reintento
+        )
+        logger.info(f"resultados: {len(pendientes)} licitaciones cerradas sin adjudicación")
+        con_novedad = sin_novedad = errores = 0
+        for licitacion_id, codigo_externo in pendientes:
+            try:
+                datos = extractor.extract_detalle_licitacion(codigo_externo)
+                if not datos:
+                    errores += 1
+                elif loader.actualizar_licitacion_detalle(
+                    licitacion_id=licitacion_id,
+                    codigo_externo=codigo_externo,
+                    datos_nuevos=datos,
+                ):
+                    con_novedad += 1
+                else:
+                    sin_novedad += 1
+            except Exception as e:
+                logger.warning(f"resultados: {codigo_externo}: {e}")
+                errores += 1
+            loader.marcar_resultado_consultado(licitacion_id, now_santiago())
+            time.sleep(0.5)
+
+        logger.info(
+            f"resultados: {con_novedad} con novedad · {sin_novedad} sin cambios · {errores} errores"
+        )
+        if pendientes and errores == len(pendientes):
+            logger.error("resultados: fallaron todas las consultas (¿API caída o cuota agotada?)")
+            return False
+        return True
+    except Exception as e:
+        logger.error(f"resultados: {e}", exc_info=True)
+        return False
+    finally:
+        loader.disconnect()
+
+
 def run_etl_actualizar_detalles_ordenes(
     dias_sin_actualizar: int = 1,
     limit: int | None = None,

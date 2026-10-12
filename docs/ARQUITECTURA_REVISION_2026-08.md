@@ -25,7 +25,7 @@ modelo de datos soporta el alcance objetivo, y el frontend tiene tests de extrem
 | Primitivas accesibles tipo Radix | Mejora de accesibilidad que conviene hacer con un inventario de componentes delante. |
 | Extracción de bases con LLM | Aplazada con su [ADR 0010](decisiones/0010-extraccion-de-bases-con-llm.md): **no hay fuente** para las bases. Se reabre si el OCDS de ChileCompra trae `documents`. |
 | Refresco en el login con Google | La sesión por Google sigue caducando a los 30 min. La solución es un código de un solo uso, y toca el backend. |
-| `subprocess.run` de Celery hacia el ETL | Deuda conocida de F2, no bloqueante. |
+| ~~`subprocess.run` de Celery hacia el ETL~~ | **Cerrado en el paso 5 del pivote público**: sin Celery, `etl/cron.py` llama al ETL en proceso. |
 
 **Y cuatro cosas que no puedo verificar desde aquí, dichas claro:**
 

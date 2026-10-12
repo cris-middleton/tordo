@@ -42,10 +42,12 @@ NAVEGADOR="${E2E_NAVEGADOR:-auto}"
 
 export DATABASE_URL="postgresql://postgres:postgres@localhost:${PUERTO_PG}/tordo_test"
 export API_URL="http://localhost:${PUERTO_API}"
-# Sin Redis: el límite de peticiones de BI falla abierto, que es lo que interesa
-# aquí. Levantar otro contenedor sólo para eso alarga el ciclo sin
-# probar nada más.
-export REDIS_URL="redis://localhost:6399/0"
+# El límite por IP no es lo que se prueba aquí, y toda la batería sale de la
+# misma IP: con el de producción (60/min) los tests fallarían por velocidad.
+# Lo que sí se ejercita es el camino de la cabecera secreta: el proxy de Next
+# la manda y el backend la valida, como en producción.
+export LIMITE_POR_MINUTO=100000
+export PROXY_SECRETO="e2e-$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
 
 azul=$'\e[36m'; rojo=$'\e[31m'; fin=$'\e[0m'
 paso() { printf "\n%s── %s %s\n" "$azul" "$1" "$fin"; }
@@ -110,7 +112,7 @@ paso "Backend en el puerto $PUERTO_API"
 # `waitForURL` sin decir nada del motivo.
 LOG_API="$(mktemp)"
 (cd backend && uv run --project .. uvicorn app.main:app \
-   --host 0.0.0.0 --port "$PUERTO_API" --log-level warning >"$LOG_API" 2>&1) &
+   --host 0.0.0.0 --port "$PUERTO_API" --log-level warning --no-proxy-headers >"$LOG_API" 2>&1) &
 PID_API=$!
 for _ in $(seq 1 60); do
   curl -sf "http://localhost:${PUERTO_API}/health/" >/dev/null 2>&1 && break
@@ -184,6 +186,7 @@ else
     -v "${RAIZ}/frontend:/trabajo" -w /trabajo \
     -e HOME=/tmp -e CI="${CI:-}" -e E2E_PUERTO_FRONT="$PUERTO_FRONT" \
     -e API_URL="http://host.docker.internal:${PUERTO_API}" \
+    -e PROXY_SECRETO="$PROXY_SECRETO" \
     "$IMAGEN_PLAYWRIGHT" \
     npx playwright test ${ARGS:-}
 fi

@@ -3,8 +3,9 @@
     uv run python -m etl.cron frecuente [--forzar]
     uv run python -m etl.cron semanal
 
-Sustituye a las tareas de Celery de `backend/app/tasks/etl_tasks.py`. Ver §3.1
-de `docs/PIVOTE_PUBLICO_2026-10.md`.
+Sustituye a las tareas de Celery que vivían en `backend/app/tasks/etl_tasks.py`
+(retiradas en el paso 5 del pivote), y su `watchdog` de cada 30 minutos lo
+sustituye el latido. Ver §3.1 de `docs/PIVOTE_PUBLICO_2026-10.md`.
 
 **`frecuente` se dispara cada hora en UTC y decide él si le toca.** Railway
 programa en UTC y Chile cambia de hora dos veces al año: un horario fijo en UTC
@@ -72,6 +73,20 @@ VENTANA_PRIMERA_DEL_DIA = timedelta(hours=26)
 #: Cuánto del error viaja en el /fail. Healthchecks guarda 10 kB por ping;
 #: la cola es lo que dice qué pasó.
 MAX_CUERPO_FAIL = 2000
+
+#: La re-consulta de resultados: licitaciones cerradas en los últimos
+#: `DIAS_RESULTADOS` sin adjudicación conocida, como mucho
+#: `TOPE_RESULTADOS_DIARIO` al día (una vez, en la primera corrida), y ninguna
+#: antes de `REINTENTO_RESULTADOS` desde la última vez que se preguntó.
+#:
+#: El tope es el 5 % de la cuota diaria de la API clásica (10.000, §5.3). Cierran
+#: del orden de 500 licitaciones al día, así que cada una se pregunta ~una vez
+#: dentro de la ventana, priorizando las nunca consultadas y, entre ellas, las
+#: que cerraron antes. 30 días porque la adjudicación llega días o semanas
+#: después del cierre; lo que tarde más queda para la descarga masiva.
+DIAS_RESULTADOS = 30
+TOPE_RESULTADOS_DIARIO = 500
+REINTENTO_RESULTADOS = timedelta(days=3)
 
 #: Meses que la semanal vuelve a descargar: ChileCompra regenera los ZIPs de
 #: varios meses recientes en cada tanda, cada 2–4 semanas.
@@ -150,6 +165,7 @@ class PasosFrecuente:
     licitaciones: Callable[[str], bool]
     detalles_nuevos: Callable[[], bool]
     barrido: Callable[[str], bool]
+    resultados: Callable[[], bool]
 
     @classmethod
     def reales(cls) -> PasosFrecuente:
@@ -161,6 +177,11 @@ class PasosFrecuente:
             # anterior con sus detalles. Compra Ágil no: su ventana ya la cubre.
             barrido=lambda dia: etl.run_etl_pipeline_v2(
                 fecha_desde=dia, fecha_hasta=dia, extract_compra_agil=False
+            ),
+            resultados=lambda: etl.run_etl_resultados_licitaciones(
+                dias=DIAS_RESULTADOS,
+                limite=TOPE_RESULTADOS_DIARIO,
+                reintento=REINTENTO_RESULTADOS,
             ),
         )
 
@@ -182,10 +203,12 @@ def _compra_agil(desde: datetime, hasta: datetime) -> bool:
 
 
 def correr_frecuente(instante: datetime, pasos: PasosFrecuente) -> bool:
-    """Compra Ágil, licitaciones de hoy, detalles nuevos y, a primera hora, ayer.
+    """Compra Ágil, licitaciones de hoy, detalles nuevos y, a primera hora, el
+    barrido de ayer y la re-consulta de resultados.
 
     **El listado de Compra Ágil va primero** (§5.3): nada de lo que venga
-    después puede dejarlo sin cuota. Un paso que falla no corta los siguientes
+    después puede dejarlo sin cuota. La re-consulta de resultados, la más
+    prescindible, va la última y sólo una vez al día. Un paso que falla no corta los siguientes
     —son independientes—, pero la corrida queda como fallida.
     """
     local = _en_chile(instante)
@@ -202,6 +225,8 @@ def correr_frecuente(instante: datetime, pasos: PasosFrecuente) -> bool:
         ayer = (hoy - timedelta(days=1)).isoformat()
         logger.info("frecuente: primera del día, barrido de %s", ayer)
         resultados.append(pasos.barrido(ayer))
+        logger.info("frecuente: re-consulta de resultados de licitaciones cerradas")
+        resultados.append(pasos.resultados())
     return all(resultados)
 
 

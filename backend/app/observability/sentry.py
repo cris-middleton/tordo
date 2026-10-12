@@ -32,7 +32,6 @@ def setup_sentry(
         return
 
     import sentry_sdk
-    from sentry_sdk.integrations.celery import CeleryIntegration
     from sentry_sdk.integrations.fastapi import FastApiIntegration
     from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
     from sentry_sdk.integrations.starlette import StarletteIntegration
@@ -45,7 +44,6 @@ def setup_sentry(
             StarletteIntegration(),
             FastApiIntegration(),
             SqlalchemyIntegration(),
-            CeleryIntegration(),
         ],
         traces_sampler=_traces_sampler,
         # No enviar cuerpos de petición ni cabeceras: pasan RUTs, documentos y

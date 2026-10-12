@@ -165,14 +165,7 @@
     "suppliers.telefono",
     "suppliers.tipo_empresa",
     "suppliers.updated_at",
-    "suppliers.website",
-    "task_failures.error_msg",
-    "task_failures.failed_at",
-    "task_failures.id",
-    "task_failures.resolved",
-    "task_failures.resolved_at",
-    "task_failures.task_args",
-    "task_failures.task_name"
+    "suppliers.website"
   ],
   "pk_entera": [
     "buyer_organizations",

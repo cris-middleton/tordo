@@ -12,7 +12,7 @@ de un script que empezaba por `app.core.security` reventaba. `make ci` estaba en
 verde mientras el sembrador de datos no arrancaba.
 
 Un fallo que depende del orden de importación es de los que aparecen en
-producción —en un worker de Celery, en un script de operaciones— y no en CI.
+producción —en un cron, en un script de operaciones— y no en CI.
 Este test importa cada módulo **en un proceso limpio**, uno por uno, que es la
 única forma de comprobarlo.
 """
