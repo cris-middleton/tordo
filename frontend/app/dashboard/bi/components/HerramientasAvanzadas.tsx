@@ -7,22 +7,25 @@ import type { OrganismoConNombre } from '../types';
 import type { HerramientasAvanzadasProps, Tab } from './herramientas/comun';
 import TabDescuento from './herramientas/TabDescuento';
 import TabForecast from './herramientas/TabForecast';
-import TabMatching from './herramientas/TabMatching';
 import TabPrecio from './herramientas/TabPrecio';
 import TabSimulador from './herramientas/TabSimulador';
 
 /**
- * El conmutador de las cinco herramientas avanzadas.
+ * El conmutador de las cuatro herramientas avanzadas.
  *
  * Cada pestaña vive en su propio fichero: juntas pasaban de las 900 líneas y no
  * comparten nada salvo el mensaje de error y un par de tipos, que están en
  * `herramientas/comun.ts`.
  *
- * Sólo se monta la pestaña activa, así que las otras cuatro no piden datos.
+ * Sólo se monta la pestaña activa, así que las otras tres no piden datos.
+ *
+ * «Quién vende esto» (texto libre → proveedores) se retiró en el paso 8 del
+ * pivote público: lo calculaba un modelo TF-IDF cargado en la API, y un texto
+ * arbitrario no se puede precalcular. Quién vende en un rubro lo responde el
+ * panorama; a un comprador concreto, su panel de competidores.
  */
 
 const TABS: Array<[Tab, string]> = [
-  ['matching', 'Quién vende esto'],
   ['precio', 'Precio histórico'],
   ['descuento', 'Descuentos'],
   ['forecast', 'Competencia esperada'],
@@ -31,7 +34,7 @@ const TABS: Array<[Tab, string]> = [
 
 export function HerramientasAvanzadas({ rubro, topOrganismos, allRubros = [] }: HerramientasAvanzadasProps) {
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<Tab>('matching');
+  const [tab, setTab] = useState<Tab>('precio');
 
   return (
     <section className="card">
@@ -44,7 +47,7 @@ export function HerramientasAvanzadas({ rubro, topOrganismos, allRubros = [] }: 
           <div>
             <h2 className="section-title">Herramientas avanzadas</h2>
             <p className="text-xs text-muted mt-0.5">
-              Quién vende cada cosa, a qué precio, con qué descuento y contra cuánta competencia.
+              A qué precio, con qué descuento y contra cuánta competencia.
             </p>
           </div>
         </div>
@@ -69,7 +72,6 @@ export function HerramientasAvanzadas({ rubro, topOrganismos, allRubros = [] }: 
             ))}
           </div>
           <div className="min-h-[120px]">
-            {tab === 'matching' && <TabMatching />}
             {tab === 'precio' && <TabPrecio organismosConNombre={topOrganismos} />}
             {tab === 'descuento' && <TabDescuento rubro={rubro} />}
             {tab === 'forecast' && <TabForecast rubro={rubro} />}

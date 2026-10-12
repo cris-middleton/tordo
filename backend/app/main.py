@@ -172,8 +172,8 @@ app.mount("/mcp", aplicacion_mcp())
 # (docs/decisiones/0006-analytics-en-postgres.md), así que no hay nada pesado que
 # precargar y el arranque no depende del sistema de archivos.
 #
-# El TF-IDF sigue cargándose en el proceso bajo FEATURE_TFIDF; sacarlo a un job
-# nocturno es lo que queda de F2.
+# El TF-IDF tampoco: salió de la API en el paso 8 del pivote público. El orden por
+# relevancia lo hace Postgres y `tests/test_api_sin_tfidf.py` impide que vuelva.
 
 
 @app.get("/", tags=["raiz"])

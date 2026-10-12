@@ -17,7 +17,6 @@ en la capa HTTP.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
 
 from sqlalchemy import Select, and_, asc, case, desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,13 +24,8 @@ from sqlalchemy.orm import selectinload
 
 from app.models.licitacion import Licitacion
 
-# Cuántas candidatas se traen para reordenar por similitud semántica. El coseno
-# se calcula en memoria, así que el tope es lo que impide que una búsqueda de
-# una palabra común cargue el catálogo entero.
-POOL_SEMANTICO = 200
-
-# Columnas por las que se puede ordenar en SQL. `relevance` no está: lo resuelve
-# un camino propio.
+# Columnas por las que se puede ordenar. `relevance` no está: no es una columna
+# sino una puntuación contra los términos, y la resuelve `buscar_por_relevancia`.
 COLUMNAS_ORDENABLES = {
     "fecha_publicacion": Licitacion.fecha_publicacion,
     "fecha_cierre": Licitacion.fecha_cierre,
@@ -73,8 +67,8 @@ class Filtros:
     region: str | None = None
     monto_minimo: float | None = None
     monto_maximo: float | None = None
-    # Todos los términos tienen que coincidir (AND). Es la semántica de filtro
-    # precisa que ya tenía el buscador; el modo relevancia la amplía a OR.
+    # Todos los términos tienen que coincidir (AND), también al ordenar por
+    # relevancia: el orden no cambia QUÉ se encuentra, sólo en qué orden sale.
     terminos: list[str] = field(default_factory=list)
 
 
@@ -90,13 +84,6 @@ def esta_abierta():
         Licitacion.estado == "Publicada",
         or_(Licitacion.fecha_cierre.is_(None), Licitacion.fecha_cierre > func.now()),
     )
-
-
-def abierta_en_memoria(lic: Licitacion) -> bool:
-    """`esta_abierta`, para filas ya cargadas (el reordenado semántico)."""
-    if lic.estado != "Publicada":
-        return False
-    return lic.fecha_cierre is None or lic.fecha_cierre > datetime.now(UTC)
 
 
 def abiertas_primero():
@@ -169,23 +156,76 @@ async def buscar(
     return list(filas), total
 
 
-async def pool_para_relevancia(db: AsyncSession, filtros: Filtros) -> list[Licitacion]:
-    """Candidatas para reordenar por similitud semántica.
+def puntuacion_relevancia(terminos: list[str]):
+    """Cuánto se parece una licitación a lo que se buscó. Mayor es mejor.
 
-    Los términos se combinan con **OR**, no con AND: el ranking por coseno es lo
-    que decide el orden, así que ampliar el conjunto deja que aparezcan
-    sinónimos cercanos que la consulta estricta habría descartado.
+    Suma tres señales, todas sobre el texto ya normalizado (sin tildes, con
+    stemming) que usa `coincide_termino`, así que puntúa lo mismo que filtra:
+
+    - `ts_rank_cd` con **todos** los términos juntos: densidad de cobertura, que
+      premia que aparezcan cerca. «guantes de nitrilo quirúrgicos» gana a una
+      ficha que dice «nitrilo» en el nombre y «quirúrgicos» tres párrafos abajo.
+    - `ts_rank` con **cualquiera** de ellos: cuántas veces aparecen. Sostiene el
+      orden cuando un término es sólo un fragmento («valvul») y la consulta
+      conjunta queda sin lexemas.
+    - lo mismo, sólo sobre el **nombre**: el nombre es lo que la entidad dice
+      que compra; la descripción, a menudo, el pliego entero.
+
+    No se pesa con `setweight` en la columna generada porque eso es una
+    migración que reescribe la tabla para ganar lo que aquí se gana sumando.
+    Un fragmento que sólo coincide por trigrama puntúa 0 y sale igual, al final:
+    el filtro decide qué sale; esto, en qué orden.
     """
-    consulta = _con_filtros(filtros, aplicar_terminos=False)
-    clausulas = [coincide_termino(t) for t in filtros.terminos]
-    if clausulas:
-        consulta = consulta.where(or_(*clausulas))
-    # Las abiertas primero también aquí: el pool es de 200, y llenarlo de
-    # cerradas recientes dejaba fuera justo las que se pueden postular.
-    consulta = consulta.order_by(abiertas_primero(), desc(Licitacion.fecha_publicacion)).limit(
-        POOL_SEMANTICO
+    todos = func.plainto_tsquery("spanish", func.inmutable_unaccent(" ".join(terminos)))
+    cualquiera = func.plainto_tsquery("spanish", func.inmutable_unaccent(terminos[0]))
+    for termino in terminos[1:]:
+        # `||` entre dos tsquery es OR. Se compone con plainto_tsquery por
+        # término para que nada de lo que escribe el usuario se interprete como
+        # sintaxis (ver `test_la_sintaxis_de_tsquery_no_se_interpreta`).
+        cualquiera = cualquiera.op("||")(
+            func.plainto_tsquery("spanish", func.inmutable_unaccent(termino))
+        )
+    nombre = func.to_tsvector("spanish", func.coalesce(Licitacion.nombre_norm, ""))
+    return (
+        func.ts_rank_cd(Licitacion.busqueda, todos)
+        + func.ts_rank(Licitacion.busqueda, cualquiera)
+        + func.ts_rank(nombre, cualquiera)
     )
-    return list((await db.execute(consulta)).scalars().all())
+
+
+async def buscar_por_relevancia(
+    db: AsyncSession,
+    filtros: Filtros,
+    *,
+    ascendente: bool = False,
+    salto: int = 0,
+    limite: int = 20,
+) -> tuple[list[Licitacion], int]:
+    """Como `buscar`, ordenado por `puntuacion_relevancia`.
+
+    Sin términos no hay contra qué puntuar y se cae al orden por defecto —
+    con el mismo filtro, así que «relevancia sin escribir nada» lista todo.
+
+    Antes esto lo hacía el TF-IDF del ETL cargado DENTRO de la API (~165 MB por
+    proceso) sobre un pool de 200 candidatas en memoria; ahora es una consulta,
+    y el total es exacto en vez de «hasta 200».
+    """
+    if not filtros.terminos:
+        return await buscar(db, filtros, ascendente=ascendente, salto=salto, limite=limite)
+
+    consulta = _con_filtros(filtros)
+    total = int(
+        (await db.execute(select(func.count()).select_from(consulta.subquery()))).scalar() or 0
+    )
+
+    puntuacion = puntuacion_relevancia(filtros.terminos)
+    ordenada = consulta.order_by(
+        abiertas_primero(),
+        (asc if ascendente else desc)(puntuacion),
+        desc(Licitacion.fecha_publicacion),
+    )
+    filas = (await db.execute(ordenada.offset(salto).limit(limite))).scalars().all()
+    return list(filas), total
 
 
 async def obtener(db: AsyncSession, licitacion_id: int) -> Licitacion | None:

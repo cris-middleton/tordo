@@ -40,9 +40,6 @@ shared = [
     "polars>=0.20.31,<0.21",
     "pyarrow>=18,<26",
     "httpx>=0.27,<1",
-    "scikit-learn>=1.5,<2",
-    "scipy>=1.14,<2",
-    "joblib>=1.4,<2",
 ]
 
 api = [
@@ -77,6 +74,12 @@ etl = [
     "python-dateutil>=2.9,<3",
     "pytz>=2025.2",
     "structlog>=24.4,<27",
+    # Sólo el ETL: entrenamiento del TF-IDF, clustering y bandas de precio. Estaban
+    # en `shared` porque la API cargaba el modelo; desde el paso 8 del pivote
+    # público no lo hace, y `tests/test_api_sin_tfidf.py` impide que vuelva.
+    "scikit-learn>=1.5,<2",
+    "scipy>=1.14,<2",
+    "joblib>=1.4,<2",
 ]
 
 dev = [

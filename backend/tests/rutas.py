@@ -26,8 +26,8 @@ from collections.abc import Iterator
 from fastapi.routing import APIRoute
 
 # Por debajo de esto, el recorrido está roto y no es que falten rutas. Antes 50,
-# con ~90 rutas; el pivote público retiró las cuentas y quedan 26 (tenders 3,
-# bi 20, health 2, raíz 1). El margen sigue siendo amplio a propósito para que no
+# con ~90 rutas; el pivote público retiró las cuentas y el TF-IDF de la API, y
+# quedan 24 (tenders 3, bi 18, health 2, raíz 1). El margen sigue siendo amplio a propósito para que no
 # haya que tocarlo cada vez que se añade o se quita un endpoint.
 MINIMO_PLAUSIBLE = 20
 

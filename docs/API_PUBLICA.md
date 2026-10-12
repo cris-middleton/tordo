@@ -152,6 +152,26 @@ Tres cosas más que conviene saber:
 Los errores llegan como resultado de la herramienta, no como fallo de protocolo:
 «esa licitación no existe» es algo que el modelo puede contarle al usuario.
 
+## Lo que se retiró
+
+El pivote a sitio público quitó endpoints dentro de `v1`, que es justo lo que la
+promesa de arriba dice que no pasa. Se dice aquí para que nadie lo descubra con
+un 404:
+
+- **Todo lo que dependía de una cuenta** (usuarios, empresas, alertas,
+  documentos, postulaciones, cobro), con las cuentas.
+- **`/bi/matching`** (texto libre → proveedores históricos parecidos). Lo
+  calculaba un modelo TF-IDF cargado dentro de la API, ~165 MB por proceso, y un
+  texto arbitrario no se puede precalcular. Quién vende en un rubro lo responde
+  `/bi/panorama`; a un comprador concreto, `/bi/competidores/{organismo_id}`.
+- **`/bi/clusters`**, que leía un archivo del ETL desde la API y ninguna
+  pantalla usaba.
+
+`sort_by=relevance` en `/tenders/` **sigue**, pero ahora lo ordena Postgres
+(rango de texto completo sobre nombre y descripción, sin tildes). El campo
+`similarity_score` de cada licitación queda siempre en `null`: era el coseno del
+modelo y no hay un número equivalente que prometer.
+
 ## Lo que todavía no está
 
 Dicho claro, porque son las preguntas que hace cualquiera que integre:

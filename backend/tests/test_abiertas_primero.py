@@ -83,22 +83,13 @@ async def test_por_cierre_ascendente_no_empieza_por_las_ya_cerradas(async_db, me
 
 
 @pytest.mark.asyncio
-async def test_el_pool_semantico_trae_primero_las_abiertas(async_db, mezcla):
-    pool = await repo.pool_para_relevancia(async_db, _filtros())
+async def test_por_relevancia_tambien_va_primero_la_abierta(async_db, mezcla):
+    """Las cuatro puntúan casi igual contra el término; la abierta va primero
+    por la clave de orden, no por suerte."""
+    filas, total = await repo.buscar_por_relevancia(async_db, _filtros())
 
-    assert pool[0].codigo_externo == "AP-ABIERTA"
-
-
-def test_la_regla_en_memoria_es_la_misma():
-    abierta = Licitacion(estado="Publicada", fecha_cierre=AHORA + timedelta(days=1))
-    vencida = Licitacion(estado="Publicada", fecha_cierre=AHORA - timedelta(days=1))
-    cerrada = Licitacion(estado="Cerrada", fecha_cierre=AHORA + timedelta(days=1))
-    sin_cierre = Licitacion(estado="Publicada", fecha_cierre=None)
-
-    assert repo.abierta_en_memoria(abierta)
-    assert not repo.abierta_en_memoria(vencida)
-    assert not repo.abierta_en_memoria(cerrada)
-    assert repo.abierta_en_memoria(sin_cierre)
+    assert total == 4
+    assert filas[0].codigo_externo == "AP-ABIERTA"
 
 
 @pytest.mark.asyncio

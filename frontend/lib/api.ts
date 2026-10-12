@@ -40,11 +40,6 @@ class ApiClient {
     return res.data;
   }
 
-  async getBIMatching(params: { texto: string; top_n?: number }) {
-    const res = await this.client.get(`${API}/bi/matching`, { params });
-    return res.data;
-  }
-
   async getBICompetidores(organismoId: string, params: Record<string, unknown> = {}) {
     const res = await this.client.get(`${API}/bi/competidores/${encodeURIComponent(organismoId)}`, {
       params,
@@ -92,11 +87,6 @@ class ApiClient {
 
   async getBIResumen(rubro: string) {
     const res = await this.client.get(`${API}/bi/resumen`, { params: { rubro } });
-    return res.data;
-  }
-
-  async getBIClusters(topN: number = 80) {
-    const res = await this.client.get(`${API}/bi/clusters`, { params: { top_n: topN } });
     return res.data;
   }
 

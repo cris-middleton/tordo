@@ -78,12 +78,12 @@ class Settings(BaseSettings):
                 return v.replace("postgres://", "postgresql+asyncpg://", 1)
         return v
 
-    # Analytics — path where pre-computed parquets live (relative to repo root or absolute)
+    # Dónde deja el ETL los parquets. La API no los lee (BI desde `analytics.*` en
+    # Postgres); sólo lo usa `tests/golden/capturar_golden_bi.py`.
     analytics_data_path: str = "etl/data/analytics"
 
     # Feature flags — disable unreleased features without code changes
     feature_analytics: bool = False  # BI pre-postulación (requires parquet pipeline)
-    feature_tfidf: bool = False  # TF-IDF semantic matching (requires trained model)
 
     class Config:
         env_file = ".env"

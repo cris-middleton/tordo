@@ -1,4 +1,4 @@
-"""Contrato de los 20 endpoints de BI.
+"""Contrato de los 18 endpoints de BI.
 
 El golden master verifica `services/bi/`: que las funciones devuelvan los mismos
 números. **No verifica la capa HTTP.** Este archivo cubre esa capa: se declara lo
@@ -23,7 +23,6 @@ from app.main import app
 from tests.rutas import comprobar_recorrido, rutas_con_metodo
 
 CONTRATO: dict[tuple[str, str], str] = {
-    ("GET", "/bi/clusters"): "publica",
     ("GET", "/bi/competidores/{organismo_id}"): "publica",
     ("GET", "/bi/comprador/{organismo_id}"): "publica",
     ("GET", "/bi/descuento"): "publica",
@@ -33,7 +32,6 @@ CONTRATO: dict[tuple[str, str], str] = {
     # El panel deja de enriquecerse con la postulación y el estado hábil de la
     # empresa: sin cuentas no hay empresa a la que mirar.
     ("GET", "/bi/licitacion/{codigo_externo}/panel"): "publica",
-    ("GET", "/bi/matching"): "publica",
     ("GET", "/bi/oportunidades"): "publica",
     ("GET", "/bi/precio/{codigo_producto}"): "publica",
     ("GET", "/bi/resumen"): "publica",
@@ -60,8 +58,8 @@ PERMITIDAS_EN_PUBLICA = {"get_db"}
 def _rutas_bi() -> list[tuple[str, str, set[str]]]:
     """Las rutas de BI, con la ruta SIN el prefijo de versión.
 
-    La tabla de arriba se escribe relativa (`/bi/clusters`) a propósito: sacar
-    una v2 no debería obligar a reescribir 20 líneas que no han cambiado de
+    La tabla de arriba se escribe relativa (`/bi/rubros`) a propósito: sacar
+    una v2 no debería obligar a reescribir 18 líneas que no han cambiado de
     significado.
 
     El recorrido vive en tests/rutas.py, compartido con otros tests
@@ -80,7 +78,8 @@ def test_el_recorrido_de_rutas_funciona():
     """Guarda antes que nada: sin esto, un recorrido roto deja el resto en verde
     comprobando el vacío."""
     comprobar_recorrido(app)
-    assert len(_rutas_bi()) >= 20, f"se esperaban ≥20 endpoints de BI, hay {len(_rutas_bi())}"
+    # Eran 20; el paso 8 del pivote retiró `/bi/matching` y `/bi/clusters`.
+    assert len(_rutas_bi()) >= 15, f"se esperaban ≥15 endpoints de BI, hay {len(_rutas_bi())}"
 
 
 def test_no_hay_endpoints_de_bi_sin_contrato_declarado():

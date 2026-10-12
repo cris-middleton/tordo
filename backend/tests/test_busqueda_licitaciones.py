@@ -173,25 +173,18 @@ async def test_la_sintaxis_de_tsquery_no_se_interpreta(async_db, licitaciones):
 
 
 @pytest.mark.asyncio
-async def test_relevancia_sin_modelo_sigue_filtrando_por_el_termino(
-    async_db, licitaciones, monkeypatch
-):
-    """`sort_by=relevance` sin artefactos TF-IDF devolvía TODO.
+async def test_relevancia_sigue_filtrando_por_el_termino(async_db, licitaciones):
+    """`sort_by=relevance` llegó a devolver TODO.
 
-    La rama semántica aplicaba el filtro de términos dentro de sí misma, y
-    cuando el modelo no estaba disponible caía al orden por defecto con la
-    consulta **sin filtrar**. El usuario escribía "hospital" y recibía el
-    catálogo entero ordenado por fecha, sin ningún aviso de que su búsqueda se
-    había ignorado.
+    Cuando lo ordenaba un TF-IDF cargado en la API, la rama semántica aplicaba
+    el filtro de términos dentro de sí misma, y sin los artefactos del modelo
+    caía al orden por defecto con la consulta **sin filtrar**: el usuario
+    escribía "hospital" y recibía el catálogo entero. El frontend cambia a
+    `relevance` en cuanto se escribe algo, así que era el camino normal.
 
-    Es el estado normal de un despliegue nuevo: los artefactos del modelo se
-    generan después, y el frontend cambia a `relevance` en cuanto se escribe
-    algo en el buscador.
+    El TF-IDF ya no está en la API (paso 8 del pivote público), pero la
+    invariante se queda: ordenar por relevancia no deja de filtrar.
     """
-    from app.services import tfidf_matcher
-
-    monkeypatch.setattr(tfidf_matcher, "is_available", lambda: False)
-
     respuesta = await list_tenders(
         skip=0,
         limit=100,
@@ -208,7 +201,7 @@ async def test_relevancia_sin_modelo_sigue_filtrando_por_el_termino(
     )
 
     codigos = {i.codigo_externo for i in respuesta.items if i.codigo_externo.startswith("T-")}
-    assert codigos == {"T-2"}, "la búsqueda tiene que filtrar aunque no haya ranking semántico"
+    assert codigos == {"T-2"}, "ordenar por relevancia no puede dejar de filtrar por el término"
 
 
 @pytest.mark.asyncio

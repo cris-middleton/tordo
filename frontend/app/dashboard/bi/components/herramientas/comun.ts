@@ -4,7 +4,7 @@ import type { OrganismoConNombre } from '../../types';
 import { motivoParaPersona } from '@/lib/motivos';
 
 /**
- * Lo que comparten las cinco herramientas avanzadas de BI.
+ * Lo que comparten las cuatro herramientas avanzadas de BI.
  *
  * `extractErrorMessage` está aquí porque el backend devuelve el detalle en
  * formas distintas según de dónde venga el error, y cada pestaña lo enseña tal
@@ -34,19 +34,12 @@ export function extractErrorMessage(err: unknown): string {
   return 'Error desconocido al consultar.';
 }
 
-export type Tab = 'matching' | 'precio' | 'descuento' | 'forecast' | 'simular';
+export type Tab = 'precio' | 'descuento' | 'forecast' | 'simular';
 
 export interface HerramientasAvanzadasProps {
   rubro: string;
   topOrganismos?: OrganismoConNombre[];
   allRubros?: string[];
-}
-
-export interface MatchingResult {
-  CodigoProveedor?: string;
-  NombreProveedor?: string;
-  similarity_score?: number;
-  n_oc?: number;
 }
 
 export interface PrecioBanda {

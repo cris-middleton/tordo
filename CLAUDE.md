@@ -21,8 +21,7 @@ licitan. **Sin cuentas** desde el pivote de octubre de 2026 (`docs/PIVOTE_PUBLIC
 no hay usuarios, empresas, planes, cobro ni sesiones.
 
 **Inteligencia pre-postulación** — catálogo de licitaciones, bandas de precio históricas,
-análisis de competidores, matching semántico TF-IDF, scoring de oportunidad y perfilado de
-compradores. Responde *"¿me conviene postular, y a qué precio?"*
+análisis de competidores, scoring de oportunidad y perfilado de compradores. Responde *"¿me conviene postular, y a qué precio?"*
 
 El compliance operativo (estado hábil, documentos, checklist, recordatorios), las alertas, el
 informe semanal y el encaje personalizado **se retiraron con las cuentas**: todos dependían de
@@ -191,7 +190,7 @@ con su motivo escrito junto al número**, no se borraron.
 
 ### Contrato de BI
 `backend/tests/test_contrato_bi.py` declara, ruta por ruta, qué protección le toca a cada uno
-de los 20 endpoints de BI. **Un endpoint nuevo hace fallar el test hasta que alguien decida
+de los 18 endpoints de BI. **Un endpoint nuevo hace fallar el test hasta que alguien decida
 explícitamente su nivel.**
 
 Queda un solo nivel, `publica`: ni sesión, ni empresa, ni cuota; la protege sólo el límite por
@@ -442,7 +441,7 @@ vuelva a pasar.
 ```
 api/            routers: tenders, bi, health; documentacion.py (superficie pública)
 repositories/   Acceso a datos: licitaciones (catálogo) y analytics (sync y async).
-services/       Lógica de negocio como funciones de módulo: bi/, tfidf_matcher, exportar.
+services/       Lógica de negocio como funciones de módulo: bi/, exportar.
                 services/bi/ está partido por dominio (precio, competencia,
                 comprador, oportunidad, temporal, mercado, panel, rubro), con
                 _base.py como único punto de acceso a las tablas de analytics.
@@ -560,7 +559,7 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   del proveedor es `RutSucursal` en las OC masivas y `RutProveedor` en LIC.
   - **Se enmascara al LEER, en `data_loader`**, que es el único camino hacia los parquets
     consolidados. Así ninguna columna derivada —`top_proveedor`, la `descripcion` de las
-    bandas L0, el índice TF-IDF que sirve `/bi/matching`— puede olvidarlo, incluida la
+    bandas L0, el índice TF-IDF que entrena el ETL— puede olvidarlo, incluida la
     próxima que se escriba. **No leas un consolidado con `pl.read_parquet` por tu cuenta.**
   - **Por código y con toda la historia**: un código es persona si cualquiera de sus RUT
     está bajo el umbral **o si no tiene ninguno legible** (66 de 55.297 en los datos locales;
@@ -721,13 +720,17 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   (la ve quien abre `/docs` o genera un cliente). `tests/test_superficie_publica.py` falla si
   aparece un grupo sin clasificar: sin eso, «la API pública» sería «todo lo que resultó estar
   montado». Ver `docs/API_PUBLICA.md`.
-- **Un worker por contenedor, y es una decisión medida.** El modelo TF-IDF cuesta **~105 MB
-  por proceso** y no se comparte entre workers. Con `-w 4` en 512 MB el contenedor muere por
-  OOM, y cada reinicio recarga el modelo: en la medición se cargó 14 veces para 4 workers.
-  La concurrencia se sube con `WEB_CONCURRENCY`, y **exige 1 GB**; con 512 MB el techo son 2.
-  Repetible con `make medir-memoria`. **Y multiplica el límite por IP**, que vive en memoria.
-- **Feature flags**: 2 en `app/config.py` (`feature_analytics`, `feature_tfidf`); apagadas
-  devuelven 503 con mensaje accionable.
+- **Un worker por contenedor — por el límite por IP, ya no por memoria.** Hasta el paso 8
+  del pivote, la API cargaba el TF-IDF del ETL en cada proceso: pico de **289 MB con un
+  worker** y OOM con 4 en 512 MB. **La API ya no carga ningún artefacto del ETL**
+  (`tests/test_api_sin_tfidf.py` falla si `sklearn`, `scipy` o `joblib` se importan al
+  arrancar; están en el grupo `etl` de `pyproject.toml`). Medido el 2026-10-11 en 512 MB:
+  **1 worker 127 MB, 2 → 229 MB, 4 → 433 MB**, unos 100 MB por proceso. La memoria ya
+  permitiría 2 holgados. **No se sube igual**: el límite por IP vive en memoria de cada
+  proceso, así que con `WEB_CONCURRENCY=N` el límite real es N× el anunciado. Subirlo exige
+  antes sacar ese contador del proceso. Repetible con `make medir-memoria`.
+- **Feature flags**: 1 en `app/config.py` (`feature_analytics`); apagada, el BI devuelve 503
+  con mensaje accionable. `feature_tfidf` se fue con el TF-IDF de la API (paso 8 del pivote).
 
 ---
 
@@ -747,6 +750,11 @@ estos patrones, es señal de que hay que arreglar la causa, no de copiarlo:
   usa `coincide_termino()` en `repositories/licitaciones.py`, que combina las dos vías.
   **Ignora las tildes** en los dos sentidos: el texto se indexa normalizado con
   `inmutable_unaccent` y el término se normaliza igual antes de comparar.
+  **El orden por relevancia también es Postgres** (`puntuacion_relevancia`: `ts_rank_cd`
+  con todos los términos, que premia la cercanía, + `ts_rank` con cualquiera y sobre el
+  nombre). Antes lo hacía el TF-IDF del ETL cargado en la API. **Relevancia ordena, no
+  amplía**: el filtro es el mismo AND que en cualquier otro orden y las abiertas van
+  primero; `tests/test_relevancia_licitaciones.py` fija el orden en un catálogo de juguete.
 - ~~Suscripción y `plan_tier` colgando de `User`~~ — **resuelto en F3**; hoy no hay ni
   suscripciones ni usuarios.
 - ~~`subprocess.run` desde Celery hacia el ETL (F2)~~ — **resuelto en el paso 5 del pivote**:
@@ -831,4 +839,4 @@ Observabilidad: `SENTRY_DSN` (backend, vacío = desactivado), `NEXT_PUBLIC_SENTR
 `SENTRY_ORG` / `SENTRY_PROJECT` / `SENTRY_AUTH_TOKEN` son **sólo de build**: sin ellas el
 build funciona igual, pero las trazas del navegador llegan minificadas.
 
-Feature flags: `FEATURE_ANALYTICS`, `FEATURE_TFIDF`.
+Feature flags: `FEATURE_ANALYTICS`.

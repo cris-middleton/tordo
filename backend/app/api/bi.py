@@ -5,9 +5,13 @@ Desde el pivote público (docs/PIVOTE_PUBLICO_2026-10.md) no hay cuentas: las ru
 de análisis no piden sesión ni cuota y las protege sólo el límite por IP de
 `/api/v1/bi/*`.
 
-Analytics routes are gated behind `feature_analytics`.
-TF-IDF matching routes are gated behind `feature_tfidf`.
-When either flag is off (default in dev), the respective endpoints return 503.
+Las rutas dependen de `feature_analytics`; apagada (lo normal en desarrollo),
+responden 503.
+
+`/bi/matching` (texto libre → proveedores, con el TF-IDF cargado en este proceso)
+y `/bi/clusters` (un parquet leído desde la API) se retiraron en el paso 8 del
+pivote público: la API no carga artefactos del ETL. Ver CLAUDE.md, «Un worker
+por contenedor».
 """
 
 import logging
@@ -19,7 +23,6 @@ from app.config import settings
 from app.db import get_db
 from app.repositories import licitaciones as repo_licitaciones
 from app.schemas.bi import (
-    ClustersResponse,
     CompetidoresResponse,
     CompradorResponse,
     DescuentoResponse,
@@ -27,7 +30,6 @@ from app.schemas.bi import (
     EstacionalidadResponse,
     ForecastCompetidoresResponse,
     LicitacionBIPanel,
-    MatchingResponse,
     OportunidadesResponse,
     PanoramaResponse,
     PrecioResponse,
@@ -39,7 +41,7 @@ from app.schemas.bi import (
     VentanaResponse,
 )
 from app.services import bi as bi_service
-from app.services import exportar, tfidf_matcher
+from app.services import exportar
 
 logger = logging.getLogger(__name__)
 
@@ -53,18 +55,6 @@ def _require_analytics():
             detail=(
                 "BI module is disabled. "
                 "Set FEATURE_ANALYTICS=true and generate analytics parquets first."
-            ),
-        )
-
-
-def _require_tfidf_flag():
-    if not settings.feature_tfidf:
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "TF-IDF matching is disabled. "
-                "Set FEATURE_TFIDF=true and train the model first: "
-                "python -m etl.analytics.run_all --modulo tfidf_matcher"
             ),
         )
 
@@ -320,43 +310,6 @@ def get_sector(
     return bi_service.get_sector(sector, limit)
 
 
-# ─── TF-IDF Matching endpoints ────────────────────────────────────────────────
-
-
-@router.get(
-    "/matching",
-    response_model=MatchingResponse,
-    summary="Matching semántico: proveedores similares a un texto libre",
-    description=(
-        "Dado un texto (nombre de licitación, descripción de producto), retorna los "
-        "proveedores históricos más afines por cosine similarity sobre TF-IDF. "
-        "Tolerante a variantes ortográficas (strip_accents, bigramas). "
-        "Requiere FEATURE_TFIDF=true y modelo entrenado."
-    ),
-)
-def get_matching(
-    texto: str = Query(
-        ..., min_length=3, description="Texto a buscar (nombre producto, servicio, etc.)"
-    ),
-    top_n: int = Query(20, ge=1, le=100, description="Número máximo de proveedores a retornar"),
-):
-    _require_tfidf_flag()
-
-    if not tfidf_matcher.is_available():
-        return MatchingResponse(
-            disponible=False,
-            motivo="Modelo TF-IDF no entrenado. Ejecute: python -m etl.analytics.run_all --modulo tfidf_matcher",
-        )
-
-    results = tfidf_matcher.match(texto, top_n=top_n)
-    return MatchingResponse(
-        disponible=True,
-        query=texto,
-        resultados=results,
-        total=len(results),
-    )
-
-
 @router.get(
     "/rubros",
     response_model=RubrosResponse,
@@ -466,36 +419,6 @@ def get_resumen(
     _require_analytics()
 
     return bi_service.get_resumen(rubro)
-
-
-@router.get(
-    "/clusters",
-    response_model=ClustersResponse,
-    summary="Taxonomía de clusters de productos",
-    description=(
-        "Retorna los clusters de tipos de compra generados por word_clustering.py. "
-        "Requiere que el ETL haya generado cluster_taxonomy.parquet."
-    ),
-)
-def get_clusters(
-    limit: int = Query(100, ge=1, le=200),
-):
-    _require_tfidf_flag()
-
-    clusters = tfidf_matcher.get_clusters(limit=limit)
-    if not clusters:
-        return ClustersResponse(
-            disponible=False,
-            motivo=(
-                "cluster_taxonomy.parquet no encontrado. "
-                "Ejecute: python -m etl.analytics.run_all --modulo word_clustering"
-            ),
-        )
-    return ClustersResponse(
-        disponible=True,
-        clusters=clusters,
-        total=len(clusters),
-    )
 
 
 @router.get(

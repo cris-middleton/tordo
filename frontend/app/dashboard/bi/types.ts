@@ -91,14 +91,6 @@ export interface EstacionalidadMes {
   es_pico_estacional?: boolean;
 }
 
-export interface ClusterItem {
-  cluster_id: number;
-  label: string;
-  keywords?: string;
-  n_productos?: number;
-  rubro_dominante?: string;
-}
-
 // Months in Spanish for chart labels
 export const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 

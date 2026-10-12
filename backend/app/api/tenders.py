@@ -3,26 +3,17 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.db import get_db
 from app.models.convocatoria import TipoConvocatoria
 from app.models.licitacion import Licitacion
 from app.repositories import licitaciones as repo_licitaciones
 from app.schemas.tender import TenderListResponse, TenderResponse
-from app.services import tfidf_matcher
 
 router = APIRouter(prefix="/tenders", tags=["tenders"])
 
 
-def _licitacion_text(lic: Licitacion) -> str:
-    return f"{lic.nombre or ''} {lic.descripcion or ''}".strip()
-
-
-def _to_response(lic: Licitacion, **extra) -> TenderResponse:
-    # Pydantic v2: se construye desde los atributos ORM y luego se sobreescriben
-    # los campos calculados.
-    resp = TenderResponse.model_validate(lic)
-    return resp.model_copy(update=extra) if extra else resp
+def _to_response(lic: Licitacion) -> TenderResponse:
+    return TenderResponse.model_validate(lic)
 
 
 def _paginacion(total: int, salto: int, limite: int) -> tuple[int, int]:
@@ -80,43 +71,23 @@ async def list_tenders(
     )
     ascendente = sort_order == "asc"
 
-    # Reordenado semántico: sólo cuando se pide relevancia Y hay términos.
-    if sort_by == "relevance" and filtros.terminos and settings.feature_tfidf:
-        if tfidf_matcher.is_available():
-            pool = await repo_licitaciones.pool_para_relevancia(db, filtros)
-            similitudes = tfidf_matcher.score_texts(
-                " ".join(filtros.terminos), [_licitacion_text(lic) for lic in pool]
-            )
-            # Abiertas primero, y dentro de cada grupo por similitud: el mismo
-            # criterio que el orden en SQL (`abiertas_primero`).
-            signo = 1 if ascendente else -1
-            ordenadas = sorted(
-                zip(pool, similitudes, strict=True),
-                key=lambda fila: (
-                    0 if repo_licitaciones.abierta_en_memoria(fila[0]) else 1,
-                    signo * fila[1],
-                ),
-            )
-            total = len(ordenadas)
-            pagina_filas = ordenadas[skip : skip + limit]
-            items = [
-                _to_response(lic, similarity_score=round(float(sim), 4))
-                for lic, sim in pagina_filas
-            ]
-            page, pages = _paginacion(total, skip, limit)
-            return TenderListResponse(items=items, total=total, page=page, size=limit, pages=pages)
-        # Sin artefactos del modelo se cae al orden normal. El término sigue
-        # siendo un FILTRO: `buscar` lo aplica siempre, así que la búsqueda no se
-        # ignora en silencio como pasaba antes.
-
-    rows, total = await repo_licitaciones.buscar(
-        db,
-        filtros,
-        orden=sort_by,
-        ascendente=ascendente,
-        salto=skip,
-        limite=limit,
-    )
+    if sort_by == "relevance":
+        # Lo ordena Postgres (`ts_rank_cd` sobre `busqueda`), con el MISMO
+        # filtro que el resto de órdenes. Hasta el paso 8 del pivote lo hacía un
+        # TF-IDF cargado en este proceso, y sin sus artefactos el término se
+        # llegó a ignorar: se devolvía el catálogo entero.
+        rows, total = await repo_licitaciones.buscar_por_relevancia(
+            db, filtros, ascendente=ascendente, salto=skip, limite=limit
+        )
+    else:
+        rows, total = await repo_licitaciones.buscar(
+            db,
+            filtros,
+            orden=sort_by,
+            ascendente=ascendente,
+            salto=skip,
+            limite=limit,
+        )
 
     items = [_to_response(lic) for lic in rows]
     page, pages = _paginacion(total, skip, limit)

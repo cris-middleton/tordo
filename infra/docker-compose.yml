@@ -48,16 +48,12 @@ services:
       LIMITE_POR_MINUTO: ${LIMITE_POR_MINUTO:-60}
       PROXY_SECRETO: ${PROXY_SECRETO:-}
       FEATURE_ANALYTICS: ${FEATURE_ANALYTICS:-true}
-      FEATURE_TFIDF: ${FEATURE_TFIDF:-true}
-      # Dónde están los artefactos del modelo TF-IDF que produce el ETL. Sin
-      # esto la ruta por defecto es relativa (`etl/data/analytics`) y dentro del
-      # contenedor apunta a /app/etl/…, que no existe: el orden por relevancia
-      # respondía «Modelo TF-IDF no entrenado» con el modelo ahí.
-      ANALYTICS_DATA_PATH: /analytics
+      # Sin artefactos del ETL montados, a propósito: la API no lee ninguno. El
+      # BI sale de `analytics.*` en Postgres y el orden por relevancia de
+      # `ts_rank_cd` (paso 8 del pivote público).
     volumes:
       - ../backend:/app
       - /app/__pycache__
-      - ../etl/data/analytics:/analytics:ro
     depends_on:
       db:
         condition: service_healthy

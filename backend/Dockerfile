@@ -49,23 +49,20 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Migrar y servir. Corre al arrancar el contenedor para que la red privada de
 # Railway (postgres.railway.internal) sea alcanzable.
 #
-# UN worker por defecto, y explícito. Medido con `make medir-memoria` sobre esta
-# misma imagen, con el modelo TF-IDF real montado:
+# UN worker, y explícito. Ya no por memoria: medido con `make medir-memoria`
+# sobre esta misma imagen (2026-10-11), sin el TF-IDF que la API cargaba hasta el
+# paso 8 del pivote público:
 #
-#   límite   workers  TF-IDF   pico      resultado
-#   512 MB      1       sí     182 MB    ✓
-#   512 MB      2       sí     384 MB    ✓
-#   512 MB      4       sí     420 MB    ✗ OOM
-#   1 GB        4       sí     627 MB    ✓
+#   límite   workers  pico      (antes, con TF-IDF)
+#   512 MB      1     127 MB    289 MB
+#   512 MB      2     229 MB    384 MB
+#   512 MB      4     433 MB    OOM
 #
-# El modelo cuesta ~105 MB POR PROCESO: se carga perezosamente en cada worker y
-# no se comparte. Con 4 en 512 MB el kernel empieza a matarlos, cada uno vuelve
-# a cargar el modelo al reiniciar y el ciclo se realimenta — en esa corrida el
-# modelo se cargó 14 veces para 4 workers.
-#
-# Subir la concurrencia se hace por `WEB_CONCURRENCY`, y exige 1 GB. Con 512 MB
-# el techo son 2. Y además multiplica el límite por IP, que vive en memoria de
-# cada proceso (`app/core/limite_ip.py`): con N workers, N cubos por IP.
+# Cada worker cuesta ~100 MB y nada pesado se carga perezosamente, así que 2
+# caben holgados en 512 MB y 4 caben justos. Lo que obliga a uno es el límite
+# por IP, que vive en memoria de cada proceso (`app/core/limite_ip.py`): con N
+# workers hay N cubos por IP y el límite real es N veces el anunciado. Subir
+# `WEB_CONCURRENCY` exige antes sacar ese contador del proceso.
 #
 # `--no-proxy-headers`: de qué IP viene una petición lo decide
 # `app/core/limite_ip.py`, con su modelo de confianza escrito. Uvicorn por su

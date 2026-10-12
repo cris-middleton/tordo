@@ -206,40 +206,6 @@ class CompradorResponse(BaseModel):
     motivo: str | None = None
 
 
-# ─── TF-IDF Matching schemas ─────────────────────────────────────────────────
-
-
-class ProveedorMatch(BaseModel):
-    CodigoProveedor: str
-    NombreProveedor: str | None = None
-    n_oc: int | None = None
-    similarity_score: float
-
-
-class MatchingResponse(BaseModel):
-    disponible: bool
-    query: str | None = None
-    resultados: list[ProveedorMatch] | None = None
-    total: int | None = None
-    motivo: str | None = None
-
-
-class ClusterItem(BaseModel):
-    cluster_id: int | None = None
-    label: str | None = None
-    keywords: str | None = None
-    n_productos: int | None = None
-    frecuencia_total: int | None = None
-    rubro_dominante: str | None = None
-
-
-class ClustersResponse(BaseModel):
-    disponible: bool
-    clusters: list[ClusterItem] | None = None
-    total: int | None = None
-    motivo: str | None = None
-
-
 class RubrosResponse(BaseModel):
     disponible: bool
     rubros: list[str] | None = None

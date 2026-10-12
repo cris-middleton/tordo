@@ -14,11 +14,12 @@
 # mata el contenedor, se ve como tal y no como un 502 misterioso.
 #
 # Uso:
-#   make medir-memoria                 # 1 y 4 workers, con y sin TF-IDF
-#   WORKERS=4 TFIDF=true ./scripts/medir-memoria.sh   # un solo escenario
+#   make medir-memoria                     # 1, 2 y 4 workers
+#   WORKERS=2 ./scripts/medir-memoria.sh   # un solo escenario
 #
-# El modelo TF-IDF se monta desde `etl/data/analytics`. Sin esos artefactos el
-# escenario con TF-IDF mide lo mismo que el de sin, así que el script avisa.
+# Hasta el paso 8 del pivote público había también escenarios «con TF-IDF»: la
+# API cargaba el modelo del ETL (~165 MB por proceso). Ya no lo carga, así que no
+# hay nada que montar ni que comparar.
 
 set -euo pipefail
 set -m
@@ -32,9 +33,6 @@ API="tordo-medicion-api"
 IMAGEN="tordo-backend:medicion"
 PUERTO="${MEDICION_PUERTO:-8310}"
 LIMITE="${LIMITE:-512m}"
-# Dónde están los artefactos del modelo. Los worktrees no heredan `etl/data/`,
-# así que por defecto se toman del checkout principal.
-ARTEFACTOS="${ARTEFACTOS:-$RAIZ/etl/data/analytics}"
 
 azul=$'\e[36m'; rojo=$'\e[31m'; verde=$'\e[32m'; gris=$'\e[90m'; fin=$'\e[0m'
 paso() { printf "\n%s── %s %s\n" "$azul" "$1" "$fin"; }
@@ -65,15 +63,11 @@ for _ in $(seq 1 90); do
   sleep 1
 done
 
-if [ ! -f "$ARTEFACTOS/tfidf_model.joblib" ]; then
-  printf "%s   Sin artefactos TF-IDF en %s — los escenarios con TF-IDF no medirán el modelo.%s\n" \
-    "$rojo" "$ARTEFACTOS" "$fin"
-fi
-
 # ── Un escenario ─────────────────────────────────────────────────────────────
 
-# Endpoints que representan el peor caso de memoria: el listado carga el modelo
-# TF-IDF al ordenar por relevancia, y los de BI tocan las tablas de analytics.
+# Endpoints que representan el peor caso de memoria: el listado ordenado por
+# relevancia (antes cargaba el TF-IDF; ahora es `ts_rank_cd` en Postgres) y los de
+# BI, que tocan las tablas de analytics.
 #
 # Son anónimos desde el pivote público. Antes exigían sesión, y una ruta que
 # responde 401 sin hacer nada mide el proceso en reposo creyendo que mide la
@@ -86,11 +80,8 @@ CAMINOS=(
 )
 
 medir() {
-  local workers="$1" tfidf="$2"
+  local workers="$1"
   docker rm -f "$API" >/dev/null 2>&1 || true
-
-  local montaje=()
-  [ -d "$ARTEFACTOS" ] && montaje=(-v "$ARTEFACTOS:/app/etl/data/analytics:ro")
 
   # Sin límite por IP: son 120 peticiones desde la misma IP en segundos, y un
   # 429 no carga nada — mediría el proceso en reposo.
@@ -99,9 +90,6 @@ medir() {
     -p "${PUERTO}:8000" \
     -e DATABASE_URL="postgresql://postgres:postgres@${PG}:5432/tordo_test" \
     -e LIMITE_POR_MINUTO=1000000 \
-    -e FEATURE_TFIDF="$tfidf" \
-    -e ANALYTICS_DATA_PATH="/app/etl/data/analytics" \
-    "${montaje[@]}" \
     "$IMAGEN" \
     sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${workers}" \
     >/dev/null
@@ -113,7 +101,7 @@ medir() {
     sleep 1
   done
   if [ "$arriba" != si ]; then
-    printf "%s   w=%s tfidf=%s → NO ARRANCÓ (%s)%s\n" "$rojo" "$workers" "$tfidf" \
+    printf "%s   w=%s → NO ARRANCÓ (%s)%s\n" "$rojo" "$workers" \
       "$(docker inspect -f 'oom={{.State.OOMKilled}} exit={{.State.ExitCode}}' "$API" 2>&1)" "$fin"
     docker logs "$API" 2>&1 | tail -6 | sed 's/^/       /'
     return 1
@@ -122,8 +110,8 @@ medir() {
   # Los datos de prueba los pone el mismo sembrador que usa el E2E.
   docker exec "$API" python scripts/sembrar_e2e.py >/dev/null 2>&1 || true
   if ! curl -sf -o /dev/null "http://localhost:${PUERTO}${CAMINOS[0]}"; then
-    printf "%s   w=%s tfidf=%s → el catálogo no responde: la medición no valdría nada%s\n" \
-      "$rojo" "$workers" "$tfidf" "$fin"
+    printf "%s   w=%s → el catálogo no responde: la medición no valdría nada%s\n" \
+      "$rojo" "$workers" "$fin"
     return 1
   fi
 
@@ -131,8 +119,8 @@ medir() {
   local reposo
   reposo="$(docker stats --no-stream --format '{{.MemUsage}}' "$API" | awk '{print $1}')"
 
-  # Varias vueltas para forzar la carga perezosa del modelo en CADA worker: es
-  # el punto del ejercicio, y con una sola pasada se mide un solo proceso.
+  # Varias vueltas para que CADA worker sirva algo: con una sola pasada se
+  # mide un solo proceso.
   for _ in $(seq 1 40); do
     for ruta in "${CAMINOS[@]}"; do
       curl -sf -o /dev/null --max-time 20 "http://localhost:${PUERTO}${ruta}" || true
@@ -146,18 +134,9 @@ medir() {
   docker inspect -f '{{.State.OOMKilled}}' "$API" | grep -q true && estado="OOM"
   docker inspect -f '{{.State.Running}}' "$API" | grep -q true || estado="MURIÓ"
 
-  # Cuántos procesos llegaron a cargar el modelo. Es el dato que da sentido a la
-  # comparación: si sale 0 con tfidf=true, el escenario no midió lo que dice.
-  local cargas
-  cargas="$(docker logs "$API" 2>&1 | grep -c 'TF-IDF model loaded' || true)"
-
-  printf "   w=%-2s tfidf=%-5s reposo=%-9s pico=%-9s cargas=%-2s %s\n" \
-    "$workers" "$tfidf" "$reposo" "$pico" "$cargas" \
+  printf "   w=%-2s reposo=%-9s pico=%-9s %s\n" \
+    "$workers" "$reposo" "$pico" \
     "$([ "$estado" = ok ] && printf "%s✓%s" "$verde" "$fin" || printf "%s%s%s" "$rojo" "$estado" "$fin")"
-
-  if [ "$tfidf" = true ] && [ "$cargas" -eq 0 ]; then
-    printf "%s      el modelo NO se cargó — este número no mide lo que dice%s\n" "$rojo" "$fin"
-  fi
   [ "$estado" = ok ]
 }
 
@@ -166,14 +145,13 @@ medir() {
 paso "Límite del contenedor: $LIMITE"
 
 if [ -n "${WORKERS:-}" ]; then
-  medir "$WORKERS" "${TFIDF:-false}"
+  medir "$WORKERS"
 else
   fallos=0
-  medir 1 false || fallos=$((fallos + 1))
-  medir 1 true  || fallos=$((fallos + 1))
-  medir 4 false || fallos=$((fallos + 1))
-  medir 4 true  || fallos=$((fallos + 1))
-  printf "\n%sReposo = recién arrancado. Pico = tras 40 vueltas a %d endpoints autenticados.%s\n" \
+  medir 1 || fallos=$((fallos + 1))
+  medir 2 || fallos=$((fallos + 1))
+  medir 4 || fallos=$((fallos + 1))
+  printf "\n%sReposo = recién arrancado. Pico = tras 40 vueltas a %d endpoints.%s\n" \
     "$gris" "${#CAMINOS[@]}" "$fin"
   [ "$fallos" -eq 0 ] || printf "%s%d escenario(s) no caben en %s.%s\n" "$rojo" "$fallos" "$LIMITE" "$fin"
 fi
