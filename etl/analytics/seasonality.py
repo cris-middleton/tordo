@@ -10,11 +10,12 @@ Metodología:
    - Calcular distribución mensual de compras (proporción por mes)
    - Detectar meses con actividad significativamente por encima del promedio
    - Calcular consistencia interanual (qué tan predecible es el patrón)
-3. Generar predicciones: probabilidad de compra por mes futuro
 
 Output:
   - seasonality_patterns.parquet: patrones detectados con probabilidades
-  - seasonality_predictions.parquet: predicciones próximos 12 meses
+
+Escribía además los agregados mensuales y una predicción a 12 meses, que nada
+leía —ni la API ni otro módulo— y se retiraron.
 """
 
 import logging
@@ -186,59 +187,6 @@ def detect_seasonality_patterns(monthly_agg: pl.DataFrame) -> pl.DataFrame:
     return patterns
 
 
-def generate_predictions(patterns: pl.DataFrame, months_ahead: int = 12) -> pl.DataFrame:
-    """
-    Paso 3: Genera predicciones de probabilidad de compra para los próximos N meses.
-    Para cada (organismo, rubro), predice la probabilidad en cada mes futuro
-    basándose en el patrón histórico + consistencia interanual.
-
-    Score = prob_mes × consistencia (pondera la probabilidad por la fiabilidad del patrón)
-    """
-    from datetime import datetime, timedelta
-
-    logger.info(f"Generando predicciones para {months_ahead} meses...")
-
-    now = datetime.now()
-    future_months = []
-    for i in range(1, months_ahead + 1):
-        future = now + timedelta(days=30 * i)
-        future_months.append((future.year, future.month))
-
-    # Para cada par con picos, generar predicción
-    peak_pairs = patterns.filter(pl.col("es_pico_estacional")).select(
-        [
-            "CodigoOrganismoPublico",
-            "RubroN2",
-            "mes",
-            "prob_mes",
-            "consistencia",
-            "total_compras",
-            "n_anios_activo",
-        ]
-    )
-
-    predictions = []
-    for year, month in future_months:
-        month_preds = peak_pairs.filter(pl.col("mes") == month).with_columns(
-            [
-                pl.lit(year).alias("pred_anio"),
-                pl.lit(month).alias("pred_mes"),
-                (pl.col("prob_mes") * pl.col("consistencia")).alias("score_prediccion"),
-            ]
-        )
-        predictions.append(month_preds)
-
-    if not predictions:
-        return pl.DataFrame()
-
-    result = pl.concat(predictions, how="diagonal_relaxed").sort(
-        ["score_prediccion"], descending=True
-    )
-
-    logger.info(f"Predicciones generadas: {len(result):,} filas")
-    return result
-
-
 def run_seasonality() -> dict[str, pl.DataFrame]:
     """Ejecuta el pipeline completo de estacionalidad."""
     logger.info("=" * 60)
@@ -250,25 +198,13 @@ def run_seasonality() -> dict[str, pl.DataFrame]:
     if monthly_agg.is_empty():
         return {}
 
-    # Guardar agregados intermedios
-    agg_path = OUTPUT_DIR / "seasonality_monthly_agg.parquet"
-    monthly_agg.write_parquet(agg_path, compression="snappy")
-    logger.info(f"Guardado: {agg_path.name} ({agg_path.stat().st_size / 1024 / 1024:.1f} MB)")
-
     # Paso 2: Patrones
     patterns = detect_seasonality_patterns(monthly_agg)
     pat_path = OUTPUT_DIR / "seasonality_patterns.parquet"
     patterns.write_parquet(pat_path, compression="snappy")
     logger.info(f"Guardado: {pat_path.name} ({pat_path.stat().st_size / 1024 / 1024:.1f} MB)")
 
-    # Paso 3: Predicciones
-    predictions = generate_predictions(patterns)
-    pred_path = OUTPUT_DIR / "seasonality_predictions.parquet"
-    predictions.write_parquet(pred_path, compression="snappy")
-    logger.info(f"Guardado: {pred_path.name} ({pred_path.stat().st_size / 1024 / 1024:.1f} MB)")
-
     return {
         "monthly_agg": monthly_agg,
         "patterns": patterns,
-        "predictions": predictions,
     }

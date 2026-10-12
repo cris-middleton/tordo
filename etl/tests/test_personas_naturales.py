@@ -210,7 +210,7 @@ RUBROS = [
 
 
 #: Variantes del producto: TF-IDF descarta a un proveedor con menos de 20
-#: caracteres de texto, y el clustering necesita vocabulario.
+#: caracteres de texto.
 #:
 #: Cada proveedor ve SÓLO 3 de las 6 (las suyas, fijas), así que cada palabra
 #: aparece en ~la mitad de los proveedores: dentro de [min_df=5, max_df=80 %].
@@ -356,15 +356,18 @@ def salida(tmp_path_factory) -> Path:
         _licitaciones(anio, mes).write_parquet(lic / f"{anio}-{mes}.parquet")
 
     # En otro proceso, como corre de verdad: los módulos leen la ruta al importarse.
-    resultado = subprocess.run(
-        [sys.executable, "-m", "etl.analytics.run_all"],
-        cwd=RAIZ,
-        env={**os.environ, "ETL_DATA_DIR": str(datos)},
-        capture_output=True,
-        text=True,
-        timeout=900,
-    )
-    assert resultado.returncode == 0, resultado.stderr[-3000:]
+    # TF-IDF ya no está en la corrida semanal, pero sigue entrenándose a mano
+    # (`--modulo tfidf`, modelo del harness): sus artefactos también se revisan.
+    for argumentos in ([], ["--modulo", "tfidf"]):
+        resultado = subprocess.run(
+            [sys.executable, "-m", "etl.analytics.run_all", *argumentos],
+            cwd=RAIZ,
+            env={**os.environ, "ETL_DATA_DIR": str(datos)},
+            capture_output=True,
+            text=True,
+            timeout=900,
+        )
+        assert resultado.returncode == 0, resultado.stderr[-3000:]
     return datos / "analytics"
 
 
@@ -423,3 +426,26 @@ def test_ninguna_salida_contiene_a_la_persona_natural(salida):
                 hallazgos.append(f"{archivo.name}: {aguja}")
 
     assert not hallazgos, "la persona natural se escapa por:\n" + "\n".join(hallazgos)
+
+
+#: Salidas que se escribían y nada leía —ni la API, ni `materialize`, ni otro
+#: módulo—, retiradas para que la corrida semanal no gaste RAM ni R2 en ellas.
+SALIDAS_RETIRADAS = (
+    "seasonality_monthly_agg.parquet",
+    "seasonality_predictions.parquet",
+    "trend_by_sector.parquet",
+    "provider_concentration_alerts.parquet",
+    "region_dashboard.parquet",
+    "sector_region_matrix.parquet",
+    "window_norms.parquet",
+    "window_norms_type.parquet",
+    "competitor_low_competition.parquet",
+    "price_model_params.parquet",
+    "product_price_coverage.parquet",
+    "product_clusters.parquet",
+    "cluster_taxonomy.parquet",
+)
+
+
+def test_las_salidas_retiradas_no_se_escriben(salida):
+    assert [n for n in SALIDAS_RETIRADAS if (salida / n).exists()] == []

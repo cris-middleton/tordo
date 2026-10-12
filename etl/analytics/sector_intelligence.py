@@ -17,8 +17,8 @@ Métricas por sector:
 
 Output:
   - sector_dashboard.parquet: métricas agregadas por sector
-  - region_dashboard.parquet: métricas agregadas por región
-  - sector_region_matrix.parquet: cruce sector × región
+
+Los tableros por región y el cruce sector × región se retiraron: nada los leía.
 """
 
 import logging
@@ -131,143 +131,6 @@ def build_sector_dashboard() -> pl.DataFrame:
     return result
 
 
-def build_region_dashboard() -> pl.DataFrame:
-    """Agrega métricas por región."""
-    logger.info("Construyendo dashboard por región...")
-
-    cols_needed = [
-        "RegionUnidadCompra",
-        "sector",
-        "CodigoOrganismoPublico",
-        "CodigoProveedor",
-        "MontoTotalOC_PesosChilenos",
-    ]
-
-    frames = []
-    distintos = {
-        "n_organismos": ContadorDistintos("RegionUnidadCompra", "CodigoOrganismoPublico"),
-        "n_proveedores": ContadorDistintos("RegionUnidadCompra", "CodigoProveedor"),
-    }
-
-    for _periodo, df in iter_oc_parquets(columns=cols_needed):
-        if "RegionUnidadCompra" not in df.columns:
-            continue
-
-        for contador in distintos.values():
-            contador.añadir(df)
-
-        batch = (
-            orden_por_fila(df)
-            .filter(
-                pl.col("RegionUnidadCompra").is_not_null()
-                & (pl.col("RegionUnidadCompra") != "null")
-                & (pl.col("RegionUnidadCompra") != "")
-            )
-            # El total de la ORDEN, una vez por orden: sector y región son de
-            # la orden, y el ticket es por orden, no por línea.
-            .with_columns(pl.col("MontoTotalOC_PesosChilenos").alias("monto"))
-            .group_by("RegionUnidadCompra")
-            .agg(
-                [
-                    pl.len().alias("n_oc"),
-                    pl.col("monto").sum().alias("monto_total"),
-                    pl.col("monto").median().alias("ticket_mediana"),
-                ]
-            )
-        )
-        frames.append(batch)
-
-    if not frames:
-        return pl.DataFrame()
-
-    combined = pl.concat(frames, how="diagonal_relaxed")
-    result = combined.group_by("RegionUnidadCompra").agg(
-        [
-            pl.col("n_oc").sum(),
-            pl.col("monto_total").sum(),
-            (pl.col("ticket_mediana") * pl.col("n_oc")).sum().alias("_wt_med"),
-        ]
-    )
-    for alias, contador in distintos.items():
-        conteos = contador.conteos(alias)
-        result = (
-            result.join(conteos, on="RegionUnidadCompra", how="left")
-            if not conteos.is_empty()
-            else result.with_columns(pl.lit(None, dtype=pl.UInt32).alias(alias))
-        )
-    result = (
-        result.with_columns(
-            [
-                (pl.col("_wt_med") / pl.col("n_oc")).alias("ticket_mediana"),
-            ]
-        )
-        .drop("_wt_med")
-        .sort("monto_total", descending=True)
-    )
-
-    logger.info(f"Regiones: {len(result):,}")
-    return result
-
-
-def build_sector_region_matrix() -> pl.DataFrame:
-    """Cruce sector × región con volumen y monto."""
-    logger.info("Construyendo matriz sector × región...")
-
-    cols_needed = [
-        "sector",
-        "RegionUnidadCompra",
-        "MontoTotalOC_PesosChilenos",
-        "CodigoProveedor",
-    ]
-
-    frames = []
-
-    for _periodo, df in iter_oc_parquets(columns=cols_needed):
-        if "sector" not in df.columns or "RegionUnidadCompra" not in df.columns:
-            continue
-
-        batch = (
-            orden_por_fila(df)
-            .filter(
-                pl.col("sector").is_not_null()
-                & (pl.col("sector") != "null")
-                & pl.col("RegionUnidadCompra").is_not_null()
-                & (pl.col("RegionUnidadCompra") != "null")
-            )
-            # El total de la ORDEN, una vez por orden: sector y región son de
-            # la orden, y el ticket es por orden, no por línea.
-            .with_columns(pl.col("MontoTotalOC_PesosChilenos").alias("monto"))
-            .group_by(["sector", "RegionUnidadCompra"])
-            .agg(
-                [
-                    pl.len().alias("n_oc"),
-                    pl.col("monto").sum().alias("monto_total"),
-                    pl.col("CodigoProveedor").n_unique().alias("n_proveedores"),
-                ]
-            )
-        )
-        frames.append(batch)
-
-    if not frames:
-        return pl.DataFrame()
-
-    combined = pl.concat(frames, how="diagonal_relaxed")
-    result = (
-        combined.group_by(["sector", "RegionUnidadCompra"])
-        .agg(
-            [
-                pl.col("n_oc").sum(),
-                pl.col("monto_total").sum(),
-                pl.col("n_proveedores").max(),
-            ]
-        )
-        .sort(["sector", "monto_total"], descending=[False, True])
-    )
-
-    logger.info(f"Combinaciones sector×región: {len(result):,}")
-    return result
-
-
 def run_sector_intelligence() -> dict[str, pl.DataFrame]:
     """Ejecuta pipeline de inteligencia por sector."""
     logger.info("=" * 60)
@@ -279,16 +142,6 @@ def run_sector_intelligence() -> dict[str, pl.DataFrame]:
     sector.write_parquet(sector_path, compression="snappy")
     logger.info(f"Guardado: {sector_path.name}")
 
-    region = build_region_dashboard()
-    region_path = OUTPUT_DIR / "region_dashboard.parquet"
-    region.write_parquet(region_path, compression="snappy")
-    logger.info(f"Guardado: {region_path.name}")
-
-    matrix = build_sector_region_matrix()
-    matrix_path = OUTPUT_DIR / "sector_region_matrix.parquet"
-    matrix.write_parquet(matrix_path, compression="snappy")
-    logger.info(f"Guardado: {matrix_path.name}")
-
     # Log top sectores
     logger.info("\nTop 10 sectores por monto:")
     for row in sector.head(10).iter_rows(named=True):
@@ -297,4 +150,4 @@ def run_sector_intelligence() -> dict[str, pl.DataFrame]:
             f"  {row['sector']:30s} — ${monto_b:,.1f}B CLP | {row['n_oc']:>10,} OC | {row['n_proveedores']:>6,} proveedores"
         )
 
-    return {"sector": sector, "region": region, "matrix": matrix}
+    return {"sector": sector}

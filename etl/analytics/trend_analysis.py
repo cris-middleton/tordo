@@ -6,14 +6,15 @@ y evolución del gasto público por sector/organismo/rubro.
 
 Análisis:
 1. Tendencia de gasto por (organismo, rubro) — regresión lineal sobre serie mensual
-2. Crecimiento interanual por sector
-3. Detección de nuevos mercados (rubros con crecimiento acelerado)
-4. Rotación de proveedores (cambio de proveedor dominante en un mercado)
+2. Detección de nuevos mercados (rubros con crecimiento acelerado)
+3. Rotación de proveedores (cambio de proveedor dominante en un mercado)
 
 Output:
+  - time_series.parquet: serie mensual por mercado
   - trend_by_market.parquet: tendencia de gasto por mercado con pendiente y R²
-  - trend_by_sector.parquet: crecimiento interanual por sector
   - emerging_markets.parquet: rubros con mayor crecimiento
+
+El crecimiento interanual por sector (`trend_by_sector`) se retiró: nada lo leía.
 """
 
 import logging
@@ -222,40 +223,6 @@ def compute_market_trends(ts: pl.DataFrame) -> pl.DataFrame:
     return trend_df
 
 
-def compute_sector_trends(ts: pl.DataFrame) -> pl.DataFrame:
-    """Crecimiento interanual por sector."""
-    logger.info("Calculando tendencias por sector...")
-
-    sector_annual = (
-        ts.filter(pl.col("sector").is_not_null() & (pl.col("sector") != "null"))
-        .group_by(["sector", "anio"])
-        .agg(
-            [
-                pl.col("monto_total").sum().alias("monto_anual"),
-                pl.col("n_oc").sum().alias("oc_anual"),
-            ]
-        )
-        .sort(["sector", "anio"])
-    )
-
-    # Calcular crecimiento YoY
-    sector_growth = (
-        sector_annual.with_columns(
-            [
-                pl.col("monto_anual").shift(1).over("sector").alias("monto_prev"),
-            ]
-        )
-        .filter(pl.col("monto_prev").is_not_null() & (pl.col("monto_prev") > 0))
-        .with_columns(
-            [
-                ((pl.col("monto_anual") / pl.col("monto_prev")) - 1).alias("crecimiento_yoy"),
-            ]
-        )
-    )
-
-    return sector_growth
-
-
 def detect_emerging_markets(trends: pl.DataFrame) -> pl.DataFrame:
     """
     Detecta rubros con crecimiento acelerado: CAGR > 20% y R² > 0.3.
@@ -291,12 +258,6 @@ def run_trend_analysis() -> dict[str, pl.DataFrame]:
     market_trends.write_parquet(mt_path, compression="snappy")
     logger.info(f"Guardado: {mt_path.name}")
 
-    # Tendencias por sector
-    sector_trends = compute_sector_trends(ts)
-    st_path = OUTPUT_DIR / "trend_by_sector.parquet"
-    sector_trends.write_parquet(st_path, compression="snappy")
-    logger.info(f"Guardado: {st_path.name}")
-
     # Mercados emergentes
     emerging = detect_emerging_markets(market_trends)
     em_path = OUTPUT_DIR / "emerging_markets.parquet"
@@ -306,6 +267,5 @@ def run_trend_analysis() -> dict[str, pl.DataFrame]:
     return {
         "time_series": ts,
         "market_trends": market_trends,
-        "sector_trends": sector_trends,
         "emerging": emerging,
     }

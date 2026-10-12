@@ -446,7 +446,9 @@ pide el detalle de lo que ya está en la base: lo nuevo entraba una vez al día.
 
 **Cualquier cambio a un modelo de scoring pasa por el harness de evaluación**
 (`etl/analytics/evaluation/`: splits, walk-forward, métricas, variantes). No se toca un
-scorer sin correrlo.
+scorer sin correrlo. **Su modelo de referencia es `tfidf_matcher`, que NO corre cada
+semana**: la API dejó de cargarlo en el paso 8, así que el cron semanal ya no lo entrena;
+se entrena a mano (`run_all --modulo tfidf`) o lo entrena el propio harness.
 
 ---
 
@@ -569,8 +571,15 @@ ignora `metadata` en componentes cliente y la home perdería título y tarjeta d
 ### ETL — `etl/`
 
 `main.py` orquesta → `extractors/` → `transformers/` → `loaders/DatabaseLoaderV2`.
-`analytics/` tiene 15 módulos Polars; `opportunity_scorer` corre último y agrega el resto.
-`analytics/evaluation/` es el harness de evaluación.
+`analytics/` tiene 14 módulos Polars que corren cada semana; `opportunity_scorer` corre
+último y agrega el resto. `analytics/evaluation/` es el harness de evaluación, con
+`tfidf_matcher` como modelo de referencia (a mano, no semanal).
+**Ningún módulo escribe un parquet que nada lea**: se retiraron trece —predicciones de
+estacionalidad, tendencia por sector, tableros por región, alertas de concentración, normas
+de ventana, modelo log-normal de precio, cobertura de bandas, contextos de baja competencia
+y el clustering de tipos de compra entero—, que costaban RAM y R2 cada domingo.
+`etl/tests/test_personas_naturales.py` fija que no vuelvan. Antes de añadir una salida,
+que tenga lector: la API (vía `materialize`) u otro módulo.
 
 `ETL_DATA_DIR` mueve la raíz de los datos (`raw/`, `consolidated/`, `analytics/`) sin tocar
 código. Para correr analytics desde un worktree sobre los datos del checkout principal:
@@ -613,7 +622,7 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   del proveedor es `RutSucursal` en las OC masivas y `RutProveedor` en LIC.
   - **Se enmascara al LEER, en `data_loader`**, que es el único camino hacia los parquets
     consolidados. Así ninguna columna derivada —`top_proveedor`, la `descripcion` de las
-    bandas L0, el índice TF-IDF que entrena el ETL— puede olvidarlo, incluida la
+    bandas L0, el índice TF-IDF del harness— puede olvidarlo, incluida la
     próxima que se escriba. **No leas un consolidado con `pl.read_parquet` por tu cuenta.**
   - **Por código y con toda la historia**: un código es persona si cualquiera de sus RUT
     está bajo el umbral **o si no tiene ninguno legible** (66 de 55.297 en los datos locales;
@@ -668,8 +677,8 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
     cuenta igual, con código nulo.
 - **Analytics lee una VENTANA de historia, no toda** (`data_loader.VENTANA_ANALYTICS_MESES` = 36;
   las bandas de precio por producto, `VENTANA_BANDAS_PRECIO_MESES` = 12). Medido: **cada**
-  módulo sube de RAM con los meses de historia —de 0,04 GB/mes (clustering) a 0,5 GB/mes
-  (`product_prices`)—, así que con años en R2 el semanal no cabría en ninguna máquina. Con la
+  módulo sube de RAM con los meses de historia —de 0,04 GB/mes (clustering, hoy retirado) a
+  0,5 GB/mes (`product_prices`)—, así que con años en R2 el semanal no cabría en ninguna máquina. Con la
   ventana, el pico proyectado es ~6,3 GB (las bandas, a 12 meses): **servicio semanal de 8 GB**.
   Y es lo correcto en producto: precios o cuotas de hace años describen otro mercado.
   - **Se ancla en el período más reciente de los DATOS, no en hoy**: si ChileCompra se atrasa,
@@ -870,8 +879,8 @@ estos patrones, es señal de que hay que arreglar la causa, no de copiarlo:
 > cuentas ni cobros, financiado con donaciones, en Vercel Hobby + Railway con dos cron.
 > Especificación: `docs/PIVOTE_PUBLICO_2026-10.md`. **Del 3 al 8 están hechos**: fuera las
 > cuentas (3 y 4), cron en vez de Celery y Redis (5), R2, enmascarado y ventana de analytics
-> (6), Postgres adelgazado (7) y TF-IDF fuera de la API (8); y el 11, legal, como borrador
-> pendiente de revisión. Lo que queda —«lo mejor de hoy» en Compra Ágil (9), páginas públicas
+> (6), Postgres adelgazado (7) y TF-IDF fuera de la API (8); y el 11, legal: hecho; faltan
+> nombre, correo y fecha al lanzar. Lo que queda —«lo mejor de hoy» en Compra Ágil (9), páginas públicas
 > (10), lanzamiento (12)— está en la spec.
 
 Decisiones tomadas el 2026-08-05, con su ADR en `docs/decisiones/`: sólo Chile (sin

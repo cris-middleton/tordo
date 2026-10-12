@@ -12,12 +12,11 @@ Permite a un proveedor PYME responder:
    recibe 3–6 ofertas. Con 4 competidores esperados, mi probabilidad
    de adjudicar siendo competitivo es ~25 %."
 
-También identifica licitaciones con competencia anormalmente baja (< 2 oferentes),
-lo que puede indicar mercados cautivos o nichos de especialidad.
-
 Output:
-  - competitor_forecast.parquet: distribución de N por (organismo, rubro, tipo)
-  - competitor_low_competition.parquet: contextos con < 2 oferentes habituales
+  - competitor_forecast_{l1,l2,l3}.parquet: distribución de N por (organismo, rubro, tipo)
+
+Escribía además los contextos con competencia anormalmente baja (< 2 oferentes)
+en un parquet aparte, que nada leía; se retiró.
 """
 
 import logging
@@ -166,42 +165,6 @@ def compute_competitor_forecast(lics: pl.DataFrame) -> pl.DataFrame:
     return {"l1": l1, "l2": l2, "l3": l3}
 
 
-def compute_low_competition_markets(lics: pl.DataFrame) -> pl.DataFrame:
-    """
-    Identifica mercados donde la competencia es estructuralmente baja:
-    > 60 % de las licitaciones tienen ≤ 2 oferentes.
-    Estos son nichos de alta oportunidad para quien ya opera en el mercado.
-    """
-    logger.info("Identificando mercados de baja competencia...")
-
-    result = (
-        lics.filter(
-            pl.col("Rubro2").is_not_null()
-            & (pl.col("Rubro2") != "null")
-            & pl.col("CodigoTipo").is_not_null()
-        )
-        .group_by(["CodigoOrganismo", "NombreOrganismo", "Rubro2", "CodigoTipo"])
-        .agg(
-            [
-                pl.len().alias("n"),
-                pl.col("n_ofer").median().alias("oferentes_mediano"),
-                (pl.col("n_ofer") <= 2).sum().alias("n_pocos_oferentes"),
-            ]
-        )
-        .filter(pl.col("n") >= 10)
-        .with_columns(
-            [
-                (pl.col("n_pocos_oferentes") / pl.col("n")).alias("pct_pocos_oferentes"),
-            ]
-        )
-        .filter(pl.col("pct_pocos_oferentes") >= 0.60)
-        .sort("n", descending=True)
-    )
-
-    logger.info(f"Mercados de baja competencia: {len(result):,}")
-    return result
-
-
 def run_competitor_predictor() -> dict[str, pl.DataFrame]:
     """Ejecuta pipeline completo de predicción de competidores."""
     logger.info("=" * 60)
@@ -219,11 +182,6 @@ def run_competitor_predictor() -> dict[str, pl.DataFrame]:
         df.write_parquet(path, compression="snappy")
         logger.info(f"Guardado: {path.name} ({path.stat().st_size / 1024 / 1024:.1f} MB)")
 
-    low_comp = compute_low_competition_markets(lics)
-    lc_path = OUTPUT_DIR / "competitor_low_competition.parquet"
-    low_comp.write_parquet(lc_path, compression="snappy")
-    logger.info(f"Guardado: {lc_path.name}")
-
     # Ejemplos
     logger.info("\nEjemplos de contextos con distribución conocida (L1):")
     top = forecasts["l1"].sort("n", descending=True).head(5)
@@ -236,4 +194,4 @@ def run_competitor_predictor() -> dict[str, pl.DataFrame]:
             f"(n={row['n']:,})"
         )
 
-    return {**forecasts, "low_competition": low_comp, "raw": lics}
+    return {**forecasts, "raw": lics}

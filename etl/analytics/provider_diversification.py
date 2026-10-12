@@ -25,12 +25,14 @@ Score de diversificación (0 = muy concentrado, 1 = muy diversificado):
             + 0.10 × clamp(n_rubros / 10, 0, 1)
             + 0.10 × clamp(pct_clientes_recurrentes, 0, 1)
 
-Alerta de concentración:
+Alerta de concentración (columna `alerta_dependencia`):
   Si hhi_org > 0.50 Y n_oc_total > 20 → "riesgo alto de dependencia"
 
 Output:
   - provider_diversification.parquet: scores por proveedor
-  - provider_concentration_alerts.parquet: proveedores con riesgo alto
+
+Escribía además la lista de proveedores con alerta en un parquet aparte, que nada
+leía: la misma información está en `alerta_dependencia`.
 """
 
 import logging
@@ -311,29 +313,6 @@ def run_provider_diversification() -> dict[str, pl.DataFrame]:
     metrics.write_parquet(path, compression="snappy")
     logger.info(f"Guardado: {path.name} ({path.stat().st_size / 1024 / 1024:.1f} MB)")
 
-    # Alertas de concentración
-    alerts = (
-        metrics.filter(pl.col("alerta_dependencia"))
-        .select(
-            [
-                "CodigoProveedor",
-                "NombreProveedor",
-                "score_diversificacion",
-                "clasificacion",
-                "hhi_org",
-                "n_organismos",
-                "n_oc",
-                "monto_total",
-                "n_sectores",
-                "n_regiones",
-            ]
-        )
-        .sort("hhi_org", descending=True)
-    )
-    alerts_path = OUTPUT_DIR / "provider_concentration_alerts.parquet"
-    alerts.write_parquet(alerts_path, compression="snappy")
-    logger.info(f"Guardado: {alerts_path.name} — {len(alerts):,} proveedores con alerta")
-
     # Stats de distribución
     logger.info(f"\nProveedores evaluados: {len(metrics):,}")
     for cat in ["muy_diversificado", "diversificado", "moderado", "concentrado", "muy_concentrado"]:
@@ -344,4 +323,4 @@ def run_provider_diversification() -> dict[str, pl.DataFrame]:
     logger.info(f"\nCon alerta de dependencia: {n_alert:,} proveedores")
     logger.info(f"HHI mediano: {metrics['hhi_org'].median():.3f}")
 
-    return {"diversification": metrics, "alerts": alerts}
+    return {"diversification": metrics}

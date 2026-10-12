@@ -24,11 +24,9 @@ Pipeline:
   1. Extraer una fila por licitación con window_days real
   2. Calcular normas históricas por (CodigoTipo + sector) y fallback por tipo
   3. Unir cada licitación con su norma → clasificar y generar score de presión
-  4. Output: tabla por licitación + tabla de normas (para uso en tiempo real)
+  4. Output: tabla por licitación
 
 Outputs:
-  - window_norms.parquet: normas históricas por (CodigoTipo, sector)
-  - window_norms_type.parquet: fallback solo por tipo
   - window_classified.parquet: cada licitación clasificada vs su norma
     → columnas clave: alerta_ventana_corta, pct_del_tipico, presion_score
 """
@@ -364,15 +362,8 @@ def run_preparation_window() -> dict[str, pl.DataFrame]:
 
     norms_ts, norms_t = build_norms(lics)
 
-    # Guardar normas (lookup table para uso en tiempo real en la app)
-    norms_path = OUTPUT_DIR / "window_norms.parquet"
-    norms_ts.write_parquet(norms_path, compression="snappy")
-    logger.info(f"Guardado: {norms_path.name}")
-
-    norms_t_path = OUTPUT_DIR / "window_norms_type.parquet"
-    norms_t.write_parquet(norms_t_path, compression="snappy")
-    logger.info(f"Guardado: {norms_t_path.name}")
-
+    # Las normas sólo sirven para clasificar. Se escribían también aparte
+    # («para uso en tiempo real en la app») y nada las leía.
     # Clasificar todas las licitaciones históricas
     classified = classify_windows(lics, norms_ts, norms_t)
     classified_path = OUTPUT_DIR / "window_classified.parquet"

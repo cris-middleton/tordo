@@ -15,8 +15,7 @@ Uso:
   python -m etl.analytics.run_all --modulo seasonality
   python -m etl.analytics.run_all --modulo price
   python -m etl.analytics.run_all --modulo competitors
-  python -m etl.analytics.run_all --modulo tfidf
-  python -m etl.analytics.run_all --modulo clustering
+  python -m etl.analytics.run_all --modulo tfidf   # sólo a mano: ver más abajo
   python -m etl.analytics.run_all --modulo trends
   python -m etl.analytics.run_all --modulo scorer
   python -m etl.analytics.run_all --modulo product_prices
@@ -29,9 +28,16 @@ Uso:
   python -m etl.analytics.run_all --modulo diversification
 
 Grupos por fuente de datos:
-  oc  — seasonality, price, competitors, tfidf, clustering, trends, product_prices,
+  oc  — seasonality, price, competitors, trends, product_prices,
          buyers, sectors, discounts, diversification, compra_agil_mensual, scorer
   lic — transparency, windows, competitor_predictor
+
+**`tfidf` no está en ningún grupo, y el cron semanal no lo corre.** Desde el
+paso 8 del pivote la API no carga el modelo (la búsqueda es `ts_rank` en
+Postgres), así que entrenarlo cada semana costaba RAM y tiempo para nadie. Se
+queda como **modelo de referencia del harness de evaluación**
+(`analytics/evaluation/`), y `--modulo tfidf` lo entrena a mano. El clustering
+de tipos de compra (`word_clustering`), que tampoco leía nadie, se borró.
 """
 
 # Módulos cuya fuente primaria son los ZIPs de Órdenes de Compra
@@ -40,8 +46,6 @@ _MODULOS_OC = [
     ("price", "Benchmarking de precios"),
     ("competitors", "Análisis de competidores"),
     ("trends", "Tendencias de mercado"),
-    ("tfidf", "Matching semántico TF-IDF"),
-    ("clustering", "Clustering de tipos de compra"),
     ("product_prices", "Bandas de precio por producto"),
     ("buyers", "Scoring de compradores"),
     ("sectors", "Inteligencia por sector y región"),
@@ -106,11 +110,6 @@ def run_module(name: str):
         from etl.analytics.tfidf_matcher import run_tfidf
 
         run_tfidf()
-
-    elif name == "clustering":
-        from etl.analytics.word_clustering import run_word_clustering
-
-        run_word_clustering()
 
     elif name == "trends":
         from etl.analytics.trend_analysis import run_trend_analysis
@@ -214,7 +213,6 @@ def main():
             "price",
             "competitors",
             "tfidf",
-            "clustering",
             "trends",
             "scorer",
             "product_prices",

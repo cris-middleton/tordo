@@ -1,6 +1,12 @@
 """
 Motor de Matching Semántico TF-IDF
 
+**Es el modelo de referencia del harness de evaluación (`analytics/evaluation/`,
+spec D15) y NO corre cada semana.** Desde el paso 8 del pivote la API no carga
+sus artefactos —la búsqueda es `ts_rank` en Postgres—, así que el cron semanal
+dejó de entrenarlo: `run_all` sólo lo corre con `--modulo tfidf`, a mano. El
+harness lo entrena por su cuenta, en un directorio temporal, sobre sus splits.
+
 Construye perfiles de proveedores basados en los productos/servicios que han
 vendido históricamente, y permite matchear contra nuevas oportunidades.
 

@@ -1,28 +1,19 @@
 """
-Benchmarking de Precios con Bandas de Probabilidad de Adjudicación
+Benchmarking de Precios por (organismo, rubro)
 
-Calcula distribuciones de precios históricos por (organismo, rubro) y genera:
+Calcula distribuciones de precios históricos por (organismo, rubro):
 1. Bandas de precio (percentiles) para cada combinación
-2. Probabilidad de adjudicación dado un precio X
-3. Coeficiente de variación para medir predictibilidad
-
-Modelo de probabilidad:
-  Para un precio X en un par (organismo, rubro):
-  - Se calcula su posición en la distribución empírica (percentil)
-  - Se ajusta una distribución log-normal (precios son positivos y asimétricos)
-  - P(adjudicación | precio ≤ X) = CDF(X) usando la distribución ajustada
-  - Interpretación: "Con un precio de $X tienes ~Y% de probabilidad de estar
-    dentro del rango histórico de adjudicación"
+2. Coeficiente de variación para medir predictibilidad
 
 Output:
   - price_bands.parquet: distribución de precios por (organismo, rubro)
-  - price_model_params.parquet: parámetros del modelo log-normal por par
+
+Ajustaba además una log-normal por par para dar una «probabilidad de
+adjudicación dado un precio» (`price_model_params`), que nada leía; se retiró.
 """
 
 import logging
-import warnings
 
-import numpy as np
 import polars as pl
 
 from .config import MIN_OBSERVATIONS, OC_PARQUET_DIR, OUTPUT_DIR
@@ -208,75 +199,6 @@ def build_price_aggregates() -> pl.DataFrame:
     return result
 
 
-def build_price_probability_model(price_bands: pl.DataFrame) -> pl.DataFrame:
-    """
-    Construye modelo de probabilidad log-normal para cada par (organismo, rubro).
-
-    Para calcular P(adjudicación | precio ≤ X):
-      1. Usa los parámetros log-normal (mu, sigma) del par
-      2. P = CDF_lognormal(X, mu, sigma)
-      3. Interpretación: "Con precio X, estás en el percentil Y de precios históricos"
-
-    Un precio en el p25-p75 tiene ~50% de cobertura del rango histórico.
-    Un precio bajo p25 tiene alta probabilidad de ser competitivo.
-    Un precio sobre p90 tiene baja probabilidad.
-    """
-    from scipy import stats as sp_stats
-
-    logger.info("Construyendo modelo de probabilidad de precios...")
-
-    # Filtrar pares con parámetros log-normal válidos
-    valid = price_bands.filter(
-        pl.col("log_mean").is_not_null()
-        & pl.col("log_std").is_not_null()
-        & (pl.col("log_std") > 0)
-        & pl.col("precio_predecible")
-    )
-
-    if valid.is_empty():
-        logger.warning("No hay pares con parámetros válidos para el modelo")
-        return pl.DataFrame()
-
-    # Calcular probabilidades a distintos umbrales
-    log_means = valid["log_mean"].to_numpy()
-    log_stds = valid["log_std"].to_numpy()
-
-    # Para cada par, calcular qué precio necesitas para percentiles target
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        # Precio para 80% de probabilidad de estar en rango
-        precio_80pct = np.exp(log_means + sp_stats.norm.ppf(0.80) * log_stds)
-        # Precio para 50% (mediana)
-        precio_50pct = np.exp(log_means + sp_stats.norm.ppf(0.50) * log_stds)
-        # Precio competitivo (percentil 30)
-        precio_competitivo = np.exp(log_means + sp_stats.norm.ppf(0.30) * log_stds)
-
-    model_params = valid.with_columns(
-        [
-            pl.Series("precio_80pct_prob", precio_80pct),
-            pl.Series("precio_50pct_prob", precio_50pct),
-            pl.Series("precio_competitivo_30pct", precio_competitivo),
-        ]
-    ).select(
-        [
-            "CodigoOrganismoPublico",
-            "OrganismoPublico",
-            "RubroN2",
-            "n_transacciones",
-            "log_mean",
-            "log_std",
-            "precio_competitivo_30pct",
-            "precio_50pct_prob",
-            "precio_80pct_prob",
-            "precio_mediana",
-            "coef_variacion",
-        ]
-    )
-
-    logger.info(f"Modelo de precios: {len(model_params):,} pares con modelo válido")
-    return model_params
-
-
 def run_price_benchmarking() -> dict[str, pl.DataFrame]:
     """Ejecuta pipeline completo de benchmarking de precios."""
     logger.info("=" * 60)
@@ -296,11 +218,4 @@ def run_price_benchmarking() -> dict[str, pl.DataFrame]:
     ).write_parquet(bands_path, compression="snappy")
     logger.info(f"Guardado: {bands_path.name} ({bands_path.stat().st_size / 1024 / 1024:.1f} MB)")
 
-    # Modelo de probabilidad
-    model = build_price_probability_model(price_bands)
-    if not model.is_empty():
-        model_path = OUTPUT_DIR / "price_model_params.parquet"
-        model.write_parquet(model_path, compression="snappy")
-        logger.info(f"Guardado: {model_path.name}")
-
-    return {"price_bands": price_bands, "price_model": model}
+    return {"price_bands": price_bands}

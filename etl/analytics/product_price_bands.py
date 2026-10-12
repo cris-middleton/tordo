@@ -63,7 +63,9 @@ Output:
   - product_price_bands_L1.parquet:  UNSPSC+organismo+unidad
   - product_price_bands_L2.parquet:  UNSPSC+sector+unidad
   - product_price_bands_L3.parquet:  UNSPSC+unidad (nacional)
-  - product_price_coverage.parquet:  resumen de cobertura por producto
+
+El resumen de cobertura por producto (`product_price_coverage`) se retiró: nada
+lo leía.
 """
 
 import logging
@@ -522,81 +524,6 @@ def build_level_3(items: pl.DataFrame) -> pl.DataFrame:
 # ─────────────────────────────────────────────────────────────────────
 
 
-def build_coverage_summary(l1: pl.DataFrame, l2: pl.DataFrame, l3: pl.DataFrame) -> pl.DataFrame:
-    """
-    Resumen por producto: en cuántos niveles tiene banda y con qué confianza.
-    Útil para saber qué productos se pueden cotizar con confianza.
-    """
-    logger.info("Generando resumen de cobertura...")
-
-    def _product_summary(df: pl.DataFrame, level_name: str) -> pl.DataFrame:
-        return df.group_by("codigoProductoONU").agg(
-            [
-                pl.len().alias(f"n_bandas_{level_name}"),
-                pl.col("confianza").max().alias(f"max_confianza_{level_name}"),
-                pl.col("n").sum().alias(f"total_transacciones_{level_name}"),
-            ]
-        )
-
-    s1 = _product_summary(l1, "L1")
-    s2 = _product_summary(l2, "L2")
-    s3 = _product_summary(l3, "L3")
-
-    # Nombre del producto (tomar el más frecuente)
-    product_names = (
-        pl.concat(
-            [
-                l1.select(["codigoProductoONU", "NombreroductoGenerico"]),
-                l2.select(["codigoProductoONU", "NombreroductoGenerico"]),
-                l3.select(["codigoProductoONU", "NombreroductoGenerico"]),
-            ],
-            how="diagonal_relaxed",
-        )
-        .group_by("codigoProductoONU")
-        .first()
-    )
-
-    coverage = (
-        product_names.join(s1, on="codigoProductoONU", how="left")
-        .join(s2, on="codigoProductoONU", how="left")
-        .join(s3, on="codigoProductoONU", how="left")
-        .with_columns(
-            [
-                # Mejor nivel disponible
-                pl.when(pl.col("n_bandas_L1").is_not_null() & (pl.col("n_bandas_L1") > 0))
-                .then(1)
-                .when(pl.col("n_bandas_L2").is_not_null() & (pl.col("n_bandas_L2") > 0))
-                .then(2)
-                .when(pl.col("n_bandas_L3").is_not_null() & (pl.col("n_bandas_L3") > 0))
-                .then(3)
-                .otherwise(0)
-                .alias("mejor_nivel"),
-                # Mejor confianza
-                pl.max_horizontal(
-                    pl.col("max_confianza_L1").fill_null(0),
-                    pl.col("max_confianza_L2").fill_null(0),
-                    pl.col("max_confianza_L3").fill_null(0),
-                ).alias("mejor_confianza"),
-            ]
-        )
-        .sort("mejor_confianza", descending=True)
-    )
-
-    for lvl in [1, 2, 3]:
-        n = coverage.filter(pl.col("mejor_nivel") == lvl).height
-        logger.info(f"  Productos cubiertos en Nivel {lvl}: {n:,}")
-
-    alta_conf = coverage.filter(pl.col("mejor_confianza") >= 0.5).height
-    logger.info(f"  Productos con confianza ≥ 0.5: {alta_conf:,}")
-
-    return coverage
-
-
-# ─────────────────────────────────────────────────────────────────────
-# Runner
-# ─────────────────────────────────────────────────────────────────────
-
-
 def run_product_price_bands() -> dict[str, pl.DataFrame]:
     """Ejecuta pipeline completo de bandas de precio por producto."""
     logger.info("=" * 60)
@@ -626,15 +553,9 @@ def run_product_price_bands() -> dict[str, pl.DataFrame]:
         con_ventana(df, limites).write_parquet(path, compression="snappy")
         logger.info(f"Guardado: {path.name} ({path.stat().st_size / 1024 / 1024:.1f} MB)")
 
-    # Cobertura
-    coverage = build_coverage_summary(l1, l2, l3)
-    cov_path = OUTPUT_DIR / "product_price_coverage.parquet"
-    coverage.write_parquet(cov_path, compression="snappy")
-    logger.info(f"Guardado: {cov_path.name}")
-
     _reportar_predictibilidad(l0, l1)
 
-    return {"l0": l0, "l0n": l0n, "l1": l1, "l2": l2, "l3": l3, "coverage": coverage}
+    return {"l0": l0, "l0n": l0n, "l1": l1, "l2": l2, "l3": l3}
 
 
 def _reportar_predictibilidad(l0: pl.DataFrame, l1: pl.DataFrame) -> None:
