@@ -42,7 +42,7 @@ el `Host` con el que llegan esas peticiones, y no `tordo.cl`.
 
 ---
 
-## Por qué no hay archivos de configuración de Railway ni de Vercel
+## Por qué casi no hay archivos de configuración de Railway ni de Vercel
 
 - **Railway**: su «Config as Code» (`railway.json` / `railway.toml`) está
   **deprecado**: *«New services cannot opt into Config as Code»*, y los archivos
@@ -56,11 +56,16 @@ el `Host` con el que llegan esas peticiones, y no `tordo.cl`.
   <https://docs.railway.com/infrastructure-as-code/reference>,
   <https://docs.railway.com/cron-jobs>, <https://docs.railway.com/builds/dockerfiles>
   (consultadas el 2026-10-12).
-- **Vercel**: lo único que pondría un `vercel.json` es la región de las funciones, y
-  **`iad1` ya es el valor por defecto de los proyectos nuevos**
-  (<https://vercel.com/docs/functions/configuring-functions/region>). No hay cron en
-  Vercel: los dos cron viven en Railway. Un archivo que repite el valor por defecto
-  sólo añade un sitio más donde puede quedar desfasado.
+- **Vercel**: hay un `frontend/vercel.json` y hace **una sola cosa**: que sólo `main`
+  despliegue (`git.deploymentEnabled`: `"*": false`, `"main": true`;
+  <https://vercel.com/docs/project-configuration/git-configuration>). Sin él, cada rama
+  construiría un *Preview* sin variables —una página rota que además gasta minutos de
+  build—, y es mejor que esa regla viva en el repo que en un ajuste del panel que hay
+  que recordar. Lo demás queda **por defecto**: la región de las funciones ya es
+  `iad1` en los proyectos nuevos
+  (<https://vercel.com/docs/functions/configuring-functions/region>), y no hay cron en
+  Vercel: los dos cron viven en Railway. Repetir un valor por defecto en un archivo sólo
+  añade un sitio más donde puede quedar desfasado.
 
 ## Variables
 
@@ -88,10 +93,11 @@ un valor por defecto razonable o desactivan algo prescindible.
 | `LATIDO_URL_FRECUENTE` | | ✓ | | | recomendada | `https://hc-ping.com/<uuid>` (sin barra final) | Healthchecks.io, chequeo `tordo-frecuente` (paso 3) |
 | `LATIDO_URL_SEMANAL` | | | ✓ | | recomendada | `https://hc-ping.com/<uuid>` | Healthchecks.io, chequeo `tordo-semanal` |
 | `ETL_ALMACEN` | | | ✓ | | **sí** | `r2` | fijo. Sin valor por defecto, a propósito |
+| `LOG_FILE` | | ✓ | ✓ | | no | vacío | vacía: los logs sólo a stdout, que es lo que muestra Railway. Por defecto el ETL escribe además `etl.log` dentro del contenedor, que no sirve de nada (como en `infra/docker-compose.yml`) |
 | `R2_ENDPOINT_URL` | | | ✓ | | sí | `https://<id-de-cuenta>.r2.cloudflarestorage.com` | Cloudflare → R2 (paso 2) |
 | `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | | | ✓ | | sí | | Cloudflare → R2 → *Manage API tokens* (paso 2) |
 | `R2_BUCKET` | | | ✓ | | sí | `tordo-parquets` | el nombre del bucket |
-| `REVALIDAR_URL` | | ✓ | ✓ | | recomendada | `https://tordo.cl/api/revalidar` | la URL del sitio. Vacía, los cron no revalidan (y lo dicen en INFO) |
+| `REVALIDAR_URL` | | ✓ | ✓ | | recomendada | `https://<proyecto>.vercel.app/api/revalidar` (paso 9a) → `https://tordo.cl/api/revalidar` (paso 9c) | la URL del endpoint del sitio. Vacía, los cron no revalidan (y lo dicen en INFO) |
 | `REVALIDAR_SECRETO` | | ✓ | ✓ | ✓ | recomendada | 64 caracteres hex | `scripts/generar-secretos.sh` — **el mismo** en los dos cron y en Vercel. Sin él en Vercel, `/api/revalidar` responde 503 |
 | `API_URL` | | | | ✓ | sí | `https://api.tordo.cl` | el dominio de la API. Servidor: **sin** `NEXT_PUBLIC_` |
 | `NEXT_PUBLIC_SITE_URL` | | | | ✓ | sí | `https://tordo.cl` | el dominio del sitio (canonical, sitemap, tarjetas). Se lee en el build |
@@ -125,7 +131,9 @@ y reemplázalo en **todos** sus destinos.
 
 Delega `tordo.cl` a Cloudflare (NIC Chile → servidores de nombres que indique
 Cloudflare). Cloudflare da además el reenvío de correo del paso 11, y R2 vive en la
-misma cuenta.
+misma cuenta. **Hazlo primero**: el cambio en NIC Chile puede tardar horas en
+propagarse, y los pasos 6 (dominio de la API) y 11 dependen de él. Mientras tanto,
+avanza con los pasos 2 a 5.
 
 - Los registros hacia Vercel y Railway van **sin proxy** («DNS only», nube gris):
   los dos emiten su propio certificado y necesitan ver el tráfico directo. Con el
@@ -212,6 +220,8 @@ Los cron **no** mandan a Sentry: su canal es el latido.
   y 512 MB deja margen para la ventana de producción, más larga que la medida.
 - **Networking → Custom domain**: `api.tordo.cl`. Crea en Cloudflare el `CNAME`
   que indique Railway (sin proxy).
+- *Opcional* — **Watch paths** `backend/**`, `pyproject.toml`, `uv.lock`: un cambio sólo
+  del frontend, del ETL o de la documentación no reconstruye ni reinicia la API.
 
 **Variables:** las de la columna **API** de la [tabla de variables](#variables).
 
@@ -232,19 +242,26 @@ En producción la API **avisa en el log al arrancar** si falta `PROXY_SECRETO`, 
 - **Root directory** `/`, y `RAILWAY_DOCKERFILE_PATH=/etl/Dockerfile` en sus variables.
 - **Start command**: `python -m etl.cron frecuente`
 - **Cron schedule** (*Settings → Cron Schedule*; es el único sitio donde Railway lo
-  documenta, ver arriba): `0 * * * *` — **cada hora en UTC**. El script decide si le toca en hora de Chile; si no, sale en
-  segundos.
+  documenta, ver arriba): `0 * * * *` — **cada hora en UTC**. El script decide si le
+  toca en hora de Chile; si no, sale en segundos.
+- **Restart policy: Never.** Railway reinicia por defecto un servicio que sale con
+  error («On Failure», hasta 10 veces), y los cron salen con error **a propósito**
+  cuando fallan, para que el latido se ponga en rojo. Con el valor por defecto, una
+  corrida rota se repetiría hasta 10 veces en la misma hora gastando cuota de la API.
 - **Recursos**: 1 GB basta (descarga de la API, sin analytics).
+- *Opcional* — **Watch paths** `etl/**`, `backend/app/**`, `pyproject.toml`, `uv.lock`:
+  así un cambio sólo del frontend o de la documentación no reconstruye el servicio.
 
 **Variables:** las de la columna **frecuente** de la [tabla de variables](#variables).
+`REVALIDAR_URL` todavía no tiene a quién apuntar: se pone en el paso 9a.
 
-**Verifica:** en *Deployments*, lanza una ejecución a mano con el start command
-`python -m etl.cron frecuente --forzar`. Termina sin `Traceback`, el log dice
-`frecuente: terminada`, y en Healthchecks `tordo-frecuente` pasa a *up*.
-Luego `curl -s 'https://api.tordo.cl/api/v1/tenders/?limit=1'` trae `total` > 0.
-
-Hasta el paso 9 no hay Next al que avisar: la línea `revalidación … ERROR` del
-log es esperada y no hace fallar la corrida.
+**Verifica:** espera a la siguiente hora programada —10, 13, 16 o 19 h de Chile los
+días hábiles, 12 h el fin de semana; Railway la lanza en el minuto 0— y mira esa
+ejecución en *Deployments*: termina sin `Traceback`, el log dice `frecuente:
+terminada` y en Healthchecks `tordo-frecuente` pasa a *up*. Luego
+`curl -s 'https://api.tordo.cl/api/v1/tenders/?limit=1'` trae `total` > 0. (Si tu
+panel muestra un botón para ejecutar el cron, sirve igual, pero sólo dentro de una de
+esas horas: fuera de ellas el script sale sin hacer nada, que es lo correcto.)
 
 Un ticket inválido o vencido **hace fallar la corrida**: la API clásica lo dice
 con un HTTP 203 y Compra Ágil con un 401, y los dos llegan al `/fail` como
@@ -252,56 +269,36 @@ con un HTTP 203 y Compra Ágil con un 401, y los dos llegan al `/fail` como
 
 ## 8. Railway: `cron-semanal`
 
-Un tercer servicio, igual que el anterior salvo:
+Un tercer servicio, igual que el anterior —**Restart policy: Never** incluida, y con
+los mismos *watch paths* opcionales— salvo:
 
 - **Start command**: `python -m etl.cron semanal`
 - **Cron schedule**: `0 6 * * 0` (domingo 06:00 UTC: 02:00 en Chile en invierno,
   03:00 en verano; da igual, no compite con `frecuente`, que es otro servicio).
   No necesita el ticket de Mercado Público: la descarga masiva es pública.
 - **Recursos**: **8 GB** de RAM (decidido el 2026-10-11; pico proyectado ~6,3 GB
-  con las ventanas de 36 y 12 meses — CLAUDE.md, «Analytics lee una VENTANA»).
+  con las ventanas de 36 y 12 meses — CLAUDE.md, «Analytics lee una VENTANA»). El
+  plan Hobby admite hasta **48 GB de RAM y 100 GB de disco efímero por servicio**
+  (docs.railway.com/reference/pricing/plans): caben los 8 GB y el pico de disco de la
+  primera corrida.
 
-**Variables:** las de la columna **semanal** de la [tabla de variables](#variables).
+**Variables:** las de la columna **semanal** de la [tabla de variables](#variables);
+`REVALIDAR_URL`, como en `frecuente`, en el paso 9a.
 
 Con `ETL_ALMACEN=r2` y una credencial que falte, la corrida falla **al
 construirse**, antes de descargar nada, y el `/fail` dice qué variable es. Una
 revalidación que falla (Next caído, secreto distinto) queda en ERROR en el log
 pero **no** hace fallar la corrida: la página sólo se queda una semana más vieja.
 
-**Verifica:** el servicio construye. La primera corrida es el paso siguiente.
+**Verifica:** el servicio construye. La primera corrida es el paso 9b, con el sitio
+ya arriba para mirar el resultado.
 
-### 8.1 La primera corrida semanal — antes de abrir el dominio
+## 9. Vercel y la primera corrida semanal — el dominio, al final
 
-**El dominio no se abre hasta que esta corrida termine bien.** Las páginas
-públicas muestran nombres de proveedores que salen de `analytics.*`, y sólo lo
-que reconstruye esta corrida lleva a las personas naturales tapadas (seudónimos
-`PN-…`). **Nunca materialices en producción los parquets de analytics de una
-máquina local**: son anteriores al enmascarado. Hasta que termine, no crees en
-Cloudflare los registros de `tordo.cl` del paso 9 (las comprobaciones de los
-pasos 9 y 10 pueden hacerse contra el dominio `*.vercel.app`). Mientras tanto,
-`REVALIDAR_URL` puede apuntar a ese mismo `*.vercel.app/api/revalidar`, o fallar
-en ERROR sin consecuencias.
+Tres partes en orden: el sitio en su dirección provisional `*.vercel.app` (9a), la
+primera corrida semanal (9b) y, sólo si sale bien, el dominio (9c).
 
-Es la que llena R2 y `analytics.*`: con el bucket vacío, descarga los 39 meses
-de la ventana (las siguientes, sólo los 3 recientes). Es la primera vez que corre
-con años de datos, y **nada de lo que sigue está medido con esa escala** (en
-local sólo había 6 meses). Lánzala a mano (*Deployments → Run*), mirando:
-
-- **RAM**: el pico de la gráfica de *Metrics*. Proyectado ~6,3 GB; si se acerca a
-  8 GB, no subas la máquina sin antes mirar qué módulo manda (el log dice cuánto
-  tardó cada uno).
-- **Tiempo** total, y el de la descarga masiva aparte.
-- **Disco**: en la primera corrida el contenedor tiene a la vez los ZIPs y los
-  parquets de los 39 meses (~4,5 GB cada uno, ~9 GB de pico); en las siguientes,
-  los ~4,5 GB que baja de R2 más tres meses. Compáralo con el disco efímero del
-  servicio. El bucket debería quedar en ~4,5 GB más `analytics/`.
-
-**Verifica:** termina con `/fail` ausente en Healthchecks (`tordo-semanal` *up*),
-R2 tiene `consolidated/` y `analytics/`, y el panel de inteligencia de mercado de
-sitio muestra datos. Anota RAM, tiempo y tamaño en el PR o issue del
-lanzamiento. Recién entonces, el paso 9 completo con el dominio.
-
-## 9. Vercel: el sitio
+### 9a. Vercel, sin dominio
 
 *Add New → Project* → este repo.
 
@@ -309,25 +306,75 @@ lanzamiento. Recién entonces, el paso 9 completo con el dominio.
 - **Functions region**: `iad1` (Washington), junto a Railway US East (spec §3.2). Es
   el valor por defecto de Vercel para proyectos nuevos: sólo compruébalo en
   *Settings → Functions → Function Regions*.
-- **Domains**: `tordo.cl` y `www.tordo.cl` (redirige uno al otro); crea en
-  Cloudflare los registros que indique Vercel, sin proxy — **sólo después de que
-  termine la primera corrida semanal** (paso 8.1).
+- **Sin despliegues de *Preview***: los apaga `frontend/vercel.json` (sólo despliega
+  `main`; ver arriba). No hay nada que tocar. Si alguna vez apareciera uno, el respaldo
+  en el panel es *Settings → Build and Deployment → Ignored Build Step* → «Only build
+  production». **No copies los secretos al entorno Preview.**
 - **Analytics → Web Analytics**: actívalo (sin cookies; spec §4).
+- **Domains**: todavía **no**. El sitio queda en `https://<proyecto>.vercel.app`.
 
-**Variables** (*Settings → Environment Variables*, entorno **Production**): las de la columna
-**Vercel** de la [tabla de variables](#variables).
+**Variables** (*Settings → Environment Variables*, entorno **Production**): las de la
+columna **Vercel** de la [tabla de variables](#variables). `NEXT_PUBLIC_SITE_URL` ya
+con `https://tordo.cl`: es lo que irá en los canonical y en el sitemap.
 
 Sin `RESPONSABLE_LEGAL` las páginas legales muestran `[[definir RESPONSABLE_LEGAL]]`
 (`frontend/lib/responsable.ts`).
 
+Luego, en **los dos cron** de Railway: `REVALIDAR_URL=https://<proyecto>.vercel.app/api/revalidar`.
+
+**Verifica** en `https://<proyecto>.vercel.app`:
+- la portada carga, y `/licitaciones` muestra lo que trajo el paso 7;
+- `/terminos` y `/privacidad` muestran el nombre del responsable, no el marcador;
+- `/mercado` todavía no tiene datos: los trae el paso 9b.
+
+### 9b. La primera corrida semanal
+
+**El dominio no se abre hasta que esta corrida termine bien.** Las páginas
+públicas muestran nombres de proveedores que salen de `analytics.*`, y sólo lo
+que reconstruye esta corrida lleva a las personas naturales tapadas (seudónimos
+`PN-…`). **Nunca materialices en producción los parquets de analytics de una
+máquina local**: son anteriores al enmascarado.
+
+Es la que llena R2 y `analytics.*`: con el bucket vacío, descarga los 39 meses
+de la ventana (las siguientes, sólo los 3 recientes). Es la primera vez que corre
+con años de datos, y **nada de lo que sigue está medido con esa escala** (en
+local sólo había 6 meses).
+
+**Cómo lanzarla:** en `cron-semanal`, cambia **temporalmente** el *Cron Schedule* a
+una hora UTC de dentro de unos minutos —`M H * * *`; en Chile, UTC va 3 h por delante
+en verano y 4 en invierno—. Cuando haya **terminado** (no antes: cambiar un ajuste
+vuelve a desplegar el servicio y podría cortarla), vuelve a `0 6 * * 0`. Si tu panel
+muestra un botón para ejecutar el cron, sirve igual. Mientras corre, mira:
+
+- **RAM**: el pico de la gráfica de *Metrics*. Proyectado ~6,3 GB; si se acerca a
+  8 GB, no subas la máquina sin antes mirar qué módulo manda (el log dice cuánto
+  tardó cada uno).
+- **Tiempo** total, y el de la descarga masiva aparte.
+- **Disco**: en la primera corrida el contenedor tiene a la vez los ZIPs y los
+  parquets de los 39 meses (~4,5 GB cada uno, ~9 GB de pico, dentro de los 100 GB del
+  plan); en las siguientes, los ~4,5 GB que baja de R2 más tres meses. El bucket
+  debería quedar en ~4,5 GB más `analytics/`.
+
+**Verifica:** termina con `/fail` ausente en Healthchecks (`tordo-semanal` *up*),
+R2 tiene `consolidated/` y `analytics/`, y `https://<proyecto>.vercel.app/mercado`
+muestra datos. Anota RAM, tiempo y tamaño en el PR o issue del lanzamiento. Y el
+*Cron Schedule* de vuelta en `0 6 * * 0`.
+
+### 9c. El dominio
+
+- Vercel → *Settings → Domains*: `tordo.cl` y `www.tordo.cl` (redirige uno al otro);
+  crea en Cloudflare los registros que indique Vercel, **sin proxy**.
+- En **los dos cron**: `REVALIDAR_URL=https://tordo.cl/api/revalidar`.
+
 **Verifica:**
-- `https://tordo.cl` carga, y el catálogo muestra las licitaciones del paso 7.
-- `/terminos` y `/privacidad` muestran el nombre del responsable, no el marcador.
-- En el log de la API, las peticiones del sitio llegan sin aviso de `PROXY_SECRETO`.
+- `https://tordo.cl` carga, con certificado válido.
+- `curl -sI https://tordo.cl/dashboard/tenders` responde **308** con
+  `location: /licitaciones`: las URL del panel anterior siguen llevando a su sitio.
 
 ## 10. Comprobar en vivo de qué IP cuenta el límite
 
-El modelo de confianza (`backend/app/core/limite_ip.py`) da por hecho dos cosas que
+Después del 9c, con el dominio ya abierto. El modelo de confianza
+(`backend/app/core/limite_ip.py`) da por hecho dos cosas que
 sólo se pueden ver desplegado: que el borde de Railway **reescribe**
 `X-Forwarded-For` (así un cliente no puede inventarse otra IP) y que el proxy de
 Vercel manda la IP del visitante.
@@ -390,15 +437,22 @@ en `MCP_HOSTS_PERMITIDOS`.
 
 ### 13.1 Postgres: recuperar el espacio y medirlo
 
-La migración `e3afe71ab019` (paso 7) borra tablas y columnas, y la retención borra
-filas cada semana. `DROP TABLE` libera el espacio enseguida; **el de las columnas
-borradas y las filas purgadas no vuelve hasta un `VACUUM FULL`**, que bloquea la
-tabla mientras corre: hazlo fuera de las horas de `frecuente`.
+**Dónde se corre el SQL:** Railway → servicio Postgres → *Data* (consola de consultas),
+o desde tu máquina con `railway connect Postgres`, que abre `psql`.
+
+**El tamaño se mide siempre**; el `VACUUM FULL` sólo sirve si **reutilizaste la base
+anterior**. La migración `e3afe71ab019` (paso 7 del pivote, no de esta guía) borra
+tablas y columnas, y la retención borra filas cada semana. `DROP TABLE` libera el
+espacio enseguida; el de las columnas borradas y las filas purgadas no vuelve hasta
+un `VACUUM FULL`, que bloquea la tabla mientras corre: hazlo fuera de las horas de
+`frecuente`. En una base nueva (paso 5) no hay nada que recuperar: sáltalo.
 
 ```sql
+-- Sólo si reutilizaste la base anterior:
 VACUUM FULL licitaciones;
 VACUUM FULL licitaciones_detalle;
 
+-- Siempre:
 SELECT pg_size_pretty(pg_database_size(current_database()));
 
 SELECT schemaname, relname, n_live_tup,
@@ -418,18 +472,49 @@ segunda consulta dice por dónde seguir; el candidato conocido es
 scripts/verificar-produccion.sh https://tordo.cl https://api.tordo.cl
 ```
 
-Sólo lectura, sin secretos. Una línea ✓/✗ por comprobación: salud de la API, sitemap
-de la API con datos, una página de comprador, rubro y producto con canonical, un 404
-para un código inventado (en la API y en el sitio), `robots.txt`, `sitemap.xml`, los
-dos RSS, la frescura de «lo mejor de hoy», el MCP, las cabeceras del límite, la
-prueba del `X-Forwarded-For` inventado del paso 10, `/api/revalidar` sin secreto
-(401, no 503) y `/apoyar`. Sale con el número de fallos.
+Sólo lectura, sin secretos. Una línea ✓/✗ por comprobación, y sale con el número de
+fallos:
+- **API**: salud, sitemap con datos, frescura de «lo mejor de hoy», cabeceras del
+  límite, CORS abierto (`Access-Control-Allow-Origin: *`), 404 para un código
+  inventado, el MCP (`initialize`) y la prueba del `X-Forwarded-For` inventado del paso 10.
+- **Sitio**: una página de comprador, rubro y producto con canonical, 404 para un
+  código inventado, `robots.txt`, `sitemap.xml`, los dos RSS, `/api/revalidar` sin
+  secreto (401, no 503), `/apoyar`, `/api/apoyar/transferencia` (200 o 404, nunca en
+  caché), `/guias` y una guía, y que una URL del panel anterior redirige
+  (`/dashboard/tenders` → 308 → `/licitaciones`).
 
 Lo que no puede ver desde fuera, y hay que mirar a mano: Healthchecks (los dos
 chequeos *up*), el log de arranque de la API sin avisos, y el tamaño de Postgres
 (paso 13.1).
 
 **Verifica:** `✓ Todo en orden.`
+
+## 15. Retirar el proyecto SaaS pausado
+
+> **Decisión del dueño, e IRREVERSIBLE.** Recomendada, y **sólo después de que el
+> paso 14 pase entero en el sitio nuevo**.
+
+La producción anterior sigue pausada en Railway, y su base todavía tiene las tablas
+del SaaS, las órdenes de compra crudas con nombre y RUT de los proveedores y los
+payloads de la API sin enmascarar. No hace falta reutilizar nada de ahí:
+
+- **El código** está en la etiqueta `saas-v1` del repo.
+- **Los datos de ChileCompra** se vuelven a descargar (el paso 9b ya lo hizo).
+- **Las cuentas de prueba** ya las borró la migración que retiró las cuentas.
+
+Y conservarla es guardar datos personales que el sitio nuevo decidió no tener (Ley
+21.719, minimización; spec §8), además de seguir pagándola.
+
+1. *Opcional*: un respaldo, **fuera del repo**:
+   `pg_dump "<DATABASE_PUBLIC_URL del Postgres viejo>" -Fc -f saas-v1.dump` (la URL
+   pública está en las variables de ese servicio). Ponle fecha de borrado (p. ej. 30
+   días) y bórralo también entonces: tiene los mismos datos personales.
+2. Railway → el proyecto viejo → configuración del proyecto → borrar el proyecto.
+3. Si había un dominio o una variable apuntando ahí (Vercel, Cloudflare, Healthchecks),
+   quítalos.
+
+**Verifica:** el proyecto ya no aparece en Railway ni en su facturación, y el
+`scripts/verificar-produccion.sh` del paso 14 sigue en `✓ Todo en orden.`
 
 ## Después del lanzamiento
 
@@ -492,6 +577,7 @@ punto tiene su momento. En orden.
 | `semanal` falla en segundos con `ETL_ALMACEN` en el `/fail` | variable de R2 ausente o vacía |
 | Un cron no arranca: `No module named 'app'` | imagen del ETL vieja (antes de copiar `backend/app`); redeploy |
 | Las páginas legales dicen `[[definir RESPONSABLE_LEGAL]]` | variable ausente en el build de Vercel |
+| Un cron corre varias veces seguidas tras fallar | *Restart policy* distinta de **Never** en ese servicio (pasos 7 y 8) |
 | Un cron falla con `CredencialRechazada` | ticket de Mercado Público inválido o vencido: pide otro y cámbialo en los dos cron |
 | `revalidación … HTTP 401` en el log de un cron | `REVALIDAR_SECRETO` distinto en Vercel y en ese cron |
 | `revalidación … HTTP 503` | Vercel no tiene `REVALIDAR_SECRETO` |

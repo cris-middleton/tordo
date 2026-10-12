@@ -1059,10 +1059,13 @@ Vercel) y `FEATURE_ANALYTICS=true` (por defecto `false`: todo `/bi/*` da 503).
 formato, de dónde sale), `scripts/generar-secretos.sh` (imprime `PROXY_SECRETO` y
 `REVALIDAR_SECRETO` y dónde va cada uno; nunca los escribe a disco) y
 `scripts/verificar-produccion.sh <sitio> <api>` (prueba de humo de sólo lectura, ✓/✗ por
-comprobación, sale con el número de fallos). **No hay `railway.json` ni `vercel.json`, a
-propósito**: el Config as Code de Railway no admite servicios nuevos y deja de leerse el
-2026-12-01, su IaC no documenta cron ni ruta del Dockerfile (se usa la variable
-`RAILWAY_DOCKERFILE_PATH`), y la región de Vercel ya es `iad1` por defecto. La guía es
+comprobación, sale con el número de fallos). **No hay `railway.json`, y `frontend/vercel.json` sólo hace una cosa**: el Config as Code
+de Railway no admite servicios nuevos y deja de leerse el 2026-12-01, su IaC no documenta cron
+ni ruta del Dockerfile (se usa la variable `RAILWAY_DOCKERFILE_PATH`), y los dos cron llevan
+*Restart policy* **Never** en el panel (con el «On Failure» por defecto, un cron que falla se
+re-ejecutaría hasta 10 veces). El `vercel.json` sólo deja desplegar `main`
+(`git.deploymentEnabled`): un *Preview* no tiene variables y sería una página rota; la región
+sigue siendo la de por defecto, `iad1`. La guía es
 una lista ordenada con una comprobación por paso
 (Railway, R2, Healthchecks, Sentry, Vercel, DNS, correo y la prueba en vivo del
 `X-Forwarded-For`). Las variables de cada servicio están ahí; si cambias una aquí o en un

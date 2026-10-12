@@ -220,6 +220,18 @@ codigo=$(pedir "$SITIO/guias")
 [ "$codigo" = 200 ] && ok "/guias responde 200" || mal "/guias responde $codigo"
 pagina "/guias/compra-agil-como-funciona" "una guía"
 
+# Las URL del panel anterior (/dashboard/*) redirigen con 308 a las nuevas: los
+# enlaces y marcadores viejos siguen llevando a su sitio. `pedir` no sigue
+# redirecciones, así que se ve el 308 en sí.
+codigo=$(pedir "$SITIO/dashboard/tenders")
+destino=$(cabecera location)
+# `location` puede venir relativa (/licitaciones) o absoluta (https://…/licitaciones).
+if [ "$codigo" = 308 ] && [[ "$destino" == */licitaciones ]]; then
+  ok "/dashboard/tenders → 308 → $destino"
+else
+  mal "/dashboard/tenders responde $codigo${destino:+ → $destino} (se esperaba 308 → /licitaciones)"
+fi
+
 # ── Resumen ──────────────────────────────────────────────────────────────────
 echo
 if [ "$FALLOS" -eq 0 ]; then
