@@ -160,7 +160,7 @@ describe('enlaces entre fichas', () => {
     expect(screen.getByRole('link', { name: 'Hospital de Prueba' })).toHaveAttribute('href', '/compradores/7297');
     expect(screen.getByRole('link', { name: /analizar este rubro/i })).toHaveAttribute(
       'href',
-      '/dashboard/bi?rubro=Equipos%20m%C3%A9dicos',
+      '/mercado?rubro=Equipos%20m%C3%A9dicos',
     );
   });
 

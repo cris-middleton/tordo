@@ -1,4 +1,4 @@
-// frontend/app/dashboard/bi/components/CompetenciaSection.tsx
+// frontend/app/(panel)/mercado/components/CompetenciaSection.tsx
 'use client';
 
 import { useState } from 'react';

@@ -468,7 +468,7 @@ punto tiene su momento. En orden.
 4. **¿Alguien usa el RSS? → resumen por correo (v2).**
    *Cuándo:* tras ~2 meses de datos de Web Analytics.
    Las PYMES usan poco RSS, y las alertas eran lo que más valoraba el producto anterior
-   (spec §7.1). Mira en Web Analytics las visitas a `/dashboard/guardados` (donde se copian
+   (spec §7.1). Mira en Web Analytics las visitas a `/guardados` (donde se copian
    las URL de RSS) y a la ayuda del RSS, y en el uso de Vercel las peticiones a `/rss/*`. Si
    hay demanda, la v2 añade un **resumen por correo con enlace mágico, sin contraseñas**; no
    reabre el ADR 0011, pero una cuenta con contraseña sí. Si no la hay, se deja como está.

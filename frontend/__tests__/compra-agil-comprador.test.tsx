@@ -46,7 +46,7 @@ function comprobarLineaVacia() {
   expect(screen.getByText(/no tiene Compras Ágiles abiertas ahora mismo/)).toBeInTheDocument();
   expect(screen.getByRole('link', { name: /ver todas las de hoy/i })).toHaveAttribute(
     'href',
-    '/dashboard/compra-agil',
+    '/compra-agil',
   );
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   expect(screen.queryByRole('list')).not.toBeInTheDocument();
@@ -70,7 +70,7 @@ describe('Compras Ágiles abiertas del comprador', () => {
     const lista = screen.getByRole('list', { name: /compras ágiles abiertas de este comprador/i });
     expect(lista).toBeInTheDocument();
     expect(
-      screen.getAllByRole('link').some((a) => a.getAttribute('href') === '/dashboard/tenders/1234-56-COT26'),
+      screen.getAllByRole('link').some((a) => a.getAttribute('href') === '/licitaciones/1234-56-COT26'),
     ).toBe(true);
   });
 

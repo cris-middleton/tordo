@@ -134,8 +134,8 @@ describe('/rss/licitaciones', () => {
     expect(CACHE_RSS).toBe('public, s-maxage=1800, stale-while-revalidate=600');
 
     const xml = await res.text();
-    expect(xml).toContain('<link>https://tordo.cl/dashboard/tenders/1234-5-LE26</link>');
-    expect(xml).toContain('<link>https://tordo.cl/dashboard/tenders?search=tornillos</link>');
+    expect(xml).toContain('<link>https://tordo.cl/licitaciones/1234-5-LE26</link>');
+    expect(xml).toContain('<link>https://tordo.cl/licitaciones?search=tornillos</link>');
     const items = xml.split('<item>').slice(1);
     expect(items).toHaveLength(2);
     for (const item of items) expect(item).toContain(escaparXml(FUENTE_DATOS));
@@ -148,7 +148,7 @@ describe('/rss/licitaciones', () => {
       host: 'tordo.example',
       'x-forwarded-proto': 'https',
     });
-    expect(await res.text()).toContain('<link>https://tordo.example/dashboard/tenders/1234-5-LE26</link>');
+    expect(await res.text()).toContain('<link>https://tordo.example/licitaciones/1234-5-LE26</link>');
   });
 
   it('un filtro inválido es 400; un backend caído, 502', async () => {

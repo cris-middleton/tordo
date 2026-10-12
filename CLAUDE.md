@@ -558,10 +558,18 @@ mirar dos sitios. Lo fija `tests/test_versionado_api.py`.
 Next.js 16 App Router + TypeScript + Tailwind + Recharts. Componentes propios. El estado de
 servidor va en TanStack Query (`lib/queries.ts`) y todo el tráfico pasa por `/api/proxy`,
 sin sesión — ver las reglas de frontend más arriba. Pantallas: el catálogo de
-licitaciones (`/dashboard/tenders`, con su detalle; **los filtros viven en la URL**, así que
-una búsqueda es una URL), «Lo mejor de hoy en Compra Ágil» (`/dashboard/compra-agil`),
-`/dashboard/guardados` y la inteligencia de mercado (`/dashboard/bi`); `/dashboard` redirige
-al catálogo.
+licitaciones (`/licitaciones`, con su detalle; **los filtros viven en la URL**, así que
+una búsqueda es una URL), «Lo mejor de hoy en Compra Ágil» (`/compra-agil`), `/guardados`
+y la inteligencia de mercado (`/mercado`). Viven en el grupo de rutas `app/(panel)/`, que
+les pone la barra lateral sin aparecer en la URL.
+
+**Las URL del panel son permanentes desde el lanzamiento: no se renombran.** Hasta entonces
+colgaban de `/dashboard/*` (`tenders`, `bi`…), y esas URL ya circulan en lectores de RSS,
+marcadores y enlaces compartidos. `next.config.js` las redirige con **308** —el buscador
+traspasa lo indexado; un 307 la dejaría indexada para siempre— conservando la query, porque
+una búsqueda es su URL. `__tests__/redirecciones-panel.test.ts` fija la tabla y
+`e2e/redirecciones.spec.ts` que el servidor la aplica. **No vuelvas a crear `app/dashboard/`**:
+la redirección corre antes que las páginas y la dejaría muerta.
 
 **«Lo mejor de hoy» (paso 9)** — `GET /compra-agil/destacadas`, `repositories/compra_agil.py`.
 Ranking público de Compras Ágiles abiertas que cierran en más de 2 h: producto de tres
@@ -618,7 +626,7 @@ API sigue siendo sólo JSON) con caché de CDN de 30 min, lista blanca de parám
 escapado y la cita de la fuente en cada ítem. Llaman al backend **como el visitante**
 (`cabecerasHaciaElBackend(ipDelVisitante(...))`), no como renderizado exento.
 
-**La pantalla de analítica (`app/dashboard/bi/`) está ordenada por la decisión, no por lo
+**La pantalla de analítica (`app/(panel)/mercado/`, servida en `/mercado`) está ordenada por la decisión, no por lo
 que el pipeline sabe calcular**: cómo está el mercado → dónde estoy yo → qué hago esta
 semana → un comprador en concreto → herramientas. Antes eran cinco secciones del mismo peso
 visual y la primera pregunta —la que trae al usuario— no se respondía en ninguna. La

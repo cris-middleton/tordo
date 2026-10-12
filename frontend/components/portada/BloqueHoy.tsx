@@ -9,7 +9,7 @@ import type { CompraAgilDestacadasResponse } from '@/types/compraAgil';
 /**
  * «Lo mejor de hoy» en la portada: las primeras de la lista, pedidas desde el
  * servidor con media hora de caché (`pedirDestacadas`). La página entera, con
- * filtros y RSS, es `/dashboard/compra-agil`.
+ * filtros y RSS, es `/compra-agil`.
  *
  * Si el backend falló no se llega aquí: `app/page.tsx` oculta el bloque.
  */
@@ -54,7 +54,7 @@ export function BloqueHoy({ datos }: { datos: CompraAgilDestacadasResponse }) {
         )}
 
         <Link
-          href="/dashboard/compra-agil"
+          href="/compra-agil"
           className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline"
         >
           Ver la lista completa, por región y con RSS

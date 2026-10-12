@@ -30,7 +30,7 @@ describe('búsquedas guardadas', () => {
     const enlace = screen.getByRole('link', { name: /zafiro/ });
     expect(enlace).toHaveAttribute(
       'href',
-      '/dashboard/tenders?search=zafiro&region=Regi%C3%B3n+del+Biob%C3%ADo',
+      '/licitaciones?search=zafiro&region=Regi%C3%B3n+del+Biob%C3%ADo',
     );
     expect(enlace).toHaveTextContent('«zafiro» · Biobío');
   });

@@ -28,7 +28,7 @@ export default function TarjetaDestacada({
   mesesVentana: number | null;
 }) {
   const montoTipico = textoMontoTipico(item.comprador);
-  const detalle = `/dashboard/tenders/${encodeURIComponent(item.codigo_externo)}`;
+  const detalle = `/licitaciones/${encodeURIComponent(item.codigo_externo)}`;
 
   return (
     <article className="card flex flex-col gap-3" aria-labelledby={`ca-${item.codigo_externo}`}>

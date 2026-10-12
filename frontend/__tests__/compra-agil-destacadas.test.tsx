@@ -77,7 +77,7 @@ const BASE: CompraAgilDestacadasResponse = {
 };
 
 async function montar() {
-  const { default: Pagina } = await import('@/app/dashboard/compra-agil/page');
+  const { default: Pagina } = await import('@/app/(panel)/compra-agil/page');
   return render(<Pagina />);
 }
 
@@ -120,7 +120,7 @@ describe('la página', () => {
     const item = screen.getByRole('article');
     expect(within(item).getByRole('link', { name: /ver detalle/i })).toHaveAttribute(
       'href',
-      '/dashboard/tenders/1234-56-COT26',
+      '/licitaciones/1234-56-COT26',
     );
     expect(within(item).getByRole('link', { name: /mercado público/i }).getAttribute('href')).toMatch(
       /^https:\/\/[a-z.]*mercadopublico\.cl\/.*1234-56-COT26/,

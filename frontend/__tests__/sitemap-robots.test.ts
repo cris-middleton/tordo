@@ -50,8 +50,8 @@ describe('sitemap y robots', () => {
     const urls = (await sitemap()).map((e) => e.url);
     expect(urls).toEqual([
       'https://tordo.prueba',
-      'https://tordo.prueba/dashboard/compra-agil',
-      'https://tordo.prueba/dashboard/tenders',
+      'https://tordo.prueba/compra-agil',
+      'https://tordo.prueba/licitaciones',
       'https://tordo.prueba/productos',
       'https://tordo.prueba/guias',
       'https://tordo.prueba/apoyar',
@@ -89,7 +89,7 @@ describe('sitemap y robots', () => {
     expect(r.rules).toEqual({
       userAgent: '*',
       allow: '/',
-      disallow: ['/api/', '/rss/', '/dashboard/guardados'],
+      disallow: ['/api/', '/rss/', '/guardados'],
     });
   });
 });

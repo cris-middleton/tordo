@@ -23,7 +23,7 @@ import { DESCARGO_CHILECOMPRA, FUENTE_DATOS } from '@/lib/atribucion';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
-  usePathname: () => '/dashboard/tenders',
+  usePathname: () => '/licitaciones',
 }));
 
 /** La frase exacta de la Declaración. Escrita aquí y no importada: si alguien
@@ -107,8 +107,8 @@ function paginas(dir: string): string[] {
 
 function tienePie(ruta: string): boolean {
   const rel = relative(APP, ruta).split('\\').join('/');
-  // `app/dashboard/layout.tsx` envuelve todo en `Layout`, que lleva el pie.
-  if (rel.startsWith('dashboard/')) return true;
+  // `app/(panel)/layout.tsx` envuelve todo en `Layout`, que lleva el pie.
+  if (rel.startsWith('(panel)/')) return true;
   // `app/(publico)/layout.tsx` pone el pie a las fichas públicas.
   if (rel.startsWith('(publico)/')) return true;
   const fuente = readFileSync(ruta, 'utf-8');
@@ -125,7 +125,7 @@ describe('ninguna página sin atribución', () => {
   });
 
   it('el panel envuelve sus páginas en el Layout con pie', () => {
-    const layout = readFileSync(join(APP, 'dashboard', 'layout.tsx'), 'utf-8');
+    const layout = readFileSync(join(APP, '(panel)', 'layout.tsx'), 'utf-8');
     expect(layout).toMatch(/<Layout>/);
   });
 

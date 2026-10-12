@@ -86,7 +86,7 @@ export default function TarjetaLicitacion({
 
         {/* Title */}
         <Link
-          href={`/dashboard/tenders/${encodeURIComponent(tender.codigo_externo)}`}
+          href={`/licitaciones/${encodeURIComponent(tender.codigo_externo)}`}
           onClick={(e) => e.stopPropagation()}
           className="text-sm font-semibold text-text leading-snug line-clamp-2 hover:text-primary transition-colors mb-0.5"
         >
@@ -155,7 +155,7 @@ export default function TarjetaLicitacion({
               </a>
             ) : (
               <Link
-                href={`/dashboard/tenders/${encodeURIComponent(tender.codigo_externo)}`}
+                href={`/licitaciones/${encodeURIComponent(tender.codigo_externo)}`}
                 onClick={(e) => e.stopPropagation()}
                 title="Ver detalle"
                 className="flex items-center justify-center rounded-lg border border-border bg-background p-1.5 text-muted hover:border-primary/25 hover:text-primary transition-all"

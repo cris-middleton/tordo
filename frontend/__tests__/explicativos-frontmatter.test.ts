@@ -23,10 +23,10 @@ const ARCHIVOS = readdirSync(DIRECTORIO)
 
 /** Rutas a las que un explicativo puede enlazar. */
 const RUTAS_PERMITIDAS = [
-  '/dashboard/compra-agil',
-  '/dashboard/tenders',
-  '/dashboard/bi',
-  '/dashboard/guardados',
+  '/compra-agil',
+  '/licitaciones',
+  '/mercado',
+  '/guardados',
   '/rubros/',
   '/productos/',
   '/compradores/',

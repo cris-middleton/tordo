@@ -5,7 +5,7 @@ import { CabeceraPublica } from '@/components/publico/CabeceraPublica';
  * El marco de las páginas públicas indexables: un comprador, un rubro, un
  * producto (paso 10 del pivote).
  *
- * Fuera de `/dashboard` a propósito: son las páginas a las que llega alguien
+ * Fuera del grupo `(panel)` a propósito: son las páginas a las que llega alguien
  * desde Google, y la barra lateral del panel es para quien ya está usando la
  * herramienta. Arriba, la marca y la salida al resto del sitio; abajo, la
  * cita de la fuente y los enlaces legales — `__tests__/legal-enlazado.test.tsx`

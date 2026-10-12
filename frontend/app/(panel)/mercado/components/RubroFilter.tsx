@@ -1,4 +1,4 @@
-// frontend/app/dashboard/bi/components/RubroFilter.tsx
+// frontend/app/(panel)/mercado/components/RubroFilter.tsx
 'use client';
 
 import { useState } from 'react';

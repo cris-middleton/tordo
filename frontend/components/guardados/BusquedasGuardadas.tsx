@@ -33,7 +33,7 @@ export default function BusquedasGuardadas() {
         <p className="font-medium text-text">Todavía no guardas ninguna búsqueda</p>
         <p className="mt-1 text-sm text-muted">
           En{' '}
-          <Link href="/dashboard/tenders" className="font-medium text-primary hover:underline">
+          <Link href="/licitaciones" className="font-medium text-primary hover:underline">
             Licitaciones
           </Link>
           , filtra como quieras y pulsa «Guardar esta búsqueda».
@@ -48,7 +48,7 @@ export default function BusquedasGuardadas() {
         <li key={consulta} className="flex flex-wrap items-center gap-3 px-4 py-3">
           <Search className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" />
           <Link
-            href={`/dashboard/tenders${consulta ? `?${consulta}` : ''}`}
+            href={`/licitaciones${consulta ? `?${consulta}` : ''}`}
             className="min-w-0 flex-1 truncate text-sm font-medium text-text hover:text-primary"
           >
             {describirBusqueda(consulta)}

@@ -1,4 +1,4 @@
-// frontend/app/dashboard/bi/components/TendenciasSection.tsx
+// frontend/app/(panel)/mercado/components/TendenciasSection.tsx
 'use client';
 
 import { useRef } from 'react';

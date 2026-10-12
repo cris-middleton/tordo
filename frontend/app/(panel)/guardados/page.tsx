@@ -62,7 +62,7 @@ export default function GuardadosPage() {
           <ol className="list-decimal space-y-1.5 pl-5">
             <li>
               Arma la búsqueda en{' '}
-              <Link href="/dashboard/tenders" className="font-medium text-primary hover:underline">
+              <Link href="/licitaciones" className="font-medium text-primary hover:underline">
                 Licitaciones
               </Link>{' '}
               y pulsa «Guardar esta búsqueda».

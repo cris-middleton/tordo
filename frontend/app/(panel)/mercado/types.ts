@@ -1,4 +1,4 @@
-// frontend/app/dashboard/bi/types.ts
+// frontend/app/(panel)/mercado/types.ts
 
 export interface OportunidadItem {
   CodigoOrganismoPublico: string;

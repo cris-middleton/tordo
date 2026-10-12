@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   title: 'Lo mejor de hoy en Compra Ágil',
   description:
     'Compras Ágiles abiertas donde cotizar tiene más sentido: pocas cotizaciones, un comprador que adjudica y tiempo para preparar la oferta. Actualizado varias veces al día.',
-  alternates: { canonical: '/dashboard/compra-agil' },
+  alternates: { canonical: '/compra-agil' },
 };
 
 export default function LayoutCompraAgil({ children }: { children: React.ReactNode }) {

@@ -232,7 +232,7 @@ function CatalogoContenido() {
         <div className="flex items-center gap-1.5">
           {busquedaGuardada ? (
             <Link
-              href="/dashboard/guardados"
+              href="/guardados"
               className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-primary hover:bg-primary/5"
             >
               <BookmarkCheck className="h-3.5 w-3.5" aria-hidden="true" />
@@ -463,7 +463,7 @@ function CatalogoContenido() {
           )}
 
           <Link
-            href={`/dashboard/tenders/${encodeURIComponent(selectedTender.codigo_externo)}`}
+            href={`/licitaciones/${encodeURIComponent(selectedTender.codigo_externo)}`}
             className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium text-primary transition-all hover:border-primary/30 hover:bg-primary/5"
             onClick={(e) => e.stopPropagation()}
           >

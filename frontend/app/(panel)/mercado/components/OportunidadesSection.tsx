@@ -1,4 +1,4 @@
-// frontend/app/dashboard/bi/components/OportunidadesSection.tsx
+// frontend/app/(panel)/mercado/components/OportunidadesSection.tsx
 'use client';
 
 import React, { useState, useRef } from 'react';

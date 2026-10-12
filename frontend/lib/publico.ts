@@ -29,13 +29,13 @@ export const rutaProducto = (slug: string) => `/productos/${encodeURIComponent(s
 
 /** El panel con el rubro elegido. El panel lee el NOMBRE, no el slug. */
 export const rutaPanelRubro = (nombre: string) =>
-  `/dashboard/bi?rubro=${encodeURIComponent(nombre)}`;
+  `/mercado?rubro=${encodeURIComponent(nombre)}`;
 
 /** Las páginas fijas que van al sitemap, además de las de cada entidad. */
 export const PAGINAS_FIJAS = [
   '/',
-  '/dashboard/compra-agil',
-  '/dashboard/tenders',
+  '/compra-agil',
+  '/licitaciones',
   '/productos',
   '/guias',
   '/apoyar',
@@ -49,10 +49,10 @@ export const PAGINAS_FIJAS = [
  * - `/api/` — el proxy al backend y la revalidación. Un buscador siguiendo
  *   enlaces al proxy gastaría el límite por IP del backend en nada.
  * - `/rss/` — los feeds son para lectores de RSS, no para el índice.
- * - `/dashboard/guardados` — vive en el navegador de cada uno: para un buscador
+ * - `/guardados` — vive en el navegador de cada uno: para un buscador
  *   es una página vacía.
  */
-export const NO_RASTREAR = ['/api/', '/rss/', '/dashboard/guardados'] as const;
+export const NO_RASTREAR = ['/api/', '/rss/', '/guardados'] as const;
 
 /** El origen público del sitio, sin barra final. Lo usan sitemap y robots. */
 export function origenDelSitio(): string {

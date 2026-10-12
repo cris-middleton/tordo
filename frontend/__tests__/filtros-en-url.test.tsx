@@ -27,7 +27,7 @@ const pedidas: Record<string, unknown>[] = [];
 vi.mock('next/navigation', () => ({
   useSearchParams: () => urlInicial,
   useRouter: () => ({ push: vi.fn() }),
-  usePathname: () => '/dashboard/tenders',
+  usePathname: () => '/licitaciones',
 }));
 
 vi.mock('@/lib/queries', () => ({
@@ -107,7 +107,7 @@ describe('la pantalla del catálogo', () => {
   });
 
   async function montar() {
-    const { default: TendersPage } = await import('@/app/dashboard/tenders/page');
+    const { default: TendersPage } = await import('@/app/(panel)/licitaciones/page');
     return render(<TendersPage />);
   }
 

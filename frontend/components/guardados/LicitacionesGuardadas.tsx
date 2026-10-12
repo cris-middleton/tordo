@@ -29,7 +29,7 @@ export default function LicitacionesGuardadas({
         <li key={t.id} className="flex items-center gap-3 px-4 py-3">
           <div className="min-w-0 flex-1">
             <Link
-              href={`/dashboard/tenders/${encodeURIComponent(t.codigo_externo)}`}
+              href={`/licitaciones/${encodeURIComponent(t.codigo_externo)}`}
               className="line-clamp-1 text-sm font-medium text-text hover:text-primary"
             >
               {normalizeText(t.nombre)}

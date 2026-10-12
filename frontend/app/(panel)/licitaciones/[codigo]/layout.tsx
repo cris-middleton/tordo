@@ -15,7 +15,7 @@ export async function generateMetadata({
   return {
     title: `Licitación ${limpio}`,
     description: `Ficha de la licitación ${limpio} de Mercado Público: comprador, plazos, monto y el historial de precios y competencia del comprador.`,
-    alternates: { canonical: `/dashboard/tenders/${encodeURIComponent(limpio)}` },
+    alternates: { canonical: `/licitaciones/${encodeURIComponent(limpio)}` },
   };
 }
 

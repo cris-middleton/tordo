@@ -23,7 +23,7 @@ test('la ruta de la transferencia no se cachea ni se indexa', async ({ request }
 });
 
 test('se llega desde el panel', async ({ page }) => {
-  await page.goto('/dashboard/tenders');
+  await page.goto('/licitaciones');
   await page.getByRole('button', { name: /^apoyar$/i }).click();
   await expect(page).toHaveURL(/\/apoyar$/);
 });

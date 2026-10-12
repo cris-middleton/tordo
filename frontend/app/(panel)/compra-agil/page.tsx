@@ -91,7 +91,7 @@ function CompraAgilContenido() {
           >
             <Rss className="h-3 w-3" aria-hidden="true" /> Seguir por RSS
           </a>
-          <Link href="/dashboard/guardados#rss" className="ml-2 text-xs text-muted hover:text-primary">
+          <Link href="/guardados#rss" className="ml-2 text-xs text-muted hover:text-primary">
             ¿Qué es esto?
           </Link>
         </div>

@@ -13,7 +13,7 @@ const CODIGOS_SEMBRADOS = ['E2E-2001-COT26', 'E2E-2002-COT26', 'E2E-2003-COT26']
 
 test('la página carga sin sesión y lista las abiertas', async ({ page }) => {
   const respuesta = page.waitForResponse((r) => r.url().includes('/compra-agil/destacadas'));
-  await page.goto('/dashboard/compra-agil');
+  await page.goto('/compra-agil');
 
   await expect(page.getByRole('heading', { name: /lo mejor de hoy en compra ágil/i })).toBeVisible();
   expect((await respuesta).status()).toBe(200);
@@ -23,14 +23,14 @@ test('la página carga sin sesión y lista las abiertas', async ({ page }) => {
   // `:scope > li`: cada tarjeta lleva su propia lista de datos dentro.
   await expect(lista.locator(':scope > li')).toHaveCount(CODIGOS_SEMBRADOS.length);
   for (const codigo of CODIGOS_SEMBRADOS) {
-    await expect(lista.locator(`a[href="/dashboard/tenders/${codigo}"]`).first()).toBeVisible();
+    await expect(lista.locator(`a[href="/licitaciones/${codigo}"]`).first()).toBeVisible();
   }
   // Dentro de <main>: Next monta su propio anunciador de rutas con role="alert", vacío.
   await expect(page.getByRole('main').getByRole('alert')).toHaveCount(0);
 });
 
 test('una búsqueda sin coincidencias muestra el estado vacío', async ({ page }) => {
-  await page.goto('/dashboard/compra-agil?search=xyzzyqwerty-no-existe');
+  await page.goto('/compra-agil?search=xyzzyqwerty-no-existe');
   await expect(page.getByText(/no hay compras ágiles abiertas con estos filtros/i)).toBeVisible({
     timeout: 15_000,
   });
@@ -38,13 +38,13 @@ test('una búsqueda sin coincidencias muestra el estado vacío', async ({ page }
 });
 
 test('se llega desde el menú', async ({ page }) => {
-  await page.goto('/dashboard/tenders');
+  await page.goto('/licitaciones');
   await page.getByRole('button', { name: /lo mejor de hoy/i }).click();
-  await expect(page).toHaveURL(/\/dashboard\/compra-agil/);
+  await expect(page).toHaveURL(/\/compra-agil/);
 });
 
 test('la región queda en la URL', async ({ page }) => {
-  await page.goto('/dashboard/compra-agil?region=Regi%C3%B3n%20del%20Biob%C3%ADo');
+  await page.goto('/compra-agil?region=Regi%C3%B3n%20del%20Biob%C3%ADo');
   await expect(page.getByRole('heading', { name: /lo mejor de hoy/i })).toBeVisible();
   await expect(page).toHaveURL(/region=/);
 });

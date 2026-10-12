@@ -107,7 +107,7 @@ export default async function PaginaProducto({ params }: Props) {
         Agrupado por la descripción que escribe el comprador (sin códigos ni cifras): «{p.firma}».
       </p>
 
-      <EnlacePanel href="/dashboard/bi">Más precios en el panel</EnlacePanel>
+      <EnlacePanel href="/mercado">Más precios en el panel</EnlacePanel>
     </article>
   );
 }

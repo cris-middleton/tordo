@@ -16,9 +16,9 @@ export const metadata: Metadata = {
 };
 
 const SALIDAS = [
-  { href: '/dashboard/compra-agil', texto: 'Lo mejor de hoy en Compra Ágil' },
+  { href: '/compra-agil', texto: 'Lo mejor de hoy en Compra Ágil' },
   { href: '/productos', texto: 'Buscar precios por producto' },
-  { href: '/dashboard/tenders', texto: 'Catálogo de licitaciones' },
+  { href: '/licitaciones', texto: 'Catálogo de licitaciones' },
   { href: '/guias', texto: 'Guías' },
 ];
 

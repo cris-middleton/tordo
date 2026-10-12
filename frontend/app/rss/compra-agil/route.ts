@@ -41,12 +41,12 @@ export async function GET(req: NextRequest) {
   return respuestaRss(
     construirRss({
       titulo: `Lo mejor de hoy en Compra Ágil — ${NOMBRE_SITIO}`,
-      enlace: `${origen}/dashboard/compra-agil${consulta ? `?${consulta}` : ''}`,
+      enlace: `${origen}/compra-agil${consulta ? `?${consulta}` : ''}`,
       descripcion:
         'Compras Ágiles abiertas donde cotizar tiene más sentido: pocas cotizaciones, un comprador que adjudica y tiempo para preparar la oferta. Es una heurística, no una predicción.',
       items: (respuesta.items ?? []).map((item) => ({
         titulo: normalizeText(item.nombre),
-        enlace: `${origen}/dashboard/tenders/${encodeURIComponent(item.codigo_externo)}`,
+        enlace: `${origen}/licitaciones/${encodeURIComponent(item.codigo_externo)}`,
         // El mismo código puede volver a salir mañana con otro puntaje; para
         // un lector es el mismo ítem, así que el guid es sólo el código.
         guid: item.codigo_externo,

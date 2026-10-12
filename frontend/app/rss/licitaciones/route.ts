@@ -17,7 +17,7 @@ import type { Tender } from '@/types/licitacion';
  * `/rss/licitaciones?<filtros del catálogo>` — las últimas 50 publicadas que
  * cumplen una búsqueda, en RSS 2.0.
  *
- * Acepta los mismos parámetros que filtran en `/dashboard/tenders` (lista
+ * Acepta los mismos parámetros que filtran en `/licitaciones` (lista
  * blanca: `PARAMS_RSS_LICITACIONES`). El orden y el tamaño los pone el feed:
  * más recientes primero, 50.
  */
@@ -43,11 +43,11 @@ export async function GET(req: NextRequest) {
   return respuestaRss(
     construirRss({
       titulo: `${busqueda} — ${NOMBRE_SITIO}`,
-      enlace: `${origen}/dashboard/tenders${consulta ? `?${consulta}` : ''}`,
+      enlace: `${origen}/licitaciones${consulta ? `?${consulta}` : ''}`,
       descripcion: `Las últimas licitaciones publicadas en Mercado Público que cumplen esta búsqueda: ${busqueda}.`,
       items: (respuesta.items ?? []).map((t) => ({
         titulo: normalizeText(t.nombre),
-        enlace: `${origen}/dashboard/tenders/${encodeURIComponent(t.codigo_externo)}`,
+        enlace: `${origen}/licitaciones/${encodeURIComponent(t.codigo_externo)}`,
         guid: t.codigo_externo,
         fecha: t.fecha_publicacion,
         descripcion: [

@@ -116,7 +116,7 @@ describe('la portada', () => {
     );
     expect(screen.getByRole('link', { name: /^lo mejor de hoy en compra ágil$/i })).toHaveAttribute(
       'href',
-      '/dashboard/compra-agil',
+      '/compra-agil',
     );
     expect(screen.getByRole('link', { name: /buscar precios/i })).toHaveAttribute('href', '/productos');
 

@@ -8,8 +8,8 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { frase3 } from '@/app/dashboard/bi/narrative/templates';
-import type { ResumenMercado } from '@/app/dashboard/bi/types';
+import { frase3 } from '@/app/(panel)/mercado/narrative/templates';
+import type { ResumenMercado } from '@/app/(panel)/mercado/types';
 
 describe('frase del comprador más activo', () => {
   it('usa las órdenes del rubro y lo dice', () => {

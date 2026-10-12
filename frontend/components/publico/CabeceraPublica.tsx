@@ -6,10 +6,10 @@ const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
 
 /** Las secciones del sitio. «Apoyar» va al final y más tenue: es discreto a propósito. */
 export const SECCIONES_PUBLICAS = [
-  { nombre: 'Lo mejor de hoy', href: '/dashboard/compra-agil' },
-  { nombre: 'Licitaciones', href: '/dashboard/tenders' },
+  { nombre: 'Lo mejor de hoy', href: '/compra-agil' },
+  { nombre: 'Licitaciones', href: '/licitaciones' },
   { nombre: 'Precios', href: '/productos' },
-  { nombre: 'Inteligencia de mercado', href: '/dashboard/bi' },
+  { nombre: 'Inteligencia de mercado', href: '/mercado' },
   { nombre: 'Guías', href: '/guias' },
 ] as const;
 

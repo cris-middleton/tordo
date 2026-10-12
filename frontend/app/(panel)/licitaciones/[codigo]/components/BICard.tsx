@@ -1,10 +1,10 @@
-// frontend/app/dashboard/tenders/[codigo]/components/BICard.tsx
+// frontend/app/(panel)/licitaciones/[codigo]/components/BICard.tsx
 'use client';
 
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, BarChart3, Loader2, AlertTriangle, Clock, Users, DollarSign } from 'lucide-react';
 import { usePanelLicitacion } from '@/lib/queries';
-import { scoreBg, scoreColor } from '../../../bi/types';
+import { scoreBg, scoreColor } from '../../../mercado/types';
 import { decimal } from '@/lib/formato';
 
 interface BICardProps {

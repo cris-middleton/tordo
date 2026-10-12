@@ -14,7 +14,7 @@ import { expect, test } from '@playwright/test';
  * cliente: es lo que ve un buscador, y lo que importa para indexar.
  */
 
-const SEMILLAS = ['/', '/guias', '/productos', '/apoyar', '/terminos', '/privacidad', '/dashboard/tenders'];
+const SEMILLAS = ['/', '/guias', '/productos', '/apoyar', '/terminos', '/privacidad', '/licitaciones'];
 
 // Lo que no es una página: rutas de API, feeds (tienen su propio test),
 // el túnel de Sentry, los recursos de Next y las imágenes de metadatos.

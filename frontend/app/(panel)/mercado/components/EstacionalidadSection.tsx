@@ -1,4 +1,4 @@
-// frontend/app/dashboard/bi/components/EstacionalidadSection.tsx
+// frontend/app/(panel)/mercado/components/EstacionalidadSection.tsx
 'use client';
 
 import { useState } from 'react';

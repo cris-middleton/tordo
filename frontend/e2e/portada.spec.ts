@@ -43,7 +43,7 @@ test('metadatos y tarjeta de preview', async ({ page }) => {
 test('de la portada al catálogo y a donar', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('link', { name: /^licitaciones/i }).first().click();
-  await expect(page).toHaveURL(/\/dashboard\/tenders/);
+  await expect(page).toHaveURL(/\/licitaciones/);
 
   await page.goto('/');
   await page.getByRole('link', { name: /apoyar el sitio/i }).first().click();

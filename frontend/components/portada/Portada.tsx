@@ -44,7 +44,7 @@ export function Portada({ destacadas }: { destacadas: CompraAgilDestacadasRespon
               por lo que vendes y contra quién compites. Sin registrarte.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href="/dashboard/compra-agil" className="btn-accent px-6 py-3">
+              <Link href="/compra-agil" className="btn-accent px-6 py-3">
                 <Zap className="h-4 w-4" aria-hidden="true" />
                 Lo mejor de hoy en Compra Ágil
               </Link>

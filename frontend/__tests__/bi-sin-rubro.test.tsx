@@ -20,8 +20,8 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { MarketSummaryCard } from '@/app/dashboard/bi/components/MarketSummaryCard';
-import { OportunidadesSection } from '@/app/dashboard/bi/components/OportunidadesSection';
+import { MarketSummaryCard } from '@/app/(panel)/mercado/components/MarketSummaryCard';
+import { OportunidadesSection } from '@/app/(panel)/mercado/components/OportunidadesSection';
 import { PanoramaRubro } from '@/components/bi/PanoramaRubro';
 
 /** Lo que tiene que aparecer: qué falta y dónde se arregla. */

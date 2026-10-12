@@ -11,6 +11,24 @@ const nextConfig = {
   outputFileTracingIncludes: {
     '/sitemap.xml': ['./content/explicativos/**/*'],
   },
+  // El panel vivía bajo `/dashboard/*` hasta el lanzamiento, y esas URL ya
+  // circulan: en lectores de RSS, marcadores y la historia de los PR. Pasaron a
+  // rutas en español del mismo nivel que las públicas (`app/(panel)/`), y las
+  // viejas redirigen con 308 —permanente y sin cambiar el método— para que el
+  // buscador traspase lo indexado a la nueva. Next conserva la query sola: una
+  // búsqueda compartida como URL llega con sus filtros.
+  // `__tests__/redirecciones-panel.test.ts` fija la tabla y `e2e/redirecciones.spec.ts`
+  // que de verdad redirige.
+  async redirects() {
+    return [
+      { source: '/dashboard', destination: '/licitaciones', permanent: true },
+      { source: '/dashboard/tenders', destination: '/licitaciones', permanent: true },
+      { source: '/dashboard/tenders/:codigo', destination: '/licitaciones/:codigo', permanent: true },
+      { source: '/dashboard/compra-agil', destination: '/compra-agil', permanent: true },
+      { source: '/dashboard/bi', destination: '/mercado', permanent: true },
+      { source: '/dashboard/guardados', destination: '/guardados', permanent: true },
+    ]
+  },
   // Cabeceras de seguridad en todas las respuestas. Sin una CSP completa a
   // propósito: el tema, Sentry y Web Analytics meten scripts, y una CSP de
   // scripts mal acertada rompe el sitio en silencio. Lo que sí va es lo que no

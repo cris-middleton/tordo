@@ -1,4 +1,4 @@
-// frontend/app/dashboard/bi/components/CompradoresSection.tsx
+// frontend/app/(panel)/mercado/components/CompradoresSection.tsx
 'use client';
 
 import { useState } from 'react';

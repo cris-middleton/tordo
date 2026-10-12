@@ -161,7 +161,7 @@ async function provocarError(status: number): Promise<{ href?: string; avisoDePl
   // objeto espía para poder ver a dónde habría ido el navegador.
   const destino: { href?: string } = {};
   Object.defineProperty(window, 'location', {
-    value: { pathname: '/dashboard/tenders', get href() { return destino.href ?? ''; }, set href(v: string) { destino.href = v; } },
+    value: { pathname: '/licitaciones', get href() { return destino.href ?? ''; }, set href(v: string) { destino.href = v; } },
     writable: true,
     configurable: true,
   });

@@ -151,7 +151,7 @@ export default async function PaginaComprador({ params }: Props) {
         />
       </Seccion>
 
-      <EnlacePanel href="/dashboard/compra-agil">Ver las Compras Ágiles abiertas hoy</EnlacePanel>
+      <EnlacePanel href="/compra-agil">Ver las Compras Ágiles abiertas hoy</EnlacePanel>
     </article>
   );
 }

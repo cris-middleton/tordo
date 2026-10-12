@@ -20,12 +20,12 @@ export const ACCESOS: Acceso[] = [
   {
     titulo: 'Licitaciones',
     texto: 'Los llamados abiertos, con la historia del comprador al lado de cada uno.',
-    href: '/dashboard/tenders',
+    href: '/licitaciones',
   },
   {
     titulo: 'Inteligencia de mercado',
     texto: 'Por rubro: cuánto se compra, quién lo compra, contra quién compites y en qué meses.',
-    href: '/dashboard/bi',
+    href: '/mercado',
   },
   {
     titulo: 'Precios por producto',

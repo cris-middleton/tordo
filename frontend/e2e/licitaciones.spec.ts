@@ -19,11 +19,11 @@ import { CODIGO_ADJUDICADA, CODIGO_VALVULAS, TERMINO } from './datos';
  * muestra con cada palabra en mayúscula inicial.
  */
 function tarjeta(page: Page, codigo: string) {
-  return page.locator(`a[href="/dashboard/tenders/${codigo}"]`).first();
+  return page.locator(`a[href="/licitaciones/${codigo}"]`).first();
 }
 
 async function buscar(page: Page, termino: string) {
-  await page.goto('/dashboard/tenders');
+  await page.goto('/licitaciones');
   const buscador = page.getByPlaceholder(/Nombre, organismo o descripción/i);
   await buscador.fill(termino);
   await buscador.press('Enter');

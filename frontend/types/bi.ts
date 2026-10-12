@@ -1,9 +1,9 @@
 /**
- * Formas de la API de BI que comparten el panel (`app/dashboard/bi/`) y las
+ * Formas de la API de BI que comparten el panel (`app/(panel)/mercado/`) y las
  * páginas públicas (`app/(publico)/`).
  *
  * Espejan `backend/app/schemas/bi.py`. Viven aquí y no en
- * `app/dashboard/bi/types.ts` porque una página pública no debería importar
+ * `app/(panel)/mercado/types.ts` porque una página pública no debería importar
  * de dentro de otra ruta.
  */
 

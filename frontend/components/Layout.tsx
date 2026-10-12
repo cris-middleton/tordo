@@ -34,15 +34,15 @@ const navSections: NavSection[] = [
   {
     label: 'Explorar',
     items: [
-      { name: 'Lo mejor de hoy', href: '/dashboard/compra-agil', icon: Zap },
-      { name: 'Licitaciones', href: '/dashboard/tenders', icon: Briefcase },
-      { name: 'Guardados', href: '/dashboard/guardados', icon: Bookmark },
+      { name: 'Lo mejor de hoy', href: '/compra-agil', icon: Zap },
+      { name: 'Licitaciones', href: '/licitaciones', icon: Briefcase },
+      { name: 'Guardados', href: '/guardados', icon: Bookmark },
     ],
   },
   {
     label: 'Análisis',
     items: [
-      { name: 'Inteligencia de mercado', href: '/dashboard/bi', icon: Radar },
+      { name: 'Inteligencia de mercado', href: '/mercado', icon: Radar },
       // Las páginas públicas viven fuera del panel; se cruzan en los dos sentidos.
       { name: 'Precios por producto', href: '/productos', icon: Tag },
     ],
