@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import TordoLogo from '@/components/TordoLogo';
 import SelectorTema from '@/components/SelectorTema';
+import { PieAtribucion } from '@/components/legal/PieAtribucion';
 import { Menu, X, ChevronRight, Briefcase, Radar } from 'lucide-react';
 
 interface LayoutProps {
@@ -185,6 +186,13 @@ export default function Layout({ children }: LayoutProps) {
         <main className="flex-1 p-4 sm:p-6 lg:p-8 animate-fade-in">
           {children}
         </main>
+
+        {/* Dentro de la columna de contenido y no en el layout raíz: a ancho
+            completo, la barra lateral fija lo taparía. La cita de la fuente es
+            una condición de uso de los datos — ver `PieAtribucion`. */}
+        <footer className="border-t border-border px-4 py-6 sm:px-6 lg:px-8">
+          <PieAtribucion />
+        </footer>
       </div>
     </div>
   );

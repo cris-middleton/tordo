@@ -25,6 +25,7 @@ usa el resto del repo: la decisión la toma una persona, no el descuido.
 | [`PIVOTE_PUBLICO_2026-10.md`](PIVOTE_PUBLICO_2026-10.md) | **El plan en curso**: TORDO pasa de SaaS a sitio público y gratuito. Las 20 decisiones, la arquitectura objetivo, costos, datos personales y el orden de los diez PR | Antes de cualquier paso del pivote — y para saber qué partes de este índice describen algo que se va a retirar |
 | [`ARQUITECTURA_REVISION_2026-08.md`](ARQUITECTURA_REVISION_2026-08.md) | La revisión que originó las siete fases (F0–F6) y su estado de cierre, con lo que queda abierto y por qué | Para entender por qué el sistema es así |
 | [`decisiones/`](decisiones/README.md) | **10 ADRs**: sólo Chile, suscripción por empresa, nombre, LLM/MCP, pasarela local, analytics en Postgres, no migrar a Supabase, MercadoPago, API versionada, extracción de bases | Antes de re-discutir algo que ya se decidió |
+| [`DECLARACION_USO_DATOS.md`](DECLARACION_USO_DATOS.md) | **Bajo qué condiciones se usan los datos de ChileCompra**: la cita literal de la fuente (pie de cada página y primera línea de cada CSV), que ChileCompra no respalda el sitio, y por qué omitir a las personas naturales no es modificar el dato. Sustituye al PDF | Antes de tocar el pie, la exportación CSV o el enmascarado de personas |
 | [`API_PUBLICA.md`](API_PUBLICA.md) | Qué parte de la API es pública, límites, errores, el servidor MCP y **lo que no hay** | Para integrar desde fuera |
 | [`SPEC.md`](SPEC.md) | La especificación de producto | Para saber qué se prometió |
 | [`tordo_plan_saas.md`](tordo_plan_saas.md) | El plan de negocio: segmento, precios, competencia | Para decisiones de producto |
@@ -56,7 +57,7 @@ producir — no porque describan el sistema de hoy.
 |---|---|
 | `Documentación API Mercado Publico - Licitaciones.pdf` | Diccionario de datos oficial de ChileCompra. **Es la fuente cuando hay dudas sobre un campo** — se usó para decidir el [ADR 0010](decisiones/0010-extraccion-de-bases-con-llm.md) |
 | `Documentación API de Mercado Público - Órdenes de Compra.pdf` | Ídem, para órdenes de compra |
-| `Declaración de Uso de Datos Oficiales.pdf` | Los términos bajo los que se consumen los datos |
+| `Declaración de Uso de Datos Oficiales.pdf` | La versión de la etapa SaaS de la declaración. **La vigente es [`DECLARACION_USO_DATOS.md`](DECLARACION_USO_DATOS.md)**; el PDF se conserva como registro |
 | [`mercado_publico_faq.md`](mercado_publico_faq.md) | Cómo funciona Mercado Público: mecanismos de compra, plazos, vocabulario |
 
 ## Dónde va cada cosa

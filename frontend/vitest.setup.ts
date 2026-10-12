@@ -32,3 +32,21 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
     dispatchEvent: () => false,
   })) as unknown as typeof window.matchMedia;
 }
+
+// jsdom tampoco implementa `IntersectionObserver`. `useRotatingExample` (los
+// mockups animados de la landing) lo instancia al montar, y sin este stub
+// cualquier test que renderice `LandingClient` revienta antes de llegar a la
+// aserción. No hace falta que detecte intersección: los mockups no rotan en el
+// test, que es el mismo estado inicial que tienen en el servidor.
+if (typeof window !== 'undefined' && !('IntersectionObserver' in window)) {
+  class IntersectionObserverStub {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+    takeRecords() {
+      return [];
+    }
+  }
+  (globalThis as unknown as { IntersectionObserver: unknown }).IntersectionObserver =
+    IntersectionObserverStub;
+}

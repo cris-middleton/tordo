@@ -11,7 +11,15 @@ la coma, que es el estándar»— rompe sin que falle nada más.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from app.services import exportar
+
+RAIZ = Path(__file__).resolve().parents[2]
+
+#: La frase exacta de la Declaración de Uso de Datos Oficiales. Escrita aquí y
+#: no importada: si alguien la «mejora» en `exportar.py`, este test se entera.
+CITA_LITERAL = "Fuente: Dirección de Compras y Contratación Pública (ChileCompra / Mercado Público)"
 
 
 def test_lleva_bom_para_que_excel_lea_las_tildes():
@@ -41,9 +49,9 @@ def test_las_columnas_se_declaran_y_no_se_deducen():
     filas = [{"b": "2", "a": "1"}, {"a": "3"}]
     csv = exportar.a_csv(filas, [("a", "A"), ("b", "B")])
     lineas = csv.replace(exportar.BOM, "").strip().splitlines()
-    assert lineas[0] == "A;B"
-    assert lineas[1] == "1;2"
-    assert lineas[2] == "3;"
+    assert lineas[1] == "A;B"
+    assert lineas[2] == "1;2"
+    assert lineas[3] == "3;"
 
 
 def test_los_nulos_quedan_vacios_y_no_dicen_none():
@@ -72,3 +80,34 @@ def test_el_nombre_no_admite_lo_que_rompa_una_ruta():
     nombre = exportar.nombre_archivo("precio", "../../etc/passwd")
     assert "/" not in nombre
     assert ".." not in nombre
+
+
+def test_la_primera_linea_es_la_cita_de_la_fuente():
+    """La Declaración exige citar a ChileCompra en toda publicación de sus datos.
+    El CSV es lo que sale del sitio y se reenvía sin él: la cita tiene que viajar
+    dentro del archivo, y en la primera línea, que es la que se ve al abrirlo."""
+    csv = exportar.a_csv([{"a": "x"}], [("a", "A")])
+    assert csv.startswith(exportar.BOM), "la cita no puede desplazar al BOM"
+    primera = csv.removeprefix(exportar.BOM).splitlines()[0]
+    assert primera == CITA_LITERAL
+
+
+def test_la_cita_va_tambien_sin_filas():
+    csv = exportar.a_csv([], [("a", "A")])
+    assert csv.removeprefix(exportar.BOM).splitlines() == [CITA_LITERAL, "A"]
+
+
+def test_la_cita_del_csv_es_la_misma_del_pie_de_la_web():
+    """Vive en dos sitios (aquí y `frontend/lib/atribucion.ts`). Si se
+    desincronizan, uno de los dos deja de citar lo que exige la Declaración."""
+    atribucion_web = (RAIZ / "frontend" / "lib" / "atribucion.ts").read_text(encoding="utf-8")
+    assert exportar.ATRIBUCION == CITA_LITERAL
+    assert f"'{CITA_LITERAL}'" in atribucion_web
+
+
+def test_el_codigo_de_proveedor_no_se_rotula_como_rut():
+    """`CodigoProveedor` es el identificador interno de Mercado Público: ninguno
+    de los 4,2 millones de registros lleva guion. Rotularlo «RUT» invitaba a
+    cruzarlo con RUT reales."""
+    encabezados = dict(exportar.COLUMNAS_COMPETIDORES)
+    assert encabezados["CodigoProveedor"] != "RUT"

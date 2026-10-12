@@ -6,12 +6,18 @@ sirve de mucho: ya está en Mercado Público. Exportar la banda de precio de un
 producto o el mapa de competidores de un comprador **es un entregable**: se pega
 en una propuesta interna, se manda al socio que decide, se archiva con la oferta.
 
-Una regla que no es obvia:
+Dos reglas que no son obvias:
 
 - **El CSV va con BOM y separador de punto y coma.** Sin BOM, Excel en Windows
   parte los acentos; con coma como separador, Excel en configuración regional
   chilena mete todo en una columna. Es un archivo que se abre en Excel el 95 % de
   las veces, y un CSV que se abre mal no es un entregable.
+- **La primera línea es la cita de la fuente, y los encabezados van en la
+  segunda.** La *Declaración de Uso de Datos Oficiales*
+  (`docs/DECLARACION_USO_DATOS.md`) exige citar a ChileCompra en toda
+  publicación de los datos, y un CSV es justo la forma en que los datos salen del
+  sitio y se reenvían sin él. En el pie de la web no basta: el archivo viaja solo.
+  Quien lo lea con pandas necesita `skiprows=1`.
 """
 
 from __future__ import annotations
@@ -28,6 +34,11 @@ BOM = "﻿"
 #: Separador. Punto y coma y no coma: es lo que espera Excel con configuración
 #: regional chilena, donde la coma es el separador decimal.
 SEPARADOR = ";"
+
+#: La cita que exige la Declaración, literal. Duplicada a propósito en
+#: `frontend/lib/atribucion.ts` (pie de cada página); un test comprueba que las
+#: dos digan lo mismo.
+ATRIBUCION = "Fuente: Dirección de Compras y Contratación Pública (ChileCompra / Mercado Público)"
 
 
 def _valor(v: Any) -> str:
@@ -49,6 +60,7 @@ def a_csv(filas: list[dict], columnas: list[tuple[str, str]]) -> str:
     """
     salida = io.StringIO()
     escritor = csv.writer(salida, delimiter=SEPARADOR, quoting=csv.QUOTE_MINIMAL)
+    escritor.writerow([ATRIBUCION])
     escritor.writerow([encabezado for _, encabezado in columnas])
     for fila in filas:
         escritor.writerow([_valor(fila.get(clave)) for clave, _ in columnas])
@@ -83,7 +95,10 @@ COLUMNAS_PRECIO: list[tuple[str, str]] = [
 
 COLUMNAS_COMPETIDORES: list[tuple[str, str]] = [
     ("NombreProveedor", "Proveedor"),
-    ("CodigoProveedor", "RUT"),
+    # `CodigoProveedor` es el identificador interno de Mercado Público, NO un
+    # RUT (ver CLAUDE.md). El encabezado decía «RUT», y quien lo cruzara con
+    # RUT reales no encontraría coincidencias.
+    ("CodigoProveedor", "Código de proveedor"),
     ("n_oc", "Órdenes ganadas"),
     ("monto_total", "Monto total"),
     ("participacion", "Participación"),

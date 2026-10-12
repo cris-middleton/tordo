@@ -567,6 +567,20 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   **con BOM y separador `;`**: sin BOM Excel en Windows parte las tildes, y con coma Excel en
   configuración regional chilena mete todo en una columna. Un CSV que se abre mal no es un
   entregable, y son dos detalles que un refactor bienintencionado rompe sin que falle nada.
+  **La primera línea es la cita de la fuente** y los encabezados van en la segunda (abajo).
+- **Atribución a ChileCompra: es una condición de uso de los datos, no un adorno**
+  (`docs/DECLARACION_USO_DATOS.md`). La frase literal «Fuente: Dirección de Compras y
+  Contratación Pública (ChileCompra / Mercado Público)» y que ChileCompra no respalda el
+  sitio van en el **pie de cada página** (`components/legal/PieAtribucion.tsx`, puesto por la
+  landing, el `Layout` del panel y `DocumentoLegal`) y en la **primera línea de cada CSV**.
+  Vive en `frontend/lib/atribucion.ts` y en `exportar.ATRIBUCION`; un test comprueba que
+  coincidan. **Una página nueva fuera de esos tres marcos hace fallar
+  `__tests__/legal-enlazado.test.tsx`** hasta que lleve el pie. `/terminos` y `/privacidad`
+  publican **sólo el nombre del responsable y `hola@tordo.cl`** (`lib/responsable.ts`): ni RUT
+  ni domicilio, que la ley no pide. El nombre sale de `RESPONSABLE_LEGAL` (servidor, se lee en
+  el build) para no quedar en el repo; sin ella el `[[hueco]]` se ve, **nunca un dato
+  inventado**. La fecha de vigencia se pone al publicar. Si cambia lo que el sistema trata (IP, Sentry, analytics, `localStorage`),
+  la política se corrige en el mismo PR.
 - **BI**: batch en Polars → tablas materializadas en `analytics.*` → consulta con filtros
   empujados a SQL → fallback jerárquico **L0→L0N→L1→L2→L3→L4** con dispersión y tamaño de
   muestra. Hay un golden master (`backend/tests/golden/`) que fija
@@ -887,6 +901,9 @@ falta alguna de las dos primeras. No hay `REDIS_URL`.
 
 **No hay `SECRET_KEY`.** Se borró con las cuentas: nada firma tokens, y un secreto
 obligatorio que nadie usa enseña a rellenar variables sin mirar.
+
+**`RESPONSABLE_LEGAL`** (servidor de Next, en el build): el nombre que firman `/terminos` y
+`/privacidad`. En Vercel tiene que estar definida al construir.
 
 **`API_URL` es de servidor y no lleva prefijo `NEXT_PUBLIC_`.** Cualquier variable que sí lo
 lleve se inlinea en el bundle del navegador, y la URL del backend ya no tiene por qué estar

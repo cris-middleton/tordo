@@ -3,10 +3,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import TordoLogo from '@/components/TordoLogo';
 import Link from 'next/link';
-import { ArrowRight, ChevronDown, Menu, ShieldCheck, X } from 'lucide-react';
+import { ArrowRight, ChevronDown, Menu, X } from 'lucide-react';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import { MockupComprador } from '@/components/landing/MockupComprador';
 import { MockupPrecio } from '@/components/landing/MockupPrecio';
+import { PieAtribucion } from '@/components/legal/PieAtribucion';
 
 /* ─────────────────────────────────────────────
    Las bandas dibujan una distribución: el tono se profundiza hacia el centro y
@@ -503,23 +504,17 @@ export default function LandingClient() {
                 TORDO
               </span>
             </div>
-            {/* Aquí había un enlace a /terminos y otro a /privacidad. Ninguna
-                de las dos páginas existe —no aparecen en la salida del build— así
-                que eran dos 404 en el pie de una página que pide RUT y cobra en
-                CLP: justo donde alguien va a mirar antes de escribir sus datos.
-                Un enlace roto ahí resta más confianza que la ausencia del
-                enlace. Vuelven cuando existan las páginas. */}
             <div className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs text-subtle">
               <a href="mailto:hola@tordo.cl" className="transition-colors hover:text-primary">
                 Contacto
               </a>
             </div>
           </div>
-          <div className="mt-5 flex flex-col items-center gap-2 border-t border-border pt-5">
-            <p className="flex items-center gap-1.5 text-[11px] text-subtle">
-              <ShieldCheck className="h-3 w-3" aria-hidden="true" />
-              Datos de licitaciones y órdenes de compra de fuentes públicas de ChileCompra
-            </p>
+          {/* «Datos de fuentes públicas de ChileCompra» no era la cita que
+              exige la Declaración de Uso de Datos: la frase va literal y con el
+              descargo, y los enlaces legales con ella (`PieAtribucion`). */}
+          <div className="mt-5 flex flex-col items-center gap-3 border-t border-border pt-5">
+            <PieAtribucion />
             <p className="text-center text-[10px] text-subtle/70">
               © 2026 TORDO · Inteligencia para Mercado Público · Chile · No estamos afiliados al
               gobierno de Chile
