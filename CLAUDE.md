@@ -465,7 +465,9 @@ ChileCompra, que es su fuente.
   sólo él con 6 meses, ~0,5 GB por mes de historia); el siguiente es `competitors` con 1,29 GB.
   **Cada módulo crece con la historia**, así que lo que acota el pico es la ventana de
   analytics (ver «Analytics lee una VENTANA de historia» en Patrones vigentes): **servicio
-  semanal de 8 GB** en Railway. No lo arregles subiendo la máquina. Los módulos de LIC
+  semanal de 8 GB** en Railway. No lo arregles subiendo la máquina. **En producción
+  (2026-10-13), con la ventana entera: 7,23 GB de pico y 15,5 minutos** — un 10 % de
+  margen, y lo que manda sigue siendo `product_price_bands`. Los módulos de LIC
   (`buyers` incluido) no se pudieron medir: no hay parquets de LIC en local.
 
 **La pasada horaria es `--horario`**: licitaciones publicadas hoy, Compra Ágil de las
@@ -548,8 +550,10 @@ mirar dos sitios. Lo fija `tests/test_versionado_api.py`.
   las tres de órdenes de compra, el historial de cambios, compradores, proveedores y los cuatro
   catálogos `ref_*` — nada los leía —, más el payload crudo del detalle (`datos_completos`,
   `participantes`): el hash basta para saber si un detalle cambió. La historia de órdenes vive
-  entera en los parquets de R2. **El tamaño real está sin medir** (producción pausada); las
-  consultas para medirlo están en `docs/DESPLIEGUE.md`, paso 13.1.
+  entera en los parquets de R2. **Medido en producción el 2026-10-13: 1,4 GB** más 1 GB de WAL
+  (`competitors_by_market` 497 MB, `time_series` 301 MB), por encima del objetivo de 1 GB
+  de la spec pero estable con la ventana fija; detalle y cómo medir en
+  `docs/DESPLIEGUE.md`, paso 13.1.
 - **Parquet + Polars** — sólo cómputo batch. La API **no lee parquets**: el pipeline
   materializa los resultados en el esquema `analytics` de Postgres con índices
   (`etl/analytics/materialize.py`), y `bi_service` los consulta con SQL. Ver
@@ -1013,8 +1017,10 @@ estos patrones, es señal de que hay que arreglar la causa, no de copiarlo:
 > cuentas (3 y 4), cron en vez de Celery y Redis (5), R2, enmascarado y ventana de analytics
 > (6), Postgres adelgazado (7), TF-IDF fuera de la API (8) y «lo mejor de hoy», RSS y
 > favoritos (9), páginas públicas, sitemap y revalidación (10), guías y portada (10b) y legal (11; faltan
-> nombre, correo y fecha al lanzar). La preparación del lanzamiento (12) también; queda
-> desplegar, con la guía de `docs/DESPLIEGUE.md`.
+> nombre, correo y fecha al lanzar). La preparación del lanzamiento (12) también, y **el sitio está
+> en producción desde el 2026-10-13** (`tordo.cl`, `api.tordo.cl`; Railway `tordo-publico`
+> y Vercel `tordo`). Lo que enseñó desplegarlo, con números medidos, está en
+> `docs/DESPLIEGUE.md`.
 
 Decisiones tomadas el 2026-08-05, con su ADR en `docs/decisiones/`: sólo Chile (sin
 multi-país), nombre TORDO y LLM acotado a un servidor MCP sobre la base histórica siguen
