@@ -69,6 +69,19 @@ el `Host` con el que llegan esas peticiones, y no `tordo.cl`.
 
 ## Variables
 
+> **Una variable nueva no llega a un cron hasta que se redespliega.** Cada ejecución
+> programada corre sobre el **último despliegue**, con las variables que tenía
+> entonces. En el lanzamiento, las de R2 se pusieron con `--skip-deploys` y la primera
+> semanal falló en 10 s con `AlmacenMalConfigurado: … faltan: R2_ACCESS_KEY_ID,
+> R2_SECRET_ACCESS_KEY` — el fallo rápido y con nombre que se buscaba, pero evitable:
+> tras tocar variables, *Redeploy* el servicio antes de lanzarlo.
+>
+> **Y un redeploy corta la ejecución en curso.** Un push a `main` que toque los
+> *watch paths* de un cron lo redespliega, y Railway **mata** la corrida que estuviera
+> en marcha (estado `REMOVED`): en el lanzamiento cortó el relleno inicial a los 19
+> minutos. No mergees nada que toque `etl/` o `backend/app/` el domingo entre las
+> 06:00 y las ~07:00 UTC, mientras corre la semanal.
+
 Una fila por variable y una columna por servicio: **API**, **frecuente** y
 **semanal** son los tres servicios de Railway; **Vercel**, el sitio. «Obligatoria»
 quiere decir que sin ella algo deja de funcionar o queda inseguro; las demás tienen
@@ -202,7 +215,11 @@ Los cron **no** mandan a Sentry: su canal es el latido.
    `us-west2`): revisa *Settings → Deploy → Regions* en **cada** servicio, Postgres
    incluido, y ponlos todos en US East antes de cargar datos.
 2. *New → Database → PostgreSQL*.
-3. **Sin respaldos programados en Hobby.** *Settings → Backups* sólo existe en el plan
+3. **Límite de memoria: 1 GB** (*Settings → Resources*). Con el de serie (8 GB)
+   Postgres se quedó en **2,85 GB** tras la primera semanal: es caché de archivos que
+   nada le obliga a soltar, y Railway cobra la memoria usada (~US$10/GB-mes). Con el
+   límite la suelta; Postgres con su configuración por defecto cabe de sobra.
+4. **Sin respaldos programados en Hobby.** *Settings → Backups* sólo existe en el plan
    Pro (US$20/mes; la API responde «Manual backups and backup schedules are only
    available for Pro workspaces»). La spec (D19) los daba por incluidos. No se paga Pro
    por ellos: `analytics.*` —incluida `compra_agil_mensual`, la única tabla que
@@ -267,9 +284,27 @@ En producción la API **avisa en el log al arrancar** si falta `PROXY_SECRETO`, 
 días hábiles, 12 h el fin de semana; Railway la lanza en el minuto 0— y mira esa
 ejecución en *Deployments*: termina sin `Traceback`, el log dice `frecuente:
 terminada` y en Healthchecks `tordo-frecuente` pasa a *up*. Luego
-`curl -s 'https://api.tordo.cl/api/v1/tenders/?limit=1'` trae `total` > 0. (Si tu
-panel muestra un botón para ejecutar el cron, sirve igual, pero sólo dentro de una de
-esas horas: fuera de ellas el script sale sin hacer nada, que es lo correcto.)
+`curl -s 'https://api.tordo.cl/api/v1/tenders/?limit=1'` trae `total` > 0.
+
+**Para no esperar a la hora programada** (lo que se hizo en el lanzamiento): cambia
+el *Start command* a `python -m etl.cron frecuente --forzar`, redespliega y lanza
+`railway cron run -s cron-frecuente --yes` (la CLI de Railway; el panel también
+tiene el botón). Cuando termine, **devuelve el Start command** a
+`python -m etl.cron frecuente`: con `--forzar` correría cada hora. Sin `--forzar`,
+fuera de sus horas el script sale sin hacer nada, que es lo correcto.
+
+**La primera vez, rellena el catálogo hacia atrás.** `frecuente` sólo mira hoy (y la
+primera del día, también ayer): con la base vacía el catálogo abre con un par de días.
+En el lanzamiento se hizo una pasada única con el mismo truco del *Start command*:
+
+```
+python -m etl.main --fecha-desde <hoy − 21 días> --fecha-hasta <ayer> --detalles-limit 3000
+```
+
+Un listado por día (~700 licitaciones cada uno) más el detalle de hasta 3.000 de las
+publicadas, dentro de la cuota de 10.000 diarias de la API clásica; el resto lo
+completan las corridas normales. **Después, devuelve el Start command** a
+`python -m etl.cron frecuente`: el *Cron Schedule* lo volvería a lanzar cada hora.
 
 Un ticket inválido o vencido **hace fallar la corrida**: la API clásica lo dice
 con un HTTP 203 y Compra Ágil con un 401, y los dos llegan al `/fail` como
@@ -348,11 +383,8 @@ de la ventana (las siguientes, sólo los 3 recientes). Es la primera vez que cor
 con años de datos, y **nada de lo que sigue está medido con esa escala** (en
 local sólo había 6 meses).
 
-**Cómo lanzarla:** en `cron-semanal`, cambia **temporalmente** el *Cron Schedule* a
-una hora UTC de dentro de unos minutos —`M H * * *`; en Chile, UTC va 3 h por delante
-en verano y 4 en invierno—. Cuando haya **terminado** (no antes: cambiar un ajuste
-vuelve a desplegar el servicio y podría cortarla), vuelve a `0 6 * * 0`. Si tu panel
-muestra un botón para ejecutar el cron, sirve igual. Mientras corre, mira:
+**Cómo lanzarla:** `railway cron run -s cron-semanal --yes` (o el botón del panel).
+Tarda unos minutos en aparecer en `railway cron list -s cron-semanal`. Mientras corre, mira:
 
 - **RAM**: el pico de la gráfica de *Metrics*. Proyectado ~6,3 GB; si se acerca a
   8 GB, no subas la máquina sin antes mirar qué módulo manda (el log dice cuánto
@@ -362,6 +394,16 @@ muestra un botón para ejecutar el cron, sirve igual. Mientras corre, mira:
   parquets de los 39 meses (~4,5 GB cada uno, ~9 GB de pico, dentro de los 100 GB del
   plan); en las siguientes, los ~4,5 GB que baja de R2 más tres meses. El bucket
   debería quedar en ~4,5 GB más `analytics/`.
+
+**Medido en el lanzamiento (2026-10-13):** **15,5 minutos** en total; descarga y
+consolidación de los 39 meses en ~5; **pico de RAM 7,23 GB de 8** (en
+`product_price_bands`); R2 quedó en **4,79 GB** (4,58 de `consolidated/`, 0,2 de
+`analytics/`); 27 tablas y 6,5 millones de filas materializadas. El margen de RAM es
+de un 10 %: si una semanal muere por memoria, mira primero `product_price_bands`.
+
+**La API puede no ver las tablas nuevas hasta reiniciarse** si arrancó antes de esta
+corrida (corregido en #156: ahora sólo se recuerda que una tabla existe). Si
+`/api/v1/publico/sitemap` sigue vacío diez minutos después, *Redeploy* la API.
 
 **Verifica:** termina con `/fail` ausente en Healthchecks (`tordo-semanal` *up*),
 R2 tiene `consolidated/` y `analytics/`, y `https://<proyecto>.vercel.app/mercado`
@@ -467,6 +509,13 @@ SELECT schemaname, relname, n_live_tup,
        pg_size_pretty(pg_total_relation_size(relid)) AS total
 FROM pg_stat_user_tables ORDER BY pg_total_relation_size(relid) DESC;
 ```
+
+**Medido en el lanzamiento (2026-10-13):** la base, **1,4 GB** (`competitors_by_market`
+497 MB, `time_series` 301 MB, `seasonality_patterns` 156 MB) más **1 GB de WAL**: 2,9 GB
+de un volumen de 4,88 GB. Por encima del objetivo de la spec, pero estable —la ventana
+de analytics no crece— y a ~US$0,15/GB-mes. **Sin puerto público ni llave SSH no hay
+`psql` desde fuera**: se midió con el truco del *Start command* en `cron-semanal`
+(`python -c "…"` con `psycopg2` y `DATABASE_URL`), devolviéndolo después.
 
 **Verifica:** el total es **< 1 GB** (spec §5.2). Si no, la tabla grande de la
 segunda consulta dice por dónde seguir; el candidato conocido es
