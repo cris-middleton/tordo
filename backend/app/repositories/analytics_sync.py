@@ -11,7 +11,6 @@ Comparte la construcción de SQL con la variante asíncrona
 from __future__ import annotations
 
 import logging
-from functools import lru_cache
 from typing import Any
 
 import polars as pl
@@ -48,8 +47,17 @@ def _a_polars(filas: list[dict], columnas_vacio: list[str] | None = None) -> pl.
     return pl.DataFrame()
 
 
-@lru_cache(maxsize=64)
-def _existe_cacheado(tabla: str) -> bool:
+#: Tablas que ya se vieron existir. **Sólo se recuerda el sí.** Con
+#: `lru_cache` se recordaba también el no, para siempre: la API del lanzamiento
+#: arrancó antes de la primera corrida semanal, guardó «no existe» para cada
+#: tabla de analytics y siguió sirviendo sitemap y páginas públicas vacías con
+#: los datos ya materializados, hasta reiniciarla. Que una tabla aparezca es lo
+#: normal; que desaparezca, no (la materialización la reemplaza en una
+#: transacción).
+_existentes: set[str] = set()
+
+
+def _consultar_existencia(tabla: str) -> bool:
     with _engine().connect() as conn:
         r = conn.execute(text(sql.sql_existe_tabla()), {"schema": SCHEMA, "tabla": tabla}).first()
     return r is not None
@@ -58,20 +66,26 @@ def _existe_cacheado(tabla: str) -> bool:
 def existe_tabla(tabla: str, *, usar_cache: bool = True) -> bool:
     """True si el pipeline ya materializó esa tabla.
 
-    Se cachea porque la respuesta sólo cambia cuando corre el pipeline (una vez
-    por semana), y sin caché serían dos consultas por request en vez de una.
-    `usar_cache=False` para los tests, que crean y borran tablas.
+    Se cachea el sí porque sólo cambia cuando corre el pipeline (una vez por
+    semana), y sin caché serían dos consultas por request en vez de una. El no
+    se vuelve a preguntar cada vez: es el estado de un despliegue nuevo y dura
+    hasta la primera corrida. `usar_cache=False` para los tests, que crean y
+    borran tablas.
     """
     if not usar_cache:
-        _existe_cacheado.cache_clear()
-    return _existe_cacheado(tabla)
+        _existentes.clear()
+    if tabla in _existentes:
+        return True
+    hay = _consultar_existencia(tabla)
+    if hay:
+        _existentes.add(tabla)
+    return hay
 
 
 def invalidar_cache_existencia() -> None:
-    """Llamar tras materializar. El pipeline corre en otro proceso, así que en la
-    práctica basta con el reinicio del worker; esto es para tests y para un
-    endpoint de recarga si algún día hace falta."""
-    _existe_cacheado.cache_clear()
+    """Olvida las tablas vistas. Para tests y para un endpoint de recarga si algún
+    día hace falta: el no ya no se cachea, así que tras materializar no hace falta."""
+    _existentes.clear()
 
 
 def columnas_de(tabla: str) -> set[str]:

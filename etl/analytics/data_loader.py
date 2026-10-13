@@ -6,8 +6,9 @@ Procesa archivo por archivo para controlar memoria.
 """
 
 import logging
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import polars as pl
 
@@ -200,18 +201,27 @@ def inicio_ventana(
     return date(indice // 12, indice % 12 + 1, 1)
 
 
-def limites_ventana(directorio: Path, meses: int) -> tuple[date, date] | None:
+def limites_ventana(
+    directorio: Path, meses: int, *, hoy: date | None = None
+) -> tuple[date, date] | None:
     """(primer día, último día) de la ventana de `meses` sobre `directorio`.
 
     Es lo que se escribe como `ventana_desde`/`ventana_hasta` en las tablas que
     lo publican: una cuota o una banda sin periodo se lee como «de siempre».
+
+    **El último día no pasa de hoy** (en Chile). ChileCompra publica el archivo
+    del mes en curso, así que el último periodo está a medias: tomar su fin de
+    mes hacía decir a las páginas públicas «datos al 31 oct 2026» el 13 de
+    octubre.
     """
     desde = inicio_ventana(directorio, meses)
     if desde is None:
         return None
     anio, mes = _periodos(directorio)[-1][0]
     siguiente = date(anio + mes // 12, mes % 12 + 1, 1)
-    return desde, date.fromordinal(siguiente.toordinal() - 1)
+    fin_de_mes = date.fromordinal(siguiente.toordinal() - 1)
+    hoy = hoy or datetime.now(ZoneInfo("America/Santiago")).date()
+    return desde, min(fin_de_mes, hoy)
 
 
 def con_ventana(df: pl.DataFrame, limites: tuple[date, date] | None) -> pl.DataFrame:

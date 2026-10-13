@@ -68,6 +68,14 @@ def test_la_ventana_de_36_meses_se_ancla_en_el_ultimo_periodo(cuatro_anios):
     assert inicio_ventana(cuatro_anios, 36) == date(2022, 7, 1)
     assert limites_ventana(cuatro_anios, 36) == (date(2022, 7, 1), date(2025, 6, 30))
 
+
+def test_la_ventana_no_termina_en_el_futuro(cuatro_anios):
+    """El último archivo es el del mes en curso: la ventana termina hoy, no a fin de mes."""
+    assert limites_ventana(cuatro_anios, 36, hoy=date(2025, 6, 13)) == (
+        date(2022, 7, 1),
+        date(2025, 6, 13),
+    )
+
     leidas = _leidas()
     assert leidas["FechaCreacion"].min() == date(2022, 7, 3)
     assert leidas["FechaCreacion"].max() == date(2025, 6, 25)
