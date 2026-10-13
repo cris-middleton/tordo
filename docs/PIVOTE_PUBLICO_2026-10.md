@@ -58,7 +58,7 @@ portafolio y bien público que sólo tiene que pagar lo que cuesta.
 | D16 | Donaciones: **link abierto de Mercado Pago** + **transferencia** + **GitHub Sponsors** | Lo único con evidencia de funcionar en Chile (§4.2) |
 | D17 | Dominio **.cl** propio, ya registrado | — |
 | D18 | 6–8 **explicativos** en MDX estático | Posicionan, no cuestan, y el contenido ya está escrito en los docs |
-| D19 | **Sentry** (capa gratuita) + **backups diarios** de Railway + **latido** de Healthchecks.io por corrida | Un sitio que vive solo no tiene a nadie mirando |
+| D19 | **Sentry** (capa gratuita) + **latido** de Healthchecks.io por corrida. ~~Backups diarios de Railway~~: sólo en Pro (US$20/mes), visto al desplegar; R2 hace de respaldo de `analytics.*` (docs/DESPLIEGUE.md, paso 5) | Un sitio que vive solo no tiene a nadie mirando |
 | D20 | El precio ganador de Compra Ágil sale de las **órdenes de compra masivas**, no de la API de detalle | Ver §6.2 — más historia, cero cuota |
 
 ---

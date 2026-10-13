@@ -64,6 +64,12 @@ const CABECERAS_DE_VUELTA = [
  * incumben. Se siguen sólo si apuntan al MISMO backend — `redirect: 'follow'`
  * a secas convertiría un Location manipulado en una petición nuestra hacia
  * donde dijera ese Location.
+ *
+ * Se compara el HOST, no el origen, y se vuelve a pedir por `API_URL`: en
+ * Railway el TLS termina en el borde y uvicorn corre con `--no-proxy-headers`,
+ * así que su Location dice `http://` aunque `API_URL` sea `https://`. Con el
+ * origen, esa redirección no se seguía y el navegador recibía un 307 sin
+ * Location: el catálogo no cargaba en producción.
  */
 async function seguirRedirecciones(
   respuesta: Response,
@@ -75,8 +81,8 @@ async function seguirRedirecciones(
     const destino = actual.headers.get('location');
     if (!destino) return actual;
     const absoluto = new URL(destino, urlBackend('/'));
-    if (absoluto.origin !== new URL(urlBackend('/')).origin) return actual;
-    actual = await reenviar(absoluto.toString());
+    if (absoluto.host !== new URL(urlBackend('/')).host) return actual;
+    actual = await reenviar(urlBackend(`${absoluto.pathname}${absoluto.search}`));
   }
   return actual;
 }

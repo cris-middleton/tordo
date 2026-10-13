@@ -197,11 +197,19 @@ Los cron **no** mandan a Sentry: su canal es el latido.
 
 ## 5. Railway: Postgres
 
-1. Proyecto nuevo, región **US East** (spec §3.2).
+1. Proyecto nuevo, región **US East** (spec §3.2). **Railway crea los servicios en
+   la región por defecto del workspace, que puede ser otra** (en el lanzamiento fue
+   `us-west2`): revisa *Settings → Deploy → Regions* en **cada** servicio, Postgres
+   incluido, y ponlos todos en US East antes de cargar datos.
 2. *New → Database → PostgreSQL*.
-3. *Settings → Backups*: activa los **diarios** (spec D19).
+3. **Sin respaldos programados en Hobby.** *Settings → Backups* sólo existe en el plan
+   Pro (US$20/mes; la API responde «Manual backups and backup schedules are only
+   available for Pro workspaces»). La spec (D19) los daba por incluidos. No se paga Pro
+   por ellos: `analytics.*` —incluida `compra_agil_mensual`, la única tabla que
+   acumula— se reconstruye cada domingo desde R2, y lo único que se perdería es el
+   catálogo de licitaciones abiertas, que los cron vuelven a traer de la API.
 
-**Verifica:** el servicio está *Active* y el panel muestra la variable
+**Verifica:** el servicio está *Active*, en US East, y el panel muestra la variable
 `DATABASE_URL` del servicio.
 
 ## 6. Railway: la API

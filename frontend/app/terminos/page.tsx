@@ -21,7 +21,7 @@ export const metadata: Metadata = {
  * cobro, y casi nada de él sobrevive — aquí no hay registro, ni suscripción, ni
  * nada que cancelar.
  */
-const VIGENTE_DESDE = '[[fecha de publicación]]';
+const VIGENTE_DESDE = '13 de octubre de 2026';
 
 export default function TerminosPage() {
   return (

@@ -27,7 +27,7 @@ export const metadata: Metadata = {
  *   - personas naturales: `etl/analytics/personas.py`.
  * Si alguno cambia, esta página se corrige en el mismo PR.
  */
-const VIGENTE_DESDE = '[[fecha de publicación]]';
+const VIGENTE_DESDE = '13 de octubre de 2026';
 
 export default function PrivacidadPage() {
   return (

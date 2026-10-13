@@ -24,9 +24,9 @@ const BACKEND = 'http://backend.prueba:8000';
 
 type Llamada = { url: string; init: RequestInit };
 
-async function cargarProxy() {
+async function cargarProxy(backend = BACKEND) {
   vi.resetModules();
-  process.env.API_URL = BACKEND;
+  process.env.API_URL = backend;
   return import('@/app/api/proxy/[...ruta]/route');
 }
 
@@ -120,6 +120,28 @@ describe('las redirecciones del backend se siguen aquí', () => {
     expect(llamadas.map((l) => l.url)).toEqual([
       `${BACKEND}/api/v1/tenders`,
       `${BACKEND}/api/v1/tenders/`,
+    ]);
+  });
+
+  it('sigue la 307 aunque el backend la escriba en http detrás del TLS de la plataforma', async () => {
+    // En Railway el TLS termina en el borde y uvicorn corre con
+    // `--no-proxy-headers`: cree servir `http` y su Location lo dice. Comparar
+    // orígenes rechazaba esa redirección y devolvía al navegador un 307 SIN
+    // Location — el catálogo no cargaba en producción. El destino se vuelve a
+    // pedir por `API_URL`, con su esquema, nunca por el del Location.
+    const api = 'https://api.prueba';
+    responderCon(
+      new Response(null, { status: 307, headers: { location: 'http://api.prueba/api/v1/tenders/?limit=1' } }),
+      new Response('{"items":[]}', { status: 200, headers: { 'content-type': 'application/json' } }),
+    );
+    const { GET } = await cargarProxy(api);
+
+    const res = await GET(peticion('api/v1/tenders?limit=1'), ctx('api/v1/tenders'));
+
+    expect(res.status).toBe(200);
+    expect(llamadas.map((l) => l.url)).toEqual([
+      `${api}/api/v1/tenders?limit=1`,
+      `${api}/api/v1/tenders/?limit=1`,
     ]);
   });
 
