@@ -13,6 +13,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { EstacionalidadMes, MESES, OrganismoConNombre } from '../types';
+import { ErrorDeCarga } from '@/components/ErrorDeCarga';
 import { useEstacionalidad } from '@/lib/queries';
 import { InfoTooltip } from '@/components/bi/InfoTooltip';
 import { decimal } from '@/lib/formato';
@@ -63,7 +64,8 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
   const selectedOrgNombre = optionsOrganismos.find((o) => o.codigo === selectedOrg)?.nombre
     || selectedOrg;
 
-  const { data: res, isFetching } = useEstacionalidad(selectedOrg || undefined, rubro);
+  const consulta = useEstacionalidad(selectedOrg || undefined, rubro);
+  const { data: res, isFetching } = consulta;
   const patrones = ((res?.disponible ? res.patrones : []) ?? []) as EstacionalidadMes[];
   const loading = Boolean(selectedOrg) && isFetching;
 
@@ -156,7 +158,16 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
         </div>
       )}
 
-      {loading ? (
+      {/* El error va antes que el spinner: durante un «Reintentar» `isFetching` es
+          true y `isError` también, y no debe volver a girar sin decir qué pasó. */}
+      {consulta.isError ? (
+        <ErrorDeCarga
+          titulo="No pudimos cargar la estacionalidad"
+          error={consulta.error}
+          onReintentar={() => void consulta.refetch()}
+          reintentando={consulta.isFetching}
+        />
+      ) : loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-5 w-5 animate-spin text-primary" />
         </div>

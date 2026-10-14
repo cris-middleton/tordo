@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from 'next-themes';
 import { useState } from 'react';
 
+import { debeReintentar } from '@/lib/reintentos';
+
 /**
  * El cliente se crea DENTRO del componente, no como constante de módulo.
  *
@@ -21,13 +23,9 @@ function crearCliente() {
         // a los 30 segundos no devuelve nada nuevo. Un minuto de frescura evita
         // el refetch en cada navegación sin mostrar nada rancio.
         staleTime: 60_000,
-        // Reintentar un 404 o un 422 no arregla nada y multiplica el ruido en
-        // los logs. Sólo se reintenta lo que puede ser un fallo transitorio.
-        retry: (fallos, error: unknown) => {
-          const status = (error as { response?: { status?: number } })?.response?.status;
-          if (status && status >= 400 && status < 500) return false;
-          return fallos < 2;
-        },
+        // Un solo reintento, sólo para lo pasajero, nunca tras un timeout: ver
+        // `lib/reintentos.ts` (el spinner de /mercado pasaba de 30 s).
+        retry: debeReintentar,
         refetchOnWindowFocus: false,
       },
     },

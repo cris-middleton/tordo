@@ -26,6 +26,9 @@
  * alguien vuelve a leer `response.data.detail` por su cuenta.
  */
 
+import { esTiempoAgotado } from '@/lib/reintentos';
+import { CORREO_CONTACTO } from '@/lib/responsable';
+
 /** Un elemento de la lista de errores de validación de Pydantic v2. */
 interface ErrorDeValidacion {
   type?: unknown;
@@ -76,4 +79,27 @@ export function mensajeDeError(error: unknown, respaldo = 'No se pudo completar 
   if (typeof detalle === 'string') return detalle;
   if (Array.isArray(detalle)) return textoDeValidaciones(detalle) ?? respaldo;
   return respaldo;
+}
+
+/**
+ * Lo que se dice cuando una SECCIÓN no pudo cargar sus datos.
+ *
+ * Existe por `/mercado` (spec del rediseño §8.2): con la API caída, el 502 del
+ * borde de Railway no trae `detail` y la pantalla se quedaba con el spinner o
+ * vacía, como si el rubro no tuviera datos. Aquí se dice qué pasó y qué hacer.
+ */
+export function mensajeDeCarga(error: unknown): string {
+  if (esTiempoAgotado(error)) {
+    return 'La consulta tardó demasiado. Vuelve a intentarlo en un momento.';
+  }
+  const status = (error as { response?: { status?: number } } | null)?.response?.status;
+  if (status === 429) {
+    return 'Demasiadas consultas seguidas. Espera un momento y vuelve a intentarlo.';
+  }
+  const delBackend = mensajeDeError(error, '');
+  if (delBackend) return delBackend;
+  if (!status || status >= 500) {
+    return `El servidor de datos no respondió. Vuelve a intentarlo en un minuto; si sigue igual, escríbenos a ${CORREO_CONTACTO}.`;
+  }
+  return 'No se pudo cargar esta sección.';
 }

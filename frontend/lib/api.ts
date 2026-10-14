@@ -1,5 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 
+import { TIEMPO_MAXIMO_MS } from '@/lib/reintentos';
 import { API } from '@/lib/versionApi';
 import type { CompraAgilDestacadasResponse, ParamsDestacadas } from '@/types/compraAgil';
 import type { ProductoEncontrado } from '@/types/publico';
@@ -19,6 +20,8 @@ class ApiClient {
   constructor() {
     this.client = axios.create({
       baseURL: '/api/proxy',
+      // Nunca un spinner indefinido: ver `lib/reintentos.ts`.
+      timeout: TIEMPO_MAXIMO_MS,
       headers: { 'Content-Type': 'application/json' },
     });
   }

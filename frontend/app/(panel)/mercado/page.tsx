@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { BarChart3, Columns, Loader2, Target } from 'lucide-react';
 
+import { ErrorDeCarga } from '@/components/ErrorDeCarga';
 import {
   useBIOportunidades,
   useBIPanorama,
@@ -57,6 +58,10 @@ import { TendenciasSection } from './components/TendenciasSection';
  *
  * Antes eran cinco secciones del mismo peso visual en un scroll largo, y la
  * primera pregunta —la que trae al usuario— no se respondía en ninguna.
+ *
+ * **Cada sección dice si falló** (`ErrorDeCarga`): con la API caída la pantalla
+ * giraba más de 30 s y se pintaba vacía. `SectorOverview` se oculta en error a
+ * propósito: es un aviso opcional.
  */
 
 function BIDesactivado() {
@@ -155,11 +160,12 @@ function BIContenido() {
   const consultaResumen = useBIResumen(rubro || undefined);
   const resumen = (consultaResumen.data ?? null) as ResumenMercado | null;
 
-  // El módulo está apagado si la primera consulta devolvió 503. Se lee del
-  // error de la consulta en vez de mantenerse en un estado propio.
-  const biDesactivado =
-    (consultaOportunidades.error as { response?: { status?: number } } | null)?.response?.status ===
-    503;
+  // El módulo está apagado si una consulta devolvió 503. Se mira también la de
+  // rubros: es la primera que termina, y sin esto su 503 se pintaría como «no
+  // pudimos cargar», que invita a reintentar algo que no se arregla así.
+  const es503 = (error: unknown) =>
+    (error as { response?: { status?: number } } | null)?.response?.status === 503;
+  const biDesactivado = es503(consultaOportunidades.error) || es503(consultaRubros.error);
 
   const cargandoInicial = consultaRubros.isPending;
 
@@ -235,6 +241,25 @@ function BIContenido() {
     );
   }
 
+  // Nunca un spinner indefinido (spec del rediseño §8.2): si los rubros no
+  // llegan, se dice y se ofrece reintentar. Antes la pantalla se pintaba vacía.
+  if (consultaRubros.isError) {
+    return (
+      <div className="space-y-4 p-4">
+        <h1 className="page-title flex items-center gap-2">
+          <BarChart3 className="h-6 w-6 text-primary" aria-hidden="true" />
+          Inteligencia de mercado
+        </h1>
+        <ErrorDeCarga
+          titulo="No pudimos cargar los rubros"
+          error={consultaRubros.error}
+          onReintentar={() => void consultaRubros.refetch()}
+          reintentando={consultaRubros.isFetching}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
       <RubroFilter
@@ -289,12 +314,30 @@ function BIContenido() {
               {/* El párrafo primero y las cifras después: quien abre esto no
                   quiere leer un tablero, quiere que le digan cómo está el
                   mercado. Las cifras están debajo para el que sí. */}
-              <MarketSummaryCard resumen={resumen} loading={consultaResumen.isFetching} rubro={rubro} />
-              <PanoramaRubro
-                panorama={panorama}
-                cargando={consultaPanorama.isPending && !!rubro}
-                rubro={rubro}
-              />
+              {consultaResumen.isError ? (
+                <ErrorDeCarga
+                  titulo="No pudimos cargar el resumen del rubro"
+                  error={consultaResumen.error}
+                  onReintentar={() => void consultaResumen.refetch()}
+                  reintentando={consultaResumen.isFetching}
+                />
+              ) : (
+                <MarketSummaryCard resumen={resumen} loading={consultaResumen.isFetching} rubro={rubro} />
+              )}
+              {consultaPanorama.isError ? (
+                <ErrorDeCarga
+                  titulo="No pudimos cargar el panorama del rubro"
+                  error={consultaPanorama.error}
+                  onReintentar={() => void consultaPanorama.refetch()}
+                  reintentando={consultaPanorama.isFetching}
+                />
+              ) : (
+                <PanoramaRubro
+                  panorama={panorama}
+                  cargando={consultaPanorama.isPending && !!rubro}
+                  rubro={rubro}
+                />
+              )}
             </Seccion>
 
             {/* ── 2 · ¿Qué hago esta semana? ─────────────────────────────── */}
@@ -302,27 +345,45 @@ function BIContenido() {
               titulo="Dónde mirar primero"
               descripcion="Los mercados con mejor combinación de precio, competencia y regularidad."
             >
-              <OportunidadesSection
-                oportunidades={oportunidades}
-                loading={consultaOportunidades.isFetching}
-                rubro={rubro}
-                onFocusOrganismo={(o) => {
-                  setFocusCodigo(o.codigo);
-                  setTimeout(() => {
-                    document
-                      .querySelector('[data-section="detalle-comprador"]')
-                      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }, 100);
-                }}
-              />
-              <TendenciasSection
-                tendencias={tendencia?.tendencias ?? []}
-                emergentes={tendencia?.emergentes ?? []}
-                loading={consultaTendencia.isFetching}
-                selectedRubro={rubro}
-                serieAnual={tendencia?.serie_anual ?? null}
-                cagrRubro={tendencia?.cagr_rubro ?? null}
-              />
+              {consultaOportunidades.isError ? (
+                <ErrorDeCarga
+                  titulo="No pudimos cargar las oportunidades"
+                  error={consultaOportunidades.error}
+                  onReintentar={() => void consultaOportunidades.refetch()}
+                  reintentando={consultaOportunidades.isFetching}
+                />
+              ) : (
+                <OportunidadesSection
+                  oportunidades={oportunidades}
+                  loading={consultaOportunidades.isFetching}
+                  rubro={rubro}
+                  onFocusOrganismo={(o) => {
+                    setFocusCodigo(o.codigo);
+                    setTimeout(() => {
+                      document
+                        .querySelector('[data-section="detalle-comprador"]')
+                        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 100);
+                  }}
+                />
+              )}
+              {consultaTendencia.isError ? (
+                <ErrorDeCarga
+                  titulo="No pudimos cargar las tendencias"
+                  error={consultaTendencia.error}
+                  onReintentar={() => void consultaTendencia.refetch()}
+                  reintentando={consultaTendencia.isFetching}
+                />
+              ) : (
+                <TendenciasSection
+                  tendencias={tendencia?.tendencias ?? []}
+                  emergentes={tendencia?.emergentes ?? []}
+                  loading={consultaTendencia.isFetching}
+                  selectedRubro={rubro}
+                  serieAnual={tendencia?.serie_anual ?? null}
+                  cagrRubro={tendencia?.cagr_rubro ?? null}
+                />
+              )}
             </Seccion>
 
             {/* ── 3 · Detalle de un comprador ────────────────────────────── */}

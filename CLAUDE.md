@@ -281,6 +281,10 @@ Cloud Scheduler, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
   la API: una copia en TypeScript se desincroniza sin que nada falle.
 - **Un 401, 402 o 403 no manda al visitante a ninguna parte** (`__tests__/errores-de-api.test.ts`):
   no hay login al que redirigir. El 429 dice «espera un momento».
+- **Ninguna consulta espera para siempre**: axios corta a los 15 s y TanStack reintenta una
+  sola vez, sólo 5xx o red, nunca un timeout (`lib/reintentos.ts`). Una sección que falla
+  pinta `ErrorDeCarga` con «Reintentar». Antes eran tres intentos sin tope (un *spinner* de
+  más de 30 s) y cada reintento repetía la consulta que había matado al proceso.
 - **Sentry cubre los tres runtimes** (navegador, Node y edge) y las opciones salen de un solo
   sitio, `lib/sentry-comun.ts`. Ponerlas en dos de los tres es la forma fácil de equivocarse,
   así que hay un test estructural que exige que las tres partan de `OPCIONES_COMUNES`.
@@ -937,6 +941,18 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   `/bi/productos?q=` traía `product_price_bands_l3` completa a Polars en cada petición
   (~70 ms con seis meses); ahora filtra en SQL sobre el índice de trigramas, con tope de
   filas (`_base._buscar`), y se queda con la unidad de más compras de cada producto.
+  **Y `/mercado` tampoco** (rediseño 0b): `tendencia?rubro=` leía `time_series` entera (301 MB
+  en Postgres) y `oportunidades`, `tendencia` y `rubros` sin rubro traían sus tablas
+  completas a la vez; la API moría por OOM (11 `Killed` el 2026-10-14 y el servicio en
+  `CRASHED`). Los mínimos van como `minimos` de `sql_consulta`, el top-N como `orden`+`limite`
+  y los conteos con `contar_por` (`COLLATE "C"`, el orden de Polars).
+  `tests/test_bi_mercado_acotado.py` recorre **las 16 funciones `get_*` de `services/bi`**
+  (las llamadas del golden más las de primera visita, sin rubro ni organismo) contra el
+  doble de `_load` y falla si alguna lee una tabla sin `filtros` ni `limite`, salvo tres
+  que se leen enteras por pequeñas, cada una con su motivo escrito en el test
+  (`sector_dashboard`, `buyer_scores`, `buyer_risk_flags`). Una función nueva sin llamadas
+  en la guarda también la hace fallar. **No cubre** `services/publico/` (las páginas
+  indexables también leen analytics con `_load`) ni `repositories/`: ahí la guarda no existe.
 - **CORS abierto en producción (`CORS_ORIGINS=*`), sin credenciales**: la API es pública y
   anónima, y limitarla a los dominios del sitio dejaba fuera a los integradores que la
   llaman desde una aplicación web. No abre el MCP: su lista de `Host`/`Origin` es otra
@@ -955,14 +971,22 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   del pivote, la API cargaba el TF-IDF del ETL en cada proceso: pico de **289 MB con un
   worker** y OOM con 4 en 512 MB. **La API ya no carga ningún artefacto del ETL**
   (`tests/test_api_sin_tfidf.py` falla si `sklearn`, `scipy` o `joblib` se importan al
-  arrancar; están en el grupo `etl` de `pyproject.toml`). **Medido el 2026-10-12 con datos
-  reales** (seis meses de analytics materializados y el índice en memoria de las páginas
-  públicas, ~8.000 slugs; `ANALYTICS_DIR=… make medir-memoria`): **1 worker, 103 MB en reposo
-  y 171–176 MB de pico**; 2 → 378 MB; 4 → OOM en 512 MB. Sin analytics la medición daba
-  127 MB: el índice de `/publico` pesa ~45 MB. **1 worker cabe en 256 MB** (pico 176 MiB,
-  ~30 % de margen), pero **bajar el límite no ahorra nada: Railway cobra la memoria usada,
-  no la reservada** (~US$1,7/mes por estos ~170 MB). Se deja en 512 MB, como red para la
-  ventana de producción (36 y 12 meses, más que los 6 medidos). **No se sube a 2 workers**: el límite por IP vive en memoria de cada
+  arrancar; están en el grupo `etl` de `pyproject.toml`).
+  **La medición del 2026-10-12 (103 MB en reposo, 171–176 MB de pico, «cabe en 256 MB») no
+  valía para lo que importaba: nunca pidió los `/bi/*` de `/mercado`**, y esa pantalla pide a
+  la vez, al abrirse, `rubros`, `oportunidades`, `tendencia` y —con rubro— `panorama` y
+  `resumen`. En producción la API murió 11 veces el 14-10 (`Killed`; 9 antes de la
+  investigación, las dos últimas provocadas por las peticiones de reproducción).
+  Repetida con la ráfaga (`make medir-memoria`, seis meses de analytics locales, 512 MB,
+  1 worker): **antes del arreglo, `oom=true exit=137`** (reposo 122,4 MiB); **después,
+  reposo 116,2 MiB, `docker stats` 171,5 MiB justo tras la ráfaga y `pico` 217,1 MiB**, sin
+  OOM y con las 8 rutas en 200 (`tendencia?rubro=` incluida). Dos límites: el `pico` es
+  **una muestra** tras la ráfaga y 40 vueltas, no el máximo de la ráfaga; y **producción lee
+  36 meses (12 en las bandas de precio), seis veces los meses medidos en local** — no hay cifras de
+  producción de después del arreglo, y «cabe en 256 MB» ya no se afirma. Se deja en 512 MB.
+  **`make medir-memoria` pide además la primera visita de `/mercado` a la vez**: la medición
+  del 12-10 no la pedía y daba 171 MB mientras producción moría. Railway cobra la memoria
+  usada, no la reservada. **No se sube a 2 workers**: el límite por IP vive en memoria de cada
   proceso, así que con `WEB_CONCURRENCY=N` el límite real es N× el anunciado. Subirlo exige
   antes sacar ese contador del proceso. Repetible con `make medir-memoria`.
 - **Feature flags**: 1 en `app/config.py` (`feature_analytics`); apagada, el BI devuelve 503

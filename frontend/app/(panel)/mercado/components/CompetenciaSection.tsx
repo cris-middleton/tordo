@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import { CompetidorItem, ConcentracionItem, OrganismoConNombre } from '../types';
 import { textoPeriodo } from '@/lib/periodo';
+import { ErrorDeCarga } from '@/components/ErrorDeCarga';
 import { useCompetidores } from '@/lib/queries';
 import { InfoTooltip } from '@/components/bi/InfoTooltip';
 import { decimal } from '@/lib/formato';
@@ -57,7 +58,8 @@ export function CompetenciaSection({
   focused,
   focusedNombre,
 }: CompetenciaSectionProps) {
-  const { data: res, isPending } = useCompetidores(selectedOrganismo || undefined, rubro);
+  const consulta = useCompetidores(selectedOrganismo || undefined, rubro);
+  const { data: res, isPending } = consulta;
   // Se conserva la regla anterior: si el backend dice `disponible: false`, se
   // trata como si no hubiera datos, no como un error.
   const competidores = ((res?.disponible ? res.competidores : []) ?? []) as CompetidorItem[];
@@ -159,7 +161,14 @@ export function CompetenciaSection({
 
       {periodo && <p className="text-xs text-muted">Cuotas de {periodo}</p>}
 
-      {loading ? (
+      {consulta.isError ? (
+        <ErrorDeCarga
+          titulo="No pudimos cargar la competencia"
+          error={consulta.error}
+          onReintentar={() => void consulta.refetch()}
+          reintentando={consulta.isFetching}
+        />
+      ) : loading ? (
         <div className="flex items-center justify-center py-10">
           <Loader2 className="h-5 w-5 animate-spin text-primary" />
         </div>

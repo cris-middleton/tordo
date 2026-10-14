@@ -99,6 +99,7 @@ def consultar(
     tabla: str,
     *,
     filtros: dict[str, Any] | None = None,
+    minimos: dict[str, float] | None = None,
     columnas: list[str] | None = None,
     orden: str | None = None,
     descendente: bool = True,
@@ -117,6 +118,7 @@ def consultar(
     consulta, params = sql.sql_consulta(
         tabla,
         filtros=filtros,
+        minimos=minimos,
         columnas=columnas,
         orden=orden,
         descendente=descendente,
@@ -141,6 +143,26 @@ def distintos(tabla: str, columna: str) -> list[Any] | None:
         return None
     with _engine().connect() as conn:
         return [fila[0] for fila in conn.execute(text(sql.sql_distintos(tabla, columna)))]
+
+
+def contar_por(
+    tabla: str,
+    columna: str,
+    *,
+    excluir: list[str] | None = None,
+    limite: int,
+) -> list[tuple[Any, int]] | None:
+    """`(valor, filas)` de una columna, de más a menos; None si no hay tabla.
+
+    Lo usa el catálogo de rubros: contarlos en Polars traía la columna de toda
+    `opportunity_scores` a memoria en cada visita a `/mercado`.
+    """
+    if not existe_tabla(tabla):
+        return None
+    consulta, params = sql.sql_contar_por(tabla, columna, excluir=excluir)
+    with _engine().connect() as conn:
+        filas = conn.execute(text(consulta), {**params, "limite": int(limite)})
+        return [(fila[0], int(fila[1])) for fila in filas]
 
 
 def buscar_texto(

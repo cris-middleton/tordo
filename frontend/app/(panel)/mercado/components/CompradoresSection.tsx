@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, Loader2, Building2 } from 'lucide-react';
 import { CompradorResult, OrganismoConNombre, scoreColor, scoreBg } from '../types';
+import { ErrorDeCarga } from '@/components/ErrorDeCarga';
 import { useComprador } from '@/lib/queries';
 import { decimal } from '@/lib/formato';
 
@@ -22,7 +23,8 @@ function CompradorCard({ organismoId }: { organismoId: string }) {
   // La deduplicación entre tarjetas la hace TanStack Query por clave: dos
   // tarjetas del mismo organismo comparten una sola petición, que es lo que
   // hacía a mano el `useCompradorCache` que se eliminó.
-  const { data: respuesta, isPending: loading } = useComprador(organismoId);
+  const consulta = useComprador(organismoId);
+  const { data: respuesta, isPending: loading } = consulta;
   const data = (respuesta ?? null) as CompradorResult | null;
   const [open, setOpen] = useState(false);
 
@@ -30,6 +32,17 @@ function CompradorCard({ organismoId }: { organismoId: string }) {
     <div className="rounded-xl border border-border p-4 flex items-center gap-2 text-sm text-muted">
       <Loader2 className="h-4 w-4 animate-spin" /> Cargando...
     </div>
+  );
+
+  // Un error NO es «sin datos»: decir que el organismo no tiene datos cuando la
+  // API no respondió es una conclusión de negocio falsa.
+  if (consulta.isError) return (
+    <ErrorDeCarga
+      titulo="No pudimos cargar el perfil del comprador"
+      error={consulta.error}
+      onReintentar={() => void consulta.refetch()}
+      reintentando={consulta.isFetching}
+    />
   );
 
   if (!data?.disponible) return (

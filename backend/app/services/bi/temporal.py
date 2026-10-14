@@ -10,9 +10,25 @@ from __future__ import annotations
 
 import logging
 
-from app.services.bi._base import _load
+from app.services.bi._base import _columnas, _load
 
 logger = logging.getLogger(__name__)
+
+#: Calidad mínima de un mercado para hablar de su tendencia: al menos 3 años y
+#: 15 órdenes, para no inflar el CAGR con bases casi nulas o muestras ínfimas.
+#: Se empuja a SQL antes del LIMIT: filtrar después perdía al mejor válido.
+MINIMOS_CALIDAD_TENDENCIA = {"n_anios": 3, "total_oc": 15}
+
+
+def _minimos_de_calidad(filename: str) -> dict[str, int] | None:
+    """Los mínimos de calidad que la tabla puede aplicar en SQL.
+
+    Una materialización antigua podría no tener `n_anios`/`total_oc`; filtrar a
+    ciegas por una columna que no existe es un error de Postgres, no un vacío.
+    Sin ellas, el filtro de Polars de abajo cae a `cagr` no nulo, como siempre.
+    """
+    presentes = _columnas(filename)
+    return {c: v for c, v in MINIMOS_CALIDAD_TENDENCIA.items() if c in presentes} or None
 
 
 def get_ventana(codigo_externo: str) -> dict:
@@ -95,17 +111,43 @@ def get_tendencia(
     Market growth trends from trend_by_market.parquet.
     emerging_markets.parquet contains the subset with CAGR > 20%.
     """
-    filtros = {"RubroN2": rubro} if rubro else None
-    df = _load("trend_by_market.parquet", filtros=filtros)
-    em_df = _load("emerging_markets.parquet", filtros=filtros)
+    filtros: dict = {}
+    if rubro:
+        filtros["RubroN2"] = rubro
+    if tendencia:
+        filtros["tendencia"] = tendencia
+    # Filtros, mínimos de calidad, orden y top-N en SQL: sin rubro esto traía
+    # `trend_by_market` y `emerging_markets` enteras a memoria.
+    df = _load(
+        "trend_by_market.parquet",
+        filtros=filtros or None,
+        minimos=_minimos_de_calidad("trend_by_market.parquet"),
+        orden="cagr",
+        limite=limit,
+    )
+    em_df = _load(
+        "emerging_markets.parquet",
+        filtros={"RubroN2": rubro} if rubro else None,
+        minimos=_minimos_de_calidad("emerging_markets.parquet"),
+        orden="cagr",
+        limite=20,
+    )
 
     if df is None:
         return {"disponible": False, "motivo": "parquet no generado"}
 
-    # Require minimum data quality: at least 3 years and 15 transactions
+    # Require minimum data quality (MINIMOS_CALIDAD_TENDENCIA: años y transacciones)
     # to avoid CAGR blowups from near-zero base values or tiny samples
-    min_anios = df["n_anios"] >= 3 if "n_anios" in df.columns else df["cagr"].is_not_null()
-    min_oc = df["total_oc"] >= 15 if "total_oc" in df.columns else df["cagr"].is_not_null()
+    min_anios = (
+        df["n_anios"] >= MINIMOS_CALIDAD_TENDENCIA["n_anios"]
+        if "n_anios" in df.columns
+        else df["cagr"].is_not_null()
+    )
+    min_oc = (
+        df["total_oc"] >= MINIMOS_CALIDAD_TENDENCIA["total_oc"]
+        if "total_oc" in df.columns
+        else df["cagr"].is_not_null()
+    )
 
     mask = df["cagr"].is_not_null() & min_anios & min_oc
     if tendencia:
@@ -131,10 +173,14 @@ def get_tendencia(
     emergentes: list = []
     if em_df is not None:
         em_min_anios = (
-            em_df["n_anios"] >= 3 if "n_anios" in em_df.columns else em_df["cagr"].is_not_null()
+            em_df["n_anios"] >= MINIMOS_CALIDAD_TENDENCIA["n_anios"]
+            if "n_anios" in em_df.columns
+            else em_df["cagr"].is_not_null()
         )
         em_min_oc = (
-            em_df["total_oc"] >= 15 if "total_oc" in em_df.columns else em_df["cagr"].is_not_null()
+            em_df["total_oc"] >= MINIMOS_CALIDAD_TENDENCIA["total_oc"]
+            if "total_oc" in em_df.columns
+            else em_df["cagr"].is_not_null()
         )
         em_mask = em_df["cagr"].is_not_null() & em_min_anios & em_min_oc
         em_cols = [c for c in cols if c in em_df.columns]
@@ -148,7 +194,14 @@ def get_tendencia(
     if rubro:
         import polars as pl  # noqa: PLC0415 — lazy import kept consistent with _load()
 
-        ts_df = _load("time_series.parquet")
+        # Filtrada en SQL y sólo con las columnas que se usan. Se traía la tabla
+        # ENTERA (301 MB en Postgres con la ventana de 36 meses) para quedarse
+        # con un rubro: +533 MB medidos con seis meses, y la API moría por OOM.
+        ts_df = _load(
+            "time_series.parquet",
+            filtros={"RubroN2": rubro},
+            columnas=["RubroN2", "anio", "mes", "monto_total", "n_oc"],
+        )
         if ts_df is not None and "RubroN2" in ts_df.columns:
             # Filtrar por rubro
             rubro_ts = ts_df.filter(ts_df["RubroN2"] == rubro)

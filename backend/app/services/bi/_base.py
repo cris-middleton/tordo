@@ -35,6 +35,7 @@ def _load(
     filename: str,
     *,
     filtros: dict[str, Any] | None = None,
+    minimos: dict[str, float] | None = None,
     columnas: list[str] | None = None,
     orden: str | None = None,
     descendente: bool = True,
@@ -45,11 +46,13 @@ def _load(
 
     `filtros` viaja a la cláusula WHERE. Empujar el filtro es el punto: la tabla
     de bandas L1 tiene cientos de miles de filas y antes se traían todas a
-    memoria para descartarlas en Polars.
+    memoria para descartarlas en Polars. `minimos` son cotas `col >= valor` y
+    viajan igual: filtrarlas después de traer la tabla mataba la API por memoria.
     """
     return repo.consultar(
         _tabla(filename),
         filtros=filtros,
+        minimos=minimos,
         columnas=columnas,
         orden=orden,
         descendente=descendente,
@@ -89,6 +92,24 @@ def _buscar(
 def _distintos(filename: str, columna: str) -> list[Any] | None:
     """Los valores distintos y no nulos de una columna, o None sin tabla."""
     return repo.distintos(_tabla(filename), columna)
+
+
+def _contar(
+    filename: str,
+    columna: str,
+    *,
+    excluir: list[str] | None = None,
+    limite: int,
+) -> list[tuple[Any, int]] | None:
+    """`(valor, filas)` contados en SQL, o None sin tabla."""
+    return repo.contar_por(_tabla(filename), columna, excluir=excluir, limite=limite)
+
+
+def _columnas(filename: str) -> set[str]:
+    """Las columnas que la tabla tiene de verdad; vacío si no existe todavía."""
+    if not repo.existe_tabla(_tabla(filename)):
+        return set()
+    return repo.columnas_de(_tabla(filename))
 
 
 def _columna_presente(filename: str, *candidatas: str) -> str | None:

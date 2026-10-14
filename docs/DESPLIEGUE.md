@@ -239,10 +239,25 @@ Los cron **no** mandan a Sentry: su canal es el latido.
 - **Start command**: vacío. El `CMD` de la imagen corre `alembic upgrade head` y
   luego uvicorn con **un** worker y `--no-proxy-headers`.
 - **Healthcheck path**: `/health/`.
-- **Recursos**: límite de **512 MB** de RAM. Medido con `make medir-memoria` y seis
-  meses de analytics reales: **171–176 MB de pico** con un worker (cabría en 256 MB, con
-  ~30 % de margen). Railway cobra la memoria **usada**, no el límite: bajarlo no ahorra,
-  y 512 MB deja margen para la ventana de producción, más larga que la medida.
+- **Recursos**: límite de **512 MB** de RAM. Medido con `make medir-memoria` el
+  2026-10-14, **con la ráfaga de la primera visita de `/mercado`** y seis meses de
+  analytics locales: antes del arreglo la API moría (`oom=true exit=137`, reposo
+  122,4 MiB); después, reposo **116,2 MiB**, **171,5 MiB** justo tras la ráfaga y
+  `pico` **217,1 MiB** (una muestra tras la ráfaga y 40 vueltas, no su máximo), sin
+  OOM. **Producción lee 36 meses (12 en las bandas de precio), seis veces los meses
+  medidos**, y no hay cifra de producción posterior al arreglo: por eso 512 MB y no
+  256 (la medición anterior, 171–176 MB, nunca pidió `/mercado`). Railway cobra la
+  memoria **usada**, no el límite: bajarlo no ahorra.
+- **Restart policy: Always.** Con «On Failure» Railway reinicia 10 veces y a la
+  11.ª muerte deja el servicio `CRASHED` hasta un redeploy manual: el 2026-10-14
+  la API quedó caída ~16 min así tras once OOM de `/mercado` (nueve de ellos antes
+  de que empezara la investigación). Una API pública tiene que volver sola; los que
+  sí llevan **Never** son los cron (pasos 7 y 8). Se fijó el 2026-10-14 (21:10 UTC)
+  por la API GraphQL de Railway (`environmentPatchCommit`): el CLI
+  (`railway environment edit --service-config api deploy.restartPolicyType ALWAYS`)
+  responde «No changes to apply» **sin aplicar nada**. Compruébalo, sólo lectura:
+  `railway environment config --environment production --json` y mira
+  `services.<id de la API>.deploy.restartPolicyType` (`ALWAYS`; los cron, `NEVER`).
 - **Networking → Custom domain**: `api.tordo.cl`. Crea en Cloudflare el `CNAME`
   que indique Railway (sin proxy).
 - *Opcional* — **Watch paths** `backend/**`, `pyproject.toml`, `uv.lock`: un cambio sólo
@@ -533,7 +548,10 @@ Sólo lectura, sin secretos. Una línea ✓/✗ por comprobación, y sale con el
 fallos:
 - **API**: salud, sitemap con datos, frescura de «lo mejor de hoy», cabeceras del
   límite, CORS abierto (`Access-Control-Allow-Origin: *`), 404 para un código
-  inventado, el MCP (`initialize`) y la prueba del `X-Forwarded-For` inventado del paso 10.
+  inventado, el MCP (`initialize`), la prueba del `X-Forwarded-For` inventado del paso 10
+  y que `/mercado` no tumba la API (`tendencia?rubro=` y `oportunidades` responden 200 en
+  menos de 5 s y `/health/` sigue en 200; **sólo con el arreglo del rediseño 0b
+  desplegado**, que antes de él esas peticiones la mataban por memoria).
 - **Sitio**: una página de comprador, rubro y producto con canonical, 404 para un
   código inventado, `robots.txt`, `sitemap.xml`, los dos RSS, `/api/revalidar` sin
   secreto (401, no 503), `/apoyar`, `/api/apoyar/transferencia` (200 o 404, nunca en
@@ -541,8 +559,8 @@ fallos:
   (`/dashboard/tenders` → 308 → `/licitaciones`).
 
 Lo que no puede ver desde fuera, y hay que mirar a mano: Healthchecks (los dos
-chequeos *up*), el log de arranque de la API sin avisos, y el tamaño de Postgres
-(paso 13.1).
+chequeos *up*), el log de arranque de la API sin avisos (y sin `Killed`), la
+*Restart policy* de la API en `ALWAYS` (paso 6) y el tamaño de Postgres (paso 13.1).
 
 **Verifica:** `✓ Todo en orden.`
 
@@ -634,6 +652,8 @@ punto tiene su momento. En orden.
 | `semanal` falla en segundos con `ETL_ALMACEN` en el `/fail` | variable de R2 ausente o vacía |
 | Un cron no arranca: `No module named 'app'` | imagen del ETL vieja (antes de copiar `backend/app`); redeploy |
 | Las páginas legales dicen `[[definir RESPONSABLE_LEGAL]]` | variable ausente en el build de Vercel |
+| `502 Application failed to respond` con `x-railway-fallback: true`, y `Killed` en el log de la API | OOM: alguna consulta se trae una tabla entera. `make medir-memoria` con `ANALYTICS_DIR` lo reproduce |
+| La API en `CRASHED` y no vuelve | *Restart policy* distinta de **Always** (paso 6): agotó los reintentos. Redeploy (`railway redeploy -s api`) y corrígela |
 | Un cron corre varias veces seguidas tras fallar | *Restart policy* distinta de **Never** en ese servicio (pasos 7 y 8) |
 | Un cron falla con `CredencialRechazada` | ticket de Mercado Público inválido o vencido: pide otro y cámbialo en los dos cron |
 | `revalidación … HTTP 401` en el log de un cron | `REVALIDAR_SECRETO` distinto en Vercel y en ese cron |

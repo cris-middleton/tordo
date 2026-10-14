@@ -5,7 +5,7 @@
 #
 # Una línea ✓/✗ por comprobación y, al final, cuántas fallaron (es también el
 # código de salida). No recibe ni necesita ningún secreto: lo que se comprueba es
-# justamente lo que ve un visitante o un integrador anónimo. Hace del orden de 25
+# justamente lo que ve un visitante o un integrador anónimo. Hace del orden de 30
 # peticiones, por debajo del límite por IP (60 por minuto).
 #
 # Lo que NO puede comprobar desde fuera está en docs/DESPLIEGUE.md: que los cron
@@ -126,6 +126,42 @@ case $codigo in
   421) mal "MCP: 421 — el dominio de la API no está en MCP_HOSTS_PERMITIDOS" ;;
   *) mal "MCP: initialize responde $codigo" ;;
 esac
+
+# ── /mercado no tumba la API (rediseño 0b) ───────────────────────────────────
+# Antes del 0b esto la MATABA por memoria: sólo correrlo con el arreglo desplegado.
+seccion "/mercado: la primera visita responde y la API sigue viva"
+
+# El código HTTP de /bi/rubros se imprime siempre: un 502 aquí ES el síntoma del
+# OOM que esta sección existe para detectar, y «no devolvió ningún rubro» lo escondía.
+codigo=$(pedir "$API/api/v1/bi/rubros?limit=1")
+rubro=""
+if [ "$codigo" = 200 ]; then
+  # Un cuerpo que no es JSON deja `rubro` vacío (sin traza) y cae al mensaje de abajo.
+  rubro=$(python3 -I -c '
+import json, sys, urllib.parse
+d = json.load(open(sys.argv[1]))
+print(urllib.parse.quote((d.get("rubros") or [""])[0]))' "$TMP/cuerpo" 2>/dev/null)
+fi
+if [ "$codigo" != 200 ]; then
+  mal "/api/v1/bi/rubros responde $codigo (se esperaba 200): 502/503 aquí suele ser OOM — mira «Killed» en el log de la API"
+elif [ -z "$rubro" ]; then
+  mal "/api/v1/bi/rubros responde 200 pero sin ningún rubro (o sin JSON): ¿corrió la semanal? ¿FEATURE_ANALYTICS=true?"
+else
+  for ruta in "bi/tendencia?rubro=$rubro&limit=15" "bi/oportunidades?min_score=4&limit=50"; do
+    inicio=$(date +%s)
+    codigo=$(pedir "$API/api/v1/$ruta")
+    segundos=$(( $(date +%s) - inicio ))
+    if [ "$codigo" = 200 ] && [ "$segundos" -lt 5 ]; then
+      ok "/api/v1/${ruta%%\?*} responde 200 en ${segundos}s"
+    else
+      mal "/api/v1/${ruta%%\?*} responde $codigo en ${segundos}s (se esperaba 200 en < 5 s)"
+    fi
+  done
+fi
+# Se comprueba siempre, también si /bi/rubros falló: es lo que distingue «la
+# consulta falló» de «la API se cayó».
+codigo=$(pedir "$API/health/")
+[ "$codigo" = 200 ] && ok "la API sigue viva tras /mercado" || mal "/health/ responde $codigo tras /mercado: ¿OOM? mira «Killed» en el log"
 
 # ── El límite cuenta por la IP real ──────────────────────────────────────────
 seccion "Límite por IP: un X-Forwarded-For inventado no abre otro cubo"

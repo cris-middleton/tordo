@@ -13,6 +13,12 @@ from app.services.bi._base import _load, periodo_de
 
 logger = logging.getLogger(__name__)
 
+#: Tope de filas de `competitor_forecast_l2` por lectura. La tabla tiene una fila
+#: por (rubro, tipo de licitación): unas pocas miles como mucho. Sólo corta si
+#: alguien llama sin rubro ni tipo; con cualquiera de los dos filtros va muy por
+#: debajo. Existe para que ninguna lectura de BI sea «la tabla entera, sin más».
+MAX_FILAS_FORECAST = 5000
+
 
 def get_competidores(
     organismo_id: str,
@@ -100,38 +106,43 @@ def get_forecast_competidores(
         all_cols = extra_cols + STAT_COLS
         return [c for c in all_cols if c in df.columns]
 
+    # Los tres niveles filtran en SQL (índice [CodigoOrganismo, Rubro2, CodigoTipo]
+    # en L1): antes se traía cada tabla entera para quedarse con unas filas.
+    # Las columnas de código son texto en las tres, así que la igualdad es directa.
+
     # L1: organismo + rubro + tipo
     if organismo_id:
-        df1 = _load("competitor_forecast_l1.parquet")
-        if df1 is not None:
-            m = df1["CodigoOrganismo"].cast(str) == str(organismo_id)
-            if rubro:
-                m = m & (df1["Rubro2"] == rubro)
-            if tipo:
-                m = m & (df1["CodigoTipo"].cast(str) == str(tipo))
-            rows1 = df1.filter(m)
-            if not rows1.is_empty():
-                return {
-                    "disponible": True,
-                    "nivel_usado": "L1",
-                    "fallback": False,
-                    "organismo_id": organismo_id,
-                    "rubro": rubro,
-                    "tipo": tipo,
-                    "data": rows1.select(
-                        _select(df1, ["CodigoOrganismo", "NombreOrganismo", "Rubro2", "CodigoTipo"])
-                    ).to_dicts(),
-                }
+        filtros1: dict = {"CodigoOrganismo": str(organismo_id)}
+        if rubro:
+            filtros1["Rubro2"] = rubro
+        if tipo:
+            filtros1["CodigoTipo"] = str(tipo)
+        rows1 = _load("competitor_forecast_l1.parquet", filtros=filtros1)
+        if rows1 is not None and not rows1.is_empty():
+            return {
+                "disponible": True,
+                "nivel_usado": "L1",
+                "fallback": False,
+                "organismo_id": organismo_id,
+                "rubro": rubro,
+                "tipo": tipo,
+                "data": rows1.select(
+                    _select(rows1, ["CodigoOrganismo", "NombreOrganismo", "Rubro2", "CodigoTipo"])
+                ).to_dicts(),
+            }
 
     # L2: rubro + tipo
-    df2 = _load("competitor_forecast_l2.parquet")
+    filtros2: dict = {}
+    if rubro:
+        filtros2["Rubro2"] = rubro
+    if tipo:
+        filtros2["CodigoTipo"] = str(tipo)
+    df2 = _load(
+        "competitor_forecast_l2.parquet", filtros=filtros2 or None, limite=MAX_FILAS_FORECAST
+    )
     if df2 is not None:
-        m2 = df2["CodigoTipo"].is_not_null()
-        if rubro:
-            m2 = m2 & (df2["Rubro2"] == rubro)
-        if tipo:
-            m2 = m2 & (df2["CodigoTipo"].cast(str) == str(tipo))
-        rows2 = df2.filter(m2)
+        # Sin tipo pedido, las filas sin tipo siguen fuera, como siempre.
+        rows2 = df2.filter(df2["CodigoTipo"].is_not_null())
         if not rows2.is_empty():
             return {
                 "disponible": True,
@@ -140,23 +151,21 @@ def get_forecast_competidores(
                 "organismo_id": organismo_id,
                 "rubro": rubro,
                 "tipo": tipo,
-                "data": rows2.select(_select(df2, ["Rubro2", "CodigoTipo"])).to_dicts(),
+                "data": rows2.select(_select(rows2, ["Rubro2", "CodigoTipo"])).to_dicts(),
             }
 
     # L3: tipo only
     if tipo:
-        df3 = _load("competitor_forecast_l3.parquet")
-        if df3 is not None:
-            rows3 = df3.filter(df3["CodigoTipo"].cast(str) == str(tipo))
-            if not rows3.is_empty():
-                return {
-                    "disponible": True,
-                    "nivel_usado": "L3",
-                    "fallback": True,
-                    "organismo_id": organismo_id,
-                    "rubro": rubro,
-                    "tipo": tipo,
-                    "data": rows3.select(_select(df3, ["CodigoTipo"])).to_dicts(),
-                }
+        rows3 = _load("competitor_forecast_l3.parquet", filtros={"CodigoTipo": str(tipo)})
+        if rows3 is not None and not rows3.is_empty():
+            return {
+                "disponible": True,
+                "nivel_usado": "L3",
+                "fallback": True,
+                "organismo_id": organismo_id,
+                "rubro": rubro,
+                "tipo": tipo,
+                "data": rows3.select(_select(rows3, ["CodigoTipo"])).to_dicts(),
+            }
 
     return {"disponible": False, "motivo": "sin datos para los parámetros solicitados"}

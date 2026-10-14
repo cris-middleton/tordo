@@ -82,7 +82,9 @@ fi
 
 # Endpoints que representan el peor caso de memoria: el listado ordenado por
 # relevancia (antes cargaba el TF-IDF; ahora es `ts_rank_cd` en Postgres) y los de
-# BI, que tocan las tablas de analytics.
+# BI, que tocan las tablas de analytics. Los de la pantalla /mercado NO están
+# aquí sino en `medir()` (la variable `MERCADO`), porque necesitan un rubro con
+# datos, que sólo se conoce con la API ya arriba.
 #
 # Son anónimos desde el pivote público. Antes exigían sesión, y una ruta que
 # responde 401 sin hacer nada mide el proceso en reposo creyendo que mide la
@@ -140,10 +142,38 @@ medir() {
   local reposo
   reposo="$(docker stats --no-stream --format '{{.MemUsage}}' "$API" | awk '{print $1}')"
 
+  # La primera visita de /mercado (spec del rediseño §8.2). Hasta el 2026-10-14
+  # esta medición no pedía ninguno de estos endpoints salvo /bi/rubros, y los
+  # pedía en serie: la API de producción moría por OOM con lo que el navegador
+  # pide A LA VEZ al abrir la pantalla, y aquí salía «171 MB de pico».
+  local rubro
+  rubro="$(curl -sf "http://localhost:${PUERTO}/api/v1/bi/rubros?limit=1" \
+    | python3 -I -c 'import json, sys, urllib.parse
+d = json.load(sys.stdin)
+print(urllib.parse.quote((d.get("rubros") or [""])[0]))' 2>/dev/null || true)"
+  local MERCADO=(
+    "/api/v1/bi/rubros?limit=354"
+    "/api/v1/bi/oportunidades?min_score=4&limit=50"
+    "/api/v1/bi/tendencia?limit=15"
+    "/api/v1/bi/sector?limit=6"
+  )
+  if [ -n "$rubro" ]; then
+    MERCADO+=(
+      "/api/v1/bi/panorama?rubro=${rubro}"
+      "/api/v1/bi/resumen?rubro=${rubro}"
+      "/api/v1/bi/oportunidades?rubro=${rubro}&min_score=4&limit=50"
+      "/api/v1/bi/tendencia?rubro=${rubro}&limit=15"
+    )
+  fi
+  for ruta in "${MERCADO[@]}"; do
+    curl -sf -o /dev/null --max-time 30 "http://localhost:${PUERTO}${ruta}" &
+  done
+  wait
+
   # Varias vueltas para que CADA worker sirva algo: con una sola pasada se
   # mide un solo proceso.
   for _ in $(seq 1 40); do
-    for ruta in "${CAMINOS[@]}"; do
+    for ruta in "${CAMINOS[@]}" "${MERCADO[@]}"; do
       curl -sf -o /dev/null --max-time 20 "http://localhost:${PUERTO}${ruta}" || true
     done
   done
@@ -154,6 +184,11 @@ medir() {
   local estado="ok"
   docker inspect -f '{{.State.OOMKilled}}' "$API" | grep -q true && estado="OOM"
   docker inspect -f '{{.State.Running}}' "$API" | grep -q true || estado="MURIÓ"
+
+  if [ "$estado" != ok ]; then
+    printf "%s   %s%s\n" "$gris" \
+      "$(docker inspect -f 'oom={{.State.OOMKilled}} exit={{.State.ExitCode}}' "$API" 2>&1)" "$fin"
+  fi
 
   printf "   w=%-2s reposo=%-9s pico=%-9s %s\n" \
     "$workers" "$reposo" "$pico" \
@@ -172,7 +207,7 @@ else
   medir 1 || fallos=$((fallos + 1))
   medir 2 || fallos=$((fallos + 1))
   medir 4 || fallos=$((fallos + 1))
-  printf "\n%sReposo = recién arrancado. Pico = tras 40 vueltas a %d endpoints.%s\n" \
-    "$gris" "${#CAMINOS[@]}" "$fin"
+  printf "\n%sReposo = recién arrancado. Pico = tras la ráfaga de /mercado y 40 vueltas a todos los endpoints.%s\n" \
+    "$gris" "$fin"
   [ "$fallos" -eq 0 ] || printf "%s%d escenario(s) no caben en %s.%s\n" "$rojo" "$fallos" "$LIMITE" "$fin"
 fi

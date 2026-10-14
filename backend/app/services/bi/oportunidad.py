@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 
-from app.services.bi._base import _load
+from app.services.bi._base import _contar, _load
 
 logger = logging.getLogger(__name__)
 
@@ -24,16 +24,22 @@ def get_oportunidades(
     Ranked opportunities (opportunity_score 0–10).
     Optionally filtered by organismo and/or rubro.
     """
-    # Los filtros de igualdad viajan al WHERE; el de `min_score` es una
-    # desigualdad y se queda en Polars sobre lo ya reducido. Antes se traían las
-    # 238.000 filas de la tabla para descartar casi todas.
     filtros: dict = {}
     if organismo_id:
         filtros["CodigoOrganismoPublico"] = str(organismo_id)
     if rubro:
         filtros["RubroN2"] = rubro
 
-    df = _load("opportunity_scores.parquet", filtros=filtros or None)
+    # Todo viaja a SQL: el rubro/organismo, el mínimo y el top-N. Sin rubro esto
+    # se traía la tabla entera (238.000 filas) para quedarse con 50, y junto con
+    # /bi/rubros y /bi/tendencia mataba la API por memoria al abrir /mercado.
+    df = _load(
+        "opportunity_scores.parquet",
+        filtros=filtros or None,
+        minimos={"opportunity_score": min_score},
+        orden="opportunity_score",
+        limite=limit,
+    )
     if df is None:
         return {"disponible": False, "motivo": "parquet no generado"}
 
@@ -54,8 +60,20 @@ def get_oportunidades(
     available = [c for c in wanted if c in rows.columns]
     result = rows.select(available).to_dicts()
 
-    # Enrich with NombreOrganismo from buyer_scores
-    bs_df = _load("buyer_scores.parquet")
+    # El nombre sale de buyer_scores, pedido sólo para los compradores de la
+    # respuesta y sólo con las dos columnas que hacen falta.
+    codigos = sorted(
+        {str(row["CodigoOrganismoPublico"]) for row in result if "CodigoOrganismoPublico" in row}
+    )
+    bs_df = (
+        _load(
+            "buyer_scores.parquet",
+            filtros={"CodigoOrganismoPublico": codigos},
+            columnas=["CodigoOrganismoPublico", "NombreOrganismo"],
+        )
+        if codigos
+        else None
+    )
     if bs_df is not None:
         name_map = dict(
             zip(
@@ -86,27 +104,15 @@ def get_rubros(limit: int = 354) -> dict:
     sorted by frequency (number of market opportunities) descending.
     Excludes null / 'NA' entries.
     """
-    # Sólo hace falta la columna del rubro: traer las quince restantes de las
-    # 238.000 filas para contar valores distintos es tráfico puro.
-    df = _load("opportunity_scores.parquet", columnas=["RubroN2"])
-    if df is None:
+    # Se cuenta en SQL. Traerse la columna de las 238.000 filas para contarla en
+    # Polars era parte de la ráfaga que mataba la API al abrir /mercado. Los
+    # empates se ordenan por nombre, en bytes, como antes: con `limit` el empate
+    # decide QUÉ rubros entran (ver `sql_contar_por`).
+    conteos = _contar("opportunity_scores.parquet", "RubroN2", excluir=["NA", ""], limite=limit)
+    if conteos is None:
         return {"disponible": False, "motivo": "parquet no generado"}
 
-    rubros = (
-        df.filter(df["RubroN2"].is_not_null() & (df["RubroN2"] != "NA") & (df["RubroN2"] != ""))
-        .group_by("RubroN2")
-        .len()
-        # El desempate por nombre no es cosmético: muchos rubros comparten el
-        # mismo conteo, y con `head(limit)` el empate decide QUÉ rubros entran en
-        # la respuesta, no sólo en qué orden. Sin él, dos llamadas sobre los
-        # mismos datos podían devolver listas distintas según el orden físico de
-        # las filas.
-        .sort(["len", "RubroN2"], descending=[True, False])
-        .head(limit)
-        .get_column("RubroN2")
-        .to_list()
-    )
-
+    rubros = [valor for valor, _filas in conteos]
     return {
         "disponible": True,
         "rubros": rubros,

@@ -49,20 +49,25 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Migrar y servir. Corre al arrancar el contenedor para que la red privada de
 # Railway (postgres.railway.internal) sea alcanzable.
 #
-# UN worker, y explícito. Ya no por memoria: medido con `make medir-memoria`
-# sobre esta misma imagen (2026-10-12), con seis meses de analytics reales y el
-# índice en memoria de las páginas públicas (`ANALYTICS_DIR=… make medir-memoria`):
+# UN worker, y explícito. Ya no por memoria: lo obliga el límite por IP, que vive
+# en memoria de cada proceso (`app/core/limite_ip.py`): con N workers hay N cubos
+# por IP y el límite real es N veces el anunciado. Subir `WEB_CONCURRENCY` exige
+# antes sacar ese contador del proceso.
 #
-#   límite   workers  reposo   pico
-#   512 MB      1     103 MB   171 MB
-#   512 MB      2     225 MB   378 MB
-#   512 MB      4     419 MB   OOM
-#   256 MB      1     101 MB   176 MB
+# La memoria, medida con `make medir-memoria` sobre esta misma imagen
+# (2026-10-14), con seis meses de analytics locales (producción lee 36, 12 en las
+# bandas de precio) y la ráfaga de la primera visita de /mercado, que pide
+# rubros, oportunidades, tendencia, panorama y resumen A LA VEZ:
 #
-# Uno cabe en 256 MB, pero Railway cobra la memoria usada y no el límite. Lo que obliga a uno es el límite
-# por IP, que vive en memoria de cada proceso (`app/core/limite_ip.py`): con N
-# workers hay N cubos por IP y el límite real es N veces el anunciado. Subir
-# `WEB_CONCURRENCY` exige antes sacar ese contador del proceso.
+#   límite   workers  reposo      pico (una muestra)   resultado
+#   512 MB      1     122,4 MiB   -                    ANTES del arreglo: OOM (exit 137)
+#   512 MB      1     116,2 MiB   217,1 MiB            DESPUÉS: sin OOM; 171,5 MiB justo tras la ráfaga
+#
+# El pico es una muestra tras la ráfaga y 40 vueltas, no el máximo de la ráfaga.
+# Hasta el 2026-10-12 se midió SIN los endpoints de /mercado (171-176 MB, «cabe en
+# 256 MB»): producción moría mientras tanto. Con 2 workers daba 378 MB y con 4,
+# OOM, también sin esa ráfaga, y no se han repetido con ella. Railway cobra la
+# memoria usada, no el límite; se deja en 512 MB.
 #
 # `--no-proxy-headers`: de qué IP viene una petición lo decide
 # `app/core/limite_ip.py`, con su modelo de confianza escrito. Uvicorn por su
