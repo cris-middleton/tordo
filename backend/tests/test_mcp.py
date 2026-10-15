@@ -26,8 +26,14 @@ from __future__ import annotations
 
 import json
 
+import httpx2
 import pytest
 import pytest_asyncio
+from mcp import ClientSession
+from mcp.client.streamable_http import streamable_http_client
+
+from app.main import app
+from tests.borde_tls import borde_tls
 
 RUTA = "/mcp/"
 
@@ -90,7 +96,6 @@ async def cliente(esquema_migrado):
     from httpx import ASGITransport, AsyncClient
 
     from app.db import async_engine
-    from app.main import app
 
     # `dispose(close=False)` abandona las conexiones que otro bucle de eventos
     # dejó en el pozo en vez de intentar cerrarlas —cerrarlas desde el bucle
@@ -166,6 +171,35 @@ async def test_ninguna_herramienta_pide_empresa(cliente):
         # nada, que es justo lo que no se quiere de una prueba de aislamiento.
         assert propiedades, f"{herramienta['name']} llegó sin esquema de entrada"
         assert not {"empresa_id", "empresa", "rut_empresa"} & propiedades, herramienta["name"]
+
+
+async def test_un_cliente_mcp_real_conecta_sin_barra_detras_del_tls(cliente):
+    """El cliente oficial del SDK, configurado con la URL sin barra —la que
+    escribe la gente— detrás de un borde TLS como el de Railway.
+
+    `follow_redirects=True` como lo trae el SDK: en proceso el `http://` del 307
+    no tiene consecuencias, así que lo que se comprueba son las URL pedidas.
+    `cliente` está para arrancar el ciclo de vida del MCP (una vez por módulo).
+    """
+    pedidas: list[str] = []
+
+    async def anotar(peticion) -> None:
+        pedidas.append(str(peticion.url))
+
+    transporte = httpx2.ASGITransport(app=borde_tls(app))
+    async with (
+        httpx2.AsyncClient(
+            transport=transporte, follow_redirects=True, event_hooks={"request": [anotar]}
+        ) as http,
+        streamable_http_client("https://localhost/mcp", http_client=http) as (lectura, escritura),
+        ClientSession(lectura, escritura) as sesion,
+    ):
+        await sesion.initialize()
+        herramientas = await sesion.list_tools()
+
+    assert len(herramientas.tools) == 4
+    assert pedidas, "el cliente no pidió nada"
+    assert set(pedidas) == {"https://localhost/mcp"}, pedidas
 
 
 # ── DNS rebinding ────────────────────────────────────────────────────────────

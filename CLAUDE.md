@@ -933,6 +933,16 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
     abierta para la disponibilidad.
   - IPv6 cuenta por /64. Uvicorn arranca con `--no-proxy-headers`: la regla es una sola.
   - Las capas por clave de API y por cuota diaria se fueron con las cuentas.
+- **Las redirecciones de la API son relativas** (`app/core/redirecciones.py`, rediseño 0d).
+  Detrás del TLS de Railway la app ve `scheme=http` y `redirect_slashes` escribía
+  `Location: http://…` en las 29 redirecciones por barra final: `https://api.tordo.cl/mcp`
+  mandaba a `http://…/mcp/`, el cliente repetía el POST en claro y el borde lo devolvía
+  convertido en GET. **No se arregla leyendo `X-Forwarded-Proto`**: uvicorn sigue con
+  `--no-proxy-headers` y el modelo de confianza es uno solo. Un `Location` propio sale sin
+  esquema ni host; uno ajeno, intacto. Y `/mcp` se sirve como `/mcp/` sin redirigir (sigue
+  contando en el límite). `tests/test_redirecciones_https.py` barre todas las rutas GET
+  detrás de un borde TLS simulado (`tests/borde_tls.py`). El proxy de Next (#155) sigue
+  esquivando por host cualquier `Location` absoluto, pero ya no lo necesita para los propios.
 - **Todo parámetro público tiene cota** (`app/api/limites.py`): textos con `max_length`,
   enteros con `le=`, `offset` hasta 100.000, ids dentro de un `integer` de Postgres (uno
   mayor llegaba a la base y volvía **500**), y como mucho 8 términos en la búsqueda de
@@ -1054,7 +1064,8 @@ objeto el pivote**: [ADR 0011](docs/decisiones/0011-sitio-publico-sin-cuentas.md
 
 **El MCP está construido** (ADR 0004, retomado el 2026-08-08 al cumplirse su propia
 condición: la API pública ya está, así que dejó de ser superficie nueva). Vive en `app/mcp/`,
-montado en `/mcp` **fuera de `/api/v1`** — MCP versiona su propio protocolo.
+montado en `/mcp/` (también responde en `/mcp`, sin redirigir) **fuera de `/api/v1`** — MCP
+versiona su propio protocolo.
 - **Anónimo** desde el pivote: sin clave ni cuota. Ver «Patrones vigentes» para la
   protección contra DNS rebinding y `MCP_HOSTS_PERMITIDOS`.
 - **Cuatro herramientas de grano grueso, no veinte.** Un modelo encadena unas quince

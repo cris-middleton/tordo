@@ -145,6 +145,26 @@ describe('las redirecciones del backend se siguen aquí', () => {
     ]);
   });
 
+  it('sigue una 307 con Location relativo, el que manda la API desde el rediseño 0d', async () => {
+    // La API ya no escribe esquema ni host en sus redirecciones
+    // (`backend/app/core/redirecciones.py`). El destino se resuelve contra
+    // `API_URL`, con su esquema.
+    const api = 'https://api.prueba';
+    responderCon(
+      new Response(null, { status: 307, headers: { location: '/api/v1/tenders/?limit=1' } }),
+      new Response('{"items":[]}', { status: 200, headers: { 'content-type': 'application/json' } }),
+    );
+    const { GET } = await cargarProxy(api);
+
+    const res = await GET(peticion('api/v1/tenders?limit=1'), ctx('api/v1/tenders'));
+
+    expect(res.status).toBe(200);
+    expect(llamadas.map((l) => l.url)).toEqual([
+      `${api}/api/v1/tenders?limit=1`,
+      `${api}/api/v1/tenders/?limit=1`,
+    ]);
+  });
+
   it('no sigue una redirección hacia otro origen', async () => {
     responderCon(
       new Response(null, { status: 307, headers: { location: 'https://otro.ejemplo/robar' } }),

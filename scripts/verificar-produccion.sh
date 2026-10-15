@@ -5,7 +5,7 @@
 #
 # Una línea ✓/✗ por comprobación y, al final, cuántas fallaron (es también el
 # código de salida). No recibe ni necesita ningún secreto: lo que se comprueba es
-# justamente lo que ve un visitante o un integrador anónimo. Hace del orden de 30
+# justamente lo que ve un visitante o un integrador anónimo. Hace del orden de 35
 # peticiones, por debajo del límite por IP (60 por minuto).
 #
 # Lo que NO puede comprobar desde fuera está en docs/DESPLIEGUE.md: que los cron
@@ -125,6 +125,29 @@ case $codigo in
   200) ok "MCP: initialize responde 200" ;;
   421) mal "MCP: 421 — el dominio de la API no está en MCP_HOSTS_PERMITIDOS" ;;
   *) mal "MCP: initialize responde $codigo" ;;
+esac
+
+# ── Ninguna redirección baja a http:// (rediseño 0d) ─────────────────────────
+seccion "Redirecciones de la API: relativas, nunca a http://"
+
+# Sólo se pide el redirect (rápido, antes del handler): `pedir` no los sigue.
+for ruta in /health /api/v1/tenders /api/v1/bi/rubros/; do
+  codigo=$(pedir "$API$ruta")
+  destino=$(cabecera location)
+  case $destino in
+    http://*) mal "$ruta → $destino: baja a http" ;;
+    /*) ok "$ruta → $codigo $destino" ;;
+    *) mal "$ruta responde $codigo con Location «${destino}» (se esperaba una ruta relativa)" ;;
+  esac
+done
+
+codigo=$(pedir "$API/mcp" -X POST \
+  -H 'Accept: application/json, text/event-stream' -H 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"verificar-produccion","version":"0"}}}')
+case $codigo in
+  200) ok "MCP sin barra: initialize responde 200 sin redirigir" ;;
+  421) mal "MCP sin barra: 421 — el dominio de la API no está en MCP_HOSTS_PERMITIDOS" ;;
+  *) mal "MCP sin barra responde $codigo (se esperaba 200, sin 307)" ;;
 esac
 
 # ── /mercado no tumba la API (rediseño 0b) ───────────────────────────────────

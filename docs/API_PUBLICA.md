@@ -222,6 +222,10 @@ Es **anónimo**:
 { "mcpServers": { "tordo": { "url": "https://<host>/mcp/" } } }
 ```
 
+También responde en `https://<host>/mcp`, sin barra y sin redirigir. Las demás
+redirecciones de la API (barra final de `/api/v1/*` y `/health`) llevan un `Location`
+relativo: se resuelven contra la URL pedida y nunca bajan a `http://`.
+
 **Cuatro herramientas, no veinte**, y es la decisión de diseño que sostiene todo
 lo demás:
 

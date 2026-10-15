@@ -65,11 +65,12 @@ const CABECERAS_DE_VUELTA = [
  * a secas convertiría un Location manipulado en una petición nuestra hacia
  * donde dijera ese Location.
  *
- * Se compara el HOST, no el origen, y se vuelve a pedir por `API_URL`: en
- * Railway el TLS termina en el borde y uvicorn corre con `--no-proxy-headers`,
- * así que su Location dice `http://` aunque `API_URL` sea `https://`. Con el
- * origen, esa redirección no se seguía y el navegador recibía un 307 sin
- * Location: el catálogo no cargaba en producción.
+ * Se compara el HOST, no el origen, y se vuelve a pedir por `API_URL`. Desde el
+ * rediseño 0d la API responde `Location` RELATIVO (`app/core/redirecciones.py`)
+ * y se resuelve contra `API_URL`. La comparación por host se queda por el caso
+ * de #155: un `Location` absoluto en `http://` —lo que escribía la API detrás
+ * del TLS de Railway— no se seguía, el navegador recibía un 307 sin Location y
+ * el catálogo no cargaba.
  */
 async function seguirRedirecciones(
   respuesta: Response,

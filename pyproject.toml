@@ -94,6 +94,10 @@ dev = [
     # montar una app ASGI dentro de otra no lo ejecuta, y sin el gestor de
     # sesiones el servidor acepta la conexión y revienta en la primera llamada.
     "asgi-lifespan>=2,<3",
+    # tests/test_mcp.py arma el transporte ASGI con `httpx2`, no con `httpx`: el
+    # cliente MCP (mcp>=2) pide un `httpx2.AsyncClient`. Llega por `mcp`, pero se
+    # declara porque el test lo importa directamente.
+    "httpx2>=2,<3",
     { include-group = "api" },
     { include-group = "etl" },
     "pytest>=8.3,<10",

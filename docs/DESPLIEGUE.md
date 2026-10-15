@@ -498,6 +498,16 @@ curl "${MCP[@]}" -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
 la segunda devuelve las **cuatro** herramientas. Un `421` significa que `api.tordo.cl` no está
 en `MCP_HOSTS_PERMITIDOS`.
 
+Y sin barra, que es la URL que la gente pega en su cliente:
+
+```bash
+curl -s -o /dev/null -w '%{http_code} [%{redirect_url}]\n' -X POST https://api.tordo.cl/mcp \
+  -H 'Accept: application/json, text/event-stream' -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"verificacion","version":"0"}}}'
+```
+
+responde `200 []`: sin redirección.
+
 ## 13. Después del primer despliegue
 
 ### 13.1 Postgres: recuperar el espacio y medirlo
@@ -548,7 +558,9 @@ Sólo lectura, sin secretos. Una línea ✓/✗ por comprobación, y sale con el
 fallos:
 - **API**: salud, sitemap con datos, frescura de «lo mejor de hoy», cabeceras del
   límite, CORS abierto (`Access-Control-Allow-Origin: *`), 404 para un código
-  inventado, el MCP (`initialize`), la prueba del `X-Forwarded-For` inventado del paso 10
+  inventado, el MCP (`initialize`), que las redirecciones de la API (`/health`,
+  `/api/v1/tenders`, `/api/v1/bi/rubros/`) llevan un `Location` relativo y que `/mcp` sin
+  barra responde 200 sin redirigir (rediseño 0d), la prueba del `X-Forwarded-For` inventado del paso 10
   y que `/mercado` no tumba la API (`tendencia?rubro=` y `oportunidades` responden 200 en
   menos de 5 s y `/health/` sigue en 200; **sólo con el arreglo del rediseño 0b
   desplegado**, que antes de él esas peticiones la mataban por memoria).
@@ -647,6 +659,7 @@ punto tiene su momento. En orden.
 | síntoma | causa probable |
 |---|---|
 | Todo `/bi/*` responde 503 | `FEATURE_ANALYTICS` no está en `true` |
+| Un cliente MCP falla con `https://…/mcp` y funciona con `/mcp/`, o un `Location: http://` en la API | imagen anterior al rediseño 0d (redirecciones relativas); redeploy |
 | `/mcp/` responde 421 | falta el host en `MCP_HOSTS_PERMITIDOS` (la API avisa al arrancar) |
 | El sitio entero recibe 429 a la vez | `PROXY_SECRETO` distinto en Vercel y Railway, o vacío |
 | `semanal` falla en segundos con `ETL_ALMACEN` en el `/fail` | variable de R2 ausente o vacía |

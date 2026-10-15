@@ -13,6 +13,7 @@ from app.api import bi, compra_agil, health, publico, tenders
 from app.api.documentacion import DESCRIPCION, ETIQUETAS
 from app.config import settings
 from app.core.limite_ip import LimitadorEnMemoria, LimitePorIPMiddleware, avisos_de_configuracion
+from app.core.redirecciones import LocationRelativaMiddleware, MCPSinBarraMiddleware
 from app.core.versionado import PREFIJO_API
 from app.mcp.servidor import aplicacion as aplicacion_mcp
 from app.mcp.servidor import aviso_de_hosts
@@ -117,6 +118,15 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(RequestIDMiddleware)
 
+# El más externo: reescribe a relativo el Location de cualquier 3xx propio, venga
+# de donde venga (`app/core/redirecciones.py`). Sin esto, detrás del TLS de
+# Railway cada redirección por barra final bajaba a http:// (spec §8.4).
+app.add_middleware(LocationRelativaMiddleware)
+
+# Y por fuera de todo, `/mcp` se sirve como `/mcp/` sin redirigir: es la URL que
+# la gente pega en su cliente MCP. El límite por IP la sigue contando.
+app.add_middleware(MCPSinBarraMiddleware)
+
 
 @app.exception_handler(Exception)
 async def catch_all_exception_handler(request: Request, exc: Exception):
@@ -166,6 +176,7 @@ app.include_router(health.router)
 # propio protocolo (`protocol_version` en cada handshake). Colgarlo de nuestra
 # versión REST prometería que una v2 nuestra cambia el protocolo, que es falso, y
 # que el protocolo no cambia sin que cambiemos la v, que también.
+# Responde en `/mcp/` y, por `MCPSinBarraMiddleware`, también en `/mcp` sin redirigir.
 app.mount("/mcp", aplicacion_mcp())
 
 
