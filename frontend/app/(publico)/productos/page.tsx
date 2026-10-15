@@ -8,6 +8,11 @@ import { CabeceraFicha } from '@/components/publico/Piezas';
  *
  * Una cáscara de servidor (título y metadatos, indexable) con el buscador en
  * el cliente. Es la puerta a las fichas que no están en el sitemap.
+ *
+ * Una búsqueda es una URL: `/productos?q=resma` abre con los resultados
+ * (`rutaBusquedaProductos`). La lee el buscador en el cliente, no esta página:
+ * leer `searchParams` aquí la volvería dinámica. El `canonical` sigue siendo
+ * `/productos`, así que las búsquedas no compiten con ella en el buscador.
  */
 export const metadata: Metadata = {
   title: 'Precios de referencia de productos',

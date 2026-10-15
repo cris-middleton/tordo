@@ -65,6 +65,39 @@ test('el buscador de productos se carga sin sesión', async ({ page }) => {
   await expect(page.getByText(/al menos tres letras/i)).toBeVisible();
 });
 
+test('/productos?q= abre con los resultados, sin escribir nada', async ({ page }) => {
+  const respuesta = await page.goto('/productos?q=resma');
+  expect(respuesta?.status()).toBe(200);
+  await expect(page.getByLabel(/buscar un producto/i)).toHaveValue('resma');
+  // No indexable (n < 10 en el fixture): la búsqueda la trae igual, marcada.
+  const enlace = page.getByRole('link', { name: /resma papel prueba/i });
+  await expect(enlace).toBeVisible();
+  await expect(enlace).toHaveAttribute('href', '/productos/resma-papel-prueba');
+  await expect(enlace).toContainText(/orientativo/);
+});
+
+test('buscar en /productos deja la búsqueda en la URL', async ({ page }) => {
+  await page.goto('/productos');
+  await page.getByLabel(/buscar un producto/i).fill('jabón líquido');
+  await expect(page).toHaveURL(/\/productos\?q=jab%C3%B3n\+l%C3%ADquido$/);
+  await expect(page.getByRole('link', { name: /liquido prueba/i })).toBeVisible();
+  // Recargar conserva la búsqueda: es lo que permite compartirla.
+  await page.reload();
+  await expect(page.getByLabel(/buscar un producto/i)).toHaveValue('jabón líquido');
+  await expect(page.getByRole('link', { name: /liquido prueba/i })).toBeVisible();
+});
+
+test('volver desde una ficha devuelve la búsqueda con sus resultados', async ({ page }) => {
+  await page.goto('/productos?q=resma');
+  const enlace = page.getByRole('link', { name: /resma papel prueba/i });
+  await enlace.click();
+  await expect(page).toHaveURL(/\/productos\/resma-papel-prueba$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/productos\?q=resma$/);
+  await expect(page.getByLabel(/buscar un producto/i)).toHaveValue('resma');
+  await expect(page.getByRole('link', { name: /resma papel prueba/i })).toBeVisible();
+});
+
 test('lo que no existe es un 404, no una página vacía', async ({ page }) => {
   for (const ruta of ['/compradores/no-existe-e2e', '/rubros/no-existe-e2e', '/productos/no-existe-e2e']) {
     const respuesta = await page.goto(ruta);

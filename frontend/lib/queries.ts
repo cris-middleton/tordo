@@ -135,6 +135,14 @@ export function useCompraAgilDestacadas(params: ParamsDestacadas) {
 export const MINIMO_BUSQUEDA_PRODUCTOS = 3;
 
 /**
+ * El tope de largo del término. Copia a mano de `limites.TEXTO` del backend
+ * (`app/api/limites.py`, que acota `q` en `GET /publico/productos`): un término
+ * más largo recibe un 422, que la pantalla leería como una caída. Si cambia
+ * allí, cambia aquí.
+ */
+export const MAXIMO_BUSQUEDA_PRODUCTOS = 100;
+
+/**
  * Los datos para transferir de `/apoyar`, sólo cuando se piden con el clic
  * (`habilitada`). Sin reintentos: un 404 dice que no está configurada, y
  * reintentarlo no lo arregla.

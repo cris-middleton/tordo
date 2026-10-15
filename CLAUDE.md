@@ -599,6 +599,11 @@ escala**. Es una heurística sin verdad contra la que evaluarla: ordena, no pred
 **Páginas públicas indexables (paso 10)** — `/compradores/[codigo]`, `/rubros/[slug]`,
 `/productos/[slug]` y la búsqueda `/productos`, en el grupo `app/(publico)/` con su pie de
 atribución. Datos de `GET /publico/*` (`api/publico.py`, `services/publico/`).
+- **La búsqueda de productos vive en la URL** (`/productos?q=`, `rutaBusquedaProductos` en
+  `lib/publico.ts`): el buscador la lee con `useSearchParams` en un inicializador perezoso,
+  dentro de `Suspense`, y la escribe con `replaceState` (con ≥ 3 letras, tras el retardo).
+  **La página no lee `searchParams`**: la volvería dinámica. Quien enlace a una búsqueda usa
+  `rutaBusquedaProductos`, no arma la URL.
 - **ISR, nada en el deploy**: `generateStaticParams` devuelve `[]` y cada página se genera al
   primer pedido con `fetch(…, { next: { revalidate: 604800, tags: ['analytics'] } })` desde
   `lib/publicoServidor.ts`, **como renderizado del servidor** (`cabecerasHaciaElBackend(null)`,

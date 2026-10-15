@@ -7,18 +7,27 @@
  *      quieto, y nunca con menos de tres (la búsqueda del backend ignora
  *      las palabras más cortas, así que dos letras nunca encuentran nada);
  *   2. que cada resultado enlaza por el `slug` del backend, indexable o no;
- *   3. los estados sin resultados y con error, en una línea y sin caja de error.
+ *   3. los estados sin resultados y con error, en una línea y sin caja de error;
+ *   4. que el término vive en la URL (`?q=`): se lee al montar —sin esperar el
+ *      retardo— y se escribe con `replaceState`, nunca con `pushState`.
  */
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { BuscadorProductos } from '@/components/publico/BuscadorProductos';
+import { PARAMETRO_BUSQUEDA_PRODUCTOS, rutaBusquedaProductos } from '@/lib/publico';
 
 let estado: { isPending: boolean; isError: boolean; data?: unknown };
 const pedidas: string[] = [];
+let urlInicial = new URLSearchParams();
+
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => urlInicial,
+}));
 
 vi.mock('@/lib/queries', () => ({
   MINIMO_BUSQUEDA_PRODUCTOS: 3,
+  MAXIMO_BUSQUEDA_PRODUCTOS: 100,
   useBuscarProductosPublicos: (texto: string) => {
     pedidas.push(texto);
     return estado;
@@ -30,14 +39,26 @@ const RESULTADOS = [
   { slug: 'guante-quirurgico-raro', firma: 'guante quirurgico raro', n: 3, indexable: false },
 ];
 
+let replaceState: ReturnType<typeof vi.spyOn>;
+let pushState: ReturnType<typeof vi.spyOn>;
+
 beforeEach(() => {
   vi.useFakeTimers();
   pedidas.length = 0;
+  urlInicial = new URLSearchParams();
   estado = { isPending: false, isError: false, data: RESULTADOS };
+  replaceState = vi.spyOn(window.history, 'replaceState');
+  pushState = vi.spyOn(window.history, 'pushState');
 });
 afterEach(() => {
   vi.useRealTimers();
+  vi.restoreAllMocks();
 });
+
+/** El último destino escrito en la URL. */
+function ultimaUrl(): string {
+  return String(replaceState.mock.calls.at(-1)?.[2]);
+}
 
 function escribir(texto: string) {
   fireEvent.change(screen.getByLabelText(/buscar un producto/i), { target: { value: texto } });
@@ -93,5 +114,86 @@ describe('buscador de productos', () => {
     act(() => vi.advanceTimersByTime(300));
     expect(screen.getByText(/no pudimos buscar ahora/i)).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+});
+
+describe('el término vive en la URL', () => {
+  it('abre con el término de la URL, sin escribir ni esperar', () => {
+    urlInicial = new URLSearchParams('q=resma');
+    render(<BuscadorProductos />);
+    // Sin avanzar los temporizadores: la primera petición ya es la de la URL.
+    expect(pedidas[0]).toBe('resma');
+    expect(screen.getByLabelText(/buscar un producto/i)).toHaveValue('resma');
+    expect(screen.getByRole('link', { name: /guante latex nitrilo/ })).toBeInTheDocument();
+  });
+
+  it('una URL con tildes y espacios abre con el término intacto', () => {
+    urlInicial = new URLSearchParams('q=jab%C3%B3n+l%C3%ADquido');
+    render(<BuscadorProductos />);
+    expect(pedidas[0]).toBe('jabón líquido');
+    expect(screen.getByLabelText(/buscar un producto/i)).toHaveValue('jabón líquido');
+  });
+
+  it('escribe en la URL el término retardado, con replaceState', () => {
+    render(<BuscadorProductos />);
+    escribir('ton');
+    escribir('toner');
+    expect(ultimaUrl()).not.toContain('toner');
+    act(() => vi.advanceTimersByTime(300));
+    expect(ultimaUrl()).toBe(rutaBusquedaProductos('toner'));
+    expect(replaceState.mock.calls.map((c: unknown[]) => String(c[2]))).not.toContain(
+      rutaBusquedaProductos('ton'),
+    );
+    expect(pushState).not.toHaveBeenCalled();
+  });
+
+  it('borrar el término limpia la URL', () => {
+    urlInicial = new URLSearchParams('q=resma');
+    render(<BuscadorProductos />);
+    escribir('');
+    act(() => vi.advanceTimersByTime(300));
+    expect(ultimaUrl()).toBe('/productos');
+  });
+
+  it('un término por debajo del mínimo no va a la URL ni se busca', () => {
+    urlInicial = new URLSearchParams(`${PARAMETRO_BUSQUEDA_PRODUCTOS}=gu`);
+    render(<BuscadorProductos />);
+    expect(ultimaUrl()).toBe('/productos');
+    expect(screen.getByText(/al menos tres letras/i)).toBeInTheDocument();
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  });
+});
+
+describe('el largo del término tiene tope (el del backend: 100)', () => {
+  it('un ?q= de 150 caracteres abre truncado a 100, y se pide con 100', () => {
+    urlInicial = new URLSearchParams(`q=${'a'.repeat(150)}`);
+    render(<BuscadorProductos />);
+    expect(screen.getByLabelText(/buscar un producto/i)).toHaveValue('a'.repeat(100));
+    expect(pedidas[0]).toBe('a'.repeat(100));
+    expect(Math.max(...pedidas.map((t) => t.length))).toBeLessThanOrEqual(100);
+  });
+
+  it('el campo no deja escribir más de 100', () => {
+    render(<BuscadorProductos />);
+    expect(screen.getByLabelText(/buscar un producto/i)).toHaveAttribute('maxlength', '100');
+  });
+});
+
+describe('la URL de una búsqueda de productos', () => {
+  it('lleva el término en ?q=, codificado', () => {
+    expect(rutaBusquedaProductos('resma')).toBe('/productos?q=resma');
+    expect(rutaBusquedaProductos('jabón líquido')).toBe('/productos?q=jab%C3%B3n+l%C3%ADquido');
+  });
+
+  it('recorta los bordes, y sin término es /productos', () => {
+    expect(rutaBusquedaProductos('  toner  ')).toBe('/productos?q=toner');
+    expect(rutaBusquedaProductos('   ')).toBe('/productos');
+    expect(rutaBusquedaProductos('')).toBe('/productos');
+  });
+
+  it('ida y vuelta: lo que se escribe es lo que se lee', () => {
+    const ruta = rutaBusquedaProductos('guante de nitrilo & talla M');
+    const leida = new URL(ruta, 'https://tordo.cl').searchParams.get(PARAMETRO_BUSQUEDA_PRODUCTOS);
+    expect(leida).toBe('guante de nitrilo & talla M');
   });
 });

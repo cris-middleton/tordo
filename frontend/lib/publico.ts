@@ -27,6 +27,22 @@ export const rutaComprador = (codigo: string) => `/compradores/${encodeURICompon
 export const rutaRubro = (slug: string) => `/rubros/${encodeURIComponent(slug)}`;
 export const rutaProducto = (slug: string) => `/productos/${encodeURIComponent(slug)}`;
 
+/**
+ * El parámetro de `/productos` que lleva el término buscado: `/productos?q=resma`.
+ * El buscador lo lee al montar y lo escribe al buscar (`BuscadorProductos`).
+ */
+export const PARAMETRO_BUSQUEDA_PRODUCTOS = 'q';
+
+/**
+ * `/productos` con el término puesto: abre directamente con los resultados.
+ * Es como `/buscar` y la portada mandan a «ver todos». Sin término, la página sola.
+ */
+export const rutaBusquedaProductos = (termino: string) => {
+  const limpio = termino.trim();
+  if (!limpio) return '/productos';
+  return `/productos?${new URLSearchParams({ [PARAMETRO_BUSQUEDA_PRODUCTOS]: limpio })}`;
+};
+
 /** El panel con el rubro elegido. El panel lee el NOMBRE, no el slug. */
 export const rutaPanelRubro = (nombre: string) =>
   `/mercado?rubro=${encodeURIComponent(nombre)}`;
