@@ -87,7 +87,7 @@ importa.
 │ Fuente · Se actualiza · Se usa       │ │ Lectura 3: Compras Ágiles según su cierre    │ │
 │                                      │ └──────────────────────────────────────────────┘ │
 ├──────────────────────────────────────┴──────────────────────────────────────────────────┤
-│ Publicadas hoy: N │ Más publica hoy: organismo │ Actualizado a las HH:MM                   │
+│ Publicadas hoy: N │ Más publica hoy: organismo │ Actualizado el día, HH:MM                 │
 ├─────────────────────────────────────────────────────────────────────────────────────────┤
 │ Lo mejor de hoy (BloqueHoy, como hoy) · Úsalo como quieras · Cómo se sostiene            │
 └─────────────────────────────────────────────────────────────────────────────────────────┘
@@ -146,8 +146,9 @@ tres peticiones salen en paralelo con las dos que ya hace la portada.
   sectores de `analytics.sector_dashboard` ordenados por `monto_total`. Hay 7: Salud,
   Municipalidades, «Gob. Central, Universidades», Obras Públicas, FFAA, Otros y «Legislativo y
   judicial». No hace falta un endpoint nuevo.
-- **Se pintan los cuatro primeros sin «Otros»**: una barra que se llama «Otros» no le dice nada a
-  quien vende. Si «Otros» cae entre los cuatro primeros, se salta y entra el quinto.
+- **Se pintan los cuatro primeros sin «Otros» ni «NA»** (el sector sin clasificar, que aparece en el
+  fixture del golden): una barra así no le dice nada a quien vende. Si cae entre los cuatro
+  primeros, se salta y entra el siguiente. Las dos sí cuentan en la suma de los $100.
 - **Periodo**: `sector_dashboard` **no publica su ventana**, y en producción la ventana son 36 meses,
   no los 6 de la maqueta. Se le añaden `ventana_desde` y `ventana_hasta` con `con_ventana()` de
   `data_loader`, como ya hacen las bandas de precio y `competitors_by_market`, y `get_sector` las
@@ -237,7 +238,9 @@ tres peticiones salen en paralelo con las dos que ya hace la portada.
   `title` lleva el nombre entero.
 - **Con 0 publicadas hoy**, las dos celdas se ocultan (pasa cada madrugada: la primera corrida del
   día es a las 10:00).
-- **«Actualizado a las»**: el `actualizado_en` que ya existe.
+- **«Actualizado el …»**: el `actualizado_en` que ya existe, escrito con `actualizadoEnPalabras`
+  («Actualizado el mié, 14 oct, 13:17»). Lleva el día a propósito: la portada se cachea, y «a las
+  13:17» a secas no diría si es de hoy o de ayer. La maqueta lo abreviaba.
 
 ### 3.7 Lo que queda debajo, sin cambios de fondo
 
@@ -325,9 +328,9 @@ se juzga **menos verdadera**, no sólo menos agradable (fluidez de procesamiento
 
 | Dónde | Antes | Después |
 |---|---|---|
-| Subtítulo de la portada | Cuánto ha pagado, qué está abierto hoy y quién lo compra. Con los datos de ChileCompra. | Escribe lo que vendes. Te mostramos cuánto ha pagado el Estado, quién lo compra y qué está abierto hoy. |
-| *Placeholder* del buscador | guantes de nitrilo, resmas, servicio de aseo… | Un producto o un servicio |
-| Checks | ✓ Sin registro · ✓ API y MCP abiertos · ✓ Descarga en CSV | La ficha de §3.1 |
+| Subtítulo de la portada | (hoy no hay; el de la maqueta v5 era «Cuánto ha pagado, qué está abierto hoy y quién lo compra. Con los datos de ChileCompra.») | Escribe lo que vendes. Te mostramos cuánto ha pagado el Estado, quién lo compra y qué está abierto hoy. |
+| *Placeholder* del buscador (`BuscadorPortada.tsx`) | Ej.: resma de papel carta, guantes de nitrilo, tóner | Un producto o un servicio |
+| Checks (sólo existían en las maquetas) | ✓ Sin registro · ✓ API y MCP abiertos · ✓ Descarga en CSV | La ficha de §3.1 |
 | Lema bajo el buscador (`lemaPortada`) | Gratis (de verdad). Sin cuentas, sin publicidad. Código y API abiertos. | Sale de la portada |
 | Título de la portada (`app/page.tsx`) | {APP_NAME} — Compras públicas de Chile, gratis y sin cuenta | {APP_NAME} — Qué compra el Estado de Chile y a qué precio |
 | Descripción de la portada | … Con datos de ChileCompra, gratis y sin registrarte. | Busca lo que vendes y mira cuánto ha pagado el Estado, quién lo compra y qué está abierto hoy. Con los datos públicos de ChileCompra. |
