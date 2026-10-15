@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { DocumentoLegal } from '@/components/legal/DocumentoLegal';
 import { DESCARGO_CHILECOMPRA, FUENTE_DATOS } from '@/lib/atribucion';
 import { CORREO_CONTACTO, RESPONSABLE } from '@/lib/responsable';
+import { LICENCIA_CODIGO } from '@/lib/abierto';
+import { urlRepositorio } from '@/lib/repositorio';
 
 export const metadata: Metadata = {
   title: 'Términos de uso',
@@ -24,6 +26,7 @@ export const metadata: Metadata = {
 const VIGENTE_DESDE = '15 de octubre de 2026';
 
 export default function TerminosPage() {
+  const repositorio = urlRepositorio();
   return (
     <DocumentoLegal titulo="Términos de uso" vigenteDesde={VIGENTE_DESDE}>
       <p>
@@ -134,7 +137,21 @@ export default function TerminosPage() {
       <h2>7. Propiedad</h2>
       <p>
         El contenido de los datos es información pública de ChileCompra. El código del sitio
-        se licencia bajo <strong>AGPL-3.0</strong>; cuando se publique, su dirección estará en <Link href="/abierto">/abierto</Link>. Los análisis que calcula se
+        se licencia bajo <strong>{LICENCIA_CODIGO.nombre}</strong>;{' '}
+        {repositorio ? (
+          <>
+            su código está en{' '}
+            <a href={repositorio} rel="noopener noreferrer">
+              {repositorio}
+            </a>
+            .
+          </>
+        ) : (
+          <>
+            cuando se publique, su dirección estará en <Link href="/abierto">/abierto</Link>.
+          </>
+        )}{' '}
+        Los análisis que calcula se
         licencian según el punto 4. La marca y la presentación del sitio pertenecen al responsable.
       </p>
 

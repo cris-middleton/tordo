@@ -2,6 +2,8 @@
 name = "tordo"
 version = "0.0.0"  # placeholder — la versión del servicio vive en backend/app/config.py
 description = "TORDO — sitio público de inteligencia sobre las compras del Estado de Chile"
+license = "AGPL-3.0-or-later"
+license-files = ["LICENSE"]
 # Techo en 3.13: las imágenes son python:3.11-slim y numpy 1.26.2
 # no compila en 3.13. Subir el techo requiere subir ese pin primero.
 requires-python = ">=3.11,<3.13"

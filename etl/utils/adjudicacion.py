@@ -5,7 +5,7 @@ ticket de Mercado Público en este entorno (`MERCADO_PUBLICO_TICKET` vacío), as
 que nada de lo de abajo se contrastó nunca contra una respuesta real. Se basa
 en dos fuentes, ninguna de las cuales es una captura real:
 
-1. `docs/Documentación API Mercado Publico - Licitaciones.pdf` (filas 79-97 de
+1. «Documentación API Mercado Público - Licitaciones», de ChileCompra (filas 79-97 de
    la tabla de campos): documenta la fecha de adjudicación anidada bajo
    `Fechas.FechaAdjudicacion`, y el proveedor/monto ganador **por ítem**,
    anidados bajo `Items.Listado[].Adjudicacion.{RutProveedor, NombreProveedor,

@@ -19,7 +19,7 @@ plan por empresa permitiera cobrarlo por capacidad. F3 está hecho. Esta es la r
 
 **1. La API no entrega las bases. Ni siquiera lo que contienen.**
 
-El diccionario de datos oficial (`docs/Documentación API Mercado Publico - Licitaciones.pdf`)
+El diccionario de datos oficial («Documentación API Mercado Público - Licitaciones», de ChileCompra; ya no se versiona en `docs/`)
 describe unos 80 campos por licitación. Buscando en su texto:
 
 | término | apariciones |

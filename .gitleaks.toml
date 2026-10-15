@@ -1,0 +1,30 @@
+# gitleaks — configuración del repositorio (PR 7 del rediseño, docs/REDISENO_PUBLICO_2026-10.md §7.3).
+# Reglas por defecto + excepciones. Cada excepción es un falso positivo revisado a mano en el
+# triage de la historia (2026-10-15) y dice por qué lo es. Nunca una excepción por ruta sola:
+# cada bloque exige la ruta Y el patrón de la línea, así que un secreto real que aparezca en
+# esa misma ruta, en otra línea, sigue saltando.
+#
+# Uso: gitleaks git --redact --log-opts="--all" --config .gitleaks.toml .
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Constantes de test: secretos inventados (palabras legibles) para probar el límite por IP y la revalidación"
+condition = "AND"
+paths = ['''^backend/tests/test_limite_ip\.py$''', '''^frontend/__tests__/revalidar\.test\.ts$''']
+regexTarget = "line"
+regexes = ['''^\s*(const\s+)?[A-Z_]*SECRETO[A-Z_]*\s*=''']
+
+[[allowlists]]
+description = "Contraseña inventada de prueba en el login de la medición de memoria (sólo en la historia: el login se retiró con las cuentas)"
+condition = "AND"
+paths = ['''^scripts/medir-memoria\.sh$''']
+regexTarget = "line"
+regexes = ['''"password":"[^"]*prueba[^"]*"''']
+
+[[allowlists]]
+description = "Ticket de demostración público que documenta ChileCompra (no es una credencial propia)"
+condition = "AND"
+paths = ['''^(docs/)?deploy_steps/tareas_manuales\.md$''']
+regexes = ['''(?i)^F8537A18-6766-4DEF-9E59-426B4FEE2844$''']

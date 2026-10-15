@@ -29,9 +29,14 @@ export const URL_MCP = `${ORIGEN_API_PUBLICA}/mcp/`;
 /** Espeja `LIMITE_POR_MINUTO` de la API (por defecto 60; docs/API_PUBLICA.md, «Límites»). */
 export const LIMITE_POR_MINUTO = 60;
 
-/** Spec §7.1, R7 (confirmada el 2026-10-14). */
+/**
+ * Spec §7.1, R7 (confirmada el 2026-10-14), con la variante «o posterior» (D5 del plan del
+ * PR 7, 2026-10-15). `spdx` es la misma cadena que `pyproject.toml` y `package.json`
+ * (`backend/tests/test_archivos_publicos.py`).
+ */
 export const LICENCIA_CODIGO = {
-  nombre: 'AGPL-3.0',
+  nombre: 'AGPL-3.0 o posterior',
+  spdx: 'AGPL-3.0-or-later',
   url: 'https://www.gnu.org/licenses/agpl-3.0.html',
 } as const;
 export const LICENCIA_DATOS = {

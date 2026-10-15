@@ -128,11 +128,10 @@ un valor por defecto razonable o desactivan algo prescindible.
 `ENVIRONMENT=production` y `LOG_LEVEL=INFO` pueden ponerse también en los cron; no
 cambian su comportamiento.
 
-**Al poner `REPOSITORIO_URL` (el repo se hace público): reescribe en el mismo cambio los
-términos de uso, §7** (`frontend/app/terminos/page.tsx`). Hoy dice «cuando se publique, su
-dirección estará en /abierto»; con el repo público y la variable puesta, esa frase es falsa.
-Además hay que redeployar el frontend (se lee en el build) y comprobar que `/abierto#codigo`
-enlaza el repositorio en vez de decir que aún no está publicado.
+**Al poner `REPOSITORIO_URL`**: los términos de uso (§7) y `/abierto#codigo` la leen solos;
+basta redeployar el frontend (se lee en el build) y comprobar que los dos enlazan el
+repositorio. **Ponla sólo con el repo ya público**: con el repo privado, GitHub responde 404 y
+el sitio enseñaría un enlace roto.
 
 **El costo que publica `/apoyar#costos`** (`frontend/lib/costos.ts`) cita este archivo y la spec
 del pivote. Si corriges aquí una cifra de costo (§13.1: tamaño de la base, memoria, tarifas),

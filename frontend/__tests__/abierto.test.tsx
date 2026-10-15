@@ -174,7 +174,7 @@ describe('la página /abierto', () => {
       'href',
       'https://creativecommons.org/licenses/by/4.0/deed.es',
     );
-    expect(within(lic).getAllByText(/AGPL-3\.0/).length).toBeGreaterThan(0);
+    expect(within(lic).getAllByText(/AGPL-3\.0 o posterior/).length).toBeGreaterThan(0);
     expect(within(lic).getByText(/condiciones de ChileCompra/)).toBeInTheDocument();
   });
 
@@ -212,6 +212,20 @@ describe('la página /abierto', () => {
     expect(texto).toMatch(/no aparecen con su nombre ni su RUT/);
     expect(texto).toMatch(/seudónimo que cambia en cada actualización/);
     expect(texto).not.toMatch(/se omiten y se muestran/);
+  });
+
+  it('los términos: sin repositorio dicen «cuando se publique»; con él, lo enlazan', () => {
+    const sin = render(<PaginaTerminos />);
+    expect(sin.container.textContent).toMatch(/cuando se publique, su dirección estará en/);
+    sin.unmount();
+
+    process.env.REPOSITORIO_URL = 'https://github.com/x/tordo';
+    const con = render(<PaginaTerminos />);
+    expect(con.container.textContent).not.toMatch(/cuando se publique/);
+    expect(within(con.container).getByRole('link', { name: 'https://github.com/x/tordo' })).toHaveAttribute(
+      'href',
+      'https://github.com/x/tordo',
+    );
   });
 
   it('los bloques de código son un grupo con nombre y se alcanzan con el teclado', () => {
@@ -263,7 +277,7 @@ describe('el pie y los términos', () => {
     const texto = container.textContent ?? '';
     expect(texto).toMatch(/cita también este sitio/);
     expect(texto).toMatch(/conservando la cita de la fuente/);
-    expect(texto).toMatch(/se licencia bajo AGPL-3\.0/);
+    expect(texto).toMatch(/se licencia bajo AGPL-3\.0 o posterior/);
     expect(texto).not.toMatch(/se publica bajo licencia AGPL/);
     expect(texto).toMatch(/cuando se publique, su dirección estará en \/abierto/);
     expect(texto).toMatch(/sus CSV y esas mismas cifras en la API y el servidor MCP/);

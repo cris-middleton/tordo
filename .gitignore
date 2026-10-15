@@ -106,3 +106,10 @@ backend/test*.db
 frontend/test-results/
 frontend/playwright-report/
 frontend/blob-report/
+
+# Documentos que no se publican (rediseño 7, decisión D3): los PDF de ChileCompra (de un
+# tercero), el plan de negocio del SaaS y el análisis de un competidor. Se retiraron de la
+# historia; esto evita que una copia local vuelva a entrar por un `git add` distraído.
+docs/*.pdf
+docs/tordo_plan_saas.*
+docs/COMPETENCIA_KAPTOR_*.md

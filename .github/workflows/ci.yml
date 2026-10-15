@@ -334,3 +334,24 @@ jobs:
       # arrancaba (`No module named 'app'`). Se importa lo que corren los cron.
       - name: Cron importable en la imagen del ETL
         run: docker run --rm tordo-etl:ci python -c "import etl.cron, etl.retencion, etl.analytics.materialize"
+
+  # ───────────────────────────────────────────────────────────────────────────
+  dco:
+    name: ✍️ DCO
+    # Sólo PR desde un fork: los del dueño, desde ramas del propio repo, quedan exentos.
+    # Saltado cuenta como verde para la protección de main.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      # El script se lee de la BASE, no del PR: si no, un fork podría cambiarlo para que
+      # siempre pasara. (Cambiar este workflow sigue siendo posible y se ve en la revisión.)
+      - name: Cada commit lleva el Signed-off-by de su autor
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: git show "$BASE:scripts/dco.sh" | bash -s -- "$BASE" "$HEAD"

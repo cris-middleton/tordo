@@ -252,7 +252,8 @@ Las cifras que calcula el sitio —bandas de precio, puntajes, indicadores de co
 compradores, y los CSV de análisis— se publican bajo **CC BY 4.0**: se pueden reutilizar,
 también con fines comerciales, citando el sitio y conservando la cita de ChileCompra. Los campos
 del catálogo, tal como los publica ChileCompra, **no** los licencia el sitio: siguen las
-condiciones de ChileCompra. El detalle, en `/abierto#licencias`.
+condiciones de ChileCompra. El código de la API, del sitio y del ETL se publica bajo **AGPL-3.0 o
+posterior** (`AGPL-3.0-or-later`). El detalle, en `/abierto#licencias`.
 
 ## Versionado
 

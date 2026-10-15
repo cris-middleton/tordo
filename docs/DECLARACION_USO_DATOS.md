@@ -1,8 +1,8 @@
 # Declaración de Uso de Datos Oficiales
 
 **Última actualización:** [[fecha de publicación]] · **Sustituye a:**
-`Declaración de Uso de Datos Oficiales.pdf` (misma carpeta), escrita para la etapa
-SaaS. Se conserva el PDF como registro; **la vigente es ésta**.
+la *Declaración de Uso de Datos Oficiales* en PDF, escrita para la etapa SaaS (ya no se
+versiona: se retiró del repositorio antes de publicarlo). **La vigente es ésta**.
 
 > No es asesoría legal. La fecha se pone al publicar.
 

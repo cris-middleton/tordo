@@ -79,8 +79,8 @@ manuales se salta, un comando no.
 
 Este archivo decía que Actions no estaba habilitado y que `.github/workflows/ci.yml` no
 corría. **Ya no es cierto**: `actions/permissions` devuelve `enabled=true` y el workflow
-ejecuta sus siete jobs —lint, migraciones, tests de backend, tests de ETL, frontend, extremo
-a extremo y build de imágenes— en cada `pull_request` contra `main`. Verificado sobre once PRs seguidos.
+ejecuta sus ocho jobs —lint, migraciones, tests de backend, tests de ETL, frontend, extremo
+a extremo, build de imágenes y DCO (sólo en PR desde un fork, `scripts/dco.sh`)— en cada `pull_request` contra `main`. Verificado sobre once PRs seguidos.
 
 Dos cosas que sí conviene saber:
 
@@ -860,7 +860,7 @@ portada y `/apoyar` lo leen de ahí (la prosa de `/apoyar` sale de las mismas co
 (`PieAtribucion`).
 
 **Abierto** (`/abierto`): API, MCP con una caja de instalación por cliente, CSV y RSS, código y
-licencias (código AGPL-3.0; lo que el sitio calcula, CC BY 4.0; el catálogo, condiciones de
+licencias (código AGPL-3.0 o posterior, `AGPL-3.0-or-later`; lo que el sitio calcula, CC BY 4.0; el catálogo, condiciones de
 ChileCompra — los términos §4 y §7 lo dicen igual). **La dirección pública de la API vive sólo en
 `lib/abierto.ts`** (`ORIGEN_API_PUBLICA`, test que lo exige): no es `API_URL`, que es a dónde
 habla el proxy. **La URL del MCP se publica siempre con barra final.** Las cuatro herramientas
@@ -1342,8 +1342,9 @@ obligatorio que nadie usa enseña a rellenar variables sin mirar.
 definida al construir.
 
 **`REPOSITORIO_URL`** (servidor de Next, en el build, opcional, sólo `https://`): el repositorio
-público para «Código» en `/abierto`. Vacía mientras el repo sea privado (spec del rediseño R8);
-al ponerla hay que redeployar, y los términos §7 se reescriben en el mismo cambio.
+público para «Código» en `/abierto` y para los términos §7, que la leen solos. Vacía mientras
+el repo sea privado (spec del rediseño R8): con el repo privado GitHub responde 404 y el sitio
+enseñaría un enlace roto. Al ponerla hay que redeployar.
 
 **`API_URL` es de servidor y no lleva prefijo `NEXT_PUBLIC_`.** Cualquier variable que sí lo
 lleve se inlinea en el bundle del navegador, y la URL del backend ya no tiene por qué estar

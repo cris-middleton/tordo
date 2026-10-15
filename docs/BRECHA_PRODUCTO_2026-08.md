@@ -7,7 +7,7 @@
 **TORDO · revisión del 2026-08-07**
 
 > **Qué es este documento.** Una lectura del código completo contrastada con
-> `tordo_plan_saas.md`, que es el documento que más se parece al producto final. No es un
+> `tordo_plan_saas.md` (retirado del repositorio en el rediseño 7), que es el documento que más se parece al producto final. No es un
 > plan de arquitectura —eso vive en `ARQUITECTURA_REVISION_2026-08.md`, que sigue vigente—
 > sino la lista de lo que falta para que el producto **valga lo que el plan dice que vale**,
 > ordenada por lo que bloquea salir a promocionar.

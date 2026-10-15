@@ -128,7 +128,7 @@ Revisión del sitio en producción (1440 px y 390 px) y de unos 30 sitios compar
 | R4 | Tipografía: **Newsreader** (`h1`, `h2`) + **Public Sans** (todo lo demás, cifras incluidas) + **IBM Plex Mono** (identificadores). Varien se queda para la marca | §5 |
 | R5 | Nueva página **`/abierto`**: API, MCP, CSV, RSS, código y licencias | §2.5 |
 | R6 | El costo se detalla en **`/apoyar#costos`** (tabla por concepto), sin página nueva | Decía «US$5 al mes» (sólo el plan de Railway); el desglose da **~US$10–11** (proyección con el uso medido el 2026-10-15, `docs/DESPLIEGUE.md` §13.2) y la copia se corrigió |
-| R7 | **Licencias**: código **AGPL-3.0**; **lo que TORDO deriva** (tablas de `analytics`, bandas, puntajes, CSV de análisis) **CC BY 4.0** con la atribución a ChileCompra. El contenido del catálogo sigue bajo las condiciones de ChileCompra | §7.1 — **confirmada por el responsable el 2026-10-14** |
+| R7 | **Licencias**: código **AGPL-3.0 o posterior** (`AGPL-3.0-or-later`, D5 del plan del PR 7); **lo que TORDO deriva** (tablas de `analytics`, bandas, puntajes, CSV de análisis) **CC BY 4.0** con la atribución a ChileCompra. El contenido del catálogo sigue bajo las condiciones de ChileCompra | §7.1 — **confirmada por el responsable el 2026-10-14** |
 | R8 | El repositorio **sigue privado hasta que la historia esté limpia** (sin `.env`, sin el correo laboral); después se hace público, y sólo entonces se enlaza | §7.3 — decidido el 2026-10-14 |
 | R9 | Los fallos de §1.3 se arreglan **primero**, en PR propios | La portada nueva depende de «Lo mejor de hoy», de la búsqueda de productos y de las URL de la API |
 | R10 | «Inteligencia de mercado» → **«Mercados»**; «Precios por producto» → **«Precios»**; «Inteligencia de compras públicas» sale de títulos, metadatos e imagen OG | Vocabulario llano |
@@ -399,7 +399,8 @@ Endpoint nuevo, anónimo, en el router `publico` (grupo ya clasificado en
 
 ### 7.1 Licencias (R7)
 
-- **Código: AGPL-3.0.** Es la única licencia común que obliga a quien sirva una versión
+- **Código: AGPL-3.0 o posterior** (`AGPL-3.0-or-later`; la variante la decidió el dueño el
+  2026-10-15, D5 del plan del PR 7). Es la única licencia común que obliga a quien sirva una versión
   modificada como sitio web a publicar sus cambios: adopción libre, sin un clon cerrado de pago
   —el SaaS que TORDO dejó de ser—. La usan lichess y mySociety (FixMyStreet, Alaveteli).
   Alternativa: **MIT** si se prefiere máxima adopción sin condiciones. Mientras el autor sea el
@@ -442,6 +443,9 @@ reporte privado de vulnerabilidades de GitHub), `CONTRIBUTING.md` en español (C
 4. **Revisar antes de publicar**: `docs/tordo_plan_saas.pdf`, `docs/COMPETENCIA_KAPTOR_2026-08.md`,
    los parquets del fixture del golden (`backend/tests/golden/fixture_analytics/`: lo anterior al
    11-10 no estaba enmascarado) y cualquier `*.log` versionado.
+   **Decidido el 2026-10-15 (D3 del plan del PR 7)**: el plan de negocio, el análisis de Kaptor y
+   los tres PDF de ChileCompra salen de `HEAD` en el PR 7a y de toda la historia en la reescritura;
+   las versiones antiguas del fixture, también de la historia. Ningún `*.log` estuvo versionado.
 5. **Camino decidido (2026-10-14): limpiar la historia con el repositorio todavía privado, y
    después hacerlo público.** Con `git filter-repo`: fuera `backend/.env` y `frontend/.env.local`
    de todos los commits, y el correo laboral reescrito al personal (`--mailmap`), más lo que

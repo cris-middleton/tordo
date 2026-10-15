@@ -2,7 +2,8 @@
 
 **Fecha:** 2026-10-11 · **Estado:** aprobado en sesión de *grilling* (20 decisiones + dos
 revisiones), pendiente de plan de implementación · **Sustituye a:** el modelo de
-negocio de `tordo_plan_saas.md` y los ADR 0002, 0005 y 0008.
+negocio de `tordo_plan_saas.md` (retirado del repositorio en el rediseño 7) y los ADR 0002,
+0005 y 0008.
 
 ---
 
@@ -415,6 +416,7 @@ borra de la historia. Pendiente de confirmación del autor.
 - [Railway — Pricing](https://www.railway.com/pricing) · [Railway — Cron Jobs](https://docs.railway.com/cron-jobs)
 - [Mercado Pago Chile — Link de pago](https://www.mercadopago.cl/herramientas-para-vender/link-de-pago) · [Suscripciones](https://www.mercadopago.cl/herramientas-para-vender/suscripciones)
 - [GitHub Sponsors — regiones soportadas](https://docs.github.com/en/sponsors/getting-started-with-github-sponsors/about-github-sponsors)
-- `docs/Declaración de Uso de Datos Oficiales.pdf`
+- *Declaración de Uso de Datos Oficiales* de ChileCompra (el PDF ya no se versiona; la vigente es
+  `docs/DECLARACION_USO_DATOS.md`)
 - Mediciones propias: API de Compra Ágil en vivo (2026-10-03 a 10-10), OC de marzo de
   2026 (`etl/data/consolidated/oc/2026-3.parquet`), base local de analytics.

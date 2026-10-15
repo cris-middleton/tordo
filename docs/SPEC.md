@@ -5,7 +5,7 @@
 
 > **Versión**: 1.1 · **Fecha**: Marzo 2026 · **Estado**: Aprobado para desarrollo
 > **Autor técnico**: Senior Software Architect
-> **Documento fuente de negocio**: tordo_plan_saas_v3.md (Marzo 2026)
+> **Documento fuente de negocio**: tordo_plan_saas_v3.md (Marzo 2026; el plan de negocio se retiró del repositorio en el rediseño 7)
 >
 > **Changelog v1.1** (desde v1.0):
 > - Arquitectura analítica corregida: DuckDB reemplazado por **Polars + Parquet** como

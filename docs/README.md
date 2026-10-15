@@ -42,9 +42,7 @@ producir — no porque describan el sistema de hoy.
 |---|---|---|
 | [`ARQUITECTURA_REVISION_2026-08.md`](ARQUITECTURA_REVISION_2026-08.md) | 2026-08-05 | La revisión que originó las fases F0–F6 del SaaS y su cierre. **Anterior al pivote**; sus puntos de deuda y aplazados conservan el razonamiento |
 | [`SPEC.md`](SPEC.md) | 2026-03 | La especificación del SaaS (cuentas, planes, alertas). **Anterior al pivote** |
-| [`tordo_plan_saas.md`](tordo_plan_saas.md) | 2026-03 | El plan de negocio del SaaS: segmento, precios, competencia. **Anterior al pivote** |
 | [`mercado_publico_faq.md`](mercado_publico_faq.md) | sin fecha | Un resumen de cómo funciona Mercado Público, **de origen no trazable y con cifras sin verificar** (traía marcas de cita rotas). Útil como vocabulario; para montos y requisitos, ChileCompra |
-| [`COMPETENCIA_KAPTOR_2026-08.md`](COMPETENCIA_KAPTOR_2026-08.md) | 2026-08-15 | El análisis de kaptor.cl función por función contra el código, y el plan de respuesta que salió de él. Kaptor publica ~1 release al día: su columna envejece rápido, el razonamiento no |
 | [`BRECHA_PRODUCTO_2026-08.md`](BRECHA_PRODUCTO_2026-08.md) | 2026-08-07 | La lectura del código contra el plan de negocio que ordenó las prioridades de F6 |
 | [`ANALISIS_PROBLEMAS_DATOS.md`](ANALISIS_PROBLEMAS_DATOS.md) | 2026-04 | Los problemas de estructura de datos que encontró y **que ya están corregidos** |
 | [`VALIDACION_ESTRUCTURA_DATOS.md`](VALIDACION_ESTRUCTURA_DATOS.md) | 2026-04 | La validación de `Listado[0]` y timezone contra la API de Mercado Público |
@@ -58,9 +56,13 @@ producir — no porque describan el sistema de hoy.
 
 | documento | qué es |
 |---|---|
-| `Documentación API Mercado Publico - Licitaciones.pdf` | Diccionario de datos oficial de ChileCompra. **Es la fuente cuando hay dudas sobre un campo** — se usó para decidir el [ADR 0010](decisiones/0010-extraccion-de-bases-con-llm.md) |
-| `Documentación API de Mercado Público - Órdenes de Compra.pdf` | Ídem, para órdenes de compra |
-| `Declaración de Uso de Datos Oficiales.pdf` | La versión de la etapa SaaS de la declaración. **La vigente es [`DECLARACION_USO_DATOS.md`](DECLARACION_USO_DATOS.md)**; el PDF se conserva como registro |
+| Documentación de la API de Mercado Público (licitaciones y órdenes de compra) | El diccionario de datos oficial de ChileCompra. **Es la fuente cuando hay dudas sobre un campo** — se usó para decidir el [ADR 0010](decisiones/0010-extraccion-de-bases-con-llm.md). Lo publica ChileCompra en <https://api.mercadopublico.cl>; **no se versiona aquí**, porque es un documento de un tercero |
+| Declaración de Uso de Datos Oficiales de ChileCompra | La versión de la etapa SaaS de la declaración, que tampoco se versiona. **La vigente es [`DECLARACION_USO_DATOS.md`](DECLARACION_USO_DATOS.md)** |
+
+Los PDF de ChileCompra, el plan de negocio del SaaS (`tordo_plan_saas`) y el análisis de un
+competidor (`COMPETENCIA_KAPTOR_2026-08.md`) se retiraron del repositorio antes de publicarlo
+(rediseño 7, decisión D3): documentos de terceros con sus propios derechos, y el plan y el
+análisis de una etapa cerrada. Los documentos que los citan conservan la cita como registro.
 
 ## Dónde va cada cosa
 

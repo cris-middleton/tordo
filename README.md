@@ -1,234 +1,67 @@
-# Tordo
+# TORDO
 
-Sitio público y gratuito de inteligencia sobre las compras del Estado chileno: catálogo de licitaciones y Compra Ágil, bandas de precio, competidores y perfiles de comprador, sin cuentas. Fue un SaaS B2B hasta el pivote del 2026-10-11 — ver `docs/PIVOTE_PUBLICO_2026-10.md`; el último estado SaaS está en la etiqueta `saas-v1`.
+**Las compras del Estado de Chile, en abierto y gratis.** Busca licitaciones abiertas y Compras
+Ágiles, mira a qué precio se ha comprado un producto, quién gana en un rubro y cómo compra cada
+organismo. Sin cuentas, sin planes, sin anuncios.
 
-> **Nombre del producto: TORDO.** Decidido el 2026-08-05. El nombre se lee siempre desde
-> `APP_NAME` / `BRAND_NAME`; no hardcodear. (Un pivot de marca a "YUCA" quedó descartado —
-> si aparece una referencia a YUCA en algún documento, está obsoleta.)
->
-> **Estado del proyecto (2026-08-08)**: el plan de remediación de arquitectura está
-> **cerrado** — sus siete fases (F0–F6) y el servidor MCP. Lo que sigue abierto está en
-> `docs/ARQUITECTURA_REVISION_2026-08.md` §«Estado al cerrar», **cada cosa con su motivo**,
-> incluidas las tres integraciones que aún no han hablado con su servicio real.
->
-> **`docs/README.md` es el mapa de la documentación**: dice, documento a documento, cuál
-> describe el sistema de hoy y cuál es la foto de un momento.
+<https://tordo.cl> · API y servidor MCP: <https://tordo.cl/abierto>
 
-## Estructura del Proyecto
+![La portada de TORDO](docs/assets/portada.png)
 
-```
-tordo/
-├── backend/          # FastAPI + SQLAlchemy (API de sólo lectura + MCP)
-├── frontend/         # Next.js 16 (App Router) + Tailwind CSS
-├── etl/              # Pipeline de extracción (Mercado Público, estado hábil)
-├── infra/            # Docker Compose
-├── docs/             # Especificación técnica, planes de negocio, guías, deploy
-│   ├── README.md     # MAPA: qué documento está vivo y cuál es histórico
-│   ├── decisiones/   # 10 ADRs — por qué el sistema es así
-│   ├── API_PUBLICA.md# Qué se promete a quien integra desde fuera
-│   ├── SPEC.md       # Especificación de producto
-│   ├── deploy_steps/ # Despliegue y tareas manuales en consolas de terceros
-│   └── assets/       # Assets de diseño (logos fuente, etc.)
-└── .env.example      # Variables de entorno de referencia
-```
+## Qué hay aquí
 
-## Inicio Rápido
-
-### Prerrequisitos
-
-- Docker y Docker Compose
-- [`uv`](https://docs.astral.sh/uv/) — gestor de dependencias Python (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
-- Python 3.11 o 3.12 (`uv` lo instala si no lo tienes)
-- Node.js 20+ (frontend)
-
-### Configuración
-
-1. **Clonar el repositorio**
-   ```bash
-   git clone https://github.com/cris-middleton/tordo.git
-   cd tordo
-   ```
-
-2. **Setup del entorno** — instala dependencias y los hooks de pre-commit
-   ```bash
-   make setup
-   ```
-
-   > Los hooks de pre-commit son **por clone**. Los worktrees comparten el
-   > directorio de hooks con el checkout principal, así que basta instalarlos
-   > una vez. En un clone nuevo: `make hooks`.
-
-3. **Crear archivo de entorno**
-   ```bash
-   cp .env.example .env
-   # Editar .env con tu configuración
-   ```
-
-4. **Levantar el stack**
-   ```bash
-   make dev-up-d     # todos los servicios en segundo plano
-   make migrate      # aplicar migraciones
-   make dev-logs     # seguir los logs
-   ```
-
-5. **Acceder a los servicios**
-   | Servicio | URL |
-   |----------|-----|
-   | Backend API | http://localhost:8000/api/v1 |
-   | API Docs (Swagger) | http://localhost:8000/docs |
-   | Servidor MCP | http://localhost:8000/mcp/ |
-   | Frontend | http://localhost:3000 |
-   | PostgreSQL | localhost:5432 |
-
-   > **El navegador no habla con el backend.** Todo pasa por `/api/proxy` del servidor de
-   > Next, que sólo reenvía (no hay sesión). Por eso la URL del backend es
-   > `API_URL`, **de servidor y sin prefijo `NEXT_PUBLIC_`**: cualquier variable con ese
-   > prefijo se inlinea en el bundle del navegador.
-
-## Desarrollo
-
-### Flujo de trabajo
-
-1. **Leer** `CLAUDE.md` (reglas de trabajo y mapa de arquitectura)
-2. **Leer** `docs/ARQUITECTURA_REVISION_2026-08.md` antes de cualquier cambio estructural
-3. **Consultar** `docs/SPEC.md` para el alcance de producto
-4. **Consultar** `docs/decisiones/` antes de re-discutir algo ya decidido
-5. **Consultar** `docs/PIVOTE_PUBLICO_2026-10.md` — el plan en curso y su orden de pasos
-
-**Toda feature se desarrolla en un worktree**, nunca ramificando en el checkout
-principal:
-
-```bash
-make worktree NOMBRE=mi-feature   # rama + .env + dependencias, en un paso
-cd ../tordo-worktrees/mi-feature
-```
-
-Luego PR a `main`; CI en verde es la única puerta. No hay rama ni entorno de staging
-— es deliberado, ver `CLAUDE.md`.
-`docs/deploy_steps/fase_*.md` es el roadmap original de implementación; se conserva como
-referencia histórica, no como plan vigente. **No confundirlo con las fases F0–F6 de
-`docs/ARQUITECTURA_REVISION_2026-08.md`**, que son otra cosa y están cerradas.
-
-### Comandos
-
-`make help` lista todo. Los más usados:
-
-```bash
-make install       # dependencias Python desde uv.lock
-make hooks         # instalar hooks de pre-commit (una vez por clone)
-make lint          # ruff check + format --check (lo mismo que CI)
-make lint-fix      # autocorregir
-make test          # backend + ETL + frontend
-make ci            # lo mismo que CI, en local, antes de pushear
-make e2e           # extremo a extremo (pila completa + Playwright)
-make audit         # vulnerabilidades y antigüedad de dependencias
-make dev-up-d      # stack completo en segundo plano
-make db-shell      # psql
-```
-
-Las dependencias viven en un único `pyproject.toml` en la raíz, con grupos
-`api`, `etl` y `dev`, y un solo `uv.lock`. No hay `requirements.txt`.
-
-### Backend (fuera de Docker)
-
-```bash
-cd backend
-uv run --project .. uvicorn app.main:app --reload
-```
-
-### Frontend
-
-```bash
-make front-install
-make front-dev
-```
-
-### ETL
-
-```bash
-cd etl
-uv run --project .. python main.py
-```
-
-## Servicios (Docker Compose)
-
-| Servicio | Descripción |
-|----------|-------------|
-| **backend** | API REST FastAPI |
-| **frontend** | Aplicación Next.js |
-| **etl** | Pipeline de extracción de datos |
-| **db** | PostgreSQL 15 |
-
-> **No hay programador en local.** En Railway las corridas las disparan dos cron
-> (`python -m etl.cron frecuente` cada hora, `semanal` el domingo — ver `etl/cron.py`).
-> En local se lanzan a mano: `uv run python -m etl.cron frecuente --forzar`.
-
-> Las imágenes de backend y ETL se construyen con **contexto en la raíz del repo**
-> (ahí viven `pyproject.toml` y `uv.lock`), no dentro de `backend/` o `etl/`.
-
-## Migraciones de Base de Datos
-
-```bash
-make migrate-create MSG="descripción"   # crear migración
-make migrate                            # aplicar
-make migrate-status                     # revisión actual
-make downgrade                          # revertir la última
-```
-
-> **Nunca uses `alembic revision` directamente.** Rompe las cadenas de
-> `down_revision`, cosa que ya pasó en este repo. Siempre `make migrate-create`.
-
-## Testing
-
-```bash
-make test          # backend + ETL + frontend
-make ci            # lo mismo que CI, en local, antes de pushear
-make e2e           # extremo a extremo (pila completa + Playwright)
-make audit         # vulnerabilidades y antigüedad de dependencias
-make test-backend
-make test-etl
-make test-cov      # backend con cobertura
-```
-
-`test_readiness_check` necesita una base de datos real: se salta en local si el
-stack no está levantado, y es obligatorio en CI (que provisiona Postgres).
-
-## CI
-
-`.github/workflows/ci.yml` corre en cada PR a `main`: lint, validación de
-migraciones (una sola cabeza y el ciclo completo `upgrade → downgrade → upgrade`
-contra Postgres limpio), tests de backend y ETL, lint/tests/build del frontend,
-y construcción de ambas imágenes Docker.
-
-## Variables de Entorno
-
-Ver `.env.example` para la lista completa. Variables críticas:
-
-- `DATABASE_URL` — Conexión PostgreSQL
-- `PROXY_SECRETO` — secreto compartido entre el servidor de Next y la API (límite por IP)
-- `MERCADO_PUBLICO_TICKET` — API ChileCompra (ticket demo incluido en .env.example)
-- `APP_NAME` — Nombre de la aplicación (`TORDO`)
-
-> **Los `.env` nunca se commitean.** Si una credencial llega a un commit, rótala de inmediato:
-> quitarla del repo después no la invalida.
-
-## Documentación Relacionada
-
-| Documento | Para qué |
+| Carpeta | Qué es |
 |---|---|
-| `CLAUDE.md` | **Reglas de trabajo y mapa de arquitectura. Empieza aquí.** |
-| `AGENTS.md` | Versión corta de las reglas, para herramientas que leen `AGENTS.md` |
-| `docs/decisiones/` | ADRs — decisiones caras de revertir, una por archivo |
-| `.claude/skills/` | Procedimientos para lo que ya salió mal aquí: migraciones |
-| `docs/ARQUITECTURA_REVISION_2026-08.md` | Revisión de arquitectura y plan de remediación por fases |
-| `docs/SPEC.md` | Especificación técnica de producto |
-| `docs/tordo_plan_saas.md` | Plan de negocio |
-| `docs/COMANDOS_ETL.md` | Comandos del pipeline ETL |
-| `docs/mercado_publico_faq.md` | Dominio: cómo funciona Mercado Público |
-| `docs/ANALISIS_PROBLEMAS_DATOS.md`, `docs/VALIDACION_ESTRUCTURA_DATOS.md` | Calidad y estructura de los datos |
-| `docs/deploy_steps/` | Despliegue y tareas manuales pendientes |
-| `docs/_archive/` | Histórico. **No es documentación vigente.** |
+| `frontend/` | El sitio: Next.js 16 (App Router), TypeScript, Tailwind, TanStack Query |
+| `backend/` | La API de sólo lectura y el servidor MCP: FastAPI, SQLAlchemy, PostgreSQL |
+| `etl/` | La ingesta desde la API y las descargas masivas de Mercado Público, y los análisis (Polars) |
+| `infra/` | Docker Compose para desarrollo |
+| `docs/` | Decisiones, despliegue y especificaciones. `docs/README.md` dice qué documento está vigente |
 
-## Licencia
+`CLAUDE.md` describe el estado real del código y sus reglas, con el porqué de cada una. Es la
+mejor puerta de entrada.
 
-[Agregar licencia]
+## Cómo correrlo
+
+Necesitas Python 3.11–3.12 con [`uv`](https://docs.astral.sh/uv/), Node 20+, Docker y `make`.
+
+    cp .env.example .env
+    make setup        # dependencias y hooks
+    make dev-up-d     # Postgres y la API en Docker
+    make migrate      # el esquema
+    make front-dev    # el sitio en http://localhost:3000
+
+`make help` lista todos los comandos. `make ci` corre en local lo mismo que el CI;
+`make e2e`, la pila entera con Playwright.
+
+Para traer datos hace falta un ticket propio de la API de Mercado Público
+(<https://api.mercadopublico.cl>) en `MERCADO_PUBLICO_TICKET`; ver «Comandos» en `CLAUDE.md`.
+
+## Licencias
+
+- **Código: GNU Affero General Public License, versión 3 o (a tu elección) cualquier versión
+  posterior** (`AGPL-3.0-or-later`; el texto está en [`LICENSE`](LICENSE)). Puedes usarlo,
+  estudiarlo y modificarlo. Si sirves una versión modificada como sitio web, tienes que publicar
+  tus cambios bajo la misma licencia.
+- **Lo que TORDO calcula** —tablas de análisis, bandas de precio, puntajes, los CSV de
+  análisis y esas mismas cifras en la API— se publica bajo **CC BY 4.0**, conservando la
+  atribución a ChileCompra.
+- **El contenido del catálogo** (nombres, descripciones y campos de licitaciones tal como los
+  publica ChileCompra) no lo licencia TORDO: sigue bajo las condiciones de ChileCompra.
+
+Fuente de los datos: Dirección de Compras y Contratación Pública (ChileCompra / Mercado
+Público). ChileCompra no respalda este sitio. Detalle en <https://tordo.cl/abierto#licencias>.
+
+## Contribuir
+
+Lee [CONTRIBUTING.md](CONTRIBUTING.md): CI en verde (`make ci`) y commits firmados
+(`git commit -s`). Conducta: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Para un problema de
+seguridad, **no abras un issue**: [SECURITY.md](SECURITY.md).
+
+## Historia
+
+TORDO empezó como un SaaS de pago para empresas que licitan, y en octubre de 2026 pasó a ser un
+sitio público y gratuito (`docs/PIVOTE_PUBLICO_2026-10.md`). La historia del repositorio
+incluye esa etapa: planes de precio y código de cuentas que ya no existe. El último estado del
+SaaS está en la etiqueta `saas-v1`. Las referencias a PR anteriores a la publicación (`saas#N`
+en los mensajes, `#N` en los documentos) son de esa etapa y no existen en este repositorio.

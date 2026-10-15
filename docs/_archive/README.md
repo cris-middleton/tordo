@@ -29,7 +29,7 @@ El árbol vivo pasó de 66 archivos markdown a 22.
 | Reglas de trabajo y mapa de arquitectura | `CLAUDE.md` |
 | Especificación técnica de producto | `docs/SPEC.md` |
 | Revisión de arquitectura y plan de remediación | `docs/ARQUITECTURA_REVISION_2026-08.md` |
-| Plan de negocio | `docs/tordo_plan_saas.md` |
+| Plan de negocio | Retirado del repositorio en el rediseño 7 (no se publica) |
 | Comandos del ETL | `docs/COMANDOS_ETL.md` |
 | Dominio: Mercado Público | `docs/mercado_publico_faq.md` |
 | Calidad y estructura de los datos | `docs/ANALISIS_PROBLEMAS_DATOS.md`, `docs/VALIDACION_ESTRUCTURA_DATOS.md` |
