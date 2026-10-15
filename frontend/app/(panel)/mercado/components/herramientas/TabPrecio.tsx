@@ -123,7 +123,7 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
               >
                 <p className="text-sm text-text font-medium">{p.nombre}</p>
                 <p className="text-xs text-muted">
-                  Código {p.codigoProductoONU}
+                  Código <span className="font-mono">{p.codigoProductoONU}</span>
                   {p.n != null && <> · {p.n.toLocaleString('es-CL')} transacciones</>}
                 </p>
               </button>

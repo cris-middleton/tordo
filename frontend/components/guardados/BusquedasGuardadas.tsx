@@ -33,7 +33,7 @@ export default function BusquedasGuardadas() {
         <p className="font-medium text-text">Todavía no guardas ninguna búsqueda</p>
         <p className="mt-1 text-sm text-muted">
           En{' '}
-          <Link href="/licitaciones" className="font-medium text-primary hover:underline">
+          <Link href="/licitaciones" className="enlace">
             Licitaciones
           </Link>
           , filtra como quieras y pulsa «Guardar esta búsqueda».

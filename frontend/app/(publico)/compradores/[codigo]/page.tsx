@@ -69,7 +69,7 @@ export default async function PaginaComprador({ params }: Props) {
         titulo={c.nombre}
         subtitulo={
           <>
-            Código {c.codigo} en Mercado Público
+            Código <span className="font-mono">{c.codigo}</span> en Mercado Público
             {desde && hasta ? ` · datos del ${desde} al ${hasta}` : ''}
           </>
         }

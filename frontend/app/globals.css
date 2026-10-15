@@ -42,10 +42,12 @@
    defecto funcione aunque el JS de next-themes no haya corrido todavía.
    next-themes agrega class="dark" o class="light" en <html>.
 
-   Los 166 pares de contraste de este archivo están verificados contra WCAG AA,
-   incluyendo cada tinta sobre cada banda de la landing.
-   Si cambias un valor, revalida — el bug de `.alert-info` (texto invisible en
-   tema claro) nació exactamente de tocar uno de estos a ojo.
+   El contraste de estos tokens lo comprueba `__tests__/contraste-wcag.test.ts`
+   contra WCAG AA, en los dos temas: cada tinta sobre cada superficie (bandas de
+   la landing incluidas) y cada `on-*` sobre su relleno. Antes eran «166 pares
+   verificados» a mano, y el bug de `.alert-info` (texto invisible en tema
+   claro) nació de tocar uno de estos a ojo. Un token nuevo hace fallar el test
+   hasta que alguien decida sus pares.
    ══════════════════════════════════════════════ */
 
 :root {
@@ -61,7 +63,7 @@
   --color-text: 10 22 38;             /* #0A1626 */
   --color-muted: 84 99 122;           /* #54637A */
   --color-subtle: 90 107 131;         /* #5A6B83 */
-  --color-background: 246 248 251;    /* #F6F8FB */
+  --color-background: 247 244 236;    /* #F7F4EC — papel cálido; subtle 4.94:1, border-input 3.09:1 */
   --color-surface: 255 255 255;       /* #FFFFFF */
   --color-surface-elevated: 241 244 249; /* #F1F4F9 */
   /* Bandas de la landing. La página es una distribución: el tono se profundiza
@@ -69,7 +71,7 @@
      Es el mismo gesto que P10·P25·P50·P75·P90 en PriceBandChart, que es la
      primitiva visual del producto.
      `accent` y `subtle` están elegidos para pasar AA hasta band-1 inclusive;
-     si profundizas más una banda, revalida contra los dos. */
+     el test de contraste comprueba cada tinta contra cada banda. */
   --color-band-4: 255 255 255;        /* #FFFFFF — cola de la distribución */
   --color-band-3: 247 249 252;        /* #F7F9FC */
   --color-band-2: 239 243 249;        /* #EFF3F9 */
@@ -212,13 +214,13 @@
 
   body {
     @apply bg-background text-text antialiased;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     transition: background-color 0.25s ease, color 0.25s ease;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  /* Serif sólo en los titulares editoriales. `h3`–`h6` heredan Public Sans del
+     body: con la regla en los seis, todos los subtítulos salían en serif. */
+  h1, h2 {
     @apply font-display;
-    font-feature-settings: "ss01";
   }
 
   * {
@@ -240,23 +242,19 @@
      BUTTONS
   ────────────────────────────────────────────── */
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-onPrimary shadow-sm transition-all duration-200 hover:bg-primaryDark hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60;
-    font-family: var(--font-dm-sans);
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-onPrimary shadow-sm transition-all duration-200 hover:bg-primaryDark hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 font-sans;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-surface px-4 py-2.5 text-sm font-semibold text-text shadow-sm transition-all duration-200 hover:border-primary/30 hover:bg-primary/5 hover:text-primary active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60;
-    font-family: var(--font-dm-sans);
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-surface px-4 py-2.5 text-sm font-semibold text-text shadow-sm transition-all duration-200 hover:border-primary/30 hover:bg-primary/5 hover:text-primary active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 font-sans;
   }
 
   .btn-accent {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-onAccent shadow-sm transition-all duration-200 hover:bg-accentDark hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60;
-    font-family: var(--font-dm-sans);
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-onAccent shadow-sm transition-all duration-200 hover:bg-accentDark hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 font-sans;
   }
 
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-muted transition-all duration-200 hover:bg-primary/10 hover:text-primary active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60;
-    font-family: var(--font-dm-sans);
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-muted transition-all duration-200 hover:bg-primary/10 hover:text-primary active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 font-sans;
   }
 
   /* ──────────────────────────────────────────────
@@ -265,8 +263,7 @@
   /* `border-borderInput`, no `border-border`: WCAG 1.4.11 pide 3:1 para el
      límite de un control interactivo, y el borde decorativo daba 1.29:1. */
   .input-field {
-    @apply w-full rounded-lg border border-borderInput bg-surface px-4 py-2.5 text-sm text-text placeholder-subtle shadow-sm transition-all duration-200 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:cursor-not-allowed disabled:bg-background disabled:opacity-70;
-    font-family: var(--font-dm-sans);
+    @apply w-full rounded-lg border border-borderInput bg-surface px-4 py-2.5 text-sm text-text placeholder-subtle shadow-sm transition-all duration-200 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:cursor-not-allowed disabled:bg-background disabled:opacity-70 font-sans;
   }
 
   select.input-field {
@@ -279,8 +276,7 @@
   }
 
   .label {
-    @apply mb-1.5 block text-sm font-medium text-text;
-    font-family: var(--font-dm-sans);
+    @apply mb-1.5 block text-sm font-medium text-text font-sans;
   }
 
   /* ──────────────────────────────────────────────
@@ -391,29 +387,33 @@
   /* ──────────────────────────────────────────────
      SECTION HEADER
   ────────────────────────────────────────────── */
+  /* Sin familia propia: la pone el elemento. En un h1/h2 sale Newsreader por la
+     regla base; en un h3 (BuyerProfilePanel, CompetitorsList…), Public Sans. */
   .section-title {
-    @apply font-display text-lg font-semibold text-text;
+    @apply text-lg font-semibold text-text;
   }
 
   .page-title {
-    @apply font-display text-2xl font-bold text-text sm:text-3xl;
+    @apply text-2xl font-bold text-text sm:text-3xl;
   }
 
   /* ──────────────────────────────────────────────
      CIFRAS QUE SE COMPARAN EN COLUMNA
      montos en CLP, percentiles, contadores, montos de OC
 
-     No es decorativo. DM Sans no trae cifras tabulares: medido a 24px, seis
-     "1" ocupan 42px y seis "0" ocupan 96px, y `font-variant-numeric` no le
-     hace nada porque la fuente no tiene el feature. En una tabla de
-     adjudicaciones eso hace que la columna de montos baile y deja de poder
-     leerse de un vistazo — que es justo lo que el producto vende.
+     No es decorativo: con cifras proporcionales una columna de montos baila
+     (un "1" es más estrecho que un "0") y deja de leerse de un vistazo — que
+     es justo lo que el producto vende.
 
-     Archivo sí las trae (84px vs 84px con `tnum`), así que las cifras que se
-     comparan van en la familia display, no en la de cuerpo.
+     Public Sans trae `tnum`, así que las cifras van en la MISMA familia que el
+     cuerpo. Hasta el rediseño de octubre de 2026 iban en la familia display
+     porque DM Sans no tenía cifras tabulares; ya no hace falta.
+
+     Nunca `cifra` junto a `font-display`: la utilidad gana a la clase y el
+     número saldría en Newsreader. `font-display` es «titular editorial».
   ────────────────────────────────────────────── */
   .cifra {
-    font-family: var(--font-display), system-ui, sans-serif;
+    font-family: var(--font-sans), system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum";
   }
@@ -422,9 +422,20 @@
      alineados: van con las mismas cifras tabulares que `.cifra`. Es una regla
      global a propósito — aplica a todo gráfico, presente y futuro. */
   .recharts-cartesian-axis-tick text {
-    font-family: var(--font-display), system-ui, sans-serif;
+    font-family: var(--font-sans), system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum";
+  }
+
+  /* ──────────────────────────────────────────────
+     ENLACES DEL CONTENIDO
+     Subrayados: es la señal más fuerte de «hipertexto, no aplicación». Sólo
+     los que van dentro de un texto corrido; la navegación, las tarjetas y los
+     botones no. `__tests__/enlaces-contenido.test.ts` lo exige.
+  ────────────────────────────────────────────── */
+  /* El foco lo pone la regla global `:focus-visible` de la capa base: no se redefine aquí. */
+  .enlace {
+    @apply font-medium text-primary underline decoration-1 underline-offset-2 transition-colors hover:text-accent;
   }
 
   /* ──────────────────────────────────────────────

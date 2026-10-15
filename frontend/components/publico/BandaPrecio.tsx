@@ -37,7 +37,7 @@ export function BandaPrecio({ banda }: { banda: BandaUnidad }) {
       </header>
 
       <p className="mt-4 text-[11px] uppercase tracking-wider text-subtle">Precio mediano</p>
-      <p className="cifra font-display text-3xl font-bold leading-none text-text">{plata(p50)}</p>
+      <p className="cifra text-3xl font-bold leading-none text-text">{plata(p50)}</p>
 
       {completa && (
         <div className="mt-6" role="img" aria-label={`Banda de precios: la mitad de las compras entre ${plata(p25)} y ${plata(p75)}`}>

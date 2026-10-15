@@ -104,7 +104,7 @@ export default function TenderDetailPage() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="space-y-2">
                 <p className="text-sm text-muted">Código externo</p>
-                <h2 className="text-2xl font-semibold text-text">{tenderData.codigo_externo}</h2>
+                <h2 className="font-mono text-2xl font-medium text-text">{tenderData.codigo_externo}</h2>
               </div>
 
               <div className="flex flex-col gap-2 sm:items-end sm:shrink-0">
@@ -223,7 +223,9 @@ export default function TenderDetailPage() {
                       <p className="text-xs text-muted">Organismo público</p>
                       <p className="text-sm text-text">{tenderData.nombre_organismo}</p>
                       {tenderData.codigo_organismo && (
-                        <p className="text-xs text-muted">Código: {tenderData.codigo_organismo}</p>
+                        <p className="text-xs text-muted">
+                          Código: <span className="font-mono">{tenderData.codigo_organismo}</span>
+                        </p>
                       )}
                     </div>
                   </div>

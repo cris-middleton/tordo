@@ -81,7 +81,7 @@ function BIDesactivado() {
         <p className="mx-auto mt-2 max-w-md text-sm text-muted">
           Estamos terminando de preparar los datos de mercado por acá. Si llevas rato viéndolo
           así, escríbenos a{' '}
-          <a href="mailto:hola@tordo.cl" className="font-medium text-primary hover:underline">
+          <a href="mailto:hola@tordo.cl" className="enlace">
             hola@tordo.cl
           </a>{' '}
           y lo revisamos.
@@ -103,12 +103,7 @@ function Seccion({
   return (
     <section className="space-y-3">
       <div>
-        <h2
-          className="text-lg font-bold text-text"
-          style={{ fontFamily: 'var(--font-display, system-ui)' }}
-        >
-          {titulo}
-        </h2>
+        <h2 className="text-lg font-bold text-text">{titulo}</h2>
         {descripcion && <p className="text-sm text-muted">{descripcion}</p>}
       </div>
       {children}

@@ -12,9 +12,7 @@ export const metadata: Metadata = {
 function Seccion({ id, titulo, children }: { id?: string; titulo: string; children: React.ReactNode }) {
   return (
     <section id={id} className="space-y-3 scroll-mt-20">
-      <h2 className="text-lg font-bold text-text" style={{ fontFamily: 'var(--font-display, system-ui)' }}>
-        {titulo}
-      </h2>
+      <h2 className="text-lg font-bold text-text">{titulo}</h2>
       {children}
     </section>
   );
@@ -62,7 +60,7 @@ export default function GuardadosPage() {
           <ol className="list-decimal space-y-1.5 pl-5">
             <li>
               Arma la búsqueda en{' '}
-              <Link href="/licitaciones" className="font-medium text-primary hover:underline">
+              <Link href="/licitaciones" className="enlace">
                 Licitaciones
               </Link>{' '}
               y pulsa «Guardar esta búsqueda».
@@ -76,7 +74,7 @@ export default function GuardadosPage() {
           <p className="text-muted">
             El feed trae las 50 licitaciones más recientes de la búsqueda y se renueva cada media
             hora. «Lo mejor de hoy en Compra Ágil» tiene su propio feed:{' '}
-            <a href="/rss/compra-agil" className="font-medium text-primary hover:underline">
+            <a href="/rss/compra-agil" className="enlace">
               /rss/compra-agil
             </a>
             .

@@ -380,7 +380,9 @@ function CatalogoContenido() {
                 {normalizeText(selectedTender.nombre)}
               </p>
               <p className="text-xs text-muted mt-0.5 truncate">
-                {selectedTender.nombre_organismo ?? selectedTender.codigo_externo}
+                {selectedTender.nombre_organismo ?? (
+                  <span className="font-mono">{selectedTender.codigo_externo}</span>
+                )}
               </p>
             </div>
             <button

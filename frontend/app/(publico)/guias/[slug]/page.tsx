@@ -62,7 +62,7 @@ export default async function PaginaGuia({ params }: Props) {
       <Markdown arbol={guia.cuerpo} />
 
       <section aria-labelledby="fuentes" className="mt-12 border-t border-border pt-6">
-        <h2 id="fuentes" className="font-display text-sm font-bold uppercase tracking-wider text-subtle">
+        <h2 id="fuentes" className="font-sans text-sm font-bold uppercase tracking-wider text-subtle">
           Fuentes
         </h2>
         <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-muted">

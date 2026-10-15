@@ -147,6 +147,8 @@ describe('enlaces entre fichas', () => {
     simularBackend({ '/compradores/7297': COMPRADOR });
     render(await PaginaComprador(params({ codigo: '7297' })));
     expect(screen.getByRole('heading', { level: 1, name: 'Hospital de Prueba' })).toBeInTheDocument();
+    // El código del comprador es un identificador: va en mono (§5.1 del rediseño).
+    expect(screen.getByText('7297')).toHaveClass('font-mono');
     expect(screen.getByRole('link', { name: 'Equipos médicos' })).toHaveAttribute('href', '/rubros/equipos-medicos');
     expect(screen.getByText('Cancela órdenes con frecuencia')).toBeInTheDocument();
     expect(
@@ -168,9 +170,11 @@ describe('enlaces entre fichas', () => {
     simularBackend({ '/productos/guante-latex-nitrilo': PRODUCTO });
     render(await PaginaProducto(params({ slug: 'guante-latex-nitrilo' })));
     expect(screen.getByRole('heading', { level: 1, name: 'Guante latex nitrilo' })).toBeInTheDocument();
-    expect(
-      screen.getByText('Categoría del catálogo: Guante de nitrilo (código ONU 42132203)'),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/^Categoría del catálogo:/)).toHaveTextContent(
+      'Categoría del catálogo: Guante de nitrilo (código ONU 42132203)',
+    );
+    // El código es un identificador: va en mono (§5.1 del rediseño).
+    expect(screen.getByText('42132203')).toHaveClass('font-mono');
   });
 
   it('el producto pinta una banda por unidad y enlaza a quien lo compra', async () => {

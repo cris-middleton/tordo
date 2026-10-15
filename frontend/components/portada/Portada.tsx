@@ -70,7 +70,7 @@ export function Portada({ destacadas }: { destacadas: CompraAgilDestacadasRespon
                     href={a.href}
                     className="group flex h-full flex-col rounded-xl border border-border bg-surface p-5 transition-shadow hover:shadow-md"
                   >
-                    <span className="flex items-center justify-between font-display text-base font-bold text-text group-hover:text-primary">
+                    <span className="flex items-center justify-between text-base font-bold text-text group-hover:text-primary">
                       {a.titulo}
                       <ArrowRight className="h-4 w-4 text-subtle group-hover:text-primary" aria-hidden="true" />
                     </span>
@@ -140,7 +140,7 @@ export function Portada({ destacadas }: { destacadas: CompraAgilDestacadasRespon
                   <div className="border-t border-border px-5 py-4 text-sm leading-relaxed text-muted">
                     <p>{p.respuesta}</p>
                     {p.enlace && (
-                      <Link href={p.enlace.href} className="mt-2 inline-block font-semibold text-primary hover:underline">
+                      <Link href={p.enlace.href} className="enlace mt-2 inline-block">
                         {p.enlace.texto}
                       </Link>
                     )}

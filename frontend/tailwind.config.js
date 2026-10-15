@@ -51,8 +51,11 @@ module.exports = {
         onInfo: 'rgb(var(--color-on-info) / <alpha-value>)',
       },
       fontFamily: {
-        sans: ['var(--font-dm-sans)', 'system-ui', 'sans-serif'],
-        display: ['var(--font-display)', 'system-ui', 'sans-serif'],
+        // `font-display` = titular editorial (h1, h2). Nunca un número: las
+        // cifras van con `.cifra`, sobre la familia sans.
+        sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
+        display: ['var(--font-display)', 'Georgia', 'serif'],
+        mono: ['var(--font-mono)', 'ui-monospace', 'monospace'],
         brand: ['var(--font-varien)', 'system-ui', 'sans-serif'],
       },
       boxShadow: {

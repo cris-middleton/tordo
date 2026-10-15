@@ -53,7 +53,7 @@ export function Dato({ etiqueta, valor }: { etiqueta: string; valor: string }) {
   return (
     <div>
       <p className="text-[11px] uppercase tracking-wider text-subtle">{etiqueta}</p>
-      <p className="cifra mt-1 font-display text-xl font-bold leading-none text-text">{valor}</p>
+      <p className="cifra mt-1 text-xl font-bold leading-none text-text">{valor}</p>
     </div>
   );
 }

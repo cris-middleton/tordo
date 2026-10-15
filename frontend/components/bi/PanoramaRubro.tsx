@@ -33,10 +33,7 @@ import { decimal } from '@/lib/formato';
 
 function Cifra({ children }: { children: React.ReactNode }) {
   return (
-    <p
-      className="cifra text-2xl font-bold leading-none text-text"
-      style={{ fontFamily: 'var(--font-display, system-ui)' }}
-    >
+    <p className="cifra text-2xl font-bold leading-none text-text">
       {children}
     </p>
   );
@@ -187,7 +184,6 @@ export function PanoramaRubro({
               <div className="mb-3 flex items-baseline gap-2">
                 <span
                   className={`text-lg font-bold ${TONO_MERCADO[competencia.tipo_mercado ?? ''] ?? 'text-text'}`}
-                  style={{ fontFamily: 'var(--font-display, system-ui)' }}
                 >
                   Mercado {competencia.tipo_mercado ?? 'sin clasificar'}
                 </span>
@@ -223,7 +219,6 @@ export function PanoramaRubro({
               <div className="mb-3">
                 <span
                   className="text-lg font-bold text-text"
-                  style={{ fontFamily: 'var(--font-display, system-ui)' }}
                 >
                   {estacionalidad.tiene_temporada
                     ? `Temporada alta en ${estacionalidad.mes_pico}`

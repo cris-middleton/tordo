@@ -1,26 +1,46 @@
 import React from 'react';
 import type { Metadata } from 'next';
-import { Archivo, DM_Sans } from 'next/font/google';
+import { IBM_Plex_Mono, Newsreader, Public_Sans } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
 import { AnaliticaWeb } from '@/components/AnaliticaWeb';
 
-// Archivo en vez de Outfit: es una grotesca institucional, estructuralmente
-// distinta de DM Sans (geométrica-humanista), así que por primera vez hay
-// contraste real entre display y cuerpo. Y —lo que decidió la elección—
-// trae cifras tabulares, que DM Sans no tiene. Ver `.cifra` en globals.css.
-const display = Archivo({
+// Tres familias, cada una con un solo trabajo (docs/REDISENO_PUBLICO_2026-10.md §5.1):
+//
+// - Newsreader, sólo `h1` y `h2`: serif editorial, se lee como periodismo de
+//   datos y no como producto. Variable con `wght` y `opsz` enteros: el eje
+//   óptico ajusta el dibujo al tamaño del titular.
+// - Public Sans, todo lo demás —cuerpo, interfaz, `h3`–`h6` y TODAS las cifras—.
+//   Trae `tnum`, así que `.cifra` ya no necesita otra familia (DM Sans no lo traía).
+// - IBM Plex Mono, sólo identificadores: códigos de licitación y de Compra Ágil,
+//   RUT, códigos ONU, `curl`. Nunca un monto: un precio en mono parece un log.
+//
+// `next/font` las sirve desde este dominio: ninguna petición nueva a un tercero.
+const display = Newsreader({
   subsets: ['latin'],
   variable: '--font-display',
   display: 'swap',
-  weight: ['400', '500', '600', '700'],
+  axes: ['opsz'],
 });
 
-const dmSans = DM_Sans({
+const sans = Public_Sans({
   subsets: ['latin'],
-  variable: '--font-dm-sans',
+  variable: '--font-sans',
   display: 'swap',
-  weight: ['400', '500', '600', '700'],
+});
+
+const mono = IBM_Plex_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
+  display: 'swap',
+  weight: ['400', '500'],
+  // Sin precarga: sólo se usa en identificadores, que en casi todas las rutas quedan bajo el
+  // pliegue (en la ficha /licitaciones/[codigo] el código está arriba: ahí se ve un instante en
+  // la fuente de respaldo, `display: swap`), y precargarla competía con Newsreader y Public Sans
+  // por el ancho de banda del LCP. Medido (5 cargas en
+  // frío, 4G lenta, CPU ×4; mediana en /, /guias/…, /apoyar): antes del rediseño 720/720/712 ms,
+  // con precarga 740/740/728 ms (+2,8 %), sin precarga 720/724/716 ms. Se pide al primer uso.
+  preload: false,
 });
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
@@ -51,7 +71,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es" className={`${display.variable} ${dmSans.variable}`} suppressHydrationWarning>
+    <html lang="es" className={`${display.variable} ${sans.variable} ${mono.variable}`} suppressHydrationWarning>
       <body className="font-sans bg-background text-text">
         <Providers>{children}</Providers>
         <AnaliticaWeb />

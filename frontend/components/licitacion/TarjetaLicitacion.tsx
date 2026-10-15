@@ -95,7 +95,11 @@ export default function TarjetaLicitacion({
 
         {/* Organismo */}
         <p className="text-[11px] text-muted truncate mb-3">
-          {tender.nombre_organismo ? normalizeText(tender.nombre_organismo) : tender.codigo_externo}
+          {tender.nombre_organismo ? (
+            normalizeText(tender.nombre_organismo)
+          ) : (
+            <span className="font-mono">{tender.codigo_externo}</span>
+          )}
         </p>
 
         {/* Footer: monto + urgency + actions */}

@@ -31,7 +31,7 @@ export function CompraAgilDelComprador({ codigo }: { codigo: string }) {
     return (
       <p className="text-sm text-subtle">
         Este comprador no tiene Compras Ágiles abiertas ahora mismo.{' '}
-        <Link href="/compra-agil" className="font-medium text-primary hover:underline">
+        <Link href="/compra-agil" className="enlace">
           Ver todas las de hoy
         </Link>
       </p>

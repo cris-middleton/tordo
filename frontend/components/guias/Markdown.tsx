@@ -13,7 +13,7 @@ import type { Bloque, EnLinea } from '@/lib/markdown';
 
 /** Un enlace del contenido: interno con `Link`, correo y `https` como `<a>`; lo demás, texto. */
 function Enlace({ href, children }: { href: string; children: ReactNode }) {
-  const clase = 'font-medium text-primary underline underline-offset-2 hover:text-accent';
+  const clase = 'enlace';
   if (href.startsWith('/')) {
     return (
       <Link href={href} className={clase}>
@@ -78,8 +78,8 @@ function Linea({ nodos }: { nodos: EnLinea[] }) {
 
 const TITULOS = {
   2: 'mt-10 font-display text-xl font-bold text-text',
-  3: 'mt-8 font-display text-lg font-bold text-text',
-  4: 'mt-6 font-display text-base font-bold text-text',
+  3: 'mt-8 text-lg font-bold text-text',
+  4: 'mt-6 text-base font-bold text-text',
 } as const;
 
 function UnBloque({ b }: { b: Bloque }) {

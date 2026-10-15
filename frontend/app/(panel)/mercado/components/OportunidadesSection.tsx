@@ -26,7 +26,7 @@ function ScoreBar({ value, max = 10 }: { value: number; max?: number }) {
       <div className="flex-1 h-1.5 rounded-full bg-border overflow-hidden">
         <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className="text-xs font-mono text-muted w-6 text-right">
+      <span className="cifra text-xs text-muted w-6 text-right">
         {decimal(value, 1)}
       </span>
     </div>

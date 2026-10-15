@@ -63,7 +63,12 @@ export default async function PaginaProducto({ params }: Props) {
         {(categoria || p.codigo_onu) && (
           <p className="mt-1 text-sm text-subtle">
             Categoría del catálogo: {categoria ?? 'sin nombre'}
-            {p.codigo_onu ? ` (código ONU ${p.codigo_onu})` : ''}
+            {p.codigo_onu && (
+              <>
+                {' '}
+                (código ONU <span className="font-mono">{p.codigo_onu}</span>)
+              </>
+            )}
           </p>
         )}
         {p.descripcion && <p className="mt-3 max-w-3xl text-sm text-muted">{p.descripcion}</p>}

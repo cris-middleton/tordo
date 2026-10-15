@@ -48,7 +48,7 @@ export default function PaginaApoyar() {
             Un aporte es una <strong className="text-text">donación</strong>: no compra ningún
             servicio, no da acceso a nada que no tenga cualquier visitante y no obliga a mantener el
             sitio ni ninguna función por un plazo determinado. Está en los{' '}
-            <Link href="/terminos" className="text-primary underline">
+            <Link href="/terminos" className="enlace">
               términos de uso
             </Link>
             .
@@ -110,7 +110,7 @@ export default function PaginaApoyar() {
           De la plataforma que elijas recibimos normalmente tu nombre, el monto y la fecha. Lo
           guardamos sólo para la contabilidad y no lo publicamos sin tu permiso. El detalle está en
           la{' '}
-          <Link href="/privacidad" className="text-primary underline">
+          <Link href="/privacidad" className="enlace">
             política de privacidad
           </Link>
           .

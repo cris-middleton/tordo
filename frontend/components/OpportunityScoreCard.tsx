@@ -198,7 +198,7 @@ function ScoreDial({ score }: { score: number | null }) {
 
   return (
     <div className="flex flex-col items-center gap-0.5 py-2">
-      <span className={`font-display text-5xl font-bold tabular-nums ${color}`}>
+      <span className={`cifra text-5xl font-bold ${color}`}>
         {display}
       </span>
       <span className="text-xs text-muted">/ 10</span>

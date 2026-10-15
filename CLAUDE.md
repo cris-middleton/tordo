@@ -313,9 +313,16 @@ Cloud Scheduler, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
   navy. Usa `text-onAccent`, `text-onPrimary`, `text-onGold`… `__tests__/on-color.test.ts`
   falla si alguien lo olvida, y hace falta: **el error es invisible en tema claro**, que es el
   que se revisa por defecto, porque ahí `on-accent` justamente ES blanco.
-- **Si tocas un token de color, revalida el contraste.** Los 166 pares del sistema están
-  verificados contra WCAG AA — cada tinta contra cada superficie, en ambos temas. El bug de
-  `.alert-info` (texto invisible en tema claro) nació de cambiar un token a ojo.
+- **Si tocas un token de color, el test de contraste lo comprueba.**
+  `__tests__/contraste-wcag.test.ts` lee `:root` y `.dark` de `app/globals.css` y comprueba
+  205 pares contra WCAG AA (4,5:1 texto, 3:1 bordes de control): cada tinta sobre cada
+  superficie, cada `on-*` sobre su relleno, cada tinta sobre su tenue. **Un token nuevo lo hace
+  fallar** hasta que alguien decida sus pares (o lo declare decorativo en `SIN_PAR`). Antes eran
+  «166 pares verificados» a mano, y el bug de `.alert-info` (texto invisible en tema claro) nació
+  de cambiar un token a ojo.
+- **Los enlaces dentro de un texto corrido llevan `className="enlace"`** (subrayado): es la
+  señal de «hipertexto, no aplicación». La navegación, las tarjetas y los botones no se
+  subrayan. `__tests__/enlaces-contenido.test.ts`.
 - Las superficies que deben verse oscuras siempre —el hero, por ejemplo— se marcan con la clase `dark` sobre `bg-brand-navy`, y los tokens se
   invierten solos dentro. No repintes a mano.
 - **El estado de servidor va en TanStack Query, sin excepciones.** Las consultas y sus claves
@@ -668,9 +675,15 @@ negro con tornasol azul-verdoso:
 - La landing añade cuatro bandas (`band-1..4`) que dibujan una distribución: el tono se
   profundiza hacia el centro y el centro es el bloque de datos de ChileCompra. Es el mismo
   gesto que P10·P25·P50·P75·P90 en `PriceBandChart`.
-- Tipografía: **Archivo** display, **DM Sans** cuerpo, **Varien** sólo para la marca.
-  `.cifra` para cifras que se comparan en columna — DM Sans no trae figuras tabulares y
-  Archivo sí.
+- Tipografía (rediseño de octubre de 2026, `app/layout.tsx`, `next/font/google`, autoalojada):
+  **Newsreader** sólo en `h1` y `h2` (`font-display` = «titular editorial»), **Public Sans** en
+  todo lo demás —`h3`–`h6` y **todas las cifras**—, **IBM Plex Mono** sólo para identificadores
+  (códigos de licitación, de comprador, ONU; nunca un monto, y nunca en negrita: está cargada en
+  400 y 500) y **Varien** sólo para la marca. `.cifra` va sobre Public Sans con `tnum`. **Nunca
+  `cifra` junto a `font-display`, ni un `style={{ fontFamily }}`**: el número sale en serif.
+  `__tests__/tipografia.test.ts` y `e2e/tipografia.spec.ts`.
+- Fondo de página en tema claro: papel cálido (`--color-background`, `#F7F4EC`); las tarjetas
+  siguen en `--color-surface`.
 - Tema claro por defecto, con selector claro/oscuro/sistema al pie de la barra lateral
   (`components/SelectorTema.tsx`).
 
