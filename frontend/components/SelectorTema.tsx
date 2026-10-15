@@ -16,7 +16,9 @@ const suscribirNada = () => () => {};
  * Claro / oscuro / sistema.
  *
  * Vivía en Configuración, que se fue con las cuentas en el pivote a sitio
- * público; ahora va al pie de la barra lateral, a la vista en cada pantalla.
+ * público, y después al pie de la barra lateral. Desde la cáscara única va en
+ * el pie del sitio (`components/cascara/PieSitio.tsx`), en cada página: una isla
+ * cliente dentro de un pie de servidor.
  *
  * `montado` existe porque next-themes no sabe el tema hasta hidratar.
  * `useSyncExternalStore` lo expresa sin efecto: en el servidor devuelve false,
@@ -36,7 +38,6 @@ export default function SelectorTema() {
             type="button"
             role="radio"
             aria-checked={activo}
-            title={etiqueta}
             onClick={() => setTheme(valor)}
             className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium transition-colors ${
               activo ? 'bg-surface text-primary shadow-sm' : 'text-muted hover:text-text'

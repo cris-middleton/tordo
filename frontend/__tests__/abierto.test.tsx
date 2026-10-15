@@ -7,7 +7,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -21,17 +21,14 @@ import {
   idServidorMcp,
   instalacionesMcp,
 } from '@/lib/abierto';
-import Layout from '@/components/Layout';
+import { Cabecera } from '@/components/cascara/Cabecera';
 import { PieAtribucion } from '@/components/legal/PieAtribucion';
-import { CabeceraPublica } from '@/components/publico/CabeceraPublica';
 import PaginaAbierto, { metadata } from '@/app/(publico)/abierto/page';
 import PaginaPrivacidad from '@/app/privacidad/page';
 import PaginaTerminos from '@/app/terminos/page';
 import { PAGINAS_FIJAS } from '@/lib/publico';
 
-const push = vi.fn();
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push }),
   usePathname: () => '/licitaciones',
 }));
 
@@ -237,21 +234,15 @@ describe('la página /abierto', () => {
 });
 
 describe('se llega a /abierto', () => {
-  it('desde la cabecera pública', () => {
-    render(<CabeceraPublica />);
-    const nav = screen.getByRole('navigation', { name: 'Secciones' });
-    expect(within(nav).getByRole('link', { name: 'API y MCP' })).toHaveAttribute('href', '/abierto');
-  });
-
-  it('desde la barra del panel', () => {
-    push.mockClear();
-    render(
-      <Layout>
-        <p>contenido</p>
-      </Layout>,
-    );
-    fireEvent.click(screen.getByRole('button', { name: /^api y mcp$/i }));
-    expect(push).toHaveBeenCalledWith('/abierto');
+  it('desde la cabecera única, en escritorio y en el menú móvil', () => {
+    render(<Cabecera />);
+    for (const nombre of ['Secciones', 'Menú de secciones']) {
+      const nav = screen.getByRole('navigation', { name: nombre, hidden: true });
+      expect(within(nav).getByRole('link', { name: 'API y MCP', hidden: true })).toHaveAttribute(
+        'href',
+        '/abierto',
+      );
+    }
   });
 });
 

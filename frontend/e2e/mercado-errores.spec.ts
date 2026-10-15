@@ -25,5 +25,5 @@ test('un 502 en /bi/rubros se explica y se recupera al reintentar', async ({ pag
   fallar = false;
   await page.getByRole('button', { name: /reintentar/i }).click();
   await expect(page.getByText(/no pudimos cargar los rubros/i)).toHaveCount(0, { timeout: 15_000 });
-  await expect(page.getByRole('heading', { name: /inteligencia de mercado/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^mercados$/i })).toBeVisible();
 });

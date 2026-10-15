@@ -33,7 +33,7 @@ import { SectorOverview } from './components/SectorOverview';
 import { TendenciasSection } from './components/TendenciasSection';
 
 /**
- * Inteligencia de mercado.
+ * Mercados: la analítica por rubro.
  *
  * **El estado de servidor vive en TanStack Query, no en `useState`.** Esta
  * pantalla tenía seis estados de carga a mano, un efecto de inicialización de
@@ -229,7 +229,7 @@ function BIContenido() {
       <div className="space-y-4 p-4">
         <h1 className="page-title flex items-center gap-2">
           <BarChart3 className="h-6 w-6 text-primary" aria-hidden="true" />
-          Inteligencia de mercado
+          Mercados
         </h1>
         <BIDesactivado />
       </div>
@@ -243,7 +243,7 @@ function BIContenido() {
       <div className="space-y-4 p-4">
         <h1 className="page-title flex items-center gap-2">
           <BarChart3 className="h-6 w-6 text-primary" aria-hidden="true" />
-          Inteligencia de mercado
+          Mercados
         </h1>
         <ErrorDeCarga
           titulo="No pudimos cargar los rubros"
@@ -270,7 +270,7 @@ function BIContenido() {
           <div>
             <h1 className="page-title flex items-center gap-2">
               <BarChart3 className="h-6 w-6 text-primary" aria-hidden="true" />
-              Inteligencia de mercado
+              Mercados
             </h1>
             {rubro && <p className="mt-0.5 text-sm text-muted">{rubro}</p>}
           </div>

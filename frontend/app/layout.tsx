@@ -4,6 +4,7 @@ import { IBM_Plex_Mono, Newsreader, Public_Sans } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
 import { AnaliticaWeb } from '@/components/AnaliticaWeb';
+import { Cascara } from '@/components/cascara/Cascara';
 
 // Tres familias, cada una con un solo trabajo (docs/REDISENO_PUBLICO_2026-10.md §5.1):
 //
@@ -72,8 +73,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" className={`${display.variable} ${sans.variable} ${mono.variable}`} suppressHydrationWarning>
-      <body className="font-sans bg-background text-text">
-        <Providers>{children}</Providers>
+      <body className="flex min-h-screen flex-col bg-background font-sans text-text">
+        <Providers>
+          <Cascara>{children}</Cascara>
+        </Providers>
         <AnaliticaWeb />
       </body>
     </html>

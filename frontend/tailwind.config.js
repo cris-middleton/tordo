@@ -62,13 +62,10 @@ module.exports = {
         card: 'var(--shadow-card)',
         'card-md': 'var(--shadow-card-md)',
         'card-lg': 'var(--shadow-card-lg)',
-        sidebar: 'var(--shadow-sidebar)',
-        'nav-active': 'inset 3px 0 0 rgb(var(--color-primary))',
       },
       animation: {
         'fade-in': 'fadeIn 0.4s ease-out both',
         'slide-up': 'slideUp 0.4s ease-out both',
-        'slide-in-left': 'slideInLeft 0.3s ease-out both',
         'scale-in': 'scaleIn 0.25s ease-out both',
       },
       keyframes: {
@@ -79,10 +76,6 @@ module.exports = {
         slideUp: {
           from: { opacity: '0', transform: 'translateY(12px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
-        },
-        slideInLeft: {
-          from: { opacity: '0', transform: 'translateX(-12px)' },
-          to: { opacity: '1', transform: 'translateX(0)' },
         },
         scaleIn: {
           from: { opacity: '0', transform: 'scale(0.96)' },

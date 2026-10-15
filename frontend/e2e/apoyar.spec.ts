@@ -22,8 +22,8 @@ test('la ruta de la transferencia no se cachea ni se indexa', async ({ request }
   expect(r.headers()['x-robots-tag']).toMatch(/noindex/);
 });
 
-test('se llega desde el panel', async ({ page }) => {
+test('se llega desde la cabecera, también en el panel', async ({ page }) => {
   await page.goto('/licitaciones');
-  await page.getByRole('button', { name: /^apoyar$/i }).click();
+  await page.getByRole('banner').getByRole('link', { name: /^apoyar$/i }).click();
   await expect(page).toHaveURL(/\/apoyar$/);
 });

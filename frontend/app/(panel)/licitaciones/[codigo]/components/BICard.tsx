@@ -78,7 +78,7 @@ export function BICard({ codigoExterno }: BICardProps) {
       >
         <div className="flex items-center gap-2.5">
           <BarChart3 className="h-4 w-4 text-primary shrink-0" />
-          <span className="font-semibold text-sm text-text">Inteligencia de mercado</span>
+          <span className="font-semibold text-sm text-text">Mercado</span>
           {hasAlert && (
             <span className="flex items-center gap-1 text-xs text-gold font-medium">
               <AlertTriangle className="h-3 w-3" /> Plazo corto

@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { mapaDelSitio } from '../lib/navegacion';
+
 /**
  * Ningún enlace interno lleva a una página rota.
  *
@@ -70,4 +72,13 @@ test('ningún enlace interno lleva a una página rota', async ({ request, baseUR
 
   expect(vistas.size, 'el recorrido no encontró casi nada: ¿se cayó el sitio?').toBeGreaterThan(20);
   expect(rotas, `enlaces rotos:\n${rotas.join('\n')}`).toEqual([]);
+
+  // La navegación ahora está en el HTML del servidor de TODA página (la barra
+  // lateral navegaba con botones y nunca se recorrió): cada sección tiene que
+  // haberse alcanzado desde la cabecera o el pie.
+  const sinVisitar = mapaDelSitio(null)
+    .filter((e) => !e.externo)
+    .map((e) => e.href)
+    .filter((ruta) => !vistas.has(ruta));
+  expect(sinVisitar, 'secciones que ni la cabecera ni el pie enlazan').toEqual([]);
 });

@@ -1,13 +1,13 @@
 import type { Metadata } from 'next';
 
-/* Metadatos de la inteligencia de mercado: la página es cliente y Next ignora ahí `metadata`. */
+/* Metadatos de Mercados: la página es cliente y Next ignora ahí `metadata`. */
 export const metadata: Metadata = {
-  title: 'Inteligencia de mercado por rubro',
+  title: 'Mercados por rubro',
   description:
     'Cuánto se compra en cada rubro de Mercado Público, quién lo compra, qué tan concentrado está y en qué meses. Con datos de ChileCompra, sin cuenta.',
   alternates: { canonical: '/mercado' },
 };
 
-export default function LayoutInteligencia({ children }: { children: React.ReactNode }) {
+export default function LayoutMercados({ children }: { children: React.ReactNode }) {
   return children;
 }

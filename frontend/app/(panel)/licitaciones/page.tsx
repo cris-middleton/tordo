@@ -239,11 +239,11 @@ function CatalogoContenido() {
       </div>
 
       {/* Sort bar */}
-      <div className="flex items-center justify-between rounded-lg border border-border bg-surface px-3 py-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 rounded-lg border border-border bg-surface px-3 py-1.5">
         <p className="text-xs text-muted">
           <span className="font-semibold text-text">{total.toLocaleString()}</span> resultado{total !== 1 ? 's' : ''}
         </p>
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           {busquedaGuardada ? (
             <Link
               href="/guardados"

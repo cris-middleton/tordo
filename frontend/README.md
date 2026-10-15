@@ -29,14 +29,14 @@ Las pruebas de extremo a extremo se corren desde la raíz con `make e2e`.
 frontend/
 ├── app/
 │   ├── api/proxy/       # Reenvío al backend (sin sesión, sigue redirecciones)
-│   ├── (panel)/         # Grupo de rutas con la barra lateral (no aparece en la URL)
+│   ├── (panel)/         # Pantallas interactivas: sólo el ancho (no aparece en la URL)
 │   │   ├── compra-agil/ # Lo mejor de hoy en Compra Ágil
 │   │   ├── licitaciones/ # Catálogo y detalle de licitaciones
-│   │   ├── mercado/     # Inteligencia de mercado
+│   │   ├── mercado/     # Mercados por rubro
 │   │   └── guardados/   # Lo guardado en el navegador
 │   ├── layout.tsx
-│   └── page.tsx         # Portada (server component; la interactividad, en LandingClient)
-├── components/          # Componentes propios (Layout, gráficos, landing…)
+│   └── page.tsx         # Portada (server component, sin JS de cliente propio)
+├── components/          # Componentes propios (cascara/: cabecera y pie únicos; gráficos, portada…)
 ├── lib/                 # api.ts (cliente), queries.ts (TanStack Query), ayudantes
 ├── __tests__/           # Vitest
 └── e2e/                 # Playwright
@@ -47,4 +47,4 @@ frontend/
 - `/` — portada
 - `/licitaciones` — búsqueda de licitaciones (`/dashboard/*` redirige con 308 a estas rutas)
 - `/licitaciones/[codigo]` — detalle de una licitación con su análisis de mercado
-- `/mercado` — inteligencia de mercado por rubro
+- `/mercado` — mercados por rubro

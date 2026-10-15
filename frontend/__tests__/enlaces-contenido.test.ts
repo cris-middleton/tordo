@@ -28,15 +28,11 @@ function archivosTsx(dir: string): string[] {
   return salida;
 }
 
-/** Enlaces en texto corrido que no son contenido, y por qué. Clave: fichero + un trozo de la línea. */
-const EXCEPCIONES: { archivo: string; contiene: string; motivo: string }[] = [
-  {
-    archivo: "components/portada/Portada.tsx",
-    contiene: "CORREO_CONTACTO",
-    motivo:
-      "el «Contacto» del pie: navegación. Se va con el pie único (PR 4 del rediseño).",
-  },
-];
+/**
+ * Enlaces en texto corrido que no son contenido, y por qué. Clave: fichero + un trozo de la línea.
+ * Vacía desde la cáscara única: el «Contacto» de la portada se fue al pie del sitio.
+ */
+const EXCEPCIONES: { archivo: string; contiene: string; motivo: string }[] = [];
 
 const ESPACIO = /\{' '\}\s*$/;
 const ENLACE = /^\s*<(Link|a)(?:[\s>]|$)/;

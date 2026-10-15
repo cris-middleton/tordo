@@ -144,9 +144,6 @@ const SIN_PAR: Record<string, string> = {
  * `16, 40, 88`) saldría del recorrido sin avisar.
  */
 const FUERA_DE_ALCANCE: Record<string, string> = {
-  'sidebar-from': 'barra lateral: PR 4 del rediseño la rehace y quita este token',
-  'sidebar-to': 'barra lateral: PR 4 del rediseño la rehace y quita este token',
-  'header-bg': 'cabecera translúcida: PR 4 del rediseño la rehace y quita este token',
   scrollbar: 'decorativo: barra de desplazamiento del navegador',
   'scrollbar-hover': 'decorativo: barra de desplazamiento del navegador',
 };

@@ -103,7 +103,7 @@ describe('/mercado con la API fallando', () => {
     pintar();
 
     expect(screen.getByText(/no pudimos cargar las tendencias/i)).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /inteligencia de mercado/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /^mercados$/i })).toBeInTheDocument();
     expect(screen.queryByText(/no pudimos cargar los rubros/i)).not.toBeInTheDocument();
   });
 

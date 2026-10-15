@@ -5,11 +5,11 @@ import { DESCARGO_CHILECOMPRA, FUENTE_DATOS } from '@/lib/atribucion';
 /**
  * La cita de la fuente y los enlaces legales, en cada página del sitio.
  *
- * Va en tres sitios y no en el layout raíz: la landing tiene su propio pie, el
- * panel tiene una barra lateral fija que taparía un pie de ancho completo, y
- * los documentos legales su propio marco. Lo que no puede pasar es que alguno
- * lo pierda en un rediseño — `__tests__/legal-enlazado.test.tsx` renderiza los
- * tres y busca la frase.
+ * La pone UNA vez el pie del sitio (`components/cascara/PieSitio.tsx`), que la
+ * cáscara única monta alrededor de toda página desde `app/layout.tsx`. Ningún
+ * otro fichero la pinta: un pie duplicado repetiría la cita, y una página con
+ * marco propio podría perderla en un rediseño — `__tests__/legal-enlazado.test.tsx`
+ * vigila las dos cosas.
  *
  * La frase de la fuente es una CONDICIÓN de uso de los datos (ver
  * `docs/DECLARACION_USO_DATOS.md`), no un adorno: «datos de fuentes públicas»

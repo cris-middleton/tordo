@@ -14,7 +14,7 @@
  */
 
 import { TIPOS_CONVOCATORIA } from './constantesChile';
-import { shortRegion } from './licitacionEstado';
+import { shortRegion } from './nombresChile';
 
 export const ORDENES = ['relevance', 'fecha_publicacion', 'fecha_cierre', 'monto_estimado', 'nombre'] as const;
 export type Orden = (typeof ORDENES)[number];

@@ -270,7 +270,7 @@ export default function TenderDetailPage() {
             )}
           </div>
 
-          {/* ── Inteligencia de mercado (collapsible summary) ─── */}
+          {/* ── Mercado (resumen plegable) ─── */}
           <BICard codigoExterno={tenderData.codigo_externo} />
         </div>
       )}

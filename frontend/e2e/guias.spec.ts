@@ -28,7 +28,7 @@ test('una guía, con fecha, fuentes, canonical y atribución', async ({ page }) 
   await expect(page.getByRole('table')).toBeVisible();
 });
 
-test('se llega desde la cabecera pública y un slug desconocido es 404', async ({ page }) => {
+test('se llega desde la cabecera y un slug desconocido es 404', async ({ page }) => {
   await page.goto('/productos');
   await page.getByRole('navigation', { name: 'Secciones' }).getByRole('link', { name: 'Guías' }).click();
   await expect(page).toHaveURL(/\/guias$/);

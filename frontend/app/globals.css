@@ -99,9 +99,6 @@
   --color-on-info: 255 255 255;
 
   /* Utility colors — full values (used in inline styles, not Tailwind opacity modifiers) */
-  --color-sidebar-from: #F1F4F9;
-  --color-sidebar-to: #FFFFFF;
-  --color-header-bg: rgba(255, 255, 255, 0.92);
   --color-scrollbar: #C4D0E0;
   --color-scrollbar-hover: #5F7089;
   --color-border-hex: #DCE3ED;
@@ -112,7 +109,6 @@
   --shadow-card: 0 1px 3px 0 rgba(16,40,88,0.06), 0 1px 2px -1px rgba(16,40,88,0.04);
   --shadow-card-md: 0 4px 12px 0 rgba(16,40,88,0.08), 0 2px 4px -2px rgba(16,40,88,0.04);
   --shadow-card-lg: 0 8px 24px 0 rgba(16,40,88,0.10), 0 4px 8px -4px rgba(16,40,88,0.06);
-  --shadow-sidebar: 2px 0 16px 0 rgba(16,40,88,0.06);
 
   /* Brand font */
   --font-varien: 'Varien', system-ui, sans-serif;
@@ -162,9 +158,6 @@
   --color-on-gold: 36 26 2;           /* #241A02 */
   --color-on-info: 8 21 43;           /* #08152B */
 
-  --color-sidebar-from: #0D1420;
-  --color-sidebar-to: #080B11;
-  --color-header-bg: rgba(8, 11, 17, 0.92);
   --color-scrollbar: #1E2736;
   --color-scrollbar-hover: #2A3547;
   --color-border-hex: #1E2736;
@@ -174,14 +167,9 @@
   --shadow-card: 0 1px 4px 0 rgba(0,0,0,0.4), 0 1px 2px -1px rgba(0,0,0,0.3);
   --shadow-card-md: 0 4px 16px 0 rgba(0,0,0,0.5), 0 2px 6px -2px rgba(0,0,0,0.3);
   --shadow-card-lg: 0 8px 28px 0 rgba(0,0,0,0.6), 0 4px 10px -4px rgba(0,0,0,0.4);
-  --shadow-sidebar: 2px 0 24px 0 rgba(0,0,0,0.5);
 }
 
 @layer base {
-  :root {
-    --nav-width: 256px;
-  }
-
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

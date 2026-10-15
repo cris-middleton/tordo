@@ -214,6 +214,11 @@ Móvil (< 640 px):
 TORDO                                         🔖 3   ♥ Apoyar   ☰ Menú
 ```
 
+> **Implementado en el PR 4** (2026-10): la fila de escritorio aparece desde `lg` (1024 px), no desde
+> 640: mide ~720 px (~790 con «Código») y entre 640 y 1023 px se partía en dos líneas; por debajo de
+> 1024 px va la línea de móvil. La cáscara se monta en el layout raíz y la cabecera no es fija.
+> Detalle en CLAUDE.md, «Una sola cáscara».
+
 - **Componente de servidor con dos islas cliente pequeñas**: el contador de guardados (lee
   `localStorage` con `useSyncExternalStore`, como `lib/almacenLocal.ts`) y la marca de sección
   activa (`usePathname`). Todo lo demás, sin JS.

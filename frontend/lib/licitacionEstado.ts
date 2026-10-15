@@ -9,17 +9,8 @@
 import { format } from 'date-fns';
 import { decimal } from '@/lib/formato';
 
-/**
- * Los nombres llegan en MAYÚSCULAS desde Mercado Público. Aquí se pasan a
- * capitular para que se puedan leer.
- */
-export const normalizeText = (text: string | undefined): string => {
-  if (!text) return '';
-  return text
-    .split(' ')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
-};
+// Viven aparte, sin `date-fns`: ver `nombresChile.ts`.
+export { normalizeText, shortRegion } from '@/lib/nombresChile';
 
 export const formatCurrency = (amount?: number) => {
   if (amount == null) return null;
@@ -63,14 +54,4 @@ export const getClosingUrgency = (fechaCierre?: string | null) => {
   if (daysLeft <= 2) return { label: `${daysLeft}d`, cls: 'text-danger font-semibold' };
   if (daysLeft <= 7) return { label: `${daysLeft}d`, cls: 'text-gold font-medium' };
   return { label: format(closing, 'dd MMM'), cls: 'text-muted' };
-};
-
-export const shortRegion = (region?: string) => {
-  if (!region) return '';
-  return normalizeText(region)
-    .replace(/^Región (Metropolitana.*)$/i, 'RM')
-    .replace(/^Región (del Libertador.*)$/i, "O'Higgins")
-    .replace(/^Región (Aysén.*)$/i, 'Aysén')
-    .replace(/^Región (de |del |de la )?/i, '')
-    .trim();
 };

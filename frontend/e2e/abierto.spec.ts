@@ -4,7 +4,7 @@ import { expect, test } from '@playwright/test';
  * `/abierto` y `/apoyar#costos`, de punta a punta y SIN sesión, sobre el build
  * de producción. Lo que sólo se ve aquí: que el navegador no pide NADA fuera
  * del sitio (ni un badge, ni una fuente, ni un script), y que se llega desde
- * la cabecera pública, la barra del panel y el pie.
+ * la cabecera (en lo público y en el panel) y el pie.
  *
  * **Alcance:** la comprobación de «nada de terceros» cubre SÓLO `/abierto`. No es
  * una garantía de todo el sitio: otra página puede pedir un recurso ajeno sin
@@ -34,14 +34,12 @@ test('/abierto: las cinco secciones, la URL del MCP con barra y nada de terceros
   expect(ajenas).toEqual([]);
 });
 
-test('se llega desde la cabecera pública y desde el panel', async ({ page }) => {
-  await page.goto('/guias');
-  await page.getByRole('navigation', { name: 'Secciones' }).getByRole('link', { name: 'API y MCP' }).click();
-  await expect(page).toHaveURL(/\/abierto$/);
-
-  await page.goto('/licitaciones');
-  await page.getByRole('button', { name: /^api y mcp$/i }).click();
-  await expect(page).toHaveURL(/\/abierto$/);
+test('se llega desde la cabecera, en lo público y en el panel', async ({ page }) => {
+  for (const desde of ['/guias', '/licitaciones']) {
+    await page.goto(desde);
+    await page.getByRole('navigation', { name: 'Secciones' }).getByRole('link', { name: 'API y MCP' }).click();
+    await expect(page).toHaveURL(/\/abierto$/);
+  }
 });
 
 test('el pie lleva al costo desglosado', async ({ page }) => {

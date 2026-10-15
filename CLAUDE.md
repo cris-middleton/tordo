@@ -579,9 +579,46 @@ servidor va en TanStack Query (`lib/queries.ts`) y todo el tráfico pasa por `/a
 sin sesión — ver las reglas de frontend más arriba. Pantallas: el catálogo de
 licitaciones (`/licitaciones`, con su detalle; **los filtros viven en la URL**, `abiertas=1` incluido, así que
 una búsqueda es una URL), «Lo mejor de hoy en Compra Ágil» (`/compra-agil`), `/guardados`
-y la inteligencia de mercado (`/mercado`); y lo abierto en `/abierto`, enlazado como «API y
-MCP» desde la cabecera pública y la barra del panel. Las del panel viven en el grupo de rutas
-`app/(panel)/`, que les pone la barra lateral sin aparecer en la URL.
+y los mercados por rubro (`/mercado`, «Mercados» en la navegación); y lo abierto en `/abierto`,
+enlazado como «API y MCP» desde la cabecera. Las del panel viven en el grupo de rutas
+`app/(panel)/`, que sólo les fija el ancho (`max-w-6xl`) sin aparecer en la URL.
+
+**Una sola cáscara** (`components/cascara/`, spec del rediseño §6.1–§6.2). `app/layout.tsx`
+envuelve TODA página en `Cascara` —cabecera, el único `<main id="contenido">` y el pie—, así que
+ninguna página ni layout de grupo pinta cabecera, pie, `PieAtribucion` ni `<main>` propios:
+`__tests__/legal-enlazado.test.tsx` falla si lo hace. No hay barra lateral (R3).
+- **La navegación es UNA lista**, `lib/navegacion.ts` (`SECCIONES`, `GUARDADOS`,
+  `enlacesAbiertos`, `mapaDelSitio`, `esSeccionActiva`): de ahí salen la fila de escritorio, el
+  menú móvil y el mapa del pie. Una sección nueva se añade ahí y en ningún otro sitio;
+  `__tests__/navegacion.test.ts` exige que cada ruta interna tenga su página. **El fichero no
+  importa nada**: lo leen también los E2E, que no resuelven `@/`.
+- **Cabecera y pie son componentes de servidor** con cuatro islas cliente: `EnlaceSeccion` (sección
+  activa con `usePathname` y `aria-current`), `MarcoCabecera` (el `<header>`, con un solo
+  `onClick` que cierra el menú móvil al pulsar cualquier enlace), `EnlaceGuardados` (contador con
+  `useSyncExternalStore` sobre los almacenes de `/guardados`: licitaciones guardadas o postuladas,
+  sin repetir, más búsquedas) y `SelectorTema`, en el pie. `__tests__/cabecera.test.tsx` falla si
+  otro fichero de `components/cascara/` se vuelve cliente o usa un color crudo.
+  **Lo que importe una isla viaja en TODAS las páginas**: `EnlaceGuardados` arrastró `date-fns`
+  (~6 KB gzip) por `useBusquedasGuardadas` → `filtrosCatalogo` → `licitacionEstado`, sólo para
+  contar. `normalizeText` y `shortRegion` viven ahora en `lib/nombresChile.ts` (sin imports) y
+  `__tests__/isla-guardados-ligera.test.ts` falla si la isla vuelve a alcanzar `date-fns`,
+  `recharts`, `axios` o TanStack Query.
+- **«Código» sólo con `REPOSITORIO_URL`** (`lib/repositorio.ts`), y por eso la cabecera tiene que
+  ser de servidor: en un componente cliente la variable no existe y el enlace no saldría nunca.
+- **La fila completa aparece desde `lg` (1024 px), no desde 640**: mide ~720 px y en una tableta
+  se partía en dos líneas. Por debajo, marca, guardados, «Apoyar» y un `<details>` «Menú» cerrado:
+  una línea, sin JavaScript. **Cualquier enlace de la cabecera —menú, marca, guardados, «Apoyar»— lo cierra al pulsarse** (`MarcoCabecera`): la cáscara no se
+  desmonta al navegar y el menú quedaba abierto encima de la página nueva. `e2e/cascara.spec.ts`
+  mide la cabecera a 320, 390, 768, 1024 y 1440 px (a 320, «Apoyar» queda sólo con el corazón y su nombre accesible) y saca capturas de `/mercado` y `/licitaciones` en
+  claro y oscuro.
+- **La cabecera no es fija**: así la barra de filtros de `/mercado` (`RubroFilter`, `sticky top-0`)
+  se queda arriba al bajar sin quedar tapada.
+- **`InfoTooltip` se alcanza con el teclado** (`tabIndex={0}`) y el globo es su descripción
+  (`aria-describedby`). Sin texto es un `<button aria-label="Más información">` (un foco sin
+  nombre no dice nada) y **Escape le quita el foco**, con lo que cierra el globo; cerrado es `display: none` y no ocupa sitio (con `opacity-0` ensanchaba
+  `/mercado` a 390 px), y abierto se corre lo justo para caber en el viewport.
+  `e2e/cascara.spec.ts` abre cada tooltip de `/mercado` a 390 px y mide la caja y el ancho del
+  documento.
 
 **Las URL del panel son permanentes desde el lanzamiento: no se renombran.** Hasta entonces
 colgaban de `/dashboard/*` (`tenders`, `bi`…), y esas URL ya circulan en lectores de RSS,
@@ -635,8 +672,8 @@ escala**. Es una heurística sin verdad contra la que evaluarla: ordena, no pred
   transformador las lee así. Leídas como UTC, cada cierre quedaba 3–4 h antes.
 
 **Páginas públicas indexables (paso 10)** — `/compradores/[codigo]`, `/rubros/[slug]`,
-`/productos/[slug]` y la búsqueda `/productos`, en el grupo `app/(publico)/` con su pie de
-atribución. Datos de `GET /publico/*` (`api/publico.py`, `services/publico/`).
+`/productos/[slug]` y la búsqueda `/productos`, en el grupo `app/(publico)/`, que sólo fija el ancho
+de lectura (cabecera y pie, con la atribución, son de la cáscara única). Datos de `GET /publico/*` (`api/publico.py`, `services/publico/`).
 - **La búsqueda de productos vive en la URL** (`/productos?q=`, `rutaBusquedaProductos` en
   `lib/publico.ts`): el buscador la lee con `useSearchParams` en un inicializador perezoso,
   dentro de `Suspense`, y la escribe con `replaceState` (con ≥ 3 letras, tras el retardo).
@@ -715,10 +752,10 @@ negro con tornasol azul-verdoso:
   `__tests__/tipografia.test.ts` y `e2e/tipografia.spec.ts`.
 - Fondo de página en tema claro: papel cálido (`--color-background`, `#F7F4EC`); las tarjetas
   siguen en `--color-surface`.
-- Tema claro por defecto, con selector claro/oscuro/sistema al pie de la barra lateral
-  (`components/SelectorTema.tsx`).
+- Tema claro por defecto, con selector claro/oscuro/sistema en el pie del sitio
+  (`components/SelectorTema.tsx`, dentro de `components/cascara/PieSitio.tsx`).
 
-**La portada es server component** (`app/page.tsx` + `components/portada/`), sin JS de cliente,
+**La portada es server component** (`app/page.tsx` + `components/portada/`), sin JS de cliente propio (las islas son de la cáscara),
 con ISR de 30 min: **no le pongas `'use client'`**, porque Next ignora `metadata` en
 componentes cliente y la home perdería título y tarjeta de preview. Su bloque vivo «Lo mejor de
 hoy» se pide en el servidor (etiqueta `compra-agil`, la revalida el cron frecuente) y **se oculta
@@ -794,11 +831,12 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
 - **Atribución a ChileCompra: es una condición de uso de los datos, no un adorno**
   (`docs/DECLARACION_USO_DATOS.md`). La frase literal «Fuente: Dirección de Compras y
   Contratación Pública (ChileCompra / Mercado Público)» y que ChileCompra no respalda el
-  sitio van en el **pie de cada página** (`components/legal/PieAtribucion.tsx`, puesto por la
-  portada, el layout público `app/(publico)/`, el `Layout` del panel y `DocumentoLegal`) y en la **primera línea de cada CSV**.
-  Vive en `frontend/lib/atribucion.ts` y en `exportar.ATRIBUCION`; un test comprueba que
-  coincidan. **Una página nueva fuera de esos tres marcos hace fallar
-  `__tests__/legal-enlazado.test.tsx`** hasta que lleve el pie. `/terminos` y `/privacidad`
+  sitio van en el **pie de cada página** (`components/legal/PieAtribucion.tsx`, que pone **una
+  sola vez** el pie del sitio, `components/cascara/PieSitio.tsx`, alrededor de toda página desde
+  el layout raíz) y en la **primera línea de cada CSV**. Vive en `frontend/lib/atribucion.ts` y en
+  `exportar.ATRIBUCION`; un test comprueba que coincidan. **Ningún otro fichero pinta
+  `PieAtribucion`**: `__tests__/legal-enlazado.test.tsx` falla con un pie duplicado o con una
+  página que monte su propio marco. `/terminos` y `/privacidad`
   publican **sólo el nombre del responsable y `hola@tordo.cl`** (`lib/responsable.ts`): ni RUT
   ni domicilio, que la ley no pide. El nombre sale de `RESPONSABLE_LEGAL` (servidor, se lee en
   el build) para no quedar en el repo; sin ella el `[[hueco]]` se ve, **nunca un dato

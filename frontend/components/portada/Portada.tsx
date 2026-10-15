@@ -1,23 +1,18 @@
 import Link from 'next/link';
 import { ArrowRight, ChevronDown, Heart, Search, Zap } from 'lucide-react';
 
-import { PieAtribucion } from '@/components/legal/PieAtribucion';
-import { CabeceraPublica } from '@/components/publico/CabeceraPublica';
 import { TITULO_DESTACADAS } from '@/lib/compraAgil';
 import { COSTO_MENSUAL_APROXIMADO } from '@/lib/costos';
 import { ACCESOS, PREGUNTAS } from '@/lib/portada';
-import { CORREO_CONTACTO } from '@/lib/responsable';
 import type { CompraAgilDestacadasResponse } from '@/types/compraAgil';
 
 import { BloqueHoy } from './BloqueHoy';
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
-
 /**
  * La portada. **Componente de servidor entero, sin JavaScript propio**: el
- * acordeón de preguntas es `<details>` y la cabecera no tiene menú
- * desplegable. La anterior era un componente cliente de 540 líneas para un
- * carrusel de maquetas y un menú.
+ * acordeón de preguntas es `<details>`. La cabecera y el pie los pone la
+ * cáscara única (`components/cascara/`), como en toda página. La anterior era un
+ * componente cliente de 540 líneas para un carrusel de maquetas y un menú.
  *
  * Responde en la primera pantalla qué es, para quién y qué hacer ahora; debajo,
  * lo vivo (`BloqueHoy`) y los accesos. `destacadas = null` es que el backend
@@ -28,10 +23,7 @@ const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
  */
 export function Portada({ destacadas }: { destacadas: CompraAgilDestacadasResponse | null }) {
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <CabeceraPublica ancho="max-w-6xl" />
-
-      <main className="flex-1">
+    <>
         {/* El hero se ve oscuro en los dos temas: `dark` invierte los tokens dentro. */}
         <section className="dark bg-brand-navy px-4 py-16 sm:px-6 sm:py-20">
           <div className="mx-auto max-w-4xl">
@@ -152,17 +144,6 @@ export function Portada({ destacadas }: { destacadas: CompraAgilDestacadasRespon
             </div>
           </div>
         </section>
-      </main>
-
-      <footer className="border-t border-border bg-band4 px-4 py-8 sm:px-6">
-        <PieAtribucion />
-        <p className="mt-4 text-center text-[11px] text-subtle">
-          {APP_NAME} · Chile · No estamos afiliados al gobierno de Chile ·{' '}
-          <a href={`mailto:${CORREO_CONTACTO}`} className="hover:text-primary">
-            Contacto
-          </a>
-        </p>
-      </footer>
-    </div>
+    </>
   );
 }

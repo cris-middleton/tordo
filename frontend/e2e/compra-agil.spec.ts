@@ -37,9 +37,9 @@ test('una búsqueda sin coincidencias muestra el estado vacío', async ({ page }
   await expect(page.getByRole('list', { name: /compras ágiles destacadas/i })).toHaveCount(0);
 });
 
-test('se llega desde el menú', async ({ page }) => {
+test('se llega desde la cabecera', async ({ page }) => {
   await page.goto('/licitaciones');
-  await page.getByRole('button', { name: /lo mejor de hoy/i }).click();
+  await page.getByRole('navigation', { name: 'Secciones' }).getByRole('link', { name: 'Hoy', exact: true }).click();
   await expect(page).toHaveURL(/\/compra-agil/);
 });
 

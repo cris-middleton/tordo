@@ -25,12 +25,12 @@ export const ACCESOS: Acceso[] = [
     href: '/licitaciones',
   },
   {
-    titulo: 'Inteligencia de mercado',
+    titulo: 'Mercados',
     texto: 'Por rubro: cuánto se compra, quién lo compra, contra quién compites y en qué meses.',
     href: '/mercado',
   },
   {
-    titulo: 'Precios por producto',
+    titulo: 'Precios',
     texto: 'Cuánto ha pagado el Estado por lo que vendes, en bandas por unidad.',
     href: '/productos',
   },

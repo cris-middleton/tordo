@@ -4,25 +4,25 @@
  *
  * La cita no es un adorno: es una CONDICIÓN de uso de los datos de ChileCompra
  * (`docs/DECLARACION_USO_DATOS.md`). Y un documento legal al que no se llega no
- * cumple nada. Las dos cosas son de las que se pierden en un rediseño sin que
- * falle nada más, así que se fijan aquí: renderizando los tres marcos que
- * existen (landing, panel, documentos legales, páginas públicas) y, para que una página nueva no
- * nazca sin ninguno, recorriendo `app/**\/page.tsx`.
+ * cumple nada. Las dos cosas se pierden en un rediseño sin que falle nada más.
+ *
+ * Desde la cáscara única (spec del rediseño §6.1–§6.2) hay UN solo sitio que
+ * pone el pie: `components/cascara/Cascara.tsx`, que `app/layout.tsx` monta
+ * alrededor de toda página. Se fija por las dos puntas: la cáscara renderizada
+ * lleva el pie, y ningún otro fichero pinta pie, cabecera ni `<main>` propios —
+ * un segundo pie duplicaría la cita, y un `<main>` anidado rompe la navegación
+ * por regiones de un lector de pantalla—.
  */
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import LayoutPublico from '@/app/(publico)/layout';
-import Layout from '@/components/Layout';
-import { DocumentoLegal } from '@/components/legal/DocumentoLegal';
-import { Portada } from '@/components/portada/Portada';
+import { Cascara } from '@/components/cascara/Cascara';
 import { DESCARGO_CHILECOMPRA, FUENTE_DATOS } from '@/lib/atribucion';
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn() }),
   usePathname: () => '/licitaciones',
 }));
 
@@ -30,20 +30,6 @@ vi.mock('next/navigation', () => ({
  *  la «mejora» en `lib/atribucion.ts`, este test tiene que enterarse. */
 const CITA_LITERAL =
   'Fuente: Dirección de Compras y Contratación Pública (ChileCompra / Mercado Público)';
-
-function comprobarPie() {
-  expect(screen.getByText(new RegExp(`^${escapar(CITA_LITERAL)}`))).toBeInTheDocument();
-  expect(screen.getByText(/ChileCompra no participa ni respalda/)).toBeInTheDocument();
-  const legales = screen.getByRole('navigation', { name: /documentos legales/i });
-  expect(within(legales).getByRole('link', { name: /términos/i })).toHaveAttribute(
-    'href',
-    '/terminos',
-  );
-  expect(within(legales).getByRole('link', { name: /privacidad/i })).toHaveAttribute(
-    'href',
-    '/privacidad',
-  );
-}
 
 function escapar(texto: string) {
   return texto.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -55,86 +41,60 @@ describe('atribución y enlaces legales', () => {
     expect(DESCARGO_CHILECOMPRA).toMatch(/^ChileCompra no participa ni respalda/);
   });
 
-  it('en la portada, también si el backend falló', () => {
-    render(<Portada destacadas={null} />);
-    comprobarPie();
-  });
-
-  it('en el panel (catálogo y analítica)', () => {
+  it('la cáscara pone el pie, una sola vez, alrededor del contenido', () => {
     render(
-      <Layout>
+      <Cascara>
         <p>contenido</p>
-      </Layout>,
+      </Cascara>,
     );
-    comprobarPie();
-  });
-
-  it('en las páginas públicas (comprador, rubro, producto)', () => {
-    render(
-      <LayoutPublico>
-        <p>contenido</p>
-      </LayoutPublico>,
-    );
-    comprobarPie();
-  });
-
-  it('en los propios documentos legales', () => {
-    render(
-      <DocumentoLegal titulo="Prueba" vigenteDesde="hoy">
-        <p>texto</p>
-      </DocumentoLegal>,
-    );
-    comprobarPie();
+    expect(screen.getAllByText(new RegExp(`^${escapar(CITA_LITERAL)}`))).toHaveLength(1);
+    expect(screen.getByText(/ChileCompra no participa ni respalda/)).toBeInTheDocument();
+    const legales = screen.getByRole('navigation', { name: /documentos legales/i });
+    expect(within(legales).getByRole('link', { name: /términos/i })).toHaveAttribute('href', '/terminos');
+    expect(within(legales).getByRole('link', { name: /privacidad/i })).toHaveAttribute('href', '/privacidad');
+    expect(within(screen.getByRole('main')).getByText('contenido')).toBeInTheDocument();
+    expect(screen.getByRole('main')).toHaveAttribute('id', 'contenido');
   });
 });
 
-/**
- * Qué marco pone el pie a cada página. Una página nueva que no caiga en ninguno
- * hace fallar el test hasta que alguien le ponga `PieAtribucion` — el mismo
- * trinquete que el de tenancy en el backend.
- */
-const APP = join(__dirname, '..', 'app');
+const RAIZ = join(__dirname, '..');
+const APP = join(RAIZ, 'app');
 
-function paginas(dir: string): string[] {
-  const salida: string[] = [];
-  for (const entrada of readdirSync(dir)) {
+function ficheros(dir: string, patron: RegExp): string[] {
+  return readdirSync(dir).flatMap((entrada) => {
     const ruta = join(dir, entrada);
-    if (statSync(ruta).isDirectory()) salida.push(...paginas(ruta));
-    else if (entrada === 'page.tsx') salida.push(ruta);
-  }
-  return salida;
+    if (statSync(ruta).isDirectory()) return ficheros(ruta, patron);
+    return patron.test(entrada) ? [ruta] : [];
+  });
 }
 
-function tienePie(ruta: string): boolean {
-  const rel = relative(APP, ruta).split('\\').join('/');
-  // `app/(panel)/layout.tsx` envuelve todo en `Layout`, que lleva el pie.
-  if (rel.startsWith('(panel)/')) return true;
-  // `app/(publico)/layout.tsx` pone el pie a las fichas públicas.
-  if (rel.startsWith('(publico)/')) return true;
-  const fuente = readFileSync(ruta, 'utf-8');
-  return /\b(PieAtribucion|DocumentoLegal|Portada)\b/.test(fuente);
-}
+const rel = (ruta: string) => relative(RAIZ, ruta).split('\\').join('/');
 
-describe('ninguna página sin atribución', () => {
-  const todas = paginas(APP);
+describe('una sola cáscara para todas las páginas', () => {
+  const paginas = ficheros(APP, /^page\.tsx$/);
+  const tsx = ['app', 'components'].flatMap((d) => ficheros(join(RAIZ, d), /\.tsx$/)).map(rel);
 
-  it('hay páginas que revisar', () => {
+  it('hay páginas y componentes que revisar', () => {
     // La guarda de siempre: sin ella, mover `app/` dejaría el test en verde
-    // comprobando el vacío.
-    expect(todas.length).toBeGreaterThanOrEqual(5);
+    // comprobando el vacío. 15 páginas y 78 .tsx el 2026-10-14.
+    expect(paginas.length).toBeGreaterThanOrEqual(12);
+    expect(tsx.length).toBeGreaterThanOrEqual(60);
   });
 
-  it('el panel envuelve sus páginas en el Layout con pie', () => {
-    const layout = readFileSync(join(APP, '(panel)', 'layout.tsx'), 'utf-8');
-    expect(layout).toMatch(/<Layout>/);
+  it('el layout raíz envuelve toda página en la cáscara', () => {
+    const layout = readFileSync(join(APP, 'layout.tsx'), 'utf-8');
+    expect(layout).toMatch(/<Cascara>\s*\{children\}\s*<\/Cascara>/);
   });
 
-  it('las páginas públicas llevan el pie en su layout', () => {
-    const layout = readFileSync(join(APP, '(publico)', 'layout.tsx'), 'utf-8');
-    expect(layout).toMatch(/<PieAtribucion\b/);
-  });
-
-  it.each(paginas(APP).map((r) => [relative(APP, r)]))('%s lleva el pie', (rel) => {
-    expect(tienePie(join(APP, rel))).toBe(true);
+  it.each([
+    ['la cita de la fuente', /<PieAtribucion\b/, ['components/cascara/PieSitio.tsx']],
+    ['la cabecera', /<Cabecera\b/, ['components/cascara/Cascara.tsx']],
+    ['el pie', /<PieSitio\b/, ['components/cascara/Cascara.tsx']],
+    ['<main>', /<main\b/, ['components/cascara/Cascara.tsx']],
+    // `global-error` reemplaza el documento entero cuando falla el layout raíz.
+    ['<html>', /<html\b/, ['app/global-error.tsx', 'app/layout.tsx']],
+  ])('sólo pinta %s quien debe', (_, patron, esperados) => {
+    const quienes = tsx.filter((r) => patron.test(readFileSync(join(RAIZ, r), 'utf-8'))).sort();
+    expect(quienes).toEqual(esperados);
   });
 });

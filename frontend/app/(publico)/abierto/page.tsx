@@ -80,7 +80,7 @@ export default function PaginaAbierto() {
       >
         <p className="text-sm text-muted">La dirección del servidor, siempre con la barra final:</p>
         <Codigo etiqueta="URL del servidor MCP">{URL_MCP}</Codigo>
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
           {instalacionesMcp(APP_NAME).map((instalacion) => (
             <CajaInstalacion key={instalacion.id} instalacion={instalacion} />
           ))}
