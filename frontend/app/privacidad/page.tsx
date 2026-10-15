@@ -6,7 +6,7 @@ import { CORREO_CONTACTO, RESPONSABLE } from '@/lib/responsable';
 export const metadata: Metadata = {
   title: 'Política de privacidad',
   description:
-    'Qué datos personales trata el sitio, por qué se omiten las personas naturales y cómo ejercer tus derechos.',
+    'Qué datos personales trata el sitio, cómo se reemplaza a las personas naturales por «Persona natural» o un seudónimo y cómo ejercer tus derechos.',
   alternates: { canonical: '/privacidad' },
 };
 
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
  *   - personas naturales: `etl/analytics/personas.py`.
  * Si alguno cambia, esta página se corrige en el mismo PR.
  */
-const VIGENTE_DESDE = '13 de octubre de 2026';
+const VIGENTE_DESDE = '15 de octubre de 2026';
 
 export default function PrivacidadPage() {
   return (
@@ -56,7 +56,8 @@ export default function PrivacidadPage() {
         </li>
         <li>
           Los datos de compras públicas vienen de ChileCompra, y{' '}
-          <strong>omitimos a los proveedores que son personas naturales</strong>.
+          <strong>reemplazamos el nombre y el RUT de los proveedores que son personas naturales</strong>{' '}
+          por «Persona natural» (y, en los análisis, por un seudónimo).
         </li>
       </ul>
 
@@ -79,7 +80,7 @@ export default function PrivacidadPage() {
       </p>
       <p>
         Se considera persona natural a quien tiene un RUT inferior a 50.000.000, y también a
-        quien no tiene un RUT legible en los datos de origen: ante la duda, se omite. Las
+        quien no tiene un RUT legible en los datos de origen: ante la duda, se trata como persona natural. Las
         empresas individuales (EIRL) y las sociedades de una sola persona son personas
         jurídicas y se muestran, aunque su razón social lleve un nombre propio.
       </p>

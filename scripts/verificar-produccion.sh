@@ -5,8 +5,9 @@
 #
 # Una línea ✓/✗ por comprobación y, al final, cuántas fallaron (es también el
 # código de salida). No recibe ni necesita ningún secreto: lo que se comprueba es
-# justamente lo que ve un visitante o un integrador anónimo. Hace del orden de 35
-# peticiones, por debajo del límite por IP (60 por minuto).
+# justamente lo que ve un visitante o un integrador anónimo. Las peticiones a la
+# API cuentan contra el límite por IP (LIMITE_POR_MINUTO, 60 por minuto): una
+# corrida cabe, pero no la repitas en bucle.
 #
 # Lo que NO puede comprobar desde fuera está en docs/DESPLIEGUE.md: que los cron
 # corrieron (Healthchecks), los avisos de arranque de la API (log de Railway) y el
@@ -288,6 +289,14 @@ case $codigo in
     ;;
   *) mal "/api/apoyar/transferencia responde $codigo" ;;
 esac
+
+# /abierto publica la URL canónica del MCP, con barra final (spec del rediseño §6.5).
+codigo=$(pedir "$SITIO/abierto")
+if [ "$codigo" = 200 ] && grep -qF "$API/mcp/" "$TMP/cuerpo"; then
+  ok "/abierto responde 200 y publica $API/mcp/"
+else
+  mal "/abierto responde $codigo o no publica $API/mcp/"
+fi
 
 codigo=$(pedir "$SITIO/guias")
 [ "$codigo" = 200 ] && ok "/guias responde 200" || mal "/guias responde $codigo"

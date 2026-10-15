@@ -3,6 +3,7 @@ import { ArrowRight, ChevronDown, Heart, Search, Zap } from 'lucide-react';
 
 import { PieAtribucion } from '@/components/legal/PieAtribucion';
 import { CabeceraPublica } from '@/components/publico/CabeceraPublica';
+import { COSTO_MENSUAL_APROXIMADO } from '@/lib/costos';
 import { ACCESOS, PREGUNTAS } from '@/lib/portada';
 import { CORREO_CONTACTO } from '@/lib/responsable';
 import type { CompraAgilDestacadasResponse } from '@/types/compraAgil';
@@ -105,8 +106,8 @@ export function Portada({ destacadas }: { destacadas: CompraAgilDestacadasRespon
             <div>
               <h2 className="text-xl font-bold text-text">Cómo se financia</h2>
               <p className="mt-3 text-sm leading-relaxed text-muted">
-                Sin publicidad y sin planes de pago: mantenerlo cuesta unos US$5 al mes y lo
-                sostienen aportes voluntarios.
+                Sin publicidad y sin planes de pago: mantenerlo cuesta unos{' '}
+                {COSTO_MENSUAL_APROXIMADO} al mes y lo sostienen aportes voluntarios.
               </p>
               <Link
                 href="/apoyar"

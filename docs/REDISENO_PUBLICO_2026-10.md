@@ -29,7 +29,10 @@ Revisión del sitio en producción (1440 px y 390 px) y de unos 30 sitios compar
 ### 1.2 Lo que ya está bien y se conserva
 
 - **El tono de `/apoyar`**: «Tordo es gratis. Mantenerlo, casi.» y «cuesta alrededor de US$5 al
-  mes». Es la mejor copia del sitio y marca la voz de todo lo demás.
+  mes». Es la mejor copia del sitio y marca la voz de todo lo demás. **La cifra cambió con R6:
+  hoy dice «~US$10–11»**, porque US$5 era sólo el plan Hobby de Railway; el plan incluye US$5 de
+  uso (se paga el mayor de los dos), el uso medido es mayor (~US$9–10) y falta el dominio (~US$1). El desglose, con la fuente de cada
+  cifra, está en `lib/costos.ts`.
 - El sistema de tokens (`app/globals.css`) y la regla `text-on*`. **El rediseño cambia valores
   y estructura, no el mecanismo.**
 - La atribución a ChileCompra en el pie de cada página y en cada CSV.
@@ -124,7 +127,7 @@ Revisión del sitio en producción (1440 px y 390 px) y de unos 30 sitios compar
 | R3 | **Se elimina la barra lateral**; todo el sitio usa una cabecera superior única | §1.1 |
 | R4 | Tipografía: **Newsreader** (`h1`, `h2`) + **Public Sans** (todo lo demás, cifras incluidas) + **IBM Plex Mono** (identificadores). Varien se queda para la marca | §5 |
 | R5 | Nueva página **`/abierto`**: API, MCP, CSV, RSS, código y licencias | §2.5 |
-| R6 | El costo se detalla en **`/apoyar#costos`** (tabla por concepto), sin página nueva | Ya dice «US$5 al mes»; falta el desglose |
+| R6 | El costo se detalla en **`/apoyar#costos`** (tabla por concepto), sin página nueva | Decía «US$5 al mes» (sólo el plan de Railway); el desglose da **~US$10–11** (proyección con el uso medido el 2026-10-15, `docs/DESPLIEGUE.md` §13.2) y la copia se corrigió |
 | R7 | **Licencias**: código **AGPL-3.0**; **lo que TORDO deriva** (tablas de `analytics`, bandas, puntajes, CSV de análisis) **CC BY 4.0** con la atribución a ChileCompra. El contenido del catálogo sigue bajo las condiciones de ChileCompra | §7.1 — **confirmada por el responsable el 2026-10-14** |
 | R8 | El repositorio **sigue privado hasta que la historia esté limpia** (sin `.env`, sin el correo laboral); después se hace público, y sólo entonces se enlaza | §7.3 — decidido el 2026-10-14 |
 | R9 | Los fallos de §1.3 se arreglan **primero**, en PR propios | La portada nueva depende de «Lo mejor de hoy», de la búsqueda de productos y de las URL de la API |
@@ -249,7 +252,7 @@ servidor).
 ├──────────────────────────────────────────────────────────────────────────────┤
 │ Úsalo como quieras: API · MCP para Claude y ChatGPT · CSV · RSS · Código      │
 ├──────────────────────────────────────────────────────────────────────────────┤
-│ Tordo es gratis. Mantenerlo, casi. ~US$5/mes · hecho por <nombre>  ♥ Apoyar   │
+│ Tordo es gratis. Mantenerlo, casi. ~US$10–11/mes · hecho por <nombre>  ♥ Apoyar   │
 └ pie único ───────────────────────────────────────────────────────────────────┘
 ```
 (Cifras de ejemplo medidas en producción el 2026-10-14; las definitivas salen de §6.6.)

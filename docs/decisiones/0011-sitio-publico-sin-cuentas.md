@@ -14,7 +14,8 @@ qué se decidió y qué haría falta para volver atrás.
   un ingreso real, sino a uno esperado.
 - Mantener el SaaS costaba del orden de **US$20–27 al mes** (Postgres, API, Celery, Redis,
   Flower, frontend en Railway). Un sitio público sin cuentas cabe en **US$4–6**, casi todo
-  dentro de lo que incluye el plan Hobby de Railway (spec §5.1).
+  dentro de lo que incluye el plan Hobby de Railway (spec §5.1). Era el objetivo: el uso medido
+  el 2026-10-15 proyecta ~US$10–11 (`docs/DESPLIEGUE.md` §13.2).
 - La mitad del producto —la inteligencia de mercado sobre datos públicos— vale para
   cualquiera. La otra mitad —cumplimiento, postulaciones, encaje con un perfil— sólo tiene
   sentido para una empresa identificada.

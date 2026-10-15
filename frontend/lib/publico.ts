@@ -54,6 +54,7 @@ export const PAGINAS_FIJAS = [
   '/licitaciones',
   '/productos',
   '/guias',
+  '/abierto',
   '/apoyar',
   '/terminos',
   '/privacidad',

@@ -18,6 +18,7 @@ import { render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import Home, { metadata, revalidate } from '@/app/page';
+import { COSTO_MENSUAL_APROXIMADO } from '@/lib/costos';
 import { ACCESOS, PREGUNTAS, actualizadoEnPalabras } from '@/lib/portada';
 import { pedirDestacadas } from '@/lib/publicoServidor';
 import type { CompraAgilDestacada, CompraAgilDestacadasResponse } from '@/types/compraAgil';
@@ -110,6 +111,7 @@ describe('la portada', () => {
     simularBackend(ok(RESPUESTA));
     render(await Home());
 
+    expect(screen.getByText(new RegExp(`unos ${COSTO_MENSUAL_APROXIMADO.replace('$', '\\$')} al mes`))).toBeInTheDocument();
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
       /inteligencia de compras públicas, gratis y sin cuenta/i,

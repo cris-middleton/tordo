@@ -13,7 +13,7 @@ portafolio y bien público que sólo tiene que pagar lo que cuesta.
 
 - La producción está pausada y **nunca hubo un usuario pagando** — la decisión no
   renuncia a un ingreso real, sino a uno esperado.
-- Costaba ~25.000 CLP/mes (≈ US$27). El objetivo es **≈ US$4–6/mes**.
+- Costaba ~25.000 CLP/mes (≈ US$27). El objetivo era **≈ US$4–6/mes**; lo medido el 2026-10-15 proyecta **~US$10–11** (`docs/DESPLIEGUE.md` §13.2).
 - La mitad del producto que vale para cualquiera —el BI sobre datos públicos— se
   abre sin cuenta. La mitad que sólo tiene sentido para una empresa identificada
   —cumplimiento, postulaciones, encaje con perfil— se retira.
@@ -44,7 +44,7 @@ portafolio y bien público que sólo tiene que pagar lo que cuesta.
 | D2 | **Sin login.** Favoritos en `localStorage` + **RSS por búsqueda** | Cero datos personales que custodiar, cero servicio de correo |
 | D3 | Analytics semanal **en la nube** (cron), parquets en **R2** | «Vive solo» no se cumple si depende de un portátil. R2 ya estaba previsto en la guía de despliegue (`AWS_REGION=auto`) y `boto3` ya está declarado |
 | D4 | Postgres guarda **agregados + datos vivos**, no la historia cruda (ver §5.2) | Es la decisión que más pesa en el costo |
-| D5 | Financiación **sólo por donaciones** | Con ~US$5/mes que cubrir bastan 2–3 aportes. Los anuncios rinden poco a este tráfico y obligan a Vercel Pro |
+| D5 | Financiación **sólo por donaciones** | Con ~US$5/mes que cubrir (el objetivo; la proyección medida el 2026-10-15 es ~US$10–11, `docs/DESPLIEGUE.md` §13.2) bastan unos pocos aportes. Los anuncios rinden poco a este tráfico y obligan a Vercel Pro |
 | D6 | **API de lectura y MCP abiertos**, sin clave, con límite por IP | El MCP es la pieza más distintiva del portafolio; sin cuotas desaparece el motivo de limitarlo |
 | D7 | Compra Ágil: **10, 13, 16 y 19 h** los días hábiles, **12 h** los fines de semana (hora de Chile) | Ver §6.1 — medido |
 | D8 | Se mantiene **TORDO** y su sistema de diseño | Ya está hecho; el nombre sale de `APP_NAME` |
@@ -165,6 +165,8 @@ volumen, al mes; el plan Hobby cuesta US$5 **e incluye US$5 de uso**.
 | MinIO / R2 | ~$1 | $0 (≤ 10 GB) |
 | Dominio .cl | — | ~$1 |
 | **Total** | **~$20–27** | **~$4–6**, casi todo dentro de los US$5 incluidos |
+
+> La columna «objetivo» es la de antes de desplegar. El uso real de Railway, leído el 2026-10-15, la superó: proyecta ~US$9–10 al mes (~US$10–11 con el dominio). La medición y sus límites están en `docs/DESPLIEGUE.md` §13.2.
 
 ### 5.2 Qué vive en Postgres (revisión C4)
 

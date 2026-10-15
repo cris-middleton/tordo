@@ -38,7 +38,9 @@ otros):
 La API necesita un nombre propio porque **los integradores y los modelos hablan
 con ella directamente**, no a través de Vercel (spec §3): el proxy de Next sólo
 lo usa el navegador. Por eso `MCP_HOSTS_PERMITIDOS` lleva `api.tordo.cl`, que es
-el `Host` con el que llegan esas peticiones, y no `tordo.cl`.
+el `Host` con el que llegan esas peticiones, y no `tordo.cl`. Si cambias el host de la API,
+cámbialo también en `frontend/lib/abierto.ts` (`ORIGEN_API_PUBLICA`): es lo que `/abierto`
+publica como URL de la API y del MCP.
 
 ---
 
@@ -118,12 +120,23 @@ un valor por defecto razonable o desactivan algo prescindible.
 | `DONAR_MERCADO_PAGO_URL` | | | | ✓ | no | `https://link.mercadopago.cl/…` (**sólo `https://`**) | Mercado Pago → *Link de pago* de monto abierto. Servidor, **se lee en el build**: `/apoyar` se prerenderiza, así que cambiarla exige redeploy. Sin ella, o sin `https://`, el botón no aparece |
 | `DONAR_GITHUB_SPONSORS_URL` | | | | ✓ | no | `https://github.com/sponsors/<usuario>` (**sólo `https://`**) | GitHub Sponsors. Servidor, **se lee en el build** (redeploy para cambiarla). Sin ella, no aparece |
 | `DONAR_TRANSFERENCIA` | | | | ✓ | no | varias líneas: banco, tipo y número de cuenta, nombre, RUT, correo | los datos de la cuenta. Servidor, **se lee en cada petición**: sólo la sirve `GET /api/apoyar/transferencia` tras el clic de «Ver datos para transferir», sin caché y con `noindex`; nunca va en el HTML. Cambiarla no exige redeploy. Sin ella, el botón no aparece y la ruta da 404 |
+| `REPOSITORIO_URL` | | | | ✓ | no | `https://github.com/<usuario>/<repo>` (**sólo `https://`**) | el repositorio público (PR 7 del rediseño, al hacerlo público). Servidor, **se lee en el build**: `/abierto` se prerenderiza, así que cambiarla exige redeploy. Sin ella, o sin `https://`, «Código» no enlaza nada y la página dice que aún no está publicado |
 | `NEXT_PUBLIC_SENTRY_DSN` | | | | ✓ | no | DSN del proyecto Next.js | Sentry (paso 4). Se inlinea en el bundle |
 | `NEXT_PUBLIC_ENVIRONMENT` / `NEXT_PUBLIC_APP_NAME` | | | | ✓ | no | `production` / `Tordo` | fijos |
 | `SENTRY_ORG` / `SENTRY_PROJECT` / `SENTRY_AUTH_TOKEN` | | | | ✓ | no | | Sentry (paso 4). Sólo de build: trazas legibles |
 
 `ENVIRONMENT=production` y `LOG_LEVEL=INFO` pueden ponerse también en los cron; no
 cambian su comportamiento.
+
+**Al poner `REPOSITORIO_URL` (el repo se hace público): reescribe en el mismo cambio los
+términos de uso, §7** (`frontend/app/terminos/page.tsx`). Hoy dice «cuando se publique, su
+dirección estará en /abierto»; con el repo público y la variable puesta, esa frase es falsa.
+Además hay que redeployar el frontend (se lee en el build) y comprobar que `/abierto#codigo`
+enlaza el repositorio en vez de decir que aún no está publicado.
+
+**El costo que publica `/apoyar#costos`** (`frontend/lib/costos.ts`) cita este archivo y la spec
+del pivote. Si corriges aquí una cifra de costo (§13.1: tamaño de la base, memoria, tarifas),
+corrige la tabla en el mismo cambio; `__tests__/costos.test.ts` falla si la cita se desincroniza.
 
 ## 0. Generar los secretos
 
@@ -545,6 +558,39 @@ de analytics no crece— y a ~US$0,15/GB-mes. **Sin puerto público ni llave SSH
 **Verifica:** el total es **< 1 GB** (spec §5.2). Si no, la tabla grande de la
 segunda consulta dice por dónde seguir; el candidato conocido es
 `analytics.time_series`, que crece lineal con la ventana de 36 meses.
+
+### 13.2 Costo medido (2026-10-15)
+
+Lo que se publica en `/apoyar#costos` y en la portada sale de aquí, con fecha. Antes eran
+los objetivos de la spec del pivote, y el uso real resultó mayor.
+
+**Método:** la pestaña *Usage* de Railway, leída por su API GraphQL (sólo lectura,
+`usage(groupBy: SERVICE_ID)`), proyecto `tordo-publico`. Periodo de facturación del 2026-10-13
+02:58 UTC al 2026-11-13; transcurrido: 2.814 minutos, **1,95 días**. Lo que Railway informa
+como uso del periodo: **US$0,83**. Recalculado con las tarifas de Hobby (memoria
+US$10/GB-mes, CPU US$20/vCPU-mes, egreso US$0,05/GB, volumen US$0,15/GB-mes) da US$0,81:
+el modelo cuadra.
+
+| Servicio | RAM media | Costo en 1,95 días | Ritmo mensual |
+|---|---|---|---|
+| Postgres | 0,41 GB | US$0,27 (+ US$0,03 de volumen) | ~US$4,5 |
+| api | 0,35 GB | US$0,23 | ~US$3,5 |
+| cron-frecuente | 0,03 GB | US$0,02 | ~US$0,3 |
+| cron-semanal | no aplica | US$0,27 (una corrida, la primera, que sube a R2) | ~US$0,4–1,2 |
+
+Las dos tareas suman ~US$1 al mes (US$0,7–1,5): las siguientes corridas semanales suben
+menos a R2 que la primera. Lo que más pesa es la memoria **usada** de Postgres y de la API,
+~US$7,5 de los ~US$9–10.
+
+**Proyección:** uso de Railway de ~US$9–10 al mes. El plan Hobby cuesta US$5 e incluye US$5
+de uso, así que se paga el mayor de los dos: como el uso pasa de los US$5 incluidos, la
+factura de Railway es el uso, ~US$9–10. Con el dominio (~US$1), **~US$10–11 al mes**.
+
+**Límites de la medición:** sólo 1,95 días, así que es una proyección y no una factura;
+incluye las muertes por OOM del 14-10 (la API reinició varias veces) y la primera corrida
+semanal, la más pesada en egreso. La RAM media de la API después del arreglo de `/mercado`
+no está medida aparte. Se repite leyendo *Usage* al cerrar el primer periodo (2026-11-13) y,
+si la cifra cambia, se corrige aquí y en `frontend/lib/costos.ts` en el mismo PR.
 
 ---
 

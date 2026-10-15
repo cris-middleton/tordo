@@ -578,8 +578,9 @@ servidor va en TanStack Query (`lib/queries.ts`) y todo el tráfico pasa por `/a
 sin sesión — ver las reglas de frontend más arriba. Pantallas: el catálogo de
 licitaciones (`/licitaciones`, con su detalle; **los filtros viven en la URL**, `abiertas=1` incluido, así que
 una búsqueda es una URL), «Lo mejor de hoy en Compra Ágil» (`/compra-agil`), `/guardados`
-y la inteligencia de mercado (`/mercado`). Viven en el grupo de rutas `app/(panel)/`, que
-les pone la barra lateral sin aparecer en la URL.
+y la inteligencia de mercado (`/mercado`); y lo abierto en `/abierto`, enlazado como «API y
+MCP» desde la cabecera pública y la barra del panel. Las del panel viven en el grupo de rutas
+`app/(panel)/`, que les pone la barra lateral sin aparecer en la URL.
 
 **Las URL del panel son permanentes desde el lanzamiento: no se renombran.** Hasta entonces
 colgaban de `/dashboard/*` (`tenders`, `bi`…), y esas URL ya circulan en lectores de RSS,
@@ -707,6 +708,30 @@ SERVIDOR — `DONAR_MERCADO_PAGO_URL`, `DONAR_GITHUB_SPONSORS_URL` (https) y `DO
 `GET /api/apoyar/transferencia` (`no-store`, `noindex`), y `check:secreto` busca su centinela
 en el bundle. Un medio sin variable no se muestra. **Vercel Web Analytics** es el script
 oficial, sin dependencia, sólo cuando `VERCEL=1`.
+
+**El costo, por concepto** (`/apoyar#costos`): la tabla sale de `lib/costos.ts`, y **cada cifra
+cita un fragmento literal de un documento del repo** (este archivo, `docs/DESPLIEGUE.md`, la spec
+del pivote). `__tests__/costos.test.ts` falla si el fragmento deja de estar o no contiene la
+cifra: **si corriges un costo en docs/, corrige la tabla en el mismo PR**. Las filas de uso de
+Railway son **medidas** (*Usage*, 2026-10-15, `docs/DESPLIEGUE.md` §13.2, con su método y sus
+límites: 1,95 días, con los reinicios por OOM y la primera semanal dentro); lo que no tiene
+medición se rotula «Estimado» (hoy, el dominio). El total es una **proyección, ~US$10–11**
+(`COSTO_MENSUAL_APROXIMADO`), no una factura y no los US$5 de antes: el plan Hobby de Railway
+cuesta US$5 e incluye US$5 de uso, así que se paga el mayor de los dos —el uso medido, ~US$9–10—
+más el dominio (~US$1). Se repite al cerrar el primer periodo de facturación (2026-11-13). La
+portada y `/apoyar` lo leen de ahí (la prosa de `/apoyar` sale de las mismas constantes). «Cuánto cuesta» está en el pie
+(`PieAtribucion`).
+
+**Abierto** (`/abierto`): API, MCP con una caja de instalación por cliente, CSV y RSS, código y
+licencias (código AGPL-3.0; lo que el sitio calcula, CC BY 4.0; el catálogo, condiciones de
+ChileCompra — los términos §4 y §7 lo dicen igual). **La dirección pública de la API vive sólo en
+`lib/abierto.ts`** (`ORIGEN_API_PUBLICA`, test que lo exige): no es `API_URL`, que es a dónde
+habla el proxy. **La URL del MCP se publica siempre con barra final.** Las cuatro herramientas
+están copiadas a mano y `backend/tests/test_mcp.py` las compara con el `tools/list` real.
+«Código» sólo aparece con `REPOSITORIO_URL` (servidor, en el build, sólo `https://`;
+`lib/repositorio.ts`). **Sin botones ni *badges* de terceros**: meterían peticiones que la
+política de privacidad no declara; el E2E (`e2e/abierto.spec.ts`) falla si el navegador pide algo
+fuera del sitio.
 
 ### ETL — `etl/`
 
@@ -1167,6 +1192,10 @@ obligatorio que nadie usa enseña a rellenar variables sin mirar.
 
 **`RESPONSABLE_LEGAL`** (servidor de Next, en el build): el nombre que firman `/terminos` y
 `/privacidad`. En Vercel tiene que estar definida al construir.
+
+**`REPOSITORIO_URL`** (servidor de Next, en el build, opcional, sólo `https://`): el repositorio
+público para «Código» en `/abierto`. Vacía mientras el repo sea privado (spec del rediseño R8);
+al ponerla hay que redeployar, y los términos §7 se reescriben en el mismo cambio.
 
 **`API_URL` es de servidor y no lleva prefijo `NEXT_PUBLIC_`.** Cualquier variable que sí lo
 lleve se inlinea en el bundle del navegador, y la URL del backend ya no tiene por qué estar

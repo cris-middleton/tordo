@@ -193,6 +193,14 @@ Como el resto: **ningún dato de proveedor** que identifique a nadie. Los líder
 un rubro salen por nombre (las personas naturales, con su seudónimo `PN-`), sin
 código ni RUT.
 
+## Licencias
+
+Las cifras que calcula el sitio —bandas de precio, puntajes, indicadores de competencia y de
+compradores, y los CSV de análisis— se publican bajo **CC BY 4.0**: se pueden reutilizar,
+también con fines comerciales, citando el sitio y conservando la cita de ChileCompra. Los campos
+del catálogo, tal como los publica ChileCompra, **no** los licencia el sitio: siguen las
+condiciones de ChileCompra. El detalle, en `/abierto#licencias`.
+
 ## Versionado
 
 Todo cuelga de `/api/v1`, y el prefijo lo pone la aplicación al montar los
@@ -237,6 +245,9 @@ Es **anónimo**:
 También responde en `https://<host>/mcp`, sin barra y sin redirigir. Las demás
 redirecciones de la API (barra final de `/api/v1/*` y `/health`) llevan un `Location`
 relativo: se resuelven contra la URL pedida y nunca bajan a `http://`.
+
+En producción, **`https://api.tordo.cl/mcp/` — con la barra final**, que es la canónica. Cómo
+conectarlo desde Claude, ChatGPT, Cursor y VS Code, en el sitio: `/abierto#mcp`.
 
 **Cuatro herramientas, no veinte**, y es la decisión de diseño que sostiene todo
 lo demás:

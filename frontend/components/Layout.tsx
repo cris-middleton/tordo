@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import TordoLogo from '@/components/TordoLogo';
 import SelectorTema from '@/components/SelectorTema';
 import { PieAtribucion } from '@/components/legal/PieAtribucion';
-import { Menu, X, ChevronRight, Briefcase, Radar, Zap, Bookmark, Heart, Tag, BookOpen } from 'lucide-react';
+import { Menu, X, ChevronRight, Briefcase, Radar, Zap, Bookmark, Heart, Tag, BookOpen, Plug } from 'lucide-react';
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
 
@@ -51,6 +51,7 @@ const navSections: NavSection[] = [
     label: 'El sitio',
     items: [
       { name: 'Guías', href: '/guias', icon: BookOpen },
+      { name: 'API y MCP', href: '/abierto', icon: Plug },
       { name: 'Apoyar', href: '/apoyar', icon: Heart },
     ],
   },

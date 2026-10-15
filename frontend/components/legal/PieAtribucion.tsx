@@ -28,10 +28,15 @@ export function PieAtribucion({ className = '' }: { className?: string }) {
           Privacidad
         </Link>
       </nav>
-      {/* Fuera de la navegación legal: no es un documento. Discreto a propósito. */}
-      <Link href="/apoyar" className="text-[11px] text-subtle transition-colors hover:text-primary">
-        Apoyar el sitio
-      </Link>
+      {/* Fuera de la navegación legal: no son documentos. Discretos a propósito. */}
+      <div className="flex gap-x-4 text-[11px] text-subtle">
+        <Link href="/apoyar" className="transition-colors hover:text-primary">
+          Apoyar el sitio
+        </Link>
+        <Link href="/apoyar#costos" className="transition-colors hover:text-primary">
+          Cuánto cuesta
+        </Link>
+      </div>
     </div>
   );
 }

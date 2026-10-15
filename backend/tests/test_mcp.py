@@ -25,6 +25,8 @@ pivote público (el MCP es anónimo desde entonces):
 from __future__ import annotations
 
 import json
+import re
+from pathlib import Path
 
 import httpx2
 import pytest
@@ -41,6 +43,9 @@ CABECERAS_MCP = {
     "Accept": "application/json, text/event-stream",
     "Content-Type": "application/json",
 }
+
+#: `/abierto#mcp` enumera las herramientas a mano: es una página estática.
+ABIERTO_TS = Path(__file__).resolve().parents[2] / "frontend" / "lib" / "abierto.ts"
 
 
 def _rpc(metodo: str, parametros: dict | None = None, id_: int = 1) -> dict:
@@ -159,6 +164,17 @@ async def test_expone_cuatro_herramientas_y_son_de_grano_grueso(cliente):
         "perfil_de_comprador",
         "buscar_productos",
     }
+
+
+async def test_la_pagina_abierto_lista_las_mismas_herramientas(cliente):
+    """Renombrar una herramienta aquí sin tocar `/abierto` publicaría un nombre
+    que el servidor ya no tiene: un modelo lo pediría y recibiría un error."""
+    texto = ABIERTO_TS.read_text(encoding="utf-8")
+    bloque = texto.split("export const HERRAMIENTAS_MCP", 1)[1].split("] as const", 1)[0]
+    en_la_pagina = re.findall(r"nombre: '([a-z_]+)'", bloque)
+    herramientas = [h["name"] for h in (await _listar_herramientas(cliente))["result"]["tools"]]
+
+    assert sorted(en_la_pagina) == sorted(herramientas)
 
 
 async def test_ninguna_herramienta_pide_empresa(cliente):

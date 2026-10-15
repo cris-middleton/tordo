@@ -31,16 +31,19 @@ export function CabeceraFicha({
 }
 
 export function Seccion({
+  id,
   titulo,
   descripcion,
   children,
 }: {
+  /** Ancla de la sección (`/abierto#mcp`, `/apoyar#costos`). */
+  id?: string;
   titulo: string;
   descripcion?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="mt-10">
+    <section id={id} className="mt-10 scroll-mt-6">
       <h2 className="font-display text-lg font-bold text-text">{titulo}</h2>
       {descripcion && <p className="mt-1 text-sm text-muted">{descripcion}</p>}
       <div className="mt-4">{children}</div>

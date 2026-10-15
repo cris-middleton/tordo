@@ -54,6 +54,7 @@ describe('sitemap y robots', () => {
       'https://tordo.prueba/licitaciones',
       'https://tordo.prueba/productos',
       'https://tordo.prueba/guias',
+      'https://tordo.prueba/abierto',
       'https://tordo.prueba/apoyar',
       'https://tordo.prueba/terminos',
       'https://tordo.prueba/privacidad',

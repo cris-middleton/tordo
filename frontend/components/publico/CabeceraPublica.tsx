@@ -11,6 +11,9 @@ export const SECCIONES_PUBLICAS = [
   { nombre: 'Precios', href: '/productos' },
   { nombre: 'Inteligencia de mercado', href: '/mercado' },
   { nombre: 'Guías', href: '/guias' },
+  // Lo abierto se demuestra, no se declara (spec del rediseño §2.2): API, MCP,
+  // CSV, código y licencias, a un clic desde cualquier página.
+  { nombre: 'API y MCP', href: '/abierto' },
 ] as const;
 
 /**

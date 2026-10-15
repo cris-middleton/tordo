@@ -21,7 +21,7 @@ export const metadata: Metadata = {
  * cobro, y casi nada de él sobrevive — aquí no hay registro, ni suscripción, ni
  * nada que cancelar.
  */
-const VIGENTE_DESDE = '13 de octubre de 2026';
+const VIGENTE_DESDE = '15 de octubre de 2026';
 
 export default function TerminosPage() {
   return (
@@ -50,9 +50,10 @@ export default function TerminosPage() {
       </p>
       <p>
         Los datos no se modifican en su contenido. Sí se normalizan en forma (fechas, tipos,
-        mayúsculas, unidades) y se calculan agregados sobre ellos. Además, los nombres e
-        identificadores de los proveedores que son <strong>personas naturales</strong> se
-        omiten y se muestran como «Persona natural»: el motivo está en la{' '}
+        mayúsculas, unidades) y se calculan agregados sobre ellos. Además, los proveedores
+        que son <strong>personas naturales</strong> no aparecen con su nombre ni su RUT: se
+        reemplazan por la etiqueta «Persona natural» y, en los análisis, por un seudónimo que
+        cambia en cada actualización y no permite volver a la persona. El motivo está en la{' '}
         <Link href="/privacidad">política de privacidad</Link>.
       </p>
 
@@ -80,7 +81,14 @@ export default function TerminosPage() {
         <li>
           Puedes consultar, citar y reutilizar los datos y análisis, también con fines
           comerciales, <strong>citando la fuente oficial</strong> tal como aparece arriba.
-          Los archivos CSV que descargas ya la traen en su primera línea.
+          Los archivos CSV que descargas ya la traen en su primera línea. Los análisis que
+          calcula el sitio —rangos de precio, puntajes e indicadores—, sus CSV y esas mismas
+          cifras en la API y el servidor MCP se publican además bajo licencia{' '}
+          <strong>CC BY 4.0</strong>: al reutilizarlos, cita también este sitio, conservando la
+          cita de la fuente de ChileCompra, e indica si hiciste cambios. El contenido del
+          catálogo (licitaciones y Compras Ágiles, tal como las publica ChileCompra) no lo
+          licencia el sitio: siguen bajo las condiciones de ChileCompra. El detalle está en{' '}
+          <Link href="/abierto#licencias">licencias</Link>.
         </li>
         <li>
           La API y el servidor MCP son de libre acceso y tienen un{' '}
@@ -125,8 +133,9 @@ export default function TerminosPage() {
 
       <h2>7. Propiedad</h2>
       <p>
-        El contenido de los datos es información pública de ChileCompra. El software, los
-        algoritmos y la presentación del sitio pertenecen al responsable.
+        El contenido de los datos es información pública de ChileCompra. El código del sitio
+        se licencia bajo <strong>AGPL-3.0</strong>; cuando se publique, su dirección estará en <Link href="/abierto">/abierto</Link>. Los análisis que calcula se
+        licencian según el punto 4. La marca y la presentación del sitio pertenecen al responsable.
       </p>
 
       <h2>8. Ley aplicable</h2>
