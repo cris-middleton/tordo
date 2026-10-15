@@ -53,4 +53,10 @@ describe('el pie único', () => {
     render(<PieSitio />);
     expect(screen.getByRole('radiogroup', { name: 'Apariencia' })).toBeInTheDocument();
   });
+
+  it('«Acerca», junto a las licencias y el contacto: no es una sección del mapa', () => {
+    render(<PieSitio />);
+    expect(screen.getByRole('link', { name: 'Acerca' })).toHaveAttribute('href', '/acerca');
+    expect(mapa()).not.toContain('Acerca');
+  });
 });

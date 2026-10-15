@@ -43,8 +43,8 @@
    next-themes agrega class="dark" o class="light" en <html>.
 
    El contraste de estos tokens lo comprueba `__tests__/contraste-wcag.test.ts`
-   contra WCAG AA, en los dos temas: cada tinta sobre cada superficie (bandas de
-   la landing incluidas) y cada `on-*` sobre su relleno. Antes eran «166 pares
+   contra WCAG AA, en los dos temas: cada tinta sobre cada superficie y cada
+   `on-*` sobre su relleno. Antes eran «166 pares
    verificados» a mano, y el bug de `.alert-info` (texto invisible en tema
    claro) nació de tocar uno de estos a ojo. Un token nuevo hace fallar el test
    hasta que alguien decida sus pares.
@@ -57,7 +57,7 @@
   --color-accent: 13 115 118;          /* #0D7376 — teal, parada oscura */
   --color-accent-dark: 10 98 101;      /* #0A6265 */
   --color-accent-light: 237 247 247;   /* #EDF7F7 — superficie tenue */
-  --color-brand-navy: 16 40 88;        /* #102858 — theme-invariant */
+  --color-brand-navy: 16 40 88;        /* #102858 — invariante de tema; fondo de la tarjeta de vista previa (lib/coloresImagen.ts) */
   --color-gold: 150 89 10;            /* #96590A */
   --color-gold-light: 251 246 228;    /* #FBF6E4 */
   --color-text: 10 22 38;             /* #0A1626 */
@@ -66,17 +66,6 @@
   --color-background: 247 244 236;    /* #F7F4EC — papel cálido; subtle 4.94:1, border-input 3.09:1 */
   --color-surface: 255 255 255;       /* #FFFFFF */
   --color-surface-elevated: 241 244 249; /* #F1F4F9 */
-  /* Bandas de la landing. La página es una distribución: el tono se profundiza
-     hacia el centro, donde cae la mediana — el bloque de datos de ChileCompra.
-     Es el mismo gesto que P10·P25·P50·P75·P90 en PriceBandChart, que es la
-     primitiva visual del producto.
-     `accent` y `subtle` están elegidos para pasar AA hasta band-1 inclusive;
-     el test de contraste comprueba cada tinta contra cada banda. */
-  --color-band-4: 255 255 255;        /* #FFFFFF — cola de la distribución */
-  --color-band-3: 247 249 252;        /* #F7F9FC */
-  --color-band-2: 239 243 249;        /* #EFF3F9 */
-  --color-band-1: 231 237 246;        /* #E7EDF6 — mediana */
-
   --color-border: 220 227 237;        /* #DCE3ED — decorativo: tarjetas, divisores */
   --color-border-light: 196 208 224;  /* #C4D0E0 */
   --color-border-input: 122 141 166;  /* #7A8DA6 — 3.39:1, exige WCAG 1.4.11 para controles */
@@ -121,7 +110,7 @@
   --color-accent: 61 185 187;          /* #3DB9BB — teal del ala, parada clara */
   --color-accent-dark: 92 202 204;     /* #5CCACC — en oscuro el hover ACLARA */
   --color-accent-light: 11 33 36;      /* #0B2124 — superficie tenue */
-  --color-brand-navy: 16 40 88;        /* #102858 — theme-invariant */
+  --color-brand-navy: 16 40 88;        /* #102858 — invariante de tema; fondo de la tarjeta de vista previa (lib/coloresImagen.ts) */
   --color-gold: 245 184 65;           /* #F5B841 */
   --color-gold-light: 42 31 8;        /* #2A1F08 */
   --color-text: 228 234 242;          /* #E4EAF2 */
@@ -130,13 +119,6 @@
   --color-background: 8 11 17;        /* #080B11 */
   --color-surface: 14 19 28;          /* #0E131C */
   --color-surface-elevated: 22 29 42; /* #161D2A */
-  /* En oscuro la distribución se expresa al revés: la mediana es la banda más
-     elevada, no la más profunda. */
-  --color-band-4: 8 11 17;            /* #080B11 */
-  --color-band-3: 14 19 28;           /* #0E131C */
-  --color-band-2: 19 26 38;           /* #131A26 */
-  --color-band-1: 26 35 51;           /* #1A2333 — mediana */
-
   --color-border: 30 39 54;           /* #1E2736 — decorativo */
   --color-border-light: 42 53 71;     /* #2A3547 */
   --color-border-input: 85 102 132;   /* #556684 — 3.21:1 */

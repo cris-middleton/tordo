@@ -17,7 +17,7 @@
 
 import { API } from './versionApi';
 import { cabecerasHaciaElBackend, urlDelBackend } from './backendServidor';
-import type { CompraAgilDestacadasResponse } from '@/types/compraAgil';
+import type { CompraAgilDestacada, CompraAgilDestacadasResponse } from '@/types/compraAgil';
 import type { ResumenPortada } from '@/types/publico';
 
 import {
@@ -79,8 +79,38 @@ async function pedirParaLaPortada<T>(
   }
 }
 
+function esTextoONulo(valor: unknown): valor is string | null {
+  return valor === null || typeof valor === 'string';
+}
+
+function esNumeroONulo(valor: unknown): valor is number | null {
+  return valor === null || (typeof valor === 'number' && Number.isFinite(valor));
+}
+
+/**
+ * Un item con los campos que la portada LEE (`BloqueHoy`), del tipo que los
+ * lee: un `null` o un campo ausente haría lanzar el render, y la portada no
+ * puede caerse por la API. Lo que la portada no lee no se mira.
+ */
+function esDestacada(dato: unknown): dato is CompraAgilDestacada {
+  if (!dato || typeof dato !== 'object') return false;
+  const d = dato as Record<string, unknown>;
+  return (
+    typeof d.codigo_externo === 'string' &&
+    typeof d.nombre === 'string' &&
+    esTextoONulo(d.nombre_organismo) &&
+    esNumeroONulo(d.monto_estimado) &&
+    typeof d.horas_restantes === 'number' &&
+    Number.isFinite(d.horas_restantes) &&
+    esNumeroONulo(d.ofertas_recibidas) &&
+    esTextoONulo(d.ofertas_al)
+  );
+}
+
 function esDestacadas(datos: unknown): datos is CompraAgilDestacadasResponse {
-  return Array.isArray((datos as CompraAgilDestacadasResponse | null)?.items);
+  if (!datos || typeof datos !== 'object') return false;
+  const r = datos as Record<string, unknown>;
+  return esTextoONulo(r.actualizado_en) && Array.isArray(r.items) && r.items.every(esDestacada);
 }
 
 function esConteo(valor: unknown): valor is number {

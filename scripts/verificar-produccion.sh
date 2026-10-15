@@ -201,6 +201,40 @@ fi
 codigo=$(pedir "$API/health/")
 [ "$codigo" = 200 ] && ok "la API sigue viva tras /mercado" || mal "/health/ responde $codigo tras /mercado: ¿OOM? mira «Killed» en el log"
 
+# ── Los ejemplos de la portada encuentran algo (rediseño 6) ──────────────────
+# Copia LITERAL de EJEMPLOS_BUSQUEDA (frontend/lib/buscar.ts), en su orden:
+# frontend/__tests__/portada-ayudantes.test.ts falla si se separan. Seis GET,
+# uno por ejemplo y con un segundo entre cada uno: nunca un bucle contra
+# producción. Un ejemplo sin productos indexables deja a quien lo pulsa ante una
+# búsqueda vacía: se cambia (verificado antes contra producción) en los dos sitios.
+seccion "Ejemplos de la portada: cada uno encuentra un producto indexable"
+
+ejemplo() {
+  local termino=$1 q codigo
+  q=$(python3 -I -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1]))' "$termino")
+  codigo=$(pedir "$API/api/v1/publico/productos?q=$q")
+  # `2>/dev/null`: un 200 con un cuerpo que no es JSON saldría con una traza de
+  # Python; aquí sólo importa el código de salida, y el ✗ de abajo lo dice en una línea.
+  if [ "$codigo" = 200 ] && python3 -I - "$TMP/cuerpo" 2>/dev/null <<'PY'
+import json, sys
+productos = json.load(open(sys.argv[1]))
+sys.exit(0 if isinstance(productos, list) and any(p.get("indexable") for p in productos) else 1)
+PY
+  then
+    ok "«${termino}» encuentra productos indexables"
+  else
+    mal "«${termino}» ($codigo): ningún producto indexable — cambia el ejemplo en frontend/lib/buscar.ts y aquí"
+  fi
+  sleep 1
+}
+
+ejemplo 'guantes de nitrilo'
+ejemplo 'papel higiénico'
+ejemplo 'jabón líquido'
+ejemplo 'tóner'
+ejemplo 'resma de papel carta'
+ejemplo 'agua purificada en bidones'
+
 # ── El límite cuenta por la IP real ──────────────────────────────────────────
 seccion "Límite por IP: un X-Forwarded-For inventado no abre otro cubo"
 
@@ -301,6 +335,14 @@ fi
 codigo=$(pedir "$SITIO/guias")
 [ "$codigo" = 200 ] && ok "/guias responde 200" || mal "/guias responde $codigo"
 pagina "/guias/compra-agil-como-funciona" "una guía"
+
+# La portada es un buscador: un <form> GET a /buscar, sin JavaScript (rediseño 6).
+codigo=$(pedir "$SITIO/")
+if [ "$codigo" = 200 ] && grep -q 'action="/buscar"' "$TMP/cuerpo"; then
+  ok "la portada responde 200 con su buscador (action=\"/buscar\")"
+else
+  mal "la portada responde $codigo o no trae el buscador a /buscar"
+fi
 
 # /buscar responde aunque un bloque falle (se oculta con una línea) y no se indexa (rediseño 5).
 codigo=$(pedir "$SITIO/buscar?q=resma")

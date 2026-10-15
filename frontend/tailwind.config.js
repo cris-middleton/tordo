@@ -34,11 +34,6 @@ module.exports = {
         success: 'rgb(var(--color-success) / <alpha-value>)',
         successLight: 'rgb(var(--color-success-light) / <alpha-value>)',
         'brand-navy': 'rgb(var(--color-brand-navy) / <alpha-value>)',
-        // Bandas de la landing — ver el comentario en globals.css
-        band1: 'rgb(var(--color-band-1) / <alpha-value>)',
-        band2: 'rgb(var(--color-band-2) / <alpha-value>)',
-        band3: 'rgb(var(--color-band-3) / <alpha-value>)',
-        band4: 'rgb(var(--color-band-4) / <alpha-value>)',
         // Etiqueta que va ENCIMA de cada relleno de color. En tema claro los
         // rellenos son oscuros y estas son blancas; en oscuro se invierten.
         // Usa `text-onAccent` en vez de `text-white` sobre `bg-accent`.

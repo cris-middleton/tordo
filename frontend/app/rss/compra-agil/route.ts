@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 
 import {
-  DESCRIPCION_DESTACADAS,
+  descripcionDestacadas,
   MOSTRAR_COTIZACIONES,
   TITULO_DESTACADAS,
   textoComprador,
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
     construirRss({
       titulo: `${TITULO_DESTACADAS} — ${NOMBRE_SITIO}`,
       enlace: `${origen}/compra-agil${consulta ? `?${consulta}` : ''}`,
-      descripcion: DESCRIPCION_DESTACADAS,
+      descripcion: descripcionDestacadas(respuesta.historia_disponible === true),
       items: (respuesta.items ?? []).map((item) => ({
         titulo: normalizeText(item.nombre),
         enlace: `${origen}/licitaciones/${encodeURIComponent(item.codigo_externo)}`,

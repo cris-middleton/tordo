@@ -265,6 +265,13 @@ servidor).
 ```
 (Cifras de ejemplo medidas en producción el 2026-10-14; las definitivas salen de §6.6.)
 
+> **Implementado en el PR 6** (2026-10): los ejemplos son los seis verificados por 0e, en su orden,
+> y viven en `lib/buscar.ts` (PR 5); el `<h1>` es la etiqueta del campo; la tira y «Lo mejor de
+> hoy» se ocultan cada uno con una hora ilegible o un backend que falla (también con un 200 mal
+> formado); «Lo mejor de hoy» compacto no lleva la historia de la unidad; el lema dice «código
+> abierto» sólo con `REPOSITORIO_URL`; «Acerca» va en el pie, no en la navegación. Detalle en
+> CLAUDE.md, «La portada es un buscador».
+
 - **Sin hero de color, sin rejilla de funciones, sin FAQ.** «Qué es», «de dónde salen los
   datos», «cómo se financia» y las preguntas frecuentes (`PREGUNTAS`) se mudan a **`/acerca`**,
   página nueva y mínima.

@@ -15,7 +15,7 @@ import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { FUENTE_DATOS } from '@/lib/atribucion';
-import { DESCRIPCION_DESTACADAS, TITULO_DESTACADAS } from '@/lib/compraAgil';
+import { descripcionDestacadas, TITULO_DESTACADAS } from '@/lib/compraAgil';
 import { CACHE_RSS, construirRss, escaparXml, filtrarParams, PARAMS_RSS_LICITACIONES } from '@/lib/rss';
 
 const BACKEND = 'http://backend.prueba:8000';
@@ -170,6 +170,7 @@ describe('/rss/compra-agil', () => {
   it('pide las destacadas con región y búsqueda, nada más', async () => {
     simularBackend({
       actualizado_en: null,
+      historia_disponible: true,
       ventana_desde: null,
       ventana_hasta: null,
       items: [
@@ -200,7 +201,7 @@ describe('/rss/compra-agil', () => {
     // canal ni en cada ítem, aunque el backend lo mande.
     expect(xml).not.toMatch(/cotiz/i);
     expect(xml).toContain(escaparXml(TITULO_DESTACADAS));
-    expect(xml).toContain(escaparXml(DESCRIPCION_DESTACADAS));
+    expect(xml).toContain(escaparXml(descripcionDestacadas(true)));
     expect(xml).toContain(escaparXml(FUENTE_DATOS));
     expect(xml).toMatch(/&lt;m8&gt;/i);
   });
@@ -248,5 +249,8 @@ describe('/rss/compra-agil', () => {
   it('sin historia aún, el ítem no dice nada del comprador', async () => {
     const xml = await rssConHistoria(false);
     expect(xml).not.toMatch(/historial|esta unidad|suele comprar|su orden típica/i);
+    // Ni el canal afirma un criterio que no está ordenando nada.
+    expect(xml).toContain(escaparXml(descripcionDestacadas(false)));
+    expect(xml).not.toMatch(/compran seguido/);
   });
 });

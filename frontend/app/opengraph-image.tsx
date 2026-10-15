@@ -13,7 +13,7 @@ import { COLORES_IMAGEN as C } from '@/lib/coloresImagen';
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
 
-export const alt = `${APP_NAME} — inteligencia de compras públicas en Chile, gratis y sin cuenta`;
+export const alt = `${APP_NAME} — compras públicas de Chile: precios pagados, licitaciones y Compra Ágil, gratis y sin cuenta`;
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -39,10 +39,10 @@ export default function Image() {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', fontSize: 68, fontWeight: 700, lineHeight: 1.1 }}>
-            Inteligencia de compras públicas en Chile
+            ¿Qué le vendes al Estado?
           </div>
           <div style={{ display: 'flex', marginTop: 24, fontSize: 34, color: C.tenue.hex }}>
-            Compra Ágil · precios pagados por el Estado · compradores
+            Precios pagados · licitaciones abiertas · Compra Ágil
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>

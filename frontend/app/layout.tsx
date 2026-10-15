@@ -53,8 +53,8 @@ export const metadata: Metadata = {
     default: APP_NAME,
     template: `%s · ${APP_NAME}`,
   },
-  // «y cumplimiento» se fue con las cuentas: sin empresa no hay estado hábil ni documentos.
-  description: `${APP_NAME} — Inteligencia de compras públicas para proveedores del Estado en Chile, gratis y sin cuenta`,
+  // Vocabulario llano (R10 del rediseño), y nada de lo que se fue con las cuentas.
+  description: `${APP_NAME} — compras públicas de Chile para quien le vende al Estado: precios pagados, licitaciones abiertas y Compra Ágil. Gratis y sin cuenta`,
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: '48x48' },

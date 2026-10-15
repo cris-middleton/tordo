@@ -1,31 +1,38 @@
 /**
- * La portada (paso 10b del pivote).
+ * La portada (spec del rediseño §6.3): un buscador primero, y lo vivo debajo.
  *
  * Se fija:
- *   1. el bloque «Lo mejor de hoy» se pide como RENDERIZADO DEL SERVIDOR, con
- *      media hora de caché y la etiqueta `compra-agil` que vacía el cron;
- *   2. **si el backend falla, el bloque se oculta y la portada sigue en pie**
- *      — no lanza, ni con un 500, ni sin red, ni con una respuesta rara;
- *   3. un solo `h1`, las dos acciones del hero y nada que prometa lo que se fue
- *      con las cuentas (avisos, informe, encaje, prueba gratis…);
- *   4. sigue siendo un componente de servidor con `metadata`;
- *   5. cada enlace a una guía apunta a un explicativo que existe.
+ *   1. lo vivo —la tira y «Lo mejor de hoy»— se pide como RENDERIZADO DEL
+ *      SERVIDOR, media hora, etiqueta `compra-agil`, y **si el backend falla se
+ *      oculta**: la portada no lanza, ni con un 500, ni sin red, ni con una
+ *      respuesta rara, ni con una hora que no se puede leer;
+ *   2. el buscador no depende de nada: con el backend caído, la portada sirve
+ *      para buscar;
+ *   3. «Código abierto» y «hecho por» sólo con su variable: nunca un enlace roto,
+ *      una promesa falsa ni el hueco `[[…]]` de los documentos legales;
+ *   4. nada de lo que se fue: ni hero, ni bandas, ni accesos, ni preguntas (están
+ *      en /acerca), ni lo que se fue con las cuentas;
+ *   5. sigue siendo un componente de servidor con `metadata`, sin «Inteligencia» (R10).
  */
-import { existsSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import Home, { metadata, revalidate } from '@/app/page';
-import { DESCRIPCION_DESTACADAS, TITULO_DESTACADAS } from '@/lib/compraAgil';
+import { descripcionDestacadas, TITULO_DESTACADAS } from '@/lib/compraAgil';
 import { COSTO_MENSUAL_APROXIMADO } from '@/lib/costos';
-import { ACCESOS, PREGUNTAS, actualizadoEnPalabras } from '@/lib/portada';
+import { urlCatalogoAbiertas } from '@/lib/filtrosCatalogo';
+import { EJEMPLOS_BUSQUEDA } from '@/lib/buscar';
+import * as portada from '@/lib/portada';
 import { pedirDestacadas } from '@/lib/publicoServidor';
 import type { CompraAgilDestacada, CompraAgilDestacadasResponse } from '@/types/compraAgil';
+import type { ResumenPortada } from '@/types/publico';
 
 const BACKEND = 'http://backend.prueba:8000';
 const SECRETO = 'secreto-de-prueba-del-proxy-0123456789';
+const PREGUNTA = '¿Qué le vendes al Estado?';
 
 function item(n: number): CompraAgilDestacada {
   return {
@@ -45,7 +52,7 @@ function item(n: number): CompraAgilDestacada {
   };
 }
 
-const RESPUESTA: CompraAgilDestacadasResponse = {
+const DESTACADAS: CompraAgilDestacadasResponse = {
   actualizado_en: '2026-10-12T16:05:00Z',
   historia_disponible: true,
   ventana_desde: '2026-04-12',
@@ -53,21 +60,37 @@ const RESPUESTA: CompraAgilDestacadasResponse = {
   items: [1, 2, 3, 4, 5].map(item),
 };
 
+const RESUMEN: ResumenPortada = {
+  licitaciones_abiertas: 4232,
+  compra_agil_abiertas: 2714,
+  actualizado_en: '2026-10-14T11:00:00-03:00',
+};
+
+type Respuesta = () => Promise<Response>;
+const ok =
+  (cuerpo: unknown): Respuesta =>
+  async () =>
+    new Response(JSON.stringify(cuerpo), { status: 200, headers: { 'content-type': 'application/json' } });
+const caido: Respuesta = async () => new Response('{}', { status: 502 });
+const sinRed: Respuesta = async () => Promise.reject(new TypeError('fetch failed'));
+
 let pedidas: { url: string; init: RequestInit }[] = [];
 
-function simularBackend(respuesta: () => Promise<Response>) {
+/** Cada pieza viva con su respuesta; lo que no se diga, caído. */
+function simularBackend({ destacadas = caido, resumen = caido }: { destacadas?: Respuesta; resumen?: Respuesta }) {
   pedidas = [];
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init: RequestInit) => {
       pedidas.push({ url, init });
-      return respuesta();
+      if (url.endsWith('/publico/portada')) return resumen();
+      if (url.includes('/compra-agil/destacadas')) return destacadas();
+      return new Response('{}', { status: 404 });
     }),
   );
 }
 
-const ok = (cuerpo: unknown) => async () =>
-  new Response(JSON.stringify(cuerpo), { status: 200, headers: { 'content-type': 'application/json' } });
+const todo = () => simularBackend({ destacadas: ok(DESTACADAS), resumen: ok(RESUMEN) });
 
 beforeEach(() => {
   process.env.API_URL = BACKEND;
@@ -77,142 +100,274 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  delete process.env.REPOSITORIO_URL;
+  delete process.env.RESPONSABLE_LEGAL;
 });
 
-describe('el bloque vivo', () => {
-  it('se pide como renderizado del servidor, media hora, etiqueta compra-agil', async () => {
-    simularBackend(ok(RESPUESTA));
-    expect(await pedirDestacadas(5)).toEqual(RESPUESTA);
-    const { url, init } = pedidas[0];
-    expect(url).toBe(`${BACKEND}/api/v1/compra-agil/destacadas?limite=5`);
-    const cabeceras = new Headers(init.headers);
-    expect(cabeceras.get('X-Tordo-Proxy')).toBe(SECRETO);
-    expect(cabeceras.has('X-Tordo-Visitante')).toBe(false);
-    expect(init.next).toEqual({ revalidate: 1800, tags: ['compra-agil'] });
+describe('lo que la portada pide al backend', () => {
+  it('las dos piezas vivas, como renderizado del servidor, media hora, etiqueta compra-agil', async () => {
+    todo();
+    render(await Home());
+    expect(pedidas.map((p) => p.url).sort()).toEqual([
+      `${BACKEND}/api/v1/compra-agil/destacadas?limite=5`,
+      `${BACKEND}/api/v1/publico/portada`,
+    ]);
+    for (const { init } of pedidas) {
+      const cabeceras = new Headers(init.headers);
+      expect(cabeceras.get('X-Tordo-Proxy')).toBe(SECRETO);
+      expect(cabeceras.has('X-Tordo-Visitante')).toBe(false);
+      expect(init.next).toEqual({ revalidate: 1800, tags: ['compra-agil'] });
+    }
     expect(revalidate).toBe(1800);
   });
 
   it.each([
     ['un 500', async () => new Response('{}', { status: 500 })],
-    ['sin red', async () => Promise.reject(new TypeError('fetch failed'))],
+    ['sin red', sinRed],
     ['una respuesta sin items', ok({ detail: 'raro' })],
-  ])('con %s devuelve null y no lanza', async (_, respuesta) => {
-    simularBackend(respuesta);
+    ['un item nulo', ok({ ...DESTACADAS, items: [item(1), null] })],
+    ['un item que no es un objeto', ok({ ...DESTACADAS, items: [item(1), 'raro'] })],
+    ['un item sin codigo_externo', ok({ ...DESTACADAS, items: [item(1), { ...item(2), codigo_externo: undefined }] })],
+    ['un item con horas_restantes de texto', ok({ ...DESTACADAS, items: [{ ...item(1), horas_restantes: '30' }] })],
+    ['un item con nombre nulo', ok({ ...DESTACADAS, items: [{ ...item(1), nombre: null }] })],
+    ['una actualizado_en que no es texto', ok({ ...DESTACADAS, actualizado_en: 5 })],
+  ])('«Lo mejor de hoy» con %s devuelve null y no lanza', async (_, respuesta) => {
+    simularBackend({ destacadas: respuesta });
     await expect(pedirDestacadas(5)).resolves.toBeNull();
   });
 
+  it('un item nulo en la respuesta oculta el bloque y la portada no se cae', async () => {
+    simularBackend({
+      destacadas: ok({ ...DESTACADAS, items: [item(1), null] }),
+      resumen: ok(RESUMEN),
+    });
+    const { container } = render(await Home());
+    expect(container.querySelector('#hoy')).toBeNull();
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(PREGUNTA);
+    expect(screen.getByRole('list', { name: 'Abiertas ahora' })).toBeInTheDocument();
+  });
+
+  it('una respuesta bien formada, con campos nulos donde el tipo lo admite, sigue valiendo', async () => {
+    const nulos = {
+      ...item(1),
+      nombre_organismo: null,
+      monto_estimado: null,
+      ofertas_recibidas: null,
+      ofertas_al: null,
+    };
+    simularBackend({ destacadas: ok({ ...DESTACADAS, items: [nulos] }) });
+    await expect(pedirDestacadas(5)).resolves.toMatchObject({ items: [{ codigo_externo: '1234-1-COT26' }] });
+  });
+
   it('la hora de actualización va con el día, en hora de Chile', () => {
-    // 16:05 UTC del lunes 12 de octubre es 13:05 en Santiago (UTC-3 en primavera).
-    expect(actualizadoEnPalabras('2026-10-12T16:05:00Z')).toMatch(/12.*oct.*13:05/);
-    expect(actualizadoEnPalabras(null)).toBeNull();
-    expect(actualizadoEnPalabras('no es fecha')).toBeNull();
+    expect(portada.actualizadoEnPalabras('2026-10-12T16:05:00Z')).toMatch(/12.*oct.*13:05/);
+    expect(portada.actualizadoEnPalabras(null)).toBeNull();
+    expect(portada.actualizadoEnPalabras('no es fecha')).toBeNull();
   });
 });
 
-describe('la portada', () => {
-  it('con destacadas: el hero, las cinco y la hora', async () => {
-    simularBackend(ok(RESPUESTA));
+describe('lo primero: el buscador', () => {
+  it('un solo h1, la pregunta, y el formulario a /buscar', async () => {
+    todo();
     render(await Home());
-
-    expect(screen.getByText(new RegExp(`unos ${COSTO_MENSUAL_APROXIMADO.replace('$', '\\$')} al mes`))).toBeInTheDocument();
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-      /inteligencia de compras públicas, gratis y sin cuenta/i,
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(PREGUNTA);
+    expect(screen.getByRole('searchbox', { name: PREGUNTA })).toHaveAttribute('name', 'q');
+    expect(screen.getByRole('search')).toHaveAttribute('action', '/buscar');
+    expect(within(screen.getByRole('list', { name: 'Ejemplos de búsqueda' })).getAllByRole('link')).toHaveLength(
+      EJEMPLOS_BUSQUEDA.length,
     );
-    expect(screen.getByRole('link', { name: new RegExp(`^${TITULO_DESTACADAS}$`, 'i') })).toHaveAttribute(
-      'href',
-      '/compra-agil',
-    );
-    expect(screen.getByRole('link', { name: /buscar precios/i })).toHaveAttribute('href', '/productos');
-
-    const lista = screen.getByRole('list', { name: /compras ágiles destacadas de hoy/i });
-    // Los hijos directos: cada tarjeta trae su propia lista de factores.
-    expect(lista.children).toHaveLength(5);
-    expect(within(lista).getByText(/compra de prueba 5/i)).toBeInTheDocument();
-    expect(screen.getByText(/13:05/)).toBeInTheDocument();
   });
 
-  it('el bloque dice el título y la descripción de un solo sitio y no habla de cotizaciones', async () => {
-    simularBackend(ok(RESPUESTA));
+  it.each([
+    ['caído', caido],
+    ['sin red', sinRed],
+  ])('el buscador está aunque el backend no responda nada (%s)', async (_, respuesta) => {
+    simularBackend({ destacadas: respuesta, resumen: respuesta });
     const { container } = render(await Home());
+    expect(screen.getByRole('searchbox', { name: PREGUNTA })).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Ejemplos de búsqueda' })).toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: 'Abiertas ahora' })).toBeNull();
+    expect(container.querySelector('#hoy')).toBeNull();
+    expect(screen.getByRole('heading', { level: 2, name: 'Úsalo como quieras' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Apoyar' })).toHaveAttribute('href', '/apoyar');
+  });
+});
 
+describe('la tira de cifras', () => {
+  it('dos cifras al catálogo con el filtro que las cuenta, y la hora', async () => {
+    todo();
+    render(await Home());
+    const tira = screen.getByRole('list', { name: 'Abiertas ahora' });
+    expect(within(tira).getByRole('link', { name: '4.232 licitaciones abiertas' })).toHaveAttribute(
+      'href',
+      urlCatalogoAbiertas('licitaciones'),
+    );
+    expect(within(tira).getByRole('link', { name: '2.714 Compras Ágiles abiertas' })).toHaveAttribute(
+      'href',
+      urlCatalogoAbiertas('compra_agil'),
+    );
+    expect(screen.getByText(/^actualizado el/)).toHaveTextContent(/14.*oct.*11:00/);
+  });
+
+  it.each([
+    ['un 502', caido],
+    ['sin hora', ok({ ...RESUMEN, actualizado_en: null })],
+    ['una hora que no se puede leer', ok({ ...RESUMEN, actualizado_en: 'ayer a las once' })],
+    ['un conteo negativo', ok({ ...RESUMEN, licitaciones_abiertas: -1 })],
+  ])('con %s la tira se oculta y lo demás sigue', async (_, resumen) => {
+    simularBackend({ destacadas: ok(DESTACADAS), resumen });
+    const { container } = render(await Home());
+    expect(screen.queryByRole('list', { name: 'Abiertas ahora' })).toBeNull();
+    expect(container.textContent).not.toMatch(/invalid date|NaN/i);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(PREGUNTA);
+    expect(container.querySelector('#hoy')).not.toBeNull();
+  });
+});
+
+describe('«Lo mejor de hoy»', () => {
+  it('compacto: cinco filas, el título de un solo sitio y «Ver todas»', async () => {
+    todo();
+    const { container } = render(await Home());
     const bloque = container.querySelector('#hoy') as HTMLElement;
     expect(within(bloque).getByRole('heading', { level: 2 })).toHaveTextContent(TITULO_DESTACADAS);
-    expect(within(bloque).getByText(DESCRIPCION_DESTACADAS)).toBeInTheDocument();
-    // El conteo de cotizaciones no se mantiene (G1 sin resolver): ni en el
-    // texto del bloque ni en sus cinco tarjetas.
-    expect(bloque.textContent).not.toMatch(/cotiz/i);
-  });
-
-  it('con la historia por unidad aún sin calcular, las tarjetas no dicen nada del comprador', async () => {
-    simularBackend(ok({ ...RESPUESTA, historia_disponible: false }));
-    const { container } = render(await Home());
-    const bloque = container.querySelector('#hoy') as HTMLElement;
     expect(within(bloque).getAllByRole('article')).toHaveLength(5);
-    expect(bloque.textContent).not.toMatch(/historial|esta unidad|órdenes|suele comprar/i);
+    expect(within(bloque).getByRole('link', { name: /^ver todas/i })).toHaveAttribute('href', '/compra-agil');
+    // Las cotizaciones las decide MOSTRAR_COTIZACIONES (portada-hoy.test.tsx); aquí, lo que nunca sale.
+    expect(bloque.textContent).not.toMatch(/puntaje|\/100|esta unidad/i);
+    expect(within(bloque).getByText(/Actualizado el/)).toHaveTextContent(/12.*oct.*13:05/);
+    expect(bloque).toHaveTextContent(descripcionDestacadas(true));
+    expect(bloque).toHaveTextContent(/compran seguido/);
   });
 
-  it('con la historia disponible, cada tarjeta dice lo de su unidad', async () => {
-    simularBackend(ok(RESPUESTA));
+  it('sin historia aún, la portada no afirma un criterio que no ordena', async () => {
+    simularBackend({
+      destacadas: ok({ ...DESTACADAS, historia_disponible: false }),
+      resumen: ok(RESUMEN),
+    });
     const { container } = render(await Home());
     const bloque = container.querySelector('#hoy') as HTMLElement;
-    expect(within(bloque).getAllByText(/^Esta unidad: /)).toHaveLength(5);
+    expect(bloque).toHaveTextContent(descripcionDestacadas(false));
+    expect(bloque.textContent).not.toMatch(/compran seguido/);
   });
 
-  it('la pregunta frecuente de «lo mejor de hoy» dice lo que ordena, sin «cotizaciones»', () => {
-    const p = PREGUNTAS.find((q) => q.enlace?.href === '/guias/lo-mejor-de-hoy-en-compra-agil');
-    expect(p).toBeDefined();
-    expect(p!.pregunta).toContain(TITULO_DESTACADAS);
-    expect(p!.respuesta).toBe(DESCRIPCION_DESTACADAS);
-    expect(`${p!.pregunta} ${p!.respuesta}`).not.toMatch(/cotiz|adjudica lo que publica/i);
+  it('si la respuesta no trae `historia_disponible`, tampoco lo promete', async () => {
+    const { historia_disponible: _omitida, ...sinCampo } = DESTACADAS;
+    simularBackend({ destacadas: ok(sinCampo), resumen: ok(RESUMEN) });
+    const { container } = render(await Home());
+    const bloque = container.querySelector('#hoy') as HTMLElement;
+    expect(bloque.textContent).not.toMatch(/compran seguido/);
   });
 
-  it('si el backend falla, el bloque se oculta y lo demás sigue', async () => {
-    simularBackend(async () => new Response('{}', { status: 502 }));
-    render(await Home());
+  it.each([
+    ['sin hora', null],
+    ['una hora que no se puede leer', 'ayer a las once'],
+  ])('con %s el bloque entero se oculta, no sólo su hora', async (_, hora) => {
+    simularBackend({
+      destacadas: ok({ ...DESTACADAS, actualizado_en: hora }),
+      resumen: ok(RESUMEN),
+    });
+    const { container } = render(await Home());
+    expect(container.querySelector('#hoy')).toBeNull();
+    expect(screen.queryByText(TITULO_DESTACADAS)).toBeNull();
+    expect(container.textContent).not.toMatch(/invalid date|NaN/i);
+    expect(screen.getByRole('list', { name: 'Abiertas ahora' })).toBeInTheDocument();
+  });
 
-    expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { level: 2, name: /lo mejor de hoy/i })).toBeNull();
-    expect(screen.getByRole('heading', { name: /qué hay en el sitio/i })).toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: /apoyar el sitio/i })[0]).toHaveAttribute('href', '/apoyar');
+  it('si el backend falla, el bloque se oculta y la tira sigue', async () => {
+    simularBackend({ resumen: ok(RESUMEN) });
+    const { container } = render(await Home());
+    expect(container.querySelector('#hoy')).toBeNull();
+    expect(screen.getByRole('list', { name: 'Abiertas ahora' })).toBeInTheDocument();
   });
 
   it('sin Compras Ágiles abiertas, lo dice en vez de dejar un hueco', async () => {
-    simularBackend(ok({ ...RESPUESTA, items: [] }));
+    simularBackend({ destacadas: ok({ ...DESTACADAS, items: [] }), resumen: ok(RESUMEN) });
     render(await Home());
     expect(screen.getByText(/no hay compras ágiles abiertas/i)).toBeInTheDocument();
   });
+});
+
+describe('lo abierto y quién lo hace', () => {
+  it('sin REPOSITORIO_URL: ni «Código» ni «código abierto»', async () => {
+    todo();
+    const { container } = render(await Home());
+    expect(screen.queryByRole('link', { name: 'Código' })).toBeNull();
+    expect(container.textContent).not.toMatch(/código y api abiertos/i);
+    expect(screen.getByText(portada.lemaPortada(null))).toBeInTheDocument();
+  });
+
+  it('con REPOSITORIO_URL: «Código» enlazado y el lema lo dice', async () => {
+    process.env.REPOSITORIO_URL = 'https://github.com/x/tordo';
+    todo();
+    render(await Home());
+    expect(screen.getByRole('link', { name: 'Código' })).toHaveAttribute('href', 'https://github.com/x/tordo');
+    expect(screen.getByText(portada.lemaPortada('https://github.com/x/tordo'))).toBeInTheDocument();
+  });
+
+  it('sin RESPONSABLE_LEGAL no firma, y nunca enseña el hueco', async () => {
+    todo();
+    const { container } = render(await Home());
+    expect(container.textContent).not.toMatch(/hecho por|\[\[/i);
+  });
+
+  it('con RESPONSABLE_LEGAL, «hecho por» y el nombre', async () => {
+    process.env.RESPONSABLE_LEGAL = 'Nombre De Prueba';
+    todo();
+    render(await Home());
+    expect(screen.getByText(/hecho por Nombre De Prueba/)).toBeInTheDocument();
+  });
+
+  it('el costo sale de lib/costos y enlaza al desglose', async () => {
+    todo();
+    render(await Home());
+    expect(screen.getByRole('link', { name: `~${COSTO_MENSUAL_APROXIMADO} al mes` })).toHaveAttribute(
+      'href',
+      '/apoyar#costos',
+    );
+  });
+});
+
+describe('lo que ya no está', () => {
+  it('ni hero, ni bandas, ni accesos, ni preguntas frecuentes (están en /acerca)', async () => {
+    todo();
+    const { container } = render(await Home());
+    expect(container.innerHTML).not.toMatch(/bg-brand-navy|bg-band\d/);
+    expect(screen.queryByRole('heading', { name: /qué hay en el sitio|preguntas frecuentes/i })).toBeNull();
+    expect(container.querySelector('details')).toBeNull();
+    expect(portada).not.toHaveProperty('ACCESOS');
+    expect(portada).not.toHaveProperty('PREGUNTAS');
+  });
 
   it('no promete nada de lo que se fue con las cuentas', async () => {
-    simularBackend(ok(RESPUESTA));
+    todo();
     const { container } = render(await Home());
     const texto = `${container.textContent} ${metadata.description} ${JSON.stringify(metadata.title)}`;
     expect(texto).not.toMatch(
       /alerta|aviso por correo|informe semanal|encaje|prueba gratis|trial|inicia sesión|tu posición|suscrip|plazo de pago|paga a \d/i,
     );
   });
-
-  it('es un componente de servidor con metadata y canonical', () => {
-    const fuente = readFileSync(join(__dirname, '..', 'app', 'page.tsx'), 'utf-8');
-    expect(fuente).not.toMatch(/^\s*['"]use client['"]/m);
-    expect(metadata.alternates?.canonical).toBe('/');
-    expect(String(metadata.description).length).toBeLessThanOrEqual(160);
-  });
 });
 
-describe('enlaces a las guías', () => {
-  const CONTENIDO = join(__dirname, '..', 'content', 'explicativos');
-  const destinos = [
-    ...ACCESOS.map((a) => a.href),
-    ...PREGUNTAS.flatMap((p) => (p.enlace ? [p.enlace.href] : [])),
-    '/guias/de-donde-salen-los-datos',
-  ].filter((h) => h.startsWith('/guias/'));
-
-  it('hay enlaces a guías que revisar', () => {
-    expect(destinos.length).toBeGreaterThanOrEqual(4);
+describe('servidor y metadatos', () => {
+  it('la página y sus piezas son de servidor', () => {
+    const raiz = join(__dirname, '..');
+    const fuentes = [
+      join(raiz, 'app', 'page.tsx'),
+      ...readdirSync(join(raiz, 'components', 'portada')).map((f) => join(raiz, 'components', 'portada', f)),
+    ];
+    expect(fuentes.length).toBeGreaterThanOrEqual(7);
+    for (const f of fuentes) expect(readFileSync(f, 'utf-8'), f).not.toMatch(/^\s*['"]use client['"]/m);
   });
 
-  it.each(destinos)('%s existe', (href) => {
-    expect(existsSync(join(CONTENIDO, `${href.slice('/guias/'.length)}.mdx`))).toBe(true);
+  it('canonical, descripción corta y título sin «Inteligencia» (R10)', () => {
+    expect(metadata.alternates?.canonical).toBe('/');
+    expect(String(metadata.description).length).toBeLessThanOrEqual(155);
+    const titulo = JSON.stringify(metadata.title);
+    expect(titulo).toMatch(/gratis y sin cuenta/i);
+    const visible = `${titulo} ${metadata.description} ${JSON.stringify(metadata.openGraph)} ${JSON.stringify(metadata.twitter)}`;
+    expect(visible).not.toMatch(/inteligencia/i);
+    // Que `twitter` esté de verdad en lo que se mira: un test que lee `undefined` no ve nada.
+    expect(metadata.twitter).toMatchObject({ title: expect.stringMatching(/gratis y sin cuenta/i) });
   });
 });

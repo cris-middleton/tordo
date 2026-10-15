@@ -47,6 +47,26 @@ export const TITULO_DESTACADAS = 'Lo mejor de hoy en Compra Ágil';
 export const DESCRIPCION_DESTACADAS =
   'Abiertas, de compradores que compran seguido por Compra Ágil, de monto mayor y con tiempo para preparar la oferta. Es una heurística, no una predicción.';
 
+/**
+ * La misma frase cuando **aún no hay historia por unidad** (`historia_disponible`
+ * falso: entre el despliegue y la primera corrida semanal). El factor comprador
+ * vale entonces lo mismo para todas, así que el orden es sólo tiempo y monto, y
+ * decir «de compradores que compran seguido» sería prometer un criterio que no
+ * ordena nada.
+ */
+export const DESCRIPCION_DESTACADAS_SIN_HISTORIA =
+  'Abiertas, de monto mayor y con tiempo para preparar la oferta. Cuánto compra cada comprador todavía no entra en el orden: se calcula una vez por semana. Es una heurística, no una predicción.';
+
+/**
+ * La descripción que corresponde al estado de los datos que se muestran al lado.
+ * Quien la pinta junto a una respuesta viva pasa `respuesta.historia_disponible
+ * === true`: un valor ausente no debe prometer nada. `DESCRIPCION_DESTACADAS`
+ * suelta describe el método (metadatos, preguntas frecuentes), no el estado.
+ */
+export function descripcionDestacadas(historiaDisponible: boolean): string {
+  return historiaDisponible ? DESCRIPCION_DESTACADAS : DESCRIPCION_DESTACADAS_SIN_HISTORIA;
+}
+
 /** ¿Lleva número de puesto? No en «Cierran pronto»: un orden por cierre no es un ranking. */
 export const CON_PUESTO = true;
 

@@ -17,6 +17,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   DESCRIPCION_DESTACADAS,
+  descripcionDestacadas,
   MOSTRAR_COTIZACIONES,
   TITULO_DESTACADAS,
   frescura,
@@ -129,7 +130,20 @@ describe('la página', () => {
   it('el título y la descripción salen de un solo sitio', async () => {
     await montar();
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(TITULO_DESTACADAS);
-    expect(screen.getByText(DESCRIPCION_DESTACADAS)).toBeInTheDocument();
+    expect(screen.getByText(descripcionDestacadas(true))).toBeInTheDocument();
+  });
+
+  it('con historia, la descripción habla de los compradores que compran seguido', async () => {
+    await montar();
+    expect(screen.getByText(/compran seguido/)).toBeInTheDocument();
+  });
+
+  it('sin historia aún, la descripción no afirma un criterio que no ordena', async () => {
+    respuesta.historia_disponible = false;
+    await montar();
+    expect(document.body.textContent).not.toMatch(/compran seguido/);
+    expect(screen.getByText(descripcionDestacadas(false))).toBeInTheDocument();
+    expect(screen.getByText(/todavía no entra en el orden/)).toBeInTheDocument();
   });
 
   it('sin conteo de cotizaciones mantenido, no se dice nada de cotizaciones', async () => {
@@ -147,6 +161,14 @@ describe('la página', () => {
     // «Buen monto» juzga; «de monto mayor» sólo dice lo que el orden hace.
     expect(DESCRIPCION_DESTACADAS).toMatch(/de monto mayor/);
     expect(DESCRIPCION_DESTACADAS).not.toMatch(/buen monto/);
+    // La variante sin historia cumple lo mismo y no nombra al comprador como criterio.
+    const sinHistoria = descripcionDestacadas(false);
+    expect(sinHistoria).not.toMatch(/cotiz|adjudica|publica|compran seguido|buen monto/i);
+    expect(sinHistoria).toMatch(/heurística, no una predicción/);
+    expect(sinHistoria).toMatch(/de monto mayor/);
+    expect(sinHistoria).toMatch(/una vez por semana/);
+    expect(descripcionDestacadas(true)).toBe(DESCRIPCION_DESTACADAS);
+    expect(sinHistoria.length).toBeLessThanOrEqual(DESCRIPCION_DESTACADAS.length + 80);
   });
 
   it('los metadatos (título y descripción) salen de las mismas constantes y no hablan de cotizaciones', async () => {

@@ -17,11 +17,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Qué es
 
-**TORDO** — sitio público de inteligencia sobre Mercado Público, para PYMES chilenas que
+**TORDO** — sitio público con los datos de Mercado Público, para PYMES chilenas que
 licitan. **Sin cuentas** desde el pivote de octubre de 2026 (`docs/PIVOTE_PUBLICO_2026-10.md`):
 no hay usuarios, empresas, planes, cobro ni sesiones.
 
-**Inteligencia pre-postulación** — catálogo de licitaciones, bandas de precio históricas,
+**Antes de postular** — catálogo de licitaciones, bandas de precio históricas,
 análisis de competidores, scoring de oportunidad y perfilado de compradores. Responde *"¿me conviene postular, y a qué precio?"*
 
 El compliance operativo (estado hábil, documentos, checklist, recordatorios), las alertas, el
@@ -323,8 +323,12 @@ Cloud Scheduler, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
 - **Los enlaces dentro de un texto corrido llevan `className="enlace"`** (subrayado): es la
   señal de «hipertexto, no aplicación». La navegación, las tarjetas y los botones no se
   subrayan. `__tests__/enlaces-contenido.test.ts`.
-- Las superficies que deben verse oscuras siempre —el hero, por ejemplo— se marcan con la clase `dark` sobre `bg-brand-navy`, y los tokens se
-  invierten solos dentro. No repintes a mano.
+- Una superficie que deba verse oscura siempre se marca con la clase `dark` sobre
+  `bg-brand-navy`, y los tokens se invierten solos dentro. No repintes a mano. **Hoy no queda
+  ninguna en el sitio** (el hero se fue con la portada nueva); `brand-navy` sigue siendo el fondo
+  de la tarjeta de vista previa (`lib/coloresImagen.ts`), y `contraste-wcag.test.ts` mide sobre él
+  los tres colores de esa tarjeta, derivados de `COLORES_IMAGEN`. Si vuelve una superficie así,
+  sus tintas entran en ese test.
 - **El estado de servidor va en TanStack Query, sin excepciones.** Las consultas y sus claves
   viven en `lib/queries.ts`, en un solo sitio: las claves son lo que permite invalidar con
   precisión tras una mutación. Los hooks envuelven `lib/api.ts`, no `fetch`: el transporte
@@ -659,7 +663,9 @@ escala**. Es una heurística sin verdad contra la que evaluarla: ordena, no pred
   enciende la tarjeta y el RSS, pero **no basta**: la guía «Lo mejor de hoy» dice «por ahora
   no mostramos ese número» (`frontend/content/explicativos/lo-mejor-de-hoy-en-compra-agil.mdx`,
   y `docs/API_PUBLICA.md` lo repite) y varios tests afirman que no aparece «cotiz»
-  (`compra-agil-destacadas.test.tsx`, `portada.test.tsx`, `rss.test.ts`); hay que reescribir
+  (`compra-agil-destacadas.test.tsx`, `rss.test.ts`, `acerca.test.tsx` en las preguntas
+  frecuentes y, mientras `MOSTRAR_COTIZACIONES` sea `false`, `portada-hoy.test.tsx`; el comentario
+  de `portada.test.tsx` lo remite a este último); hay que reescribir
   ambos en el mismo cambio. Si no, hace falta un refresco del conteo en el ETL (no
   existe). **Volver a pesar la competencia es otra decisión**: se añade a `EN_EL_PUNTAJE`,
   se pasa el criterio de orden y se cambian `DESCRIPCION_DESTACADAS` y la guía. La descripción
@@ -729,9 +735,11 @@ lo compra (los compradores de esa ficha)—.
   la página no ve su `noindex`. El término va en el `<title>` pero no en `og:title` ni en
   `twitter:title`: las tarjetas de vista previa ignoran `noindex`, y quien compartiera una URL
   fabricada controlaría el texto que se ve.
-- **La cabecera no lleva buscador** (spec §6.1). Se llega por el formulario de la portada (PR 6)
-  y por los ejemplos, `EJEMPLOS_BUSQUEDA` en `lib/buscar.ts` (verificados en producción por 0e).
-  Hasta el PR 6 nada del sitio enlaza a `/buscar` salvo la propia página.
+- **La cabecera no lleva buscador** (spec §6.1). Se llega por el formulario de la portada
+  (`BuscadorPortada`, un `<form method="get" action="/buscar">`) y por sus ejemplos,
+  `EJEMPLOS_BUSQUEDA` en `lib/buscar.ts` (verificados en producción por 0e), enlazados con
+  `rutaBuscar`. **Sin `prefetch` en esos enlaces**: cada vista de la portada costaría hasta 24
+  llamadas al backend.
 
 **Explicativos (spec D18)** en `frontend/content/explicativos/*.mdx`: contenido estático, sin
 JSX. **Toda cifra sale de un dato medido del repo y su fuente se nombra en el frontmatter**
@@ -768,9 +776,6 @@ negro con tornasol azul-verdoso:
   y "este número es bueno" eran indistinguibles.
 - Ningún hex único sirve en ambos temas, así que cada color de acción tiene **dos paradas
   invertidas por tema** más un `--color-on-*` que dice qué etiqueta va encima.
-- La landing añade cuatro bandas (`band-1..4`) que dibujan una distribución: el tono se
-  profundiza hacia el centro y el centro es el bloque de datos de ChileCompra. Es el mismo
-  gesto que P10·P25·P50·P75·P90 en `PriceBandChart`.
 - Tipografía (rediseño de octubre de 2026, `app/layout.tsx`, `next/font/google`, autoalojada):
   **Newsreader** sólo en `h1` y `h2` (`font-display` = «titular editorial»), **Public Sans** en
   todo lo demás —`h3`–`h6` y **todas las cifras**—, **IBM Plex Mono** sólo para identificadores
@@ -780,14 +785,51 @@ negro con tornasol azul-verdoso:
   `__tests__/tipografia.test.ts` y `e2e/tipografia.spec.ts`.
 - Fondo de página en tema claro: papel cálido (`--color-background`, `#F7F4EC`); las tarjetas
   siguen en `--color-surface`.
+- **Sin bandas de color en la portada** (sustituyen a las cuatro `band-1..4` de la landing
+  vieja, ya fuera de CSS y de Tailwind): el color se reserva para el dato y la acción. Lo único
+  que queda sobre navy son los colores de la tarjeta de vista previa, y eso es lo que mide
+  `contraste-wcag.test.ts`.
 - Tema claro por defecto, con selector claro/oscuro/sistema en el pie del sitio
   (`components/SelectorTema.tsx`, dentro de `components/cascara/PieSitio.tsx`).
 
-**La portada es server component** (`app/page.tsx` + `components/portada/`), sin JS de cliente propio (las islas son de la cáscara),
-con ISR de 30 min: **no le pongas `'use client'`**, porque Next ignora `metadata` en
-componentes cliente y la home perdería título y tarjeta de preview. Su bloque vivo «Lo mejor de
-hoy» se pide en el servidor (etiqueta `compra-agil`, la revalida el cron frecuente) y **se oculta
-si el backend falla, nunca lanza**: la portada no puede caerse por la API.
+**La portada es un buscador** (rediseño §6.3, `app/page.tsx` + `components/portada/`): server
+component sin JS de cliente propio (las islas son de la cáscara), con ISR de 30 min. **No le
+pongas `'use client'`**: Next ignora `metadata` en componentes cliente y la home perdería título
+y tarjeta de preview.
+- **Lo primero es «¿Qué le vendes al Estado?»**, un `<form method="get" action="/buscar">`
+  (`BuscadorPortada`) que funciona sin JavaScript; el `<h1>` es la etiqueta del campo. Debajo, los
+  ejemplos (`EJEMPLOS_BUSQUEDA`, `rutaBuscar` y los límites del campo, todos de `lib/buscar.ts`:
+  una sola casa), **verificados contra producción**: `scripts/verificar-produccion.sh` pide cada
+  uno, espaciados y sin bucle, y falla si deja de encontrar un producto indexable, con una copia
+  literal que `__tests__/portada-ayudantes.test.ts` compara. Un ejemplo nuevo se verifica antes en
+  producción y nunca es corto ni alfanumérico («pc», «A4»): la búsqueda descarta esas palabras.
+- **Dos bloques vivos, pedidos en paralelo desde el servidor** (etiqueta `compra-agil`, la
+  revalida el cron frecuente), y **cada uno se oculta si el backend falla o si su `actualizado_en`
+  falta o no se puede leer** (principio 4: una cifra viva sin hora no se publica):
+  - **la tira de cifras** (`GET /publico/portada`, `pedirResumenPortada`, `tiraDeLaPortada`),
+    que enlaza cada cifra al catálogo con el filtro que la cuenta (`urlCatalogoAbiertas`);
+  - **«Lo mejor de hoy», compacto** (`pedirDestacadas`, `BloqueHoy`): filas con nombre,
+    comprador, cierre y monto; sin puntaje, sin cocientes y sin la historia de la unidad, que vive
+    en `/compra-agil`. `Portada` lee la hora una vez y se la pasa al bloque.
+    **Su descripción depende de los datos que tiene al lado** (`descripcionDestacadas(historia_disponible
+    === true)`, en la portada, en `/compra-agil` y en el RSS): sin historia por unidad el factor
+    comprador vale lo mismo para todas y el orden es sólo tiempo y monto, así que no dice «de
+    compradores que compran seguido». `DESCRIPCION_DESTACADAS` suelta describe el método
+    (metadatos, `/acerca`) y no el estado.
+- **Ninguna de las dos lanza**, tampoco con un 200 mal formado: el validador de `pedirDestacadas`
+  mira cada item, los campos que `BloqueHoy` lee y su tipo (un item `null` hacía lanzar el
+  render y dejaba una página de error en vez de un bloque oculto). Con el backend caído la portada
+  sale con el buscador y sin lo vivo (`__tests__/portada.test.tsx`).
+- «Úsalo como quieras» enlaza a `/abierto`; «Código» y el «código abierto» del lema sólo salen
+  con `REPOSITORIO_URL`. **«Hecho por» sólo con `RESPONSABLE_LEGAL`** (`nombreResponsable()`,
+  `null` sin ella): la portada nunca enseña el `[[hueco]]` de los documentos legales.
+- **Sin «Inteligencia»** en la portada, los metadatos (`openGraph` y `twitter` incluidos) ni la
+  tarjeta de vista previa (R10): `__tests__/r10-sin-inteligencia.test.ts`.
+
+**Acerca** (`/acerca`, `app/(publico)/acerca/`): lo que la portada dejó de explicar —qué es, de
+dónde salen los datos, cómo se financia— y las preguntas frecuentes (`PREGUNTAS`, en
+`lib/acerca.ts`). Indexable, en `PAGINAS_FIJAS`, enlazada desde el pie junto a las licencias y
+el contacto (no es una sección de la navegación).
 
 **Guías** (`/guias`, `/guias/[slug]`): el contenido vive en `frontend/content/explicativos/*.mdx`
 (Markdown plano; el test de frontmatter prohíbe `{` y `<`) y se publica en **`/guias/`** — los
@@ -868,7 +910,8 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   publican **sólo el nombre del responsable y `hola@tordo.cl`** (`lib/responsable.ts`): ni RUT
   ni domicilio, que la ley no pide. El nombre sale de `RESPONSABLE_LEGAL` (servidor, se lee en
   el build) para no quedar en el repo; sin ella el `[[hueco]]` se ve, **nunca un dato
-  inventado**. La fecha de vigencia se pone al publicar. Si cambia lo que el sistema trata (IP, Sentry, analytics, `localStorage`),
+  inventado**. La portada y `/acerca` firman con ese nombre sólo si existe
+  (`nombreResponsable()` devuelve `null` sin la variable): ahí no se enseña el hueco. La fecha de vigencia se pone al publicar. Si cambia lo que el sistema trata (IP, Sentry, analytics, `localStorage`),
   la política se corrige en el mismo PR.
 - **BI**: batch en Polars → tablas materializadas en `analytics.*` → consulta con filtros
   empujados a SQL → fallback jerárquico **L0→L0N→L1→L2→L3→L4** con dispersión y tamaño de
@@ -1287,7 +1330,8 @@ falta alguna de las dos primeras, y si `MCP_HOSTS_PERMITIDOS` sólo tiene `local
 obligatorio que nadie usa enseña a rellenar variables sin mirar.
 
 **`RESPONSABLE_LEGAL`** (servidor de Next, en el build): el nombre que firman `/terminos` y
-`/privacidad`. En Vercel tiene que estar definida al construir.
+`/privacidad` y, si está, el «hecho por» de la portada y de `/acerca`. En Vercel tiene que estar
+definida al construir.
 
 **`REPOSITORIO_URL`** (servidor de Next, en el build, opcional, sólo `https://`): el repositorio
 público para «Código» en `/abierto`. Vacía mientras el repo sea privado (spec del rediseño R8);

@@ -19,8 +19,8 @@ const ENLACE = 'text-muted transition-colors hover:text-primary';
  * pone `PieAtribucion`, y **sólo aquí**: `__tests__/legal-enlazado.test.tsx`
  * falla si otro fichero la pinta.
  *
- * «Acerca» entra con su página (PR 6 del rediseño), no antes: un enlace a algo
- * que no existe es un 404 (principio 7).
+ * «Acerca» va aquí, con las licencias y el contacto, y no en el mapa: no es una
+ * sección (spec §6.2). Entró con su página, en el PR 6 del rediseño.
  */
 export function PieSitio() {
   return (
@@ -50,6 +50,11 @@ export function PieSitio() {
           <li>
             <Link href="/abierto#licencias" className="transition-colors hover:text-primary">
               Licencias
+            </Link>
+          </li>
+          <li>
+            <Link href="/acerca" className="transition-colors hover:text-primary">
+              Acerca
             </Link>
           </li>
           <li>

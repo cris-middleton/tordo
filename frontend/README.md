@@ -35,7 +35,7 @@ frontend/
 │   │   ├── mercado/     # Mercados por rubro
 │   │   └── guardados/   # Lo guardado en el navegador
 │   ├── layout.tsx
-│   └── page.tsx         # Portada (server component, sin JS de cliente propio)
+│   └── page.tsx         # Portada: el buscador, las cifras y «Lo mejor de hoy» (server component)
 ├── components/          # Componentes propios (cascara/: cabecera y pie únicos; gráficos, portada…)
 ├── lib/                 # api.ts (cliente), queries.ts (TanStack Query), ayudantes
 ├── __tests__/           # Vitest
@@ -44,7 +44,8 @@ frontend/
 
 ## Páginas
 
-- `/` — portada
+- `/` — portada: el buscador «¿Qué le vendes al Estado?», las cifras y «Lo mejor de hoy»
+- `/acerca` — qué es, de dónde salen los datos, cómo se financia y preguntas frecuentes
 - `/licitaciones` — búsqueda de licitaciones (`/dashboard/*` redirige con 308 a estas rutas)
 - `/licitaciones/[codigo]` — detalle de una licitación con su análisis de mercado
 - `/mercado` — mercados por rubro

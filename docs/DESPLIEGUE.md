@@ -116,7 +116,7 @@ un valor por defecto razonable o desactivan algo prescindible.
 | `REVALIDAR_SECRETO` | | ✓ | ✓ | ✓ | recomendada | 64 caracteres hex | `scripts/generar-secretos.sh` — **el mismo** en los dos cron y en Vercel. Sin él en Vercel, `/api/revalidar` responde 503 |
 | `API_URL` | | | | ✓ | sí | `https://api.tordo.cl` | el dominio de la API. Servidor: **sin** `NEXT_PUBLIC_` |
 | `NEXT_PUBLIC_SITE_URL` | | | | ✓ | sí | `https://tordo.cl` | el dominio del sitio (canonical, sitemap, tarjetas). Se lee en el build |
-| `RESPONSABLE_LEGAL` | | | | ✓ | sí, para publicar | `Nombre Apellido` | quien responde por el sitio. Se lee en el build; sin ella `/terminos` y `/privacidad` muestran `[[definir RESPONSABLE_LEGAL]]` |
+| `RESPONSABLE_LEGAL` | | | | ✓ | sí, para publicar | `Nombre Apellido` | quien responde por el sitio. Se lee en el build; sin ella `/terminos` y `/privacidad` muestran `[[definir RESPONSABLE_LEGAL]]`, y la portada y `/acerca` no dicen quién lo hace |
 | `DONAR_MERCADO_PAGO_URL` | | | | ✓ | no | `https://link.mercadopago.cl/…` (**sólo `https://`**) | Mercado Pago → *Link de pago* de monto abierto. Servidor, **se lee en el build**: `/apoyar` se prerenderiza, así que cambiarla exige redeploy. Sin ella, o sin `https://`, el botón no aparece |
 | `DONAR_GITHUB_SPONSORS_URL` | | | | ✓ | no | `https://github.com/sponsors/<usuario>` (**sólo `https://`**) | GitHub Sponsors. Servidor, **se lee en el build** (redeploy para cambiarla). Sin ella, no aparece |
 | `DONAR_TRANSFERENCIA` | | | | ✓ | no | varias líneas: banco, tipo y número de cuenta, nombre, RUT, correo | los datos de la cuenta. Servidor, **se lee en cada petición**: sólo la sirve `GET /api/apoyar/transferencia` tras el clic de «Ver datos para transferir», sin caché y con `noindex`; nunca va en el HTML. Cambiarla no exige redeploy. Sin ella, el botón no aparece y la ruta da 404 |
@@ -389,7 +389,7 @@ columna **Vercel** de la [tabla de variables](#variables). `NEXT_PUBLIC_SITE_URL
 con `https://tordo.cl`: es lo que irá en los canonical y en el sitemap.
 
 Sin `RESPONSABLE_LEGAL` las páginas legales muestran `[[definir RESPONSABLE_LEGAL]]`
-(`frontend/lib/responsable.ts`).
+(`frontend/lib/responsable.ts`); la portada y `/acerca` simplemente no firman.
 
 Luego, en **los dos cron** de Railway: `REVALIDAR_URL=https://<proyecto>.vercel.app/api/revalidar`.
 
@@ -624,11 +624,12 @@ fallos:
   barra responde 200 sin redirigir (rediseño 0d), la prueba del `X-Forwarded-For` inventado del paso 10
   y que `/mercado` no tumba la API (`tendencia?rubro=` y `oportunidades` responden 200 en
   menos de 5 s y `/health/` sigue en 200; **sólo con el arreglo del rediseño 0b
-  desplegado**, que antes de él esas peticiones la mataban por memoria).
+  desplegado**, que antes de él esas peticiones la mataban por memoria), y que cada ejemplo de
+  búsqueda de la portada encuentra un producto indexable (seis GET espaciados, uno por ejemplo).
 - **Sitio**: una página de comprador, rubro y producto con canonical, 404 para un
   código inventado, `robots.txt`, `sitemap.xml`, los dos RSS, `/api/revalidar` sin
   secreto (401, no 503), `/apoyar`, `/api/apoyar/transferencia` (200 o 404, nunca en
-  caché), `/guias` y una guía, `/buscar?q=resma` (200 con `noindex`, aunque la API falle), y
+  caché), `/abierto`, la portada con su buscador (`action="/buscar"`), `/guias` y una guía, `/buscar?q=resma` (200 con `noindex`, aunque la API falle), y
   que una URL del panel anterior redirige
   (`/dashboard/tenders` → 308 → `/licitaciones`).
 
@@ -727,6 +728,7 @@ punto tiene su momento. En orden.
 | `semanal` falla en segundos con `ETL_ALMACEN` en el `/fail` | variable de R2 ausente o vacía |
 | Un cron no arranca: `No module named 'app'` | imagen del ETL vieja (antes de copiar `backend/app`); redeploy |
 | Las páginas legales dicen `[[definir RESPONSABLE_LEGAL]]` | variable ausente en el build de Vercel |
+| `verificar-produccion`: «<ejemplo>» sin productos indexables | la semanal cambió firmas o umbrales de indexación: elige otro ejemplo, verifícalo contra producción y cámbialo en `frontend/lib/buscar.ts` y en el script |
 | `502 Application failed to respond` con `x-railway-fallback: true`, y `Killed` en el log de la API | OOM: alguna consulta se trae una tabla entera. `make medir-memoria` con `ANALYTICS_DIR` lo reproduce |
 | La API en `CRASHED` y no vuelve | *Restart policy* distinta de **Always** (paso 6): agotó los reintentos. Redeploy (`railway redeploy -s api`) y corrígela |
 | Un cron corre varias veces seguidas tras fallar | *Restart policy* distinta de **Never** en ese servicio (pasos 7 y 8) |

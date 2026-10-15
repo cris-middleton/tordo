@@ -28,3 +28,34 @@ describe('responsable de los documentos legales', () => {
     expect(CORREO_CONTACTO).toMatch(/@tordo\.cl$/);
   });
 });
+
+/*
+ * «Hecho por» en la portada y en /acerca (spec del rediseño §6.3): sin la
+ * variable no se firma. El hueco a la vista es para los documentos legales, no
+ * para la portada; y un nombre inventado, para ninguna.
+ */
+describe('nombreResponsable («hecho por»)', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it('con la variable, el nombre sin espacios en los bordes', async () => {
+    const { nombreResponsable } = await import('@/lib/responsable');
+    expect(nombreResponsable({ RESPONSABLE_LEGAL: '  Nombre De Prueba ' })).toBe('Nombre De Prueba');
+  });
+
+  it.each([[{}], [{ RESPONSABLE_LEGAL: '' }], [{ RESPONSABLE_LEGAL: '   ' }]])(
+    'sin ella (%j), null: ni el hueco ni un nombre',
+    async (entorno) => {
+      const { nombreResponsable } = await import('@/lib/responsable');
+      expect(nombreResponsable(entorno)).toBeNull();
+    },
+  );
+
+  it('por defecto lee process.env en cada llamada, no al importar', async () => {
+    const { nombreResponsable } = await import('@/lib/responsable');
+    vi.stubEnv('RESPONSABLE_LEGAL', 'Otra Persona');
+    expect(nombreResponsable()).toBe('Otra Persona');
+  });
+});

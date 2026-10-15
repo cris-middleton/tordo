@@ -15,3 +15,18 @@ export const RESPONSABLE = process.env.RESPONSABLE_LEGAL?.trim() || '[[definir R
 
 /** Un solo buzón para contacto y privacidad, en el dominio del sitio: no expone un correo personal. */
 export const CORREO_CONTACTO = 'hola@tordo.cl';
+
+type Entorno = Record<string, string | undefined>;
+
+/**
+ * El nombre de quien hace el sitio, para firmar («hecho por») en la portada y en
+ * `/acerca`. **`null` sin `RESPONSABLE_LEGAL`**: ahí no se firma con el hueco
+ * `[[definir …]]` —que sí ven a propósito los documentos legales— ni, claro, con
+ * un nombre inventado; la línea dice lo demás y calla el nombre.
+ *
+ * Se lee en cada llamada (no al importar, como `RESPONSABLE`) y sólo desde
+ * componentes de servidor: en el navegador la variable no existe.
+ */
+export function nombreResponsable(entorno: Entorno = process.env): string | null {
+  return entorno.RESPONSABLE_LEGAL?.trim() || null;
+}

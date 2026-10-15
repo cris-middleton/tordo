@@ -11,7 +11,7 @@ import TarjetaDestacada from '@/components/compraAgil/TarjetaDestacada';
 import { useAhora } from '@/hooks/useAhora';
 import {
   CON_PUESTO,
-  DESCRIPCION_DESTACADAS,
+  descripcionDestacadas,
   PARAMETRO_BUSQUEDA_COMPRA_AGIL,
   TITULO_DESTACADAS,
   frescura,
@@ -76,7 +76,7 @@ function CompraAgilContenido() {
             <Zap className="h-6 w-6 text-accent" aria-hidden="true" />
             {TITULO_DESTACADAS}
           </h1>
-          <p className="mt-0.5 max-w-2xl text-sm text-muted">{DESCRIPCION_DESTACADAS}</p>
+          <p className="mt-0.5 max-w-2xl text-sm text-muted">{descripcionDestacadas(datos?.historia_disponible === true)}</p>
         </div>
         <div className="text-right">
           {actualizacion ? (

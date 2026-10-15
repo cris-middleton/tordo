@@ -3,6 +3,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { COLORES_IMAGEN } from '@/lib/coloresImagen';
+
 /**
  * Contraste WCAG 2.x de la paleta, leído de los tokens de `app/globals.css`.
  *
@@ -15,16 +17,17 @@ import { describe, expect, it } from 'vitest';
  * Los pares se declaran por lo que el token SIGNIFICA, no por cada combinación
  * que aparece en un componente:
  *
- * - toda tinta de texto sobre toda superficie neutra (fondo, tarjeta, elevada y
- *   las cuatro bandas de la portada);
+ * - toda tinta de texto sobre toda superficie neutra (fondo, tarjeta y elevada);
  * - cada etiqueta `on-*` sobre su relleno, y sobre el hover del relleno;
  * - cada tinta semántica sobre su superficie tenue (`.alert-*`, `.badge-*`), y el
  *   texto normal y el apagado sobre esas mismas superficies (`.card-accent`);
  * - el borde de un control contra las superficies donde se pinta un control
  *   (WCAG 1.4.11, 3:1);
  * - `.badge-primary`: la tinta primaria sobre su propio relleno al 10 %;
- * - el hero de la portada: tokens del tema oscuro sobre `brand-navy` (la clase
- *   `dark` invierte los tokens dentro). Se va con el hero (PR 6 del rediseño).
+ * - la tarjeta de vista previa (`app/opengraph-image.tsx`): los tres colores de
+ *   `lib/coloresImagen.ts` sobre `brand-navy`. Se dibuja sin CSS y copia los
+ *   tokens (`colores-imagen.test.ts` vigila la copia); su contraste se mide aquí.
+ *   Reemplaza a los pares del hero, que se fue con la portada nueva (PR 6).
  *
  * Umbrales AA: 4,5:1 texto normal; 3:1 texto grande (≥ 24 px, o ≥ 18,66 px en
  * negrita) y límites de controles.
@@ -94,7 +97,7 @@ type Uso = 'texto' | 'texto-grande' | 'borde-control';
 const UMBRAL: Record<Uso, number> = { texto: 4.5, 'texto-grande': 3, 'borde-control': 3 };
 
 interface Par {
-  tema: 'claro' | 'oscuro' | 'hero';
+  tema: 'claro' | 'oscuro';
   tinta: string;
   fondo: string;
   uso: Uso;
@@ -103,7 +106,7 @@ interface Par {
 }
 
 const TINTAS = ['text', 'muted', 'subtle', 'primary', 'accent', 'gold', 'info', 'danger', 'warning', 'success'];
-const NEUTRAS = ['background', 'surface', 'surface-elevated', 'band-1', 'band-2', 'band-3', 'band-4'];
+const NEUTRAS = ['background', 'surface', 'surface-elevated'];
 const RELLENOS = ['primary', 'accent', 'success', 'danger', 'warning', 'gold', 'info'];
 const TENUES = ['accent', 'gold', 'info', 'danger', 'warning', 'success'];
 
@@ -125,12 +128,28 @@ function paresDelTema(tema: 'claro' | 'oscuro'): Par[] {
   return pares;
 }
 
-const PARES: Par[] = [
-  ...paresDelTema('claro'),
-  ...paresDelTema('oscuro'),
-  // El hero: `dark bg-brand-navy`. Sólo las tintas que de verdad lleva.
-  ...['text', 'muted', 'accent'].map((tinta): Par => ({ tema: 'hero', tinta, fondo: 'brand-navy', uso: 'texto' })),
-];
+const sinPrefijo = (token: string) => token.replace(/^--color-/, '');
+
+/**
+ * Los pares de la tarjeta de vista previa, DERIVADOS de `COLORES_IMAGEN` y no
+ * copiados: tinta y fondo salen del token que la tarjeta declara, y el tema es
+ * aquel donde ese token vale lo que la tarjeta pinta. Si alguien cambia un color
+ * o un token allí, el par cambia con él y el test lo mide (o falla, en el test
+ * «cada par de la tarjeta…»), en vez de seguir midiendo una copia vieja.
+ * `brand-navy` es invariante de tema.
+ */
+const PARES_TARJETA: Par[] = (['texto', 'acento', 'tenue'] as const).map((clave) => {
+  const { token, rgb } = COLORES_IMAGEN[clave];
+  const tinta = sinPrefijo(token);
+  return {
+    tema: CLARO[tinta]?.join(' ') === rgb ? 'claro' : 'oscuro',
+    tinta,
+    fondo: sinPrefijo(COLORES_IMAGEN.fondo.token),
+    uso: 'texto',
+  };
+});
+
+const PARES: Par[] = [...paresDelTema('claro'), ...paresDelTema('oscuro'), ...PARES_TARJETA];
 
 /** Tokens de color que no van en ningún par, y por qué. */
 const SIN_PAR: Record<string, string> = {
@@ -165,14 +184,23 @@ function paleta(tema: Par['tema']): Tokens {
 
 describe('contraste WCAG AA de los tokens de color', () => {
   it('lee los dos temas (guarda: sin tokens, el test no comprobaría nada)', () => {
-    // 36 por tema el 2026-10-14; 32 cuando PR 6 quite las bandas.
+    // 32 por tema desde el PR 6 del rediseño (sin las cuatro bandas de la portada).
     expect(Object.keys(CLARO).length).toBeGreaterThanOrEqual(30);
     expect(Object.keys(tokensDe('.dark')).length).toBeGreaterThanOrEqual(30);
   });
 
   it('declara todos los pares (guarda: un recorrido vacío pasa siempre)', () => {
-    // 2 temas × (70 tinta/neutra + 9 on-* + 18 tenues + 2 bordes + 2 badge) + 3 del hero.
-    expect(PARES).toHaveLength(205);
+    // 2 temas × (30 tinta/neutra + 9 on-* + 18 tenues + 2 bordes + 2 badge) + 3 de la tarjeta de vista previa.
+    expect(PARES).toHaveLength(125);
+  });
+
+  it('cada par de la tarjeta mide el color que la tarjeta pinta, en el tema donde ese token lo vale', () => {
+    expect(PARES_TARJETA).toHaveLength(3);
+    const claves = ['texto', 'acento', 'tenue'] as const;
+    PARES_TARJETA.forEach((p, i) => {
+      expect(paleta(p.tema)[p.tinta]?.join(' '), `tinta ${claves[i]}`).toBe(COLORES_IMAGEN[claves[i]].rgb);
+      expect(paleta(p.tema)[p.fondo]?.join(' '), 'fondo').toBe(COLORES_IMAGEN.fondo.rgb);
+    });
   });
 
   it('cada token de los pares existe en su tema', () => {
@@ -201,6 +229,17 @@ describe('contraste WCAG AA de los tokens de color', () => {
         : [];
     });
     expect(fallos, `Pares bajo AA:\n  ${fallos.join('\n  ')}`).toEqual([]);
+  });
+
+  it('sin las bandas de la portada vieja (spec §5.2): ni tokens ni utilidades', () => {
+    const bandas = (['claro', 'oscuro'] as const).flatMap((tema) =>
+      Object.keys(declaracionesDe(tema === 'claro' ? ':root' : '.dark'))
+        .filter((t) => t.startsWith('band-'))
+        .map((t) => `${tema}: --color-${t}`),
+    );
+    expect(bandas).toEqual([]);
+    const tailwind = readFileSync(join(__dirname, '..', 'tailwind.config.js'), 'utf8');
+    expect(tailwind).not.toMatch(/\bband[1-4]\b|--color-band-/);
   });
 
   it('toda declaración --color-* es un triplete parseado o está en FUERA_DE_ALCANCE / GEMELOS_HEX', () => {
