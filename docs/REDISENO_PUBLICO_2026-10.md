@@ -428,8 +428,8 @@ reporte privado de vulnerabilidades de GitHub), `CONTRIBUTING.md` en español (C
 
 ### 7.3 Antes de hacerlo público (R8) — bloqueante
 
-1. **Hay credenciales en la historia.** `backend/.env` estuvo versionado de `fef3a9a`
-   (2025-11-08) a `d3c7592` (2026-08-05): `TWILIO_ACCOUNT_SID`/`TWILIO_AUTH_TOKEN` (sandbox),
+1. **Hay credenciales en la historia.** `backend/.env` estuvo versionado de `fce2090`
+   (2025-11-08) a `d3c4b88` (2026-08-05): `TWILIO_ACCOUNT_SID`/`TWILIO_AUTH_TOKEN` (sandbox),
    `JWT_SECRET`, `DB_URL`. **Twilio: resuelto** — las credenciales estaban vivas (cuenta de prueba
    activa); el dueño cerró la cuenta el 2026-10-14 y el token responde 401. El
    JWT ya no firma nada (cuentas retiradas); comprobar que la URL de base no sea la de producción.
@@ -466,6 +466,15 @@ reporte privado de vulnerabilidades de GitHub), `CONTRIBUTING.md` en español (C
 gratis. Desaparecen dos rodeos documentados en `CLAUDE.md` —`make merge` como única guarda y los
 bloqueos de Actions por facturación—. Al publicar se activan la protección de `main` y el *secret
 scanning* con *push protection*, y CLAUDE.md se corrige en el mismo PR.
+
+> **Hecho el 2026-10-15 — en un repositorio nuevo, no volteando el viejo.** Medido antes
+> de publicar: las 170 refs `refs/pull/*` del repo original alcanzaban `backend/.env` y los
+> commits con el correo laboral, y la pestaña «Files changed» del PR #7 mostraba el `.env`
+> borrado. Un *force push* no toca esas refs y GitHub no deja borrarlas. Así que la historia
+> limpia se publicó en un repo nuevo con el mismo nombre, y el original quedó como
+> `cris-middleton/tordo-saas-privado`, privado. Gitleaks y trufflehog dieron cero
+> sobre la historia publicada. Los «#N» de este documento son PR de ese repo; los hashes del
+> punto 1 son ya los de la historia nueva, en la que `backend/.env` no está en ningún commit.
 
 ### 7.4 Registros MCP
 

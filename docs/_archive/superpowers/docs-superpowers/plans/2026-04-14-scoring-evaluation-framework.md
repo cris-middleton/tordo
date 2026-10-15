@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.11, Polars (data), scikit-learn (existing TF-IDF), PyYAML (variant configs), pytest (testing), joblib (artifact serialization — existing).
 
-**Spec reference:** `docs/superpowers/specs/2026-04-14-scoring-evaluation-framework-design.md` (commit `0d1ff42`).
+**Spec reference:** `docs/superpowers/specs/2026-04-14-scoring-evaluation-framework-design.md` (commit `72b6aae`).
 
 ---
 

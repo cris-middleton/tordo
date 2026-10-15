@@ -1,6 +1,6 @@
 .PHONY: help setup install lint lint-fix format test test-backend test-etl test-cov \
         dev-up dev-up-d dev-down dev-logs dev-build dev-restart dev-shell db-shell dev-clean \
-        migrate migrate-create migrate-status downgrade merge \
+        migrate migrate-create migrate-status downgrade \
         front-install front-dev front-build front-lint front-test \
         hooks lock audit e2e ci medir-memoria
 
@@ -74,10 +74,6 @@ worktree-clean: ## Elimina un worktree ya mergeado — make worktree-clean NOMBR
 	@echo "✓ worktree eliminado. La rama feat/$(NOMBRE) sigue existiendo; bórrala si ya mergeaste."
 
 # ── Calidad ──────────────────────────────────────────────────────────────────
-
-merge: ## Mergea un PR sólo con todos los checks en verde — make merge PR=33
-	@test -n "$(PR)" || (echo "ERROR: falta PR. Uso: make merge PR=33" && exit 1)
-	./scripts/merge-pr.sh $(PR)
 
 ci: ## Corre en local lo mismo que Actions, para no esperar al runner
 	./scripts/ci-local.sh

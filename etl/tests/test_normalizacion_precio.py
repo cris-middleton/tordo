@@ -102,7 +102,7 @@ class TestFirmaProducto:
 
 
 #: La firma de textos con todos los casos de la regla, capturada en `main`
-#: (20bd0a1) ANTES de mover la regla a `app/utils/firma.py`. Si cambia un byte,
+#: (1a4c045) ANTES de mover la regla a `app/utils/firma.py`. Si cambia un byte,
 #: cambian los grupos de precio y los slugs de las páginas de producto.
 FIRMAS_FIJADAS = [
     ("GUANTES DE NITRILO TALLA M CAJA X 100", "caja guantes nitrilo talla"),

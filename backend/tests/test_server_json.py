@@ -99,3 +99,10 @@ def test_los_iconos_y_la_web_son_del_sitio_y_https():
         # Cada icono es un fichero que el sitio sirve de verdad desde frontend/public.
         ruta = RAIZ / "frontend" / "public" / icono["src"].removeprefix("https://tordo.cl/")
         assert ruta.is_file(), f"{icono['src']} no existe en frontend/public"
+
+
+def test_el_repositorio_es_el_publico():
+    # Desde la 1.1.0: con el repo ya público (2026-10-15). Una URL privada daría un 404
+    # a quien la siga desde el registro. Es la misma que REPOSITORIO_URL en Vercel.
+    repo = _ficha()["repository"]
+    assert repo == {"url": "https://github.com/cris-middleton/tordo", "source": "github"}, repo
