@@ -265,7 +265,7 @@ function CatalogoContenido() {
           <select
             value={sortBy}
             onChange={(e) => cambiar({ sort_by: e.target.value as Orden })}
-            className="rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
+            className="min-w-0 max-w-full rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
           >
             {keywords.length > 0 && <option value="relevance">Relevancia</option>}
             <option value="fecha_publicacion">Publicación</option>
@@ -276,7 +276,7 @@ function CatalogoContenido() {
           <select
             value={sortOrder}
             onChange={(e) => cambiar({ sort_order: e.target.value as 'asc' | 'desc' })}
-            className="rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
+            className="min-w-0 max-w-full rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
           >
             <option value="desc">↓ Mayor</option>
             <option value="asc">↑ Menor</option>
@@ -284,7 +284,7 @@ function CatalogoContenido() {
           <select
             value={String(limit)}
             onChange={(e) => cambiar({ limit: Number(e.target.value) })}
-            className="rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
+            className="min-w-0 max-w-full rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
           >
             <option value="10">10</option>
             <option value="20">20</option>

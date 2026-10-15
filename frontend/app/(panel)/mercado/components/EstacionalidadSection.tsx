@@ -122,7 +122,7 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
             value={selectedOrg}
             onChange={(e) => setSelectedOrg(e.target.value)}
             disabled={!!focusedOrganismo}
-            className="text-sm rounded-lg border border-border bg-surface px-3 py-1.5 text-text disabled:opacity-60 disabled:cursor-not-allowed"
+            className="min-w-0 max-w-full text-sm rounded-lg border border-border bg-surface px-3 py-1.5 text-text disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {optionsOrganismos.map((o) => (
               <option key={o.codigo} value={o.codigo} title={o.nombre}>
