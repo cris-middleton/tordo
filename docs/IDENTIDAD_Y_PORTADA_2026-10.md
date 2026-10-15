@@ -28,8 +28,9 @@ Dos observaciones del dueño sobre el sitio publicado tras el rediseño:
    Quien llega no ve qué sabe el sitio hasta que busca algo.
 
 Además, el logo propio (el pájaro azul con el ala turquesa, `public/images/tordo-logo-3-opened.svg`)
-no aparecía en el sitio. La tarjeta para compartir ya lo lleva desde el PR #3; la cabecera, todavía
-no.
+se veía poco: en la cabecera está `TordoLogo`, un componente **cliente** con siete colores crudos y
+un aleteo al pasar el ratón, que el test de la cabecera no detectaba. La tarjeta para compartir ya
+lo lleva desde el PR #3.
 
 ### 1.1 Cómo se llegó a la v6
 
@@ -56,7 +57,7 @@ importa.
 | # | Decisión | Motivo |
 |---|---|---|
 | D1 | **Archivo** sustituye a Newsreader y Public Sans en todo el sitio | Una sola familia variable con eje de ancho: titulares expandidos (`wdth` 112–115, peso 800) y cuerpo normal. Trae cifras tabulares. Es la tipografía de las maquetas aprobadas y la que ya usa la tarjeta para compartir |
-| D2 | **IBM Plex Mono se queda, sólo para identificadores**; **Varien, para la marca**, ahora junto al pájaro en la cabecera | Ninguno de los dos estaba en la queja. El pájaro es la marca y no se veía en el sitio |
+| D2 | **IBM Plex Mono se queda, sólo para identificadores**; **Varien, para la marca**, junto al pájaro en la cabecera. El pájaro pasa a ser un componente de **servidor** con los colores del logo en tokens (`PajaroMarca`) y sustituye a `TordoLogo` | Ninguna de las dos familias estaba en la queja. `TordoLogo` era una isla cliente con hex crudos en una cabecera que debe ser de servidor; se pierde el aleteo al pasar el ratón |
 | D3 | **Fondo de página blanco** en tema claro; se va el papel cálido (`#F7F4EC`) | Es la primera señal de «hecho con Claude» |
 | D4 | **El panel de lecturas es una superficie oscura**: `dark bg-brand-navy`, el patrón que el sitio ya tiene para eso (los tokens se invierten solos dentro) | Variante B de la v6. Separa las dos zonas sin bordes ni sombras, que era lo que le faltaba a la v4, y usa los dos colores del logo: el navy de fondo y el turquesa del ala en la conclusión |
 | D5 | **Dos tokens de dato**: `--color-dato` y `--color-dato-tenue`, con sus paradas por tema (§5) | Cada gráfico pinta en color sólo su conclusión y deja el resto apagado |
@@ -142,7 +143,8 @@ tres peticiones salen en paralelo con las dos que ya hace la portada.
 
 ### 3.3 Lectura 1: quién compra
 
-- **Dato**: `GET /api/v1/bi/sector` (**ya existe**, `services/bi/mercado.get_sector`): los
+- **Dato**: `GET /api/v1/bi/sector` (**ya existe**, `services/bi/mercado.get_sector`; su esquema `SectorItem` gana
+  `ventana_desde` y `ventana_hasta`, o FastAPI las descartaría): los
   sectores de `analytics.sector_dashboard` ordenados por `monto_total`. Hay 7: Salud,
   Municipalidades, «Gob. Central, Universidades», Obras Públicas, FFAA, Otros y «Legislativo y
   judicial». No hace falta un endpoint nuevo.
@@ -235,7 +237,8 @@ tres peticiones salen en paralelo con las dos que ya hace la portada.
 - **Una sola consulta para las dos**: `GROUP BY` el nombre normalizado sobre el rango del día por
   el índice de `fecha_publicacion`, con `sum(count(*)) OVER ()` para el total, ordenada por
   «nombre nulo al final» y conteo descendente, `LIMIT 1`. El nombre largo se corta con elipsis y el
-  `title` lleva el nombre entero.
+  `title` lleva el nombre entero. El frontend lo pasa por `normalizeText`, como al comprador de
+  «Lo mejor de hoy»: el backend lo manda tal como se guardó.
 - **Con 0 publicadas hoy**, las dos celdas se ocultan (pasa cada madrugada: la primera corrida del
   día es a las 10:00).
 - **«Actualizado el …»**: el `actualizado_en` que ya existe, escrito con `actualizadoEnPalabras`
@@ -271,7 +274,7 @@ tres peticiones salen en paralelo con las dos que ya hace la portada.
 
   | token | tema claro | tema oscuro (y dentro del panel) |
   |---|---|---|
-  | `--color-dato` | `#2849AD`, el azul del cuerpo del pájaro | `#3DB9BB`, el turquesa del ala |
+  | `--color-dato` | `#2848AD` (`40 72 173`), el azul del cuerpo del pájaro, el mismo de `brand-blue` | `#3DB9BB`, el turquesa del ala |
   | `--color-dato-tenue` | `#C9D3E8` | `#34508F` |
   | `--color-on-dato` | `#FFFFFF` | `#102858` |
 
