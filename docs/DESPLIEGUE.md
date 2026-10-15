@@ -628,7 +628,8 @@ fallos:
 - **Sitio**: una página de comprador, rubro y producto con canonical, 404 para un
   código inventado, `robots.txt`, `sitemap.xml`, los dos RSS, `/api/revalidar` sin
   secreto (401, no 503), `/apoyar`, `/api/apoyar/transferencia` (200 o 404, nunca en
-  caché), `/guias` y una guía, y que una URL del panel anterior redirige
+  caché), `/guias` y una guía, `/buscar?q=resma` (200 con `noindex`, aunque la API falle), y
+  que una URL del panel anterior redirige
   (`/dashboard/tenders` → 308 → `/licitaciones`).
 
 Lo que no puede ver desde fuera, y hay que mirar a mano: Healthchecks (los dos

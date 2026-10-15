@@ -302,6 +302,14 @@ codigo=$(pedir "$SITIO/guias")
 [ "$codigo" = 200 ] && ok "/guias responde 200" || mal "/guias responde $codigo"
 pagina "/guias/compra-agil-como-funciona" "una guía"
 
+# /buscar responde aunque un bloque falle (se oculta con una línea) y no se indexa (rediseño 5).
+codigo=$(pedir "$SITIO/buscar?q=resma")
+if [ "$codigo" = 200 ] && grep -q 'noindex' "$TMP/cuerpo"; then
+  ok "/buscar?q=resma responde 200 con noindex"
+else
+  mal "/buscar?q=resma responde $codigo$(grep -q 'noindex' "$TMP/cuerpo" || echo ', sin noindex')"
+fi
+
 # Las URL del panel anterior (/dashboard/*) redirigen con 308 a las nuevas: los
 # enlaces y marcadores viejos siguen llevando a su sitio. `pedir` no sigue
 # redirecciones, así que se ve el 308 en sí.

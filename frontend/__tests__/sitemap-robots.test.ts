@@ -14,7 +14,7 @@ import robots from '@/app/robots';
 import sitemap from '@/app/sitemap';
 
 import { leerGuias } from '@/lib/guias';
-import { PAGINAS_FIJAS } from '@/lib/publico';
+import { NO_RASTREAR, PAGINAS_FIJAS } from '@/lib/publico';
 
 import { SITEMAP } from './ayudas/publicoDePrueba';
 
@@ -92,5 +92,13 @@ describe('sitemap y robots', () => {
       allow: '/',
       disallow: ['/api/', '/rss/', '/guardados'],
     });
+  });
+
+  it('/buscar no va al sitemap ni se bloquea en robots: su noindex tiene que poder leerse', async () => {
+    simularBackend(SITEMAP);
+    expect(PAGINAS_FIJAS).not.toContain('/buscar');
+    expect((await sitemap()).some((e) => new URL(e.url).pathname.startsWith('/buscar'))).toBe(false);
+    // Un buscador que no rastrea la página no ve su `noindex` (spec del rediseño §6.4).
+    expect(NO_RASTREAR.some((prefijo) => '/buscar?q=resma'.startsWith(prefijo))).toBe(false);
   });
 });

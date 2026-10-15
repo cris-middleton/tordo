@@ -16,7 +16,20 @@ import { mapaDelSitio } from '../lib/navegacion';
  * cliente: es lo que ve un buscador, y lo que importa para indexar.
  */
 
-const SEMILLAS = ['/', '/guias', '/productos', '/apoyar', '/terminos', '/privacidad', '/licitaciones'];
+// `/buscar` no está en el sitemap (es `noindex`) ni, hasta PR 6, enlazada desde
+// otra página: se siembra para recorrer sus «ver todos» y sus ejemplos.
+const SEMILLAS = [
+  '/',
+  '/guias',
+  '/productos',
+  '/apoyar',
+  '/terminos',
+  '/privacidad',
+  '/licitaciones',
+  '/buscar',
+  '/buscar?q=guante',
+  '/buscar?q=Zafiro',
+];
 
 // Lo que no es una página: rutas de API, feeds (tienen su propio test),
 // el túnel de Sentry, los recursos de Next y las imágenes de metadatos.

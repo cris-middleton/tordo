@@ -1,8 +1,9 @@
 /**
  * Lo que comparten los dos feeds RSS del lado del servidor: llamar al backend
- * y responder.
+ * y responder. `pedirAlBackend` lo usa también `/buscar` (`buscarServidor.ts`).
  *
- * **Sólo lo importan route handlers** (`app/rss/*`): importa
+ * **Sólo lo importa código de servidor** —los route handlers de `app/rss/*` y
+ * `lib/buscarServidor.ts`, que importa la página `/buscar`—: importa
  * `backendServidor.ts`, que lee `PROXY_SECRETO`.
  *
  * El feed llama al backend **como el visitante** (`ipDelVisitante`), igual que
@@ -22,11 +23,22 @@ export class ErrorDelBackend extends Error {
   }
 }
 
+export interface OpcionesPedido {
+  /**
+   * Corta la petición —y la lectura del cuerpo— pasado este tiempo. Sin él se
+   * espera lo que tarde el backend (los feeds, que viven detrás de la caché del
+   * CDN). Lo usa `/buscar`: una página que espera para siempre a una API caída
+   * se cae con ella.
+   */
+  tiempoMaximoMs?: number;
+}
+
 /** `GET {API}{ruta}?{params}` al backend, como el visitante. Lanza si no es 2xx. */
 export async function pedirAlBackend<T>(
   ruta: string,
   params: URLSearchParams,
   cabecerasDelVisitante: Headers,
+  opciones: OpcionesPedido = {},
 ): Promise<T> {
   const consulta = params.toString();
   const respuesta = await fetch(urlDelBackend(`${API}${ruta}${consulta ? `?${consulta}` : ''}`), {
@@ -35,6 +47,7 @@ export async function pedirAlBackend<T>(
       ...cabecerasHaciaElBackend(ipDelVisitante(cabecerasDelVisitante)),
     },
     cache: 'no-store',
+    ...(opciones.tiempoMaximoMs !== undefined ? { signal: AbortSignal.timeout(opciones.tiempoMaximoMs) } : {}),
   });
   if (!respuesta.ok) throw new ErrorDelBackend(respuesta.status);
   return (await respuesta.json()) as T;

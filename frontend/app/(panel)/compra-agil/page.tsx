@@ -12,6 +12,7 @@ import { useAhora } from '@/hooks/useAhora';
 import {
   CON_PUESTO,
   DESCRIPCION_DESTACADAS,
+  PARAMETRO_BUSQUEDA_COMPRA_AGIL,
   TITULO_DESTACADAS,
   frescura,
   mesesDeVentana,
@@ -40,13 +41,13 @@ import { useCompraAgilDestacadas } from '@/lib/queries';
 function CompraAgilContenido() {
   const urlInicial = useSearchParams();
   const [region, setRegion] = useState(() => urlInicial.get('region') ?? '');
-  const [busqueda, setBusqueda] = useState(() => urlInicial.get('search') ?? '');
+  const [busqueda, setBusqueda] = useState(() => urlInicial.get(PARAMETRO_BUSQUEDA_COMPRA_AGIL) ?? '');
   const [texto, setTexto] = useState(busqueda);
   const ahora = useAhora();
   const Lista = CON_PUESTO ? 'ol' : 'ul';
 
   const consultaUrl = new URLSearchParams(
-    Object.entries({ region, search: busqueda }).filter(([, v]) => v),
+    Object.entries({ region, [PARAMETRO_BUSQUEDA_COMPRA_AGIL]: busqueda }).filter(([, v]) => v),
   ).toString();
   useEffect(() => {
     window.history.replaceState({}, '', consultaUrl ? `?${consultaUrl}` : window.location.pathname);

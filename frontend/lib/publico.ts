@@ -26,6 +26,8 @@ import type {
 export const rutaComprador = (codigo: string) => `/compradores/${encodeURIComponent(codigo)}`;
 export const rutaRubro = (slug: string) => `/rubros/${encodeURIComponent(slug)}`;
 export const rutaProducto = (slug: string) => `/productos/${encodeURIComponent(slug)}`;
+/** El detalle de una licitación o Compra Ágil, por su código de Mercado Público. */
+export const rutaLicitacion = (codigo: string) => `/licitaciones/${encodeURIComponent(codigo)}`;
 
 /**
  * El parámetro de `/productos` que lleva el término buscado: `/productos?q=resma`.

@@ -580,7 +580,7 @@ sin sesión — ver las reglas de frontend más arriba. Pantallas: el catálogo 
 licitaciones (`/licitaciones`, con su detalle; **los filtros viven en la URL**, `abiertas=1` incluido, así que
 una búsqueda es una URL), «Lo mejor de hoy en Compra Ágil» (`/compra-agil`), `/guardados`
 y los mercados por rubro (`/mercado`, «Mercados» en la navegación); y lo abierto en `/abierto`,
-enlazado como «API y MCP» desde la cabecera. Las del panel viven en el grupo de rutas
+enlazado como «API y MCP» desde la cabecera; y la búsqueda en `/buscar?q=` (ver abajo). Las del panel viven en el grupo de rutas
 `app/(panel)/`, que sólo les fija el ancho (`max-w-6xl`) sin aparecer en la URL.
 
 **Una sola cáscara** (`components/cascara/`, spec del rediseño §6.1–§6.2). `app/layout.tsx`
@@ -704,6 +704,34 @@ de lectura (cabecera y pie, con la atribución, son de la cáscara única). Dato
 - La exportación CSV corta en `MAX_FILAS_CSV` (5.000) y lo dice en la última línea (§7.4).
 - `make e2e` materializa el fixture del golden (con productos **sintéticos**) y exporta
   `FEATURE_ANALYTICS=true`.
+
+**`/buscar?q=` (rediseño 5)** — `app/(publico)/buscar/`: una búsqueda, tres respuestas —cuánto
+ha pagado el Estado (`/publico/productos?q=` y la ficha del primero), qué está abierto ahora
+(licitaciones con el filtro de `urlCatalogoAbiertas` y «Lo mejor de hoy» con `search`) y quién
+lo compra (los compradores de esa ficha)—.
+- **Componente de servidor y dinámico que pide como el visitante** (`lib/buscarServidor.ts`, sobre
+  `pedirAlBackend` de `lib/rssServidor.ts`): hasta cuatro llamadas por búsqueda **cuentan en el
+  límite por IP de quien busca**. No va exenta como un renderizado del servidor: una página
+  dinámica, generada por visitante y exenta, sería una forma gratis de saltarse el límite.
+- **Pocas filas y tiempo máximo**: 3 productos, 5 licitaciones, 3 Compras Ágiles y una ficha;
+  6 s por llamada (`TIEMPO_MAXIMO_BLOQUE_MS`). **Un bloque que falla se oculta con una línea**
+  —un 429 dice «espera un momento»— y la página nunca lanza por la API. «No encontramos nada»
+  sólo si los tres respondieron vacíos.
+- **Con menos de 3 caracteres no llama al backend.** El término se recorta a 100 caracteres y 8
+  palabras **antes** de llamar (`prepararBusqueda`, `lib/buscar.ts`): Compra Ágil responde 422
+  con más, y el recorte vale para los tres bloques y sus enlaces, así que cada total es el de su
+  enlace. `MAXIMO_TERMINOS_BUSCAR` y `MAXIMO_CARACTERES_BUSCAR` copian `limites.py`;
+  `backend/tests/test_buscar_limites_del_frontend.py` falla si se separan.
+- **Todo «ver todos» sale de un ayudante** (`rutaBusquedaProductos`, `urlCatalogoAbiertas`,
+  `rutaCompraAgil`, `rutaProducto`), y los parámetros de `/tenders/` se derivan del propio enlace
+  (`paramsLicitacionesAbiertas`): el filtro no puede separarse del total.
+- **`noindex` por metadatos, fuera del sitemap y NO en `robots.txt`**: un buscador que no rastrea
+  la página no ve su `noindex`. El término va en el `<title>` pero no en `og:title` ni en
+  `twitter:title`: las tarjetas de vista previa ignoran `noindex`, y quien compartiera una URL
+  fabricada controlaría el texto que se ve.
+- **La cabecera no lleva buscador** (spec §6.1). Se llega por el formulario de la portada (PR 6)
+  y por los ejemplos, `EJEMPLOS_BUSQUEDA` en `lib/buscar.ts` (verificados en producción por 0e).
+  Hasta el PR 6 nada del sitio enlaza a `/buscar` salvo la propia página.
 
 **Explicativos (spec D18)** en `frontend/content/explicativos/*.mdx`: contenido estático, sin
 JSX. **Toda cifra sale de un dato medido del repo y su fuente se nombra en el frontmatter**

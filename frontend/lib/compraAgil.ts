@@ -204,6 +204,20 @@ export function urlMercadoPublico(codigo: string): string {
   return `https://buscador.mercadopublico.cl/ficha?code=${encodeURIComponent(codigo)}`;
 }
 
+/** El parámetro de `/compra-agil` con la búsqueda. Es el mismo nombre que entiende el backend. */
+export const PARAMETRO_BUSQUEDA_COMPRA_AGIL = 'search';
+
+/**
+ * `/compra-agil` con una búsqueda puesta: el «ver todas» del bloque de Compra
+ * Ágil de `/buscar`. Nadie arma esta URL a mano; la página lee el mismo
+ * `PARAMETRO_BUSQUEDA_COMPRA_AGIL`.
+ */
+export function rutaCompraAgil(termino = ''): string {
+  const limpio = termino.trim();
+  if (!limpio) return '/compra-agil';
+  return `/compra-agil?${new URLSearchParams({ [PARAMETRO_BUSQUEDA_COMPRA_AGIL]: limpio })}`;
+}
+
 export interface Frescura {
   /** «13:05» en hora de Chile. */
   hora: string;

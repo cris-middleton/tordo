@@ -235,6 +235,9 @@ TORDO                                         🔖 3   ♥ Apoyar   ☰ Menú
   existiendo como carpetas; **el requisito es una sola cáscara**, y que `legal-enlazado` siga
   encontrando el pie en toda página.
 - `/mercado` conserva su columna de filtros **dentro de la página**.
+- **Sin buscador en la cabecera** (decidido en el PR 5): ninguno de los dos dibujos lo lleva, y en
+  móvil la cabecera tiene que caber en una línea. La búsqueda vive en la portada y arriba de
+  `/buscar`.
 
 ### 6.2 Pie único
 
@@ -267,7 +270,8 @@ servidor).
   página nueva y mínima.
 - **El buscador es un `<form method="get" action="/buscar">`**: funciona sin JS y la portada
   sigue siendo componente de servidor. **No se le pone `'use client'`** (regla vigente).
-- **Ejemplos clicables**: enlaces fijos a `/buscar?q=…` en `lib/portada.ts`. **Los ejemplos
+- **Ejemplos clicables**: enlaces fijos a `/buscar?q=…` en `lib/buscar.ts` (`EJEMPLOS_BUSQUEDA`,
+  `rutaBuscar`; los puso el PR 5, que los enseña cuando no hay resultados). **Los ejemplos
   evitan nombres de producto cortos o alfanuméricos** («pc», «tv», «A4», «4x4», «UV», «3M»): la
   búsqueda descarta las palabras de menos de tres letras y las que llevan dígitos, así que no
   encontrarían nada. **Se eligen y se
@@ -318,6 +322,12 @@ Reglas:
   rastrea la página no ve su `noindex`.
 - Sin resultados en ninguno de los tres: lo dice y ofrece los ejemplos de la portada.
 - La página repite arriba el formulario de búsqueda, con el término puesto.
+- **Decisiones del PR 5** (detalle en `CLAUDE.md`): el recorte a 8 palabras y 100 caracteres vale
+  para los tres bloques y sus enlaces, no sólo para Compra Ágil; el mínimo son 3 caracteres, como en
+  `/productos`; «ver todas» de Compra Ágil va a `/compra-agil?search=` con `rutaCompraAgil`
+  (`lib/compraAgil.ts`), porque el bloque enseña «Lo mejor de hoy» y el catálogo es otra lista;
+  cada llamada corta a los 6 s y un 429 dice «espera un momento»; «no encontramos nada» sólo si los
+  tres respondieron vacíos; las tarjetas de Compra Ágil no llevan puesto. Sin cambios en el backend.
 
 ### 6.5 `/abierto`
 
