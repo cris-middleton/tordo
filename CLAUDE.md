@@ -466,8 +466,9 @@ ChileCompra, que es su fuente.
   única fuente de `publicadas` y la acumula leyendo esa misma tabla, así que borrar lo que no
   contó lo perdería para siempre. Si no, la Compra Ágil espera una semana más. Un código
   purgado da **404** en el catálogo (`etl/tests/test_retencion.py`). **Nada que lea
-  Postgres puede contar con lo purgado**: un conteo de Compra Ágil de 90–180 días (el ranking
-  del paso 9) sale de `analytics.compra_agil_mensual`, nunca de `licitaciones`.
+  Postgres puede contar con lo purgado**: un conteo de Compra Ágil de 90–180 días (hoy, el
+  «Publicadas» de la ficha pública del comprador; «lo mejor de hoy» ya no lo usa) sale de
+  `analytics.compra_agil_mensual`, nunca de `licitaciones`.
 - **Purga ZIP Y consolidado** de los 3 meses que rehace. Antes sólo el ZIP, y
   `consolidar_tipo` se salta un mes ya consolidado: lo que ChileCompra corregía de los meses
   recientes nunca llegaba a analytics.
@@ -591,12 +592,41 @@ una búsqueda es su URL. `__tests__/redirecciones-panel.test.ts` fija la tabla y
 la redirección corre antes que las páginas y la dejaría muerta.
 
 **«Lo mejor de hoy» (paso 9)** — `GET /compra-agil/destacadas`, `repositories/compra_agil.py`.
-Ranking público de Compras Ágiles abiertas que cierran en más de 2 h: producto de tres
-factores en [0, 1] —competencia `1/(1+cotizaciones recibidas)`, comprador
-`min(1, órdenes/publicadas)` sobre 6 meses de `analytics.compra_agil_comprador` (≥ 5
-publicadas), tiempo `min(1, horas/24)`— y **un factor sin dato vale 0,5, el neutro de su
-escala**. Es una heurística sin verdad contra la que evaluarla: ordena, no predice. La Compra
-Ágil sólo trae el RUT del comprador; `analytics.comprador_rut` lo traduce a código.
+Ranking público de Compras Ágiles abiertas que cierran en más de 2 h: producto de **tres**
+factores en [0, 1] —comprador, tiempo y monto—, y **un factor sin dato vale el neutro de su
+escala**. Es una heurística sin verdad contra la que evaluarla: ordena, no predice.
+- **`comprador` = percentil de órdenes de la UNIDAD** (`analytics.compra_agil_unidad.percentil_ordenes`,
+  por RUT de la unidad, 6 meses): mide cuánto compra, **no si adjudica lo que
+  publica**. **Dos «sin dato» que no son lo mismo**: con la tabla poblada, una unidad ausente no
+  compró nada en la ventana y vale **0**; con la tabla ausente o vacía (entre el despliegue y la
+  primera semanal) no se sabe nada, vale **0,5** y la respuesta trae `historia_disponible: false`
+  para que el frontend no diga nada del comprador. El RUT se normaliza con **una sola función**
+  (`app/utils/rut.py`; el ETL la importa por `shared_imports`), ceros a la izquierda incluidos. `órdenes/publicadas` ya no entra (saturaba en 1 y `publicadas` sólo se acumula desde
+  el despliegue); `comprador.publicadas` de la API es siempre `null`. La Compra Ágil sólo trae el
+  RUT, y la historia se une por RUT (sin ceros a la izquierda), no por código: por código cada
+  unidad heredaba la de su organismo (la FACh son 14 RUT bajo un código). `compra_agil_comprador`
+  (por organismo) y `comprador_rut` sólo sirven ya a la ficha pública y al filtro `codigo_organismo`.
+- **`tiempo` = `min(1, horas/72)`** (a 24 h saturaba más de la mitad y empataban) y **`monto` =
+  `0,5 + 0,5·m/(m+708.050)`, sin monto 0,75**. El monto **pesa**, no sólo desempata (~1,7× en
+  los extremos de la instantánea del 2026-10-14, $80.000 a $7.215.100), y está porque el criterio
+  de orden (mayor empate ≤ 5, ≥ 30 puntajes distintos entre las 50 primeras;
+  `tests/test_orden_destacadas_instantanea.py`, reloj fijo `ahora`) sólo pasa con él: 6/37 sin
+  monto, 2/49 con él. Es una decisión de producto que se revisa, no una verdad medida.
+- **La competencia `1/(1+cotizaciones)` viaja en `factores` pero NO está en el puntaje**
+  (`EN_EL_PUNTAJE`), y el sitio **no muestra el conteo** (`MOSTRAR_COTIZACIONES = false` en
+  `lib/compraAgil.ts`). **Compuerta G1 del plan 0a, ABIERTA**: no se sabe si el conteo se
+  refresca tras la primera ingesta (casi todas las abiertas dicen 0); resolverlo exige leer la
+  base de producción en sólo lectura (el dueño, con `PGOPTIONS='-c default_transaction_read_only=on'`).
+  `ofertas_al` = cuándo se escribió por última vez la fila, la mejor cota de cuándo se vio el
+  conteo, no una lectura garantizada. Si G1 dice que se mantiene: `MOSTRAR_COTIZACIONES = true`
+  enciende la tarjeta y el RSS, pero **no basta**: la guía «Lo mejor de hoy» dice «por ahora
+  no mostramos ese número» (`frontend/content/explicativos/lo-mejor-de-hoy-en-compra-agil.mdx`,
+  y `docs/API_PUBLICA.md` lo repite) y varios tests afirman que no aparece «cotiz»
+  (`compra-agil-destacadas.test.tsx`, `portada.test.tsx`, `rss.test.ts`); hay que reescribir
+  ambos en el mismo cambio. Si no, hace falta un refresco del conteo en el ETL (no
+  existe). **Volver a pesar la competencia es otra decisión**: se añade a `EN_EL_PUNTAJE`,
+  se pasa el criterio de orden y se cambian `DESCRIPCION_DESTACADAS` y la guía. La descripción
+  del sitio no puede prometer «pocas cotizaciones» mientras no entre.
 - **La pantalla dice a qué hora se actualizó** y avisa sólo si **se saltó una corrida
   programada** (`ultimaCorridaEsperada` en `lib/compraAgil.ts`, copia del horario de
   `etl/cron.py`): un umbral fijo de horas saltaba cada fin de semana, y un aviso que salta en

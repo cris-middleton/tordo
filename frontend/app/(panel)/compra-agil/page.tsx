@@ -9,7 +9,13 @@ import { AlertTriangle, Loader2, Rss, Search, Zap } from 'lucide-react';
 import SelectField from '@/components/SelectField';
 import TarjetaDestacada from '@/components/compraAgil/TarjetaDestacada';
 import { useAhora } from '@/hooks/useAhora';
-import { frescura, mesesDeVentana } from '@/lib/compraAgil';
+import {
+  CON_PUESTO,
+  DESCRIPCION_DESTACADAS,
+  TITULO_DESTACADAS,
+  frescura,
+  mesesDeVentana,
+} from '@/lib/compraAgil';
 import { REGIONES_CHILE } from '@/lib/constantesChile';
 import { mensajeDeError } from '@/lib/errores';
 import { useCompraAgilDestacadas } from '@/lib/queries';
@@ -18,9 +24,9 @@ import { useCompraAgilDestacadas } from '@/lib/queries';
  * «Lo mejor de hoy en Compra Ágil».
  *
  * Las Compras Ágiles abiertas que cierran en más de 2 h, ordenadas por un
- * puntaje que calcula el backend (`GET /compra-agil/destacadas`): poca
- * competencia hasta ahora, un comprador que adjudica lo que publica y tiempo
- * para cotizar. **Es una heurística, no un modelo**, y la página lo dice.
+ * puntaje que calcula el backend (`GET /compra-agil/destacadas`): ver
+ * `DESCRIPCION_DESTACADAS` en `lib/compraAgil.ts`. **Es una heurística, no un
+ * modelo**, y la página lo dice.
  *
  * **La hora de la última actualización va a la vista**, y si falta una
  * corrida del horario del cron (`seSaltoUnaCorrida`) se avisa: una corrida
@@ -37,6 +43,7 @@ function CompraAgilContenido() {
   const [busqueda, setBusqueda] = useState(() => urlInicial.get('search') ?? '');
   const [texto, setTexto] = useState(busqueda);
   const ahora = useAhora();
+  const Lista = CON_PUESTO ? 'ol' : 'ul';
 
   const consultaUrl = new URLSearchParams(
     Object.entries({ region, search: busqueda }).filter(([, v]) => v),
@@ -66,13 +73,9 @@ function CompraAgilContenido() {
         <div>
           <h1 className="page-title flex items-center gap-2">
             <Zap className="h-6 w-6 text-accent" aria-hidden="true" />
-            Lo mejor de hoy en Compra Ágil
+            {TITULO_DESTACADAS}
           </h1>
-          <p className="mt-0.5 max-w-2xl text-sm text-muted">
-            Compras Ágiles abiertas donde cotizar tiene más sentido: pocas cotizaciones hasta ahora,
-            un comprador que adjudica lo que publica y tiempo para preparar la oferta. Es una
-            heurística, no una predicción.
-          </p>
+          <p className="mt-0.5 max-w-2xl text-sm text-muted">{DESCRIPCION_DESTACADAS}</p>
         </div>
         <div className="text-right">
           {actualizacion ? (
@@ -102,8 +105,8 @@ function CompraAgilContenido() {
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <p>
             Esta lista se saltó al menos una actualización programada y puede estar
-            desactualizada: algunas de estas compras quizá ya cerraron o ya tienen más cotizaciones.
-            Confirma en Mercado Público antes de cotizar.
+            desactualizada: algunas de estas compras quizá ya cerraron o cambiaron. Confirma en
+            Mercado Público antes de cotizar.
           </p>
         </div>
       )}
@@ -151,13 +154,19 @@ function CompraAgilContenido() {
           </p>
         </div>
       ) : (
-        <ol className="space-y-3" aria-label="Compras Ágiles destacadas">
+        <Lista className="space-y-3" aria-label="Compras Ágiles destacadas">
           {items.map((item, i) => (
             <li key={item.codigo_externo}>
-              <TarjetaDestacada item={item} posicion={i + 1} mesesVentana={meses} />
+              <TarjetaDestacada
+                item={item}
+                posicion={CON_PUESTO ? i + 1 : undefined}
+                mesesVentana={meses}
+                actualizadoEn={datos?.actualizado_en ?? null}
+                historiaDisponible={datos?.historia_disponible ?? false}
+              />
             </li>
           ))}
-        </ol>
+        </Lista>
       )}
     </div>
   );
@@ -171,7 +180,7 @@ export default function CompraAgilPage() {
         // El título va también en el respaldo: es lo que sirve el servidor (la
         // página entera se pinta en el cliente), y sin él el HTML no tenía <h1>.
         <div className="space-y-5">
-          <h1 className="page-title">Lo mejor de hoy en Compra Ágil</h1>
+          <h1 className="page-title">{TITULO_DESTACADAS}</h1>
           <div className="flex items-center justify-center py-24">
             <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
           </div>

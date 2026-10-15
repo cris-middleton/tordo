@@ -1,12 +1,13 @@
 /**
  * Textos de «Lo mejor de hoy en Compra Ágil», en lenguaje llano.
  *
- * El puntaje del backend es el producto de tres factores en [0, 1]
- * (competencia, comprador, tiempo). Un número así no le dice nada a quien
- * cotiza; lo que sí le dice algo es el dato del que sale cada factor: «1
- * cotización hasta ahora», «adjudica 120 de 150 en 6 meses», «cierra en 20 h».
+ * El puntaje del backend es el producto de sus factores en [0, 1] (comprador,
+ * tiempo y monto; la competencia viaja pero no pesa). Un número así no le dice
+ * nada a quien cotiza, y **no se muestra** (rediseño §6.7): lo que sí le dice
+ * algo es el dato del que sale cada factor —«Esta unidad: 524 órdenes de Compra Ágil», «cierra
+ * en 20 h»—. Nunca un cociente: órdenes y publicadas no son la misma cosa.
  *
- * Funciones puras: las usan la pantalla y el RSS.
+ * Funciones puras: las usan la pantalla, la portada y el RSS.
  */
 
 import type { CompradorCompraAgil } from '@/types/compraAgil';
@@ -24,6 +25,42 @@ const HORA = 3_600_000;
  */
 export const HORAS_HABILES = [10, 13, 16, 19] as const;
 export const HORAS_FIN_DE_SEMANA = [12] as const;
+
+/**
+ * El título de la lista, en todas partes: portada, `/compra-agil`, sus
+ * metadatos, el RSS y el CTA. Uno solo porque la regla de §6.3 del rediseño lo
+ * cambia entero: si el puntaje no ordena (criterio de §8.1.4, medido en
+ * `backend/tests/test_orden_destacadas_instantanea.py`), la lista se titula
+ * «Cierran pronto» y va por cierre. El criterio pasó (2/49 con el monto), así
+ * que sigue siendo «Lo mejor de hoy en Compra Ágil».
+ */
+export const TITULO_DESTACADAS = 'Lo mejor de hoy en Compra Ágil';
+
+/**
+ * Qué ordena la lista, en una frase. La misma en la página, la portada, el RSS
+ * y las preguntas frecuentes. **Dice lo que el orden usa hoy**: un comprador que
+ * compra seguido por Compra Ágil (por unidad de compra), el monto (a igual
+ * esfuerzo de cotizar, más monto) y el tiempo para preparar la oferta. No
+ * promete pocas cotizaciones: la competencia no entra en el puntaje (ver
+ * `MOSTRAR_COTIZACIONES`).
+ */
+export const DESCRIPCION_DESTACADAS =
+  'Abiertas, de compradores que compran seguido por Compra Ágil, de monto mayor y con tiempo para preparar la oferta. Es una heurística, no una predicción.';
+
+/** ¿Lleva número de puesto? No en «Cierran pronto»: un orden por cierre no es un ranking. */
+export const CON_PUESTO = true;
+
+/**
+ * ¿Se dice el conteo de cotizaciones, en la tarjeta y en el RSS? **No**: la
+ * compuerta G1 del plan 0a (rediseño §8.1) no está resuelta —el conteo puede
+ * quedar congelado en 0 tras la primera ingesta— y un «Nadie ha cotizado aún»
+ * falso hace que alguien descarte una compra con competencia o cotice creyendo
+ * que no la hay. Para encenderlo: ponerlo en `true` cuando G1 confirme que el conteo
+ * se mantiene (o el refresco acotado de la rama B esté en producción); la
+ * tarjeta y el RSS lo siguen solos. `DESCRIPCION_DESTACADAS` sólo debe volver a
+ * prometer «pocas cotizaciones» si la competencia también vuelve al puntaje.
+ */
+export const MOSTRAR_COTIZACIONES = false;
 
 /** Lo que se le da a una corrida para terminar, y de margen al comparar. */
 const GRACIA = HORA;
@@ -69,8 +106,35 @@ export function seSaltoUnaCorrida(actualizadoEn: number, ahora: number): boolean
   return actualizadoEn < ultimaCorridaEsperada(ahora) - GRACIA;
 }
 
-export function textoCompetencia(ofertas: number | null): string {
+/** Un conteo leído hace más que esto, respecto de la lista, ya no se dice «hasta ahora». */
+const VIGENCIA_COTIZACIONES = 3 * HORA;
+
+const fechaHoraCorta = new Intl.DateTimeFormat('es-CL', {
+  timeZone: ZONA,
+  day: 'numeric',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
+
+/**
+ * Las cotizaciones, con su hora si el conteo es viejo: «Nadie ha cotizado aún»
+ * sobre una lectura de anteayer sería mentir (`ofertas_al` en la API).
+ */
+export function textoCompetencia(
+  ofertas: number | null,
+  ofertasAl: string | null = null,
+  actualizadoEn: string | null = null,
+): string {
   if (ofertas === null) return 'Sin dato de cotizaciones';
+  const leido = ofertasAl ? Date.parse(ofertasAl) : Number.NaN;
+  const lista = actualizadoEn ? Date.parse(actualizadoEn) : Number.NaN;
+  if (Number.isFinite(leido) && Number.isFinite(lista) && lista - leido > VIGENCIA_COTIZACIONES) {
+    const cuando = fechaHoraCorta.format(new Date(leido));
+    if (ofertas === 0) return `Sin cotizaciones al ${cuando}`;
+    return `${ofertas} ${ofertas === 1 ? 'cotización' : 'cotizaciones'} al ${cuando}`;
+  }
   if (ofertas === 0) return 'Nadie ha cotizado aún';
   if (ofertas === 1) return '1 cotización hasta ahora';
   return `${ofertas} cotizaciones hasta ahora`;
@@ -89,17 +153,30 @@ function enMeses(meses: number | null): string {
   return meses === 1 ? ' en el último mes' : ` en ${meses} meses`;
 }
 
+/**
+ * La historia de la unidad que compra, como conteo: «Esta unidad: 524 órdenes de
+ * Compra Ágil en 6 meses». **Nunca un cociente**: «Adjudica 2.953 de 11» se leía
+ * como un error, y órdenes y publicadas son cosas distintas en meses distintos
+ * (CLAUDE.md, `compra_agil_mensual`). Dice «esta unidad» porque la cifra es de la
+ * unidad de compra, no de su organismo (en la ficha del comprador conviven las dos).
+ *
+ * **Devuelve `null` si la historia aún no está disponible** (`historia_disponible`
+ * false): entre el despliegue y la primera corrida semanal no se sabe nada de
+ * ninguna unidad, y «sin historial» sería afirmar algo falso. Con historia, una
+ * unidad ausente (`comprador` nulo) no tuvo órdenes en la ventana.
+ */
 export function textoComprador(
   comprador: CompradorCompraAgil | null,
   meses: number | null,
-): string {
-  if (!comprador) return 'Sin historial de este comprador en Compra Ágil';
+  historiaDisponible: boolean,
+): string | null {
+  if (!historiaDisponible) return null;
   const periodo = enMeses(meses);
-  if (comprador.publicadas) {
-    return `Adjudica ${comprador.ordenes.toLocaleString('es-CL')} de ${comprador.publicadas.toLocaleString('es-CL')}${periodo}`;
+  if (!comprador || comprador.ordenes === 0) {
+    return `Esta unidad: sin órdenes de Compra Ágil${periodo}`;
   }
   const n = comprador.ordenes.toLocaleString('es-CL');
-  return `${n} ${comprador.ordenes === 1 ? 'orden' : 'órdenes'} de Compra Ágil${periodo}`;
+  return `Esta unidad: ${n} ${comprador.ordenes === 1 ? 'orden' : 'órdenes'} de Compra Ágil${periodo}`;
 }
 
 export function textoTiempo(horas: number): string {

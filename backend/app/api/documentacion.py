@@ -53,8 +53,10 @@ ETIQUETAS: list[dict[str, str]] = [
         "name": "compra-agil",
         "description": (
             "«Lo mejor de hoy»: Compras Ágiles abiertas que cierran en más de 2 h, "
-            "ordenadas por un puntaje HEURÍSTICO (producto de competencia, historia "
-            "del comprador y tiempo para cotizar; 0,5 el factor sin dato). Ningún "
+            "ordenadas por un puntaje HEURÍSTICO (producto de historia del "
+            "comprador, tiempo para cotizar y monto; el centro de su escala el factor sin "
+            "dato, y 0 el comprador que no compró nada en la ventana; la "
+            "competencia se informa pero no pesa). Ningún "
             "dato de proveedor: sólo conteos."
         ),
     },

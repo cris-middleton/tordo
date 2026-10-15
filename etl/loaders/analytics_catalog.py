@@ -174,8 +174,10 @@ CATALOGO: list[TablaAnalytics] = [
         indices=[["sector"]],
     ),
     # ── Compra Ágil ──────────────────────────────────────────────────────────
-    # Tasa de adjudicación del ranking «lo mejor de hoy» (spec del pivote §6.2):
-    # se consulta por comprador, y el mes acota la ventana.
+    # Compras Ágiles publicadas y adjudicadas por comprador y mes (spec del
+    # pivote §6.2): se consulta por comprador, y el mes acota la ventana. Las
+    # lee la ficha pública del comprador (vía `compra_agil_comprador.publicadas`),
+    # no el puntaje de «lo mejor de hoy».
     #
     # `adjudicadas / publicadas` NO es una tasa: son dos conteos de cosas
     # distintas, en meses que no se corresponden (la orden sale días después de
@@ -198,9 +200,10 @@ CATALOGO: list[TablaAnalytics] = [
             ),
         },
     ),
-    # «Lo mejor de hoy» (paso 9): la historia del comprador de cada Compra Ágil
-    # abierta. La API une por RUT normalizado (`comprador_rut.rut`) y de ahí por
-    # código a `compra_agil_comprador`. Ver etl/analytics/compra_agil_comprador.py.
+    # La historia del ORGANISMO comprador (paso 9). Hoy sólo la leen la ficha
+    # pública (`/publico/compradores/{codigo}`) y el filtro `codigo_organismo` de
+    # «lo mejor de hoy», que traduce RUT → código con `comprador_rut`; el puntaje
+    # lee `compra_agil_unidad`. Ver etl/analytics/compra_agil_comprador.py.
     TablaAnalytics(
         tabla="compra_agil_comprador",
         parquet="compra_agil_comprador.parquet",
@@ -233,13 +236,48 @@ CATALOGO: list[TablaAnalytics] = [
         indices=[["rut"]],
         comentarios={
             "rut": (
-                "RUT del comprador sin puntos ni guion, K mayúscula. Así identifica al "
+                "RUT del comprador sin puntos, guion ni ceros a la izquierda, K mayúscula. Así identifica al "
                 "comprador la Compra Ágil ingerida (licitaciones.rut_organismo)."
             ),
             "CodigoOrganismoPublico": (
                 "Código de comprador más frecuente para ese RUT en las órdenes de Compra "
-                "Ágil de la ventana. Traduce RUT → código para unir con la analítica."
+                "Ágil de la ventana. Traduce RUT → código para unir con la analítica. "
+                "Sólo para el filtro por comprador: el puntaje une por RUT con compra_agil_unidad."
             ),
+        },
+    ),
+    # «Lo mejor de hoy» (rediseño 0a): la historia de la UNIDAD que publica cada
+    # Compra Ágil, por su RUT. Es lo que puntúa; `compra_agil_comprador` (por
+    # organismo) queda para la ficha pública del comprador.
+    TablaAnalytics(
+        tabla="compra_agil_unidad",
+        parquet="compra_agil_unidad.parquet",
+        # Sin índice: son ~2.000 filas y la API las lee enteras (DISTINCT ON sobre
+        # el RUT sin ceros), así que un índice sobre `rut` no lo usaba ninguna consulta.
+        indices=[],
+        comentarios={
+            "rut": (
+                "RUT de la UNIDAD de compra (RutUnidadCompra) sin puntos, guion ni ceros a "
+                "la izquierda, K mayúscula. Así la identifica la Compra Ágil ingerida "
+                "(licitaciones.rut_organismo). Una fila por RUT; sólo unidades con al menos "
+                "una orden en la ventana."
+            ),
+            "ordenes": "ÓRDENES DE COMPRA de Compra Ágil vigentes (sin canceladas) de la unidad en la ventana.",
+            "proveedores_distintos": (
+                "Proveedores distintos que ganaron alguna orden de la unidad. Las personas "
+                "naturales se cuentan por seudónimo; ningún proveedor se nombra."
+            ),
+            "cuota_lider_pct": "% de las órdenes de la unidad que se llevó el proveedor que más ganó (0–100).",
+            "monto_p25": "Percentil 25 del monto TOTAL por orden, en CLP (una vez por orden, no por línea).",
+            "monto_mediana": "Mediana del monto TOTAL por orden, en CLP (una vez por orden, no por línea).",
+            "monto_p75": "Percentil 75 del monto TOTAL por orden, en CLP (una vez por orden, no por línea).",
+            "percentil_ordenes": (
+                "Qué parte de las unidades con órdenes de Compra Ágil emitió MENOS en la ventana "
+                "(percent_rank, 0–1). Mide cuánto compra, no si adjudica lo que publica. Una "
+                "unidad que no figura en la tabla (sin órdenes) vale 0 para la API."
+            ),
+            "ventana_desde": "Primer día de la ventana (6 meses anclados en el último mes con datos).",
+            "ventana_hasta": "Último día de la ventana.",
         },
     ),
 ]

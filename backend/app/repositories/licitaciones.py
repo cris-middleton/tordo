@@ -17,8 +17,9 @@ en la capa HTTP.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 
-from sqlalchemy import Select, and_, asc, case, desc, func, or_, select
+from sqlalchemy import DateTime, Select, and_, asc, case, desc, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -77,7 +78,20 @@ class Filtros:
     abiertas: bool = False
 
 
-def esta_abierta():
+def referencia_reloj(ahora: datetime | None = None):
+    """El «ahora» de una consulta: `now()` de Postgres, o un instante fijo.
+
+    Un `datetime` sin zona horaria se rechaza: Postgres lo leería en la zona de
+    la sesión y la medición dependería de dónde corre.
+    """
+    if ahora is None:
+        return func.now()
+    if ahora.tzinfo is None:
+        raise ValueError("`ahora` tiene que llevar zona horaria (datetime con tzinfo).")
+    return literal(ahora, DateTime(timezone=True))
+
+
+def esta_abierta(ahora: datetime | None = None):
     """Se puede postular: publicada y sin cerrar.
 
     Es la primera clave de TODO orden del listado. Sin ella, buscar «limpieza»
@@ -88,10 +102,14 @@ def esta_abierta():
     Es también el filtro `abiertas` del catálogo y lo que cuenta la portada
     (`contar_abiertas`, `GET /publico/portada`): una sola definición, para que
     el número que se lee en la portada sea el total al que lleva su enlace.
+
+    `ahora` fija el reloj (tests y la medición del orden de «lo mejor de hoy»);
+    sin él manda `now()` de Postgres, como en producción.
     """
+    referencia = referencia_reloj(ahora)
     return and_(
         Licitacion.estado == "Publicada",
-        or_(Licitacion.fecha_cierre.is_(None), Licitacion.fecha_cierre > func.now()),
+        or_(Licitacion.fecha_cierre.is_(None), Licitacion.fecha_cierre > referencia),
     )
 
 

@@ -6,7 +6,8 @@
  *   2. que si falta una corrida del horario del cron la página avisa de que
  *      puede estar desactualizada — una
  *      corrida fallida del cron no puede dejarla mintiendo — y que antes no;
- *   3. que los tres factores se dicen en lenguaje llano, con sus casos sin dato;
+ *   3. que cada factor se dice con su dato, sin puntaje ni cocientes, y que el
+ *      conteo de cotizaciones no se muestra (`MOSTRAR_COTIZACIONES`);
  *   4. que cada ítem enlaza a su detalle y a Mercado Público.
  *
  * La respuesta del backend se simula con el contrato del plan del paso 9.
@@ -15,6 +16,9 @@ import { render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  DESCRIPCION_DESTACADAS,
+  MOSTRAR_COTIZACIONES,
+  TITULO_DESTACADAS,
   frescura,
   mesesDeVentana,
   seSaltoUnaCorrida,
@@ -48,6 +52,7 @@ const HORA = Date.parse(ACTUALIZADO);
 
 const BASE: CompraAgilDestacadasResponse = {
   actualizado_en: ACTUALIZADO,
+  historia_disponible: true,
   ventana_desde: '2026-04-01',
   ventana_hasta: '2026-09-30',
   items: [
@@ -61,17 +66,19 @@ const BASE: CompraAgilDestacadasResponse = {
       fecha_cierre: '2026-10-13T09:00:00-03:00',
       horas_restantes: 20.5,
       ofertas_recibidas: 1,
+      ofertas_al: '2026-10-12T13:00:00-03:00',
       comprador: {
         ordenes: 120,
-        publicadas: 150,
+        publicadas: null,
         proveedores_distintos: 45,
         cuota_lider_pct: 12,
         monto_mediana: 850_000,
         monto_p25: 400_000,
         monto_p75: 1_500_000,
+        percentil_ordenes: 0.84,
       },
       puntaje: 0.62,
-      factores: { competencia: 0.5, comprador: 0.8, tiempo: 0.85 },
+      factores: { competencia: 0.5, comprador: 0.84, tiempo: 0.85, monto: 0.9 },
     },
   ],
 };
@@ -106,13 +113,54 @@ describe('la página', () => {
     expect(screen.getByRole('status')).toHaveTextContent(/se saltó al menos una actualización/);
   });
 
-  it('dice los tres factores en lenguaje llano', async () => {
+  it('dice cada factor con su dato, sin puntaje ni cocientes', async () => {
     await montar();
     const item = screen.getByRole('article');
-    expect(within(item).getByText('1 cotización hasta ahora')).toBeInTheDocument();
-    expect(within(item).getByText('Adjudica 120 de 150 en 6 meses')).toBeInTheDocument();
+    // El conteo de cotizaciones está apagado (G1 sin resolver): no se dice.
+    expect(within(item).queryByText('1 cotización hasta ahora')).not.toBeInTheDocument();
+    expect(within(item).getByText('Esta unidad: 120 órdenes de Compra Ágil en 6 meses')).toBeInTheDocument();
     expect(within(item).getByText('Cierra en 20 h')).toBeInTheDocument();
     expect(within(item).getByText(/Suele comprar entre \$400K y \$1,5M/)).toBeInTheDocument();
+    // Rediseño §6.7: ni «puntaje N/100» ni «X de Y».
+    expect(item.textContent).not.toMatch(/puntaje|\/100/i);
+    expect(item.textContent).not.toMatch(/\d de \d/);
+  });
+
+  it('el título y la descripción salen de un solo sitio', async () => {
+    await montar();
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(TITULO_DESTACADAS);
+    expect(screen.getByText(DESCRIPCION_DESTACADAS)).toBeInTheDocument();
+  });
+
+  it('sin conteo de cotizaciones mantenido, no se dice nada de cotizaciones', async () => {
+    await montar();
+    expect(MOSTRAR_COTIZACIONES).toBe(false);
+    // La tarjeta (con y sin lectura vieja o dato) ...
+    expect(screen.getByRole('article').textContent).not.toMatch(/cotiz/i);
+    // ... y toda la página: cabecera, descripción y lista.
+    expect(document.body.textContent).not.toMatch(/cotiz/i);
+  });
+
+  it('la descripción no promete «pocas cotizaciones» ni «adjudica lo que publica»', () => {
+    expect(DESCRIPCION_DESTACADAS).not.toMatch(/cotiz|adjudica|publica/i);
+    expect(DESCRIPCION_DESTACADAS).toMatch(/heurística, no una predicción/);
+    // «Buen monto» juzga; «de monto mayor» sólo dice lo que el orden hace.
+    expect(DESCRIPCION_DESTACADAS).toMatch(/de monto mayor/);
+    expect(DESCRIPCION_DESTACADAS).not.toMatch(/buen monto/);
+  });
+
+  it('los metadatos (título y descripción) salen de las mismas constantes y no hablan de cotizaciones', async () => {
+    const { metadata } = await import('@/app/(panel)/compra-agil/layout');
+    expect(metadata.title).toBe(TITULO_DESTACADAS);
+    expect(String(metadata.description)).toContain(DESCRIPCION_DESTACADAS);
+    expect(String(metadata.description)).not.toMatch(/cotiz/i);
+    expect(String(metadata.description).length).toBeLessThanOrEqual(300);
+  });
+
+  it('el aviso de lista vieja no habla de cotizaciones', async () => {
+    ahora = HORA + 4.5 * 3_600_000;
+    await montar();
+    expect(screen.getByRole('status').textContent).not.toMatch(/cotizaciones/i);
   });
 
   it('enlaza al detalle y a Mercado Público', async () => {
@@ -127,12 +175,36 @@ describe('la página', () => {
     );
   });
 
-  it('sin historia del comprador ni dato de cotizaciones, lo dice', async () => {
+  it('con historia disponible y la unidad ausente, dice que no tuvo órdenes; sin dato de cotizaciones no dice nada de ellas', async () => {
     respuesta.items[0].comprador = null;
     respuesta.items[0].ofertas_recibidas = null;
     await montar();
-    expect(screen.getByText('Sin dato de cotizaciones')).toBeInTheDocument();
-    expect(screen.getByText(/Sin historial de este comprador/)).toBeInTheDocument();
+    expect(screen.queryByText('Sin dato de cotizaciones')).not.toBeInTheDocument();
+    expect(screen.getByText('Esta unidad: sin órdenes de Compra Ágil en 6 meses')).toBeInTheDocument();
+  });
+
+  it('con la historia aún no disponible, la tarjeta no dice NADA del comprador', async () => {
+    // Entre el despliegue y la primera corrida semanal: la tabla no existe. «Sin
+    // historial» sería afirmar algo falso de compradores que sí lo tienen.
+    respuesta.historia_disponible = false;
+    respuesta.items[0].comprador = null;
+    await montar();
+    const item = screen.getByRole('article');
+    expect(item.textContent).not.toMatch(/historial|esta unidad|órdenes|suele comprar|su orden típica/i);
+    // Lo demás sigue en pie: el tiempo y los enlaces.
+    expect(within(item).getByText('Cierra en 20 h')).toBeInTheDocument();
+    expect(within(item).getByRole('link', { name: /ver detalle/i })).toBeInTheDocument();
+  });
+
+  it('las columnas de la tarjeta son las cosas que dice, sin hueco', async () => {
+    const { unmount } = await montar();
+    // Comprador y tiempo (las cotizaciones están apagadas): dos columnas, no tres.
+    expect(screen.getByRole('article').querySelector('ul')!.className).toMatch(/sm:grid-cols-2/);
+    expect(screen.getByRole('article').querySelector('ul')!.className).not.toMatch(/sm:grid-cols-3/);
+    unmount();
+    respuesta.historia_disponible = false;
+    await montar();
+    expect(screen.getByRole('article').querySelector('ul')!.className).toMatch(/sm:grid-cols-1/);
   });
 
   it('sin ítems no rompe', async () => {
@@ -149,13 +221,33 @@ describe('los textos', () => {
     expect(textoCompetencia(3)).toBe('3 cotizaciones hasta ahora');
   });
 
-  it('comprador sin publicadas cuenta órdenes', () => {
-    expect(
-      textoComprador(
-        { ...BASE.items[0].comprador!, publicadas: null, ordenes: 1 },
-        6,
-      ),
-    ).toBe('1 orden de Compra Ágil en 6 meses');
+  it('comprador: conteos de la UNIDAD, nunca un cociente', () => {
+    const c = BASE.items[0].comprador!;
+    expect(textoComprador({ ...c, ordenes: 1 }, 6, true)).toBe(
+      'Esta unidad: 1 orden de Compra Ágil en 6 meses',
+    );
+    expect(textoComprador({ ...c, ordenes: 0 }, 6, true)).toBe(
+      'Esta unidad: sin órdenes de Compra Ágil en 6 meses',
+    );
+    expect(textoComprador({ ...c, ordenes: 2953, publicadas: 11 }, 6, true)).toBe(
+      'Esta unidad: 2.953 órdenes de Compra Ágil en 6 meses',
+    );
+    // Con historia disponible, una unidad ausente no tuvo órdenes.
+    expect(textoComprador(null, 6, true)).toBe('Esta unidad: sin órdenes de Compra Ágil en 6 meses');
+  });
+
+  it('comprador: sin historia disponible no se dice nada, haya o no unidad', () => {
+    const c = BASE.items[0].comprador!;
+    expect(textoComprador(null, 6, false)).toBeNull();
+    expect(textoComprador(c, 6, false)).toBeNull();
+  });
+
+  it('competencia: un conteo viejo no se dice «hasta ahora»', () => {
+    const lista = '2026-10-12T13:05:00-03:00';
+    expect(textoCompetencia(0, '2026-10-12T12:30:00-03:00', lista)).toBe('Nadie ha cotizado aún');
+    expect(textoCompetencia(0, '2026-10-12T08:05:00-03:00', lista)).toMatch(/^Sin cotizaciones al .*12.*08:05$/);
+    expect(textoCompetencia(2, '2026-10-10T09:00:00-03:00', lista)).toMatch(/^2 cotizaciones al .*10.*09:00$/);
+    expect(textoCompetencia(1, null, lista)).toBe('1 cotización hasta ahora');
   });
 
   it('tiempo', () => {

@@ -3,6 +3,7 @@ import { ArrowRight, ChevronDown, Heart, Search, Zap } from 'lucide-react';
 
 import { PieAtribucion } from '@/components/legal/PieAtribucion';
 import { CabeceraPublica } from '@/components/publico/CabeceraPublica';
+import { TITULO_DESTACADAS } from '@/lib/compraAgil';
 import { COSTO_MENSUAL_APROXIMADO } from '@/lib/costos';
 import { ACCESOS, PREGUNTAS } from '@/lib/portada';
 import { CORREO_CONTACTO } from '@/lib/responsable';
@@ -47,7 +48,7 @@ export function Portada({ destacadas }: { destacadas: CompraAgilDestacadasRespon
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link href="/compra-agil" className="btn-accent px-6 py-3">
                 <Zap className="h-4 w-4" aria-hidden="true" />
-                Lo mejor de hoy en Compra Ágil
+                {TITULO_DESTACADAS}
               </Link>
               <Link href="/productos" className="btn-secondary px-6 py-3">
                 <Search className="h-4 w-4" aria-hidden="true" />

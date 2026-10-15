@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 
+import { DESCRIPCION_DESTACADAS, TITULO_DESTACADAS } from '@/lib/compraAgil';
+
 /*
  * Metadatos de «Lo mejor de hoy». La página es cliente (filtros en la URL), y
  * Next ignora `metadata` en un componente cliente: sin este layout salía con el
@@ -7,9 +9,8 @@ import type { Metadata } from 'next';
  * sitemap (`e2e/calidad-paginas.spec.ts`).
  */
 export const metadata: Metadata = {
-  title: 'Lo mejor de hoy en Compra Ágil',
-  description:
-    'Compras Ágiles abiertas donde cotizar tiene más sentido: pocas cotizaciones, un comprador que adjudica y tiempo para preparar la oferta. Actualizado varias veces al día.',
+  title: TITULO_DESTACADAS,
+  description: `${DESCRIPCION_DESTACADAS} Actualizado varias veces al día.`,
   alternates: { canonical: '/compra-agil' },
 };
 

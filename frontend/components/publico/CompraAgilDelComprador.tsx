@@ -3,7 +3,7 @@
 import Link from 'next/link';
 
 import TarjetaDestacada from '@/components/compraAgil/TarjetaDestacada';
-import { mesesDeVentana } from '@/lib/compraAgil';
+import { CON_PUESTO, mesesDeVentana } from '@/lib/compraAgil';
 import { useCompraAgilDestacadas } from '@/lib/queries';
 
 /**
@@ -39,13 +39,20 @@ export function CompraAgilDelComprador({ codigo }: { codigo: string }) {
   }
 
   const meses = mesesDeVentana(datos?.ventana_desde ?? null, datos?.ventana_hasta ?? null);
+  const Lista = CON_PUESTO ? 'ol' : 'ul';
   return (
-    <ol className="space-y-3" aria-label="Compras Ágiles abiertas de este comprador">
+    <Lista className="space-y-3" aria-label="Compras Ágiles abiertas de este comprador">
       {items.map((item, i) => (
         <li key={item.codigo_externo}>
-          <TarjetaDestacada item={item} posicion={i + 1} mesesVentana={meses} />
+          <TarjetaDestacada
+            item={item}
+            posicion={CON_PUESTO ? i + 1 : undefined}
+            mesesVentana={meses}
+            actualizadoEn={datos?.actualizado_en ?? null}
+            historiaDisponible={datos?.historia_disponible ?? false}
+          />
         </li>
       ))}
-    </ol>
+    </Lista>
   );
 }

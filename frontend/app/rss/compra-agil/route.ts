@@ -1,6 +1,9 @@
 import type { NextRequest } from 'next/server';
 
 import {
+  DESCRIPCION_DESTACADAS,
+  MOSTRAR_COTIZACIONES,
+  TITULO_DESTACADAS,
   textoComprador,
   textoCompetencia,
   textoMontoTipico,
@@ -19,7 +22,7 @@ import { NOMBRE_SITIO, pedirAlBackend, respuestaDeError, respuestaRss } from '@/
 import type { CompraAgilDestacadasResponse } from '@/types/compraAgil';
 
 /**
- * `/rss/compra-agil[?region=…&search=…]` — «Lo mejor de hoy en Compra Ágil»,
+ * `/rss/compra-agil[?region=…&search=…]` — «Lo mejor de hoy en Compra Ágil» (`TITULO_DESTACADAS`),
  * en RSS 2.0. Los mismos filtros que la página; nada más se reenvía.
  */
 export async function GET(req: NextRequest) {
@@ -40,10 +43,9 @@ export async function GET(req: NextRequest) {
 
   return respuestaRss(
     construirRss({
-      titulo: `Lo mejor de hoy en Compra Ágil — ${NOMBRE_SITIO}`,
+      titulo: `${TITULO_DESTACADAS} — ${NOMBRE_SITIO}`,
       enlace: `${origen}/compra-agil${consulta ? `?${consulta}` : ''}`,
-      descripcion:
-        'Compras Ágiles abiertas donde cotizar tiene más sentido: pocas cotizaciones, un comprador que adjudica y tiempo para preparar la oferta. Es una heurística, no una predicción.',
+      descripcion: DESCRIPCION_DESTACADAS,
       items: (respuesta.items ?? []).map((item) => ({
         titulo: normalizeText(item.nombre),
         enlace: `${origen}/licitaciones/${encodeURIComponent(item.codigo_externo)}`,
@@ -55,10 +57,11 @@ export async function GET(req: NextRequest) {
           item.nombre_organismo && normalizeText(item.nombre_organismo),
           item.region && shortRegion(item.region),
           item.monto_estimado ? `Monto estimado ${formatCurrency(item.monto_estimado)}` : null,
-          textoCompetencia(item.ofertas_recibidas),
-          textoComprador(item.comprador, meses),
+          MOSTRAR_COTIZACIONES &&
+            textoCompetencia(item.ofertas_recibidas, item.ofertas_al, respuesta.actualizado_en),
+          textoComprador(item.comprador, meses, respuesta.historia_disponible),
           item.fecha_cierre ? `Cierra el ${fechaChile(item.fecha_cierre)}` : textoTiempo(item.horas_restantes),
-          textoMontoTipico(item.comprador),
+          respuesta.historia_disponible && textoMontoTipico(item.comprador),
         ]
           .filter(Boolean)
           .join(' · '),

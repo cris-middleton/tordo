@@ -1,8 +1,10 @@
-"""Compra Ágil por comprador: cuánto adjudica, a cuántos y por cuánto.
+"""Compra Ágil por comprador: cuántas órdenes emite, a cuántos proveedores y por cuánto.
 
-Paso 9 del pivote público (spec §6.2): es la historia del comprador que acompaña
-a cada Compra Ágil abierta en «lo mejor de hoy» (`GET /compra-agil/destacadas`).
-Sale en dos parquets que se materializan como el resto del BI:
+Paso 9 del pivote público (spec §6.2). `compra_agil_comprador` (por organismo)
+sirve hoy a la ficha pública del comprador (`/publico/compradores/{codigo}`) y al
+filtro `codigo_organismo` de `GET /compra-agil/destacadas`; el puntaje de «lo
+mejor de hoy» lee en cambio `compra_agil_unidad` (más abajo, rediseño 0a).
+Sale en tres parquets que se materializan como el resto del BI:
 
 - **`compra_agil_comprador`** — una fila por `CodigoOrganismoPublico`, sobre una
   ventana de `VENTANA_COMPRA_AGIL_MESES` meses anclada en el último mes con
@@ -28,6 +30,15 @@ Sale en dos parquets que se materializan como el resto del BI:
   analítica, por código. Es `codigo_por_rut`, persistido para que la API pueda
   unir sin rehacerlo. Sale de la misma ventana: un comprador sin órdenes en
   ella tampoco tendría fila en la tabla de arriba.
+
+- **`compra_agil_unidad`** — lo mismo que `compra_agil_comprador`, pero por RUT
+  de la UNIDAD de compra, más `percentil_ordenes` (qué parte de las unidades
+  compró menos en la ventana). **Sólo tiene unidades con al menos una orden**: la
+  población del percentil son las que compran; la que publica y no compra no
+  figura, y la API la trata como percentil 0. Es lo que usa el puntaje de «lo mejor de hoy»
+  (rediseño 0a): la Compra Ágil trae el RUT de la unidad, y unir por el código
+  del organismo le daba a cada unidad la historia del organismo entero (la FACh
+  son 14 RUT bajo un código). `comprador_rut` queda para el filtro por comprador.
 
 **Por qué meses y no 180 días exactos.** Los archivos de la descarga masiva son
 mensuales y el resto de la analítica se ancla por mes; seis meses calendario
@@ -77,6 +88,19 @@ ESQUEMA = {
 
 ESQUEMA_RUT = {"rut": pl.Utf8, "CodigoOrganismoPublico": pl.Utf8}
 
+SALIDA_UNIDAD = "compra_agil_unidad.parquet"
+
+ESQUEMA_UNIDAD = {
+    "rut": pl.Utf8,
+    "ordenes": pl.Int64,
+    "proveedores_distintos": pl.Int64,
+    "cuota_lider_pct": pl.Float64,
+    "monto_p25": pl.Float64,
+    "monto_mediana": pl.Float64,
+    "monto_p75": pl.Float64,
+    "percentil_ordenes": pl.Float64,
+}
+
 
 def _en_ventana(df: pl.DataFrame, limites: tuple[date, date] | None) -> pl.DataFrame:
     """Sólo los meses de la ventana. `mes` es el primer día del mes."""
@@ -97,16 +121,17 @@ def _monto() -> pl.Expr:
     )
 
 
-def estadisticas_por_comprador(ordenes: pl.DataFrame) -> pl.DataFrame:
-    """Órdenes, proveedores, cuota del líder y montos, por comprador.
+def estadisticas_por_comprador(
+    ordenes: pl.DataFrame, clave: str = "CodigoOrganismoPublico"
+) -> pl.DataFrame:
+    """Órdenes, proveedores, cuota del líder y montos, por `clave`.
 
     `ordenes` trae ya UNA fila por orden (`ordenes_compra_agil`), así que todo
-    lo que se cuenta o se promedia aquí es por orden, no por línea.
+    lo que se cuenta o se promedia aquí es por orden, no por línea. `clave` es el
+    código del organismo (la ficha pública) o el RUT de la unidad (el puntaje).
     """
-    base = ordenes.filter(pl.col("CodigoOrganismoPublico").is_not_null()).with_columns(
-        _monto().alias("monto")
-    )
-    generales = base.group_by("CodigoOrganismoPublico").agg(
+    base = ordenes.filter(pl.col(clave).is_not_null()).with_columns(_monto().alias("monto"))
+    generales = base.group_by(clave).agg(
         pl.len().cast(pl.Int64).alias("ordenes"),
         pl.col("CodigoProveedor")
         .drop_nulls()
@@ -119,12 +144,45 @@ def estadisticas_por_comprador(ordenes: pl.DataFrame) -> pl.DataFrame:
     )
     lider = (
         base.filter(pl.col("CodigoProveedor").is_not_null())
-        .group_by(["CodigoOrganismoPublico", "CodigoProveedor"])
+        .group_by([clave, "CodigoProveedor"])
         .agg(pl.len().alias("n"))
-        .group_by("CodigoOrganismoPublico")
+        .group_by(clave)
         .agg((pl.col("n").max() * 100.0 / pl.col("n").sum()).round(1).alias("cuota_lider_pct"))
     )
-    return generales.join(lider, on="CodigoOrganismoPublico", how="left", coalesce=True)
+    return generales.join(lider, on=clave, how="left", coalesce=True)
+
+
+def con_percentil(tabla: pl.DataFrame) -> pl.DataFrame:
+    """`percentil_ordenes` en [0, 1]: qué parte de las unidades compró MENOS.
+
+    Es `percent_rank`: (rango mínimo − 1) / (n − 1). Los empates comparten valor;
+    la que más compra vale 1 y la que menos, 0. Con una sola unidad no hay con
+    quién comparar: 0,5, el neutro de la escala.
+
+    La clave `rut` ya viene normalizada sin ceros a la izquierda
+    (`compra_agil_mensual.rut_normalizado`), así que `0616087002` y `616087002`
+    son UNA unidad y cuentan una vez en la población.
+    """
+    n = len(tabla)
+    if n <= 1:
+        return tabla.with_columns(pl.lit(0.5, dtype=pl.Float64).alias("percentil_ordenes"))
+    return tabla.with_columns(
+        ((pl.col("ordenes").rank("min") - 1) / (n - 1)).cast(pl.Float64).alias("percentil_ordenes")
+    )
+
+
+def estadisticas_por_unidad(ordenes: pl.DataFrame) -> pl.DataFrame:
+    """Lo mismo, por UNIDAD de compra: su RUT (`RutUnidadCompra`, normalizado).
+
+    La Compra Ágil ingerida trae el RUT de la unidad, no el código del
+    organismo, y un organismo puede tener muchas unidades con RUT propio —medido
+    en las OC 2025-10..2026-03: 115 de 1.163 organismos, el 25 % de las órdenes;
+    la FACh (6946) son 14 RUT—. Unir por código le daba a cada unidad la historia
+    de su organismo entero.
+    """
+    filtradas = ordenes.filter(pl.col("rut").is_not_null() & (pl.col("rut") != ""))
+    tabla = con_percentil(estadisticas_por_comprador(filtradas, clave="rut"))
+    return tabla.select([pl.col(c).cast(t) for c, t in ESQUEMA_UNIDAD.items()]).sort("rut")
 
 
 def publicadas_en_ventana(
@@ -150,8 +208,11 @@ def publicadas_en_ventana(
 def combinar(estadisticas: pl.DataFrame, publicadas: pl.DataFrame) -> pl.DataFrame:
     """Una fila por comprador con órdenes O con publicadas.
 
-    Un comprador que publica y no adjudica nada entra con `ordenes = 0`: es
-    justo lo que el puntaje tiene que ver.
+    Un comprador que publica y no adjudica nada entra con `ordenes = 0`: así lo
+    muestra la ficha pública del comprador. **El puntaje de «lo mejor de hoy» ya
+    no lee esta tabla** sino `compra_agil_unidad`, que sólo tiene unidades con
+    órdenes; allí una unidad sin órdenes no tiene fila, y la API le da el factor
+    comprador 0 (no el neutro) cuando la tabla está poblada.
     """
     tabla = estadisticas.join(
         publicadas, on="CodigoOrganismoPublico", how="full", coalesce=True
@@ -174,8 +235,8 @@ def run_compra_agil_comprador(
     *,
     frames: Iterable[pl.DataFrame] | None = None,
     limites: tuple[date, date] | None = None,
-) -> tuple[pl.DataFrame, pl.DataFrame]:
-    """Escribe las dos tablas. `frames` y `limites` se inyectan en los tests.
+) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+    """Escribe las tres tablas. `frames` y `limites` se inyectan en los tests.
 
     Corre DESPUÉS de `compra_agil_mensual`: lee su parquet para `publicadas`.
     """
@@ -200,13 +261,17 @@ def run_compra_agil_comprador(
     ruts = codigo_por_rut(ordenes.filter(pl.col("CodigoOrganismoPublico").is_not_null())).select(
         [pl.col(c).cast(t) for c, t in ESQUEMA_RUT.items()]
     )
+    unidad = con_ventana(estadisticas_por_unidad(ordenes), limites)
 
     tabla.write_parquet(Path(output_dir) / SALIDA)
     ruts.write_parquet(Path(output_dir) / SALIDA_RUT)
+    unidad.write_parquet(Path(output_dir) / SALIDA_UNIDAD)
     logger.info(
-        "compra_agil_comprador: %d compradores (%d con publicadas), %d RUT traducibles",
+        "compra_agil_comprador: %d compradores (%d con publicadas), %d RUT traducibles, "
+        "%d unidades",
         len(tabla),
         tabla["publicadas"].is_not_null().sum(),
         len(ruts),
+        len(unidad),
     )
-    return tabla, ruts
+    return tabla, ruts, unidad

@@ -35,12 +35,19 @@ from app.models.licitacion_detalle import LicitacionDetalle
 # harían que una búsqueda dejara de encontrar firmas sin que nada fallara.
 from app.utils.firma import FUERA_DE_TOKEN, MAX_TOKENS, MIN_TOKEN, RUIDO
 
+# La normalización del RUT se importa igual: el ETL escribe la clave de las
+# tablas de la Compra Ágil y la API une contra ella.
+from app.utils.rut import CEROS_INICIALES, FUERA_DE_RUT, normalizar_rut
+
 __all__ = [
+    "CEROS_INICIALES",
+    "FUERA_DE_RUT",
     "FUERA_DE_TOKEN",
     "MAX_TOKENS",
     "MIN_TOKEN",
     "RUIDO",
     "ZONA_CHILE",
+    "normalizar_rut",
     "TipoConvocatoria",
     "Licitacion",
     "LicitacionDetalle",

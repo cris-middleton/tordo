@@ -10,13 +10,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import limites
+from app.core.tiempo import ZONA_CHILE
 from app.db import get_db
 from app.repositories import compra_agil as repo_compra_agil
 from app.schemas.compra_agil import (
     CompraAgilDestacada,
     CompraAgilDestacadasResponse,
-    CompradorCompraAgil,
     FactoresPuntaje,
+    UnidadCompraAgil,
 )
 
 router = APIRouter(prefix="/compra-agil", tags=["compra-agil"])
@@ -25,9 +26,7 @@ router = APIRouter(prefix="/compra-agil", tags=["compra-agil"])
 def _item(fila: dict[str, Any]) -> CompraAgilDestacada:
     comprador = None
     if fila["tiene_historia"]:
-        comprador = CompradorCompraAgil(
-            **{c: fila[c] for c in repo_compra_agil.CAMPOS_HISTORIA},
-        )
+        comprador = UnidadCompraAgil(**{c: fila[c] for c in repo_compra_agil.CAMPOS_UNIDAD})
     return CompraAgilDestacada(
         codigo_externo=fila["codigo_externo"],
         nombre=fila["nombre"],
@@ -38,12 +37,11 @@ def _item(fila: dict[str, Any]) -> CompraAgilDestacada:
         fecha_cierre=fila["fecha_cierre"],
         horas_restantes=round(float(fila["horas_restantes"]), 1),
         ofertas_recibidas=fila["ofertas_recibidas"],
+        ofertas_al=fila["ofertas_al"].astimezone(ZONA_CHILE) if fila["ofertas_al"] else None,
         comprador=comprador,
         puntaje=round(fila["puntaje"], 4),
         factores=FactoresPuntaje(
-            competencia=round(fila["f_competencia"], 4),
-            comprador=round(fila["f_comprador"], 4),
-            tiempo=round(fila["f_tiempo"], 4),
+            **{n: round(fila[f"f_{n}"], 4) for n in repo_compra_agil.FACTORES}
         ),
     )
 
@@ -69,9 +67,9 @@ async def destacadas(
 ):
     """Compras Ágiles abiertas que cierran en más de 2 h, de mejor a peor puntaje.
 
-    El puntaje es una **heurística**, no un modelo: el producto de tres
-    factores en [0, 1] —poca competencia, un comprador que adjudica, tiempo para
-    cotizar—, con 0,5 para el que no tiene dato. Ver `docs/API_PUBLICA.md`.
+    El puntaje es una **heurística**, no un modelo: el producto de sus
+    factores en [0, 1] —ver `FactoresPuntaje`—, con el centro de su escala para el
+    que no tiene dato. Ver `docs/API_PUBLICA.md`.
     """
     terminos = [t.strip() for t in (search or "").split() if t.strip()]
     if len(terminos) > limites.MAX_TERMINOS:
@@ -82,9 +80,11 @@ async def destacadas(
             status_code=422,
             detail=f"Como mucho {limites.MAX_TERMINOS} palabras en la búsqueda.",
         )
+    con_historia = await repo_compra_agil.hay_historia_de_unidades(db)
     filas = await repo_compra_agil.destacadas(
         db,
         limite=limite,
+        con_historia=con_historia,
         region=region,
         terminos=terminos,
         codigo_organismo=codigo_organismo,
@@ -92,6 +92,7 @@ async def destacadas(
     desde, hasta = await repo_compra_agil.ventana(db)
     return CompraAgilDestacadasResponse(
         actualizado_en=await repo_compra_agil.actualizado_en(db),
+        historia_disponible=con_historia,
         ventana_desde=desde,
         ventana_hasta=hasta,
         items=[_item(f) for f in filas],

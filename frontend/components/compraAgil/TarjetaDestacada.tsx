@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Building2, Clock, ExternalLink, MapPin, Users } from 'lucide-react';
 
 import {
+  MOSTRAR_COTIZACIONES,
   textoComprador,
   textoCompetencia,
   textoMontoTipico,
@@ -12,33 +13,50 @@ import { formatCurrency, normalizeText, shortRegion } from '@/lib/licitacionEsta
 import type { CompraAgilDestacada } from '@/types/compraAgil';
 
 /**
- * Una Compra Ágil destacada.
+ * Una Compra Ágil de la lista.
  *
- * Los tres factores del puntaje se cuentan con el dato del que salen, no con
- * su valor en [0, 1]: «1 cotización hasta ahora» decide algo, «competencia
- * 0,5» no.
+ * Cada factor se cuenta con el dato del que sale —«Esta unidad: 524 órdenes de Compra Ágil en 6 meses»,
+ * «cierra en 20 h»—, **nunca con el puntaje**: un «puntaje 100/100» repetido
+ * en todas no decía nada, y «Adjudica 2.953 de 11» se leía como un error
+ * (rediseño §6.7). El conteo de cotizaciones sólo sale si
+ * `MOSTRAR_COTIZACIONES`.
+ *
+ * `posicion` es opcional: en «Cierran pronto» (§6.3) la lista va por cierre y
+ * no lleva puesto. `actualizadoEn` es la hora de la lista: contra ella se sabe
+ * si el conteo de cotizaciones es viejo.
  */
 export default function TarjetaDestacada({
   item,
   posicion,
   mesesVentana,
+  actualizadoEn,
+  historiaDisponible,
 }: {
   item: CompraAgilDestacada;
-  posicion: number;
+  posicion?: number;
   mesesVentana: number | null;
+  actualizadoEn: string | null;
+  /** `historia_disponible` de la respuesta: falso = no se dice nada del comprador. */
+  historiaDisponible: boolean;
 }) {
   const montoTipico = textoMontoTipico(item.comprador);
+  const textoDelComprador = textoComprador(item.comprador, mesesVentana, historiaDisponible);
+  // Una columna por cosa que se dice: con dos `<li>` en tres columnas queda un hueco.
+  const datos = Number(MOSTRAR_COTIZACIONES) + Number(textoDelComprador !== null) + 1;
+  const columnas = datos >= 3 ? 'sm:grid-cols-3' : datos === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-1';
   const detalle = `/licitaciones/${encodeURIComponent(item.codigo_externo)}`;
 
   return (
     <article className="card flex flex-col gap-3" aria-labelledby={`ca-${item.codigo_externo}`}>
       <div className="flex items-start gap-3">
-        <span
-          className="cifra flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold text-onAccent"
-          aria-label={`Puesto ${posicion}`}
-        >
-          {posicion}
-        </span>
+        {posicion !== undefined && (
+          <span
+            className="cifra flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold text-onAccent"
+            aria-label={`Puesto ${posicion}`}
+          >
+            {posicion}
+          </span>
+        )}
         <div className="min-w-0 flex-1">
           <Link
             id={`ca-${item.codigo_externo}`}
@@ -68,21 +86,22 @@ export default function TarjetaDestacada({
           ) : (
             <p className="text-xs text-subtle">Sin monto</p>
           )}
-          <p className="text-[11px] text-subtle" title="Heurística: no es una probabilidad">
-            puntaje <span className="cifra">{Math.round(item.puntaje * 100)}</span>/100
-          </p>
         </div>
       </div>
 
-      <ul className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
-        <li className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-text">
-          <Users className="h-3.5 w-3.5 shrink-0 text-muted" aria-hidden="true" />
-          {textoCompetencia(item.ofertas_recibidas)}
-        </li>
-        <li className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-text">
-          <Building2 className="h-3.5 w-3.5 shrink-0 text-muted" aria-hidden="true" />
-          {textoComprador(item.comprador, mesesVentana)}
-        </li>
+      <ul className={`grid grid-cols-1 gap-2 text-xs ${columnas}`}>
+        {MOSTRAR_COTIZACIONES && (
+          <li className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-text">
+            <Users className="h-3.5 w-3.5 shrink-0 text-muted" aria-hidden="true" />
+            {textoCompetencia(item.ofertas_recibidas, item.ofertas_al, actualizadoEn)}
+          </li>
+        )}
+        {textoDelComprador !== null && (
+          <li className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-text">
+            <Building2 className="h-3.5 w-3.5 shrink-0 text-muted" aria-hidden="true" />
+            {textoDelComprador}
+          </li>
+        )}
         <li className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-text">
           <Clock className="h-3.5 w-3.5 shrink-0 text-muted" aria-hidden="true" />
           {textoTiempo(item.horas_restantes)}
@@ -90,8 +109,10 @@ export default function TarjetaDestacada({
       </ul>
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2.5">
-        <p className="text-xs text-muted">{montoTipico ?? 'Sin historial de montos del comprador'}</p>
-        <div className="flex items-center gap-3 text-xs font-medium">
+        {historiaDisponible && (
+          <p className="text-xs text-muted">{montoTipico ?? 'Sin historial de montos del comprador'}</p>
+        )}
+        <div className="ml-auto flex items-center gap-3 text-xs font-medium">
           <Link href={detalle} className="text-primary hover:underline">
             Ver detalle
           </Link>

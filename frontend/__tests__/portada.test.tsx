@@ -18,6 +18,7 @@ import { render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import Home, { metadata, revalidate } from '@/app/page';
+import { DESCRIPCION_DESTACADAS, TITULO_DESTACADAS } from '@/lib/compraAgil';
 import { COSTO_MENSUAL_APROXIMADO } from '@/lib/costos';
 import { ACCESOS, PREGUNTAS, actualizadoEnPalabras } from '@/lib/portada';
 import { pedirDestacadas } from '@/lib/publicoServidor';
@@ -37,14 +38,16 @@ function item(n: number): CompraAgilDestacada {
     fecha_cierre: '2026-10-14T10:00:00Z',
     horas_restantes: 30,
     ofertas_recibidas: 1,
+    ofertas_al: null,
     comprador: null,
     puntaje: 0.8,
-    factores: { competencia: 1, comprador: 0.8, tiempo: 1 },
+    factores: { competencia: 1, comprador: 0.8, tiempo: 1, monto: 1 },
   };
 }
 
 const RESPUESTA: CompraAgilDestacadasResponse = {
   actualizado_en: '2026-10-12T16:05:00Z',
+  historia_disponible: true,
   ventana_desde: '2026-04-12',
   ventana_hasta: '2026-10-12',
   items: [1, 2, 3, 4, 5].map(item),
@@ -116,7 +119,7 @@ describe('la portada', () => {
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
       /inteligencia de compras públicas, gratis y sin cuenta/i,
     );
-    expect(screen.getByRole('link', { name: /^lo mejor de hoy en compra ágil$/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: new RegExp(`^${TITULO_DESTACADAS}$`, 'i') })).toHaveAttribute(
       'href',
       '/compra-agil',
     );
@@ -127,6 +130,41 @@ describe('la portada', () => {
     expect(lista.children).toHaveLength(5);
     expect(within(lista).getByText(/compra de prueba 5/i)).toBeInTheDocument();
     expect(screen.getByText(/13:05/)).toBeInTheDocument();
+  });
+
+  it('el bloque dice el título y la descripción de un solo sitio y no habla de cotizaciones', async () => {
+    simularBackend(ok(RESPUESTA));
+    const { container } = render(await Home());
+
+    const bloque = container.querySelector('#hoy') as HTMLElement;
+    expect(within(bloque).getByRole('heading', { level: 2 })).toHaveTextContent(TITULO_DESTACADAS);
+    expect(within(bloque).getByText(DESCRIPCION_DESTACADAS)).toBeInTheDocument();
+    // El conteo de cotizaciones no se mantiene (G1 sin resolver): ni en el
+    // texto del bloque ni en sus cinco tarjetas.
+    expect(bloque.textContent).not.toMatch(/cotiz/i);
+  });
+
+  it('con la historia por unidad aún sin calcular, las tarjetas no dicen nada del comprador', async () => {
+    simularBackend(ok({ ...RESPUESTA, historia_disponible: false }));
+    const { container } = render(await Home());
+    const bloque = container.querySelector('#hoy') as HTMLElement;
+    expect(within(bloque).getAllByRole('article')).toHaveLength(5);
+    expect(bloque.textContent).not.toMatch(/historial|esta unidad|órdenes|suele comprar/i);
+  });
+
+  it('con la historia disponible, cada tarjeta dice lo de su unidad', async () => {
+    simularBackend(ok(RESPUESTA));
+    const { container } = render(await Home());
+    const bloque = container.querySelector('#hoy') as HTMLElement;
+    expect(within(bloque).getAllByText(/^Esta unidad: /)).toHaveLength(5);
+  });
+
+  it('la pregunta frecuente de «lo mejor de hoy» dice lo que ordena, sin «cotizaciones»', () => {
+    const p = PREGUNTAS.find((q) => q.enlace?.href === '/guias/lo-mejor-de-hoy-en-compra-agil');
+    expect(p).toBeDefined();
+    expect(p!.pregunta).toContain(TITULO_DESTACADAS);
+    expect(p!.respuesta).toBe(DESCRIPCION_DESTACADAS);
+    expect(`${p!.pregunta} ${p!.respuesta}`).not.toMatch(/cotiz|adjudica lo que publica/i);
   });
 
   it('si el backend falla, el bloque se oculta y lo demás sigue', async () => {

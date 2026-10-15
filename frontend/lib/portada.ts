@@ -7,6 +7,8 @@
  * para quién, y qué hago ahora — sin cuenta.
  */
 
+import { DESCRIPCION_DESTACADAS, TITULO_DESTACADAS } from './compraAgil';
+
 /** Lo que se ve en el bloque vivo de la portada. El resto, en la página entera. */
 export const DESTACADAS_EN_PORTADA = 5;
 
@@ -68,9 +70,8 @@ export const PREGUNTAS: Pregunta[] = [
     enlace: { href: '/guias/como-leer-una-banda-de-precio', texto: 'Cómo leer una banda de precio' },
   },
   {
-    pregunta: '¿Qué es «lo mejor de hoy»?',
-    respuesta:
-      'Las Compras Ágiles abiertas donde cotizar tiene más sentido: pocas cotizaciones hasta ahora, un comprador que adjudica lo que publica y tiempo para preparar la oferta. Es una heurística, no una predicción.',
+    pregunta: `¿Cómo se ordena «${TITULO_DESTACADAS}»?`,
+    respuesta: DESCRIPCION_DESTACADAS,
     enlace: { href: '/guias/lo-mejor-de-hoy-en-compra-agil', texto: 'Cómo se elige' },
   },
   {

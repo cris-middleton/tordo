@@ -387,6 +387,7 @@ SALIDAS_CON_PROVEEDOR = (
     # Sólo conteos de proveedores, pero la persona gana órdenes de Compra Ágil.
     "compra_agil_comprador.parquet",
     "comprador_rut.parquet",
+    "compra_agil_unidad.parquet",
 )
 
 

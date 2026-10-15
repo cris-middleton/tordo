@@ -123,25 +123,78 @@ sale vacía** —no se puede saber de quién es cada una—, nunca el listado en
 
 **El puntaje es una heurística, no un modelo.** No hay todavía una verdad contra
 la que evaluarlo —no sabemos qué Compra Ágil le convenía cotizar a nadie—, así
-que ordena, no predice, y no es una probabilidad. Es el producto de tres
-factores en [0, 1], que la respuesta trae por separado en `factores`:
+que ordena, no predice, y no es una probabilidad. La respuesta trae **cuatro
+factores** en [0, 1] por separado en `factores`, pero **el puntaje es el producto
+de tres**: la competencia se informa y no pesa (más abajo).
 
-| factor | cálculo | sin dato |
-|---|---|---|
-| `competencia` | `1 / (1 + cotizaciones recibidas hasta ahora)` | 0,5 |
-| `comprador` | `min(1, órdenes / publicadas)` del comprador en la ventana | 0,5 (también con < 5 publicadas) |
-| `tiempo` | `min(1, horas hasta el cierre / 24)` | — (sin cierre no entra) |
+| factor | cálculo | sin dato | en el puntaje |
+|---|---|---|---|
+| `comprador` | `percentil_ordenes` de la **unidad de compra** (su RUT) en la ventana: la parte de las unidades con Compra Ágil que emitió menos órdenes | 0 si la unidad no tiene órdenes en la ventana; 0,5 si aún no hay historia (ver abajo) | sí |
+| `tiempo` | `min(1, horas hasta el cierre / 72)` | — (sin cierre no entra) | sí |
+| `monto` | `0,5 + 0,5 · m / (m + 708.050)` sobre `monto_estimado`, en [0,5; 1) | 0,75 (también con monto 0) | sí |
+| `competencia` | `1 / (1 + cotizaciones recibidas)` | 0,5 | **no**, sólo informativo |
 
 Un factor sin dato vale **el centro de su escala**, no cero ni uno: inventarle
-una ventaja o un castigo a quien no tiene historia sesgaría la lista.
+una ventaja o un castigo a quien no tiene historia sesgaría la lista. **El
+comprador distingue dos casos que no son lo mismo:**
 
-`órdenes / publicadas` **no es una tasa de adjudicación**: la orden de compra sale
-días después de publicar y no dice de qué Compra Ágil viene, así que sólo se usa
-sobre la ventana entera y acotado a 1. La historia del comprador (`comprador`, nulo
-si no tiene) cubre **seis meses** anclados en el último mes con datos
-(`ventana_desde`/`ventana_hasta`), y sale de las órdenes de compra de la descarga
-masiva: órdenes vigentes, proveedores distintos, cuota del que más gana y el monto
-típico **por orden**. **Ningún dato de proveedor**: sólo conteos.
+- **La historia por unidad aún no está disponible** (`historia_disponible: false`
+  en la respuesta: entre el despliegue y la primera corrida semanal que la
+  calcula, la tabla no existe o está vacía). No se sabe nada de ninguna unidad:
+  `factores.comprador` vale 0,5 para todas, `comprador` viene `null` en cada ítem
+  y **no significa que la unidad no compre**. El orden es sólo tiempo × monto.
+- **La historia está disponible y la unidad no figura** (`comprador: null` con
+  `historia_disponible: true`): no tuvo órdenes de Compra Ágil en la ventana. Eso
+  es un dato, no un hueco: `factores.comprador` vale 0. Una unidad que no podemos
+  casar con ninguna orden cuenta como «sin historia» y va al final. El puntaje 0 no se
+  infla ni se muestra, pero los empates (los ceros incluidos) se ordenan por
+  tiempo × monto, y luego por cierre y código.
+
+- **`comprador` mide cuánto compra la unidad, no si adjudica lo que publica.**
+  Lo trae `comprador.percentil_ordenes` (0–1; nulo si la unidad no tuvo órdenes o la historia aún no está disponible) y sale de
+  `analytics.compra_agil_unidad`, por RUT de la unidad: la FACh, por ejemplo,
+  son 14 unidades bajo un solo código de organismo, y cada una lleva su
+  historia, no la del organismo. `órdenes / publicadas` ya no se usa: no es una
+  tasa de adjudicación (la orden sale días después de publicar y no dice de qué
+  Compra Ágil viene) y, con `publicadas` acumulándose sólo desde el despliegue,
+  saturaba en 1 para casi todos. **`comprador.publicadas` es siempre `null`**;
+  el campo se conserva para no romper a quien integra. Las publicadas por
+  organismo siguen en `GET /publico/compradores/{codigo}`.
+- **`monto` pesa en el puntaje, no sólo desempata**: en los extremos de la
+  instantánea medida el 2026-10-14 ($80.000 a $7.215.100) el factor va de ~0,55
+  a ~0,96, hasta ~1,7× el puntaje con los demás factores iguales. Está porque el
+  criterio de orden sólo se cumple con él (mayor empate entre las 50 primeras: 6
+  sin monto, 2 con él; puntajes distintos: 37 contra 49). Es una decisión de
+  producto —a igual esfuerzo de cotizar, más monto vale más—, no una verdad
+  medida, y se revisa. La referencia 708.050 es la mediana del monto total por orden
+  de Compra Ágil (OC 2025-10 a 2026-03, 365.299 órdenes).
+- **`competencia` se informa, no pesa** (compuerta G1, abierta; ver abajo). El
+  único dato de competencia de una Compra Ágil abierta es
+  `ofertas_recibidas` (cotizaciones recibidas), y `ofertas_al` dice **cuándo se
+  escribió por última vez la fila** (hora de Chile): es la mejor cota de cuándo
+  se vio ese conteo, no una lectura garantizada, y uno viejo puede haber subido.
+  Léelo con esa hora.
+
+**Compuerta G1, sin resolver: ¿el conteo de cotizaciones se refresca tras la
+primera ingesta?** Casi todas las abiertas dicen cero y no se sabe si es que
+nadie ha cotizado o si el conteo quedó congelado en la primera lectura; resolverlo
+exige leer la base de producción, en sólo lectura. Mientras tanto la competencia
+**no entra en el puntaje** (`EN_EL_PUNTAJE` en `repositories/compra_agil.py`) y el
+sitio **no muestra el conteo** (`MOSTRAR_COTIZACIONES = false` en
+`frontend/lib/compraAgil.ts`). Si el conteo se mantiene, se pone esa constante en
+`true` y la tarjeta y el RSS lo siguen solos; si no, hay que construir un refresco
+del conteo en el ETL (hoy no existe; tendría que caber en la cuota de la API de Compra Ágil)
+antes de mostrarlo.
+**Volver a pesar la competencia en el puntaje es una decisión de producto
+aparte**, no un efecto de resolver G1: se añade a `EN_EL_PUNTAJE`, se pasa el
+criterio de orden de `backend/tests/test_orden_destacadas_instantanea.py` y se
+cambian la descripción y la guía «Lo mejor de hoy».
+
+La historia de la unidad (`comprador`, nulo si no tiene) cubre **seis meses**
+anclados en el último mes con datos (`ventana_desde`/`ventana_hasta`), y sale de
+las órdenes de compra de la descarga masiva: órdenes vigentes, proveedores
+distintos, cuota del que más gana y el monto típico **por orden**. **Ningún dato de
+proveedor**: sólo conteos.
 
 `actualizado_en` es la última ingesta de Compra Ágil, en hora de Chile. Si es
 vieja, la corrida falló y la lista puede incluir cosas que ya no están abiertas.

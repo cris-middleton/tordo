@@ -15,6 +15,7 @@ import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { FUENTE_DATOS } from '@/lib/atribucion';
+import { DESCRIPCION_DESTACADAS, TITULO_DESTACADAS } from '@/lib/compraAgil';
 import { CACHE_RSS, construirRss, escaparXml, filtrarParams, PARAMS_RSS_LICITACIONES } from '@/lib/rss';
 
 const BACKEND = 'http://backend.prueba:8000';
@@ -176,10 +177,11 @@ describe('/rss/compra-agil', () => {
           ...LICITACION_TRAMPA,
           codigo_externo: '99-1-COT26',
           horas_restantes: 20,
-          ofertas_recibidas: 0,
+          ofertas_recibidas: 3,
+          ofertas_al: null,
           comprador: null,
           puntaje: 0.5,
-          factores: { competencia: 1, comprador: 0.5, tiempo: 0.8 },
+          factores: { competencia: 1, comprador: 0.5, tiempo: 0.8, monto: 1 },
         },
       ],
     });
@@ -194,8 +196,57 @@ describe('/rss/compra-agil', () => {
 
     const xml = await res.text();
     expect(res.headers.get('cache-control')).toBe(CACHE_RSS);
-    expect(xml).toContain('Nadie ha cotizado aún');
+    // El conteo de cotizaciones no se mantiene (G1 sin resolver): ni en el
+    // canal ni en cada ítem, aunque el backend lo mande.
+    expect(xml).not.toMatch(/cotiz/i);
+    expect(xml).toContain(escaparXml(TITULO_DESTACADAS));
+    expect(xml).toContain(escaparXml(DESCRIPCION_DESTACADAS));
     expect(xml).toContain(escaparXml(FUENTE_DATOS));
     expect(xml).toMatch(/&lt;m8&gt;/i);
+  });
+
+  async function rssConHistoria(historia_disponible: boolean) {
+    simularBackend({
+      actualizado_en: null,
+      historia_disponible,
+      ventana_desde: '2026-04-01',
+      ventana_hasta: '2026-09-30',
+      items: [
+        {
+          ...LICITACION_TRAMPA,
+          codigo_externo: '99-2-COT26',
+          horas_restantes: 20,
+          ofertas_recibidas: null,
+          ofertas_al: null,
+          comprador: historia_disponible
+            ? {
+                ordenes: 524,
+                publicadas: null,
+                proveedores_distintos: 40,
+                cuota_lider_pct: 10,
+                monto_mediana: 850_000,
+                monto_p25: 400_000,
+                monto_p75: 1_500_000,
+                percentil_ordenes: 0.9,
+              }
+            : null,
+          puntaje: 0.5,
+          factores: { competencia: 1, comprador: 0.5, tiempo: 0.8, monto: 1 },
+        },
+      ],
+    });
+    const { GET } = await import('@/app/rss/compra-agil/route');
+    return (await GET(new NextRequest('https://tordo.cl/rss/compra-agil'))).text();
+  }
+
+  it('con historia disponible, cada ítem dice las órdenes de su unidad', async () => {
+    const xml = await rssConHistoria(true);
+    expect(xml).toContain('Esta unidad: 524 órdenes de Compra Ágil en 6 meses');
+    expect(xml).toMatch(/Suele comprar entre/);
+  });
+
+  it('sin historia aún, el ítem no dice nada del comprador', async () => {
+    const xml = await rssConHistoria(false);
+    expect(xml).not.toMatch(/historial|esta unidad|suele comprar|su orden típica/i);
   });
 });

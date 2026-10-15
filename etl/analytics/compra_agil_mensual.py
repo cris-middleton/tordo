@@ -54,6 +54,7 @@ from sqlalchemy import create_engine, text
 from etl.analytics.config import OUTPUT_DIR
 from etl.analytics.data_loader import iter_oc_parquets
 from etl.config import config
+from etl.shared_imports import CEROS_INICIALES, FUERA_DE_RUT
 
 logger = logging.getLogger(__name__)
 
@@ -75,8 +76,19 @@ ESQUEMA = {
 
 
 def rut_normalizado(columna: str) -> pl.Expr:
-    """«69.255.600-3» → «692556003». Mayúscula para la K."""
-    return pl.col(columna).cast(pl.Utf8).str.to_uppercase().str.replace_all(r"[^0-9K]", "")
+    """«69.255.600-3» → «692556003»; «061.608.700-2» → «616087002». Nulo si no queda nada.
+
+    Es `app.utils.rut.normalizar_rut` (mayúscula para la K, sin ceros a la izquierda),
+    con sus mismos patrones: la API une contra esta clave y no pueden diferir.
+    """
+    limpio = (
+        pl.col(columna)
+        .cast(pl.Utf8)
+        .str.to_uppercase()
+        .str.replace_all(FUERA_DE_RUT, "")
+        .str.replace(CEROS_INICIALES, "")
+    )
+    return pl.when(limpio == "").then(None).otherwise(limpio)
 
 
 def _mes(columna: str) -> pl.Expr:
@@ -152,8 +164,11 @@ def codigo_por_rut(ordenes: pl.DataFrame) -> pl.DataFrame:
 
 def publicadas_por_mes(publicadas: pl.DataFrame, traduccion: pl.DataFrame) -> pl.DataFrame:
     """`publicadas` trae (rut, mes, n) desde Postgres; sale por código de comprador."""
+    # El RUT de la Compra Ágil ingerida sale de Postgres con ceros a la izquierda
+    # si los trae; se normaliza igual que el de las órdenes (idempotente).
     return (
-        publicadas.join(traduccion, on="rut", how="left", coalesce=True)
+        publicadas.with_columns(rut_normalizado("rut").alias("rut"))
+        .join(traduccion, on="rut", how="left", coalesce=True)
         .group_by(CLAVE)
         .agg(pl.col("n").sum().cast(pl.Int64).alias("publicadas"))
     )
@@ -181,7 +196,7 @@ def leer_publicadas(engine) -> pl.DataFrame:
     """Compras Ágiles ingeridas, por RUT del comprador y mes de publicación en Chile."""
     consulta = text(
         """
-        SELECT regexp_replace(upper(rut_organismo), '[^0-9K]', '', 'g') AS rut,
+        SELECT regexp_replace(upper(rut_organismo), :fuera_de_rut, '', 'g') AS rut,
                date_trunc('month', fecha_publicacion AT TIME ZONE 'America/Santiago')::date AS mes,
                count(DISTINCT codigo_externo) AS n
           FROM licitaciones
@@ -190,7 +205,9 @@ def leer_publicadas(engine) -> pl.DataFrame:
         """
     )
     with engine.connect() as conn:
-        filas = conn.execute(consulta).all()
+        # La regla del RUT es la de app/utils/rut.py, no una copia: `publicadas_por_mes`
+        # termina de normalizar (ceros a la izquierda) antes de agrupar.
+        filas = conn.execute(consulta, {"fuera_de_rut": FUERA_DE_RUT}).all()
     return pl.DataFrame(
         [(r.rut, r.mes, r.n) for r in filas],
         schema={"rut": pl.Utf8, "mes": pl.Date, "n": pl.Int64},

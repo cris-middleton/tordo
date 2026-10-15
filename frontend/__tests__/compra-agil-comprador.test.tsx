@@ -33,9 +33,10 @@ const ITEM: CompraAgilDestacada = {
   fecha_cierre: '2026-10-13T09:00:00-03:00',
   horas_restantes: 20.5,
   ofertas_recibidas: 1,
+  ofertas_al: null,
   comprador: null,
   puntaje: 0.62,
-  factores: { competencia: 0.5, comprador: 0.5, tiempo: 0.85 },
+  factores: { competencia: 0.5, comprador: 0.5, tiempo: 0.85, monto: 1 },
 };
 
 beforeEach(() => {
@@ -64,7 +65,13 @@ describe('Compras Ágiles abiertas del comprador', () => {
     estado = {
       isPending: false,
       isError: false,
-      data: { actualizado_en: null, ventana_desde: '2026-04-01', ventana_hasta: '2026-09-30', items: [ITEM] },
+      data: {
+        actualizado_en: null,
+        historia_disponible: true,
+        ventana_desde: '2026-04-01',
+        ventana_hasta: '2026-09-30',
+        items: [ITEM],
+      },
     };
     render(<CompraAgilDelComprador codigo="7297" />);
     const lista = screen.getByRole('list', { name: /compras ágiles abiertas de este comprador/i });
@@ -72,6 +79,19 @@ describe('Compras Ágiles abiertas del comprador', () => {
     expect(
       screen.getAllByRole('link').some((a) => a.getAttribute('href') === '/licitaciones/1234-56-COT26'),
     ).toBe(true);
+  });
+
+  it('sin historia por unidad aún, la tarjeta no dice nada del comprador', () => {
+    const datos = {
+      actualizado_en: null,
+      historia_disponible: false,
+      ventana_desde: null,
+      ventana_hasta: null,
+      items: [ITEM],
+    };
+    estado = { isPending: false, isError: false, data: datos };
+    render(<CompraAgilDelComprador codigo="7297" />);
+    expect(screen.getByRole('article').textContent).not.toMatch(/historial|esta unidad|órdenes/i);
   });
 
   it('vacía: una línea discreta y el enlace a todas', () => {

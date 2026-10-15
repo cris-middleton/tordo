@@ -592,6 +592,21 @@ semanal, la más pesada en egreso. La RAM media de la API después del arreglo d
 no está medida aparte. Se repite leyendo *Usage* al cerrar el primer periodo (2026-11-13) y,
 si la cifra cambia, se corrige aquí y en `frontend/lib/costos.ts` en el mismo PR.
 
+### 13.3 «Lo mejor de hoy» y la primera semanal tras el rediseño 0a
+
+El orden de «Lo mejor de hoy en Compra Ágil» lee `analytics.compra_agil_unidad`, una tabla
+**nueva** que sólo crea y llena la **primera corrida semanal con este código**. Entre el
+despliegue de la API y esa corrida la tabla no existe: la API lo sabe
+(`historia_disponible: false` en `GET /compra-agil/destacadas`), el factor del comprador
+vale 0,5 para todas, **el orden es sólo tiempo × monto y la tarjeta no dice nada del
+comprador** (ni «Sin historial» ni cifras). No hay error ni hace falta lanzar nada a mano:
+el primer domingo la llena y el orden y los textos pasan solos a su forma completa.
+
+**Verifica** tras esa corrida: `historia_disponible` es `true` y las tarjetas muestran
+«Esta unidad: N órdenes de Compra Ágil en 6 meses». Aprovecha para repetir la medición
+del orden (`INSTANTANEA_DESTACADAS`, ver `backend/tests/test_orden_destacadas_instantanea.py`):
+la de 2026-10-14 usó percentiles por organismo como aproximación de los de unidad.
+
 ---
 
 ## 14. Verificación final
