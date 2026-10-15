@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { COLORES_IMAGEN } from '@/lib/coloresImagen';
+import { COLORES_IMAGEN, PARES_IMAGEN } from '@/lib/coloresImagen';
 
 /**
  * Contraste WCAG 2.x de la paleta, leído de los tokens de `app/globals.css`.
@@ -24,10 +24,11 @@ import { COLORES_IMAGEN } from '@/lib/coloresImagen';
  * - el borde de un control contra las superficies donde se pinta un control
  *   (WCAG 1.4.11, 3:1);
  * - `.badge-primary`: la tinta primaria sobre su propio relleno al 10 %;
- * - la tarjeta de vista previa (`app/opengraph-image.tsx`): los tres colores de
- *   `lib/coloresImagen.ts` sobre `brand-navy`. Se dibuja sin CSS y copia los
- *   tokens (`colores-imagen.test.ts` vigila la copia); su contraste se mide aquí.
- *   Reemplaza a los pares del hero, que se fue con la portada nueva (PR 6).
+ * - la tarjeta de vista previa (`app/opengraph-image.tsx`): los pares de texto
+ *   sobre fondo que declara `PARES_IMAGEN` en `lib/coloresImagen.ts` (la marca y el
+ *   dominio sobre el panel `brand-blue`, el titular sobre el lienzo, la píldora).
+ *   Se dibuja sin CSS y copia los tokens (`colores-imagen.test.ts` vigila la
+ *   copia); su contraste se mide aquí.
  *
  * Umbrales AA: 4,5:1 texto normal; 3:1 texto grande (≥ 24 px, o ≥ 18,66 px en
  * negrita) y límites de controles.
@@ -131,20 +132,21 @@ function paresDelTema(tema: 'claro' | 'oscuro'): Par[] {
 const sinPrefijo = (token: string) => token.replace(/^--color-/, '');
 
 /**
- * Los pares de la tarjeta de vista previa, DERIVADOS de `COLORES_IMAGEN` y no
+ * Los pares de la tarjeta de vista previa, DERIVADOS de `PARES_IMAGEN` y no
  * copiados: tinta y fondo salen del token que la tarjeta declara, y el tema es
- * aquel donde ese token vale lo que la tarjeta pinta. Si alguien cambia un color
- * o un token allí, el par cambia con él y el test lo mide (o falla, en el test
- * «cada par de la tarjeta…»), en vez de seguir midiendo una copia vieja.
- * `brand-navy` es invariante de tema.
+ * aquel donde LOS DOS tokens valen lo que la tarjeta pinta. Si alguien cambia un
+ * color o un token allí, el par cambia con él y el test lo mide (o falla, en el
+ * test «cada par de la tarjeta…»), en vez de seguir midiendo una copia vieja.
+ * `brand-navy` y `brand-blue` son invariantes de tema.
  */
-const PARES_TARJETA: Par[] = (['texto', 'acento', 'tenue'] as const).map((clave) => {
-  const { token, rgb } = COLORES_IMAGEN[clave];
-  const tinta = sinPrefijo(token);
+const PARES_TARJETA: Par[] = PARES_IMAGEN.map(({ tinta, fondo }) => {
+  const t = COLORES_IMAGEN[tinta];
+  const f = COLORES_IMAGEN[fondo];
+  const vale = (tema: Tokens, c: { token: string; rgb: string }) => tema[sinPrefijo(c.token)]?.join(' ') === c.rgb;
   return {
-    tema: CLARO[tinta]?.join(' ') === rgb ? 'claro' : 'oscuro',
-    tinta,
-    fondo: sinPrefijo(COLORES_IMAGEN.fondo.token),
+    tema: vale(CLARO, t) && vale(CLARO, f) ? 'claro' : 'oscuro',
+    tinta: sinPrefijo(t.token),
+    fondo: sinPrefijo(f.token),
     uso: 'texto',
   };
 });
@@ -190,16 +192,16 @@ describe('contraste WCAG AA de los tokens de color', () => {
   });
 
   it('declara todos los pares (guarda: un recorrido vacío pasa siempre)', () => {
-    // 2 temas × (30 tinta/neutra + 9 on-* + 18 tenues + 2 bordes + 2 badge) + 3 de la tarjeta de vista previa.
-    expect(PARES).toHaveLength(125);
+    // 2 temas × (30 tinta/neutra + 9 on-* + 18 tenues + 2 bordes + 2 badge) + 4 de la tarjeta de vista previa.
+    expect(PARES).toHaveLength(126);
   });
 
   it('cada par de la tarjeta mide el color que la tarjeta pinta, en el tema donde ese token lo vale', () => {
-    expect(PARES_TARJETA).toHaveLength(3);
-    const claves = ['texto', 'acento', 'tenue'] as const;
+    expect(PARES_TARJETA).toHaveLength(4);
     PARES_TARJETA.forEach((p, i) => {
-      expect(paleta(p.tema)[p.tinta]?.join(' '), `tinta ${claves[i]}`).toBe(COLORES_IMAGEN[claves[i]].rgb);
-      expect(paleta(p.tema)[p.fondo]?.join(' '), 'fondo').toBe(COLORES_IMAGEN.fondo.rgb);
+      const { tinta, fondo } = PARES_IMAGEN[i];
+      expect(paleta(p.tema)[p.tinta]?.join(' '), `tinta ${tinta}`).toBe(COLORES_IMAGEN[tinta].rgb);
+      expect(paleta(p.tema)[p.fondo]?.join(' '), `fondo ${fondo}`).toBe(COLORES_IMAGEN[fondo].rgb);
     });
   });
 
