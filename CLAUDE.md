@@ -1277,6 +1277,14 @@ versiona su propio protocolo.
   forma de ver los dos fallos que tiene esto: que montar una app ASGI dentro de otra **no
   ejecuta su ciclo de vida**, y que la lista blanca de `Host` deja fuera un dominio que no
   esté en ella — **todo** responde `421`.
+- **Su ficha para los registros es `server.json`, en la raíz** (registro oficial, espacio de
+  nombres `cl.tordo/mercado-publico` verificado por DNS; Glama la copia de ahí; Smithery aparte).
+  **Está en el repo pero NO publicada**: cada publicación la confirma el dueño, paso por paso
+  (`docs/DESPLIEGUE.md` §12.1). Plan de versiones: `1.0.0` ya, sin `repository` (el repo sigue
+  privado), y `1.1.0` con `repository` cuando sea público. Las versiones del registro son
+  **inmutables** —cambiar la ficha es subir `version`— y sus metadatos no se borran nunca, sólo
+  se ocultan. `tests/test_server_json.py` la valida contra el esquema oficial y exige que su URL
+  sea `URL_MCP`.
 
 **La extracción de bases con LLM está aplazada** (ADR 0010), y no por precio: **la API no
 entrega las bases ni los datos que se iban a sacar de ellas** — en su diccionario oficial,

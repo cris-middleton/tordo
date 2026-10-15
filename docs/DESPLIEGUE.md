@@ -521,6 +521,72 @@ curl -s -o /dev/null -w '%{http_code} [%{redirect_url}]\n' -X POST https://api.t
 
 responde `200 []`: sin redirección.
 
+### 12.1 Registros MCP
+
+La ficha es **`server.json`** en la raíz (`tests/test_server_json.py` la valida contra el
+esquema oficial y comprueba que su URL es `URL_MCP` de `frontend/lib/abierto.ts`). **Todavía no
+está publicada en ningún registro**; esto es el procedimiento para cuando el dueño lo decida.
+Dónde estaría:
+
+| Registro | Cómo llega | Retirada |
+|---|---|---|
+| Registro oficial (`registry.modelcontextprotocol.io`) | `mcp-publisher publish`, espacio de nombres `cl.tordo/…` verificado por **DNS** | `mcp-publisher status --status deleted --all-versions …` (oculta; los metadatos no se borran nunca) |
+| Glama (`glama.ai/mcp/connectors/…`) | **Sola**, desde el registro oficial; se reclama por DNS | soltar la reclamación; pedir la baja a `support@glama.ai` |
+| Smithery | `smithery.ai/new` con la URL | borrar desde su panel (permanente) |
+
+**Nada de esto se ejecuta sin el «sí» del dueño, paso por paso.** El registro oficial **nunca
+borra metadatos** y sus versiones son inmutables: un nombre publicado queda para siempre, como
+mucho oculto.
+
+**Versiones.** Se publica **`1.0.0` sin `repository`** (el repo sigue privado: una URL privada
+daría un 404 a quien la siga) y **`1.1.0` con `repository`** cuando el repo sea público y
+`REPOSITORIO_URL` esté puesta. Es una versión nueva, no una edición de la anterior.
+
+**La clave del espacio de nombres.** Ed25519, generada con `openssl@3` de Homebrew (el `openssl`
+de macOS no la trae). La privada vive en el gestor de contraseñas del dueño y en
+`~/.config/tordo-mcp-registry/key.pem` (`chmod 600`), **nunca en el repo**. La pública va en un
+TXT en el **apex** de `tordo.cl` en Cloudflare: `v=MCPv1; k=ed25519; p=<base64>`. En un
+subdominio (`_mcp-auth.tordo.cl`) no se ve. **Rotar**: TXT nuevo y **borrar el viejo** (se prueba
+primero y rompe la verificación). Sin la privada no se publica una versión nueva ni se retira.
+
+**Una versión nueva.** Las versiones son inmutables: cualquier cambio en `server.json` (la URL,
+la descripción, el `repository`) exige subir `version`. Luego:
+
+```bash
+mcp-publisher validate server.json
+mcp-publisher login dns --domain tordo.cl --private-key "$(…hex de la privada…)"
+mcp-publisher publish
+curl -s "https://registry.modelcontextprotocol.io/v0.1/servers?search=cl.tordo" | python3 -m json.tool
+```
+
+Glama recoge el cambio solo (nombre, descripción y URL vienen del registro oficial). Smithery no:
+se edita en su panel.
+
+**Si cambia el dominio de la API**: `frontend/lib/abierto.ts`, `MCP_HOSTS_PERMITIDOS`,
+`server.json` con versión nueva, y la URL en Smithery.
+
+**Verifica: UNA llamada, nunca un bucle** (la API tiene 512 MB y ya cayó por ráfagas):
+
+```bash
+curl -s https://api.tordo.cl/mcp/ -H 'Accept: application/json, text/event-stream' \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' \
+  | python3 -c 'import json,sys; print(sorted(t["name"] for t in json.load(sys.stdin)["result"]["tools"]))'
+```
+
+→ `['buscar_productos', 'panel_de_licitacion', 'perfil_de_comprador', 'precio_de_producto']`. El
+servidor es sin estado (`stateless_http`), así que basta esa llamada; si fallara por sesión, se
+usan **una vez** las dos de §12.
+
+**Lo que llega de los registros.** El oficial no documenta ninguna comprobación del remoto.
+Glama comprueba la salud periódicamente (frecuencia no documentada; se supone `initialize` +
+`tools/list`, que no tocan la base). Smithery escanea al publicar (`User-Agent: SmitheryBot/1.0`,
+desde Cloudflare Workers) y **proxea** el tráfico de quien instala desde allí: esas peticiones
+llegan desde IP compartidas de Cloudflare y pueden repartirse un mismo cubo de 60/min. Tras cada
+ficha nueva, 24 h de HTTP Logs de Railway filtrando `/mcp`: si un mismo origen pasa de **60
+peticiones por hora sostenidas**, o aparecen `tools/call` de un rastreador, se avisa al dueño
+antes de tocar nada.
+
 ## 13. Después del primer despliegue
 
 ### 13.1 Postgres: recuperar el espacio y medirlo

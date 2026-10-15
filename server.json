@@ -1,0 +1,26 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "cl.tordo/mercado-publico",
+  "title": "TORDO — Mercado Público de Chile",
+  "description": "Licitaciones, precios históricos, competidores y compradores de Mercado Público (Chile). Sin clave.",
+  "version": "1.0.0",
+  "websiteUrl": "https://tordo.cl/abierto#mcp",
+  "icons": [
+    {
+      "src": "https://tordo.cl/favicon.svg",
+      "mimeType": "image/svg+xml",
+      "sizes": ["any"]
+    },
+    {
+      "src": "https://tordo.cl/web-app-manifest-512x512.png",
+      "mimeType": "image/png",
+      "sizes": ["512x512"]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://api.tordo.cl/mcp/"
+    }
+  ]
+}

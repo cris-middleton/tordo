@@ -98,6 +98,9 @@ dev = [
     # cliente MCP (mcp>=2) pide un `httpx2.AsyncClient`. Llega por `mcp`, pero se
     # declara porque el test lo importa directamente.
     "httpx2>=2,<3",
+    # tests/test_server_json.py valida la ficha del registro MCP contra su esquema.
+    # Llega por `mcp`, pero se declara porque el test lo importa directamente.
+    "jsonschema>=4.26,<5",
     { include-group = "api" },
     { include-group = "etl" },
     "pytest>=8.3,<10",
