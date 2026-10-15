@@ -75,3 +75,13 @@ test('la búsqueda queda en la URL y sobrevive a recargar', async ({ page }) => 
   await expect(tarjeta(page, CODIGO_VALVULAS)).toBeVisible({ timeout: 15_000 });
   await expect(tarjeta(page, CODIGO_ADJUDICADA)).toBeHidden();
 });
+
+test('abiertas=1 llega al backend por el proxy y deja fuera lo cerrado', async ({ page }) => {
+  // Unitarios: la pantalla lo PIDE. Aquí: que el booleano sobrevive al proxy y
+  // a FastAPI, y que filtra de verdad.
+  await page.goto('/licitaciones?abiertas=1');
+
+  await expect(page.getByRole('checkbox', { name: /se pueden postular ahora/i })).toBeChecked();
+  await expect(tarjeta(page, CODIGO_VALVULAS)).toBeVisible({ timeout: 15_000 });
+  await expect(tarjeta(page, CODIGO_ADJUDICADA)).toBeHidden();
+});

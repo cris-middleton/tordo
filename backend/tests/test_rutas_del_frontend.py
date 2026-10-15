@@ -18,18 +18,32 @@ from app.core.versionado import PREFIJO_API
 from app.main import app
 from tests.rutas import MINIMO_PLAUSIBLE, iter_rutas
 
-CLIENTE = Path(__file__).resolve().parents[2] / "frontend" / "lib" / "api.ts"
+FRONTEND_LIB = Path(__file__).resolve().parents[2] / "frontend" / "lib"
+#: Los dos clientes del backend: el del navegador (por el proxy) y el de los
+#: componentes de servidor (sitemap, fichas públicas, portada). Hasta el
+#: rediseño sólo se leía el primero, y una ruta mal escrita en el segundo
+#: ocultaba un bloque de la portada para siempre sin que nada fallara.
+CLIENTES = (FRONTEND_LIB / "api.ts", FRONTEND_LIB / "publicoServidor.ts")
 
 # `${API}/…` hasta el cierre de la plantilla.
 _LLAMADA = re.compile(r"\$\{API\}(/[^`'\"]*)")
 _INTERPOLACION = re.compile(r"\$\{[^}]*\}")
 _PARAMETRO = re.compile(r"\{[^}]+\}")
+# `/publico${ruta}`: un segmento pegado a una interpolación se compone en
+# ejecución; no hay ruta fija que comprobar.
+_COMPUESTA = re.compile(r"[^/]\$\{")
 
 
 def rutas_del_frontend() -> set[str]:
-    rutas = {m.group(1) for m in _LLAMADA.finditer(CLIENTE.read_text())}
-    # `${API}/${ruta}` compone la ruta en ejecución: no hay nada que comprobar.
-    return {r for r in rutas if not r.startswith("/${")}
+    rutas: set[str] = set()
+    for cliente in CLIENTES:
+        for m in _LLAMADA.finditer(cliente.read_text()):
+            ruta = m.group(1).split("?", 1)[0]
+            # `${API}/${ruta}` y `/publico${ruta}` componen la ruta en ejecución.
+            if ruta.startswith("/${") or _COMPUESTA.search(ruta):
+                continue
+            rutas.add(ruta)
+    return rutas
 
 
 def _como_patron(ruta_backend: str) -> re.Pattern[str]:

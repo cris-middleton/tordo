@@ -38,7 +38,8 @@ ETIQUETAS: list[dict[str, str]] = [
         "description": (
             "Licitaciones, Compras Ágiles y Convenios Marco. El mecanismo de "
             "compra se filtra con `tipo_convocatoria`; un valor desconocido "
-            "devuelve 422 y no el catálogo entero."
+            "devuelve 422 y no el catálogo entero. `abiertas=true` deja sólo lo "
+            "que se puede postular ahora (publicado, sin cierre o con cierre futuro)."
         ),
     },
     {
@@ -60,7 +61,9 @@ ETIQUETAS: list[dict[str, str]] = [
     {
         "name": "publico",
         "description": (
-            "Páginas públicas de comprador, rubro y producto, y su sitemap. Las "
+            "Páginas públicas de comprador, rubro y producto, su sitemap y las "
+            "cifras de la portada (`/publico/portada`: cuántas licitaciones y "
+            "Compras Ágiles se pueden postular ahora, con su hora). Las "
             "URL van por código de comprador o por `slug` (sin tildes, minúsculas, "
             "guiones): el slug lo da la API, no se calcula del lado del cliente. "
             "`indexable` dice si la página tiene datos suficientes para ofrecerse "

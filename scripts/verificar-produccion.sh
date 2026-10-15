@@ -98,6 +98,20 @@ else
   mal "/api/v1/compra-agil/destacadas responde $codigo"
 fi
 
+# La tira de cifras de la portada: dos conteos enteros (spec del rediseño §6.6).
+codigo=$(pedir "$API/api/v1/publico/portada")
+if [ "$codigo" = 200 ] && python3 -I - "$TMP/cuerpo" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+claves = ("licitaciones_abiertas", "compra_agil_abiertas")
+sys.exit(0 if all(isinstance(d.get(k), int) and d[k] >= 0 for k in claves) else 1)
+PY
+then
+  ok "/api/v1/publico/portada trae los dos conteos de abiertas"
+else
+  mal "/api/v1/publico/portada ($codigo): sin los dos conteos"
+fi
+
 codigo=$(pedir "$API/api/v1/tenders/?limit=1")
 if [ "$codigo" = 200 ] && [ -n "$(cabecera x-ratelimit-limit)" ] && [ -n "$(cabecera x-ratelimit-remaining)" ]; then
   ok "cabeceras X-RateLimit-* presentes (límite $(cabecera x-ratelimit-limit)/min)"

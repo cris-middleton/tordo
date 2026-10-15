@@ -106,6 +106,10 @@ descarga masiva de ChileCompra.
 Lo anterior se purga una vez por semana, y su código responde **404** igual que uno
 que nunca existió.
 
+Para quedarse sólo con lo que se puede postular **ahora**, `GET /tenders/?abiertas=true`:
+publicadas, sin cierre o con cierre futuro. `estado=Publicada` no basta —no mira el
+cierre—. Es la misma definición que cuenta `GET /publico/portada`.
+
 ## «Lo mejor de hoy» en Compra Ágil
 
 `GET /api/v1/compra-agil/destacadas?limite=20&region=…&search=…` devuelve las
@@ -156,6 +160,10 @@ respuesta trae ya los enlaces a las demás.
 | `GET /publico/rubros/{slug}` | el panorama de `/bi/panorama` y sus 10 compradores de más monto |
 | `GET /publico/productos/{slug}` | una banda nacional por unidad de medida y los 10 compradores que más lo compran |
 | `GET /publico/productos?q=&limite=` | búsqueda por palabras, también de los no indexados |
+| `GET /publico/portada` | cuántas licitaciones (no Compra Ágil) y Compras Ágiles se pueden postular ahora, y la hora de la última ingesta de Compra Ágil |
+
+`/publico/portada` no lee el análisis sino el catálogo: responde aunque el BI esté apagado.
+Cada conteo es el `total` de `GET /tenders/?abiertas=true` con su `tipo_convocatoria`.
 
 **Rubros y productos van por `slug`**, porque no tienen código: sin tildes,
 minúsculas, todo lo demás a `-`, hasta 80 caracteres. **El slug lo da la API**;

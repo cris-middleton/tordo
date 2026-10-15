@@ -527,7 +527,7 @@ schemas/        Pydantic — todos van aquí
 utils/          slug.py (la única función de slugs)
 ```
 
-**Routers**: tenders (3 rutas), bi (18), compra_agil (1), publico (5), health. Todos anónimos. Los de cuenta (auth, users,
+**Routers**: tenders (3 rutas), bi (18), compra_agil (1), publico (6), health. Todos anónimos. Los de cuenta (auth, users,
 empresas, alerts, documentos, postulaciones, estado_habil, dashboard, billing, webhooks) y el
 explorador `data_inspection` se borraron en el pivote público.
 
@@ -569,7 +569,7 @@ mirar dos sitios. Lo fija `tests/test_versionado_api.py`.
 Next.js 16 App Router + TypeScript + Tailwind + Recharts. Componentes propios. El estado de
 servidor va en TanStack Query (`lib/queries.ts`) y todo el tráfico pasa por `/api/proxy`,
 sin sesión — ver las reglas de frontend más arriba. Pantallas: el catálogo de
-licitaciones (`/licitaciones`, con su detalle; **los filtros viven en la URL**, así que
+licitaciones (`/licitaciones`, con su detalle; **los filtros viven en la URL**, `abiertas=1` incluido, así que
 una búsqueda es una URL), «Lo mejor de hoy en Compra Ágil» (`/compra-agil`), `/guardados`
 y la inteligencia de mercado (`/mercado`). Viven en el grupo de rutas `app/(panel)/`, que
 les pone la barra lateral sin aparecer en la URL.
@@ -608,6 +608,8 @@ atribución. Datos de `GET /publico/*` (`api/publico.py`, `services/publico/`).
   primer pedido con `fetch(…, { next: { revalidate: 604800, tags: ['analytics'] } })` desde
   `lib/publicoServidor.ts`, **como renderizado del servidor** (`cabecerasHaciaElBackend(null)`,
   exento del límite por IP). Un error que no sea 404 lanza: una página rota no se cachea.
+  La excepción es `GET /publico/portada`, que no lee analytics: la pide la portada con
+  `pedirResumenPortada()` (media hora, etiqueta `compra-agil`, nunca lanza).
 - **Revalidación desde los cron**: `POST /api/revalidar` con `X-Revalidar-Secreto`
   (`REVALIDAR_SECRETO`, servidor, sin valor por defecto: sin él responde 503) y
   `{"etiquetas": ["analytics" | "compra-agil"]}` → `revalidateTag(tag, 'max')`. Lo llama
@@ -801,6 +803,14 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   - La Compra Ágil ingerida trae el RUT del comprador, no su código: se traduce con las OC
     (`RutUnidadCompra` → `CodigoOrganismoPublico`, el más frecuente). Lo que no se traduce
     cuenta igual, con código nulo.
+- **«Abierta» tiene una sola definición: `esta_abierta()`** (`repositories/licitaciones.py`):
+  publicada y con cierre futuro o sin cierre, siempre sobre `activo`. La usan el orden del
+  catálogo, el filtro `abiertas` de `GET /tenders/` (`/licitaciones?abiertas=1`), la cuenta de
+  `GET /publico/portada` (`contar_abiertas`: «no Compra Ágil» y Compra Ágil) y las candidatas
+  de «Lo mejor de hoy». **`estado=Publicada` no es lo mismo**: no mira el cierre.
+  `tests/test_licitaciones_abiertas.py` fija que la cuenta y el listado dan el mismo total; el
+  enlace de cada cifra sale de `urlCatalogoAbiertas` (`lib/filtrosCatalogo.ts`), no se escribe
+  a mano.
 - **Analytics lee una VENTANA de historia, no toda** (`data_loader.VENTANA_ANALYTICS_MESES` = 36;
   las bandas de precio por producto, `VENTANA_BANDAS_PRECIO_MESES` = 12). Medido: **cada**
   módulo sube de RAM con los meses de historia —de 0,04 GB/mes (clustering, hoy retirado) a

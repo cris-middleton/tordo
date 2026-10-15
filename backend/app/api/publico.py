@@ -5,18 +5,26 @@ el cron semanal tras materializar), y el sitemap sale de `/publico/sitemap`.
 Qué existe y qué se indexa lo decide `services/publico/indexables.py`; aquí
 sólo se valida la entrada y se traduce «no existe» a 404.
 
+`/publico/portada` es la excepción: no lee analytics sino el catálogo, así que
+es `async`, pide la sesión y no exige `FEATURE_ANALYTICS`.
+
 Un producto **no indexable** responde 200 con `indexable: false`: la página
 existe, con `noindex`, y se llega a ella por la búsqueda.
 """
 
-from fastapi import APIRouter, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import limites
 from app.api.dependencias import requiere_analytics
+from app.db import get_db
+from app.repositories import compra_agil as repo_compra_agil
+from app.repositories import licitaciones as repo_licitaciones
 from app.schemas.publico import (
     CompradorPublico,
     ProductoEncontrado,
     ProductoPublico,
+    ResumenPortada,
     RubroPublico,
     SitemapPublico,
 )
@@ -33,6 +41,22 @@ router = APIRouter(prefix="/publico", tags=["publico"])
 def get_sitemap():
     requiere_analytics()
     return paginas.sitemap()
+
+
+@router.get(
+    "/portada",
+    response_model=ResumenPortada,
+    summary="Las cifras de la portada: cuántas se pueden postular ahora",
+)
+async def get_portada(db: AsyncSession = Depends(get_db)):
+    """Conteos del catálogo con su hora. Sin `requiere_analytics()`: no leen
+    analytics, y una portada sin cifras por un flag de BI sería un fallo ajeno."""
+    licitaciones, compra_agil = await repo_licitaciones.contar_abiertas(db)
+    return ResumenPortada(
+        licitaciones_abiertas=licitaciones,
+        compra_agil_abiertas=compra_agil,
+        actualizado_en=await repo_compra_agil.actualizado_en(db),
+    )
 
 
 @router.get(

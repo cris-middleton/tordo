@@ -168,6 +168,7 @@ async def test_el_endpoint_ordena_por_relevancia(async_db, catalogo):
         min_amount=None,
         max_amount=None,
         search="zznitrilo zzquirurgicos",
+        abiertas=False,
         sort_by="relevance",
         sort_order="desc",
         db=async_db,

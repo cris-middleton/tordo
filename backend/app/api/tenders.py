@@ -41,6 +41,14 @@ async def list_tenders(
     min_amount: float | None = Query(None, ge=0),
     max_amount: float | None = Query(None, ge=0),
     search: str | None = Query(None, max_length=limites.TEXTO),
+    abiertas: bool = Query(
+        False,
+        description=(
+            "Sólo las que se pueden postular ahora: publicadas, sin cierre o "
+            "con cierre futuro. La misma definición que cuenta `GET /publico/portada`; "
+            "`estado=Publicada` no mira el cierre."
+        ),
+    ),
     sort_by: str | None = Query(
         None,
         pattern="^(fecha_publicacion|fecha_cierre|monto_estimado|nombre|relevance)$",
@@ -70,6 +78,7 @@ async def list_tenders(
         monto_minimo=min_amount,
         monto_maximo=max_amount,
         terminos=[t.strip() for t in (search or "").split() if t.strip()],
+        abiertas=abiertas,
     )
     ascendente = sort_order == "asc"
 

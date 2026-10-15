@@ -12,11 +12,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   FILTROS_POR_DEFECTO,
+  TIPOS_SIN_COMPRA_AGIL,
   describirBusqueda,
   escribirFiltros,
   leerFiltros,
   paramsDeApi,
   soloFiltros,
+  urlCatalogoAbiertas,
 } from '@/lib/filtrosCatalogo';
 
 import { instalarAlmacenDePrueba } from './ayudas/almacenDePrueba';
@@ -46,6 +48,7 @@ describe('filtros ↔ URL', () => {
       region: 'Región del Biobío',
       tipo_convocatoria: 'compra_agil',
       min_amount: '1000000',
+      abiertas: true,
       sort_by: 'monto_estimado' as const,
       sort_order: 'asc' as const,
       limit: 50,
@@ -90,6 +93,50 @@ describe('filtros ↔ URL', () => {
       '«agua potable» · Compra Ágil',
     );
     expect(describirBusqueda('')).toBe('Todas las licitaciones');
+  });
+
+  it('abiertas va en la URL como abiertas=1 y a la API como booleano', () => {
+    const f = leerFiltros(new URLSearchParams('abiertas=1'));
+    expect(f.abiertas).toBe(true);
+    expect(escribirFiltros(f).toString()).toBe('abiertas=1');
+    expect(paramsDeApi(f).abiertas).toBe(true);
+    expect(leerFiltros(new URLSearchParams('abiertas=0')).abiertas).toBe(false);
+    expect(paramsDeApi(FILTROS_POR_DEFECTO)).not.toHaveProperty('abiertas');
+  });
+
+  it('abiertas=true también se lee como verdadero, y se sigue escribiendo 1', () => {
+    const f = leerFiltros(new URLSearchParams('abiertas=true'));
+    expect(f.abiertas).toBe(true);
+    expect(escribirFiltros(f).toString()).toBe('abiertas=1');
+    expect(describirBusqueda('abiertas=true')).toBe('Sólo abiertas');
+    expect(leerFiltros(new URLSearchParams('abiertas=false')).abiertas).toBe(false);
+  });
+
+  it('los mecanismos de una URL armada a mano se ordenan como los del desplegable', () => {
+    const f = leerFiltros(new URLSearchParams('tipo_convocatoria=trato_directo,licitacion,convenio_marco'));
+    expect(f.tipo_convocatoria).toBe(TIPOS_SIN_COMPRA_AGIL);
+    expect(leerFiltros(new URLSearchParams('tipo_convocatoria=compra_agil')).tipo_convocatoria).toBe('compra_agil');
+    expect(
+      leerFiltros(new URLSearchParams('tipo_convocatoria=trato_directo, licitacion ,convenio_marco')).tipo_convocatoria,
+    ).toBe(TIPOS_SIN_COMPRA_AGIL);
+  });
+
+  it('una búsqueda guardada conserva abiertas', () => {
+    expect(soloFiltros(new URLSearchParams('abiertas=1&page=2&search=agua')).toString()).toBe(
+      'search=agua&abiertas=1',
+    );
+    expect(describirBusqueda('search=agua&abiertas=1')).toBe('«agua» · Sólo abiertas');
+  });
+
+  it('el enlace de cada cifra de la portada lleva el mismo filtro que la cuenta', () => {
+    expect(TIPOS_SIN_COMPRA_AGIL).toBe('licitacion,convenio_marco,trato_directo');
+    expect(urlCatalogoAbiertas('licitaciones')).toBe(
+      '/licitaciones?tipo_convocatoria=licitacion%2Cconvenio_marco%2Ctrato_directo&abiertas=1',
+    );
+    const conTermino = new URL(urlCatalogoAbiertas('compra_agil', ['resma', 'carta']), 'https://x');
+    const f = leerFiltros(conTermino.searchParams);
+    expect(f).toMatchObject({ abiertas: true, tipo_convocatoria: 'compra_agil', terminos: ['resma', 'carta'] });
+    expect(f.sort_by).toBe('relevance');
   });
 });
 
@@ -145,5 +192,25 @@ describe('la pantalla del catálogo', () => {
     const guardadas = JSON.parse(window.localStorage.getItem('tordo_busquedas_v1') ?? '[]');
     expect(guardadas.map((b: { consulta: string }) => b.consulta)).toEqual(['search=zafiro']);
     expect(screen.getByRole('link', { name: /búsqueda guardada/i })).toBeInTheDocument();
+  });
+
+  it('abiertas=1 marca la casilla y se lo pide a la API; desmarcarla lo quita de la URL', async () => {
+    urlInicial = new URLSearchParams('abiertas=1');
+    await montar();
+
+    const casilla = screen.getByRole('checkbox', { name: /se pueden postular ahora/i });
+    expect(casilla).toBeChecked();
+    expect(pedidas.at(-1)!.abiertas).toBe(true);
+
+    fireEvent.click(casilla);
+    expect(pedidas.at(-1)!).not.toHaveProperty('abiertas');
+    const url = String(replaceState.mock.calls.at(-1)?.[2]);
+    expect(url).not.toContain('abiertas');
+  });
+
+  it('el mecanismo «todo menos Compra Ágil» se ve como tal', async () => {
+    urlInicial = new URLSearchParams(`tipo_convocatoria=${TIPOS_SIN_COMPRA_AGIL}`);
+    await montar();
+    expect(screen.getByText('Todo menos Compra Ágil')).toBeInTheDocument();
   });
 });

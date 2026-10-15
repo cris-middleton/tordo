@@ -7,7 +7,7 @@ El backend manda los `slug` y `codigo` hechos para enlazar entre páginas: el
 frontend nunca des-slugifica.
 """
 
-from datetime import date
+from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
@@ -109,3 +109,30 @@ class ProductoEncontrado(BaseModel):
     firma: str
     n: int
     indexable: bool
+
+
+class ResumenPortada(BaseModel):
+    """La tira de cifras de la portada (spec del rediseño §6.6).
+
+    Cada cifra es el total de un enlace al catálogo: `/licitaciones?abiertas=1`
+    con su mecanismo. Toda cifra viva lleva su hora (principio 4): sin
+    `actualizado_en`, la portada no muestra la tira.
+    """
+
+    licitaciones_abiertas: int = Field(
+        description=(
+            "Licitaciones que no son Compra Ágil y se pueden postular ahora: publicadas, "
+            "sin cierre o con cierre futuro. Las mismas que "
+            "`GET /tenders/?abiertas=true&tipo_convocatoria=licitacion,convenio_marco,trato_directo`."
+        )
+    )
+    compra_agil_abiertas: int = Field(
+        description="Compras Ágiles que se pueden cotizar ahora, con la misma definición."
+    )
+    actualizado_en: datetime | None = Field(
+        None,
+        description=(
+            "Última ingesta de Compra Ágil, hora de Chile; la misma que "
+            "`GET /compra-agil/destacadas`. Nula si no hubo ninguna."
+        ),
+    )

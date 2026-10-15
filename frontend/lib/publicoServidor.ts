@@ -18,6 +18,7 @@
 import { API } from './versionApi';
 import { cabecerasHaciaElBackend, urlDelBackend } from './backendServidor';
 import type { CompraAgilDestacadasResponse } from '@/types/compraAgil';
+import type { ResumenPortada } from '@/types/publico';
 
 import {
   ETIQUETA_ANALYTICS,
@@ -50,15 +51,17 @@ export async function pedirPublico<T>(ruta: string): Promise<T | null> {
 }
 
 /**
- * Las primeras `limite` de «Lo mejor de hoy en Compra Ágil», para la portada.
- * Media hora de caché y la etiqueta `compra-agil`, que vacía el cron frecuente.
- *
- * **Nunca lanza**: devuelve `null` ante cualquier fallo y la portada oculta el
- * bloque. La portada es la puerta del sitio; que el backend esté caído no puede
- * tumbarla. (Las fichas sí lanzan: sin backend no tienen nada que enseñar.)
+ * Lo que pide la portada al backend: media hora de caché, etiqueta
+ * `compra-agil` (la vacía el cron frecuente) y **nunca lanza** —devuelve
+ * `null` ante cualquier fallo y la portada oculta el bloque—. La portada es
+ * la puerta del sitio; que el backend esté caído no puede tumbarla. (Las
+ * fichas sí lanzan: sin backend no tienen nada que enseñar.)
  */
-export async function pedirDestacadas(limite: number): Promise<CompraAgilDestacadasResponse | null> {
-  const ruta = `${API}/compra-agil/destacadas?limite=${limite}`;
+async function pedirParaLaPortada<T>(
+  ruta: string,
+  esValida: (datos: unknown) => datos is T,
+  bloque: string,
+): Promise<T | null> {
   try {
     const respuesta = await fetch(urlDelBackend(ruta), {
       headers: { Accept: 'application/json', ...cabecerasHaciaElBackend(null) },
@@ -67,13 +70,44 @@ export async function pedirDestacadas(limite: number): Promise<CompraAgilDestaca
       signal: AbortSignal.timeout(8000),
     });
     if (!respuesta.ok) throw new ErrorDelBackendPublico(respuesta.status, ruta);
-    const datos = (await respuesta.json()) as CompraAgilDestacadasResponse;
-    if (!Array.isArray(datos?.items)) throw new Error(`Respuesta inesperada de ${ruta}`);
+    const datos: unknown = await respuesta.json();
+    if (!esValida(datos)) throw new Error(`Respuesta inesperada de ${ruta}`);
     return datos;
   } catch (error) {
-    console.error('portada: «Lo mejor de hoy» no respondió; se oculta el bloque', error);
+    console.error(`portada: ${bloque} no respondió; se oculta el bloque`, error);
     return null;
   }
+}
+
+function esDestacadas(datos: unknown): datos is CompraAgilDestacadasResponse {
+  return Array.isArray((datos as CompraAgilDestacadasResponse | null)?.items);
+}
+
+function esConteo(valor: unknown): valor is number {
+  return typeof valor === 'number' && Number.isInteger(valor) && valor >= 0;
+}
+
+function esResumenPortada(datos: unknown): datos is ResumenPortada {
+  if (!datos || typeof datos !== 'object') return false;
+  const r = datos as Record<string, unknown>;
+  return (
+    esConteo(r.licitaciones_abiertas) &&
+    esConteo(r.compra_agil_abiertas) &&
+    (r.actualizado_en === null || typeof r.actualizado_en === 'string')
+  );
+}
+
+/** Las primeras `limite` de «Lo mejor de hoy en Compra Ágil», para la portada. */
+export async function pedirDestacadas(limite: number): Promise<CompraAgilDestacadasResponse | null> {
+  return pedirParaLaPortada(`${API}/compra-agil/destacadas?limite=${limite}`, esDestacadas, '«Lo mejor de hoy»');
+}
+
+/**
+ * La tira de cifras de la portada (`GET /publico/portada`): cuántas
+ * licitaciones y Compras Ágiles se pueden postular ahora, con su hora.
+ */
+export async function pedirResumenPortada(): Promise<ResumenPortada | null> {
+  return pedirParaLaPortada(`${API}/publico/portada`, esResumenPortada, 'el resumen');
 }
 
 /** Un segmento de ruta del backend, escapado. El slug y el código vienen de la URL. */

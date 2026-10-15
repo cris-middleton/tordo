@@ -123,6 +123,12 @@ describe('/rss/licitaciones', () => {
     expect(headers.get('x-tordo-proxy')).toBe(SECRETO);
   });
 
+  it('reenvía abiertas al backend', async () => {
+    simularBackend({ items: [], total: 0, page: 1, size: 50, pages: 1 });
+    await pedir('https://tordo.cl/rss/licitaciones?search=tornillos&abiertas=1');
+    expect(pedidas[0].url.searchParams.get('abiertas')).toBe('1');
+  });
+
   it('responde RSS cacheable, con enlaces absolutos y la fuente en cada ítem', async () => {
     vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://tordo.cl/');
     simularBackend({ items: [LICITACION_TRAMPA, { ...LICITACION_TRAMPA, codigo_externo: '2' }] });

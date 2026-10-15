@@ -3,7 +3,7 @@
 import { useCallback, useSyncExternalStore } from 'react';
 
 import { crearAlmacenLocal } from '@/lib/almacenLocal';
-import { soloFiltros } from '@/lib/filtrosCatalogo';
+import { escribirFiltros, leerFiltros, soloFiltros } from '@/lib/filtrosCatalogo';
 
 /**
  * Búsquedas del catálogo guardadas en el navegador (`tordo_busquedas_v1`).
@@ -23,12 +23,30 @@ export const CLAVE_BUSQUEDAS = 'tordo_busquedas_v1';
 
 const VACIA: BusquedaGuardada[] = [];
 
+/**
+ * La forma canónica de una consulta, también la de una guardada hace tiempo:
+ * lo guardado antes de normalizar `tipo_convocatoria` (u `abiertas=true`) tiene
+ * otro texto que la página, que siempre compara contra `leer → escribir`. Sin
+ * esto, esa búsqueda dejaba de reconocerse como guardada y guardarla otra vez
+ * añadía una gemela.
+ */
+export function consultaCanonica(consulta: string): string {
+  return consultaDe(escribirFiltros(leerFiltros(new URLSearchParams(consulta))));
+}
+
 function interpretar(crudo: unknown): BusquedaGuardada[] {
   if (!Array.isArray(crudo)) return VACIA;
-  return crudo.filter(
-    (b): b is BusquedaGuardada =>
-      typeof b === 'object' && b !== null && typeof b.consulta === 'string',
-  );
+  const vistas = new Set<string>();
+  const salida: BusquedaGuardada[] = [];
+  for (const b of crudo) {
+    if (typeof b !== 'object' || b === null || typeof b.consulta !== 'string') continue;
+    const consulta = consultaCanonica(b.consulta);
+    // Dos guardadas que normalizan igual son la misma búsqueda: queda la más reciente (va primero).
+    if (vistas.has(consulta)) continue;
+    vistas.add(consulta);
+    salida.push({ ...b, consulta });
+  }
+  return salida;
 }
 
 const almacen = crearAlmacenLocal(CLAVE_BUSQUEDAS, VACIA, interpretar);
@@ -42,20 +60,25 @@ export function useBusquedasGuardadas() {
   const busquedas = useSyncExternalStore(almacen.suscribir, almacen.leer, almacen.leerEnServidor);
 
   const estaGuardada = useCallback(
-    (consulta: string) => busquedas.some((b) => b.consulta === consulta),
+    (consulta: string) => {
+      const canonica = consultaCanonica(consulta);
+      return busquedas.some((b) => b.consulta === canonica);
+    },
     [busquedas],
   );
 
   const guardar = useCallback((consulta: string) => {
+    const canonica = consultaCanonica(consulta);
     almacen.escribir((prev) =>
-      prev.some((b) => b.consulta === consulta)
+      prev.some((b) => b.consulta === canonica)
         ? prev
-        : [{ consulta, guardadaEn: new Date().toISOString() }, ...prev],
+        : [{ consulta: canonica, guardadaEn: new Date().toISOString() }, ...prev],
     );
   }, []);
 
   const borrar = useCallback((consulta: string) => {
-    almacen.escribir((prev) => prev.filter((b) => b.consulta !== consulta));
+    const canonica = consultaCanonica(consulta);
+    almacen.escribir((prev) => prev.filter((b) => b.consulta !== canonica));
   }, []);
 
   return { busquedas, estaGuardada, guardar, borrar };

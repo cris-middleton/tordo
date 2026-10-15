@@ -92,6 +92,7 @@ async def _listar(db, **kwargs):
         min_amount=None,
         max_amount=None,
         search=None,
+        abiertas=False,
         sort_by=None,
         sort_order="desc",
         db=db,

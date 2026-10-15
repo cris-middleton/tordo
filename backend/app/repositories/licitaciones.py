@@ -22,6 +22,7 @@ from sqlalchemy import Select, and_, asc, case, desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.models.convocatoria import TipoConvocatoria
 from app.models.licitacion import Licitacion
 
 # Columnas por las que se puede ordenar. `relevance` no está: no es una columna
@@ -70,6 +71,10 @@ class Filtros:
     # Todos los términos tienen que coincidir (AND), también al ordenar por
     # relevancia: el orden no cambia QUÉ se encuentra, sólo en qué orden sale.
     terminos: list[str] = field(default_factory=list)
+    #: Sólo lo que se puede postular ahora (`esta_abierta`). Es la MISMA
+    #: condición que cuenta la portada (`contar_abiertas`) y la que ordena el
+    #: listado: `estado="Publicada"` no basta, porque no mira el cierre.
+    abiertas: bool = False
 
 
 def esta_abierta():
@@ -79,6 +84,10 @@ def esta_abierta():
     devolvía primero licitaciones cerradas o adjudicadas —el orden era sólo por
     fecha de publicación—, y ordenar por cierre ascendente empezaba por las que
     cerraron hace meses. Quien busca, busca a qué postular.
+
+    Es también el filtro `abiertas` del catálogo y lo que cuenta la portada
+    (`contar_abiertas`, `GET /publico/portada`): una sola definición, para que
+    el número que se lee en la portada sea el total al que lleva su enlace.
     """
     return and_(
         Licitacion.estado == "Publicada",
@@ -107,6 +116,8 @@ def _con_filtros(filtros: Filtros, *, aplicar_terminos: bool = True) -> Select:
     consulta = _base()
     if filtros.estado:
         consulta = consulta.where(Licitacion.estado == filtros.estado)
+    if filtros.abiertas:
+        consulta = consulta.where(esta_abierta())
     if filtros.codigo_organismo:
         consulta = consulta.where(Licitacion.codigo_organismo == filtros.codigo_organismo)
     if filtros.tipos_convocatoria:
@@ -226,6 +237,33 @@ async def buscar_por_relevancia(
     )
     filas = (await db.execute(ordenada.offset(salto).limit(limite))).scalars().all()
     return list(filas), total
+
+
+async def contar_abiertas(db: AsyncSession) -> tuple[int, int]:
+    """Cuántas se pueden postular ahora: (no Compra Ágil, Compra Ágil).
+
+    La tira de cifras de la portada (`GET /publico/portada`, spec del rediseño
+    §6.6). **Misma definición que el filtro `abiertas` del catálogo** —`activo`
+    y `esta_abierta()`—, así que cada cifra es el total que lista
+    `/licitaciones?abiertas=1` con su mecanismo.
+
+    «No Compra Ágil» incluye Convenio Marco y Trato Directo si alguna vez se
+    ingieren: la pregunta de la portada es «licitaciones» frente a «Compra
+    Ágil». No es lo mismo que las candidatas de «Lo mejor de hoy», que además
+    exigen más de 2 h hasta el cierre.
+
+    Una sola pasada por la tabla, con `count(*) FILTER`.
+    """
+    es_compra_agil = Licitacion.tipo_convocatoria == TipoConvocatoria.COMPRA_AGIL.value
+    fila = (
+        await db.execute(
+            select(
+                func.count().filter(~es_compra_agil),
+                func.count().filter(es_compra_agil),
+            ).where(Licitacion.activo.is_(True), esta_abierta())
+        )
+    ).one()
+    return int(fila[0]), int(fila[1])
 
 
 async def obtener(db: AsyncSession, licitacion_id: int) -> Licitacion | None:

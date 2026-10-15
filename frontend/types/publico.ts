@@ -114,3 +114,15 @@ export interface ProductoEncontrado {
   n: number;
   indexable: boolean;
 }
+
+/**
+ * `GET /publico/portada` — la tira de cifras de la portada. Cada conteo es el
+ * total de un enlace al catálogo (`urlCatalogoAbiertas` en `lib/filtrosCatalogo.ts`).
+ */
+export interface ResumenPortada {
+  /** Licitaciones que no son Compra Ágil y se pueden postular ahora. */
+  licitaciones_abiertas: number;
+  compra_agil_abiertas: number;
+  /** Última ingesta de Compra Ágil (ISO, hora de Chile), o null. Sin hora, la tira no se muestra. */
+  actualizado_en: string | null;
+}

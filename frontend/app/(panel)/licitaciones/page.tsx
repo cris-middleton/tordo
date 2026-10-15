@@ -23,6 +23,7 @@ import { ESTADOS_LICITACION, REGIONES_CHILE, TIPOS_CONVOCATORIA } from '@/lib/co
 import {
   type FiltrosCatalogo,
   type Orden,
+  TIPOS_SIN_COMPRA_AGIL,
   escribirFiltros,
   leerFiltros,
   paramsDeApi,
@@ -40,7 +41,8 @@ type CampoFiltro = 'estado' | 'tipo_convocatoria' | 'region' | 'min_amount' | 'm
  * al montar, con `useSearchParams` en un inicializador perezoso, y se escriben
  * con `replaceState` — el mismo patrón que la pantalla de analítica. Antes
  * vivían sólo en `useState`: recargar los perdía y una búsqueda no se podía
- * compartir, guardar ni seguir por RSS.
+ * compartir, guardar ni seguir por RSS. `abiertas=1` incluido: es el enlace de
+ * las cifras de la portada.
  */
 function CatalogoContenido() {
   const urlInicial = useSearchParams();
@@ -165,6 +167,9 @@ function CatalogoContenido() {
             options={[
               { value: '', label: 'Todos los mecanismos' },
               ...TIPOS_CONVOCATORIA.map((t) => ({ value: t.value, label: t.label })),
+              // Lo que enlazan las cifras de la portada: sin esta opción el filtro
+              // funcionaría pero la pantalla diría «Todos los mecanismos».
+              { value: TIPOS_SIN_COMPRA_AGIL, label: 'Todo menos Compra Ágil' },
             ]}
           />
           <SelectField
@@ -198,6 +203,15 @@ function CatalogoContenido() {
             className="input-field text-sm"
           />
         </div>
+        <label className="flex w-fit cursor-pointer items-center gap-2 text-sm text-muted">
+          <input
+            type="checkbox"
+            checked={filtros.abiertas}
+            onChange={(e) => cambiar({ abiertas: e.target.checked })}
+            className="h-4 w-4 rounded border-border accent-primary"
+          />
+          Sólo las que se pueden postular ahora
+        </label>
         {keywords.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5">
             {keywords.map((keyword) => (

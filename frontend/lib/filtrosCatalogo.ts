@@ -27,6 +27,8 @@ export interface FiltrosCatalogo {
   region: string;
   min_amount: string;
   max_amount: string;
+  /** Sólo lo que se puede postular ahora (`esta_abierta` en el backend). En la URL, `abiertas=1`. */
+  abiertas: boolean;
   /** Cada término es un chip; en la URL van juntos en `search`, separados por espacio. */
   terminos: string[];
   sort_by: Orden;
@@ -41,6 +43,7 @@ export const FILTROS_POR_DEFECTO: FiltrosCatalogo = {
   region: '',
   min_amount: '',
   max_amount: '',
+  abiertas: false,
   terminos: [],
   sort_by: 'fecha_publicacion',
   sort_order: 'desc',
@@ -60,9 +63,33 @@ export const PARAMS_FILTRO = [
   'region',
   'min_amount',
   'max_amount',
+  'abiertas',
 ] as const;
 
 const NUMERO = /^\d+(\.\d+)?$/;
+
+/** Lo que vale «verdadero» en un booleano de la URL. Se escribe siempre `1`. */
+const VERDADERO = ['1', 'true'];
+
+/**
+ * Pone los mecanismos de un `tipo_convocatoria` con varios valores en el orden
+ * de `TIPOS_CONVOCATORIA`. El desplegable compara el texto entero, y una URL
+ * armada a mano con los mismos tres tipos en otro orden filtraba bien pero
+ * pintaba «Todos los mecanismos». Un valor desconocido va al final, tal cual.
+ */
+function ordenarMecanismos(valor: string): string {
+  if (!valor.includes(',')) return valor;
+  const posicion = (t: string) => {
+    const i = TIPOS_CONVOCATORIA.findIndex((x) => x.value === t);
+    return i === -1 ? TIPOS_CONVOCATORIA.length : i;
+  };
+  return valor
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .sort((a, b) => posicion(a) - posicion(b))
+    .join(',');
+}
 
 function entero(valor: string | null, min: number, porDefecto: number): number {
   const n = Number(valor);
@@ -78,10 +105,11 @@ export function leerFiltros(params: URLSearchParams | { get(nombre: string): str
   const maximo = params.get('max_amount') ?? '';
   return {
     estado: params.get('estado') ?? '',
-    tipo_convocatoria: params.get('tipo_convocatoria') ?? '',
+    tipo_convocatoria: ordenarMecanismos(params.get('tipo_convocatoria') ?? ''),
     region: params.get('region') ?? '',
     min_amount: NUMERO.test(minimo) ? minimo : '',
     max_amount: NUMERO.test(maximo) ? maximo : '',
+    abiertas: VERDADERO.includes(params.get('abiertas') ?? ''),
     terminos,
     // Con términos y sin orden explícito se ordena por relevancia, como al
     // escribir el primer término en el buscador.
@@ -105,6 +133,7 @@ export function escribirFiltros(f: FiltrosCatalogo): URLSearchParams {
   if (f.region) p.set('region', f.region);
   if (f.min_amount) p.set('min_amount', f.min_amount);
   if (f.max_amount) p.set('max_amount', f.max_amount);
+  if (f.abiertas) p.set('abiertas', '1');
   const ordenImplicito = f.terminos.length ? 'relevance' : FILTROS_POR_DEFECTO.sort_by;
   if (f.sort_by !== ordenImplicito) p.set('sort_by', f.sort_by);
   if (f.sort_order !== 'desc') p.set('sort_order', f.sort_order);
@@ -127,6 +156,7 @@ export function paramsDeApi(f: FiltrosCatalogo): Record<string, unknown> {
   if (f.region) params.region = f.region;
   if (f.min_amount) params.min_amount = parseFloat(f.min_amount);
   if (f.max_amount) params.max_amount = parseFloat(f.max_amount);
+  if (f.abiertas) params.abiertas = true;
   if (f.terminos.length) params.search = f.terminos.join(' ');
   return params;
 }
@@ -167,5 +197,36 @@ export function describirBusqueda(consulta: string): string {
   if (f.min_amount && f.max_amount) partes.push(`${clp(f.min_amount)} a ${clp(f.max_amount)}`);
   else if (f.min_amount) partes.push(`desde ${clp(f.min_amount)}`);
   else if (f.max_amount) partes.push(`hasta ${clp(f.max_amount)}`);
+  if (f.abiertas) partes.push('Sólo abiertas');
   return partes.length ? partes.join(' · ') : 'Todas las licitaciones';
+}
+
+/**
+ * Todo mecanismo menos Compra Ágil: lo que `GET /publico/portada` cuenta como
+ * «licitaciones abiertas» (`contar_abiertas`). Sale de la lista de mecanismos,
+ * no se escribe a mano. Un mecanismo nuevo hay que añadirlo a
+ * `TIPOS_CONVOCATORIA` (y al backend: `test_tipos_convocatoria_del_frontend.py`
+ * falla si las dos listas se separan); recién entonces entra aquí.
+ */
+export const TIPOS_SIN_COMPRA_AGIL = TIPOS_CONVOCATORIA.filter((t) => t.value !== 'compra_agil')
+  .map((t) => t.value)
+  .join(',');
+
+/**
+ * El catálogo con las abiertas de un mecanismo. Es el enlace de cada cifra de
+ * la portada y del bloque «abiertas ahora» de `/buscar`: **el mismo filtro que
+ * la cuenta**, para que el número que se lee sea el total que se encuentra.
+ */
+export function urlCatalogoAbiertas(
+  mecanismo: 'licitaciones' | 'compra_agil',
+  terminos: string[] = [],
+): string {
+  const consulta = escribirFiltros({
+    ...FILTROS_POR_DEFECTO,
+    abiertas: true,
+    tipo_convocatoria: mecanismo === 'compra_agil' ? 'compra_agil' : TIPOS_SIN_COMPRA_AGIL,
+    terminos,
+    sort_by: terminos.length ? 'relevance' : FILTROS_POR_DEFECTO.sort_by,
+  });
+  return `/licitaciones?${consulta}`;
 }
