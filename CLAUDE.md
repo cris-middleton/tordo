@@ -317,10 +317,19 @@ programador en la nube, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
   subrayan. `__tests__/enlaces-contenido.test.ts`.
 - Una superficie que deba verse oscura siempre se marca con la clase `dark` sobre
   `bg-brand-navy`, y los tokens se invierten solos dentro. No repintes a mano. **Hoy no queda
-  ninguna en el sitio** (el hero se fue con la portada nueva); `brand-navy` sigue siendo el fondo
-  de la tarjeta de vista previa (`lib/coloresImagen.ts`), y `contraste-wcag.test.ts` mide sobre él
-  los tres colores de esa tarjeta, derivados de `COLORES_IMAGEN`. Si vuelve una superficie así,
-  sus tintas entran en ese test.
+  ninguna en el sitio** (el hero se fue con la portada nueva). Si vuelve una superficie así, sus
+  tintas entran en `contraste-wcag.test.ts`.
+- **La tarjeta de vista previa** (`app/opengraph-image.tsx`, la misma para X en `twitter-image.tsx`)
+  es un panel `brand-blue` (el azul del cuerpo del pájaro, invariante de tema y sólo para ella) con
+  el pájaro, la marca en Varien y el dominio, y un lienzo blanco con «¿Qué le vendes al Estado?» en
+  navy y la píldora «Datos públicos de ChileCompra». Sin subtítulo: casi siempre se ve a 260 px.
+  Se dibuja sin CSS, así que sus colores son copias de tokens en `lib/coloresImagen.ts`
+  (`colores-imagen.test.ts` vigila la copia) y sus pares de texto, `PARES_IMAGEN`, los mide
+  `contraste-wcag.test.ts`. Los trazos del pájaro están copiados del logo en `lib/pajaroImagen.ts`
+  (`pajaro-imagen.test.ts`), y las fuentes van en WOFF (Satori no lee WOFF2 ni ejes variables): dos
+  instancias estáticas de Archivo en `assets/fuentes-imagen/` (cómo rehacerlas, en
+  `lib/fuentesImagen.ts`) y Varien desde `public/fonts/varien/WOFF/`. **Rutas literales** al leerlas:
+  una ruta armada empaqueta el proyecto entero en el servidor (aviso de Turbopack).
 - **El estado de servidor va en TanStack Query, sin excepciones.** Las consultas y sus claves
   viven en `lib/queries.ts`, en un solo sitio: las claves son lo que permite invalidar con
   precisión tras una mutación. Los hooks envuelven `lib/api.ts`, no `fetch`: el transporte
@@ -781,9 +790,7 @@ negro con tornasol azul-verdoso:
 - Fondo de página en tema claro: papel cálido (`--color-background`, `#F7F4EC`); las tarjetas
   siguen en `--color-surface`.
 - **Sin bandas de color en la portada** (sustituyen a las cuatro `band-1..4` de la landing
-  vieja, ya fuera de CSS y de Tailwind): el color se reserva para el dato y la acción. Lo único
-  que queda sobre navy son los colores de la tarjeta de vista previa, y eso es lo que mide
-  `contraste-wcag.test.ts`.
+  vieja, ya fuera de CSS y de Tailwind): el color se reserva para el dato y la acción.
 - Tema claro por defecto, con selector claro/oscuro/sistema en el pie del sitio
   (`components/SelectorTema.tsx`, dentro de `components/cascara/PieSitio.tsx`).
 
