@@ -58,19 +58,23 @@ make worktree-list
 `make worktree` hace el setup completo a propósito: una regla que exige cuatro pasos
 manuales se salta, un comando no.
 
-- **Flujo:** worktree → `make ci` en verde → PR a `main` → **`make merge PR=<n>`** → despliegue.
-- **Mergea siempre con `make merge PR=<n>`, no con `gh pr merge`.** Espera a los checks,
-  los lista y se niega si alguno no está en verde.
-
-  Hace falta porque **`main` no tiene protección de rama**: GitHub la reserva a repos públicos
-  o a cuentas Pro, y este repo es privado en cuenta gratuita — la API devuelve 403 tanto para
-  `branches/main/protection` como para `rulesets`. Así que nada del lado del servidor impide
-  mergear en rojo, y ya pasó: el PR #14 se mergeó con el build de imágenes en FAILURE y los
-  tests de ETL en CANCELLED.
-
-  Esto **no es protección de verdad** — es local y se puede saltar. Sólo hace que el camino
-  correcto sea también el más corto. **La protección real cuesta ~4 USD/mes (GitHub Pro)**;
-  mientras no esté, esto es lo que hay.
+- **Flujo:** worktree → `make ci` en verde → PR a `main` → checks de Actions en verde →
+  `gh pr merge <n> --squash` → despliegue.
+- **`main` está protegida en GitHub** (ruleset «main protegida», desde el 2026-10-15): exige
+  PR, los ocho checks de CI —el de DCO sale «saltado» en los PR propios, y cuenta como verde— y
+  prohíbe *force push* y borrado, también al dueño (sin excepciones). Para una urgencia se
+  desactiva el ruleset, se arregla y se reactiva. Antes de publicar el repo no existía (GitHub la
+  reserva a repos públicos o Pro): la guarda era `make merge`, un script local, y aun así el
+  PR #14 se mergeó con el build de imágenes en FAILURE. Se retiró con el PR 7 del rediseño.
+- **El repositorio es público** (`github.com/cris-middleton/tordo`, AGPL-3.0) desde el
+  2026-10-15, con *secret scanning* y *push protection*: un push con una credencial
+  reconocible se rechaza en el servidor. No sustituye al hook de `.env` ni a la regla de rotar.
+- **Su historia se reescribió antes de publicarlo** (sin `backend/.env`, sin el correo laboral,
+  sin las versiones del fixture del golden anteriores al enmascarado). Los PR #1–#175 y los
+  hashes anteriores viven en `cris-middleton/tordo-saas-privado`, **privado para siempre** (se
+  archiva al cerrar el PR 7): su historia y sus refs de PR conservan credenciales. **Nunca
+  empujes nada de ese repo a este.** En los mensajes de commit esos PR aparecen como `saas#N`,
+  y los «#N» de los documentos escritos antes del 2026-10-15 son también de ese repo.
 - Los worktrees **no heredan archivos gitignoreados**: cada uno necesita su propio
   `.env` y su propio `node_modules` (el target copia el primero e instala el segundo).
   Los hooks de pre-commit, en cambio, se comparten con el checkout principal.
@@ -84,7 +88,8 @@ a extremo, build de imágenes y DCO (sólo en PR desde un fork, `scripts/dco.sh`
 
 Dos cosas que sí conviene saber:
 
-- **Un PR abierto durante una caída de Actions se queda sin checks para siempre.** GitHub no
+- **Un PR abierto durante una caída de Actions se queda sin checks para siempre — y, con `main`
+  protegida, sin poder mergearse.** GitHub no
   dispara retroactivamente: hay que cerrar y reabrir el PR para gatillar el evento. Pasó con
   una pila entera durante un `major_outage`.
 - **`make ci` sigue valiendo la pena antes de pushear.** Levanta un Postgres efímero y corre
@@ -1269,9 +1274,10 @@ versiona su propio protocolo.
   esté en ella — **todo** responde `421`.
 - **Su ficha para los registros es `server.json`, en la raíz** (registro oficial, espacio de
   nombres `cl.tordo/mercado-publico` verificado por DNS; Glama la copia de ahí; Smithery aparte).
-  **Está en el repo pero NO publicada**: cada publicación la confirma el dueño, paso por paso
-  (`docs/DESPLIEGUE.md` §12.1). Plan de versiones: `1.0.0` ya, sin `repository` (el repo sigue
-  privado), y `1.1.0` con `repository` cuando sea público. Las versiones del registro son
+  **Cada publicación la confirma el dueño**, paso por paso (`docs/DESPLIEGUE.md` §12.1). La
+  `1.0.0` se publicó el 2026-10-15, sin `repository` (el repo aún era privado); la `1.1.0`, que
+  ya está en `server.json`, añade `repository` y se publica después de mergear el PR que la
+  sube (rediseño 7b). Las versiones del registro son
   **inmutables** —cambiar la ficha es subir `version`— y sus metadatos no se borran nunca, sólo
   se ocultan. `tests/test_server_json.py` la valida contra el esquema oficial y exige que su URL
   sea `URL_MCP`.
@@ -1332,9 +1338,10 @@ obligatorio que nadie usa enseña a rellenar variables sin mirar.
 definida al construir.
 
 **`REPOSITORIO_URL`** (servidor de Next, en el build, opcional, sólo `https://`): el repositorio
-público para «Código» en `/abierto` y para los términos §7, que la leen solos. Vacía mientras
-el repo sea privado (spec del rediseño R8): con el repo privado GitHub responde 404 y el sitio
-enseñaría un enlace roto. Al ponerla hay que redeployar.
+público para «Código» en `/abierto` y para los términos §7, que la leen solos. **Puesta en
+Vercel (Production) desde el 2026-10-15**: `https://github.com/cris-middleton/tordo`. Estuvo
+vacía mientras el repo era privado (spec del rediseño R8): GitHub responde 404 a un repo privado
+y el sitio habría enseñado un enlace roto. Al cambiarla hay que redeployar.
 
 **`API_URL` es de servidor y no lleva prefijo `NEXT_PUBLIC_`.** Cualquier variable que sí lo
 lleve se inlinea en el bundle del navegador, y la URL del backend ya no tiene por qué estar

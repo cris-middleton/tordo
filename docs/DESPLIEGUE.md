@@ -120,7 +120,7 @@ un valor por defecto razonable o desactivan algo prescindible.
 | `DONAR_MERCADO_PAGO_URL` | | | | ✓ | no | `https://link.mercadopago.cl/…` (**sólo `https://`**) | Mercado Pago → *Link de pago* de monto abierto. Servidor, **se lee en el build**: `/apoyar` se prerenderiza, así que cambiarla exige redeploy. Sin ella, o sin `https://`, el botón no aparece |
 | `DONAR_GITHUB_SPONSORS_URL` | | | | ✓ | no | `https://github.com/sponsors/<usuario>` (**sólo `https://`**) | GitHub Sponsors. Servidor, **se lee en el build** (redeploy para cambiarla). Sin ella, no aparece |
 | `DONAR_TRANSFERENCIA` | | | | ✓ | no | varias líneas: banco, tipo y número de cuenta, nombre, RUT, correo | los datos de la cuenta. Servidor, **se lee en cada petición**: sólo la sirve `GET /api/apoyar/transferencia` tras el clic de «Ver datos para transferir», sin caché y con `noindex`; nunca va en el HTML. Cambiarla no exige redeploy. Sin ella, el botón no aparece y la ruta da 404 |
-| `REPOSITORIO_URL` | | | | ✓ | no | `https://github.com/<usuario>/<repo>` (**sólo `https://`**) | el repositorio público (PR 7 del rediseño, al hacerlo público). Servidor, **se lee en el build**: `/abierto` se prerenderiza, así que cambiarla exige redeploy. Sin ella, o sin `https://`, «Código» no aparece en la cabecera ni en el pie de ninguna página, y `/abierto` dice que aún no está publicado |
+| `REPOSITORIO_URL` | | | | ✓ | no | `https://github.com/cris-middleton/tordo` (**sólo `https://`**) | el repositorio público (puesta el 2026-10-15). Servidor, **se lee en el build**: `/abierto` se prerenderiza, así que cambiarla exige redeploy. Sin ella, o sin `https://`, «Código» no aparece en la cabecera ni en el pie de ninguna página, y `/abierto` dice que aún no está publicado |
 | `NEXT_PUBLIC_SENTRY_DSN` | | | | ✓ | no | DSN del proyecto Next.js | Sentry (paso 4). Se inlinea en el bundle |
 | `NEXT_PUBLIC_ENVIRONMENT` / `NEXT_PUBLIC_APP_NAME` | | | | ✓ | no | `production` / `Tordo` | fijos |
 | `SENTRY_ORG` / `SENTRY_PROJECT` / `SENTRY_AUTH_TOKEN` | | | | ✓ | no | | Sentry (paso 4). Sólo de build: trazas legibles |
@@ -128,10 +128,10 @@ un valor por defecto razonable o desactivan algo prescindible.
 `ENVIRONMENT=production` y `LOG_LEVEL=INFO` pueden ponerse también en los cron; no
 cambian su comportamiento.
 
-**Al poner `REPOSITORIO_URL`**: los términos de uso (§7) y `/abierto#codigo` la leen solos;
-basta redeployar el frontend (se lee en el build) y comprobar que los dos enlazan el
-repositorio. **Ponla sólo con el repo ya público**: con el repo privado, GitHub responde 404 y
-el sitio enseñaría un enlace roto.
+**`REPOSITORIO_URL`** (puesta en Production el 2026-10-15): los términos de uso (§7) y
+`/abierto#codigo` la leen solos; al cambiarla basta redeployar el frontend (se lee en el build)
+y comprobar que los dos enlazan el repositorio. **Sólo con un repo público**: a uno privado
+GitHub responde 404 y el sitio enseñaría un enlace roto.
 
 **El costo que publica `/apoyar#costos`** (`frontend/lib/costos.ts`) cita este archivo y la spec
 del pivote. Si corriges aquí una cifra de costo (§13.1: tamaño de la base, memoria, tarifas),
@@ -537,9 +537,11 @@ Dónde estaría:
 borra metadatos** y sus versiones son inmutables: un nombre publicado queda para siempre, como
 mucho oculto.
 
-**Versiones.** Se publica **`1.0.0` sin `repository`** (el repo sigue privado: una URL privada
-daría un 404 a quien la siga) y **`1.1.0` con `repository`** cuando el repo sea público y
-`REPOSITORIO_URL` esté puesta. Es una versión nueva, no una edición de la anterior.
+**Versiones.** **`1.0.0` se publicó el 2026-10-15 sin `repository`** (el repo aún era privado:
+una URL privada daría un 404 a quien la siga). **`1.1.0` añade `repository`**
+(`https://github.com/cris-middleton/tordo`) y ya está en `server.json`; se publica después de
+mergear el PR que la sube (rediseño 7b), con el «sí» del dueño. Es una versión nueva, no una
+edición de la anterior.
 
 **La clave del espacio de nombres.** Ed25519, generada con `openssl@3` de Homebrew (el `openssl`
 de macOS no la trae). La privada vive en el gestor de contraseñas del dueño y en
@@ -743,14 +745,8 @@ punto tiene su momento. En orden.
    **Verifica:** el sitemap aparece como «Correcto» con las URL descubiertas.
    Sin esto no hay datos para los puntos 4 y 5.
 
-2. **Protección de rama de verdad.**
-   *Cuándo:* antes de que haya un segundo par de manos en el repo, o el primer susto.
-   `main` no tiene protección: GitHub la reserva a repos públicos o a cuentas Pro, y este
-   repo es privado en cuenta gratuita. Lo que hay es `make merge`, que es local y se puede
-   saltar (CLAUDE.md, «Ramas y worktrees»). Dos caminos:
-   - **GitHub Pro, ~US$4/mes**, y una regla sobre `main` que exija los checks de CI en verde.
-   - **Hacer público el repositorio**, que trae la protección gratis — es la decisión que la
-     spec deja para después del lanzamiento (§12). Si se toma, no hace falta Pro.
+2. ~~**Protección de rama de verdad.**~~ **Hecho el 2026-10-15**: el repo es público y
+   `main` tiene un ruleset que exige los checks de CI (CLAUDE.md, «Ramas y worktrees»).
 
 3. **Las vulnerabilidades de desarrollo del frontend.**
    *Cuándo:* en el primer mes, con calma; ninguna llega al sitio.

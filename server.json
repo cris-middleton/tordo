@@ -3,8 +3,12 @@
   "name": "cl.tordo/mercado-publico",
   "title": "TORDO — Mercado Público de Chile",
   "description": "Licitaciones, precios históricos, competidores y compradores de Mercado Público (Chile). Sin clave.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "websiteUrl": "https://tordo.cl/abierto#mcp",
+  "repository": {
+    "url": "https://github.com/cris-middleton/tordo",
+    "source": "github"
+  },
   "icons": [
     {
       "src": "https://tordo.cl/favicon.svg",

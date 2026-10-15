@@ -2,7 +2,7 @@
 
 > 🟡 **Histórico: anterior al pivote** (2026-10-11). La revisión de la arquitectura del SaaS y el cierre de sus fases F0–F6. Sus puntos de deuda y aplazados conservan el razonamiento, pero el sistema que describe tenía cuentas y cobro. Lo vigente: `CLAUDE.md` y `docs/PIVOTE_PUBLICO_2026-10.md`.
 
-> **Fecha**: 2026-08-05 · **Commit revisado**: `2348535` (main) · **Autor**: revisión técnica senior
+> **Fecha**: 2026-08-05 · **Commit revisado**: `e4272d5` (main) · **Autor**: revisión técnica senior
 > **Alcance de referencia considerado**: LicitaLab (CL/PE/CO), LicitApp, Falconsoft SGL/POM.
 > **Convenciones de ingeniería contrastadas contra**: un conjunto de servicios de referencia
 > en producción (dos APIs, una pasarela de pago, un motor de subastas y un frontend).
