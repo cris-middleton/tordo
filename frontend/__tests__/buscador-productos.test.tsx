@@ -4,7 +4,8 @@
  *
  * Se fija:
  *   1. el retardo — no se busca con cada tecla, sólo cuando el texto se queda
- *      quieto, y nunca con menos de dos letras;
+ *      quieto, y nunca con menos de tres (la búsqueda del backend ignora
+ *      las palabras más cortas, así que dos letras nunca encuentran nada);
  *   2. que cada resultado enlaza por el `slug` del backend, indexable o no;
  *   3. los estados sin resultados y con error, en una línea y sin caja de error.
  */
@@ -17,7 +18,7 @@ let estado: { isPending: boolean; isError: boolean; data?: unknown };
 const pedidas: string[] = [];
 
 vi.mock('@/lib/queries', () => ({
-  MINIMO_BUSQUEDA_PRODUCTOS: 2,
+  MINIMO_BUSQUEDA_PRODUCTOS: 3,
   useBuscarProductosPublicos: (texto: string) => {
     pedidas.push(texto);
     return estado;
@@ -55,11 +56,11 @@ describe('buscador de productos', () => {
     expect(pedidas).not.toContain('guan');
   });
 
-  it('con menos de dos letras pide escribir más, sin resultados', () => {
+  it('con menos de tres letras pide escribir más, sin resultados', () => {
     render(<BuscadorProductos />);
-    escribir('g');
+    escribir('pc');
     act(() => vi.advanceTimersByTime(300));
-    expect(screen.getByText(/al menos dos letras/i)).toBeInTheDocument();
+    expect(screen.getByText(/al menos tres letras/i)).toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
   });
 
@@ -82,6 +83,7 @@ describe('buscador de productos', () => {
     escribir('xyzzy');
     act(() => vi.advanceTimersByTime(300));
     expect(screen.getByText(/ningún producto coincide con «xyzzy»/i)).toBeInTheDocument();
+    expect(screen.getByText(/menos de tres letras y los números no cuentan/i)).toBeInTheDocument();
   });
 
   it('un error es una línea, no una caja', () => {

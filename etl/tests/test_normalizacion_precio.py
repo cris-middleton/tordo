@@ -8,14 +8,23 @@ que nada falle — salvo esto.
 
 from __future__ import annotations
 
+import ast
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 import polars as pl
 import pytest
+from analytics import normalizacion
 from analytics.normalizacion import (
     UNIDAD_SIN_DECLARAR,
     canonizar_unidad,
     firma_es_utilizable,
     firma_producto,
 )
+
+from app.utils import firma
 
 
 def _firmar(textos: list[str]) -> list[str]:
@@ -90,6 +99,95 @@ class TestFirmaProducto:
         )
         firmas = df.with_columns(firma_producto())["firma_producto"].to_list()
         assert firmas == ["", "", "", ""]
+
+
+#: La firma de textos con todos los casos de la regla, capturada en `main`
+#: (20bd0a1) ANTES de mover la regla a `app/utils/firma.py`. Si cambia un byte,
+#: cambian los grupos de precio y los slugs de las páginas de producto.
+FIRMAS_FIJADAS = [
+    ("GUANTES DE NITRILO TALLA M CAJA X 100", "caja guantes nitrilo talla"),
+    ("Guante de nitrilo, talla L (caja 100 un.)", "caja guante nitrilo talla"),
+    ("ARRIENDO DE VEHÍCULOS CON CONDUCTOR", "arriendo conductor vehículos"),
+    ("Resma papel carta 75 grs según detalle adjunto", "carta grs papel resma"),
+    ("Papel higiénico doble hoja 4 rollos", "doble higiénico hoja papel rollos"),
+    ("Café en grano 1 kg", "café grano"),
+    ("Jabón líquido 5 litros", "jabón litros líquido"),
+    ("SERVICIO DE ASEO Y LIMPIEZA - CESFAM", "aseo cesfam limpieza servicio"),
+    ("Toner HP CF258A negro", "negro toner"),
+    ("Ítem 3: AGUA PURIFICADA EN BIDONES DE 20 LTS", "agua bidones lts purificada ítem"),
+    ("Baño químico, arriendo mensual", "arriendo baño mensual químico"),
+    ("Pingüino de peluche – juguete", "juguete peluche pingüino"),
+    ("crème brûlée", "lée"),
+    ("de la en con para por", ""),
+    ("", ""),
+    (
+        "Sillas de oficina ergonómicas con apoyabrazos, respaldo alto, ruedas y base "
+        "cromada según ficha técnica",
+        "alto apoyabrazos base cromada ergonómicas oficina respaldo ruedas",
+    ),
+]
+
+
+class TestFirmaFijada:
+    def test_la_firma_no_cambia_byte_a_byte(self):
+        """Mover la regla de sitio no puede cambiar ni un byte de ninguna firma.
+
+        Casos que un refactor rompe sin querer: la tilde que se conserva
+        («vehículos»), la que parte la palabra («crème» → «lée»), «Ítem» que no
+        está en el ruido con tilde, y el tope de ocho que deja fuera «sillas»
+        por orden alfabético.
+        """
+        textos = [texto for texto, _ in FIRMAS_FIJADAS]
+        assert _firmar(textos) == [firma for _, firma in FIRMAS_FIJADAS]
+
+
+class TestReglaCompartida:
+    """La regla vive en `app/utils/firma.py` y el ETL la importa: no hay copia."""
+
+    def test_el_etl_usa_la_regla_del_backend_no_una_copia(self):
+        assert normalizacion.RUIDO is firma.RUIDO
+        # Un entero o una cadena copiados podrían ser «el mismo objeto» por
+        # casualidad del intérprete: lo que se mira es que el módulo no los asigne.
+        arbol = ast.parse(Path(normalizacion.__file__).read_text(encoding="utf-8"))
+        asignados = {
+            destino.id
+            for nodo in ast.walk(arbol)
+            if isinstance(nodo, (ast.Assign, ast.AnnAssign))
+            for destino in (nodo.targets if isinstance(nodo, ast.Assign) else [nodo.target])
+            if isinstance(destino, ast.Name)
+        }
+        compartidas = {
+            "RUIDO",
+            "MIN_TOKEN",
+            "MAX_TOKENS",
+            "FUERA_DE_TOKEN",
+            "_MIN_TOKEN",
+            "_MAX_TOKENS",
+        }
+        assert not asignados & compartidas, asignados & compartidas
+
+    @pytest.mark.parametrize(("texto", "esperada"), FIRMAS_FIJADAS)
+    def test_la_regla_en_python_da_la_misma_firma_que_polars(self, texto, esperada):
+        """`FIRMAS_FIJADAS` es la salida de Polars (lo fija `TestFirmaFijada`): lo
+        que la API usa para buscar es exactamente lo que el ETL usó para agrupar."""
+        tokens = sorted(firma.tokens_de_firma(texto))[: firma.MAX_TOKENS]
+        assert " ".join(tokens) == esperada
+
+    def test_normalizacion_se_importa_como_en_la_imagen_del_etl(self):
+        """La imagen del ETL corre en /workspace/etl con PYTHONPATH=/workspace
+        (`etl/Dockerfile`). `normalizacion` ahora importa `etl.shared_imports`:
+        esto comprueba en un proceso limpio que esa ruta resuelve."""
+        raiz = Path(__file__).resolve().parents[2]
+        entorno = {**os.environ, "PYTHONPATH": str(raiz)}
+        resultado = subprocess.run(
+            [sys.executable, "-c", "import analytics.product_price_bands"],
+            cwd=raiz / "etl",
+            env=entorno,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert resultado.returncode == 0, resultado.stderr[-2000:]
 
 
 class TestFirmaUtilizable:

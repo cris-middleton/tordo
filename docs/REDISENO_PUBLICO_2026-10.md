@@ -259,7 +259,10 @@ servidor).
   página nueva y mínima.
 - **El buscador es un `<form method="get" action="/buscar">`**: funciona sin JS y la portada
   sigue siendo componente de servidor. **No se le pone `'use client'`** (regla vigente).
-- **Ejemplos clicables**: enlaces fijos a `/buscar?q=…` en `lib/portada.ts`. **Se eligen y se
+- **Ejemplos clicables**: enlaces fijos a `/buscar?q=…` en `lib/portada.ts`. **Los ejemplos
+  evitan nombres de producto cortos o alfanuméricos** («pc», «tv», «A4», «4x4», «UV», «3M»): la
+  búsqueda descarta las palabras de menos de tres letras y las que llevan dígitos, así que no
+  encontrarían nada. **Se eligen y se
   verifican contra producción**, no contra el fixture del golden (que sólo trae cinco firmas
   sintéticas): `scripts/verificar-produccion.sh` comprueba que cada ejemplo devuelve al menos un
   producto indexable. Requiere §8.5.
@@ -300,7 +303,7 @@ Reglas:
 - **Orden de las llamadas**: la búsqueda de productos, las licitaciones y la Compra Ágil van en
   paralelo; la ficha del primer producto depende de la primera y va después.
 - **Un bloque que falla se oculta** con una línea que lo dice; los demás se pintan.
-- **`q`**: entre 2 y `limites.TEXTO` caracteres (`/publico/productos` exige `min_length=2`). Para
+- **`q`**: entre 3 y `limites.TEXTO` caracteres (`/publico/productos` acepta `min_length=2`, pero la firma descarta las palabras de menos de tres letras y los números: con dos letras la respuesta es siempre `[]`, y la pantalla no debe invitar a buscar eso). Para
   Compra Ágil, como mucho `MAX_TERMINOS` (8) palabras: se recorta antes de llamar, o el backend
   responde 422.
 - **`noindex`** por metadatos. **No** se añade a `NO_RASTREAR` de `robots`: un buscador que no
@@ -500,11 +503,10 @@ detrás de Railway) **sin reabrir el modelo de confianza de IP**: uvicorn sigue 
 ### 8.5 Búsqueda de productos con palabras vacías
 
 `buscar_productos` aplica al término **la misma regla que construye la firma**
-(`etl/analytics/normalizacion.py`): fuera los tokens de menos de `_MIN_TOKEN` (3) letras —ahí
+(`backend/app/utils/firma.py`): fuera los tokens de menos de `MIN_TOKEN` (3) letras —ahí
 caen «de», «la», «en»— y los de `RUIDO`, con la misma normalización de tildes. Así la búsqueda y
-la firma hablan el mismo idioma. **La regla no se copia**: esas constantes viven hoy en un módulo
-Polars del ETL que la API no debe importar, así que pasan a un módulo sin dependencias que
-importen los dos lados (el patrón de `app/models/convocatoria.py` vía `etl/shared_imports.py`).
+la firma hablan el mismo idioma. **La regla no se copia**: vive en un módulo sin dependencias
+que importan los dos lados (el ETL por `etl/shared_imports.py`, como `app/models/convocatoria.py`).
 Test: «guantes de nitrilo» encuentra la firma `guantes nitrilo …`. Sin esto, los ejemplos de la
 portada devuelven vacío.
 

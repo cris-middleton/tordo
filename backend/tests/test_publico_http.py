@@ -432,3 +432,44 @@ def test_ninguna_respuesta_trae_un_rut_ni_un_codigo_de_proveedor(analytics, clie
         assert "1595644" not in texto, f"{r.url} trae un código de proveedor"
         claves = _claves(r.json(), set())
         assert not {c for c in claves if "rut" in c or ("proveedor" in c and "codigo" in c)}, r.url
+
+
+class TestBusquedaConLaReglaDeLaFirma:
+    """El término pasa por la regla de la firma (`app/utils/firma.py`).
+
+    Firmas con la forma real: los artículos ya no están (los quitó el ETL) y las
+    tildes sí. Las cifras son las de los ejemplos de la spec del rediseño §1.3.5.
+    """
+
+    @pytest.fixture
+    def firmas(self, analytics):
+        analytics["product_price_bands_L0N.parquet"] = [
+            _banda("guantes nitrilo talla", "caja", 272, "alta", 9_000.0),
+            _banda("arriendo conductor vehículos", "mes", 12, "media", 900_000.0),
+            _banda("desechables guantes talla", "caja", 30, "alta", 5_000.0),
+            _banda("aseo concepcion servicio", "mes", 15, "alta", 1_000_000.0),
+        ]
+        indexables.invalidar()
+        yield analytics
+        indexables.invalidar()
+
+    def _slugs(self, cliente, q):
+        r = _get(cliente, "/productos", q=q)
+        assert r.status_code == 200
+        return [p["slug"] for p in r.json()]
+
+    def test_guantes_de_nitrilo_encuentra_la_firma_sin_el_de(self, firmas, cliente):
+        assert self._slugs(cliente, "guantes de nitrilo") == ["guantes-nitrilo-talla"]
+
+    @pytest.mark.parametrize("q", ["arriendo de vehículos", "ARRIENDO DE VEHICULOS"])
+    def test_arriendo_de_vehiculos_con_y_sin_tilde(self, firmas, cliente, q):
+        assert self._slugs(cliente, q) == ["arriendo-conductor-vehiculos"]
+
+    def test_los_digitos_del_termino_no_cuentan(self, firmas, cliente):
+        assert self._slugs(cliente, "guantes nitrilo 100") == ["guantes-nitrilo-talla"]
+
+    @pytest.mark.parametrize("q", ["de la", "pc"])
+    def test_sin_palabras_utiles_es_una_lista_vacia_y_no_un_error(self, firmas, cliente, q):
+        """Antes, «de la» encontraba «desechables … talla» y «pc» encontraba
+        «concepcion»: letras sueltas dentro de otra palabra."""
+        assert self._slugs(cliente, q) == []

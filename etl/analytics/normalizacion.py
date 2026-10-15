@@ -31,75 +31,18 @@ Dos lecturas que conviene tener claras antes de tocar esto:
   productos nuevos casi al mismo ritmo al que profundiza los que ya estaban. Es
   decir: con más corpus se cubren más productos, no se conocen mucho mejor los
   que ya se cubrían. **No supongas que la cola larga se cierra sola.**
+
+**La regla de qué palabras cuentan** —`RUIDO`, el mínimo de letras, el tope de
+tokens y los caracteres válidos— **vive en `backend/app/utils/firma.py`** y se
+importa por `etl/shared_imports.py`: la búsqueda de productos de la API la usa
+con el término, y una copia aquí se desincronizaría sin que nada fallara.
 """
 
 from __future__ import annotations
 
 import polars as pl
 
-#: Palabras que aparecen en casi cualquier especificación y no distinguen producto.
-#: Sin quitarlas, «según detalle adjunto» hace que dos productos sin nada que ver
-#: compartan la mitad de sus tokens.
-RUIDO: frozenset[str] = frozenset(
-    {
-        "de",
-        "del",
-        "la",
-        "el",
-        "los",
-        "las",
-        "un",
-        "una",
-        "unos",
-        "unas",
-        "y",
-        "o",
-        "a",
-        "en",
-        "con",
-        "para",
-        "por",
-        "al",
-        "se",
-        "su",
-        "sus",
-        "segun",
-        "según",
-        "detalle",
-        "detalles",
-        "adjunto",
-        "adjunta",
-        "adjuntos",
-        "solicitud",
-        "solicita",
-        "solicitado",
-        "compra",
-        "item",
-        "items",
-        "nro",
-        "numero",
-        "número",
-        "cotizacion",
-        "cotización",
-        "oc",
-        "favor",
-        "enviar",
-        "indicar",
-        "ficha",
-        "tecnica",
-        "técnica",
-        "ref",
-        "referencia",
-        "codigo",
-        "código",
-        "cod",
-        "sku",
-        "acuerdo",
-        "conforme",
-        "correspondiente",
-        "respectivo",
-    }
-)
+from etl.shared_imports import FUERA_DE_TOKEN, MAX_TOKENS, MIN_TOKEN, RUIDO
 
 #: Unidades que no dicen nada. Se colapsan todas a un único valor para que no
 #: se fragmenten los grupos: hoy conviven «NA», «Unidad no definida» y vacío,
@@ -111,15 +54,6 @@ _UNIDADES_SIN_VALOR: frozenset[str] = frozenset(
 #: Valor canónico para la unidad ausente. Explícito y no vacío: una cadena vacía
 #: en una clave de agrupación es indistinguible de un fallo de lectura.
 UNIDAD_SIN_DECLARAR = "sin unidad declarada"
-
-#: Longitud mínima de un token para que cuente. Por debajo son casi siempre
-#: letras sueltas de códigos internos.
-_MIN_TOKEN = 3
-
-#: Tope de tokens de la firma. Sin tope, una especificación de sesenta palabras
-#: («…según bases administrativas del proceso 1234-56-LP25…») no coincide nunca
-#: con nada, ni siquiera consigo misma escrita otro día.
-_MAX_TOKENS = 8
 
 
 def canonizar_unidad(columna: str = "UnidadMedida") -> pl.Expr:
@@ -148,7 +82,7 @@ def canonizar_unidad(columna: str = "UnidadMedida") -> pl.Expr:
 def firma_producto(columna: str = "EspecificacionComprador") -> pl.Expr:
     """Forma canónica de la especificación del ítem.
 
-    Minúsculas, sin tildes ni puntuación, sin palabras de relleno, sin tokens
+    Minúsculas, sin puntuación (las tildes se conservan: las quita el slug), sin palabras de relleno, sin tokens
     cortos, **sin números** y con los tokens **únicos y ordenados**.
 
     Dos decisiones que no son obvias:
@@ -174,20 +108,20 @@ def firma_producto(columna: str = "EspecificacionComprador") -> pl.Expr:
         pl.col(columna)
         .fill_null("")
         .str.to_lowercase()
-        .str.replace_all(r"[^a-z0-9áéíóúñü ]", " ")
+        .str.replace_all(FUERA_DE_TOKEN, " ")
         .str.replace_all(r"\s+", " ")
         .str.strip_chars()
         .str.split(" ")
         .list.eval(
             pl.element().filter(
                 ~pl.element().is_in(list(RUIDO))
-                & (pl.element().str.len_chars() >= _MIN_TOKEN)
+                & (pl.element().str.len_chars() >= MIN_TOKEN)
                 & ~pl.element().str.contains(r"\d")
             )
         )
         .list.unique()
         .list.sort()
-        .list.head(_MAX_TOKENS)
+        .list.head(MAX_TOKENS)
     )
     return tokens.list.join(" ").alias("firma_producto")
 

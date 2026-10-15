@@ -45,13 +45,16 @@ export function BuscadorProductos() {
 
       <div className="mt-4" aria-live="polite">
         {!buscable ? (
-          <p className="text-sm text-subtle">Escribe al menos dos letras.</p>
+          <p className="text-sm text-subtle">Escribe al menos tres letras.</p>
         ) : consulta.isError ? (
           <p className="text-sm text-subtle">No pudimos buscar ahora. Prueba de nuevo en un momento.</p>
         ) : consulta.isPending ? (
           <p className="text-sm text-subtle">Buscando…</p>
         ) : resultados.length === 0 ? (
-          <p className="text-sm text-subtle">Ningún producto coincide con «{retardado.trim()}».</p>
+          <div className="space-y-1 text-sm text-subtle">
+            <p>Ningún producto coincide con «{retardado.trim()}».</p>
+            <p>Las palabras de menos de tres letras y los números no cuentan en la búsqueda.</p>
+          </div>
         ) : (
           <ul aria-label="Productos encontrados" className="divide-y divide-border rounded-xl border border-border bg-surface">
             {resultados.map((p) => (

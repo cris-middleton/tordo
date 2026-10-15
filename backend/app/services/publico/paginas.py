@@ -19,7 +19,7 @@ from app.services.bi._base import _load, _primero
 from app.services.bi.comprador import get_comprador
 from app.services.bi.rubro import get_panorama
 from app.services.publico import indexables
-from app.utils.slug import slug as hacer_slug
+from app.utils.firma import terminos_de_busqueda
 
 #: Cuántos enlaces a otras páginas lleva cada una. Más de diez no se leen y sí
 #: pesan en la respuesta (y en el HTML que se cachea una semana).
@@ -257,13 +257,25 @@ def producto(slug: str) -> dict | None:
 
 
 def buscar_productos(q: str, limite: int) -> list[dict]:
-    """Productos cuya firma contiene todas las palabras de `q`.
+    """Productos cuya firma contiene todas las palabras de `q` que una firma puede tener.
+
+    El término pasa por **la misma regla que construye la firma**
+    (`app/utils/firma.py`, `terminos_de_busqueda`): fuera los artículos y el
+    ruido («de», «la», «según detalle adjunto»), las palabras de menos de tres
+    letras y las que llevan dígitos. Antes se exigía cada palabra tal cual, y
+    «guantes de nitrilo» no encontraba `guantes nitrilo talla` porque la firma ya
+    había quitado el «de».
 
     Se compara slug contra slug, así que la búsqueda **ignora tildes y
     mayúsculas** en los dos sentidos, y el orden de las palabras no importa (la
-    firma las guarda ordenadas). Primero los indexables, luego por compras.
+    firma las guarda ordenadas). Cada palabra se busca como subcadena: «guante»
+    encuentra «guantes», no al revés. Primero los indexables, luego por compras.
+
+    **Sin ninguna palabra que una firma pueda tener** («de la», «pc») devuelve
+    `[]` sin mirar el índice. Antes «de la» traía cualquier firma con esas
+    letras dentro de otra palabra: 3.691 productos en la copia local.
     """
-    palabras = [p for p in hacer_slug(q).split("-") if p]
+    palabras = terminos_de_busqueda(q)
     if not palabras:
         return []
     productos = indexables.indice().productos

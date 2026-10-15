@@ -30,7 +30,16 @@ from app.models.convocatoria import TipoConvocatoria
 from app.models.licitacion import Licitacion
 from app.models.licitacion_detalle import LicitacionDetalle
 
+# La regla de la firma de producto se importa, no se copia: el ETL agrupa por
+# ella y la búsqueda de productos de la API busca con ella, así que dos copias
+# harían que una búsqueda dejara de encontrar firmas sin que nada fallara.
+from app.utils.firma import FUERA_DE_TOKEN, MAX_TOKENS, MIN_TOKEN, RUIDO
+
 __all__ = [
+    "FUERA_DE_TOKEN",
+    "MAX_TOKENS",
+    "MIN_TOKEN",
+    "RUIDO",
     "ZONA_CHILE",
     "TipoConvocatoria",
     "Licitacion",

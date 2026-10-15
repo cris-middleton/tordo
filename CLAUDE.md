@@ -891,6 +891,13 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
     porque el orden de las palabras no cambia el producto; lo segundo porque en los datos
     reales los alfanuméricos son códigos de orden y de guía, y cada uno parte el producto
     en un grupo de una observación. Se pierde el gramaje: es el precio a pagar, medido.
+  - **La regla de la firma vive en `backend/app/utils/firma.py`** (Python puro) y el ETL la
+    importa por `etl/shared_imports.py` — **no se copia**. La usa también la búsqueda de
+    productos (`/publico/productos?q=`, `terminos_de_busqueda`): el término pasa por la misma
+    regla, así que «guantes de nitrilo» encuentra `guantes nitrilo talla`. Un término sin
+    ninguna palabra útil («de la», «pc») da `[]`. `etl/tests/test_normalizacion_precio.py`
+    fija la firma byte a byte y que la regla de Python y la de Polars coinciden.
+    **Cambiar `RUIDO` cambia firmas, slugs de páginas públicas y búsquedas a la vez.**
   - **La dispersión se mide con QCD, no con CV.** Sobre precios con cola larga la
     desviación estándar mide el outlier que sobrevivió a Tukey, no el mercado.
   - **`predictibilidad` (alta|media|baja) es producto, no diagnóstico interno.** Una banda

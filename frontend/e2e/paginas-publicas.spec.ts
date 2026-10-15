@@ -62,7 +62,7 @@ test('el buscador de productos se carga sin sesión', async ({ page }) => {
   const respuesta = await page.goto('/productos');
   expect(respuesta?.status()).toBe(200);
   await expect(page.getByLabel(/buscar un producto/i)).toBeVisible();
-  await expect(page.getByText(/al menos dos letras/i)).toBeVisible();
+  await expect(page.getByText(/al menos tres letras/i)).toBeVisible();
 });
 
 test('lo que no existe es un 404, no una página vacía', async ({ page }) => {

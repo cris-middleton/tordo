@@ -176,6 +176,10 @@ buscador; el criterio está escrito, con sus cifras, en
 Una página no indexable **responde igual, con 200**: existe, pero el sitio la marca
 `noindex`. Sólo lo que no existe es 404. La búsqueda de productos ignora tildes,
 mayúsculas y el orden de las palabras, y devuelve primero los indexables.
+Aplica al término la misma regla que construye la firma: no cuentan los artículos ni el
+relleno («de», «la», «según detalle adjunto»), las palabras de menos de tres
+letras ni las que llevan dígitos. Un término hecho sólo de esas palabras («de la»)
+responde `[]`.
 
 Como el resto: **ningún dato de proveedor** que identifique a nadie. Los líderes de
 un rubro salen por nombre (las personas naturales, con su seudónimo `PN-`), sin

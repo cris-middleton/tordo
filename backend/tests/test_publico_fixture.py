@@ -142,3 +142,11 @@ def test_producto_no_indexable_y_colision(cliente):
         "jabon-liquido-prueba",
         "resma-papel-prueba",
     ]
+
+
+def test_la_busqueda_quita_las_palabras_que_la_firma_quita(cliente):
+    """«guante de nitrilo» exigía un «de» que la firma `guante nitrilo prueba`
+    no tiene (spec del rediseño §8.5). Sobre las tablas materializadas de verdad."""
+    encontrados = _get(cliente, "/productos", q="guante de nitrilo")
+    assert [p["slug"] for p in encontrados] == ["guante-nitrilo-prueba"]
+    assert _get(cliente, "/productos", q="de la") == []

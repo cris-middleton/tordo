@@ -126,10 +126,13 @@ export function useCompraAgilDestacadas(params: ParamsDestacadas) {
 
 /**
  * La búsqueda de `/productos`. Quien llama pasa el texto ya retardado
- * (`useValorRetardado`); con menos de dos letras no se pide. Los productos
- * cambian con el cron semanal: una hora de frescura sobra.
+ * (`useValorRetardado`); con menos de tres letras no se pide: la búsqueda del
+ * backend descarta las palabras más cortas (la firma del producto no las
+ * guarda), así que «pc» o «tv» nunca encontrarían nada. El backend sigue
+ * aceptando dos y responde `[]`. Los productos cambian con el cron semanal:
+ * una hora de frescura sobra.
  */
-export const MINIMO_BUSQUEDA_PRODUCTOS = 2;
+export const MINIMO_BUSQUEDA_PRODUCTOS = 3;
 
 /**
  * Los datos para transferir de `/apoyar`, sólo cuando se piden con el clic
