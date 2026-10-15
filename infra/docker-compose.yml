@@ -1,7 +1,7 @@
 # Nombre explícito del proyecto de Compose.
-# Sin esto Compose lo deriva del directorio ("infra") y COLISIONA con el repo
-# ~/github/infra de otra empresa: contenedores huérfanos, redes compartidas y `down`
-# apagando servicios del otro proyecto.
+# Sin esto Compose lo deriva del directorio ("infra") y COLISIONA con
+# otro repositorio de infraestructura en la misma máquina: contenedores huérfanos, redes
+# compartidas y `down` apagando servicios del otro proyecto.
 name: tordo
 
 services:

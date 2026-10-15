@@ -72,12 +72,11 @@ export const CON_PUESTO = true;
 
 /**
  * ¿Se dice el conteo de cotizaciones, en la tarjeta y en el RSS? **No**: la
- * compuerta G1 del plan 0a (rediseño §8.1) no está resuelta —el conteo puede
- * quedar congelado en 0 tras la primera ingesta— y un «Nadie ha cotizado aún»
- * falso hace que alguien descarte una compra con competencia o cotice creyendo
- * que no la hay. Para encenderlo: ponerlo en `true` cuando G1 confirme que el conteo
- * se mantiene (o el refresco acotado de la rama B esté en producción); la
- * tarjeta y el RSS lo siguen solos. `DESCRIPCION_DESTACADAS` sólo debe volver a
+ * compuerta G1 del plan 0a (rediseño §8.1) se cerró el 2026-10-15 y el conteo
+ * NO se refresca: queda congelado en su primera lectura, y un «Nadie ha cotizado
+ * aún» falso hace que alguien descarte una compra con competencia o cotice
+ * creyendo que no la hay. Para encenderlo: ponerlo en `true` sólo cuando exista
+ * un refresco de las abiertas en el ETL; la tarjeta y el RSS lo siguen solos. `DESCRIPCION_DESTACADAS` sólo debe volver a
  * prometer «pocas cotizaciones» si la competencia también vuelve al puntaje.
  */
 export const MOSTRAR_COTIZACIONES = false;

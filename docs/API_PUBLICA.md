@@ -168,25 +168,26 @@ comprador distingue dos casos que no son lo mismo:**
   producto —a igual esfuerzo de cotizar, más monto vale más—, no una verdad
   medida, y se revisa. La referencia 708.050 es la mediana del monto total por orden
   de Compra Ágil (OC 2025-10 a 2026-03, 365.299 órdenes).
-- **`competencia` se informa, no pesa** (compuerta G1, abierta; ver abajo). El
+- **`competencia` se informa, no pesa** (compuerta G1, cerrada; ver abajo). El
   único dato de competencia de una Compra Ágil abierta es
   `ofertas_recibidas` (cotizaciones recibidas), y `ofertas_al` dice **cuándo se
   escribió por última vez la fila** (hora de Chile): es la mejor cota de cuándo
   se vio ese conteo, no una lectura garantizada, y uno viejo puede haber subido.
   Léelo con esa hora.
 
-**Compuerta G1, sin resolver: ¿el conteo de cotizaciones se refresca tras la
-primera ingesta?** Casi todas las abiertas dicen cero y no se sabe si es que
-nadie ha cotizado o si el conteo quedó congelado en la primera lectura; resolverlo
-exige leer la base de producción, en sólo lectura. Mientras tanto la competencia
-**no entra en el puntaje** (`EN_EL_PUNTAJE` en `repositories/compra_agil.py`) y el
-sitio **no muestra el conteo** (`MOSTRAR_COTIZACIONES = false` en
-`frontend/lib/compraAgil.ts`). Si el conteo se mantiene, se pone esa constante en
-`true` y la tarjeta y el RSS lo siguen solos; si no, hay que construir un refresco
-del conteo en el ETL (hoy no existe; tendría que caber en la cuota de la API de Compra Ágil)
-antes de mostrarlo.
+**Compuerta G1, cerrada (2026-10-15): el conteo de cotizaciones NO se refresca
+tras la primera ingesta.** Medido en producción, en sólo lectura: de 1.785
+Compras Ágiles abiertas, ninguna subió su conteo en ~3 h que cruzaron la corrida
+de las 13:00, porque el cron frecuente sólo lista lo publicado en su ventana; el
+82,9 % de las abiertas dice cero y las cerradas tienen mediana 5. Por eso la
+competencia **no entra en el puntaje** (`EN_EL_PUNTAJE` en
+`repositories/compra_agil.py`) y el sitio **no muestra el conteo**
+(`MOSTRAR_COTIZACIONES = false` en `frontend/lib/compraAgil.ts`). Mostrarlo exige
+antes un refresco del conteo de las abiertas en el ETL (hoy no existe; tendría que
+caber en la cuota de la API de Compra Ágil); con él, se pone esa constante en
+`true` y la tarjeta y el RSS lo siguen solos.
 **Volver a pesar la competencia en el puntaje es una decisión de producto
-aparte**, no un efecto de resolver G1: se añade a `EN_EL_PUNTAJE`, se pasa el
+aparte**, no un efecto de haber cerrado G1: se añade a `EN_EL_PUNTAJE`, se pasa el
 criterio de orden de `backend/tests/test_orden_destacadas_instantanea.py` y se
 cambian la descripción y la guía «Lo mejor de hoy».
 

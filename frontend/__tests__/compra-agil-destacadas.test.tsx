@@ -117,7 +117,7 @@ describe('la página', () => {
   it('dice cada factor con su dato, sin puntaje ni cocientes', async () => {
     await montar();
     const item = screen.getByRole('article');
-    // El conteo de cotizaciones está apagado (G1 sin resolver): no se dice.
+    // El conteo de cotizaciones está apagado (G1 cerrada: no se refresca): no se dice.
     expect(within(item).queryByText('1 cotización hasta ahora')).not.toBeInTheDocument();
     expect(within(item).getByText('Esta unidad: 120 órdenes de Compra Ágil en 6 meses')).toBeInTheDocument();
     expect(within(item).getByText('Cierra en 20 h')).toBeInTheDocument();

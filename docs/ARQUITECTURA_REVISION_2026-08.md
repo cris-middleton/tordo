@@ -4,8 +4,8 @@
 
 > **Fecha**: 2026-08-05 · **Commit revisado**: `2348535` (main) · **Autor**: revisión técnica senior
 > **Alcance de referencia considerado**: LicitaLab (CL/PE/CO), LicitApp, Falconsoft SGL/POM.
-> **Convenciones de ingeniería contrastadas contra**: workspace `~/github` (api-ref,
-> servicio-usuarios-ref, payment-gateway, auction-engine, frontend-ref).
+> **Convenciones de ingeniería contrastadas contra**: un conjunto de servicios de referencia
+> en producción (dos APIs, una pasarela de pago, un motor de subastas y un frontend).
 
 ---
 
@@ -412,7 +412,7 @@ XSS, (c) la URL del backend es pública.
 **Corregir:**
 1. Refresh token con rotación (y revocación en logout).
 2. Sacar el token de `localStorage` → cookie `httpOnly` emitida por un **route handler de
-   Next.js que actúa de proxy** (es la convención de `frontend-ref`: *nunca* llamar al backend
+   Next.js que actúa de proxy** (es la convención del frontend de referencia: *nunca* llamar al backend
    desde un componente cliente).
 3. Añadir `auth_provider` y `external_sub` a `users` ahora.
 
@@ -448,7 +448,7 @@ Transbank es un archivo, no una cirugía.
 ## 7. Estructura objetivo del backend
 
 Adoptar el layout de `~/github` (api → services → repositories → domain, con `infra/` para
-adaptadores externos), que es lo que ya usan api-ref y servicio-usuarios-ref. La ganancia no es pureza
+adaptadores externos), que es lo que ya usan la API de referencia y el servicio de usuarios de referencia. La ganancia no es pureza
 teórica: es que el equipo (y los agentes) ya conocen esa forma.
 
 ```
@@ -480,7 +480,7 @@ backend/app/
 └── observability/               ← tracing, request_id, métricas
 ```
 
-Decisión pendiente que conviene tomar explícitamente: **el envelope de respuesta**. api-ref usa
+Decisión pendiente que conviene tomar explícitamente: **el envelope de respuesta**. La API de referencia usa
 `{success, data, message?}`; TORDO devuelve el objeto plano. Cualquiera de las dos está bien —
 lo que no está bien es no haber decidido. Si el objetivo es coherencia con el resto del workspace,
 adoptar el envelope; si el objetivo es que el frontend sea simple y estándar, quedarse plano y
@@ -496,7 +496,7 @@ sin design system, y páginas de 900+ líneas.
 
 | Problema | Evidencia | Corrección |
 |---|---|---|
-| Fetching con `useState`/`useEffect` | 37 archivos | **TanStack Query** — caché, revalidación, sin waterfalls. Es lo que usa `frontend-ref`. |
+| Fetching con `useState`/`useEffect` | 37 archivos | **TanStack Query** — caché, revalidación, sin waterfalls. Es lo que usa el frontend de referencia. |
 | Llamadas directas al backend | `lib/api.ts:3` (`NEXT_PUBLIC_API_URL`) | **Capa proxy** con route handlers de Next. La URL del backend queda server-side y el token en cookie `httpOnly`. |
 | Token en `localStorage` | `lib/api.ts:17,46` | Ídem — desaparece con el proxy. |
 | Componentes gigantes | `tenders/[codigo]/page.tsx` (915), `HerramientasAvanzadas.tsx` (932), `bi/page.tsx` (620) | Descomponer por feature-folder (`feature/{components,hooks,api,types}`). |
@@ -555,7 +555,7 @@ Otros:
 
 ## 11. Reglas de trabajo a importar desde `~/github`
 
-Las convenciones del workspace de otra empresa están maduras y probadas en 4 servicios en producción.
+Las convenciones de esos servicios de referencia están maduras y probadas en producción.
 **Sí, conviene adoptarlas** — la lista siguiente es la que aplica a un repo de un solo producto
 (se descarta lo que sólo tiene sentido en un ecosistema multi-repo: contratos cross-service,
 Pub/Sub manifest-first, gate de drift entre repos).
@@ -564,18 +564,18 @@ Pub/Sub manifest-first, gate de drift entre repos).
 |---|---|---|
 | `uv` + `python3` + `ruff` para lint/format | todos | Elimina los dos `requirements.txt` y da un lockfile |
 | `.pre-commit-config.yaml` con ruff + ruff-format + higiene de archivos; **instalar por clone y por worktree**; nunca `--no-verify` | todos | Es la regla que ya tienes en tu `~/.claude/CLAUDE.md` global |
-| **`make migrate-create MSG="…"`, nunca `alembic revision` directo** | servicio-usuarios-ref | Evita cadenas rotas de `down_revision` — que ya pasó acá (`011_fix_alerttype_enum_uppercase`) |
+| **`make migrate-create MSG="…"`, nunca `alembic revision` directo** | servicio de usuarios de referencia | Evita cadenas rotas de `down_revision` — que ya pasó acá (`011_fix_alerttype_enum_uppercase`) |
 | `Makefile` con `help` autodocumentado: `dev-up-d`, `dev-logs`, `migrate`, `test`, `db-shell` | todos | Un solo lugar donde mirar cómo se corre el proyecto |
-| **`docker-compose.test.yml` con BD efímera** + `make test` que la levanta, corre pytest y la destruye | servicio-usuarios-ref | Es lo que hace posible tener tests de integración de verdad |
+| **`docker-compose.test.yml` con BD efímera** + `make test` que la levanta, corre pytest y la destruye | servicio de usuarios de referencia | Es lo que hace posible tener tests de integración de verdad |
 | **Imports siempre a nivel de módulo**, nunca dentro de funciones | todos | TORDO lo viola sistemáticamente — pero por una razón real (memoria). Tras F2 la razón desaparece y la regla se puede exigir. |
 | **Todos los schemas Pydantic en `/app/schemas/`** | todos | Ya se cumple en su mayoría; formalizarlo |
-| **Comentarios de BD obligatorios en tablas y columnas nuevas**, con chequeo estático en pre-commit y CI | servicio-usuarios-ref | Para un producto de datos con 78 columnas por OC, esto vale oro. Es la regla más valiosa de las que se pueden importar. |
+| **Comentarios de BD obligatorios en tablas y columnas nuevas**, con chequeo estático en pre-commit y CI | servicio de usuarios de referencia | Para un producto de datos con 78 columnas por OC, esto vale oro. Es la regla más valiosa de las que se pueden importar. |
 | **Worktrees para toda feature**, raíz `~/personal/tordo-worktrees/<feature>` | workspace | Ya existe `tordo-worktrees/` en tu máquina |
 | **Flujo de promoción: localhost → PR a `staging` → verde → merge → probar staging → PR a `main`.** Nunca PR directo a `main` | workspace | Hoy TORDO mergea PRs directo a `main` |
 | **Ceremonia proporcional al tamaño**: cambios chicos sin plan, sólo a ≥95 % de confianza; proyectos medianos/grandes con `grill-me` | workspace | Evita que el proceso ahogue el desarrollo ágil |
-| **Nunca llamar al backend desde un componente cliente** — siempre por la capa proxy | frontend-ref | §8 |
+| **Nunca llamar al backend desde un componente cliente** — siempre por la capa proxy | frontend de referencia | §8 |
 | **Secretos en un gestor, nunca en el repo**, inyectados en runtime | todos | §2.1 |
-| CI: jobs separados de `lint`, `migrations check`, `test`, `build` | servicio-usuarios-ref `.github/workflows/ci.yml` | Copiable casi tal cual |
+| CI: jobs separados de `lint`, `migrations check`, `test`, `build` | servicio de usuarios de referencia (`.github/workflows/ci.yml`) | Copiable casi tal cual |
 
 Propuesta concreta de `CLAUDE.md` reconstruido: **`docs/CLAUDE.md.propuesto`** (en este mismo
 commit). Conserva el mapa de arquitectura del actual —que es preciso y útil— y le agrega la sección

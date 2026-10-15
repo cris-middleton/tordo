@@ -197,7 +197,7 @@ describe('/rss/compra-agil', () => {
 
     const xml = await res.text();
     expect(res.headers.get('cache-control')).toBe(CACHE_RSS);
-    // El conteo de cotizaciones no se mantiene (G1 sin resolver): ni en el
+    // El conteo de cotizaciones no se mantiene (G1 cerrada: no se refresca): ni en el
     // canal ni en cada ítem, aunque el backend lo mande.
     expect(xml).not.toMatch(/cotiz/i);
     expect(xml).toContain(escaparXml(TITULO_DESTACADAS));

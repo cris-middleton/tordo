@@ -21,9 +21,9 @@ scorer de oportunidad).
 - `competencia = 1 / (1 + cotizaciones recibidas)` — el único dato de
   competencia de una Compra Ágil abierta
   (`informacion_adicional.total_ofertas_recibidas`). Sin dato, 0,5 (= una).
-  **No entra en el puntaje** (compuerta G1 del plan 0a, sin resolver): no se
-  sabe si el conteo se refresca tras la primera ingesta y casi todas las
-  abiertas dicen cero; se informa, no se pesa. Ver `EN_EL_PUNTAJE`.
+  **No entra en el puntaje** (compuerta G1 del plan 0a, cerrada): el conteo no
+  se refresca tras la primera ingesta y casi todas las abiertas dicen cero; se
+  informa, no se pesa. Ver `EN_EL_PUNTAJE`.
 - `comprador = percentil_ordenes` de la UNIDAD de compra en
   `analytics.compra_agil_unidad`: qué parte de las unidades con Compra Ágil
   emitió menos órdenes en la ventana de 6 meses. **Mide cuánto compra por
@@ -107,16 +107,14 @@ NEUTRO_POR_FACTOR = {"competencia": 0.5, "comprador": 0.5, "tiempo": 0.5, "monto
 COMPRADOR_SIN_ORDENES = 0.0
 #: Los factores que viajan en la respuesta, y los que se multiplican.
 FACTORES = ("competencia", "comprador", "tiempo", "monto")
-#: Compuerta G1 del plan 0a (2026-10-14): ¿la API refresca el conteo de
-#: cotizaciones después de la primera ingesta? SIN RESOLVER: no hay acceso de
-#: sólo lectura a la base de producción. Mientras no se sepa, el conteo puede
-#: estar congelado en 0, y un factor así no ordena y miente a quien lo lee. Por
-#: eso la competencia se INFORMA (sigue en `FACTORES`, viaja en la respuesta)
-#: pero NO pesa (rediseño §8.1.1), y el frontend no muestra el conteo
-#: (`MOSTRAR_COTIZACIONES`, tarea 6.9 del plan: pendiente de ese lado). Si G1
-#: sale «sí se refresca», vuelve a mostrarse; si sale «no», la rama 5B
-#: (refresco acotado en el cron) lo arregla. Volver a pesarla sería una
-#: decisión nueva, no un efecto de resolver G1.
+#: Compuerta G1 del plan 0a, cerrada el 2026-10-15 (medida en producción, sólo
+#: lectura): el conteo de cotizaciones NO se refresca después de la primera
+#: ingesta. Queda congelado, casi siempre en 0, y un factor así no ordena y
+#: miente a quien lo lee. Por eso la competencia se INFORMA (sigue en
+#: `FACTORES`, viaja en la respuesta) pero NO pesa (rediseño §8.1.1), y el
+#: frontend no muestra el conteo (`MOSTRAR_COTIZACIONES`). Mostrarlo exige antes
+#: un refresco de las abiertas en el ETL (rama 5B; no existe y gasta cuota).
+#: Volver a pesarla sería una decisión nueva.
 EN_EL_PUNTAJE = tuple(f for f in FACTORES if f != "competencia")
 #: Referencia de ESCALA, no un umbral: la mediana del monto TOTAL por orden de
 #: Compra Ágil (OC 2025-10..2026-03, 365.299 órdenes), aplicada al monto

@@ -101,8 +101,8 @@ Dos cosas que sí conviene saber:
   ```
 
 > **No hay rama `staging` ni entorno de staging, y es deliberado.** Este es un proyecto
-> personal de un solo desarrollador desplegando en Railway; el flujo de dos ramas de los
-> repos de otra empresa existe porque allá cada rama auto-despliega a un entorno GCP distinto.
+> personal de un solo desarrollador desplegando en Railway; el flujo de dos ramas tiene
+> sentido donde cada rama auto-despliega a su propio entorno.
 > Aquí sería ceremonia sin beneficio — y "ceremonia proporcional al tamaño" es justamente
 > la regla. **Cuando haya el primer usuario pagando**, crear entorno + rama de staging y
 > volver al flujo de dos etapas.
@@ -228,31 +228,18 @@ compartida de pruebas y traía datos limitados, pareciendo que funcionaba. Ahora
 `${VAR:?mensaje}` y el extractor falla al construirse, no en la primera petición — donde el
 error de la API es indistinguible de una caída del servicio.
 
-### Skills del plugin `toolkit-de-usuario`
+### Skills de plugins de usuario
 
-El plugin está instalado a nivel de usuario, así que sus skills aparecen también aquí.
-**TORDO es un proyecto personal y no comparte nada con otra empresa**: ni infraestructura, ni tenant,
-ni Notion, ni Sentry, ni GCP.
+Los plugins instalados a nivel de usuario también ponen sus skills aquí, y algunos apuntan a
+sistemas de terceros (tenants de autenticación, Notion, Sentry, proyectos de nube) que
+modificarían infraestructura ajena. **TORDO es un proyecto personal y no comparte nada con
+ningún otro sistema.** Aquí sólo se usan las skills genéricas —estresar un plan con `grill-me`
+(obligatorio en proyectos medianos o grandes), `handoff`, el pipeline `feature` y `demo-video`—
+y **ninguna que toque infraestructura externa**. La lista concreta, por máquina, vive en
+`CLAUDE.local.md` (gitignoreado; Claude Code lo lee solo).
 
-**Se pueden usar** (son genéricos, no tocan sistemas externos):
-
-| Skill | Para qué |
-|---|---|
-| `grill-me` | Estresar un plan antes de construirlo. Obligatorio en proyectos medianos o grandes. |
-| `handoff` | Comprimir la sesión para que otra continúe. Útil: estas sesiones se alargan. |
-| `feature` | Pipeline completo staff-engineer → dev → review por chunk → review de integración. Para cambios de varias piezas. |
-| `demo-video` | Grabar una demo con Playwright y editarla con Remotion. Para enseñar el sitio. |
-| agentes `staff-engineer`, `dev`, `chunk-reviewer`, `integration-reviewer`, `git-commit-generator` | Genéricos. |
-
-**NO usar aquí — apuntan a sistemas de otra empresa y modificarían infraestructura ajena:**
-
-`auth0` (tenant de otra empresa) · `customerio` · `grafana` (dashboard de otra empresa) ·
-`sentry-alerts` (organización `org-ajena`) · `pubsub`, `scheduler`, `tasks` (GCP de otra empresa,
-manifest-first sobre el repo `infra`) · `drd`, `crear-proyecto` (Notion de otra empresa) ·
-`setup` (instala el toolkit de otra empresa).
-
-TORDO usa su propio Sentry (`SENTRY_DSN`), dos cron de Railway (`etl/cron.py`) en vez de
-Cloud Scheduler, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
+TORDO usa su propio Sentry (`SENTRY_DSN`), dos cron de Railway (`etl/cron.py`) en vez de un
+programador en la nube, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
 
 ### Frontend
 - **No hay sesión en el navegador, y es deliberado (pivote público).** Todo el tráfico va
@@ -655,21 +642,24 @@ escala**. Es una heurística sin verdad contra la que evaluarla: ordena, no pred
   monto, 2/49 con él. Es una decisión de producto que se revisa, no una verdad medida.
 - **La competencia `1/(1+cotizaciones)` viaja en `factores` pero NO está en el puntaje**
   (`EN_EL_PUNTAJE`), y el sitio **no muestra el conteo** (`MOSTRAR_COTIZACIONES = false` en
-  `lib/compraAgil.ts`). **Compuerta G1 del plan 0a, ABIERTA**: no se sabe si el conteo se
-  refresca tras la primera ingesta (casi todas las abiertas dicen 0); resolverlo exige leer la
-  base de producción en sólo lectura (el dueño, con `PGOPTIONS='-c default_transaction_read_only=on'`).
+  `lib/compraAgil.ts`). **Compuerta G1 cerrada (2026-10-15, medida en producción en sólo
+  lectura): el conteo NO se refresca.** De 1.785 Compras Ágiles abiertas, ninguna subió su
+  conteo en ~3 h que cruzaron la corrida de las 13:00: el cron frecuente sólo lista lo publicado
+  en su ventana, así que una abierta conserva el conteo de su primera lectura (el 82,9 % de las
+  abiertas dice 0; las cerradas, mediana 5). Por eso `MOSTRAR_COTIZACIONES` sigue en `false`.
+  Mostrarlo exige antes un refresco de las abiertas en el ETL (no existe y gasta cuota).
   `ofertas_al` = cuándo se escribió por última vez la fila, la mejor cota de cuándo se vio el
-  conteo, no una lectura garantizada. Si G1 dice que se mantiene: `MOSTRAR_COTIZACIONES = true`
-  enciende la tarjeta y el RSS, pero **no basta**: la guía «Lo mejor de hoy» dice «por ahora
-  no mostramos ese número» (`frontend/content/explicativos/lo-mejor-de-hoy-en-compra-agil.mdx`,
-  y `docs/API_PUBLICA.md` lo repite) y varios tests afirman que no aparece «cotiz»
-  (`compra-agil-destacadas.test.tsx`, `rss.test.ts`, `acerca.test.tsx` en las preguntas
-  frecuentes y, mientras `MOSTRAR_COTIZACIONES` sea `false`, `portada-hoy.test.tsx`; el comentario
-  de `portada.test.tsx` lo remite a este último); hay que reescribir
-  ambos en el mismo cambio. Si no, hace falta un refresco del conteo en el ETL (no
-  existe). **Volver a pesar la competencia es otra decisión**: se añade a `EN_EL_PUNTAJE`,
-  se pasa el criterio de orden y se cambian `DESCRIPCION_DESTACADAS` y la guía. La descripción
-  del sitio no puede prometer «pocas cotizaciones» mientras no entre.
+  conteo, no una lectura garantizada. **Si ese refresco llega a existir**:
+  `MOSTRAR_COTIZACIONES = true` enciende la tarjeta y el RSS, pero **no basta**: la guía «Lo
+  mejor de hoy» dice «por ahora no mostramos ese número»
+  (`frontend/content/explicativos/lo-mejor-de-hoy-en-compra-agil.mdx`, y `docs/API_PUBLICA.md`
+  lo repite) y varios tests afirman que no aparece «cotiz» (`compra-agil-destacadas.test.tsx`,
+  `rss.test.ts`, `acerca.test.tsx` en las preguntas frecuentes y, mientras
+  `MOSTRAR_COTIZACIONES` sea `false`, `portada-hoy.test.tsx`; el comentario de `portada.test.tsx`
+  lo remite a este último); hay que reescribir todo en el mismo cambio. **Volver a pesar la
+  competencia es otra decisión**: se añade a `EN_EL_PUNTAJE`, se pasa el criterio de orden y se
+  cambian `DESCRIPCION_DESTACADAS` y la guía. La descripción del sitio no puede prometer «pocas
+  cotizaciones» mientras no entre.
 - **La pantalla dice a qué hora se actualizó** y avisa sólo si **se saltó una corrida
   programada** (`ultimaCorridaEsperada` en `lib/compraAgil.ts`, copia del horario de
   `etl/cron.py`): un umbral fijo de horas saltaba cada fin de semana, y un aviso que salta en

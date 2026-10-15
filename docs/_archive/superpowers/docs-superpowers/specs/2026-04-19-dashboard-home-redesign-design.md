@@ -120,7 +120,7 @@ Response (200):
 {
   "empresa": {
     "id": "uuid",
-    "nombre": "Constructora otra empresa",
+    "nombre": "Constructora Ejemplo",
     "rut": "76.543.210-K",
     "estado_habil": "habil" | "inhabil" | "no_inscrito",
     "estado_habil_updated_at": "2026-04-19T08:00:00-03:00"
@@ -190,7 +190,7 @@ Response (200):
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐
-│  [icono]  Actuando como Constructora otra empresa · 76.543.210-K · [Cambiar]      │
+│  [icono]  Actuando como Constructora Ejemplo · 76.543.210-K · [Cambiar]      │
 │                                                                            │
 │  Buenos días, Cristián.                                                    │
 │  Esta semana aparecieron 8 matches nuevos — 2 cierran en menos de 72h.     │

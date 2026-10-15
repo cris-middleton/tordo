@@ -178,9 +178,9 @@ async def test_ordena_por_puntaje_y_excluye_lo_que_no_se_puede_cotizar(mercado):
 
 @pytest.mark.asyncio
 async def test_la_competencia_no_entra_en_el_puntaje(mercado):
-    """Compuerta G1 (plan 0a): no se sabe si el conteo de cotizaciones se
-    refresca después de la primera ingesta (sin acceso a la base de producción),
-    y casi todas las abiertas tienen cero. Se informa, no se pesa (rediseño
+    """Compuerta G1 (plan 0a, cerrada): el conteo de cotizaciones no se
+    refresca después de la primera ingesta, y casi todas las abiertas tienen
+    cero. Se informa, no se pesa (rediseño
     §8.1.1)."""
     filas = {f["codigo_externo"]: f for f in await repo.destacadas(mercado, limite=50, ahora=AHORA)}
     competida = filas["CA-COMPETIDA"]

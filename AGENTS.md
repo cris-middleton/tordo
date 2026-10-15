@@ -50,10 +50,9 @@ Lee `docs/ARQUITECTURA_REVISION_2026-08.md`. Tiene la deuda conocida y el plan p
 No refuerces los patrones listados ahí como deuda: si necesitas apoyarte en uno, la señal es
 arreglar la causa.
 
-## Este repo NO comparte nada con otra empresa
+## Proyecto personal: ninguna skill que toque sistemas externos
 
-Es un proyecto personal. Si el plugin `toolkit-de-usuario` está disponible, **no invoques**
-`auth0`, `customerio`, `grafana`, `sentry-alerts`, `pubsub`, `scheduler`, `tasks`, `drd`,
-`crear-proyecto` ni `setup`: apuntan al tenant, la Notion, el Sentry y el GCP de otra empresa, y
-modificarían infraestructura ajena. Sí son utilizables `grill-me`, `handoff`, `feature` y
-`demo-video`, que son genéricos.
+Es un proyecto personal. **No invoques** las skills de plugins de usuario que apunten a
+tenants, Notion, Sentry o proyectos de nube de terceros: modificarían infraestructura ajena.
+Sí son utilizables las genéricas (`grill-me`, `handoff`, `feature`, `demo-video`). La lista
+concreta vive en `CLAUDE.local.md` (gitignoreado).

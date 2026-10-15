@@ -10,7 +10,7 @@
 La revisión de arquitectura dejó dos cosas sin decidir, y lo anotó así: *«cualquiera de
 las dos está bien — lo que no está bien es no haber decidido»*. Son:
 
-1. **El envelope de respuesta.** `api-ref` usa `{success, data, message?}`; TORDO devuelve
+1. **El envelope de respuesta.** Una API de referencia usaba `{success, data, message?}`; TORDO devuelve
    el objeto plano.
 2. **El versionado.** Todos los endpoints colgaban de `/api/...`, sin versión.
 
