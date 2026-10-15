@@ -28,8 +28,10 @@ PUBLICOS = ["README.md", "SECURITY.md", "CONTRIBUTING.md", "CODE_OF_CONDUCT.md"]
 HUECOS = [r"\[INSERTAR", r"\[INSERT", r"\bTODO\b", r"\bTBD\b", r"<usuario>"]
 
 #: Ningún correo personal ni laboral del autor en un archivo público: el contacto del
-#: proyecto es hola@tordo.cl (`frontend/lib/responsable.ts`).
-CORREOS_PROHIBIDOS = ["empleador.example", "gmail.com"]
+#: proyecto es hola@tordo.cl (`frontend/lib/responsable.ts`). Es una lista de dominios
+#: PERMITIDOS y no de prohibidos: una lista de prohibidos publicaría justo lo que esconde.
+DOMINIOS_DE_CORREO_PERMITIDOS = {"tordo.cl"}
+CORREO = re.compile(r"[A-Za-z0-9._%+-]+@([A-Za-z0-9.-]+\.[A-Za-z]{2,})")
 
 
 def _leer(nombre: str) -> str:
@@ -51,9 +53,16 @@ def test_cada_archivo_publico_existe_y_no_tiene_huecos(nombre: str):
 
 @pytest.mark.parametrize("nombre", PUBLICOS)
 def test_ningun_archivo_publico_lleva_un_correo_del_autor(nombre: str):
-    texto = _leer(nombre).lower()
-    for correo in CORREOS_PROHIBIDOS:
-        assert correo not in texto, f"{nombre} menciona «{correo}»"
+    dominios = {d.lower() for d in CORREO.findall(_leer(nombre))}
+    ajenos = dominios - DOMINIOS_DE_CORREO_PERMITIDOS
+    assert not ajenos, f"{nombre} tiene correos de {sorted(ajenos)}"
+
+
+def test_el_detector_de_correos_ve_un_dominio_ajeno():
+    assert CORREO.findall("escribe a alguien@ejemplo.com o a hola@tordo.cl") == [
+        "ejemplo.com",
+        "tordo.cl",
+    ]
 
 
 def test_el_readme_nombra_las_tres_licencias_y_la_historia_saas():
