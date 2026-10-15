@@ -78,7 +78,7 @@ importa.
 ### 3.1 Estructura (≥ 1024 px)
 
 ```
-┌ cabecera (cáscara única): pájaro + TORDO · navegación · «Datos abiertos, código abierto» ┐
+┌ cabecera (cáscara única): pájaro + TORDO · secciones · «API y MCP» · «Código» · Apoyar  ┐
 ├──────────────────────────────────────┬──────────────────────────────────────────────────┤
 │ ¿Qué le vendes al Estado?   (h1)     │ ┌ panel (dark bg-brand-navy, radio 14 px) ─────┐ │
 │ Escribe lo que vendes. Te mostramos… │ │ Lectura 1: gasto por sector                  │ │
@@ -110,9 +110,10 @@ importa.
     horario, la frase cambia con él.
   - *Se usa*: «Aquí, por API, por MCP o en CSV. Sin registro». «API» enlaza a `/abierto`, «MCP» a
     `/abierto#mcp` y «CSV» a `/abierto#datos` (las anclas ya existen).
-- **La línea del lema (`lemaPortada`) sale de la portada**: lo que decía queda en la ficha y en la
-  píldora de la cabecera. La píldora dice «Datos abiertos, código abierto» con `REPOSITORIO_URL`
-  y sólo «Datos abiertos» sin ella, como el lema de hoy.
+- **La línea del lema (`lemaPortada`) sale de la portada**: lo que decía queda en la ficha y en los
+  enlaces «API y MCP» y «Código» que la cabecera ya tiene (este último sólo con `REPOSITORIO_URL`).
+  **La cabecera no gana la píldora «Datos abiertos, código abierto» de las maquetas**: repetiría
+  esos dos enlaces a pocos píxeles, y la fila de escritorio ya mide ~720 px a 1024.
 
 ### 3.2 Una lectura
 
