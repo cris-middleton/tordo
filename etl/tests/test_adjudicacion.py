@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from etl.shared_imports import ZONA_CHILE
 from etl.utils.adjudicacion import extraer_datos_adjudicacion
 
 # ── Sin adjudicación conocida ────────────────────────────────────────────────
@@ -52,20 +53,20 @@ def test_fecha_adjudicacion_plana_al_nivel_raiz():
     evidencia de que el JSON real aplana lo que el PDF documenta anidado."""
     resultado = extraer_datos_adjudicacion({"FechaAdjudicacion": "2026-03-15T00:00:00"})
 
-    assert resultado["fecha_adjudicacion"] == datetime(2026, 3, 15)
+    assert resultado["fecha_adjudicacion"] == datetime(2026, 3, 15, tzinfo=ZONA_CHILE)
 
 
 def test_fecha_adjudicacion_anidada_bajo_fechas():
     """La forma que sí documenta el PDF (Licitacion/Fechas/FechaAdjudicacion)."""
     resultado = extraer_datos_adjudicacion({"Fechas": {"FechaAdjudicacion": "2026-03-15"}})
 
-    assert resultado["fecha_adjudicacion"] == datetime(2026, 3, 15)
+    assert resultado["fecha_adjudicacion"] == datetime(2026, 3, 15, tzinfo=ZONA_CHILE)
 
 
 def test_variante_en_minuscula():
     resultado = extraer_datos_adjudicacion({"fechas": {"fechaAdjudicacion": "2026-03-15"}})
 
-    assert resultado["fecha_adjudicacion"] == datetime(2026, 3, 15)
+    assert resultado["fecha_adjudicacion"] == datetime(2026, 3, 15, tzinfo=ZONA_CHILE)
 
 
 def test_fecha_con_formato_invalido_no_revienta():
@@ -197,7 +198,7 @@ def test_fecha_conocida_pero_items_sin_adjudicacion_deja_proveedor_y_monto_en_no
 
     resultado = extraer_datos_adjudicacion(payload)
 
-    assert resultado["fecha_adjudicacion"] == datetime(2026, 3, 15)
+    assert resultado["fecha_adjudicacion"] == datetime(2026, 3, 15, tzinfo=ZONA_CHILE)
     assert resultado["proveedor_adjudicado"] is None
     assert resultado["monto_adjudicado"] is None
 

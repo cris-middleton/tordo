@@ -17,8 +17,8 @@ licitación respondía «organismo_id no disponible».
 revés de lo que suponía `adjudicacion.py`. Por eso aquí la anidada va primero.
 Un monto oculto (`VisibilidadMonto = 0`) llega como `null`, nunca como 0.
 
-Las fechas se parsean igual que en el transformer —ingenuas, hora de Chile tal
-cual—, para que todas las fechas de una misma fila sigan la misma convención.
+Las fechas se parsean con la misma función que el transformer (`_parsear_fecha`):
+hora de Chile, guardada como instante con zona.
 """
 
 from __future__ import annotations

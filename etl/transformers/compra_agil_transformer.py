@@ -21,7 +21,7 @@ from datetime import datetime
 from typing import Any, Dict
 
 from etl.analytics.personas import enmascarar_payload
-from etl.shared_imports import ZONA_CHILE, TipoConvocatoria
+from etl.shared_imports import TipoConvocatoria, en_hora_de_chile
 from etl.transformers.base import BaseTransformer
 
 
@@ -48,9 +48,7 @@ def _fecha(valor: Any) -> datetime | None:
             fecha = datetime.fromisoformat(texto)
         except ValueError:
             return None
-    if fecha.tzinfo is None:
-        return fecha.replace(tzinfo=ZONA_CHILE)
-    return fecha
+    return en_hora_de_chile(fecha)
 
 
 class CompraAgilTransformer(BaseTransformer):

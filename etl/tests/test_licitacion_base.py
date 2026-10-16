@@ -21,6 +21,7 @@ import pytest
 from sqlalchemy import create_engine, text
 
 from etl.loaders.database_loader_v2 import DatabaseLoaderV2
+from etl.shared_imports import ZONA_CHILE
 from etl.utils.licitacion_base import campos_base_desde_detalle
 
 IN_CI = os.getenv("CI", "").lower() in ("1", "true")
@@ -86,7 +87,9 @@ DETALLE_REAL = {
 def test_copia_lo_que_el_listado_no_trae():
     campos = campos_base_desde_detalle(DETALLE_REAL)
 
-    assert campos["fecha_publicacion"] == datetime(2026, 9, 22, 15, 39, 3, 827000)
+    assert campos["fecha_publicacion"] == datetime(
+        2026, 9, 22, 15, 39, 3, 827000, tzinfo=ZONA_CHILE
+    )
     assert campos["monto_estimado"] == 65_000_000.0
     assert campos["codigo_organismo"] == "7326"
     assert campos["nombre_organismo"].startswith("SERV SALUD METROPOLITANO CENTRAL")
@@ -101,7 +104,9 @@ def test_copia_lo_que_el_listado_no_trae():
 
 def test_la_fecha_anidada_gana_a_la_plana_nula():
     """La `FechaCierre` de la raíz llega nula en las respuestas reales."""
-    assert campos_base_desde_detalle(DETALLE_REAL)["fecha_cierre"] == datetime(2026, 10, 5, 15, 30)
+    assert campos_base_desde_detalle(DETALLE_REAL)["fecha_cierre"] == datetime(
+        2026, 10, 5, 15, 30, tzinfo=ZONA_CHILE
+    )
 
 
 def test_lo_que_no_viene_no_aparece():

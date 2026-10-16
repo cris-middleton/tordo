@@ -17,7 +17,7 @@ que un refactor puede deshacer sin que nada falle:
 from __future__ import annotations
 
 import sys
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -240,7 +240,8 @@ def test_la_z_es_hora_de_chile_en_verano():
 
 
 def test_sin_zona_tambien_es_hora_de_chile():
-    assert _cierre("2026-07-15 10:00").utcoffset() == timedelta(hours=-4)
+    """Julio, -04: las 10:00 sin zona son las 14:00 UTC."""
+    assert _cierre("2026-07-15 10:00") == datetime(2026, 7, 15, 14, 0, tzinfo=UTC)
 
 
 def test_un_desfase_explicito_se_respeta():

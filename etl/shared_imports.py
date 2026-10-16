@@ -20,7 +20,7 @@ if "CORS_ORIGINS" not in os.environ:
 
 # Now import models (these may trigger config loading).
 # El reloj del producto se importa igual: una sola definición de «hora de Chile».
-from app.core.tiempo import ZONA_CHILE
+from app.core.tiempo import ZONA_CHILE, en_hora_de_chile
 from app.db import Base
 
 # El vocabulario de mecanismos de compra se importa, no se copia: el ETL decide
@@ -47,6 +47,7 @@ __all__ = [
     "MIN_TOKEN",
     "RUIDO",
     "ZONA_CHILE",
+    "en_hora_de_chile",
     "normalizar_rut",
     "TipoConvocatoria",
     "Licitacion",
