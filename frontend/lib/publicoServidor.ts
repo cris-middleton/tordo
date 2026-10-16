@@ -17,10 +17,11 @@
 
 import { API } from './versionApi';
 import { cabecerasHaciaElBackend, urlDelBackend } from './backendServidor';
+import type { SectoresBI } from '@/types/bi';
 import type { CompraAgilDestacada, CompraAgilDestacadasResponse } from '@/types/compraAgil';
-import type { ResumenPortada } from '@/types/publico';
+import type { ProductoPublico, ResumenPortada } from '@/types/publico';
 
-import { esConteo } from './lecturasPortada';
+import { esConteo, esProductoPortada, esSectores, PRODUCTO_PORTADA } from './lecturasPortada';
 import {
   ETIQUETA_ANALYTICS,
   ETIQUETA_COMPRA_AGIL,
@@ -51,22 +52,41 @@ export async function pedirPublico<T>(ruta: string): Promise<T | null> {
   return (await respuesta.json()) as T;
 }
 
+/** Cuánto se guarda una pieza de la portada y con qué etiqueta se vacía. */
+interface CacheDeLaPortada {
+  revalidate: number;
+  tags: string[];
+}
+
+/** Lo vivo: media hora, y lo vacía el cron frecuente. */
+const CACHE_COMPRA_AGIL: CacheDeLaPortada = {
+  revalidate: SEGUNDOS_CACHE_COMPRA_AGIL,
+  tags: [ETIQUETA_COMPRA_AGIL],
+};
+
+/** Lo de analytics (lecturas 1 y 2): una semana, y lo vacía el cron semanal. */
+const CACHE_ANALYTICS: CacheDeLaPortada = {
+  revalidate: SEGUNDOS_CACHE_ANALYTICS,
+  tags: [ETIQUETA_ANALYTICS],
+};
+
 /**
- * Lo que pide la portada al backend: media hora de caché, etiqueta
- * `compra-agil` (la vacía el cron frecuente) y **nunca lanza** —devuelve
- * `null` ante cualquier fallo y la portada oculta el bloque—. La portada es
- * la puerta del sitio; que el backend esté caído no puede tumbarla. (Las
- * fichas sí lanzan: sin backend no tienen nada que enseñar.)
+ * Lo que pide la portada al backend: **nunca lanza** —devuelve `null` ante
+ * cualquier fallo, también un 200 que no pasa `esValida`, y la portada oculta
+ * ese bloque—. La portada es la puerta del sitio; que el backend esté caído no
+ * puede tumbarla. (Las fichas sí lanzan: sin backend no tienen nada que enseñar.)
+ * La caché la elige quien llama: lo vivo, media hora; lo de analytics, una semana.
  */
 async function pedirParaLaPortada<T>(
   ruta: string,
   esValida: (datos: unknown) => datos is T,
   bloque: string,
+  cache: CacheDeLaPortada,
 ): Promise<T | null> {
   try {
     const respuesta = await fetch(urlDelBackend(ruta), {
       headers: { Accept: 'application/json', ...cabecerasHaciaElBackend(null) },
-      next: { revalidate: SEGUNDOS_CACHE_COMPRA_AGIL, tags: [ETIQUETA_COMPRA_AGIL] },
+      next: { revalidate: cache.revalidate, tags: [...cache.tags] },
       // Que un backend colgado no deje colgado el render (ni el build).
       signal: AbortSignal.timeout(8000),
     });
@@ -126,15 +146,35 @@ function esResumenPortada(datos: unknown): datos is ResumenPortada {
 
 /** Las primeras `limite` de «Lo mejor de hoy en Compra Ágil», para la portada. */
 export async function pedirDestacadas(limite: number): Promise<CompraAgilDestacadasResponse | null> {
-  return pedirParaLaPortada(`${API}/compra-agil/destacadas?limite=${limite}`, esDestacadas, '«Lo mejor de hoy»');
+  return pedirParaLaPortada(
+    `${API}/compra-agil/destacadas?limite=${limite}`,
+    esDestacadas,
+    '«Lo mejor de hoy»',
+    CACHE_COMPRA_AGIL,
+  );
 }
 
 /**
- * La tira de cifras de la portada (`GET /publico/portada`): cuántas
- * licitaciones y Compras Ágiles se pueden postular ahora, con su hora.
+ * El resumen de la portada (`GET /publico/portada`): la tira de cifras con su
+ * hora.
  */
 export async function pedirResumenPortada(): Promise<ResumenPortada | null> {
-  return pedirParaLaPortada(`${API}/publico/portada`, esResumenPortada, 'el resumen');
+  return pedirParaLaPortada(`${API}/publico/portada`, esResumenPortada, 'el resumen', CACHE_COMPRA_AGIL);
+}
+
+/** Lectura 1: el gasto por sector (`GET /bi/sector`). */
+export async function pedirSectoresPortada(): Promise<SectoresBI | null> {
+  return pedirParaLaPortada(`${API}/bi/sector`, esSectores, 'el gasto por sector', CACHE_ANALYTICS);
+}
+
+/** Lectura 2: la ficha pública de `PRODUCTO_PORTADA`. Un 404 la oculta, no lanza. */
+export async function pedirProductoPortada(): Promise<ProductoPublico | null> {
+  return pedirParaLaPortada(
+    `${API}/publico/productos/${segmento(PRODUCTO_PORTADA.slug)}`,
+    esProductoPortada,
+    'el producto de la portada',
+    CACHE_ANALYTICS,
+  );
 }
 
 /** Un segmento de ruta del backend, escapado. El slug y el código vienen de la URL. */
