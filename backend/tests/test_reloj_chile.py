@@ -20,10 +20,10 @@ tests fijan un instante concreto en vez de mirar el reloj.
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from app.core.tiempo import ZONA_CHILE, hoy_chile
+from app.core.tiempo import ZONA_CHILE, hoy_chile, inicio_del_dia
 
 #: 16 de agosto de 2026, 01:30 UTC = 21:30 del día 15 en Santiago.
 #: La franja en la que las dos fechas discrepan.
@@ -47,3 +47,26 @@ class TestZona:
 
         monkeypatch.setattr("app.core.tiempo.datetime", RelojFijo)
         assert hoy_chile() == date(2026, 8, 15)
+
+
+class TestInicioDelDia:
+    """El borde de un «hoy» de Chile, en UTC: lo usan los tramos de cierre y las
+    publicadas del día de la portada (`repositories/licitaciones.py`)."""
+
+    def test_en_invierno_el_dia_empieza_a_las_cuatro_utc(self):
+        assert inicio_del_dia(date(2026, 8, 15)) == datetime(2026, 8, 15, 4, 0, tzinfo=UTC)
+
+    def test_en_verano_a_las_tres_utc(self):
+        assert inicio_del_dia(date(2026, 12, 1)) == datetime(2026, 12, 1, 3, 0, tzinfo=UTC)
+
+    def test_el_dia_del_cambio_de_hora_empieza_en_su_primer_instante_real(self):
+        """El 6 de septiembre de 2026 las 00:00 no existen en Santiago: el día empieza a la
+        01:00 (-03), que son las 04:00 UTC, y dura 23 horas."""
+        inicio = inicio_del_dia(date(2026, 9, 6))
+        fin = inicio_del_dia(date(2026, 9, 7))
+        assert inicio == datetime(2026, 9, 6, 4, 0, tzinfo=UTC)
+        assert fin - inicio == timedelta(hours=23)
+
+    def test_el_instante_conflictivo_cae_en_el_dia_de_chile(self):
+        assert inicio_del_dia(date(2026, 8, 15)) <= INSTANTE_CONFLICTIVO
+        assert inicio_del_dia(date(2026, 8, 16)) > INSTANTE_CONFLICTIVO
