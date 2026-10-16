@@ -102,6 +102,17 @@ describe('lecturaSectores', () => {
     expect(l.conclusion).toBe('Salud gasta $50 de cada $100 en órdenes de compra');
   });
 
+  it('«Otros» y «NA» se saltan sin importar mayúsculas', () => {
+    const l = lecturaSectores(respuesta(fila('OTROS', 100), fila('na', 90), fila('Salud', 10)))!;
+    expect(l.barras.map((b) => b.nombre)).toEqual(['Salud']);
+  });
+
+  it('una ventana con fecha imposible se oculta sin lanzar', () => {
+    const datos = respuesta(fila('Salud', 10, { ventana_desde: '2023-99-01', ventana_hasta: '2026-10-11' }));
+    expect(esSectores(datos)).toBe(false);
+    expect(lecturaSectores(datos)).toBeNull();
+  });
+
   it('un solo sector: gasta los $100 y se pinta', () => {
     const l = lecturaSectores(respuesta(fila('Salud', 7)))!;
     expect(l.conclusion).toBe('Salud gasta $100 de cada $100 en órdenes de compra');
@@ -174,6 +185,8 @@ describe('esSectores', () => {
     ['un monto de texto', { disponible: true, sectores: [{ sector: 'Salud', monto_total: '1' }] }],
     ['un monto negativo', { disponible: true, sectores: [{ sector: 'Salud', monto_total: -1 }] }],
     ['una ventana que no es fecha', { disponible: true, sectores: [{ ...fila('Salud', 1), ventana_desde: 2023 }] }],
+    ['un mes imposible', { disponible: true, sectores: [{ ...fila('Salud', 1), ventana_desde: '2023-99-01' }] }],
+    ['un día imposible', { disponible: true, sectores: [{ ...fila('Salud', 1), ventana_hasta: '2023-02-30' }] }],
   ])('rechaza %s', (_, datos) => {
     expect(esSectores(datos)).toBe(false);
   });
@@ -341,6 +354,7 @@ describe('lecturaPrecio', () => {
     it.each([
       ['sin periodo (backend anterior)', { ...PRODUCTO, periodo: undefined }],
       ['con periodo nulo', { ...PRODUCTO, periodo: null }],
+      ['con una ventana de fecha imposible', { ...PRODUCTO, periodo: { ventana_desde: '2025-99-01', ventana_hasta: '2026-09-30' } }],
       ['sin ventana_desde', { ...PRODUCTO, periodo: { ventana_desde: null, ventana_hasta: '2026-09-30' } }],
       ['sin ventana_hasta', { ...PRODUCTO, periodo: { ventana_desde: '2025-10-01', ventana_hasta: null } }],
     ])('%s: se oculta', (_, producto) => {
@@ -390,6 +404,7 @@ describe('esProductoPortada', () => {
     ['un slug nulo', { ...PRODUCTO, slug: null }],
     ['un periodo que no es objeto', { ...PRODUCTO, periodo: 'oct 2025' }],
     ['una ventana que no es fecha', { ...PRODUCTO, periodo: { ventana_desde: 2025, ventana_hasta: null } }],
+    ['una ventana con mes imposible', { ...PRODUCTO, periodo: { ventana_desde: '2025-13-01', ventana_hasta: '2026-09-30' } }],
   ])('rechaza %s', (_, datos) => {
     expect(esProductoPortada(datos)).toBe(false);
   });

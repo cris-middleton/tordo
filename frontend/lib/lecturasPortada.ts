@@ -43,9 +43,19 @@ export function esConteo(valor: unknown): valor is number {
   return typeof valor === 'number' && Number.isInteger(valor) && valor >= 0;
 }
 
-/** Ausente, nula o «AAAA-MM-DD…». */
+/**
+ * Ausente, nula o «AAAA-MM-DD…» **que existe en el calendario**. La forma sola no
+ * basta: «2023-99-01» pasaba, y `textoPeriodo` lanzaba `RangeError` al formatearla.
+ * Lo comparte la lectura de sectores y la de precio.
+ */
 function esFechaOAusente(valor: unknown): boolean {
-  return valor == null || (typeof valor === 'string' && /^\d{4}-\d{2}-\d{2}/.test(valor));
+  if (valor == null) return true;
+  if (typeof valor !== 'string') return false;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(valor);
+  if (!m) return false;
+  const [anio, mes, dia] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const fecha = new Date(Date.UTC(anio, mes - 1, dia));
+  return fecha.getUTCFullYear() === anio && fecha.getUTCMonth() === mes - 1 && fecha.getUTCDate() === dia;
 }
 
 const capitalizar = (texto: string) => texto.charAt(0).toUpperCase() + texto.slice(1);
@@ -66,7 +76,7 @@ export const UMBRAL_EMPATE = 0.05;
  * «NA» no está en el mapa de la spec: aparece en el fixture del golden (lo que
  * materializa `make e2e`) y una barra «NA» dice todavía menos que una «Otros».
  */
-export const SECTORES_SIN_BARRA: ReadonlySet<string> = new Set(['Otros', 'NA']);
+export const SECTORES_SIN_BARRA: ReadonlySet<string> = new Set(['otros', 'na']);
 
 /** Un nombre para la barra y otro para la frase. Fuera del mapa, tal cual. */
 const NOMBRES_SECTOR: Readonly<Record<string, { barra: string; frase: string }>> = {
@@ -125,10 +135,11 @@ export function lecturaSectores(datos: SectoresBI | null): LecturaSectores | nul
   if (!datos?.disponible || !datos.sectores?.length) return null;
   const ordenados = [...datos.sectores].sort((x, y) => y.monto_total - x.monto_total);
   const visibles = ordenados
-    .filter((s) => !SECTORES_SIN_BARRA.has(s.sector.trim()))
+    .filter((s) => !SECTORES_SIN_BARRA.has(s.sector.trim().toLowerCase()))
     .slice(0, BARRAS_SECTOR);
   const [a, b] = visibles;
   if (!a || a.monto_total <= 0) return null;
+  if (!esFechaOAusente(a.ventana_desde) || !esFechaOAusente(a.ventana_hasta)) return null;
   const periodo = textoPeriodo({ desde: a.ventana_desde, hasta: a.ventana_hasta });
   if (!periodo) return null;
 
@@ -277,6 +288,9 @@ export function lecturaPrecio(
   const unidad = normalizar(u.unidad ?? '');
   if (!u.unidad || !unidad || unidad === UNIDAD_SIN_DECLARAR) return null;
   if (!PREDICTIBILIDAD_CREIBLE.has(normalizar(u.predictibilidad ?? ''))) return null;
+  if (!esFechaOAusente(producto.periodo?.ventana_desde) || !esFechaOAusente(producto.periodo?.ventana_hasta)) {
+    return null;
+  }
   const periodo = textoPeriodo({ desde: producto.periodo?.ventana_desde, hasta: producto.periodo?.ventana_hasta });
   if (!periodo) return null;
 
