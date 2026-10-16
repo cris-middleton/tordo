@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { Cabecera } from '@/components/cascara/Cabecera';
 import { PieSitio } from '@/components/cascara/PieSitio';
+import { TRAZOS_PAJARO, VIEWBOX_PAJARO } from '@/lib/pajaroImagen';
 
 const navegacion = vi.hoisted(() => ({ ruta: '/licitaciones' }));
 vi.mock('next/navigation', () => ({ usePathname: () => navegacion.ruta }));
@@ -103,6 +104,24 @@ describe('la cabecera única', () => {
     }
   });
 
+  it('la marca lleva el pájaro del logo: decorativo, con sus trazos y pintado con tokens', () => {
+    render(<Cabecera />);
+    const marca = screen.getByRole('link', { name: /, inicio$/ });
+    const pajaro = marca.querySelector('svg');
+    expect(pajaro).not.toBeNull();
+    // Decorativo: el nombre lo da el enlace. Sin `aria-hidden`, un lector leería «imagen».
+    expect(pajaro).toHaveAttribute('aria-hidden', 'true');
+    expect(pajaro).toHaveAttribute('viewBox', VIEWBOX_PAJARO);
+    const trazos = [...pajaro!.querySelectorAll('path')];
+    expect(trazos.map((p) => p.getAttribute('d'))).toEqual(TRAZOS_PAJARO.map((t) => t.d));
+    expect(trazos.map((p) => p.getAttribute('class'))).toEqual(
+      TRAZOS_PAJARO.map((t) => (t.parte === 'ala' ? 'fill-brand-teal' : 'fill-brand-blue')),
+    );
+    expect(pajaro!.querySelector('ellipse')).toHaveAttribute('class', 'fill-surface');
+    // El nombre, en Varien, sigue al lado del pájaro.
+    expect(marca.querySelector('.font-brand')).not.toBeNull();
+  });
+
   it('la marca lleva a la portada y la cabecera no trae <h1> (el de cada página es el único)', () => {
     const { container } = render(<Cabecera />);
     expect(screen.getByRole('link', { name: /, inicio$/ })).toHaveAttribute('href', '/');
@@ -146,6 +165,18 @@ describe('components/cascara: servidor con islas pequeñas, sólo tokens', () =>
         a.textContent ?? '',
       ).toEqual([]);
     }
+  });
+
+  // `TordoLogo` (cliente, con un `setInterval` y siete hex) entraba en todas las páginas
+  // desde `Cabecera.tsx` sin contar como isla: el test de arriba sólo mira esta carpeta.
+  it.each(ficheros)('%s no importa componentes cliente de fuera, salvo SelectorTema', (f) => {
+    const PERMITIDOS = ['SelectorTema'];
+    const importados = [...leer(f).matchAll(/from\s+'@\/components\/([^']+)'/g)].map((m) => m[1]);
+    const clientes = importados.filter((ruta) => {
+      const fuente = readFileSync(join(__dirname, '..', 'components', `${ruta}.tsx`), 'utf8');
+      return /^\s*['"]use client['"]/.test(fuente) && !PERMITIDOS.includes(ruta);
+    });
+    expect(clientes).toEqual([]);
   });
 
   it.each(ficheros)('%s no usa colores crudos (el tema oscuro los delata tarde)', (f) => {

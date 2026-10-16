@@ -14,12 +14,10 @@ afterEach(() => {
   cleanup();
 });
 
-// jsdom no implementa `matchMedia`. `usePrefersReducedMotion` (usado por
-// `TordoLogo`, que sale en casi cualquier pantalla con marca) lo llama al
-// montar, y sin este stub cualquier test que renderice esas pantallas
-// revienta con "window.matchMedia is not a function" antes de llegar a la
-// aserción. `matches: false` es el mismo valor de arranque que usa el hook en
-// el servidor.
+// jsdom no implementa `matchMedia`. `useMediaQuery` y `usePrefersReducedMotion`
+// lo llaman al montar, y sin este stub cualquier test que renderice esas
+// pantallas revienta con "window.matchMedia is not a function" antes de llegar
+// a la aserción.
 if (typeof window !== 'undefined' && !window.matchMedia) {
   window.matchMedia = ((query: string) => ({
     matches: false,

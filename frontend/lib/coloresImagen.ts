@@ -10,7 +10,7 @@
  *
  * La tarjeta tiene dos mitades: un panel con el color del pájaro (`brand-blue`) y
  * la marca en blanco, y un lienzo blanco con el titular en navy y una píldora
- * teal. Hoy ningún componente pinta `brand-blue`: existe por esta tarjeta.
+ * teal. `brand-blue` lo pinta también el pájaro de la cabecera (`components/cascara/PajaroMarca.tsx`).
  */
 export const COLORES_IMAGEN = {
   /** `--color-brand-blue` (invariante de tema): el cuerpo del pájaro del logo. */
