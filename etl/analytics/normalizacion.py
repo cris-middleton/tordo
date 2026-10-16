@@ -13,20 +13,27 @@ el comprador escribe en la línea de la orden. El problema del texto libre es qu
 producto y dos cadenas distintas. De ahí la *firma*: una forma canónica que hace
 que las dos caigan en el mismo grupo.
 
-Medido con el pipeline real sobre 1, 2 y 3 meses consecutivos de 2026, la banda
-que sale de agrupar por firma es **más de dos veces más estrecha** que la que
-sale de agrupar por categoría:
+Medido el 2026-10-16 con el pipeline real (y el precio unitario ya corregido:
+ver `product_price_bands.extract_unit_prices`) sobre los meses más recientes de
+la copia local, la banda que sale de agrupar por firma es **mucho más estrecha**
+que la que sale de agrupar por categoría:
 
     meses   ítems       QCD mediano firma   QCD mediano categoría   cobertura firma
-      1     332.765           0,250                 0,589                22,1 %
-      2     672.279           0,244                 0,575                25,2 %
-      3   1.067.551           0,210                 0,572                28,9 %
+      1     362.420           0,000                 0,358                16,5 %
+      3   1.036.123           0,000                 0,318                29,0 %
+      6   2.327.565           0,000                 0,273                32,2 %
+
+«Firma» es el nivel 0 (firma + comprador + unidad) y «categoría» el nivel 1
+(UNSPSC + comprador + unidad); la cobertura es la parte de los ítems cuyo grupo
+del nivel 0 tiene banda. Más de la mitad de las bandas del nivel 0 tiene p25 =
+p75: un comprador repite el precio de su contrato. La tabla anterior (0,21–0,25
+contra 0,57–0,59) se midió dividiendo el precio por la cantidad.
 
 Dos lecturas que conviene tener claras antes de tocar esto:
 
 - **La mejora de dispersión es estable y grande**, y no depende de cuánta
   historia haya: es una propiedad de agrupar el mismo producto.
-- **La cobertura sí crece con la historia** (22 % → 29 % en tres meses), pero la
+- **La cobertura sí crece con la historia** (17 % → 32 % en seis meses), pero la
   muestra *mediana* por grupo se queda en 3, porque cada mes nuevo trae
   productos nuevos casi al mismo ritmo al que profundiza los que ya estaban. Es
   decir: con más corpus se cubren más productos, no se conocen mucho mejor los

@@ -136,8 +136,8 @@ class TestNivelCero:
     def test_la_banda_del_producto_es_mas_estrecha_que_la_de_la_categoria(self):
         """Es la métrica que justifica el nivel entero.
 
-        Sobre datos reales el QCD mediano pasa de 0,57–0,59 (categoría) a
-        0,21–0,26 (producto). Aquí se fija la dirección: si un cambio en la
+        Sobre datos reales el QCD mediano pasa de 0,27–0,36 (categoría) a
+        0,00 (producto). Aquí se fija la dirección: si un cambio en la
         firma hace que la categoría empiece a ganar, algo se rompió.
         """
         df = _items(

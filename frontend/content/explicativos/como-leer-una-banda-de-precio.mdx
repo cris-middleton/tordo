@@ -2,9 +2,9 @@
 titulo: "Cómo leer una banda de precio"
 descripcion: "Qué significan P10, P50 y P90, qué es la predictibilidad y por qué agrupamos por producto y no por categoría del catálogo. Con las cifras medidas."
 slug: "como-leer-una-banda-de-precio"
-actualizado: "2026-10-12"
+actualizado: "2026-10-16"
 fuentes:
-  - "Descarga masiva de órdenes de compra de ChileCompra (marzo de 2026 y meses contiguos)"
+  - "Descarga masiva de órdenes de compra de ChileCompra (octubre de 2025 a marzo de 2026)"
   - "Código del cálculo: etl/analytics/product_price_bands.py y etl/analytics/normalizacion.py"
 ---
 
@@ -61,10 +61,12 @@ Una banda de toda esa categoría no describe el precio de nada. Por eso, cuando 
 puede, agrupamos por **producto**: una firma que sale de la descripción que escribe
 el comprador, con las palabras ordenadas y sin los códigos internos. Medido:
 
-- **QCD mediano de 0,21–0,26 agrupando por producto, contra 0,57–0,59 por categoría.**
-  La banda por producto es más de dos veces más estrecha.
-- La agrupación por producto **cubre el 22–29 % de las líneas de compra**. Para el
-  resto usamos la categoría, y la banda lo indica.
+- **QCD mediano de 0 agrupando por producto en un mismo comprador, contra 0,27 por
+  categoría.** En más de la mitad de esos pares, P25 y P75 son el mismo precio: el
+  comprador repite el de su contrato.
+- La agrupación por producto en un mismo comprador **cubre el 32 % de las líneas de
+  compra** con seis meses de historia. Para el resto usamos la categoría, y la banda
+  lo indica.
 
 Si no hay suficientes compras, la banda se amplía en este orden: el mismo producto
 en el mismo comprador, el mismo producto en todo el país, la categoría en el mismo
@@ -73,10 +75,8 @@ estás.
 
 ## Lo que no hacemos: ajustar por inflación
 
-Lo medimos: la dispersión dentro de **un solo mes** ya es casi la misma que
-mezclando diez años (coeficiente de variación de 0,83–0,88 en un mes contra 0,88 en
-2016–2026). La inflación no es lo que separa los precios, así que deflactar no
-estrecharía las bandas.
+La banda mira sólo los **últimos 12 meses**, así que junta precios de un año como
+mucho. Los mostramos tal como se pagaron, sin ajustarlos por inflación.
 
 Para ver bandas de un producto concreto, búscalo en
 [Mercados](/mercado) o en su página, del estilo

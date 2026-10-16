@@ -31,15 +31,22 @@ categoría, comprador, mes y unidad conviven artículos que difieren en cinco
 
 El caso concreto, con datos reales: «Reactivos o soluciones químicos» en el
 Servicio de Salud Antofagasta daba **una** banda de $7.351–$82.500 con n=282 y
-QCD 0,84 — un número con aspecto de respuesta que no lo es. Con la firma se
+QCD 0,84 (medido antes de corregir el precio unitario; el calibrador y el
+criovial se compraron de a uno, así que su contraste no cambia) — un número con
+aspecto de respuesta que no lo es. Con la firma se
 convierte en los cuatro productos que había ahí dentro, cada uno con su rango.
 
-Medido con este mismo código sobre 1–3 meses: **QCD mediano 0,21–0,26 en el
-nivel 0 contra 0,57–0,59 en el nivel 1.** La banda es más de dos veces más
-estrecha. El razonamiento completo está en `normalizacion.py`.
+Medido el 2026-10-16 sobre los seis meses locales (2025-10 a 2026-03), con el
+precio unitario ya corregido y la ventana real de 12 meses: **QCD mediano 0,00
+en el nivel 0, 0,012 en el 0N y 0,27 en el nivel 1** (0,32–0,36 con 1–3 meses).
+Más de la mitad de las bandas del nivel 0 tiene p25 = p75: un comprador repite el
+precio de su contrato. Las cifras anteriores (0,21–0,26 contra 0,57–0,59) se
+midieron dividiendo el precio por la cantidad, y su dispersión era sobre todo
+cuánto había comprado cada uno. El razonamiento de la firma está en
+`normalizacion.py`.
 
-**Lo que el nivel 0 NO hace**, dicho para que nadie lo espere: no aumenta mucho
-la proporción global de bandas fiables. Cubre el 22–29 % de los ítems, y en el
+**Lo que el nivel 0 NO hace**, dicho para que nadie lo espere: no cubre la
+mayoría de los ítems. Cubre el 17–32 % (de 1 a 6 meses de historia), y en el
 resto sigue mandando el nivel 1. Lo que aporta es que, donde aplica, la
 respuesta es sobre el producto que el usuario está cotizando y no sobre la
 estantería entera.
@@ -79,12 +86,18 @@ from .normalizacion import canonizar_unidad, firma_es_utilizable, firma_producto
 logger = logging.getLogger(__name__)
 
 #: Las bandas miran sólo los últimos 12 meses de datos, no los 36 del resto de
-#: analytics. Un precio de hace tres años no informa el de hoy, y deflactarlo no
-#: lo arregla (medido: el CV dentro de un solo mes es 0,83–0,88 y mezclando
-#: 2016–2026 es 0,88; ver CLAUDE.md). Además es el módulo que más RAM pide —0,5 GB
+#: analytics. Un precio de hace tres años no informa el de hoy. (Que deflactarlo
+#: no lo arreglaba se midió dividiendo el precio por la cantidad, y está
+#: pendiente de re-medir: ver CLAUDE.md.) Además es el módulo que más RAM pide —0,5 GB
 #: por mes de historia, medido—, así que su ventana fija el tamaño del semanal.
 #: La API lo devuelve como `periodo`: nadie debe leer la banda como histórica.
 VENTANA_BANDAS_PRECIO_MESES = 12
+
+#: Cuánto puede descuadrar `precioNeto × cantidad` de `totalLineaNeto` sin que
+#: la línea se descarte: 1 % o $1, lo mayor. Cubre el redondeo de los centavos;
+#: lo que queda fuera son descuentos y cargos de la línea (0,018 %, medido).
+TOLERANCIA_TOTAL = 0.01
+TOLERANCIA_TOTAL_PESOS = 1.0
 
 # Mínimo de transacciones por nivel.
 #
@@ -146,16 +159,34 @@ N_MEDIA = 3
 
 def extract_unit_prices() -> pl.DataFrame:
     """
-    Extrae ítems de OC con precio unitario calculable.
+    Extrae ítems de OC con su precio unitario.
 
-    Filtra: qty > 0, precio > 0, unidad distinta de "Global".
+    Filtra: qty > 0, precio > 0, unidad distinta de "Global", línea en pesos y
+    coherente con su total.
 
-    **`qty > 0`, no `qty > 1`.** El filtro anterior descartaba el 25,9 % de los
-    ítems —todos los de cantidad 1— sin ganar nada: medido, admitirlos deja la
-    dispersión igual (QCD mediano 0,633 contra 0,632) y sube la cobertura. La
-    compra de una unidad es una compra como cualquier otra; lo que había que
-    excluir era la línea "global", donde la cantidad no es una cantidad, y eso
-    lo hace el filtro de unidad.
+    **El precio unitario es `precioNeto`, tal cual.** En el archivo masivo
+    `precioNeto` ya es el precio de UNA unidad y `totalLineaNeto` es
+    `precioNeto × cantidad`: medido en los seis meses locales (2025-10 a
+    2026-03), la igualdad se cumple (±1 % o ±$1) en el 99,98 % de 2.387.370
+    líneas en pesos. Hasta octubre de 2026 este paso dividía otra vez por la
+    cantidad, y cada banda publicada era el precio de la unidad repartido entre
+    las unidades de la orden: «papel higiénico jumbo», a $16.850 el paquete,
+    salía «entre $843 y $2.106». `etl/tests/test_precio_unitario.py`.
+
+    **La línea tiene que cuadrar con su total, o no entra.** Las que no cuadran
+    (441, el 0,018 %) traen un descuento o un cargo en la línea y no se sabe
+    cuál es el precio pagado; tampoco entra una sin total. Si el archivo no trae
+    `totalLineaNeto` (ZIP antiguos), no hay con qué comprobar y se acepta.
+
+    **Sólo pesos.** `precioNeto` está en la moneda de la línea (`monedaItem`):
+    el 0,56 % viene en UF, dólares, UTM o euros, y leído como pesos daba bandas
+    de «$1». Se descarta en vez de convertir: no hay tipo de cambio por línea.
+
+    **`qty > 0`, no `qty > 1`.** La compra de una unidad es una compra como
+    cualquier otra; lo que había que excluir era la línea "global", donde la
+    cantidad no es una cantidad, y eso lo hace el filtro de unidad. (La medición
+    que lo justificó —QCD mediano 0,633 contra 0,632— se hizo con el error de la
+    división por la cantidad.)
     """
     logger.info("Extrayendo precios unitarios...")
 
@@ -167,6 +198,8 @@ def extract_unit_prices() -> pl.DataFrame:
         "sector",
         "precioNeto",
         "cantidad",
+        "totalLineaNeto",
+        "monedaItem",
         "UnidadMedida",
         "EspecificacionComprador",
         "_periodo_archivo",
@@ -184,6 +217,22 @@ def extract_unit_prices() -> pl.DataFrame:
         # rellena vacía en vez de descartar el mes entero.
         if "EspecificacionComprador" not in df.columns:
             df = df.with_columns(pl.lit("").alias("EspecificacionComprador"))
+        if "monedaItem" in df.columns:
+            df = df.filter(pl.col("monedaItem") == "CLP")
+        if "totalLineaNeto" in df.columns:
+            total = pl.col("totalLineaNeto").cast(pl.Float64, strict=False)
+            descuadre = (
+                pl.col("precioNeto").cast(pl.Float64, strict=False)
+                * pl.col("cantidad").cast(pl.Float64, strict=False)
+                - total
+            ).abs()
+            df = df.filter(
+                (total > 0)
+                & (
+                    descuadre
+                    <= pl.max_horizontal(pl.lit(TOLERANCIA_TOTAL_PESOS), TOLERANCIA_TOTAL * total)
+                )
+            )
 
         batch = (
             df.with_columns(
@@ -202,11 +251,8 @@ def extract_unit_prices() -> pl.DataFrame:
                 & pl.col("UnidadMedida").is_not_null()
                 & (pl.col("UnidadMedida") != "Global")
             )
-            .with_columns(
-                [
-                    (pl.col("precio") / pl.col("qty")).alias("pu"),
-                ]
-            )
+            # `precioNeto` YA es unitario: ver el docstring.
+            .with_columns(pl.col("precio").alias("pu"))
             .filter((pl.col("pu") > 0) & (pl.col("pu") < 1e9))
             .with_columns([canonizar_unidad(), firma_producto()])
             .select(

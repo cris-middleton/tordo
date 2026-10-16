@@ -43,11 +43,13 @@ Tres tipos de página:
   una banda por unidad de medida. Indexable si alguna de sus bandas nacionales
   (L0N) tiene `n ≥ MIN_COMPRAS_PRODUCTO` y predictibilidad alta o media: una
   banda dispersa o con pocas compras no responde «¿a qué precio?», y publicarla
-  sería inventar un número con aspecto de respuesta. Copia local: 49.259
-  firmas, 6.672 pasan el filtro; tras resolver colisiones de slug (961 firmas
-  pierden, casi todas variantes con y sin tilde o recortadas a 80 caracteres)
-  quedan **6.572** indexables. Las no indexables también tienen página —200 con
-  `indexable: false`, que el frontend marca `noindex`— y se llega por búsqueda.
+  sería inventar un número con aspecto de respuesta. Copia local, con el
+  precio unitario corregido (2026-10-16): 51.559 firmas, 15.711 pasan el filtro;
+  tras resolver colisiones de slug (casi todas variantes con y sin tilde o
+  recortadas a 80 caracteres) quedan **15.452** indexables. Antes de la
+  corrección eran 6.561: la división por la cantidad volvía «baja» la mayoría.
+  Las no indexables también tienen página —200 con `indexable: false`, que el
+  frontend marca `noindex`— y se llega por búsqueda.
 
 **Caché.** Construir el índice lee ~100.000 filas pequeñas (las firmas de L0N
 son la mayoría). Se guarda `TTL_SEGUNDOS` en memoria del proceso: analytics se
