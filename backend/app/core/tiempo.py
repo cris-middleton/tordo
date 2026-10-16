@@ -15,7 +15,7 @@ decía «consultas restantes hoy» sobre un «hoy» que no era el del usuario.
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime, time
 from zoneinfo import ZoneInfo
 
 ZONA_CHILE = ZoneInfo("America/Santiago")
@@ -29,3 +29,19 @@ def ahora_chile() -> datetime:
 def hoy_chile() -> date:
     """La fecha de hoy **para el usuario**, no para el servidor."""
     return ahora_chile().date()
+
+
+def inicio_del_dia(dia: date) -> datetime:
+    """El primer instante de `dia` en Chile, EN UTC: el borde de un «hoy».
+
+    Un día de Chile no es un día UTC (empieza a las 03:00 o 04:00 UTC) ni dura
+    siempre 24 horas: el primer domingo de septiembre las 00:00 no existen y el
+    día empieza a la 01:00 (-03). `zoneinfo` resuelve esa hora inexistente con el
+    desfase anterior (-04), que es justamente ese instante.
+
+    Se devuelve en UTC a propósito: un `datetime` en una hora inexistente no es
+    igual a ningún otro de otra zona (PEP 495) y restar dos de la misma zona da
+    horas de reloj, no transcurridas (24 h el día del cambio). En UTC, las dos
+    cosas son de instantes.
+    """
+    return datetime.combine(dia, time.min, tzinfo=ZONA_CHILE).astimezone(UTC)

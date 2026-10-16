@@ -26,8 +26,14 @@ import logging
 import polars as pl
 
 from .agregacion import ContadorDistintos
-from .config import OUTPUT_DIR
-from .data_loader import iter_oc_parquets, orden_por_fila
+from .config import OC_PARQUET_DIR, OUTPUT_DIR
+from .data_loader import (
+    VENTANA_ANALYTICS_MESES,
+    con_ventana,
+    iter_oc_parquets,
+    limites_ventana,
+    orden_por_fila,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -138,6 +144,11 @@ def run_sector_intelligence() -> dict[str, pl.DataFrame]:
     logger.info("=" * 60)
 
     sector = build_sector_dashboard()
+    # Con su periodo: la portada dice de qué meses es el gasto por sector, y una
+    # cifra sin periodo se lee como «de siempre». Sólo si hay filas: `con_ventana`
+    # sobre un DataFrame vacío y sin columnas fabrica una fila de puras fechas.
+    if not sector.is_empty():
+        sector = con_ventana(sector, limites_ventana(OC_PARQUET_DIR, VENTANA_ANALYTICS_MESES))
     sector_path = OUTPUT_DIR / "sector_dashboard.parquet"
     sector.write_parquet(sector_path, compression="snappy")
     logger.info(f"Guardado: {sector_path.name}")

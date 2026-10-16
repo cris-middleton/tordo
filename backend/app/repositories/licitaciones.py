@@ -17,12 +17,13 @@ en la capa HTTP.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import DateTime, Select, and_, asc, case, desc, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.tiempo import ZONA_CHILE, hoy_chile, inicio_del_dia
 from app.models.convocatoria import TipoConvocatoria
 from app.models.licitacion import Licitacion
 
@@ -257,8 +258,27 @@ async def buscar_por_relevancia(
     return list(filas), total
 
 
-async def contar_abiertas(db: AsyncSession) -> tuple[int, int]:
-    """Cuántas se pueden postular ahora: (no Compra Ágil, Compra Ágil).
+@dataclass(frozen=True)
+class PorCierre:
+    """Compras Ágiles abiertas según el día de Chile en que cierran."""
+
+    hoy: int
+    manana: int
+    dos_tres_dias: int
+    #: Desde el cuarto día, y las que no tienen cierre (abiertas por eso).
+    despues: int
+
+
+@dataclass(frozen=True)
+class ConteoAbiertas:
+    licitaciones: int
+    compra_agil: int
+    #: Suma `compra_agil`: los cuatro tramos cubren cualquier cierre.
+    compra_agil_por_cierre: PorCierre
+
+
+async def contar_abiertas(db: AsyncSession, ahora: datetime | None = None) -> ConteoAbiertas:
+    """Cuántas se pueden postular ahora, y las Compras Ágiles según cuándo cierran.
 
     La tira de cifras de la portada (`GET /publico/portada`, spec del rediseño
     §6.6). **Misma definición que el filtro `abiertas` del catálogo** —`activo`
@@ -270,18 +290,106 @@ async def contar_abiertas(db: AsyncSession) -> tuple[int, int]:
     Ágil». No es lo mismo que las candidatas de «Lo mejor de hoy», que además
     exigen más de 2 h hasta el cierre.
 
-    Una sola pasada por la tabla, con `count(*) FILTER`.
+    El reparto por cierre (lectura 3 de la portada, docs/IDENTIDAD_Y_PORTADA_2026-10.md
+    §3.5) cuenta **días de Chile**: una Compra Ágil que cierra a las 23:30 de
+    Santiago cierra «hoy» aunque en UTC ya sea mañana. Los bordes se calculan en
+    Python (`inicio_del_dia`); los tramos son contiguos y el último no tiene techo,
+    así que **los cuatro suman `compra_agil`** con cualquier reloj. Sin cierre
+    cuenta en «después».
+
+    Una sola pasada por la tabla, con `count(*) FILTER`. `ahora` fija el reloj
+    (tests); sin él, `now()` de Postgres y el día de `hoy_chile()`.
     """
+    dia = ahora.astimezone(ZONA_CHILE).date() if ahora is not None else hoy_chile()
+    manana, pasado, en_cuatro = (inicio_del_dia(dia + timedelta(days=n)) for n in (1, 2, 4))
     es_compra_agil = Licitacion.tipo_convocatoria == TipoConvocatoria.COMPRA_AGIL.value
+    cierre = Licitacion.fecha_cierre
     fila = (
         await db.execute(
             select(
                 func.count().filter(~es_compra_agil),
                 func.count().filter(es_compra_agil),
-            ).where(Licitacion.activo.is_(True), esta_abierta())
+                func.count().filter(es_compra_agil, cierre < manana),
+                func.count().filter(es_compra_agil, cierre >= manana, cierre < pasado),
+                func.count().filter(es_compra_agil, cierre >= pasado, cierre < en_cuatro),
+                func.count().filter(es_compra_agil, or_(cierre.is_(None), cierre >= en_cuatro)),
+            ).where(Licitacion.activo.is_(True), esta_abierta(ahora))
         )
     ).one()
-    return int(fila[0]), int(fila[1])
+    licitaciones, compra_agil, hoy, manana_n, dos_tres, despues = (int(n) for n in fila)
+    return ConteoAbiertas(
+        licitaciones=licitaciones,
+        compra_agil=compra_agil,
+        compra_agil_por_cierre=PorCierre(
+            hoy=hoy, manana=manana_n, dos_tres_dias=dos_tres, despues=despues
+        ),
+    )
+
+
+@dataclass(frozen=True)
+class PublicadasDelDia:
+    total: int
+    #: El `nombre_organismo` tal como se guardó (el más frecuente de su grupo).
+    #: None si no hubo publicaciones o si ninguna traía nombre.
+    organismo: str | None
+
+
+def nombre_organismo_normalizado():
+    """La clave con que se agrupa a un organismo por su NOMBRE: sin tildes, en
+    minúsculas, con los espacios colapsados. Vacío cuenta como sin nombre (NULL).
+
+    Por nombre y no por código porque la Compra Ágil no trae `codigo_organismo`
+    (sólo nombre y RUT): por código caerían todas en un nulo. Límite conocido: un
+    organismo escrito de dos formas cuenta como dos. Es quedarse corto, nunca
+    inventar.
+    """
+    return func.nullif(
+        func.btrim(
+            func.lower(
+                func.regexp_replace(
+                    func.inmutable_unaccent(Licitacion.nombre_organismo), r"\s+", " ", "g"
+                )
+            )
+        ),
+        "",
+    )
+
+
+async def publicadas_del_dia(db: AsyncSession, dia: date | None = None) -> PublicadasDelDia:
+    """Cuántas licitaciones y Compras Ágiles activas se publicaron el `dia` de
+    Chile, y qué organismo publicó más (la franja de la portada, identidad §3.6).
+
+    No cabe en `contar_abiertas`: aquella filtra por abiertas, y una publicada
+    hoy puede haber cerrado ya. Una sola consulta sobre el rango del día (por el
+    índice de `fecha_publicacion`): agrupa por `nombre_organismo_normalizado`, el
+    total sale de `sum(count(*)) OVER ()` y el primer puesto, de ordenar con el
+    grupo sin nombre AL FINAL —las filas sin nombre cuentan en el total pero no
+    compiten— y el conteo de mayor a menor. Un empate lo gana la clave
+    alfabéticamente menor: el resultado no cambia entre dos renderizados.
+    """
+    dia = dia if dia is not None else hoy_chile()
+    clave = nombre_organismo_normalizado().label("clave")
+    consulta = (
+        select(
+            clave,
+            func.mode().within_group(Licitacion.nombre_organismo).label("nombre"),
+            func.sum(func.count()).over().label("total"),
+        )
+        .where(
+            Licitacion.activo.is_(True),
+            Licitacion.fecha_publicacion >= inicio_del_dia(dia),
+            Licitacion.fecha_publicacion < inicio_del_dia(dia + timedelta(days=1)),
+        )
+        .group_by(clave)
+        .order_by(clave.is_(None), func.count().desc(), clave)
+        .limit(1)
+    )
+    fila = (await db.execute(consulta)).one_or_none()
+    if fila is None:
+        return PublicadasDelDia(total=0, organismo=None)
+    return PublicadasDelDia(
+        total=int(fila.total), organismo=fila.nombre if fila.clave is not None else None
+    )
 
 
 async def obtener(db: AsyncSession, licitacion_id: int) -> Licitacion | None:

@@ -212,12 +212,25 @@ respuesta trae ya los enlaces a las demás.
 | `GET /publico/sitemap` | `actualizado` y los códigos y slugs **indexables** de cada tipo |
 | `GET /publico/compradores/{codigo}` | el perfil de `/bi/comprador`, su Compra Ágil y sus 10 rubros de más monto |
 | `GET /publico/rubros/{slug}` | el panorama de `/bi/panorama` y sus 10 compradores de más monto |
-| `GET /publico/productos/{slug}` | una banda nacional por unidad de medida y los 10 compradores que más lo compran |
+| `GET /publico/productos/{slug}` | una banda nacional por unidad de medida, los 10 compradores que más lo compran y el `periodo` de las bandas (12 meses) |
 | `GET /publico/productos?q=&limite=` | búsqueda por palabras, también de los no indexados |
-| `GET /publico/portada` | cuántas licitaciones (no Compra Ágil) y Compras Ágiles se pueden postular ahora, y la hora de la última ingesta de Compra Ágil |
+| `GET /publico/portada` | cuántas licitaciones (no Compra Ágil) y Compras Ágiles se pueden postular ahora, las Compras Ágiles abiertas por día de cierre, cuántas se publicaron hoy y qué organismo publicó más, y la hora de la última ingesta de Compra Ágil |
 
 `/publico/portada` no lee el análisis sino el catálogo: responde aunque el BI esté apagado.
 Cada conteo es el `total` de `GET /tenders/?abiertas=true` con su `tipo_convocatoria`.
+
+`compra_agil_por_cierre` reparte `compra_agil_abiertas` por el **día de Chile** en que
+cierran —`hoy`, `manana`, `dos_tres_dias` (pasado mañana o el día siguiente) y `despues`
+(desde el cuarto día, o sin cierre)— y los cuatro suman la cifra. `publicadas_hoy` cuenta
+las licitaciones y Compras Ágiles vigentes publicadas hoy, abiertas o no, y
+`mas_publica_hoy` es el organismo que más publicó, **agrupado por su nombre** (la Compra
+Ágil no trae código; un organismo escrito de dos formas cuenta como dos) y escrito como lo
+guarda ChileCompra; nulo si no hubo publicaciones con nombre. Los tres son opcionales: un
+cliente que no los conoce los ignora.
+
+Las cifras del análisis llevan su periodo: `periodo` en `/publico/productos/{slug}` (12
+meses) y `ventana_desde`/`ventana_hasta` en cada sector de `/bi/sector` (36 meses), nulos
+mientras la corrida semanal no los haya escrito.
 
 **Rubros y productos van por `slug`**, porque no tienen código: sin tildes,
 minúsculas, todo lo demás a `-`, hasta 80 caracteres. **El slug lo da la API**;

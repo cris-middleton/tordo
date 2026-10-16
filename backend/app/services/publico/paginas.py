@@ -15,7 +15,7 @@ from __future__ import annotations
 import polars as pl
 
 from app.repositories.compra_agil import CAMPOS_HISTORIA
-from app.services.bi._base import _load, _primero
+from app.services.bi._base import _load, _primero, periodo_de
 from app.services.bi.comprador import get_comprador
 from app.services.bi.rubro import get_panorama
 from app.services.publico import indexables
@@ -217,6 +217,18 @@ def _compradores_del_producto(firma: str) -> list[dict]:
     ]
 
 
+def _periodo_de_bandas(bandas: pl.DataFrame) -> dict | None:
+    """La ventana de las bandas (12 meses), o None si la tabla no la publica.
+
+    Sin periodo la ficha se leería como «de siempre»; y la lectura de precio de
+    la portada se oculta (identidad §3.4).
+    """
+    periodo = periodo_de(bandas)
+    if periodo is None:
+        return None
+    return {"ventana_desde": periodo["desde"], "ventana_hasta": periodo["hasta"]}
+
+
 def producto(slug: str) -> dict | None:
     """La página de un producto: una banda nacional por unidad de medida.
 
@@ -253,6 +265,7 @@ def producto(slug: str) -> dict | None:
         "indexable": bool(conocido["indexable"]),
         "unidades": _unidades(bandas),
         "compradores": _compradores_del_producto(firma),
+        "periodo": _periodo_de_bandas(bandas),
     }
 
 
