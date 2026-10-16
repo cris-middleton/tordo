@@ -259,10 +259,51 @@ export function esProductoPortada(datos: unknown): datos is ProductoPublico {
 
 /**
  * Un rótulo centrado sobre su marca no puede salirse del riel: se acerca al
- * centro hasta caber.
+ * centro hasta caber. Sin posición (`NaN`), al centro: «left: NaN%» lo dejaría
+ * donde el navegador quisiera.
  */
 export function posicionDeRotulo(posicion: number): number {
+  if (Number.isNaN(posicion)) return 50;
   return Math.min(88, Math.max(12, posicion));
+}
+
+/**
+ * El `left` de un rótulo centrado en su marca (con `-translate-x-1/2`) que
+ * **no se sale del riel por mucho que mida**: su centro no baja de media
+ * anchura ni sube de 100 % menos media anchura. El 12–88 % de
+ * `posicionDeRotulo` no basta a 320 px: con 256 px de riel, «mediana $5.390»
+ * mide ~77 px y su mitad, ~15 % del riel.
+ *
+ * **La anchura se cuenta en `ch`, un `ch` por carácter.** Medido con Archivo en
+ * negrita (la variable no está fuera del build): un rótulo de cifras ocupa
+ * 0,84–0,92 `ch` por carácter, así que el cálculo sobra un poco y nunca falta,
+ * **siempre que el `ch` sea el del peso más grueso del rótulo**: el elemento
+ * que lleva este `left` lleva también su peso, y lo más fino va dentro.
+ */
+export function izquierdaDeRotulo(posicion: number, texto: string): string {
+  const media = `${[...texto].length / 2}ch`;
+  return `clamp(${media}, ${posicionDeRotulo(posicion)}%, calc(100% - ${media}))`;
+}
+
+/**
+ * Menos que esto, en % del riel, entre p25 y p75 (ya acotados), y sus dos
+ * rótulos se pisan: a 320 px el 18 % son ~46 px, y «$4.200» mide ~36.
+ */
+export const SEPARACION_MINIMA_ROTULOS = 18;
+
+/** Dónde van los rótulos de debajo de la banda: uno bajo cada cuartil, o uno solo en el medio. */
+export type RotulosBanda = { juntos: false; p25: number; p75: number } | { juntos: true; centro: number };
+
+/**
+ * Con la cola larga a un lado la banda se aprieta contra un extremo, y sus dos
+ * rótulos, acotados al riel, caen casi en el mismo sitio: entonces va uno solo,
+ * «$p25 – $p75», centrado entre los dos.
+ */
+export function rotulosDeBanda(p25: MarcaPrecio, p75: MarcaPrecio): RotulosBanda {
+  const a = posicionDeRotulo(p25.posicion);
+  const b = posicionDeRotulo(p75.posicion);
+  if (b - a < SEPARACION_MINIMA_ROTULOS) return { juntos: true, centro: unDecimal((a + b) / 2) };
+  return { juntos: false, p25: a, p75: b };
 }
 
 /**
@@ -272,8 +313,9 @@ export function posicionDeRotulo(posicion: number): number {
  * lo que el Tukey de las bandas ya trata como atípico.
  *
  * **Sólo una banda que se pueda creer** (spec §3.4): unidad declarada,
- * predictibilidad alta o media, `p25 ≥ 1`, `p75 > p25` y periodo. Si no, nada:
- * mejor ninguna banda que «entre $0 y $0» o «entre $1.150 y $1.150».
+ * predictibilidad alta o media, `p25 ≥ 1`, `p75 > p25`, que se escriban distinto
+ * con `plata()` y periodo. Si no, nada: mejor ninguna banda que «entre $0 y $0»,
+ * «entre $1.150 y $1.150» o «entre $2 millones y $2 millones».
  *
  * `nombre` es el escrito a mano junto al slug; por defecto, el de
  * `PRODUCTO_PORTADA`.
@@ -286,6 +328,8 @@ export function lecturaPrecio(
   const u = producto.unidades[0];
   // p75 > p25 estricto: «entre $1.150 y $1.150» no dice nada.
   if (!u || u.p25 == null || u.p75 == null || u.p25 < 1 || u.p75 <= u.p25) return null;
+  // Distintos en el dato pero escritos igual tras redondear: lo mismo.
+  if (plata(u.p25) === plata(u.p75)) return null;
   const unidad = normalizar(u.unidad ?? '');
   if (!u.unidad || !unidad || unidad === UNIDAD_SIN_DECLARAR) return null;
   if (!PREDICTIBILIDAD_CREIBLE.has(normalizar(u.predictibilidad ?? ''))) return null;

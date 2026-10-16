@@ -16,12 +16,15 @@ import {
   esProductoPortada,
   esSectores,
   fraseCierres,
+  izquierdaDeRotulo,
   lecturaCierres,
   lecturaPrecio,
   lecturaSectores,
   nombreSector,
   posicionDeRotulo,
   PRODUCTO_PORTADA,
+  rotulosDeBanda,
+  SEPARACION_MINIMA_ROTULOS,
   UMBRAL_EMPATE,
 } from '@/lib/lecturasPortada';
 import { textoPeriodo } from '@/lib/periodo';
@@ -348,6 +351,9 @@ describe('lecturaPrecio', () => {
       // «Entre $1.150 y $1.150» no dice nada: una banda sin dispersión no es banda.
       ['p75 igual a p25', conBanda({ p25: 1150, p75: 1150 })],
       ['todos los precios iguales', conBanda({ p10: 1150, p25: 1150, p50: 1150, p75: 1150, p90: 1150 })],
+      // Distintos en el dato pero escritos igual: «entre $2 millones y $2 millones».
+      ['p25 y p75 iguales al escribirlos, en millones', conBanda({ p10: 1_400_000, p25: 1_500_000, p50: 1_550_000, p75: 1_600_000, p90: 1_700_000 })],
+      ['p25 y p75 iguales al escribirlos, en pesos', conBanda({ p10: 1100, p25: 1150.2, p50: 1150.3, p75: 1150.4, p90: 1200 })],
     ])('%s: se oculta', (_, producto) => {
       expect(lecturaPrecio(producto)).toBeNull();
     });
@@ -371,6 +377,51 @@ describe('posicionDeRotulo', () => {
     expect(posicionDeRotulo(0)).toBe(12);
     expect(posicionDeRotulo(50)).toBe(50);
     expect(posicionDeRotulo(100)).toBe(88);
+  });
+
+  it('sin posición (NaN), al centro: nunca «left: NaN%»', () => {
+    expect(posicionDeRotulo(Number.NaN)).toBe(50);
+  });
+});
+
+describe('izquierdaDeRotulo', () => {
+  it('centra el rótulo en su marca sin dejar que su mitad se salga del riel', () => {
+    // «$4.200»: 6 caracteres, media anchura de 3ch a cada lado.
+    expect(izquierdaDeRotulo(21.6, '$4.200')).toBe('clamp(3ch, 21.6%, calc(100% - 3ch))');
+    expect(izquierdaDeRotulo(50, 'mediana $5.390')).toBe('clamp(7ch, 50%, calc(100% - 7ch))');
+  });
+
+  it('pasa la posición por posicionDeRotulo', () => {
+    expect(izquierdaDeRotulo(0, '$1')).toBe('clamp(1ch, 12%, calc(100% - 1ch))');
+    expect(izquierdaDeRotulo(Number.NaN, '$1')).toBe('clamp(1ch, 50%, calc(100% - 1ch))');
+  });
+});
+
+describe('rotulosDeBanda', () => {
+  const marca = (posicion: number) => ({ valor: '$1', posicion });
+
+  it('p25 y p75 separados: un rótulo bajo cada uno', () => {
+    expect(rotulosDeBanda(marca(21.6), marca(49.5))).toEqual({ juntos: false, p25: 21.6, p75: 49.5 });
+  });
+
+  it(`a menos del ${SEPARACION_MINIMA_ROTULOS} % del riel entre sí, un solo rótulo en el medio`, () => {
+    expect(rotulosDeBanda(marca(40), marca(50))).toEqual({ juntos: true, centro: 45 });
+    expect(rotulosDeBanda(marca(40), marca(40 + SEPARACION_MINIMA_ROTULOS))).toEqual({
+      juntos: false,
+      p25: 40,
+      p75: 40 + SEPARACION_MINIMA_ROTULOS,
+    });
+  });
+
+  it('cola larga a la derecha: la banda se aprieta contra el inicio y se cuenta tras acotar', () => {
+    // 1,0 y 9,0 están a 8 puntos, pero acotados quedan los dos en 12.
+    expect(rotulosDeBanda(marca(1), marca(9))).toEqual({ juntos: true, centro: 12 });
+    // 2 y 25: separados 23 en bruto, 13 tras acotar el primero a 12.
+    expect(rotulosDeBanda(marca(2), marca(25))).toEqual({ juntos: true, centro: 18.5 });
+  });
+
+  it('cola larga a la izquierda: igual contra el final', () => {
+    expect(rotulosDeBanda(marca(91), marca(99))).toEqual({ juntos: true, centro: 88 });
   });
 });
 
