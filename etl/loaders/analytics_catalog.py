@@ -172,6 +172,12 @@ CATALOGO: list[TablaAnalytics] = [
         tabla="sector_dashboard",
         parquet="sector_dashboard.parquet",
         indices=[["sector"]],
+        comentarios={
+            "ventana_desde": (
+                "Primer día de la ventana (36 meses anclados en el último mes con datos)."
+            ),
+            "ventana_hasta": "Último día de la ventana (no pasa de hoy).",
+        },
     ),
     # ── Compra Ágil ──────────────────────────────────────────────────────────
     # Compras Ágiles publicadas y adjudicadas por comprador y mes (spec del
