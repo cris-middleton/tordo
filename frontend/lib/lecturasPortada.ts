@@ -177,6 +177,9 @@ export function lecturaSectores(datos: SectoresBI | null): LecturaSectores | nul
  * miradas tenían predictibilidad baja, y la primera de papel higiénico, una
  * marca con los cinco percentiles iguales. Ésta es genérica, sin marca, y pasa
  * el filtro (paquete, 90 compras, predictibilidad media, $842–$2.106, periodo).
+ * Esa banda dividía el precio por la cantidad (corregido el 2026-10-16, ver
+ * CLAUDE.md, «El precio se agrupa por PRODUCTO»): en la copia local corregida
+ * esta ficha da p25 = p75 = $16.850, y el filtro (`p75 > p25`) la ocultaría.
  *
  * **El slug tiene copia literal en `scripts/verificar-produccion.sh`**, que
  * comprueba tras desplegar que sigue indexable y pasando el filtro;

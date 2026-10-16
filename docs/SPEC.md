@@ -969,6 +969,11 @@ python -m etl.analytics.run_all --modulo <nombre>
 **El indicador más valioso del BI.** Calcula precio unitario (precioNeto / cantidad) y genera
 bandas de referencia con fallback jerárquico:
 
+> **Corrección (2026-10-16):** la división era un error. En las OC masivas `precioNeto` ya es
+> el precio de una unidad (`precioNeto × cantidad = totalLineaNeto` en el 99,98 % de las
+> líneas en pesos). El código usa `precioNeto` tal cual; ver CLAUDE.md, «El precio se agrupa
+> por PRODUCTO».
+
 | Nivel | Granularidad | Min. transacciones | Ejemplo |
 |---|---|---|---|
 | L1 | producto + organismo + unidad | 5 | "Este hospital paga $800–$1,200 por unidad de este reactivo" |

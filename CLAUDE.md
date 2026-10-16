@@ -752,7 +752,8 @@ de lectura (cabecera y pie, con la atribución, son de la cáscara única). Dato
   `{"etiquetas": ["analytics" | "compra-agil"]}` → `revalidateTag(tag, 'max')`. Lo llama
   `Revalidador` en `etl/cron.py`. CI construye con un centinela y `check:secreto` lo busca.
 - **Qué se indexa vive en un solo sitio**, `services/publico/indexables.py`, con sus umbrales
-  y conteos medidos (≈1.039 compradores, 309 rubros, 6.572 productos). El resto existe con
+  y conteos medidos (≈1.039 compradores, 309 rubros, 15.452 productos con el precio unitario
+  corregido; 6.561 antes). El resto existe con
   `noindex` (producto, comprador o rubro) o 404. **Un rubro se indexa sólo si tiene filas en
   `competitors_by_market`**: sin ellas el panorama sale vacío y la página dice «Sin datos
   históricos». Recontado el 12-10 en la copia local: los 309 la tienen; en el fixture del
@@ -1199,9 +1200,21 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   categoría en un solo hospital y un solo mes contiene artículos que difieren en cinco
   órdenes de magnitud (un calibrador a $557.062 y un criovial a $1 bajo «Reactivos»).
   Los niveles L0/L0N agrupan por la **firma** de `EspecificacionComprador`
-  (`etl/analytics/normalizacion.py`) y dan una banda **más de dos veces más estrecha**:
-  QCD mediano 0,21–0,26 contra 0,57–0,59. Cubren el 22–29 % de los ítems; del resto
+  (`etl/analytics/normalizacion.py`) y dan una banda mucho más estrecha. Medido el
+  2026-10-16 (seis meses locales, ventana de 12): **QCD mediano 0,00 en L0, 0,012 en L0N
+  y 0,27 en L1**; más de la mitad de las bandas L0 tiene p25 = p75 (un comprador repite el
+  precio de su contrato). L0 cubre el 17–32 % de los ítems (de 1 a 6 meses); del resto
   sigue encargándose L1.
+  - **El precio unitario es `precioNeto`, tal cual** (`extract_unit_prices`). En las OC
+    masivas ya es el precio de una unidad: `precioNeto × cantidad = totalLineaNeto` (±1 %)
+    en el 99,98 % de las líneas en pesos. Hasta el 2026-10-16 se dividía otra vez por la
+    cantidad, desde el primer commit de analytics, y todas las bandas publicadas eran el
+    precio repartido entre las unidades de la orden: «papel higiénico jumbo», a $16.850
+    el paquete, salía «entre $843 y $2.106». **Entra sólo la línea en pesos
+    (`monedaItem = CLP`; el 0,56 % viene en UF, dólares, UTM o euros) y que cuadra con su
+    total** (fuera el 0,018 %: descuentos y cargos de línea). Lo fija
+    `etl/tests/test_precio_unitario.py`. Las cifras anteriores de este apartado (QCD
+    0,21–0,26 contra 0,57–0,59, cobertura 22–29 %) se midieron con el error.
   - **La firma ordena los tokens y quita cualquiera que contenga un dígito.** Lo primero
     porque el orden de las palabras no cambia el producto; lo segundo porque en los datos
     reales los alfanuméricos son códigos de orden y de guía, y cada uno parte el producto
@@ -1217,10 +1230,16 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
     desviación estándar mide el outlier que sobrevivió a Tukey, no el mercado.
   - **`predictibilidad` (alta|media|baja) es producto, no diagnóstico interno.** Una banda
     muy dispersa significa que el precio no es lo que decide la adjudicación, y decirlo
-    vale más que inventar un número con aspecto de respuesta.
-  - **Deflactar por inflación no sirve, y está medido**: el CV dentro de un solo mes es
-    0,83–0,88 y mezclando 2016–2026 es 0,88, con +38 % de inflación en la década. No lo
-    reabras sin un número nuevo.
+    vale más que inventar un número con aspecto de respuesta. Con el precio corregido es
+    «alta» el 82 % de las bandas L0N (antes el 33 %) y el 48 % de las L1 (antes el 22 %);
+    «baja», el 8 % y el 34 %. **Los cortes (`QCD_ALTA` 0,25, `QCD_MEDIA` 0,45) se
+    calibraron sobre el error** y no se han revisado: casi todo L0N los pasa.
+  - **Deflactar por inflación: medido con el error de precio unitario, pendiente de
+    re-medir.** La medición decía que el CV dentro de un solo mes (0,83–0,88) era el mismo
+    que mezclando 2016–2026 (0,88). Con el precio corregido, el CV mediano dentro de un mes
+    es 0,51–0,54 en L1 y 0,04–0,08 en L0N; la comparación con la década necesita una
+    historia que la copia local no tiene (seis meses). Hasta re-medirla, la conclusión no
+    vale.
 - **Mecanismo de compra: `tipo_convocatoria`** (`app/models/convocatoria.py`, importado por el
   ETL a través de `etl/shared_imports.py` — **no se copia**). El modelo daba por hecho que todo
   lo ingerido era una licitación; Compra Ágil y Convenio Marco son cerca de la mitad del
