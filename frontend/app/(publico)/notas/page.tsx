@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+import { CabeceraFicha } from '@/components/publico/Piezas';
 import { DESCRIPCION_NOTAS, ETIQUETA_ESTADO, leerNotas, rutaNota } from '@/lib/notas';
 import { fechaCorta } from '@/lib/publico';
 
@@ -22,11 +23,7 @@ export default function PaginaNotas() {
   const notas = leerNotas();
   return (
     <article className="max-w-3xl">
-      <header className="mb-8">
-        <h1 className="font-display break-words text-[1.75rem] leading-tight text-text lg:text-4xl">
-          Notas de datos
-        </h1>
-        <p className="mt-3 text-muted">{DESCRIPCION_NOTAS}</p>
+      <CabeceraFicha titulo="Notas de datos" subtitulo={DESCRIPCION_NOTAS}>
         <p className="mt-2 text-sm text-muted">
           Síguelas en tu lector de noticias con el{' '}
           <a href="/rss/notas" className="enlace">
@@ -34,7 +31,7 @@ export default function PaginaNotas() {
           </a>
           .
         </p>
-      </header>
+      </CabeceraFicha>
       <ol className="divide-y divide-border border-y border-border">
         {notas.map((n) => (
           <li key={n.slug} className="flex flex-col gap-1 py-4 sm:flex-row sm:items-baseline sm:gap-6">

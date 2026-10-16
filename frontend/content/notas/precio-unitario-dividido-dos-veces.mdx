@@ -22,9 +22,10 @@ fuentes:
   - "etl/analytics/product_price_bands.py: «Las que no cuadran (441, el 0,018 %) traen un descuento o un cargo en la línea»"
   - "CLAUDE.md: «QCD mediano 0,00 en L0, 0,012 en L0N y 0,27 en L1»"
   - "CLAUDE.md: ««alta» el 82 % de las bandas L0N (antes el 33 %)»"
-  - "CLAUDE.md: «15.452 productos con el precio unitario corregido; 6.561 antes»"
-  - "backend/app/services/publico/indexables.py: «Antes de la corrección eran 6.561: la división por la cantidad volvía «baja» la mayoría.»"
-  - "CLAUDE.md: «Los cortes (`QCD_ALTA` 0,25, `QCD_MEDIA` 0,45) se calibraron sobre el error»"
+  - "CLAUDE.md: «El 82 % lo infla el comprador único (89 % «alta» entre esas bandas); entre las de mercado: 70 % alta, 18 % media, 12 % baja»"
+  - "CLAUDE.md: «≥ 3 organismos compradores y ninguno con más del 50 % de las compras»"
+  - "CLAUDE.md: «Los cortes (`QCD_ALTA` 0,25, `QCD_MEDIA` 0,45) son absolutos y se quedan»"
+  - "CLAUDE.md: «Deflactar por inflación: medido con el error de precio unitario, pendiente de re-medir.»"
   - "docs/DESPLIEGUE.md: «`0 6 * * 0` (domingo 06:00 UTC»"
 ---
 
@@ -72,18 +73,18 @@ su precio está en esa moneda. Leído como pesos, daba bandas de $1.
 - Con el precio corregido, el QCD mediano, que compara P25 con P75, es 0,012 en la
   banda nacional por producto y 0,27 en la de categoría por comprador. La [guía de bandas](/guias/como-leer-una-banda-de-precio) explica cómo
   leerlo.
-- Los productos con página propia pasaron de 6.561 a 15.452: con el precio bien medido,
-  muchas más bandas pasan el filtro de calidad.
+- Parte de ese 82 % lo pone el comprador único: una banda de un solo organismo repite su
+  precio de contrato y sale estable. Entre las bandas de mercado, con tres compradores o
+  más y ninguno sobre la mitad, el 70 % es «alta», el 18 % «media» y el 12 % «baja».
+- Los cortes de predictibilidad (QCD 0,25 para «alta» y 0,45 para «media») se quedan.
+  Son absolutos, así que el error no los movió.
 - El arreglo llega al sitio con el análisis del domingo 18 de octubre. Ese día las
   fichas de producto, la búsqueda y la API toman las bandas nuevas.
 
 ## Lo que todavía no sabemos
 
-- Los cortes de predictibilidad (QCD 0,25 para «alta» y 0,45 para «media») se eligieron
-  con el error dentro. Con el precio corregido casi todas las bandas nacionales por
-  producto salen «alta», y los cortes no se han revisado.
-- Si conviene ajustar por inflación los precios de años atrás. Lo medimos con el error,
-  y repetirlo pide más historia que los seis meses de la copia local.
+Si conviene ajustar por inflación los precios de años atrás. Lo medimos con el error, y
+repetirlo pide más historia que los seis meses de la copia local.
 
 ## Reprodúcelo
 

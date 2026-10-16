@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 
 import { Markdown } from '@/components/guias/Markdown';
 import { AntesDespues } from '@/components/notas/AntesDespues';
+import { CabeceraFicha } from '@/components/publico/Piezas';
 import { nombreAutor, urlAutor } from '@/lib/autor';
 import {
   ETIQUETA_ESTADO,
@@ -63,13 +64,7 @@ export default async function PaginaNota({ params }: Props) {
 
   return (
     <article className="max-w-3xl">
-      <Link href="/notas" className="text-sm font-semibold text-primary hover:underline">
-        ← Todas las notas
-      </Link>
-      <header className="mt-4 mb-8">
-        <h1 className="font-display break-words text-[1.75rem] leading-tight text-text lg:text-4xl">
-          {nota.titulo}
-        </h1>
+      <CabeceraFicha titulo={nota.titulo}>
         <p className="mt-3 text-sm text-muted">
           Nota de datos del <time dateTime={nota.fecha}>{fechaLarga(nota.fecha)}</time>.
           {autor && (
@@ -93,7 +88,7 @@ export default async function PaginaNota({ params }: Props) {
           <dt className="text-muted">Datos</dt>
           <dd className="text-text">{nota.medido_sobre}</dd>
         </dl>
-      </header>
+      </CabeceraFicha>
 
       <Markdown arbol={antes} />
       {despues && (
@@ -143,6 +138,11 @@ export default async function PaginaNota({ params }: Props) {
           })}
         </ul>
       </section>
+
+      {/* Al final y no arriba: nada va antes del `h1` (spec PORTADA_V7 §4). */}
+      <Link href="/notas" className="mt-12 inline-block text-sm font-semibold text-primary hover:underline">
+        ← Todas las notas
+      </Link>
     </article>
   );
 }
