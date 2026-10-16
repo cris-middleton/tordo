@@ -7,8 +7,8 @@ resuelve. `make ci` materializa el fixture antes de los tests; en CI, sin él,
 esto es un error y no un salto (mismo motivo que en el golden).
 
 Las bandas por producto (L0/L0N) del fixture son sintéticas
-(`golden/fixture_productos.py`): un indexable con dos unidades, uno que no, y
-una colisión de slug. Los E2E del frontend usan esos mismos slugs.
+(`golden/fixture_productos.py`): un indexable con dos unidades, uno con pocas
+compras, uno de un solo comprador y una colisión de slug. Los E2E del frontend usan esos mismos slugs.
 """
 
 from __future__ import annotations
@@ -72,8 +72,8 @@ def test_el_sitemap_trae_compradores_y_rubros(cliente):
     # Guardas: si el índice saliera vacío, el resto comprobaría el vacío.
     assert len(mapa["compradores"]) >= 10, "¿cambió el criterio o el fixture?"
     assert len(mapa["rubros"]) >= 50, "¿cambió el criterio o el fixture?"
-    # Sintéticos: el de la resma no llega a 10 compras, y de la colisión
-    # jabón/jabon queda una sola página.
+    # Sintéticos: el de la resma no llega a 10 compras, el del cloro es de un
+    # solo comprador, y de la colisión jabón/jabon queda una sola página.
     assert mapa["productos"] == ["guante-nitrilo-prueba", "jabon-liquido-prueba"]
 
 
@@ -128,6 +128,11 @@ def test_producto_indexable_con_dos_unidades_y_compradores_enlazables(cliente):
     assert cuerpo["nombre_generico"] == "Producto de prueba"
     assert [u["unidad"] for u in cuerpo["unidades"]] == ["caja", "unidad"]
     assert [c["codigo"] for c in cuerpo["compradores"]] == ["111875", "113812"]
+    # Cuántos organismos hay detrás de cada banda, de las columnas materializadas.
+    assert [(u["compradores"], u["de_mercado"]) for u in cuerpo["unidades"]] == [
+        (6, True),
+        (6, True),
+    ]
     # La ventana de las bandas del fixture (golden/fixture_productos.py, VENTANA).
     assert cuerpo["periodo"] == {"ventana_desde": "2025-04-01", "ventana_hasta": "2026-03-31"}
     # Los enlaces producto → comprador llevan a páginas indexadas.
@@ -142,8 +147,21 @@ def test_producto_no_indexable_y_colision(cliente):
     assert [p["slug"] for p in encontrados] == [
         "guante-nitrilo-prueba",
         "jabon-liquido-prueba",
+        "cloro-tableta-prueba",
         "resma-papel-prueba",
     ]
+    # La lista lleva cómo lo escribe el comprador, para titular con eso.
+    assert encontrados[0]["descripcion"] == "GUANTE DE NITRILO PRUEBA"
+
+
+def test_un_producto_de_un_solo_comprador_no_se_indexa(cliente):
+    """40 compras y predictibilidad alta, pero todas de un organismo: es el
+    precio de su contrato. La página existe, con `noindex`."""
+    cloro = _get(cliente, "/productos/cloro-tableta-prueba")
+    assert cloro["indexable"] is False
+    assert cloro["unidades"][0]["compradores"] == 1
+    assert cloro["unidades"][0]["de_mercado"] is False
+    assert "cloro-tableta-prueba" not in _get(cliente, "/sitemap")["productos"]
 
 
 def test_la_busqueda_quita_las_palabras_que_la_firma_quita(cliente):

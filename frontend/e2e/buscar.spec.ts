@@ -45,11 +45,14 @@ test('un producto: su banda, quién lo compra y la Compra Ágil que coincide', a
   await expect(main.getByRole('searchbox')).toHaveValue('guante');
 
   const precios = main.locator('#precios');
-  await expect(precios.getByRole('link', { name: 'Guante nitrilo prueba' })).toHaveAttribute(
+  // Titulado como lo escribe el comprador (la descripción), no con la firma.
+  await expect(precios.getByRole('link', { name: 'Guante de nitrilo prueba' })).toHaveAttribute(
     'href',
     '/productos/guante-nitrilo-prueba',
   );
   await expect(precios.getByRole('heading', { name: 'Por caja' })).toBeVisible();
+  // Cuántos organismos hay detrás de la banda, y de cuándo es.
+  await expect(precios.getByText('60 compras de 6 organismos, abr 2025 – mar 2026 (12 meses).')).toBeVisible();
   await expect(precios.getByRole('link', { name: /ver todos los productos/i })).toHaveAttribute(
     'href',
     '/productos?q=guante',

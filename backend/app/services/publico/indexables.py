@@ -41,14 +41,31 @@ Tres tipos de página:
   tiene página.
 - **Producto** — por slug de la firma (`etl/analytics/normalizacion.py`), con
   una banda por unidad de medida. Indexable si alguna de sus bandas nacionales
-  (L0N) tiene `n ≥ MIN_COMPRAS_PRODUCTO` y predictibilidad alta o media: una
-  banda dispersa o con pocas compras no responde «¿a qué precio?», y publicarla
-  sería inventar un número con aspecto de respuesta. Copia local, con el
-  precio unitario corregido (2026-10-16): 51.559 firmas, 15.711 pasan el filtro;
-  tras resolver colisiones de slug (casi todas variantes con y sin tilde o
-  recortadas a 80 caracteres) quedan **15.452** indexables. Antes de la
-  corrección eran 6.561: la división por la cantidad volvía «baja» la mayoría.
-  Las no indexables también tienen página —200 con `indexable: false`, que el
+  (L0N) cumple a la vez tres cosas:
+
+  1. `n ≥ MIN_COMPRAS_PRODUCTO`;
+  2. predictibilidad alta o media: una banda muy dispersa no responde «¿a qué
+     precio?»;
+  3. **es un precio de mercado** (`de_mercado`): al menos
+     `MIN_COMPRADORES_PRODUCTO` organismos distintos y ninguno con más de
+     `CUOTA_MAXIMA_COMPRADOR` de las compras. Una banda de un solo comprador es
+     el precio de SU contrato, y publicarla como «lo que paga el Estado» es
+     inventar un número con aspecto de respuesta. Decisión del dueño del
+     2026-10-16, tras medir que el 56 % de las bandas indexables venía de un
+     único organismo y el 74 % tenía uno sobre la mitad. La misma regla decide
+     qué banda puede salir en la portada: la API la manda como `de_mercado` en
+     cada unidad y el frontend no la recalcula.
+
+  Copia local, con el precio unitario corregido (2026-10-16, seis meses de
+  órdenes y ventana de 12): 50.575 firmas tras resolver colisiones de slug (casi
+  todas variantes con y sin tilde o recortadas a 80 caracteres). Con los dos
+  primeros criterios se indexaban **15.452**; con el tercero quedan **7.758**.
+  Antes de corregir el precio eran 6.561: la división por la cantidad volvía
+  «baja» la mayoría.
+
+  Una tabla materializada antes de que la banda contara sus compradores no
+  dice si el precio es de mercado: con ella no se indexa ningún producto. Las no
+  indexables también tienen página —200 con `indexable: false`, que el
   frontend marca `noindex`— y se llega por búsqueda.
 
 **Caché.** Construir el índice lee ~100.000 filas pequeñas (las firmas de L0N
@@ -69,7 +86,7 @@ from dataclasses import dataclass
 
 import polars as pl
 
-from app.services.bi._base import _distintos, _load, periodo_de
+from app.services.bi._base import _columnas, _distintos, _load, periodo_de
 from app.utils.slug import slug
 
 logger = logging.getLogger(__name__)
@@ -83,10 +100,43 @@ MIN_ORDENES_COMPRADOR = 50
 #: debajo, P10 y P90 son prácticamente el mínimo y el máximo observados.
 MIN_COMPRAS_PRODUCTO = 10
 
-#: Predictibilidades que se indexan. «baja» significa que el precio no decide
-#: la adjudicación (CLAUDE.md, «El precio se agrupa por PRODUCTO»): la página
-#: existe, pero no es una respuesta que convenga ofrecer a un buscador.
+#: Predictibilidades que se indexan. «baja» significa que por lo mismo se pagaron
+#: precios muy distintos (p75 más de 2,6 veces p25; CLAUDE.md, «El precio se
+#: agrupa por PRODUCTO»): la página existe, pero no es una respuesta que
+#: convenga ofrecer a un buscador.
 PREDICTIBILIDAD_INDEXABLE = ("alta", "media")
+
+#: Organismos distintos que tiene que haber detrás de una banda para que sea un
+#: precio de mercado. Ver «Producto» en el docstring del módulo.
+MIN_COMPRADORES_PRODUCTO = 3
+
+#: Fracción de las compras de la banda que puede reunir un solo organismo. Con
+#: más, la banda dice sobre todo lo que paga él.
+CUOTA_MAXIMA_COMPRADOR = 0.5
+
+#: Las columnas de la banda que dicen cuántos compradores tiene detrás
+#: (`etl/analytics/product_price_bands.py`, `_con_compradores`).
+COLUMNAS_COMPRADORES = ("compradores", "cuota_mayor")
+
+
+def de_mercado() -> pl.Expr:
+    """`True` si la banda es un precio de mercado. Sin las columnas, o nulas, `False`.
+
+    Una sola definición para el índice y para la ficha (`paginas._unidades`).
+    """
+    return (
+        (pl.col("compradores") >= MIN_COMPRADORES_PRODUCTO)
+        & (pl.col("cuota_mayor") <= CUOTA_MAXIMA_COMPRADOR)
+    ).fill_null(False)
+
+
+def con_de_mercado(bandas: pl.DataFrame) -> pl.DataFrame:
+    """Añade `de_mercado`, y las columnas de compradores nulas si la tabla no las trae."""
+    faltan = [c for c in COLUMNAS_COMPRADORES if c not in bandas.columns]
+    if faltan:
+        bandas = bandas.with_columns(pl.lit(None, dtype=pl.Float64).alias(c) for c in faltan)
+    return bandas.with_columns(de_mercado().alias("de_mercado"))
+
 
 #: Rubros que no son un rubro: el ETL rellena así los vacíos.
 _RUBROS_VACIOS = ("", "NA")
@@ -204,20 +254,30 @@ def _productos() -> pl.DataFrame:
     vacio = pl.DataFrame(
         schema={"slug": pl.Utf8, "firma": pl.Utf8, "n": pl.Int64, "indexable": pl.Boolean}
     )
-    bandas = _load(
-        "product_price_bands_L0N.parquet",
-        columnas=["firma_producto", "n", "predictibilidad"],
-    )
+    tabla = "product_price_bands_L0N.parquet"
+    presentes = _columnas(tabla)
+    sin_compradores = not set(COLUMNAS_COMPRADORES) <= presentes
+    if presentes and sin_compradores:
+        logger.warning(
+            "%s no trae %s: ningún producto se indexa hasta re-materializar",
+            tabla,
+            ", ".join(COLUMNAS_COMPRADORES),
+        )
+    columnas = ["firma_producto", "n", "predictibilidad"]
+    if not sin_compradores:
+        columnas += list(COLUMNAS_COMPRADORES)
+    bandas = _load(tabla, columnas=columnas)
     if bandas is None or bandas.is_empty():
         return vacio
     por_firma = (
-        bandas.filter(pl.col("firma_producto").is_not_null())
+        con_de_mercado(bandas.filter(pl.col("firma_producto").is_not_null()))
         .group_by("firma_producto")
         .agg(
             pl.col("n").cast(pl.Int64).sum().alias("n"),
             (
                 (pl.col("n") >= MIN_COMPRAS_PRODUCTO)
                 & pl.col("predictibilidad").is_in(list(PREDICTIBILIDAD_INDEXABLE))
+                & pl.col("de_mercado")
             )
             .any()
             .alias("indexable"),

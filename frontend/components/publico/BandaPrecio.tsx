@@ -1,5 +1,5 @@
 import { ConfidenceBadge } from '@/components/ConfidenceBadge';
-import { entero, plata, tituloDeBanda } from '@/lib/publico';
+import { comprasDeOrganismos, frasePrecio, notaCompradores, plata, tituloDeBanda } from '@/lib/publico';
 import { predictibilidadInfo } from '@/lib/predictibilidad';
 import type { BandaUnidad } from '@/types/publico';
 
@@ -12,10 +12,16 @@ import type { BandaUnidad } from '@/types/publico';
  *
  * Sin librería de gráficos: cinco cifras sobre una barra se dibujan con dos
  * cajas, y así la página llega como HTML puro — que es lo que lee Google.
+ *
+ * **Dice cuántas compras y de cuántos organismos hay detrás**, y de cuándo si
+ * le pasan el `periodo` (ya escrito con `textoPeriodo`): un precio de un solo
+ * comprador es el de su contrato. Donde el periodo ya está escrito al lado
+ * (la cabecera de la ficha de producto), no se le pasa.
  */
-export function BandaPrecio({ banda }: { banda: BandaUnidad }) {
+export function BandaPrecio({ banda, periodo }: { banda: BandaUnidad; periodo?: string | null }) {
   const { p10, p25, p50, p75, p90 } = banda;
   const info = predictibilidadInfo(banda.predictibilidad ?? undefined);
+  const nota = notaCompradores(banda);
   const completa = p10 != null && p90 != null && p90 > p10;
   const pos = (v: number | null) =>
     completa && v != null ? Math.min(100, Math.max(0, ((v - p10) / (p90 - p10)) * 100)) : 0;
@@ -71,11 +77,17 @@ export function BandaPrecio({ banda }: { banda: BandaUnidad }) {
         ))}
       </dl>
 
-      <p className="mt-4 text-xs text-muted">
-        La mitad de las {entero(banda.n)} compras pagó entre {plata(p25)} y {plata(p75)}.
-        {banda.predictibilidad === 'baja' &&
-          ' La dispersión es alta: en este producto el precio no es lo que decide la adjudicación.'}
+      <p className="mt-4 text-xs text-muted">{frasePrecio(banda)}</p>
+      <p className="mt-1 text-xs text-muted">
+        {comprasDeOrganismos(banda.n, banda.compradores)}
+        {periodo ? `, ${periodo}` : ''}.
       </p>
+      {nota && <p className="mt-1 text-xs text-muted">{nota}</p>}
+      {banda.predictibilidad === 'baja' && (
+        <p className="mt-1 text-xs text-muted">
+          Se pagaron precios muy distintos por lo mismo. Mira quién lo compra antes de fijar el tuyo.
+        </p>
+      )}
     </article>
   );
 }

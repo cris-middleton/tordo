@@ -178,6 +178,8 @@ def rubro(slug: str) -> dict | None:
 
 
 def _unidades(bandas: pl.DataFrame) -> list[dict]:
+    """Una banda por unidad, con cuántos organismos tiene detrás y si es un
+    precio de mercado (la regla vive en `indexables.de_mercado`)."""
     return [
         {
             "unidad": r.get("UnidadMedida"),
@@ -189,8 +191,11 @@ def _unidades(bandas: pl.DataFrame) -> list[dict]:
             "p90": r.get("p90"),
             "predictibilidad": r.get("predictibilidad"),
             "confianza": r.get("confianza"),
+            "compradores": None if r.get("compradores") is None else int(r["compradores"]),
+            "cuota_mayor": r.get("cuota_mayor"),
+            "de_mercado": bool(r.get("de_mercado")),
         }
-        for r in bandas.iter_rows(named=True)
+        for r in indexables.con_de_mercado(bandas).iter_rows(named=True)
     ]
 
 
@@ -300,4 +305,42 @@ def buscar_productos(q: str, limite: int) -> list[dict]:
         .sort(["indexable", "n", "slug"], descending=[True, True, False])
         .head(min(limite, MAX_RESULTADOS_BUSQUEDA))
     )
-    return encontrados.select("slug", "firma", "n", "indexable").to_dicts()
+    descripciones = _descripciones(encontrados.get_column("firma").to_list())
+    return [
+        {
+            "slug": r["slug"],
+            "firma": r["firma"],
+            "descripcion": descripciones.get(r["firma"]),
+            "n": r["n"],
+            "indexable": r["indexable"],
+        }
+        for r in encontrados.iter_rows(named=True)
+    ]
+
+
+def _descripciones(firmas: list[str]) -> dict[str, str | None]:
+    """La descripción con que se lista cada firma: la de su banda con más compras.
+
+    Se pide aparte, sólo para los resultados (como mucho
+    `MAX_RESULTADOS_BUSQUEDA`), en vez de guardarla en el índice: son ~50.000
+    textos que ocuparían la memoria de la API para enseñar cincuenta.
+    """
+    if not firmas:
+        return {}
+    df = _load(
+        "product_price_bands_L0N.parquet",
+        filtros={"firma_producto": firmas},
+        columnas=["firma_producto", "UnidadMedida", "n", "descripcion"],
+    )
+    if df is None or df.is_empty():
+        return {}
+    mejores = df.sort(
+        ["firma_producto", "n", "UnidadMedida"], descending=[False, True, False], nulls_last=True
+    ).unique(subset="firma_producto", keep="first", maintain_order=True)
+    return dict(
+        zip(
+            mejores.get_column("firma_producto").to_list(),
+            mejores.get_column("descripcion").to_list(),
+            strict=True,
+        )
+    )

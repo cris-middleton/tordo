@@ -256,6 +256,10 @@ describe('la copia de PRODUCTO_PORTADA en scripts/verificar-produccion.sh', () =
     expect(seccion).toMatch(/1 <= p25 < p75/);
   });
 
+  it('exige un precio de mercado (`de_mercado` de la API), como lecturaPrecio', () => {
+    expect(seccion).toMatch(/u\.get\("de_mercado"\) is True/);
+  });
+
   it('mira lo que la lectura necesita: indexable, el filtro de calidad, p25, p75 y periodo', () => {
     for (const campo of ['indexable', 'unidad', 'sin unidad declarada', 'predictibilidad', 'p25', 'p75', 'ventana_desde', 'ventana_hasta']) {
       expect(seccion).toContain(campo);

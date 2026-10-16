@@ -35,7 +35,13 @@ vi.mock('@/lib/queries', () => ({
 }));
 
 const RESULTADOS = [
-  { slug: 'guante-latex-nitrilo', firma: 'guante latex nitrilo', n: 120, indexable: true },
+  {
+    slug: 'guante-latex-nitrilo',
+    firma: 'guante latex nitrilo',
+    descripcion: 'GUANTE DE LÁTEX Y NITRILO',
+    n: 120,
+    indexable: true,
+  },
   { slug: 'guante-quirurgico-raro', firma: 'guante quirurgico raro', n: 3, indexable: false },
 ];
 
@@ -89,11 +95,14 @@ describe('buscador de productos', () => {
     render(<BuscadorProductos />);
     escribir('guante');
     act(() => vi.advanceTimersByTime(300));
-    expect(screen.getByRole('link', { name: /guante latex nitrilo/ })).toHaveAttribute(
+    // Titulado como lo escribe el comprador, no con la firma (palabras ordenadas).
+    expect(screen.getByRole('link', { name: /Guante de látex y nitrilo/ })).toHaveAttribute(
       'href',
       '/productos/guante-latex-nitrilo',
     );
-    const raro = screen.getByRole('link', { name: /guante quirurgico raro/ });
+    expect(screen.queryByText('guante latex nitrilo')).not.toBeInTheDocument();
+    // Sin descripción, la firma con mayúscula.
+    const raro = screen.getByRole('link', { name: /Guante quirurgico raro/ });
     expect(raro).toHaveAttribute('href', '/productos/guante-quirurgico-raro');
     expect(raro).toHaveTextContent(/orientativo/);
   });
@@ -124,7 +133,7 @@ describe('el término vive en la URL', () => {
     // Sin avanzar los temporizadores: la primera petición ya es la de la URL.
     expect(pedidas[0]).toBe('resma');
     expect(screen.getByLabelText(/buscar un producto/i)).toHaveValue('resma');
-    expect(screen.getByRole('link', { name: /guante latex nitrilo/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Guante de látex y nitrilo/ })).toBeInTheDocument();
   });
 
   it('una URL con tildes y espacios abre con el término intacto', () => {

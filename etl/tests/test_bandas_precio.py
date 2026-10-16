@@ -209,3 +209,51 @@ class TestDeterminismo:
         a = build_level_0(df)
         b = build_level_0(df.sample(fraction=1.0, shuffle=True, seed=7))
         assert a["descripcion"].to_list() == b["descripcion"].to_list()
+
+
+class TestCompradoresDeLaBanda:
+    """Cuántos organismos hay detrás de una banda nacional, y cuánto pesa el mayor.
+
+    Un precio «del Estado» que sale de un solo comprador es el precio de su
+    contrato: medido sobre las bandas indexables de 2026-10, el 56 % venía de un
+    único organismo. Las páginas públicas sólo indexan una banda con varios
+    compradores y ninguno sobre la mitad (`backend/app/services/publico/indexables.py`),
+    y para eso la banda tiene que traer los dos números.
+    """
+
+    @staticmethod
+    def _compras(organismo: str, veces: int, precio: float = 100.0) -> list[dict]:
+        return [
+            {
+                "firma_producto": "guantes nitrilo",
+                "EspecificacionComprador": "guantes nitrilo",
+                "pu": precio,
+                "CodigoOrganismoPublico": organismo,
+                "OrganismoPublico": f"ORGANISMO {organismo}",
+            }
+            for _ in range(veces)
+        ]
+
+    def test_cuenta_compradores_distintos_y_la_cuota_del_mayor(self):
+        df = _items(self._compras("1", 6) + self._compras("2", 2) + self._compras("3", 2))
+        l0n = build_level_0_nacional(df)
+        assert l0n["compradores"][0] == 3
+        assert l0n["cuota_mayor"][0] == 0.6
+
+    def test_un_solo_comprador_tiene_cuota_uno(self):
+        l0n = build_level_0_nacional(_items(self._compras("1", 8)))
+        assert l0n["compradores"][0] == 1
+        assert l0n["cuota_mayor"][0] == 1.0
+
+    def test_cuenta_sobre_las_compras_que_hacen_la_banda(self):
+        """Un organismo cuya única compra es atípica (Tukey la saca) no está
+        detrás de la banda, y no se cuenta: `n` y `compradores` miran las mismas filas."""
+        df = _items(
+            self._compras("1", 5)
+            + self._compras("2", 5, precio=101.0)
+            + self._compras("3", 1, precio=1_000_000.0)
+        )
+        l0n = build_level_0_nacional(df)
+        assert l0n["n"][0] == 10
+        assert l0n["compradores"][0] == 2
+        assert l0n["cuota_mayor"][0] == 0.5

@@ -212,8 +212,8 @@ respuesta trae ya los enlaces a las demás.
 | `GET /publico/sitemap` | `actualizado` y los códigos y slugs **indexables** de cada tipo |
 | `GET /publico/compradores/{codigo}` | el perfil de `/bi/comprador`, su Compra Ágil y sus 10 rubros de más monto |
 | `GET /publico/rubros/{slug}` | el panorama de `/bi/panorama` y sus 10 compradores de más monto |
-| `GET /publico/productos/{slug}` | una banda nacional por unidad de medida, los 10 compradores que más lo compran y el `periodo` de las bandas (12 meses) |
-| `GET /publico/productos?q=&limite=` | búsqueda por palabras, también de los no indexados |
+| `GET /publico/productos/{slug}` | una banda nacional por unidad de medida —con cuántos organismos la compran (`compradores`), la fracción del mayor (`cuota_mayor`) y si es un precio de mercado (`de_mercado`)—, los 10 compradores que más lo compran y el `periodo` de las bandas (12 meses) |
+| `GET /publico/productos?q=&limite=` | búsqueda por palabras, también de los no indexados, con la `descripcion` de cada producto (cómo lo escribe el comprador) |
 | `GET /publico/portada` | cuántas licitaciones (no Compra Ágil) y Compras Ágiles se pueden postular ahora, las Compras Ágiles abiertas por día de cierre, cuántas se publicaron hoy y qué organismo publicó más, y la hora de la última ingesta de Compra Ágil |
 
 `/publico/portada` no lee el análisis sino el catálogo: responde aunque el BI esté apagado.
@@ -245,8 +245,10 @@ buscador; el criterio está escrito, con sus cifras, en
 
 - comprador: al menos 50 órdenes y algún mercado en la ventana de análisis;
 - rubro: todos;
-- producto: alguna banda nacional con 10 compras o más y predictibilidad alta o
-  media.
+- producto: alguna banda nacional con 10 compras o más, predictibilidad alta o
+  media y **precio de mercado** (`de_mercado`): al menos 3 organismos compradores y
+  ninguno con más de la mitad de las compras. Una banda de un solo comprador es el
+  precio de su contrato. Las tres condiciones, en la misma banda.
 
 Una página no indexable **responde igual, con 200**: existe, pero el sitio la marca
 `noindex`. Sólo lo que no existe es 404. La búsqueda de productos ignora tildes,

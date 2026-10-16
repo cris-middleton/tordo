@@ -6,6 +6,7 @@ actualizado: "2026-10-16"
 fuentes:
   - "Descarga masiva de órdenes de compra de ChileCompra (octubre de 2025 a marzo de 2026)"
   - "Código del cálculo: etl/analytics/product_price_bands.py y etl/analytics/normalizacion.py"
+  - "Regla del precio de mercado: backend/app/services/publico/indexables.py"
 ---
 
 Una banda de precio responde a una pregunta concreta: **¿a qué precio unitario ha
@@ -25,8 +26,20 @@ los ordenamos de menor a mayor:
 
 Antes de calcularlos se descartan los precios anómalos de cada grupo (el método de
 Tukey: lo que se aleja más de 1,5 veces el rango entre P25 y P75). Junto a la banda
-siempre va **cuántas compras la forman** y **de qué período son**: una banda sin
-fecha se lee como «de siempre», y no lo es.
+siempre va **cuántas compras la forman**, **de cuántos organismos son** y **de qué
+período son**: una banda sin fecha se lee como «de siempre», y no lo es.
+
+## Un precio de mercado tiene varios compradores
+
+Si casi todas las compras son de un mismo organismo, la banda es el precio de su
+contrato. Por eso sólo tratamos como precio de mercado una banda con **al menos 3
+organismos compradores y ninguno con más de la mitad de las compras**. Sólo esas
+salen en los buscadores y en la portada. Las demás se pueden ver, con el aviso de
+que sirven para orientarte.
+
+Medido en la copia local de seis meses: de las bandas nacionales con 10 compras o
+más y predictibilidad alta o media, el 37 % venía de un solo organismo y el 49 %
+tenía uno con más de la mitad de las compras.
 
 ## La predictibilidad: cuánto puedes fiarte de la banda
 
@@ -40,10 +53,14 @@ palabra:
 | **media** | QCD menor que 0,45 y al menos 3 compras | P75 es como mucho ~2,6 veces P25 |
 | **baja** | el resto | el precio varía demasiado para anclarse en él |
 
-**Una predictibilidad baja también es información.** Quiere decir que en ese producto
-el precio no es lo que decide la adjudicación: pesan más el plazo, la calidad, la
-marca o la relación con el comprador. Preferimos decirlo antes que mostrar un número
-con aspecto de respuesta.
+Los cortes son fijos: dicen cuánto cabe entre P25 y P75, y no dependen de cómo se
+repartan las demás bandas. Entre las bandas de mercado, el 70 % tiene
+predictibilidad alta, el 18 % media y el 12 % baja.
+
+**Una predictibilidad baja también es información.** Se pagaron precios muy
+distintos por lo mismo: puede pesar el plazo, la marca, el volumen o el lugar de
+entrega. Antes de fijar tu precio, mira quién lo compra y a cuánto. Preferimos
+decirlo antes que mostrar un número con aspecto de respuesta.
 
 Usamos el QCD y no la desviación estándar porque los precios de compras públicas
 tienen colas muy largas: la desviación estándar mide la compra rara que sobrevivió al

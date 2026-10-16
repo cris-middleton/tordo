@@ -75,6 +75,8 @@ def _banda(firma, unidad, n, pred, p50, **extra):
         "codigoProductoONU": "46181504",
         "NombreroductoGenerico": "Guantes protectores",
         "descripcion": "GUANTE NITRILO TALLA M",
+        "compradores": 5,
+        "cuota_mayor": 0.2,
         **VENTANA,
         **extra,
     }
@@ -341,7 +343,13 @@ class TestProducto:
             "p90",
             "predictibilidad",
             "confianza",
+            "compradores",
+            "cuota_mayor",
+            "de_mercado",
         }
+        assert cuerpo["unidades"][0]["compradores"] == 5
+        assert cuerpo["unidades"][0]["cuota_mayor"] == 0.2
+        assert cuerpo["unidades"][0]["de_mercado"] is True
         assert cuerpo["compradores"] == [
             {
                 "codigo": "7297",
@@ -381,6 +389,33 @@ class TestProducto:
         assert r.status_code == 200
         assert r.json()["periodo"] is None
 
+    def test_de_mercado_por_unidad(self, analytics, cliente):
+        """Cada banda dice si es un precio de mercado (≥ 3 compradores, ninguno
+        sobre la mitad): la portada sólo publica una que lo sea."""
+        analytics["product_price_bands_L0N.parquet"] = [
+            _banda("guante nitrilo", "caja", 60, "alta", 9_000.0, compradores=1, cuota_mayor=1.0),
+            _banda("guante nitrilo", "unidad", 25, "media", 90.0),
+        ]
+        indexables.invalidar()
+        unidades = _get(cliente, "/productos/guante-nitrilo").json()["unidades"]
+        assert [u["de_mercado"] for u in unidades] == [False, True]
+
+    def test_sin_compradores_en_la_tabla_no_es_de_mercado(self, analytics, cliente):
+        """Una tabla materializada antes de contar compradores: la ficha sale,
+        sin decir de cuántos es, y ninguna banda pasa por precio de mercado."""
+        fila = _banda("guante nitrilo", "caja", 60, "alta", 9_000.0)
+        del fila["compradores"], fila["cuota_mayor"]
+        analytics["product_price_bands_L0N.parquet"] = [fila]
+        indexables.invalidar()
+
+        r = _get(cliente, "/productos/guante-nitrilo")
+
+        assert r.status_code == 200
+        banda = r.json()["unidades"][0]
+        assert banda["compradores"] is None
+        assert banda["cuota_mayor"] is None
+        assert banda["de_mercado"] is False
+
     def test_desconocido_es_404(self, analytics, cliente):
         r = _get(cliente, "/productos/no-existe")
         assert r.status_code == 404
@@ -392,8 +427,27 @@ class TestBusqueda:
         r = _get(cliente, "/productos", q="Látex GUANTE")
         assert r.status_code == 200
         assert r.json() == [
-            {"slug": "guante-latex", "firma": "guante látex", "n": 4, "indexable": False}
+            {
+                "slug": "guante-latex",
+                "firma": "guante látex",
+                "descripcion": "GUANTE NITRILO TALLA M",
+                "n": 4,
+                "indexable": False,
+            }
         ]
+
+    def test_la_descripcion_es_la_de_la_unidad_con_mas_compras(self, analytics, cliente):
+        """Lo que se lee en la lista es cómo escribe el producto quien lo compra,
+        no la firma (palabras ordenadas): la de su banda con más compras."""
+        analytics["product_price_bands_L0N.parquet"] = [
+            _banda(
+                "guante nitrilo", "caja", 60, "alta", 9_000.0, descripcion="CAJA GUANTE NITRILO"
+            ),
+            _banda("guante nitrilo", "unidad", 25, "media", 90.0, descripcion="GUANTE NITRILO"),
+        ]
+        indexables.invalidar()
+        r = _get(cliente, "/productos", q="nitrilo")
+        assert [p["descripcion"] for p in r.json()] == ["CAJA GUANTE NITRILO"]
 
     def test_primero_los_indexables(self, analytics, cliente):
         slugs = [p["slug"] for p in _get(cliente, "/productos", q="guante").json()]
