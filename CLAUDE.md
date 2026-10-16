@@ -989,7 +989,12 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   de «Lo mejor de hoy». **`estado=Publicada` no es lo mismo**: no mira el cierre.
   `tests/test_licitaciones_abiertas.py` fija que la cuenta y el listado dan el mismo total; el
   enlace de cada cifra sale de `urlCatalogoAbiertas` (`lib/filtrosCatalogo.ts`), no se escribe
-  a mano.
+  a mano. `contar_abiertas` reparte además las Compras Ágiles abiertas por **día de Chile** de
+  cierre (hoy, mañana, 2–3 días, después; sin cierre = después) en la misma pasada, con los
+  bordes de `inicio_del_dia()`: los cuatro suman `compra_agil_abiertas`. «Publicadas hoy» y
+  «más publica hoy» (`publicadas_del_dia`) son otra consulta —una publicada hoy puede haber
+  cerrado ya— y agrupan por `nombre_organismo` normalizado, porque la Compra Ágil no trae
+  código (`tests/test_portada_hoy.py`, con un instante fijo de noche).
 - **Analytics lee una VENTANA de historia, no toda** (`data_loader.VENTANA_ANALYTICS_MESES` = 36;
   las bandas de precio por producto, `VENTANA_BANDAS_PRECIO_MESES` = 12). Medido: **cada**
   módulo sube de RAM con los meses de historia —de 0,04 GB/mes (clustering, hoy retirado) a
@@ -1001,8 +1006,9 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   - Se salta por nombre los archivos anteriores (una orden está en el archivo de su mes de
     envío, nunca en uno anterior a su creación) y filtra las filas por `FechaCreacion`.
   - **Las tablas que la llevan lo publican**: `ventana_desde`/`ventana_hasta` en las bandas,
-    `price_bands`, `competitors_by_market` y `market_concentration`, y `periodo` en la API de
-    precio y de competidores. Una cifra sin periodo se lee como «de siempre».
+    `price_bands`, `competitors_by_market`, `market_concentration` y `sector_dashboard`, y
+    `periodo` en la API de precio, de competidores y en la ficha pública de producto. Una cifra
+    sin periodo se lee como «de siempre».
   - **Sin ventana, a propósito**: el harness de evaluación (`meses=None`) y `tfidf_matcher`,
     cuyos splits fija el harness —cambiar su historia es cambiar el modelo.
   - `MIN_YEAR` ya no filtra: queda sólo como origen del índice temporal de `trend_analysis`.
@@ -1047,6 +1053,9 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   se daba por vencido desde la tarde anterior (los dos se fueron con las cuentas; `hoy_chile()`
   se queda para el autolímite del paso 5). Un test en una máquina configurada en Chile no
   lo habría visto — `tests/test_reloj_chile.py` fija un instante dentro de esa franja.
+  El borde de un día es `inicio_del_dia()`, **en UTC**: un `datetime` en la hora que no existe
+  el día del cambio de hora no es igual a ninguno de otra zona (PEP 495), y restar dos de la
+  misma zona da horas de reloj (24 h un día que dura 23).
 - **`app/core/__init__.py` está vacío a propósito**, por lo mismo que `app/api/__init__.py`:
   re-exportaba nombres de un módulo de seguridad (hoy borrado), así que `from app.core.tiempo
   import ...` arrastraba los modelos de cuenta y cerraba un ciclo.
