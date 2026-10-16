@@ -33,12 +33,12 @@ export const revalidate = 1800;
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://tordo.cl';
 
-// Vocabulario llano (R10 del rediseño): sin jerga de producto ni promesas de lo que
-// se fue con las cuentas. La descripción, bajo 155 caracteres.
-const TITLE = `${APP_NAME} — Compras públicas de Chile, gratis y sin cuenta`;
+// Vocabulario llano (R10 del rediseño) y la voz de IDENTIDAD_Y_PORTADA §6: qué es,
+// no qué no cobra. La descripción, bajo 155 caracteres.
+const TITLE = `${APP_NAME} — Qué compra el Estado de Chile y a qué precio`;
 const DESCRIPTION =
-  'Busca lo que le vendes al Estado: cuánto ha pagado, qué está abierto hoy y quién lo compra. ' +
-  'Con datos de ChileCompra, gratis y sin registrarte.';
+  'Busca lo que vendes y mira cuánto ha pagado el Estado, quién lo compra y qué está abierto hoy. ' +
+  'Con los datos públicos de ChileCompra.';
 
 export const metadata: Metadata = {
   // Absoluto: el `template` del layout raíz le añadiría el nombre otra vez.

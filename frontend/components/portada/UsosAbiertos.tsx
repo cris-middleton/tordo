@@ -15,7 +15,7 @@ export function UsosAbiertos({ usos }: { usos: EnlaceNavegacion[] }) {
         Úsalo como quieras
       </h2>
       <p className="mt-1 text-sm text-muted">
-        Sin clave y sin cuenta: desde otro programa, desde un asistente de IA o en una planilla.
+        Desde otro programa, desde un asistente de IA o en una planilla.
       </p>
       <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm">
         {usos.map((u) => (

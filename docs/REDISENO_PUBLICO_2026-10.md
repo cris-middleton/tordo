@@ -1,7 +1,8 @@
 # Rediseño público — octubre 2026
 
-> **Estado:** dirección aprobada (2026-10-14); spec revisada por un revisor independiente contra
-> el código y la API en producción. Pendiente de plan de implementación.
+> **Estado:** implementado y en producción, salvo §5, §6.3 y §6.6, que sustituye
+> [`IDENTIDAD_Y_PORTADA_2026-10.md`](IDENTIDAD_Y_PORTADA_2026-10.md). Dirección aprobada el
+> 2026-10-14; spec revisada por un revisor independiente contra el código y la API en producción.
 > **Origen:** el sitio salió a producción el 2026-10-13 con la piel del SaaS que dejó de ser
 > (`PIVOTE_PUBLICO_2026-10.md`). Funciona, pero **parece una app de pago**: quien llega espera
 > un «crear cuenta» y un precio. Este documento dice qué cambia para que parezca lo que es
@@ -125,7 +126,7 @@ Revisión del sitio en producción (1440 px y 390 px) y de unos 30 sitios compar
 | R1 | La portada se reconstruye en torno a **un buscador: «¿Qué le vendes al Estado?»** | §2.1 |
 | R2 | Nueva página **`/buscar?q=`**: una búsqueda, tres respuestas (precio, abiertas ahora, quién lo compra) | Responde la pregunta de decisión con lo que el backend ya sabe |
 | R3 | **Se elimina la barra lateral**; todo el sitio usa una cabecera superior única | §1.1 |
-| R4 | Tipografía: **Newsreader** (`h1`, `h2`) + **Public Sans** (todo lo demás, cifras incluidas) + **IBM Plex Mono** (identificadores). Varien se queda para la marca | §5 |
+| R4 | Tipografía: **Newsreader** (`h1`, `h2`) + **Public Sans** (todo lo demás, cifras incluidas) + **IBM Plex Mono** (identificadores). Varien se queda para la marca — sustituida por IDENTIDAD §4 | §5 |
 | R5 | Nueva página **`/abierto`**: API, MCP, CSV, RSS, código y licencias | §2.5 |
 | R6 | El costo se detalla en **`/apoyar#costos`** (tabla por concepto), sin página nueva | Decía «US$5 al mes» (sólo el plan de Railway); el desglose da **~US$10–11** (proyección con el uso medido el 2026-10-15, `docs/DESPLIEGUE.md` §13.2) y la copia se corrigió |
 | R7 | **Licencias**: código **AGPL-3.0 o posterior** (`AGPL-3.0-or-later`, D5 del plan del PR 7); **lo que TORDO deriva** (tablas de `analytics`, bandas, puntajes, CSV de análisis) **CC BY 4.0** con la atribución a ChileCompra. El contenido del catálogo sigue bajo las condiciones de ChileCompra | §7.1 — **confirmada por el responsable el 2026-10-14** |
@@ -136,6 +137,8 @@ Revisión del sitio en producción (1440 px y 390 px) y de unos 30 sitios compar
 ---
 
 ## 5. Tipografía y color
+
+> **Sustituida** por [`IDENTIDAD_Y_PORTADA_2026-10.md`](IDENTIDAD_Y_PORTADA_2026-10.md) (su §4 y §5). Lo que sigue es la historia de la decisión, no el sistema de hoy.
 
 ### 5.1 Familias
 
@@ -247,6 +250,8 @@ el PR de portada) · Contacto · selector de tema (`SelectorTema`, isla cliente 
 servidor).
 
 ### 6.3 Portada (`/`)
+
+> **Sustituida** por [`IDENTIDAD_Y_PORTADA_2026-10.md`](IDENTIDAD_Y_PORTADA_2026-10.md) (su §3). Lo que sigue es la historia de la decisión, no el sistema de hoy.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
@@ -361,6 +366,8 @@ indexable. Cinco secciones con ancla:
 `/acerca` (PR de portada) también va en `app/(publico)/` y en `PAGINAS_FIJAS`.
 
 ### 6.6 Backend: `GET /publico/portada`
+
+> **Sustituida** por [`IDENTIDAD_Y_PORTADA_2026-10.md`](IDENTIDAD_Y_PORTADA_2026-10.md) (su §7). Lo que sigue es la historia de la decisión, no el sistema de hoy.
 
 Endpoint nuevo, anónimo, en el router `publico` (grupo ya clasificado en
 `app/api/documentacion.py`), esquema en `app/schemas/publico.py`, consulta en `repositories/`:

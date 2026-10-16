@@ -544,14 +544,14 @@ describe('servidor y metadatos', () => {
     for (const f of fuentes) expect(readFileSync(f, 'utf-8'), f).not.toMatch(/^\s*['"]use client['"]/m);
   });
 
-  it('canonical, descripción corta y título sin «Inteligencia» (R10)', () => {
+  it('canonical, descripción corta y título sin «Inteligencia» (R10) ni «gratis y sin cuenta» (D11)', () => {
     expect(metadata.alternates?.canonical).toBe('/');
     expect(String(metadata.description).length).toBeLessThanOrEqual(155);
     const titulo = JSON.stringify(metadata.title);
-    expect(titulo).toMatch(/gratis y sin cuenta/i);
+    expect(titulo).toMatch(/Qué compra el Estado de Chile y a qué precio/);
     const visible = `${titulo} ${metadata.description} ${JSON.stringify(metadata.openGraph)} ${JSON.stringify(metadata.twitter)}`;
-    expect(visible).not.toMatch(/inteligencia/i);
+    expect(visible).not.toMatch(/inteligencia|gratis y sin cuenta|sin registrarte/i);
     // Que `twitter` esté de verdad en lo que se mira: un test que lee `undefined` no ve nada.
-    expect(metadata.twitter).toMatchObject({ title: expect.stringMatching(/gratis y sin cuenta/i) });
+    expect(metadata.twitter).toMatchObject({ title: expect.stringMatching(/Qué compra el Estado de Chile/) });
   });
 });

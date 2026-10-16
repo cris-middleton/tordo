@@ -42,7 +42,7 @@ export default function PaginaAbierto() {
       <CabeceraFicha
         tipo="Abierto"
         titulo="Úsalo como quieras"
-        subtitulo={`Todo lo que muestra ${APP_NAME} se puede leer sin cuenta y sin clave: desde otro programa, desde un asistente de IA o en una planilla.`}
+        subtitulo={`Todo lo que muestra ${APP_NAME} se puede leer desde otro programa, desde un asistente de IA o en una planilla.`}
       >
         <nav aria-label="En esta página" className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm">
           <a href="#api" className="enlace">API</a>
@@ -76,7 +76,7 @@ export default function PaginaAbierto() {
       <Seccion
         id="mcp"
         titulo="Pregúntale a Claude por el mercado público"
-        descripcion={`Un servidor MCP anónimo: tu asistente consulta precios, compradores y licitaciones de ${APP_NAME} mientras conversas. Sin clave, sin cuenta y sin cuota diaria; cuenta en el mismo límite por IP que la API (${LIMITE_POR_MINUTO} peticiones por minuto).`}
+        descripcion={`Un servidor MCP anónimo: tu asistente consulta precios, compradores y licitaciones de ${APP_NAME} mientras conversas. Comparte con la API el límite por IP (${LIMITE_POR_MINUTO} peticiones por minuto).`}
       >
         <p className="text-sm text-muted">La dirección del servidor, siempre con la barra final:</p>
         <Codigo etiqueta="URL del servidor MCP">{URL_MCP}</Codigo>

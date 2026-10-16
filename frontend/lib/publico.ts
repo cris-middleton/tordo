@@ -132,6 +132,29 @@ export function categoriaProducto(p: Pick<ProductoPublico, 'nombre_generico'>): 
   return generico ? capitalizar(generico) : null;
 }
 
+/**
+ * La unidad ausente, tal como la escribe el pipeline
+ * (`etl/analytics/normalizacion.py`, `UNIDAD_SIN_DECLARAR`): un texto, no un nulo.
+ */
+const UNIDAD_SIN_DECLARAR = 'sin unidad declarada';
+
+/**
+ * La unidad de una banda en minúsculas, o `null` si no hay ninguna que decir:
+ * nula, vacía o el literal «sin unidad declarada» (con cualquier mayúscula,
+ * tilde o espacio de más). «Por sin unidad declarada» no es una frase.
+ */
+export function unidadDeclarada(unidad: string | null | undefined): string | null {
+  const limpia = (unidad ?? '').normalize('NFD').replace(/\p{M}/gu, '').trim().toLowerCase().replace(/\s+/g, ' ');
+  if (!limpia || limpia === UNIDAD_SIN_DECLARAR) return null;
+  return (unidad ?? '').trim().toLowerCase();
+}
+
+/** El título de una banda: «Por caja», o «Sin unidad declarada». */
+export function tituloDeBanda(unidad: string | null | undefined): string {
+  const u = unidadDeclarada(unidad);
+  return u ? `Por ${u}` : 'Sin unidad declarada';
+}
+
 /** La banda con más observaciones: la que resume el producto en el título. */
 export function bandaPrincipal(unidades: BandaUnidad[]): BandaUnidad | null {
   return unidades.reduce<BandaUnidad | null>((mejor, u) => (!mejor || u.n > mejor.n ? u : mejor), null);
@@ -234,9 +257,10 @@ export function metadataProducto(p: ProductoPublico): Metadata {
   const nombre = nombreProducto(p);
   const categoria = categoriaProducto(p);
   const banda = bandaPrincipal(p.unidades);
+  const unidad = unidadDeclarada(banda?.unidad);
   const cifra =
     banda?.p50 != null
-      ? `precio mediano ${plata(banda.p50)}${banda.unidad ? ` por ${banda.unidad.toLowerCase()}` : ''} (${entero(banda.n)} compras)`
+      ? `precio mediano ${plata(banda.p50)}${unidad ? ` por ${unidad}` : ''} (${entero(banda.n)} compras)`
       : 'precios pagados por el Estado';
   return base(
     rutaProducto(p.slug),
