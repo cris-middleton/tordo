@@ -1,5 +1,5 @@
 import { ConfidenceBadge } from '@/components/ConfidenceBadge';
-import { entero, plata } from '@/lib/publico';
+import { entero, plata, tituloDeBanda } from '@/lib/publico';
 import { predictibilidadInfo } from '@/lib/predictibilidad';
 import type { BandaUnidad } from '@/types/publico';
 
@@ -24,7 +24,7 @@ export function BandaPrecio({ banda }: { banda: BandaUnidad }) {
     <article className="rounded-xl border border-border bg-surface p-5">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-text">
-          {banda.unidad ? `Por ${banda.unidad.toLowerCase()}` : 'Sin unidad declarada'}
+          {tituloDeBanda(banda.unidad)}
         </h3>
         <div className="flex flex-wrap items-center gap-2">
           {info && (

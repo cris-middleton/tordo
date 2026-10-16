@@ -137,6 +137,8 @@ Revisión del sitio en producción (1440 px y 390 px) y de unos 30 sitios compar
 
 ## 5. Tipografía y color
 
+> **Sustituida** por [`IDENTIDAD_Y_PORTADA_2026-10.md`](IDENTIDAD_Y_PORTADA_2026-10.md) (su §4 y §5). Lo que sigue es la historia de la decisión, no el sistema de hoy.
+
 ### 5.1 Familias
 
 Verificado sobre los `woff2` latinos que sirve Google Fonts (2026-10-14), con `fontTools`, y
@@ -247,6 +249,8 @@ el PR de portada) · Contacto · selector de tema (`SelectorTema`, isla cliente 
 servidor).
 
 ### 6.3 Portada (`/`)
+
+> **Sustituida** por [`IDENTIDAD_Y_PORTADA_2026-10.md`](IDENTIDAD_Y_PORTADA_2026-10.md) (su §3). Lo que sigue es la historia de la decisión, no el sistema de hoy.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
@@ -361,6 +365,8 @@ indexable. Cinco secciones con ancla:
 `/acerca` (PR de portada) también va en `app/(publico)/` y en `PAGINAS_FIJAS`.
 
 ### 6.6 Backend: `GET /publico/portada`
+
+> **Sustituida** por [`IDENTIDAD_Y_PORTADA_2026-10.md`](IDENTIDAD_Y_PORTADA_2026-10.md) (su §7). Lo que sigue es la historia de la decisión, no el sistema de hoy.
 
 Endpoint nuevo, anónimo, en el router `publico` (grupo ya clasificado en
 `app/api/documentacion.py`), esquema en `app/schemas/publico.py`, consulta en `repositories/`:

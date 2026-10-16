@@ -222,6 +222,36 @@ IP de `/api/v1/bi/*`. Que lo público no pida sesión se prueba también por HTT
   Al arreglar algo: `cd backend && uv run --project .. python tests/regenerar_baseline.py`.
 - Los errores de negocio se devuelven con `HTTPException` y mensaje en español — los ve el usuario.
 
+### La voz de los textos
+
+Todo texto que se escriba o se toque desde octubre de 2026 sigue esta voz (spec
+`docs/IDENTIDAD_Y_PORTADA_2026-10.md` §6.1, tomada de la guía de voz de PixelFrame):
+
+- **Chileno, en segunda persona y concreto.** Cifras, plazos y objetos con nombre antes que
+  adjetivos.
+- **Frases cortas y afirmativas.** Sin signos de exclamación y sin emojis.
+- **Suena a quien confía en lo que hace, no a una tienda que necesita vender.**
+- **Los cuatro vicios**, que se revisan antes de dar un texto por bueno:
+  1. *La antítesis*: definir algo diciendo primero lo que no es («no es X, es Y»).
+  2. *El par vacío*: dos o tres negaciones seguidas para decir una cosa («sin cuentas, sin planes
+     y sin publicidad»).
+  3. *El cierre que resume*: una última frase que repite lo que el párrafo ya dijo.
+  4. *La frase que hay que releer*: dice en una cláusula lo que cabe en cuatro palabras.
+- **No repetir la ficha de al lado**: un texto no dice lo que ya está escrito a doscientos píxeles.
+- **No describir lo que el sitio no hace**: no se promete un aviso, una alerta o un dato que no
+  existe.
+
+Es regla y no gusto: una frase difícil de leer se juzga **menos verdadera**, no sólo menos
+agradable (fluidez de procesamiento, Reber y Schwarz, 1999).
+
+`__tests__/voz-textos.test.ts` fija lo mecánico: «gratis y sin cuenta», «sin registrarte», «sin
+cuenta.» y «sin clave y sin cuenta» no vuelven a ningún fichero de `app/` (títulos y descripciones),
+a `lib/publico.ts` (metadatos de las fichas) ni a la portada, y los textos de `lib/portada.ts` y
+`lib/lecturasPortada.ts`, y el texto de las piezas de `components/portada/`, no llevan «!» ni «¡».
+Lo demás se revisa leyendo. **Se quedan a propósito**: «{APP_NAME} es gratis. Mantenerlo, casi.»
+(habla de cómo se financia, que es un hecho) y lo descriptivo que responde una duda donde se tiene
+(«sin cuenta» en `/guardados`, «sin registrarte» en una respuesta de `lib/acerca.ts`).
+
 ### Secretos
 Nunca al repo. Un hook de pre-commit bloquea cualquier `.env`. Si una credencial llega a un
 commit, **rótala**: quitarla después no la invalida.

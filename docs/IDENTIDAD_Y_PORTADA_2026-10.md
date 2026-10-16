@@ -1,7 +1,7 @@
 # Identidad visual y portada con datos — octubre 2026
 
-> **Estado: revisada por el dueño y corregida tras verificarla contra el código (2026-10-15).**
-> Cuando se mergee, sustituye a dos partes de [`REDISENO_PUBLICO_2026-10.md`](REDISENO_PUBLICO_2026-10.md):
+> **Estado: implementada (PR 1 a 4, 2026-10-15 y 16); revisada por el dueño y corregida tras verificarla contra el código.**
+> Sustituye a tres secciones de [`REDISENO_PUBLICO_2026-10.md`](REDISENO_PUBLICO_2026-10.md):
 > la tipografía y el color (§5) y la portada (§6.3 y §6.6). El resto de ese documento sigue
 > vigente.
 >

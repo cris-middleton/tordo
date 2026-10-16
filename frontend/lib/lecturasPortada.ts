@@ -19,7 +19,7 @@ import type { CompraAgilPorCierre, ProductoPublico, ResumenPortada } from '@/typ
 
 import { urlCatalogoAbiertas } from './filtrosCatalogo';
 import { textoPeriodo } from './periodo';
-import { entero, plata, rutaProducto } from './publico';
+import { entero, plata, rutaProducto, UNIDAD_SIN_DECLARAR } from './publico';
 
 // ── Comunes ─────────────────────────────────────────────────────────────────
 
@@ -186,12 +186,6 @@ export const PRODUCTO_PORTADA = {
   slug: 'higienico-jumbo-papel',
   nombre: 'Papel higiénico jumbo',
 } as const;
-
-/**
- * La unidad ausente, tal como la escribe el pipeline
- * (`etl/analytics/normalizacion.py`, `UNIDAD_SIN_DECLARAR`).
- */
-const UNIDAD_SIN_DECLARAR = 'sin unidad declarada';
 
 /** Bandas que se pueden creer: con predictibilidad baja el precio no decide. */
 const PREDICTIBILIDAD_CREIBLE: ReadonlySet<string> = new Set(['alta', 'media']);
