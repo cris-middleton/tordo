@@ -19,7 +19,7 @@ import {
  * tema, así que se ve igual en claro y en oscuro y dentro todo toma la parada
  * oscura. Dentro sólo `text`, `muted`, `dato` y `primary` (la tinta de `.enlace`):
  * sus pares sobre `brand-navy` están en `contraste-wcag.test.ts`; `subtle` no
- * (4,18:1). Los divisores y lo que la conclusión no nombra, en `dato-tenue`.
+ * (4,18:1). Tampoco `accent`, ni al pasar el ratón (spec §5). Los divisores y lo que la conclusión no nombra, en `dato-tenue`.
  *
  * **Gráficos en HTML y CSS, sin JS** (D9): las barras van con `aria-hidden` y
  * cada valor va escrito al lado. Un lector de pantalla lee la conclusión y los
@@ -77,10 +77,11 @@ function Lectura({
       </h3>
       <div className="mb-3 mt-1 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-[13px] text-muted">
         <p>{pie}</p>
-        {/* El anillo del foco por defecto se separa con el fondo de la página; aquí, con el navy. */}
+        {/* El anillo del foco por defecto se separa con el fondo de la página; aquí, con el navy.
+            `.enlace` pasa a `accent` al pasar el ratón; en el panel, a `text` (la utilidad gana). */}
         <Link
           href={enlace.href}
-          className="enlace rounded-sm focus-visible:ring-text focus-visible:ring-offset-brand-navy"
+          className="enlace rounded-sm hover:text-text focus-visible:ring-text focus-visible:ring-offset-brand-navy"
         >
           {enlace.texto}
         </Link>
@@ -201,8 +202,16 @@ function VistaCierres({ lectura }: { lectura: LecturaCierres }) {
     <Lectura id="lectura-cierres" conclusion={conclusion} pie={pie} enlace={enlace}>
       <ul className="grid grid-cols-4 gap-3 text-center text-[13px] sm:gap-5 sm:text-sm">
         {columnas.map((c) => (
+          // Se ve el valor arriba y el nombre abajo, pero se oye «Hoy: 312»: el orden
+          // visual dejaba la cifra sin decir de qué era hasta después.
           <li key={c.nombre} className="flex min-w-0 flex-col justify-end">
-            <span className={`cifra ${c.destacada ? 'font-extrabold text-text' : 'font-semibold text-muted'}`}>
+            <span className="sr-only">
+              {c.nombre}: {c.valor}
+            </span>
+            <span
+              aria-hidden="true"
+              className={`cifra ${c.destacada ? 'font-extrabold text-text' : 'font-semibold text-muted'}`}
+            >
               {c.valor}
             </span>
             <span aria-hidden="true" className="mt-1 flex h-12 items-end">
@@ -211,7 +220,9 @@ function VistaCierres({ lectura }: { lectura: LecturaCierres }) {
                 style={{ height: `${c.alto}%` }}
               />
             </span>
-            <span className="mt-1.5 text-muted">{c.nombre}</span>
+            <span aria-hidden="true" className="mt-1.5 text-muted">
+              {c.nombre}
+            </span>
           </li>
         ))}
       </ul>

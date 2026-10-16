@@ -81,6 +81,9 @@ describe('PanelLecturas', () => {
       expect(enlace).toHaveAttribute('href', l.enlace.href);
       // .enlace (primary, medido sobre brand-navy) y un foco que se ve sobre el navy.
       expect(enlace).toHaveClass('enlace', 'focus-visible:ring-text', 'focus-visible:ring-offset-brand-navy');
+      // `.enlace` trae `hover:text-accent`, y en el panel no va accent (spec §5): la
+      // utilidad gana a la capa de componentes.
+      expect(enlace).toHaveClass('hover:text-text');
     }
   });
 
@@ -130,12 +133,12 @@ describe('PanelLecturas', () => {
     [
       'cola larga a la derecha',
       { ...PRECIO, p25: { valor: '$4.200', posicion: 1.2 }, p50: { valor: '$4.900', posicion: 3 }, p75: { valor: '$6.900', posicion: 8.4 } },
-      12,
+      4.8,
     ],
     [
       'cola larga a la izquierda',
-      { ...PRECIO, p25: { valor: '$4.200', posicion: 92 }, p50: { valor: '$4.900', posicion: 95 }, p75: { valor: '$6.900', posicion: 99.1 } },
-      88,
+      { ...PRECIO, p25: { valor: '$4.200', posicion: 92 }, p50: { valor: '$4.900', posicion: 95 }, p75: { valor: '$6.900', posicion: 99 } },
+      95.5,
     ],
   ])('%s: p25 y p75 en un solo rótulo «$p25 – $p75», centrado entre los dos', (_, precio, centro) => {
     soloPrecio(precio);
@@ -152,6 +155,20 @@ describe('PanelLecturas', () => {
     // «$4.200 – $6.900»: 15 caracteres.
     expect(banda.style.getPropertyValue('--izquierda')).toBe(`clamp(7.5ch, ${centro}%, calc(100% - 7.5ch))`);
     expect(mediana).toHaveTextContent('mediana $4.900');
+  });
+
+  it('cierres: un lector de pantalla oye «Hoy: 312», el nombre antes que el valor', () => {
+    render(<PanelLecturas sectores={null} precio={null} cierres={CIERRES} />);
+    const items = screen.getAllByRole('listitem');
+    expect(items).toHaveLength(4);
+    items.forEach((li, i) => {
+      const { nombre, valor } = CIERRES.columnas[i];
+      // Lo primero que se lee es «Hoy: 312»; lo visible, que va valor arriba y nombre
+      // abajo, queda fuera del árbol de accesibilidad.
+      expect(li.firstElementChild).toHaveClass('sr-only');
+      expect(li.firstElementChild).toHaveTextContent(`${nombre}: ${valor}`);
+      for (const visible of [...li.children].slice(1)) expect(visible).toHaveAttribute('aria-hidden', 'true');
+    });
   });
 
   it('dato sólo en lo que la conclusión nombra; el resto, dato-tenue', () => {
@@ -186,8 +203,9 @@ describe('PanelLecturas', () => {
   it('sin JS propio, sin colores crudos y sólo tintas con par sobre brand-navy', () => {
     const fuente = readFileSync(join(__dirname, '..', 'components', 'portada', 'PanelLecturas.tsx'), 'utf8');
     expect(fuente).not.toMatch(/^\s*['"]use client['"]/m);
-    // `accent` también tiene par medido, pero en el panel no se usa (rulings, Task 19):
-    // los enlaces son `.enlace` (primary).
+    // `accent` también tiene par medido, pero en el panel no va (spec §5): ni escrito
+    // aquí ni heredado. Los enlaces son `.enlace` (primary), cuyo `hover:text-accent`
+    // se pisa con `hover:text-text` (lo afirma el test de los enlaces).
     expect(fuente).not.toMatch(/#[0-9a-fA-F]{3,6}\b|text-white|bg-white|text-subtle|text-primary\b|text-accent|font-display/);
     expect(fuente).not.toMatch(/prefetch/);
   });

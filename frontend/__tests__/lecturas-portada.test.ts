@@ -391,8 +391,9 @@ describe('izquierdaDeRotulo', () => {
     expect(izquierdaDeRotulo(50, 'mediana $5.390')).toBe('clamp(7ch, 50%, calc(100% - 7ch))');
   });
 
-  it('pasa la posición por posicionDeRotulo', () => {
-    expect(izquierdaDeRotulo(0, '$1')).toBe('clamp(1ch, 12%, calc(100% - 1ch))');
+  it('sin tope fijo: en los bordes sólo lo acota su ancho; sin posición, al centro', () => {
+    expect(izquierdaDeRotulo(0, '$1')).toBe('clamp(1ch, 0%, calc(100% - 1ch))');
+    expect(izquierdaDeRotulo(100, '$1')).toBe('clamp(1ch, 100%, calc(100% - 1ch))');
     expect(izquierdaDeRotulo(Number.NaN, '$1')).toBe('clamp(1ch, 50%, calc(100% - 1ch))');
   });
 });
@@ -414,14 +415,18 @@ describe('rotulosDeBanda', () => {
   });
 
   it('cola larga a la derecha: la banda se aprieta contra el inicio y se cuenta tras acotar', () => {
-    // 1,0 y 9,0 están a 8 puntos, pero acotados quedan los dos en 12.
-    expect(rotulosDeBanda(marca(1), marca(9))).toEqual({ juntos: true, centro: 12 });
-    // 2 y 25: separados 23 en bruto, 13 tras acotar el primero a 12.
-    expect(rotulosDeBanda(marca(2), marca(25))).toEqual({ juntos: true, centro: 18.5 });
+    // 1 y 9 están a 8 puntos: juntos, centrados en su punto medio de verdad.
+    expect(rotulosDeBanda(marca(1), marca(9))).toEqual({ juntos: true, centro: 5 });
+    // 2 y 25: separados 23 en bruto, pero 13 tras acotar el primero a 12.
+    expect(rotulosDeBanda(marca(2), marca(25))).toEqual({ juntos: true, centro: 13.5 });
   });
 
   it('cola larga a la izquierda: igual contra el final', () => {
-    expect(rotulosDeBanda(marca(91), marca(99))).toEqual({ juntos: true, centro: 88 });
+    expect(rotulosDeBanda(marca(91), marca(99))).toEqual({ juntos: true, centro: 95 });
+  });
+
+  it('separados, cada uno sobre su marca: la cota es sólo para decidir', () => {
+    expect(rotulosDeBanda(marca(2), marca(40))).toEqual({ juntos: false, p25: 2, p75: 40 });
   });
 });
 

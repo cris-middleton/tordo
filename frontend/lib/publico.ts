@@ -81,6 +81,12 @@ export function origenDelSitio(): string {
 
 // ── Formato ─────────────────────────────────────────────────────────────────
 
+/**
+ * Un monto en pesos, abreviado. **Tiene una copia en Python** en
+ * `scripts/verificar-produccion.sh` (filtro del producto de la portada, que
+ * compara `plata(p25)` con `plata(p75)`): si cambias el redondeo o los cortes,
+ * cámbialos allí también.
+ */
 export function plata(clp?: number | null): string {
   if (clp == null) return '—';
   const uno = (v: number) => v.toLocaleString('es-CL', { maximumFractionDigits: 1 });

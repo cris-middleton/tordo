@@ -258,9 +258,11 @@ export function esProductoPortada(datos: unknown): datos is ProductoPublico {
 }
 
 /**
- * Un rótulo centrado sobre su marca no puede salirse del riel: se acerca al
- * centro hasta caber. Sin posición (`NaN`), al centro: «left: NaN%» lo dejaría
- * donde el navegador quisiera.
+ * Dónde cae un rótulo a efectos de decidir si p25 y p75 se pisan
+ * (`rotulosDeBanda`): cerca de un borde, el rótulo se corre hacia el centro, así
+ * que se cuenta como si estuviera entre el 12 y el 88 %. **No es dónde se pinta**:
+ * eso lo acota su propio ancho (`izquierdaDeRotulo`). Sin posición (`NaN`), al
+ * centro: «left: NaN%» lo dejaría donde el navegador quisiera.
  */
 export function posicionDeRotulo(posicion: number): number {
   if (Number.isNaN(posicion)) return 50;
@@ -270,9 +272,10 @@ export function posicionDeRotulo(posicion: number): number {
 /**
  * El `left` de un rótulo centrado en su marca (con `-translate-x-1/2`) que
  * **no se sale del riel por mucho que mida**: su centro no baja de media
- * anchura ni sube de 100 % menos media anchura. El 12–88 % de
- * `posicionDeRotulo` no basta a 320 px: con 256 px de riel, «mediana $5.390»
- * mide ~77 px y su mitad, ~15 % del riel.
+ * anchura ni sube de 100 % menos media anchura, y entre medias se queda sobre
+ * su marca. Un tope fijo no sirve: a 320 px (256 px de riel) el 12–88 % se
+ * quedaba corto para «mediana $5.390» (~77 px, su mitad ~15 % del riel), y a
+ * 1440 px alejaba de su marca un rótulo que cabía. Sin posición (`NaN`), al centro.
  *
  * **La anchura se cuenta en `ch`, un `ch` por carácter.** Medido con Archivo en
  * negrita (la variable no está fuera del build): un rótulo de cifras ocupa
@@ -282,8 +285,10 @@ export function posicionDeRotulo(posicion: number): number {
  */
 export function izquierdaDeRotulo(posicion: number, texto: string): string {
   const media = `${[...texto].length / 2}ch`;
-  return `clamp(${media}, ${posicionDeRotulo(posicion)}%, calc(100% - ${media}))`;
+  return `clamp(${media}, ${sinNaN(posicion)}%, calc(100% - ${media}))`;
 }
+
+const sinNaN = (posicion: number) => (Number.isNaN(posicion) ? 50 : posicion);
 
 /**
  * Menos que esto, en % del riel, entre p25 y p75 (ya acotados), y sus dos
@@ -296,13 +301,17 @@ export type RotulosBanda = { juntos: false; p25: number; p75: number } | { junto
 
 /**
  * Con la cola larga a un lado la banda se aprieta contra un extremo, y sus dos
- * rótulos, acotados al riel, caen casi en el mismo sitio: entonces va uno solo,
- * «$p25 – $p75», centrado entre los dos.
+ * rótulos, corridos hacia dentro, caen casi en el mismo sitio: entonces va uno
+ * solo, «$p25 – $p75», centrado entre los dos. **La distancia se mide acotada**
+ * (`posicionDeRotulo`); las posiciones que devuelve, no: cada rótulo se queda
+ * tan cerca de su marca como quepa, y eso lo decide `izquierdaDeRotulo`.
  */
 export function rotulosDeBanda(p25: MarcaPrecio, p75: MarcaPrecio): RotulosBanda {
-  const a = posicionDeRotulo(p25.posicion);
-  const b = posicionDeRotulo(p75.posicion);
-  if (b - a < SEPARACION_MINIMA_ROTULOS) return { juntos: true, centro: unDecimal((a + b) / 2) };
+  const a = sinNaN(p25.posicion);
+  const b = sinNaN(p75.posicion);
+  if (posicionDeRotulo(b) - posicionDeRotulo(a) < SEPARACION_MINIMA_ROTULOS) {
+    return { juntos: true, centro: unDecimal((a + b) / 2) };
+  }
   return { juntos: false, p25: a, p75: b };
 }
 
