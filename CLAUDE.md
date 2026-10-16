@@ -728,10 +728,25 @@ escala**. Es una heurística sin verdad contra la que evaluarla: ordena, no pred
   (por organismo) y `comprador_rut` sólo sirven ya a la ficha pública y al filtro `codigo_organismo`.
 - **`tiempo` = `min(1, horas/72)`** (a 24 h saturaba más de la mitad y empataban) y **`monto` =
   `0,5 + 0,5·m/(m+708.050)`, sin monto 0,75**. El monto **pesa**, no sólo desempata (~1,7× en
-  los extremos de la instantánea del 2026-10-14, $80.000 a $7.215.100), y está porque el criterio
+  los extremos de la instantánea del 2026-10-14, $80.000 a $7.000.000), y está porque el criterio
   de orden (mayor empate ≤ 5, ≥ 30 puntajes distintos entre las 50 primeras;
   `tests/test_orden_destacadas_instantanea.py`, reloj fijo `ahora`) sólo pasa con él: 6/37 sin
-  monto, 2/49 con él. Es una decisión de producto que se revisa, no una verdad medida.
+  monto, 2/49 con él (y 2/49 sin historia por unidad, como en producción hoy). Es una decisión
+  de producto que se revisa, no una verdad medida.
+- **El tope de Compra Ágil vale lo mismo que sin monto (0,75)** y la respuesta lo marca con
+  `monto_es_tope`. Muchos compradores declaran el tope (100 UTM) en vez de lo que piensan gastar,
+  y el factor premiaba eso: el 2026-10-16 las cinco primeras valían $7,2 millones. **El tope se
+  lee del dato, no se escribe**, porque la UTM cambia cada mes: `tope_compra_agil` es el mayor
+  `monto_estimado` que declaran **al menos 3** Compras Ágiles guardadas (`REPETICIONES_TOPE`; todas,
+  abiertas o no), desde un piso `TOPE_MINIMO` ($6.000.000; 100 UTM ya eran $6.669.200 en
+  noviembre de 2024). **No el máximo a secas**: un 72.151.000 mal tipeado aparece una vez, el tope
+  cientos, y con el máximo ese único error apagaba la detección en toda la lista sin que nada
+  fallara. Sin ningún monto que cumpla, no hay tope (una base casi vacía). Es tope lo que queda a
+  menos de `TOLERANCIA_TOPE` (2 %) **por arriba o por abajo**: cubre el tope del mes anterior, el
+  nuevo a principio de mes (aún no se repite: hace de referencia el viejo) y «7.200.000», y deja
+  fuera 7.000.000 (a un 3 %) y el error. La instantánea del golden siembra el tope tres veces
+  (`_historia_del_tope`): como top 50, lo trae una sola. El sitio lo dice junto al monto («Hasta $7,2M»
+  y «Tope de Compra Ágil» debajo; `NOTA_TOPE` en `lib/compraAgil.ts`), sin repetir la cifra.
 - **La competencia `1/(1+cotizaciones)` viaja en `factores` pero NO está en el puntaje**
   (`EN_EL_PUNTAJE`), y el sitio **no muestra el conteo** (`MOSTRAR_COTIZACIONES = false` en
   `lib/compraAgil.ts`). **Compuerta G1 cerrada (2026-10-15, medida en producción en sólo

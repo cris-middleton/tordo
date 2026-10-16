@@ -35,6 +35,13 @@ export interface CompraAgilDestacada {
   nombre_organismo: string | null;
   region: string | null;
   monto_estimado: number | null;
+  /**
+   * ¿El monto es el tope de Compra Ágil (100 UTM), o casi? Muchos compradores lo
+   * declaran en vez de lo que piensan gastar, así que no dice cuánto se va a comprar
+   * (y no pesa en el orden). Opcional: la API y el sitio se despliegan por separado,
+   * y una respuesta sin el campo se lee como «no es el tope».
+   */
+  monto_es_tope?: boolean;
   fecha_publicacion: string | null;
   fecha_cierre: string | null;
   horas_restantes: number;

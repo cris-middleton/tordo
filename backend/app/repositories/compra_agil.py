@@ -53,6 +53,25 @@ scorer de oportunidad).
   mismo comprador con el mismo cierre y sin cotizaciones). **Es una decisión de producto** —a igual esfuerzo de cotizar, más
   monto vale más— **y se revisa**, no una verdad medida. Sin monto, 0,75.
 
+  **El tope de Compra Ágil vale lo mismo que sin monto (0,75).** El monto es el
+  «disponible» que declara el comprador, y muchos declaran el tope legal (100 UTM)
+  en vez de lo que piensan gastar: premiarlo ponía arriba a quien declaró el tope,
+  no a la compra más grande (el 2026-10-16 las cinco primeras valían $7,2
+  millones). La UTM cambia cada mes, así que el tope **se lee del dato**
+  (`tope_compra_agil`): el mayor monto que declaran al menos `REPETICIONES_TOPE`
+  (3) Compras Ágiles guardadas, abiertas o no. El tope se repite cientos de veces;
+  un monto mal tipeado sobre él (72.151.000), una: con el máximo a secas, ese
+  error subía la referencia y el tope dejaba de reconocerse en toda la lista, sin
+  que nada fallara. En la copia local el mayor monto de agosto de 2026 es
+  exactamente 100 UTM de agosto (7.164.900), y en la instantánea del 2026-10-14,
+  100 UTM de octubre (7.215.100). Un monto a menos de `TOLERANCIA_TOPE` (2 %) del
+  tope, por arriba o por abajo, ES el tope: cubre el del mes anterior (agosto queda a un 0,7 % de octubre;
+  a principio de mes, el tope nuevo aún no se repite y el viejo hace de
+  referencia) y los redondeos hacia abajo («7.200.000»), y deja fuera 7.000.000 (a
+  un 3 %), un presupuesto redondo. Sólo cuentan montos desde `TOPE_MINIMO`: un
+  monto chico repetido no es el tope. Sin ninguno que cumpla, no hay tope (pasa en
+  una base con pocas Compras Ágiles: tests, desarrollo).
+
 Orden: puntaje descendente; a igual puntaje (los ceros de las unidades ausentes
 incluidos) tiempo × monto descendente —sólo como clave de orden, el puntaje no se
 toca—; luego cierre ascendente y código. El criterio de que ordena
@@ -121,6 +140,17 @@ EN_EL_PUNTAJE = tuple(f for f in FACTORES if f != "competencia")
 #: ESTIMADO de la Compra Ágil abierta (la mediana de las candidatas de la
 #: instantánea, 775.000, la respalda). En ese monto el factor vale 0,75.
 MONTO_REFERENCIA = 708_050.0
+#: Un monto a menos de esta fracción del tope de Compra Ágil ES el tope: vale el
+#: neutro. 2 %: más que lo que se mueve la UTM en un mes, menos que la distancia
+#: de 7.000.000 (un presupuesto redondo) al tope de octubre de 2026.
+TOLERANCIA_TOPE = 0.02
+#: El tope es un monto que declaran muchas Compras Ágiles; un error de tipeo, una.
+REPETICIONES_TOPE = 3
+#: Por debajo de esto, un monto guardado no puede ser el tope de Compra Ágil
+#: (100 UTM desde el 12-12-2024, Ley 21.634): ChileCompra lo cifraba en $6.669.200
+#: en noviembre de 2024, y la UTM no ha hecho más que subir. No es el tope: es el
+#: piso que lo distingue de un monto chico que se repite mucho (1.000.000).
+TOPE_MINIMO = 6_000_000.0
 #: Menos que esto hasta el cierre no da tiempo a cotizar.
 HORAS_MINIMAS = 2
 #: El factor tiempo satura aquí. A 24 h saturaba más de la mitad de las
@@ -215,6 +245,44 @@ def _horas_restantes(ahora: datetime | None = None):
     return func.extract("epoch", Licitacion.fecha_cierre - referencia_reloj(ahora)) / 3600.0
 
 
+async def tope_compra_agil(db: AsyncSession) -> float | None:
+    """El tope de Compra Ágil en pesos, o None si ningún monto lo parece.
+
+    Es el mayor monto, desde `TOPE_MINIMO`, que declaran al menos
+    `REPETICIONES_TOPE` Compras Ágiles guardadas. Sobre TODAS, no sobre las
+    candidatas ni sobre lo filtrado: una búsqueda no cambia cuál es el tope. Una
+    consulta aparte y no una subconsulta: así se lee una vez por petición, no una
+    vez por cada sitio donde el factor monto aparece en la consulta grande.
+    """
+    monto = Licitacion.monto_estimado
+    mayor = (
+        await db.execute(
+            select(monto)
+            .where(
+                Licitacion.tipo_convocatoria == TipoConvocatoria.COMPRA_AGIL.value,
+                monto >= TOPE_MINIMO,
+            )
+            .group_by(monto)
+            .having(func.count() >= REPETICIONES_TOPE)
+            .order_by(monto.desc())
+            .limit(1)
+        )
+    ).scalar()
+    return float(mayor) if mayor is not None else None
+
+
+def _es_tope(monto_estimado, tope: float | None):
+    """¿El monto está a menos de un 2 % del tope? Falso, nunca NULL, sin tope o sin monto."""
+    if tope is None:
+        return literal(False)
+    monto = cast(monto_estimado, Float)
+    # A los dos lados: a principio de mes el tope nuevo (algo más alto) aún no se
+    # repite y hace de referencia el viejo; muy por encima, es otra cosa (un error).
+    return func.coalesce(
+        monto.between(tope * (1.0 - TOLERANCIA_TOPE), tope * (1.0 + TOLERANCIA_TOPE)), False
+    )
+
+
 def _candidatas(ahora: datetime | None = None):
     return and_(
         Licitacion.activo.is_(True),
@@ -254,13 +322,18 @@ def _ruts():
     )
 
 
-def _factores(ofertas, horas, percentil, monto_estimado, figura=None) -> dict[str, Any]:
+def _factores(
+    ofertas, horas, percentil, monto_estimado, figura=None, es_tope=None
+) -> dict[str, Any]:
     """Cada factor como expresión SQL en [0, 1], ya con su neutro.
 
     `percentil` es None cuando no hay historia por unidad (el neutro para todas).
     Con historia, `figura` dice si la unidad está en la tabla: si no figura vale
     `COMPRADOR_SIN_ORDENES`, no el neutro (ver el docstring del módulo).
+    `es_tope` dice si el monto es el tope de Compra Ágil: si lo es, vale el neutro.
     """
+    if es_tope is None:
+        es_tope = literal(False)
     f_competencia = case(
         (ofertas.is_(None), NEUTRO_POR_FACTOR["competencia"]),
         else_=1.0 / (1.0 + ofertas),
@@ -278,7 +351,9 @@ def _factores(ofertas, horas, percentil, monto_estimado, figura=None) -> dict[st
     # de otra igual de buena y más grande. NULL > 0 es NULL: sin monto (o 0),
     # neutro. El neutro (0,75, el centro de la escala) queda sobre un monto real
     # muy chico (80.000 da 0,55): no saber no es peor que saber que es poco.
+    # El tope de Compra Ágil no dice cuánto se va a comprar: vale lo que «sin monto».
     f_monto = case(
+        (es_tope, NEUTRO_POR_FACTOR["monto"]),
         (monto > 0, 0.5 + 0.5 * monto / (monto + MONTO_REFERENCIA)),
         else_=NEUTRO_POR_FACTOR["monto"],
     )
@@ -345,12 +420,14 @@ async def destacadas(
     else:
         historia = {c: null() for c in CAMPOS_UNIDAD}
         tiene_historia = literal(False)
+    es_tope = _es_tope(Licitacion.monto_estimado, await tope_compra_agil(db))
     factores = _factores(
         ofertas,
         horas,
         historia["percentil_ordenes"] if unidades is not None else None,
         Licitacion.monto_estimado,
         tiene_historia if unidades is not None else None,
+        es_tope,
     )
     puntaje = _producto(factores)
 
@@ -360,6 +437,7 @@ async def destacadas(
         Licitacion.nombre_organismo,
         Licitacion.region,
         cast(Licitacion.monto_estimado, Float).label("monto_estimado"),
+        es_tope.label("monto_es_tope"),
         Licitacion.fecha_publicacion,
         Licitacion.fecha_cierre,
         horas.label("horas_restantes"),

@@ -10,6 +10,12 @@ de `repositories/compra_agil.py` y se cuenta, entre las 50 primeras:
 
 redondeando a 4 decimales, como la API.
 
+Con el tope de Compra Ágil en el neutro (2026-10-16) la medición no cambia: 2 y
+49 con historia, 2 y 49 sin ella (1 y 50 antes). La instantánea es el top 50 del
+orden VIEJO y casi no trae el tope (dos de 50, ninguna entre las 10 primeras), así
+que no reproduce las cinco primeras a $7,2 millones que se vieron en producción:
+dice que la regla no rompe el criterio, no cuánto cambia el orden de hoy.
+
 La instantánea por defecto es la respuesta de producción del 2026-10-14, antes
 del cambio (26 empatadas en 0,5; 8 puntajes distintos). Sus RUT son sintéticos
 y `percentil_ordenes` se calculó contra las OC locales 2025-10..2026-03 (ver su
@@ -119,8 +125,35 @@ def _candidata(c: dict) -> Licitacion:
     )
 
 
+def _historia_del_tope(datos: dict) -> list[Licitacion]:
+    """Tres Compras Ágiles ya cerradas que declararon el tope de la instantánea.
+
+    El tope se lee del mayor monto que se repite al menos tres veces en lo guardado
+    (`repositories/compra_agil.py`). En producción lo declaran cientos; en la
+    instantánea, que es sólo un top 50, aparece una vez. Sin estas filas la medición
+    correría sin tope. Fuera de la marca y cerradas: no son candidatas.
+    """
+    tope = datos.get("tope_compra_agil")
+    if tope is None:
+        return []
+    reloj = _fecha(datos["reloj"])
+    return [
+        Licitacion(
+            codigo_externo=f"{PREFIJO}HIST-TOPE-{i}",
+            nombre="Compra Ágil cerrada que declaró el tope",
+            tipo_convocatoria="compra_agil",
+            estado="Cerrada",
+            monto_estimado=tope,
+            fecha_publicacion=reloj - timedelta(days=10),
+            fecha_cierre=reloj - timedelta(days=5),
+            activo=False,
+        )
+        for i in range(3)
+    ]
+
+
 async def _medir(db, datos: dict) -> list[dict]:
-    db.add_all([_candidata(c) for c in datos["candidatas"]])
+    db.add_all([_candidata(c) for c in datos["candidatas"]] + _historia_del_tope(datos))
     await db.flush()
     await _tabla_unidad(
         db,
@@ -174,6 +207,37 @@ async def test_sin_el_monto_no_alcanza(async_db, monkeypatch):
     monkeypatch.setattr(repo, "EN_EL_PUNTAJE", tuple(f for f in repo.FACTORES if f != "monto"))
     filas = await _medir(async_db, _instantanea())
     assert metricas([f["puntaje"] for f in filas]) == (6, 37)
+
+
+async def _medir_sin_historia(db, datos: dict) -> list[dict]:
+    """Como `_medir`, con la tabla de unidades vacía: `historia_disponible` falso."""
+    db.add_all([_candidata(c) for c in datos["candidatas"]] + _historia_del_tope(datos))
+    await db.flush()
+    await _tabla_unidad(db, [], None, None)
+    return await repo.destacadas(db, limite=TOP, terminos=[MARCA], ahora=_fecha(datos["reloj"]))
+
+
+@pytest.mark.asyncio
+async def test_el_criterio_vale_sin_historia_de_unidades(async_db):
+    """Producción hoy (2026-10-16): sin historia por unidad el orden es sólo
+    tiempo × monto, con el tope de Compra Ágil en el neutro. 2 y 49."""
+    filas = await _medir_sin_historia(async_db, _instantanea())
+    mayor, distintos = metricas([f["puntaje"] for f in filas])
+    print(f"\nmedición sin historia: mayor empate {mayor}, puntajes distintos {distintos}")
+    assert mayor <= MAYOR_EMPATE_MAXIMO
+    assert distintos >= DISTINTOS_MINIMOS
+
+
+@pytest.mark.asyncio
+async def test_el_tope_de_la_instantanea_vale_el_neutro(async_db):
+    """La instantánea trae el tope de octubre (7.215.100) y un redondeo (7.200.000):
+    los dos valen lo que «sin monto». 7.000.000 y 6.999.000, a un 3 %, no."""
+    if os.getenv("INSTANTANEA_DESTACADAS"):
+        pytest.skip("otra instantánea: sus montos son otros")
+    filas = await _medir(async_db, _instantanea())
+    tope = {f["monto_estimado"] for f in filas if f["monto_es_tope"]}
+    assert tope == {7_215_100, 7_200_000}
+    assert all(f["f_monto"] == repo.NEUTRO_POR_FACTOR["monto"] for f in filas if f["monto_es_tope"])
 
 
 def _puntaje_paso_9(ofertas: int, publicadas: int | None, ordenes: int, horas: float) -> float:

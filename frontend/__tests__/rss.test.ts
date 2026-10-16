@@ -246,6 +246,33 @@ describe('/rss/compra-agil', () => {
     expect(xml).toMatch(/Suele comprar entre/);
   });
 
+  it('el tope de Compra Ágil se dice como tope', async () => {
+    simularBackend({
+      actualizado_en: null,
+      historia_disponible: false,
+      ventana_desde: null,
+      ventana_hasta: null,
+      items: [
+        {
+          ...LICITACION_TRAMPA,
+          codigo_externo: '99-3-COT26',
+          monto_estimado: 7_215_100,
+          monto_es_tope: true,
+          horas_restantes: 20,
+          ofertas_recibidas: null,
+          ofertas_al: null,
+          comprador: null,
+          puntaje: 0.5,
+          factores: { competencia: 1, comprador: 0.5, tiempo: 0.8, monto: 0.75 },
+        },
+      ],
+    });
+    const { GET } = await import('@/app/rss/compra-agil/route');
+    const xml = await (await GET(new NextRequest('https://tordo.cl/rss/compra-agil'))).text();
+    expect(xml).toContain('Hasta $7,2M, el tope de Compra Ágil');
+    expect(xml).not.toContain('Monto estimado');
+  });
+
   it('sin historia aún, el ítem no dice nada del comprador', async () => {
     const xml = await rssConHistoria(false);
     expect(xml).not.toMatch(/historial|esta unidad|suele comprar|su orden típica/i);

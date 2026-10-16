@@ -33,6 +33,7 @@ def _item(fila: dict[str, Any]) -> CompraAgilDestacada:
         nombre_organismo=fila["nombre_organismo"],
         region=(fila["region"] or "").strip() or None,
         monto_estimado=fila["monto_estimado"],
+        monto_es_tope=fila["monto_es_tope"],
         fecha_publicacion=fila["fecha_publicacion"],
         fecha_cierre=fila["fecha_cierre"],
         horas_restantes=round(float(fila["horas_restantes"]), 1),

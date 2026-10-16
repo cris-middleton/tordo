@@ -131,7 +131,7 @@ de tres**: la competencia se informa y no pesa (más abajo).
 |---|---|---|---|
 | `comprador` | `percentil_ordenes` de la **unidad de compra** (su RUT) en la ventana: la parte de las unidades con Compra Ágil que emitió menos órdenes | 0 si la unidad no tiene órdenes en la ventana; 0,5 si aún no hay historia (ver abajo) | sí |
 | `tiempo` | `min(1, horas hasta el cierre / 72)` | — (sin cierre no entra) | sí |
-| `monto` | `0,5 + 0,5 · m / (m + 708.050)` sobre `monto_estimado`, en [0,5; 1) | 0,75 (también con monto 0) | sí |
+| `monto` | `0,5 + 0,5 · m / (m + 708.050)` sobre `monto_estimado`, en [0,5; 1) | 0,75 (también con monto 0 y con el tope de Compra Ágil, `monto_es_tope`) | sí |
 | `competencia` | `1 / (1 + cotizaciones recibidas)` | 0,5 | **no**, sólo informativo |
 
 Un factor sin dato vale **el centro de su escala**, no cero ni uno: inventarle
@@ -161,13 +161,23 @@ comprador distingue dos casos que no son lo mismo:**
   el campo se conserva para no romper a quien integra. Las publicadas por
   organismo siguen en `GET /publico/compradores/{codigo}`.
 - **`monto` pesa en el puntaje, no sólo desempata**: en los extremos de la
-  instantánea medida el 2026-10-14 ($80.000 a $7.215.100) el factor va de ~0,55
-  a ~0,96, hasta ~1,7× el puntaje con los demás factores iguales. Está porque el
+  instantánea medida el 2026-10-14 ($80.000 a $7.000.000, sin contar el tope) el
+  factor va de ~0,55 a ~0,95, hasta ~1,7× el puntaje con los demás factores iguales. Está porque el
   criterio de orden sólo se cumple con él (mayor empate entre las 50 primeras: 6
   sin monto, 2 con él; puntajes distintos: 37 contra 49). Es una decisión de
   producto —a igual esfuerzo de cotizar, más monto vale más—, no una verdad
   medida, y se revisa. La referencia 708.050 es la mediana del monto total por orden
   de Compra Ágil (OC 2025-10 a 2026-03, 365.299 órdenes).
+- **El tope de Compra Ágil no cuenta como monto** (`monto_es_tope: true`). El monto
+  es el disponible que declara el comprador, y muchos declaran el tope de la
+  modalidad (100 UTM) en vez de lo que piensan gastar: ese monto no dice cuánto se
+  va a comprar, y premiarlo ponía arriba a quien declaró el tope (el 2026-10-16, las
+  cinco primeras valían $7,2 millones). Vale 0,75, como sin monto. La UTM cambia
+  cada mes, así que el tope no es una constante: es el mayor `monto_estimado`, desde
+  $6.000.000, que declaran al menos tres Compras Ágiles guardadas (un monto mal
+  tipeado aparece una vez; el tope, cientos). Sin ninguno, no hay tope.
+  `monto_es_tope` marca lo que queda a menos de un 2 % de él, por arriba o por abajo. `monto_estimado`
+  viaja igual.
 - **`competencia` se informa, no pesa** (compuerta G1, cerrada; ver abajo). El
   único dato de competencia de una Compra Ágil abierta es
   `ofertas_recibidas` (cotizaciones recibidas), y `ofertas_al` dice **cuándo se
