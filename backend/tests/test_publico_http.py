@@ -322,8 +322,11 @@ class TestProducto:
             "indexable",
             "unidades",
             "compradores",
+            "periodo",
         }
         assert cuerpo["firma"] == "guante nitrilo"
+        # La ventana de la banda (identidad §3.4): sin ella, el precio se leería como «de siempre».
+        assert cuerpo["periodo"] == VENTANA
         assert cuerpo["nombre_generico"] == "Guantes protectores"
         assert cuerpo["codigo_onu"] == "46181504"
         assert cuerpo["indexable"] is True
@@ -365,6 +368,18 @@ class TestProducto:
         # Ganó la colisión la firma de más compras (con tilde: 4 contra 2).
         assert cuerpo["firma"] == "guante látex"
         assert cuerpo["compradores"] == []
+
+    def test_sin_ventana_en_la_tabla_el_periodo_es_nulo(self, analytics, cliente):
+        """Una tabla materializada antes de que existiera la ventana: la ficha sale igual."""
+        fila = _banda("guante nitrilo", "caja", 60, "alta", 9_000.0)
+        del fila["ventana_desde"], fila["ventana_hasta"]
+        analytics["product_price_bands_L0N.parquet"] = [fila]
+        indexables.invalidar()
+
+        r = _get(cliente, "/productos/guante-nitrilo")
+
+        assert r.status_code == 200
+        assert r.json()["periodo"] is None
 
     def test_desconocido_es_404(self, analytics, cliente):
         r = _get(cliente, "/productos/no-existe")

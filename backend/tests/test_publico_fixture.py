@@ -128,6 +128,8 @@ def test_producto_indexable_con_dos_unidades_y_compradores_enlazables(cliente):
     assert cuerpo["nombre_generico"] == "Producto de prueba"
     assert [u["unidad"] for u in cuerpo["unidades"]] == ["caja", "unidad"]
     assert [c["codigo"] for c in cuerpo["compradores"]] == ["111875", "113812"]
+    # La ventana de las bandas del fixture (golden/fixture_productos.py, VENTANA).
+    assert cuerpo["periodo"] == {"ventana_desde": "2025-04-01", "ventana_hasta": "2026-03-31"}
     # Los enlaces producto → comprador llevan a páginas indexadas.
     assert {c["codigo"] for c in cuerpo["compradores"]} <= compradores
 

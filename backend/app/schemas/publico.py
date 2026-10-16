@@ -102,6 +102,13 @@ class ProductoPublico(BaseModel):
     compradores: list[CompradorDeProducto] = Field(
         description="Los 10 compradores que más lo compran (banda propia, L0)."
     )
+    periodo: PeriodoPublico | None = Field(
+        None,
+        description=(
+            "Los meses de los que salen las bandas: 12, anclados en el último mes con datos. "
+            "Nulo si la tabla no publica su ventana."
+        ),
+    )
 
 
 class ProductoEncontrado(BaseModel):
