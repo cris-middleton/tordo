@@ -19,7 +19,16 @@ import {
 } from '@/lib/buscar';
 import { urlCatalogoAbiertas } from '@/lib/filtrosCatalogo';
 import { PRODUCTO_PORTADA } from '@/lib/lecturasPortada';
-import { lemaPortada, tiraDeLaPortada, usosAbiertos } from '@/lib/portada';
+import { HORAS_HABILES } from '@/lib/compraAgil';
+import {
+  franjaDeLaPortada,
+  lemaPortada,
+  PLACEHOLDER_BUSCADOR,
+  SE_ACTUALIZA,
+  SUBTITULO_PORTADA,
+  tiraDeLaPortada,
+  usosAbiertos,
+} from '@/lib/portada';
 import { MAXIMO_BUSQUEDA_PRODUCTOS, MINIMO_BUSQUEDA_PRODUCTOS } from '@/lib/queries';
 import type { ResumenPortada } from '@/types/publico';
 
@@ -127,6 +136,75 @@ describe('lemaPortada', () => {
     expect(lemaPortada('https://github.com/x/tordo')).toBe(
       'Gratis (de verdad). Sin cuentas, sin publicidad. Código y API abiertos.',
     );
+  });
+});
+
+describe('los textos fijos de la portada', () => {
+  it('el subtítulo dice qué hace la búsqueda (spec §6.2)', () => {
+    expect(SUBTITULO_PORTADA).toBe(
+      'Escribe lo que vendes. Te mostramos cuánto ha pagado el Estado, quién lo compra y qué está abierto hoy.',
+    );
+  });
+
+  it('el campo no repite los ejemplos, que ya están debajo', () => {
+    expect(PLACEHOLDER_BUSCADOR).toBe('Un producto o un servicio');
+    for (const ejemplo of EJEMPLOS_BUSQUEDA) expect(PLACEHOLDER_BUSCADOR).not.toContain(ejemplo);
+  });
+
+  it('«se actualiza» sale del horario del cron frecuente, no se escribe', () => {
+    expect(SE_ACTUALIZA).toBe(`${HORAS_HABILES.length} veces cada día hábil; el análisis, cada semana`);
+  });
+});
+
+describe('franjaDeLaPortada', () => {
+  const CON_HOY: ResumenPortada = {
+    ...RESUMEN,
+    publicadas_hoy: 612,
+    mas_publica_hoy: 'SERVICIO DE SALUD METROPOLITANO SUR',
+  };
+
+  it('publicadas hoy, quién más publica (como en «Lo mejor de hoy») y la hora con el día', () => {
+    expect(franjaDeLaPortada(CON_HOY)).toEqual({
+      publicadasHoy: '612',
+      masPublicaHoy: 'Servicio De Salud Metropolitano Sur',
+      actualizado: 'mié, 14 oct, 11:00',
+    });
+  });
+
+  it('con 0 publicadas hoy (cada madrugada) se ocultan las dos celdas; la hora sigue', () => {
+    expect(franjaDeLaPortada({ ...CON_HOY, publicadas_hoy: 0 })).toEqual({
+      publicadasHoy: null,
+      masPublicaHoy: null,
+      actualizado: 'mié, 14 oct, 11:00',
+    });
+  });
+
+  it('sin nombre que poner primero (todas sin nombre), sólo el conteo', () => {
+    expect(franjaDeLaPortada({ ...CON_HOY, mas_publica_hoy: null })?.masPublicaHoy).toBeNull();
+    expect(franjaDeLaPortada({ ...CON_HOY, mas_publica_hoy: '   ' })?.masPublicaHoy).toBeNull();
+    expect(franjaDeLaPortada({ ...CON_HOY, mas_publica_hoy: null })?.publicadasHoy).toBe('612');
+  });
+
+  it('un backend sin los campos nuevos: sólo la hora', () => {
+    expect(franjaDeLaPortada(RESUMEN)).toEqual({ publicadasHoy: null, masPublicaHoy: null, actualizado: 'mié, 14 oct, 11:00' });
+  });
+
+  it.each([
+    ['de texto', '612'],
+    ['con decimales', 6.5],
+    ['negativo', -3],
+  ])('publicadas_hoy %s no se publica', (_, valor) => {
+    const franja = franjaDeLaPortada({ ...CON_HOY, publicadas_hoy: valor } as unknown as ResumenPortada);
+    expect(franja?.publicadasHoy).toBeNull();
+    expect(franja?.masPublicaHoy).toBeNull();
+  });
+
+  it.each([
+    ['sin resumen', null],
+    ['sin hora', { ...CON_HOY, actualizado_en: null }],
+    ['con una hora que no se puede leer', { ...CON_HOY, actualizado_en: 'ayer a las once' }],
+  ])('%s, no hay franja: una cifra viva sin hora no se publica', (_, resumen) => {
+    expect(franjaDeLaPortada(resumen as ResumenPortada | null)).toBeNull();
   });
 });
 

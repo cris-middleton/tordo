@@ -14,8 +14,11 @@
 
 import type { ResumenPortada } from '@/types/publico';
 
+import { HORAS_HABILES } from './compraAgil';
 import { urlCatalogoAbiertas } from './filtrosCatalogo';
+import { esConteo } from './lecturasPortada';
 import type { EnlaceNavegacion } from './navegacion';
+import { normalizeText } from './nombresChile';
 import { entero } from './publico';
 
 /** Lo que se ve en el bloque vivo de la portada. El resto, en la página entera. */
@@ -107,6 +110,49 @@ export function usosAbiertos(repositorio: string | null): EnlaceNavegacion[] {
   ];
   if (repositorio) usos.push({ nombre: 'Código', href: repositorio, externo: true });
   return usos;
+}
+
+/** Bajo la pregunta: qué hace la búsqueda, en una frase (spec §6.2). */
+export const SUBTITULO_PORTADA =
+  'Escribe lo que vendes. Te mostramos cuánto ha pagado el Estado, quién lo compra y qué está abierto hoy.';
+
+/** El campo no repite los ejemplos: ya están debajo (spec §3.1). */
+export const PLACEHOLDER_BUSCADOR = 'Un producto o un servicio';
+
+/**
+ * «4 veces cada día hábil; el análisis, cada semana», en la ficha. El número sale
+ * del horario del cron frecuente (`HORAS_HABILES`, copia de `etl/cron.py`): si el
+ * cron cambia, la frase cambia con él.
+ */
+export const SE_ACTUALIZA = `${HORAS_HABILES.length} veces cada día hábil; el análisis, cada semana`;
+
+/** La franja bajo las dos columnas (spec §3.6). `null` = esa celda no se pinta. */
+export interface DatosFranja {
+  /** «612». Sin publicaciones hoy —cada madrugada—, null. */
+  publicadasHoy: string | null;
+  /** El organismo que más publicó hoy, como lo escribe «Lo mejor de hoy». */
+  masPublicaHoy: string | null;
+  /** «mié, 14 oct, 13:17»: con el día, porque la portada se cachea. */
+  actualizado: string;
+}
+
+/**
+ * La franja, o `null` sin resumen o sin hora legible (principio 4). Con 0
+ * publicadas hoy se ocultan las dos primeras celdas; un backend anterior, que no
+ * manda los campos, deja sólo la hora. Ningún campo mal formado lanza.
+ */
+export function franjaDeLaPortada(resumen: ResumenPortada | null): DatosFranja | null {
+  if (!resumen) return null;
+  const actualizado = actualizadoEnPalabras(resumen.actualizado_en);
+  if (!actualizado) return null;
+  const n = resumen.publicadas_hoy;
+  const hay = esConteo(n) && n > 0;
+  const nombre = typeof resumen.mas_publica_hoy === 'string' ? resumen.mas_publica_hoy.trim() : '';
+  return {
+    publicadasHoy: hay ? entero(n) : null,
+    masPublicaHoy: hay && nombre ? normalizeText(nombre) : null,
+    actualizado,
+  };
 }
 
 /**
