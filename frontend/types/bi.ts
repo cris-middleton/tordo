@@ -102,3 +102,27 @@ export interface CompradorPerfil {
   } | null;
   motivo?: string | null;
 }
+
+/**
+ * Una fila de `GET /bi/sector` (`SectorItem` en `backend/app/schemas/bi.py`).
+ * `ventana_desde`/`ventana_hasta`: de qué meses sale el monto (PR 1 de
+ * docs/IDENTIDAD_Y_PORTADA_2026-10.md). Opcionales: un backend anterior no las manda.
+ */
+export interface SectorBI {
+  sector: string;
+  monto_total: number;
+  n_oc?: number | null;
+  ticket_mediana?: number | null;
+  n_organismos?: number | null;
+  n_proveedores?: number | null;
+  ventana_desde?: string | null;
+  ventana_hasta?: string | null;
+}
+
+/** `GET /bi/sector`. Sin la tabla, `disponible: false` y `motivo`. */
+export interface SectoresBI {
+  disponible: boolean;
+  sectores?: SectorBI[] | null;
+  total?: number | null;
+  motivo?: string | null;
+}
