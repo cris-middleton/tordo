@@ -103,7 +103,7 @@ function ProductoEnLista({ producto }: { producto: ProductoEncontrado }) {
   return (
     <Link
       href={rutaProducto(producto.slug)}
-      className="flex items-baseline justify-between gap-3 px-4 py-2.5 hover:bg-background"
+      className="flex items-baseline justify-between gap-3 px-4 py-2.5 hover:bg-surface-elevated"
     >
       <span className="min-w-0 truncate font-medium text-primary">{nombreProducto(producto)}</span>
       <span className="cifra shrink-0 text-xs text-muted">
@@ -318,7 +318,7 @@ function Compradores({ producto }: { producto: ProductoPublico }) {
           <li key={c.codigo}>
             <Link
               href={rutaComprador(c.codigo)}
-              className="flex items-baseline justify-between gap-3 px-4 py-2.5 hover:bg-background"
+              className="flex items-baseline justify-between gap-3 px-4 py-2.5 hover:bg-surface-elevated"
             >
               <span className="min-w-0 truncate font-medium text-primary">{c.nombre}</span>
               <span className="cifra shrink-0 text-xs text-muted">{entero(c.n)} compras</span>

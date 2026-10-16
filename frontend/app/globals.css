@@ -58,13 +58,14 @@
   --color-accent-dark: 10 98 101;      /* #0A6265 */
   --color-accent-light: 237 247 247;   /* #EDF7F7 — superficie tenue */
   --color-brand-navy: 16 40 88;        /* #102858 — invariante de tema; titular de la tarjeta de vista previa (lib/coloresImagen.ts) */
-  --color-brand-blue: 40 72 173;       /* #2848AD — cuerpo del pájaro del logo, invariante de tema; panel de la tarjeta de vista previa */
+  --color-brand-blue: 40 72 173;       /* #2848AD — cuerpo del pájaro del logo, invariante de tema; panel de la tarjeta de vista previa y pájaro de la cabecera */
+  --color-brand-teal: 61 185 187;      /* #3DB9BB — ala del pájaro del logo, invariante de tema; sólo el pájaro de la cabecera (decorativo) */
   --color-gold: 150 89 10;            /* #96590A */
   --color-gold-light: 251 246 228;    /* #FBF6E4 */
   --color-text: 10 22 38;             /* #0A1626 */
   --color-muted: 84 99 122;           /* #54637A */
   --color-subtle: 90 107 131;         /* #5A6B83 */
-  --color-background: 247 244 236;    /* #F7F4EC — papel cálido; subtle 4.94:1, border-input 3.09:1 */
+  --color-background: 255 255 255;    /* #FFFFFF — blanco, como surface: las tarjetas se separan por el borde */
   --color-surface: 255 255 255;       /* #FFFFFF */
   --color-surface-elevated: 241 244 249; /* #F1F4F9 */
   --color-border: 220 227 237;        /* #DCE3ED — decorativo: tarjetas, divisores */
@@ -79,6 +80,12 @@
   --color-success: 20 117 56;         /* #147538 — verde inequívoco, ya no es la marca */
   --color-success-light: 234 247 240; /* #EAF7F0 */
 
+  /* El dato (docs/IDENTIDAD_Y_PORTADA_2026-10.md §5): cada gráfico pinta en `dato` sólo las
+     barras de la conclusión y deja el resto en `dato-tenue`, que es decorativo: nunca lleva
+     texto encima y el valor va escrito al lado. */
+  --color-dato: 40 72 173;            /* #2848AD — azul del cuerpo del pájaro */
+  --color-dato-tenue: 201 211 232;    /* #C9D3E8 */
+
   /* Etiqueta que va ENCIMA de cada relleno de color. Nunca `text-white` a mano. */
   --color-on-primary: 255 255 255;
   --color-on-accent: 255 255 255;
@@ -87,6 +94,7 @@
   --color-on-warning: 255 255 255;
   --color-on-gold: 255 255 255;
   --color-on-info: 255 255 255;
+  --color-on-dato: 255 255 255;       /* sobre #2848AD: 8.01:1 */
 
   /* Utility colors — full values (used in inline styles, not Tailwind opacity modifiers) */
   --color-scrollbar: #C4D0E0;
@@ -112,7 +120,8 @@
   --color-accent-dark: 92 202 204;     /* #5CCACC — en oscuro el hover ACLARA */
   --color-accent-light: 11 33 36;      /* #0B2124 — superficie tenue */
   --color-brand-navy: 16 40 88;        /* #102858 — invariante de tema; titular de la tarjeta de vista previa (lib/coloresImagen.ts) */
-  --color-brand-blue: 40 72 173;       /* #2848AD — cuerpo del pájaro del logo, invariante de tema; panel de la tarjeta de vista previa */
+  --color-brand-blue: 40 72 173;       /* #2848AD — cuerpo del pájaro del logo, invariante de tema; panel de la tarjeta de vista previa y pájaro de la cabecera */
+  --color-brand-teal: 61 185 187;      /* #3DB9BB — ala del pájaro del logo, invariante de tema */
   --color-gold: 245 184 65;           /* #F5B841 */
   --color-gold-light: 42 31 8;        /* #2A1F08 */
   --color-text: 228 234 242;          /* #E4EAF2 */
@@ -133,6 +142,9 @@
   --color-success: 61 214 140;        /* #3DD68C */
   --color-success-light: 10 35 24;    /* #0A2318 */
 
+  --color-dato: 61 185 187;           /* #3DB9BB — turquesa del ala; sobre brand-navy 6.04:1 */
+  --color-dato-tenue: 52 80 143;      /* #34508F */
+
   /* En tema oscuro los rellenos son claros → la etiqueta va oscura. */
   --color-on-primary: 10 22 38;       /* #0A1626 */
   --color-on-accent: 16 40 88;        /* #102858 — navy sobre teal: 6.04:1 */
@@ -141,6 +153,7 @@
   --color-on-warning: 36 16 0;        /* #241000 */
   --color-on-gold: 36 26 2;           /* #241A02 */
   --color-on-info: 8 21 43;           /* #08152B */
+  --color-on-dato: 16 40 88;          /* #102858 — navy sobre turquesa: 6.04:1 */
 
   --color-scrollbar: #1E2736;
   --color-scrollbar-hover: #2A3547;

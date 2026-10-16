@@ -29,7 +29,7 @@ export default function SelectorTema() {
   const montado = useSyncExternalStore(suscribirNada, () => true, () => false);
 
   return (
-    <div role="radiogroup" aria-label="Apariencia" className="flex gap-1 rounded-lg bg-background p-1">
+    <div role="radiogroup" aria-label="Apariencia" className="flex gap-1 rounded-lg bg-surface-elevated p-1">
       {OPCIONES.map(({ valor, etiqueta, Icono }) => {
         const activo = montado && theme === valor;
         return (

@@ -70,7 +70,7 @@ export function Cabecera() {
             <span className="max-[359px]:sr-only">Apoyar</span>
           </Link>
           <details className="relative lg:hidden">
-            <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-text transition-colors hover:bg-background [&::-webkit-details-marker]:hidden">
+            <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-text transition-colors hover:bg-surface-elevated [&::-webkit-details-marker]:hidden">
               <Menu className="h-4 w-4" aria-hidden="true" />
               Menú
             </summary>

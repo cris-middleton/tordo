@@ -34,6 +34,12 @@ module.exports = {
         success: 'rgb(var(--color-success) / <alpha-value>)',
         successLight: 'rgb(var(--color-success-light) / <alpha-value>)',
         'brand-navy': 'rgb(var(--color-brand-navy) / <alpha-value>)',
+        // El pájaro de la cabecera (`components/cascara/PajaroMarca.tsx`): invariantes de tema.
+        'brand-blue': 'rgb(var(--color-brand-blue) / <alpha-value>)',
+        'brand-teal': 'rgb(var(--color-brand-teal) / <alpha-value>)',
+        // El dato de un gráfico: `dato` lo que nombra la conclusión, `dato-tenue` el resto.
+        dato: 'rgb(var(--color-dato) / <alpha-value>)',
+        'dato-tenue': 'rgb(var(--color-dato-tenue) / <alpha-value>)',
         // Etiqueta que va ENCIMA de cada relleno de color. En tema claro los
         // rellenos son oscuros y estas son blancas; en oscuro se invierten.
         // Usa `text-onAccent` en vez de `text-white` sobre `bg-accent`.
@@ -44,6 +50,7 @@ module.exports = {
         onWarning: 'rgb(var(--color-on-warning) / <alpha-value>)',
         onGold: 'rgb(var(--color-on-gold) / <alpha-value>)',
         onInfo: 'rgb(var(--color-on-info) / <alpha-value>)',
+        onDato: 'rgb(var(--color-on-dato) / <alpha-value>)',
       },
       fontFamily: {
         // `font-display` = titular editorial (h1, h2). Nunca un número: las

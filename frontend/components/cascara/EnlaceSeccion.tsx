@@ -13,8 +13,8 @@ const CLASES = {
   },
   menu: {
     base: 'block rounded-lg px-3 py-2 text-sm transition-colors',
-    activa: 'bg-background font-semibold text-primary',
-    inactiva: 'text-text hover:bg-background hover:text-primary',
+    activa: 'bg-surface-elevated font-semibold text-primary',
+    inactiva: 'text-text hover:bg-surface-elevated hover:text-primary',
   },
 } as const;
 

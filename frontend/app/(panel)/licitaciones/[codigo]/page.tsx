@@ -264,7 +264,7 @@ export default function TenderDetailPage() {
               <BIPanelSection panel={biPanel} tender={tender ?? undefined} />
             )}
             {!biLoading && !biPanel && (
-              <p className="text-sm text-muted italic bg-background rounded-xl px-4 py-3">
+              <p className="text-sm text-muted italic bg-surface-elevated rounded-xl px-4 py-3">
                 Panel BI no disponible para esta licitación.
               </p>
             )}

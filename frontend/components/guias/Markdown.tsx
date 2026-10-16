@@ -48,7 +48,7 @@ function Linea({ nodos }: { nodos: EnLinea[] }) {
             return <span key={i}>{n.v}</span>;
           case 'codigo':
             return (
-              <code key={i} className="rounded bg-background px-1 py-0.5 font-mono text-[0.9em] text-text">
+              <code key={i} className="rounded bg-surface-elevated px-1 py-0.5 font-mono text-[0.9em] text-text">
                 {n.v}
               </code>
             );
@@ -129,7 +129,7 @@ function UnBloque({ b }: { b: Bloque }) {
       return (
         <div className="mt-4 overflow-x-auto rounded-lg border border-border">
           <table className="w-full text-left text-sm">
-            <thead className="bg-background">
+            <thead className="bg-surface-elevated">
               <tr>
                 {b.cabecera.map((c, i) => (
                   <th key={i} scope="col" className="px-3 py-2 font-semibold text-text">
