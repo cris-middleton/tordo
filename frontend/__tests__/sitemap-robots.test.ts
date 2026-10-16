@@ -14,12 +14,15 @@ import robots from '@/app/robots';
 import sitemap from '@/app/sitemap';
 
 import { leerGuias } from '@/lib/guias';
+import { leerNotas } from '@/lib/notas';
 import { NO_RASTREAR, PAGINAS_FIJAS } from '@/lib/publico';
 
 import { SITEMAP } from './ayudas/publicoDePrueba';
 
 /** Las guías, por título: las lee del disco igual que el sitemap. */
 const GUIAS = leerGuias().map((g) => `https://tordo.prueba/guias/${g.slug}`);
+/** Las notas, de la más nueva a la más vieja: las lee del disco igual que el sitemap. */
+const NOTAS = leerNotas().map((n) => `https://tordo.prueba/notas/${n.slug}`);
 
 let pedidas: { url: string; init: RequestInit }[] = [];
 
@@ -54,12 +57,14 @@ describe('sitemap y robots', () => {
       'https://tordo.prueba/licitaciones',
       'https://tordo.prueba/productos',
       'https://tordo.prueba/guias',
+      'https://tordo.prueba/notas',
       'https://tordo.prueba/abierto',
       'https://tordo.prueba/acerca',
       'https://tordo.prueba/apoyar',
       'https://tordo.prueba/terminos',
       'https://tordo.prueba/privacidad',
       ...GUIAS,
+      ...NOTAS,
       'https://tordo.prueba/rubros/equipos-medicos',
       'https://tordo.prueba/compradores/7297',
       'https://tordo.prueba/productos/guante-latex-nitrilo',
@@ -75,6 +80,7 @@ describe('sitemap y robots', () => {
     expect((await sitemap()).map((e) => e.url)).toEqual([
       ...PAGINAS_FIJAS.map((r) => `https://tordo.prueba${r === '/' ? '' : r}`),
       ...GUIAS,
+      ...NOTAS,
     ]);
   });
 
@@ -83,6 +89,13 @@ describe('sitemap y robots', () => {
     const guias = (await sitemap()).filter((e) => e.url.includes('/guias/'));
     expect(guias.length).toBeGreaterThanOrEqual(6);
     for (const g of guias) expect(g.lastModified).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('cada nota va al sitemap con su fecha', async () => {
+    simularBackend(SITEMAP);
+    const notas = (await sitemap()).filter((e) => e.url.includes('/notas/'));
+    expect(notas.length).toBeGreaterThanOrEqual(4);
+    for (const n of notas) expect(n.lastModified).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
   it('robots deja fuera la API, los feeds y los guardados, y enlaza el sitemap', () => {

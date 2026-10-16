@@ -9,6 +9,7 @@ import {
   rutaRubro,
 } from '@/lib/publico';
 import { leerGuias, rutaGuia } from '@/lib/guias';
+import { leerNotas, rutaNota } from '@/lib/notas';
 import { pedirPublico } from '@/lib/publicoServidor';
 import type { SitemapPublico } from '@/types/publico';
 
@@ -37,6 +38,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     );
   } catch (error) {
     console.error('sitemap: no se pudieron leer las guías', error);
+  }
+  // Las notas, igual (`content/notas`).
+  try {
+    fijas.push(...leerNotas().map((n) => ({ url: `${origen}${rutaNota(n.slug)}`, lastModified: n.fecha })));
+  } catch (error) {
+    console.error('sitemap: no se pudieron leer las notas', error);
   }
 
   let indice: SitemapPublico | null = null;

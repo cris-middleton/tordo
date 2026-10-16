@@ -29,6 +29,7 @@ export const SECCIONES: readonly EnlaceNavegacion[] = [
   { nombre: 'Precios', href: '/productos' },
   { nombre: 'Mercados', href: '/mercado' },
   { nombre: 'Guías', href: '/guias' },
+  { nombre: 'Notas', href: '/notas' },
 ];
 
 /** Lo guardado en este navegador. En la cabecera es un ícono con contador; en el pie, un enlace más. */

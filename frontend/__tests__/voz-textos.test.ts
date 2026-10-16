@@ -55,6 +55,13 @@ const CON_METADATOS = [
 const GUIAS = archivos(join(RAIZ, 'content', 'explicativos'), /\.mdx$/);
 const frontmatterDeGuia = (fuente: string) => (/^---\n([\s\S]*?)\n---/.exec(fuente)?.[1] ?? '');
 
+/**
+ * Las notas de datos (`content/notas/*.mdx`): se revisan enteras, no sólo el
+ * título, porque se leen enteras — y su resumen sale en la portada y en el feed.
+ */
+const NOTAS = archivos(join(RAIZ, 'content', 'notas'), /\.mdx$/);
+const sinBloquesDeCodigo = (fuente: string) => fuente.replace(/```[\s\S]*?```/g, '').replace(/`[^`\n]*`/g, '');
+
 const PIEZAS_PORTADA = archivos(join(RAIZ, 'components', 'portada'), /\.tsx$/);
 
 // Los dos ficheros de textos de la portada existen desde el PR 3: si uno falta,
@@ -67,6 +74,7 @@ describe('D11: fuera «gratis y sin cuenta» de títulos, descripciones y la por
     expect(CON_METADATOS.length).toBeGreaterThanOrEqual(50);
     expect(PIEZAS_PORTADA.length).toBeGreaterThanOrEqual(6);
     expect(GUIAS.length).toBeGreaterThanOrEqual(5);
+    expect(NOTAS.length).toBeGreaterThanOrEqual(4);
     for (const f of TEXTOS_PORTADA) expect(existsSync(f), `${f} tiene que existir`).toBe(true);
   });
 
@@ -81,6 +89,10 @@ describe('D11: fuera «gratis y sin cuenta» de títulos, descripciones y la por
     const frontmatter = frontmatterDeGuia(readFileSync(fichero, 'utf8'));
     expect(frontmatter, 'guarda: la guía tiene frontmatter').toMatch(/descripcion:/);
     expect(frontmatter).not.toMatch(COLETILLA);
+  });
+
+  it.each(NOTAS.map((f) => [relative(RAIZ, f), f]))('%s: ni en el frontmatter ni en el cuerpo', (_, fichero) => {
+    expect(readFileSync(fichero, 'utf8')).not.toMatch(COLETILLA);
   });
 
   it('el título y la descripción de la portada dicen qué es, no qué no cobra', () => {
@@ -118,6 +130,10 @@ describe('§6.1: sin exclamaciones en los textos de la portada', () => {
     expect(exclamaciones(fuente)).toEqual([]);
     // Un literal con «!» dentro (aria-label, alt, title…); el `!` de código queda fuera de las comillas.
     expect((fuente.match(LITERAL) ?? []).filter((t) => /!/.test(t) && !/!=/.test(t))).toEqual([]);
+  });
+
+  it.each(NOTAS.map((f) => [relative(RAIZ, f), f]))('%s: sin exclamaciones fuera del código', (_, fichero) => {
+    expect(sinBloquesDeCodigo(readFileSync(fichero, 'utf8'))).not.toMatch(/[!¡]/);
   });
 
   it('el detector ve una exclamación en JSX y no confunde el código', () => {

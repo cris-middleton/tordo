@@ -21,6 +21,7 @@ import { mapaDelSitio } from '../lib/navegacion';
 const SEMILLAS = [
   '/',
   '/guias',
+  '/notas',
   '/productos',
   '/apoyar',
   '/terminos',

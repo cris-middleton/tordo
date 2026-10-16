@@ -1,0 +1,95 @@
+---
+titulo: "Dividíamos el precio unitario dos veces"
+fecha: "2026-10-16"
+resumen: "Cada línea de una orden de compra ya trae el precio de una unidad, y lo dividíamos otra vez por la cantidad. Todas las bandas de precio por producto salían bajas."
+estado: "arreglado"
+medido_sobre: "Órdenes de compra de ChileCompra de octubre de 2025 a marzo de 2026: 2.387.370 líneas en pesos. Medido el 16 de octubre de 2026."
+cambio: "https://github.com/cris-middleton/tordo/pull/10"
+script: "etl/tests/test_precio_unitario.py"
+antes_despues:
+  rotulo: "Bandas nacionales por producto con predictibilidad alta"
+  antes:
+    etiqueta: "Antes"
+    valor: 33
+  despues:
+    etiqueta: "Después"
+    valor: 82
+fuentes:
+  - "etl/analytics/product_price_bands.py: «medido en los seis meses locales (2025-10 a 2026-03), la igualdad se cumple (±1 % o ±$1) en el 99,98 % de 2.387.370»"
+  - "CLAUDE.md: «`precioNeto × cantidad = totalLineaNeto` (±1 %) en el 99,98 % de las líneas en pesos»"
+  - "CLAUDE.md: ««papel higiénico jumbo», a $16.850 el paquete, salía «entre $843 y $2.106»»"
+  - "etl/analytics/product_price_bands.py: «el 0,56 % viene en UF, dólares, UTM o euros, y leído como pesos daba bandas de «$1»»"
+  - "etl/analytics/product_price_bands.py: «Las que no cuadran (441, el 0,018 %) traen un descuento o un cargo en la línea»"
+  - "CLAUDE.md: «QCD mediano 0,00 en L0, 0,012 en L0N y 0,27 en L1»"
+  - "CLAUDE.md: ««alta» el 82 % de las bandas L0N (antes el 33 %)»"
+  - "CLAUDE.md: «15.452 productos con el precio unitario corregido; 6.561 antes»"
+  - "backend/app/services/publico/indexables.py: «Antes de la corrección eran 6.561: la división por la cantidad volvía «baja» la mayoría.»"
+  - "CLAUDE.md: «Los cortes (`QCD_ALTA` 0,25, `QCD_MEDIA` 0,45) se calibraron sobre el error»"
+  - "docs/DESPLIEGUE.md: «`0 6 * * 0` (domingo 06:00 UTC»"
+---
+
+## En corto
+
+- En el 99,98 % de las líneas en pesos, precio por cantidad da el total de la línea:
+  el precio ya viene por unidad.
+- Lo dividíamos otra vez por la cantidad. El papel higiénico jumbo salía entre $843 y
+  $2.106, y el paquete se paga a $16.850.
+- Con el precio corregido, el 82 % de las bandas nacionales por producto tiene
+  predictibilidad alta. Antes, el 33 %.
+
+## Qué vimos
+
+Cada línea de una orden de compra de ChileCompra trae el precio neto, la cantidad y el
+total de la línea. Las bandas de precio de TORDO tomaban el precio neto y lo dividían por
+la cantidad, como si fuera el total. Estaba así desde el primer cálculo de bandas.
+
+Cada banda publicaba entonces el precio de una unidad repartido entre las unidades de la
+orden. Mientras más unidades compraba un organismo, más barato parecía pagar. Un caso: el
+papel higiénico jumbo se compra a $16.850 el paquete, y su ficha decía que la mitad se
+pagó entre $843 y $2.106.
+
+## Cómo lo medimos
+
+Tomamos las órdenes de compra de octubre de 2025 a marzo de 2026, 2.387.370 líneas en
+pesos, y comparamos el precio por la cantidad con el total de cada línea, con una
+tolerancia de 1 % o $1:
+
+```
+|precioNeto × cantidad − totalLineaNeto| ≤ máx($1, 1 % del total)
+```
+
+Cuadra en el 99,98 %. Si el precio neto fuera el total de la línea, cuadraría sólo en las
+líneas de una unidad.
+
+De paso apareció otra cosa: el 0,56 % de las líneas viene en UF, dólares, UTM o euros, y
+su precio está en esa moneda. Leído como pesos, daba bandas de $1.
+
+## Qué cambió
+
+- El precio unitario es el precio neto, tal cual.
+- Entra sólo la línea en pesos que cuadra con su total. Queda fuera el 0,018 %: líneas
+  con un descuento o un cargo propio, donde no se sabe cuál es el precio pagado.
+- Con el precio corregido, el QCD mediano, que compara P25 con P75, es 0,012 en la
+  banda nacional por producto y 0,27 en la de categoría por comprador. La [guía de bandas](/guias/como-leer-una-banda-de-precio) explica cómo
+  leerlo.
+- Los productos con página propia pasaron de 6.561 a 15.452: con el precio bien medido,
+  muchas más bandas pasan el filtro de calidad.
+- El arreglo llega al sitio con el análisis del domingo 18 de octubre. Ese día las
+  fichas de producto, la búsqueda y la API toman las bandas nuevas.
+
+## Lo que todavía no sabemos
+
+- Los cortes de predictibilidad (QCD 0,25 para «alta» y 0,45 para «media») se eligieron
+  con el error dentro. Con el precio corregido casi todas las bandas nacionales por
+  producto salen «alta», y los cortes no se han revisado.
+- Si conviene ajustar por inflación los precios de años atrás. Lo medimos con el error,
+  y repetirlo pide más historia que los seis meses de la copia local.
+
+## Reprodúcelo
+
+El test arma filas con la forma del archivo real de ChileCompra: todo es texto, con coma
+decimal, y cada línea trae su moneda. Fallaba con el cálculo anterior.
+
+```
+cd etl && uv run --project .. pytest tests/test_precio_unitario.py
+```

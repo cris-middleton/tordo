@@ -5,11 +5,13 @@
 const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
-  // Las guías (`/guias/*`) se generan en el build, pero el sitemap se genera al
-  // pedirlo y lee `content/explicativos` del disco: sin esto, el contenido no
-  // entraría en la traza del servidor y el sitemap saldría sin guías.
+  // Las guías (`/guias/*`) y las notas (`/notas/*`) se generan en el build, pero
+  // el sitemap y el feed de notas se generan al pedirlos y leen `content/` del
+  // disco: sin esto, el contenido no entraría en la traza del servidor y saldrían
+  // vacíos.
   outputFileTracingIncludes: {
-    '/sitemap.xml': ['./content/explicativos/**/*'],
+    '/sitemap.xml': ['./content/explicativos/**/*', './content/notas/**/*'],
+    '/rss/notas': ['./content/notas/**/*'],
   },
   // El panel vivía bajo `/dashboard/*` hasta el lanzamiento, y esas URL ya
   // circulan: en lectores de RSS, marcadores y la historia de los PR. Pasaron a

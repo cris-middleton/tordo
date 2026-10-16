@@ -249,7 +249,8 @@ cuenta» (y «cuentas»), «sin registrarte», «sin cuenta.», «sin clave y si
 sin planes». Las busca en **todo el texto** de cada fichero de `app/` (no sólo en títulos y
 descripciones), en `lib/publico.ts`, `lib/compraAgil.ts`, `lib/portada.ts`,
 `lib/lecturasPortada.ts`, las piezas de `components/portada/` y el título y la descripción de las
-guías (`content/explicativos/*.mdx`). Y los textos de `lib/portada.ts` y `lib/lecturasPortada.ts`
+guías (`content/explicativos/*.mdx`), y las notas de datos enteras (`content/notas/*.mdx`), que
+además no llevan «!» ni «¡» fuera del código. Y los textos de `lib/portada.ts` y `lib/lecturasPortada.ts`
 y el texto de las piezas de `components/portada/` no llevan «!» ni «¡».
 Lo demás se revisa leyendo. **Se quedan a propósito**: «{APP_NAME} es gratis. Mantenerlo, casi.»
 (habla de cómo se financia, que es un hecho) y lo descriptivo que responde una duda donde se tiene
@@ -632,7 +633,8 @@ sin sesión — ver las reglas de frontend más arriba. Pantallas: el catálogo 
 licitaciones (`/licitaciones`, con su detalle; **los filtros viven en la URL**, `abiertas=1` incluido, así que
 una búsqueda es una URL), «Lo mejor de hoy en Compra Ágil» (`/compra-agil`), `/guardados`
 y los mercados por rubro (`/mercado`, «Mercados» en la navegación); y lo abierto en `/abierto`,
-enlazado como «API y MCP» desde la cabecera; y la búsqueda en `/buscar?q=` (ver abajo). Las del panel viven en el grupo de rutas
+enlazado como «API y MCP» desde la cabecera; la búsqueda en `/buscar?q=` (ver abajo); y las
+notas de datos en `/notas` (ver «Notas de datos»). Las del panel viven en el grupo de rutas
 `app/(panel)/`, que sólo les pone el contenedor (abajo) sin aparecer en la URL.
 
 **Una sola cáscara** (`components/cascara/`, spec del rediseño §6.1–§6.2). `app/layout.tsx`
@@ -1020,6 +1022,31 @@ contenido no usa JSX y cinco dependencias para eso no valen la pena. Si una guí
 que el parser no soporta, se amplía el parser con su test. `guias.test.tsx` comprueba que cada
 enlace interno de cada guía resuelve. El texto dice «TORDO» y se sustituye por `APP_NAME` al
 pintar.
+
+**Notas de datos** (`/notas`, `/notas/[slug]`, `/rss/notas`; spec `docs/PORTADA_V7_Y_NOTAS_2026-10.md`
+§5): hallazgos medidos sobre los datos —qué vimos, cómo lo medimos, qué cambió y lo que todavía no
+sabemos—, en `frontend/content/notas/*.mdx`, con el mismo parser que las guías (`lib/notas.ts`
+sobre `lib/markdown.ts`). El slug es el nombre del archivo. Estáticas (`generateStaticParams`,
+`dynamicParams = false`), indexables (`PAGINAS_FIJAS` y el sitemap, como las guías) y con su feed,
+que lee del disco (`content/notas` va en la traza del sitemap y de `/rss/notas`, `next.config.js`).
+«Notas» es la última sección de la navegación.
+- **Cada cifra cita un fragmento literal del repo.** `fuentes` es una lista de `ruta: «fragmento»`
+  y `__tests__/notas-frontmatter.test.ts` comprueba que el fragmento sigue en ese fichero (sin `**`,
+  sin `>` de cita y con los espacios colapsados), y que **toda cifra de «En corto» está en algún
+  fragmento**. Si corriges una cifra en `CLAUDE.md` o en un doc que una nota cita, corrige la nota
+  en el mismo PR. Nada de rutas del scratchpad ni de informes fuera del repo.
+- **`estado: arreglado` exige `cambio`**, y `cambio` sólo puede ser un PR de este repo público
+  (`…/cris-middleton/tordo/pull/N`). Lo arreglado antes del 2026-10-15 vive en `saas#N`, que no se
+  enlaza: esas notas van como `medido` y cuentan el arreglo en el texto, con la fecha del commit.
+  `script`, si está, tiene que existir en el repo; se enlaza a `<REPOSITORIO_URL>/blob/main/<ruta>`
+  sólo con `REPOSITORIO_URL`, y entonces el cuerpo lleva «Reprodúcelo».
+- **Secciones fijas, en orden**: «En corto» (tres viñetas), «Qué vimos», «Cómo lo medimos», «Qué
+  cambió», «Lo que todavía no sabemos» y, con `script`, «Reprodúcelo». `antes_despues` se pinta
+  justo bajo «Qué cambió» (`components/notas/AntesDespues.tsx`).
+- **La firma** («La escribe {nombre}.») sale de `AUTOR_NOMBRE` (`lib/autor.ts`, servidor, en el
+  build) y sin ella no hay línea; `AUTOR_URL` (sólo `https://`) enlaza el nombre.
+- Ninguna nota nombra a un proveedor persona natural ni promete trabajo que no esté en un PR
+  abierto. `voz-textos.test.ts` las revisa enteras.
 
 **Apoyar** (`/apoyar`): tres enlaces, sin integración (spec §4.2), desde variables de
 SERVIDOR — `DONAR_MERCADO_PAGO_URL`, `DONAR_GITHUB_SPONSORS_URL` (https) y `DONAR_TRANSFERENCIA`

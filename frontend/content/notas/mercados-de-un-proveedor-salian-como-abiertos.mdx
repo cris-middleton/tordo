@@ -1,0 +1,70 @@
+---
+titulo: "2.700 mercados de un solo proveedor salían como los más abiertos"
+fecha: "2026-08-16"
+resumen: "Un mercado con un solo proveedor tiene un HHI de 10.000. Casi la mitad de esos mercados salía en el tramo más bajo del índice: un monopolio presentado como el mercado con más espacio para entrar."
+estado: "medido"
+medido_sobre: "Histórico de órdenes de compra de ChileCompra, por comprador, rubro y proveedor. Medido y corregido el 16 de agosto de 2026, antes de abrir el sitio público."
+script: "etl/tests/test_identidad_comprador.py"
+fuentes:
+  - "CLAUDE.md: «De 5.675 mercados de un solo proveedor, 2.700 salían etiquetados en el tramo más abierto del índice»"
+  - "CLAUDE.md: «con *n* proveedores no puede bajar de 10.000/*n*, y la cuota del líder no puede quedar por debajo de 100/*n*»"
+  - "CLAUDE.md: «Las dos se violaban a la vez —13,6 % y 98,7 % de las filas—»"
+  - "etl/tests/test_identidad_comprador.py: «23.010 filas (13,6 %) con un HHI aritméticamente imposible»"
+  - "CLAUDE.md: «`top_share_pct` ordenando `rank_monto` al revés, con lo que devolvía la cuota del proveedor más chico mientras `top_proveedor` traía el nombre del mayor»"
+  - "CLAUDE.md: «`compute_market_concentration` avisa por log si vuelven a aparecer»"
+  - "CLAUDE.md: «el sitio está en producción desde el 2026-10-13»"
+---
+
+## En corto
+
+- De 5.675 mercados de un solo proveedor, 2.700 salían en el tramo más bajo del HHI, el
+  de los mercados repartidos.
+- El 13,6 % de las filas tenía un HHI imposible, y el 98,7 %, una cuota del líder
+  imposible.
+- Las causas: el nombre del comprador dentro de la clave y la cuota del líder ordenada
+  al revés.
+
+## Qué vimos
+
+El HHI mide si en un mercado, un comprador y un rubro, el gasto se lo llevan pocos
+proveedores. Va de casi 0 a 10.000, y un mercado con un solo proveedor vale 10.000
+siempre. La [guía de concentración](/guias/concentracion-de-mercado) explica cómo se
+calcula.
+
+Revisando la tabla de concentración, 2.700 de los 5.675 mercados de un solo proveedor
+salían en el tramo más bajo del índice. Quien buscara dónde entrar habría visto un
+monopolio como el mercado más abierto.
+
+## Cómo lo medimos
+
+Todo HHI cumple dos reglas aritméticas. Con *n* proveedores, el índice no baja de
+10.000 / *n*, y la cuota del líder no baja de 100 / *n* por ciento. Contamos las filas
+que rompían cada regla: el 13,6 % rompía la primera y el 98,7 %, la segunda.
+
+Por separado, cada número parecía razonable. Juntos, describían mercados que no pueden
+existir.
+
+## Qué cambió
+
+- **El nombre salió de la clave.** El cálculo agrupaba por código de comprador, nombre y
+  rubro. Un comprador con dos nombres partía su mercado en dos, cada uno con una parte
+  de los proveedores. Lo contamos en
+  [otra nota](/notas/compradores-con-mas-de-un-nombre).
+- **La cuota del líder es la del líder.** Se tomaba ordenando al revés, así que devolvía
+  la cuota del proveedor más chico mientras el nombre era el del más grande.
+- El cálculo avisa en su registro si vuelve a aparecer un HHI imposible.
+- El arreglo es anterior a la apertura del sitio público, el 13 de octubre de 2026.
+
+## Lo que todavía no sabemos
+
+Las dos reglas atrapan un HHI imposible. Un HHI posible y mal calculado pasaría sin
+aviso. Y el índice mide a quién se le compró, sin contar cuántos ofertaron.
+
+## Reprodúcelo
+
+El test arma un comprador escrito de dos formas y tres proveedores, y comprueba el HHI,
+su mínimo, la cuota del líder y el nombre que queda.
+
+```
+cd etl && uv run --project .. pytest tests/test_identidad_comprador.py
+```
