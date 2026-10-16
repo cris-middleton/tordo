@@ -140,6 +140,17 @@ test('en móvil, tocar la marca, los guardados o «Apoyar» también cierra el m
   }
 });
 
+test('la marca lleva el pájaro, y el fondo de página es blanco en tema claro', async ({ page }) => {
+  await page.goto('/licitaciones');
+  const marca = page.getByRole('banner').getByRole('link', { name: /, inicio$/ });
+  const pajaro = marca.locator('svg');
+  await expect(pajaro).toBeVisible();
+  const caja = await pajaro.boundingBox();
+  expect(caja!.height, 'el pájaro mide lo que la línea de la marca').toBeGreaterThanOrEqual(20);
+  await expect(page.locator('html')).not.toHaveClass(/\bdark\b/);
+  expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(255, 255, 255)');
+});
+
 test('en escritorio, la sección actual se marca y «Código» no aparece sin REPOSITORIO_URL', async ({ page }) => {
   await page.setViewportSize(ESCRITORIO);
   await page.goto('/licitaciones');
