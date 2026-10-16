@@ -271,7 +271,7 @@ sin franja, lo conserva.
 
 | Familia | Uso | Carga |
 |---|---|---|
-| **Archivo** | Todo: titulares (`h1`–`h2` a `wdth` 112–115 y peso 800; `h3` a 100 y 700), cuerpo, interfaz y **todas las cifras** (`tnum`) | variable (`next/font` carga el eje de peso entero) y `wdth` 62–125, por `next/font/google` (autoalojada, sin petición a un tercero) |
+| **Archivo** | Todo: titulares (`h1`–`h2` a `wdth` 112–115 y peso 800; `h3` a ancho 100; el peso lo pone cada componente), cuerpo, interfaz y **todas las cifras** (`tnum`) | variable (`next/font` carga el eje de peso entero) y `wdth` 62–125, por `next/font/google` (autoalojada, sin petición a un tercero) |
 | **IBM Plex Mono** | Sólo identificadores, sin cambio | estática, 400 y 500 |
 | **Varien** | Sólo la marca, junto al pájaro | sin cambio |
 

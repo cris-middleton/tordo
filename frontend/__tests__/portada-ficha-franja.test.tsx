@@ -22,7 +22,7 @@ describe('FichaPortada', () => {
     expect([...dl.querySelectorAll('dd')].map((d) => d.textContent)).toEqual([
       'ChileCompra',
       SE_ACTUALIZA,
-      'Aquí, por API, por MCP o en CSV. Sin registro',
+      'Aquí, por API, por MCP o en CSV. Sin registro.',
     ]);
   });
 

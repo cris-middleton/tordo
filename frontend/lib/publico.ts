@@ -136,7 +136,7 @@ export function categoriaProducto(p: Pick<ProductoPublico, 'nombre_generico'>): 
  * La unidad ausente, tal como la escribe el pipeline
  * (`etl/analytics/normalizacion.py`, `UNIDAD_SIN_DECLARAR`): un texto, no un nulo.
  */
-export const UNIDAD_SIN_DECLARAR = 'sin unidad declarada';
+const UNIDAD_SIN_DECLARAR = 'sin unidad declarada';
 
 /**
  * La unidad de una banda en minúsculas, o `null` si no hay ninguna que decir:

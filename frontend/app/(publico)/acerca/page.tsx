@@ -69,7 +69,7 @@ export default function PaginaAcerca() {
       <Seccion id="financiacion" titulo="Cómo se financia">
         <div className="space-y-3 text-sm leading-relaxed text-muted">
           <p>
-            Sin publicidad y sin planes de pago. Mantenerlo en línea cuesta{' '}
+            Mantenerlo en línea cuesta{' '}
             <Link href="/apoyar#costos" className="enlace">
               alrededor de {COSTO_MENSUAL_APROXIMADO} al mes
             </Link>

@@ -185,11 +185,11 @@ describe('la página /abierto', () => {
     expect(within(lic).queryByText(/^Libre para usar/)).toBeNull();
   });
 
-  it('el MCP dice que no tiene cuenta ni cuota diaria pero sí el límite por IP', () => {
+  it('el MCP dice que comparte con la API el límite por IP', () => {
     const { container } = render(<PaginaAbierto />);
     const mcp = container.querySelector('section#mcp') as HTMLElement;
     expect(mcp.textContent).toContain(
-      `sin cuota diaria; cuenta en el mismo límite por IP que la API (${LIMITE_POR_MINUTO} peticiones por minuto)`,
+      `Comparte con la API el límite por IP (${LIMITE_POR_MINUTO} peticiones por minuto)`,
     );
   });
 

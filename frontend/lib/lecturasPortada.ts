@@ -19,7 +19,7 @@ import type { CompraAgilPorCierre, ProductoPublico, ResumenPortada } from '@/typ
 
 import { urlCatalogoAbiertas } from './filtrosCatalogo';
 import { textoPeriodo } from './periodo';
-import { entero, plata, rutaProducto, UNIDAD_SIN_DECLARAR } from './publico';
+import { entero, plata, rutaProducto, unidadDeclarada } from './publico';
 
 // ── Comunes ─────────────────────────────────────────────────────────────────
 
@@ -333,8 +333,8 @@ export function lecturaPrecio(
   if (!u || u.p25 == null || u.p75 == null || u.p25 < 1 || u.p75 <= u.p25) return null;
   // Distintos en el dato pero escritos igual tras redondear: lo mismo.
   if (plata(u.p25) === plata(u.p75)) return null;
-  const unidad = normalizar(u.unidad ?? '');
-  if (!u.unidad || !unidad || unidad === UNIDAD_SIN_DECLARAR) return null;
+  const unidad = unidadDeclarada(u.unidad);
+  if (!unidad) return null;
   if (!PREDICTIBILIDAD_CREIBLE.has(normalizar(u.predictibilidad ?? ''))) return null;
   if (!esFechaOAusente(producto.periodo?.ventana_desde) || !esFechaOAusente(producto.periodo?.ventana_hasta)) {
     return null;
@@ -351,7 +351,7 @@ export function lecturaPrecio(
 
   return {
     conclusion: `${nombre}: la mitad se pagó entre ${plata(u.p25)} y ${plata(u.p75)}`,
-    pie: `Precio por ${u.unidad.trim().toLowerCase()}, ${compras}, ${periodo}`,
+    pie: `Precio por ${unidad}, ${compras}, ${periodo}`,
     enlace: { texto: 'Ver el producto', href: rutaProducto(producto.slug) },
     p10: u.p10 == null ? null : marca(u.p10),
     p25: marca(u.p25),

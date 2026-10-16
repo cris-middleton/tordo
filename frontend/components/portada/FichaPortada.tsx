@@ -20,7 +20,7 @@ export function FichaPortada() {
         Aquí, por{' '}
         <Link href="/abierto#api" className="enlace">API</Link>, por{' '}
         <Link href="/abierto#mcp" className="enlace">MCP</Link> o en{' '}
-        <Link href="/abierto#datos" className="enlace">CSV</Link>. Sin registro
+        <Link href="/abierto#datos" className="enlace">CSV</Link>. Sin registro.
       </dd>
     </dl>
   );

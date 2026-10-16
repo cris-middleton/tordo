@@ -10,6 +10,7 @@ import {
   nombreProducto,
   plata,
   rutaComprador,
+  unidadDeclarada,
 } from '@/lib/publico';
 import { pedirPublico, segmento } from '@/lib/publicoServidor';
 import type { ProductoPublico } from '@/types/publico';
@@ -89,7 +90,7 @@ export default async function PaginaProducto({ params }: Props) {
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {p.unidades.map((u, i) => (
-              <BandaPrecio key={u.unidad ?? `sin-unidad-${i}`} banda={u} />
+              <BandaPrecio key={unidadDeclarada(u.unidad) ?? `sin-unidad-${i}`} banda={u} />
             ))}
           </div>
         )}

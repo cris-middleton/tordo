@@ -244,10 +244,13 @@ Todo texto que se escriba o se toque desde octubre de 2026 sigue esta voz (spec
 Es regla y no gusto: una frase difícil de leer se juzga **menos verdadera**, no sólo menos
 agradable (fluidez de procesamiento, Reber y Schwarz, 1999).
 
-`__tests__/voz-textos.test.ts` fija lo mecánico: «gratis y sin cuenta», «sin registrarte», «sin
-cuenta.» y «sin clave y sin cuenta» no vuelven a ningún fichero de `app/` (títulos y descripciones),
-a `lib/publico.ts` (metadatos de las fichas) ni a la portada, y los textos de `lib/portada.ts` y
-`lib/lecturasPortada.ts`, y el texto de las piezas de `components/portada/`, no llevan «!» ni «¡».
+`__tests__/voz-textos.test.ts` fija lo mecánico. Prohíbe exactamente estas frases: «gratis y sin
+cuenta» (y «cuentas»), «sin registrarte», «sin cuenta.», «sin clave y sin cuenta» y «sin cuentas,
+sin planes». Las busca en **todo el texto** de cada fichero de `app/` (no sólo en títulos y
+descripciones), en `lib/publico.ts`, `lib/compraAgil.ts`, `lib/portada.ts`,
+`lib/lecturasPortada.ts`, las piezas de `components/portada/` y el título y la descripción de las
+guías (`content/explicativos/*.mdx`). Y los textos de `lib/portada.ts` y `lib/lecturasPortada.ts`
+y el texto de las piezas de `components/portada/` no llevan «!» ni «¡».
 Lo demás se revisa leyendo. **Se quedan a propósito**: «{APP_NAME} es gratis. Mantenerlo, casi.»
 (habla de cómo se financia, que es un hecho) y lo descriptivo que responde una duda donde se tiene
 («sin cuenta» en `/guardados`, «sin registrarte» en una respuesta de `lib/acerca.ts`).
@@ -886,9 +889,11 @@ componentes cliente y la home perdería título y tarjeta de preview.
     alguna, la lectura no sale: mejor ninguna banda que una banda sin sentido. La copia en
     `verificar-produccion.sh` aplica el mismo filtro (con su propio `plata`): si cambia uno,
     cambia el otro.
-  - **`/productos/[slug]` tolera una unidad nula** (`unidad` es `null` si el pipeline no la
-    declaró): la ficha titula la banda «Por unidad» y usa una clave de lista propia
-    (`sin-unidad-<i>`), en vez de lanzar. La portada lee la misma ficha, así que ese 200 es forma
+  - **`/productos/[slug]` tolera una unidad ausente**: puede llegar nula o como el literal
+    «sin unidad declarada» (el pipeline la escribe así). `tituloDeBanda` (`lib/publico.ts`) titula
+    las dos «Sin unidad declarada», `metadataProducto` no escribe «por …», y la lista usa una clave
+    propia (`sin-unidad-<i>`), en vez de lanzar. `unidadDeclarada` es el único sitio que decide
+    qué es una unidad ausente; `lecturaPrecio` la usa también. La portada lee la misma ficha, así que ese 200 es forma
     válida (`esProductoPortada`) y lo descarta el filtro de calidad, no el validador.
 - **Cuatro piezas vivas, pedidas en paralelo desde el servidor**, y **cada una se oculta sola si el
   backend falla o si un campo que se pinta viene mal formado**, y además, por principio 4 (una cifra

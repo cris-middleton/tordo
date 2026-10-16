@@ -45,7 +45,15 @@ const sinComentarios = (fuente: string) =>
 const COLETILLA = /gratis y sin cuentas?|sin registrarte|sin cuenta\.|sin clave y sin cuenta|sin cuentas, sin planes/i;
 
 /** Todo lo que pone un título o una descripción: `app/` entero y los metadatos de las fichas. */
-const CON_METADATOS = [...archivos(join(RAIZ, 'app'), /\.tsx?$/), join(RAIZ, 'lib', 'publico.ts')];
+const CON_METADATOS = [
+  ...archivos(join(RAIZ, 'app'), /\.tsx?$/),
+  join(RAIZ, 'lib', 'publico.ts'),
+  join(RAIZ, 'lib', 'compraAgil.ts'),
+];
+
+/** Título y descripción de cada guía (el frontmatter de `content/explicativos/*.mdx`). */
+const GUIAS = archivos(join(RAIZ, 'content', 'explicativos'), /\.mdx$/);
+const frontmatterDeGuia = (fuente: string) => (/^---\n([\s\S]*?)\n---/.exec(fuente)?.[1] ?? '');
 
 const PIEZAS_PORTADA = archivos(join(RAIZ, 'components', 'portada'), /\.tsx$/);
 
@@ -58,6 +66,7 @@ describe('D11: fuera «gratis y sin cuenta» de títulos, descripciones y la por
   it('guarda: hay ficheros que revisar (un test sin guarda se queda mudo comprobando el vacío)', () => {
     expect(CON_METADATOS.length).toBeGreaterThanOrEqual(50);
     expect(PIEZAS_PORTADA.length).toBeGreaterThanOrEqual(6);
+    expect(GUIAS.length).toBeGreaterThanOrEqual(5);
     for (const f of TEXTOS_PORTADA) expect(existsSync(f), `${f} tiene que existir`).toBe(true);
   });
 
@@ -67,6 +76,12 @@ describe('D11: fuera «gratis y sin cuenta» de títulos, descripciones y la por
       expect(sinComentarios(readFileSync(fichero, 'utf8'))).not.toMatch(COLETILLA);
     },
   );
+
+  it.each(GUIAS.map((f) => [relative(RAIZ, f), f]))('%s: título y descripción no lo dicen', (_, fichero) => {
+    const frontmatter = frontmatterDeGuia(readFileSync(fichero, 'utf8'));
+    expect(frontmatter, 'guarda: la guía tiene frontmatter').toMatch(/descripcion:/);
+    expect(frontmatter).not.toMatch(COLETILLA);
+  });
 
   it('el título y la descripción de la portada dicen qué es, no qué no cobra', () => {
     expect(metadata.title).toEqual({ absolute: `${APP_NAME} — Qué compra el Estado de Chile y a qué precio` });
@@ -84,11 +99,11 @@ const LITERAL = /'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"|`(?:[^`\\]|\\.)*`/g;
  * siguiente `<`, sin llaves. El `>` de una flecha (`=>`) o de una anotación de tipo no
  * abre texto, y el `!` de `!=`, `!==` o del no-nulo de TS (`x!.y`) no es una exclamación.
  */
-const TEXTO_JSX = /(?<![=\-])>([^<>{}]*)</g;
+const TEXTO_JSX = /(?:(?<![=\-])>|\})([^<>{}]*)(?=[<{])/g;
 const exclamaciones = (fuente: string) =>
   [...fuente.matchAll(TEXTO_JSX)]
     .map((m) => m[1])
-    .filter((t) => /[¡]|!(?![=.\[)\];,])/.test(t));
+    .filter((t) => /¡|[\p{L}\p{N}]!(?![=.\[)\];,])/u.test(t));
 
 describe('§6.1: sin exclamaciones en los textos de la portada', () => {
   it.each(TEXTOS_PORTADA.map((f) => [relative(RAIZ, f), f]))('%s', (_, fichero) => {
@@ -111,5 +126,11 @@ describe('§6.1: sin exclamaciones en los textos de la portada', () => {
     expect(exclamaciones('const f = (a) => a != null ? <b>ok</b> : null;')).toEqual([]);
     expect(exclamaciones('const f = (a) => a!.x ? <b>ok</b> : null;')).toEqual([]);
     expect(exclamaciones('<p>Sin exclamación</p>')).toEqual([]);
+    // Junto a una expresión: el texto queda entre `>` y `{`, o entre `}` y `<`.
+    expect(exclamaciones('<p>Mira esto! {x}</p>')).toHaveLength(1);
+    expect(exclamaciones('<p>{x} gratis!</p>')).toHaveLength(1);
+    expect(exclamaciones('<p>Busca ya!{" "}</p>')).toHaveLength(1);
+    expect(exclamaciones('<p>{x} y {y}</p>')).toEqual([]);
+    expect(exclamaciones('const b = {a: 1}; if (!c) { d(); }')).toEqual([]);
   });
 });
