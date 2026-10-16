@@ -6,11 +6,12 @@ import {
   TITULO_DESTACADAS,
   textoComprador,
   textoCompetencia,
+  textoMontoRss,
   textoMontoTipico,
   textoTiempo,
   mesesDeVentana,
 } from '@/lib/compraAgil';
-import { formatCurrency, normalizeText, shortRegion } from '@/lib/licitacionEstado';
+import { normalizeText, shortRegion } from '@/lib/licitacionEstado';
 import {
   PARAMS_RSS_COMPRA_AGIL,
   construirRss,
@@ -56,7 +57,7 @@ export async function GET(req: NextRequest) {
         descripcion: [
           item.nombre_organismo && normalizeText(item.nombre_organismo),
           item.region && shortRegion(item.region),
-          item.monto_estimado ? `Monto estimado ${formatCurrency(item.monto_estimado)}` : null,
+          textoMontoRss(item),
           MOSTRAR_COTIZACIONES &&
             textoCompetencia(item.ofertas_recibidas, item.ofertas_al, respuesta.actualizado_en),
           textoComprador(item.comprador, meses, respuesta.historia_disponible),

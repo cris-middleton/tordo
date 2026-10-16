@@ -84,7 +84,8 @@ class FactoresPuntaje(BaseModel):
         description=(
             "0,5 + 0,5 · monto / (monto + 708.050), en [0,5; 1). Pesa en el puntaje "
             "(hasta ~1,7× entre el monto más chico y el más grande de la instantánea "
-            "medida el 2026-10-14); es una decisión de producto. Sin monto: 0,75."
+            "medida el 2026-10-14); es una decisión de producto. Sin monto, o con el "
+            "tope de Compra Ágil (`monto_es_tope`): 0,75."
         )
     )
 
@@ -95,6 +96,16 @@ class CompraAgilDestacada(BaseModel):
     nombre_organismo: str | None = None
     region: str | None = None
     monto_estimado: float | None = None
+    monto_es_tope: bool = Field(
+        False,
+        description=(
+            "¿`monto_estimado` es el tope de Compra Ágil (100 UTM), o está a menos de un 2 % "
+            "de él? El tope es el mayor monto declarado en las Compras Ágiles guardadas, "
+            "porque la UTM cambia cada mes. Muchos compradores declaran el tope en vez de lo "
+            "que piensan gastar: ese monto no dice cuánto se va a comprar, y el factor "
+            "`monto` vale el neutro (0,75)."
+        ),
+    )
     fecha_publicacion: datetime
     fecha_cierre: datetime
     horas_restantes: float

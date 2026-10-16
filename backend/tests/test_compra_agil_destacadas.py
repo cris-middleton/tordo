@@ -210,17 +210,94 @@ async def test_sin_monto_el_factor_es_neutro(cliente, mercado):
 
 
 async def test_a_igual_todo_lo_demas_el_monto_mayor_va_primero(mercado):
-    """Dos Compras Ágiles idénticas salvo el monto: la de más monto, primero."""
+    """Dos Compras Ágiles idénticas salvo el monto: la de más monto, primero. La
+    grande queda bajo el tope (que fija otra Compra Ágil, fuera de la búsqueda)."""
     mercado.add_all(
         [
             _ca("CA-CHICA", horas=48, ofertas=0, monto_estimado=80_000, nombre="Igual zzigual"),
-            _ca("CA-GRANDE", horas=48, ofertas=0, monto_estimado=7_215_100, nombre="Igual zzigual"),
+            _ca("CA-GRANDE", horas=48, ofertas=0, monto_estimado=6_500_000, nombre="Igual zzigual"),
+            _ca("CA-EL-TOPE", horas=48, ofertas=0, monto_estimado=7_215_100, nombre="Otra cosa"),
         ]
     )
     await mercado.flush()
     filas = await repo.destacadas(mercado, limite=50, terminos=["zzigual"], ahora=AHORA)
     assert [f["codigo_externo"] for f in filas] == ["CA-GRANDE", "CA-CHICA"]
-    assert filas[0]["puntaje"] / filas[1]["puntaje"] == pytest.approx(1.73, abs=0.01)
+    assert filas[0]["puntaje"] / filas[1]["puntaje"] == pytest.approx(1.72, abs=0.01)
+    assert not any(f["monto_es_tope"] for f in filas)
+
+
+async def test_el_tope_de_compra_agil_vale_lo_mismo_que_sin_monto(cliente, mercado):
+    """El tope de Compra Ágil (100 UTM) lo declara cualquiera que no quiera
+    calcular: no dice cuánto se va a comprar. Igual o a menos de un 2 % del tope,
+    el factor vale el neutro, como sin monto. 7.000.000 queda a un 3 %: cuenta."""
+    mercado.add_all(
+        [
+            _ca("CA-TOPE", horas=48, ofertas=0, monto_estimado=7_215_100, nombre="Tope zztope"),
+            _ca("CA-CASI", horas=48, ofertas=0, monto_estimado=7_200_000, nombre="Casi zztope"),
+            # El tope del mes anterior (agosto: 7.164.900): sigue siendo el tope.
+            _ca("CA-AGOSTO", horas=48, ofertas=0, monto_estimado=7_164_900, nombre="Ago zztope"),
+            _ca("CA-SIETE", horas=48, ofertas=0, monto_estimado=7_000_000, nombre="Siete zztope"),
+        ]
+    )
+    await mercado.flush()
+    items = {
+        i["codigo_externo"]: i
+        for i in (await cliente.get(RUTA, params={"search": "zztope"})).json()["items"]
+    }
+    for codigo in ("CA-TOPE", "CA-CASI", "CA-AGOSTO"):
+        assert items[codigo]["factores"]["monto"] == 0.75, codigo
+        assert items[codigo]["monto_es_tope"] is True, codigo
+        # El monto se sigue diciendo: lo que cambia es cuánto pesa.
+        assert items[codigo]["monto_estimado"] > 7_000_000
+    assert items["CA-SIETE"]["monto_es_tope"] is False
+    assert items["CA-SIETE"]["factores"]["monto"] == pytest.approx(0.954, abs=1e-3)
+    # Ahora la de 7.000.000 va antes que las del tope.
+    assert _codigos(await cliente.get(RUTA, params={"search": "zztope"}))[0] == "CA-SIETE"
+
+
+async def test_el_tope_se_lee_del_dato_no_de_una_constante(mercado):
+    """La UTM cambia cada mes: el tope es el mayor monto declarado en las Compras
+    Ágiles guardadas. Con un tope de 8.000.000, 7.215.100 ya no lo es."""
+    mercado.add_all(
+        [
+            _ca("CA-OCHO", horas=48, ofertas=0, monto_estimado=8_000_000, nombre="Ocho zzutm"),
+            _ca("CA-SIETE", horas=48, ofertas=0, monto_estimado=7_215_100, nombre="Siete zzutm"),
+        ]
+    )
+    await mercado.flush()
+    filas = {
+        f["codigo_externo"]: f
+        for f in await repo.destacadas(mercado, limite=50, terminos=["zzutm"], ahora=AHORA)
+    }
+    assert filas["CA-OCHO"]["monto_es_tope"] is True
+    assert filas["CA-OCHO"]["f_monto"] == 0.75
+    assert filas["CA-SIETE"]["monto_es_tope"] is False
+
+
+async def test_el_tope_se_mide_sobre_todas_las_compras_agiles(mercado):
+    """Una cerrada o inactiva también declaró el tope: cuenta para leerlo. Lo que
+    se filtra (la búsqueda, la región) no cambia cuál es el tope."""
+    mercado.add_all(
+        [
+            _ca("CA-VIEJA", horas=-30, ofertas=0, monto_estimado=7_215_100, activo=False),
+            _ca(
+                "CA-ABIERTA", horas=48, ofertas=0, monto_estimado=7_200_000, nombre="Abierta zzsola"
+            ),
+        ]
+    )
+    await mercado.flush()
+    filas = await repo.destacadas(mercado, limite=50, terminos=["zzsola"], ahora=AHORA)
+    assert [f["codigo_externo"] for f in filas] == ["CA-ABIERTA"]
+    assert filas[0]["monto_es_tope"] is True
+
+
+async def test_con_pocas_compras_agiles_la_mayor_no_pasa_por_tope(mercado):
+    """Bajo `TOPE_MINIMO` el mayor monto no puede ser el tope (100 UTM pasaba de
+    $6,6 millones ya en noviembre de 2024): en una base con pocas Compras Ágiles,
+    la mayor no se toma por el tope. En el fixture la mayor es de 1.500.000."""
+    filas = await repo.destacadas(mercado, limite=50, ahora=AHORA)
+    assert filas and not any(f["monto_es_tope"] for f in filas)
+    assert {round(f["f_monto"], 4) for f in filas} == {0.8397}
 
 
 async def test_la_respuesta_trae_puntaje_factores_e_historia_de_la_unidad(cliente, mercado):

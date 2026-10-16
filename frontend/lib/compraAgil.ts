@@ -10,7 +10,7 @@
  * Funciones puras: las usan la pantalla, la portada y el RSS.
  */
 
-import type { CompradorCompraAgil } from '@/types/compraAgil';
+import type { CompraAgilDestacada, CompradorCompraAgil } from '@/types/compraAgil';
 
 import { formatCurrency } from './licitacionEstado';
 
@@ -203,6 +203,29 @@ export function textoTiempo(horas: number): string {
   if (horas < 24) return `Cierra en ${Math.floor(horas)} h`;
   const dias = Math.floor(horas / 24);
   return `Cierra en ${dias} ${dias === 1 ? 'día' : 'días'}`;
+}
+
+type MontoDeLista = Pick<CompraAgilDestacada, 'monto_estimado' | 'monto_es_tope'>;
+
+/**
+ * Bajo un monto que es el tope de Compra Ágil. Muchos compradores declaran el
+ * tope en vez de lo que piensan gastar: «$7,2M» a secas se lee como una compra
+ * grande, y es sólo el máximo que permite la modalidad. Por eso el monto va con
+ * «Hasta» delante y esta línea debajo, y el orden no lo premia
+ * (`backend/app/repositories/compra_agil.py`).
+ */
+export const NOTA_TOPE = 'Tope de Compra Ágil';
+
+/** ¿Se dice como tope? Sólo con monto y con `monto_es_tope` explícito. */
+export function esTopeCompraAgil(item: MontoDeLista): boolean {
+  return Boolean(item.monto_estimado) && item.monto_es_tope === true;
+}
+
+/** El monto en una línea del RSS, o null sin monto. */
+export function textoMontoRss(item: MontoDeLista): string | null {
+  if (!item.monto_estimado) return null;
+  const monto = formatCurrency(item.monto_estimado);
+  return esTopeCompraAgil(item) ? `Hasta ${monto}, el tope de Compra Ágil` : `Monto estimado ${monto}`;
 }
 
 /** «Suele comprar entre $400K y $1.5M», o null sin datos. */

@@ -121,6 +121,8 @@ function esDestacada(dato: unknown): dato is CompraAgilDestacada {
     typeof d.nombre === 'string' &&
     esTextoONulo(d.nombre_organismo) &&
     esNumeroONulo(d.monto_estimado) &&
+    // Opcional: una API anterior no lo trae, y eso es «no es el tope».
+    (d.monto_es_tope === undefined || typeof d.monto_es_tope === 'boolean') &&
     typeof d.horas_restantes === 'number' &&
     Number.isFinite(d.horas_restantes) &&
     esNumeroONulo(d.ofertas_recibidas) &&

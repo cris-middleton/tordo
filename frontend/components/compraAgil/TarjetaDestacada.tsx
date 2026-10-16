@@ -2,7 +2,9 @@ import Link from 'next/link';
 import { Building2, Clock, ExternalLink, MapPin, Users } from 'lucide-react';
 
 import {
+  esTopeCompraAgil,
   MOSTRAR_COTIZACIONES,
+  NOTA_TOPE,
   textoComprador,
   textoCompetencia,
   textoMontoTipico,
@@ -81,7 +83,12 @@ export default function TarjetaDestacada({
           </p>
         </div>
         <div className="shrink-0 text-right">
-          {item.monto_estimado ? (
+          {esTopeCompraAgil(item) ? (
+            <>
+              <p className="cifra text-sm font-bold text-primary">Hasta {formatCurrency(item.monto_estimado ?? undefined)}</p>
+              <p className="text-xs text-muted">{NOTA_TOPE}</p>
+            </>
+          ) : item.monto_estimado ? (
             <p className="cifra text-sm font-bold text-primary">{formatCurrency(item.monto_estimado)}</p>
           ) : (
             <p className="text-xs text-subtle">Sin monto</p>

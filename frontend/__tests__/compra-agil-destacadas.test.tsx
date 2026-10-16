@@ -26,6 +26,7 @@ import {
   ultimaCorridaEsperada,
   textoComprador,
   textoCompetencia,
+  textoMontoRss,
   textoTiempo,
 } from '@/lib/compraAgil';
 import type { CompraAgilDestacadasResponse } from '@/types/compraAgil';
@@ -229,6 +230,23 @@ describe('la página', () => {
     expect(screen.getByRole('article').querySelector('ul')!.className).toMatch(/sm:grid-cols-1/);
   });
 
+  it('si el monto es el tope de Compra Ágil, lo dice junto al monto, una sola vez', async () => {
+    respuesta.items[0].monto_estimado = 7_215_100;
+    respuesta.items[0].monto_es_tope = true;
+    await montar();
+    const item = screen.getByRole('article');
+    expect(within(item).getByText('Hasta $7,2M')).toBeInTheDocument();
+    expect(within(item).getByText('Tope de Compra Ágil')).toBeInTheDocument();
+    expect(item.textContent!.match(/\$7,2M/g)).toHaveLength(1);
+  });
+
+  it('un monto que no es el tope (o una API que aún no lo dice) se muestra como siempre', async () => {
+    await montar();
+    const item = screen.getByRole('article');
+    expect(within(item).getByText('$1,5M')).toBeInTheDocument();
+    expect(item.textContent).not.toMatch(/tope|hasta \$/i);
+  });
+
   it('sin ítems no rompe', async () => {
     respuesta.items = [];
     respuesta.actualizado_en = null;
@@ -270,6 +288,15 @@ describe('los textos', () => {
     expect(textoCompetencia(0, '2026-10-12T08:05:00-03:00', lista)).toMatch(/^Sin cotizaciones al .*12.*08:05$/);
     expect(textoCompetencia(2, '2026-10-10T09:00:00-03:00', lista)).toMatch(/^2 cotizaciones al .*10.*09:00$/);
     expect(textoCompetencia(1, null, lista)).toBe('1 cotización hasta ahora');
+  });
+
+  it('monto en el RSS: el tope se dice como tope', () => {
+    expect(textoMontoRss({ monto_estimado: 7_215_100, monto_es_tope: true })).toBe(
+      'Hasta $7,2M, el tope de Compra Ágil',
+    );
+    expect(textoMontoRss({ monto_estimado: 2_000_000, monto_es_tope: false })).toBe('Monto estimado $2,0M');
+    expect(textoMontoRss({ monto_estimado: 2_000_000 })).toBe('Monto estimado $2,0M');
+    expect(textoMontoRss({ monto_estimado: null, monto_es_tope: true })).toBeNull();
   });
 
   it('tiempo', () => {

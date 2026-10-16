@@ -187,6 +187,7 @@ describe('lo que la portada pide al backend', () => {
     ['un item sin codigo_externo', ok({ ...DESTACADAS, items: [item(1), { ...item(2), codigo_externo: undefined }] })],
     ['un item con horas_restantes de texto', ok({ ...DESTACADAS, items: [{ ...item(1), horas_restantes: '30' }] })],
     ['un item con nombre nulo', ok({ ...DESTACADAS, items: [{ ...item(1), nombre: null }] })],
+    ['un item con monto_es_tope de texto', ok({ ...DESTACADAS, items: [{ ...item(1), monto_es_tope: 'sí' }] })],
     ['una actualizado_en que no es texto', ok({ ...DESTACADAS, actualizado_en: 5 })],
   ])('«Lo mejor de hoy» con %s devuelve null y no lanza', async (_, respuesta) => {
     simularBackend({ destacadas: respuesta });

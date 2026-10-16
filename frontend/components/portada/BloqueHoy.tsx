@@ -4,7 +4,9 @@ import { ArrowRight } from 'lucide-react';
 import {
   CON_PUESTO,
   descripcionDestacadas,
+  esTopeCompraAgil,
   MOSTRAR_COTIZACIONES,
+  NOTA_TOPE,
   TITULO_DESTACADAS,
   textoCompetencia,
   textoTiempo,
@@ -57,7 +59,12 @@ function FilaDestacada({
           )}
         </p>
       </div>
-      {item.monto_estimado ? (
+      {esTopeCompraAgil(item) ? (
+        <div className="shrink-0 text-right">
+          <p className="cifra text-sm font-semibold text-text">Hasta {formatCurrency(item.monto_estimado ?? undefined)}</p>
+          <p className="text-xs text-muted">{NOTA_TOPE}</p>
+        </div>
+      ) : item.monto_estimado ? (
         <p className="cifra shrink-0 text-sm font-semibold text-text">{formatCurrency(item.monto_estimado)}</p>
       ) : (
         <p className="shrink-0 text-xs text-subtle">Sin monto</p>

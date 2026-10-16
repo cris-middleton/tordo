@@ -94,6 +94,19 @@ describe('BloqueHoy, compacto', () => {
     expect(texto.textContent).not.toMatch(/compran seguido/);
   });
 
+  it('el tope de Compra Ágil se dice como tope, sin repetir el monto', () => {
+    render(
+      <BloqueHoy
+        datos={{ ...DATOS, items: [item(1, { monto_estimado: 7_215_100, monto_es_tope: true })] }}
+        actualizado={HORA}
+      />,
+    );
+    const fila = within(lista()).getByRole('article');
+    expect(within(fila).getByText('Hasta $7,2M')).toBeInTheDocument();
+    expect(within(fila).getByText('Tope de Compra Ágil')).toBeInTheDocument();
+    expect(fila.textContent!.match(/\$7,2M/g)).toHaveLength(1);
+  });
+
   it('sin monto lo dice, en vez de un $0', () => {
     render(<BloqueHoy datos={{ ...DATOS, items: [item(1, { monto_estimado: null })] }} actualizado={HORA} />);
     expect(screen.getByText('Sin monto')).toBeInTheDocument();
