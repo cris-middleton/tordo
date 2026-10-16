@@ -46,7 +46,7 @@ export function VerTransferencia() {
 
   return (
     <div
-      className="rounded-xl border border-border bg-background px-4 py-3"
+      className="rounded-xl border border-border bg-surface-elevated px-4 py-3"
       aria-live="polite"
       aria-label="Datos para transferir"
       role="region"

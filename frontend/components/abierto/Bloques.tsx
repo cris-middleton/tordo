@@ -15,7 +15,7 @@ export function Codigo({ etiqueta, children }: { etiqueta: string; children: str
       role="group"
       aria-label={etiqueta}
       tabIndex={0}
-      className="mt-2 overflow-x-auto whitespace-pre rounded-lg border border-border bg-background px-3 py-2 font-mono text-xs leading-relaxed text-text select-all"
+      className="mt-2 overflow-x-auto whitespace-pre rounded-lg border border-border bg-surface-elevated px-3 py-2 font-mono text-xs leading-relaxed text-text select-all"
     >
       <code>{children}</code>
     </pre>

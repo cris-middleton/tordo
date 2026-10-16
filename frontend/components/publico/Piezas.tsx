@@ -21,7 +21,7 @@ export function CabeceraFicha({
   return (
     <header className="mb-8">
       <p className="text-xs font-semibold uppercase tracking-wider text-primary">{tipo}</p>
-      <h1 className="mt-2 font-display text-2xl leading-tight text-text sm:text-3xl">
+      <h1 className="mt-2 font-display break-words text-2xl leading-tight text-text sm:text-3xl">
         {titulo}
       </h1>
       {subtitulo && <p className="mt-2 text-sm text-muted">{subtitulo}</p>}
