@@ -70,6 +70,15 @@ def _ca(codigo: str, *, horas: float, ofertas=None, rut="61.608.700-2", **extra)
     return Licitacion(**campos)
 
 
+def _declaradas(monto: float, veces: int = 3, prefijo: str = "CA-HIST") -> list[Licitacion]:
+    """Compras Ágiles ya cerradas que declararon `monto`: la historia guardada de
+    la que se lee el tope (en producción, cientos de filas con el tope del mes)."""
+    return [
+        _ca(f"{prefijo}-{int(monto)}-{i}", horas=-30, monto_estimado=monto, activo=False)
+        for i in range(veces)
+    ]
+
+
 async def _crear_analytics(db) -> None:
     await db.execute(text("CREATE SCHEMA IF NOT EXISTS analytics"))
     await db.execute(text("DROP TABLE IF EXISTS analytics.compra_agil_unidad"))
@@ -216,7 +225,7 @@ async def test_a_igual_todo_lo_demas_el_monto_mayor_va_primero(mercado):
         [
             _ca("CA-CHICA", horas=48, ofertas=0, monto_estimado=80_000, nombre="Igual zzigual"),
             _ca("CA-GRANDE", horas=48, ofertas=0, monto_estimado=6_500_000, nombre="Igual zzigual"),
-            _ca("CA-EL-TOPE", horas=48, ofertas=0, monto_estimado=7_215_100, nombre="Otra cosa"),
+            *_declaradas(7_215_100),
         ]
     )
     await mercado.flush()
@@ -232,6 +241,7 @@ async def test_el_tope_de_compra_agil_vale_lo_mismo_que_sin_monto(cliente, merca
     el factor vale el neutro, como sin monto. 7.000.000 queda a un 3 %: cuenta."""
     mercado.add_all(
         [
+            *_declaradas(7_215_100),
             _ca("CA-TOPE", horas=48, ofertas=0, monto_estimado=7_215_100, nombre="Tope zztope"),
             _ca("CA-CASI", horas=48, ofertas=0, monto_estimado=7_200_000, nombre="Casi zztope"),
             # El tope del mes anterior (agosto: 7.164.900): sigue siendo el tope.
@@ -256,10 +266,12 @@ async def test_el_tope_de_compra_agil_vale_lo_mismo_que_sin_monto(cliente, merca
 
 
 async def test_el_tope_se_lee_del_dato_no_de_una_constante(mercado):
-    """La UTM cambia cada mes: el tope es el mayor monto declarado en las Compras
-    Ágiles guardadas. Con un tope de 8.000.000, 7.215.100 ya no lo es."""
+    """La UTM cambia cada mes: el tope es el mayor monto que se repite en las
+    Compras Ágiles guardadas. Con un tope de 8.000.000, 7.215.100 ya no lo es."""
     mercado.add_all(
         [
+            *_declaradas(8_000_000),
+            *_declaradas(7_215_100),
             _ca("CA-OCHO", horas=48, ofertas=0, monto_estimado=8_000_000, nombre="Ocho zzutm"),
             _ca("CA-SIETE", horas=48, ofertas=0, monto_estimado=7_215_100, nombre="Siete zzutm"),
         ]
@@ -279,7 +291,7 @@ async def test_el_tope_se_mide_sobre_todas_las_compras_agiles(mercado):
     se filtra (la búsqueda, la región) no cambia cuál es el tope."""
     mercado.add_all(
         [
-            _ca("CA-VIEJA", horas=-30, ofertas=0, monto_estimado=7_215_100, activo=False),
+            *_declaradas(7_215_100),
             _ca(
                 "CA-ABIERTA", horas=48, ofertas=0, monto_estimado=7_200_000, nombre="Abierta zzsola"
             ),
@@ -289,6 +301,54 @@ async def test_el_tope_se_mide_sobre_todas_las_compras_agiles(mercado):
     filas = await repo.destacadas(mercado, limite=50, terminos=["zzsola"], ahora=AHORA)
     assert [f["codigo_externo"] for f in filas] == ["CA-ABIERTA"]
     assert filas[0]["monto_es_tope"] is True
+
+
+async def test_un_monto_erroneo_sobre_el_tope_no_rompe_la_deteccion(mercado):
+    """Un 72.151.000 tipeado (el tope con un cero de más) aparece una vez; el tope,
+    muchas. Con «el mayor monto guardado» la referencia subía a 72 millones y el
+    tope dejaba de reconocerse en toda la lista, sin que nada fallara."""
+    mercado.add_all(
+        [
+            *_declaradas(7_215_100),
+            _ca("CA-ERRONEA", horas=48, ofertas=0, monto_estimado=72_151_000, nombre="Err zzerror"),
+            _ca("CA-TOPE", horas=48, ofertas=0, monto_estimado=7_215_100, nombre="Tope zzerror"),
+        ]
+    )
+    await mercado.flush()
+    assert await repo.tope_compra_agil(mercado) == 7_215_100
+    filas = {
+        f["codigo_externo"]: f
+        for f in await repo.destacadas(mercado, limite=50, terminos=["zzerror"], ahora=AHORA)
+    }
+    assert filas["CA-TOPE"]["monto_es_tope"] is True
+    assert filas["CA-TOPE"]["f_monto"] == 0.75
+    # La errónea no es el tope: sigue con su factor (el dato es suyo, el error también).
+    assert filas["CA-ERRONEA"]["monto_es_tope"] is False
+
+
+async def test_a_principio_de_mes_el_tope_nuevo_se_reconoce_por_el_viejo(mercado):
+    """El 1 de octubre el tope nuevo (7.215.100) aún no se repite: la referencia es
+    el de agosto (7.164.900), y el nuevo queda a un 0,7 % por encima. Es tope."""
+    mercado.add_all(
+        [
+            *_declaradas(7_164_900),
+            _ca("CA-NUEVO", horas=48, ofertas=0, monto_estimado=7_215_100, nombre="Nuevo zzmes"),
+        ]
+    )
+    await mercado.flush()
+    assert await repo.tope_compra_agil(mercado) == 7_164_900
+    filas = await repo.destacadas(mercado, limite=50, terminos=["zzmes"], ahora=AHORA)
+    assert filas[0]["monto_es_tope"] is True
+
+
+async def test_un_monto_que_se_repite_menos_de_tres_veces_no_es_el_tope(mercado):
+    """Dos Compras Ágiles con el mismo monto alto no bastan: el tope se repite."""
+    mercado.add_all(_declaradas(7_215_100, veces=2))
+    await mercado.flush()
+    assert await repo.tope_compra_agil(mercado) is None
+    mercado.add_all(_declaradas(7_215_100, veces=1, prefijo="CA-TERCERA"))
+    await mercado.flush()
+    assert await repo.tope_compra_agil(mercado) == 7_215_100
 
 
 async def test_con_pocas_compras_agiles_la_mayor_no_pasa_por_tope(mercado):

@@ -100,8 +100,8 @@ class CompraAgilDestacada(BaseModel):
         False,
         description=(
             "¿`monto_estimado` es el tope de Compra Ágil (100 UTM), o está a menos de un 2 % "
-            "de él? El tope es el mayor monto declarado en las Compras Ágiles guardadas, "
-            "porque la UTM cambia cada mes. Muchos compradores declaran el tope en vez de lo "
+            "de él? El tope es el mayor monto (desde $6.000.000) que declaran al menos tres "
+            "Compras Ágiles guardadas, porque la UTM cambia cada mes. Muchos compradores declaran el tope en vez de lo "
             "que piensan gastar: ese monto no dice cuánto se va a comprar, y el factor "
             "`monto` vale el neutro (0,75)."
         ),

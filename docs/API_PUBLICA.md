@@ -173,9 +173,10 @@ comprador distingue dos casos que no son lo mismo:**
   modalidad (100 UTM) en vez de lo que piensan gastar: ese monto no dice cuánto se
   va a comprar, y premiarlo ponía arriba a quien declaró el tope (el 2026-10-16, las
   cinco primeras valían $7,2 millones). Vale 0,75, como sin monto. La UTM cambia
-  cada mes, así que el tope no es una constante: es el mayor `monto_estimado` entre
-  todas las Compras Ágiles guardadas (si llega a $6.000.000; si no, no hay tope), y
-  `monto_es_tope` marca lo que queda a menos de un 2 % de él. `monto_estimado`
+  cada mes, así que el tope no es una constante: es el mayor `monto_estimado`, desde
+  $6.000.000, que declaran al menos tres Compras Ágiles guardadas (un monto mal
+  tipeado aparece una vez; el tope, cientos). Sin ninguno, no hay tope.
+  `monto_es_tope` marca lo que queda a menos de un 2 % de él, por arriba o por abajo. `monto_estimado`
   viaja igual.
 - **`competencia` se informa, no pesa** (compuerta G1, cerrada; ver abajo). El
   único dato de competencia de una Compra Ágil abierta es

@@ -58,16 +58,19 @@ scorer de oportunidad).
   en vez de lo que piensan gastar: premiarlo ponía arriba a quien declaró el tope,
   no a la compra más grande (el 2026-10-16 las cinco primeras valían $7,2
   millones). La UTM cambia cada mes, así que el tope **se lee del dato**
-  (`tope_compra_agil`): el mayor monto declarado entre TODAS las Compras Ágiles
-  guardadas, abiertas o no. En la copia local el mayor de agosto de 2026 es
+  (`tope_compra_agil`): el mayor monto que declaran al menos `REPETICIONES_TOPE`
+  (3) Compras Ágiles guardadas, abiertas o no. El tope se repite cientos de veces;
+  un monto mal tipeado sobre él (72.151.000), una: con el máximo a secas, ese
+  error subía la referencia y el tope dejaba de reconocerse en toda la lista, sin
+  que nada fallara. En la copia local el mayor monto de agosto de 2026 es
   exactamente 100 UTM de agosto (7.164.900), y en la instantánea del 2026-10-14,
   100 UTM de octubre (7.215.100). Un monto a menos de `TOLERANCIA_TOPE` (2 %) del
-  tope ES el tope: cubre el del mes anterior (agosto queda a un 0,7 % de octubre) y
-  los redondeos hacia abajo («7.200.000»), y deja fuera 7.000.000 (a un 3 %), un
-  presupuesto redondo. Bajo `TOPE_MINIMO` el mayor monto no es el tope: en una base
-  con pocas Compras Ágiles (tests, desarrollo) la mayor se tomaría por él. Si
-  alguna vez entra un monto sobre el tope, la referencia sube con él y el tope deja
-  de reconocerse: se vuelve al factor de antes, no a otro.
+  tope, por arriba o por abajo, ES el tope: cubre el del mes anterior (agosto queda a un 0,7 % de octubre;
+  a principio de mes, el tope nuevo aún no se repite y el viejo hace de
+  referencia) y los redondeos hacia abajo («7.200.000»), y deja fuera 7.000.000 (a
+  un 3 %), un presupuesto redondo. Sólo cuentan montos desde `TOPE_MINIMO`: un
+  monto chico repetido no es el tope. Sin ninguno que cumpla, no hay tope (pasa en
+  una base con pocas Compras Ágiles: tests, desarrollo).
 
 Orden: puntaje descendente; a igual puntaje (los ceros de las unidades ausentes
 incluidos) tiempo × monto descendente —sólo como clave de orden, el puntaje no se
@@ -141,10 +144,12 @@ MONTO_REFERENCIA = 708_050.0
 #: neutro. 2 %: más que lo que se mueve la UTM en un mes, menos que la distancia
 #: de 7.000.000 (un presupuesto redondo) al tope de octubre de 2026.
 TOLERANCIA_TOPE = 0.02
-#: Por debajo de esto, el mayor monto guardado no puede ser el tope de Compra Ágil
+#: El tope es un monto que declaran muchas Compras Ágiles; un error de tipeo, una.
+REPETICIONES_TOPE = 3
+#: Por debajo de esto, un monto guardado no puede ser el tope de Compra Ágil
 #: (100 UTM desde el 12-12-2024, Ley 21.634): ChileCompra lo cifraba en $6.669.200
 #: en noviembre de 2024, y la UTM no ha hecho más que subir. No es el tope: es el
-#: piso que lo distingue de «la Compra Ágil más grande de una base casi vacía».
+#: piso que lo distingue de un monto chico que se repite mucho (1.000.000).
 TOPE_MINIMO = 6_000_000.0
 #: Menos que esto hasta el cierre no da tiempo a cotizar.
 HORAS_MINIMAS = 2
@@ -241,31 +246,41 @@ def _horas_restantes(ahora: datetime | None = None):
 
 
 async def tope_compra_agil(db: AsyncSession) -> float | None:
-    """El tope de Compra Ágil en pesos: el mayor monto declarado, o None bajo `TOPE_MINIMO`.
+    """El tope de Compra Ágil en pesos, o None si ningún monto lo parece.
 
-    Sobre TODAS las Compras Ágiles guardadas, no sobre las candidatas ni sobre lo
-    filtrado: una búsqueda no cambia cuál es el tope. Una consulta aparte y no una
-    subconsulta: así se lee una vez por petición, no una vez por cada sitio donde
-    el factor monto aparece en la consulta grande.
+    Es el mayor monto, desde `TOPE_MINIMO`, que declaran al menos
+    `REPETICIONES_TOPE` Compras Ágiles guardadas. Sobre TODAS, no sobre las
+    candidatas ni sobre lo filtrado: una búsqueda no cambia cuál es el tope. Una
+    consulta aparte y no una subconsulta: así se lee una vez por petición, no una
+    vez por cada sitio donde el factor monto aparece en la consulta grande.
     """
+    monto = Licitacion.monto_estimado
     mayor = (
         await db.execute(
-            select(func.max(Licitacion.monto_estimado)).where(
-                Licitacion.tipo_convocatoria == TipoConvocatoria.COMPRA_AGIL.value
+            select(monto)
+            .where(
+                Licitacion.tipo_convocatoria == TipoConvocatoria.COMPRA_AGIL.value,
+                monto >= TOPE_MINIMO,
             )
+            .group_by(monto)
+            .having(func.count() >= REPETICIONES_TOPE)
+            .order_by(monto.desc())
+            .limit(1)
         )
     ).scalar()
-    if mayor is None or float(mayor) < TOPE_MINIMO:
-        return None
-    return float(mayor)
+    return float(mayor) if mayor is not None else None
 
 
 def _es_tope(monto_estimado, tope: float | None):
-    """¿El monto es (o casi) el tope? Falso, nunca NULL, sin tope o sin monto."""
+    """¿El monto está a menos de un 2 % del tope? Falso, nunca NULL, sin tope o sin monto."""
     if tope is None:
         return literal(False)
     monto = cast(monto_estimado, Float)
-    return func.coalesce(monto >= tope * (1.0 - TOLERANCIA_TOPE), False)
+    # A los dos lados: a principio de mes el tope nuevo (algo más alto) aún no se
+    # repite y hace de referencia el viejo; muy por encima, es otra cosa (un error).
+    return func.coalesce(
+        monto.between(tope * (1.0 - TOLERANCIA_TOPE), tope * (1.0 + TOLERANCIA_TOPE)), False
+    )
 
 
 def _candidatas(ahora: datetime | None = None):

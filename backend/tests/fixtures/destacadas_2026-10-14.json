@@ -1,6 +1,8 @@
 {
  "_origen": "GET /api/v1/compra-agil/destacadas?limite=50 en produccion, 2026-10-14 ~20:11 UTC (antes del cambio). RUT sinteticos, uno por nombre_organismo: la respuesta no trae el RUT. historia_rut lleva las cifras POR ORGANISMO de esa respuesta (aproximacion: la tabla nueva es por unidad/RUT) y percentil_ordenes calculado contra las 1.163 organismos con Compra Agil de las OC locales 2025-10..2026-03 (percent_rank). Sin datos de proveedores.",
  "reloj": "2026-10-14T20:12:00Z",
+ "_tope_compra_agil": "100 UTM de octubre de 2026, el mayor monto de la respuesta. La instantanea es un top 50 y lo trae una vez; en produccion lo declaran cientos de Compras Agiles guardadas. El test lo siembra tres veces en filas cerradas (_historia_del_tope).",
+ "tope_compra_agil": 7215100,
  "ventana_desde": "2026-05-01",
  "ventana_hasta": "2026-10-31",
  "candidatas": [

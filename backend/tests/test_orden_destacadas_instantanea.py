@@ -125,8 +125,35 @@ def _candidata(c: dict) -> Licitacion:
     )
 
 
+def _historia_del_tope(datos: dict) -> list[Licitacion]:
+    """Tres Compras Ágiles ya cerradas que declararon el tope de la instantánea.
+
+    El tope se lee del mayor monto que se repite al menos tres veces en lo guardado
+    (`repositories/compra_agil.py`). En producción lo declaran cientos; en la
+    instantánea, que es sólo un top 50, aparece una vez. Sin estas filas la medición
+    correría sin tope. Fuera de la marca y cerradas: no son candidatas.
+    """
+    tope = datos.get("tope_compra_agil")
+    if tope is None:
+        return []
+    reloj = _fecha(datos["reloj"])
+    return [
+        Licitacion(
+            codigo_externo=f"{PREFIJO}HIST-TOPE-{i}",
+            nombre="Compra Ágil cerrada que declaró el tope",
+            tipo_convocatoria="compra_agil",
+            estado="Cerrada",
+            monto_estimado=tope,
+            fecha_publicacion=reloj - timedelta(days=10),
+            fecha_cierre=reloj - timedelta(days=5),
+            activo=False,
+        )
+        for i in range(3)
+    ]
+
+
 async def _medir(db, datos: dict) -> list[dict]:
-    db.add_all([_candidata(c) for c in datos["candidatas"]])
+    db.add_all([_candidata(c) for c in datos["candidatas"]] + _historia_del_tope(datos))
     await db.flush()
     await _tabla_unidad(
         db,
@@ -184,7 +211,7 @@ async def test_sin_el_monto_no_alcanza(async_db, monkeypatch):
 
 async def _medir_sin_historia(db, datos: dict) -> list[dict]:
     """Como `_medir`, con la tabla de unidades vacía: `historia_disponible` falso."""
-    db.add_all([_candidata(c) for c in datos["candidatas"]])
+    db.add_all([_candidata(c) for c in datos["candidatas"]] + _historia_del_tope(datos))
     await db.flush()
     await _tabla_unidad(db, [], None, None)
     return await repo.destacadas(db, limite=TOP, terminos=[MARCA], ahora=_fecha(datos["reloj"]))
