@@ -59,7 +59,7 @@ importa.
 | D1 | **Archivo** sustituye a Newsreader y Public Sans en todo el sitio | Una sola familia variable con eje de ancho: titulares expandidos (`wdth` 112–115, peso 800) y cuerpo normal. Trae cifras tabulares. Es la tipografía de las maquetas aprobadas y la que ya usa la tarjeta para compartir |
 | D2 | **IBM Plex Mono se queda, sólo para identificadores**; **Varien, para la marca**, junto al pájaro en la cabecera. El pájaro pasa a ser un componente de **servidor** con los colores del logo en tokens (`PajaroMarca`) y sustituye a `TordoLogo` | Ninguna de las dos familias estaba en la queja. `TordoLogo` era una isla cliente con hex crudos en una cabecera que debe ser de servidor; se pierde el aleteo al pasar el ratón |
 | D3 | **Fondo de página blanco** en tema claro; se va el papel cálido (`#F7F4EC`) | Es la primera señal de «hecho con Claude» |
-| D4 | **El panel de lecturas es una superficie oscura**: `dark bg-brand-navy`, el patrón que el sitio ya tiene para eso (los tokens se invierten solos dentro) | Variante B de la v6. Separa las dos zonas sin bordes ni sombras, que era lo que le faltaba a la v4, y usa los dos colores del logo: el navy de fondo y el turquesa del ala en la conclusión |
+| D4 | **El panel de lecturas es una superficie oscura**: `dark bg-brand-navy`, el patrón que el sitio ya tiene para eso (los tokens se invierten solos dentro) | Variante B de la v6. Separa las dos zonas sin bordes ni sombras, que era lo que le faltaba a la v4, y usa los dos colores del logo: el navy de fondo y el turquesa del ala en las barras de la conclusión |
 | D5 | **Dos tokens de dato**: `--color-dato` y `--color-dato-tenue`, con sus paradas por tema (§5) | Cada gráfico pinta en color sólo su conclusión y deja el resto apagado |
 | D6 | **La portada se parte en dos columnas desde `lg`**: a la izquierda se busca, a la derecha se lee | Lo que el dueño aprobó en la v5 |
 | D7 | **Tres lecturas**: gasto por sector, la banda de precio de un producto y las Compras Ágiles según cuándo cierran | Responden lo que pregunta quien vende: quién compra, a qué precio y qué cierra pronto |
@@ -161,7 +161,7 @@ tres peticiones salen en paralelo con las dos que ya hace la portada.
 - **Regla de la frase**:
   - Si el segundo está a menos del 5 % del primero (`(A − B) / A < 0,05`): «{A} y {B} compran casi
     lo mismo». Se pintan los dos.
-  - Si no: «{A} gasta ${P} de cada $100 del Estado», con `P` = el monto de A sobre la suma de **los
+  - Si no: «{A} gasta ${P} de cada $100 en órdenes de compra», con `P` = el monto de A sobre la suma de **los
     siete** sectores, redondeado a entero. Se pinta uno. La frase no repite el monto que la barra
     ya escribe al lado: dice algo que las barras no dicen.
   - Con los datos locales sale «Salud y municipios compran casi lo mismo» (Salud 2,98 billones,
@@ -179,14 +179,25 @@ tres peticiones salen en paralelo con las dos que ya hace la portada.
 
 ### 3.4 Lectura 2: a qué precio
 
-- **Dato**: la ficha pública de un producto fijo, `PRODUCTO_PORTADA` en `lib/lecturasPortada.ts`
-  (el slug de «guantes de nitrilo», el primer ejemplo del buscador; el slug exacto se toma de
-  producción con una sola petición antes de escribirlo). Se usa la unidad con más compras
-  (`unidades[0]`: la API ya las ordena de más a menos `n`).
-- **Gráfico**: un riel tenue de p10 a p90, la banda de p25 a p75 en `dato` y la mediana marcada con
-  su rótulo. **No se muestran el mínimo ni el máximo**: son los valores que el Tukey de las bandas
-  ya trata como atípicos.
-- **Frase**: «{Producto}: la mitad se pagó entre {p25} y {p75}». Es cierta por definición del
+- **Dato**: la ficha pública de un producto fijo, `PRODUCTO_PORTADA = { slug, nombre }` en
+  `lib/lecturasPortada.ts`. **El nombre se escribe a mano junto al slug** («Guantes de nitrilo»): la
+  firma del producto son sus palabras ordenadas y sin relleno («caja examinacion guante nitrilo…»)
+  y no se lee como un nombre. Se usa la unidad con más compras (`unidades[0]`: la API ya las ordena
+  de más a menos `n`).
+- **Sólo una banda que se pueda creer** (`CLAUDE.md`: «una banda muy dispersa significa que el precio
+  no es lo que decide la adjudicación»). La lectura exige, sobre `unidades[0]`: unidad declarada
+  (no nula ni «sin unidad declarada»), `predictibilidad` `alta` o `media`, y `p25 ≥ 1`. Si no se
+  cumple, se oculta: mejor ninguna banda que «entre $0 y $0».
+- **Qué producto**: quien ejecuta el plan mira en producción, con a lo más cinco peticiones
+  espaciadas, las fichas de los ejemplos del buscador (`EJEMPLOS_BUSQUEDA`) y elige la primera que
+  pase el filtro y sea indexable, empezando por los guantes de nitrilo. El nombre a mano es el del
+  ejemplo.
+- **Gráfico**: un riel tenue de p10 a p90, la banda de p25 a p75 en `dato` y la mediana marcada.
+  **Rótulos: sólo p25 y p75 debajo de la banda y la mediana encima de su marca, con su valor**
+  («mediana $5.390»). p10 y p90 no llevan rótulo: con precios sesgados los cinco se pisaban, y a
+  320 px también. Las posiciones de los rótulos se acotan al ancho del riel. **No se muestran el
+  mínimo ni el máximo**: son los valores que el Tukey de las bandas ya trata como atípicos.
+- **Frase**: «{nombre}: la mitad se pagó entre {p25} y {p75}». Es cierta por definición del
   rango intercuartílico.
 - **Pie**: «Precio por {unidad}, {n} compras, {periodo}».
 - **Periodo**: `GET /publico/productos/{slug}` **hoy no lo devuelve** (`ProductoPublico` no tiene
@@ -194,8 +205,8 @@ tres peticiones salen en paralelo con las dos que ya hace la portada.
   `periodo: PeriodoPublico | None` a `ProductoPublico`, leído de la ventana de la banda. Es un
   campo opcional: un cliente viejo lo ignora.
 - **Enlace**: «Ver el producto» → `rutaProducto(slug)`.
-- **Fallo**: si la ficha da 404, no es indexable, no trae p25 y p75 o no trae periodo, la lectura se
-  oculta.
+- **Fallo**: si la ficha da 404, no es indexable, no pasa el filtro de arriba o no trae periodo, la
+  lectura se oculta.
 - **Verificación**: `scripts/verificar-produccion.sh` comprueba que el slug existe y es indexable
   en producción, con una petición espaciada, como ya hace con los ejemplos del buscador.
   `__tests__/portada-ayudantes.test.ts` compara la copia literal del slug.
@@ -280,8 +291,12 @@ tres peticiones salen en paralelo con las dos que ya hace la portada.
   | `--color-on-dato` | `#FFFFFF` | `#102858` |
 
 - **El panel** (D4) es `dark bg-brand-navy`. `brand-navy` es invariante de tema (`#102858`), así que
-  el panel se ve igual en los dos temas y, dentro, todo toma la parada oscura: conclusión en
-  turquesa, barras apagadas en `#34508F`, texto claro y enlaces en `accent` (`#3DB9BB` en oscuro).
+  el panel se ve igual en los dos temas y, dentro, todo toma la parada oscura: barras de la
+  conclusión en turquesa, barras apagadas en `#34508F` y texto claro (la frase de conclusión va en
+  `text`, como en la maqueta). **Los enlaces del panel van con `className="enlace"`** (`primary`,
+  `#8FA8E8` en oscuro) **y no en `accent`**: en la parada oscura `accent` y `dato` son el mismo
+  turquesa, y un enlace del color de una barra mezclaría dato y acción, que es justo por lo que se
+  descarta la variante C. Las cifras de la izquierda llevan las dos el borde en `dato` (son datos).
   Los divisores entre lecturas van en `dato-tenue`: el `--color-border` oscuro (`#1E2736`) no se ve
   sobre navy.
 - **El botón de buscar** deja `btn-accent` (turquesa, «acción») y pasa a `bg-dato text-onDato`,
@@ -415,7 +430,8 @@ el mismo PR. **Ninguna lectura de la portada trae una tabla entera de analytics 
 2. **Identidad**: Archivo, fondo blanco, tokens de dato y el pájaro en la cabecera. Cambia todo el
    sitio, así que va solo y con las capturas E2E revisadas.
 3. **Portada**: dos columnas, el panel oscuro con las tres lecturas, la ficha y la franja.
-4. **Textos**: §6, la voz en `CLAUDE.md` y su test.
+4. **Textos**: §6, la voz en `CLAUDE.md` y su test. Además, `REDISENO_PUBLICO_2026-10.md` marca sus §5,
+   §6.3 y §6.6 como sustituidas por esta spec, y su fila de `docs/README.md` lo dice.
 
 La tarjeta para compartir ya está publicada (PR #3, «Datos públicos de ChileCompra»).
 
