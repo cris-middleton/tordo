@@ -1159,6 +1159,33 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   RUT → código sale de las OC masivas, que traen los dos (`RutSucursal` y `CodigoProveedor`;
   la tabla `ordenes_compra` que también los tenía se fue en el paso 7). «Tu posición» comparaba el RUT normalizado contra esa columna y **no
   coincidía nunca**; esa pantalla se retiró con las cuentas, pero el dato sigue siendo así.
+- **El monto en pesos de una orden se sanea al LEER, en un solo sitio**
+  (`data_loader.con_monto_saneado`, que `iter_oc_parquets` aplica antes de
+  `con_monto_por_linea`): todo módulo lo hereda. ChileCompra pasa a pesos multiplicando
+  `MontoTotalOC` por la UF o la UTM, y hay órdenes marcadas «CLF» o «UTM» con el monto ya en
+  pesos: 233,5 millones de pesos de un municipio salían como **$15,7 billones**. Medido el
+  2026-10-16 sobre la descarga masiva de los 36 meses de la ventana de producción: Municipalidades
+  sumaba ~$14 billones al año contra $4,15 de la cifra oficial de ChileCompra 2025, Obras Públicas
+  5,7 contra 3,1 y el total 31,7 contra 20,7. Dos reglas:
+  - **(a) Orden en otra moneda con TODOS sus ítems en pesos (`monedaItem`) → vale
+    `MontoTotalOC`.** Es la que más pesa: 144 órdenes en 36 meses pasaban de $34 billones a $553
+    millones. Costo medido: pólizas de verdad en UF con el ítem marcado en pesos se quedan en unos
+    pesos (~$1.000 millones en 36 meses).
+  - **(b) Orden en UF o UTM sobre `UMBRAL_PESOS_ORDEN_INDEXADA` ($120.000 millones, ≈ 3 M UF) →
+    monto nulo** (la orden cuenta, pero no suma) y un WARNING con código, organismo y monto para
+    auditarla. Por encima hay cinco órdenes en 36 meses, todas imposibles. **El umbral de partida
+    era 1 M UF y se subió a propósito**: entre 1 y 3 M UF hay cuatro contratos que parecen
+    legítimos (pago de pensiones, la red de comunicaciones de salud, el sistema de
+    identificación: $314 mil millones) y dos imposibles ($129 mil millones), que se quedan.
+  - Con las dos, 2025 cuadra con la cifra oficial: Salud 6,64 (6,56), Gob. Central 5,70 (5,65),
+    Municipalidades 4,28 (4,15). **Obras Públicas queda en 0,75 contra 3,09** y no es un monto
+    inflado: la diferencia está en otra parte y no está explicada.
+  - Comparar el total con la suma de las líneas no distingue nada: las imposibles cuadran igual
+    (33.047 de 34.912 órdenes en UF o UTM). Un tope por tipo de licitación (LE ≤ 1.000 UTM…)
+    atrapa casi sólo lo que ya atrapa (a).
+  - `sector_dashboard` **no cuenta las canceladas** (`compra_agil_mensual.ESTADOS_CANCELADOS`,
+    la misma tupla, importada). Los demás módulos que suman montos todavía sí.
+  - Lo fija `etl/tests/test_monto_saneado.py`, con los casos reales en órdenes sintéticas.
 - **`competitors_by_market` tiene una fila por *(organismo, rubro, proveedor)*.** Cualquier
   métrica de rubro **agrega por proveedor primero**. Contar filas decía 128.462 proveedores
   donde hay 77.720, y tomar una fila suelta como representativa daba tres «líderes del

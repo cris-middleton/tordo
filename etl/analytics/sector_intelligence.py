@@ -26,6 +26,7 @@ import logging
 import polars as pl
 
 from .agregacion import ContadorDistintos
+from .compra_agil_mensual import ESTADOS_CANCELADOS
 from .config import OC_PARQUET_DIR, OUTPUT_DIR
 from .data_loader import (
     VENTANA_ANALYTICS_MESES,
@@ -50,6 +51,7 @@ def build_sector_dashboard() -> pl.DataFrame:
         "NombreProveedor",
         "RubroN2",
         "MontoTotalOC_PesosChilenos",
+        "Estado",
         "FechaEnvio",
         "FechaAceptacion",
         "_periodo_archivo",
@@ -69,6 +71,10 @@ def build_sector_dashboard() -> pl.DataFrame:
     for _periodo, df in iter_oc_parquets(columns=cols_needed):
         if "sector" not in df.columns:
             continue
+        # Una orden cancelada no compró nada: ni suma ni cuenta. La Gran Compra
+        # de 36 M «UF» del MOP era una de ellas. Las mismas que en Compra Ágil.
+        if "Estado" in df.columns:
+            df = df.filter(~pl.col("Estado").is_in(ESTADOS_CANCELADOS).fill_null(True))
 
         for contador in distintos.values():
             contador.añadir(df)

@@ -164,8 +164,10 @@ dos peticiones nuevas (sectores y producto) salen en paralelo con las dos que ya
   - Si no: «De cada $100 en órdenes de compra, ${P} son de {A}» (así concuerda con «municipios» o «FFAA»), con `P` = el monto de A sobre la suma de **todos los
     sectores de la respuesta** («Otros» y «NA» incluidos), redondeado a entero. Se pinta uno. La frase no repite el monto que la barra
     ya escribe al lado: dice algo que las barras no dicen.
-  - Con los datos locales sale «Salud y municipios compran casi lo mismo» (Salud 2,98 billones,
-    Municipalidades 2,95: un 1,1 % de diferencia).
+  - Con los datos locales salía «Salud y municipios compran casi lo mismo» (Salud 2,98 billones,
+    Municipalidades 2,95), pero Municipalidades estaba inflado por órdenes en UF con el monto en
+    pesos. Con el monto saneado (`con_monto_saneado`, 2026-10-16) Municipalidades baja a 2,15 y
+    sale «De cada $100 en órdenes de compra, $37 son de Salud».
 - **Nombres**: un mapa corto en `lib/lecturasPortada.ts` da a cada sector un nombre para la barra
   y otro para la frase (Municipalidades → «Municipalidades» en la barra y «municipios» en la
   frase; «Gob. Central, Universidades» → «Gob. central»). Un sector que no esté en el mapa sale
