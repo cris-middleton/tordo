@@ -214,19 +214,23 @@ export const TIPOS_SIN_COMPRA_AGIL = TIPOS_CONVOCATORIA.filter((t) => t.value !=
 
 /**
  * El catálogo con las abiertas de un mecanismo. Es el enlace de cada cifra de
- * la portada y del bloque «abiertas ahora» de `/buscar`: **el mismo filtro que
- * la cuenta**, para que el número que se lee sea el total que se encuentra.
+ * la portada, del bloque «abiertas ahora» de `/buscar` y de «Ver las que cierran
+ * primero»: **el mismo filtro que la cuenta**, para que el número que se lee sea
+ * el total que se encuentra. `orden` es opcional; sin él, el orden implícito
+ * (relevancia con términos, publicación sin ellos).
  */
 export function urlCatalogoAbiertas(
   mecanismo: 'licitaciones' | 'compra_agil',
   terminos: string[] = [],
+  orden?: { sort_by: Orden; sort_order: 'asc' | 'desc' },
 ): string {
   const consulta = escribirFiltros({
     ...FILTROS_POR_DEFECTO,
     abiertas: true,
     tipo_convocatoria: mecanismo === 'compra_agil' ? 'compra_agil' : TIPOS_SIN_COMPRA_AGIL,
     terminos,
-    sort_by: terminos.length ? 'relevance' : FILTROS_POR_DEFECTO.sort_by,
+    sort_by: orden?.sort_by ?? (terminos.length ? 'relevance' : FILTROS_POR_DEFECTO.sort_by),
+    sort_order: orden?.sort_order ?? FILTROS_POR_DEFECTO.sort_order,
   });
   return `/licitaciones?${consulta}`;
 }

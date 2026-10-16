@@ -15,8 +15,9 @@
  */
 
 import type { SectoresBI } from '@/types/bi';
-import type { ProductoPublico } from '@/types/publico';
+import type { CompraAgilPorCierre, ProductoPublico, ResumenPortada } from '@/types/publico';
 
+import { urlCatalogoAbiertas } from './filtrosCatalogo';
 import { textoPeriodo } from './periodo';
 import { entero, plata, rutaProducto } from './publico';
 
@@ -310,5 +311,85 @@ export function lecturaPrecio(
     p50: u.p50 == null ? null : marca(u.p50),
     p75: marca(u.p75),
     p90: u.p90 == null ? null : marca(u.p90),
+  };
+}
+
+// ── Lectura 3: qué cierra pronto (§3.5) ─────────────────────────────────────
+
+/** «Ver las que cierran primero»: el catálogo por cierre ascendente. */
+export const ORDEN_POR_CIERRE = { sort_by: 'fecha_cierre', sort_order: 'asc' } as const;
+
+export interface ColumnaCierre {
+  nombre: string;
+  /** «1.105». */
+  valor: string;
+  /** Alto de la barra en %, relativo a la mayor; 0 sólo si no hay ninguna. */
+  alto: number;
+  destacada: boolean;
+}
+
+export interface LecturaCierres {
+  conclusion: string;
+  pie: string;
+  enlace: EnlaceLectura;
+  columnas: ColumnaCierre[];
+}
+
+function esPorCierre(valor: unknown): valor is CompraAgilPorCierre {
+  return (
+    esObjeto(valor) &&
+    esConteo(valor.hoy) &&
+    esConteo(valor.manana) &&
+    esConteo(valor.dos_tres_dias) &&
+    esConteo(valor.despues)
+  );
+}
+
+/**
+ * Con r = (hoy + mañana) / abiertas y N = r × 10 redondeado: los cinco casos de
+ * §3.5 más N = 1, que va en singular. «Ninguna» y «todas» se dicen con palabras;
+ * los bordes del redondeo, con «menos de 1» y «casi todas», para no decir 0 ni 10
+ * de algo que no lo es.
+ */
+export function fraseCierres(pronto: number, abiertas: number): string {
+  const r = pronto / abiertas;
+  const n = Math.round(r * 10);
+  if (r === 0) return 'Ninguna Compra Ágil abierta cierra hoy ni mañana';
+  if (r === 1) return 'Todas las Compras Ágiles abiertas cierran hoy o mañana';
+  if (n === 0) return 'Menos de 1 de cada 10 Compras Ágiles abiertas cierra hoy o mañana';
+  if (n === 1) return '1 de cada 10 Compras Ágiles abiertas cierra hoy o mañana';
+  if (n === 10) return 'Casi todas las Compras Ágiles abiertas cierran hoy o mañana';
+  return `${n} de cada 10 Compras Ágiles abiertas cierran hoy o mañana`;
+}
+
+const NOMBRES_CIERRE = ['Hoy', 'Mañana', 'En 2 o 3 días', 'Después'] as const;
+
+/**
+ * Las Compras Ágiles abiertas por día de cierre. Los cuatro tramos salen de la
+ * misma pasada que `compra_agil_abiertas` y suman lo mismo (lo exige un test del
+ * backend): **si no suman, la respuesta no cuadra y no se publica**.
+ */
+export function lecturaCierres(resumen: ResumenPortada | null): LecturaCierres | null {
+  if (!resumen) return null;
+  const tramos = resumen.compra_agil_por_cierre;
+  const abiertas = resumen.compra_agil_abiertas;
+  if (!esPorCierre(tramos) || !esConteo(abiertas) || abiertas === 0) return null;
+  const valores = [tramos.hoy, tramos.manana, tramos.dos_tres_dias, tramos.despues];
+  if (valores.reduce((suma, n) => suma + n, 0) !== abiertas) return null;
+
+  const pronto = tramos.hoy + tramos.manana;
+  const mayor = Math.max(...valores);
+  const alto = (n: number) => (n === 0 ? 0 : Math.max(4, Math.round((n / mayor) * 100)));
+
+  return {
+    conclusion: fraseCierres(pronto, abiertas),
+    pie: `${entero(abiertas)} ${abiertas === 1 ? 'abierta' : 'abiertas'}, por día de cierre`,
+    enlace: { texto: 'Ver las que cierran primero', href: urlCatalogoAbiertas('compra_agil', [], ORDEN_POR_CIERRE) },
+    columnas: valores.map((n, i) => ({
+      nombre: NOMBRES_CIERRE[i],
+      valor: entero(n),
+      alto: alto(n),
+      destacada: pronto > 0 && i < 2,
+    })),
   };
 }

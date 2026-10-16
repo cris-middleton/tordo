@@ -9,11 +9,14 @@
  */
 import { describe, expect, it } from 'vitest';
 
+import { urlCatalogoAbiertas } from '@/lib/filtrosCatalogo';
 import {
   BARRAS_SECTOR,
   esConteo,
   esProductoPortada,
   esSectores,
+  fraseCierres,
+  lecturaCierres,
   lecturaPrecio,
   lecturaSectores,
   nombreSector,
@@ -24,7 +27,7 @@ import {
 import { textoPeriodo } from '@/lib/periodo';
 import { rutaProducto } from '@/lib/publico';
 import type { SectorBI, SectoresBI } from '@/types/bi';
-import type { BandaUnidad, ProductoPublico } from '@/types/publico';
+import type { BandaUnidad, ProductoPublico, ResumenPortada } from '@/types/publico';
 
 // ── Lectura 1: quién compra ─────────────────────────────────────────────────
 
@@ -407,5 +410,90 @@ describe('esProductoPortada', () => {
     ['una ventana con mes imposible', { ...PRODUCTO, periodo: { ventana_desde: '2025-13-01', ventana_hasta: '2026-09-30' } }],
   ])('rechaza %s', (_, datos) => {
     expect(esProductoPortada(datos)).toBe(false);
+  });
+});
+
+// ── Lectura 3: qué cierra pronto ────────────────────────────────────────────
+
+const CIERRES: ResumenPortada = {
+  licitaciones_abiertas: 4232,
+  compra_agil_abiertas: 2714,
+  actualizado_en: '2026-10-14T11:00:00-03:00',
+  compra_agil_por_cierre: { hoy: 312, manana: 740, dos_tres_dias: 1105, despues: 557 },
+};
+
+function conTramos(hoy: number, manana: number, dos_tres_dias: number, despues: number): ResumenPortada {
+  return {
+    ...CIERRES,
+    compra_agil_abiertas: hoy + manana + dos_tres_dias + despues,
+    compra_agil_por_cierre: { hoy, manana, dos_tres_dias, despues },
+  };
+}
+
+describe('fraseCierres: los cinco casos de la spec, más N = 1', () => {
+  it.each([
+    ['r = 0', 0, 15, 'Ninguna Compra Ágil abierta cierra hoy ni mañana'],
+    ['N = 0 con r > 0', 1, 100, 'Menos de 1 de cada 10 Compras Ágiles abiertas cierra hoy o mañana'],
+    ['N = 1, en singular', 10, 100, '1 de cada 10 Compras Ágiles abiertas cierra hoy o mañana'],
+    ['N = 10 con r < 1', 96, 100, 'Casi todas las Compras Ágiles abiertas cierran hoy o mañana'],
+    ['r = 1', 5, 5, 'Todas las Compras Ágiles abiertas cierran hoy o mañana'],
+    ['el caso normal', 1052, 2714, '4 de cada 10 Compras Ágiles abiertas cierran hoy o mañana'],
+  ])('%s', (_, pronto, abiertas, frase) => {
+    expect(fraseCierres(pronto, abiertas)).toBe(frase);
+  });
+
+  it('los bordes del redondeo: 0,05 ya es 1 de cada 10 y 0,95 ya es casi todas', () => {
+    expect(fraseCierres(4, 100)).toBe('Menos de 1 de cada 10 Compras Ágiles abiertas cierra hoy o mañana');
+    expect(fraseCierres(5, 100)).toBe('1 de cada 10 Compras Ágiles abiertas cierra hoy o mañana');
+    expect(fraseCierres(94, 100)).toBe('9 de cada 10 Compras Ágiles abiertas cierran hoy o mañana');
+    expect(fraseCierres(95, 100)).toBe('Casi todas las Compras Ágiles abiertas cierran hoy o mañana');
+  });
+});
+
+describe('lecturaCierres', () => {
+  it('cuatro columnas, hoy y mañana pintadas, la frase y el pie', () => {
+    const l = lecturaCierres(CIERRES)!;
+    expect(l.conclusion).toBe('4 de cada 10 Compras Ágiles abiertas cierran hoy o mañana');
+    expect(l.pie).toBe('2.714 abiertas, por día de cierre');
+    expect(l.columnas).toEqual([
+      { nombre: 'Hoy', valor: '312', alto: 28, destacada: true },
+      { nombre: 'Mañana', valor: '740', alto: 67, destacada: true },
+      { nombre: 'En 2 o 3 días', valor: '1.105', alto: 100, destacada: false },
+      { nombre: 'Después', valor: '557', alto: 50, destacada: false },
+    ]);
+  });
+
+  it('enlaza al catálogo de Compra Ágil abierta por cierre, desde el ayudante', () => {
+    const { enlace } = lecturaCierres(CIERRES)!;
+    expect(enlace).toEqual({
+      texto: 'Ver las que cierran primero',
+      href: urlCatalogoAbiertas('compra_agil', [], { sort_by: 'fecha_cierre', sort_order: 'asc' }),
+    });
+  });
+
+  it('con r = 0 no se pinta ninguna columna', () => {
+    const l = lecturaCierres(conTramos(0, 0, 10, 5))!;
+    expect(l.conclusion).toBe('Ninguna Compra Ágil abierta cierra hoy ni mañana');
+    expect(l.columnas.map((c) => c.destacada)).toEqual([false, false, false, false]);
+  });
+
+  it('una columna con poco no desaparece; una vacía, sí', () => {
+    expect(lecturaCierres(conTramos(1, 0, 1000, 0))!.columnas.map((c) => c.alto)).toEqual([4, 0, 100, 0]);
+  });
+
+  it('una sola abierta, en singular', () => {
+    expect(lecturaCierres(conTramos(0, 0, 0, 1))!.pie).toBe('1 abierta, por día de cierre');
+  });
+
+  it.each([
+    ['sin resumen (el backend falló)', null],
+    ['con 0 abiertas', conTramos(0, 0, 0, 0)],
+    ['sin tramos (backend anterior)', { ...CIERRES, compra_agil_por_cierre: undefined }],
+    ['con los tramos nulos', { ...CIERRES, compra_agil_por_cierre: null }],
+    ['con un tramo de texto', { ...CIERRES, compra_agil_por_cierre: { ...CIERRES.compra_agil_por_cierre, hoy: '312' } }],
+    ['con un tramo negativo', { ...CIERRES, compra_agil_por_cierre: { ...CIERRES.compra_agil_por_cierre, hoy: -1 } }],
+    ['con tramos que no suman las abiertas', { ...CIERRES, compra_agil_abiertas: 2715 }],
+  ])('%s: se oculta', (_, resumen) => {
+    expect(lecturaCierres(resumen as unknown as ResumenPortada | null)).toBeNull();
   });
 });

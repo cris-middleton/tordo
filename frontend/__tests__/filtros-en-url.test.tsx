@@ -138,6 +138,19 @@ describe('filtros ↔ URL', () => {
     expect(f).toMatchObject({ abiertas: true, tipo_convocatoria: 'compra_agil', terminos: ['resma', 'carta'] });
     expect(f.sort_by).toBe('relevance');
   });
+
+  it('con orden: «las que cierran primero» es Compra Ágil abierta por cierre ascendente', () => {
+    const url = urlCatalogoAbiertas('compra_agil', [], { sort_by: 'fecha_cierre', sort_order: 'asc' });
+    expect(url).toBe('/licitaciones?tipo_convocatoria=compra_agil&abiertas=1&sort_by=fecha_cierre&sort_order=asc');
+    expect(leerFiltros(new URL(url, 'https://x').searchParams)).toMatchObject({
+      abiertas: true,
+      tipo_convocatoria: 'compra_agil',
+      sort_by: 'fecha_cierre',
+      sort_order: 'asc',
+    });
+    // Sin orden, la URL de siempre: las cifras de la portada no cambian.
+    expect(urlCatalogoAbiertas('compra_agil')).toBe('/licitaciones?tipo_convocatoria=compra_agil&abiertas=1');
+  });
 });
 
 describe('la pantalla del catálogo', () => {
