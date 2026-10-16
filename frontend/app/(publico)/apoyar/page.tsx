@@ -12,7 +12,7 @@ const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
 
 export const metadata: Metadata = {
   title: 'Apoyar el sitio',
-  description: `${APP_NAME} es gratis, sin cuentas y sin publicidad. Se mantiene con aportes voluntarios.`,
+  description: `${APP_NAME} se mantiene con aportes voluntarios. Aquí está lo que cuesta, concepto por concepto.`,
   alternates: { canonical: '/apoyar' },
 };
 
@@ -36,7 +36,7 @@ export default function PaginaApoyar() {
       <CabeceraFicha
         tipo="Apoyar"
         titulo={`${APP_NAME} es gratis. Mantenerlo, casi.`}
-        subtitulo="Sin cuentas, sin planes y sin publicidad. Lo sostienen los aportes de quienes lo usan."
+        subtitulo="Lo sostienen los aportes de quienes lo usan."
       />
 
       <Seccion id="costos" titulo="Cuánto cuesta">

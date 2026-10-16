@@ -42,7 +42,7 @@ export default function PaginaAbierto() {
       <CabeceraFicha
         tipo="Abierto"
         titulo="Úsalo como quieras"
-        subtitulo={`Todo lo que muestra ${APP_NAME} se puede leer sin cuenta y sin clave: desde otro programa, desde un asistente de IA o en una planilla.`}
+        subtitulo={`Todo lo que muestra ${APP_NAME} se puede leer desde otro programa, desde un asistente de IA o en una planilla.`}
       >
         <nav aria-label="En esta página" className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm">
           <a href="#api" className="enlace">API</a>

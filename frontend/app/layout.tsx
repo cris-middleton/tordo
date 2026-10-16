@@ -49,7 +49,7 @@ export const metadata: Metadata = {
     template: `%s · ${APP_NAME}`,
   },
   // Vocabulario llano (R10 del rediseño), y nada de lo que se fue con las cuentas.
-  description: `${APP_NAME} — compras públicas de Chile para quien le vende al Estado: precios pagados, licitaciones abiertas y Compra Ágil. Gratis y sin cuenta`,
+  description: `${APP_NAME} — compras públicas de Chile para quien le vende al Estado: precios pagados, licitaciones abiertas y Compra Ágil. Datos públicos de ChileCompra.`,
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: '48x48' },

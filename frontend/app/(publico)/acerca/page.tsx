@@ -43,8 +43,8 @@ export default function PaginaAcerca() {
             postular, y a qué precio?— con los datos públicos de Mercado Público.
           </p>
           <p>
-            Es gratis y sin cuentas: no hay registro, ni planes, ni publicidad, y lo que guardas se
-            queda en tu navegador. También se puede usar fuera del sitio: hay una{' '}
+            Es gratis y no pide registro: lo que guardas se queda en tu navegador. También se puede
+            usar fuera del sitio: hay una{' '}
             <Link href="/abierto" className="enlace">
               API, un servidor MCP y descargas en CSV
             </Link>

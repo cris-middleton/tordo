@@ -104,7 +104,8 @@ test('lo primero es el buscador, y nada de lo que se fue', async ({ page }) => {
 
 test('metadatos y tarjeta de vista previa, sin «Inteligencia»', async ({ page }) => {
   await page.goto('/');
-  await expect(page).toHaveTitle(/gratis y sin cuenta/i);
+  await expect(page).toHaveTitle(/Qué compra el Estado de Chile y a qué precio/);
+  await expect(page).not.toHaveTitle(/gratis|sin cuenta/i);
   await expect(page).not.toHaveTitle(/inteligencia/i);
   await expect(page.locator('link[rel="canonical"]')).toHaveCount(1);
   await expect(page.locator('meta[property="og:image"]')).toHaveCount(1);
