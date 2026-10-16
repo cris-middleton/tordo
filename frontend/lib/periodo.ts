@@ -26,3 +26,13 @@ export function textoPeriodo(periodo?: Periodo | null): string | null {
   const meses = (a2 - a1) * 12 + (m2 - m1) + 1;
   return `${mesCorto(periodo.desde)} – ${mesCorto(periodo.hasta)} (${meses} meses)`;
 }
+
+/**
+ * «nov 2025 a oct 2026», o null si falta un extremo. La forma de los pies de
+ * método de la portada y de la ficha (spec PORTADA_V7 §3.2, §3.5): sin raya y sin
+ * el número de meses, que el texto de al lado ya dice cuando importa.
+ */
+export function rangoDeMeses(desde?: string | null, hasta?: string | null): string | null {
+  if (!desde || !hasta) return null;
+  return `${mesCorto(desde)} a ${mesCorto(hasta)}`;
+}

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import type { Bloque, EnLinea } from '@/lib/markdown';
+import { idDeTitulo, type Bloque, type EnLinea } from '@/lib/markdown';
 
 /**
  * Pinta el árbol de `lib/markdown.ts`. Componente de servidor: llega como HTML.
@@ -88,7 +88,7 @@ function UnBloque({ b }: { b: Bloque }) {
     case 'titulo': {
       const Etiqueta = `h${b.nivel}` as const;
       return (
-        <Etiqueta className={TITULOS[b.nivel]}>
+        <Etiqueta id={idDeTitulo(b.hijos)} className={`scroll-mt-6 ${TITULOS[b.nivel]}`}>
           <Linea nodos={b.hijos} />
         </Etiqueta>
       );

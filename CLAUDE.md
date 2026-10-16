@@ -248,10 +248,11 @@ agradable (fluidez de procesamiento, Reber y Schwarz, 1999).
 cuenta» (y «cuentas»), «sin registrarte», «sin cuenta.», «sin clave y sin cuenta» y «sin cuentas,
 sin planes». Las busca en **todo el texto** de cada fichero de `app/` (no sólo en títulos y
 descripciones), en `lib/publico.ts`, `lib/compraAgil.ts`, `lib/portada.ts`,
-`lib/lecturasPortada.ts`, las piezas de `components/portada/` y el título y la descripción de las
+`lib/lecturasPortada.ts`, `lib/metodo.ts`, `lib/graficoPrecio.ts`, las piezas de
+`components/portada/`, `components/metodo/` y `components/precio/` y el título y la descripción de las
 guías (`content/explicativos/*.mdx`), y las notas de datos enteras (`content/notas/*.mdx`), que
-además no llevan «!» ni «¡» fuera del código. Y los textos de `lib/portada.ts` y `lib/lecturasPortada.ts`
-y el texto de las piezas de `components/portada/` no llevan «!» ni «¡».
+además no llevan «!» ni «¡» fuera del código. Y los textos de esos cuatro `lib/` de la portada y el
+texto de esas piezas no llevan «!» ni «¡».
 Lo demás se revisa leyendo. **Se quedan a propósito**: «{APP_NAME} es gratis. Mantenerlo, casi.»
 (habla de cómo se financia, que es un hecho) y lo descriptivo que responde una duda donde se tiene
 («sin cuenta» en `/guardados`, «sin registrarte» en una respuesta de `lib/acerca.ts`).
@@ -341,11 +342,10 @@ programador en la nube, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
   que se revisa por defecto, porque ahí `on-accent` justamente ES blanco.
 - **Si tocas un token de color, el test de contraste lo comprueba.**
   `__tests__/contraste-wcag.test.ts` lee `:root` y `.dark` de `app/globals.css` y comprueba
-  139 pares contra WCAG AA (4,5:1 texto, 3:1 bordes de control): cada tinta sobre cada
-  superficie, cada `on-*` sobre su relleno, cada tinta sobre su tenue, y las tintas oscuras
-  (`text`, `muted`, `accent`, `primary`, `dato`) sobre `brand-navy`, el fondo del panel de la
-  portada. `subtle` no pasa sobre navy (4,18:1): no se usa dentro de una superficie oscura.
-  **Un token nuevo lo hace
+  134 pares contra WCAG AA (4,5:1 texto, 3:1 bordes de control): cada tinta sobre cada
+  superficie, cada `on-*` sobre su relleno, cada tinta sobre su tenue, y los cuatro de la
+  tarjeta de vista previa. Los cinco que medían tintas sobre `brand-navy` se fueron con el panel
+  oscuro de la portada (portada v7, V1): nada pinta ya texto sobre navy. **Un token nuevo lo hace
   fallar** hasta que alguien decida sus pares (o lo declare decorativo en `SIN_PAR`). Antes eran
   «166 pares verificados» a mano, y el bug de `.alert-info` (texto invisible en tema claro) nació
   de cambiar un token a ojo.
@@ -353,12 +353,11 @@ programador en la nube, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
   señal de «hipertexto, no aplicación». La navegación, las tarjetas y los botones no se
   subrayan. `__tests__/enlaces-contenido.test.ts`.
 - Una superficie que deba verse oscura siempre se marca con la clase `dark` sobre
-  `bg-brand-navy`, y los tokens se invierten solos dentro. No repintes a mano. **Hoy hay una**: el
-  panel de lecturas de la portada (`components/portada/PanelLecturas.tsx`). El panel pinta
-  sólo `text`, `muted`, `dato` y `primary` (la tinta de `.enlace`), **nunca `accent` (tampoco al
-  pasar el ratón) ni `subtle`**. `contraste-wcag.test.ts` mide además `accent` sobre `brand-navy`,
-  pero medido no es pintado; `subtle` no tiene par (4,18:1). Los divisores van en `dato-tenue`: el
-  `border` oscuro no se ve sobre navy. Una superficie oscura nueva mete sus tintas en ese test.
+  `bg-brand-navy`, y los tokens se invierten solos dentro. No repintes a mano. **Hoy no hay
+  ninguna**: el panel de lecturas de la portada era la única y se fue con la portada v7 (el dueño:
+  «los gráficos con un fondo muy fuerte ocupan un espacio muy corto»). Una superficie oscura nueva
+  mete sus tintas sobre `brand-navy` en `contraste-wcag.test.ts`: `subtle` no pasa (4,18:1) y el
+  `border` oscuro no se ve sobre navy.
 - **El tema claro declara `color-scheme: only light`; el oscuro, `dark`** (`app/globals.css`, más
   `<meta name="color-scheme" content="only light">` desde `viewport` en `app/layout.tsx`). Con
   `light` a secas, Chrome en Android con «oscurecer sitios web» invertía la portada entera en el
@@ -903,7 +902,7 @@ negro con tornasol azul-verdoso:
 - **Dos tokens de dato** (`--color-dato`, `--color-dato-tenue`, y `--color-on-dato` encima):
   cada gráfico pinta en `dato` sólo lo que nombra su conclusión y deja el resto en `dato-tenue`,
   que es decorativo (`SIN_PAR`): nunca lleva texto y el valor va escrito al lado. Claro: el azul
-  del cuerpo del pájaro; oscuro (y dentro de `dark bg-brand-navy`): el turquesa del ala.
+  del cuerpo del pájaro; oscuro: el turquesa del ala.
 - Tipografía (identidad de octubre de 2026, `docs/IDENTIDAD_Y_PORTADA_2026-10.md` §4,
   `app/layout.tsx`, `next/font/google`, autoalojada): **Archivo** en todo —titulares, cuerpo,
   interfaz y **todas las cifras**—, variable con eje de ancho. **`h1` y `h2` van semiexpandidos
@@ -925,65 +924,93 @@ negro con tornasol azul-verdoso:
 - Tema claro por defecto, con selector claro/oscuro/sistema en el pie del sitio
   (`components/SelectorTema.tsx`, dentro de `components/cascara/PieSitio.tsx`).
 
-**La portada: a la izquierda se busca, a la derecha se lee** (`docs/IDENTIDAD_Y_PORTADA_2026-10.md`
-§3, `app/page.tsx` + `components/portada/`): server component sin JS de cliente propio (las islas
-son de la cáscara), con ISR de 30 min. **No le pongas `'use client'`**: Next ignora `metadata` en
+**La portada v7: se busca arriba, se lee debajo** (`docs/PORTADA_V7_Y_NOTAS_2026-10.md` §3,
+`app/page.tsx` + `components/portada/`): server component sin JS de cliente propio (las islas son
+de la cáscara), con ISR de 30 min. **No le pongas `'use client'`**: Next ignora `metadata` en
 componentes cliente y la home perdería título y tarjeta de preview.
-- **Dos columnas desde `lg`** (`max-w-6xl`, 56 px entre ellas); por debajo, una: buscador, cifras y
-  ficha, y después el panel. Sin ninguna lectura no hay panel y el buscador ocupa el ancho.
-- **A la izquierda, «¿Qué le vendes al Estado?»**, un `<form method="get" action="/buscar">`
-  (`BuscadorPortada`) que funciona sin JavaScript; el `<h1>` es la etiqueta del campo. Debajo del
-  `h1`, `SUBTITULO_PORTADA`; el campo dice `PLACEHOLDER_BUSCADOR` («Un producto o un servicio»: no
-  repite los ejemplos) y el botón es `bg-dato text-onDato`. Después los ejemplos
-  (`EJEMPLOS_BUSQUEDA`, `rutaBuscar` y los límites del campo, todos de `lib/buscar.ts`: una sola
-  casa), **verificados contra producción**: `scripts/verificar-produccion.sh` pide cada uno,
-  espaciados y sin bucle, y falla si deja de encontrar un producto indexable, con una copia literal
-  que `__tests__/portada-ayudantes.test.ts` compara. Un ejemplo nuevo se verifica antes en
-  producción y nunca es corto ni alfanumérico («pc», «A4»): la búsqueda descarta esas palabras.
-  Debajo, las cifras (`TiraCifras`: cada bloque entero enlaza al catálogo con el filtro que lo
-  cuenta, `urlCatalogoAbiertas`) y la ficha (`FichaPortada`: Fuente, Se actualiza —`SE_ACTUALIZA`,
-  que sale de `HORAS_HABILES`—, Se usa). El lema se fue: lo dice la ficha.
-- **A la derecha, el panel de lecturas** (`PanelLecturas`, la superficie oscura del sitio). Tres
-  lecturas —quién compra, a qué precio, qué cierra pronto—, cada una con conclusión (`h3`), pie con
-  base y periodo (`textoPeriodo`), gráfico en HTML/CSS (barras `aria-hidden`, valores como texto) y
-  enlace. **Cada frase sale del dato con una regla de `lib/lecturasPortada.ts`**, fijada con sus
-  bordes en `__tests__/lecturas-portada.test.ts`: la regla del 5 % y «De cada $100 en órdenes de compra, $P son de {A}» de los
-  sectores (sin «Otros» ni «NA»), «la mitad se pagó entre p25 y p75» de `PRODUCTO_PORTADA` y los
-  casos de los cierres. **Si una lectura no tiene dato se oculta entera** (sin periodo, sin
-  p25/p75, tramos que no suman las abiertas). `dato` sólo en lo que la conclusión nombra; el
-  resto, `dato-tenue`.
-  - **`PRODUCTO_PORTADA` es `{ slug, nombre }`**, escrito a mano (`nombre` no sale del dato) y
-    genérico, sin marca: hoy «Impresora multifuncional», elegida el 2026-10-16 con el precio
-    corregido y la regla de precio de mercado (en local, 46 compras de 40 organismos, el mayor
-    con el 4 %). La anterior, «Papel higiénico jumbo», tenía 88 de 90 compras de un comprador. **Tiene copia literal en
-    `scripts/verificar-produccion.sh`**, que comprueba con una sola petición que sigue indexable y
-    pasando el filtro; `portada-ayudantes.test.ts` compara las dos.
-  - **El filtro de calidad de la banda** (`lecturaPrecio`): ficha indexable; banda de mercado
-    (`de_mercado === true`, que manda la API); unidad declarada (no
-    nula ni «sin unidad declarada»); predictibilidad alta o media; `p25 ≥ 1`; **`p75 > p25`
-    estricto** y **`plata(p25) !== plata(p75)`** —dos percentiles distintos pueden escribirse igual
-    tras redondear, y «entre $2 millones y $2 millones» no dice nada—; y periodo legible. Si falla
-    alguna, la lectura no sale: mejor ninguna banda que una banda sin sentido. La copia en
-    `verificar-produccion.sh` aplica el mismo filtro (con su propio `plata`): si cambia uno,
-    cambia el otro.
-  - **`/productos/[slug]` tolera una unidad ausente**: puede llegar nula o como el literal
-    «sin unidad declarada» (el pipeline la escribe así). `tituloDeBanda` (`lib/publico.ts`) titula
-    las dos «Sin unidad declarada», `metadataProducto` no escribe «por …», y la lista usa una clave
-    propia (`sin-unidad-<i>`), en vez de lanzar. `unidadDeclarada` es el único sitio que decide
-    qué es una unidad ausente; `lecturaPrecio` la usa también. La portada lee la misma ficha, así que ese 200 es forma
-    válida (`esProductoPortada`) y lo descarta el filtro de calidad, no el validador.
+- **La fila de entrada, 7/5 de 12 columnas desde `lg`** (48 px entre ellas), dentro de
+  `Contenedor pagina`: a la izquierda «¿Qué le vendes al Estado?» y el buscador; a la derecha las
+  dos cifras y la ficha. Debajo, a lo ancho: «Lo que dicen los datos», la franja de hoy, «Lo mejor
+  de hoy» y las notas de datos, cada una con la separación de `Seccion` (`CLASE_SECCION`).
+- **En móvil, las lecturas van ANTES que la ficha** (§3.7): la conclusión de la primera tiene que
+  quedar sobre el pliegue a 390×844 (`e2e/portada.spec.ts`). Por eso la ficha va después de las
+  lecturas en el DOM y desde `lg` la rejilla la sube a la columna derecha (`lg:row-start-2`, bajo
+  las cifras). **Un solo ejemplar de cada pieza**: nada se pinta dos veces para esconder una.
+- **El buscador** (`BuscadorPortada`), un `<form method="get" action="/buscar">` que funciona sin
+  JavaScript; el `<h1>` es la etiqueta del campo, de 36 px en móvil y 56 desde `lg`, **en dos líneas
+  «¿Qué le vendes / al Estado?»**: lo parte el ancho de la columna y `text-balance` (el E2E mide
+  dónde cae «al» a 1024 y 1440). Debajo, `SUBTITULO_PORTADA`; el campo dice
+  `PLACEHOLDER_BUSCADOR` (no repite los ejemplos) y el botón es `bg-dato text-onDato`. Los ejemplos
+  (`EJEMPLOS_BUSQUEDA`, `rutaBuscar` y los límites del campo, todos de `lib/buscar.ts`) están
+  **verificados contra producción**: `scripts/verificar-produccion.sh` pide cada uno, espaciados y
+  sin bucle, con una copia literal que `__tests__/portada-ayudantes.test.ts` compara. Un ejemplo
+  nuevo se verifica antes en producción y nunca es corto ni alfanumérico («pc», «A4»).
+- **Las cifras** (`TiraCifras`: cada bloque entero enlaza al catálogo con el filtro que lo cuenta,
+  `urlCatalogoAbiertas`) y **la ficha** (`FichaPortada`, §3.5): **Base** —«5,48 millones de órdenes
+  de compra, nov 2023 a oct 2026», `baseDeLaFicha` sobre `GET /bi/sector`: la suma de `n_oc` y la
+  ventana mínima y máxima, **nunca escrita a mano**; sin analytics, sin `n_oc` en alguna fila o sin
+  ventana, la fila no sale—, **Fuente**, **Se actualiza** (`SE_ACTUALIZA`, que sale de
+  `HORAS_HABILES`) y **Lo hace** («{nombre}, data scientist», sólo con `AUTOR_NOMBRE`, enlazado a
+  `AUTOR_URL`). «Se usa» y «Úsalo como quieras» se fueron (V11): la salida a API, MCP y CSV es la de
+  la cabecera y el pie.
+- **«Lo que dicen los datos»** (`LecturasPortada`): sobre blanco, con un filete de 2 px en `primary`
+  (el navy en claro) bajo el `h2` y la frase «Cada lectura dice de dónde sale, cómo se calcula y
+  dónde bajarla.». Tres lecturas —precio, cierres y la última nota de datos—, separadas por un borde
+  vertical desde `lg`, dos por fila entre 768 y 1023 y una debajo de otra en móvil. **Si una falta,
+  las demás se reparten el ancho; sin ninguna, la banda no sale.** Desde `lg` cada lectura es una
+  subrejilla de tres filas (conclusión, gráfico, pie): la conclusión más alta fija dónde empiezan
+  los tres gráficos, y el gráfico más alto, dónde empiezan los tres pies. `dato` sólo en lo que la
+  conclusión nombra; el resto, `dato-tenue`. **Cada frase sale del dato con una regla de
+  `lib/lecturasPortada.ts`**, fijada con sus bordes en `__tests__/lecturas-portada.test.ts`, y
+  **cada lectura se oculta entera si le falta su dato**.
+  - **Precio** (§3.2, `lecturaPrecio` → `precioDeBanda`): «{nombre}: la mitad se pagó entre p25 y
+    p75» —o «la mitad se pagó a $X» si P25 y P75 se escriben igual—, y la conclusión es el enlace al
+    producto. **El gráfico** (`components/precio/GraficoPrecio.tsx`, geometría en
+    `lib/graficoPrecio.ts`, `__tests__/grafico-precio.test.ts`): SVG de servidor y `aria-hidden`,
+    escala logarítmica, la franja P25–P75 con su etiqueta directa «la mitad central», **un punto por
+    comprador en su mediana** (los de `compradores` con la unidad de la banda; los de otra unidad no
+    se dibujan), P25 y P75 en negrita y dos valores redondos de contexto en `muted`. **Sin `viewBox`:
+    lo horizontal va en % y lo vertical en px**, así que puntos y rótulos no se deforman; si dos
+    puntos se tocan (se apilan) o dos rótulos se pisan (se apartan, o se juntan en uno) se decide al
+    ancho más estrecho en que se pinta (`ANCHO_REFERENCIA`, 280 px): más ancho, nada empieza a
+    pisarse. Con un solo comprador no hay franja (sólo en la ficha de producto: la portada no lo deja
+    pasar). Los valores, como texto `sr-only`.
+  - **`PRODUCTO_PORTADA` es `{ slug, nombre }`**, escrito a mano y genérico, sin marca: hoy
+    «Impresora multifuncional», elegida el 2026-10-16 con el precio corregido y la regla de precio
+    de mercado. **Tiene copia literal en `scripts/verificar-produccion.sh`**, que comprueba con una
+    sola petición que sigue indexable y pasando el filtro; `portada-ayudantes.test.ts` compara las dos.
+  - **El filtro de la banda** (`lecturaPrecio`): ficha indexable; banda de mercado (`de_mercado ===
+    true`, que manda la API); unidad declarada; predictibilidad alta o media; `p25 ≥ 1`; `p75 ≥ p25`;
+    y periodo legible. **P25 = P75 ya no la oculta** (antes sí): con varios compradores es un precio
+    estable, y la frase lo dice. La copia en `verificar-produccion.sh` aplica el mismo filtro: si
+    cambia uno, cambia el otro.
+  - **Cierres** (§3.3, `lecturaCierres`): «N de cada 10 Compras Ágiles abiertas cierran hoy o
+    mañana» y **una barra de diez celdas con tantas en `dato` como esos décimos** (`decimosDe`, el
+    mismo redondeo de la frase), y la tabla de los cuatro tramos con hoy y mañana en negrita. Sin
+    hora legible del resumen, no sale (su pie dice de cuándo es). Los tramos tienen que sumar las
+    abiertas.
+  - **La nota** (§3.4, `lecturaNota`): la más reciente de `/notas`, con su resumen y su
+    `antes_despues` (`components/notas/AntesDespues.tsx`). Es contenido del repo: sale siempre, así
+    que con el backend caído la banda sigue con una lectura.
+- **El pie de método** (`components/metodo/PieDeMetodo.tsx`, V3) va bajo cada lectura —y bajo el
+  gráfico de la ficha de producto—: base y periodo en una frase y los enlaces «Cómo se calcula»
+  (guía y ancla), «Ver en la API» (`ORIGEN_API_PUBLICA`) y «Código» (`<REPOSITORIO_URL>/blob/main/<ruta>`,
+  sólo con repositorio). **Cada método se declara una vez en `lib/metodo.ts` (`METODOS`)** y
+  `__tests__/metodo.test.ts` falla si su fichero ya no existe o si la guía o el ancla cambiaron.
+  Las anclas son los `id` que `lib/markdown.ts` (`idDeTitulo`) da a cada título de una guía.
 - **Cuatro piezas vivas, pedidas en paralelo desde el servidor**, y **cada una se oculta sola si el
   backend falla o si un campo que se pinta viene mal formado**, y además, por principio 4 (una cifra
   viva sin hora no se publica): «Lo mejor de hoy» sin `actualizado_en` legible se oculta; el
-  resumen sin hora legible oculta la tira, la franja **y la lectura de cierres**; los sectores y el
-  producto se ocultan sin periodo legible. `pedirParaLaPortada(ruta, validador, bloque, cache)` nunca lanza, y la caché
-  la elige quien llama:
+  resumen sin hora legible oculta la tira, la franja **y la lectura de cierres**; el producto, sin
+  periodo legible. `pedirParaLaPortada(ruta, validador, bloque, cache)` nunca lanza, y la caché la
+  elige quien llama:
   - **lo vivo, media hora y etiqueta `compra-agil`** (la revalida el cron frecuente): el resumen
     (`GET /publico/portada`, `pedirResumenPortada`) —la tira, la lectura de cierres y la franja— y
     «Lo mejor de hoy» (`pedirDestacadas`);
   - **lo de analytics, una semana y etiqueta `analytics`** (la revalida el cron semanal): los
-    sectores (`GET /bi/sector`, `pedirSectoresPortada`) y la ficha del producto
-    (`pedirProductoPortada`). Con `FEATURE_ANALYTICS` apagada responden 503 y sus lecturas se ocultan.
+    sectores (`GET /bi/sector`, `pedirSectoresPortada`), que ya no son una lectura sino la fila
+    «Base» de la ficha, y la ficha del producto (`pedirProductoPortada`). Con `FEATURE_ANALYTICS`
+    apagada responden 503: la fila «Base» y la lectura de precio no salen.
 - **La franja de hoy** (`FranjaPortada`, `franjaDeLaPortada`): publicadas hoy, el organismo que más
   publica (por nombre; truncado con `title`) y «Actualizado el» con el día —la portada se cachea—.
   Con 0 publicadas hoy (cada madrugada) las dos primeras celdas se ocultan y la que queda primera
@@ -996,19 +1023,25 @@ componentes cliente y la home perdería título y tarjeta de preview.
   comprador vale lo mismo para todas y el orden es sólo tiempo y monto, así que no dice «de
   compradores que compran seguido». `DESCRIPCION_DESTACADAS` suelta describe el método
   (metadatos, `/acerca`) y no el estado.
+- **Notas de datos** (`NotasPortada`): las cuatro últimas, con fecha y título y «Arreglo en curso»
+  donde toque, y «Todas las notas». A la derecha (5/12) **la ficha del autor** (`FichaAutor`, §3.6,
+  sólo con `AUTOR_NOMBRE`): quién lo hace, `hola@tordo.cl` y `AUTOR_URL` nombrado por su sitio
+  (`nombreDelEnlace`). Sin autor, la lista ocupa el ancho. **La autoría no es el responsable legal**,
+  y la portada nunca enseña el `[[hueco]]` de los documentos legales.
 - **Ninguna lanza**, tampoco con un 200 mal formado: cada validador mira los campos que su bloque
-  lee y su tipo (un item `null` en «Lo mejor de hoy» hacía lanzar el render y dejaba una página de
-  error en vez de un bloque oculto). Con el backend caído la portada sale con el buscador, las
-  cifras ausentes y la ficha (`__tests__/portada.test.tsx`).
-- «Úsalo como quieras» enlaza a `/abierto`; «Código» sólo sale con `REPOSITORIO_URL`. **«Lo hace»
-  sólo con `AUTOR_NOMBRE`** (`nombreAutor()` de `lib/autor.ts`, `null` sin ella): la autoría no es
-  el responsable legal, y la portada nunca enseña el `[[hueco]]` de los documentos legales.
+  lee y su tipo. Con el backend caído la portada sale con el buscador, la ficha, la lectura de la
+  nota y las notas (`__tests__/portada.test.tsx`).
 - **Sin «Inteligencia»** en la portada, los metadatos (`openGraph` y `twitter` incluidos) ni la
   tarjeta de vista previa (R10): `__tests__/r10-sin-inteligencia.test.ts`.
 - `e2e/portada.spec.ts` mide la portada a 320, 390, 1024 y 1440 px sin desborde y la captura en
-  claro y oscuro; desde 1024 el panel va a la derecha del buscador, y comprueba que el panel
-  (`overflow-hidden`, por las esquinas) no recorta contenido. El fixture del E2E sólo trae la
-  lectura de cierres; las otras dos se prueban en Vitest.
+  claro y oscuro; a 1024 y 1440, el `h1` en dos líneas y las lecturas en una fila, del mismo ancho y
+  a la misma altura; a 390×844, la primera conclusión sobre el pliegue. El fixture del E2E trae la
+  lectura de cierres y la de la nota; la de precio se prueba en Vitest.
+
+**La ficha de producto** (`/productos/[slug]`) lleva **el mismo gráfico de precio** encima de
+«Quién lo compra», con su pie de método (spec PORTADA_V7 §6): `precioDeBanda` sobre la unidad con
+más compras, titulada con `tituloDeBanda`, sin el filtro de la portada —una banda de un solo
+comprador dice «todas las compras son de {comprador}»—.
 
 **Acerca** (`/acerca`, `app/(publico)/acerca/`): lo que la portada dejó de explicar —qué es, de
 dónde salen los datos, cómo se financia— y las preguntas frecuentes (`PREGUNTAS`, en
@@ -1020,7 +1053,9 @@ el contacto (no es una sección de la navegación).
 enlaces internos ya apuntan ahí. Se renderiza con `lib/markdown.ts`, sin `@next/mdx`: el
 contenido no usa JSX y cinco dependencias para eso no valen la pena. Si una guía necesita algo
 que el parser no soporta, se amplía el parser con su test. `guias.test.tsx` comprueba que cada
-enlace interno de cada guía resuelve. El texto dice «TORDO» y se sustituye por `APP_NAME` al
+enlace interno de cada guía resuelve. **Cada título lleva un `id`** (`idDeTitulo`: minúsculas, sin
+tildes ni signos), que es el ancla de los «Cómo se calcula»: renombrar un título rompe su ancla, y
+`metodo.test.ts` lo dice. El texto dice «TORDO» y se sustituye por `APP_NAME` al
 pintar.
 
 **Notas de datos** (`/notas`, `/notas/[slug]`, `/rss/notas`; spec `docs/PORTADA_V7_Y_NOTAS_2026-10.md`
@@ -1064,8 +1099,8 @@ límites: 1,95 días, con los reinicios por OOM y la primera semanal dentro); lo
 medición se rotula «Estimado» (hoy, el dominio). El total es una **proyección, ~US$10–11**
 (`COSTO_MENSUAL_APROXIMADO`), no una factura y no los US$5 de antes: el plan Hobby de Railway
 cuesta US$5 e incluye US$5 de uso, así que se paga el mayor de los dos —el uso medido, ~US$9–10—
-más el dominio (~US$1). Se repite al cerrar el primer periodo de facturación (2026-11-13). La
-portada y `/apoyar` lo leen de ahí (la prosa de `/apoyar` sale de las mismas constantes). «Cuánto cuesta» está en el pie
+más el dominio (~US$1). Se repite al cerrar el primer periodo de facturación (2026-11-13). `/acerca`
+y `/apoyar` lo leen de ahí (la prosa de `/apoyar` sale de las mismas constantes). «Cuánto cuesta» está en el pie
 (columna «Sobre el sitio»).
 
 **Abierto** (`/abierto`): API, MCP con una caja de instalación por cliente, CSV y RSS, código y

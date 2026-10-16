@@ -15,7 +15,7 @@ import type { TiraPortada } from '@/lib/portada';
  */
 export function TiraCifras({ tira }: { tira: TiraPortada }) {
   return (
-    <ul aria-label="Abiertas ahora" className="mt-9 grid grid-cols-2 gap-4">
+    <ul aria-label="Abiertas ahora" className="grid grid-cols-2 gap-4">
       {tira.cifras.map((c) => (
         <li key={c.href} className="min-w-0 border-l-4 border-dato pl-3">
           <Link href={c.href} className="group flex flex-col-reverse">

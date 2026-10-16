@@ -1,187 +1,47 @@
 /**
- * Las lecturas del panel de la portada (spec docs/IDENTIDAD_Y_PORTADA_2026-10.md
- * §3.2–§3.5 y §8): cada frase sale del dato, con reglas, y cada regla se fija
- * aquí con sus bordes. «Salud y municipios compran casi lo mismo» es verdad hoy
- * y puede no serlo el domingo (D8).
+ * Las lecturas de la portada (spec docs/PORTADA_V7_Y_NOTAS_2026-10.md §3.2–§3.4 y
+ * §9): cada frase sale del dato, con reglas, y cada regla se fija aquí con sus
+ * bordes —un comprador, P25 = P75, compradores de otra unidad, puntos que
+ * coinciden, 0 abiertas, décimos que redondean a 0 o a 10—. Y cada lectura trae
+ * su pie de método.
  *
  * Sin dato que pintar con verdad, una lectura devuelve `null` y la portada la
  * oculta entera (principio 4): sin periodo, sin p25/p75, tramos que no suman.
  */
 import { describe, expect, it } from 'vitest';
 
+import { BASE_API_PUBLICA } from '@/lib/abierto';
 import { urlCatalogoAbiertas } from '@/lib/filtrosCatalogo';
 import {
-  BARRAS_SECTOR,
+  cuantasLecturas,
+  decimosDe,
+  diaYHora,
   esConteo,
   esProductoPortada,
   esSectores,
   fraseCierres,
-  hayLecturas,
-  izquierdaDeRotulo,
   lecturaCierres,
+  lecturaNota,
   lecturaPrecio,
-  lecturaSectores,
-  nombreSector,
-  posicionDeRotulo,
+  precioDeBanda,
   PRODUCTO_PORTADA,
-  rotulosDeBanda,
-  SEPARACION_MINIMA_ROTULOS,
-  UMBRAL_EMPATE,
 } from '@/lib/lecturasPortada';
-import { textoPeriodo } from '@/lib/periodo';
+import { rutaComoSeCalcula, METODO_PRECIO } from '@/lib/metodo';
+import type { Nota } from '@/lib/notas';
 import { rutaProducto } from '@/lib/publico';
-import type { SectorBI, SectoresBI } from '@/types/bi';
-import type { BandaUnidad, ProductoPublico, ResumenPortada } from '@/types/publico';
+import type { BandaUnidad, CompradorDeProducto, ProductoPublico, ResumenPortada } from '@/types/publico';
 
-// ── Lectura 1: quién compra ─────────────────────────────────────────────────
+const REPO = 'https://github.com/cris-middleton/tordo';
+const textos = (enlaces: { texto: string }[]) => enlaces.map((e) => e.texto);
+
+// ── esSectores (la «Base» de la ficha) ──────────────────────────────────────
 
 const VENTANA = { ventana_desde: '2023-11-01', ventana_hasta: '2026-10-11' };
-
-function fila(
-  sector: string,
-  monto_total: number,
-  ventana: Pick<SectorBI, 'ventana_desde' | 'ventana_hasta'> = VENTANA,
-): SectorBI {
-  return { sector, monto_total, ...ventana };
-}
-
-const respuesta = (...sectores: SectorBI[]): SectoresBI => ({ disponible: true, sectores, total: sectores.length });
-
-/** Los siete sectores de los datos locales (6 meses), con su monto real. */
-const SIETE = respuesta(
-  fila('Salud', 2.9816e12),
-  fila('Municipalidades', 2.9484e12),
-  fila('Gob. Central, Universidades', 1.9975e12),
-  fila('Obras Públicas', 1.8626e12),
-  fila('FFAA', 3.8045e11),
-  fila('Otros', 1.5986e11),
-  fila('Legislativo y judicial', 7.3408e10),
-);
-
-describe('lecturaSectores', () => {
-  it('con los datos locales: Salud y municipios empatan, cuatro barras y las dos primeras pintadas', () => {
-    const l = lecturaSectores(SIETE)!;
-    expect(l.conclusion).toBe('Salud y municipios compran casi lo mismo');
-    expect(l.pie).toBe(`Órdenes de compra, ${textoPeriodo({ desde: '2023-11-01', hasta: '2026-10-11' })}`);
-    expect(l.pie).toMatch(/\(36 meses\)$/);
-    expect(l.enlace).toEqual({ texto: 'Ver mercados', href: '/mercado' });
-    expect(l.barras.map((b) => [b.nombre, b.monto, b.destacada])).toEqual([
-      ['Salud', '$3 billones', true],
-      ['Municipalidades', '$2,9 billones', true],
-      ['Gob. central', '$2 billones', false],
-      ['Obras públicas', '$1,9 billones', false],
-    ]);
-    expect(l.barras).toHaveLength(BARRAS_SECTOR);
-    // El ancho es relativo al primero, con un decimal: 1,8626 / 2,9816 = 62,47 %.
-    expect(l.barras.map((b) => b.ancho)).toEqual([100, 98.9, 67, 62.5]);
-  });
-
-  it(`el ${UMBRAL_EMPATE * 100} % justo NO es empate: se pinta uno y la frase reparte $100`, () => {
-    const l = lecturaSectores(respuesta(fila('Salud', 100), fila('Municipalidades', 95)))!;
-    expect(l.conclusion).toBe('De cada $100 en órdenes de compra, $51 son de Salud');
-    expect(l.barras.map((b) => b.destacada)).toEqual([true, false]);
-  });
-
-  it('un pelo por debajo del 5 % sí es empate', () => {
-    const l = lecturaSectores(respuesta(fila('Salud', 100), fila('Municipalidades', 95.01)))!;
-    expect(l.conclusion).toBe('Salud y municipios compran casi lo mismo');
-  });
-
-  it('«Otros» entre los cuatro primeros se salta y entra el quinto; el reparto cuenta todos', () => {
-    const l = lecturaSectores(
-      respuesta(
-        fila('Salud', 100),
-        fila('Otros', 90),
-        fila('Municipalidades', 80),
-        fila('Gob. Central, Universidades', 70),
-        fila('Obras Públicas', 60),
-      ),
-    )!;
-    expect(l.barras.map((b) => b.nombre)).toEqual(['Salud', 'Municipalidades', 'Gob. central', 'Obras públicas']);
-    // 100 sobre 400 (Otros incluido): la frase habla de todas las órdenes de la respuesta.
-    expect(l.conclusion).toBe('De cada $100 en órdenes de compra, $25 son de Salud');
-  });
-
-  it('un sector sin nombre («NA», está en el fixture del golden) tampoco ocupa barra, pero suma en el reparto', () => {
-    const l = lecturaSectores(respuesta(fila('Salud', 100), fila('NA', 90), fila('Municipalidades', 10)))!;
-    expect(l.barras.map((b) => b.nombre)).toEqual(['Salud', 'Municipalidades']);
-    // 100 sobre 200 (NA incluido).
-    expect(l.conclusion).toBe('De cada $100 en órdenes de compra, $50 son de Salud');
-  });
-
-  it('«Otros» y «NA» se saltan sin importar mayúsculas', () => {
-    const l = lecturaSectores(respuesta(fila('OTROS', 100), fila('na', 90), fila('Salud', 10)))!;
-    expect(l.barras.map((b) => b.nombre)).toEqual(['Salud']);
-  });
-
-  it('una ventana con fecha imposible se oculta sin lanzar', () => {
-    const datos = respuesta(fila('Salud', 10, { ventana_desde: '2023-99-01', ventana_hasta: '2026-10-11' }));
-    expect(esSectores(datos)).toBe(false);
-    expect(lecturaSectores(datos)).toBeNull();
-  });
-
-  it('un nombre en plural concuerda: «son de municipios»', () => {
-    const l = lecturaSectores(respuesta(fila('Municipalidades', 300), fila('Salud', 100)))!;
-    expect(l.conclusion).toBe('De cada $100 en órdenes de compra, $75 son de municipios');
-  });
-
-  it('un solo sector: gasta los $100 y se pinta', () => {
-    const l = lecturaSectores(respuesta(fila('Salud', 7)))!;
-    expect(l.conclusion).toBe('De cada $100 en órdenes de compra, $100 son de Salud');
-    expect(l.barras).toEqual([{ nombre: 'Salud', monto: '$7', ancho: 100, destacada: true }]);
-  });
-
-  it('el reparto de $100 con decimales se redondea a entero', () => {
-    const l = lecturaSectores(respuesta(fila('Salud', 2), fila('Municipalidades', 1)))!;
-    expect(l.conclusion).toBe('De cada $100 en órdenes de compra, $67 son de Salud');
-    expect(l.barras[1].ancho).toBe(50);
-  });
-
-  it('un sector fuera del mapa sale con su nombre tal cual, en la barra y en la frase', () => {
-    const l = lecturaSectores(respuesta(fila('Bomberos de Chile', 300), fila('FFAA', 100)))!;
-    expect(l.conclusion).toBe('De cada $100 en órdenes de compra, $75 son de Bomberos de Chile');
-    expect(l.barras.map((b) => b.nombre)).toEqual(['Bomberos de Chile', 'FFAA']);
-  });
-
-  it('la frase empieza con mayúscula aunque el nombre de la frase no', () => {
-    const l = lecturaSectores(respuesta(fila('Municipalidades', 100), fila('Salud', 99)))!;
-    expect(l.conclusion).toBe('Municipios y Salud compran casi lo mismo');
-  });
-
-  it('ordena por monto aunque el backend no lo haga', () => {
-    const l = lecturaSectores(respuesta(fila('Municipalidades', 10), fila('Salud', 100)))!;
-    expect(l.barras.map((b) => b.nombre)).toEqual(['Salud', 'Municipalidades']);
-  });
-
-  it.each([
-    ['sin respuesta (el backend falló o dio 503)', null],
-    ['disponible: false (tabla ausente)', { disponible: false, motivo: 'parquet no generado' }],
-    ['sin filas', respuesta()],
-    ['sólo «Otros»', respuesta(fila('Otros', 10))],
-    ['sin ventana (la semanal aún no la escribió)', respuesta(fila('Salud', 10, { ventana_desde: null, ventana_hasta: null }))],
-    ['sin ventana porque el backend es anterior', respuesta({ sector: 'Salud', monto_total: 10 })],
-    ['con la ventana a medias', respuesta(fila('Salud', 10, { ventana_desde: '2023-11-01', ventana_hasta: null }))],
-    ['con todo en cero', respuesta(fila('Salud', 0), fila('Municipalidades', 0))],
-  ])('%s: se oculta', (_, datos) => {
-    expect(lecturaSectores(datos as SectoresBI | null)).toBeNull();
-  });
-});
-
-describe('nombreSector', () => {
-  it('un nombre para la barra y otro para la frase', () => {
-    expect(nombreSector('Municipalidades')).toEqual({ barra: 'Municipalidades', frase: 'municipios' });
-    expect(nombreSector('Gob. Central, Universidades')).toEqual({ barra: 'Gob. central', frase: 'Gob. central' });
-    expect(nombreSector('Obras Públicas')).toEqual({ barra: 'Obras públicas', frase: 'Obras públicas' });
-  });
-
-  it('fuera del mapa, tal cual (sin espacios de sobra)', () => {
-    expect(nombreSector(' Salud ')).toEqual({ barra: 'Salud', frase: 'Salud' });
-  });
-});
+const fila = (sector: string, n_oc: number | null = 1000) => ({ sector, monto_total: 1e12, n_oc, ...VENTANA });
 
 describe('esSectores', () => {
-  it('acepta la respuesta buena, la de «no disponible» y filas sin ventana', () => {
-    expect(esSectores(SIETE)).toBe(true);
+  it('acepta la respuesta buena, la de «no disponible», filas sin ventana y sin n_oc (backend anterior)', () => {
+    expect(esSectores({ disponible: true, total: 2, sectores: [fila('Salud'), fila('Municipalidades')] })).toBe(true);
     expect(esSectores({ disponible: false, motivo: 'parquet no generado' })).toBe(true);
     expect(esSectores({ disponible: true, sectores: [{ sector: 'Salud', monto_total: 1 }] })).toBe(true);
   });
@@ -195,47 +55,61 @@ describe('esSectores', () => {
     ['un sector nulo', { disponible: true, sectores: [{ sector: null, monto_total: 1 }] }],
     ['un sector vacío', { disponible: true, sectores: [{ sector: '  ', monto_total: 1 }] }],
     ['un monto de texto', { disponible: true, sectores: [{ sector: 'Salud', monto_total: '1' }] }],
-    ['un monto negativo', { disponible: true, sectores: [{ sector: 'Salud', monto_total: -1 }] }],
-    ['una ventana que no es fecha', { disponible: true, sectores: [{ ...fila('Salud', 1), ventana_desde: 2023 }] }],
-    ['un mes imposible', { disponible: true, sectores: [{ ...fila('Salud', 1), ventana_desde: '2023-99-01' }] }],
-    ['un día imposible', { disponible: true, sectores: [{ ...fila('Salud', 1), ventana_hasta: '2023-02-30' }] }],
+    ['un n_oc de texto', { disponible: true, sectores: [{ ...fila('Salud'), n_oc: '1000' }] }],
+    ['un n_oc con decimales', { disponible: true, sectores: [{ ...fila('Salud'), n_oc: 10.5 }] }],
+    ['una ventana que no es fecha', { disponible: true, sectores: [{ ...fila('Salud'), ventana_desde: 2023 }] }],
+    ['un mes imposible', { disponible: true, sectores: [{ ...fila('Salud'), ventana_desde: '2023-99-01' }] }],
+    ['un día imposible', { disponible: true, sectores: [{ ...fila('Salud'), ventana_hasta: '2023-02-30' }] }],
   ])('rechaza %s', (_, datos) => {
     expect(esSectores(datos)).toBe(false);
   });
 });
 
-// ── Lectura 2: a qué precio ─────────────────────────────────────────────────
+// ── Lectura 1: a qué precio ─────────────────────────────────────────────────
 
 const BANDA: BandaUnidad = {
-  unidad: 'Caja',
-  n: 184,
-  p10: 2100,
-  p25: 4200,
-  p50: 5390,
-  p75: 6900,
-  p90: 11800,
-  predictibilidad: 'media',
-  confianza: 0.5,
-  compradores: 44,
-  cuota_mayor: 0.05,
+  unidad: 'Unidad',
+  n: 46,
+  p10: 129_990,
+  p25: 150_921,
+  p50: 190_762,
+  p75: 240_000,
+  p90: 369_990,
+  predictibilidad: 'alta',
+  confianza: 0.79,
+  compradores: 40,
+  cuota_mayor: 0.04,
   de_mercado: true,
 };
 
+const comprador = (p50: number | null, unidad = 'unidad', i = 0): CompradorDeProducto => ({
+  codigo: `c${i}`,
+  nombre: `Municipalidad ${i}`,
+  unidad,
+  n: 3,
+  p50,
+});
+
+const DIEZ = [95_000, 120_000, 151_000, 160_000, 175_000, 190_000, 210_000, 239_000, 280_000, 420_000].map((v, i) =>
+  comprador(v, 'unidad', i),
+);
+
 const PRODUCTO: ProductoPublico = {
   slug: PRODUCTO_PORTADA.slug,
-  firma: 'higiénico jumbo papel',
-  nombre_generico: 'Papel higiénico',
+  firma: 'impresora multifuncional',
+  nombre_generico: null,
   codigo_onu: null,
   descripcion: null,
   indexable: true,
   // La API las ordena de más a menos compras: se usa la primera.
-  unidades: [BANDA, { ...BANDA, unidad: 'Unidad', n: 12 }],
-  compradores: [],
-  periodo: { ventana_desde: '2025-10-01', ventana_hasta: '2026-09-30' },
+  unidades: [BANDA, { ...BANDA, unidad: 'Caja', n: 12 }],
+  compradores: DIEZ,
+  periodo: { ventana_desde: '2025-11-01', ventana_hasta: '2026-10-31' },
 };
 
-const conBanda = (cambio: Partial<BandaUnidad> | Record<string, unknown>): ProductoPublico => ({
+const conBanda = (cambio: Partial<BandaUnidad> | Record<string, unknown>, compradores = DIEZ): ProductoPublico => ({
   ...PRODUCTO,
+  compradores,
   unidades: [{ ...BANDA, ...cambio } as BandaUnidad],
 });
 
@@ -249,8 +123,6 @@ describe('PRODUCTO_PORTADA', () => {
   it('y un nombre escrito a mano, que se lee como un nombre: no el slug', () => {
     expect(PRODUCTO_PORTADA.nombre).toMatch(/^\p{Lu}/u);
     expect(PRODUCTO_PORTADA.nombre.trim()).toBe(PRODUCTO_PORTADA.nombre);
-    // Puede coincidir con la firma cuando la firma se lee bien («impresora
-    // multifuncional»); lo que no puede ser es el slug tal cual.
     expect(PRODUCTO_PORTADA.nombre).not.toBe(PRODUCTO_PORTADA.slug);
     expect(PRODUCTO_PORTADA.nombre).not.toMatch(/-/);
   });
@@ -258,94 +130,85 @@ describe('PRODUCTO_PORTADA', () => {
 
 describe('lecturaPrecio', () => {
   it('la mitad se pagó entre p25 y p75, de la unidad con más compras, con el nombre a mano', () => {
-    const l = lecturaPrecio(PRODUCTO)!;
-    expect(l.conclusion).toBe(`${PRODUCTO_PORTADA.nombre}: la mitad se pagó entre $4.200 y $6.900`);
+    const l = lecturaPrecio(PRODUCTO, REPO)!;
+    expect(l.conclusion).toBe('Impresora multifuncional: la mitad se pagó entre $150.921 y $240.000');
     expect(l.conclusion).not.toContain(PRODUCTO.firma);
-    expect(l.pie).toBe(
-      `Precio por caja, 184 compras de 44 organismos, ${textoPeriodo({ desde: '2025-10-01', hasta: '2026-09-30' })}`,
-    );
-    expect(l.pie).toMatch(/\(12 meses\)$/);
-    expect(l.enlace).toEqual({ texto: 'Ver el producto', href: rutaProducto(PRODUCTO_PORTADA.slug) });
   });
 
-  it('la ficha de PRODUCTO_PORTADA en la copia local corregida (2026-10-16) pasa el filtro', () => {
-    const real = conBanda({
-      unidad: 'unidad',
-      n: 46,
-      p10: 129_990,
-      p25: 150_921,
-      p50: 190_762.055,
-      p75: 240_000,
-      p90: 369_990,
-      predictibilidad: 'alta',
-      confianza: 0.788,
-      compradores: 40,
-      cuota_mayor: 0.0435,
-      de_mercado: true,
-    });
-    const l = lecturaPrecio({ ...real, periodo: { ventana_desde: '2025-04-01', ventana_hasta: '2026-03-31' } })!;
-    expect(l.conclusion).toBe('Impresora multifuncional: la mitad se pagó entre $150.921 y $240.000');
-    expect(l.pie).toBe('Precio por unidad, 46 compras de 40 organismos, abr 2025 – mar 2026 (12 meses)');
+  it('el pie: compras, compradores, periodo y unidad; y que el gráfico muestra sólo los 10 que más compran', () => {
+    expect(lecturaPrecio(PRODUCTO, REPO)!.pie).toBe(
+      '46 compras de 40 compradores, nov 2025 a oct 2026, precio por unidad. ' +
+        'Cada punto es lo que pagó uno de los 10 que más compran (su mediana); la franja, la mitad central de las compras.',
+    );
+  });
+
+  it('con todos los compradores en el gráfico, «cada punto es lo que pagó un comprador»', () => {
+    expect(lecturaPrecio(conBanda({ compradores: 10 }), REPO)!.pie).toMatch(
+      /^46 compras de 10 compradores, .*\. Cada punto es lo que pagó un comprador \(su mediana\)/,
+    );
+  });
+
+  it('la conclusión lleva al producto; el pie, a cómo se calcula, la API y el código', () => {
+    const { enlace, enlaces } = lecturaPrecio(PRODUCTO, REPO)!;
+    expect(enlace).toBe(rutaProducto(PRODUCTO_PORTADA.slug));
+    expect(enlaces).toEqual([
+      { texto: 'Cómo se calcula', href: rutaComoSeCalcula(METODO_PRECIO.guia!), externo: false },
+      { texto: 'Ver en la API', href: `${BASE_API_PUBLICA}/publico/productos/${PRODUCTO_PORTADA.slug}`, externo: true },
+      { texto: 'Código', href: `${REPO}/blob/main/etl/analytics/product_price_bands.py`, externo: true },
+    ]);
+    expect(textos(lecturaPrecio(PRODUCTO, null)!.enlaces)).not.toContain('Código');
+  });
+
+  it('un punto por comprador de la unidad, y el texto para quien no ve el gráfico', () => {
+    const l = lecturaPrecio(PRODUCTO, REPO)!;
+    expect(l.grafico.puntos).toHaveLength(10);
+    expect(l.accesible).toEqual(['Percentil 25: $150.921', 'Percentil 75: $240.000', '40 compradores']);
+  });
+
+  it('los compradores de otra unidad no son puntos (es otro envase), y el pie lo cuenta bien', () => {
+    const mezcla = [...DIEZ.slice(0, 3), comprador(5_000, 'caja', 7), comprador(6_000, 'Caja', 8)];
+    const l = lecturaPrecio(conBanda({}, mezcla), REPO)!;
+    expect(l.grafico.puntos).toHaveLength(3);
+    expect(l.pie).toMatch(/uno de los 3 que más compran/);
+  });
+
+  it('puntos que coinciden se apilan sin solaparse', () => {
+    const iguales = Array.from({ length: 4 }, (_, i) => comprador(190_000, 'unidad', i));
+    expect(lecturaPrecio(conBanda({}, iguales), REPO)!.grafico.puntos.map((p) => p.fila)).toEqual([0, -1, 1, -2]);
+  });
+
+  it('P25 = P75 con varios compradores: «la mitad se pagó a $X», y la franja es una línea', () => {
+    const l = lecturaPrecio(conBanda({ p10: 15_000, p25: 16_850, p50: 16_850, p75: 16_850, p90: 18_000 }), REPO)!;
+    expect(l.conclusion).toBe('Impresora multifuncional: la mitad se pagó a $16.850');
+    expect(l.grafico.franja!.desde).toBe(l.grafico.franja!.hasta);
+    expect(l.pie).toMatch(/la línea, el precio de la mitad central de las compras\.$/);
+  });
+
+  it('P25 y P75 distintos pero escritos igual: también «se pagó a»', () => {
+    expect(lecturaPrecio(conBanda({ p25: 1_500_000, p75: 1_600_000 }), REPO)!.conclusion).toBe(
+      'Impresora multifuncional: la mitad se pagó a $2 millones',
+    );
+  });
+
+  it('sin compradores en la lista: la franja sola, y el pie no habla de puntos', () => {
+    const l = lecturaPrecio(conBanda({}, []), REPO)!;
+    expect(l.grafico.puntos).toEqual([]);
+    expect(l.pie).toMatch(/precio por unidad\. La franja, la mitad central de las compras\.$/);
   });
 
   it('con otra ficha, su nombre y su enlace: nunca los de la constante', () => {
-    const l = lecturaPrecio({ ...PRODUCTO, slug: 'otro-producto' }, 'Otro producto')!;
+    const l = lecturaPrecio({ ...PRODUCTO, slug: 'otro-producto' }, REPO, 'Otro producto')!;
     expect(l.conclusion).toMatch(/^Otro producto: /);
-    expect(l.enlace.href).toBe(rutaProducto('otro-producto'));
+    expect(l.enlace).toBe(rutaProducto('otro-producto'));
   });
 
-  it('las marcas van sobre un riel de p10 a p90, en % con un decimal', () => {
-    const l = lecturaPrecio(PRODUCTO)!;
-    expect(l.p10).toEqual({ valor: '$2.100', posicion: 0 });
-    expect(l.p25).toEqual({ valor: '$4.200', posicion: 21.6 });
-    expect(l.p50).toEqual({ valor: '$5.390', posicion: 33.9 });
-    expect(l.p75).toEqual({ valor: '$6.900', posicion: 49.5 });
-    expect(l.p90).toEqual({ valor: '$11.800', posicion: 100 });
+  it('sin el dato de compradores (backend anterior), sólo las compras', () => {
+    expect(lecturaPrecio(conBanda({ compradores: undefined }), REPO)!.pie).toMatch(/^46 compras, nov 2025/);
   });
 
-  it('sin p10 ni p90, el riel va de p25 a p75 y no hay extremos', () => {
-    const l = lecturaPrecio(conBanda({ p10: null, p90: null }))!;
-    expect(l.p10).toBeNull();
-    expect(l.p90).toBeNull();
-    expect(l.p25.posicion).toBe(0);
-    expect(l.p75.posicion).toBe(100);
-  });
-
-  it('sin mediana no hay marca de mediana, y la lectura sigue', () => {
-    const l = lecturaPrecio(conBanda({ p50: null }))!;
-    expect(l.p50).toBeNull();
-    expect(l.conclusion).toMatch(/la mitad se pagó entre/);
-  });
-
-  it('extremos pegados a la banda: p10 = p25 y p90 = p75 caen en los bordes del riel', () => {
-    const l = lecturaPrecio(conBanda({ p10: 4200, p90: 6900 }))!;
-    expect([l.p10, l.p25, l.p50, l.p75, l.p90].map((m) => m?.posicion)).toEqual([0, 0, 44.1, 100, 100]);
-  });
-
-  it('una sola compra, en singular; la unidad en minúsculas y sin espacios de sobra', () => {
-    expect(lecturaPrecio(conBanda({ n: 1, compradores: null }))!.pie).toMatch(/^Precio por caja, 1 compra, /);
-    expect(lecturaPrecio(conBanda({ unidad: ' KILOGRAMO ' }))!.pie).toMatch(/^Precio por kilogramo, /);
-  });
-
-  it('dice de cuántos organismos son las compras, en singular si es uno', () => {
-    expect(lecturaPrecio(conBanda({ n: 12, compradores: 3 }))!.pie).toMatch(/^Precio por caja, 12 compras de 3 organismos, /);
-    // Un backend que no manda cuántos: se dice sólo el número de compras.
-    expect(lecturaPrecio(conBanda({ compradores: undefined }))!.pie).toMatch(/^Precio por caja, 184 compras, /);
-  });
-
-  it('predictibilidad alta también vale, y la comparación no mira mayúsculas', () => {
-    expect(lecturaPrecio(conBanda({ predictibilidad: 'alta' }))).not.toBeNull();
-    expect(lecturaPrecio(conBanda({ predictibilidad: ' Media ' }))).not.toBeNull();
-  });
-
-  it('p25 justo en $1 pasa el filtro, y p75 apenas sobre p25 también', () => {
-    expect(lecturaPrecio(conBanda({ p10: 1, p25: 1 }))).not.toBeNull();
-    expect(lecturaPrecio(conBanda({ p25: 1150, p50: 1150, p75: 1151 }))).not.toBeNull();
-  });
-
-  it('sólo mira la primera unidad: una segunda sin declarar no la oculta', () => {
-    const p = { ...PRODUCTO, unidades: [BANDA, { ...BANDA, unidad: 'sin unidad declarada', predictibilidad: 'baja' }] };
-    expect(lecturaPrecio(p)).not.toBeNull();
+  it('una sola compra, en singular; la unidad en minúsculas', () => {
+    expect(lecturaPrecio(conBanda({ n: 1, compradores: null }), REPO)!.pie).toMatch(/^1 compra, /);
+    expect(lecturaPrecio(conBanda({ unidad: ' KILOGRAMO ' }, []), REPO)!.pie).toMatch(/precio por kilogramo\./);
   });
 
   it.each([
@@ -355,104 +218,55 @@ describe('lecturaPrecio', () => {
     ['sin p25', conBanda({ p25: null })],
     ['sin p75', conBanda({ p75: null })],
     ['con p75 bajo p25', conBanda({ p25: 7000, p75: 4000 })],
+    ['unidad nula', conBanda({ unidad: null })],
+    ['«sin unidad declarada»', conBanda({ unidad: '  Sin  Unidad Declarada ' })],
+    ['predictibilidad baja', conBanda({ predictibilidad: 'baja' })],
+    ['predictibilidad nula', conBanda({ predictibilidad: null })],
+    // Un precio «del Estado» necesita varios compradores (indexables.py, `de_mercado`).
+    ['de un solo comprador', conBanda({ compradores: 1, cuota_mayor: 1, de_mercado: false })],
+    ['sin decir si es de mercado (backend anterior)', conBanda({ de_mercado: undefined })],
+    ['p25 en $0', conBanda({ p10: 0, p25: 0 })],
+    ['p25 bajo $1', conBanda({ p10: 0.0005, p25: 0.0017 })],
+    ['sin periodo (backend anterior)', { ...PRODUCTO, periodo: undefined }],
+    ['con periodo nulo', { ...PRODUCTO, periodo: null }],
+    ['sin ventana_desde', { ...PRODUCTO, periodo: { ventana_desde: null, ventana_hasta: '2026-09-30' } }],
+    ['con una ventana de fecha imposible', { ...PRODUCTO, periodo: { ventana_desde: '2025-99-01', ventana_hasta: '2026-09-30' } }],
   ])('%s: se oculta', (_, producto) => {
-    expect(lecturaPrecio(producto as ProductoPublico | null)).toBeNull();
+    expect(lecturaPrecio(producto as ProductoPublico | null, REPO)).toBeNull();
   });
 
-  // El filtro de calidad (spec §3.4): mejor ninguna banda que «entre $0 y $0».
-  describe('filtro de calidad sobre la unidad con más compras', () => {
-    it.each([
-      ['unidad nula', conBanda({ unidad: null })],
-      ['unidad vacía', conBanda({ unidad: '   ' })],
-      ['«sin unidad declarada»', conBanda({ unidad: 'sin unidad declarada' })],
-      ['«Sin Unidad Declarada» con espacios', conBanda({ unidad: '  Sin  Unidad Declarada ' })],
-      ['predictibilidad baja', conBanda({ predictibilidad: 'baja' })],
-      // Un precio «del Estado» necesita varios compradores (indexables.py, `de_mercado`).
-      ['de un solo comprador', conBanda({ compradores: 1, cuota_mayor: 1, de_mercado: false })],
-      ['sin decir si es de mercado (backend anterior)', conBanda({ de_mercado: undefined })],
-      ['predictibilidad nula', conBanda({ predictibilidad: null })],
-      ['predictibilidad desconocida', conBanda({ predictibilidad: 'altísima' })],
-      ['p25 en $0', conBanda({ p10: 0, p25: 0 })],
-      ['p25 bajo $1', conBanda({ p10: 0.0005, p25: 0.0017 })],
-      // «Entre $1.150 y $1.150» no dice nada: una banda sin dispersión no es banda.
-      ['p75 igual a p25', conBanda({ p25: 1150, p75: 1150 })],
-      ['todos los precios iguales', conBanda({ p10: 1150, p25: 1150, p50: 1150, p75: 1150, p90: 1150 })],
-      // Distintos en el dato pero escritos igual: «entre $2 millones y $2 millones».
-      ['p25 y p75 iguales al escribirlos, en millones', conBanda({ p10: 1_400_000, p25: 1_500_000, p50: 1_550_000, p75: 1_600_000, p90: 1_700_000 })],
-      ['p25 y p75 iguales al escribirlos, en pesos', conBanda({ p10: 1100, p25: 1150.2, p50: 1150.3, p75: 1150.4, p90: 1200 })],
-    ])('%s: se oculta', (_, producto) => {
-      expect(lecturaPrecio(producto)).toBeNull();
-    });
-  });
-
-  describe('sin periodo, nada: una cifra sin periodo se lee como «de siempre»', () => {
-    it.each([
-      ['sin periodo (backend anterior)', { ...PRODUCTO, periodo: undefined }],
-      ['con periodo nulo', { ...PRODUCTO, periodo: null }],
-      ['con una ventana de fecha imposible', { ...PRODUCTO, periodo: { ventana_desde: '2025-99-01', ventana_hasta: '2026-09-30' } }],
-      ['sin ventana_desde', { ...PRODUCTO, periodo: { ventana_desde: null, ventana_hasta: '2026-09-30' } }],
-      ['sin ventana_hasta', { ...PRODUCTO, periodo: { ventana_desde: '2025-10-01', ventana_hasta: null } }],
-    ])('%s: se oculta', (_, producto) => {
-      expect(lecturaPrecio(producto as ProductoPublico)).toBeNull();
-    });
+  it('predictibilidad media también vale, y la comparación no mira mayúsculas', () => {
+    expect(lecturaPrecio(conBanda({ predictibilidad: ' Media ' }), REPO)).not.toBeNull();
   });
 });
 
-describe('posicionDeRotulo', () => {
-  it('deja los rótulos centrados dentro del riel', () => {
-    expect(posicionDeRotulo(0)).toBe(12);
-    expect(posicionDeRotulo(50)).toBe(50);
-    expect(posicionDeRotulo(100)).toBe(88);
+describe('precioDeBanda (la ficha de producto: sin el filtro de la portada)', () => {
+  it('con un solo comprador: «todas las compras son de» él, un punto y sin franja', () => {
+    const banda = { ...BANDA, compradores: 1, cuota_mayor: 1, de_mercado: false, p25: 16_850, p50: 16_850, p75: 16_850 };
+    const l = precioDeBanda({
+      producto: { ...PRODUCTO, compradores: [{ ...comprador(16_850), nombre: ' Hospital de Prueba ' }] },
+      banda,
+      nombre: 'Por unidad',
+      repositorio: null,
+    })!;
+    expect(l.conclusion).toBe('Por unidad: todas las compras son de Hospital de Prueba');
+    expect(l.grafico.franja).toBeNull();
+    expect(l.grafico.puntos).toHaveLength(1);
+    expect(l.pie).toBe('46 compras de 1 comprador, nov 2025 a oct 2026, precio por unidad. El punto es su mediana.');
+    expect(l.accesible).toEqual(['Precio mediano: $16.850']);
+    expect(textos(l.enlaces)).toEqual(['Cómo se calcula', 'Ver en la API']);
+    expect(l.enlace).toBeNull();
   });
 
-  it('sin posición (NaN), al centro: nunca «left: NaN%»', () => {
-    expect(posicionDeRotulo(Number.NaN)).toBe(50);
-  });
-});
-
-describe('izquierdaDeRotulo', () => {
-  it('centra el rótulo en su marca sin dejar que su mitad se salga del riel', () => {
-    // «$4.200»: 6 caracteres, media anchura de 3ch a cada lado.
-    expect(izquierdaDeRotulo(21.6, '$4.200')).toBe('clamp(3ch, 21.6%, calc(100% - 3ch))');
-    expect(izquierdaDeRotulo(50, 'mediana $5.390')).toBe('clamp(7ch, 50%, calc(100% - 7ch))');
+  it('un solo comprador que no viene en la lista: «un solo comprador»', () => {
+    const banda = { ...BANDA, compradores: 1 };
+    const l = precioDeBanda({ producto: { ...PRODUCTO, compradores: [] }, banda, nombre: 'Por unidad', repositorio: null })!;
+    expect(l.conclusion).toBe('Por unidad: todas las compras son de un solo comprador');
   });
 
-  it('sin tope fijo: en los bordes sólo lo acota su ancho; sin posición, al centro', () => {
-    expect(izquierdaDeRotulo(0, '$1')).toBe('clamp(1ch, 0%, calc(100% - 1ch))');
-    expect(izquierdaDeRotulo(100, '$1')).toBe('clamp(1ch, 100%, calc(100% - 1ch))');
-    expect(izquierdaDeRotulo(Number.NaN, '$1')).toBe('clamp(1ch, 50%, calc(100% - 1ch))');
-  });
-});
-
-describe('rotulosDeBanda', () => {
-  const marca = (posicion: number) => ({ valor: '$1', posicion });
-
-  it('p25 y p75 separados: un rótulo bajo cada uno', () => {
-    expect(rotulosDeBanda(marca(21.6), marca(49.5))).toEqual({ juntos: false, p25: 21.6, p75: 49.5 });
-  });
-
-  it(`a menos del ${SEPARACION_MINIMA_ROTULOS} % del riel entre sí, un solo rótulo en el medio`, () => {
-    expect(rotulosDeBanda(marca(40), marca(50))).toEqual({ juntos: true, centro: 45 });
-    expect(rotulosDeBanda(marca(40), marca(40 + SEPARACION_MINIMA_ROTULOS))).toEqual({
-      juntos: false,
-      p25: 40,
-      p75: 40 + SEPARACION_MINIMA_ROTULOS,
-    });
-  });
-
-  it('cola larga a la derecha: la banda se aprieta contra el inicio y se cuenta tras acotar', () => {
-    // 1 y 9 están a 8 puntos: juntos, centrados en su punto medio de verdad.
-    expect(rotulosDeBanda(marca(1), marca(9))).toEqual({ juntos: true, centro: 5 });
-    // 2 y 25: separados 23 en bruto, pero 13 tras acotar el primero a 12.
-    expect(rotulosDeBanda(marca(2), marca(25))).toEqual({ juntos: true, centro: 13.5 });
-  });
-
-  it('cola larga a la izquierda: igual contra el final', () => {
-    expect(rotulosDeBanda(marca(91), marca(99))).toEqual({ juntos: true, centro: 95 });
-  });
-
-  it('separados, cada uno sobre su marca: la cota es sólo para decidir', () => {
-    expect(rotulosDeBanda(marca(2), marca(40))).toEqual({ juntos: false, p25: 2, p75: 40 });
+  it('sin periodo, el pie no lo inventa', () => {
+    const l = precioDeBanda({ producto: { ...PRODUCTO, periodo: null }, banda: BANDA, nombre: 'Por unidad', repositorio: null })!;
+    expect(l.pie).toMatch(/^46 compras de 40 compradores, precio por unidad\. /);
   });
 });
 
@@ -474,6 +288,7 @@ describe('esProductoPortada', () => {
   it('acepta una unidad o una predictibilidad nulas (el backend las permite): el filtro las oculta después', () => {
     expect(esProductoPortada(conBanda({ unidad: null }))).toBe(true);
     expect(esProductoPortada(conBanda({ predictibilidad: null }))).toBe(true);
+    expect(esProductoPortada({ ...PRODUCTO, compradores: [comprador(null)] })).toBe(true);
   });
 
   it.each([
@@ -484,24 +299,28 @@ describe('esProductoPortada', () => {
     ['n de texto', { ...PRODUCTO, unidades: [{ ...BANDA, n: '184' }] }],
     ['p25 de texto', { ...PRODUCTO, unidades: [{ ...BANDA, p25: '4200' }] }],
     ['un precio negativo', { ...PRODUCTO, unidades: [{ ...BANDA, p90: -1 }] }],
+    ['compradores de la banda con decimales', { ...PRODUCTO, unidades: [{ ...BANDA, compradores: 2.5 }] }],
     ['una predictibilidad de número', { ...PRODUCTO, unidades: [{ ...BANDA, predictibilidad: 1 }] }],
+    ['sin la lista de compradores', { ...PRODUCTO, compradores: undefined }],
+    ['un comprador nulo', { ...PRODUCTO, compradores: [null] }],
+    ['un comprador sin nombre', { ...PRODUCTO, compradores: [{ ...comprador(1), nombre: null }] }],
+    ['un comprador con mediana de texto', { ...PRODUCTO, compradores: [{ ...comprador(1), p50: '1' }] }],
     ['indexable de texto', { ...PRODUCTO, indexable: 'sí' }],
     ['un slug nulo', { ...PRODUCTO, slug: null }],
     ['un periodo que no es objeto', { ...PRODUCTO, periodo: 'oct 2025' }],
-    ['una ventana que no es fecha', { ...PRODUCTO, periodo: { ventana_desde: 2025, ventana_hasta: null } }],
     ['una ventana con mes imposible', { ...PRODUCTO, periodo: { ventana_desde: '2025-13-01', ventana_hasta: '2026-09-30' } }],
   ])('rechaza %s', (_, datos) => {
     expect(esProductoPortada(datos)).toBe(false);
   });
 });
 
-// ── Lectura 3: qué cierra pronto ────────────────────────────────────────────
+// ── Lectura 2: qué cierra pronto ────────────────────────────────────────────
 
 const CIERRES: ResumenPortada = {
-  licitaciones_abiertas: 4232,
-  compra_agil_abiertas: 2714,
-  actualizado_en: '2026-10-14T11:00:00-03:00',
-  compra_agil_por_cierre: { hoy: 312, manana: 740, dos_tres_dias: 1105, despues: 557 },
+  licitaciones_abiertas: 4409,
+  compra_agil_abiertas: 2409,
+  actualizado_en: '2026-10-16T11:06:00-03:00',
+  compra_agil_por_cierre: { hoy: 1160, manana: 202, dos_tres_dias: 782, despues: 265 },
 };
 
 function conTramos(hoy: number, manana: number, dos_tres_dias: number, despues: number): ResumenPortada {
@@ -519,7 +338,7 @@ describe('fraseCierres: los cinco casos de la spec, más N = 1', () => {
     ['N = 1, en singular', 10, 100, '1 de cada 10 Compras Ágiles abiertas cierra hoy o mañana'],
     ['N = 10 con r < 1', 96, 100, 'Casi todas las Compras Ágiles abiertas cierran hoy o mañana'],
     ['r = 1', 5, 5, 'Todas las Compras Ágiles abiertas cierran hoy o mañana'],
-    ['el caso normal', 1052, 2714, '4 de cada 10 Compras Ágiles abiertas cierran hoy o mañana'],
+    ['el caso de producción del 16-10', 1362, 2409, '6 de cada 10 Compras Ágiles abiertas cierran hoy o mañana'],
   ])('%s', (_, pronto, abiertas, frase) => {
     expect(fraseCierres(pronto, abiertas)).toBe(frase);
   });
@@ -532,39 +351,71 @@ describe('fraseCierres: los cinco casos de la spec, más N = 1', () => {
   });
 });
 
+describe('decimosDe: la barra cuenta lo mismo que la frase', () => {
+  it.each([
+    [0, 15, 0],
+    // «Menos de 1 de cada 10»: ninguna celda llena, como el redondeo de la frase.
+    [4, 100, 0],
+    [5, 100, 1],
+    [1362, 2409, 6],
+    [94, 100, 9],
+    // «Casi todas»: las diez llenas.
+    [95, 100, 10],
+    [5, 5, 10],
+  ])('%d de %d → %d celdas', (pronto, abiertas, celdas) => {
+    expect(decimosDe(pronto, abiertas)).toBe(celdas);
+    const frase = fraseCierres(pronto, abiertas);
+    if (celdas >= 2 && celdas <= 9) expect(frase).toMatch(new RegExp(`^${celdas} de cada 10`));
+  });
+});
+
+describe('diaYHora', () => {
+  it('con el día y en hora de Chile, aunque llegue en UTC', () => {
+    expect(diaYHora('2026-10-16T11:06:00-03:00')).toBe('el viernes 16 de octubre a las 11:06');
+    expect(diaYHora('2026-10-16T14:06:00Z')).toBe('el viernes 16 de octubre a las 11:06');
+  });
+
+  it('sin hora legible, nada', () => {
+    expect(diaYHora(null)).toBeNull();
+    expect(diaYHora('ayer a las once')).toBeNull();
+  });
+});
+
 describe('lecturaCierres', () => {
-  it('cuatro columnas, hoy y mañana pintadas, la frase y el pie', () => {
-    const l = lecturaCierres(CIERRES)!;
-    expect(l.conclusion).toBe('4 de cada 10 Compras Ágiles abiertas cierran hoy o mañana');
-    expect(l.pie).toBe('2.714 abiertas, por día de cierre');
-    expect(l.columnas).toEqual([
-      { nombre: 'Hoy', valor: '312', alto: 28, destacada: true },
-      { nombre: 'Mañana', valor: '740', alto: 67, destacada: true },
-      { nombre: 'En 2 o 3 días', valor: '1.105', alto: 100, destacada: false },
-      { nombre: 'Después', valor: '557', alto: 50, destacada: false },
+  it('la frase, los décimos, los cuatro tramos (hoy y mañana en negrita) y el pie con su hora', () => {
+    const l = lecturaCierres(CIERRES, REPO)!;
+    expect(l.conclusion).toBe('6 de cada 10 Compras Ágiles abiertas cierran hoy o mañana');
+    expect(l.decimos).toBe(6);
+    expect(l.tramos).toEqual([
+      { nombre: 'Hoy', valor: '1.160', destacada: true },
+      { nombre: 'Mañana', valor: '202', destacada: true },
+      { nombre: 'En 2 o 3 días', valor: '782', destacada: false },
+      { nombre: 'Después', valor: '265', destacada: false },
+    ]);
+    expect(l.pie).toBe('2.409 abiertas el viernes 16 de octubre a las 11:06, por día de cierre en hora de Chile.');
+  });
+
+  it('los enlaces: las que cierran primero, la API y el código', () => {
+    expect(lecturaCierres(CIERRES, REPO)!.enlaces).toEqual([
+      {
+        texto: 'Las que cierran primero',
+        href: urlCatalogoAbiertas('compra_agil', [], { sort_by: 'fecha_cierre', sort_order: 'asc' }),
+        externo: false,
+      },
+      { texto: 'Ver en la API', href: `${BASE_API_PUBLICA}/publico/portada`, externo: true },
+      { texto: 'Código', href: `${REPO}/blob/main/backend/app/repositories/licitaciones.py`, externo: true },
     ]);
   });
 
-  it('enlaza al catálogo de Compra Ágil abierta por cierre, desde el ayudante', () => {
-    const { enlace } = lecturaCierres(CIERRES)!;
-    expect(enlace).toEqual({
-      texto: 'Ver las que cierran primero',
-      href: urlCatalogoAbiertas('compra_agil', [], { sort_by: 'fecha_cierre', sort_order: 'asc' }),
-    });
-  });
-
-  it('con r = 0 no se pinta ninguna columna', () => {
-    const l = lecturaCierres(conTramos(0, 0, 10, 5))!;
+  it('con r = 0 no hay nada en negrita ni celdas llenas', () => {
+    const l = lecturaCierres(conTramos(0, 0, 10, 5), REPO)!;
     expect(l.conclusion).toBe('Ninguna Compra Ágil abierta cierra hoy ni mañana');
-    expect(l.columnas.map((c) => c.destacada)).toEqual([false, false, false, false]);
-  });
-
-  it('una columna con poco no desaparece; una vacía, sí', () => {
-    expect(lecturaCierres(conTramos(1, 0, 1000, 0))!.columnas.map((c) => c.alto)).toEqual([4, 0, 100, 0]);
+    expect(l.decimos).toBe(0);
+    expect(l.tramos.map((t) => t.destacada)).toEqual([false, false, false, false]);
   });
 
   it('una sola abierta, en singular', () => {
-    expect(lecturaCierres(conTramos(0, 0, 0, 1))!.pie).toBe('1 abierta, por día de cierre');
+    expect(lecturaCierres(conTramos(0, 0, 0, 1), REPO)!.pie).toMatch(/^1 abierta el /);
   });
 
   it.each([
@@ -574,23 +425,63 @@ describe('lecturaCierres', () => {
     ['con los tramos nulos', { ...CIERRES, compra_agil_por_cierre: null }],
     ['con un tramo de texto', { ...CIERRES, compra_agil_por_cierre: { ...CIERRES.compra_agil_por_cierre, hoy: '312' } }],
     ['con un tramo negativo', { ...CIERRES, compra_agil_por_cierre: { ...CIERRES.compra_agil_por_cierre, hoy: -1 } }],
-    ['con tramos que no suman las abiertas', { ...CIERRES, compra_agil_abiertas: 2715 }],
+    ['con tramos que no suman las abiertas', { ...CIERRES, compra_agil_abiertas: 2410 }],
+    ['sin hora', { ...CIERRES, actualizado_en: null }],
+    ['con una hora que no se puede leer', { ...CIERRES, actualizado_en: 'ayer a las once' }],
   ])('%s: se oculta', (_, resumen) => {
-    expect(lecturaCierres(resumen as unknown as ResumenPortada | null)).toBeNull();
+    expect(lecturaCierres(resumen as unknown as ResumenPortada | null, REPO)).toBeNull();
   });
 });
 
-describe('hayLecturas', () => {
-  // Una sola condición para «hay panel»: la usan PanelLecturas (null si no) y
-  // Portada (dos columnas si sí). Copiada en los dos sitios podía separarse.
+// ── Lectura 3: la última nota ───────────────────────────────────────────────
+
+const NOTA: Nota = {
+  slug: 'precio-unitario-dividido-dos-veces',
+  titulo: 'Dividíamos el precio unitario dos veces',
+  fecha: '2026-10-16',
+  resumen: 'Cada línea ya trae el precio de una unidad.',
+  estado: 'arreglado',
+  medido_sobre: 'Órdenes de compra de octubre de 2025 a marzo de 2026. Medido el 16 de octubre de 2026.',
+  fuentes: ['CLAUDE.md: «x»'],
+  cambio: 'https://github.com/cris-middleton/tordo/pull/10',
+  script: 'etl/tests/test_precio_unitario.py',
+  antes_despues: { rotulo: 'Bandas con predictibilidad alta', antes: { etiqueta: 'Antes', valor: 33 }, despues: { etiqueta: 'Después', valor: 82 } },
+  cuerpo: [],
+};
+
+describe('lecturaNota', () => {
+  it('la fecha, el título, el resumen, el antes y después, y el pie con lo que se midió', () => {
+    const l = lecturaNota(NOTA, REPO)!;
+    expect(l.antetitulo).toBe('Nota de datos, 16 de octubre de 2026');
+    expect(l.titulo).toBe(NOTA.titulo);
+    expect(l.resumen).toBe(NOTA.resumen);
+    expect(l.antesDespues).toEqual(NOTA.antes_despues);
+    expect(l.pie).toBe(NOTA.medido_sobre);
+    expect(l.enlaces).toEqual([
+      { texto: 'Leer la nota', href: '/notas/precio-unitario-dividido-dos-veces', externo: false },
+      { texto: 'El script', href: `${REPO}/blob/main/etl/tests/test_precio_unitario.py`, externo: true },
+      { texto: 'El cambio', href: NOTA.cambio, externo: true },
+    ]);
+  });
+
+  it('sin script, sin cambio o sin repositorio, esos enlaces no salen', () => {
+    expect(textos(lecturaNota({ ...NOTA, script: null, cambio: null }, REPO)!.enlaces)).toEqual(['Leer la nota']);
+    expect(textos(lecturaNota(NOTA, null)!.enlaces)).toEqual(['Leer la nota', 'El cambio']);
+  });
+
+  it('sin notas, no hay lectura', () => {
+    expect(lecturaNota(undefined, REPO)).toBeNull();
+  });
+});
+
+describe('cuantasLecturas', () => {
   const algo = {} as never;
   it.each([
-    ['ninguna', { sectores: null, precio: null, cierres: null }, false],
-    ['sólo sectores', { sectores: algo, precio: null, cierres: null }, true],
-    ['sólo precio', { sectores: null, precio: algo, cierres: null }, true],
-    ['sólo cierres', { sectores: null, precio: null, cierres: algo }, true],
-    ['las tres', { sectores: algo, precio: algo, cierres: algo }, true],
+    ['ninguna', { precio: null, cierres: null, nota: null }, 0],
+    ['sólo la nota', { precio: null, cierres: null, nota: algo }, 1],
+    ['precio y cierres', { precio: algo, cierres: algo, nota: null }, 2],
+    ['las tres', { precio: algo, cierres: algo, nota: algo }, 3],
   ])('%s', (_, lecturas, esperado) => {
-    expect(hayLecturas(lecturas)).toBe(esperado);
+    expect(cuantasLecturas(lecturas)).toBe(esperado);
   });
 });

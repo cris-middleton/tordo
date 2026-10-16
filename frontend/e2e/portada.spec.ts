@@ -1,21 +1,20 @@
 import { expect, test, type Page } from '@playwright/test';
 
 /**
- * La portada (spec IDENTIDAD_Y_PORTADA §3 y §8) y `/acerca`, de punta a punta y
- * SIN sesión.
+ * La portada v7 (spec docs/PORTADA_V7_Y_NOTAS_2026-10.md §3 y §9) y `/acerca`, de
+ * punta a punta y SIN sesión.
  *
- * Lo vivo —la tira, el panel de lecturas, la franja y «Lo mejor de hoy»— sale
- * del servidor con ISR. `scripts/e2e.sh` construye con el backend levantado y la
- * semilla puesta, así que la portada suele nacer con lo vivo (con el fixture del
- * golden, sólo la lectura de cierres: los sectores no traen ventana y el producto
- * de la portada no está); aun así se aceptan los dos estados. Lo que no depende
- * de nada es el buscador, y eso se exige siempre: **es lo primero que se ve,
- * también a 390 px** (principio 1). El detalle de cada bloque oculto está en
- * `__tests__/portada.test.tsx`.
+ * Lo vivo —la tira, las lecturas de precio y de cierres, la franja y «Lo mejor de
+ * hoy»— sale del servidor con ISR. `scripts/e2e.sh` construye con el backend
+ * levantado y la semilla puesta, así que la portada suele nacer con lo vivo (con
+ * el fixture del golden, de las dos lecturas vivas sólo la de cierres: el
+ * producto de la portada no está). La de la nota es contenido del repo y sale
+ * siempre: **la banda de lecturas existe siempre**. Lo que no depende de nada es
+ * el buscador, y eso se exige siempre: es lo primero que se ve, también a 390 px
+ * (principio 1). El detalle de cada bloque oculto está en `__tests__/portada.test.tsx`.
  *
  * Las capturas quedan en `test-results/` para mirarlas: el contraste roto en
- * oscuro es invisible en claro, y el panel navy sobre el fondo oscuro se separa
- * menos que en claro (riesgo §12 de la spec).
+ * oscuro es invisible en claro.
  */
 
 const PREGUNTA = '¿Qué le vendes al Estado?';
@@ -23,7 +22,7 @@ const ESTRECHO = { width: 320, height: 640 };
 const MOVIL = { width: 390, height: 844 };
 const TABLETA = { width: 1024, height: 768 };
 const ESCRITORIO = { width: 1440, height: 900 };
-const PANEL = 'Lo que dicen los datos';
+const LECTURAS = 'Lo que dicen los datos';
 
 async function anchoDelDocumento(page: Page): Promise<number> {
   return page.evaluate(() => document.documentElement.scrollWidth);
@@ -40,33 +39,40 @@ async function quienSeSale(page: Page): Promise<string[]> {
   });
 }
 
-/**
- * Lo que el panel recorta. Lleva `overflow-hidden` (por las esquinas), así que lo
- * que se le sale por dentro no ensancha el documento y el control de
- * `scrollWidth` de la página no lo ve: hay que mirarlo dentro. Fuera quedan los
- * `sr-only`, que miden 1 px y se salen a propósito con margen negativo.
- */
-async function recorteDelPanel(page: Page) {
-  return page.getByRole('region', { name: PANEL }).evaluate((panel) => {
-    const caja = panel.getBoundingClientRect();
-    const fuera = [...panel.querySelectorAll('*')]
-      .filter((el) => !el.closest('.sr-only'))
-      .filter((el) => {
-        const r = el.getBoundingClientRect();
-        return r.width > 0 && (r.right > caja.right + 1 || r.left < caja.left - 1);
-      })
-      .slice(0, 8)
-      .map((el) => `${el.tagName.toLowerCase()}.${String(el.getAttribute('class') ?? '').slice(0, 70)} «${(el.textContent ?? '').slice(0, 30)}»`);
-    return { fuera, scroll: panel.scrollWidth, cliente: panel.clientWidth };
-  });
+/** Las cajas de las lecturas de la banda, en orden. */
+async function cajasDeLecturas(page: Page) {
+  return page
+    .getByRole('region', { name: LECTURAS })
+    .getByRole('article')
+    .evaluateAll((articulos) =>
+      articulos.map((a) => {
+        const r = a.getBoundingClientRect();
+        return { x: r.x, y: r.y, ancho: r.width, derecha: r.right };
+      }),
+    );
 }
 
-/** El borde inferior de cada barra de «qué cierra pronto», en px. */
-async function basesDeCierres(page: Page): Promise<number[]> {
-  return page
-    .getByRole('region', { name: PANEL })
-    .locator('article[aria-labelledby="lectura-cierres"] li [style]')
-    .evaluateAll((barras) => barras.map((b) => b.getBoundingClientRect().bottom));
+/**
+ * Las líneas del `h1`: la posición vertical de «¿Qué» y de «al Estado?». Con un
+ * Range sobre el texto, que es lo que se pinta (la caja del h1 no dice dónde parte).
+ */
+async function lineasDelTitular(page: Page) {
+  return page.getByRole('heading', { level: 1 }).evaluate((h1) => {
+    const texto = document.createTreeWalker(h1, NodeFilter.SHOW_TEXT).nextNode() as Text;
+    const arriba = (desde: number, hasta: number) => {
+      const r = document.createRange();
+      r.setStart(texto, desde);
+      r.setEnd(texto, hasta);
+      return r.getBoundingClientRect().top;
+    };
+    const t = texto.data;
+    return {
+      que: arriba(0, 4),
+      vendes: arriba(t.indexOf('vendes'), t.indexOf('vendes') + 6),
+      al: arriba(t.indexOf(' al ') + 1, t.indexOf(' al ') + 3),
+      estado: arriba(t.indexOf('Estado'), t.indexOf('Estado') + 6),
+    };
+  });
 }
 
 test('lo primero es el buscador, y nada de lo que se fue', async ({ page }) => {
@@ -77,7 +83,9 @@ test('lo primero es el buscador, y nada de lo que se fue', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(PREGUNTA);
   await expect(page.getByRole('searchbox', { name: PREGUNTA })).toBeVisible();
   await expect(page.getByRole('list', { name: 'Ejemplos de búsqueda' }).getByRole('link')).toHaveCount(6);
-  await expect(page.getByRole('heading', { level: 2, name: 'Úsalo como quieras' })).toBeVisible();
+  // La nota es contenido del repo: la banda de lecturas sale siempre.
+  await expect(page.getByRole('region', { name: LECTURAS })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Notas de datos' })).toBeVisible();
   await expect(page.getByText(/^Fuente: Dirección de Compras y Contratación Pública/)).toBeVisible();
 
   // Con o sin lo vivo (ISR); si está, completo.
@@ -95,10 +103,9 @@ test('lo primero es el buscador, y nada de lo que se fue', async ({ page }) => {
   // Nada de lo que se fue: ni cuentas, ni el hero, ni el hueco de RESPONSABLE_LEGAL.
   await expect(page.getByText(/prueba gratis|inicia sesión|informe semanal|alertas/i)).toHaveCount(0);
   await expect(page.getByText(/\[\[/)).toHaveCount(0);
-  // La única superficie oscura es el panel de lecturas, y lleva `dark`.
-  const oscuras = page.locator('.bg-brand-navy');
-  expect(await oscuras.count()).toBeLessThanOrEqual(1);
-  if (await oscuras.count()) await expect(oscuras).toHaveClass(/\bdark\b/);
+  // V1: sin panel navy. Ninguna superficie oscura dentro de la página.
+  await expect(page.locator('main .bg-brand-navy, main .dark')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Úsalo como quieras' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: /qué hay en el sitio|preguntas frecuentes/i })).toHaveCount(0);
 });
 
@@ -125,8 +132,8 @@ test('buscar desde la portada abre /buscar con el término', async ({ page }) =>
 
 test('un ejemplo abre su búsqueda', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('list', { name: 'Ejemplos de búsqueda' }).getByRole('link', { name: 'tóner' }).click();
-  await expect(page).toHaveURL(/\/buscar\?q=t%C3%B3ner$/);
+  await page.getByRole('list', { name: 'Ejemplos de búsqueda' }).getByRole('link', { name: 'cloro' }).click();
+  await expect(page).toHaveURL(/\/buscar\?q=cloro$/);
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 });
 
@@ -145,14 +152,8 @@ test('a 390 px el buscador y su botón quedan en la primera pantalla, sin desbor
   expect(await anchoDelDocumento(page), (await quienSeSale(page)).join('\n')).toBeLessThanOrEqual(MOVIL.width);
 });
 
-test('lo abierto lleva a /abierto, y el pie a /acerca', async ({ page }) => {
+test('el pie lleva a /acerca', async ({ page }) => {
   await page.goto('/');
-  await page
-    .getByRole('region', { name: 'Úsalo como quieras' })
-    .getByRole('link', { name: 'API', exact: true })
-    .click();
-  await expect(page).toHaveURL(/\/abierto#api$/);
-
   await page.getByRole('contentinfo').getByRole('link', { name: 'Acerca', exact: true }).click();
   await expect(page).toHaveURL(/\/acerca$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^acerca de /i);
@@ -160,21 +161,46 @@ test('lo abierto lleva a /abierto, y el pie a /acerca', async ({ page }) => {
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /\/acerca$/);
 });
 
-for (const viewport of [TABLETA, MOVIL]) {
-  test(`a ${viewport.width} px el panel va ${viewport.width >= 1024 ? 'a la derecha del' : 'debajo del'} buscador`, async ({ page }) => {
+for (const viewport of [TABLETA, ESCRITORIO]) {
+  test(`a ${viewport.width} px el h1 va en dos líneas, «¿Qué le vendes / al Estado?»`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.goto('/');
-    // La semilla del E2E trae cierres: el panel tiene que existir.
-    const panel = page.getByRole('region', { name: PANEL });
-    await expect(panel).toBeVisible();
-    await expect(panel).toHaveClass(/\bdark\b/);
-    const campo = await page.getByRole('searchbox', { name: PREGUNTA }).boundingBox();
-    const caja = await panel.boundingBox();
-    expect(campo && caja, 'sin caja: ¿no se pintó?').toBeTruthy();
-    if (viewport.width >= 1024) expect(caja!.x).toBeGreaterThan(campo!.x + campo!.width);
-    else expect(caja!.y).toBeGreaterThan(campo!.y + campo!.height);
+    const l = await lineasDelTitular(page);
+    expect(Math.abs(l.vendes - l.que), '«vendes» en la primera línea').toBeLessThanOrEqual(2);
+    expect(l.al - l.que, '«al» baja a la segunda línea').toBeGreaterThan(20);
+    expect(Math.abs(l.estado - l.al), '«Estado?» junto a «al»').toBeLessThanOrEqual(2);
+  });
+
+  test(`a ${viewport.width} px las lecturas van en una fila, debajo del buscador y sin desborde`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto('/');
+    const banda = page.getByRole('region', { name: LECTURAS });
+    await expect(banda).toBeVisible();
+    const cajas = await cajasDeLecturas(page);
+    expect(cajas.length, 'la nota sale siempre; con la semilla, también los cierres').toBeGreaterThanOrEqual(2);
+    const caja = (await banda.boundingBox())!;
+    for (const [i, c] of cajas.entries()) {
+      expect(Math.abs(c.y - cajas[0].y), 'todas arrancan a la misma altura').toBeLessThanOrEqual(1);
+      expect(c.derecha, 'no se sale de la banda').toBeLessThanOrEqual(caja.x + caja.width + 1);
+      if (i > 0) expect(c.x, 'una al lado de la otra').toBeGreaterThanOrEqual(cajas[i - 1].derecha - 1);
+      // Las que están se reparten el ancho por igual.
+      expect(Math.abs(c.ancho - caja.width / cajas.length), `ancho ${c.ancho}`).toBeLessThanOrEqual(caja.width * 0.05);
+    }
+    const campo = (await page.getByRole('searchbox', { name: PREGUNTA }).boundingBox())!;
+    expect(caja.y).toBeGreaterThan(campo.y + campo.height);
+    expect(await anchoDelDocumento(page), (await quienSeSale(page)).join('\n')).toBeLessThanOrEqual(viewport.width);
   });
 }
+
+test('a 390×844 la conclusión de la primera lectura queda sobre el pliegue', async ({ page }) => {
+  await page.setViewportSize(MOVIL);
+  await page.goto('/');
+  // Con la semilla del E2E, la primera es la de cierres (el producto de la portada no está).
+  const primera = page.getByRole('region', { name: LECTURAS }).getByRole('heading', { level: 3 }).first();
+  await expect(primera).toBeVisible();
+  const caja = (await primera.boundingBox())!;
+  expect(caja.y + caja.height, `la conclusión termina en y = ${caja.y + caja.height}`).toBeLessThanOrEqual(MOVIL.height);
+});
 
 const PANTALLAS = [
   { ruta: '/', nombre: 'portada', titulo: PREGUNTA, anchos: [ESTRECHO, MOVIL, TABLETA, ESCRITORIO] },
@@ -205,16 +231,12 @@ for (const tema of ['claro', 'oscuro'] as const) {
         );
 
         if (ruta === '/') {
-          // La semilla trae cierres: el panel existe. Y no esconde nada tras su overflow-hidden.
-          await expect(page.getByRole('region', { name: PANEL })).toBeVisible();
-          const { fuera, scroll, cliente } = await recorteDelPanel(page);
-          expect(fuera, 'se sale del panel (y overflow-hidden lo corta)').toEqual([]);
-          expect(scroll, 'el panel recorta contenido').toBeLessThanOrEqual(cliente + 1);
-          if (viewport.width === MOVIL.width) {
-            // «En 2 o 3 días» en dos líneas no puede subir su barra: una sola línea de base.
-            const bases = await basesDeCierres(page);
-            expect(bases).toHaveLength(4);
-            expect(Math.max(...bases) - Math.min(...bases), `bases: ${bases.join(', ')}`).toBeLessThanOrEqual(1);
+          // La banda de lecturas existe siempre (la nota es del repo), y ninguna se sale de ella.
+          const banda = page.getByRole('region', { name: LECTURAS });
+          await expect(banda).toBeVisible();
+          const caja = (await banda.boundingBox())!;
+          for (const c of await cajasDeLecturas(page)) {
+            expect(c.derecha, 'una lectura se sale de la banda').toBeLessThanOrEqual(caja.x + caja.width + 1);
           }
         }
       });

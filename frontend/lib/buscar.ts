@@ -44,18 +44,19 @@ export const COMPRAS_AGILES_EN_BUSCAR = 3;
 export const COMPRADORES_EN_BUSCAR = 5;
 
 /**
- * Los ejemplos clicables de `/buscar` y de la portada. Verificados contra
- * producción el 2026-10-15 (rediseño 0e: cada uno trae productos indexables).
+ * Los ejemplos clicables de `/buscar` y de la portada (spec PORTADA_V7 §3.8).
+ * Verificados contra producción el 2026-10-16: cada uno trae una ficha indexable.
+ * Cosas que una PYME vende y un comprador público pide, de varios rubros.
  * Sin nombres cortos ni alfanuméricos («pc», «A4», «3M»): la búsqueda de precios
  * los descarta y no encontrarían nada.
  */
 export const EJEMPLOS_BUSQUEDA = [
-  'guantes de nitrilo',
-  'papel higiénico',
-  'jabón líquido',
-  'tóner',
-  'resma de papel carta',
-  'agua purificada en bidones',
+  'lápiz pasta',
+  'cloro',
+  'agua mineral',
+  'impresora',
+  'pendón',
+  'cambio de aceite',
 ] as const;
 
 export interface Busqueda {

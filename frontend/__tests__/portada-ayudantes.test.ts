@@ -22,12 +22,12 @@ import { PRODUCTO_PORTADA } from '@/lib/lecturasPortada';
 import { HORAS_HABILES } from '@/lib/compraAgil';
 import * as moduloPortada from '@/lib/portada';
 import {
+  baseDeLaFicha,
   franjaDeLaPortada,
   PLACEHOLDER_BUSCADOR,
   SE_ACTUALIZA,
   SUBTITULO_PORTADA,
   tiraDeLaPortada,
-  usosAbiertos,
 } from '@/lib/portada';
 import { MAXIMO_BUSQUEDA_PRODUCTOS, MINIMO_BUSQUEDA_PRODUCTOS } from '@/lib/queries';
 import type { ResumenPortada } from '@/types/publico';
@@ -39,14 +39,14 @@ const RESUMEN: ResumenPortada = {
 };
 
 describe('los ejemplos de búsqueda', () => {
-  it('son los verificados en producción el 2026-10-15, en su orden', () => {
+  it('son los verificados en producción el 2026-10-16, en su orden (spec PORTADA_V7 §3.8)', () => {
     expect([...EJEMPLOS_BUSQUEDA]).toEqual([
-      'guantes de nitrilo',
-      'papel higiénico',
-      'jabón líquido',
-      'tóner',
-      'resma de papel carta',
-      'agua purificada en bidones',
+      'lápiz pasta',
+      'cloro',
+      'agua mineral',
+      'impresora',
+      'pendón',
+      'cambio de aceite',
     ]);
   });
 
@@ -110,22 +110,9 @@ describe('tiraDeLaPortada', () => {
   });
 });
 
-describe('usosAbiertos', () => {
-  it('sin repositorio: API, MCP, CSV y RSS, cada uno a su sección de /abierto', () => {
-    expect(usosAbiertos(null)).toEqual([
-      { nombre: 'API', href: '/abierto#api' },
-      { nombre: 'MCP para Claude y ChatGPT', href: '/abierto#mcp' },
-      { nombre: 'CSV', href: '/abierto#datos' },
-      { nombre: 'RSS', href: '/abierto#datos' },
-    ]);
-  });
-
-  it('con repositorio, también «Código», fuera del sitio', () => {
-    expect(usosAbiertos('https://github.com/x/tordo').at(-1)).toEqual({
-      nombre: 'Código',
-      href: 'https://github.com/x/tordo',
-      externo: true,
-    });
+describe('lo que se fue de la portada (spec PORTADA_V7 V11)', () => {
+  it('«Úsalo como quieras»: la salida a API, MCP y CSV es una, la de la cabecera y el pie', () => {
+    expect(moduloPortada).not.toHaveProperty('usosAbiertos');
   });
 });
 
@@ -136,9 +123,9 @@ describe('el lema', () => {
 });
 
 describe('los textos fijos de la portada', () => {
-  it('el subtítulo dice qué hace la búsqueda (spec §6.2)', () => {
+  it('el subtítulo dice qué responde la búsqueda (spec PORTADA_V7 §3.8)', () => {
     expect(SUBTITULO_PORTADA).toBe(
-      'Escribe lo que vendes. Te mostramos cuánto ha pagado el Estado, quién lo compra y qué está abierto hoy.',
+      'Antes de cotizar, mira a qué precio se compró en los últimos 12 meses, quién lo compra y qué puedes postular hoy.',
     );
   });
 
@@ -148,7 +135,47 @@ describe('los textos fijos de la portada', () => {
   });
 
   it('«se actualiza» sale del horario del cron frecuente, no se escribe', () => {
-    expect(SE_ACTUALIZA).toBe(`${HORAS_HABILES.length} veces cada día hábil; el análisis, cada semana`);
+    expect(SE_ACTUALIZA).toBe(`El catálogo, ${HORAS_HABILES.length} veces cada día hábil. El análisis, cada domingo.`);
+  });
+});
+
+describe('baseDeLaFicha (spec PORTADA_V7 §3.5, V6): la escala del dato, calculada', () => {
+  const sector = (sector: string, n_oc: number | null | undefined, desde = '2023-11-01', hasta = '2026-10-31') => ({
+    sector,
+    monto_total: 1e12,
+    n_oc,
+    ventana_desde: desde,
+    ventana_hasta: hasta,
+  });
+
+  it('la suma de n_oc de todos los sectores, en millones con dos decimales, y la ventana', () => {
+    const sectores = { disponible: true, sectores: [sector('Salud', 3_000_000), sector('Municipalidades', 2_480_123)] };
+    expect(baseDeLaFicha(sectores)).toBe('5,48 millones de órdenes de compra, nov 2023 a oct 2026');
+  });
+
+  it('la ventana es la mínima y la máxima de sus filas', () => {
+    const sectores = {
+      disponible: true,
+      sectores: [sector('Salud', 10, '2024-01-01', '2026-09-30'), sector('FFAA', 20, '2023-11-01', '2026-08-31')],
+    };
+    expect(baseDeLaFicha(sectores)).toBe('30 órdenes de compra, nov 2023 a sept 2026');
+  });
+
+  it('bajo un millón, el número entero; justo un millón, en singular', () => {
+    expect(baseDeLaFicha({ disponible: true, sectores: [sector('Salud', 950_000)] })).toMatch(/^950\.000 órdenes de compra, /);
+    expect(baseDeLaFicha({ disponible: true, sectores: [sector('Salud', 1_000_000)] })).toMatch(/^1 millón de órdenes de compra, /);
+    expect(baseDeLaFicha({ disponible: true, sectores: [sector('Salud', 1)] })).toMatch(/^1 orden de compra, /);
+  });
+
+  it.each([
+    ['sin respuesta (503: FEATURE_ANALYTICS apagada)', null],
+    ['la tabla no está', { disponible: false }],
+    ['sin sectores', { disponible: true, sectores: [] }],
+    ['una fila sin n_oc (backend anterior: la suma mentiría)', { disponible: true, sectores: [sector('Salud', 10), sector('FFAA', undefined)] }],
+    ['todo en 0', { disponible: true, sectores: [sector('Salud', 0)] }],
+    ['sin ventana', { disponible: true, sectores: [{ sector: 'Salud', monto_total: 1, n_oc: 10 }] }],
+  ])('%s: la fila no sale', (_, sectores) => {
+    expect(baseDeLaFicha(sectores as never)).toBeNull();
   });
 });
 
@@ -252,8 +279,9 @@ describe('la copia de PRODUCTO_PORTADA en scripts/verificar-produccion.sh', () =
     expect(seccion).toMatch(/^\s*sleep 1$/m);
   });
 
-  it('exige p75 > p25 estricto, como lecturaPrecio', () => {
-    expect(seccion).toMatch(/1 <= p25 < p75/);
+  it('exige p75 ≥ p25, como lecturaPrecio: P25 = P75 ya no oculta la lectura (portada v7 §3.2)', () => {
+    expect(seccion).toMatch(/1 <= p25 <= p75/);
+    expect(seccion).not.toMatch(/plata\(p25\) != plata\(p75\)/);
   });
 
   it('exige un precio de mercado (`de_mercado` de la API), como lecturaPrecio', () => {

@@ -1,8 +1,11 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
+import { PieDeMetodo } from '@/components/metodo/PieDeMetodo';
+import { GraficoPrecio } from '@/components/precio/GraficoPrecio';
 import { BandaPrecio } from '@/components/publico/BandaPrecio';
 import { CabeceraFicha, EnlacePanel, Seccion, TablaEnlaces } from '@/components/publico/Piezas';
+import { precioDeBanda } from '@/lib/lecturasPortada';
 import {
   categoriaProducto,
   entero,
@@ -10,10 +13,12 @@ import {
   nombreProducto,
   plata,
   rutaComprador,
+  tituloDeBanda,
   unidadDeclarada,
 } from '@/lib/publico';
 import { textoPeriodo } from '@/lib/periodo';
 import { pedirPublico, segmento } from '@/lib/publicoServidor';
+import { urlRepositorio } from '@/lib/repositorio';
 import type { ProductoPublico } from '@/types/publico';
 
 /**
@@ -32,6 +37,12 @@ import type { ProductoPublico } from '@/types/publico';
  * Un producto con pocas compras, de pocos compradores o con precio muy disperso
  * responde igual (`indexable: false`): la página existe, con `noindex`, y se
  * llega por búsqueda o por enlace.
+ *
+ * Encima de «Quién lo compra», el gráfico de precio de la portada (spec
+ * PORTADA_V7 §6): un punto por comprador de la unidad con más compras sobre su
+ * franja P25–P75, con su pie de método. Mismos componentes y mismas reglas
+ * (`precioDeBanda`), sin el filtro de la portada: aquí se ve también la banda de
+ * un solo comprador, y la frase lo dice.
  */
 
 export const dynamicParams = true;
@@ -59,6 +70,10 @@ export default async function PaginaProducto({ params }: Props) {
   const nombre = nombreProducto(p);
   const categoria = categoriaProducto(p);
   const periodo = textoPeriodo({ desde: p.periodo?.ventana_desde, hasta: p.periodo?.ventana_hasta });
+  const principal = p.unidades[0];
+  const precio = principal
+    ? precioDeBanda({ producto: p, banda: principal, nombre: tituloDeBanda(principal.unidad), repositorio: urlRepositorio() })
+    : null;
 
   return (
     <article>
@@ -106,6 +121,23 @@ export default async function PaginaProducto({ params }: Props) {
           </div>
         )}
       </Seccion>
+
+      {precio && (
+        <Seccion titulo="Cuánto pagó cada comprador">
+          <div className="max-w-2xl">
+            <h3 className="font-sans text-[17px] font-bold leading-snug text-text">{precio.conclusion}</h3>
+            <div className="mt-4">
+              <GraficoPrecio datos={precio.grafico} />
+              <ul className="sr-only">
+                {precio.accesible.map((t) => (
+                  <li key={t}>{t}</li>
+                ))}
+              </ul>
+            </div>
+            <PieDeMetodo texto={precio.pie} enlaces={precio.enlaces} className="mt-6" />
+          </div>
+        </Seccion>
+      )}
 
       <Seccion titulo="Quién lo compra" descripcion="Los diez compradores con más compras de este producto.">
         <TablaEnlaces

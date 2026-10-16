@@ -1,19 +1,21 @@
 /**
- * La portada (spec del rediseño §6.3 e IDENTIDAD_Y_PORTADA §3): a la izquierda
- * se busca, a la derecha se lee; debajo, la franja de hoy y lo vivo.
+ * La portada v7 (spec docs/PORTADA_V7_Y_NOTAS_2026-10.md §3 y §9): arriba se
+ * busca, con las cifras y la ficha al lado; debajo, «Lo que dicen los datos», la
+ * franja de hoy, «Lo mejor de hoy» y las notas de datos.
  *
  * Se fija:
- *   1. las cuatro piezas —la tira y la franja, «Lo mejor de hoy» y las dos
- *      lecturas de analytics— se piden como RENDERIZADO DEL SERVIDOR (lo vivo
- *      media hora con `compra-agil`, analytics una semana con `analytics`), y
- *      **si una falla se oculta SU bloque**: la portada no lanza, ni con un 500,
- *      ni sin red, ni con una respuesta rara, ni con una hora que no se puede leer;
+ *   1. las cuatro piezas —la tira y la franja, «Lo mejor de hoy», los sectores
+ *      (la «Base» de la ficha) y el producto (la lectura de precio)— se piden como
+ *      RENDERIZADO DEL SERVIDOR (lo vivo media hora con `compra-agil`, analytics
+ *      una semana con `analytics`), y **si una falla se oculta SU bloque**: la
+ *      portada no lanza, ni con un 500, ni sin red, ni con una respuesta rara, ni
+ *      con una hora que no se puede leer;
  *   2. el buscador no depende de nada: con el backend caído, la portada sirve
- *      para buscar;
- *   3. «Código» y «hecho por» sólo con su variable: nunca un enlace roto,
- *      una promesa falsa ni el hueco `[[…]]` de los documentos legales;
- *   4. nada de lo que se fue: ni hero, ni bandas, ni accesos, ni preguntas (están
- *      en /acerca), ni lo que se fue con las cuentas;
+ *      para buscar, y la lectura de la nota sigue (es contenido del repo);
+ *   3. «Código» y «Lo hace» sólo con su variable: nunca un enlace roto ni el
+ *      hueco `[[…]]` de los documentos legales;
+ *   4. nada de lo que se fue: ni el panel navy, ni la lectura de sectores, ni
+ *      «Úsalo como quieras», ni el cierre, ni preguntas (están en /acerca);
  *   5. sigue siendo un componente de servidor con `metadata`, sin «Inteligencia» (R10).
  */
 import { readdirSync, readFileSync } from 'node:fs';
@@ -24,10 +26,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import Home, { metadata, revalidate } from '@/app/page';
 import { descripcionDestacadas, TITULO_DESTACADAS } from '@/lib/compraAgil';
-import { COSTO_MENSUAL_APROXIMADO } from '@/lib/costos';
 import { urlCatalogoAbiertas } from '@/lib/filtrosCatalogo';
 import { EJEMPLOS_BUSQUEDA } from '@/lib/buscar';
 import { PRODUCTO_PORTADA } from '@/lib/lecturasPortada';
+import { leerNotas, rutaNota } from '@/lib/notas';
 import * as portada from '@/lib/portada';
 import { rutaProducto } from '@/lib/publico';
 import { pedirDestacadas } from '@/lib/publicoServidor';
@@ -79,24 +81,25 @@ const SECTORES: SectoresBI = {
   disponible: true,
   total: 3,
   sectores: [
-    { sector: 'Salud', monto_total: 2.9816e12, ...VENTANA },
-    { sector: 'Municipalidades', monto_total: 2.9484e12, ...VENTANA },
-    { sector: 'Gob. Central, Universidades', monto_total: 1.9975e12, ...VENTANA },
+    { sector: 'Salud', monto_total: 2.9816e12, n_oc: 2_000_000, ...VENTANA },
+    { sector: 'Municipalidades', monto_total: 2.9484e12, n_oc: 2_480_000, ...VENTANA },
+    { sector: 'Gob. Central, Universidades', monto_total: 1.9975e12, n_oc: 1_000_000, ...VENTANA },
   ],
 };
+const BASE = '5,48 millones de órdenes de compra, nov 2023 a oct 2026';
 
 const BANDA: BandaUnidad = {
-  unidad: 'Caja',
-  n: 184,
-  p10: 2100,
-  p25: 4200,
-  p50: 5390,
-  p75: 6900,
-  p90: 11800,
-  predictibilidad: 'media',
-  confianza: 0.9,
-  compradores: 44,
-  cuota_mayor: 0.05,
+  unidad: 'unidad',
+  n: 46,
+  p10: 129_990,
+  p25: 150_921,
+  p50: 190_762,
+  p75: 240_000,
+  p90: 369_990,
+  predictibilidad: 'alta',
+  confianza: 0.79,
+  compradores: 40,
+  cuota_mayor: 0.04,
   de_mercado: true,
 };
 const PRODUCTO: ProductoPublico = {
@@ -107,14 +110,24 @@ const PRODUCTO: ProductoPublico = {
   descripcion: null,
   indexable: true,
   unidades: [BANDA],
-  compradores: [],
-  periodo: { ventana_desde: '2025-10-01', ventana_hasta: '2026-09-30' },
+  compradores: [120_000, 160_000, 190_000, 230_000, 300_000].map((p50, i) => ({
+    codigo: `c${i}`,
+    nombre: `Municipalidad ${i}`,
+    unidad: 'unidad',
+    n: 3,
+    p50,
+  })),
+  periodo: { ventana_desde: '2025-11-01', ventana_hasta: '2026-10-31' },
 };
 
-const CONCLUSION_SECTORES = 'Salud y municipios compran casi lo mismo';
-const CONCLUSION_PRECIO = `${PRODUCTO_PORTADA.nombre}: la mitad se pagó entre $4.200 y $6.900`;
+const NOTAS = leerNotas();
+const CONCLUSION_PRECIO = `${PRODUCTO_PORTADA.nombre}: la mitad se pagó entre $150.921 y $240.000`;
 const CONCLUSION_CIERRES = '4 de cada 10 Compras Ágiles abiertas cierran hoy o mañana';
-const PANEL = 'Lo que dicen los datos';
+const TITULO_NOTA = NOTAS[0].titulo;
+const LECTURAS = 'Lo que dicen los datos';
+
+/** Las conclusiones de las lecturas (los `h3` de la banda), en orden. */
+const conclusiones = () => screen.queryAllByRole('heading', { level: 3 }).map((h) => h.textContent);
 
 type Respuesta = () => Promise<Response>;
 const ok =
@@ -158,6 +171,7 @@ afterEach(() => {
   delete process.env.REPOSITORIO_URL;
   delete process.env.RESPONSABLE_LEGAL;
   delete process.env.AUTOR_NOMBRE;
+  delete process.env.AUTOR_URL;
 });
 
 describe('lo que la portada pide al backend', () => {
@@ -248,10 +262,10 @@ describe('lo primero: el buscador', () => {
     expect(screen.getByRole('list', { name: 'Ejemplos de búsqueda' })).toBeInTheDocument();
     expect(screen.queryByRole('list', { name: 'Abiertas ahora' })).toBeNull();
     expect(container.querySelector('#hoy')).toBeNull();
-    expect(screen.getByRole('heading', { level: 2, name: 'Úsalo como quieras' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Apoyar' })).toHaveAttribute('href', '/apoyar');
-    expect(screen.queryByRole('region', { name: PANEL })).toBeNull();
     expect(screen.queryByText('Actualizado el')).toBeNull();
+    // La nota es contenido del repo: la banda sigue, con una sola lectura.
+    expect(conclusiones()).toEqual([TITULO_NOTA]);
+    expect(screen.getByRole('region', { name: 'Notas de datos' })).toBeInTheDocument();
   });
 });
 
@@ -364,39 +378,67 @@ describe('«Lo mejor de hoy»', () => {
   });
 });
 
-describe('lo abierto y quién lo hace', () => {
-  it('sin REPOSITORIO_URL: ni «Código» ni «código abierto»', async () => {
+describe('quién lo hace y de dónde sale (spec PORTADA_V7 §3.5, §3.6)', () => {
+  it('sin REPOSITORIO_URL: ningún «Código» ni «El script»', async () => {
     todo();
     const { container } = render(await Home());
     expect(screen.queryByRole('link', { name: 'Código' })).toBeNull();
-    expect(container.textContent).not.toMatch(/código abierto|código y api abiertos/i);
+    expect(screen.queryByRole('link', { name: 'El script' })).toBeNull();
+    expect(container.textContent).not.toMatch(/código abierto/i);
   });
 
-  it('con REPOSITORIO_URL: «Código» enlazado', async () => {
+  it('con REPOSITORIO_URL: «Código» en el pie de cada lectura calculada, al fichero que la calcula', async () => {
     process.env.REPOSITORIO_URL = 'https://github.com/x/tordo';
     todo();
     render(await Home());
-    expect(screen.getByRole('link', { name: 'Código' })).toHaveAttribute('href', 'https://github.com/x/tordo');
+    expect(screen.getAllByRole('link', { name: 'Código' }).map((a) => a.getAttribute('href'))).toEqual([
+      'https://github.com/x/tordo/blob/main/etl/analytics/product_price_bands.py',
+      'https://github.com/x/tordo/blob/main/backend/app/repositories/licitaciones.py',
+    ]);
   });
 
-  it('el lema se fue: lo que decía queda en la ficha', async () => {
+  it('la ficha: Base calculada de /bi/sector, Fuente y Se actualiza', async () => {
     todo();
+    render(await Home());
+    expect(screen.getByText('Base').nextElementSibling).toHaveTextContent(BASE);
+    expect(screen.getByText('Fuente').nextElementSibling).toHaveTextContent('Datos abiertos de ChileCompra');
+    expect(screen.getByText('Se actualiza').nextElementSibling).toHaveTextContent(portada.SE_ACTUALIZA);
+  });
+
+  it.each([
+    ['503 (FEATURE_ANALYTICS apagada)', async () => new Response('{}', { status: 503 })],
+    ['sin la tabla', ok({ disponible: false, motivo: 'parquet no generado' })],
+    ['sin n_oc (backend anterior)', ok({ ...SECTORES, sectores: SECTORES.sectores!.map(({ n_oc: _n, ...f }) => f) })],
+    [
+      'sin ventana',
+      ok({ ...SECTORES, sectores: SECTORES.sectores!.map(({ sector, monto_total, n_oc }) => ({ sector, monto_total, n_oc })) }),
+    ],
+  ])('con /bi/sector %s, la fila «Base» no sale y lo demás sigue', async (_, sectores) => {
+    simularBackend({ ...TODO, sectores });
     const { container } = render(await Home());
-    expect(container.textContent).not.toMatch(/gratis \(de verdad\)|sin cuentas, sin publicidad/i);
+    expect(screen.queryByText('Base')).toBeNull();
     expect(screen.getByText('Fuente')).toBeInTheDocument();
+    expect(conclusiones()).toEqual([CONCLUSION_PRECIO, CONCLUSION_CIERRES, TITULO_NOTA]);
+    expect(container.textContent).not.toMatch(/NaN|undefined/);
   });
 
   it('sin AUTOR_NOMBRE no firma, y nunca enseña el hueco', async () => {
     todo();
     const { container } = render(await Home());
-    expect(container.textContent).not.toMatch(/lo hace|\[\[/i);
+    expect(container.textContent).not.toMatch(/lo hace|data scientist|\[\[/i);
+    expect(screen.queryByRole('complementary', { name: 'Quién lo hace' })).toBeNull();
   });
 
-  it('con AUTOR_NOMBRE, «Lo hace» y el nombre', async () => {
+  it('con AUTOR_NOMBRE y AUTOR_URL: «Lo hace» en la ficha y la ficha del autor junto a las notas', async () => {
     process.env.AUTOR_NOMBRE = 'Nombre De Prueba';
+    process.env.AUTOR_URL = 'https://github.com/prueba';
     todo();
     render(await Home());
-    expect(screen.getByText('Lo hace Nombre De Prueba.')).toBeInTheDocument();
+    expect(screen.getByText('Lo hace').nextElementSibling).toHaveTextContent('Nombre De Prueba, data scientist');
+    const ficha = screen.getByRole('complementary', { name: 'Quién lo hace' });
+    expect(ficha).toHaveTextContent(/Nombre De Prueba hace .+\. Es data scientist/);
+    expect(within(ficha).getByRole('link', { name: 'GitHub' })).toHaveAttribute('href', 'https://github.com/prueba');
+    expect(screen.getByRole('region', { name: 'Notas de datos' })).toContainElement(ficha);
   });
 
   it('firma la autoría, no el responsable legal (spec PORTADA_V7 V5)', async () => {
@@ -405,26 +447,31 @@ describe('lo abierto y quién lo hace', () => {
     const { container } = render(await Home());
     expect(container.textContent).not.toMatch(/Otra Persona/);
   });
+});
 
-  it('el costo sale de lib/costos y enlaza al desglose', async () => {
+describe('las notas de datos', () => {
+  it('las cuatro últimas, con fecha y título, y «Todas las notas»', async () => {
     todo();
     render(await Home());
-    expect(screen.getByRole('link', { name: `~${COSTO_MENSUAL_APROXIMADO} al mes` })).toHaveAttribute(
-      'href',
-      '/apoyar#costos',
-    );
+    const seccion = screen.getByRole('region', { name: 'Notas de datos' });
+    const enlaces = within(within(seccion).getByRole('list')).getAllByRole('link');
+    expect(enlaces.map((a) => a.textContent)).toEqual(NOTAS.slice(0, 4).map((n) => n.titulo));
+    expect(enlaces.map((a) => a.getAttribute('href'))).toEqual(NOTAS.slice(0, 4).map((n) => rutaNota(n.slug)));
+    expect(within(seccion).getByRole('link', { name: 'Todas las notas' })).toHaveAttribute('href', '/notas');
   });
 });
 
 describe('lo que ya no está', () => {
-  it('ni hero, ni bandas, ni accesos, ni preguntas frecuentes (están en /acerca)', async () => {
+  it('ni panel navy, ni sectores, ni «Úsalo como quieras», ni el cierre, ni preguntas (están en /acerca)', async () => {
     todo();
     const { container } = render(await Home());
     expect(container.innerHTML).not.toMatch(/bg-band\d/);
-    // La única superficie oscura es el panel de lecturas, y lleva `dark`.
-    const oscuras = container.querySelectorAll('.bg-brand-navy');
-    expect(oscuras).toHaveLength(1);
-    expect(oscuras[0]).toHaveClass('dark');
+    // V1: las lecturas van sobre blanco. Ninguna superficie oscura en la portada.
+    expect(container.querySelectorAll('.bg-brand-navy, .dark')).toHaveLength(0);
+    expect(screen.queryByRole('link', { name: 'Ver mercados' })).toBeNull();
+    expect(container.textContent).not.toMatch(/compran casi lo mismo|De cada \$100/);
+    expect(screen.queryByRole('heading', { name: 'Úsalo como quieras' })).toBeNull();
+    expect(container.textContent).not.toMatch(/Mantenerlo, casi|Se usa/);
     expect(screen.queryByRole('heading', { name: /qué hay en el sitio|preguntas frecuentes/i })).toBeNull();
     expect(container.querySelector('details')).toBeNull();
     expect(portada).not.toHaveProperty('ACCESOS');
@@ -441,48 +488,91 @@ describe('lo que ya no está', () => {
   });
 });
 
-describe('dos columnas: a la izquierda se busca, a la derecha se lee', () => {
-  it('max-w-6xl, y desde lg dos columnas con el panel a la derecha', async () => {
+describe('la estructura (spec PORTADA_V7 §3.1 y §3.7)', () => {
+  it('desde lg, la fila de entrada en 7/5: el buscador a la izquierda, las cifras y la ficha a la derecha', async () => {
     todo();
     const { container } = render(await Home());
     expect(container.querySelector('.max-w-6xl')).not.toBeNull();
-    const rejilla = screen.getByRole('region', { name: PANEL }).parentElement as HTMLElement;
-    expect(rejilla).toHaveClass('lg:grid-cols-2');
-    expect(rejilla.firstElementChild).toContainElement(screen.getByRole('searchbox', { name: PREGUNTA }));
+    const buscador = screen.getByRole('searchbox', { name: PREGUNTA }).closest('.lg\\:col-span-7') as HTMLElement;
+    expect(buscador).not.toBeNull();
+    expect(buscador.parentElement).toHaveClass('lg:grid-cols-12');
+    expect(screen.getByRole('list', { name: 'Abiertas ahora' }).parentElement).toHaveClass('lg:col-start-8');
+    expect(screen.getByText('Fuente').closest('dl')).toHaveClass('lg:col-start-8', 'lg:row-start-2');
   });
 
-  it('sin panel, el buscador no se queda en media página', async () => {
-    simularBackend({ destacadas: ok(DESTACADAS) });
+  it('en el DOM (y en móvil) las lecturas van antes que la ficha: la primera conclusión cabe en la primera pantalla', async () => {
+    todo();
+    render(await Home());
+    const lecturas = screen.getByRole('region', { name: LECTURAS });
+    const ficha = screen.getByText('Fuente').closest('dl') as HTMLElement;
+    expect(lecturas.compareDocumentPosition(ficha) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(lecturas).toHaveClass('lg:row-start-3');
+  });
+
+  it('después de las lecturas: la franja, «Lo mejor de hoy» y las notas, en ese orden', async () => {
+    todo();
     const { container } = render(await Home());
-    expect(container.querySelector('.lg\\:grid-cols-2')).toBeNull();
+    const orden = [
+      screen.getByRole('region', { name: LECTURAS }),
+      screen.getByText('Actualizado el').closest('dl') as HTMLElement,
+      container.querySelector('#hoy') as HTMLElement,
+      screen.getByRole('region', { name: 'Notas de datos' }),
+    ];
+    for (let i = 1; i < orden.length; i++) {
+      expect(orden[i - 1].compareDocumentPosition(orden[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
   });
 });
 
-describe('el panel de lecturas', () => {
-  const conclusiones = () => screen.queryAllByRole('heading', { level: 3 }).map((h) => h.textContent);
-
-  it('con todo, tres lecturas en la superficie oscura, con sus enlaces', async () => {
+describe('«Lo que dicen los datos»', () => {
+  it('con todo, tres lecturas sobre blanco —precio, cierres y la última nota—, cada una con su pie de método', async () => {
     todo();
     render(await Home());
-    expect(screen.getByRole('region', { name: PANEL })).toHaveClass('dark', 'bg-brand-navy');
-    expect(conclusiones()).toEqual([CONCLUSION_SECTORES, CONCLUSION_PRECIO, CONCLUSION_CIERRES]);
-    expect(screen.getByRole('link', { name: 'Ver mercados' })).toHaveAttribute('href', '/mercado');
-    expect(screen.getByRole('link', { name: 'Ver el producto' })).toHaveAttribute('href', rutaProducto(PRODUCTO_PORTADA.slug));
-    expect(screen.getByRole('link', { name: 'Ver las que cierran primero' })).toHaveAttribute(
+    const banda = screen.getByRole('region', { name: LECTURAS });
+    expect(within(banda).getByText('Cada lectura dice de dónde sale, cómo se calcula y dónde bajarla.')).toBeInTheDocument();
+    expect(conclusiones()).toEqual([CONCLUSION_PRECIO, CONCLUSION_CIERRES, TITULO_NOTA]);
+    expect(within(banda).getAllByRole('article')).toHaveLength(3);
+    expect(within(banda).getAllByRole('list', { name: 'Método y datos' })).toHaveLength(3);
+    expect(banda.lastElementChild).toHaveClass('lg:grid-cols-3');
+    // «Ver el producto» es la conclusión misma (spec §3.2).
+    expect(screen.getByRole('link', { name: CONCLUSION_PRECIO })).toHaveAttribute('href', rutaProducto(PRODUCTO_PORTADA.slug));
+    expect(screen.getByRole('link', { name: 'Las que cierran primero' })).toHaveAttribute(
       'href',
       urlCatalogoAbiertas('compra_agil', [], { sort_by: 'fecha_cierre', sort_order: 'asc' }),
     );
+    expect(screen.getByRole('link', { name: 'Leer la nota' })).toHaveAttribute('href', rutaNota(NOTAS[0].slug));
+    expect(screen.getAllByRole('link', { name: 'Ver en la API' }).map((a) => a.getAttribute('href'))).toEqual([
+      `https://api.tordo.cl/api/v1/publico/productos/${PRODUCTO_PORTADA.slug}`,
+      'https://api.tordo.cl/api/v1/publico/portada',
+    ]);
+  });
+
+  it('el precio: un punto por comprador, los valores en texto y el SVG fuera del árbol accesible', async () => {
+    todo();
+    const { container } = render(await Home());
+    const lectura = container.querySelector('article[aria-labelledby="lectura-precio"]') as HTMLElement;
+    expect(lectura.querySelectorAll('svg circle')).toHaveLength(5);
+    expect(lectura.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    expect(lectura).toHaveTextContent('Percentil 25: $150.921');
+    expect(lectura).toHaveTextContent('40 compradores');
+  });
+
+  it('los cierres: diez celdas, tantas llenas como décimos de la frase, y la tabla de los cuatro tramos', async () => {
+    todo();
+    const { container } = render(await Home());
+    const lectura = container.querySelector('article[aria-labelledby="lectura-cierres"]') as HTMLElement;
+    const celdas = [...lectura.querySelectorAll('[data-decimo]')];
+    expect(celdas).toHaveLength(10);
+    expect(celdas.filter((c) => c.getAttribute('data-decimo') === 'si')).toHaveLength(4);
+    expect(within(lectura).getAllByRole('row').map((f) => f.textContent)).toEqual([
+      'Hoy312',
+      'Mañana740',
+      'En 2 o 3 días1.105',
+      'Después557',
+    ]);
   });
 
   it.each([
-    ['/bi/sector con 503 (FEATURE_ANALYTICS apagada)', { sectores: async () => new Response('{}', { status: 503 }) }, CONCLUSION_SECTORES],
-    ['/bi/sector sin la tabla', { sectores: ok({ disponible: false, motivo: 'parquet no generado' }) }, CONCLUSION_SECTORES],
-    [
-      'sector_dashboard sin ventana todavía',
-      { sectores: ok({ ...SECTORES, sectores: SECTORES.sectores!.map(({ sector, monto_total }) => ({ sector, monto_total })) }) },
-      CONCLUSION_SECTORES,
-    ],
-    ['un sector con monto de texto', { sectores: ok({ disponible: true, sectores: [{ sector: 'Salud', monto_total: 'mucho' }] }) }, CONCLUSION_SECTORES],
     ['el producto con 404', { producto: async () => new Response('{}', { status: 404 }) }, CONCLUSION_PRECIO],
     ['el producto no indexable', { producto: ok({ ...PRODUCTO, indexable: false }) }, CONCLUSION_PRECIO],
     ['el producto sin periodo', { producto: ok({ ...PRODUCTO, periodo: null }) }, CONCLUSION_PRECIO],
@@ -492,14 +582,18 @@ describe('el panel de lecturas', () => {
       { producto: ok({ ...PRODUCTO, unidades: [{ ...BANDA, compradores: 1, cuota_mayor: 1, de_mercado: false }] }) },
       CONCLUSION_PRECIO,
     ],
+    ['el producto sin la lista de compradores', { producto: ok({ ...PRODUCTO, compradores: undefined }) }, CONCLUSION_PRECIO],
     ['un backend sin los tramos de cierre', { resumen: ok({ ...RESUMEN, compra_agil_por_cierre: undefined }) }, CONCLUSION_CIERRES],
     ['tramos de cierre mal formados', { resumen: ok({ ...RESUMEN, compra_agil_por_cierre: { hoy: 'muchas' } }) }, CONCLUSION_CIERRES],
     ['tramos que no suman las abiertas', { resumen: ok({ ...RESUMEN, compra_agil_abiertas: 9999 }) }, CONCLUSION_CIERRES],
-  ])('con %s se oculta sólo esa lectura', async (_, cambio, oculta) => {
+  ])('con %s se oculta sólo esa lectura, y las otras dos se reparten el ancho', async (_, cambio, oculta) => {
     simularBackend({ ...TODO, ...cambio });
     const { container } = render(await Home());
     expect(conclusiones()).not.toContain(oculta);
     expect(conclusiones()).toHaveLength(2);
+    const rejilla = screen.getByRole('region', { name: LECTURAS }).lastElementChild;
+    expect(rejilla).toHaveClass('md:grid-cols-2');
+    expect(rejilla).not.toHaveClass('lg:grid-cols-3');
     expect(container.textContent).not.toMatch(/NaN|undefined|Infinity/);
     expect(screen.getByRole('searchbox', { name: PREGUNTA })).toBeInTheDocument();
   });
@@ -509,15 +603,6 @@ describe('el panel de lecturas', () => {
     render(await Home());
     expect(screen.getByRole('list', { name: 'Abiertas ahora' })).toBeInTheDocument();
     expect(screen.getByText('Publicadas hoy:')).toBeInTheDocument();
-  });
-
-  it('sin las tres, no hay panel: quedan buscador, cifras y ficha', async () => {
-    simularBackend({ destacadas: ok(DESTACADAS), resumen: ok({ ...RESUMEN, compra_agil_por_cierre: undefined }) });
-    render(await Home());
-    expect(screen.queryByRole('region', { name: PANEL })).toBeNull();
-    expect(screen.getByRole('searchbox', { name: PREGUNTA })).toBeInTheDocument();
-    expect(screen.getByRole('list', { name: 'Abiertas ahora' })).toBeInTheDocument();
-    expect(screen.getByText('Fuente')).toBeInTheDocument();
   });
 });
 
