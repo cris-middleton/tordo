@@ -358,6 +358,13 @@ programador en la nube, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
   pasar el ratón) ni `subtle`**. `contraste-wcag.test.ts` mide además `accent` sobre `brand-navy`,
   pero medido no es pintado; `subtle` no tiene par (4,18:1). Los divisores van en `dato-tenue`: el
   `border` oscuro no se ve sobre navy. Una superficie oscura nueva mete sus tintas en ese test.
+- **El tema claro declara `color-scheme: only light`; el oscuro, `dark`** (`app/globals.css`, más
+  `<meta name="color-scheme" content="only light">` desde `viewport` en `app/layout.tsx`). Con
+  `light` a secas, Chrome en Android con «oscurecer sitios web» invertía la portada entera en el
+  tema claro. next-themes lleva `enableColorScheme={false}`: su `style` en línea dice `light` y le
+  gana a la hoja. Con el sistema en claro, el `FORCE_DARK_ONLY` de algunas WebView oscurece igual
+  y ninguna declaración lo evita. `__tests__/oscurecido-forzado.test.ts` y
+  `e2e/oscurecido-forzado.spec.ts`.
 - **La tarjeta de vista previa** (`app/opengraph-image.tsx`, la misma para X en `twitter-image.tsx`)
   es un panel `brand-blue` (el azul del cuerpo del pájaro, invariante de tema; lo pinta también el
   pájaro de la cabecera) con
