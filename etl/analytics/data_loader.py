@@ -90,6 +90,100 @@ def con_vacios(df: pl.DataFrame) -> pl.DataFrame:
     )
 
 
+#: Monedas de la orden cuyo paso a pesos sale mal a veces: ChileCompra
+#: multiplica `MontoTotalOC` por el valor de la UF (~$39.700) o de la UTM
+#: (~$69.500), y hay órdenes que dicen «CLF» con el monto ya en pesos.
+MONEDAS_INDEXADAS = ("CLF", "UTM")
+
+#: Por encima de esto, una orden en UF o UTM no se cree: su monto en pesos queda
+#: nulo. Son $120.000 millones, ≈ 3 M UF. Medido en los 36 meses de la ventana
+#: (2023-11 a 2026-10, 5,6 M de órdenes): por encima quedan cinco, todas
+#: imposibles (135 M «UTM» en control de sotobosque, 7,3 M «UF» en el seguro de
+#: vida del personal de un servicio, 3,7 M «UF» en una orden municipal…).
+#: Entre 1 y 3 M UF hay cuatro órdenes que parecen legítimas
+#: (pago de pensiones, la red de comunicaciones de salud, el sistema de
+#: identificación: 1,2–2,7 M UF) y dos imposibles (1,1 y 2,2 M UF). Con el
+#: umbral de partida, 1 M UF, caían las cuatro legítimas ($314 mil millones)
+#: para quitar $129 mil millones falsos. No se tira lo legítimo.
+UMBRAL_PESOS_ORDEN_INDEXADA = 120_000_000_000
+
+
+def con_monto_saneado(df: pl.DataFrame) -> pl.DataFrame:
+    """`MontoTotalOC_PesosChilenos` sin las conversiones imposibles de UF y UTM.
+
+    Dos reglas, por orden:
+
+    (a) **Una orden en otra moneda cuyos ítems están TODOS en pesos**
+        (`monedaItem`) tiene su monto en pesos: vale `MontoTotalOC`. Es lo que
+        más pesa: 144 órdenes en 36 meses sumaban $34 billones y eran $553
+        millones. Las dos mayores, 233,5 y 187,4 millones de pesos marcados como
+        UTM, valían $15,7 y $12,4 billones: más que un año de compras de todos
+        los municipios. Tiene un costo medido y pequeño: hay órdenes de verdad
+        en UF o dólares con el ítem marcado en pesos (pólizas de unos cientos
+        de UF), y se quedan en unos pocos pesos: unos $1.000 millones en 36 meses.
+    (b) **Una orden en UF o UTM que en pesos pasa de
+        `UMBRAL_PESOS_ORDEN_INDEXADA`** queda SIN monto (nulo: la orden sigue
+        contando, pero no suma) y va al log con su código, organismo y monto,
+        para poder auditarla. Una Gran Compra de 36 millones de «UF»
+        ($1,44 billones, cancelada) era el 14 % de seis meses de compras.
+
+    Comparar el total con la suma de las líneas no sirve: en las órdenes
+    imposibles las líneas también cuadran, porque el error está en la moneda,
+    no en la suma.
+
+    El resto, la inmensa mayoría, no se toca. Se aplica antes de repartir el
+    monto por línea, así que todo módulo que lea por `iter_oc_parquets` lo
+    hereda.
+    """
+    necesarias = {"Codigo", "MontoTotalOC_PesosChilenos", "MontoTotalOC", "TipoMonedaOC"}
+    if not necesarias <= set(df.columns):
+        return df
+    moneda = pl.col("TipoMonedaOC").cast(pl.Utf8).str.strip_chars()
+    en_otra_moneda = moneda.is_not_null() & (moneda != "CLP")
+    if "monedaItem" in df.columns:
+        items_en_pesos = (
+            (pl.col("monedaItem").cast(pl.Utf8).str.strip_chars() == "CLP")
+            .fill_null(False)
+            .all()
+            .over("Codigo")
+        )
+        en_pesos_de_verdad = en_otra_moneda & items_en_pesos
+    else:
+        en_pesos_de_verdad = pl.lit(False)
+    imposible = (
+        ~en_pesos_de_verdad
+        & moneda.is_in(MONEDAS_INDEXADAS)
+        & (pl.col("MontoTotalOC_PesosChilenos") > UMBRAL_PESOS_ORDEN_INDEXADA)
+    )
+    df = df.with_columns(
+        en_pesos_de_verdad.alias("_en_pesos_de_verdad"), imposible.alias("_imposible")
+    )
+
+    fuera = df.filter(pl.col("_imposible")).unique(subset=["Codigo"], keep="first")
+    organismo = "OrganismoPublico" if "OrganismoPublico" in df.columns else None
+    for fila in fuera.iter_rows(named=True):
+        logger.warning(
+            "Orden fuera de los montos (%s %s → $%s en pesos): %s, %s",
+            fila["TipoMonedaOC"],
+            f"{fila['MontoTotalOC']:,.0f}",
+            f"{fila['MontoTotalOC_PesosChilenos']:,.0f}",
+            fila["Codigo"],
+            fila[organismo] if organismo else "organismo sin dato",
+        )
+    corregidas = df.filter(pl.col("_en_pesos_de_verdad"))["Codigo"].n_unique()
+    if corregidas:
+        logger.info(f"{corregidas} órdenes en otra moneda con los ítems en pesos: monto en pesos")
+
+    return df.with_columns(
+        pl.when(pl.col("_imposible"))
+        .then(None)
+        .when(pl.col("_en_pesos_de_verdad"))
+        .then(pl.col("MontoTotalOC"))
+        .otherwise(pl.col("MontoTotalOC_PesosChilenos"))
+        .alias("MontoTotalOC_PesosChilenos")
+    ).drop("_en_pesos_de_verdad", "_imposible")
+
+
 def con_monto_por_linea(df: pl.DataFrame) -> pl.DataFrame:
     """Añade `monto_linea_clp`: el total de la orden repartido entre sus líneas.
 
@@ -124,11 +218,16 @@ def orden_por_fila(df: pl.DataFrame) -> pl.DataFrame:
     return df.unique(subset=["Codigo"], keep="first", maintain_order=True)
 
 
+#: Lo que hace falta para sanear el monto (`con_monto_saneado`) y anotar en el
+#: log de quién era la orden. Se lee y se quita: nadie recibe lo que no pidió.
+COLUMNAS_PARA_SANEAR = ("TipoMonedaOC", "MontoTotalOC", "monedaItem", "OrganismoPublico")
+
+
 def _columnas_para_montos(cols: list[str]) -> list[str]:
-    """Quien pide el monto necesita también con qué repartirlo por línea."""
+    """Quien pide el monto necesita también con qué sanearlo y repartirlo por línea."""
     if "MontoTotalOC_PesosChilenos" not in cols:
         return list(cols)
-    return list(dict.fromkeys([*cols, "Codigo", "totalLineaNeto"]))
+    return list(dict.fromkeys([*cols, "Codigo", "totalLineaNeto", *COLUMNAS_PARA_SANEAR]))
 
 
 def _personas_naturales() -> frozenset[str]:
@@ -352,9 +451,12 @@ def iter_oc_parquets(
     `max_date` (harness de evaluación) corta además por arriba, y ancla la
     ventana en su mes. `meses=None` lee toda la historia.
     """
-    cols = _columnas_para_montos(columns or OC_COLS_CORE)
+    pedidas = list(columns or OC_COLS_CORE)
+    cols = _columnas_para_montos(pedidas)
+    sobran = [c for c in COLUMNAS_PARA_SANEAR if c in cols and c not in pedidas]
     for periodo, df in _iterar(OC_PARQUET_DIR, cols, min_year, max_date, meses):
-        yield periodo, con_monto_por_linea(con_numeros(con_vacios(df)))
+        df = con_monto_por_linea(con_monto_saneado(con_numeros(con_vacios(df))))
+        yield periodo, df.drop([c for c in sobran if c in df.columns])
 
 
 def iter_lic_parquets(
