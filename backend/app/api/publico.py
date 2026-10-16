@@ -51,10 +51,10 @@ def get_sitemap():
 async def get_portada(db: AsyncSession = Depends(get_db)):
     """Conteos del catálogo con su hora. Sin `requiere_analytics()`: no leen
     analytics, y una portada sin cifras por un flag de BI sería un fallo ajeno."""
-    licitaciones, compra_agil = await repo_licitaciones.contar_abiertas(db)
+    abiertas = await repo_licitaciones.contar_abiertas(db)
     return ResumenPortada(
-        licitaciones_abiertas=licitaciones,
-        compra_agil_abiertas=compra_agil,
+        licitaciones_abiertas=abiertas.licitaciones,
+        compra_agil_abiertas=abiertas.compra_agil,
         actualizado_en=await repo_compra_agil.actualizado_en(db),
     )
 

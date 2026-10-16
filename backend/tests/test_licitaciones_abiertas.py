@@ -53,7 +53,8 @@ def _lic(
 
 @pytest_asyncio.fixture
 async def mezcla(async_db) -> tuple[int, int]:
-    """Siembra nueve filas y devuelve `contar_abiertas` de ANTES de sembrar."""
+    """Siembra nueve filas y devuelve `contar_abiertas` de ANTES de sembrar:
+    (no Compra Ágil, Compra Ágil)."""
     antes = await repo.contar_abiertas(async_db)
     async_db.add_all(
         [
@@ -70,16 +71,16 @@ async def mezcla(async_db) -> tuple[int, int]:
         ]
     )
     await async_db.flush()
-    return antes
+    return antes.licitaciones, antes.compra_agil
 
 
 @pytest.mark.asyncio
 async def test_cuenta_las_abiertas_separando_compra_agil(async_db, mezcla):
     lic_antes, ca_antes = mezcla
 
-    lic, ca = await repo.contar_abiertas(async_db)
+    conteo = await repo.contar_abiertas(async_db)
 
-    assert (lic - lic_antes, ca - ca_antes) == (3, 2)
+    assert (conteo.licitaciones - lic_antes, conteo.compra_agil - ca_antes) == (3, 2)
 
 
 @pytest.mark.asyncio
@@ -95,7 +96,8 @@ async def test_el_filtro_del_catalogo_lista_lo_que_se_cuenta(async_db, mezcla):
 @pytest.mark.asyncio
 async def test_misma_definicion_en_toda_la_base(async_db, mezcla):
     """Sobre TODA la tabla, no sólo lo sembrado: vale también con la base de desarrollo."""
-    lic, ca = await repo.contar_abiertas(async_db)
+    conteo = await repo.contar_abiertas(async_db)
+    lic, ca = conteo.licitaciones, conteo.compra_agil
     _, total = await repo.buscar(async_db, repo.Filtros(abiertas=True), limite=1)
     _, total_ca = await repo.buscar(
         async_db, repo.Filtros(abiertas=True, tipos_convocatoria=["compra_agil"]), limite=1
