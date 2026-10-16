@@ -124,6 +124,14 @@ describe('metadatos', () => {
     expect(m.description).toMatch(/precio mediano \$5\.000 por caja \(120 compras\)/);
   });
 
+  it('producto con la unidad nula (el backend la permite): la descripción la omite', async () => {
+    const sinUnidad = { ...PRODUCTO, unidades: [{ ...PRODUCTO.unidades[0], unidad: null }] };
+    simularBackend({ '/productos/guante-latex-nitrilo': sinUnidad });
+    const m = await metaProducto(params({ slug: 'guante-latex-nitrilo' }));
+    expect(m.description).toMatch(/precio mediano \$5\.000 \(120 compras\)/);
+    expect(m.description).not.toMatch(/ por (null|undefined)/);
+  });
+
   it('producto sin categoría: la descripción no deja paréntesis vacíos', async () => {
     simularBackend({ '/productos/guante-latex-nitrilo': { ...PRODUCTO, nombre_generico: null } });
     const m = await metaProducto(params({ slug: 'guante-latex-nitrilo' }));
@@ -184,6 +192,14 @@ describe('enlaces entre fichas', () => {
     expect(screen.getByRole('heading', { name: 'Por unidad' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Hospital de Prueba' })).toHaveAttribute('href', '/compradores/7297');
     expect(screen.queryByText(/tómalo como una orientación/)).not.toBeInTheDocument();
+  });
+
+  it('una banda con la unidad nula se pinta, con el rótulo de unidad ausente', async () => {
+    const sinUnidad = { ...PRODUCTO, unidades: [{ ...PRODUCTO.unidades[0], unidad: null }] };
+    simularBackend({ '/productos/guante-latex-nitrilo': sinUnidad });
+    render(await PaginaProducto(params({ slug: 'guante-latex-nitrilo' })));
+    expect(screen.getByRole('heading', { name: 'Por unidad' })).toBeInTheDocument();
+    expect(screen.getAllByText('$5.000').length).toBeGreaterThan(0);
   });
 
   it('un producto no indexable avisa en la página', async () => {

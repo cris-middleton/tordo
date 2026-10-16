@@ -190,12 +190,12 @@ const BANDA: BandaUnidad = {
   p75: 6900,
   p90: 11800,
   predictibilidad: 'media',
-  confianza: 'alta',
+  confianza: 0.5,
 };
 
 const PRODUCTO: ProductoPublico = {
   slug: PRODUCTO_PORTADA.slug,
-  firma: 'doble higienico hoja papel rollos swan',
+  firma: 'higiénico jumbo papel',
   nombre_generico: 'Papel higiénico',
   codigo_onu: null,
   descripcion: null,
@@ -235,6 +235,23 @@ describe('lecturaPrecio', () => {
     expect(l.enlace).toEqual({ texto: 'Ver el producto', href: rutaProducto(PRODUCTO_PORTADA.slug) });
   });
 
+  it('la ficha de PRODUCTO_PORTADA tal como respondía producción el 2026-10-16 pasa el filtro', () => {
+    const real = conBanda({
+      unidad: 'paquete',
+      n: 90,
+      p10: 674,
+      p25: 842.5,
+      p50: 1685,
+      p75: 2106.25,
+      p90: 3370,
+      predictibilidad: 'media',
+      confianza: 0.534,
+    });
+    const l = lecturaPrecio({ ...real, periodo: { ventana_desde: '2025-11-01', ventana_hasta: '2026-10-31' } })!;
+    expect(l.conclusion).toBe('Papel higiénico jumbo: la mitad se pagó entre $843 y $2.106');
+    expect(l.pie).toMatch(/^Precio por paquete, 90 compras, nov 2025 – oct 2026 \(12 meses\)$/);
+  });
+
   it('con otra ficha, su nombre y su enlace: nunca los de la constante', () => {
     const l = lecturaPrecio({ ...PRODUCTO, slug: 'otro-producto' }, 'Otro producto')!;
     expect(l.conclusion).toMatch(/^Otro producto: /);
@@ -264,9 +281,9 @@ describe('lecturaPrecio', () => {
     expect(l.conclusion).toMatch(/la mitad se pagó entre/);
   });
 
-  it('todos los precios iguales: el riel no divide por cero', () => {
-    const l = lecturaPrecio(conBanda({ p10: 5000, p25: 5000, p50: 5000, p75: 5000, p90: 5000 }))!;
-    expect([l.p10, l.p25, l.p50, l.p75, l.p90].map((m) => m?.posicion)).toEqual([50, 50, 50, 50, 50]);
+  it('extremos pegados a la banda: p10 = p25 y p90 = p75 caen en los bordes del riel', () => {
+    const l = lecturaPrecio(conBanda({ p10: 4200, p90: 6900 }))!;
+    expect([l.p10, l.p25, l.p50, l.p75, l.p90].map((m) => m?.posicion)).toEqual([0, 0, 44.1, 100, 100]);
   });
 
   it('una sola compra, en singular; la unidad en minúsculas y sin espacios de sobra', () => {
@@ -279,8 +296,9 @@ describe('lecturaPrecio', () => {
     expect(lecturaPrecio(conBanda({ predictibilidad: ' Media ' }))).not.toBeNull();
   });
 
-  it('p25 justo en $1 pasa el filtro', () => {
+  it('p25 justo en $1 pasa el filtro, y p75 apenas sobre p25 también', () => {
     expect(lecturaPrecio(conBanda({ p10: 1, p25: 1 }))).not.toBeNull();
+    expect(lecturaPrecio(conBanda({ p25: 1150, p50: 1150, p75: 1151 }))).not.toBeNull();
   });
 
   it('sólo mira la primera unidad: una segunda sin declarar no la oculta', () => {
@@ -311,6 +329,9 @@ describe('lecturaPrecio', () => {
       ['predictibilidad desconocida', conBanda({ predictibilidad: 'altísima' })],
       ['p25 en $0', conBanda({ p10: 0, p25: 0 })],
       ['p25 bajo $1', conBanda({ p10: 0.0005, p25: 0.0017 })],
+      // «Entre $1.150 y $1.150» no dice nada: una banda sin dispersión no es banda.
+      ['p75 igual a p25', conBanda({ p25: 1150, p75: 1150 })],
+      ['todos los precios iguales', conBanda({ p10: 1150, p25: 1150, p50: 1150, p75: 1150, p90: 1150 })],
     ])('%s: se oculta', (_, producto) => {
       expect(lecturaPrecio(producto)).toBeNull();
     });

@@ -157,21 +157,22 @@ export function lecturaSectores(datos: SectoresBI | null): LecturaSectores | nul
 
 /**
  * El producto de la lectura de precio. **El nombre va escrito a mano**: la firma
- * son sus palabras ordenadas y sin relleno («doble higienico hoja papel rollos
- * swan») y no se lee como un nombre.
+ * son sus palabras ordenadas y sin relleno («higiénico jumbo papel») y no se lee
+ * como un nombre.
  *
  * Elegido en producción el 2026-10-16 recorriendo `EJEMPLOS_BUSQUEDA` desde el
- * primero, con cuatro peticiones espaciadas: la primera ficha indexable de
- * «guantes de nitrilo» tenía predictibilidad baja; la de «papel higiénico» pasa
- * el filtro de calidad (paquete, alta, con periodo).
+ * primero, con peticiones espaciadas: las dos fichas de guantes de nitrilo
+ * miradas tenían predictibilidad baja, y la primera de papel higiénico, una
+ * marca con los cinco percentiles iguales. Ésta es genérica, sin marca, y pasa
+ * el filtro (paquete, 90 compras, predictibilidad media, $842–$2.106, periodo).
  *
  * **El slug tiene copia literal en `scripts/verificar-produccion.sh`**, que
  * comprueba tras desplegar que sigue indexable y pasando el filtro;
  * `__tests__/portada-ayudantes.test.ts` falla si las dos copias se separan.
  */
 export const PRODUCTO_PORTADA = {
-  slug: 'doble-higienico-hoja-papel-rollos-swan',
-  nombre: 'Papel higiénico',
+  slug: 'higienico-jumbo-papel',
+  nombre: 'Papel higiénico jumbo',
 } as const;
 
 /**
@@ -259,8 +260,8 @@ export function posicionDeRotulo(posicion: number): number {
  * lo que el Tukey de las bandas ya trata como atípico.
  *
  * **Sólo una banda que se pueda creer** (spec §3.4): unidad declarada,
- * predictibilidad alta o media, `p25 ≥ 1` y periodo. Si no, nada: mejor ninguna
- * banda que «entre $0 y $0».
+ * predictibilidad alta o media, `p25 ≥ 1`, `p75 > p25` y periodo. Si no, nada:
+ * mejor ninguna banda que «entre $0 y $0» o «entre $1.150 y $1.150».
  *
  * `nombre` es el escrito a mano junto al slug; por defecto, el de
  * `PRODUCTO_PORTADA`.
@@ -271,17 +272,18 @@ export function lecturaPrecio(
 ): LecturaPrecio | null {
   if (!producto?.indexable) return null;
   const u = producto.unidades[0];
-  if (!u || u.p25 == null || u.p75 == null || u.p25 < 1 || u.p75 < u.p25) return null;
-  // El tipo dice `string`, pero el backend la permite nula (`str | None`).
-  const unidad = typeof u.unidad === 'string' ? normalizar(u.unidad) : '';
-  if (!unidad || unidad === UNIDAD_SIN_DECLARAR) return null;
+  // p75 > p25 estricto: «entre $1.150 y $1.150» no dice nada.
+  if (!u || u.p25 == null || u.p75 == null || u.p25 < 1 || u.p75 <= u.p25) return null;
+  const unidad = normalizar(u.unidad ?? '');
+  if (!u.unidad || !unidad || unidad === UNIDAD_SIN_DECLARAR) return null;
   if (!PREDICTIBILIDAD_CREIBLE.has(normalizar(u.predictibilidad ?? ''))) return null;
   const periodo = textoPeriodo({ desde: producto.periodo?.ventana_desde, hasta: producto.periodo?.ventana_hasta });
   if (!periodo) return null;
 
   const desde = Math.min(u.p10 ?? u.p25, u.p25);
   const hasta = Math.max(u.p90 ?? u.p75, u.p75);
-  const posicion = (v: number) => (hasta === desde ? 50 : unDecimal(((v - desde) / (hasta - desde)) * 100));
+  // hasta ≥ p75 > p25 ≥ desde: el riel nunca tiene ancho cero.
+  const posicion = (v: number) => unDecimal(((v - desde) / (hasta - desde)) * 100);
   const marca = (v: number): MarcaPrecio => ({ valor: plata(v), posicion: posicion(v) });
   const compras = u.n === 1 ? '1 compra' : `${entero(u.n)} compras`;
 

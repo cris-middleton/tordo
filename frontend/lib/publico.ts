@@ -230,7 +230,7 @@ export function metadataProducto(p: ProductoPublico): Metadata {
   const banda = bandaPrincipal(p.unidades);
   const cifra =
     banda?.p50 != null
-      ? `precio mediano ${plata(banda.p50)} por ${banda.unidad.toLowerCase()} (${entero(banda.n)} compras)`
+      ? `precio mediano ${plata(banda.p50)}${banda.unidad ? ` por ${banda.unidad.toLowerCase()}` : ''} (${entero(banda.n)} compras)`
       : 'precios pagados por el Estado';
   return base(
     rutaProducto(p.slug),

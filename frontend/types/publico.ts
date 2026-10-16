@@ -71,7 +71,8 @@ export interface RubroPublico {
 }
 
 export interface BandaUnidad {
-  unidad: string;
+  /** Nula si el dato no la trae (el backend la declara `str | None`). */
+  unidad: string | null;
   n: number;
   p10: number | null;
   p25: number | null;
@@ -79,7 +80,8 @@ export interface BandaUnidad {
   p75: number | null;
   p90: number | null;
   predictibilidad: string | null;
-  confianza: string | null;
+  /** De 0 a 1, como en el backend (`float | None`). */
+  confianza: number | null;
 }
 
 export interface CompradorDeProducto {

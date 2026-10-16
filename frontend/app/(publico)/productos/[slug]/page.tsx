@@ -88,8 +88,8 @@ export default async function PaginaProducto({ params }: Props) {
           <p className="text-sm text-subtle">Todavía no hay compras suficientes para una banda.</p>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {p.unidades.map((u) => (
-              <BandaPrecio key={u.unidad} banda={u} />
+            {p.unidades.map((u, i) => (
+              <BandaPrecio key={u.unidad ?? `sin-unidad-${i}`} banda={u} />
             ))}
           </div>
         )}

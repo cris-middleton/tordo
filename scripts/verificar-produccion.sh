@@ -241,9 +241,9 @@ ejemplo 'agua purificada en bidones'
 # segundo de espera: nunca un bucle contra producción. Mira lo mismo que
 # lecturaPrecio: si el producto deja de ser indexable o su unidad con más compras
 # no pasa el filtro (unidad declarada, predictibilidad alta o media, p25 ≥ 1,
-# p75 ≥ p25, periodo), la portada oculta la lectura sin avisar a nadie; aquí sí.
+# p75 > p25, periodo), la portada oculta la lectura sin avisar a nadie; aquí sí.
 seccion "Producto de la portada: indexable, con una banda creíble y su periodo"
-PRODUCTO_PORTADA='doble-higienico-hoja-papel-rollos-swan'
+PRODUCTO_PORTADA='higienico-jumbo-papel'
 codigo=$(pedir "$API/api/v1/publico/productos/$PRODUCTO_PORTADA")
 if [ "$codigo" = 200 ] && python3 -I - "$TMP/cuerpo" 2>/dev/null <<'PY'
 import json, sys, unicodedata
@@ -260,7 +260,7 @@ listo = (
     p.get("indexable") is True
     and unidad not in ("", "sin unidad declarada")
     and normal(u.get("predictibilidad")) in ("alta", "media")
-    and p25 is not None and p75 is not None and 1 <= p25 <= p75
+    and p25 is not None and p75 is not None and 1 <= p25 < p75
     and periodo.get("ventana_desde")
     and periodo.get("ventana_hasta")
 )

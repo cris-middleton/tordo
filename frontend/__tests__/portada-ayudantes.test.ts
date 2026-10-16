@@ -178,6 +178,10 @@ describe('la copia de PRODUCTO_PORTADA en scripts/verificar-produccion.sh', () =
     expect(seccion).toMatch(/^\s*sleep 1$/m);
   });
 
+  it('exige p75 > p25 estricto, como lecturaPrecio', () => {
+    expect(seccion).toMatch(/1 <= p25 < p75/);
+  });
+
   it('mira lo que la lectura necesita: indexable, el filtro de calidad, p25, p75 y periodo', () => {
     for (const campo of ['indexable', 'unidad', 'sin unidad declarada', 'predictibilidad', 'p25', 'p75', 'ventana_desde', 'ventana_hasta']) {
       expect(seccion).toContain(campo);
