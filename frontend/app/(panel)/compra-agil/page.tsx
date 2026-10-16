@@ -69,14 +69,14 @@ function CompraAgilContenido() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="page-title flex items-center gap-2">
             <Zap className="h-6 w-6 text-accent" aria-hidden="true" />
             {TITULO_DESTACADAS}
           </h1>
-          <p className="mt-0.5 max-w-2xl text-sm text-muted">{descripcionDestacadas(datos?.historia_disponible === true)}</p>
+          <p className="mt-2 max-w-2xl text-sm text-muted">{descripcionDestacadas(datos?.historia_disponible === true)}</p>
         </div>
         <div className="text-right">
           {actualizacion ? (
@@ -121,7 +121,7 @@ function CompraAgilContenido() {
             onChange={(e) => setTexto(e.target.value)}
             placeholder="Qué vendes: «resmas», «mantención», «guantes»…"
             aria-label="Buscar en las Compras Ágiles destacadas"
-            className="input-field pl-9 text-sm"
+            className="input-field pl-9"
             autoComplete="off"
           />
         </div>
@@ -180,7 +180,7 @@ export default function CompraAgilPage() {
       fallback={
         // El título va también en el respaldo: es lo que sirve el servidor (la
         // página entera se pinta en el cliente), y sin él el HTML no tenía <h1>.
-        <div className="space-y-5">
+        <div className="space-y-6">
           <h1 className="page-title">{TITULO_DESTACADAS}</h1>
           <div className="flex items-center justify-center py-24">
             <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />

@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
           t.estado,
         ]
           .filter(Boolean)
-          .join(' · '),
+          .join(', '),
       })),
     }),
   );

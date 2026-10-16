@@ -90,7 +90,7 @@ describe('filtros ↔ URL', () => {
 
   it('describe una búsqueda en una línea', () => {
     expect(describirBusqueda('search=agua+potable&tipo_convocatoria=compra_agil')).toBe(
-      '«agua potable» · Compra Ágil',
+      '«agua potable», Compra Ágil',
     );
     expect(describirBusqueda('')).toBe('Todas las licitaciones');
   });
@@ -125,7 +125,7 @@ describe('filtros ↔ URL', () => {
     expect(soloFiltros(new URLSearchParams('abiertas=1&page=2&search=agua')).toString()).toBe(
       'search=agua&abiertas=1',
     );
-    expect(describirBusqueda('search=agua&abiertas=1')).toBe('«agua» · Sólo abiertas');
+    expect(describirBusqueda('search=agua&abiertas=1')).toBe('«agua», Sólo abiertas');
   });
 
   it('el enlace de cada cifra de la portada lleva el mismo filtro que la cuenta', () => {

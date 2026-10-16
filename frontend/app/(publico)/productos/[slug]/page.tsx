@@ -63,7 +63,6 @@ export default async function PaginaProducto({ params }: Props) {
   return (
     <article>
       <CabeceraFicha
-        tipo="Precio de referencia"
         titulo={nombre}
         subtitulo={
           periodo

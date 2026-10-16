@@ -46,7 +46,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://tordo.cl'),
   title: {
     default: APP_NAME,
-    template: `%s · ${APP_NAME}`,
+    template: `%s | ${APP_NAME}`,
   },
   // Vocabulario llano (R10 del rediseño), y nada de lo que se fue con las cuentas.
   description: `${APP_NAME} — compras públicas de Chile para quien le vende al Estado: precios pagados, licitaciones abiertas y Compra Ágil. Datos públicos de ChileCompra.`,

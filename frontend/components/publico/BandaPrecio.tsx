@@ -4,7 +4,7 @@ import { predictibilidadInfo } from '@/lib/predictibilidad';
 import type { BandaUnidad } from '@/types/publico';
 
 /**
- * La banda de precio de un producto en UNA unidad: P10·P25·P50·P75·P90.
+ * La banda de precio de un producto en UNA unidad: P10, P25, P50, P75 y P90.
  *
  * Una por unidad y nunca mezcladas: la misma firma se compra por caja y por
  * unidad, y una banda que juntara las dos mediría el envase, no el precio.
@@ -42,7 +42,7 @@ export function BandaPrecio({ banda, periodo }: { banda: BandaUnidad; periodo?: 
         </div>
       </header>
 
-      <p className="mt-4 text-[11px] uppercase tracking-wider text-subtle">Precio mediano</p>
+      <p className="mt-4 text-xs text-muted">Precio mediano</p>
       <p className="cifra text-3xl font-bold leading-none text-text">{plata(p50)}</p>
 
       {completa && (
@@ -71,7 +71,7 @@ export function BandaPrecio({ banda, periodo }: { banda: BandaUnidad; periodo?: 
           ] as const
         ).map(([etiqueta, valor]) => (
           <div key={etiqueta}>
-            <dt className="text-[10px] uppercase tracking-wider text-subtle">{etiqueta}</dt>
+            <dt className="text-xs text-muted">{etiqueta}</dt>
             <dd className="cifra mt-0.5 text-xs font-semibold text-text sm:text-sm">{plata(valor)}</dd>
           </div>
         ))}

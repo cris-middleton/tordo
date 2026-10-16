@@ -15,7 +15,7 @@ interface ShareMenuProps {
 }
 
 /**
- * Menú `⋯` con 3 acciones: Copiar resumen · Descargar PNG · Copiar link.
+ * Menú `⋯` con 3 acciones: copiar resumen, descargar PNG y copiar link.
  * Usa html2canvas (dynamic import, solo se carga al descargar).
  */
 export function ShareMenu({ targetRef, summaryText, filename }: ShareMenuProps) {

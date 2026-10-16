@@ -12,6 +12,7 @@ import {
   GUARDADOS,
   SECCIONES,
   enlacesAbiertos,
+  columnasDelPie,
   esSeccionActiva,
   mapaDelSitio,
 } from '@/lib/navegacion';
@@ -28,7 +29,7 @@ function existePagina(href: string): boolean {
 describe('las secciones', () => {
   it('son las de la spec, en su orden y con los nombres llanos de R10', () => {
     expect(SECCIONES.map((s) => [s.nombre, s.href])).toEqual([
-      ['Hoy', '/compra-agil'],
+      ['Compra Ágil', '/compra-agil'],
       ['Licitaciones', '/licitaciones'],
       ['Precios', '/productos'],
       ['Mercados', '/mercado'],
@@ -45,6 +46,25 @@ describe('las secciones', () => {
   });
 });
 
+describe('las columnas del pie (spec PORTADA_V7 §6)', () => {
+  it('«Sitio», «Abierto» y «Sobre el sitio», y cada ruta interna tiene su página', () => {
+    const columnas = columnasDelPie(null, 'hola@tordo.cl');
+    expect(columnas.map((c) => c.titulo)).toEqual(['Sitio', 'Abierto', 'Sobre el sitio']);
+    const internas = columnas.flatMap((c) => c.enlaces).filter((e) => !e.externo);
+    expect(internas.length).toBeGreaterThanOrEqual(12);
+    expect(internas.filter((e) => !existePagina(e.href)).map((e) => e.href)).toEqual([]);
+  });
+
+  it('«Sitio» son las secciones de la cabecera y Guardados: una sola lista', () => {
+    expect(columnasDelPie(null, 'x@y.cl')[0].enlaces).toEqual([...SECCIONES, GUARDADOS]);
+  });
+
+  it('el contacto, con el correo que se le pasa', () => {
+    const sobre = columnasDelPie(null, 'hola@tordo.cl')[2].enlaces;
+    expect(sobre.at(-1)).toEqual({ nombre: 'Contacto', href: 'mailto:hola@tordo.cl', externo: true });
+  });
+});
+
 describe('lo abierto', () => {
   it('«API y MCP» siempre; «Código» sólo con repositorio, y fuera del sitio', () => {
     expect(enlacesAbiertos(null)).toEqual([{ nombre: 'API y MCP', href: '/abierto' }]);
@@ -56,7 +76,7 @@ describe('lo abierto', () => {
 
   it('el mapa del sitio: secciones, guardados y lo abierto', () => {
     expect(mapaDelSitio(null).map((e) => e.nombre)).toEqual([
-      'Hoy',
+      'Compra Ágil',
       'Licitaciones',
       'Precios',
       'Mercados',

@@ -1,10 +1,13 @@
+import { Contenedor } from '@/components/cascara/Contenedor';
+
 /**
  * El marco de las páginas públicas indexables (comprador, rubro, producto,
- * guías, `/apoyar`, `/abierto`, `/acerca`): sólo el ancho de lectura. La cabecera y el pie
- * —con la cita de la fuente— los pone la cáscara única del layout raíz, igual
- * que en el panel: desde el rediseño ya no hay una cáscara para quien llega de
- * Google y otra para quien usa la herramienta.
+ * guías, `/apoyar`, `/abierto`, `/acerca`, `/buscar`): el contenedor único del
+ * sitio (spec PORTADA_V7 §4), el mismo borde izquierdo que la cabecera. Las
+ * páginas de lectura limitan su texto a `max-w-3xl` dentro, alineado a la
+ * izquierda. La cabecera y el pie —con la cita de la fuente— los pone la cáscara
+ * única del layout raíz.
  */
 export default function LayoutPublico({ children }: { children: React.ReactNode }) {
-  return <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10">{children}</div>;
+  return <Contenedor pagina>{children}</Contenedor>;
 }

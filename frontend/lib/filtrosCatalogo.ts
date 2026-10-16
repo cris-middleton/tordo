@@ -179,7 +179,7 @@ function clp(valor: string) {
   return `$${Number(valor).toLocaleString('es-CL')}`;
 }
 
-/** Una búsqueda en una línea legible: «válvulas · Compra Ágil · Biobío · desde $1.000.000». */
+/** Una búsqueda en una línea legible: «válvulas, Compra Ágil, Biobío, desde $1.000.000». */
 export function describirBusqueda(consulta: string): string {
   const f = leerFiltros(new URLSearchParams(consulta));
   const partes: string[] = [];
@@ -198,7 +198,7 @@ export function describirBusqueda(consulta: string): string {
   else if (f.min_amount) partes.push(`desde ${clp(f.min_amount)}`);
   else if (f.max_amount) partes.push(`hasta ${clp(f.max_amount)}`);
   if (f.abiertas) partes.push('Sólo abiertas');
-  return partes.length ? partes.join(' · ') : 'Todas las licitaciones';
+  return partes.length ? partes.join(', ') : 'Todas las licitaciones';
 }
 
 /**

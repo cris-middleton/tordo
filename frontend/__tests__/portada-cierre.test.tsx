@@ -50,14 +50,15 @@ describe('CierrePortada', () => {
     expect(screen.getByRole('link', { name: 'Apoyar' })).toHaveAttribute('href', '/apoyar');
   });
 
-  it('sin nombre no firma: ni «hecho por» ni el hueco de los documentos legales', () => {
+  it('sin nombre no firma: ni «Lo hace» ni el hueco de los documentos legales', () => {
     const { container } = render(<CierrePortada autor={null} />);
-    expect(container.textContent).not.toMatch(/hecho por|\[\[/i);
+    expect(container.textContent).not.toMatch(/lo hace|\[\[/i);
   });
 
-  it('con nombre, «hecho por» y el nombre', () => {
-    render(<CierrePortada autor="Nombre De Prueba" />);
-    expect(screen.getByText(/hecho por Nombre De Prueba/)).toBeInTheDocument();
+  it('con nombre, «Lo hace» y el nombre, sin punto medio', () => {
+    const { container } = render(<CierrePortada autor="Nombre De Prueba" />);
+    expect(screen.getByText('Lo hace Nombre De Prueba.')).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/·/);
   });
 
   it.each(['UsosAbiertos.tsx', 'CierrePortada.tsx'])('%s no lleva JavaScript propio ni «TORDO» escrito', (f) => {

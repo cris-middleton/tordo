@@ -89,7 +89,7 @@ export default function TabDescuento({ rubro }: { rubro: string }) {
                 <span className="text-muted"> (hasta {decimal(d.p90, 0)}% en casos competitivos)</span>
               )}
               {d.n != null && (
-                <span className="text-xs text-subtle"> · {d.n.toLocaleString('es-CL')} casos</span>
+                <span className="text-xs text-subtle">, {d.n.toLocaleString('es-CL')} casos</span>
               )}
             </span>
           </li>

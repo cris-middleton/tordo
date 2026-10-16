@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
           respuesta.historia_disponible && textoMontoTipico(item.comprador),
         ]
           .filter(Boolean)
-          .join(' · '),
+          .join(', '),
       })),
     }),
   );

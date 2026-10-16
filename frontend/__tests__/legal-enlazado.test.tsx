@@ -49,9 +49,9 @@ describe('atribución y enlaces legales', () => {
     );
     expect(screen.getAllByText(new RegExp(`^${escapar(CITA_LITERAL)}`))).toHaveLength(1);
     expect(screen.getByText(/ChileCompra no participa ni respalda/)).toBeInTheDocument();
-    const legales = screen.getByRole('navigation', { name: /documentos legales/i });
-    expect(within(legales).getByRole('link', { name: /términos/i })).toHaveAttribute('href', '/terminos');
-    expect(within(legales).getByRole('link', { name: /privacidad/i })).toHaveAttribute('href', '/privacidad');
+    const pie = screen.getByRole('contentinfo');
+    expect(within(pie).getByRole('link', { name: /términos/i })).toHaveAttribute('href', '/terminos');
+    expect(within(pie).getByRole('link', { name: /privacidad/i })).toHaveAttribute('href', '/privacidad');
     expect(within(screen.getByRole('main')).getByText('contenido')).toBeInTheDocument();
     expect(screen.getByRole('main')).toHaveAttribute('id', 'contenido');
   });

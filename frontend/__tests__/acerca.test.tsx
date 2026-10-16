@@ -18,6 +18,7 @@ import { PAGINAS_FIJAS } from '@/lib/publico';
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
 
 afterEach(() => {
+  delete process.env.AUTOR_NOMBRE;
   delete process.env.RESPONSABLE_LEGAL;
 });
 
@@ -57,15 +58,21 @@ describe('la página /acerca', () => {
     expect(screen.getByRole('link', { name: 'hola@tordo.cl' })).toHaveAttribute('href', 'mailto:hola@tordo.cl');
   });
 
-  it('sin RESPONSABLE_LEGAL no dice quién lo hace: ni el hueco ni un nombre', () => {
+  it('sin AUTOR_NOMBRE no dice quién lo hace: ni el hueco ni un nombre', () => {
     const { container } = render(<PaginaAcerca />);
     expect(container.textContent).not.toMatch(/\[\[|lo hace /i);
   });
 
-  it('con RESPONSABLE_LEGAL dice quién lo hace', () => {
-    process.env.RESPONSABLE_LEGAL = '  Nombre De Prueba ';
+  it('con AUTOR_NOMBRE dice quién lo hace, con su oficio', () => {
+    process.env.AUTOR_NOMBRE = '  Nombre De Prueba ';
     render(<PaginaAcerca />);
-    expect(screen.getByText('Lo hace Nombre De Prueba, a título personal.')).toBeInTheDocument();
+    expect(screen.getByText('Lo hace Nombre De Prueba, data scientist, a título personal.')).toBeInTheDocument();
+  });
+
+  it('firma la autoría, no el responsable legal (spec PORTADA_V7 V5)', () => {
+    process.env.RESPONSABLE_LEGAL = 'Otra Persona';
+    const { container } = render(<PaginaAcerca />);
+    expect(container.textContent).not.toMatch(/Otra Persona|lo hace /i);
   });
 
   it('es indexable, con canonical y en el sitemap', () => {

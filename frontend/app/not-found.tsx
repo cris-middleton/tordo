@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+import { Contenedor } from '@/components/cascara/Contenedor';
+
 /*
  * El 404 del sitio. Sin él, Next servía su página genérica: sin marca, sin
  * salida y sin la cita de la fuente (hoy las pone la cáscara única, como en
@@ -22,10 +24,9 @@ const SALIDAS = [
 
 export default function NoEncontrada() {
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
-      <p className="text-sm font-semibold text-muted">Error 404</p>
-      <h1 className="mt-2 font-display text-3xl text-text">No encontramos esta página</h1>
-      <p className="mt-4 text-muted">
+    <Contenedor pagina>
+      <h1 className="page-title">No encontramos esta página</h1>
+      <p className="mt-4 max-w-3xl text-muted">
         Puede que el enlace esté mal escrito o que esta página ya no tenga datos: los compradores
         y productos se recalculan cada semana con lo que publica ChileCompra.
       </p>
@@ -38,6 +39,6 @@ export default function NoEncontrada() {
           </li>
         ))}
       </ul>
-    </div>
+    </Contenedor>
   );
 }

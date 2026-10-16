@@ -39,7 +39,7 @@ test('una búsqueda sin coincidencias muestra el estado vacío', async ({ page }
 
 test('se llega desde la cabecera', async ({ page }) => {
   await page.goto('/licitaciones');
-  await page.getByRole('navigation', { name: 'Secciones' }).getByRole('link', { name: 'Hoy', exact: true }).click();
+  await page.getByRole('navigation', { name: 'Secciones' }).getByRole('link', { name: 'Compra Ágil', exact: true }).click();
   await expect(page).toHaveURL(/\/compra-agil/);
 });
 

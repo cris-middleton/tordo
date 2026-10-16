@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { format } from 'date-fns';
+import es from 'date-fns/locale/es';
 import {
   BookmarkCheck,
   BookmarkPlus,
@@ -115,11 +116,11 @@ export default function TarjetaLicitacion({
             <div className="flex items-center gap-2 mt-1">
               {tender.fecha_publicacion && (
                 <p className="text-[11px] text-subtle">
-                  {format(new Date(tender.fecha_publicacion), 'dd MMM yy')}
+                  {format(new Date(tender.fecha_publicacion), 'd MMM yyyy', { locale: es })}
                 </p>
               )}
               {urgency && (
-                <p className={`text-[11px] ${urgency.cls}`}>· {urgency.label}</p>
+                <p className={`text-[11px] ${urgency.cls}`}>{urgency.label}</p>
               )}
             </div>
           </div>

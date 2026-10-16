@@ -178,7 +178,7 @@ export function OportunidadesSection({ oportunidades, loading, onFocusOrganismo,
       parts.push(`mejor score ${decimal(maxScore, 1)}`);
       parts.push(`competencia promedio ${Math.round(avgCompetidores)} proveedores`);
     }
-    return parts.join(' · ') + '.';
+    return parts.join(', ') + '.';
   })();
 
   if (loading) return (

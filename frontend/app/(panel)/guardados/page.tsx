@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+import { Seccion } from '@/components/cascara/Seccion';
 import BusquedasGuardadas from '@/components/guardados/BusquedasGuardadas';
 import LicitacionesGuardadas from '@/components/guardados/LicitacionesGuardadas';
 
@@ -8,15 +9,6 @@ export const metadata: Metadata = {
   title: 'Guardados',
   description: 'Búsquedas y licitaciones guardadas en este navegador, y cómo seguirlas por RSS.',
 };
-
-function Seccion({ id, titulo, children }: { id?: string; titulo: string; children: React.ReactNode }) {
-  return (
-    <section id={id} className="space-y-3 scroll-mt-20">
-      <h2 className="text-lg text-text">{titulo}</h2>
-      {children}
-    </section>
-  );
-}
 
 /**
  * Lo guardado: búsquedas, licitaciones y la ayuda del RSS.
@@ -27,10 +19,10 @@ function Seccion({ id, titulo, children }: { id?: string; titulo: string; childr
  */
 export default function GuardadosPage() {
   return (
-    <div className="max-w-3xl space-y-8">
+    <div className="max-w-3xl">
       <div>
         <h1 className="page-title">Guardados</h1>
-        <p className="mt-0.5 text-sm text-muted">
+        <p className="mt-2 text-sm text-muted">
           Se guardan en este navegador, sin cuenta: no los verás desde otro equipo, y se borran si
           borras los datos del sitio.
         </p>

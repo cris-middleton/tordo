@@ -12,7 +12,7 @@ type Props = { params: Promise<{ slug: string }> };
 /**
  * `/guias/<slug>` — una guía. **Estáticas**: todas se generan en el build y un
  * slug que no está es un 404 (`dynamicParams = false`), sin pasar por el
- * servidor. El pie de atribución lo pone el layout de `(publico)`.
+ * servidor. El pie de atribución lo pone la cáscara única.
  */
 export const dynamicParams = false;
 
@@ -44,25 +44,19 @@ export default async function PaginaGuia({ params }: Props) {
 
   return (
     <article className="max-w-3xl">
-      <Link href="/guias" className="text-sm font-semibold text-primary hover:underline">
-        ← Todas las guías
-      </Link>
-      <div className="mt-4">
-        <CabeceraFicha
-          tipo="Guía"
-          titulo={guia.titulo}
-          subtitulo={
-            <>
-              Actualizada el <time dateTime={guia.actualizado}>{fechaCorta(guia.actualizado)}</time>
-            </>
-          }
-        />
-      </div>
+      <CabeceraFicha
+        titulo={guia.titulo}
+        subtitulo={
+          <>
+            Actualizada el <time dateTime={guia.actualizado}>{fechaCorta(guia.actualizado)}</time>
+          </>
+        }
+      />
 
       <Markdown arbol={guia.cuerpo} />
 
       <section aria-labelledby="fuentes" className="mt-12 border-t border-border pt-6">
-        <h2 id="fuentes" className="font-sans text-sm font-bold uppercase tracking-wider text-subtle">
+        <h2 id="fuentes" className="font-sans text-base font-bold text-text">
           Fuentes
         </h2>
         <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-muted">
@@ -71,6 +65,11 @@ export default async function PaginaGuia({ params }: Props) {
           ))}
         </ul>
       </section>
+
+      {/* Al final y no arriba: nada va antes del `h1` (spec PORTADA_V7 §4). */}
+      <Link href="/guias" className="mt-12 inline-block text-sm font-semibold text-primary hover:underline">
+        ← Todas las guías
+      </Link>
     </article>
   );
 }

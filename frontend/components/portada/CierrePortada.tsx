@@ -7,10 +7,9 @@ const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
 
 /**
  * El cierre de la portada (spec del rediseño §6.3): gratis se prueba con el
- * costo (principio 3), con la voz de `/apoyar`. **«Hecho por» sólo con nombre**
- * (`nombreResponsable()` en `app/page.tsx`): sin `RESPONSABLE_LEGAL` la línea
- * dice lo demás y calla el nombre; el hueco `[[…]]` de los documentos legales
- * nunca llega aquí.
+ * costo (principio 3), con la voz de `/apoyar`. **«Lo hace» sólo con nombre**
+ * (`nombreAutor()` en `app/page.tsx`, spec PORTADA_V7 V5): sin `AUTOR_NOMBRE` la
+ * línea dice lo demás y calla el nombre. Firma la autoría, no el responsable legal.
  */
 export function CierrePortada({ autor }: { autor: string | null }) {
   return (
@@ -20,7 +19,7 @@ export function CierrePortada({ autor }: { autor: string | null }) {
         <Link href="/apoyar#costos" className="enlace cifra">
           ~{COSTO_MENSUAL_APROXIMADO} al mes
         </Link>
-        {autor && <span>· hecho por {autor}</span>}
+        {autor && <span>Lo hace {autor}.</span>}
         <Link
           href="/apoyar"
           className="inline-flex items-center gap-1 font-semibold text-accent transition-colors hover:text-primary"

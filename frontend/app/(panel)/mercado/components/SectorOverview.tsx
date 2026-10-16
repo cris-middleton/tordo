@@ -80,7 +80,7 @@ export function SectorOverview() {
             </p>
             <p className="text-xs text-subtle mt-0.5">
               {s.n_organismos != null && `${s.n_organismos.toLocaleString('es-CL')} organismos`}
-              {s.n_organismos != null && s.n_proveedores != null && ' · '}
+              {s.n_organismos != null && s.n_proveedores != null && ', '}
               {s.n_proveedores != null && `${s.n_proveedores.toLocaleString('es-CL')} proveedores`}
             </p>
           </div>

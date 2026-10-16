@@ -1,3 +1,4 @@
+import { Contenedor } from '@/components/cascara/Contenedor';
 import { hayLecturas, lecturaCierres, lecturaPrecio, lecturaSectores, type Lecturas } from '@/lib/lecturasPortada';
 import { actualizadoEnPalabras, franjaDeLaPortada, tiraDeLaPortada, usosAbiertos } from '@/lib/portada';
 import type { SectoresBI } from '@/types/bi';
@@ -18,7 +19,8 @@ import { UsosAbiertos } from './UsosAbiertos';
  * servidor entero, sin JavaScript propio**; la cabecera y el pie los pone la
  * cáscara única.
  *
- * Dos columnas desde `lg` (D6), en `max-w-6xl` con 56 px entre ellas: a la
+ * Dentro del contenedor único (spec PORTADA_V7 §4: el mismo borde izquierdo que
+ * la cabecera). Dos columnas desde `lg` (D6), con 56 px entre ellas: a la
  * izquierda se busca —la pregunta, el buscador, las cifras y la ficha—; a la
  * derecha se lee —el panel oscuro con las tres lecturas—. Por debajo de `lg`,
  * una columna, con el panel después de la ficha. Debajo de las dos, la franja de
@@ -45,7 +47,7 @@ export function Portada({
   producto: ProductoPublico | null;
   /** `urlRepositorio()`: «Código» sólo con el repositorio publicado. */
   repositorio: string | null;
-  /** `nombreResponsable()`: «hecho por» sólo con nombre. */
+  /** `nombreAutor()`: «Lo hace» sólo con nombre. */
   autor: string | null;
 }) {
   const tira = tiraDeLaPortada(resumen);
@@ -62,7 +64,7 @@ export function Portada({
   const horaHoy = destacadas ? actualizadoEnPalabras(destacadas.actualizado_en) : null;
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 pb-16 sm:px-6">
+    <Contenedor className="pb-16">
       <div className={`grid items-start gap-10 py-8 sm:py-12 ${hayPanel ? 'lg:grid-cols-2 lg:gap-14' : ''}`}>
         <div className="min-w-0">
           <BuscadorPortada />
@@ -79,6 +81,6 @@ export function Portada({
 
       <UsosAbiertos usos={usosAbiertos(repositorio)} />
       <CierrePortada autor={autor} />
-    </div>
+    </Contenedor>
   );
 }

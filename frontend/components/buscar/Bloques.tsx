@@ -62,7 +62,7 @@ function VerTodos({ href, children }: { href: string; children: React.ReactNode 
 }
 
 function Subtitulo({ children }: { children: React.ReactNode }) {
-  return <h3 className="text-sm font-semibold uppercase tracking-wider text-subtle">{children}</h3>;
+  return <h3 className="text-sm font-semibold text-text">{children}</h3>;
 }
 
 // ── Ejemplos y sin resultados ────────────────────────────────────────────────
@@ -108,7 +108,7 @@ function ProductoEnLista({ producto }: { producto: ProductoEncontrado }) {
     >
       <span className="min-w-0 truncate font-medium text-primary">{nombreProducto(producto)}</span>
       <span className="cifra shrink-0 text-xs text-muted">
-        {entero(producto.n)} compras{producto.indexable ? '' : ' · orientativo'}
+        {entero(producto.n)} compras{producto.indexable ? '' : ', orientativo'}
       </span>
     </Link>
   );
@@ -139,7 +139,7 @@ function PreciosEncontrados({
           {nombreProducto(primero)}
         </Link>
         <p className="cifra text-xs text-muted">
-          {entero(primero.n)} compras{primero.indexable ? '' : ' · orientativo'}
+          {entero(primero.n)} compras{primero.indexable ? '' : ', orientativo'}
         </p>
       </div>
 

@@ -103,7 +103,7 @@ function Seccion({
   return (
     <section className="space-y-3">
       <div>
-        <h2 className="text-lg text-text">{titulo}</h2>
+        <h2 className="section-title">{titulo}</h2>
         {descripcion && <p className="text-sm text-muted">{descripcion}</p>}
       </div>
       {children}
@@ -226,7 +226,7 @@ function BIContenido() {
 
   if (biDesactivado) {
     return (
-      <div className="space-y-4 p-4">
+      <div className="space-y-4">
         <h1 className="page-title flex items-center gap-2">
           <BarChart3 className="h-6 w-6 text-primary" aria-hidden="true" />
           Mercados
@@ -240,7 +240,7 @@ function BIContenido() {
   // llegan, se dice y se ofrece reintentar. Antes la pantalla se pintaba vacía.
   if (consultaRubros.isError) {
     return (
-      <div className="space-y-4 p-4">
+      <div className="space-y-4">
         <h1 className="page-title flex items-center gap-2">
           <BarChart3 className="h-6 w-6 text-primary" aria-hidden="true" />
           Mercados
@@ -255,8 +255,29 @@ function BIContenido() {
     );
   }
 
+  // El `h1` va primero y el selector de rubro debajo (spec PORTADA_V7 §4: nada antes
+  // del `h1`, el tope es el de toda página). El selector sigue pegado arriba al bajar.
   return (
     <div className="flex min-h-screen flex-col">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="page-title flex items-center gap-2">
+            <BarChart3 className="h-6 w-6 text-primary" aria-hidden="true" />
+            Mercados
+          </h1>
+          {rubro && <p className="mt-2 text-sm text-muted">{rubro}</p>}
+        </div>
+        {!compareMode && rubro && (
+          <button
+            onClick={() => setCompareMode(true)}
+            className="hidden items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-text transition-colors hover:border-primary hover:text-primary md:flex"
+          >
+            <Columns className="h-4 w-4" aria-hidden="true" />
+            Comparar con otro rubro
+          </button>
+        )}
+      </div>
+
       <RubroFilter
         rubros={allRubros}
         selectedRubro={rubro}
@@ -265,25 +286,7 @@ function BIContenido() {
         onClearFocus={() => setFocusCodigo(null)}
       />
 
-      <div className="flex-1 space-y-8 p-4 pb-12">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="page-title flex items-center gap-2">
-              <BarChart3 className="h-6 w-6 text-primary" aria-hidden="true" />
-              Mercados
-            </h1>
-            {rubro && <p className="mt-0.5 text-sm text-muted">{rubro}</p>}
-          </div>
-          {!compareMode && rubro && (
-            <button
-              onClick={() => setCompareMode(true)}
-              className="hidden items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-text transition-colors hover:border-primary hover:text-primary md:flex"
-            >
-              <Columns className="h-4 w-4" aria-hidden="true" />
-              Comparar con otro rubro
-            </button>
-          )}
-        </div>
+      <div className="flex-1 space-y-8 pt-6">
 
         {compareMode ? (
           <CompareMode
@@ -301,7 +304,7 @@ function BIContenido() {
           <>
             <SectorOverview />
 
-            {/* ── 1 · ¿Cómo está este mercado? ───────────────────────────── */}
+            {/* ── 1. ¿Cómo está este mercado? ───────────────────────────── */}
             <Seccion
               titulo="Cómo está el mercado"
               descripcion="Tamaño, competencia y calendario del rubro completo, no de un comprador suelto."
@@ -335,7 +338,7 @@ function BIContenido() {
               )}
             </Seccion>
 
-            {/* ── 2 · ¿Qué hago esta semana? ─────────────────────────────── */}
+            {/* ── 2. ¿Qué hago esta semana? ─────────────────────────────── */}
             <Seccion
               titulo="Dónde mirar primero"
               descripcion="Los mercados con mejor combinación de precio, competencia y regularidad."
@@ -381,7 +384,7 @@ function BIContenido() {
               )}
             </Seccion>
 
-            {/* ── 3 · Detalle de un comprador ────────────────────────────── */}
+            {/* ── 3. Detalle de un comprador ────────────────────────────── */}
             <div data-section="detalle-comprador" className="space-y-6">
               {focusedOrganismo && (
                 <div className="flex items-center gap-3 rounded-xl border-l-4 border-accent bg-accent/10 px-4 py-3">
@@ -436,7 +439,7 @@ function BIContenido() {
               </Seccion>
             </div>
 
-            {/* ── 4 · Cálculos puntuales ─────────────────────────────────── */}
+            {/* ── 4. Cálculos puntuales ─────────────────────────────────── */}
             <HerramientasAvanzadas
               rubro={rubro}
               topOrganismos={topOrganismos}
