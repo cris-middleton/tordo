@@ -24,8 +24,6 @@ import { COLORES_IMAGEN, PARES_IMAGEN } from '@/lib/coloresImagen';
  * - el borde de un control contra las superficies donde se pinta un control
  *   (WCAG 1.4.11, 3:1);
  * - `.badge-primary`: la tinta primaria sobre su propio relleno al 10 %;
- * - el panel de lecturas de la portada (`dark bg-brand-navy`, identidad §5): las tintas
- *   oscuras que se pintan dentro, medidas contra `brand-navy`, que es su fondo real;
  * - la tarjeta de vista previa (`app/opengraph-image.tsx`): los pares de texto
  *   sobre fondo que declara `PARES_IMAGEN` en `lib/coloresImagen.ts` (la marca y el
  *   dominio sobre el panel `brand-blue`, el titular sobre el lienzo, la píldora).
@@ -154,25 +152,13 @@ const PARES_TARJETA: Par[] = PARES_IMAGEN.map(({ tinta, fondo }) => {
 });
 
 /**
- * El panel de lecturas de la portada (identidad §5, D4) es `dark bg-brand-navy`: dentro,
- * todo toma la parada OSCURA, pero el fondo no es una superficie del tema oscuro sino el
- * navy de la marca, invariante. Sus tintas se miden contra él:
- *
- * - `text` y `muted` (el texto del panel) y `primary`, la tinta de `.enlace`: son lo que el panel
- *   PINTA. `accent` se mide pero **no se pinta** (ni al pasar el ratón: spec §5);
- * - `dato`, la conclusión y la barra que la conclusión nombra. La spec pide 3:1 para la
- *   barra (WCAG 1.4.11); la conclusión es texto, así que se mide a 4,5:1 y cubre las dos.
- *
- * `subtle` NO entra: sobre navy da 4,18:1. En el panel no se usa `text-subtle`.
+ * El panel navy de la portada (identidad §5) se fue con la portada v7 (spec
+ * PORTADA_V7 V1): las lecturas van sobre blanco, y sus pares —`dato` sobre la
+ * superficie— ya están entre los del tema. Ninguna superficie del sitio pinta
+ * texto sobre `brand-navy`; lo que queda de navy es la marca y la tarjeta de
+ * vista previa, cuyos pares son los de `PARES_IMAGEN`.
  */
-const PARES_PANEL: Par[] = ['text', 'muted', 'accent', 'primary', 'dato'].map((tinta) => ({
-  tema: 'oscuro',
-  tinta,
-  fondo: 'brand-navy',
-  uso: 'texto',
-}));
-
-const PARES: Par[] = [...paresDelTema('claro'), ...paresDelTema('oscuro'), ...PARES_PANEL, ...PARES_TARJETA];
+const PARES: Par[] = [...paresDelTema('claro'), ...paresDelTema('oscuro'), ...PARES_TARJETA];
 
 /** Tokens de color que no van en ningún par, y por qué. */
 const SIN_PAR: Record<string, string> = {
@@ -215,8 +201,8 @@ describe('contraste WCAG AA de los tokens de color', () => {
   });
 
   it('declara todos los pares (guarda: un recorrido vacío pasa siempre)', () => {
-    // 2 temas × (33 tinta/neutra + 10 on-* + 18 tenues + 2 bordes + 2 badge) + 5 del panel + 4 de la tarjeta.
-    expect(PARES).toHaveLength(139);
+    // 2 temas × (33 tinta/neutra + 10 on-* + 18 tenues + 2 bordes + 2 badge) + 4 de la tarjeta.
+    expect(PARES).toHaveLength(134);
   });
 
   it('cada par de la tarjeta mide el color que la tarjeta pinta, en el tema donde ese token lo vale', () => {

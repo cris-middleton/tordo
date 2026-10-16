@@ -62,17 +62,20 @@ const frontmatterDeGuia = (fuente: string) => (/^---\n([\s\S]*?)\n---/.exec(fuen
 const NOTAS = archivos(join(RAIZ, 'content', 'notas'), /\.mdx$/);
 const sinBloquesDeCodigo = (fuente: string) => fuente.replace(/```[\s\S]*?```/g, '').replace(/`[^`\n]*`/g, '');
 
-const PIEZAS_PORTADA = archivos(join(RAIZ, 'components', 'portada'), /\.tsx$/);
+// Las piezas de la portada y las que comparte con la ficha de producto (spec PORTADA_V7 §9).
+const PIEZAS_PORTADA = ['portada', 'metodo', 'precio'].flatMap((d) => archivos(join(RAIZ, 'components', d), /\.tsx$/));
 
 // Los dos ficheros de textos de la portada existen desde el PR 3: si uno falta,
 // el test falla (no se salta), porque un test que filtra lo que no existe se queda
 // mudo comprobando el vacío.
-const TEXTOS_PORTADA = ['lib/portada.ts', 'lib/lecturasPortada.ts'].map((r) => join(RAIZ, r));
+const TEXTOS_PORTADA = ['lib/portada.ts', 'lib/lecturasPortada.ts', 'lib/metodo.ts', 'lib/graficoPrecio.ts'].map((r) =>
+  join(RAIZ, r),
+);
 
 describe('D11: fuera «gratis y sin cuenta» de títulos, descripciones y la portada', () => {
   it('guarda: hay ficheros que revisar (un test sin guarda se queda mudo comprobando el vacío)', () => {
     expect(CON_METADATOS.length).toBeGreaterThanOrEqual(50);
-    expect(PIEZAS_PORTADA.length).toBeGreaterThanOrEqual(6);
+    expect(PIEZAS_PORTADA.length).toBeGreaterThanOrEqual(10);
     expect(GUIAS.length).toBeGreaterThanOrEqual(5);
     expect(NOTAS.length).toBeGreaterThanOrEqual(4);
     for (const f of TEXTOS_PORTADA) expect(existsSync(f), `${f} tiene que existir`).toBe(true);

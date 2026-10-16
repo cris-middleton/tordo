@@ -24,9 +24,9 @@ test('sin término: el formulario y los ejemplos, y nada se indexa', async ({ pa
   const main = page.getByRole('main');
   await expect(main.getByRole('heading', { level: 1, name: '¿Qué le vendes al Estado?' })).toBeVisible();
   await expect(main.getByRole('searchbox', { name: /qué le vendes al estado/i })).toHaveValue('');
-  await expect(main.getByRole('link', { name: 'guantes de nitrilo' })).toHaveAttribute(
+  await expect(main.getByRole('link', { name: 'cambio de aceite' })).toHaveAttribute(
     'href',
-    '/buscar?q=guantes+de+nitrilo',
+    '/buscar?q=cambio+de+aceite',
   );
   await expect(page.locator('meta[name="robots"][content*="noindex"]')).toHaveCount(1);
 });
@@ -103,12 +103,12 @@ test('sin resultados en ninguno: lo dice, y un ejemplo lleva a su búsqueda con 
   await page.goto('/buscar?q=xqzwvk');
   const main = page.getByRole('main');
   await expect(main.getByText(/no encontramos nada para «xqzwvk»/i)).toBeVisible();
-  const ejemplo = main.getByRole('link', { name: 'tóner' });
-  await expect(ejemplo).toHaveAttribute('href', '/buscar?q=t%C3%B3ner');
+  const ejemplo = main.getByRole('link', { name: 'pendón' });
+  await expect(ejemplo).toHaveAttribute('href', '/buscar?q=pend%C3%B3n');
   await ejemplo.click();
-  await expect(page).toHaveURL(/\/buscar\?q=t%C3%B3ner$/);
+  await expect(page).toHaveURL(/\/buscar\?q=pend%C3%B3n$/);
   // Navegación de cliente: sin la `key` del campo se quedaría con «xqzwvk».
-  await expect(main.getByRole('searchbox')).toHaveValue('tóner');
+  await expect(main.getByRole('searchbox')).toHaveValue('pendón');
 });
 
 test('el formulario busca con un GET a /buscar', async ({ page }) => {

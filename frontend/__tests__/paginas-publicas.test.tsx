@@ -9,7 +9,7 @@
  *   3. metadatos: canonical, y `noindex` cuando el backend dice `indexable: false`;
  *   4. los enlaces entre fichas usan el `slug`/`codigo` que manda el backend.
  */
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/navigation', () => ({
@@ -211,6 +211,38 @@ describe('enlaces entre fichas', () => {
     expect(screen.getByRole('heading', { name: 'Por unidad' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Hospital de Prueba' })).toHaveAttribute('href', '/compradores/7297');
     expect(screen.queryByText(/úsalo sólo para orientarte/)).not.toBeInTheDocument();
+  });
+
+  it('encima de «Quién lo compra», el gráfico de precio de la portada, con su pie de método (spec PORTADA_V7 §6)', async () => {
+    const conCompradores = {
+      ...PRODUCTO,
+      periodo: { ventana_desde: '2025-11-01', ventana_hasta: '2026-10-31' },
+      unidades: [{ ...PRODUCTO.unidades[0], compradores: 31, de_mercado: true }, PRODUCTO.unidades[1]],
+      compradores: [
+        ...PRODUCTO.compradores,
+        { codigo: '1', nombre: 'Municipalidad Uno', unidad: 'caja', n: 9, p50: 4100 },
+        { codigo: '2', nombre: 'Municipalidad Dos', unidad: 'Unidad', n: 9, p50: 45 },
+      ],
+    };
+    simularBackend({ '/productos/guante-latex-nitrilo': conCompradores });
+    const { container } = render(await PaginaProducto(params({ slug: 'guante-latex-nitrilo' })));
+    const titulo = screen.getByRole('heading', { level: 2, name: 'Cuánto pagó cada comprador' });
+    const seccion = titulo.closest('section') as HTMLElement;
+    expect(within(seccion).getByRole('heading', { level: 3 })).toHaveTextContent('Por caja: la mitad se pagó entre $4.000 y $6.000');
+    // Un punto por comprador de la unidad de la banda: los de «Unidad» no se comparan.
+    expect(seccion.querySelectorAll('svg circle')).toHaveLength(2);
+    expect(within(seccion).getByRole('link', { name: 'Cómo se calcula' })).toHaveAttribute(
+      'href',
+      '/guias/como-leer-una-banda-de-precio#los-cinco-numeros',
+    );
+    expect(within(seccion).getByRole('link', { name: 'Ver en la API' })).toHaveAttribute(
+      'href',
+      'https://api.tordo.cl/api/v1/publico/productos/guante-latex-nitrilo',
+    );
+    expect(seccion).toHaveTextContent('120 compras de 31 compradores, nov 2025 a oct 2026, precio por caja.');
+    const quien = screen.getByRole('heading', { level: 2, name: 'Quién lo compra' });
+    expect(titulo.compareDocumentPosition(quien) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(container.textContent).not.toMatch(/NaN|undefined/);
   });
 
   it('una banda con la unidad nula se pinta, con el rótulo de unidad ausente', async () => {

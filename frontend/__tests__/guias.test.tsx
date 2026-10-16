@@ -28,7 +28,7 @@ import PaginaGuia, { dynamicParams, generateMetadata, generateStaticParams } fro
 import PaginaGuias from '@/app/(publico)/guias/page';
 import { Markdown } from '@/components/guias/Markdown';
 import { leerGuias } from '@/lib/guias';
-import { bloques, destinos, enLinea } from '@/lib/markdown';
+import { bloques, destinos, enLinea, idDeTitulo, idsDeTitulos, type Bloque } from '@/lib/markdown';
 
 const GUIAS = leerGuias();
 const params = (slug: string) => ({ params: Promise.resolve({ slug }) });
@@ -99,6 +99,17 @@ describe('Markdown mínimo', () => {
 
   it('una línea que no casa con nada no cuelga el parser', () => {
     expect(bloques('#sin-espacio')).toEqual([{ t: 'parrafo', hijos: [{ t: 'texto', v: '#sin-espacio' }] }]);
+  });
+
+  it('cada título lleva un id para enlazarlo: minúsculas, sin tildes ni signos', () => {
+    const id = (md: string) => idDeTitulo((bloques(md)[0] as Extract<Bloque, { t: 'titulo' }>).hijos);
+    expect(id('## Los cinco números')).toBe('los-cinco-numeros');
+    expect(id('## Tasa de adjudicación: ¿termina comprando lo que llama?')).toBe(
+      'tasa-de-adjudicacion-termina-comprando-lo-que-llama',
+    );
+    expect(id('### Por qué **no** mostramos `p50`')).toBe('por-que-no-mostramos-p50');
+    const { container } = render(<Markdown arbol={bloques('## Qué entra\n\ntexto')} />);
+    expect(container.querySelector('h2')).toHaveAttribute('id', 'que-entra');
   });
 
   it('un destino que no es interno, mailto ni https no se convierte en enlace', () => {
@@ -172,6 +183,12 @@ describe('las guías', () => {
     it('enlaces internos a rutas que existen', () => {
       const internos = destinos(guia.cuerpo).filter((d) => d.startsWith('/'));
       for (const d of internos) expect(existe(d), d).toBe(true);
+    });
+
+    it('sus títulos tienen ids distintos: un ancla lleva a un solo sitio', () => {
+      const ids = idsDeTitulos(guia.cuerpo);
+      expect(ids.length, 'guarda: la guía tiene títulos').toBeGreaterThan(0);
+      expect(new Set(ids).size).toBe(ids.length);
     });
 
     it('metadatos con título, descripción y canonical', async () => {

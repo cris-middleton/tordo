@@ -269,10 +269,8 @@ export function citaDeFuente(fuente: string): { ruta: string; fragmento: string 
   return m ? { ruta: m[1], fragmento: m[2] } : null;
 }
 
-/** `<repositorio>/blob/main/<ruta>`, o `null` sin repositorio. */
-export function urlEnRepositorio(repositorio: string | null, ruta: string): string | null {
-  return repositorio ? `${repositorio.replace(/\/+$/, '')}/blob/main/${ruta}` : null;
-}
+/** Vive en `lib/repositorio.ts` (lo usan también los pies de método); se re-exporta por comodidad. */
+export { urlEnRepositorio } from './repositorio';
 
 /**
  * Un fragmento citado, para leerlo: sin las marcas de código ni de cursiva. Un

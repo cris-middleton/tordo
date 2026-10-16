@@ -83,10 +83,8 @@ export function origenDelSitio(): string {
 // ── Formato ─────────────────────────────────────────────────────────────────
 
 /**
- * Un monto en pesos, abreviado. **Tiene una copia en Python** en
- * `scripts/verificar-produccion.sh` (filtro del producto de la portada, que
- * compara `plata(p25)` con `plata(p75)`): si cambias el redondeo o los cortes,
- * cámbialos allí también.
+ * Un monto en pesos, abreviado. La lectura de precio de la portada lo usa para
+ * decidir si P25 y P75 se escriben igual («la mitad se pagó a $X»).
  */
 export function plata(clp?: number | null): string {
   if (clp == null) return '—';

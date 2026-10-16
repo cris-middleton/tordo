@@ -156,7 +156,7 @@ export const COSTOS: Costo[] = [
   },
 ];
 
-/** Lo que se dice en una frase («alrededor de US$10–11 al mes»). La portada lo lee de aquí. */
+/** Lo que se dice en una frase («alrededor de US$10–11 al mes»). `/acerca` y `/apoyar` lo leen de aquí. */
 export const COSTO_MENSUAL_APROXIMADO = 'US$10–11';
 
 /** El uso de Railway proyectado (DESPLIEGUE §13.2); `/apoyar` lo lee de aquí. */

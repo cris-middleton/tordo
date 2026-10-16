@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 
+import { CLASE_SECCION } from '@/components/cascara/Seccion';
+
 import {
   CON_PUESTO,
   descripcionDestacadas,
@@ -36,7 +38,7 @@ function FilaDestacada({
   return (
     <article aria-labelledby={`hoy-${item.codigo_externo}`} className="flex items-start gap-3 py-3">
       {posicion !== undefined && (
-        <span className="cifra w-5 shrink-0 pt-0.5 text-right text-sm font-semibold text-subtle">
+        <span className="cifra w-5 shrink-0 text-right text-sm font-semibold text-subtle">
           <span className="sr-only">Puesto </span>
           {posicion}
         </span>
@@ -49,7 +51,7 @@ function FilaDestacada({
         >
           {normalizeText(item.nombre)}
         </Link>
-        <p className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted">
+        <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted">
           {item.nombre_organismo && (
             <span className="min-w-0 break-words">{normalizeText(item.nombre_organismo)}</span>
           )}
@@ -101,9 +103,9 @@ export function BloqueHoy({
   const Lista = CON_PUESTO ? 'ol' : 'ul';
 
   return (
-    <section id="hoy" aria-labelledby="hoy-titulo" className="mt-12">
+    <section id="hoy" aria-labelledby="hoy-titulo" className={CLASE_SECCION}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h2 id="hoy-titulo" className="text-xl text-text">
+        <h2 id="hoy-titulo" className="section-title">
           {TITULO_DESTACADAS}
         </h2>
         <Link
@@ -115,7 +117,7 @@ export function BloqueHoy({
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </Link>
       </div>
-      <p className="mt-1 text-xs text-muted">
+      <p className="mt-2 text-sm text-muted">
         {descripcionDestacadas(datos.historia_disponible === true)}
         {!horaEnLaFranja && (
           <>
@@ -128,7 +130,7 @@ export function BloqueHoy({
       {datos.items.length > 0 ? (
         <Lista
           aria-label="Compras Ágiles destacadas de hoy"
-          className="mt-3 divide-y divide-border border-y border-border"
+          className="mt-4 divide-y divide-border border-y border-border"
         >
           {datos.items.map((item, i) => (
             <li key={item.codigo_externo}>
@@ -141,7 +143,7 @@ export function BloqueHoy({
           ))}
         </Lista>
       ) : (
-        <p className="mt-3 rounded-xl border border-border bg-surface px-5 py-6 text-sm text-muted">
+        <p className="mt-4 rounded-xl border border-border bg-surface px-6 py-6 text-sm text-muted">
           Ahora mismo no hay Compras Ágiles abiertas que cierren en más de dos horas. La lista se renueva
           varias veces al día.
         </p>

@@ -228,12 +228,12 @@ PY
   sleep 1
 }
 
-ejemplo 'guantes de nitrilo'
-ejemplo 'papel higiénico'
-ejemplo 'jabón líquido'
-ejemplo 'tóner'
-ejemplo 'resma de papel carta'
-ejemplo 'agua purificada en bidones'
+ejemplo 'lápiz pasta'
+ejemplo 'cloro'
+ejemplo 'agua mineral'
+ejemplo 'impresora'
+ejemplo 'pendón'
+ejemplo 'cambio de aceite'
 
 # ── El producto de la portada (lectura de precio) ────────────────────────────
 # Copia LITERAL de PRODUCTO_PORTADA.slug (frontend/lib/lecturasPortada.ts):
@@ -242,21 +242,14 @@ ejemplo 'agua purificada en bidones'
 # lecturaPrecio: si el producto deja de ser indexable o su unidad con más compras
 # no pasa el filtro (precio de mercado —`de_mercado`, ≥ 3 compradores y ninguno
 # sobre la mitad, lo decide la API—, unidad declarada, predictibilidad alta o
-# media, p25 ≥ 1, p75 > p25, que se escriban distinto, periodo), la portada
-# oculta la lectura sin avisar a nadie; aquí sí. `plata` copia el redondeo de plata() en
-# frontend/lib/publico.ts: «$2 millones» y «$2 millones» son la misma cifra.
+# media, p25 ≥ 1, p75 ≥ p25, periodo), la portada oculta la lectura sin avisar a
+# nadie; aquí sí. P25 = P75 ya no la oculta (portada v7 §3.2): la frase dice «la
+# mitad se pagó a $X».
 seccion "Producto de la portada: indexable, con una banda de mercado creíble y su periodo"
 PRODUCTO_PORTADA='impresora-multifuncional'
 codigo=$(pedir "$API/api/v1/publico/productos/$PRODUCTO_PORTADA")
 if [ "$codigo" = 200 ] && python3 -I - "$TMP/cuerpo" 2>/dev/null <<'PY'
-import json, math, sys, unicodedata
-from decimal import ROUND_HALF_UP, Decimal
-def plata(v):
-    uno = lambda x: Decimal(str(x)).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
-    if v >= 1e12: return f"{uno(v / 1e12)} billones"
-    if v >= 1e9: return f"{uno(v / 1e9)} mil millones"
-    if v >= 1e6: return f"{math.floor(v / 1e6 + 0.5)} millones"
-    return str(math.floor(v + 0.5))
+import json, sys, unicodedata
 def normal(texto):
     sin_tildes = unicodedata.normalize("NFD", texto or "")
     sin_tildes = "".join(c for c in sin_tildes if not unicodedata.combining(c))
@@ -271,8 +264,7 @@ listo = (
     and u.get("de_mercado") is True
     and unidad not in ("", "sin unidad declarada")
     and normal(u.get("predictibilidad")) in ("alta", "media")
-    and p25 is not None and p75 is not None and 1 <= p25 < p75
-    and plata(p25) != plata(p75)
+    and p25 is not None and p75 is not None and 1 <= p25 <= p75
     and periodo.get("ventana_desde")
     and periodo.get("ventana_hasta")
 )

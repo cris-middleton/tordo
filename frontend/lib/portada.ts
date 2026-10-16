@@ -1,25 +1,26 @@
 /**
  * Textos y ayudantes de la portada (`app/page.tsx`). Puros y sin secretos.
  *
- * La portada es un buscador (spec del rediseño §6.3 e IDENTIDAD_Y_PORTADA §3):
- * «¿Qué le vendes al Estado?», sus ejemplos (`lib/buscar.ts`), las cifras vivas,
- * la ficha y la franja de hoy, «Lo mejor de hoy» y lo abierto. Las tres lecturas
- * del panel viven en `lib/lecturasPortada.ts`. Lo que antes explicaba —qué es,
- * de dónde salen los datos, cómo se financia y las preguntas frecuentes— vive en
- * `/acerca` (`lib/acerca.ts`).
+ * La portada v7 (spec docs/PORTADA_V7_Y_NOTAS_2026-10.md §3): «¿Qué le vendes al
+ * Estado?», sus ejemplos (`lib/buscar.ts`), las cifras vivas y la ficha; debajo,
+ * las tres lecturas (`lib/lecturasPortada.ts`), la franja de hoy, «Lo mejor de
+ * hoy» y las notas de datos. Lo que antes explicaba —qué es, de dónde salen los
+ * datos, cómo se financia y las preguntas frecuentes— vive en `/acerca`.
  *
- * Las variables de servidor (`REPOSITORIO_URL`, `RESPONSABLE_LEGAL`) NO se leen
- * aquí: llegan como argumento desde `app/page.tsx`, que es de servidor. Así
- * estas funciones se prueban sin tocar el entorno.
+ * Las variables de servidor (`REPOSITORIO_URL`, `AUTOR_NOMBRE`, `AUTOR_URL`) NO
+ * se leen aquí: llegan como argumento desde `app/page.tsx`, que es de servidor.
+ * Así estas funciones se prueban sin tocar el entorno.
  */
 
+import type { SectoresBI } from '@/types/bi';
 import type { ResumenPortada } from '@/types/publico';
 
 import { HORAS_HABILES } from './compraAgil';
 import { urlCatalogoAbiertas } from './filtrosCatalogo';
-import { esConteo } from './lecturasPortada';
-import type { EnlaceNavegacion } from './navegacion';
+import { decimal } from './formato';
+import { esConteo, esFechaOAusente } from './lecturasPortada';
 import { normalizeText } from './nombresChile';
+import { rangoDeMeses } from './periodo';
 import { entero } from './publico';
 
 /** Lo que se ve en el bloque vivo de la portada. El resto, en la página entera. */
@@ -101,36 +102,58 @@ export function tiraDeLaPortada(resumen: ResumenPortada | null): TiraPortada | n
   };
 }
 
-/**
- * «Úsalo como quieras» (spec §6.3): lo abierto, cada cosa a su sección de
- * `/abierto`. CSV y RSS van a la misma (`#datos`), que explica los dos.
- * «Código» sólo con el repositorio publicado (`urlRepositorio()`): mientras siga
- * privado (R8) no se enlaza nada.
- */
-export function usosAbiertos(repositorio: string | null): EnlaceNavegacion[] {
-  const usos: EnlaceNavegacion[] = [
-    { nombre: 'API', href: '/abierto#api' },
-    { nombre: 'MCP para Claude y ChatGPT', href: '/abierto#mcp' },
-    { nombre: 'CSV', href: '/abierto#datos' },
-    { nombre: 'RSS', href: '/abierto#datos' },
-  ];
-  if (repositorio) usos.push({ nombre: 'Código', href: repositorio, externo: true });
-  return usos;
-}
-
-/** Bajo la pregunta: qué hace la búsqueda, en una frase (spec §6.2). */
+/** Bajo la pregunta: qué hace la búsqueda, en una frase (spec PORTADA_V7 §3.8). */
 export const SUBTITULO_PORTADA =
-  'Escribe lo que vendes. Te mostramos cuánto ha pagado el Estado, quién lo compra y qué está abierto hoy.';
+  'Antes de cotizar, mira a qué precio se compró en los últimos 12 meses, quién lo compra y qué puedes postular hoy.';
 
 /** El campo no repite los ejemplos: ya están debajo (spec §3.1). */
 export const PLACEHOLDER_BUSCADOR = 'Un producto o un servicio';
 
 /**
- * «4 veces cada día hábil; el análisis, cada semana», en la ficha. El número sale
- * del horario del cron frecuente (`HORAS_HABILES`, copia de `etl/cron.py`): si el
- * cron cambia, la frase cambia con él.
+ * «El catálogo, 4 veces cada día hábil. El análisis, cada domingo.», en la ficha
+ * (spec PORTADA_V7 §3.5). El número sale del horario del cron frecuente
+ * (`HORAS_HABILES`, copia de `etl/cron.py`): si el cron cambia, la frase cambia
+ * con él. El semanal corre los domingos (`etl/cron.py`, `semanal`).
  */
-export const SE_ACTUALIZA = `${HORAS_HABILES.length} veces cada día hábil; el análisis, cada semana`;
+export const SE_ACTUALIZA = `El catálogo, ${HORAS_HABILES.length} veces cada día hábil. El análisis, cada domingo.`;
+
+/** «Datos abiertos de ChileCompra»: la fila «Fuente» de la ficha. */
+export const FUENTE_PORTADA = 'Datos abiertos de ChileCompra';
+
+/** «5,48 millones de órdenes de compra», «950.000 órdenes de compra»: millones con dos decimales y coma. */
+function ordenesDeCompra(n: number): string {
+  if (n < 999_995) return `${entero(n)} ${n === 1 ? 'orden' : 'órdenes'} de compra`;
+  const millones = decimal(n / 1e6, 2).replace(/,00$/, '');
+  return `${millones} ${millones === '1' ? 'millón' : 'millones'} de órdenes de compra`;
+}
+
+/**
+ * La fila «Base» de la ficha (spec PORTADA_V7 §3.5, V6): «5,48 millones de
+ * órdenes de compra, nov 2023 a oct 2026». **Calculada desde `GET /bi/sector`,
+ * nunca escrita a mano**: la suma de `n_oc` de todos los sectores y la ventana
+ * mínima y máxima de sus filas. Una cifra escrita a mano se queda vieja sin que
+ * nada falle.
+ *
+ * `null` —la fila no sale— sin analytics (503 o tabla ausente), sin `n_oc` en
+ * alguna fila (un backend anterior: la suma mentiría), con suma 0 o sin ventana.
+ */
+export function baseDeLaFicha(sectores: SectoresBI | null): string | null {
+  if (!sectores?.disponible || !sectores.sectores?.length) return null;
+  const filas = sectores.sectores;
+  if (!filas.every((f) => esConteo(f.n_oc))) return null;
+  const total = filas.reduce((suma, f) => suma + (f.n_oc as number), 0);
+  if (total === 0) return null;
+  const fechas = (clave: 'ventana_desde' | 'ventana_hasta') =>
+    filas
+      .map((f) => f[clave])
+      .filter((v): v is string => typeof v === 'string' && esFechaOAusente(v))
+      .sort();
+  const desde = fechas('ventana_desde')[0];
+  const hasta = fechas('ventana_hasta').at(-1);
+  const periodo = rangoDeMeses(desde, hasta);
+  if (!periodo) return null;
+  return `${ordenesDeCompra(total)}, ${periodo}`;
+}
 
 /** La franja bajo las dos columnas (spec §3.6). `null` = esa celda no se pinta. */
 export interface DatosFranja {

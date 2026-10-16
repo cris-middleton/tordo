@@ -21,20 +21,20 @@ export function FranjaPortada({ franja }: { franja: DatosFranja }) {
       className="flex flex-col divide-y divide-border border-y border-border text-sm text-muted lg:flex-row lg:divide-x lg:divide-y-0"
     >
       {franja.publicadasHoy && (
-        <div className="flex gap-1.5 py-3 lg:flex-1 lg:pr-6 lg:first:pl-0">
+        <div className="flex gap-2 py-3 lg:flex-1 lg:pr-6 lg:first:pl-0">
           <dt>Publicadas hoy:</dt>
           <dd className="cifra font-semibold text-text">{franja.publicadasHoy}</dd>
         </div>
       )}
       {franja.masPublicaHoy && (
-        <div className="flex min-w-0 gap-1.5 py-3 lg:flex-1 lg:px-6 lg:first:pl-0">
+        <div className="flex min-w-0 gap-2 py-3 lg:flex-1 lg:px-6 lg:first:pl-0">
           <dt className="shrink-0">Más publica hoy:</dt>
           <dd className="min-w-0 truncate font-semibold text-text" title={franja.masPublicaHoy}>
             {franja.masPublicaHoy}
           </dd>
         </div>
       )}
-      <div className="flex min-w-0 flex-wrap gap-x-1.5 py-3 lg:flex-1 lg:pl-6 lg:first:pl-0">
+      <div className="flex min-w-0 flex-wrap gap-x-2 py-3 lg:flex-1 lg:pl-6 lg:first:pl-0">
         <dt>Actualizado el</dt>
         <dd className="cifra font-semibold text-text">{franja.actualizado}</dd>
       </div>

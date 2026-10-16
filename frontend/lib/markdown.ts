@@ -169,6 +169,30 @@ export function bloques(markdown: string): Bloque[] {
   return salida;
 }
 
+/**
+ * El `id` de un título, para enlazarlo con un ancla (`/guias/<slug>#los-cinco-numeros`):
+ * su texto plano en minúsculas, sin tildes, y lo que no sea letra o número como un
+ * guion. Lo usan `components/guias/Markdown.tsx` (que lo pone en el `h2`–`h4`) y el
+ * «Cómo se calcula» de los pies de método (`lib/metodo.ts`): una sola regla, así
+ * que un ancla publicada existe mientras el título no cambie, y
+ * `__tests__/metodo.test.ts` falla si cambia.
+ */
+export function idDeTitulo(hijos: EnLinea[]): string {
+  const plano = (nodos: EnLinea[]): string =>
+    nodos.map((n) => (n.t === 'texto' || n.t === 'codigo' ? n.v : plano(n.hijos))).join('');
+  return plano(hijos)
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+/** Los `id` de los títulos de un árbol, en orden. */
+export function idsDeTitulos(arbol: Bloque[]): string[] {
+  return arbol.flatMap((b) => (b.t === 'titulo' ? [idDeTitulo(b.hijos)] : []));
+}
+
 /** Todos los destinos de enlace de un árbol, para comprobar que existen. */
 export function destinos(arbol: Bloque[]): string[] {
   const salida: string[] = [];

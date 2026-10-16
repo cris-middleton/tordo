@@ -1,32 +1,33 @@
 /**
- * Las tres lecturas del panel de la portada (spec docs/IDENTIDAD_Y_PORTADA_2026-10.md
- * §3.2–§3.5): quién compra, a qué precio y qué cierra pronto.
+ * Las tres lecturas de la portada (spec docs/PORTADA_V7_Y_NOTAS_2026-10.md §3.2–§3.4):
+ * a qué precio se compró, qué cierra pronto y la última nota de datos.
  *
- * **Cada frase sale del dato, con reglas** (D8). Las reglas viven aquí y las fija
- * `__tests__/lecturas-portada.test.ts` con sus bordes.
+ * **Cada frase sale del dato, con reglas** (D8 de la identidad). Las reglas viven
+ * aquí y las fija `__tests__/lecturas-portada.test.ts` con sus bordes. Cada lectura
+ * trae además su pie de método (V3): de qué base sale, de qué periodo, y sus
+ * enlaces (`lib/metodo.ts`).
  *
- * Funciones puras, sin React y sin secretos. Los validadores (`esSectores`,
- * `esProductoPortada`) los usa `lib/publicoServidor.ts`: un 200 mal formado
- * oculta la lectura en vez de tumbar la portada. Las lecturas devuelven además `null` ante cualquier dato
- * que no se pueda pintar con verdad. **Si una lectura no tiene dato, se oculta
- * entera** (principio 4 del rediseño).
+ * Funciones puras, sin React y sin secretos: el repositorio llega como argumento.
+ * Los validadores (`esSectores`, `esProductoPortada`) los usa `lib/publicoServidor.ts`:
+ * un 200 mal formado oculta la lectura en vez de tumbar la portada. Las lecturas
+ * devuelven además `null` ante cualquier dato que no se pueda pintar con verdad.
+ * **Si una lectura no tiene dato, se oculta entera** (principio 4 del rediseño).
  *
- * Sin signos de exclamación en ningún texto (voz del sitio, spec §6.1).
+ * Sin signos de exclamación en ningún texto (voz del sitio).
  */
 
 import type { SectoresBI } from '@/types/bi';
-import type { CompraAgilPorCierre, ProductoPublico, ResumenPortada } from '@/types/publico';
+import type { BandaUnidad, CompraAgilPorCierre, ProductoPublico, ResumenPortada } from '@/types/publico';
 
 import { urlCatalogoAbiertas } from './filtrosCatalogo';
-import { textoPeriodo } from './periodo';
-import { comprasDeOrganismos, entero, plata, rutaProducto, unidadDeclarada } from './publico';
+import { graficoPrecio, type GraficoPrecio } from './graficoPrecio';
+import { enlacesDeMetodo, METODO_CIERRES, METODO_PRECIO, type EnlaceMetodo } from './metodo';
+import { fechaLarga, rutaNota, type AntesDespues, type Nota } from './notas';
+import { rangoDeMeses } from './periodo';
+import { entero, plata, rutaProducto, unidadDeclarada } from './publico';
+import { urlEnRepositorio } from './repositorio';
 
 // ── Comunes ─────────────────────────────────────────────────────────────────
-
-export interface EnlaceLectura {
-  texto: string;
-  href: string;
-}
 
 function esObjeto(valor: unknown): valor is Record<string, unknown> {
   return typeof valor === 'object' && valor !== null && !Array.isArray(valor);
@@ -37,8 +38,8 @@ function esMonto(valor: unknown): valor is number {
 }
 
 /**
- * Un entero no negativo. Exportado para `lib/publicoServidor.ts`: una sola
- * definición de «conteo» entre los validadores.
+ * Un entero no negativo. Exportado para `lib/publicoServidor.ts` y `lib/portada.ts`:
+ * una sola definición de «conteo» entre los validadores.
  */
 export function esConteo(valor: unknown): valor is number {
   return typeof valor === 'number' && Number.isInteger(valor) && valor >= 0;
@@ -46,10 +47,9 @@ export function esConteo(valor: unknown): valor is number {
 
 /**
  * Ausente, nula o «AAAA-MM-DD…» **que existe en el calendario**. La forma sola no
- * basta: «2023-99-01» pasaba, y `textoPeriodo` lanzaba `RangeError` al formatearla.
- * Lo comparte la lectura de sectores y la de precio.
+ * basta: «2023-99-01» pasaba, y el formateador de meses lanzaba `RangeError`.
  */
-function esFechaOAusente(valor: unknown): boolean {
+export function esFechaOAusente(valor: unknown): boolean {
   if (valor == null) return true;
   if (typeof valor !== 'string') return false;
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(valor);
@@ -59,56 +59,15 @@ function esFechaOAusente(valor: unknown): boolean {
   return fecha.getUTCFullYear() === anio && fecha.getUTCMonth() === mes - 1 && fecha.getUTCDate() === dia;
 }
 
-const capitalizar = (texto: string) => texto.charAt(0).toUpperCase() + texto.slice(1);
+const esTextoONulo = (valor: unknown) => valor === null || typeof valor === 'string';
 
-const unDecimal = (x: number) => Math.round(x * 10) / 10;
-
-// ── Lectura 1: quién compra (§3.3) ──────────────────────────────────────────
-
-/** Se pintan los cuatro primeros sectores por monto. */
-export const BARRAS_SECTOR = 4;
-
-/** Si el segundo está a menos de esto del primero, «compran casi lo mismo». */
-export const UMBRAL_EMPATE = 0.05;
+// ── La base de la ficha: GET /bi/sector ─────────────────────────────────────
 
 /**
- * Sectores que no le dicen nada a quien vende: no ocupan barra, y si caen entre
- * los cuatro primeros entra el siguiente. Sí cuentan en el total del reparto.
- * «NA» no está en el mapa de la spec: aparece en el fixture del golden (lo que
- * materializa `make e2e`) y una barra «NA» dice todavía menos que una «Otros».
+ * La forma de `GET /bi/sector` que lee la ficha (fila «Base», spec §3.5): cada
+ * sector con nombre, monto, `n_oc` (conteo, o ausente en un backend anterior) y su
+ * ventana. Ya no hay lectura de sectores (V2): de aquí sale la escala del dato.
  */
-export const SECTORES_SIN_BARRA: ReadonlySet<string> = new Set(['otros', 'na']);
-
-/** Un nombre para la barra y otro para la frase. Fuera del mapa, tal cual. */
-const NOMBRES_SECTOR: Readonly<Record<string, { barra: string; frase: string }>> = {
-  Municipalidades: { barra: 'Municipalidades', frase: 'municipios' },
-  'Gob. Central, Universidades': { barra: 'Gob. central', frase: 'Gob. central' },
-  'Obras Públicas': { barra: 'Obras públicas', frase: 'Obras públicas' },
-};
-
-export function nombreSector(sector: string): { barra: string; frase: string } {
-  const limpio = sector.trim();
-  return NOMBRES_SECTOR[limpio] ?? { barra: limpio, frase: limpio };
-}
-
-export interface BarraSector {
-  nombre: string;
-  /** «$2,9 billones», con `plata()`, el formato de las páginas públicas. */
-  monto: string;
-  /** Ancho de la barra en %, relativo al primero, con un decimal. */
-  ancho: number;
-  /** En `dato` si la conclusión la nombra; si no, `dato-tenue`. */
-  destacada: boolean;
-}
-
-export interface LecturaSectores {
-  conclusion: string;
-  pie: string;
-  enlace: EnlaceLectura;
-  barras: BarraSector[];
-}
-
-/** La forma de `GET /bi/sector` que la lectura lee, campo por campo. */
 export function esSectores(datos: unknown): datos is SectoresBI {
   if (!esObjeto(datos) || typeof datos.disponible !== 'boolean') return false;
   if (!datos.disponible) return true;
@@ -120,52 +79,14 @@ export function esSectores(datos: unknown): datos is SectoresBI {
         typeof f.sector === 'string' &&
         f.sector.trim() !== '' &&
         esMonto(f.monto_total) &&
+        (f.n_oc == null || esConteo(f.n_oc)) &&
         esFechaOAusente(f.ventana_desde) &&
         esFechaOAusente(f.ventana_hasta),
     )
   );
 }
 
-/**
- * «Salud y municipios compran casi lo mismo» si el segundo está a menos del 5 %
- * del primero; si no, «De cada $100 en órdenes de compra, $P son de Salud», con P
- * sobre la suma de TODOS los sectores de la respuesta. **Sin ventana, nada**: una
- * cifra sin periodo se lee como «de siempre».
- */
-export function lecturaSectores(datos: SectoresBI | null): LecturaSectores | null {
-  if (!datos?.disponible || !datos.sectores?.length) return null;
-  const ordenados = [...datos.sectores].sort((x, y) => y.monto_total - x.monto_total);
-  const visibles = ordenados
-    .filter((s) => !SECTORES_SIN_BARRA.has(s.sector.trim().toLowerCase()))
-    .slice(0, BARRAS_SECTOR);
-  const [a, b] = visibles;
-  if (!a || a.monto_total <= 0) return null;
-  if (!esFechaOAusente(a.ventana_desde) || !esFechaOAusente(a.ventana_hasta)) return null;
-  const periodo = textoPeriodo({ desde: a.ventana_desde, hasta: a.ventana_hasta });
-  if (!periodo) return null;
-
-  const empate = b !== undefined && (a.monto_total - b.monto_total) / a.monto_total < UMBRAL_EMPATE;
-  const total = datos.sectores.reduce((suma, s) => suma + s.monto_total, 0);
-  const conclusion =
-    empate && b
-      ? `${nombreSector(a.sector).frase} y ${nombreSector(b.sector).frase} compran casi lo mismo`
-      : `De cada $100 en órdenes de compra, $${Math.round((a.monto_total / total) * 100)} son de ${nombreSector(a.sector).frase}`;
-  const pintadas = empate ? 2 : 1;
-
-  return {
-    conclusion: capitalizar(conclusion),
-    pie: `Órdenes de compra, ${periodo}`,
-    enlace: { texto: 'Ver mercados', href: '/mercado' },
-    barras: visibles.map((s, i) => ({
-      nombre: nombreSector(s.sector).barra,
-      monto: plata(s.monto_total),
-      ancho: unDecimal((s.monto_total / a.monto_total) * 100),
-      destacada: i < pintadas,
-    })),
-  };
-}
-
-// ── Lectura 2: a qué precio (§3.4) ──────────────────────────────────────────
+// ── Lectura 1: a qué precio (§3.2) ──────────────────────────────────────────
 
 /**
  * El producto de la lectura de precio. **El nombre va escrito a mano**: la firma
@@ -197,43 +118,17 @@ const PREDICTIBILIDAD_CREIBLE: ReadonlySet<string> = new Set(['alta', 'media']);
 const normalizar = (texto: string) =>
   texto.normalize('NFD').replace(/\p{M}/gu, '').trim().toLowerCase().replace(/\s+/g, ' ');
 
-export interface MarcaPrecio {
-  /** «$4.200». */
-  valor: string;
-  /** Dónde cae en el riel, en % con un decimal. */
-  posicion: number;
-}
-
-export interface LecturaPrecio {
-  conclusion: string;
-  pie: string;
-  enlace: EnlaceLectura;
-  /**
-   * Extremos del riel; sin ellos, el riel va de p25 a p75. **No llevan rótulo**
-   * (spec §3.4): con precios sesgados los cinco se pisaban.
-   */
-  p10: MarcaPrecio | null;
-  /** Rotulado debajo de la banda. */
-  p25: MarcaPrecio;
-  /** Rotulado encima de su marca: «mediana $5.390». */
-  p50: MarcaPrecio | null;
-  /** Rotulado debajo de la banda. */
-  p75: MarcaPrecio;
-  p90: MarcaPrecio | null;
-}
-
 const CLAVES_PRECIO = ['p10', 'p25', 'p50', 'p75', 'p90'] as const;
-
-const esTextoONulo = (valor: unknown) => valor === null || typeof valor === 'string';
 
 /**
  * La forma de `GET /publico/productos/{slug}` que la lectura lee, campo por
- * campo. Una unidad o una predictibilidad nulas son forma válida (el backend las
- * permite): las descarta después el filtro de calidad de `lecturaPrecio`.
+ * campo: las bandas y los compradores (cada punto del gráfico). Una unidad o una
+ * predictibilidad nulas son forma válida (el backend las permite): las descarta
+ * después el filtro de calidad de `lecturaPrecio`.
  */
 export function esProductoPortada(datos: unknown): datos is ProductoPublico {
   if (!esObjeto(datos)) return false;
-  const { periodo, unidades } = datos;
+  const { periodo, unidades, compradores } = datos;
   const periodoValido =
     periodo == null ||
     (esObjeto(periodo) && esFechaOAusente(periodo.ventana_desde) && esFechaOAusente(periodo.ventana_hasta));
@@ -249,144 +144,170 @@ export function esProductoPortada(datos: unknown): datos is ProductoPublico {
         esTextoONulo(u.unidad) &&
         esTextoONulo(u.predictibilidad ?? null) &&
         esConteo(u.n) &&
+        (u.compradores == null || esConteo(u.compradores)) &&
         CLAVES_PRECIO.every((k) => u[k] == null || esMonto(u[k])),
+    ) &&
+    Array.isArray(compradores) &&
+    compradores.every(
+      (c) =>
+        esObjeto(c) &&
+        typeof c.nombre === 'string' &&
+        esTextoONulo(c.unidad) &&
+        (c.p50 == null || esMonto(c.p50)),
     )
   );
 }
 
-/**
- * Dónde cae un rótulo a efectos de decidir si p25 y p75 se pisan
- * (`rotulosDeBanda`): cerca de un borde, el rótulo se corre hacia el centro, así
- * que se cuenta como si estuviera entre el 12 y el 88 %. **No es dónde se pinta**:
- * eso lo acota su propio ancho (`izquierdaDeRotulo`). Sin posición (`NaN`), al
- * centro: «left: NaN%» lo dejaría donde el navegador quisiera.
- */
-export function posicionDeRotulo(posicion: number): number {
-  if (Number.isNaN(posicion)) return 50;
-  return Math.min(88, Math.max(12, posicion));
+/** Una lectura de precio: la de la portada y la de la ficha de producto, con el mismo gráfico. */
+export interface LecturaPrecio {
+  conclusion: string;
+  /**
+   * A dónde lleva la conclusión («Ver el producto» es la conclusión misma: spec
+   * §3.2), o `null` donde ya se está en el producto. Así el pie lleva sólo el método.
+   */
+  enlace: string | null;
+  grafico: GraficoPrecio;
+  /** La base y el método: «46 compras de 40 compradores, nov 2025 a oct 2026, precio por unidad. Cada punto…». */
+  pie: string;
+  enlaces: EnlaceMetodo[];
+  /** Lo que el gráfico dice, en texto, para quien no lo ve: P25, P75 y cuántos compradores. */
+  accesible: string[];
+}
+
+/** Los compradores de la banda que el gráfico dibuja: los de su unidad, con mediana. */
+function compradoresDeLaBanda(producto: ProductoPublico, banda: BandaUnidad) {
+  const unidad = unidadDeclarada(banda.unidad);
+  return producto.compradores.filter((c) => unidadDeclarada(c.unidad) === unidad && c.p50 != null && c.p50 > 0);
 }
 
 /**
- * El `left` de un rótulo centrado en su marca (con `-translate-x-1/2`) que
- * **no se sale del riel por mucho que mida**: su centro no baja de media
- * anchura ni sube de 100 % menos media anchura, y entre medias se queda sobre
- * su marca. Un tope fijo no sirve: a 320 px (256 px de riel) el 12–88 % se
- * quedaba corto para «mediana $5.390» (~77 px, su mitad ~15 % del riel), y a
- * 1440 px alejaba de su marca un rótulo que cabía. Sin posición (`NaN`), al centro.
+ * La lectura de una banda, sin filtro: lo que dice la frase, el gráfico y el pie.
  *
- * **La anchura se cuenta en `ch`, un `ch` por carácter.** Medido con Archivo en
- * negrita (la variable no está fuera del build): un rótulo de cifras ocupa
- * 0,84–0,92 `ch` por carácter, así que el cálculo sobra un poco y nunca falta,
- * **siempre que el `ch` sea el del peso más grueso del rótulo**: el elemento
- * que lleva este `left` lleva también su peso, y lo más fino va dentro.
- */
-export function izquierdaDeRotulo(posicion: number, texto: string): string {
-  const media = `${[...texto].length / 2}ch`;
-  return `clamp(${media}, ${sinNaN(posicion)}%, calc(100% - ${media}))`;
-}
-
-const sinNaN = (posicion: number) => (Number.isNaN(posicion) ? 50 : posicion);
-
-/**
- * Menos que esto, en % del riel, entre p25 y p75 (ya acotados), y sus dos
- * rótulos se pisan: a 320 px el 18 % son ~46 px, y «$4.200» mide ~36.
- */
-export const SEPARACION_MINIMA_ROTULOS = 18;
-
-/** Dónde van los rótulos de debajo de la banda: uno bajo cada cuartil, o uno solo en el medio. */
-export type RotulosBanda = { juntos: false; p25: number; p75: number } | { juntos: true; centro: number };
-
-/**
- * Con la cola larga a un lado la banda se aprieta contra un extremo, y sus dos
- * rótulos, corridos hacia dentro, caen casi en el mismo sitio: entonces va uno
- * solo, «$p25 – $p75», centrado entre los dos. **La distancia se mide acotada**
- * (`posicionDeRotulo`); las posiciones que devuelve, no: cada rótulo se queda
- * tan cerca de su marca como quepa, y eso lo decide `izquierdaDeRotulo`.
- */
-export function rotulosDeBanda(p25: MarcaPrecio, p75: MarcaPrecio): RotulosBanda {
-  const a = sinNaN(p25.posicion);
-  const b = sinNaN(p75.posicion);
-  if (posicionDeRotulo(b) - posicionDeRotulo(a) < SEPARACION_MINIMA_ROTULOS) {
-    return { juntos: true, centro: unDecimal((a + b) / 2) };
-  }
-  return { juntos: false, p25: a, p75: b };
-}
-
-/**
- * «{nombre}: la mitad se pagó entre {p25} y {p75}», de la unidad con
- * más compras (`unidades[0]`: la API ya las ordena por `n`). Cierta por
- * definición del rango intercuartílico. **No se muestran mínimo ni máximo**: son
- * lo que el Tukey de las bandas ya trata como atípico.
+ * - «{nombre}: la mitad se pagó entre {p25} y {p75}», cierta por definición del
+ *   rango intercuartílico;
+ * - si P25 y P75 se escriben igual con `plata()`, «la mitad se pagó a {p25}» (y la
+ *   franja del gráfico es una línea);
+ * - con un solo comprador, «todas las compras son de {comprador}»: no hay franja
+ *   que comparar.
  *
- * **Sólo una banda que se pueda creer** (spec §3.4): un precio de mercado
+ * El pie dice de cuántas compras y de cuántos compradores sale, de cuándo y por
+ * qué unidad; y si el gráfico no los dibuja a todos (la API trae los 10 que más
+ * compran), lo dice.
+ */
+export function precioDeBanda({
+  producto,
+  banda,
+  nombre,
+  repositorio,
+  enlace = null,
+}: {
+  producto: ProductoPublico;
+  banda: BandaUnidad;
+  nombre: string;
+  repositorio: string | null;
+  enlace?: string | null;
+}): LecturaPrecio | null {
+  const grafico = graficoPrecio(banda, producto.compradores);
+  if (!grafico || banda.p25 == null || banda.p75 == null) return null;
+  const suyos = compradoresDeLaBanda(producto, banda);
+  const k = banda.compradores;
+  const unSolo = k === 1;
+  const igual = plata(banda.p25) === plata(banda.p75);
+
+  const conclusion = unSolo
+    ? `${nombre}: todas las compras son de ${suyos.length === 1 ? suyos[0].nombre.trim() : 'un solo comprador'}`
+    : igual
+      ? `${nombre}: la mitad se pagó a ${plata(banda.p25)}`
+      : `${nombre}: la mitad se pagó entre ${plata(banda.p25)} y ${plata(banda.p75)}`;
+
+  const compras = banda.n === 1 ? '1 compra' : `${entero(banda.n)} compras`;
+  const deQuien = k == null ? '' : ` de ${entero(k)} ${k === 1 ? 'comprador' : 'compradores'}`;
+  const periodo = rangoDeMeses(producto.periodo?.ventana_desde, producto.periodo?.ventana_hasta);
+  const unidad = unidadDeclarada(banda.unidad);
+  const base = [`${compras}${deQuien}`, periodo, unidad ? `precio por ${unidad}` : null].filter(Boolean).join(', ');
+
+  const puntos = grafico.puntos.length;
+  const cadaPunto =
+    k != null && puntos < k ? `uno de los ${entero(puntos)} que más compran` : 'un comprador';
+  const franja = igual ? 'la línea, el precio de la mitad central de las compras' : 'la franja, la mitad central de las compras';
+  const metodo = unSolo
+    ? 'El punto es su mediana.'
+    : puntos === 0
+      ? `${franja.charAt(0).toUpperCase()}${franja.slice(1)}.`
+      : `Cada punto es lo que pagó ${cadaPunto} (su mediana); ${franja}.`;
+
+  return {
+    conclusion,
+    enlace,
+    grafico,
+    pie: `${base}. ${metodo}`,
+    enlaces: enlacesDeMetodo(METODO_PRECIO, {
+      api: `/publico/productos/${encodeURIComponent(producto.slug)}`,
+      repositorio,
+    }),
+    accesible: unSolo
+      ? [`Precio mediano: ${plata(banda.p50 ?? banda.p25)}`]
+      : [`Percentil 25: ${plata(banda.p25)}`, `Percentil 75: ${plata(banda.p75)}`, ...(k == null ? [] : [`${entero(k)} compradores`])],
+  };
+}
+
+/**
+ * La lectura de precio de la portada, de la unidad con más compras
+ * (`unidades[0]`: la API ya las ordena por `n`). **Sólo una banda que se pueda
+ * creer** (spec §3.2 de IDENTIDAD_Y_PORTADA y PR #14): un precio de mercado
  * (`de_mercado`, que decide el backend: ≥ 3 compradores y ninguno con más de la
- * mitad), unidad declarada, predictibilidad alta o media, `p25 ≥ 1`, `p75 > p25`,
- * que se escriban distinto con `plata()` y periodo. Si no, nada: mejor ninguna
- * banda que «entre $0 y $0», «entre $1.150 y $1.150», «entre $2 millones y $2
- * millones» o el precio del contrato de un solo comprador presentado como el
- * del Estado. El pie dice de cuántos organismos son las compras.
+ * mitad), unidad declarada, predictibilidad alta o media, `p25 ≥ 1`, `p75 ≥ p25`
+ * y periodo. Si no, nada: mejor ninguna banda que «entre $0 y $0» o el precio del
+ * contrato de un solo comprador presentado como el del Estado.
  *
- * `nombre` es el escrito a mano junto al slug; por defecto, el de
- * `PRODUCTO_PORTADA`.
+ * P25 = P75 (o escritos igual) ya no oculta la lectura: con varios compradores es
+ * un precio estable, y la frase dice «la mitad se pagó a $X» (spec PORTADA_V7 §3.2).
+ *
+ * `nombre` es el escrito a mano junto al slug; por defecto, el de `PRODUCTO_PORTADA`.
  */
 export function lecturaPrecio(
   producto: ProductoPublico | null,
+  repositorio: string | null,
   nombre: string = PRODUCTO_PORTADA.nombre,
 ): LecturaPrecio | null {
   if (!producto?.indexable) return null;
   const u = producto.unidades[0];
-  // p75 > p25 estricto: «entre $1.150 y $1.150» no dice nada.
-  if (!u || u.p25 == null || u.p75 == null || u.p25 < 1 || u.p75 <= u.p25) return null;
+  if (!u || u.p25 == null || u.p75 == null || u.p25 < 1 || u.p75 < u.p25) return null;
   // Un precio «del Estado» necesita varios compradores. Sin el dato, tampoco.
   if (u.de_mercado !== true) return null;
-  // Distintos en el dato pero escritos igual tras redondear: lo mismo.
-  if (plata(u.p25) === plata(u.p75)) return null;
-  const unidad = unidadDeclarada(u.unidad);
-  if (!unidad) return null;
+  if (!unidadDeclarada(u.unidad)) return null;
   if (!PREDICTIBILIDAD_CREIBLE.has(normalizar(u.predictibilidad ?? ''))) return null;
-  if (!esFechaOAusente(producto.periodo?.ventana_desde) || !esFechaOAusente(producto.periodo?.ventana_hasta)) {
-    return null;
-  }
-  const periodo = textoPeriodo({ desde: producto.periodo?.ventana_desde, hasta: producto.periodo?.ventana_hasta });
-  if (!periodo) return null;
-
-  const desde = Math.min(u.p10 ?? u.p25, u.p25);
-  const hasta = Math.max(u.p90 ?? u.p75, u.p75);
-  // hasta ≥ p75 > p25 ≥ desde: el riel nunca tiene ancho cero.
-  const posicion = (v: number) => unDecimal(((v - desde) / (hasta - desde)) * 100);
-  const marca = (v: number): MarcaPrecio => ({ valor: plata(v), posicion: posicion(v) });
-
-  return {
-    conclusion: `${nombre}: la mitad se pagó entre ${plata(u.p25)} y ${plata(u.p75)}`,
-    pie: `Precio por ${unidad}, ${comprasDeOrganismos(u.n, u.compradores)}, ${periodo}`,
-    enlace: { texto: 'Ver el producto', href: rutaProducto(producto.slug) },
-    p10: u.p10 == null ? null : marca(u.p10),
-    p25: marca(u.p25),
-    p50: u.p50 == null ? null : marca(u.p50),
-    p75: marca(u.p75),
-    p90: u.p90 == null ? null : marca(u.p90),
-  };
+  const { ventana_desde: desde, ventana_hasta: hasta } = producto.periodo ?? {};
+  if (!esFechaOAusente(desde) || !esFechaOAusente(hasta) || !rangoDeMeses(desde, hasta)) return null;
+  return precioDeBanda({
+    producto,
+    banda: u,
+    nombre,
+    repositorio,
+    enlace: rutaProducto(producto.slug),
+  });
 }
 
-// ── Lectura 3: qué cierra pronto (§3.5) ─────────────────────────────────────
+// ── Lectura 2: qué cierra pronto (§3.3) ─────────────────────────────────────
 
-/** «Ver las que cierran primero»: el catálogo por cierre ascendente. */
+/** «Las que cierran primero»: el catálogo por cierre ascendente. */
 export const ORDEN_POR_CIERRE = { sort_by: 'fecha_cierre', sort_order: 'asc' } as const;
 
-export interface ColumnaCierre {
+export interface TramoCierre {
   nombre: string;
   /** «1.105». */
   valor: string;
-  /** Alto de la barra en %, relativo a la mayor; 0 sólo si no hay ninguna. */
-  alto: number;
+  /** Hoy y mañana, en negrita: lo que la conclusión nombra. */
   destacada: boolean;
 }
 
 export interface LecturaCierres {
   conclusion: string;
+  /** Cuántas de las diez celdas van en `dato`: los décimos de «hoy o mañana», con el redondeo de la frase. */
+  decimos: number;
+  tramos: TramoCierre[];
   pie: string;
-  enlace: EnlaceLectura;
-  columnas: ColumnaCierre[];
+  enlaces: EnlaceMetodo[];
 }
 
 function esPorCierre(valor: unknown): valor is CompraAgilPorCierre {
@@ -399,15 +320,18 @@ function esPorCierre(valor: unknown): valor is CompraAgilPorCierre {
   );
 }
 
+/** Los décimos de «hoy o mañana»: r × 10 al entero más cercano. La frase y la barra cuentan con este. */
+export const decimosDe = (pronto: number, abiertas: number) => Math.round((pronto / abiertas) * 10);
+
 /**
- * Con r = (hoy + mañana) / abiertas y N = r × 10 redondeado: los cinco casos de
- * §3.5 más N = 1, que va en singular. «Ninguna» y «todas» se dicen con palabras;
- * los bordes del redondeo, con «menos de 1» y «casi todas», para no decir 0 ni 10
- * de algo que no lo es.
+ * Con r = (hoy + mañana) / abiertas y N = `decimosDe`: los cinco casos de §3.5 de
+ * la identidad más N = 1, que va en singular. «Ninguna» y «todas» se dicen con
+ * palabras; los bordes del redondeo, con «menos de 1» y «casi todas», para no
+ * decir 0 ni 10 de algo que no lo es.
  */
 export function fraseCierres(pronto: number, abiertas: number): string {
   const r = pronto / abiertas;
-  const n = Math.round(r * 10);
+  const n = decimosDe(pronto, abiertas);
   if (r === 0) return 'Ninguna Compra Ágil abierta cierra hoy ni mañana';
   if (r === 1) return 'Todas las Compras Ágiles abiertas cierran hoy o mañana';
   if (n === 0) return 'Menos de 1 de cada 10 Compras Ágiles abiertas cierra hoy o mañana';
@@ -419,49 +343,117 @@ export function fraseCierres(pronto: number, abiertas: number): string {
 const NOMBRES_CIERRE = ['Hoy', 'Mañana', 'En 2 o 3 días', 'Después'] as const;
 
 /**
+ * «el viernes 16 de octubre a las 11:06», en hora de Chile, o `null` si la hora
+ * no se puede leer. Con el día: la portada se cachea.
+ */
+export function diaYHora(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const instante = Date.parse(iso);
+  if (!Number.isFinite(instante)) return null;
+  const partes = Object.fromEntries(
+    new Intl.DateTimeFormat('es-CL', {
+      timeZone: 'America/Santiago',
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })
+      .formatToParts(new Date(instante))
+      .map((p) => [p.type, p.value]),
+  );
+  return `el ${partes.weekday} ${partes.day} de ${partes.month} a las ${partes.hour}:${partes.minute}`;
+}
+
+/**
  * Las Compras Ágiles abiertas por día de cierre. Los cuatro tramos salen de la
  * misma pasada que `compra_agil_abiertas` y suman lo mismo (lo exige un test del
- * backend): **si no suman, la respuesta no cuadra y no se publica**.
+ * backend): **si no suman, la respuesta no cuadra y no se publica**. Sin hora
+ * legible, tampoco: el pie dice de cuándo son (principio 4).
  */
-export function lecturaCierres(resumen: ResumenPortada | null): LecturaCierres | null {
+export function lecturaCierres(resumen: ResumenPortada | null, repositorio: string | null): LecturaCierres | null {
   if (!resumen) return null;
   const tramos = resumen.compra_agil_por_cierre;
   const abiertas = resumen.compra_agil_abiertas;
   if (!esPorCierre(tramos) || !esConteo(abiertas) || abiertas === 0) return null;
   const valores = [tramos.hoy, tramos.manana, tramos.dos_tres_dias, tramos.despues];
   if (valores.reduce((suma, n) => suma + n, 0) !== abiertas) return null;
+  const cuando = diaYHora(resumen.actualizado_en);
+  if (!cuando) return null;
 
   const pronto = tramos.hoy + tramos.manana;
-  const mayor = Math.max(...valores);
-  const alto = (n: number) => (n === 0 ? 0 : Math.max(4, Math.round((n / mayor) * 100)));
-
   return {
     conclusion: fraseCierres(pronto, abiertas),
-    pie: `${entero(abiertas)} ${abiertas === 1 ? 'abierta' : 'abiertas'}, por día de cierre`,
-    enlace: { texto: 'Ver las que cierran primero', href: urlCatalogoAbiertas('compra_agil', [], ORDEN_POR_CIERRE) },
-    columnas: valores.map((n, i) => ({
-      nombre: NOMBRES_CIERRE[i],
-      valor: entero(n),
-      alto: alto(n),
-      destacada: pronto > 0 && i < 2,
-    })),
+    decimos: decimosDe(pronto, abiertas),
+    tramos: valores.map((n, i) => ({ nombre: NOMBRES_CIERRE[i], valor: entero(n), destacada: pronto > 0 && i < 2 })),
+    pie: `${entero(abiertas)} ${abiertas === 1 ? 'abierta' : 'abiertas'} ${cuando}, por día de cierre en hora de Chile.`,
+    enlaces: enlacesDeMetodo(METODO_CIERRES, {
+      primero: {
+        texto: 'Las que cierran primero',
+        href: urlCatalogoAbiertas('compra_agil', [], ORDEN_POR_CIERRE),
+        externo: false,
+      },
+      api: '/publico/portada',
+      repositorio,
+    }),
   };
 }
 
-// ── El panel ────────────────────────────────────────────────────────────────
+// ── Lectura 3: la última nota de datos (§3.4) ───────────────────────────────
 
-/** Las tres lecturas del panel; cada una, `null` si no tiene dato que pintar con verdad. */
-export interface Lecturas {
-  sectores: LecturaSectores | null;
-  precio: LecturaPrecio | null;
-  cierres: LecturaCierres | null;
+export interface LecturaNota {
+  /** «Nota de datos, 16 de octubre de 2026». */
+  antetitulo: string;
+  titulo: string;
+  resumen: string;
+  antesDespues: AntesDespues | null;
+  /** El `medido_sobre` de la nota: sobre qué datos y cuándo. */
+  pie: string;
+  enlaces: EnlaceMetodo[];
 }
 
 /**
- * ¿Hay panel? Con alguna lectura, sí. **Una sola condición**: la usan
- * `PanelLecturas` (sin ninguna, no pinta nada) y `Portada` (con alguna, dos
- * columnas). Copiada en los dos sitios podía separarse y dejar media página vacía.
+ * Qué nota va en la portada: **la más reciente que trae `antes_despues`** (una
+ * lectura con gráfico, como las otras dos); si ninguna lo trae, la más reciente.
+ * `notas` viene de la más nueva a la más vieja (`leerNotas()`). La lista «Notas de
+ * datos» de más abajo no usa esta regla: enseña las últimas en su orden.
  */
-export function hayLecturas({ sectores, precio, cierres }: Lecturas): boolean {
-  return Boolean(sectores || precio || cierres);
+export function notaDeLaPortada(notas: Nota[]): Nota | undefined {
+  return notas.find((n) => n.antes_despues !== null) ?? notas[0];
+}
+
+/**
+ * La lectura de una nota (la de `notaDeLaPortada`), o `null` si no hay ninguna. Contenido
+ * estático: nunca falla. Enlaces: «Leer la nota», «El script» (si lo trae y hay
+ * repositorio) y «El cambio» (si lo trae).
+ */
+export function lecturaNota(nota: Nota | undefined, repositorio: string | null): LecturaNota | null {
+  if (!nota) return null;
+  const enlaces: EnlaceMetodo[] = [{ texto: 'Leer la nota', href: rutaNota(nota.slug), externo: false }];
+  const script = nota.script ? urlEnRepositorio(repositorio, nota.script) : null;
+  if (script) enlaces.push({ texto: 'El script', href: script, externo: true });
+  if (nota.cambio) enlaces.push({ texto: 'El cambio', href: nota.cambio, externo: true });
+  return {
+    antetitulo: `Nota de datos, ${fechaLarga(nota.fecha)}`,
+    titulo: nota.titulo,
+    resumen: nota.resumen,
+    antesDespues: nota.antes_despues,
+    pie: nota.medido_sobre,
+    enlaces,
+  };
+}
+
+// ── La banda ────────────────────────────────────────────────────────────────
+
+/** Las tres lecturas; cada una, `null` si no tiene dato que pintar con verdad. */
+export interface Lecturas {
+  precio: LecturaPrecio | null;
+  cierres: LecturaCierres | null;
+  nota: LecturaNota | null;
+}
+
+/** Cuántas hay: las que están se reparten el ancho, y sin ninguna la banda no sale. */
+export function cuantasLecturas({ precio, cierres, nota }: Lecturas): number {
+  return [precio, cierres, nota].filter(Boolean).length;
 }

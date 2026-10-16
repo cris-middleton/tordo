@@ -8,8 +8,9 @@ import {
   pedirResumenPortada,
   pedirSectoresPortada,
 } from '@/lib/publicoServidor';
+import { nombreAutor, urlAutor } from '@/lib/autor';
+import { leerNotas } from '@/lib/notas';
 import { urlRepositorio } from '@/lib/repositorio';
-import { nombreAutor } from '@/lib/autor';
 
 /**
  * La portada. **Componente de servidor, y tiene que seguir siéndolo**: Next
@@ -24,9 +25,11 @@ import { nombreAutor } from '@/lib/autor';
  * Las cuatro piezas se piden en paralelo y **ninguna lanza**: si el backend
  * falla al regenerar, cada `pedir…` devuelve `null`, su bloque se oculta y la
  * portada se publica igual, con el buscador; a la media hora se reintenta. Lo
- * vivo (destacadas y resumen) se cachea media hora con `compra-agil`; las
- * lecturas de analytics (sectores y producto), una semana con `analytics`.
- * (En un build sin backend —CI— nace sin ellas por lo mismo.)
+ * vivo (destacadas y resumen) se cachea media hora con `compra-agil`; lo de
+ * analytics (los sectores, que dan la «Base» de la ficha, y el producto de la
+ * lectura de precio), una semana con `analytics`. (En un build sin backend —CI—
+ * nace sin ellas por lo mismo.) Las notas de datos son contenido del repo: se
+ * leen del disco y nunca fallan.
  */
 export const revalidate = 1800;
 
@@ -84,8 +87,10 @@ export default async function Home() {
       resumen={resumen}
       sectores={sectores}
       producto={producto}
+      notas={leerNotas()}
       repositorio={urlRepositorio()}
       autor={nombreAutor()}
+      urlAutor={urlAutor()}
     />
   );
 }

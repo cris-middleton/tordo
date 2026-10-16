@@ -21,6 +21,15 @@ export function urlRepositorio(entorno: Entorno = process.env): string | null {
   return urlSegura(entorno.REPOSITORIO_URL);
 }
 
+/**
+ * Un fichero del repositorio en su rama principal, `<repositorio>/blob/main/<ruta>`,
+ * o `null` sin repositorio. Lo usan las notas («El script», las fuentes) y los
+ * pies de método («Código»): sin `REPOSITORIO_URL` no se enlaza nada.
+ */
+export function urlEnRepositorio(repositorio: string | null, ruta: string): string | null {
+  return repositorio ? `${repositorio.replace(/\/+$/, '')}/blob/main/${ruta}` : null;
+}
+
 /** El commit del que salió este despliegue: lo corto para leer y, con repositorio, su URL. */
 export interface CommitDelSitio {
   corto: string;

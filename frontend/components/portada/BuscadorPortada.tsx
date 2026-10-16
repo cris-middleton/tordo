@@ -19,6 +19,9 @@ import { PLACEHOLDER_BUSCADOR, SUBTITULO_PORTADA } from '@/lib/portada';
  * El `<h1>` ES la etiqueta del campo: un lector de pantalla anuncia la pregunta
  * al entrar en él, sin un `<label>` oculto que repita el titular. Sin clase de
  * peso: la regla de los titulares (`h1, h2 { font-display }`) ya lo pone en 800.
+ * El `h1` mide 36 px en móvil y 56 desde `lg` (spec PORTADA_V7 §4) y va en dos
+ * líneas, «¿Qué le vendes / al Estado?»: el ancho de la columna lo parte y
+ * `text-balance` deja las dos líneas parejas (`e2e/portada.spec.ts` lo mide).
  * El campo no repite los ejemplos (`PLACEHOLDER_BUSCADOR`): ya están debajo. El
  * botón va en `dato` con `text-onDato` encima, nunca `text-white` sobre un token;
  * el foco, el de la regla global `:focus-visible`.
@@ -30,7 +33,7 @@ import { PLACEHOLDER_BUSCADOR, SUBTITULO_PORTADA } from '@/lib/portada';
 export function BuscadorPortada() {
   return (
     <div>
-      <h1 className="text-4xl leading-none tracking-tight text-text sm:text-5xl">
+      <h1 className="text-balance text-[36px] leading-[1.05] tracking-tight text-text lg:text-[56px]">
         <label htmlFor="buscar-portada">¿Qué le vendes al Estado?</label>
       </h1>
       <p className="mt-4 max-w-[40ch] text-lg leading-relaxed text-muted">{SUBTITULO_PORTADA}</p>
