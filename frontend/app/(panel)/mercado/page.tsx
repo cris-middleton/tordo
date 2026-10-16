@@ -77,7 +77,7 @@ function BIDesactivado() {
             y el estado de nuestro ETL, sobre algo que el usuario no puede
             tocar. Se dice que es cosa nuestra y qué puede hacer él, que es
             escribir. */}
-        <h2 className="text-xl font-semibold text-text">Esto todavía no está disponible</h2>
+        <h2 className="text-xl text-text">Esto todavía no está disponible</h2>
         <p className="mx-auto mt-2 max-w-md text-sm text-muted">
           Estamos terminando de preparar los datos de mercado por acá. Si llevas rato viéndolo
           así, escríbenos a{' '}
@@ -103,7 +103,7 @@ function Seccion({
   return (
     <section className="space-y-3">
       <div>
-        <h2 className="text-lg font-bold text-text">{titulo}</h2>
+        <h2 className="text-lg text-text">{titulo}</h2>
         {descripcion && <p className="text-sm text-muted">{descripcion}</p>}
       </div>
       {children}

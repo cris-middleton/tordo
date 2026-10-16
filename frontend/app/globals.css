@@ -175,8 +175,7 @@
   }
 
   /* Apaga el movimiento cuando el sistema lo pide. Esto sólo alcanza a lo que
-     anima CSS; el movimiento manejado por JavaScript (rubro rotatorio, avance
-     automático de tabs, aleteo del logo) se apaga con el hook
+     anima CSS; el movimiento manejado por JavaScript se apaga con el hook
      `usePrefersReducedMotion`, que no arranca el intervalo. */
   @media (prefers-reduced-motion: reduce) {
     html {
@@ -202,8 +201,9 @@
     transition: background-color 0.25s ease, color 0.25s ease;
   }
 
-  /* Serif sólo en los titulares editoriales. `h3`–`h6` heredan Public Sans del
-     body: con la regla en los seis, todos los subtítulos salían en serif. */
+  /* Titulares: `h1` y `h2` en Archivo semiexpandida y en 800 (`font-display`, abajo en
+     utilidades). `h3`–`h6` heredan del body el ancho normal. Un h1/h2 con una clase de peso
+     (`font-bold`…) la gana: por eso los titulares no la llevan (`__tests__/tipografia.test.ts`). */
   h1, h2 {
     @apply font-display;
   }
@@ -372,14 +372,19 @@
   /* ──────────────────────────────────────────────
      SECTION HEADER
   ────────────────────────────────────────────── */
-  /* Sin familia propia: la pone el elemento. En un h1/h2 sale Newsreader por la
-     regla base; en un h3 (BuyerProfilePanel, CompetitorsList…), Public Sans. */
+  /* Sin familia ni ancho propios: los pone el elemento. En un h2 es un titular (semiexpandido
+     y en 800); en un h3 (BuyerProfilePanel, CompetitorsList…), ancho normal y 600. */
   .section-title {
     @apply text-lg font-semibold text-text;
   }
 
+  h2.section-title {
+    @apply font-extrabold;
+  }
+
+  /* Siempre en un h1: el peso lo pone la regla base (800). */
   .page-title {
-    @apply text-2xl font-bold text-text sm:text-3xl;
+    @apply text-2xl text-text sm:text-3xl;
   }
 
   /* ──────────────────────────────────────────────
@@ -390,12 +395,11 @@
      (un "1" es más estrecho que un "0") y deja de leerse de un vistazo — que
      es justo lo que el producto vende.
 
-     Public Sans trae `tnum`, así que las cifras van en la MISMA familia que el
-     cuerpo. Hasta el rediseño de octubre de 2026 iban en la familia display
-     porque DM Sans no tenía cifras tabulares; ya no hace falta.
+     Archivo trae `tnum`, así que las cifras van en la MISMA familia que el
+     cuerpo, a su ancho normal.
 
-     Nunca `cifra` junto a `font-display`: la utilidad gana a la clase y el
-     número saldría en Newsreader. `font-display` es «titular editorial».
+     Nunca `cifra` junto a `font-display`: el número saldría semiexpandido y en
+     800. `font-display` es «titular».
   ────────────────────────────────────────────── */
   .cifra {
     font-family: var(--font-sans), system-ui, sans-serif;
@@ -458,6 +462,21 @@
   /* Flotación del mockup en el hero de la landing. */
   .animate-float {
     animation: float 6s ease-in-out infinite;
+  }
+
+  /* Las dos caras de Archivo (docs/IDENTIDAD_Y_PORTADA_2026-10.md §4). La familia la pone
+     `fontFamily` de tailwind.config.js; el ancho y el peso, esto. Tailwind emite estas
+     utilidades DESPUÉS de las suyas, así que `font-display` le gana a un `font-bold` en el
+     mismo elemento, y `font-sans` devuelve a ancho normal lo que hereda de un titular (la
+     etiqueta «Fuentes» de una guía, el globo de un InfoTooltip dentro de un h2).
+     `e2e/tipografia.spec.ts` lo comprueba en el navegador. */
+  .font-sans {
+    font-stretch: 100%;
+  }
+
+  .font-display {
+    font-stretch: 112.5%;
+    font-weight: 800;
   }
 }
 

@@ -5,20 +5,20 @@ import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 /**
- * La tipografía del rediseño (docs/REDISENO_PUBLICO_2026-10.md §5.1), fijada:
+ * La tipografía de la identidad (docs/IDENTIDAD_Y_PORTADA_2026-10.md §4), fijada:
  *
- * - **Newsreader** (`--font-display`, `font-display`) sólo para titulares
- *   editoriales: `h1` y `h2`. **Nunca un número.**
- * - **Public Sans** (`--font-sans`, `font-sans`) para todo lo demás, `h3`–`h6` y
- *   todas las cifras: `.cifra` va sobre ella con `tnum`.
+ * - **Archivo** (`--font-sans`) para todo. Los titulares —`h1`, `h2` y la clase
+ *   `font-display`— van semiexpandidos (`font-stretch: 112.5%`) y en 800; el resto, a
+ *   ancho normal. **Nunca un número en `font-display`.**
  * - **IBM Plex Mono** (`--font-mono`, `font-mono`) sólo para identificadores,
  *   cargada en 400 y 500.
+ * - **Varien**, sólo la marca (sin cambio, `@font-face` propio).
  *
- * Lo que se rompe sin que falle nada más: un precio en serif (`cifra` junto a
- * `font-display`, o un `fontFamily` en línea que le gana a `.cifra`), los
- * subtítulos en serif (una regla o una clase que alcance a `h3`), los ejes de
- * los gráficos en serif y una negrita sintética en mono (600 no está cargado).
- * El navegador lo comprueba además en `e2e/tipografia.spec.ts`.
+ * Lo que se rompe sin que falle nada más: un precio semiexpandido (`cifra` junto a
+ * `font-display`, o un `fontFamily` en línea que le gana a `.cifra`), un titular que
+ * vuelve a 700 porque alguien le puso `font-bold`, una etiqueta en un h2 que sale
+ * expandida, y una negrita sintética en mono (600 no está cargado). El navegador lo
+ * comprueba además en `e2e/tipografia.spec.ts`.
  */
 
 const RAIZ = join(__dirname, '..');
@@ -31,7 +31,7 @@ const css = sinComentarios(leer('app/globals.css'));
 /** El cuerpo de la primera regla cuyo selector es exactamente `selector`. */
 function regla(selector: string): string {
   const escapado = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const m = css.match(new RegExp(`(?:^|[\\n}])\\s*${escapado}\\s*\\{([^}]*)\\}`));
+  const m = css.match(new RegExp(`(?:^|[\\n{}])\\s*${escapado}\\s*\\{([^}]*)\\}`));
   if (!m) throw new Error(`globals.css no tiene la regla «${selector}»`);
   return m[1];
 }
@@ -49,56 +49,83 @@ function archivosTsx(dir: string): string[] {
 const FUENTES = ['app', 'components'].flatMap((c) => archivosTsx(join(RAIZ, c)));
 
 describe('familias tipográficas', () => {
-  it('layout.tsx carga Newsreader, Public Sans e IBM Plex Mono con sus tres variables', () => {
-    expect(layout).toMatch(/import\s*\{[^}]*\bNewsreader\b[^}]*\}\s*from\s*'next\/font\/google'/);
-    expect(layout).toMatch(/import\s*\{[^}]*\bPublic_Sans\b[^}]*\}\s*from\s*'next\/font\/google'/);
-    expect(layout).toMatch(/import\s*\{[^}]*\bIBM_Plex_Mono\b[^}]*\}\s*from\s*'next\/font\/google'/);
-    for (const variable of ['--font-display', '--font-sans', '--font-mono']) {
-      expect(layout).toContain(`variable: '${variable}'`);
-    }
-    expect(layout).not.toMatch(/\bArchivo\b|\bDM_Sans\b|--font-dm-sans/);
-  });
-
-  it('Newsreader lleva el eje óptico; Plex Mono, sólo 400 y 500', () => {
-    expect(layout).toMatch(/Newsreader\(\{[^}]*axes:\s*\['opsz'\]/);
+  it('layout.tsx carga Archivo (con el eje de ancho) e IBM Plex Mono, y nada más', () => {
+    expect(layout).toMatch(/import\s*\{\s*Archivo,\s*IBM_Plex_Mono\s*\}\s*from\s*'next\/font\/google'/);
+    expect(layout).toMatch(/Archivo\(\{[^}]*variable:\s*'--font-sans'/);
+    expect(layout).toMatch(/Archivo\(\{[^}]*axes:\s*\['wdth'\]/);
+    expect(layout).toMatch(/IBM_Plex_Mono\(\{[^}]*variable:\s*'--font-mono'/);
     expect(layout).toMatch(/IBM_Plex_Mono\(\{[^}]*weight:\s*\['400',\s*'500'\]/);
   });
 
-  it('tailwind: sans, display y mono salen de las tres variables', () => {
-    const config = createRequire(__filename)(join(RAIZ, 'tailwind.config.js'));
-    const familias = config.theme.extend.fontFamily;
-    expect(familias.sans[0]).toBe('var(--font-sans)');
-    expect(familias.display[0]).toBe('var(--font-display)');
-    expect(familias.mono[0]).toBe('var(--font-mono)');
-  });
-
-  it('ningún sitio nombra la variable vieja de DM Sans', () => {
-    const infractores = [join(RAIZ, 'app', 'globals.css'), ...FUENTES]
-      .filter((f) => readFileSync(f, 'utf8').includes('--font-dm-sans'))
+  it('se fueron Newsreader, Public Sans, DM Sans y la variable --font-display', () => {
+    expect(layout).not.toMatch(/\bNewsreader\b|\bPublic_Sans\b|\bDM_Sans\b|--font-display|--font-dm-sans/);
+    const infractores = [join(RAIZ, 'app', 'globals.css'), join(RAIZ, 'tailwind.config.js'), ...FUENTES]
+      .filter((f) => /Newsreader|Public Sans|--font-display|--font-dm-sans/.test(readFileSync(f, 'utf8')))
       .map((f) => relative(RAIZ, f));
     expect(infractores).toEqual([]);
   });
+
+  it('tailwind: sans y display son la misma familia (Archivo); mono, Plex Mono', () => {
+    const config = createRequire(__filename)(join(RAIZ, 'tailwind.config.js'));
+    const familias = config.theme.extend.fontFamily;
+    expect(familias.sans[0]).toBe('var(--font-sans)');
+    expect(familias.display[0]).toBe('var(--font-sans)');
+    expect(familias.mono[0]).toBe('var(--font-mono)');
+    expect(familias.display).not.toContain('serif');
+  });
 });
 
-describe('titulares: serif sólo en h1 y h2', () => {
+describe('titulares: h1 y h2 semiexpandidos y en 800', () => {
+  it('font-display fija el ancho (112,5 %) y el peso (800); font-sans vuelve al ancho normal', () => {
+    expect(regla('.font-display')).toMatch(/font-stretch:\s*112\.5%/);
+    expect(regla('.font-display')).toMatch(/font-weight:\s*800/);
+    expect(regla('.font-sans')).toMatch(/font-stretch:\s*100%/);
+  });
+
   it('la regla base aplica font-display a h1 y h2, y a nada más', () => {
     const selectores = [...css.matchAll(/([^{}]+)\{[^}]*@apply[^;}]*\bfont-display\b/g)].map((m) =>
       m[1].trim().replace(/\s+/g, ' '),
     );
-    // `.section-title` y `.page-title` NO: van en h1/h2 (que ya son serif) y en
-    // h3 (BuyerProfilePanel, CompetitorsList…), que tienen que quedar en sans.
+    // `.section-title` y `.page-title` NO: van en h1/h2 (que ya son titulares) y en
+    // h3 (BuyerProfilePanel, CompetitorsList…), que tienen que quedar a ancho normal.
     expect(selectores).toEqual(['h1, h2']);
   });
 
+  it('.page-title no fija peso (va en h1) y .section-title sube a 800 sólo en un h2', () => {
+    expect(regla('.page-title')).not.toMatch(/\bfont-(thin|light|normal|medium|semibold|bold)\b/);
+    expect(regla('h2.section-title')).toMatch(/@apply\s+font-extrabold/);
+  });
+
+  it('ningún h1/h2 baja de 800 con una clase de peso, salvo que declare que no es titular', () => {
+    // Un `font-bold` en el elemento le gana a la regla base: el titular sale en 700.
+    // Las excepciones se declaran con la familia: `font-mono` (un código como título)
+    // o `font-sans` (una etiqueta, como «Fuentes» en una guía).
+    const infractores: string[] = [];
+    let titulares = 0;
+    for (const archivo of FUENTES) {
+      const texto = readFileSync(archivo, 'utf8');
+      for (const m of texto.matchAll(/<h[12]\b([^>]*)>/g)) {
+        titulares++;
+        const clase = m[1].match(/className=(?:"([^"]*)"|'([^']*)'|\{`([^`]*)`\})/);
+        const valor = clase ? (clase[1] ?? clase[2] ?? clase[3]) : '';
+        const conPeso = /(^|\s)font-(thin|extralight|light|normal|medium|semibold|bold|black)(\s|$)/.test(valor);
+        const declarado = /(^|\s)font-(mono|sans)(\s|$)/.test(valor);
+        if (conPeso && !declarado) {
+          infractores.push(`${relative(RAIZ, archivo)}:${texto.slice(0, m.index).split('\n').length}`);
+        }
+      }
+    }
+    // Guarda: sin titulares encontrados, el test comprobaría el vacío. Medido el 2026-10-15: 56.
+    expect(titulares).toBeGreaterThan(40);
+    expect(infractores, `Quita la clase de peso del titular (ya es 800):\n  ${infractores.join('\n  ')}`).toEqual([]);
+  });
+
   it('ninguna regla del CSS pide un rasgo OpenType que las fuentes no traen', () => {
-    // Medido con fontTools sobre los woff2 latinos de Google Fonts (2026-10-14):
-    // ni Newsreader ni Public Sans traen ss01 ni cv02–cv11 (Archivo y DM Sans
-    // tampoco: esas dos líneas no hacían nada).
     expect(css).not.toMatch(/"ss0\d"|"cv\d\d"/);
   });
 });
 
-describe('cifras: Public Sans con tnum', () => {
+describe('cifras: Archivo con tnum', () => {
   it('.cifra va sobre --font-sans con cifras tabulares', () => {
     const cuerpo = regla('.cifra');
     expect(cuerpo).toMatch(/font-family:\s*var\(--font-sans\)/);
@@ -139,7 +166,7 @@ describe('cifras y titulares en los componentes', () => {
     const infractores = clases()
       .filter((c) => tiene(c.valor, 'cifra') && tiene(c.valor, 'font-display'))
       .map((c) => c.donde);
-    expect(infractores, `font-display es «titular editorial», nunca número:\n  ${infractores.join('\n  ')}`).toEqual([]);
+    expect(infractores, `font-display es «titular», nunca número:\n  ${infractores.join('\n  ')}`).toEqual([]);
   });
 
   it('ninguna familia en línea: un style={{ fontFamily }} le gana a cualquier clase', () => {

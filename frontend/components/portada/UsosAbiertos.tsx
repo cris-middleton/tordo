@@ -11,7 +11,7 @@ import type { EnlaceNavegacion } from '@/lib/navegacion';
 export function UsosAbiertos({ usos }: { usos: EnlaceNavegacion[] }) {
   return (
     <section aria-labelledby="usos-titulo" className="mt-12 border-t border-border pt-6">
-      <h2 id="usos-titulo" className="text-xl font-bold text-text">
+      <h2 id="usos-titulo" className="text-xl text-text">
         Úsalo como quieras
       </h2>
       <p className="mt-1 text-sm text-muted">

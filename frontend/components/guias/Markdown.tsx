@@ -77,7 +77,7 @@ function Linea({ nodos }: { nodos: EnLinea[] }) {
 }
 
 const TITULOS = {
-  2: 'mt-10 font-display text-xl font-bold text-text',
+  2: 'mt-10 font-display text-xl text-text',
   3: 'mt-8 text-lg font-bold text-text',
   4: 'mt-6 text-base font-bold text-text',
 } as const;
