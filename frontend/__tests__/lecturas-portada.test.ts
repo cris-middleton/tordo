@@ -78,7 +78,7 @@ describe('lecturaSectores', () => {
 
   it(`el ${UMBRAL_EMPATE * 100} % justo NO es empate: se pinta uno y la frase reparte $100`, () => {
     const l = lecturaSectores(respuesta(fila('Salud', 100), fila('Municipalidades', 95)))!;
-    expect(l.conclusion).toBe('Salud gasta $51 de cada $100 en órdenes de compra');
+    expect(l.conclusion).toBe('De cada $100 en órdenes de compra, $51 son de Salud');
     expect(l.barras.map((b) => b.destacada)).toEqual([true, false]);
   });
 
@@ -99,14 +99,14 @@ describe('lecturaSectores', () => {
     )!;
     expect(l.barras.map((b) => b.nombre)).toEqual(['Salud', 'Municipalidades', 'Gob. central', 'Obras públicas']);
     // 100 sobre 400 (Otros incluido): la frase habla de todas las órdenes de la respuesta.
-    expect(l.conclusion).toBe('Salud gasta $25 de cada $100 en órdenes de compra');
+    expect(l.conclusion).toBe('De cada $100 en órdenes de compra, $25 son de Salud');
   });
 
   it('un sector sin nombre («NA», está en el fixture del golden) tampoco ocupa barra, pero suma en el reparto', () => {
     const l = lecturaSectores(respuesta(fila('Salud', 100), fila('NA', 90), fila('Municipalidades', 10)))!;
     expect(l.barras.map((b) => b.nombre)).toEqual(['Salud', 'Municipalidades']);
     // 100 sobre 200 (NA incluido).
-    expect(l.conclusion).toBe('Salud gasta $50 de cada $100 en órdenes de compra');
+    expect(l.conclusion).toBe('De cada $100 en órdenes de compra, $50 son de Salud');
   });
 
   it('«Otros» y «NA» se saltan sin importar mayúsculas', () => {
@@ -120,21 +120,26 @@ describe('lecturaSectores', () => {
     expect(lecturaSectores(datos)).toBeNull();
   });
 
+  it('un nombre en plural concuerda: «son de municipios»', () => {
+    const l = lecturaSectores(respuesta(fila('Municipalidades', 300), fila('Salud', 100)))!;
+    expect(l.conclusion).toBe('De cada $100 en órdenes de compra, $75 son de municipios');
+  });
+
   it('un solo sector: gasta los $100 y se pinta', () => {
     const l = lecturaSectores(respuesta(fila('Salud', 7)))!;
-    expect(l.conclusion).toBe('Salud gasta $100 de cada $100 en órdenes de compra');
+    expect(l.conclusion).toBe('De cada $100 en órdenes de compra, $100 son de Salud');
     expect(l.barras).toEqual([{ nombre: 'Salud', monto: '$7', ancho: 100, destacada: true }]);
   });
 
   it('el reparto de $100 con decimales se redondea a entero', () => {
     const l = lecturaSectores(respuesta(fila('Salud', 2), fila('Municipalidades', 1)))!;
-    expect(l.conclusion).toBe('Salud gasta $67 de cada $100 en órdenes de compra');
+    expect(l.conclusion).toBe('De cada $100 en órdenes de compra, $67 son de Salud');
     expect(l.barras[1].ancho).toBe(50);
   });
 
   it('un sector fuera del mapa sale con su nombre tal cual, en la barra y en la frase', () => {
     const l = lecturaSectores(respuesta(fila('Bomberos de Chile', 300), fila('FFAA', 100)))!;
-    expect(l.conclusion).toBe('Bomberos de Chile gasta $75 de cada $100 en órdenes de compra');
+    expect(l.conclusion).toBe('De cada $100 en órdenes de compra, $75 son de Bomberos de Chile');
     expect(l.barras.map((b) => b.nombre)).toEqual(['Bomberos de Chile', 'FFAA']);
   });
 

@@ -128,7 +128,7 @@ export function esSectores(datos: unknown): datos is SectoresBI {
 
 /**
  * «Salud y municipios compran casi lo mismo» si el segundo está a menos del 5 %
- * del primero; si no, «Salud gasta $P de cada $100 en órdenes de compra», con P
+ * del primero; si no, «De cada $100 en órdenes de compra, $P son de Salud», con P
  * sobre la suma de TODOS los sectores de la respuesta. **Sin ventana, nada**: una
  * cifra sin periodo se lee como «de siempre».
  */
@@ -149,7 +149,7 @@ export function lecturaSectores(datos: SectoresBI | null): LecturaSectores | nul
   const conclusion =
     empate && b
       ? `${nombreSector(a.sector).frase} y ${nombreSector(b.sector).frase} compran casi lo mismo`
-      : `${nombreSector(a.sector).frase} gasta $${Math.round((a.monto_total / total) * 100)} de cada $100 en órdenes de compra`;
+      : `De cada $100 en órdenes de compra, $${Math.round((a.monto_total / total) * 100)} son de ${nombreSector(a.sector).frase}`;
   const pintadas = empate ? 2 : 1;
 
   return {

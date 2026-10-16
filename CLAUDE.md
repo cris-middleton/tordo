@@ -320,10 +320,11 @@ programador en la nube, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
   subrayan. `__tests__/enlaces-contenido.test.ts`.
 - Una superficie que deba verse oscura siempre se marca con la clase `dark` sobre
   `bg-brand-navy`, y los tokens se invierten solos dentro. No repintes a mano. **Hoy hay una**: el
-  panel de lecturas de la portada (`components/portada/PanelLecturas.tsx`). Dentro sólo van `text`,
-  `muted`, `accent` y `dato`, que tienen su par sobre `brand-navy` en `contraste-wcag.test.ts`
-  (`subtle` no lo tiene), y los divisores van en `dato-tenue`: el `border` oscuro no se ve sobre
-  navy. Una superficie oscura nueva mete sus tintas en ese test.
+  panel de lecturas de la portada (`components/portada/PanelLecturas.tsx`). El panel pinta
+  sólo `text`, `muted`, `dato` y `primary` (la tinta de `.enlace`), **nunca `accent` (tampoco al
+  pasar el ratón) ni `subtle`**. `contraste-wcag.test.ts` mide además `accent` sobre `brand-navy`,
+  pero medido no es pintado; `subtle` no tiene par (4,18:1). Los divisores van en `dato-tenue`: el
+  `border` oscuro no se ve sobre navy. Una superficie oscura nueva mete sus tintas en ese test.
 - **La tarjeta de vista previa** (`app/opengraph-image.tsx`, la misma para X en `twitter-image.tsx`)
   es un panel `brand-blue` (el azul del cuerpo del pájaro, invariante de tema; lo pinta también el
   pájaro de la cabecera) con
@@ -838,9 +839,9 @@ componentes cliente y la home perdería título y tarjeta de preview.
   lecturas —quién compra, a qué precio, qué cierra pronto—, cada una con conclusión (`h3`), pie con
   base y periodo (`textoPeriodo`), gráfico en HTML/CSS (barras `aria-hidden`, valores como texto) y
   enlace. **Cada frase sale del dato con una regla de `lib/lecturasPortada.ts`**, fijada con sus
-  bordes en `__tests__/lecturas-portada.test.ts`: la regla del 5 % y «$P de cada $100» de los
+  bordes en `__tests__/lecturas-portada.test.ts`: la regla del 5 % y «De cada $100 en órdenes de compra, $P son de {A}» de los
   sectores (sin «Otros» ni «NA»), «la mitad se pagó entre p25 y p75» de `PRODUCTO_PORTADA` y los
-  cinco casos de los cierres. **Si una lectura no tiene dato se oculta entera** (sin periodo, sin
+  casos de los cierres. **Si una lectura no tiene dato se oculta entera** (sin periodo, sin
   p25/p75, tramos que no suman las abiertas). `dato` sólo en lo que la conclusión nombra; el
   resto, `dato-tenue`.
   - **`PRODUCTO_PORTADA` es `{ slug, nombre }`**, escrito a mano (`nombre` no sale del dato) y
@@ -860,8 +861,10 @@ componentes cliente y la home perdería título y tarjeta de preview.
     (`sin-unidad-<i>`), en vez de lanzar. La portada lee la misma ficha, así que ese 200 es forma
     válida (`esProductoPortada`) y lo descarta el filtro de calidad, no el validador.
 - **Cuatro piezas vivas, pedidas en paralelo desde el servidor**, y **cada una se oculta sola si el
-  backend falla, si su `actualizado_en` falta o no se lee (principio 4), o si un campo que se pinta
-  viene mal formado**: `pedirParaLaPortada(ruta, validador, bloque, cache)` nunca lanza, y la caché
+  backend falla o si un campo que se pinta viene mal formado**, y además, por principio 4 (una cifra
+  viva sin hora no se publica): «Lo mejor de hoy» sin `actualizado_en` legible se oculta; el
+  resumen sin hora legible oculta la tira, la franja **y la lectura de cierres**; los sectores y el
+  producto se ocultan sin periodo legible. `pedirParaLaPortada(ruta, validador, bloque, cache)` nunca lanza, y la caché
   la elige quien llama:
   - **lo vivo, media hora y etiqueta `compra-agil`** (la revalida el cron frecuente): el resumen
     (`GET /publico/portada`, `pedirResumenPortada`) —la tira, la lectura de cierres y la franja— y

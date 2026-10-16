@@ -270,13 +270,15 @@ describe('la tira de cifras', () => {
     ['sin hora', ok({ ...RESUMEN, actualizado_en: null })],
     ['una hora que no se puede leer', ok({ ...RESUMEN, actualizado_en: 'ayer a las once' })],
     ['un conteo negativo', ok({ ...RESUMEN, licitaciones_abiertas: -1 })],
-  ])('con %s la tira se oculta y lo demás sigue', async (_, resumen) => {
+  ])('con %s la tira se oculta y lo demás sigue', async (nombre, resumen) => {
     simularBackend({ destacadas: ok(DESTACADAS), resumen });
     const { container } = render(await Home());
     expect(screen.queryByRole('list', { name: 'Abiertas ahora' })).toBeNull();
     expect(container.textContent).not.toMatch(/invalid date|NaN/i);
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(PREGUNTA);
     expect(container.querySelector('#hoy')).not.toBeNull();
+    // Sin hora legible tampoco hay de cuándo son los tramos de cierre (principio 4).
+    if (/hora/.test(nombre)) expect(screen.queryByText(CONCLUSION_CIERRES)).toBeNull();
   });
 });
 

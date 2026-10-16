@@ -198,7 +198,7 @@ describe('enlaces entre fichas', () => {
     const sinUnidad = { ...PRODUCTO, unidades: [{ ...PRODUCTO.unidades[0], unidad: null }] };
     simularBackend({ '/productos/guante-latex-nitrilo': sinUnidad });
     render(await PaginaProducto(params({ slug: 'guante-latex-nitrilo' })));
-    expect(screen.getByRole('heading', { name: 'Por unidad' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Sin unidad declarada' })).toBeInTheDocument();
     expect(screen.getAllByText('$5.000').length).toBeGreaterThan(0);
   });
 

@@ -164,7 +164,7 @@ function VistaPrecio({ lectura }: { lectura: LecturaPrecio }) {
             style={{ left: `${p25.posicion}%`, width: `${Math.max(1, p75.posicion - p25.posicion)}%` }}
           />
           {p50 && (
-            <div className="absolute -top-1.5 h-6 w-[3px] -translate-x-1/2 bg-text" style={{ left: `${p50.posicion}%` }} />
+            <div className="absolute -top-1.5 h-6 w-[3px] -translate-x-1/2 bg-text" style={{ left: `${Math.min(100, Math.max(0, p50.posicion))}%` }} />
           )}
         </div>
         <ul aria-label="Precios pagados" className="absolute inset-0">

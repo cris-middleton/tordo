@@ -53,7 +53,8 @@ export function Portada({
   const lecturas: Lecturas = {
     sectores: lecturaSectores(sectores),
     precio: lecturaPrecio(producto),
-    cierres: lecturaCierres(resumen),
+    // Sin hora legible (sin franja) tampoco hay de cuándo son los tramos: se oculta (principio 4).
+    cierres: franja ? lecturaCierres(resumen) : null,
   };
   const hayPanel = hayLecturas(lecturas);
   // Principio 4: «sin dato fresco, el bloque se oculta». Sin hora legible no hay

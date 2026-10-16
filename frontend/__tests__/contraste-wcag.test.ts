@@ -158,8 +158,8 @@ const PARES_TARJETA: Par[] = PARES_IMAGEN.map(({ tinta, fondo }) => {
  * todo toma la parada OSCURA, pero el fondo no es una superficie del tema oscuro sino el
  * navy de la marca, invariante. Sus tintas se miden contra él:
  *
- * - `text`, `muted` y `accent` (texto y enlaces del panel), y `primary`, que es la tinta de
- *   `.enlace`;
+ * - `text` y `muted` (el texto del panel) y `primary`, la tinta de `.enlace`: son lo que el panel
+ *   PINTA. `accent` se mide pero **no se pinta** (ni al pasar el ratón: spec §5);
  * - `dato`, la conclusión y la barra que la conclusión nombra. La spec pide 3:1 para la
  *   barra (WCAG 1.4.11); la conclusión es texto, así que se mide a 4,5:1 y cubre las dos.
  *
