@@ -5,9 +5,9 @@
  * **Cada frase sale del dato, con reglas** (D8). Las reglas viven aquí y las fija
  * `__tests__/lecturas-portada.test.ts` con sus bordes.
  *
- * Funciones puras, sin React y sin secretos. Los validadores (`esSectores`)
- * los usa `lib/publicoServidor.ts`: un 200 mal formado oculta la lectura en vez
- * de tumbar la portada. Las lecturas devuelven además `null` ante cualquier dato
+ * Funciones puras, sin React y sin secretos. Los validadores (`esSectores`,
+ * `esProductoPortada`) los usa `lib/publicoServidor.ts`: un 200 mal formado
+ * oculta la lectura en vez de tumbar la portada. Las lecturas devuelven además `null` ante cualquier dato
  * que no se pueda pintar con verdad. **Si una lectura no tiene dato, se oculta
  * entera** (principio 4 del rediseño).
  *
@@ -15,9 +15,10 @@
  */
 
 import type { SectoresBI } from '@/types/bi';
+import type { ProductoPublico } from '@/types/publico';
 
 import { textoPeriodo } from './periodo';
-import { plata } from './publico';
+import { entero, plata, rutaProducto } from './publico';
 
 // ── Comunes ─────────────────────────────────────────────────────────────────
 
@@ -32,6 +33,14 @@ function esObjeto(valor: unknown): valor is Record<string, unknown> {
 
 function esMonto(valor: unknown): valor is number {
   return typeof valor === 'number' && Number.isFinite(valor) && valor >= 0;
+}
+
+/**
+ * Un entero no negativo. Exportado para `lib/publicoServidor.ts`: una sola
+ * definición de «conteo» entre los validadores.
+ */
+export function esConteo(valor: unknown): valor is number {
+  return typeof valor === 'number' && Number.isInteger(valor) && valor >= 0;
 }
 
 /** Ausente, nula o «AAAA-MM-DD…». */
@@ -141,5 +150,149 @@ export function lecturaSectores(datos: SectoresBI | null): LecturaSectores | nul
       ancho: unDecimal((s.monto_total / a.monto_total) * 100),
       destacada: i < pintadas,
     })),
+  };
+}
+
+// ── Lectura 2: a qué precio (§3.4) ──────────────────────────────────────────
+
+/**
+ * El producto de la lectura de precio. **El nombre va escrito a mano**: la firma
+ * son sus palabras ordenadas y sin relleno («doble higienico hoja papel rollos
+ * swan») y no se lee como un nombre.
+ *
+ * Elegido en producción el 2026-10-16 recorriendo `EJEMPLOS_BUSQUEDA` desde el
+ * primero, con cuatro peticiones espaciadas: la primera ficha indexable de
+ * «guantes de nitrilo» tenía predictibilidad baja; la de «papel higiénico» pasa
+ * el filtro de calidad (paquete, alta, con periodo).
+ *
+ * **El slug tiene copia literal en `scripts/verificar-produccion.sh`**, que
+ * comprueba tras desplegar que sigue indexable y pasando el filtro;
+ * `__tests__/portada-ayudantes.test.ts` falla si las dos copias se separan.
+ */
+export const PRODUCTO_PORTADA = {
+  slug: 'doble-higienico-hoja-papel-rollos-swan',
+  nombre: 'Papel higiénico',
+} as const;
+
+/**
+ * La unidad ausente, tal como la escribe el pipeline
+ * (`etl/analytics/normalizacion.py`, `UNIDAD_SIN_DECLARAR`).
+ */
+const UNIDAD_SIN_DECLARAR = 'sin unidad declarada';
+
+/** Bandas que se pueden creer: con predictibilidad baja el precio no decide. */
+const PREDICTIBILIDAD_CREIBLE: ReadonlySet<string> = new Set(['alta', 'media']);
+
+/** Minúsculas, sin tildes y con un solo espacio entre palabras. */
+const normalizar = (texto: string) =>
+  texto.normalize('NFD').replace(/\p{M}/gu, '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+export interface MarcaPrecio {
+  /** «$4.200». */
+  valor: string;
+  /** Dónde cae en el riel, en % con un decimal. */
+  posicion: number;
+}
+
+export interface LecturaPrecio {
+  conclusion: string;
+  pie: string;
+  enlace: EnlaceLectura;
+  /**
+   * Extremos del riel; sin ellos, el riel va de p25 a p75. **No llevan rótulo**
+   * (spec §3.4): con precios sesgados los cinco se pisaban.
+   */
+  p10: MarcaPrecio | null;
+  /** Rotulado debajo de la banda. */
+  p25: MarcaPrecio;
+  /** Rotulado encima de su marca: «mediana $5.390». */
+  p50: MarcaPrecio | null;
+  /** Rotulado debajo de la banda. */
+  p75: MarcaPrecio;
+  p90: MarcaPrecio | null;
+}
+
+const CLAVES_PRECIO = ['p10', 'p25', 'p50', 'p75', 'p90'] as const;
+
+const esTextoONulo = (valor: unknown) => valor === null || typeof valor === 'string';
+
+/**
+ * La forma de `GET /publico/productos/{slug}` que la lectura lee, campo por
+ * campo. Una unidad o una predictibilidad nulas son forma válida (el backend las
+ * permite): las descarta después el filtro de calidad de `lecturaPrecio`.
+ */
+export function esProductoPortada(datos: unknown): datos is ProductoPublico {
+  if (!esObjeto(datos)) return false;
+  const { periodo, unidades } = datos;
+  const periodoValido =
+    periodo == null ||
+    (esObjeto(periodo) && esFechaOAusente(periodo.ventana_desde) && esFechaOAusente(periodo.ventana_hasta));
+  return (
+    typeof datos.slug === 'string' &&
+    typeof datos.firma === 'string' &&
+    typeof datos.indexable === 'boolean' &&
+    periodoValido &&
+    Array.isArray(unidades) &&
+    unidades.every(
+      (u) =>
+        esObjeto(u) &&
+        esTextoONulo(u.unidad) &&
+        esTextoONulo(u.predictibilidad ?? null) &&
+        esConteo(u.n) &&
+        CLAVES_PRECIO.every((k) => u[k] == null || esMonto(u[k])),
+    )
+  );
+}
+
+/**
+ * Un rótulo centrado sobre su marca no puede salirse del riel: se acerca al
+ * centro hasta caber.
+ */
+export function posicionDeRotulo(posicion: number): number {
+  return Math.min(88, Math.max(12, posicion));
+}
+
+/**
+ * «{nombre}: la mitad se pagó entre {p25} y {p75}», de la unidad con
+ * más compras (`unidades[0]`: la API ya las ordena por `n`). Cierta por
+ * definición del rango intercuartílico. **No se muestran mínimo ni máximo**: son
+ * lo que el Tukey de las bandas ya trata como atípico.
+ *
+ * **Sólo una banda que se pueda creer** (spec §3.4): unidad declarada,
+ * predictibilidad alta o media, `p25 ≥ 1` y periodo. Si no, nada: mejor ninguna
+ * banda que «entre $0 y $0».
+ *
+ * `nombre` es el escrito a mano junto al slug; por defecto, el de
+ * `PRODUCTO_PORTADA`.
+ */
+export function lecturaPrecio(
+  producto: ProductoPublico | null,
+  nombre: string = PRODUCTO_PORTADA.nombre,
+): LecturaPrecio | null {
+  if (!producto?.indexable) return null;
+  const u = producto.unidades[0];
+  if (!u || u.p25 == null || u.p75 == null || u.p25 < 1 || u.p75 < u.p25) return null;
+  // El tipo dice `string`, pero el backend la permite nula (`str | None`).
+  const unidad = typeof u.unidad === 'string' ? normalizar(u.unidad) : '';
+  if (!unidad || unidad === UNIDAD_SIN_DECLARAR) return null;
+  if (!PREDICTIBILIDAD_CREIBLE.has(normalizar(u.predictibilidad ?? ''))) return null;
+  const periodo = textoPeriodo({ desde: producto.periodo?.ventana_desde, hasta: producto.periodo?.ventana_hasta });
+  if (!periodo) return null;
+
+  const desde = Math.min(u.p10 ?? u.p25, u.p25);
+  const hasta = Math.max(u.p90 ?? u.p75, u.p75);
+  const posicion = (v: number) => (hasta === desde ? 50 : unDecimal(((v - desde) / (hasta - desde)) * 100));
+  const marca = (v: number): MarcaPrecio => ({ valor: plata(v), posicion: posicion(v) });
+  const compras = u.n === 1 ? '1 compra' : `${entero(u.n)} compras`;
+
+  return {
+    conclusion: `${nombre}: la mitad se pagó entre ${plata(u.p25)} y ${plata(u.p75)}`,
+    pie: `Precio por ${u.unidad.trim().toLowerCase()}, ${compras}, ${periodo}`,
+    enlace: { texto: 'Ver el producto', href: rutaProducto(producto.slug) },
+    p10: u.p10 == null ? null : marca(u.p10),
+    p25: marca(u.p25),
+    p50: u.p50 == null ? null : marca(u.p50),
+    p75: marca(u.p75),
+    p90: u.p90 == null ? null : marca(u.p90),
   };
 }

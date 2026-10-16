@@ -11,13 +11,20 @@ import { describe, expect, it } from 'vitest';
 
 import {
   BARRAS_SECTOR,
+  esConteo,
+  esProductoPortada,
   esSectores,
+  lecturaPrecio,
   lecturaSectores,
   nombreSector,
+  posicionDeRotulo,
+  PRODUCTO_PORTADA,
   UMBRAL_EMPATE,
 } from '@/lib/lecturasPortada';
 import { textoPeriodo } from '@/lib/periodo';
+import { rutaProducto } from '@/lib/publico';
 import type { SectorBI, SectoresBI } from '@/types/bi';
+import type { BandaUnidad, ProductoPublico } from '@/types/publico';
 
 // ── Lectura 1: quién compra ─────────────────────────────────────────────────
 
@@ -169,5 +176,200 @@ describe('esSectores', () => {
     ['una ventana que no es fecha', { disponible: true, sectores: [{ ...fila('Salud', 1), ventana_desde: 2023 }] }],
   ])('rechaza %s', (_, datos) => {
     expect(esSectores(datos)).toBe(false);
+  });
+});
+
+// ── Lectura 2: a qué precio ─────────────────────────────────────────────────
+
+const BANDA: BandaUnidad = {
+  unidad: 'Caja',
+  n: 184,
+  p10: 2100,
+  p25: 4200,
+  p50: 5390,
+  p75: 6900,
+  p90: 11800,
+  predictibilidad: 'media',
+  confianza: 'alta',
+};
+
+const PRODUCTO: ProductoPublico = {
+  slug: PRODUCTO_PORTADA.slug,
+  firma: 'doble higienico hoja papel rollos swan',
+  nombre_generico: 'Papel higiénico',
+  codigo_onu: null,
+  descripcion: null,
+  indexable: true,
+  // La API las ordena de más a menos compras: se usa la primera.
+  unidades: [BANDA, { ...BANDA, unidad: 'Unidad', n: 12 }],
+  compradores: [],
+  periodo: { ventana_desde: '2025-10-01', ventana_hasta: '2026-09-30' },
+};
+
+const conBanda = (cambio: Partial<BandaUnidad> | Record<string, unknown>): ProductoPublico => ({
+  ...PRODUCTO,
+  unidades: [{ ...BANDA, ...cambio } as BandaUnidad],
+});
+
+describe('PRODUCTO_PORTADA', () => {
+  it('lleva un slug de verdad (tomado de producción), no el marcador del plan', () => {
+    expect(PRODUCTO_PORTADA.slug).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+    expect(PRODUCTO_PORTADA.slug.length).toBeLessThanOrEqual(80);
+    expect(PRODUCTO_PORTADA.slug).not.toMatch(/SLUG|produccion/i);
+  });
+
+  it('y un nombre escrito a mano, que se lee como un nombre: no la firma', () => {
+    expect(PRODUCTO_PORTADA.nombre).toMatch(/^\p{Lu}/u);
+    expect(PRODUCTO_PORTADA.nombre.trim()).toBe(PRODUCTO_PORTADA.nombre);
+    expect(PRODUCTO_PORTADA.nombre.toLowerCase()).not.toBe(PRODUCTO_PORTADA.slug.replace(/-/g, ' '));
+  });
+});
+
+describe('lecturaPrecio', () => {
+  it('la mitad se pagó entre p25 y p75, de la unidad con más compras, con el nombre a mano', () => {
+    const l = lecturaPrecio(PRODUCTO)!;
+    expect(l.conclusion).toBe(`${PRODUCTO_PORTADA.nombre}: la mitad se pagó entre $4.200 y $6.900`);
+    expect(l.conclusion).not.toContain(PRODUCTO.firma);
+    expect(l.pie).toBe(`Precio por caja, 184 compras, ${textoPeriodo({ desde: '2025-10-01', hasta: '2026-09-30' })}`);
+    expect(l.pie).toMatch(/\(12 meses\)$/);
+    expect(l.enlace).toEqual({ texto: 'Ver el producto', href: rutaProducto(PRODUCTO_PORTADA.slug) });
+  });
+
+  it('con otra ficha, su nombre y su enlace: nunca los de la constante', () => {
+    const l = lecturaPrecio({ ...PRODUCTO, slug: 'otro-producto' }, 'Otro producto')!;
+    expect(l.conclusion).toMatch(/^Otro producto: /);
+    expect(l.enlace.href).toBe(rutaProducto('otro-producto'));
+  });
+
+  it('las marcas van sobre un riel de p10 a p90, en % con un decimal', () => {
+    const l = lecturaPrecio(PRODUCTO)!;
+    expect(l.p10).toEqual({ valor: '$2.100', posicion: 0 });
+    expect(l.p25).toEqual({ valor: '$4.200', posicion: 21.6 });
+    expect(l.p50).toEqual({ valor: '$5.390', posicion: 33.9 });
+    expect(l.p75).toEqual({ valor: '$6.900', posicion: 49.5 });
+    expect(l.p90).toEqual({ valor: '$11.800', posicion: 100 });
+  });
+
+  it('sin p10 ni p90, el riel va de p25 a p75 y no hay extremos', () => {
+    const l = lecturaPrecio(conBanda({ p10: null, p90: null }))!;
+    expect(l.p10).toBeNull();
+    expect(l.p90).toBeNull();
+    expect(l.p25.posicion).toBe(0);
+    expect(l.p75.posicion).toBe(100);
+  });
+
+  it('sin mediana no hay marca de mediana, y la lectura sigue', () => {
+    const l = lecturaPrecio(conBanda({ p50: null }))!;
+    expect(l.p50).toBeNull();
+    expect(l.conclusion).toMatch(/la mitad se pagó entre/);
+  });
+
+  it('todos los precios iguales: el riel no divide por cero', () => {
+    const l = lecturaPrecio(conBanda({ p10: 5000, p25: 5000, p50: 5000, p75: 5000, p90: 5000 }))!;
+    expect([l.p10, l.p25, l.p50, l.p75, l.p90].map((m) => m?.posicion)).toEqual([50, 50, 50, 50, 50]);
+  });
+
+  it('una sola compra, en singular; la unidad en minúsculas y sin espacios de sobra', () => {
+    expect(lecturaPrecio(conBanda({ n: 1 }))!.pie).toMatch(/^Precio por caja, 1 compra, /);
+    expect(lecturaPrecio(conBanda({ unidad: ' KILOGRAMO ' }))!.pie).toMatch(/^Precio por kilogramo, /);
+  });
+
+  it('predictibilidad alta también vale, y la comparación no mira mayúsculas', () => {
+    expect(lecturaPrecio(conBanda({ predictibilidad: 'alta' }))).not.toBeNull();
+    expect(lecturaPrecio(conBanda({ predictibilidad: ' Media ' }))).not.toBeNull();
+  });
+
+  it('p25 justo en $1 pasa el filtro', () => {
+    expect(lecturaPrecio(conBanda({ p10: 1, p25: 1 }))).not.toBeNull();
+  });
+
+  it('sólo mira la primera unidad: una segunda sin declarar no la oculta', () => {
+    const p = { ...PRODUCTO, unidades: [BANDA, { ...BANDA, unidad: 'sin unidad declarada', predictibilidad: 'baja' }] };
+    expect(lecturaPrecio(p)).not.toBeNull();
+  });
+
+  it.each([
+    ['sin ficha (404 o backend caído)', null],
+    ['no indexable', { ...PRODUCTO, indexable: false }],
+    ['sin unidades', { ...PRODUCTO, unidades: [] }],
+    ['sin p25', conBanda({ p25: null })],
+    ['sin p75', conBanda({ p75: null })],
+    ['con p75 bajo p25', conBanda({ p25: 7000, p75: 4000 })],
+  ])('%s: se oculta', (_, producto) => {
+    expect(lecturaPrecio(producto as ProductoPublico | null)).toBeNull();
+  });
+
+  // El filtro de calidad (spec §3.4): mejor ninguna banda que «entre $0 y $0».
+  describe('filtro de calidad sobre la unidad con más compras', () => {
+    it.each([
+      ['unidad nula', conBanda({ unidad: null })],
+      ['unidad vacía', conBanda({ unidad: '   ' })],
+      ['«sin unidad declarada»', conBanda({ unidad: 'sin unidad declarada' })],
+      ['«Sin Unidad Declarada» con espacios', conBanda({ unidad: '  Sin  Unidad Declarada ' })],
+      ['predictibilidad baja', conBanda({ predictibilidad: 'baja' })],
+      ['predictibilidad nula', conBanda({ predictibilidad: null })],
+      ['predictibilidad desconocida', conBanda({ predictibilidad: 'altísima' })],
+      ['p25 en $0', conBanda({ p10: 0, p25: 0 })],
+      ['p25 bajo $1', conBanda({ p10: 0.0005, p25: 0.0017 })],
+    ])('%s: se oculta', (_, producto) => {
+      expect(lecturaPrecio(producto)).toBeNull();
+    });
+  });
+
+  describe('sin periodo, nada: una cifra sin periodo se lee como «de siempre»', () => {
+    it.each([
+      ['sin periodo (backend anterior)', { ...PRODUCTO, periodo: undefined }],
+      ['con periodo nulo', { ...PRODUCTO, periodo: null }],
+      ['sin ventana_desde', { ...PRODUCTO, periodo: { ventana_desde: null, ventana_hasta: '2026-09-30' } }],
+      ['sin ventana_hasta', { ...PRODUCTO, periodo: { ventana_desde: '2025-10-01', ventana_hasta: null } }],
+    ])('%s: se oculta', (_, producto) => {
+      expect(lecturaPrecio(producto as ProductoPublico)).toBeNull();
+    });
+  });
+});
+
+describe('posicionDeRotulo', () => {
+  it('deja los rótulos centrados dentro del riel', () => {
+    expect(posicionDeRotulo(0)).toBe(12);
+    expect(posicionDeRotulo(50)).toBe(50);
+    expect(posicionDeRotulo(100)).toBe(88);
+  });
+});
+
+describe('esConteo', () => {
+  it('un entero no negativo', () => {
+    expect(esConteo(0)).toBe(true);
+    expect(esConteo(184)).toBe(true);
+    expect([-1, 1.5, '3', null, Number.NaN].some(esConteo)).toBe(false);
+  });
+});
+
+describe('esProductoPortada', () => {
+  it('acepta la ficha, con y sin periodo', () => {
+    expect(esProductoPortada(PRODUCTO)).toBe(true);
+    const { periodo: _sinPeriodo, ...anterior } = PRODUCTO;
+    expect(esProductoPortada(anterior)).toBe(true);
+  });
+
+  it('acepta una unidad o una predictibilidad nulas (el backend las permite): el filtro las oculta después', () => {
+    expect(esProductoPortada(conBanda({ unidad: null }))).toBe(true);
+    expect(esProductoPortada(conBanda({ predictibilidad: null }))).toBe(true);
+  });
+
+  it.each([
+    ['null', null],
+    ['sin unidades', { ...PRODUCTO, unidades: undefined }],
+    ['una unidad nula', { ...PRODUCTO, unidades: [null] }],
+    ['una unidad de número', { ...PRODUCTO, unidades: [{ ...BANDA, unidad: 3 }] }],
+    ['n de texto', { ...PRODUCTO, unidades: [{ ...BANDA, n: '184' }] }],
+    ['p25 de texto', { ...PRODUCTO, unidades: [{ ...BANDA, p25: '4200' }] }],
+    ['un precio negativo', { ...PRODUCTO, unidades: [{ ...BANDA, p90: -1 }] }],
+    ['una predictibilidad de número', { ...PRODUCTO, unidades: [{ ...BANDA, predictibilidad: 1 }] }],
+    ['indexable de texto', { ...PRODUCTO, indexable: 'sí' }],
+    ['un slug nulo', { ...PRODUCTO, slug: null }],
+    ['un periodo que no es objeto', { ...PRODUCTO, periodo: 'oct 2025' }],
+    ['una ventana que no es fecha', { ...PRODUCTO, periodo: { ventana_desde: 2025, ventana_hasta: null } }],
+  ])('rechaza %s', (_, datos) => {
+    expect(esProductoPortada(datos)).toBe(false);
   });
 });

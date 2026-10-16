@@ -20,6 +20,7 @@ import { cabecerasHaciaElBackend, urlDelBackend } from './backendServidor';
 import type { CompraAgilDestacada, CompraAgilDestacadasResponse } from '@/types/compraAgil';
 import type { ResumenPortada } from '@/types/publico';
 
+import { esConteo } from './lecturasPortada';
 import {
   ETIQUETA_ANALYTICS,
   ETIQUETA_COMPRA_AGIL,
@@ -111,10 +112,6 @@ function esDestacadas(datos: unknown): datos is CompraAgilDestacadasResponse {
   if (!datos || typeof datos !== 'object') return false;
   const r = datos as Record<string, unknown>;
   return esTextoONulo(r.actualizado_en) && Array.isArray(r.items) && r.items.every(esDestacada);
-}
-
-function esConteo(valor: unknown): valor is number {
-  return typeof valor === 'number' && Number.isInteger(valor) && valor >= 0;
 }
 
 function esResumenPortada(datos: unknown): datos is ResumenPortada {

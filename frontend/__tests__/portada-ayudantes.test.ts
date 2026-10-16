@@ -18,6 +18,7 @@ import {
   rutaBuscar,
 } from '@/lib/buscar';
 import { urlCatalogoAbiertas } from '@/lib/filtrosCatalogo';
+import { PRODUCTO_PORTADA } from '@/lib/lecturasPortada';
 import { lemaPortada, tiraDeLaPortada, usosAbiertos } from '@/lib/portada';
 import { MAXIMO_BUSQUEDA_PRODUCTOS, MINIMO_BUSQUEDA_PRODUCTOS } from '@/lib/queries';
 import type { ResumenPortada } from '@/types/publico';
@@ -152,5 +153,34 @@ describe('la copia de los ejemplos en scripts/verificar-produccion.sh', () => {
 
   it('comprueba también que la portada trae su buscador', () => {
     expect(script).toContain('action="/buscar"');
+  });
+});
+
+describe('la copia de PRODUCTO_PORTADA en scripts/verificar-produccion.sh', () => {
+  const script = readFileSync(join(__dirname, '..', '..', 'scripts', 'verificar-produccion.sh'), 'utf8');
+  const inicio = script.indexOf('# ── El producto de la portada');
+  const fin = script.indexOf('# ── El límite cuenta por la IP real');
+  const seccion = script.slice(inicio, fin);
+
+  it('la sección existe, después de los ejemplos y antes del límite por IP', () => {
+    expect(inicio).toBeGreaterThan(script.indexOf('# ── Los ejemplos de la portada'));
+    expect(fin).toBeGreaterThan(inicio);
+  });
+
+  it('pide exactamente el slug de PRODUCTO_PORTADA', () => {
+    const copias = [...seccion.matchAll(/^PRODUCTO_PORTADA='([^']+)'$/gm)].map((m) => m[1]);
+    expect(copias).toEqual([PRODUCTO_PORTADA.slug]);
+  });
+
+  it('una sola petición, espaciada y sin bucles: nada en ráfaga contra producción', () => {
+    expect(seccion.match(/\bpedir "/g)).toHaveLength(1);
+    expect(seccion).not.toMatch(/^\s*(for|while|until)\b/m);
+    expect(seccion).toMatch(/^\s*sleep 1$/m);
+  });
+
+  it('mira lo que la lectura necesita: indexable, el filtro de calidad, p25, p75 y periodo', () => {
+    for (const campo of ['indexable', 'unidad', 'sin unidad declarada', 'predictibilidad', 'p25', 'p75', 'ventana_desde', 'ventana_hasta']) {
+      expect(seccion).toContain(campo);
+    }
   });
 });
