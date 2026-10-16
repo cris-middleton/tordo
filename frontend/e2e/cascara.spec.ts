@@ -65,9 +65,9 @@ for (const viewport of [MUY_ESTRECHO, MOVIL, TABLETA, LG, ESCRITORIO]) {
         const r = el.getBoundingClientRect();
         return r.top + r.height / 2;
       }));
-    // Escritorio: marca, cinco secciones, «API y MCP», guardados, «Apoyar» (sin
+    // Escritorio: marca, seis secciones, «API y MCP», guardados, «Apoyar» (sin
     // REPOSITORIO_URL en el E2E). Móvil y tableta: marca, guardados, «Apoyar», «Menú».
-    expect(centros.length).toBe(viewport.width >= 1024 ? 9 : 4);
+    expect(centros.length).toBe(viewport.width >= 1024 ? 10 : 4);
     expect(Math.max(...centros) - Math.min(...centros)).toBeLessThanOrEqual(6);
 
     expect(await anchoDelDocumento(page), (await quienSeSale(page)).join('\n')).toBeLessThanOrEqual(
