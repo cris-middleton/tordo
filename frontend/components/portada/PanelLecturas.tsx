@@ -2,12 +2,14 @@ import type { CSSProperties, ReactNode } from 'react';
 import Link from 'next/link';
 
 import {
+  hayLecturas,
   izquierdaDeRotulo,
   rotulosDeBanda,
   type EnlaceLectura,
   type LecturaCierres,
   type LecturaPrecio,
   type LecturaSectores,
+  type Lecturas,
   type MarcaPrecio,
 } from '@/lib/lecturasPortada';
 
@@ -26,16 +28,9 @@ import {
  * valores, sin descripciones de colores. Los textos, las cuentas y dónde cae
  * cada rótulo salen de `lib/lecturasPortada.ts`; aquí sólo se pintan.
  */
-export function PanelLecturas({
-  sectores,
-  precio,
-  cierres,
-}: {
-  sectores: LecturaSectores | null;
-  precio: LecturaPrecio | null;
-  cierres: LecturaCierres | null;
-}) {
-  if (!sectores && !precio && !cierres) return null;
+export function PanelLecturas(lecturas: Lecturas) {
+  if (!hayLecturas(lecturas)) return null;
+  const { sectores, precio, cierres } = lecturas;
   return (
     <section
       aria-labelledby="lecturas-titulo"
@@ -196,31 +191,42 @@ function VistaPrecio({ lectura }: { lectura: LecturaPrecio }) {
   );
 }
 
+/**
+ * Las Compras Ágiles abiertas por día de cierre (§3.5), como en la maqueta: cada
+ * valor justo encima de su barra y las cuatro barras sobre una misma línea de
+ * base.
+ *
+ * - **La zona de barra va primero y mide lo mismo en las cuatro columnas** (`mt-6`
+ *   para el valor de la más alta + `h-12`), así que el nombre de debajo puede
+ *   ocupar dos líneas («En 2 o 3 días» a 390 px) sin mover ninguna barra. Antes
+ *   la columna se alineaba abajo y ese nombre subía su barra.
+ * - **El valor cuelga de la barra** (`absolute bottom-full`): sube y baja con ella.
+ * - Se oye «Hoy: 312» (`sr-only`, primero) y lo visible va en `aria-hidden`: el
+ *   orden visual dejaba la cifra sin decir de qué era hasta después.
+ */
 function VistaCierres({ lectura }: { lectura: LecturaCierres }) {
   const { conclusion, pie, enlace, columnas } = lectura;
   return (
     <Lectura id="lectura-cierres" conclusion={conclusion} pie={pie} enlace={enlace}>
       <ul className="grid grid-cols-4 gap-3 text-center text-[13px] sm:gap-5 sm:text-sm">
         {columnas.map((c) => (
-          // Se ve el valor arriba y el nombre abajo, pero se oye «Hoy: 312»: el orden
-          // visual dejaba la cifra sin decir de qué era hasta después.
-          <li key={c.nombre} className="flex min-w-0 flex-col justify-end">
+          <li key={c.nombre} className="flex min-w-0 flex-col">
             <span className="sr-only">
               {c.nombre}: {c.valor}
             </span>
-            <span
-              aria-hidden="true"
-              className={`cifra ${c.destacada ? 'font-extrabold text-text' : 'font-semibold text-muted'}`}
-            >
-              {c.valor}
-            </span>
-            <span aria-hidden="true" className="mt-1 flex h-12 items-end">
+            <span aria-hidden="true" className="mt-6 flex h-12 items-end">
               <span
-                className={`block w-full rounded-t-[3px] ${c.destacada ? 'bg-dato' : 'bg-dato-tenue'}`}
+                className={`relative block w-full rounded-t-[3px] ${c.destacada ? 'bg-dato' : 'bg-dato-tenue'}`}
                 style={{ height: `${c.alto}%` }}
-              />
+              >
+                <span
+                  className={`cifra absolute inset-x-0 bottom-full mb-1 whitespace-nowrap ${c.destacada ? 'font-extrabold text-text' : 'font-semibold text-muted'}`}
+                >
+                  {c.valor}
+                </span>
+              </span>
             </span>
-            <span aria-hidden="true" className="mt-1.5 text-muted">
+            <span aria-hidden="true" className="mt-1.5 leading-tight text-muted">
               {c.nombre}
             </span>
           </li>

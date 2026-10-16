@@ -16,6 +16,7 @@ import {
   esProductoPortada,
   esSectores,
   fraseCierres,
+  hayLecturas,
   izquierdaDeRotulo,
   lecturaCierres,
   lecturaPrecio,
@@ -551,5 +552,20 @@ describe('lecturaCierres', () => {
     ['con tramos que no suman las abiertas', { ...CIERRES, compra_agil_abiertas: 2715 }],
   ])('%s: se oculta', (_, resumen) => {
     expect(lecturaCierres(resumen as unknown as ResumenPortada | null)).toBeNull();
+  });
+});
+
+describe('hayLecturas', () => {
+  // Una sola condición para «hay panel»: la usan PanelLecturas (null si no) y
+  // Portada (dos columnas si sí). Copiada en los dos sitios podía separarse.
+  const algo = {} as never;
+  it.each([
+    ['ninguna', { sectores: null, precio: null, cierres: null }, false],
+    ['sólo sectores', { sectores: algo, precio: null, cierres: null }, true],
+    ['sólo precio', { sectores: null, precio: algo, cierres: null }, true],
+    ['sólo cierres', { sectores: null, precio: null, cierres: algo }, true],
+    ['las tres', { sectores: algo, precio: algo, cierres: algo }, true],
+  ])('%s', (_, lecturas, esperado) => {
+    expect(hayLecturas(lecturas)).toBe(esperado);
   });
 });

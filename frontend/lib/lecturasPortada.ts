@@ -446,3 +446,21 @@ export function lecturaCierres(resumen: ResumenPortada | null): LecturaCierres |
     })),
   };
 }
+
+// ── El panel ────────────────────────────────────────────────────────────────
+
+/** Las tres lecturas del panel; cada una, `null` si no tiene dato que pintar con verdad. */
+export interface Lecturas {
+  sectores: LecturaSectores | null;
+  precio: LecturaPrecio | null;
+  cierres: LecturaCierres | null;
+}
+
+/**
+ * ¿Hay panel? Con alguna lectura, sí. **Una sola condición**: la usan
+ * `PanelLecturas` (sin ninguna, no pinta nada) y `Portada` (con alguna, dos
+ * columnas). Copiada en los dos sitios podía separarse y dejar media página vacía.
+ */
+export function hayLecturas({ sectores, precio, cierres }: Lecturas): boolean {
+  return Boolean(sectores || precio || cierres);
+}

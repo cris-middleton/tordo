@@ -40,6 +40,35 @@ async function quienSeSale(page: Page): Promise<string[]> {
   });
 }
 
+/**
+ * Lo que el panel recorta. Lleva `overflow-hidden` (por las esquinas), así que lo
+ * que se le sale por dentro no ensancha el documento y el control de
+ * `scrollWidth` de la página no lo ve: hay que mirarlo dentro. Fuera quedan los
+ * `sr-only`, que miden 1 px y se salen a propósito con margen negativo.
+ */
+async function recorteDelPanel(page: Page) {
+  return page.getByRole('region', { name: PANEL }).evaluate((panel) => {
+    const caja = panel.getBoundingClientRect();
+    const fuera = [...panel.querySelectorAll('*')]
+      .filter((el) => !el.closest('.sr-only'))
+      .filter((el) => {
+        const r = el.getBoundingClientRect();
+        return r.width > 0 && (r.right > caja.right + 1 || r.left < caja.left - 1);
+      })
+      .slice(0, 8)
+      .map((el) => `${el.tagName.toLowerCase()}.${String(el.getAttribute('class') ?? '').slice(0, 70)} «${(el.textContent ?? '').slice(0, 30)}»`);
+    return { fuera, scroll: panel.scrollWidth, cliente: panel.clientWidth };
+  });
+}
+
+/** El borde inferior de cada barra de «qué cierra pronto», en px. */
+async function basesDeCierres(page: Page): Promise<number[]> {
+  return page
+    .getByRole('region', { name: PANEL })
+    .locator('article[aria-labelledby="lectura-cierres"] li [style]')
+    .evaluateAll((barras) => barras.map((b) => b.getBoundingClientRect().bottom));
+}
+
 test('lo primero es el buscador, y nada de lo que se fue', async ({ page }) => {
   const respuesta = await page.goto('/');
   expect(respuesta?.status()).toBe(200);
@@ -173,6 +202,20 @@ for (const tema of ['claro', 'oscuro'] as const) {
         expect(await anchoDelDocumento(page), `se sale del ancho:\n${(await quienSeSale(page)).join('\n')}`).toBeLessThanOrEqual(
           viewport.width,
         );
+
+        if (ruta === '/') {
+          // La semilla trae cierres: el panel existe. Y no esconde nada tras su overflow-hidden.
+          await expect(page.getByRole('region', { name: PANEL })).toBeVisible();
+          const { fuera, scroll, cliente } = await recorteDelPanel(page);
+          expect(fuera, 'se sale del panel (y overflow-hidden lo corta)').toEqual([]);
+          expect(scroll, 'el panel recorta contenido').toBeLessThanOrEqual(cliente + 1);
+          if (viewport.width === MOVIL.width) {
+            // «En 2 o 3 días» en dos líneas no puede subir su barra: una sola línea de base.
+            const bases = await basesDeCierres(page);
+            expect(bases).toHaveLength(4);
+            expect(Math.max(...bases) - Math.min(...bases), `bases: ${bases.join(', ')}`).toBeLessThanOrEqual(1);
+          }
+        }
       });
     }
   }

@@ -171,6 +171,26 @@ describe('PanelLecturas', () => {
     });
   });
 
+  it('cierres: cada valor va justo encima de su barra, y el nombre debajo no las mueve', () => {
+    render(<PanelLecturas sectores={null} precio={null} cierres={CIERRES} />);
+    const items = screen.getAllByRole('listitem');
+    // Todas las zonas de barra iguales y antes del nombre: comparten la línea de base
+    // aunque «En 2 o 3 días» ocupe dos líneas (la geometría la mide el E2E).
+    const zonas = items.map((li) => li.children[1] as HTMLElement);
+    expect(new Set(zonas.map((z) => z.className)).size).toBe(1);
+    expect(zonas[0]).toHaveClass('h-12', 'items-end');
+    items.forEach((li, i) => {
+      const { nombre, valor, alto } = CIERRES.columnas[i];
+      const barra = zonas[i].firstElementChild as HTMLElement;
+      expect(barra.style.height).toBe(`${alto}%`);
+      // El valor cuelga de la barra (bottom-full): sube y baja con ella.
+      const cifra = barra.querySelector('.cifra');
+      expect(cifra).toHaveTextContent(valor);
+      expect(cifra).toHaveClass('absolute', 'bottom-full');
+      expect(li.children[2]).toHaveTextContent(nombre);
+    });
+  });
+
   it('dato sólo en lo que la conclusión nombra; el resto, dato-tenue', () => {
     const { container } = render(<PanelLecturas {...TODAS} />);
     // Sectores: 2 pintadas + 1 apagada. Precio: banda pintada + riel apagado. Cierres: 2 + 2.

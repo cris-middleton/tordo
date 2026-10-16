@@ -1,4 +1,4 @@
-import { lecturaCierres, lecturaPrecio, lecturaSectores } from '@/lib/lecturasPortada';
+import { hayLecturas, lecturaCierres, lecturaPrecio, lecturaSectores, type Lecturas } from '@/lib/lecturasPortada';
 import { actualizadoEnPalabras, franjaDeLaPortada, tiraDeLaPortada, usosAbiertos } from '@/lib/portada';
 import type { SectoresBI } from '@/types/bi';
 import type { CompraAgilDestacadasResponse } from '@/types/compraAgil';
@@ -50,12 +50,12 @@ export function Portada({
 }) {
   const tira = tiraDeLaPortada(resumen);
   const franja = franjaDeLaPortada(resumen);
-  const lecturas = {
+  const lecturas: Lecturas = {
     sectores: lecturaSectores(sectores),
     precio: lecturaPrecio(producto),
     cierres: lecturaCierres(resumen),
   };
-  const hayPanel = Boolean(lecturas.sectores || lecturas.precio || lecturas.cierres);
+  const hayPanel = hayLecturas(lecturas);
   // Principio 4: «sin dato fresco, el bloque se oculta». Sin hora legible no hay
   // con qué decir de cuándo es la lista, y se oculta entera, no sólo su línea de hora.
   const horaHoy = destacadas ? actualizadoEnPalabras(destacadas.actualizado_en) : null;
