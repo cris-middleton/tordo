@@ -166,6 +166,22 @@
   --shadow-card-lg: 0 8px 28px 0 rgba(0,0,0,0.6), 0 4px 10px -4px rgba(0,0,0,0.4);
 }
 
+/* El esquema del navegador (formularios, barras de desplazamiento) sigue al
+   tema, y el claro dice `only light`: sin `only`, el oscurecido automático de
+   Chrome en Android («oscurecer sitios web»), y el de las WebView que lo
+   heredan, invierte la página entera aunque el tema sea claro. El oscuro
+   declara `dark` y el navegador lo deja como está. Vive aquí y no en el
+   `style` que pondría next-themes (`enableColorScheme={false}` en
+   `app/providers.tsx`): esa línea dice `light` sin `only`, y un estilo en línea
+   le gana a esta hoja. `__tests__/oscurecido-forzado.test.ts`. */
+:root {
+  color-scheme: only light;
+}
+
+:root.dark {
+  color-scheme: dark;
+}
+
 @layer base {
   html {
     -webkit-font-smoothing: antialiased;

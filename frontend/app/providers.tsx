@@ -42,6 +42,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
         defaultTheme="light"
         themes={['dark', 'light', 'system']}
         enableSystem
+        // El `color-scheme` lo declara `app/globals.css` según la clase: el que
+        // escribe next-themes en línea dice `light` sin `only` y deja que el
+        // navegador oscurezca el tema claro.
+        enableColorScheme={false}
         disableTransitionOnChange={false}
       >
         {children}

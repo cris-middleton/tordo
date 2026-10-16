@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Archivo, IBM_Plex_Mono } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
@@ -59,6 +59,13 @@ export const metadata: Metadata = {
     apple: '/apple-touch-icon.png',
   },
   manifest: '/site.webmanifest',
+};
+
+// `only light` en la etiqueta, además de en `app/globals.css`: Chrome la lee antes que la
+// hoja de estilos, y así no oscurece ni el primer pintado. Con el tema oscuro manda la hoja
+// (`:root.dark { color-scheme: dark }`).
+export const viewport: Viewport = {
+  colorScheme: 'only light',
 };
 
 export default function RootLayout({
