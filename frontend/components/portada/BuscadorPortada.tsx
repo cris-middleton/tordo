@@ -8,16 +8,21 @@ import {
   PARAMETRO_BUSCAR,
   rutaBuscar,
 } from '@/lib/buscar';
+import { PLACEHOLDER_BUSCADOR, SUBTITULO_PORTADA } from '@/lib/portada';
 
 /**
- * Lo primero de la portada (spec del rediseño §6.3, principio 1): la pregunta y
- * el buscador. **Un `<form>` GET a `/buscar`, sin JavaScript**: funciona antes de
- * hidratar —y sin hidratar— y deja la portada como componente de servidor.
+ * Lo primero de la portada (spec del rediseño §6.3, principio 1, e
+ * IDENTIDAD_Y_PORTADA §3.1): la pregunta, qué hace la búsqueda y el buscador.
+ * **Un `<form>` GET a `/buscar`, sin JavaScript**: funciona antes de hidratar
+ * —y sin hidratar— y deja la portada como componente de servidor.
  *
  * El `<h1>` ES la etiqueta del campo: un lector de pantalla anuncia la pregunta
- * al entrar en él, sin un `<label>` oculto que repita el titular. Los límites
- * del campo son los de `lib/buscar.ts` (los mismos que `/buscar`); qué hacer con
- * un término raro es trabajo de esa página.
+ * al entrar en él, sin un `<label>` oculto que repita el titular. Sin clase de
+ * peso: la regla de los titulares (`h1, h2 { font-display }`) ya lo pone en 800.
+ * El campo no repite los ejemplos (`PLACEHOLDER_BUSCADOR`): ya están debajo. El
+ * botón va en `dato` con `text-onDato` encima, nunca `text-white` sobre un token;
+ * el foco, el de la regla global `:focus-visible`.
+ * Los límites del campo son los de `lib/buscar.ts` (los mismos que `/buscar`).
  *
  * Los ejemplos son `<Link>` por defecto, sin `prefetch`: con `loading.tsx` ausente
  * no ejecutan `/buscar`, y forzarlo costaría una búsqueda por ejemplo en cada vista.
@@ -25,11 +30,12 @@ import {
 export function BuscadorPortada() {
   return (
     <div>
-      <h1 className="text-3xl leading-tight text-text sm:text-4xl">
+      <h1 className="text-4xl leading-none tracking-tight text-text sm:text-5xl">
         <label htmlFor="buscar-portada">¿Qué le vendes al Estado?</label>
       </h1>
+      <p className="mt-4 max-w-[40ch] text-lg leading-relaxed text-muted">{SUBTITULO_PORTADA}</p>
 
-      <form method="get" action="/buscar" role="search" className="mt-5 flex flex-col gap-2 sm:flex-row">
+      <form method="get" action="/buscar" role="search" className="mt-6 flex flex-col gap-2 sm:flex-row">
         <input
           id="buscar-portada"
           name={PARAMETRO_BUSCAR}
@@ -39,10 +45,13 @@ export function BuscadorPortada() {
           maxLength={MAXIMO_CARACTERES_BUSCAR}
           autoComplete="off"
           enterKeyHint="search"
-          placeholder="Ej.: resma de papel carta, guantes de nitrilo, tóner"
+          placeholder={PLACEHOLDER_BUSCADOR}
           className="input-field py-3 text-base sm:flex-1"
         />
-        <button type="submit" className="btn-accent px-6 py-3 text-base">
+        <button
+          type="submit"
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-dato px-6 py-3 text-base font-semibold text-onDato shadow-sm transition-colors hover:bg-dato/90"
+        >
           <Search className="h-4 w-4" aria-hidden="true" />
           Buscar
         </button>

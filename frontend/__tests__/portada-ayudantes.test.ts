@@ -20,9 +20,9 @@ import {
 import { urlCatalogoAbiertas } from '@/lib/filtrosCatalogo';
 import { PRODUCTO_PORTADA } from '@/lib/lecturasPortada';
 import { HORAS_HABILES } from '@/lib/compraAgil';
+import * as moduloPortada from '@/lib/portada';
 import {
   franjaDeLaPortada,
-  lemaPortada,
   PLACEHOLDER_BUSCADOR,
   SE_ACTUALIZA,
   SUBTITULO_PORTADA,
@@ -87,17 +87,17 @@ describe('tiraDeLaPortada', () => {
     const tira = tiraDeLaPortada(RESUMEN);
     expect(tira).not.toBeNull();
     expect(tira!.cifras).toEqual([
-      { texto: '4.232 licitaciones abiertas', href: urlCatalogoAbiertas('licitaciones') },
-      { texto: '2.714 Compras Ágiles abiertas', href: urlCatalogoAbiertas('compra_agil') },
+      { numero: '4.232', etiqueta: 'licitaciones abiertas', href: urlCatalogoAbiertas('licitaciones') },
+      { numero: '2.714', etiqueta: 'Compras Ágiles abiertas', href: urlCatalogoAbiertas('compra_agil') },
     ]);
-    // 11:00 en Santiago, con el día: la portada se cachea media hora. El texto
-    // exacto que produce el ayudante, no una expresión que acepte cualquier cosa.
+    // 11:00 en Santiago, con el día: la portada se cachea media hora. La tira no
+    // la pinta (va en la franja), pero sin hora legible no hay tira.
     expect(tira!.actualizado).toBe('mié, 14 oct, 11:00');
   });
 
   it('en singular cuando hay una, y con el cero dicho', () => {
     const tira = tiraDeLaPortada({ ...RESUMEN, licitaciones_abiertas: 1, compra_agil_abiertas: 0 });
-    expect(tira!.cifras.map((c) => c.texto)).toEqual(['1 licitación abierta', '0 Compras Ágiles abiertas']);
+    expect(tira!.cifras.map((c) => `${c.numero} ${c.etiqueta}`)).toEqual(['1 licitación abierta', '0 Compras Ágiles abiertas']);
   });
 
   it.each([
@@ -129,13 +129,9 @@ describe('usosAbiertos', () => {
   });
 });
 
-describe('lemaPortada', () => {
-  it('«código abierto» sólo cuando lo es (R8: el repositorio sigue privado hasta publicarlo)', () => {
-    expect(lemaPortada(null)).toBe('Gratis (de verdad). Sin cuentas, sin publicidad. API abierta.');
-    expect(lemaPortada(null)).not.toMatch(/código/i);
-    expect(lemaPortada('https://github.com/x/tordo')).toBe(
-      'Gratis (de verdad). Sin cuentas, sin publicidad. Código y API abiertos.',
-    );
+describe('el lema', () => {
+  it('se fue de la portada: lo que decía está en la ficha y en los enlaces de la cabecera', () => {
+    expect(moduloPortada).not.toHaveProperty('lemaPortada');
   });
 });
 

@@ -76,6 +76,31 @@ describe('FranjaPortada', () => {
     expect(screen.getByText('Actualizado el')).toBeInTheDocument();
   });
 
+  it('con sólo la hora, su celda no queda sangrada desde lg', () => {
+    const { container } = render(
+      <FranjaPortada franja={{ publicadasHoy: null, masPublicaHoy: null, actualizado: FRANJA.actualizado }} />,
+    );
+    const dl = container.querySelector('dl') as HTMLElement;
+    expect(dl.children).toHaveLength(1);
+    expect(dl.firstElementChild).toHaveClass('lg:first:pl-0');
+  });
+
+  it('con publicadas y sin nombre que poner primero: el conteo y la hora, sin «Más publica hoy»', () => {
+    const { container } = render(<FranjaPortada franja={{ ...FRANJA, masPublicaHoy: null }} />);
+    expect([...container.querySelectorAll('dt')].map((d) => d.textContent)).toEqual([
+      'Publicadas hoy:',
+      'Actualizado el',
+    ]);
+    expect([...container.querySelectorAll('dd')].map((d) => d.textContent)).toEqual(['612', 'mié, 14 oct, 13:17']);
+  });
+
+  it('cualquier celda que quede primera pierde la sangría izquierda desde lg', () => {
+    const { container } = render(<FranjaPortada franja={FRANJA} />);
+    for (const celda of (container.querySelector('dl') as HTMLElement).children) {
+      expect(celda).toHaveClass('lg:first:pl-0');
+    }
+  });
+
   it.each(['FichaPortada.tsx', 'FranjaPortada.tsx'])('%s no lleva JavaScript propio ni colores crudos', (f) => {
     expect(leer(f)).not.toMatch(/^\s*['"]use client['"]/m);
     expect(leer(f)).not.toMatch(/#[0-9a-fA-F]{6}\b|text-white|bg-white/);

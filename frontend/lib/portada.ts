@@ -1,11 +1,12 @@
 /**
  * Textos y ayudantes de la portada (`app/page.tsx`). Puros y sin secretos.
  *
- * La portada es un buscador (spec del rediseño §6.3): «¿Qué le vendes al
- * Estado?», sus ejemplos (`lib/buscar.ts`), una tira de cifras vivas, «Lo mejor
- * de hoy» y lo abierto. Lo que antes explicaba —qué es, de dónde salen los
- * datos, cómo se financia y las preguntas frecuentes— vive en `/acerca`
- * (`lib/acerca.ts`).
+ * La portada es un buscador (spec del rediseño §6.3 e IDENTIDAD_Y_PORTADA §3):
+ * «¿Qué le vendes al Estado?», sus ejemplos (`lib/buscar.ts`), las cifras vivas,
+ * la ficha y la franja de hoy, «Lo mejor de hoy» y lo abierto. Las tres lecturas
+ * del panel viven en `lib/lecturasPortada.ts`. Lo que antes explicaba —qué es,
+ * de dónde salen los datos, cómo se financia y las preguntas frecuentes— vive en
+ * `/acerca` (`lib/acerca.ts`).
  *
  * Las variables de servidor (`REPOSITORIO_URL`, `RESPONSABLE_LEGAL`) NO se leen
  * aquí: llegan como argumento desde `app/page.tsx`, que es de servidor. Así
@@ -53,20 +54,21 @@ export function actualizadoEnPalabras(iso: string | null): string | null {
 }
 
 export interface CifraPortada {
-  /** «4.274 licitaciones abiertas». */
-  texto: string;
+  /** «4.274». */
+  numero: string;
+  /** «licitaciones abiertas»: con el número delante es el nombre del enlace. */
+  etiqueta: string;
   /** El catálogo con esas mismas abiertas: el número que se lee es el total que se encuentra. */
   href: string;
 }
 
 export interface TiraPortada {
   cifras: [CifraPortada, CifraPortada];
-  /** «mié, 14 oct, 11:00», en hora de Chile. */
+  /**
+   * «mié, 14 oct, 11:00», en hora de Chile. La tira no la pinta (la dice la
+   * franja), pero sin hora legible no hay tira.
+   */
   actualizado: string;
-}
-
-function contar(n: number, singular: string, plural: string): string {
-  return `${entero(n)} ${n === 1 ? singular : plural}`;
 }
 
 /**
@@ -80,14 +82,18 @@ export function tiraDeLaPortada(resumen: ResumenPortada | null): TiraPortada | n
   if (!resumen) return null;
   const actualizado = actualizadoEnPalabras(resumen.actualizado_en);
   if (!actualizado) return null;
+  const lic = resumen.licitaciones_abiertas;
+  const ca = resumen.compra_agil_abiertas;
   return {
     cifras: [
       {
-        texto: contar(resumen.licitaciones_abiertas, 'licitación abierta', 'licitaciones abiertas'),
+        numero: entero(lic),
+        etiqueta: lic === 1 ? 'licitación abierta' : 'licitaciones abiertas',
         href: urlCatalogoAbiertas('licitaciones'),
       },
       {
-        texto: contar(resumen.compra_agil_abiertas, 'Compra Ágil abierta', 'Compras Ágiles abiertas'),
+        numero: entero(ca),
+        etiqueta: ca === 1 ? 'Compra Ágil abierta' : 'Compras Ágiles abiertas',
         href: urlCatalogoAbiertas('compra_agil'),
       },
     ],
@@ -153,14 +159,4 @@ export function franjaDeLaPortada(resumen: ResumenPortada | null): DatosFranja |
     masPublicaHoy: hay && nombre ? normalizeText(nombre) : null,
     actualizado,
   };
-}
-
-/**
- * La frase de lo libre, bajo el buscador. «Código abierto» sólo cuando lo es: con
- * el repositorio aún privado (R8) diría algo falso (principio 6).
- */
-export function lemaPortada(repositorio: string | null): string {
-  return repositorio
-    ? 'Gratis (de verdad). Sin cuentas, sin publicidad. Código y API abiertos.'
-    : 'Gratis (de verdad). Sin cuentas, sin publicidad. API abierta.';
 }
