@@ -138,6 +138,10 @@ def get_sector(
             "ticket_mediana",
             "n_organismos",
             "n_proveedores",
+            # La ventana sólo si la tabla la trae: la del golden master no la
+            # tiene, y su contrato no cambia.
+            "ventana_desde",
+            "ventana_hasta",
         ]
         if c in rows.columns
     ]

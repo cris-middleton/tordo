@@ -412,6 +412,11 @@ class SectorItem(BaseModel):
     ticket_mediana: float | None = None
     n_organismos: int | None = None
     n_proveedores: int | None = None
+    # Los meses de los que sale la fila (36, anclados en el último mes con datos).
+    # Nulos hasta que la semanal escriba la ventana: una cifra sin periodo se lee
+    # como «de siempre».
+    ventana_desde: date | None = None
+    ventana_hasta: date | None = None
 
 
 class SectorResponse(BaseModel):
