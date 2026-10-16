@@ -34,6 +34,7 @@ describe('las secciones', () => {
       ['Precios', '/productos'],
       ['Mercados', '/mercado'],
       ['Guías', '/guias'],
+      ['Notas', '/notas'],
     ]);
     expect(JSON.stringify(mapaDelSitio('https://github.com/x/tordo'))).not.toMatch(/inteligencia|por producto/i);
   });
@@ -81,6 +82,7 @@ describe('lo abierto', () => {
       'Precios',
       'Mercados',
       'Guías',
+      'Notas',
       'Guardados',
       'API y MCP',
     ]);

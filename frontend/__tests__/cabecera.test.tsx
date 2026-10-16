@@ -16,7 +16,7 @@ import { TRAZOS_PAJARO, VIEWBOX_PAJARO } from '@/lib/pajaroImagen';
 const navegacion = vi.hoisted(() => ({ ruta: '/licitaciones' }));
 vi.mock('next/navigation', () => ({ usePathname: () => navegacion.ruta }));
 
-const ESPERADOS = ['Compra Ágil', 'Licitaciones', 'Precios', 'Mercados', 'Guías', 'API y MCP'];
+const ESPERADOS = ['Compra Ágil', 'Licitaciones', 'Precios', 'Mercados', 'Guías', 'Notas', 'API y MCP'];
 
 /** `hidden: true`: en jsdom el contenido de un <details> cerrado puede contar como oculto. */
 function enlacesDe(nombreNav: string): HTMLElement[] {
@@ -31,7 +31,7 @@ afterEach(() => {
 });
 
 describe('la cabecera única', () => {
-  it('escritorio: las cinco secciones y, aparte, «API y MCP»', () => {
+  it('escritorio: las seis secciones y, aparte, «API y MCP»', () => {
     render(<Cabecera />);
     expect(nombres(enlacesDe('Secciones'))).toEqual(ESPERADOS);
   });

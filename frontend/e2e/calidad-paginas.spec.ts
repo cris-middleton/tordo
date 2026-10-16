@@ -18,7 +18,7 @@ import { expect, test } from '@playwright/test';
  * se indexan y su contenido se pinta en el cliente.
  */
 
-const FIJAS = ['/', '/guias', '/productos', '/apoyar', '/terminos', '/privacidad'];
+const FIJAS = ['/', '/guias', '/notas', '/productos', '/apoyar', '/terminos', '/privacidad'];
 
 function extraer(html: string, patron: RegExp): string[] {
   return [...html.matchAll(patron)].map((m) => m[1]);

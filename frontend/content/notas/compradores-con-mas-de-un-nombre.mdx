@@ -1,0 +1,65 @@
+---
+titulo: "El 12 % de los compradores aparece con más de un nombre"
+fecha: "2026-08-16"
+resumen: "145 de 1.186 compradores del histórico de ChileCompra aparecen con más de un nombre. Agrupar por nombre partía un mercado real en varios de mentira. Hoy cada comprador se identifica por su código."
+estado: "medido"
+medido_sobre: "Histórico de órdenes de compra de ChileCompra y las tablas que publica el análisis. Medido y corregido el 16 de agosto de 2026, antes de abrir el sitio público."
+script: "etl/tests/test_identidad_comprador.py"
+fuentes:
+  - "CLAUDE.md: «145 de 1.186 compradores (12,2 %) aparecen con más de un nombre»"
+  - "CLAUDE.md: «los cambios de 2021 dejaron a la misma repartición como «GOBERNACION PROVINCIAL DE …» y «DELEGACIÓN PRESIDENCIAL PROVINCIAL DE …»»"
+  - "CLAUDE.md: «cuatro módulos agrupaban por *(código, nombre, rubro)*»"
+  - "CLAUDE.md: «7 de 11 tablas materializadas tenían su clave natural duplicada»"
+  - "CLAUDE.md: «se queda con el más reciente — un organismo renombrado debe salir con su nombre de hoy»"
+  - "CLAUDE.md: «el sitio está en producción desde el 2026-10-13»"
+---
+
+## En corto
+
+- 145 de 1.186 compradores del histórico de ChileCompra, el 12,2 %, aparecen con más de
+  un nombre.
+- 7 de 11 tablas del análisis tenían su clave duplicada: el mismo mercado en varias
+  filas.
+- Hoy cada comprador se identifica por su código y sale con su nombre más reciente.
+
+## Qué vimos
+
+Los organismos cambian de nombre. En 2021 muchas gobernaciones provinciales pasaron a
+ser delegaciones presidenciales, y la misma repartición quedó en los datos como
+«GOBERNACION PROVINCIAL DE …» y como «DELEGACIÓN PRESIDENCIAL PROVINCIAL DE …».
+
+Cuatro módulos del análisis agrupaban por código, nombre y rubro, así que cada nombre
+abría un mercado aparte. Un comprador con dos nombres partía su gasto en dos mercados de
+mentira, cada uno con menos proveedores y menos plata que el real. De ahí salía una
+parte de los [mercados de un solo proveedor que se veían abiertos](/notas/mercados-de-un-proveedor-salian-como-abiertos).
+
+## Cómo lo medimos
+
+Contamos, por código de comprador, cuántos nombres distintos trae el histórico de
+órdenes de compra: 145 de 1.186 tienen más de uno. Después buscamos claves repetidas en
+cada tabla que publica el análisis, la combinación que debería ser única, como comprador
+y rubro: 7 de 11 la tenían duplicada.
+
+## Qué cambió
+
+- Un comprador se identifica por su código de Mercado Público. El nombre ya no entra en
+  ninguna clave.
+- El nombre que ves es el más reciente: un organismo renombrado sale con su nombre de
+  hoy.
+- Si buscas un organismo por su nombre antiguo, búscalo por su código. La
+  [guía del comprador](/guias/como-leer-un-comprador) lo cuenta.
+- El arreglo es anterior a la apertura del sitio público, el 13 de octubre de 2026.
+
+## Lo que todavía no sabemos
+
+Un comprador que cambió de código, además de nombre, sigue saliendo como dos. No lo hemos
+medido.
+
+## Reprodúcelo
+
+El test arma un comprador escrito de dos formas y comprueba que es un solo mercado y que
+sale con su nombre vigente.
+
+```
+cd etl && uv run --project .. pytest tests/test_identidad_comprador.py
+```

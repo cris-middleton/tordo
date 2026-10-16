@@ -52,6 +52,7 @@ describe('el pie único', () => {
       ['Precios', '/productos'],
       ['Mercados', '/mercado'],
       ['Guías', '/guias'],
+      ['Notas', '/notas'],
       ['Guardados', '/guardados'],
     ]);
   });

@@ -22,6 +22,8 @@ const PAGINAS = [
   '/acerca',
   '/guias',
   '/guias/de-donde-salen-los-datos',
+  '/notas',
+  '/notas/precio-unitario-dividido-dos-veces',
 ];
 
 const VISTAS = [
