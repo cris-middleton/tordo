@@ -168,7 +168,14 @@ async def test_la_portada_cuenta_con_la_definicion_del_catalogo(cliente, mezcla)
 
     assert r.status_code == 200, r.text
     cuerpo = r.json()
-    assert set(cuerpo) == {"licitaciones_abiertas", "compra_agil_abiertas", "actualizado_en"}
+    assert set(cuerpo) == {
+        "licitaciones_abiertas",
+        "compra_agil_abiertas",
+        "actualizado_en",
+        "compra_agil_por_cierre",
+        "publicadas_hoy",
+        "mas_publica_hoy",
+    }
     assert cuerpo["licitaciones_abiertas"] - lic_antes == 3
     assert cuerpo["compra_agil_abiertas"] - ca_antes == 2
     # Lo que enlaza la portada da el mismo total.
@@ -176,6 +183,44 @@ async def test_la_portada_cuenta_con_la_definicion_del_catalogo(cliente, mezcla)
         "total"
     ]
     assert total == cuerpo["licitaciones_abiertas"] + cuerpo["compra_agil_abiertas"]
+
+
+@pytest.mark.asyncio
+async def test_la_portada_reparte_las_compras_agiles_por_cierre_y_cuadra(cliente, mezcla):
+    """Los cuatro tramos suman la cifra de Compra Ágil (identidad §3.5): la lectura
+    de la portada no puede contar una Compra Ágil que la tira no cuenta."""
+    cuerpo = (await cliente.get(RUTA_PORTADA)).json()
+
+    tramos = cuerpo["compra_agil_por_cierre"]
+    assert set(tramos) == {"hoy", "manana", "dos_tres_dias", "despues"}
+    assert sum(tramos.values()) == cuerpo["compra_agil_abiertas"]
+    # AB-CA cierra en 5 h y AB-CA-POCO en 1 h: las dos hoy o mañana, según la hora.
+    assert tramos["hoy"] + tramos["manana"] >= 2
+
+
+@pytest.mark.asyncio
+async def test_la_portada_cuenta_las_publicadas_hoy(cliente, async_db):
+    antes = (await cliente.get(RUTA_PORTADA)).json()["publicadas_hoy"]
+    async_db.add_all(
+        [
+            Licitacion(
+                codigo_externo=f"PUB-HTTP-{i}",
+                nombre=f"Compra de {TERMINO} {i}",
+                tipo_convocatoria="compra_agil",
+                estado="Publicada",
+                fecha_publicacion=datetime.now(UTC),
+                nombre_organismo="ZZ ORGANISMO DE LA PORTADA",
+                activo=True,
+            )
+            for i in range(2)
+        ]
+    )
+    await async_db.flush()
+
+    cuerpo = (await cliente.get(RUTA_PORTADA)).json()
+
+    assert cuerpo["publicadas_hoy"] - antes == 2
+    assert cuerpo["mas_publica_hoy"] is not None
 
 
 @pytest.mark.asyncio

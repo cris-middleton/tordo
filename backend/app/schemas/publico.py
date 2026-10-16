@@ -111,6 +111,16 @@ class ProductoEncontrado(BaseModel):
     indexable: bool
 
 
+class CompraAgilPorCierre(BaseModel):
+    """Las Compras Ágiles abiertas según el día de Chile en que cierran. Suman
+    `compra_agil_abiertas`."""
+
+    hoy: int
+    manana: int
+    dos_tres_dias: int = Field(description="Cierran pasado mañana o al día siguiente.")
+    despues: int = Field(description="Cierran desde el cuarto día, o no tienen cierre.")
+
+
 class ResumenPortada(BaseModel):
     """La tira de cifras de la portada (spec del rediseño §6.6).
 
@@ -134,5 +144,23 @@ class ResumenPortada(BaseModel):
         description=(
             "Última ingesta de Compra Ágil, hora de Chile; la misma que "
             "`GET /compra-agil/destacadas`. Nula si no hubo ninguna."
+        ),
+    )
+    compra_agil_por_cierre: CompraAgilPorCierre | None = Field(
+        None,
+        description="`compra_agil_abiertas` repartidas por el día de Chile en que cierran.",
+    )
+    publicadas_hoy: int | None = Field(
+        None,
+        description=(
+            "Licitaciones y Compras Ágiles vigentes publicadas hoy (día de Chile), abiertas o no."
+        ),
+    )
+    mas_publica_hoy: str | None = Field(
+        None,
+        description=(
+            "El organismo que más publicó hoy, agrupado por su nombre (la Compra Ágil "
+            "no trae código), tal como lo escribe ChileCompra. Nulo sin publicaciones "
+            "con nombre."
         ),
     )

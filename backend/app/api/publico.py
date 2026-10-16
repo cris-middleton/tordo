@@ -21,6 +21,7 @@ from app.db import get_db
 from app.repositories import compra_agil as repo_compra_agil
 from app.repositories import licitaciones as repo_licitaciones
 from app.schemas.publico import (
+    CompraAgilPorCierre,
     CompradorPublico,
     ProductoEncontrado,
     ProductoPublico,
@@ -52,10 +53,20 @@ async def get_portada(db: AsyncSession = Depends(get_db)):
     """Conteos del catálogo con su hora. Sin `requiere_analytics()`: no leen
     analytics, y una portada sin cifras por un flag de BI sería un fallo ajeno."""
     abiertas = await repo_licitaciones.contar_abiertas(db)
+    hoy = await repo_licitaciones.publicadas_del_dia(db)
+    por_cierre = abiertas.compra_agil_por_cierre
     return ResumenPortada(
         licitaciones_abiertas=abiertas.licitaciones,
         compra_agil_abiertas=abiertas.compra_agil,
         actualizado_en=await repo_compra_agil.actualizado_en(db),
+        compra_agil_por_cierre=CompraAgilPorCierre(
+            hoy=por_cierre.hoy,
+            manana=por_cierre.manana,
+            dos_tres_dias=por_cierre.dos_tres_dias,
+            despues=por_cierre.despues,
+        ),
+        publicadas_hoy=hoy.total,
+        mas_publica_hoy=hoy.organismo,
     )
 
 
