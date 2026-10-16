@@ -175,8 +175,8 @@
   }
 
   /* Apaga el movimiento cuando el sistema lo pide. Esto sólo alcanza a lo que
-     anima CSS; el movimiento manejado por JavaScript se apaga con el hook
-     `usePrefersReducedMotion`, que no arranca el intervalo. */
+     anima CSS; si algún día hay movimiento manejado por JavaScript, tiene
+     que consultar `(prefers-reduced-motion: reduce)` por su cuenta. */
   @media (prefers-reduced-motion: reduce) {
     html {
       scroll-behavior: auto;
@@ -248,7 +248,7 @@
   /* `border-borderInput`, no `border-border`: WCAG 1.4.11 pide 3:1 para el
      límite de un control interactivo, y el borde decorativo daba 1.29:1. */
   .input-field {
-    @apply w-full rounded-lg border border-borderInput bg-surface px-4 py-2.5 text-sm text-text placeholder-subtle shadow-sm transition-all duration-200 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:cursor-not-allowed disabled:bg-background disabled:opacity-70 font-sans;
+    @apply w-full rounded-lg border border-borderInput bg-surface px-4 py-2.5 text-sm text-text placeholder-subtle shadow-sm transition-all duration-200 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:cursor-not-allowed disabled:bg-surface-elevated disabled:opacity-70 font-sans;
   }
 
   select.input-field {
@@ -479,5 +479,3 @@
     font-weight: 800;
   }
 }
-
-/* ── TordoLogo — animation handled by React state ── */

@@ -307,8 +307,11 @@ programador en la nube, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
   que se revisa por defecto, porque ahí `on-accent` justamente ES blanco.
 - **Si tocas un token de color, el test de contraste lo comprueba.**
   `__tests__/contraste-wcag.test.ts` lee `:root` y `.dark` de `app/globals.css` y comprueba
-  205 pares contra WCAG AA (4,5:1 texto, 3:1 bordes de control): cada tinta sobre cada
-  superficie, cada `on-*` sobre su relleno, cada tinta sobre su tenue. **Un token nuevo lo hace
+  139 pares contra WCAG AA (4,5:1 texto, 3:1 bordes de control): cada tinta sobre cada
+  superficie, cada `on-*` sobre su relleno, cada tinta sobre su tenue, y las tintas oscuras
+  (`text`, `muted`, `accent`, `primary`, `dato`) sobre `brand-navy`, el fondo del panel de la
+  portada. `subtle` no pasa sobre navy (4,18:1): no se usa dentro de una superficie oscura.
+  **Un token nuevo lo hace
   fallar** hasta que alguien decida sus pares (o lo declare decorativo en `SIN_PAR`). Antes eran
   «166 pares verificados» a mano, y el bug de `.alert-info` (texto invisible en tema claro) nació
   de cambiar un token a ojo.
@@ -320,7 +323,8 @@ programador en la nube, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
   ninguna en el sitio** (el hero se fue con la portada nueva). Si vuelve una superficie así, sus
   tintas entran en `contraste-wcag.test.ts`.
 - **La tarjeta de vista previa** (`app/opengraph-image.tsx`, la misma para X en `twitter-image.tsx`)
-  es un panel `brand-blue` (el azul del cuerpo del pájaro, invariante de tema y sólo para ella) con
+  es un panel `brand-blue` (el azul del cuerpo del pájaro, invariante de tema; lo pinta también el
+  pájaro de la cabecera) con
   el pájaro, la marca en Varien y el dominio, y un lienzo blanco con «¿Qué le vendes al Estado?» en
   navy y la píldora «Datos públicos de ChileCompra». Sin subtítulo: casi siempre se ve a 260 px.
   Se dibuja sin CSS, así que sus colores son copias de tokens en `lib/coloresImagen.ts`
@@ -338,7 +342,7 @@ programador en la nube, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
   `useEffect` + `setState` para pedir datos no compila.
 - **Nada de `useEffect` + `setState` para leer algo que vive fuera de React.** Para
   `localStorage`, `matchMedia` o un evento del navegador, la API correcta es
-  `useSyncExternalStore` — ya lo usan `useMediaQuery`, `usePrefersReducedMotion`,
+  `useSyncExternalStore` — ya lo usan `useMediaQuery`,
   `SelectorTema` y los favoritos y búsquedas guardadas (`lib/almacenLocal.ts`). Además de dejar el lint limpio, arregla un fallo que el efecto tenía:
   **sólo corría al montar**, así que un cambio externo no llegaba a las pantallas ya montadas.
 - **No queda ninguna excepción a esa regla.** Las tres que había (`bi/page`, `settings` y
@@ -603,6 +607,11 @@ ninguna página ni layout de grupo pinta cabecera, pie, `PieAtribucion` ni `<mai
   `useSyncExternalStore` sobre los almacenes de `/guardados`: licitaciones guardadas o postuladas,
   sin repetir, más búsquedas) y `SelectorTema`, en el pie. `__tests__/cabecera.test.tsx` falla si
   otro fichero de `components/cascara/` se vuelve cliente o usa un color crudo.
+  **La marca lleva el pájaro del logo** (`PajaroMarca`): SVG de servidor con los trazos de
+  `lib/pajaroImagen.ts` (la misma copia que la tarjeta de vista previa) y los tokens invariantes
+  `brand-blue` y `brand-teal`. Sustituye a `TordoLogo`, un componente cliente con siete hex que
+  entraba en todas las páginas como una isla que el test no veía; por eso el test exige también
+  que la cáscara no importe componentes cliente de fuera salvo `SelectorTema`.
   **Lo que importe una isla viaja en TODAS las páginas**: `EnlaceGuardados` arrastró `date-fns`
   (~6 KB gzip) por `useBusquedasGuardadas` → `filtrosCatalogo` → `licitacionEstado`, sólo para
   contar. `normalizeText` y `shortRegion` viven ahora en `lib/nombresChile.ts` (sin imports) y
@@ -780,15 +789,26 @@ negro con tornasol azul-verdoso:
   y "este número es bueno" eran indistinguibles.
 - Ningún hex único sirve en ambos temas, así que cada color de acción tiene **dos paradas
   invertidas por tema** más un `--color-on-*` que dice qué etiqueta va encima.
-- Tipografía (rediseño de octubre de 2026, `app/layout.tsx`, `next/font/google`, autoalojada):
-  **Newsreader** sólo en `h1` y `h2` (`font-display` = «titular editorial»), **Public Sans** en
-  todo lo demás —`h3`–`h6` y **todas las cifras**—, **IBM Plex Mono** sólo para identificadores
-  (códigos de licitación, de comprador, ONU; nunca un monto, y nunca en negrita: está cargada en
-  400 y 500) y **Varien** sólo para la marca. `.cifra` va sobre Public Sans con `tnum`. **Nunca
-  `cifra` junto a `font-display`, ni un `style={{ fontFamily }}`**: el número sale en serif.
+- **Dos tokens de dato** (`--color-dato`, `--color-dato-tenue`, y `--color-on-dato` encima):
+  cada gráfico pinta en `dato` sólo lo que nombra su conclusión y deja el resto en `dato-tenue`,
+  que es decorativo (`SIN_PAR`): nunca lleva texto y el valor va escrito al lado. Claro: el azul
+  del cuerpo del pájaro; oscuro (y dentro de `dark bg-brand-navy`): el turquesa del ala.
+- Tipografía (identidad de octubre de 2026, `docs/IDENTIDAD_Y_PORTADA_2026-10.md` §4,
+  `app/layout.tsx`, `next/font/google`, autoalojada): **Archivo** en todo —titulares, cuerpo,
+  interfaz y **todas las cifras**—, variable con eje de ancho. **`h1` y `h2` van semiexpandidos
+  (`font-stretch: 112.5%`) y en 800** (`font-display`, por la regla base); el resto, a ancho
+  normal (`font-sans`). Las dos utilidades fijan ancho y peso en `@layer utilities` de
+  `globals.css`, que Tailwind emite después de las suyas: `font-display` le gana a un
+  `font-bold`, y un titular **no lleva clase de peso** (salvo que declare que no es titular
+  con `font-sans` o `font-mono`). **IBM Plex Mono** sólo para identificadores (códigos de
+  licitación, de comprador, ONU; nunca un monto, y nunca en negrita: está cargada en 400 y 500)
+  y **Varien** sólo para la marca, junto al pájaro. `.cifra` va sobre Archivo con `tnum`.
+  **Nunca `cifra` junto a `font-display`, ni un `style={{ fontFamily }}`**.
   `__tests__/tipografia.test.ts` y `e2e/tipografia.spec.ts`.
-- Fondo de página en tema claro: papel cálido (`--color-background`, `#F7F4EC`); las tarjetas
-  siguen en `--color-surface`.
+- Fondo de página en tema claro: **blanco** (`--color-background` = `--color-surface`); las
+  tarjetas se separan por su borde. **`bg-background` sin borde no se distingue en claro**: para
+  un relleno tenue (ítem activo, selector, código en línea, *hover*), `bg-surface-elevated`
+  (`contraste-wcag.test.ts` lo exige).
 - **Sin bandas de color en la portada** (sustituyen a las cuatro `band-1..4` de la landing
   vieja, ya fuera de CSS y de Tailwind): el color se reserva para el dato y la acción.
 - Tema claro por defecto, con selector claro/oscuro/sistema en el pie del sitio

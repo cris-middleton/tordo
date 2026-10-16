@@ -14,8 +14,8 @@ afterEach(() => {
   cleanup();
 });
 
-// jsdom no implementa `matchMedia`. `useMediaQuery` y `usePrefersReducedMotion`
-// lo llaman al montar, y sin este stub cualquier test que renderice esas
+// jsdom no implementa `matchMedia`. `useMediaQuery`
+// lo llama al montar, y sin este stub cualquier test que renderice esas
 // pantallas revienta con "window.matchMedia is not a function" antes de llegar
 // a la aserción.
 if (typeof window !== 'undefined' && !window.matchMedia) {
