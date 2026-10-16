@@ -25,7 +25,7 @@ import {
 export function BuscadorPortada() {
   return (
     <div>
-      <h1 className="text-3xl font-bold leading-tight text-text sm:text-4xl">
+      <h1 className="text-3xl leading-tight text-text sm:text-4xl">
         <label htmlFor="buscar-portada">¿Qué le vendes al Estado?</label>
       </h1>
 

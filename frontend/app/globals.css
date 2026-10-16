@@ -58,13 +58,14 @@
   --color-accent-dark: 10 98 101;      /* #0A6265 */
   --color-accent-light: 237 247 247;   /* #EDF7F7 — superficie tenue */
   --color-brand-navy: 16 40 88;        /* #102858 — invariante de tema; titular de la tarjeta de vista previa (lib/coloresImagen.ts) */
-  --color-brand-blue: 40 72 173;       /* #2848AD — cuerpo del pájaro del logo, invariante de tema; panel de la tarjeta de vista previa */
+  --color-brand-blue: 40 72 173;       /* #2848AD — cuerpo del pájaro del logo, invariante de tema; panel de la tarjeta de vista previa y pájaro de la cabecera */
+  --color-brand-teal: 61 185 187;      /* #3DB9BB — ala del pájaro del logo, invariante de tema; sólo el pájaro de la cabecera (decorativo) */
   --color-gold: 150 89 10;            /* #96590A */
   --color-gold-light: 251 246 228;    /* #FBF6E4 */
   --color-text: 10 22 38;             /* #0A1626 */
   --color-muted: 84 99 122;           /* #54637A */
   --color-subtle: 90 107 131;         /* #5A6B83 */
-  --color-background: 247 244 236;    /* #F7F4EC — papel cálido; subtle 4.94:1, border-input 3.09:1 */
+  --color-background: 255 255 255;    /* #FFFFFF — blanco, como surface: las tarjetas se separan por el borde */
   --color-surface: 255 255 255;       /* #FFFFFF */
   --color-surface-elevated: 241 244 249; /* #F1F4F9 */
   --color-border: 220 227 237;        /* #DCE3ED — decorativo: tarjetas, divisores */
@@ -79,6 +80,12 @@
   --color-success: 20 117 56;         /* #147538 — verde inequívoco, ya no es la marca */
   --color-success-light: 234 247 240; /* #EAF7F0 */
 
+  /* El dato (docs/IDENTIDAD_Y_PORTADA_2026-10.md §5): cada gráfico pinta en `dato` sólo las
+     barras de la conclusión y deja el resto en `dato-tenue`, que es decorativo: nunca lleva
+     texto encima y el valor va escrito al lado. */
+  --color-dato: 40 72 173;            /* #2848AD — azul del cuerpo del pájaro */
+  --color-dato-tenue: 201 211 232;    /* #C9D3E8 */
+
   /* Etiqueta que va ENCIMA de cada relleno de color. Nunca `text-white` a mano. */
   --color-on-primary: 255 255 255;
   --color-on-accent: 255 255 255;
@@ -87,6 +94,7 @@
   --color-on-warning: 255 255 255;
   --color-on-gold: 255 255 255;
   --color-on-info: 255 255 255;
+  --color-on-dato: 255 255 255;       /* sobre #2848AD: 8.01:1 */
 
   /* Utility colors — full values (used in inline styles, not Tailwind opacity modifiers) */
   --color-scrollbar: #C4D0E0;
@@ -112,7 +120,8 @@
   --color-accent-dark: 92 202 204;     /* #5CCACC — en oscuro el hover ACLARA */
   --color-accent-light: 11 33 36;      /* #0B2124 — superficie tenue */
   --color-brand-navy: 16 40 88;        /* #102858 — invariante de tema; titular de la tarjeta de vista previa (lib/coloresImagen.ts) */
-  --color-brand-blue: 40 72 173;       /* #2848AD — cuerpo del pájaro del logo, invariante de tema; panel de la tarjeta de vista previa */
+  --color-brand-blue: 40 72 173;       /* #2848AD — cuerpo del pájaro del logo, invariante de tema; panel de la tarjeta de vista previa y pájaro de la cabecera */
+  --color-brand-teal: 61 185 187;      /* #3DB9BB — ala del pájaro del logo, invariante de tema */
   --color-gold: 245 184 65;           /* #F5B841 */
   --color-gold-light: 42 31 8;        /* #2A1F08 */
   --color-text: 228 234 242;          /* #E4EAF2 */
@@ -133,6 +142,9 @@
   --color-success: 61 214 140;        /* #3DD68C */
   --color-success-light: 10 35 24;    /* #0A2318 */
 
+  --color-dato: 61 185 187;           /* #3DB9BB — turquesa del ala; sobre brand-navy 6.04:1 */
+  --color-dato-tenue: 52 80 143;      /* #34508F */
+
   /* En tema oscuro los rellenos son claros → la etiqueta va oscura. */
   --color-on-primary: 10 22 38;       /* #0A1626 */
   --color-on-accent: 16 40 88;        /* #102858 — navy sobre teal: 6.04:1 */
@@ -141,6 +153,7 @@
   --color-on-warning: 36 16 0;        /* #241000 */
   --color-on-gold: 36 26 2;           /* #241A02 */
   --color-on-info: 8 21 43;           /* #08152B */
+  --color-on-dato: 16 40 88;          /* #102858 — navy sobre turquesa: 6.04:1 */
 
   --color-scrollbar: #1E2736;
   --color-scrollbar-hover: #2A3547;
@@ -162,9 +175,8 @@
   }
 
   /* Apaga el movimiento cuando el sistema lo pide. Esto sólo alcanza a lo que
-     anima CSS; el movimiento manejado por JavaScript (rubro rotatorio, avance
-     automático de tabs, aleteo del logo) se apaga con el hook
-     `usePrefersReducedMotion`, que no arranca el intervalo. */
+     anima CSS; si algún día hay movimiento manejado por JavaScript, tiene
+     que consultar `(prefers-reduced-motion: reduce)` por su cuenta. */
   @media (prefers-reduced-motion: reduce) {
     html {
       scroll-behavior: auto;
@@ -189,8 +201,9 @@
     transition: background-color 0.25s ease, color 0.25s ease;
   }
 
-  /* Serif sólo en los titulares editoriales. `h3`–`h6` heredan Public Sans del
-     body: con la regla en los seis, todos los subtítulos salían en serif. */
+  /* Titulares: `h1` y `h2` en Archivo semiexpandida y en 800 (`font-display`, abajo en
+     utilidades). `h3`–`h6` heredan del body el ancho normal. Un h1/h2 con una clase de peso
+     (`font-bold`…) la gana: por eso los titulares no la llevan (`__tests__/tipografia.test.ts`). */
   h1, h2 {
     @apply font-display;
   }
@@ -235,7 +248,7 @@
   /* `border-borderInput`, no `border-border`: WCAG 1.4.11 pide 3:1 para el
      límite de un control interactivo, y el borde decorativo daba 1.29:1. */
   .input-field {
-    @apply w-full rounded-lg border border-borderInput bg-surface px-4 py-2.5 text-sm text-text placeholder-subtle shadow-sm transition-all duration-200 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:cursor-not-allowed disabled:bg-background disabled:opacity-70 font-sans;
+    @apply w-full rounded-lg border border-borderInput bg-surface px-4 py-2.5 text-sm text-text placeholder-subtle shadow-sm transition-all duration-200 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:cursor-not-allowed disabled:bg-surface-elevated disabled:opacity-70 font-sans;
   }
 
   select.input-field {
@@ -359,14 +372,19 @@
   /* ──────────────────────────────────────────────
      SECTION HEADER
   ────────────────────────────────────────────── */
-  /* Sin familia propia: la pone el elemento. En un h1/h2 sale Newsreader por la
-     regla base; en un h3 (BuyerProfilePanel, CompetitorsList…), Public Sans. */
+  /* Sin familia ni ancho propios: los pone el elemento. En un h2 es un titular (semiexpandido
+     y en 800); en un h3 (BuyerProfilePanel, CompetitorsList…), ancho normal y 600. */
   .section-title {
     @apply text-lg font-semibold text-text;
   }
 
+  h2.section-title {
+    @apply font-extrabold;
+  }
+
+  /* Siempre en un h1: el peso lo pone la regla base (800). */
   .page-title {
-    @apply text-2xl font-bold text-text sm:text-3xl;
+    @apply text-2xl text-text sm:text-3xl;
   }
 
   /* ──────────────────────────────────────────────
@@ -377,12 +395,11 @@
      (un "1" es más estrecho que un "0") y deja de leerse de un vistazo — que
      es justo lo que el producto vende.
 
-     Public Sans trae `tnum`, así que las cifras van en la MISMA familia que el
-     cuerpo. Hasta el rediseño de octubre de 2026 iban en la familia display
-     porque DM Sans no tenía cifras tabulares; ya no hace falta.
+     Archivo trae `tnum`, así que las cifras van en la MISMA familia que el
+     cuerpo, a su ancho normal.
 
-     Nunca `cifra` junto a `font-display`: la utilidad gana a la clase y el
-     número saldría en Newsreader. `font-display` es «titular editorial».
+     Nunca `cifra` junto a `font-display`: el número saldría semiexpandido y en
+     800. `font-display` es «titular».
   ────────────────────────────────────────────── */
   .cifra {
     font-family: var(--font-sans), system-ui, sans-serif;
@@ -446,6 +463,19 @@
   .animate-float {
     animation: float 6s ease-in-out infinite;
   }
-}
 
-/* ── TordoLogo — animation handled by React state ── */
+  /* Las dos caras de Archivo (docs/IDENTIDAD_Y_PORTADA_2026-10.md §4). La familia la pone
+     `fontFamily` de tailwind.config.js; el ancho y el peso, esto. Tailwind emite estas
+     utilidades DESPUÉS de las suyas, así que `font-display` le gana a un `font-bold` en el
+     mismo elemento, y `font-sans` devuelve a ancho normal lo que hereda de un titular (la
+     etiqueta «Fuentes» de una guía, el globo de un InfoTooltip dentro de un h2).
+     `e2e/tipografia.spec.ts` lo comprueba en el navegador. */
+  .font-sans {
+    font-stretch: 100%;
+  }
+
+  .font-display {
+    font-stretch: 112.5%;
+    font-weight: 800;
+  }
+}

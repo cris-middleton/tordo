@@ -1,7 +1,7 @@
 /**
  * El código de la licitación es un identificador: va en Plex Mono (§5.1 del
  * rediseño). Era un `h2 font-semibold`, y la regla base `h1, h2` lo habría
- * puesto en Newsreader; con `font-mono` y 600 saldría en negrita sintética
+ * puesto en Archivo semiexpandida en 800; con `font-mono` y 600 saldría en negrita sintética
  * (Plex Mono sólo está cargada en 400 y 500), así que lleva `font-medium`.
  */
 import { render, screen } from '@testing-library/react';

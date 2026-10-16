@@ -21,7 +21,7 @@ export function CabeceraFicha({
   return (
     <header className="mb-8">
       <p className="text-xs font-semibold uppercase tracking-wider text-primary">{tipo}</p>
-      <h1 className="mt-2 font-display text-2xl font-bold leading-tight text-text sm:text-3xl">
+      <h1 className="mt-2 font-display text-2xl leading-tight text-text sm:text-3xl">
         {titulo}
       </h1>
       {subtitulo && <p className="mt-2 text-sm text-muted">{subtitulo}</p>}
@@ -44,7 +44,7 @@ export function Seccion({
 }) {
   return (
     <section id={id} className="mt-10 scroll-mt-6">
-      <h2 className="font-display text-lg font-bold text-text">{titulo}</h2>
+      <h2 className="font-display text-lg text-text">{titulo}</h2>
       {descripcion && <p className="mt-1 text-sm text-muted">{descripcion}</p>}
       <div className="mt-4">{children}</div>
     </section>

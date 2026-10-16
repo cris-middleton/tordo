@@ -24,7 +24,7 @@ export default function NoEncontrada() {
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
       <p className="text-sm font-semibold text-muted">Error 404</p>
-      <h1 className="mt-2 font-display text-3xl font-bold text-text">No encontramos esta página</h1>
+      <h1 className="mt-2 font-display text-3xl text-text">No encontramos esta página</h1>
       <p className="mt-4 text-muted">
         Puede que el enlace esté mal escrito o que esta página ya no tenga datos: los compradores
         y productos se recalculan cada semana con lo que publica ChileCompra.

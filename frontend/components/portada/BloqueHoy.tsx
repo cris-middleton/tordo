@@ -91,7 +91,7 @@ export function BloqueHoy({
   return (
     <section id="hoy" aria-labelledby="hoy-titulo" className="mt-12">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h2 id="hoy-titulo" className="text-xl font-bold text-text">
+        <h2 id="hoy-titulo" className="text-xl text-text">
           {TITULO_DESTACADAS}
         </h2>
         <Link

@@ -29,7 +29,7 @@ export default function PaginaGuias() {
               href={rutaGuia(g.slug)}
               className="group block rounded-xl border border-border bg-surface px-5 py-4 transition-shadow hover:shadow-md"
             >
-              <h2 className="font-display text-base font-bold text-text group-hover:text-primary">
+              <h2 className="font-display text-base text-text group-hover:text-primary">
                 {g.titulo}
               </h2>
               <p className="mt-1 text-sm leading-relaxed text-muted">{g.descripcion}</p>

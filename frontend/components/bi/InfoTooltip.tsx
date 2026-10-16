@@ -82,7 +82,7 @@ export function InfoTooltip({ content, children, side = 'top' }: InfoTooltipProp
       <span
         id={id}
         role="tooltip"
-        className={`pointer-events-none absolute ${position} w-64 max-w-[calc(100vw-2rem)] translate-x-[var(--tooltip-dx,0px)] rounded-lg border border-border bg-surface px-3 py-2 text-xs text-text shadow-lg hidden group-hover:block group-focus-within:block z-[100] font-normal leading-relaxed whitespace-normal`}
+        className={`pointer-events-none absolute ${position} w-64 max-w-[calc(100vw-2rem)] translate-x-[var(--tooltip-dx,0px)] rounded-lg border border-border bg-surface px-3 py-2 text-xs text-text shadow-lg hidden group-hover:block group-focus-within:block z-[100] font-sans font-normal leading-relaxed whitespace-normal`}
       >
         {content}
       </span>

@@ -19,7 +19,7 @@ import { join } from 'node:path';
 
 const RAIZ = join(__dirname, '..');
 const CARPETAS = ['app', 'components'];
-const RELLENOS = ['primary', 'accent', 'gold', 'success', 'danger', 'warning', 'info'];
+const RELLENOS = ['primary', 'accent', 'gold', 'success', 'danger', 'warning', 'info', 'dato'];
 
 // `bg-<token>` y `text-white` dentro del mismo atributo de clase, en cualquier orden.
 const PATRONES = RELLENOS.flatMap((t) => [
@@ -54,7 +54,7 @@ describe('etiquetas sobre rellenos de color', () => {
 
     expect(
       infractores,
-      `Usa text-onAccent / text-onPrimary / text-onGold… en vez de text-white:\n  ${infractores.join('\n  ')}`,
+      `Usa text-onAccent / text-onPrimary / text-onDato… en vez de text-white:\n  ${infractores.join('\n  ')}`,
     ).toEqual([]);
   });
 });

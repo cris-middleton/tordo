@@ -254,7 +254,7 @@ export default function TenderDetailPage() {
 
           {/* ── BI Panel ─────────────────────────────────────────── */}
           <div className="mt-6">
-            <h2 className="text-base font-semibold text-text mb-3">Análisis de Mercado</h2>
+            <h2 className="text-base text-text mb-3">Análisis de Mercado</h2>
             {biLoading && (
               <div className="animate-pulse bg-border rounded-xl h-48 flex items-center justify-center">
                 <span className="text-muted text-sm">Cargando análisis de mercado…</span>
@@ -264,7 +264,7 @@ export default function TenderDetailPage() {
               <BIPanelSection panel={biPanel} tender={tender ?? undefined} />
             )}
             {!biLoading && !biPanel && (
-              <p className="text-sm text-muted italic bg-background rounded-xl px-4 py-3">
+              <p className="text-sm text-muted italic bg-surface-elevated rounded-xl px-4 py-3">
                 Panel BI no disponible para esta licitación.
               </p>
             )}

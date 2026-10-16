@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 function Seccion({ id, titulo, children }: { id?: string; titulo: string; children: React.ReactNode }) {
   return (
     <section id={id} className="space-y-3 scroll-mt-20">
-      <h2 className="text-lg font-bold text-text">{titulo}</h2>
+      <h2 className="text-lg text-text">{titulo}</h2>
       {children}
     </section>
   );

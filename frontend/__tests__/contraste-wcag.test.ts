@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join, relative } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -24,6 +24,8 @@ import { COLORES_IMAGEN, PARES_IMAGEN } from '@/lib/coloresImagen';
  * - el borde de un control contra las superficies donde se pinta un control
  *   (WCAG 1.4.11, 3:1);
  * - `.badge-primary`: la tinta primaria sobre su propio relleno al 10 %;
+ * - el panel de lecturas de la portada (`dark bg-brand-navy`, identidad §5): las tintas
+ *   oscuras que se pintan dentro, medidas contra `brand-navy`, que es su fondo real;
  * - la tarjeta de vista previa (`app/opengraph-image.tsx`): los pares de texto
  *   sobre fondo que declara `PARES_IMAGEN` en `lib/coloresImagen.ts` (la marca y el
  *   dominio sobre el panel `brand-blue`, el titular sobre el lienzo, la píldora).
@@ -106,9 +108,9 @@ interface Par {
   alfa?: { valor: number; base: string };
 }
 
-const TINTAS = ['text', 'muted', 'subtle', 'primary', 'accent', 'gold', 'info', 'danger', 'warning', 'success'];
+const TINTAS = ['text', 'muted', 'subtle', 'primary', 'accent', 'gold', 'info', 'danger', 'warning', 'success', 'dato'];
 const NEUTRAS = ['background', 'surface', 'surface-elevated'];
-const RELLENOS = ['primary', 'accent', 'success', 'danger', 'warning', 'gold', 'info'];
+const RELLENOS = ['primary', 'accent', 'success', 'danger', 'warning', 'gold', 'info', 'dato'];
 const TENUES = ['accent', 'gold', 'info', 'danger', 'warning', 'success'];
 
 function paresDelTema(tema: 'claro' | 'oscuro'): Par[] {
@@ -151,12 +153,33 @@ const PARES_TARJETA: Par[] = PARES_IMAGEN.map(({ tinta, fondo }) => {
   };
 });
 
-const PARES: Par[] = [...paresDelTema('claro'), ...paresDelTema('oscuro'), ...PARES_TARJETA];
+/**
+ * El panel de lecturas de la portada (identidad §5, D4) es `dark bg-brand-navy`: dentro,
+ * todo toma la parada OSCURA, pero el fondo no es una superficie del tema oscuro sino el
+ * navy de la marca, invariante. Sus tintas se miden contra él:
+ *
+ * - `text`, `muted` y `accent` (texto y enlaces del panel), y `primary`, que es la tinta de
+ *   `.enlace`;
+ * - `dato`, la conclusión y la barra que la conclusión nombra. La spec pide 3:1 para la
+ *   barra (WCAG 1.4.11); la conclusión es texto, así que se mide a 4,5:1 y cubre las dos.
+ *
+ * `subtle` NO entra: sobre navy da 4,18:1. En el panel no se usa `text-subtle`.
+ */
+const PARES_PANEL: Par[] = ['text', 'muted', 'accent', 'primary', 'dato'].map((tinta) => ({
+  tema: 'oscuro',
+  tinta,
+  fondo: 'brand-navy',
+  uso: 'texto',
+}));
+
+const PARES: Par[] = [...paresDelTema('claro'), ...paresDelTema('oscuro'), ...PARES_PANEL, ...PARES_TARJETA];
 
 /** Tokens de color que no van en ningún par, y por qué. */
 const SIN_PAR: Record<string, string> = {
   border: 'decorativo: tarjetas y divisores, sin requisito de contraste (WCAG 1.4.11 no aplica)',
   'border-light': 'decorativo, como border',
+  'dato-tenue': 'decorativo: la parte de un gráfico que la conclusión no nombra; nunca lleva texto encima y el valor va escrito al lado',
+  'brand-teal': 'decorativo: el ala del pájaro de la cabecera; ni es texto ni lleva texto encima',
 };
 
 /**
@@ -186,14 +209,14 @@ function paleta(tema: Par['tema']): Tokens {
 
 describe('contraste WCAG AA de los tokens de color', () => {
   it('lee los dos temas (guarda: sin tokens, el test no comprobaría nada)', () => {
-    // 32 por tema desde el PR 6 del rediseño (sin las cuatro bandas de la portada).
+    // 36 por tema desde la identidad de octubre (dato, dato-tenue, on-dato, brand-teal).
     expect(Object.keys(CLARO).length).toBeGreaterThanOrEqual(30);
     expect(Object.keys(tokensDe('.dark')).length).toBeGreaterThanOrEqual(30);
   });
 
   it('declara todos los pares (guarda: un recorrido vacío pasa siempre)', () => {
-    // 2 temas × (30 tinta/neutra + 9 on-* + 18 tenues + 2 bordes + 2 badge) + 4 de la tarjeta de vista previa.
-    expect(PARES).toHaveLength(126);
+    // 2 temas × (33 tinta/neutra + 10 on-* + 18 tenues + 2 bordes + 2 badge) + 5 del panel + 4 de la tarjeta.
+    expect(PARES).toHaveLength(139);
   });
 
   it('cada par de la tarjeta mide el color que la tarjeta pinta, en el tema donde ese token lo vale', () => {
@@ -274,18 +297,46 @@ describe('contraste WCAG AA de los tokens de color', () => {
   });
 });
 
-describe('fondo de página: papel cálido en tema claro (§5.2 del rediseño)', () => {
-  it('es cálido: más rojo que azul', () => {
-    const [r, , b] = CLARO.background;
-    expect(r - b, `--color-background = ${CLARO.background.join(' ')}`).toBeGreaterThanOrEqual(8);
-  });
+/** Cada literal de texto ("…", '…' o `…`) de los .tsx de `dir`, con su fichero y línea. */
+function literales(dir: string): { donde: string; valor: string }[] {
+  const salida: { donde: string; valor: string }[] = [];
+  for (const entrada of readdirSync(dir)) {
+    const ruta = join(dir, entrada);
+    if (statSync(ruta).isDirectory()) {
+      salida.push(...literales(ruta));
+      continue;
+    }
+    if (!ruta.endsWith('.tsx')) continue;
+    const texto = readFileSync(ruta, 'utf8');
+    for (const m of texto.matchAll(/"([^"\n]*)"|'([^'\n]*)'|`([^`]*)`/g)) {
+      const donde = `${relative(join(__dirname, '..'), ruta)}:${texto.slice(0, m.index).split('\n').length}`;
+      salida.push({ donde, valor: m[1] ?? m[2] ?? m[3] });
+    }
+  }
+  return salida;
+}
 
-  it('las tarjetas (surface) se despegan de él', () => {
-    // Con el fondo frío anterior daba 1.06:1 y las tarjetas casi no se veían.
-    expect(contraste(CLARO.surface, CLARO.background)).toBeGreaterThanOrEqual(1.08);
+describe('fondo de página: blanco en tema claro (identidad §5, D3)', () => {
+  it('es blanco, como las tarjetas: se separan por su borde', () => {
+    expect(CLARO.background).toEqual([255, 255, 255]);
+    expect(CLARO.surface).toEqual(CLARO.background);
   });
 
   it('el tema oscuro conserva su fondo', () => {
     expect(OSCURO.background).toEqual([8, 11, 17]);
+  });
+
+  it('ningún relleno sin borde usa bg-background: en claro ya no se distingue de una tarjeta', () => {
+    // El papel cálido marcaba el ítem activo del menú, el selector de tema, el código en
+    // línea y los hover de las listas. Sobre blanco, `bg-background` sólo se ve con borde;
+    // sin él, `bg-surface-elevated`. El cuerpo de la página es la excepción: ES el fondo.
+    const raiz = join(__dirname, '..');
+    const todos = [...literales(join(raiz, 'app')), ...literales(join(raiz, 'components'))];
+    expect(todos.length, 'guarda: el recorrido no encontró literales').toBeGreaterThan(1000);
+    const infractores = todos
+      .filter((l) => /(^|[\s:])bg-background\b/.test(l.valor) && !/\bborder\b|\bborder-/.test(l.valor))
+      .filter((l) => !l.donde.startsWith('app/layout.tsx:'))
+      .map((l) => `${l.donde}  «${l.valor.trim()}»`);
+    expect(infractores, `Usa bg-surface-elevated (o pon un borde):\n  ${infractores.join('\n  ')}`).toEqual([]);
   });
 });

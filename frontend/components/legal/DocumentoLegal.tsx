@@ -25,9 +25,9 @@ export function DocumentoLegal({ titulo, vigenteDesde, children }: Props) {
       <Link href="/" className="text-sm font-semibold text-primary hover:underline">
         ← Volver al inicio
       </Link>
-      <h1 className="mt-6 font-display text-3xl font-bold text-text">{titulo}</h1>
+      <h1 className="mt-6 font-display text-3xl text-text">{titulo}</h1>
       <p className="mt-2 text-sm text-muted">Vigente desde {vigenteDesde}</p>
-      <div className="mt-10 text-sm leading-relaxed text-text [&_a]:text-primary [&_a]:underline [&_h2]:mt-10 [&_h2]:font-display [&_h2]:text-lg [&_h2]:font-bold [&_h2]:text-text [&_li]:mt-1.5 [&_li]:text-muted [&_p]:mt-3 [&_p]:text-muted [&_strong]:text-text [&_ul]:mt-3 [&_ul]:list-disc [&_ul]:pl-5">
+      <div className="mt-10 text-sm leading-relaxed text-text [&_a]:text-primary [&_a]:underline [&_h2]:mt-10 [&_h2]:font-display [&_h2]:text-lg [&_h2]:text-text [&_li]:mt-1.5 [&_li]:text-muted [&_p]:mt-3 [&_p]:text-muted [&_strong]:text-text [&_ul]:mt-3 [&_ul]:list-disc [&_ul]:pl-5">
         {children}
       </div>
     </div>

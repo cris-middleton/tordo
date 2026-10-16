@@ -116,7 +116,7 @@ function Buscador() {
               <li key={p.slug}>
                 <Link
                   href={rutaProducto(p.slug)}
-                  className="flex items-baseline justify-between gap-3 px-4 py-2.5 hover:bg-background"
+                  className="flex items-baseline justify-between gap-3 px-4 py-2.5 hover:bg-surface-elevated"
                 >
                   <span className="min-w-0 truncate font-medium text-primary">{p.firma}</span>
                   <span className="cifra shrink-0 text-xs text-muted">

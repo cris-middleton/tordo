@@ -1,13 +1,13 @@
 import Link from 'next/link';
 import { Heart, Menu } from 'lucide-react';
 
-import TordoLogo from '@/components/TordoLogo';
 import { SECCIONES, enlacesAbiertos } from '@/lib/navegacion';
 import { urlRepositorio } from '@/lib/repositorio';
 
 import { EnlaceGuardados } from './EnlaceGuardados';
 import { EnlaceSeccion } from './EnlaceSeccion';
 import { MarcoCabecera } from './MarcoCabecera';
+import { PajaroMarca } from './PajaroMarca';
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
 
@@ -35,7 +35,7 @@ export function Cabecera() {
     <MarcoCabecera className="relative z-30 border-b border-border bg-surface">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-2 px-4 sm:gap-3 sm:px-6 lg:gap-8 lg:px-8">
         <Link href="/" className="flex shrink-0 items-center gap-2" aria-label={`${APP_NAME}, inicio`}>
-          <TordoLogo size={26} />
+          <PajaroMarca />
           <span className="font-brand text-lg leading-none text-text">{APP_NAME}</span>
         </Link>
 
@@ -70,7 +70,7 @@ export function Cabecera() {
             <span className="max-[359px]:sr-only">Apoyar</span>
           </Link>
           <details className="relative lg:hidden">
-            <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-text transition-colors hover:bg-background [&::-webkit-details-marker]:hidden">
+            <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-text transition-colors hover:bg-surface-elevated [&::-webkit-details-marker]:hidden">
               <Menu className="h-4 w-4" aria-hidden="true" />
               Menú
             </summary>
