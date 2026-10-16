@@ -1,6 +1,6 @@
 # Portada v7, escala de espacios y notas de datos — octubre 2026
 
-> **Estado:** decidida el 2026-10-16. **Sustituye** a §3.1 (estructura), §3.3 (lectura de
+> **Estado:** decidida y construida el 2026-10-16 (PR #16 escala y cáscara, #17–#18 notas, #19 portada). **Sustituye** a §3.1 (estructura), §3.3 (lectura de
 > sectores) y a la parte de §5 que describe el panel oscuro de `IDENTIDAD_Y_PORTADA_2026-10.md`.
 > El resto de ese documento (Archivo, tokens de dato, el pájaro, la voz) sigue en vigor.
 > Maqueta: `docs/assets/portada-v7.png` (escritorio) y `docs/assets/portada-v7-390.png` (móvil).
