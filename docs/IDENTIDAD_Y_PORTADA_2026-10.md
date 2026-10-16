@@ -6,8 +6,8 @@
 > vigente.
 >
 > La ronda de diseño (tono de los textos y colores) ya se hizo sobre la maqueta v6, y su resultado
-> está en §5, §6 y §9. **El color del panel es la variante B, recomendada y pendiente de que el
-> dueño la confirme.** Cambiar a la A cuesta poco: una clase en el panel y dos valores de token.
+> está en §5, §6 y §9. **El color del panel es la variante B, confirmada por el dueño el
+> 2026-10-15.** Cambiar a la A cuesta poco: una clase en el panel y dos valores de token.
 
 La referencia visual es la maqueta v6, variante B ([`assets/portada-v6.png`](assets/portada-v6.png)).
 **Sus cifras son reales sólo en parte**: 4.203 y 2.849 son de producción del 2026-10-15, y el gasto
@@ -43,7 +43,7 @@ Hubo seis rondas de maquetas en el compañero visual, todas revisadas por el due
 | v3 | Cuatro gráficos compactos, Chile por región a la derecha | Mejor, pero el gráfico de Chile no convence |
 | v4 | Los tres gráficos chicos a la derecha y Chile como franja abajo | Faltan zonas delimitadas y espacio en blanco |
 | v5 | Panel propio para los gráficos, más aire, color sólo en la conclusión y sin Chile | Aprobada como base |
-| **v6** | **La v5 con los textos en la voz de PixelFrame y tres juegos de color** | **Variante B recomendada** |
+| **v6** | **La v5 con los textos en la voz de PixelFrame y tres juegos de color** | **Variante B, confirmada el 2026-10-15** |
 
 Se usaron dos skills de diseño: `frontend-design` (Anthropic) y `ui-ux-pro-max` (MIT, auditada
 antes de instalarla). Las dos coincidieron en lo mismo: una frase de conclusión por gráfico,
@@ -105,10 +105,10 @@ importa.
   la guía de PixelFrame llama «repetir la ficha de al lado».
 - **La ficha** (D14) es un `<dl>` de tres filas:
   - *Fuente*: «ChileCompra».
-  - *Se actualiza*: «{n} veces cada día hábil», con `n = HORAS_HABILES.length` de
+  - *Se actualiza*: «{n} veces cada día hábil; el análisis, cada semana», con `n = HORAS_HABILES.length` de
     `lib/compraAgil.ts` (hoy 4). Sale de la constante, no se escribe: si el cron cambia de
     horario, la frase cambia con él.
-  - *Se usa*: «Aquí, por API, por MCP o en CSV. Sin registro». «API» enlaza a `/abierto`, «MCP» a
+  - *Se usa*: «Aquí, por API, por MCP o en CSV. Sin registro». «API» enlaza a `/abierto#api`, «MCP» a
     `/abierto#mcp` y «CSV» a `/abierto#datos` (las anclas ya existen).
 - **La línea del lema (`lemaPortada`) sale de la portada**: lo que decía queda en la ficha y en los
   enlaces «API y MCP» y «Código» que la cabecera ya tiene (este último sólo con `REPOSITORIO_URL`).
@@ -120,7 +120,7 @@ importa.
 Una lectura tiene siempre cuatro partes:
 
 1. **Conclusión** (`h3`): una frase generada por una función pura de `lib/lecturasPortada.ts`.
-2. **Pie**: la base y el periodo («Precio por caja, 184 compras, oct 2025 – oct 2026 (12 meses)»)
+2. **Pie**: la base y el periodo («Precio por caja, 184 compras, nov 2025 – oct 2026 (12 meses)»)
    y, a la derecha, un enlace a la página donde se profundiza. El periodo sale siempre de
    `textoPeriodo` (`lib/periodo.ts`), el de las páginas públicas: la ventana termina donde terminan
    los datos, no hoy, así que «últimos 12 meses» (lo que dice la maqueta) podría mentir.
@@ -140,7 +140,7 @@ lanza, con caché de media hora y la etiqueta `compra-agil`. Las lecturas 1 y 2 
 que cambia una vez por semana: se piden con la misma garantía de no lanzar pero con la caché y la
 etiqueta de analytics (`SEGUNDOS_CACHE_ANALYTICS`, `ETIQUETA_ANALYTICS`). Se generaliza
 `pedirParaLaPortada` para recibir caché y etiqueta, en vez de escribir una segunda función. Las
-tres peticiones salen en paralelo con las dos que ya hace la portada.
+dos peticiones nuevas (sectores y producto) salen en paralelo con las dos que ya hace la portada.
 
 ### 3.3 Lectura 1: quién compra
 
@@ -161,8 +161,8 @@ tres peticiones salen en paralelo con las dos que ya hace la portada.
 - **Regla de la frase**:
   - Si el segundo está a menos del 5 % del primero (`(A − B) / A < 0,05`): «{A} y {B} compran casi
     lo mismo». Se pintan los dos.
-  - Si no: «{A} gasta ${P} de cada $100 en órdenes de compra», con `P` = el monto de A sobre la suma de **los
-    siete** sectores, redondeado a entero. Se pinta uno. La frase no repite el monto que la barra
+  - Si no: «{A} gasta ${P} de cada $100 en órdenes de compra», con `P` = el monto de A sobre la suma de **todos los
+    sectores de la respuesta** («Otros» y «NA» incluidos), redondeado a entero. Se pinta uno. La frase no repite el monto que la barra
     ya escribe al lado: dice algo que las barras no dicen.
   - Con los datos locales sale «Salud y municipios compran casi lo mismo» (Salud 2,98 billones,
     Municipalidades 2,95: un 1,1 % de diferencia).
@@ -223,6 +223,7 @@ tres peticiones salen en paralelo con las dos que ya hace la portada.
 - **Frase**, con `r` = (hoy + mañana) / abiertas y `N` = `r × 10` redondeado:
   - `r = 0`: «Ninguna Compra Ágil abierta cierra hoy ni mañana». No se pinta ninguna barra.
   - `N = 0` con `r > 0`: «Menos de 1 de cada 10 Compras Ágiles abiertas cierra hoy o mañana».
+  - `N = 1`: «1 de cada 10 Compras Ágiles abiertas cierra hoy o mañana» (singular).
   - `N = 10` con `r < 1`: «Casi todas las Compras Ágiles abiertas cierran hoy o mañana».
   - `r = 1`: «Todas las Compras Ágiles abiertas cierran hoy o mañana».
   - Si no: «{N} de cada 10 Compras Ágiles abiertas cierran hoy o mañana».
@@ -260,7 +261,9 @@ tres peticiones salen en paralelo con las dos que ya hace la portada.
 ### 3.7 Lo que queda debajo, sin cambios de fondo
 
 «Lo mejor de hoy» (`BloqueHoy`), «Úsalo como quieras» (`UsosAbiertos`) y «Cómo se sostiene»
-(`CierrePortada`) siguen ahí, con la tipografía y los tokens nuevos y los textos de §6.2.
+(`CierrePortada`) siguen ahí, con la tipografía y los tokens nuevos y los textos de §6.2. En la
+portada, `BloqueHoy` no repite «Actualizado el …» cuando la franja lo muestra (es la misma hora);
+sin franja, lo conserva.
 
 ---
 
@@ -268,7 +271,7 @@ tres peticiones salen en paralelo con las dos que ya hace la portada.
 
 | Familia | Uso | Carga |
 |---|---|---|
-| **Archivo** | Todo: titulares (`h1`–`h2` a `wdth` 112–115 y peso 800; `h3` a 100 y 700), cuerpo, interfaz y **todas las cifras** (`tnum`) | variable, `wght` 400–800 y `wdth` 62–125, por `next/font/google` (autoalojada, sin petición a un tercero) |
+| **Archivo** | Todo: titulares (`h1`–`h2` a `wdth` 112–115 y peso 800; `h3` a 100 y 700), cuerpo, interfaz y **todas las cifras** (`tnum`) | variable (`next/font` carga el eje de peso entero) y `wdth` 62–125, por `next/font/google` (autoalojada, sin petición a un tercero) |
 | **IBM Plex Mono** | Sólo identificadores, sin cambio | estática, 400 y 500 |
 | **Varien** | Sólo la marca, junto al pájaro | sin cambio |
 
@@ -294,7 +297,8 @@ tres peticiones salen en paralelo con las dos que ya hace la portada.
   el panel se ve igual en los dos temas y, dentro, todo toma la parada oscura: barras de la
   conclusión en turquesa, barras apagadas en `#34508F` y texto claro (la frase de conclusión va en
   `text`, como en la maqueta). **Los enlaces del panel van con `className="enlace"`** (`primary`,
-  `#8FA8E8` en oscuro) **y no en `accent`**: en la parada oscura `accent` y `dato` son el mismo
+  `#8FA8E8` en oscuro, con `focus-visible:ring-text focus-visible:ring-offset-brand-navy`: el anillo
+  global no se ve sobre navy) **y no en `accent`**: en la parada oscura `accent` y `dato` son el mismo
   turquesa, y un enlace del color de una barra mezclaría dato y acción, que es justo por lo que se
   descarta la variante C. Las cifras de la izquierda llevan las dos el borde en `dato` (son datos).
   Los divisores entre lecturas van en `dato-tenue`: el `--color-border` oscuro (`#1E2736`) no se ve
@@ -353,7 +357,7 @@ se juzga **menos verdadera**, no sólo menos agradable (fluidez de procesamiento
 | Lema bajo el buscador (`lemaPortada`) | Gratis (de verdad). Sin cuentas, sin publicidad. Código y API abiertos. | Sale de la portada |
 | Título de la portada (`app/page.tsx`) | {APP_NAME} — Compras públicas de Chile, gratis y sin cuenta | {APP_NAME} — Qué compra el Estado de Chile y a qué precio |
 | Descripción de la portada | … Con datos de ChileCompra, gratis y sin registrarte. | Busca lo que vendes y mira cuánto ha pagado el Estado, quién lo compra y qué está abierto hoy. Con los datos públicos de ChileCompra. |
-| Descripción del sitio (`app/layout.tsx`) | … Compra Ágil. Gratis y sin cuenta | … Compra Ágil. Con los datos públicos de ChileCompra. |
+| Descripción del sitio (`app/layout.tsx`) | … Compra Ágil. Gratis y sin cuenta | {APP_NAME} — compras públicas de Chile para quien le vende al Estado: precios pagados, licitaciones abiertas y Compra Ágil. Datos públicos de ChileCompra. (≤ 155 caracteres) |
 | «Úsalo como quieras» (`UsosAbiertos`) | Sin clave y sin cuenta: desde otro programa, desde un asistente de IA o en una planilla. | Desde otro programa, desde un asistente de IA o en una planilla. |
 | `/apoyar`, subtítulo | Sin cuentas, sin planes y sin publicidad. Lo sostienen los aportes de quienes lo usan. | Lo sostienen los aportes de quienes lo usan. |
 | `/apoyar`, descripción | {APP_NAME} es gratis, sin cuentas y sin publicidad. Se mantiene con aportes voluntarios. | {APP_NAME} se mantiene con aportes voluntarios. Aquí está lo que cuesta, concepto por concepto. |
@@ -420,8 +424,7 @@ el mismo PR. **Ninguna lectura de la portada trae una tabla entera de analytics 
   de voz está en su repositorio: los cuatro vicios, las dos reglas mecánicas y los ejemplos de
   copy calibrado. El resultado es §6.
 - **Color**: tres juegos sobre la misma maqueta (v6): A, el azul del logo; B, el panel noche; y C,
-  el turquesa en el dato. **Se recomienda la B** (D4, §5) y el dueño la confirma al revisar el
-  plan.
+  el turquesa en el dato. **Se eligió la B** (D4, §5), confirmada por el dueño el 2026-10-15.
 
 ## 10. Orden de los PR
 
