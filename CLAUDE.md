@@ -732,6 +732,10 @@ escala**. Es una heurística sin verdad contra la que evaluarla: ordena, no pred
   lo normal enseña a ignorarlo. Si cambias el horario del cron, cambia los dos.
 - **Las fechas de Compra Ágil son hora de Chile aunque digan `Z`** (spec §6.1): el
   transformador las lee así. Leídas como UTC, cada cierre quedaba 3–4 h antes.
+  **Las de la API clásica de licitaciones también**, y sin zona: se guardaban ingenuas y Postgres
+  (sesión UTC) las corría igual. Las dos APIs leen con `en_hora_de_chile` (`app/core/tiempo.py`);
+  las filas guardadas antes del 2026-10-16 no se migran: quedan corridas hasta que la retención las
+  borra, 90 días después de su cierre.
 
 **Páginas públicas indexables (paso 10)** — `/compradores/[codigo]`, `/rubros/[slug]`,
 `/productos/[slug]` y la búsqueda `/productos`, en el grupo `app/(publico)/`, que sólo fija el ancho

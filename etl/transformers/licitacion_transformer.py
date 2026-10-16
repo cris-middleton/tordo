@@ -9,6 +9,7 @@ from typing import Any, Dict
 from etl.analytics.personas import enmascarar_payload
 from etl.transformers.base import BaseTransformer
 from etl.utils import now_santiago
+from etl.utils.adjudicacion import _parsear_fecha
 
 
 class LicitacionTransformer(BaseTransformer):
@@ -24,31 +25,9 @@ class LicitacionTransformer(BaseTransformer):
         "16": "Suspendida",
     }
 
-    def _parse_date(self, date_str: Any) -> Any:
-        """Parse date string to datetime object"""
-        if not date_str:
-            return None
-
-        if isinstance(date_str, datetime):
-            return date_str
-
-        # Try different date formats
-        date_formats = [
-            "%Y-%m-%dT%H:%M:%S",
-            "%Y-%m-%dT%H:%M:%S.%f",
-            "%Y-%m-%d %H:%M:%S",
-            "%Y-%m-%d",
-            "%d/%m/%Y",
-            "%d-%m-%Y",
-        ]
-
-        for fmt in date_formats:
-            try:
-                return datetime.strptime(str(date_str), fmt)
-            except (ValueError, TypeError):
-                continue
-
-        return None
+    def _parse_date(self, date_str: Any) -> datetime | None:
+        """Hora de Chile sin zona → instante con zona. Ver `_parsear_fecha`."""
+        return _parsear_fecha(date_str)
 
     def _parse_decimal(self, value: Any) -> Any:
         """Parse decimal value"""

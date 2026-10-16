@@ -34,9 +34,11 @@ from datetime import datetime
 from typing import Any
 
 from etl.analytics.personas import NOMBRE_ENMASCARADO, es_persona_natural, rut_numero
+from etl.shared_imports import en_hora_de_chile
 
-# Mismos formatos que `LicitacionTransformer._parse_date`: duplicado a propósito,
-# en vez de hacer que este módulo dependa de una instancia de transformer.
+# Los formatos de fecha de la API clásica. Este módulo es el único que los
+# conoce: el transformer del listado y la copia del detalle leen con
+# `_parsear_fecha`.
 _FORMATOS_FECHA = [
     "%Y-%m-%dT%H:%M:%S",
     "%Y-%m-%dT%H:%M:%S.%f",
@@ -56,13 +58,20 @@ def _primero(*valores: Any) -> Any:
 
 
 def _parsear_fecha(valor: Any) -> datetime | None:
+    """Una fecha de la API clásica, como instante con zona (UTC).
+
+    **La API clásica da hora de Chile sin zona** («2026-10-20T15:00:00» son las
+    15:00 de Santiago). Devuelta ingenua, Postgres la leía como UTC y cada
+    cierre quedaba 3–4 h antes. El cambio de hora lo resuelve
+    `en_hora_de_chile`, la misma función que lee la Compra Ágil.
+    """
     if not valor:
         return None
     if isinstance(valor, datetime):
-        return valor
+        return en_hora_de_chile(valor)
     for fmt in _FORMATOS_FECHA:
         try:
-            return datetime.strptime(str(valor), fmt)
+            return en_hora_de_chile(datetime.strptime(str(valor), fmt))
         except (ValueError, TypeError):
             continue
     return None

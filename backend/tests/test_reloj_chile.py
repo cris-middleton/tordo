@@ -23,7 +23,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from app.core.tiempo import ZONA_CHILE, hoy_chile, inicio_del_dia
+from app.core.tiempo import ZONA_CHILE, en_hora_de_chile, hoy_chile, inicio_del_dia
 
 #: 16 de agosto de 2026, 01:30 UTC = 21:30 del día 15 en Santiago.
 #: La franja en la que las dos fechas discrepan.
@@ -70,3 +70,30 @@ class TestInicioDelDia:
     def test_el_instante_conflictivo_cae_en_el_dia_de_chile(self):
         assert inicio_del_dia(date(2026, 8, 15)) <= INSTANTE_CONFLICTIVO
         assert inicio_del_dia(date(2026, 8, 16)) > INSTANTE_CONFLICTIVO
+
+
+class TestEnHoraDeChile:
+    """Las fechas sin zona de Mercado Público son hora de pared de Chile. La usan
+    los transformadores de las dos APIs (`etl/tests/test_hora_chile_api_clasica.py`)."""
+
+    def test_sin_zona_es_hora_de_chile_y_sale_en_utc(self):
+        resultado = en_hora_de_chile(datetime(2026, 10, 20, 15, 0))
+        assert resultado.utcoffset() == timedelta(0)
+        assert resultado == datetime(2026, 10, 20, 18, 0, tzinfo=UTC)
+        assert en_hora_de_chile(datetime(2026, 6, 20, 15, 0)) == datetime(
+            2026, 6, 20, 19, 0, tzinfo=UTC
+        )
+
+    def test_con_zona_se_respeta_el_instante(self):
+        fecha = datetime(2026, 10, 20, 15, 0, tzinfo=UTC)
+        assert en_hora_de_chile(fecha) == fecha
+
+    def test_la_hora_que_no_existe_lleva_el_desfase_de_antes_del_salto(self):
+        assert en_hora_de_chile(datetime(2026, 9, 6, 0, 30)) == datetime(
+            2026, 9, 6, 4, 30, tzinfo=UTC
+        )
+
+    def test_la_hora_repetida_es_la_primera_vez(self):
+        assert en_hora_de_chile(datetime(2027, 4, 3, 23, 30)) == datetime(
+            2027, 4, 4, 2, 30, tzinfo=UTC
+        )

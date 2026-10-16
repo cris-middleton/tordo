@@ -14,7 +14,7 @@ Lo que enseñó la primera llamada de verdad, y que estos tests fijan:
 from __future__ import annotations
 
 import sys
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -163,7 +163,7 @@ def test_el_listado_real_se_transforma_y_la_region_sale_limpia():
 
     # Sin zona en el texto: es hora de Chile (septiembre, horario de verano: -03).
     assert fila["fecha_publicacion"] == datetime(2026, 9, 24, 23, 44, tzinfo=ZONA_CHILE)
-    assert fila["fecha_publicacion"].utcoffset() == timedelta(hours=-3)
+    assert fila["fecha_publicacion"] == datetime(2026, 9, 25, 2, 44, tzinfo=UTC)
     assert fila["region"] == "Región del Biobío"
     assert fila["monto_estimado"] == 376666
 

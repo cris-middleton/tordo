@@ -31,6 +31,27 @@ def hoy_chile() -> date:
     return ahora_chile().date()
 
 
+def en_hora_de_chile(fecha: datetime) -> datetime:
+    """Una fecha de Mercado Público como instante, en UTC.
+
+    Las dos APIs de ChileCompra dan hora de pared de Chile: la clásica sin
+    zona y la de Compra Ágil con una `Z` que no es UTC. Guardada ingenua en una
+    columna `timestamptz`, Postgres la lee en la zona de la sesión (UTC), y cada
+    cierre quedaba 3–4 h antes. Una fecha sin zona se lee aquí en
+    `America/Santiago`, con su cambio de hora; una con zona se respeta.
+
+    El día del cambio de hora decide `zoneinfo` con `fold=0`, como en
+    `inicio_del_dia`: la hora que no existe (00:xx del primer domingo de
+    septiembre) lleva el desfase de antes del salto, y la repetida (23:xx del
+    primer sábado de abril) es la **primera** vez, el cierre más temprano.
+    Se devuelve en UTC por lo mismo que `inicio_del_dia`: un instante en esas
+    horas no es igual a ninguno de otra zona (PEP 495).
+    """
+    if fecha.tzinfo is None:
+        fecha = fecha.replace(tzinfo=ZONA_CHILE)
+    return fecha.astimezone(UTC)
+
+
 def inicio_del_dia(dia: date) -> datetime:
     """El primer instante de `dia` en Chile, EN UTC: el borde de un «hoy».
 
