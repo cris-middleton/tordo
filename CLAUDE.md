@@ -319,9 +319,12 @@ programador en la nube, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
   señal de «hipertexto, no aplicación». La navegación, las tarjetas y los botones no se
   subrayan. `__tests__/enlaces-contenido.test.ts`.
 - Una superficie que deba verse oscura siempre se marca con la clase `dark` sobre
-  `bg-brand-navy`, y los tokens se invierten solos dentro. No repintes a mano. **Hoy no queda
-  ninguna en el sitio** (el hero se fue con la portada nueva). Si vuelve una superficie así, sus
-  tintas entran en `contraste-wcag.test.ts`.
+  `bg-brand-navy`, y los tokens se invierten solos dentro. No repintes a mano. **Hoy hay una**: el
+  panel de lecturas de la portada (`components/portada/PanelLecturas.tsx`). El panel pinta
+  sólo `text`, `muted`, `dato` y `primary` (la tinta de `.enlace`), **nunca `accent` (tampoco al
+  pasar el ratón) ni `subtle`**. `contraste-wcag.test.ts` mide además `accent` sobre `brand-navy`,
+  pero medido no es pintado; `subtle` no tiene par (4,18:1). Los divisores van en `dato-tenue`: el
+  `border` oscuro no se ve sobre navy. Una superficie oscura nueva mete sus tintas en ese test.
 - **La tarjeta de vista previa** (`app/opengraph-image.tsx`, la misma para X en `twitter-image.tsx`)
   es un panel `brand-blue` (el azul del cuerpo del pájaro, invariante de tema; lo pinta también el
   pájaro de la cabecera) con
@@ -814,39 +817,86 @@ negro con tornasol azul-verdoso:
 - Tema claro por defecto, con selector claro/oscuro/sistema en el pie del sitio
   (`components/SelectorTema.tsx`, dentro de `components/cascara/PieSitio.tsx`).
 
-**La portada es un buscador** (rediseño §6.3, `app/page.tsx` + `components/portada/`): server
-component sin JS de cliente propio (las islas son de la cáscara), con ISR de 30 min. **No le
-pongas `'use client'`**: Next ignora `metadata` en componentes cliente y la home perdería título
-y tarjeta de preview.
-- **Lo primero es «¿Qué le vendes al Estado?»**, un `<form method="get" action="/buscar">`
-  (`BuscadorPortada`) que funciona sin JavaScript; el `<h1>` es la etiqueta del campo. Debajo, los
-  ejemplos (`EJEMPLOS_BUSQUEDA`, `rutaBuscar` y los límites del campo, todos de `lib/buscar.ts`:
-  una sola casa), **verificados contra producción**: `scripts/verificar-produccion.sh` pide cada
-  uno, espaciados y sin bucle, y falla si deja de encontrar un producto indexable, con una copia
-  literal que `__tests__/portada-ayudantes.test.ts` compara. Un ejemplo nuevo se verifica antes en
+**La portada: a la izquierda se busca, a la derecha se lee** (`docs/IDENTIDAD_Y_PORTADA_2026-10.md`
+§3, `app/page.tsx` + `components/portada/`): server component sin JS de cliente propio (las islas
+son de la cáscara), con ISR de 30 min. **No le pongas `'use client'`**: Next ignora `metadata` en
+componentes cliente y la home perdería título y tarjeta de preview.
+- **Dos columnas desde `lg`** (`max-w-6xl`, 56 px entre ellas); por debajo, una: buscador, cifras y
+  ficha, y después el panel. Sin ninguna lectura no hay panel y el buscador ocupa el ancho.
+- **A la izquierda, «¿Qué le vendes al Estado?»**, un `<form method="get" action="/buscar">`
+  (`BuscadorPortada`) que funciona sin JavaScript; el `<h1>` es la etiqueta del campo. Debajo del
+  `h1`, `SUBTITULO_PORTADA`; el campo dice `PLACEHOLDER_BUSCADOR` («Un producto o un servicio»: no
+  repite los ejemplos) y el botón es `bg-dato text-onDato`. Después los ejemplos
+  (`EJEMPLOS_BUSQUEDA`, `rutaBuscar` y los límites del campo, todos de `lib/buscar.ts`: una sola
+  casa), **verificados contra producción**: `scripts/verificar-produccion.sh` pide cada uno,
+  espaciados y sin bucle, y falla si deja de encontrar un producto indexable, con una copia literal
+  que `__tests__/portada-ayudantes.test.ts` compara. Un ejemplo nuevo se verifica antes en
   producción y nunca es corto ni alfanumérico («pc», «A4»): la búsqueda descarta esas palabras.
-- **Dos bloques vivos, pedidos en paralelo desde el servidor** (etiqueta `compra-agil`, la
-  revalida el cron frecuente), y **cada uno se oculta si el backend falla o si su `actualizado_en`
-  falta o no se puede leer** (principio 4: una cifra viva sin hora no se publica):
-  - **la tira de cifras** (`GET /publico/portada`, `pedirResumenPortada`, `tiraDeLaPortada`),
-    que enlaza cada cifra al catálogo con el filtro que la cuenta (`urlCatalogoAbiertas`);
-  - **«Lo mejor de hoy», compacto** (`pedirDestacadas`, `BloqueHoy`): filas con nombre,
-    comprador, cierre y monto; sin puntaje, sin cocientes y sin la historia de la unidad, que vive
-    en `/compra-agil`. `Portada` lee la hora una vez y se la pasa al bloque.
-    **Su descripción depende de los datos que tiene al lado** (`descripcionDestacadas(historia_disponible
-    === true)`, en la portada, en `/compra-agil` y en el RSS): sin historia por unidad el factor
-    comprador vale lo mismo para todas y el orden es sólo tiempo y monto, así que no dice «de
-    compradores que compran seguido». `DESCRIPCION_DESTACADAS` suelta describe el método
-    (metadatos, `/acerca`) y no el estado.
-- **Ninguna de las dos lanza**, tampoco con un 200 mal formado: el validador de `pedirDestacadas`
-  mira cada item, los campos que `BloqueHoy` lee y su tipo (un item `null` hacía lanzar el
-  render y dejaba una página de error en vez de un bloque oculto). Con el backend caído la portada
-  sale con el buscador y sin lo vivo (`__tests__/portada.test.tsx`).
-- «Úsalo como quieras» enlaza a `/abierto`; «Código» y el «código abierto» del lema sólo salen
-  con `REPOSITORIO_URL`. **«Hecho por» sólo con `RESPONSABLE_LEGAL`** (`nombreResponsable()`,
-  `null` sin ella): la portada nunca enseña el `[[hueco]]` de los documentos legales.
+  Debajo, las cifras (`TiraCifras`: cada bloque entero enlaza al catálogo con el filtro que lo
+  cuenta, `urlCatalogoAbiertas`) y la ficha (`FichaPortada`: Fuente, Se actualiza —`SE_ACTUALIZA`,
+  que sale de `HORAS_HABILES`—, Se usa). El lema se fue: lo dice la ficha.
+- **A la derecha, el panel de lecturas** (`PanelLecturas`, la superficie oscura del sitio). Tres
+  lecturas —quién compra, a qué precio, qué cierra pronto—, cada una con conclusión (`h3`), pie con
+  base y periodo (`textoPeriodo`), gráfico en HTML/CSS (barras `aria-hidden`, valores como texto) y
+  enlace. **Cada frase sale del dato con una regla de `lib/lecturasPortada.ts`**, fijada con sus
+  bordes en `__tests__/lecturas-portada.test.ts`: la regla del 5 % y «De cada $100 en órdenes de compra, $P son de {A}» de los
+  sectores (sin «Otros» ni «NA»), «la mitad se pagó entre p25 y p75» de `PRODUCTO_PORTADA` y los
+  casos de los cierres. **Si una lectura no tiene dato se oculta entera** (sin periodo, sin
+  p25/p75, tramos que no suman las abiertas). `dato` sólo en lo que la conclusión nombra; el
+  resto, `dato-tenue`.
+  - **`PRODUCTO_PORTADA` es `{ slug, nombre }`**, escrito a mano (`nombre` no sale del dato) y
+    genérico, sin marca: se eligió en producción recorriendo `EJEMPLOS_BUSQUEDA`, porque las fichas
+    de marca tenían los percentiles iguales o predictibilidad baja. **Tiene copia literal en
+    `scripts/verificar-produccion.sh`**, que comprueba con una sola petición que sigue indexable y
+    pasando el filtro; `portada-ayudantes.test.ts` compara las dos.
+  - **El filtro de calidad de la banda** (`lecturaPrecio`): ficha indexable; unidad declarada (no
+    nula ni «sin unidad declarada»); predictibilidad alta o media; `p25 ≥ 1`; **`p75 > p25`
+    estricto** y **`plata(p25) !== plata(p75)`** —dos percentiles distintos pueden escribirse igual
+    tras redondear, y «entre $2 millones y $2 millones» no dice nada—; y periodo legible. Si falla
+    alguna, la lectura no sale: mejor ninguna banda que una banda sin sentido. La copia en
+    `verificar-produccion.sh` aplica el mismo filtro (con su propio `plata`): si cambia uno,
+    cambia el otro.
+  - **`/productos/[slug]` tolera una unidad nula** (`unidad` es `null` si el pipeline no la
+    declaró): la ficha titula la banda «Por unidad» y usa una clave de lista propia
+    (`sin-unidad-<i>`), en vez de lanzar. La portada lee la misma ficha, así que ese 200 es forma
+    válida (`esProductoPortada`) y lo descarta el filtro de calidad, no el validador.
+- **Cuatro piezas vivas, pedidas en paralelo desde el servidor**, y **cada una se oculta sola si el
+  backend falla o si un campo que se pinta viene mal formado**, y además, por principio 4 (una cifra
+  viva sin hora no se publica): «Lo mejor de hoy» sin `actualizado_en` legible se oculta; el
+  resumen sin hora legible oculta la tira, la franja **y la lectura de cierres**; los sectores y el
+  producto se ocultan sin periodo legible. `pedirParaLaPortada(ruta, validador, bloque, cache)` nunca lanza, y la caché
+  la elige quien llama:
+  - **lo vivo, media hora y etiqueta `compra-agil`** (la revalida el cron frecuente): el resumen
+    (`GET /publico/portada`, `pedirResumenPortada`) —la tira, la lectura de cierres y la franja— y
+    «Lo mejor de hoy» (`pedirDestacadas`);
+  - **lo de analytics, una semana y etiqueta `analytics`** (la revalida el cron semanal): los
+    sectores (`GET /bi/sector`, `pedirSectoresPortada`) y la ficha del producto
+    (`pedirProductoPortada`). Con `FEATURE_ANALYTICS` apagada responden 503 y sus lecturas se ocultan.
+- **La franja de hoy** (`FranjaPortada`, `franjaDeLaPortada`): publicadas hoy, el organismo que más
+  publica (por nombre; truncado con `title`) y «Actualizado el» con el día —la portada se cachea—.
+  Con 0 publicadas hoy (cada madrugada) las dos primeras celdas se ocultan y la que queda primera
+  no lleva sangría. Sin enlace: el catálogo no filtra por fecha de publicación.
+- **«Lo mejor de hoy», compacto** (`pedirDestacadas`, `BloqueHoy`): filas con nombre, comprador,
+  cierre y monto; sin puntaje, sin cocientes y sin la historia de la unidad, que vive en
+  `/compra-agil`. `Portada` lee la hora una vez y se la pasa al bloque.
+  **Su descripción depende de los datos que tiene al lado** (`descripcionDestacadas(historia_disponible
+  === true)`, en la portada, en `/compra-agil` y en el RSS): sin historia por unidad el factor
+  comprador vale lo mismo para todas y el orden es sólo tiempo y monto, así que no dice «de
+  compradores que compran seguido». `DESCRIPCION_DESTACADAS` suelta describe el método
+  (metadatos, `/acerca`) y no el estado.
+- **Ninguna lanza**, tampoco con un 200 mal formado: cada validador mira los campos que su bloque
+  lee y su tipo (un item `null` en «Lo mejor de hoy» hacía lanzar el render y dejaba una página de
+  error en vez de un bloque oculto). Con el backend caído la portada sale con el buscador, las
+  cifras ausentes y la ficha (`__tests__/portada.test.tsx`).
+- «Úsalo como quieras» enlaza a `/abierto`; «Código» sólo sale con `REPOSITORIO_URL`. **«Hecho por»
+  sólo con `RESPONSABLE_LEGAL`** (`nombreResponsable()`, `null` sin ella): la portada nunca enseña
+  el `[[hueco]]` de los documentos legales.
 - **Sin «Inteligencia»** en la portada, los metadatos (`openGraph` y `twitter` incluidos) ni la
   tarjeta de vista previa (R10): `__tests__/r10-sin-inteligencia.test.ts`.
+- `e2e/portada.spec.ts` mide la portada a 320, 390, 1024 y 1440 px sin desborde y la captura en
+  claro y oscuro; desde 1024 el panel va a la derecha del buscador, y comprueba que el panel
+  (`overflow-hidden`, por las esquinas) no recorta contenido. El fixture del E2E sólo trae la
+  lectura de cierres; las otras dos se prueban en Vitest.
 
 **Acerca** (`/acerca`, `app/(publico)/acerca/`): lo que la portada dejó de explicar —qué es, de
 dónde salen los datos, cómo se financia— y las preguntas frecuentes (`PREGUNTAS`, en

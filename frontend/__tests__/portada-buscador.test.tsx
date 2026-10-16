@@ -13,7 +13,7 @@ import { BuscadorPortada } from '@/components/portada/BuscadorPortada';
 import { TiraCifras } from '@/components/portada/TiraCifras';
 import { EJEMPLOS_BUSQUEDA, rutaBuscar } from '@/lib/buscar';
 import { urlCatalogoAbiertas } from '@/lib/filtrosCatalogo';
-import { tiraDeLaPortada } from '@/lib/portada';
+import { PLACEHOLDER_BUSCADOR, SUBTITULO_PORTADA, tiraDeLaPortada } from '@/lib/portada';
 
 const PREGUNTA = '¿Qué le vendes al Estado?';
 const leer = (f: string) => readFileSync(join(__dirname, '..', 'components', 'portada', f), 'utf8');
@@ -23,6 +23,24 @@ describe('BuscadorPortada', () => {
     render(<BuscadorPortada />);
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(PREGUNTA);
     expect(screen.getByRole('searchbox', { name: PREGUNTA })).toBeInTheDocument();
+  });
+
+  it('el subtítulo dice qué hace la búsqueda, y el campo no repite los ejemplos', () => {
+    render(<BuscadorPortada />);
+    expect(screen.getByText(SUBTITULO_PORTADA)).toBeInTheDocument();
+    expect(screen.getByRole('searchbox', { name: PREGUNTA })).toHaveAttribute('placeholder', PLACEHOLDER_BUSCADOR);
+  });
+
+  it('el botón va en el color del dato con su etiqueta encima, no en el de acción', () => {
+    render(<BuscadorPortada />);
+    const boton = screen.getByRole('button', { name: 'Buscar' });
+    expect(boton).toHaveClass('bg-dato', 'text-onDato');
+    expect(boton).not.toHaveClass('btn-accent');
+  });
+
+  it('el h1 no lleva clase de peso: la regla de los titulares ya lo pone en 800', () => {
+    render(<BuscadorPortada />);
+    expect(screen.getByRole('heading', { level: 1 }).className).not.toMatch(/(^|\s)font-(normal|medium|semibold|bold|extrabold|black)(\s|$)/);
   });
 
   it('es un <form> GET a /buscar con el campo q: funciona sin JavaScript', () => {
@@ -75,7 +93,7 @@ describe('TiraCifras', () => {
     actualizado_en: '2026-10-14T11:00:00-03:00',
   })!;
 
-  it('dos cifras, cada una al catálogo con el filtro que la cuenta, y su hora', () => {
+  it('dos cifras, cada una al catálogo con el filtro que la cuenta; la hora va en la franja', () => {
     render(<TiraCifras tira={tira} />);
     const lista = screen.getByRole('list', { name: 'Abiertas ahora' });
     expect(within(lista).getByRole('link', { name: '4.232 licitaciones abiertas' })).toHaveAttribute(
@@ -86,6 +104,16 @@ describe('TiraCifras', () => {
       'href',
       urlCatalogoAbiertas('compra_agil'),
     );
-    expect(screen.getByText(/^actualizado el/i)).toHaveTextContent('actualizado el mié, 14 oct, 11:00');
+    expect(screen.queryByText(/actualizado/i)).toBeNull();
+  });
+
+  it('cada cifra, un bloque con su borde en el color del dato', () => {
+    render(<TiraCifras tira={tira} />);
+    const bloques = within(screen.getByRole('list', { name: 'Abiertas ahora' })).getAllByRole('listitem');
+    expect(bloques).toHaveLength(2);
+    for (const bloque of bloques) {
+      expect(bloque).toHaveClass('border-dato');
+      expect(bloque).not.toHaveClass('border-accent');
+    }
   });
 });

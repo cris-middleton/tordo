@@ -81,6 +81,12 @@ export function origenDelSitio(): string {
 
 // ── Formato ─────────────────────────────────────────────────────────────────
 
+/**
+ * Un monto en pesos, abreviado. **Tiene una copia en Python** en
+ * `scripts/verificar-produccion.sh` (filtro del producto de la portada, que
+ * compara `plata(p25)` con `plata(p75)`): si cambias el redondeo o los cortes,
+ * cámbialos allí también.
+ */
 export function plata(clp?: number | null): string {
   if (clp == null) return '—';
   const uno = (v: number) => v.toLocaleString('es-CL', { maximumFractionDigits: 1 });
@@ -230,7 +236,7 @@ export function metadataProducto(p: ProductoPublico): Metadata {
   const banda = bandaPrincipal(p.unidades);
   const cifra =
     banda?.p50 != null
-      ? `precio mediano ${plata(banda.p50)} por ${banda.unidad.toLowerCase()} (${entero(banda.n)} compras)`
+      ? `precio mediano ${plata(banda.p50)}${banda.unidad ? ` por ${banda.unidad.toLowerCase()}` : ''} (${entero(banda.n)} compras)`
       : 'precios pagados por el Estado';
   return base(
     rutaProducto(p.slug),

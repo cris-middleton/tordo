@@ -24,7 +24,7 @@ export function BandaPrecio({ banda }: { banda: BandaUnidad }) {
     <article className="rounded-xl border border-border bg-surface p-5">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-text">
-          Por {banda.unidad.toLowerCase() || 'unidad'}
+          {banda.unidad ? `Por ${banda.unidad.toLowerCase()}` : 'Sin unidad declarada'}
         </h3>
         <div className="flex flex-wrap items-center gap-2">
           {info && (

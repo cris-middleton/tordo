@@ -75,16 +75,21 @@ function FilaDestacada({
  * Si el backend falló, o su hora no se puede leer, no se llega aquí: la portada
  * oculta el bloque (principio 4). `actualizado` es esa hora ya leída
  * (`actualizadoEnPalabras`); la lee la portada, que es quien decide si pintar, y
- * aquí no se vuelve a leer. Lleva su propia hora porque la tira de cifras puede
- * faltar sin él.
+ * aquí no se vuelve a leer. Lleva su propia hora porque la franja de la portada
+ * puede faltar sin él; **cuando la franja está, no la repite**
+ * (`horaEnLaFranja`): «Actualizado el …» dos veces a pocos centímetros es ruido.
+ * La hora se sigue exigiendo para pintar el bloque.
  */
 export function BloqueHoy({
   datos,
   actualizado,
+  horaEnLaFranja = false,
 }: {
   datos: CompraAgilDestacadasResponse;
   /** «mar, 13 oct, 09:30»: la hora de `datos.actualizado_en`, en palabras y en hora de Chile. */
   actualizado: string;
+  /** La portada ya dice la hora en su franja: aquí no se repite. Por defecto, sí se dice. */
+  horaEnLaFranja?: boolean;
 }) {
   const Lista = CON_PUESTO ? 'ol' : 'ul';
 
@@ -104,7 +109,13 @@ export function BloqueHoy({
         </Link>
       </div>
       <p className="mt-1 text-xs text-muted">
-        {descripcionDestacadas(datos.historia_disponible === true)} Actualizado el <span className="cifra">{actualizado}</span>.
+        {descripcionDestacadas(datos.historia_disponible === true)}
+        {!horaEnLaFranja && (
+          <>
+            {' '}
+            Actualizado el <span className="cifra">{actualizado}</span>.
+          </>
+        )}
       </p>
 
       {datos.items.length > 0 ? (

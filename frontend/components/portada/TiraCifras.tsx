@@ -3,28 +3,29 @@ import Link from 'next/link';
 import type { TiraPortada } from '@/lib/portada';
 
 /**
- * La tira de cifras vivas (spec del rediseño §6.3 y §6.6): cuántas licitaciones
- * y Compras Ágiles se pueden postular ahora, con la hora de la última ingesta.
+ * Las cifras vivas (spec del rediseño §6.6 e IDENTIDAD_Y_PORTADA §3.1): cuántas
+ * licitaciones y Compras Ágiles se pueden postular ahora, cada una un bloque con
+ * su etiqueta arriba, el número grande y el borde en `dato`. **El enlace es el
+ * bloque entero** y su nombre es «4.232 licitaciones abiertas»: el DOM lleva el
+ * número primero y `flex-col-reverse` pone la etiqueta encima.
  *
- * Si no hay tira no se llega aquí: `tiraDeLaPortada` devuelve `null` sin resumen
- * o sin una hora legible, y la portada no la pinta. Cada cifra lleva al catálogo
- * con el mismo filtro que la cuenta: el número que se lee es el total que se encuentra.
+ * Si no hay tira no se llega aquí (`tiraDeLaPortada` → null). La hora ya no va
+ * aquí: la dice la franja de abajo. Cada cifra lleva al catálogo con el mismo
+ * filtro que la cuenta.
  */
 export function TiraCifras({ tira }: { tira: TiraPortada }) {
   return (
-    <div className="mt-4 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm text-muted">
-      <ul aria-label="Abiertas ahora" className="flex flex-wrap gap-x-4 gap-y-1">
-        {tira.cifras.map((c) => (
-          <li key={c.href}>
-            <Link href={c.href} className="cifra font-semibold text-text transition-colors hover:text-primary">
-              {c.texto}
-            </Link>
-          </li>
-        ))}
-      </ul>
-      <span>
-        actualizado el <span className="cifra">{tira.actualizado}</span>
-      </span>
-    </div>
+    <ul aria-label="Abiertas ahora" className="mt-9 grid grid-cols-2 gap-4">
+      {tira.cifras.map((c) => (
+        <li key={c.href} className="min-w-0 border-l-4 border-dato pl-3">
+          <Link href={c.href} className="group flex flex-col-reverse">
+            <span className="cifra text-3xl font-extrabold leading-tight text-text transition-colors group-hover:text-primary sm:text-4xl">
+              {c.numero}
+            </span>{' '}
+            <span className="block text-sm text-muted first-letter:uppercase">{c.etiqueta}</span>
+          </Link>
+        </li>
+      ))}
+    </ul>
   );
 }

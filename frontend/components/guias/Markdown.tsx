@@ -121,7 +121,7 @@ function UnBloque({ b }: { b: Bloque }) {
       );
     case 'codigo':
       return (
-        <pre className="mt-4 overflow-x-auto rounded-lg border border-border bg-background px-4 py-3 text-sm text-text">
+        <pre className="mt-4 overflow-x-auto rounded-lg border border-border bg-surface-elevated px-4 py-3 text-sm text-text">
           <code className="font-mono">{b.v}</code>
         </pre>
       );

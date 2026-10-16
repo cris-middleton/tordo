@@ -161,7 +161,7 @@ dos peticiones nuevas (sectores y producto) salen en paralelo con las dos que ya
 - **Regla de la frase**:
   - Si el segundo está a menos del 5 % del primero (`(A − B) / A < 0,05`): «{A} y {B} compran casi
     lo mismo». Se pintan los dos.
-  - Si no: «{A} gasta ${P} de cada $100 en órdenes de compra», con `P` = el monto de A sobre la suma de **todos los
+  - Si no: «De cada $100 en órdenes de compra, ${P} son de {A}» (así concuerda con «municipios» o «FFAA»), con `P` = el monto de A sobre la suma de **todos los
     sectores de la respuesta** («Otros» y «NA» incluidos), redondeado a entero. Se pinta uno. La frase no repite el monto que la barra
     ya escribe al lado: dice algo que las barras no dicen.
   - Con los datos locales sale «Salud y municipios compran casi lo mismo» (Salud 2,98 billones,

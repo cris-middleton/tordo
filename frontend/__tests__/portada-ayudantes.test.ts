@@ -18,7 +18,17 @@ import {
   rutaBuscar,
 } from '@/lib/buscar';
 import { urlCatalogoAbiertas } from '@/lib/filtrosCatalogo';
-import { lemaPortada, tiraDeLaPortada, usosAbiertos } from '@/lib/portada';
+import { PRODUCTO_PORTADA } from '@/lib/lecturasPortada';
+import { HORAS_HABILES } from '@/lib/compraAgil';
+import * as moduloPortada from '@/lib/portada';
+import {
+  franjaDeLaPortada,
+  PLACEHOLDER_BUSCADOR,
+  SE_ACTUALIZA,
+  SUBTITULO_PORTADA,
+  tiraDeLaPortada,
+  usosAbiertos,
+} from '@/lib/portada';
 import { MAXIMO_BUSQUEDA_PRODUCTOS, MINIMO_BUSQUEDA_PRODUCTOS } from '@/lib/queries';
 import type { ResumenPortada } from '@/types/publico';
 
@@ -77,17 +87,17 @@ describe('tiraDeLaPortada', () => {
     const tira = tiraDeLaPortada(RESUMEN);
     expect(tira).not.toBeNull();
     expect(tira!.cifras).toEqual([
-      { texto: '4.232 licitaciones abiertas', href: urlCatalogoAbiertas('licitaciones') },
-      { texto: '2.714 Compras Ágiles abiertas', href: urlCatalogoAbiertas('compra_agil') },
+      { numero: '4.232', etiqueta: 'licitaciones abiertas', href: urlCatalogoAbiertas('licitaciones') },
+      { numero: '2.714', etiqueta: 'Compras Ágiles abiertas', href: urlCatalogoAbiertas('compra_agil') },
     ]);
-    // 11:00 en Santiago, con el día: la portada se cachea media hora. El texto
-    // exacto que produce el ayudante, no una expresión que acepte cualquier cosa.
+    // 11:00 en Santiago, con el día: la portada se cachea media hora. La tira no
+    // la pinta (va en la franja), pero sin hora legible no hay tira.
     expect(tira!.actualizado).toBe('mié, 14 oct, 11:00');
   });
 
   it('en singular cuando hay una, y con el cero dicho', () => {
     const tira = tiraDeLaPortada({ ...RESUMEN, licitaciones_abiertas: 1, compra_agil_abiertas: 0 });
-    expect(tira!.cifras.map((c) => c.texto)).toEqual(['1 licitación abierta', '0 Compras Ágiles abiertas']);
+    expect(tira!.cifras.map((c) => `${c.numero} ${c.etiqueta}`)).toEqual(['1 licitación abierta', '0 Compras Ágiles abiertas']);
   });
 
   it.each([
@@ -119,13 +129,78 @@ describe('usosAbiertos', () => {
   });
 });
 
-describe('lemaPortada', () => {
-  it('«código abierto» sólo cuando lo es (R8: el repositorio sigue privado hasta publicarlo)', () => {
-    expect(lemaPortada(null)).toBe('Gratis (de verdad). Sin cuentas, sin publicidad. API abierta.');
-    expect(lemaPortada(null)).not.toMatch(/código/i);
-    expect(lemaPortada('https://github.com/x/tordo')).toBe(
-      'Gratis (de verdad). Sin cuentas, sin publicidad. Código y API abiertos.',
+describe('el lema', () => {
+  it('se fue de la portada: lo que decía está en la ficha y en los enlaces de la cabecera', () => {
+    expect(moduloPortada).not.toHaveProperty('lemaPortada');
+  });
+});
+
+describe('los textos fijos de la portada', () => {
+  it('el subtítulo dice qué hace la búsqueda (spec §6.2)', () => {
+    expect(SUBTITULO_PORTADA).toBe(
+      'Escribe lo que vendes. Te mostramos cuánto ha pagado el Estado, quién lo compra y qué está abierto hoy.',
     );
+  });
+
+  it('el campo no repite los ejemplos, que ya están debajo', () => {
+    expect(PLACEHOLDER_BUSCADOR).toBe('Un producto o un servicio');
+    for (const ejemplo of EJEMPLOS_BUSQUEDA) expect(PLACEHOLDER_BUSCADOR).not.toContain(ejemplo);
+  });
+
+  it('«se actualiza» sale del horario del cron frecuente, no se escribe', () => {
+    expect(SE_ACTUALIZA).toBe(`${HORAS_HABILES.length} veces cada día hábil; el análisis, cada semana`);
+  });
+});
+
+describe('franjaDeLaPortada', () => {
+  const CON_HOY: ResumenPortada = {
+    ...RESUMEN,
+    publicadas_hoy: 612,
+    mas_publica_hoy: 'SERVICIO DE SALUD METROPOLITANO SUR',
+  };
+
+  it('publicadas hoy, quién más publica (como en «Lo mejor de hoy») y la hora con el día', () => {
+    expect(franjaDeLaPortada(CON_HOY)).toEqual({
+      publicadasHoy: '612',
+      masPublicaHoy: 'Servicio De Salud Metropolitano Sur',
+      actualizado: 'mié, 14 oct, 11:00',
+    });
+  });
+
+  it('con 0 publicadas hoy (cada madrugada) se ocultan las dos celdas; la hora sigue', () => {
+    expect(franjaDeLaPortada({ ...CON_HOY, publicadas_hoy: 0 })).toEqual({
+      publicadasHoy: null,
+      masPublicaHoy: null,
+      actualizado: 'mié, 14 oct, 11:00',
+    });
+  });
+
+  it('sin nombre que poner primero (todas sin nombre), sólo el conteo', () => {
+    expect(franjaDeLaPortada({ ...CON_HOY, mas_publica_hoy: null })?.masPublicaHoy).toBeNull();
+    expect(franjaDeLaPortada({ ...CON_HOY, mas_publica_hoy: '   ' })?.masPublicaHoy).toBeNull();
+    expect(franjaDeLaPortada({ ...CON_HOY, mas_publica_hoy: null })?.publicadasHoy).toBe('612');
+  });
+
+  it('un backend sin los campos nuevos: sólo la hora', () => {
+    expect(franjaDeLaPortada(RESUMEN)).toEqual({ publicadasHoy: null, masPublicaHoy: null, actualizado: 'mié, 14 oct, 11:00' });
+  });
+
+  it.each([
+    ['de texto', '612'],
+    ['con decimales', 6.5],
+    ['negativo', -3],
+  ])('publicadas_hoy %s no se publica', (_, valor) => {
+    const franja = franjaDeLaPortada({ ...CON_HOY, publicadas_hoy: valor } as unknown as ResumenPortada);
+    expect(franja?.publicadasHoy).toBeNull();
+    expect(franja?.masPublicaHoy).toBeNull();
+  });
+
+  it.each([
+    ['sin resumen', null],
+    ['sin hora', { ...CON_HOY, actualizado_en: null }],
+    ['con una hora que no se puede leer', { ...CON_HOY, actualizado_en: 'ayer a las once' }],
+  ])('%s, no hay franja: una cifra viva sin hora no se publica', (_, resumen) => {
+    expect(franjaDeLaPortada(resumen as ResumenPortada | null)).toBeNull();
   });
 });
 
@@ -152,5 +227,38 @@ describe('la copia de los ejemplos en scripts/verificar-produccion.sh', () => {
 
   it('comprueba también que la portada trae su buscador', () => {
     expect(script).toContain('action="/buscar"');
+  });
+});
+
+describe('la copia de PRODUCTO_PORTADA en scripts/verificar-produccion.sh', () => {
+  const script = readFileSync(join(__dirname, '..', '..', 'scripts', 'verificar-produccion.sh'), 'utf8');
+  const inicio = script.indexOf('# ── El producto de la portada');
+  const fin = script.indexOf('# ── El límite cuenta por la IP real');
+  const seccion = script.slice(inicio, fin);
+
+  it('la sección existe, después de los ejemplos y antes del límite por IP', () => {
+    expect(inicio).toBeGreaterThan(script.indexOf('# ── Los ejemplos de la portada'));
+    expect(fin).toBeGreaterThan(inicio);
+  });
+
+  it('pide exactamente el slug de PRODUCTO_PORTADA', () => {
+    const copias = [...seccion.matchAll(/^PRODUCTO_PORTADA='([^']+)'$/gm)].map((m) => m[1]);
+    expect(copias).toEqual([PRODUCTO_PORTADA.slug]);
+  });
+
+  it('una sola petición, espaciada y sin bucles: nada en ráfaga contra producción', () => {
+    expect(seccion.match(/\bpedir "/g)).toHaveLength(1);
+    expect(seccion).not.toMatch(/^\s*(for|while|until)\b/m);
+    expect(seccion).toMatch(/^\s*sleep 1$/m);
+  });
+
+  it('exige p75 > p25 estricto, como lecturaPrecio', () => {
+    expect(seccion).toMatch(/1 <= p25 < p75/);
+  });
+
+  it('mira lo que la lectura necesita: indexable, el filtro de calidad, p25, p75 y periodo', () => {
+    for (const campo of ['indexable', 'unidad', 'sin unidad declarada', 'predictibilidad', 'p25', 'p75', 'ventana_desde', 'ventana_hasta']) {
+      expect(seccion).toContain(campo);
+    }
   });
 });

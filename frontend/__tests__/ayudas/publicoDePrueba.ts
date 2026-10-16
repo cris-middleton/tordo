@@ -84,8 +84,8 @@ export const PRODUCTO: ProductoPublico = {
   descripcion: null,
   indexable: true,
   unidades: [
-    { unidad: 'Caja', n: 120, p10: 3000, p25: 4000, p50: 5000, p75: 6000, p90: 8000, predictibilidad: 'alta', confianza: 'alta' },
-    { unidad: 'Unidad', n: 30, p10: 30, p25: 40, p50: 50, p75: 70, p90: 90, predictibilidad: 'media', confianza: 'media' },
+    { unidad: 'Caja', n: 120, p10: 3000, p25: 4000, p50: 5000, p75: 6000, p90: 8000, predictibilidad: 'alta', confianza: 0.9 },
+    { unidad: 'Unidad', n: 30, p10: 30, p25: 40, p50: 50, p75: 70, p90: 90, predictibilidad: 'media', confianza: 0.5 },
   ],
   compradores: [{ codigo: '7297', nombre: 'Hospital de Prueba', unidad: 'Caja', n: 40, p50: 4800 }],
 };

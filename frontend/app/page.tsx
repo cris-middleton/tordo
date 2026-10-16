@@ -2,7 +2,12 @@ import type { Metadata } from 'next';
 
 import { Portada } from '@/components/portada/Portada';
 import { DESTACADAS_EN_PORTADA } from '@/lib/portada';
-import { pedirDestacadas, pedirResumenPortada } from '@/lib/publicoServidor';
+import {
+  pedirDestacadas,
+  pedirProductoPortada,
+  pedirResumenPortada,
+  pedirSectoresPortada,
+} from '@/lib/publicoServidor';
 import { urlRepositorio } from '@/lib/repositorio';
 import { nombreResponsable } from '@/lib/responsable';
 
@@ -16,10 +21,12 @@ import { nombreResponsable } from '@/lib/responsable';
  * vivo, que además vacía el cron frecuente con la etiqueta `compra-agil`. Así la
  * portada sale del CDN y no del servidor en cada visita.
  *
- * Las dos piezas vivas se piden en paralelo y **ninguna lanza**: si el backend
- * falla al regenerar, `pedirDestacadas` y `pedirResumenPortada` devuelven `null`,
- * su bloque se oculta y la portada se publica igual, con el buscador; a la media
- * hora se reintenta. (En un build sin backend —CI— nace sin ellas por lo mismo.)
+ * Las cuatro piezas se piden en paralelo y **ninguna lanza**: si el backend
+ * falla al regenerar, cada `pedir…` devuelve `null`, su bloque se oculta y la
+ * portada se publica igual, con el buscador; a la media hora se reintenta. Lo
+ * vivo (destacadas y resumen) se cachea media hora con `compra-agil`; las
+ * lecturas de analytics (sectores y producto), una semana con `analytics`.
+ * (En un build sin backend —CI— nace sin ellas por lo mismo.)
  */
 export const revalidate = 1800;
 
@@ -65,14 +72,18 @@ export const metadata: Metadata = {
 };
 
 export default async function Home() {
-  const [destacadas, resumen] = await Promise.all([
+  const [destacadas, resumen, sectores, producto] = await Promise.all([
     pedirDestacadas(DESTACADAS_EN_PORTADA),
     pedirResumenPortada(),
+    pedirSectoresPortada(),
+    pedirProductoPortada(),
   ]);
   return (
     <Portada
       destacadas={destacadas}
       resumen={resumen}
+      sectores={sectores}
+      producto={producto}
       repositorio={urlRepositorio()}
       autor={nombreResponsable()}
     />

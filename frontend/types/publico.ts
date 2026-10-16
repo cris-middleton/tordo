@@ -71,7 +71,8 @@ export interface RubroPublico {
 }
 
 export interface BandaUnidad {
-  unidad: string;
+  /** Nula si el dato no la trae (el backend la declara `str | None`). */
+  unidad: string | null;
   n: number;
   p10: number | null;
   p25: number | null;
@@ -79,7 +80,8 @@ export interface BandaUnidad {
   p75: number | null;
   p90: number | null;
   predictibilidad: string | null;
-  confianza: string | null;
+  /** De 0 a 1, como en el backend (`float | None`). */
+  confianza: number | null;
 }
 
 export interface CompradorDeProducto {
@@ -105,6 +107,11 @@ export interface ProductoPublico {
   unidades: BandaUnidad[];
   /** Top 10 por n, desde L0. */
   compradores: CompradorDeProducto[];
+  /**
+   * De qué meses sale la banda (la ventana de la L0N, 12 meses). Opcional: un
+   * backend anterior no la manda, y la portada oculta entonces su lectura de precio.
+   */
+  periodo?: PeriodoPublico | null;
 }
 
 /** Un resultado de `GET /publico/productos?q=&limite=`. */
@@ -113,6 +120,17 @@ export interface ProductoEncontrado {
   firma: string;
   n: number;
   indexable: boolean;
+}
+
+/**
+ * Las Compras Ágiles abiertas por día de cierre en hora de Chile. Salen de la
+ * misma pasada que `compra_agil_abiertas` y suman lo mismo.
+ */
+export interface CompraAgilPorCierre {
+  hoy: number;
+  manana: number;
+  dos_tres_dias: number;
+  despues: number;
 }
 
 /**
@@ -125,4 +143,10 @@ export interface ResumenPortada {
   compra_agil_abiertas: number;
   /** Última ingesta de Compra Ágil (ISO, hora de Chile), o null. Sin hora, la tira no se muestra. */
   actualizado_en: string | null;
+  /** Opcionales (PR 1 de IDENTIDAD_Y_PORTADA): un backend anterior no los manda. */
+  compra_agil_por_cierre?: CompraAgilPorCierre | null;
+  /** Licitaciones y Compras Ágiles publicadas hoy (día de Chile). */
+  publicadas_hoy?: number | null;
+  /** El organismo que más publicó hoy, por nombre, tal como se guardó; null sin publicaciones. */
+  mas_publica_hoy?: string | null;
 }
