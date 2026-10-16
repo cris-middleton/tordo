@@ -1,23 +1,29 @@
 import { expect, test, type Page } from '@playwright/test';
 
 /**
- * La portada nueva (spec del rediseño §6.3) y `/acerca`, de punta a punta y
+ * La portada (spec IDENTIDAD_Y_PORTADA §3 y §8) y `/acerca`, de punta a punta y
  * SIN sesión.
  *
- * Lo vivo —la tira de cifras y «Lo mejor de hoy»— sale del servidor con ISR. El
- * E2E construye sin backend, así que la portada nace sin esos bloques y se
- * regenera a la media hora: aquí se aceptan los dos estados. Lo que no depende
+ * Lo vivo —la tira, el panel de lecturas, la franja y «Lo mejor de hoy»— sale
+ * del servidor con ISR. `scripts/e2e.sh` construye con el backend levantado y la
+ * semilla puesta, así que la portada suele nacer con lo vivo (con el fixture del
+ * golden, sólo la lectura de cierres: los sectores no traen ventana y el producto
+ * de la portada no está); aun así se aceptan los dos estados. Lo que no depende
  * de nada es el buscador, y eso se exige siempre: **es lo primero que se ve,
- * también a 390 px** (principio 1). El caso «backend caído» con detalle está en
+ * también a 390 px** (principio 1). El detalle de cada bloque oculto está en
  * `__tests__/portada.test.tsx`.
  *
  * Las capturas quedan en `test-results/` para mirarlas: el contraste roto en
- * oscuro es invisible en claro, que es el que se revisa por defecto.
+ * oscuro es invisible en claro, y el panel navy sobre el fondo oscuro se separa
+ * menos que en claro (riesgo §12 de la spec).
  */
 
 const PREGUNTA = '¿Qué le vendes al Estado?';
+const ESTRECHO = { width: 320, height: 640 };
 const MOVIL = { width: 390, height: 844 };
+const TABLETA = { width: 1024, height: 768 };
 const ESCRITORIO = { width: 1440, height: 900 };
+const PANEL = 'Lo que dicen los datos';
 
 async function anchoDelDocumento(page: Page): Promise<number> {
   return page.evaluate(() => document.documentElement.scrollWidth);
@@ -53,13 +59,17 @@ test('lo primero es el buscador, y nada de lo que se fue', async ({ page }) => {
   const tira = page.getByRole('list', { name: 'Abiertas ahora' });
   if (await tira.count()) {
     await expect(tira.getByRole('link')).toHaveCount(2);
-    await expect(page.getByText(/^actualizado el/)).toBeVisible();
+    // La hora vive en la franja de abajo, con el día.
+    await expect(page.getByText('Actualizado el', { exact: true })).toBeVisible();
   }
 
   // Nada de lo que se fue: ni cuentas, ni el hero, ni el hueco de RESPONSABLE_LEGAL.
   await expect(page.getByText(/prueba gratis|inicia sesión|informe semanal|alertas/i)).toHaveCount(0);
   await expect(page.getByText(/\[\[/)).toHaveCount(0);
-  await expect(page.locator('.bg-brand-navy')).toHaveCount(0);
+  // La única superficie oscura es el panel de lecturas, y lleva `dark`.
+  const oscuras = page.locator('.bg-brand-navy');
+  expect(await oscuras.count()).toBeLessThanOrEqual(1);
+  if (await oscuras.count()) await expect(oscuras).toHaveClass(/\bdark\b/);
   await expect(page.getByRole('heading', { name: /qué hay en el sitio|preguntas frecuentes/i })).toHaveCount(0);
 });
 
@@ -107,7 +117,10 @@ test('a 390 px el buscador y su botón quedan en la primera pantalla, sin desbor
 
 test('lo abierto lleva a /abierto, y el pie a /acerca', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('main').getByRole('link', { name: 'API', exact: true }).click();
+  await page
+    .getByRole('region', { name: 'Úsalo como quieras' })
+    .getByRole('link', { name: 'API', exact: true })
+    .click();
   await expect(page).toHaveURL(/\/abierto#api$/);
 
   await page.getByRole('contentinfo').getByRole('link', { name: 'Acerca', exact: true }).click();
@@ -117,14 +130,30 @@ test('lo abierto lleva a /abierto, y el pie a /acerca', async ({ page }) => {
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /\/acerca$/);
 });
 
+for (const viewport of [TABLETA, MOVIL]) {
+  test(`a ${viewport.width} px el panel va ${viewport.width >= 1024 ? 'a la derecha del' : 'debajo del'} buscador`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto('/');
+    // La semilla del E2E trae cierres: el panel tiene que existir.
+    const panel = page.getByRole('region', { name: PANEL });
+    await expect(panel).toBeVisible();
+    await expect(panel).toHaveClass(/\bdark\b/);
+    const campo = await page.getByRole('searchbox', { name: PREGUNTA }).boundingBox();
+    const caja = await panel.boundingBox();
+    expect(campo && caja, 'sin caja: ¿no se pintó?').toBeTruthy();
+    if (viewport.width >= 1024) expect(caja!.x).toBeGreaterThan(campo!.x + campo!.width);
+    else expect(caja!.y).toBeGreaterThan(campo!.y + campo!.height);
+  });
+}
+
 const PANTALLAS = [
-  { ruta: '/', nombre: 'portada', titulo: PREGUNTA },
-  { ruta: '/acerca', nombre: 'acerca', titulo: /^acerca de /i },
+  { ruta: '/', nombre: 'portada', titulo: PREGUNTA, anchos: [ESTRECHO, MOVIL, TABLETA, ESCRITORIO] },
+  { ruta: '/acerca', nombre: 'acerca', titulo: /^acerca de /i, anchos: [ESCRITORIO, MOVIL] },
 ];
 
 for (const tema of ['claro', 'oscuro'] as const) {
-  for (const viewport of [ESCRITORIO, MOVIL]) {
-    for (const { ruta, nombre, titulo } of PANTALLAS) {
+  for (const { ruta, nombre, titulo, anchos } of PANTALLAS) {
+    for (const viewport of anchos) {
       test(`${ruta} a ${viewport.width} px en tema ${tema}: sin desbordes, con captura`, async ({ page }, testInfo) => {
         await page.setViewportSize(viewport);
         if (tema === 'oscuro') {
