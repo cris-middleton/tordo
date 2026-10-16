@@ -65,7 +65,7 @@ export function BICard({ codigoExterno }: BICardProps) {
     `Plazo: ${ventanaClasif}`,
     nProveedores != null && `${nProveedores} competidores`,
   ].filter(Boolean);
-  const summaryLine = summaryParts.join(' · ');
+  const summaryLine = summaryParts.join(', ');
 
   return (
     <div className="rounded-2xl border border-border bg-surface overflow-hidden">

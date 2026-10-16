@@ -11,7 +11,7 @@ export function TablaCostos() {
     <div className="overflow-x-auto rounded-xl border border-border">
       <table className="w-full text-left text-sm">
         <caption className="sr-only">Costo mensual de mantener el sitio, por concepto</caption>
-        <thead className="bg-surface text-xs uppercase tracking-wider text-subtle">
+        <thead className="bg-surface text-xs text-muted">
           <tr>
             <th scope="col" className="px-4 py-2 font-semibold">Concepto</th>
             <th scope="col" className="px-4 py-2 text-right font-semibold">Al mes</th>

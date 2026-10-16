@@ -54,7 +54,7 @@ function Tarjeta({
     <section className="rounded-xl border border-border bg-surface p-4">
       <header className="mb-3 flex items-center gap-1.5">
         <Icono className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
-        <h3 className="text-xs font-bold uppercase tracking-wider text-muted">{titulo}</h3>
+        <h3 className="text-sm font-semibold text-text">{titulo}</h3>
         {ayuda && <InfoTooltip content={ayuda} />}
       </header>
       {children}
@@ -101,7 +101,7 @@ function Lider({ lider }: { lider: PanoramaLider }) {
             sería «este mercado está tomado» cuando lo que hay son compras
             chicas repartidas entre muchos. */}
         {lider.share_oc_pct != null && (
-          <span className="text-subtle"> · {decimal(lider.share_oc_pct, 1)}% de las órdenes</span>
+          <span className="text-subtle">, {decimal(lider.share_oc_pct, 1)}% de las órdenes</span>
         )}
       </span>
     </li>
@@ -145,28 +145,28 @@ export function PanoramaRubro({
       <div className="rounded-xl border border-border bg-surface px-5 py-4">
         <div className="flex flex-wrap items-end gap-x-8 gap-y-4">
           <div>
-            <p className="text-[11px] uppercase tracking-wider text-subtle">
+            <p className="text-xs text-muted">
               Se compró en {mercado?.anio ?? '—'}
             </p>
             <Cifra>{plata(mercado?.monto_clp)}</Cifra>
           </div>
           <div>
-            <p className="text-[11px] uppercase tracking-wider text-subtle">Órdenes</p>
+            <p className="text-xs text-muted">Órdenes</p>
             <Cifra>{entero(mercado?.n_oc)}</Cifra>
           </div>
           <div>
-            <p className="flex items-center gap-1 text-[11px] uppercase tracking-wider text-subtle">
+            <p className="flex items-center gap-1 text-xs text-muted">
               Orden promedio
               <InfoTooltip content="Monto total dividido por número de órdenes. Es un promedio, no una mediana: el dato viene agregado por mes, así que no quedan órdenes sueltas sobre las que sacarla." />
             </p>
             <Cifra>{plata(mercado?.ticket_promedio_clp)}</Cifra>
           </div>
           <div>
-            <p className="text-[11px] uppercase tracking-wider text-subtle">Proveedores</p>
+            <p className="text-xs text-muted">Proveedores</p>
             <Cifra>{entero(competencia?.n_proveedores)}</Cifra>
           </div>
           <div>
-            <p className="text-[11px] uppercase tracking-wider text-subtle">Compradores</p>
+            <p className="text-xs text-muted">Compradores</p>
             <Cifra>{entero(competencia?.n_compradores)}</Cifra>
           </div>
         </div>
@@ -281,7 +281,7 @@ export function PanoramaRubro({
             {vigilar.compradores.slice(0, 5).map((c) => (
               <li key={c.codigo} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                 <span className="text-sm font-medium text-text">{c.nombre ?? c.codigo}</span>
-                <span className="text-xs text-muted">{c.motivos.join(' · ')}</span>
+                <span className="text-xs text-muted">{c.motivos.join(', ')}</span>
               </li>
             ))}
           </ul>

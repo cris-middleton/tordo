@@ -37,7 +37,7 @@ export default function LicitacionesGuardadas({
             <p className="truncate text-xs text-muted">
               {[t.nombre_organismo && normalizeText(t.nombre_organismo), formatCurrency(t.monto_estimado)]
                 .filter(Boolean)
-                .join(' · ')}
+                .join(', ')}
             </p>
           </div>
           <button

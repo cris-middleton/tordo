@@ -262,9 +262,12 @@
      FORM FIELDS
   ────────────────────────────────────────────── */
   /* `border-borderInput`, no `border-border`: WCAG 1.4.11 pide 3:1 para el
-     límite de un control interactivo, y el borde decorativo daba 1.29:1. */
+     límite de un control interactivo, y el borde decorativo daba 1.29:1.
+     16 px en móvil (`text-base sm:text-sm`): por debajo, Safari en iOS amplía la
+     página al enfocar el campo. Un `text-sm` suelto en el elemento lo deshace
+     (`__tests__/campos-moviles.test.ts`). */
   .input-field {
-    @apply w-full rounded-lg border border-borderInput bg-surface px-4 py-2.5 text-sm text-text placeholder-subtle shadow-sm transition-all duration-200 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:cursor-not-allowed disabled:bg-surface-elevated disabled:opacity-70 font-sans;
+    @apply w-full rounded-lg border border-borderInput bg-surface px-4 py-2.5 text-base text-text sm:text-sm placeholder-subtle shadow-sm transition-all duration-200 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:cursor-not-allowed disabled:bg-surface-elevated disabled:opacity-70 font-sans;
   }
 
   select.input-field {
@@ -394,13 +397,16 @@
     @apply text-lg font-semibold text-text;
   }
 
+  /* El `h2` de sección: 22 px en todo el sitio (spec PORTADA_V7 §4). Convivían 16, 18 y 20. */
   h2.section-title {
-    @apply font-extrabold;
+    @apply font-extrabold text-[22px] leading-tight;
   }
 
-  /* Siempre en un h1: el peso lo pone la regla base (800). */
+  /* El `h1` de página: 28 px en móvil y 36 desde `lg` (spec PORTADA_V7 §4); el de la
+     portada es otro. Siempre en un h1: el peso lo pone la regla base (800). El
+     interlineado se repite en `lg:` porque `text-4xl` trae el suyo y ganaría. */
   .page-title {
-    @apply text-2xl text-text sm:text-3xl;
+    @apply text-[28px] leading-[1.1] text-text lg:text-4xl lg:leading-[1.1];
   }
 
   /* ──────────────────────────────────────────────

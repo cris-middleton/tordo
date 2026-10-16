@@ -84,7 +84,7 @@ function KpiTile({
 }) {
   return (
     <div className="rounded-lg border border-border bg-background px-3 py-2 text-center">
-      <p className="text-[10px] uppercase tracking-wide text-muted">{label}</p>
+      <p className="text-xs text-muted">{label}</p>
       <p className={`mt-1 text-lg font-bold ${valueColor}`}>{value}</p>
     </div>
   );

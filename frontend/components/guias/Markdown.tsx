@@ -76,9 +76,10 @@ function Linea({ nodos }: { nodos: EnLinea[] }) {
   );
 }
 
+// En la escala del sitio (spec PORTADA_V7 §4): `h2` de 22 px, `h3` de 17 en negrita.
 const TITULOS = {
-  2: 'mt-10 font-display text-xl text-text',
-  3: 'mt-8 text-lg font-bold text-text',
+  2: 'mt-12 font-display text-[22px] leading-tight text-text',
+  3: 'mt-8 text-[17px] font-bold text-text',
   4: 'mt-6 text-base font-bold text-text',
 } as const;
 

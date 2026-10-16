@@ -34,7 +34,7 @@ describe('búsquedas guardadas', () => {
       'href',
       '/licitaciones?search=zafiro&region=Regi%C3%B3n+del+Biob%C3%ADo',
     );
-    expect(enlace).toHaveTextContent('«zafiro» · Biobío');
+    expect(enlace).toHaveTextContent('«zafiro», Biobío');
   });
 
   it('copian la URL absoluta de su RSS', async () => {

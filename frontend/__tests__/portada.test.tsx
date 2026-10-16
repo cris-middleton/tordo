@@ -154,6 +154,7 @@ afterEach(() => {
   vi.restoreAllMocks();
   delete process.env.REPOSITORIO_URL;
   delete process.env.RESPONSABLE_LEGAL;
+  delete process.env.AUTOR_NOMBRE;
 });
 
 describe('lo que la portada pide al backend', () => {
@@ -381,17 +382,24 @@ describe('lo abierto y quién lo hace', () => {
     expect(screen.getByText('Fuente')).toBeInTheDocument();
   });
 
-  it('sin RESPONSABLE_LEGAL no firma, y nunca enseña el hueco', async () => {
+  it('sin AUTOR_NOMBRE no firma, y nunca enseña el hueco', async () => {
     todo();
     const { container } = render(await Home());
-    expect(container.textContent).not.toMatch(/hecho por|\[\[/i);
+    expect(container.textContent).not.toMatch(/lo hace|\[\[/i);
   });
 
-  it('con RESPONSABLE_LEGAL, «hecho por» y el nombre', async () => {
-    process.env.RESPONSABLE_LEGAL = 'Nombre De Prueba';
+  it('con AUTOR_NOMBRE, «Lo hace» y el nombre', async () => {
+    process.env.AUTOR_NOMBRE = 'Nombre De Prueba';
     todo();
     render(await Home());
-    expect(screen.getByText(/hecho por Nombre De Prueba/)).toBeInTheDocument();
+    expect(screen.getByText('Lo hace Nombre De Prueba.')).toBeInTheDocument();
+  });
+
+  it('firma la autoría, no el responsable legal (spec PORTADA_V7 V5)', async () => {
+    process.env.RESPONSABLE_LEGAL = 'Otra Persona';
+    todo();
+    const { container } = render(await Home());
+    expect(container.textContent).not.toMatch(/Otra Persona/);
   });
 
   it('el costo sale de lib/costos y enlaza al desglose', async () => {

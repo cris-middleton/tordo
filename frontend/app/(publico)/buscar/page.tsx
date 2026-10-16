@@ -85,7 +85,7 @@ export default async function PaginaBuscar({ searchParams }: Props) {
   return (
     <div>
       <div className="mb-2">
-        <h1 className="text-2xl leading-tight text-text sm:text-3xl">
+        <h1 className="page-title">
           {busqueda.buscable ? `Resultados para «${busqueda.termino}»` : '¿Qué le vendes al Estado?'}
         </h1>
         <div className="mt-4">

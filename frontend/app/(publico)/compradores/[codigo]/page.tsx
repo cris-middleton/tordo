@@ -65,12 +65,11 @@ export default async function PaginaComprador({ params }: Props) {
   return (
     <article>
       <CabeceraFicha
-        tipo="Comprador público"
         titulo={c.nombre}
         subtitulo={
           <>
             Código <span className="font-mono">{c.codigo}</span> en Mercado Público
-            {desde && hasta ? ` · datos del ${desde} al ${hasta}` : ''}
+            {desde && hasta ? `. Datos del ${desde} al ${hasta}.` : '.'}
           </>
         }
       />

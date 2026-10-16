@@ -42,7 +42,6 @@ export default async function PaginaRubro({ params }: Props) {
   return (
     <article>
       <CabeceraFicha
-        tipo="Rubro"
         titulo={r.nombre}
         subtitulo="Cómo está este mercado de compras públicas en Chile."
       />

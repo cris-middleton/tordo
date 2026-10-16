@@ -1,6 +1,7 @@
 'use client';
 
 import { format } from 'date-fns';
+import es from 'date-fns/locale/es';
 
 export default function OpportunityTimeline({
   fechaPublicacion,
@@ -11,7 +12,7 @@ export default function OpportunityTimeline({
 }) {
   const fmt = (d?: string) => {
     if (!d) return null;
-    try { return format(new Date(d), 'dd MMM yyyy'); } catch { return null; }
+    try { return format(new Date(d), 'd MMM yyyy', { locale: es }); } catch { return null; }
   };
 
   const steps = [
@@ -22,7 +23,7 @@ export default function OpportunityTimeline({
 
   return (
     <div className="card">
-      <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-3">Hitos</p>
+      <p className="mb-3 text-sm font-semibold text-text">Hitos</p>
       <div className="flex items-start gap-0">
         {steps.map((step, i) => (
           <div key={i} className="flex flex-1 flex-col items-center">

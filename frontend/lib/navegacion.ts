@@ -19,9 +19,12 @@ export interface EnlaceNavegacion {
   externo?: boolean;
 }
 
-/** Las secciones, en el orden de la cabecera. Nombres llanos (R10). */
+/**
+ * Las secciones, en el orden de la cabecera. Nombres llanos (R10): «Compra Ágil»
+ * y no «Hoy», que no decía qué es (spec PORTADA_V7, V12).
+ */
 export const SECCIONES: readonly EnlaceNavegacion[] = [
-  { nombre: 'Hoy', href: '/compra-agil' },
+  { nombre: 'Compra Ágil', href: '/compra-agil' },
   { nombre: 'Licitaciones', href: '/licitaciones' },
   { nombre: 'Precios', href: '/productos' },
   { nombre: 'Mercados', href: '/mercado' },
@@ -41,9 +44,41 @@ export function enlacesAbiertos(repositorio: string | null): EnlaceNavegacion[] 
   return enlaces;
 }
 
-/** Todo lo navegable, para el pie: secciones, guardados y lo abierto. */
+/** Todo lo navegable de la cabecera, más guardados: secciones, guardados y lo abierto. */
 export function mapaDelSitio(repositorio: string | null): EnlaceNavegacion[] {
   return [...SECCIONES, GUARDADOS, ...enlacesAbiertos(repositorio)];
+}
+
+export interface ColumnaDelPie {
+  titulo: string;
+  enlaces: EnlaceNavegacion[];
+}
+
+/**
+ * Las columnas del pie (spec PORTADA_V7 §6): «Sitio» (las secciones y Guardados),
+ * «Abierto» (API y MCP, Código, Licencias) y «Sobre el sitio». La cuarta, «Lo
+ * hace», depende de `AUTOR_NOMBRE` y la pone el pie. `correo` llega como
+ * parámetro porque este fichero no importa nada.
+ */
+export function columnasDelPie(repositorio: string | null, correo: string): ColumnaDelPie[] {
+  return [
+    { titulo: 'Sitio', enlaces: [...SECCIONES, GUARDADOS] },
+    {
+      titulo: 'Abierto',
+      enlaces: [...enlacesAbiertos(repositorio), { nombre: 'Licencias', href: '/abierto#licencias' }],
+    },
+    {
+      titulo: 'Sobre el sitio',
+      enlaces: [
+        { nombre: 'Acerca', href: '/acerca' },
+        { nombre: 'Cuánto cuesta', href: '/apoyar#costos' },
+        { nombre: 'Apoyar', href: '/apoyar' },
+        { nombre: 'Términos de uso', href: '/terminos' },
+        { nombre: 'Privacidad', href: '/privacidad' },
+        { nombre: 'Contacto', href: `mailto:${correo}`, externo: true },
+      ],
+    },
+  ];
 }
 
 /**

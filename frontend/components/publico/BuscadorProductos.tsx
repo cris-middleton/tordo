@@ -120,7 +120,7 @@ function Buscador() {
                 >
                   <span className="min-w-0 truncate font-medium text-primary">{p.firma}</span>
                   <span className="cifra shrink-0 text-xs text-muted">
-                    {entero(p.n)} compras{p.indexable ? '' : ' · orientativo'}
+                    {entero(p.n)} compras{p.indexable ? '' : ', orientativo'}
                   </span>
                 </Link>
               </li>

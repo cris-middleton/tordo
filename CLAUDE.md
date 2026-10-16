@@ -633,22 +633,48 @@ licitaciones (`/licitaciones`, con su detalle; **los filtros viven en la URL**, 
 una búsqueda es una URL), «Lo mejor de hoy en Compra Ágil» (`/compra-agil`), `/guardados`
 y los mercados por rubro (`/mercado`, «Mercados» en la navegación); y lo abierto en `/abierto`,
 enlazado como «API y MCP» desde la cabecera; y la búsqueda en `/buscar?q=` (ver abajo). Las del panel viven en el grupo de rutas
-`app/(panel)/`, que sólo les fija el ancho (`max-w-6xl`) sin aparecer en la URL.
+`app/(panel)/`, que sólo les pone el contenedor (abajo) sin aparecer en la URL.
 
 **Una sola cáscara** (`components/cascara/`, spec del rediseño §6.1–§6.2). `app/layout.tsx`
 envuelve TODA página en `Cascara` —cabecera, el único `<main id="contenido">` y el pie—, así que
 ninguna página ni layout de grupo pinta cabecera, pie, `PieAtribucion` ni `<main>` propios:
 `__tests__/legal-enlazado.test.tsx` falla si lo hace. No hay barra lateral (R3).
+- **Un contenedor y una escala** (spec `docs/PORTADA_V7_Y_NOTAS_2026-10.md` §4).
+  `components/cascara/Contenedor.tsx` (`mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8`) lo usan
+  la cabecera, el pie, los layouts de `(panel)` y `(publico)`, la portada, los legales, el 404 y
+  `error.tsx`: **un solo borde izquierdo**. Ninguna página fija su `max-w-*` ni su relleno lateral;
+  las de lectura limitan el texto a `max-w-3xl` **dentro**, alineado a la izquierda. `pagina` añade
+  el tope: **48 px de la cabecera al `h1` desde `lg`, 24 en móvil**, así que **nada va antes del
+  `h1`** (ni antetítulo ni «← volver»; en `/mercado` el selector de rubro va debajo del `h1`).
+  `h1` de página: `.page-title` (28/36 px); `h2` de sección: `h2.section-title` (22 px).
+  `components/cascara/Seccion.tsx` es LA sección (`mt-8 lg:mt-16`, h2 opcional; `Piezas` la
+  re-exporta). Espacios en la escala 4/8/12/16/24/32/48/64. `e2e/escala.spec.ts` mide a 1440 y 390
+  el borde izquierdo (marca, `h1`, pie) y la distancia cabecera→`h1` en `/licitaciones`,
+  `/productos`, `/acerca`, `/guias` y una guía (la portada sólo el borde).
+- **Sin señales de plantilla** (V10): ni antetítulos ni encabezados en mayúsculas (`uppercase`,
+  `tracking-wide*`), ni metadatos con punto medio: «Confianza alta, 90 compras», no «· N=90».
+  `__tests__/senales-plantilla.test.ts` los busca en todo `app/` y `components/`, comentarios
+  incluidos. Se permite `first-letter:uppercase`.
+- **Cifras y fechas en `es-CL`** (`__tests__/formatos-es-cl.test.ts`): ningún `toLocale*String` ni
+  `new Intl.*` sin `'es-CL'`, ni un `format` de date-fns con nombres de mes sin `{ locale: es }`
+  («29,586» y «16 Oct 26» salían en producción).
+- **Campos a 16 px en móvil**: `.input-field` es `text-base sm:text-sm` (Safari amplía la página
+  con menos), y un `text-sm` suelto en el campo lo deshace. `__tests__/campos-moviles.test.ts`.
 - **La navegación es UNA lista**, `lib/navegacion.ts` (`SECCIONES`, `GUARDADOS`,
-  `enlacesAbiertos`, `mapaDelSitio`, `esSeccionActiva`): de ahí salen la fila de escritorio, el
-  menú móvil y el mapa del pie. Una sección nueva se añade ahí y en ningún otro sitio;
+  `enlacesAbiertos`, `mapaDelSitio`, `columnasDelPie`, `esSeccionActiva`): de ahí salen la fila de
+  escritorio, el menú móvil y las columnas del pie. «Compra Ágil», no «Hoy» (V12). Una sección nueva se añade ahí y en ningún otro sitio;
   `__tests__/navegacion.test.ts` exige que cada ruta interna tenga su página. **El fichero no
   importa nada**: lo leen también los E2E, que no resuelven `@/`.
 - **Cabecera y pie son componentes de servidor** con cuatro islas cliente: `EnlaceSeccion` (sección
   activa con `usePathname` y `aria-current`), `MarcoCabecera` (el `<header>`, con un solo
   `onClick` que cierra el menú móvil al pulsar cualquier enlace), `EnlaceGuardados` (contador con
   `useSyncExternalStore` sobre los almacenes de `/guardados`: licitaciones guardadas o postuladas,
-  sin repetir, más búsquedas) y `SelectorTema`, en el pie. `__tests__/cabecera.test.tsx` falla si
+  sin repetir, más búsquedas) y `SelectorTema`, en el pie. **El pie** (`PieSitio`, spec PORTADA_V7
+  §6): cuatro columnas desde `lg` y dos en móvil —«Sitio», «Abierto», «Sobre el sitio» (con los
+  legales, el costo y el contacto) y, sólo con `AUTOR_NOMBRE`, «Lo hace»—; debajo, la cita
+  (`PieAtribucion`, ya sin enlaces), «No estamos afiliados al gobierno de Chile.», «Sitio en el
+  commit `abc1234`» (sólo con `VERCEL_GIT_COMMIT_SHA`, enlazado si hay repositorio;
+  `commitDelSitio` en `lib/repositorio.ts`) y el selector de tema. `__tests__/cabecera.test.tsx` falla si
   otro fichero de `components/cascara/` se vuelve cliente o usa un color crudo.
   **La marca lleva el pájaro del logo** (`PajaroMarca`): SVG de servidor con los trazos de
   `lib/pajaroImagen.ts` (la misma copia que la tarjeta de vista previa) y los tokens invariantes
@@ -738,8 +764,8 @@ escala**. Es una heurística sin verdad contra la que evaluarla: ordena, no pred
   borra, 90 días después de su cierre.
 
 **Páginas públicas indexables (paso 10)** — `/compradores/[codigo]`, `/rubros/[slug]`,
-`/productos/[slug]` y la búsqueda `/productos`, en el grupo `app/(publico)/`, que sólo fija el ancho
-de lectura (cabecera y pie, con la atribución, son de la cáscara única). Datos de `GET /publico/*` (`api/publico.py`, `services/publico/`).
+`/productos/[slug]` y la búsqueda `/productos`, en el grupo `app/(publico)/`, que sólo pone el
+contenedor único (cabecera y pie, con la atribución, son de la cáscara única). Datos de `GET /publico/*` (`api/publico.py`, `services/publico/`).
 - **La búsqueda de productos vive en la URL** (`/productos?q=`, `rutaBusquedaProductos` en
   `lib/publico.ts`): el buscador la lee con `useSearchParams` en un inicializador perezoso,
   dentro de `Suspense`, y la escribe con `replaceState` (con ≥ 3 letras, tras el retardo).
@@ -935,9 +961,9 @@ componentes cliente y la home perdería título y tarjeta de preview.
   lee y su tipo (un item `null` en «Lo mejor de hoy» hacía lanzar el render y dejaba una página de
   error en vez de un bloque oculto). Con el backend caído la portada sale con el buscador, las
   cifras ausentes y la ficha (`__tests__/portada.test.tsx`).
-- «Úsalo como quieras» enlaza a `/abierto`; «Código» sólo sale con `REPOSITORIO_URL`. **«Hecho por»
-  sólo con `RESPONSABLE_LEGAL`** (`nombreResponsable()`, `null` sin ella): la portada nunca enseña
-  el `[[hueco]]` de los documentos legales.
+- «Úsalo como quieras» enlaza a `/abierto`; «Código» sólo sale con `REPOSITORIO_URL`. **«Lo hace»
+  sólo con `AUTOR_NOMBRE`** (`nombreAutor()` de `lib/autor.ts`, `null` sin ella): la autoría no es
+  el responsable legal, y la portada nunca enseña el `[[hueco]]` de los documentos legales.
 - **Sin «Inteligencia»** en la portada, los metadatos (`openGraph` y `twitter` incluidos) ni la
   tarjeta de vista previa (R10): `__tests__/r10-sin-inteligencia.test.ts`.
 - `e2e/portada.spec.ts` mide la portada a 320, 390, 1024 y 1440 px sin desborde y la captura en
@@ -976,7 +1002,7 @@ medición se rotula «Estimado» (hoy, el dominio). El total es una **proyecció
 cuesta US$5 e incluye US$5 de uso, así que se paga el mayor de los dos —el uso medido, ~US$9–10—
 más el dominio (~US$1). Se repite al cerrar el primer periodo de facturación (2026-11-13). La
 portada y `/apoyar` lo leen de ahí (la prosa de `/apoyar` sale de las mismas constantes). «Cuánto cuesta» está en el pie
-(`PieAtribucion`).
+(columna «Sobre el sitio»).
 
 **Abierto** (`/abierto`): API, MCP con una caja de instalación por cliente, CSV y RSS, código y
 licencias (código AGPL-3.0 o posterior, `AGPL-3.0-or-later`; lo que el sitio calcula, CC BY 4.0; el catálogo, condiciones de
@@ -1029,8 +1055,8 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   publican **sólo el nombre del responsable y `hola@tordo.cl`** (`lib/responsable.ts`): ni RUT
   ni domicilio, que la ley no pide. El nombre sale de `RESPONSABLE_LEGAL` (servidor, se lee en
   el build) para no quedar en el repo; sin ella el `[[hueco]]` se ve, **nunca un dato
-  inventado**. La portada y `/acerca` firman con ese nombre sólo si existe
-  (`nombreResponsable()` devuelve `null` sin la variable): ahí no se enseña el hueco. La fecha de vigencia se pone al publicar. Si cambia lo que el sistema trata (IP, Sentry, analytics, `localStorage`),
+  inventado**. La portada, `/acerca` y el pie NO firman con ese nombre: firman con
+  `AUTOR_NOMBRE` (`lib/autor.ts`, V5), y sin ella no firman. La fecha de vigencia se pone al publicar. Si cambia lo que el sistema trata (IP, Sentry, analytics, `localStorage`),
   la política se corrige en el mismo PR.
 - **BI**: batch en Polars → tablas materializadas en `analytics.*` → consulta con filtros
   empujados a SQL → fallback jerárquico **L0→L0N→L1→L2→L3→L4** con dispersión y tamaño de
@@ -1485,8 +1511,13 @@ falta alguna de las dos primeras, y si `MCP_HOSTS_PERMITIDOS` sólo tiene `local
 obligatorio que nadie usa enseña a rellenar variables sin mirar.
 
 **`RESPONSABLE_LEGAL`** (servidor de Next, en el build): el nombre que firman `/terminos` y
-`/privacidad` y, si está, el «hecho por» de la portada y de `/acerca`. En Vercel tiene que estar
-definida al construir.
+`/privacidad`. En Vercel tiene que estar definida al construir.
+
+**`AUTOR_NOMBRE` y `AUTOR_URL`** (servidor de Next, en el build, opcionales; `lib/autor.ts`): quién
+hace el sitio, en el «Lo hace» de la portada, `/acerca` («Lo hace {Nombre}, data scientist, a título
+personal.») y el pie. Sin `AUTOR_NOMBRE` no se firma nada; `AUTOR_URL` sólo `https://`, y
+`nombreDelEnlace` la nombra «GitHub», «LinkedIn» o por su dominio. **`VERCEL_GIT_COMMIT_SHA`** la
+pone Vercel en el build: el commit del pie.
 
 **`REPOSITORIO_URL`** (servidor de Next, en el build, opcional, sólo `https://`): el repositorio
 público para «Código» en `/abierto` y para los términos §7, que la leen solos. **Puesta en

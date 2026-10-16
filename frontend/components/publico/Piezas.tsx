@@ -6,56 +6,39 @@ import { ArrowRight } from 'lucide-react';
  * ni efectos, así que llegan al navegador como HTML y nada más.
  */
 
-/** La cabecera de una ficha: qué es, cómo se llama y de cuándo son los datos. */
+/**
+ * La cabecera de una página pública: cómo se llama y de cuándo son los datos.
+ *
+ * Sin antetítulo en mayúsculas («PRECIO DE REFERENCIA», «ACERCA»): repetía la
+ * navegación y es una señal de plantilla (spec PORTADA_V7, V10). Nada va antes
+ * del `h1`: el tope lo pone el contenedor (§4).
+ */
 export function CabeceraFicha({
-  tipo,
   titulo,
   subtitulo,
   children,
 }: {
-  tipo: string;
   titulo: string;
   subtitulo?: React.ReactNode;
   children?: React.ReactNode;
 }) {
   return (
     <header className="mb-8">
-      <p className="text-xs font-semibold uppercase tracking-wider text-primary">{tipo}</p>
-      <h1 className="mt-2 font-display break-words text-2xl leading-tight text-text sm:text-3xl">
-        {titulo}
-      </h1>
-      {subtitulo && <p className="mt-2 text-sm text-muted">{subtitulo}</p>}
+      <h1 className="page-title break-words">{titulo}</h1>
+      {subtitulo && <p className="mt-2 max-w-3xl text-sm text-muted">{subtitulo}</p>}
       {children}
     </header>
   );
 }
 
-export function Seccion({
-  id,
-  titulo,
-  descripcion,
-  children,
-}: {
-  /** Ancla de la sección (`/abierto#mcp`, `/apoyar#costos`). */
-  id?: string;
-  titulo: string;
-  descripcion?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section id={id} className="mt-10 scroll-mt-6">
-      <h2 className="font-display text-lg text-text">{titulo}</h2>
-      {descripcion && <p className="mt-1 text-sm text-muted">{descripcion}</p>}
-      <div className="mt-4">{children}</div>
-    </section>
-  );
-}
+/** La sección de página es la de la cáscara: una sola separación en todo el sitio. */
+export { Seccion } from '@/components/cascara/Seccion';
 
 /** Una cifra con su etiqueta, para las franjas de datos clave. */
 export function Dato({ etiqueta, valor }: { etiqueta: string; valor: string }) {
   return (
     <div>
-      <p className="text-[11px] uppercase tracking-wider text-subtle">{etiqueta}</p>
+      <p className="text-xs text-muted">{etiqueta}</p>
       <p className="cifra mt-1 text-xl font-bold leading-none text-text">{valor}</p>
     </div>
   );
@@ -88,7 +71,7 @@ export function TablaEnlaces({
     <div className="overflow-x-auto rounded-xl border border-border bg-surface">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-border text-left text-[11px] uppercase tracking-wider text-subtle">
+          <tr className="border-b border-border text-left text-xs text-muted">
             {encabezados.map((e, i) => (
               <th key={e} scope="col" className={`px-4 py-2 font-semibold ${i > 0 ? 'text-right' : ''}`}>
                 {e}

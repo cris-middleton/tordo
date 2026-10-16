@@ -25,7 +25,6 @@ export default function PaginaProductos() {
   return (
     <article className="max-w-3xl">
       <CabeceraFicha
-        tipo="Precios de referencia"
         titulo="¿Cuánto paga el Estado por…?"
         subtitulo="Busca un producto por cómo lo describen los compradores. Cada ficha trae la banda de precios por unidad y quién lo compra."
       />

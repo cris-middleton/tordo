@@ -34,7 +34,6 @@ export default function PaginaApoyar() {
   return (
     <article className="max-w-3xl">
       <CabeceraFicha
-        tipo="Apoyar"
         titulo={`${APP_NAME} es gratis. Mantenerlo, casi.`}
         subtitulo="Lo sostienen los aportes de quienes lo usan."
       />
@@ -73,7 +72,7 @@ export default function PaginaApoyar() {
 
       <Seccion titulo="Cómo aportar">
         {hayAlguno ? (
-          <div className="space-y-5">
+          <div className="space-y-6">
             {enlaces.length > 0 && (
               <ul className="flex flex-wrap gap-3">
                 {principal && (

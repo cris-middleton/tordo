@@ -138,11 +138,11 @@ function CatalogoContenido() {
     setFiltros((prev) => ({ ...prev, page: actualizar(prev.page) }));
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="page-title">Licitaciones</h1>
-          <p className="text-sm text-muted mt-0.5">Busca y explora licitaciones públicas</p>
+          <p className="mt-2 text-sm text-muted">Busca y explora licitaciones públicas</p>
         </div>
       </div>
 
@@ -156,7 +156,7 @@ function CatalogoContenido() {
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={handleKeywordKeyDown}
-            className="input-field pl-9 text-sm"
+            className="input-field pl-9"
             autoComplete="off"
           />
         </div>
@@ -193,14 +193,14 @@ function CatalogoContenido() {
             placeholder="Monto mínimo"
             value={filtros.min_amount}
             onChange={(e) => handleFilterChange('min_amount', e.target.value)}
-            className="input-field text-sm"
+            className="input-field"
           />
           <input
             type="number"
             placeholder="Monto máximo"
             value={filtros.max_amount}
             onChange={(e) => handleFilterChange('max_amount', e.target.value)}
-            className="input-field text-sm"
+            className="input-field"
           />
         </div>
         <label className="flex w-fit cursor-pointer items-center gap-2 text-sm text-muted">
@@ -241,7 +241,7 @@ function CatalogoContenido() {
       {/* Sort bar */}
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 rounded-lg border border-border bg-surface px-3 py-1.5">
         <p className="text-xs text-muted">
-          <span className="font-semibold text-text">{total.toLocaleString()}</span> resultado{total !== 1 ? 's' : ''}
+          <span className="font-semibold text-text">{total.toLocaleString('es-CL')}</span> resultado{total !== 1 ? 's' : ''}
         </p>
         <div className="flex flex-wrap items-center gap-1.5">
           {busquedaGuardada ? (
@@ -265,7 +265,7 @@ function CatalogoContenido() {
           <select
             value={sortBy}
             onChange={(e) => cambiar({ sort_by: e.target.value as Orden })}
-            className="min-w-0 max-w-full rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
+            className="min-w-0 max-w-full rounded border border-border bg-background px-2 py-1 text-base text-text sm:text-xs focus:border-primary/50 focus:outline-none"
           >
             {keywords.length > 0 && <option value="relevance">Relevancia</option>}
             <option value="fecha_publicacion">Publicación</option>
@@ -276,7 +276,7 @@ function CatalogoContenido() {
           <select
             value={sortOrder}
             onChange={(e) => cambiar({ sort_order: e.target.value as 'asc' | 'desc' })}
-            className="min-w-0 max-w-full rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
+            className="min-w-0 max-w-full rounded border border-border bg-background px-2 py-1 text-base text-text sm:text-xs focus:border-primary/50 focus:outline-none"
           >
             <option value="desc">↓ Mayor</option>
             <option value="asc">↑ Menor</option>
@@ -284,7 +284,7 @@ function CatalogoContenido() {
           <select
             value={String(limit)}
             onChange={(e) => cambiar({ limit: Number(e.target.value) })}
-            className="min-w-0 max-w-full rounded border border-border bg-background px-2 py-1 text-xs text-text focus:border-primary/50 focus:outline-none"
+            className="min-w-0 max-w-full rounded border border-border bg-background px-2 py-1 text-base text-text sm:text-xs focus:border-primary/50 focus:outline-none"
           >
             <option value="10">10</option>
             <option value="20">20</option>
@@ -409,7 +409,7 @@ function CatalogoContenido() {
           {!biLoading && !biError && biPanel && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="rounded-lg border border-border bg-background px-3 py-2 space-y-1">
-                <p className="text-[10px] font-semibold text-muted uppercase tracking-wide">Comprador</p>
+                <p className="text-xs font-semibold text-muted">Comprador</p>
                 {biPanel.comprador.disponible ? (
                   <>
                     {biPanel.comprador.buyer_score != null && (
@@ -434,7 +434,7 @@ function CatalogoContenido() {
 
               {biPanel.precios.length > 0 && biPanel.precios[0].disponible && biPanel.precios[0].p50 != null && (
                 <div className="rounded-lg border border-border bg-background px-3 py-2 space-y-1">
-                  <p className="text-[10px] font-semibold text-muted uppercase tracking-wide">Precio referencia</p>
+                  <p className="text-xs font-semibold text-muted">Precio de referencia</p>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted">P50</span>
                     <span className="font-semibold text-primary">
@@ -455,8 +455,8 @@ function CatalogoContenido() {
 
               {biPanel.competidores.disponible && (biPanel.competidores.top5?.length ?? 0) > 0 && (
                 <div className="rounded-lg border border-border bg-background px-3 py-2 space-y-1">
-                  <p className="text-[10px] font-semibold text-muted uppercase tracking-wide">
-                    Competidores {biPanel.competidores.tipo_mercado ? `· ${biPanel.competidores.tipo_mercado}` : ''}
+                  <p className="text-xs font-semibold text-muted">
+                    Competidores{biPanel.competidores.tipo_mercado ? `, ${biPanel.competidores.tipo_mercado}` : ''}
                   </p>
                   {biPanel.competidores.top5!.slice(0, 3).map((c, i) => (
                     <div key={i} className="flex items-center justify-between text-xs">
@@ -501,7 +501,7 @@ export default function TendersPage() {
       fallback={
         // El título va también en el respaldo: es lo que sirve el servidor, y
         // sin él el HTML del catálogo no tenía <h1>.
-        <div className="space-y-5">
+        <div className="space-y-6">
           <h1 className="page-title">Licitaciones</h1>
           <div className="flex items-center justify-center py-24">
             <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />

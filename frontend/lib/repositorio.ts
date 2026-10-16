@@ -20,3 +20,24 @@ type Entorno = Record<string, string | undefined>;
 export function urlRepositorio(entorno: Entorno = process.env): string | null {
   return urlSegura(entorno.REPOSITORIO_URL);
 }
+
+/** El commit del que salió este despliegue: lo corto para leer y, con repositorio, su URL. */
+export interface CommitDelSitio {
+  corto: string;
+  url: string | null;
+}
+
+/**
+ * «Sitio en el commit `abc1234`» del pie (spec PORTADA_V7 §6). Sale de
+ * `VERCEL_GIT_COMMIT_SHA`, que Vercel pone sola en el build; sin ella (en local,
+ * en los E2E) no sale nada. Con `REPOSITORIO_URL`, enlaza al commit.
+ */
+export function commitDelSitio(entorno: Entorno = process.env): CommitDelSitio | null {
+  const sha = entorno.VERCEL_GIT_COMMIT_SHA?.trim().toLowerCase();
+  if (!sha || !/^[0-9a-f]{7,40}$/.test(sha)) return null;
+  const repositorio = urlRepositorio(entorno);
+  return {
+    corto: sha.slice(0, 7),
+    url: repositorio ? `${repositorio.replace(/\/+$/, '')}/commit/${sha}` : null,
+  };
+}

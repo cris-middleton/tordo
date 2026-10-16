@@ -32,7 +32,7 @@ export function RubroFilter({
   const [dropdownSearch, setDropdownSearch] = useState('');
 
   return (
-    <div className="sticky top-0 z-20 bg-background border-b border-border px-4 py-3 flex flex-wrap items-center gap-3">
+    <div className="sticky top-0 z-20 mt-4 bg-background border-b border-border py-3 flex flex-wrap items-center gap-3">
       {/* Title */}
       <span className="text-sm font-semibold text-text shrink-0">Mercado:</span>
 
@@ -62,7 +62,7 @@ export function RubroFilter({
                   <input
                     autoFocus
                     type="text"
-                    className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none"
+                    className="w-full pl-8 pr-3 py-1.5 text-base sm:text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none"
                     placeholder="Buscar rubro..."
                     value={dropdownSearch}
                     onChange={(e) => setDropdownSearch(e.target.value)}

@@ -36,7 +36,9 @@ async function comprobarFicha(page: Page, ruta: string) {
   await expect(page.locator('meta[name="robots"][content*="noindex"]')).toHaveCount(0);
   // La cita de la fuente y los enlaces legales, como en todo el sitio.
   await expect(page.getByText(/^Fuente: Dirección de Compras y Contratación Pública/)).toBeVisible();
-  await expect(page.getByRole('navigation', { name: /documentos legales/i })).toBeVisible();
+  const pie = page.getByRole('contentinfo');
+  await expect(pie.getByRole('link', { name: 'Términos de uso' })).toBeVisible();
+  await expect(pie.getByRole('link', { name: 'Privacidad' })).toBeVisible();
 }
 
 test('una ficha de comprador', async ({ page, request }) => {

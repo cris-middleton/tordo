@@ -5,6 +5,8 @@ import Link from 'next/link';
 import * as Sentry from '@sentry/nextjs';
 import { RotateCcw } from 'lucide-react';
 
+import { Contenedor } from '@/components/cascara/Contenedor';
+
 /**
  * La frontera de error de la aplicación.
  *
@@ -28,13 +30,13 @@ export default function Error({
   }, [error]);
 
   return (
-    <div className="min-h-[60vh] flex items-center justify-center p-6">
-      <div className="max-w-md text-center">
-        <h1 className="page-title mb-2">Algo se rompió</h1>
-        <p className="text-sm text-muted mb-6">
+    <Contenedor pagina>
+      <div className="max-w-3xl">
+        <h1 className="page-title">Algo se rompió</h1>
+        <p className="mt-2 text-sm text-muted">
           El fallo quedó registrado. Puedes reintentar: muchas veces es pasajero.
         </p>
-        <div className="flex items-center justify-center gap-3">
+        <div className="mt-6 flex items-center gap-3">
           <button type="button" onClick={reset} className="btn-primary gap-2">
             <RotateCcw size={15} />
             Reintentar
@@ -52,6 +54,6 @@ export default function Error({
           </p>
         )}
       </div>
-    </div>
+    </Contenedor>
   );
 }

@@ -51,7 +51,7 @@ export default function TabForecast({ rubro }: { rubro: string }) {
         <select
           value={tipo}
           onChange={(e) => setTipo(e.target.value)}
-          className="input-field text-sm"
+          className="input-field"
         >
           <option value="L1">L1 — menor cuantía</option>
           <option value="LE">LE — mediana cuantía</option>
@@ -62,7 +62,7 @@ export default function TabForecast({ rubro }: { rubro: string }) {
           onChange={(e) => setOrganismo(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && consultar()}
           placeholder="Organismo (opcional)"
-          className="input-field text-sm"
+          className="input-field"
         />
         <button
           onClick={consultar}
@@ -124,8 +124,8 @@ export default function TabForecast({ rubro }: { rubro: string }) {
             )}
             <p className="text-xs text-muted">
               {nCasos && <>Basado en {nCasos} casos históricos</>}
-              {resultado?.nivel_usado && <> · Fuente: {nivelLabel(resultado.nivel_usado)}</>}
-              {resultado?.fallback && <> · <span className="italic">fallback a nivel más general</span></>}
+              {resultado?.nivel_usado && <>. Fuente: {nivelLabel(resultado.nivel_usado)}</>}
+              {resultado?.fallback && <>. <span className="italic">fallback a nivel más general</span></>}
             </p>
           </div>
         );

@@ -7,6 +7,7 @@
  */
 
 import { format } from 'date-fns';
+import es from 'date-fns/locale/es';
 import { decimal } from '@/lib/formato';
 
 // Viven aparte, sin `date-fns`: ver `nombresChile.ts`.
@@ -53,5 +54,5 @@ export const getClosingUrgency = (fechaCierre?: string | null) => {
   if (daysLeft === 0) return { label: 'Cierra hoy', cls: 'text-danger font-bold' };
   if (daysLeft <= 2) return { label: `${daysLeft}d`, cls: 'text-danger font-semibold' };
   if (daysLeft <= 7) return { label: `${daysLeft}d`, cls: 'text-gold font-medium' };
-  return { label: format(closing, 'dd MMM'), cls: 'text-muted' };
+  return { label: format(closing, 'd MMM', { locale: es }), cls: 'text-muted' };
 };

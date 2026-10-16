@@ -18,7 +18,6 @@ export default function PaginaGuias() {
   return (
     <article className="max-w-3xl">
       <CabeceraFicha
-        tipo="Guías"
         titulo="Cómo leer los datos de compras públicas"
         subtitulo="Qué significa cada cifra, de dónde sale y dónde están sus límites."
       />

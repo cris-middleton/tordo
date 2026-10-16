@@ -40,7 +40,6 @@ export default function PaginaAbierto() {
   return (
     <article className="max-w-3xl">
       <CabeceraFicha
-        tipo="Abierto"
         titulo="Úsalo como quieras"
         subtitulo={`Todo lo que muestra ${APP_NAME} se puede leer desde otro programa, desde un asistente de IA o en una planilla.`}
       >

@@ -9,7 +9,7 @@ import {
   pedirSectoresPortada,
 } from '@/lib/publicoServidor';
 import { urlRepositorio } from '@/lib/repositorio';
-import { nombreResponsable } from '@/lib/responsable';
+import { nombreAutor } from '@/lib/autor';
 
 /**
  * La portada. **Componente de servidor, y tiene que seguir siéndolo**: Next
@@ -85,7 +85,7 @@ export default async function Home() {
       sectores={sectores}
       producto={producto}
       repositorio={urlRepositorio()}
-      autor={nombreResponsable()}
+      autor={nombreAutor()}
     />
   );
 }

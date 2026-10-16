@@ -4,6 +4,7 @@ import { Heart, Menu } from 'lucide-react';
 import { SECCIONES, enlacesAbiertos } from '@/lib/navegacion';
 import { urlRepositorio } from '@/lib/repositorio';
 
+import { Contenedor } from './Contenedor';
 import { EnlaceGuardados } from './EnlaceGuardados';
 import { EnlaceSeccion } from './EnlaceSeccion';
 import { MarcoCabecera } from './MarcoCabecera';
@@ -27,13 +28,15 @@ const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
  * - **No es fija**: la barra de filtros de `/mercado` (`sticky top-0`) se queda
  *   arriba al bajar sin quedar debajo de nada.
  * - Sin `<h1>`: el de cada página es el único.
+ * - Dentro del contenedor único (`Contenedor`): la marca y el `h1` de cada página
+ *   arrancan en el mismo borde izquierdo (spec PORTADA_V7 §4).
  */
 export function Cabecera() {
   const abiertos = enlacesAbiertos(urlRepositorio());
 
   return (
     <MarcoCabecera className="relative z-30 border-b border-border bg-surface">
-      <div className="mx-auto flex h-14 max-w-6xl items-center gap-2 px-4 sm:gap-3 sm:px-6 lg:gap-8 lg:px-8">
+      <Contenedor className="flex h-14 items-center gap-2 sm:gap-3 lg:gap-8">
         <Link href="/" className="flex shrink-0 items-center gap-2" aria-label={`${APP_NAME}, inicio`}>
           <PajaroMarca />
           <span className="font-brand text-lg leading-none text-text">{APP_NAME}</span>
@@ -88,7 +91,7 @@ export function Cabecera() {
             </nav>
           </details>
         </div>
-      </div>
+      </Contenedor>
     </MarcoCabecera>
   );
 }

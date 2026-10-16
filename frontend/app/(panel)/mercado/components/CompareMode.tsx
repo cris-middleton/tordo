@@ -151,7 +151,7 @@ export function CompareMode({ rubroA, rubroB, allRubros, onChangeRubroA, onChang
         <select
           value={rubroA}
           onChange={(e) => onChangeRubroA(e.target.value)}
-          className="input-field text-sm max-w-xs"
+          className="input-field max-w-xs"
         >
           {allRubros.filter((r) => r !== rubroB).map((r) => (
             <option key={r} value={r}>{r}</option>
@@ -161,7 +161,7 @@ export function CompareMode({ rubroA, rubroB, allRubros, onChangeRubroA, onChang
         <select
           value={rubroB}
           onChange={(e) => onChangeRubroB(e.target.value)}
-          className="input-field text-sm max-w-xs"
+          className="input-field max-w-xs"
         >
           <option value="">Selecciona rubro para comparar</option>
           {allRubros.filter((r) => r !== rubroA).map((r) => (

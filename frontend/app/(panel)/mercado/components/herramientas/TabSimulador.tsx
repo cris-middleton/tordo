@@ -208,7 +208,7 @@ export default function TabSimulador({ rubroInicial, organismosConNombre, allRub
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <div>
           <label className="text-xs text-muted block mb-1">Tipo</label>
-          <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="input-field text-sm w-full">
+          <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="input-field w-full">
             <option value="L1">L1 — menor cuantía</option>
             <option value="LE">LE — mediana cuantía</option>
             <option value="LP">LP — pública</option>
@@ -216,7 +216,7 @@ export default function TabSimulador({ rubroInicial, organismosConNombre, allRub
         </div>
         <div>
           <label className="text-xs text-muted block mb-1">Rubro</label>
-          <select value={rubro} onChange={(e) => setRubro(e.target.value)} className="input-field text-sm w-full">
+          <select value={rubro} onChange={(e) => setRubro(e.target.value)} className="input-field w-full">
             <option value="">Selecciona rubro</option>
             {allRubros.map((r) => (
               <option key={r} value={r}>{r}</option>
@@ -226,7 +226,7 @@ export default function TabSimulador({ rubroInicial, organismosConNombre, allRub
         <div>
           <label className="text-xs text-muted block mb-1">Organismo (opcional)</label>
           {organismosConNombre && organismosConNombre.length > 0 ? (
-            <select value={organismo} onChange={(e) => setOrganismo(e.target.value)} className="input-field text-sm w-full">
+            <select value={organismo} onChange={(e) => setOrganismo(e.target.value)} className="input-field w-full">
               <option value="">Cualquiera</option>
               {organismosConNombre.map((o) => (
                 <option key={o.codigo} value={o.codigo} title={o.nombre}>
@@ -239,7 +239,7 @@ export default function TabSimulador({ rubroInicial, organismosConNombre, allRub
               value={organismo}
               onChange={(e) => setOrganismo(e.target.value)}
               placeholder="Código organismo"
-              className="input-field text-sm w-full"
+              className="input-field w-full"
             />
           )}
         </div>

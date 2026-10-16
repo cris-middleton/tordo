@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { format } from 'date-fns';
+import es from 'date-fns/locale/es';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -147,13 +148,13 @@ export default function TenderDetailPage() {
                 <p>
                   <span className="font-medium text-text">Publicación: </span>
                   {tenderData.fecha_publicacion
-                    ? format(new Date(tenderData.fecha_publicacion), 'dd MMM yyyy')
+                    ? format(new Date(tenderData.fecha_publicacion), 'd MMM yyyy', { locale: es })
                     : 'Sin información'}
                 </p>
                 <p>
                   <span className="font-medium text-text">Cierre: </span>
                   {tenderData.fecha_cierre
-                    ? format(new Date(tenderData.fecha_cierre), 'dd MMM yyyy')
+                    ? format(new Date(tenderData.fecha_cierre), 'd MMM yyyy', { locale: es })
                     : 'Sin información'}
                 </p>
                 {typeof tenderData.dias_publicacion === 'number' && (

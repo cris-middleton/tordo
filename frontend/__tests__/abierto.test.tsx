@@ -22,7 +22,7 @@ import {
   instalacionesMcp,
 } from '@/lib/abierto';
 import { Cabecera } from '@/components/cascara/Cabecera';
-import { PieAtribucion } from '@/components/legal/PieAtribucion';
+import { PieSitio } from '@/components/cascara/PieSitio';
 import PaginaAbierto, { metadata } from '@/app/(publico)/abierto/page';
 import PaginaPrivacidad from '@/app/privacidad/page';
 import PaginaTerminos from '@/app/terminos/page';
@@ -262,7 +262,7 @@ describe('se llega a /abierto', () => {
 
 describe('el pie y los términos', () => {
   it('el pie enlaza el costo', () => {
-    render(<PieAtribucion />);
+    render(<PieSitio />);
     expect(screen.getByRole('link', { name: 'Cuánto cuesta' })).toHaveAttribute('href', '/apoyar#costos');
   });
 

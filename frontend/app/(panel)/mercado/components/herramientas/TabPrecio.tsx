@@ -101,7 +101,7 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
           onFocus={() => setCerradoAMano(false)}
           onBlur={() => { setTimeout(() => setCerradoAMano(true), 150); }}
           placeholder="Escribe al menos 2 letras (ej: uniformes, reactivos, papel)"
-          className="input-field pl-9 pr-9 w-full text-sm"
+          className="input-field pl-9 pr-9 w-full"
         />
         {searching && (
           <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-primary" />
@@ -124,7 +124,7 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
                 <p className="text-sm text-text font-medium">{p.nombre}</p>
                 <p className="text-xs text-muted">
                   Código <span className="font-mono">{p.codigoProductoONU}</span>
-                  {p.n != null && <> · {p.n.toLocaleString('es-CL')} transacciones</>}
+                  {p.n != null && <>, {p.n.toLocaleString('es-CL')} transacciones</>}
                 </p>
               </button>
             ))}
@@ -138,7 +138,7 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
           <select
             value={organismo}
             onChange={(e) => setOrganismo(e.target.value)}
-            className="input-field text-sm"
+            className="input-field"
           >
             <option value="">Todos los organismos (opcional)</option>
             {organismosConNombre.map((o) => (
@@ -152,7 +152,7 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
             value={organismo}
             onChange={(e) => setOrganismo(e.target.value)}
             placeholder="Organismo (opcional)"
-            className="input-field text-sm"
+            className="input-field"
           />
         )}
         <button
@@ -187,10 +187,10 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
               {/* Sólo se anuncia la cuenta cuando hay más de una: es la
                   diferencia visible entre "un precio" y "esta categoría son
                   varios productos distintos" — el hallazgo que motivó L0. */}
-              {bandas.length > 1 && <> · {bandas.length} productos distintos en esta categoría</>}
+              {bandas.length > 1 && <>. {bandas.length} productos distintos en esta categoría</>}
               {/* Sin esto la banda se lee como histórica, y son sólo los
                   últimos 12 meses de datos (36 en la referencia del organismo). */}
-              {textoPeriodo(resultado.periodo) && <> · Precios de {textoPeriodo(resultado.periodo)}</>}
+              {textoPeriodo(resultado.periodo) && <>. Precios de {textoPeriodo(resultado.periodo)}</>}
             </p>
           )}
           <div className="space-y-2">
@@ -241,7 +241,7 @@ function BandaPrecioCard({ banda }: { banda: PrecioBanda }) {
             un pie de página, para que nunca se lea el número sin su unidad. */}
         {banda.UnidadMedida && <> por {banda.UnidadMedida}</>}
         {banda.p10 != null && banda.p90 != null && (
-          <> · rango habitual: <b>{formatCLPShort(banda.p10)}</b> a <b>{formatCLPShort(banda.p90)}</b></>
+          <>, rango habitual: <b>{formatCLPShort(banda.p10)}</b> a <b>{formatCLPShort(banda.p90)}</b></>
         )}
         {'.'}
       </p>
@@ -254,7 +254,7 @@ function BandaPrecioCard({ banda }: { banda: PrecioBanda }) {
         {banda.n != null && <>Basado en <b>{banda.n.toLocaleString('es-CL')}</b> transacciones</>}
         {/* `confianza` es un float 0-1 del backend, no el texto que declaraba
             el tipo antes — se muestra como porcentaje, que es lo que es. */}
-        {banda.confianza != null && <> · Confianza: {Math.round(banda.confianza * 100)}%</>}
+        {banda.confianza != null && <>. Confianza: {Math.round(banda.confianza * 100)}%</>}
       </p>
       {info && (
         <div className="flex flex-wrap items-center gap-2">
