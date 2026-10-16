@@ -17,7 +17,7 @@ en la capa HTTP.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import DateTime, Select, and_, asc, case, desc, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -323,6 +323,72 @@ async def contar_abiertas(db: AsyncSession, ahora: datetime | None = None) -> Co
         compra_agil_por_cierre=PorCierre(
             hoy=hoy, manana=manana_n, dos_tres_dias=dos_tres, despues=despues
         ),
+    )
+
+
+@dataclass(frozen=True)
+class PublicadasDelDia:
+    total: int
+    #: El `nombre_organismo` tal como se guardó (el más frecuente de su grupo).
+    #: None si no hubo publicaciones o si ninguna traía nombre.
+    organismo: str | None
+
+
+def nombre_organismo_normalizado():
+    """La clave con que se agrupa a un organismo por su NOMBRE: sin tildes, en
+    minúsculas, con los espacios colapsados. Vacío cuenta como sin nombre (NULL).
+
+    Por nombre y no por código porque la Compra Ágil no trae `codigo_organismo`
+    (sólo nombre y RUT): por código caerían todas en un nulo. Límite conocido: un
+    organismo escrito de dos formas cuenta como dos. Es quedarse corto, nunca
+    inventar.
+    """
+    return func.nullif(
+        func.btrim(
+            func.lower(
+                func.regexp_replace(
+                    func.inmutable_unaccent(Licitacion.nombre_organismo), r"\s+", " ", "g"
+                )
+            )
+        ),
+        "",
+    )
+
+
+async def publicadas_del_dia(db: AsyncSession, dia: date | None = None) -> PublicadasDelDia:
+    """Cuántas licitaciones y Compras Ágiles activas se publicaron el `dia` de
+    Chile, y qué organismo publicó más (la franja de la portada, identidad §3.6).
+
+    No cabe en `contar_abiertas`: aquella filtra por abiertas, y una publicada
+    hoy puede haber cerrado ya. Una sola consulta sobre el rango del día (por el
+    índice de `fecha_publicacion`): agrupa por `nombre_organismo_normalizado`, el
+    total sale de `sum(count(*)) OVER ()` y el primer puesto, de ordenar con el
+    grupo sin nombre AL FINAL —las filas sin nombre cuentan en el total pero no
+    compiten— y el conteo de mayor a menor. Un empate lo gana la clave
+    alfabéticamente menor: el resultado no cambia entre dos renderizados.
+    """
+    dia = dia if dia is not None else hoy_chile()
+    clave = nombre_organismo_normalizado().label("clave")
+    consulta = (
+        select(
+            clave,
+            func.mode().within_group(Licitacion.nombre_organismo).label("nombre"),
+            func.sum(func.count()).over().label("total"),
+        )
+        .where(
+            Licitacion.activo.is_(True),
+            Licitacion.fecha_publicacion >= inicio_del_dia(dia),
+            Licitacion.fecha_publicacion < inicio_del_dia(dia + timedelta(days=1)),
+        )
+        .group_by(clave)
+        .order_by(clave.is_(None), func.count().desc(), clave)
+        .limit(1)
+    )
+    fila = (await db.execute(consulta)).one_or_none()
+    if fila is None:
+        return PublicadasDelDia(total=0, organismo=None)
+    return PublicadasDelDia(
+        total=int(fila.total), organismo=fila.nombre if fila.clave is not None else None
     )
 
 

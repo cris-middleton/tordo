@@ -113,3 +113,76 @@ async def test_sin_reloj_fijo_los_tramos_tambien_suman(async_db):
 async def test_un_reloj_sin_zona_se_rechaza(async_db):
     with pytest.raises(ValueError, match="zona horaria"):
         await repo.contar_abiertas(async_db, ahora=datetime(2031, 8, 16, 3, 45))
+
+
+# ── Publicadas hoy y quién publica más ───────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_cuenta_el_dia_de_chile_y_el_organismo_que_mas_publica(async_db):
+    async_db.add_all(
+        [
+            _lic("PUB-0010", publicada=_chile(DIA, 0, 10), organismo=HOSPITAL),
+            _lic("PUB-MEDIODIA", publicada=_chile(DIA, 12), organismo=HOSPITAL),
+            # 23:30 de Santiago = 03:30 UTC del día siguiente: sigue siendo HOY.
+            _lic("PUB-2330", publicada=_chile(DIA, 23, 30), organismo="  HOSPITAL  DEL SALVADOR "),
+            # 23:50 del día anterior = 03:50 UTC de HOY en UTC: NO es de hoy en Chile.
+            _lic("PUB-AYER", publicada=_chile(AYER, 23, 50), organismo=ARICA),
+            _lic("PUB-MANANA", publicada=_chile(MANANA, 0, 5), organismo=ARICA),
+            _lic("PUB-LIC", tipo="licitacion", publicada=_chile(DIA, 12), organismo=ARICA),
+            _lic("PUB-RETIRADA", publicada=_chile(DIA, 12), organismo=ARICA, activo=False),
+            # Sin nombre: cuentan en el total, no compiten. Son más que el hospital a propósito.
+            _lic("PUB-SIN-1", publicada=_chile(DIA, 13), organismo=None),
+            _lic("PUB-SIN-2", publicada=_chile(DIA, 13), organismo=None),
+            _lic("PUB-SIN-3", publicada=_chile(DIA, 13), organismo=None),
+            _lic("PUB-BLANCO", publicada=_chile(DIA, 13), organismo="   "),
+        ]
+    )
+    await async_db.flush()
+
+    hoy = await repo.publicadas_del_dia(async_db, DIA)
+
+    assert hoy.total == 8  # 3 del hospital + 1 de Arica + 4 sin nombre
+    # El nombre tal como se guardó, el más frecuente de su grupo.
+    assert hoy.organismo == HOSPITAL
+
+
+@pytest.mark.asyncio
+async def test_sin_publicaciones_es_cero_y_sin_organismo(async_db):
+    hoy = await repo.publicadas_del_dia(async_db, date(2031, 8, 1))
+
+    assert (hoy.total, hoy.organismo) == (0, None)
+
+
+@pytest.mark.asyncio
+async def test_si_ninguna_trae_nombre_no_hay_organismo(async_db):
+    async_db.add_all(
+        [
+            _lic("NUL-1", publicada=_chile(DIA, 10), organismo=None),
+            _lic("NUL-2", publicada=_chile(DIA, 11), organismo=""),
+        ]
+    )
+    await async_db.flush()
+
+    hoy = await repo.publicadas_del_dia(async_db, DIA)
+
+    assert (hoy.total, hoy.organismo) == (2, None)
+
+
+@pytest.mark.asyncio
+async def test_un_empate_lo_gana_siempre_el_mismo(async_db):
+    """Alfabético por la clave normalizada: dos renderizados de la portada no
+    pueden decir dos organismos distintos con los mismos datos."""
+    async_db.add_all(
+        [
+            _lic("EMP-B1", publicada=_chile(DIA, 10), organismo="Servicio B"),
+            _lic("EMP-B2", publicada=_chile(DIA, 11), organismo="Servicio B"),
+            _lic("EMP-A1", publicada=_chile(DIA, 12), organismo="Servicio A"),
+            _lic("EMP-A2", publicada=_chile(DIA, 13), organismo="Servicio A"),
+        ]
+    )
+    await async_db.flush()
+
+    hoy = await repo.publicadas_del_dia(async_db, DIA)
+
+    assert (hoy.total, hoy.organismo) == (4, "Servicio A")
