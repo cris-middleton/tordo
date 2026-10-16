@@ -989,7 +989,9 @@ componentes cliente y la home perdería título y tarjeta de preview.
     mismo redondeo de la frase), y la tabla de los cuatro tramos con hoy y mañana en negrita. Sin
     hora legible del resumen, no sale (su pie dice de cuándo es). Los tramos tienen que sumar las
     abiertas.
-  - **La nota** (§3.4, `lecturaNota`): la más reciente de `/notas`, con su resumen y su
+  - **La nota** (§3.4, `lecturaNota`): **la más reciente que trae `antes_despues`**
+    (`notaDeLaPortada`; si ninguna lo trae, la más reciente), para que las tres lecturas tengan
+    gráfico; la lista «Notas de datos» sigue con las cuatro últimas en su orden. Con su resumen y su
     `antes_despues` (`components/notas/AntesDespues.tsx`). Es contenido del repo: sale siempre, así
     que con el backend caído la banda sigue con una lectura.
 - **El pie de método** (`components/metodo/PieDeMetodo.tsx`, V3) va bajo cada lectura —y bajo el

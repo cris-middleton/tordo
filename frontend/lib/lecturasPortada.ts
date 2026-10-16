@@ -414,7 +414,17 @@ export interface LecturaNota {
 }
 
 /**
- * La nota más reciente (`leerNotas()[0]`), o `null` si no hay ninguna. Contenido
+ * Qué nota va en la portada: **la más reciente que trae `antes_despues`** (una
+ * lectura con gráfico, como las otras dos); si ninguna lo trae, la más reciente.
+ * `notas` viene de la más nueva a la más vieja (`leerNotas()`). La lista «Notas de
+ * datos» de más abajo no usa esta regla: enseña las últimas en su orden.
+ */
+export function notaDeLaPortada(notas: Nota[]): Nota | undefined {
+  return notas.find((n) => n.antes_despues !== null) ?? notas[0];
+}
+
+/**
+ * La lectura de una nota (la de `notaDeLaPortada`), o `null` si no hay ninguna. Contenido
  * estático: nunca falla. Enlaces: «Leer la nota», «El script» (si lo trae y hay
  * repositorio) y «El cambio» (si lo trae).
  */

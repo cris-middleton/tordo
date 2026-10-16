@@ -23,6 +23,7 @@ import {
   lecturaCierres,
   lecturaNota,
   lecturaPrecio,
+  notaDeLaPortada,
   precioDeBanda,
   PRODUCTO_PORTADA,
 } from '@/lib/lecturasPortada';
@@ -471,6 +472,23 @@ describe('lecturaNota', () => {
 
   it('sin notas, no hay lectura', () => {
     expect(lecturaNota(undefined, REPO)).toBeNull();
+  });
+});
+
+describe('notaDeLaPortada: la más reciente con gráfico', () => {
+  const sinGrafico = (slug: string, fecha = '2026-10-16'): Nota => ({ ...NOTA, slug, fecha, antes_despues: null });
+
+  it('salta las más recientes sin `antes_despues` y toma la primera que lo trae', () => {
+    const notas = [sinGrafico('uf'), { ...NOTA, slug: 'con-grafico' }, sinGrafico('vieja', '2026-08-16')];
+    expect(notaDeLaPortada(notas)?.slug).toBe('con-grafico');
+  });
+
+  it('si ninguna trae `antes_despues`, la más reciente', () => {
+    expect(notaDeLaPortada([sinGrafico('nueva'), sinGrafico('vieja', '2026-08-16')])?.slug).toBe('nueva');
+  });
+
+  it('sin notas, ninguna', () => {
+    expect(notaDeLaPortada([])).toBeUndefined();
   });
 });
 

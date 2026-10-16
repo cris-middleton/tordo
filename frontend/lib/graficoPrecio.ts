@@ -31,7 +31,7 @@ import { unidadDeclarada } from './publico';
 export const ANCHO_REFERENCIA = 280;
 
 /** Radio de un punto, en px. */
-export const RADIO_PUNTO = 5;
+export const RADIO_PUNTO = 8;
 
 /** Distancia entre centros de dos puntos que no se tocan, en px. */
 export const PASO_PUNTOS = 2 * RADIO_PUNTO + 1;

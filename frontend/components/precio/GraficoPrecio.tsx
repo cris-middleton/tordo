@@ -2,7 +2,7 @@ import { PASO_PUNTOS, RADIO_PUNTO, ROTULO_FRANJA, type GraficoPrecio as Datos } 
 
 /** Lo que mide cada franja horizontal del SVG, en px. */
 const ARRIBA = 20; // el rótulo «la mitad central»
-const ALTO_MINIMO = 104;
+const ALTO_MINIMO = 168;
 const BAJO_EJE = 18; // de la línea del eje a la base de sus rótulos
 const NOTA_ESCALA = 18; // «escala logarítmica»
 
@@ -23,7 +23,7 @@ const NOTA_ESCALA = 18; // «escala logarítmica»
  */
 export function GraficoPrecio({ datos }: { datos: Datos }) {
   const { franja, puntos, filas, marcas, rotuloFranja } = datos;
-  const alto = Math.max(ALTO_MINIMO, 2 * filas * PASO_PUNTOS + 2 * RADIO_PUNTO + 16);
+  const alto = Math.max(ALTO_MINIMO, 2 * filas * PASO_PUNTOS + 2 * RADIO_PUNTO + 24);
   const centro = ARRIBA + alto / 2;
   const eje = ARRIBA + alto + 4;
   const rotulos = eje + BAJO_EJE;

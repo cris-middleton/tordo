@@ -28,7 +28,7 @@ import Home, { metadata, revalidate } from '@/app/page';
 import { descripcionDestacadas, TITULO_DESTACADAS } from '@/lib/compraAgil';
 import { urlCatalogoAbiertas } from '@/lib/filtrosCatalogo';
 import { EJEMPLOS_BUSQUEDA } from '@/lib/buscar';
-import { PRODUCTO_PORTADA } from '@/lib/lecturasPortada';
+import { notaDeLaPortada, PRODUCTO_PORTADA } from '@/lib/lecturasPortada';
 import { leerNotas, rutaNota } from '@/lib/notas';
 import * as portada from '@/lib/portada';
 import { rutaProducto } from '@/lib/publico';
@@ -123,7 +123,9 @@ const PRODUCTO: ProductoPublico = {
 const NOTAS = leerNotas();
 const CONCLUSION_PRECIO = `${PRODUCTO_PORTADA.nombre}: la mitad se pagó entre $150.921 y $240.000`;
 const CONCLUSION_CIERRES = '4 de cada 10 Compras Ágiles abiertas cierran hoy o mañana';
-const TITULO_NOTA = NOTAS[0].titulo;
+// La lectura de la nota es la más reciente CON `antes_despues`, no la primera de la lista.
+const NOTA_PORTADA = notaDeLaPortada(NOTAS)!;
+const TITULO_NOTA = NOTA_PORTADA.titulo;
 const LECTURAS = 'Lo que dicen los datos';
 
 /** Las conclusiones de las lecturas (los `h3` de la banda), en orden. */
@@ -450,6 +452,17 @@ describe('quién lo hace y de dónde sale (spec PORTADA_V7 §3.5, §3.6)', () =>
 });
 
 describe('las notas de datos', () => {
+  it('la lectura es la nota más reciente con gráfico; la lista sigue en su orden', async () => {
+    todo();
+    const { container } = render(await Home());
+    const lectura = container.querySelector('article[aria-labelledby="lectura-nota"]') as HTMLElement;
+    expect(NOTA_PORTADA.antes_despues).not.toBeNull();
+    expect(lectura).toHaveTextContent(NOTA_PORTADA.titulo);
+    expect(lectura.querySelector('figure')).not.toBeNull();
+    // La lista no usa la regla: las cuatro últimas, en su orden (lo fija el test de abajo).
+    expect(NOTA_PORTADA).toBe(NOTAS.find((n) => n.antes_despues !== null));
+  });
+
   it('las cuatro últimas, con fecha y título, y «Todas las notas»', async () => {
     todo();
     render(await Home());
@@ -540,7 +553,7 @@ describe('«Lo que dicen los datos»', () => {
       'href',
       urlCatalogoAbiertas('compra_agil', [], { sort_by: 'fecha_cierre', sort_order: 'asc' }),
     );
-    expect(screen.getByRole('link', { name: 'Leer la nota' })).toHaveAttribute('href', rutaNota(NOTAS[0].slug));
+    expect(screen.getByRole('link', { name: 'Leer la nota' })).toHaveAttribute('href', rutaNota(NOTA_PORTADA.slug));
     expect(screen.getAllByRole('link', { name: 'Ver en la API' }).map((a) => a.getAttribute('href'))).toEqual([
       `https://api.tordo.cl/api/v1/publico/productos/${PRODUCTO_PORTADA.slug}`,
       'https://api.tordo.cl/api/v1/publico/portada',

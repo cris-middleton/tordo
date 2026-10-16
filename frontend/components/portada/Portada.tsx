@@ -1,6 +1,6 @@
 import { Contenedor } from '@/components/cascara/Contenedor';
 import { CLASE_SECCION } from '@/components/cascara/Seccion';
-import { lecturaCierres, lecturaNota, lecturaPrecio, type Lecturas } from '@/lib/lecturasPortada';
+import { lecturaCierres, lecturaNota, lecturaPrecio, notaDeLaPortada, type Lecturas } from '@/lib/lecturasPortada';
 import type { Nota } from '@/lib/notas';
 import { actualizadoEnPalabras, baseDeLaFicha, franjaDeLaPortada, tiraDeLaPortada } from '@/lib/portada';
 import type { SectoresBI } from '@/types/bi';
@@ -65,7 +65,7 @@ export function Portada({
   const lecturas: Lecturas = {
     precio: lecturaPrecio(producto, repositorio),
     cierres: lecturaCierres(resumen, repositorio),
-    nota: lecturaNota(notas[0], repositorio),
+    nota: lecturaNota(notaDeLaPortada(notas), repositorio),
   };
   // Principio 4: «sin dato fresco, el bloque se oculta». Sin hora legible no hay
   // con qué decir de cuándo es la lista, y se oculta entera, no sólo su línea de hora.
