@@ -37,7 +37,7 @@ import PaginaNotas from '@/app/(publico)/notas/page';
 import { GET } from '@/app/rss/notas/route';
 import { FUENTE_DATOS } from '@/lib/atribucion';
 import { destinos } from '@/lib/markdown';
-import { ETIQUETA_ESTADO, fechaLarga, leerNotas, ordenarNotas, type Nota } from '@/lib/notas';
+import { ETIQUETA_ESTADO, fechaLarga, fragmentoLegible, leerNotas, ordenarNotas, type Nota } from '@/lib/notas';
 import { escaparXml } from '@/lib/rss';
 
 const NOTAS = leerNotas();
@@ -60,6 +60,11 @@ describe('el orden', () => {
   it('las del disco ya vienen así', () => {
     expect(NOTAS.length).toBeGreaterThanOrEqual(4);
     for (let i = 1; i < NOTAS.length; i++) expect(NOTAS[i - 1].fecha >= NOTAS[i].fecha).toBe(true);
+  });
+
+  it('el fragmento citado se lee sin marcas, y un asterisco suelto se queda', () => {
+    expect(fragmentoLegible('con *n* proveedores, `top_share_pct`')).toBe('con n proveedores, top_share_pct');
+    expect(fragmentoLegible('`0 6 * * 0` (domingo')).toBe('0 6 * * 0 (domingo');
   });
 
   it('fechaLarga no pasa por la zona horaria', () => {

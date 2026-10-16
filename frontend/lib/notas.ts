@@ -274,9 +274,12 @@ export function urlEnRepositorio(repositorio: string | null, ruta: string): stri
   return repositorio ? `${repositorio.replace(/\/+$/, '')}/blob/main/${ruta}` : null;
 }
 
-/** Un fragmento citado, para leerlo: sin las marcas de código ni de cursiva. */
+/**
+ * Un fragmento citado, para leerlo: sin las marcas de código ni de cursiva. Un
+ * asterisco suelto se queda (`0 6 * * 0` es un horario de cron, no una cursiva).
+ */
 export function fragmentoLegible(fragmento: string): string {
-  return fragmento.replace(/[`*]/g, '');
+  return fragmento.replace(/`/g, '').replace(/\*([^*\s](?:[^*]*[^*\s])?)\*/g, '$1');
 }
 
 // ── Cuerpo ──────────────────────────────────────────────────────────────────
