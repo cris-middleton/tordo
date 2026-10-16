@@ -114,16 +114,87 @@ export function fechaCorta(iso?: string | null): string | null {
 
 const capitalizar = (texto: string) => texto.charAt(0).toUpperCase() + texto.slice(1);
 
+/** Largo máximo del nombre de un producto: lo que cabe en un `<title>` con su contexto. */
+export const LARGO_NOMBRE_PRODUCTO = 80;
+
+/** Un token sin letras al principio de la descripción: «(4194153)», «0900317», «353-0050». */
+const CODIGO_INICIAL = /^[([]?[\d.,/\-]+[)\]]?$/;
+
 /**
- * El nombre con que se presenta un producto: su FIRMA, con mayúscula inicial.
- *
- * No el nombre genérico: ése es la categoría UNSPSC, y miles de productos
- * comparten la misma —«Guantes protectores» para el de nitrilo, el de látex y
- * el de vinilo—. Titular por ella daba miles de páginas con el mismo `<title>`,
- * que para un buscador son duplicados y para quien llega no dicen qué es.
+ * La descripción que escribe el comprador, lista para titular: sin los códigos
+ * internos del principio ni tabuladores o saltos de línea, en tipo oración si
+ * venía toda en mayúsculas y cortada en una palabra si es larga. `null` si no
+ * queda nada con letras.
  */
-export function nombreProducto(p: Pick<ProductoPublico, 'firma'>): string {
-  return capitalizar(p.firma.trim());
+function tituloDeDescripcion(descripcion: string | null | undefined): string | null {
+  if (typeof descripcion !== 'string') return null;
+  const palabras = descripcion.replace(/\s+/g, ' ').trim().split(' ');
+  while (palabras.length && CODIGO_INICIAL.test(palabras[0])) palabras.shift();
+  let texto = palabras.join(' ').replace(/[\s.,;:\-–]+$/u, '');
+  if (!/\p{L}/u.test(texto)) return null;
+  // Toda en mayúsculas: a tipo oración. Con minúsculas, el comprador ya eligió.
+  if (!/\p{Ll}/u.test(texto)) texto = texto.toLowerCase();
+  if (texto.length > LARGO_NOMBRE_PRODUCTO) {
+    const corte = texto.lastIndexOf(' ', LARGO_NOMBRE_PRODUCTO);
+    texto = `${texto.slice(0, corte > 0 ? corte : LARGO_NOMBRE_PRODUCTO).replace(/[\s.,;:\-–]+$/u, '')}…`;
+  }
+  return capitalizar(texto);
+}
+
+/**
+ * El nombre con que se presenta un producto: **cómo lo escribe quien lo compra**
+ * (`descripcion`, la especificación más frecuente de su banda con más compras),
+ * y si no hay una legible, la firma.
+ *
+ * No la firma de entrada: son sus palabras ordenadas y sin relleno, y
+ * «Higiénico jumbo papel» no se lee como un nombre. Tampoco el nombre genérico:
+ * es la categoría UNSPSC, y miles de productos la comparten —«Guantes
+ * protectores» para el de nitrilo, el de látex y el de vinilo—. Dos productos no
+ * pueden quedar con el mismo nombre: la firma sale de la descripción, así que
+ * firmas distintas vienen de descripciones distintas. La firma sigue siendo la
+ * identidad y el slug.
+ */
+export function nombreProducto(p: { firma: string; descripcion?: string | null }): string {
+  return tituloDeDescripcion(p.descripcion) ?? capitalizar(p.firma.trim());
+}
+
+/**
+ * «46 compras de 40 organismos». Sin el dato de compradores (un backend o una
+ * tabla anteriores), sólo las compras. Con una sola compra, sin organismos: se
+ * da por dicho.
+ */
+export function comprasDeOrganismos(n: number, compradores?: number | null): string {
+  if (n === 1) return '1 compra';
+  const compras = `${entero(n)} compras`;
+  if (compradores == null) return compras;
+  return `${compras} de ${entero(compradores)} ${compradores === 1 ? 'organismo' : 'organismos'}`;
+}
+
+/**
+ * La frase de la banda. «Entre $1.150 y $1.150» no dice nada: si p25 y p75 se
+ * escriben igual con `plata()`, se dice el precio; y si también p10 y p90, que
+ * todas las compras se pagaron a él.
+ */
+export function frasePrecio(banda: BandaUnidad): string {
+  const { n, p10, p25, p75, p90 } = banda;
+  const a = plata(p25);
+  if (a !== plata(p75)) return `La mitad de las ${entero(n)} compras se pagó entre ${a} y ${plata(p75)}.`;
+  if (n === 1) return `La única compra se pagó a ${a}.`;
+  if (plata(p10 ?? p25) === a && plata(p90 ?? p75) === a) return `Las ${entero(n)} compras se pagaron a ${a}.`;
+  return `La mitad de las ${entero(n)} compras se pagó a ${a}.`;
+}
+
+/**
+ * Lo que hay que saber de una banda que NO es un precio de mercado (`de_mercado`,
+ * la regla vive en el backend): de un solo organismo, o con uno que hizo más de
+ * la mitad de las compras. `null` si es de mercado o si no se sabe.
+ */
+export function notaCompradores(banda: BandaUnidad): string | null {
+  if (banda.de_mercado !== false || banda.compradores == null) return null;
+  if (banda.compradores === 1) return 'Todas son de un mismo organismo: es el precio de su contrato.';
+  if (banda.cuota_mayor == null || banda.cuota_mayor <= 0.5) return null;
+  const suyas = Math.round(banda.cuota_mayor * banda.n);
+  return `${entero(suyas)} de las ${entero(banda.n)} compras son de un mismo organismo.`;
 }
 
 /** La categoría del catálogo, como contexto debajo del nombre; null si no hay. */

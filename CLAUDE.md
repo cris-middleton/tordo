@@ -756,9 +756,29 @@ de lectura (cabecera y pie, con la atribución, son de la cáscara única). Dato
   `{"etiquetas": ["analytics" | "compra-agil"]}` → `revalidateTag(tag, 'max')`. Lo llama
   `Revalidador` en `etl/cron.py`. CI construye con un centinela y `check:secreto` lo busca.
 - **Qué se indexa vive en un solo sitio**, `services/publico/indexables.py`, con sus umbrales
-  y conteos medidos (≈1.039 compradores, 309 rubros, 15.452 productos con el precio unitario
-  corregido; 6.561 antes). El resto existe con
-  `noindex` (producto, comprador o rubro) o 404. **Un rubro se indexa sólo si tiene filas en
+  y conteos medidos (≈1.039 compradores, 309 rubros y **7.758 productos**: con el precio unitario
+  corregido eran 15.452, y la regla de precio de mercado deja la mitad). El resto existe con
+  `noindex` (producto, comprador o rubro) o 404.
+- **Un precio «del Estado» necesita varios compradores** (decisión del 2026-10-16). Una banda
+  nacional es **precio de mercado** (`de_mercado`) si tiene **≥ 3 organismos compradores y
+  ninguno con más del 50 % de las compras**; un producto se indexa sólo si una misma banda
+  cumple eso, `n ≥ 10` y predictibilidad alta o media. Medido en local: el 37 % de las bandas
+  que pasaban lo demás era de un solo organismo y el 49 % tenía uno sobre la mitad (la
+  portada llegó a publicar 88 compras de 90 de la I. M. de Concepción como «lo que paga el
+  Estado»). El ETL cuenta (`compradores`, `cuota_mayor` en L0N, sobre las filas ya sin
+  atípicos); **la regla vive sólo en `indexables.de_mercado()`** y viaja como `de_mercado` en
+  cada banda de `/publico/productos/{slug}`: la portada y `verificar-produccion.sh` leen ese
+  booleano, no recalculan. Una tabla sin las columnas (materializada antes) no indexa ningún
+  producto.
+- **Todo precio dice cuántos compradores tiene detrás y de cuándo** (`comprasDeOrganismos`,
+  `frasePrecio`, `notaCompradores` en `lib/publico.ts`): «46 compras de 40 organismos, abr 2025
+  – mar 2026 (12 meses)» en la ficha (el periodo en la cabecera), en `/buscar` (en la banda) y en
+  el pie de la lectura de la portada. Con p25 y p75 iguales tras `plata`, nunca «entre $X y $X».
+- **Un producto se titula como lo escribe quien lo compra** (`nombreProducto`): la
+  `descripcion` de su banda con más compras, sin los códigos del principio, en tipo oración si
+  venía en mayúsculas y cortada a 80 caracteres; sin una legible, la firma. La firma sigue siendo
+  la identidad y el slug, y va al pie de la ficha. La búsqueda (`/publico/productos?q=`) manda
+  la `descripcion` de cada resultado, pedida sólo para esos (no se guarda en el índice). **Un rubro se indexa sólo si tiene filas en
   `competitors_by_market`**: sin ellas el panorama sale vacío y la página dice «Sin datos
   históricos». Recontado el 12-10 en la copia local: los 309 la tienen; en el fixture del
   golden, 72 de 124 — ahí se vio. `sitemap.xml` sale de `GET /publico/sitemap` con el mismo filtro.
@@ -890,11 +910,13 @@ componentes cliente y la home perdería título y tarjeta de preview.
   p25/p75, tramos que no suman las abiertas). `dato` sólo en lo que la conclusión nombra; el
   resto, `dato-tenue`.
   - **`PRODUCTO_PORTADA` es `{ slug, nombre }`**, escrito a mano (`nombre` no sale del dato) y
-    genérico, sin marca: se eligió en producción recorriendo `EJEMPLOS_BUSQUEDA`, porque las fichas
-    de marca tenían los percentiles iguales o predictibilidad baja. **Tiene copia literal en
+    genérico, sin marca: hoy «Impresora multifuncional», elegida el 2026-10-16 con el precio
+    corregido y la regla de precio de mercado (en local, 46 compras de 40 organismos, el mayor
+    con el 4 %). La anterior, «Papel higiénico jumbo», tenía 88 de 90 compras de un comprador. **Tiene copia literal en
     `scripts/verificar-produccion.sh`**, que comprueba con una sola petición que sigue indexable y
     pasando el filtro; `portada-ayudantes.test.ts` compara las dos.
-  - **El filtro de calidad de la banda** (`lecturaPrecio`): ficha indexable; unidad declarada (no
+  - **El filtro de calidad de la banda** (`lecturaPrecio`): ficha indexable; banda de mercado
+    (`de_mercado === true`, que manda la API); unidad declarada (no
     nula ni «sin unidad declarada»); predictibilidad alta o media; `p25 ≥ 1`; **`p75 > p25`
     estricto** y **`plata(p25) !== plata(p75)`** —dos percentiles distintos pueden escribirse igual
     tras redondear, y «entre $2 millones y $2 millones» no dice nada—; y periodo legible. Si falla
@@ -1207,7 +1229,9 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   (`etl/analytics/normalizacion.py`) y dan una banda mucho más estrecha. Medido el
   2026-10-16 (seis meses locales, ventana de 12): **QCD mediano 0,00 en L0, 0,012 en L0N
   y 0,27 en L1**; más de la mitad de las bandas L0 tiene p25 = p75 (un comprador repite el
-  precio de su contrato). L0 cubre el 17–32 % de los ítems (de 1 a 6 meses); del resto
+  precio de su contrato). Lo de L0N engaña por lo mismo: el 58 % de sus bandas es de un solo
+  comprador (QCD mediano 0,00); **entre las de mercado (≥ 3 compradores, ninguno sobre la
+  mitad) el QCD mediano es 0,12**. L0 cubre el 17–32 % de los ítems (de 1 a 6 meses); del resto
   sigue encargándose L1.
   - **El precio unitario es `precioNeto`, tal cual** (`extract_unit_prices`). En las OC
     masivas ya es el precio de una unidad: `precioNeto × cantidad = totalLineaNeto` (±1 %)
@@ -1233,11 +1257,14 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   - **La dispersión se mide con QCD, no con CV.** Sobre precios con cola larga la
     desviación estándar mide el outlier que sobrevivió a Tukey, no el mercado.
   - **`predictibilidad` (alta|media|baja) es producto, no diagnóstico interno.** Una banda
-    muy dispersa significa que el precio no es lo que decide la adjudicación, y decirlo
-    vale más que inventar un número con aspecto de respuesta. Con el precio corregido es
-    «alta» el 82 % de las bandas L0N (antes el 33 %) y el 48 % de las L1 (antes el 22 %);
-    «baja», el 8 % y el 34 %. **Los cortes (`QCD_ALTA` 0,25, `QCD_MEDIA` 0,45) se
-    calibraron sobre el error** y no se han revisado: casi todo L0N los pasa.
+    muy dispersa dice que por lo mismo se pagaron precios muy distintos —el dato no dice por
+    qué—, y decirlo vale más que inventar un número con aspecto de respuesta. Con el precio
+    corregido es «alta» el 82 % de las bandas L0N (antes el 33 %) y el 48 % de las L1 (antes
+    el 22 %); «baja», el 8 % y el 34 %. **Los cortes (`QCD_ALTA` 0,25, `QCD_MEDIA` 0,45) son
+    absolutos y se quedan**: desde saas#72 se definen por p75/p25 ≤ 1,67 y ≤ 2,6, no por
+    percentiles de la distribución, así que el error de precio no los descalibró. El 82 % lo
+    infla el comprador único (89 % «alta» entre esas bandas); **entre las de mercado: 70 %
+    alta, 18 % media, 12 % baja** — los cortes siguen separando.
   - **Deflactar por inflación: medido con el error de precio unitario, pendiente de
     re-medir.** La medición decía que el CV dentro de un solo mes (0,83–0,88) era el mismo
     que mezclando 2016–2026 (0,88). Con el precio corregido, el CV mediano dentro de un mes

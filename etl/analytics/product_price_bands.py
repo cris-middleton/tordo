@@ -59,6 +59,8 @@ Para cada banda se calcula:
   - confianza: score 0–1 combinando muestra y dispersión
   - predictibilidad: alta | media | baja — la lectura de producto
   - nivel: 0, 1, 2 o 3 (indica qué tan específica es la banda)
+  - compradores y cuota_mayor (sólo L0N): cuántos organismos hay detrás de la
+    banda y qué fracción de las compras hizo el mayor. Ver `_con_compradores`.
 
 Filtrado de outliers:
   Se usa IQR × 1.5 (método de Tukey) dentro de cada grupo para eliminar
@@ -131,6 +133,20 @@ QCD_INUTIL = 0.6
 
 # Umbrales de la lectura de producto.
 # QCD 0,25 → p75/p25 ≈ 1,67 · QCD 0,45 → p75/p25 ≈ 2,6
+#
+# **Son cortes absolutos, no percentiles**, y por eso sobrevivieron a la
+# corrección del precio unitario (2026-10-16). Desde que se escribieron
+# (saas#72) se definen por lo que significan: «alta» es que la mitad central de
+# las compras cabe en un rango de 1,67 veces, «media» en uno de 2,6, y por
+# encima de 4 (`QCD_INUTIL`) la banda no ayuda a cotizar. No se eligieron
+# mirando la distribución, así que no hay que recalcularlos sobre la nueva.
+#
+# Lo que sí cambió es cuántas bandas los pasan, y la causa no es el corte:
+# medido sobre los seis meses locales, el 82 % de las L0N es «alta» porque la
+# mayoría son de un solo comprador, que repite el precio de su contrato (QCD
+# mediano 0,00, p25 = p75 en el 70 %). Entre las bandas de mercado (≥ 3
+# compradores, ninguno sobre la mitad) el QCD mediano es 0,12 y se reparten 70 %
+# «alta», 18 % «media» y 12 % «baja»: los cortes siguen separando.
 QCD_ALTA = 0.25
 QCD_MEDIA = 0.45
 
@@ -511,10 +527,37 @@ def build_level_0_nacional(items: pl.DataFrame) -> pl.DataFrame:
     )
     bands = bands.join(onu, on=claves, how="left", coalesce=True)
     bands = _con_descripcion(bands, cleaned, claves)
+    bands = _con_compradores(bands, cleaned, claves)
 
     n_alta = bands.filter(pl.col("predictibilidad") == "alta").height
     logger.info(f"  L0N: {len(bands):,} bandas ({n_alta:,} con predictibilidad alta)")
     return bands
+
+
+def _con_compradores(bands: pl.DataFrame, items: pl.DataFrame, claves: list[str]) -> pl.DataFrame:
+    """Añade cuántos organismos hay detrás de cada banda y cuánto pesa el mayor.
+
+    - `compradores`: organismos distintos entre las compras de la banda.
+    - `cuota_mayor`: fracción de esas compras (0–1) que hizo el organismo que
+      más compró.
+
+    Una banda nacional de un solo comprador es el precio de SU contrato, no el
+    del Estado. Medido el 2026-10-16 sobre las bandas indexables: el 56 % venía
+    de un único organismo y el 74 % tenía uno con más de la mitad de las
+    compras. Qué se hace con eso lo decide la API
+    (`backend/app/services/publico/indexables.py`); aquí sólo se cuenta.
+
+    Se cuenta sobre `items` YA sin atípicos: las mismas filas que dan `n`, así
+    que un organismo cuya única compra sacó Tukey no está detrás de la banda.
+    """
+    por_comprador = items.group_by(claves + ["CodigoOrganismoPublico"]).agg(
+        pl.len().alias("_compras")
+    )
+    resumen = por_comprador.group_by(claves).agg(
+        pl.len().cast(pl.UInt32).alias("compradores"),
+        (pl.col("_compras").max() / pl.col("_compras").sum()).alias("cuota_mayor"),
+    )
+    return bands.join(resumen, on=claves, how="left", coalesce=True)
 
 
 def build_level_1(items: pl.DataFrame) -> pl.DataFrame:

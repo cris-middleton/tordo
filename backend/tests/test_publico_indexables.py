@@ -31,12 +31,21 @@ def _competidor(rubro: str) -> dict:
     return {"CodigoOrganismoPublico": "1", "RubroN2": rubro, "CodigoProveedor": "9"}
 
 
-def _banda(firma: str, n: int, predictibilidad: str = "alta", unidad: str = "unidad") -> dict:
+def _banda(
+    firma: str,
+    n: int,
+    predictibilidad: str = "alta",
+    unidad: str = "unidad",
+    compradores: int = 5,
+    cuota_mayor: float = 0.2,
+) -> dict:
     return {
         "firma_producto": firma,
         "UnidadMedida": unidad,
         "n": n,
         "predictibilidad": predictibilidad,
+        "compradores": compradores,
+        "cuota_mayor": cuota_mayor,
     }
 
 
@@ -161,6 +170,44 @@ class TestProductos:
         }
         # El n de la página es el de todas sus unidades.
         assert df.filter(df["slug"] == "papel-resma")["n"].item() == 43
+
+    def test_un_precio_de_mercado_necesita_varios_compradores(self, analytics):
+        """Decisión del dueño (2026-10-16): ≥ 3 compradores y ninguno con más de
+        la mitad de las compras. Una banda de un solo organismo es el precio de
+        su contrato, no el del Estado."""
+        minimo = indexables.MIN_COMPRADORES_PRODUCTO
+        tope = indexables.CUOTA_MAXIMA_COMPRADOR
+        analytics["product_price_bands_L0N.parquet"] = [
+            _banda("cloro litro", 40, compradores=minimo, cuota_mayor=tope),
+            _banda("cloro gel", 40, compradores=minimo - 1, cuota_mayor=0.5),
+            _banda("cloro tableta", 40, compradores=1, cuota_mayor=1.0),
+            _banda("cloro bidon", 40, compradores=12, cuota_mayor=0.51),
+            # La banda que cumple n y predictibilidad tiene que ser LA MISMA que
+            # cumple compradores: no se suman méritos de dos unidades.
+            _banda("cloro pastilla", 40, "baja", unidad="caja", compradores=9),
+            _banda("cloro pastilla", 40, "alta", unidad="unidad", compradores=1, cuota_mayor=1.0),
+        ]
+        df = indexables.construir().productos
+        estado = dict(zip(df["slug"], df["indexable"], strict=True))
+        assert estado == {
+            "cloro-litro": True,
+            "cloro-gel": False,
+            "cloro-tableta": False,
+            "cloro-bidon": False,
+            "cloro-pastilla": False,
+        }
+
+    def test_una_tabla_sin_compradores_no_indexa_ningun_producto(self, analytics):
+        """Materializada antes de que la banda contara sus compradores: no se
+        sabe si el precio es de mercado, así que no se ofrece a un buscador.
+        Las páginas siguen existiendo (con `noindex`)."""
+        fila = _banda("cloro litro", 40)
+        del fila["compradores"], fila["cuota_mayor"]
+        analytics["product_price_bands_L0N.parquet"] = [fila]
+        df = indexables.construir().productos
+        assert df.to_dicts() == [
+            {"slug": "cloro-litro", "firma": "cloro litro", "n": 40, "indexable": False}
+        ]
 
     def test_colision_con_y_sin_tilde(self, analytics):
         analytics["product_price_bands_L0N.parquet"] = [

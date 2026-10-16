@@ -9,6 +9,7 @@ import { useValorRetardado } from '@/hooks/useValorRetardado';
 import {
   PARAMETRO_BUSQUEDA_PRODUCTOS,
   entero,
+  nombreProducto,
   rutaBusquedaProductos,
   rutaProducto,
 } from '@/lib/publico';
@@ -118,7 +119,7 @@ function Buscador() {
                   href={rutaProducto(p.slug)}
                   className="flex items-baseline justify-between gap-3 px-4 py-2.5 hover:bg-surface-elevated"
                 >
-                  <span className="min-w-0 truncate font-medium text-primary">{p.firma}</span>
+                  <span className="min-w-0 truncate font-medium text-primary">{nombreProducto(p)}</span>
                   <span className="cifra shrink-0 text-xs text-muted">
                     {entero(p.n)} compras{p.indexable ? '' : ' · orientativo'}
                   </span>

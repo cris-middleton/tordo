@@ -216,6 +216,9 @@ const BANDA: BandaUnidad = {
   p90: 11800,
   predictibilidad: 'media',
   confianza: 0.5,
+  compradores: 44,
+  cuota_mayor: 0.05,
+  de_mercado: true,
 };
 
 const PRODUCTO: ProductoPublico = {
@@ -243,10 +246,13 @@ describe('PRODUCTO_PORTADA', () => {
     expect(PRODUCTO_PORTADA.slug).not.toMatch(/SLUG|produccion/i);
   });
 
-  it('y un nombre escrito a mano, que se lee como un nombre: no la firma', () => {
+  it('y un nombre escrito a mano, que se lee como un nombre: no el slug', () => {
     expect(PRODUCTO_PORTADA.nombre).toMatch(/^\p{Lu}/u);
     expect(PRODUCTO_PORTADA.nombre.trim()).toBe(PRODUCTO_PORTADA.nombre);
-    expect(PRODUCTO_PORTADA.nombre.toLowerCase()).not.toBe(PRODUCTO_PORTADA.slug.replace(/-/g, ' '));
+    // Puede coincidir con la firma cuando la firma se lee bien («impresora
+    // multifuncional»); lo que no puede ser es el slug tal cual.
+    expect(PRODUCTO_PORTADA.nombre).not.toBe(PRODUCTO_PORTADA.slug);
+    expect(PRODUCTO_PORTADA.nombre).not.toMatch(/-/);
   });
 });
 
@@ -255,26 +261,31 @@ describe('lecturaPrecio', () => {
     const l = lecturaPrecio(PRODUCTO)!;
     expect(l.conclusion).toBe(`${PRODUCTO_PORTADA.nombre}: la mitad se pagó entre $4.200 y $6.900`);
     expect(l.conclusion).not.toContain(PRODUCTO.firma);
-    expect(l.pie).toBe(`Precio por caja, 184 compras, ${textoPeriodo({ desde: '2025-10-01', hasta: '2026-09-30' })}`);
+    expect(l.pie).toBe(
+      `Precio por caja, 184 compras de 44 organismos, ${textoPeriodo({ desde: '2025-10-01', hasta: '2026-09-30' })}`,
+    );
     expect(l.pie).toMatch(/\(12 meses\)$/);
     expect(l.enlace).toEqual({ texto: 'Ver el producto', href: rutaProducto(PRODUCTO_PORTADA.slug) });
   });
 
-  it('la ficha de PRODUCTO_PORTADA tal como respondía producción el 2026-10-16 pasa el filtro', () => {
+  it('la ficha de PRODUCTO_PORTADA en la copia local corregida (2026-10-16) pasa el filtro', () => {
     const real = conBanda({
-      unidad: 'paquete',
-      n: 90,
-      p10: 674,
-      p25: 842.5,
-      p50: 1685,
-      p75: 2106.25,
-      p90: 3370,
-      predictibilidad: 'media',
-      confianza: 0.534,
+      unidad: 'unidad',
+      n: 46,
+      p10: 129_990,
+      p25: 150_921,
+      p50: 190_762.055,
+      p75: 240_000,
+      p90: 369_990,
+      predictibilidad: 'alta',
+      confianza: 0.788,
+      compradores: 40,
+      cuota_mayor: 0.0435,
+      de_mercado: true,
     });
-    const l = lecturaPrecio({ ...real, periodo: { ventana_desde: '2025-11-01', ventana_hasta: '2026-10-31' } })!;
-    expect(l.conclusion).toBe('Papel higiénico jumbo: la mitad se pagó entre $843 y $2.106');
-    expect(l.pie).toMatch(/^Precio por paquete, 90 compras, nov 2025 – oct 2026 \(12 meses\)$/);
+    const l = lecturaPrecio({ ...real, periodo: { ventana_desde: '2025-04-01', ventana_hasta: '2026-03-31' } })!;
+    expect(l.conclusion).toBe('Impresora multifuncional: la mitad se pagó entre $150.921 y $240.000');
+    expect(l.pie).toBe('Precio por unidad, 46 compras de 40 organismos, abr 2025 – mar 2026 (12 meses)');
   });
 
   it('con otra ficha, su nombre y su enlace: nunca los de la constante', () => {
@@ -312,8 +323,14 @@ describe('lecturaPrecio', () => {
   });
 
   it('una sola compra, en singular; la unidad en minúsculas y sin espacios de sobra', () => {
-    expect(lecturaPrecio(conBanda({ n: 1 }))!.pie).toMatch(/^Precio por caja, 1 compra, /);
+    expect(lecturaPrecio(conBanda({ n: 1, compradores: null }))!.pie).toMatch(/^Precio por caja, 1 compra, /);
     expect(lecturaPrecio(conBanda({ unidad: ' KILOGRAMO ' }))!.pie).toMatch(/^Precio por kilogramo, /);
+  });
+
+  it('dice de cuántos organismos son las compras, en singular si es uno', () => {
+    expect(lecturaPrecio(conBanda({ n: 12, compradores: 3 }))!.pie).toMatch(/^Precio por caja, 12 compras de 3 organismos, /);
+    // Un backend que no manda cuántos: se dice sólo el número de compras.
+    expect(lecturaPrecio(conBanda({ compradores: undefined }))!.pie).toMatch(/^Precio por caja, 184 compras, /);
   });
 
   it('predictibilidad alta también vale, y la comparación no mira mayúsculas', () => {
@@ -350,6 +367,9 @@ describe('lecturaPrecio', () => {
       ['«sin unidad declarada»', conBanda({ unidad: 'sin unidad declarada' })],
       ['«Sin Unidad Declarada» con espacios', conBanda({ unidad: '  Sin  Unidad Declarada ' })],
       ['predictibilidad baja', conBanda({ predictibilidad: 'baja' })],
+      // Un precio «del Estado» necesita varios compradores (indexables.py, `de_mercado`).
+      ['de un solo comprador', conBanda({ compradores: 1, cuota_mayor: 1, de_mercado: false })],
+      ['sin decir si es de mercado (backend anterior)', conBanda({ de_mercado: undefined })],
       ['predictibilidad nula', conBanda({ predictibilidad: null })],
       ['predictibilidad desconocida', conBanda({ predictibilidad: 'altísima' })],
       ['p25 en $0', conBanda({ p10: 0, p25: 0 })],

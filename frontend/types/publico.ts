@@ -82,6 +82,18 @@ export interface BandaUnidad {
   predictibilidad: string | null;
   /** De 0 a 1, como en el backend (`float | None`). */
   confianza: number | null;
+  /**
+   * Organismos distintos detrás de la banda. Opcionales los tres: un backend o
+   * una tabla anteriores no los traen, y entonces no se dice de cuántos son.
+   */
+  compradores?: number | null;
+  /** Fracción de las compras (0–1) del organismo que más compró. */
+  cuota_mayor?: number | null;
+  /**
+   * Precio de mercado: ≥ 3 compradores y ninguno con más de la mitad. **La regla
+   * vive en el backend** (`services/publico/indexables.py`); aquí no se recalcula.
+   */
+  de_mercado?: boolean;
 }
 
 export interface CompradorDeProducto {
@@ -118,6 +130,8 @@ export interface ProductoPublico {
 export interface ProductoEncontrado {
   slug: string;
   firma: string;
+  /** Cómo lo escribe el comprador (la de su unidad con más compras): el título. */
+  descripcion?: string | null;
   n: number;
   indexable: boolean;
 }

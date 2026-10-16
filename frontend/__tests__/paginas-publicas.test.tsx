@@ -174,7 +174,7 @@ describe('enlaces entre fichas', () => {
     );
   });
 
-  it('el producto se titula por su firma, con la categoría como contexto', async () => {
+  it('el producto se titula por su firma si no hay descripción, con la categoría como contexto', async () => {
     simularBackend({ '/productos/guante-latex-nitrilo': PRODUCTO });
     render(await PaginaProducto(params({ slug: 'guante-latex-nitrilo' })));
     expect(screen.getByRole('heading', { level: 1, name: 'Guante latex nitrilo' })).toBeInTheDocument();
@@ -185,13 +185,32 @@ describe('enlaces entre fichas', () => {
     expect(screen.getByText('42132203')).toHaveClass('font-mono');
   });
 
+  it('con descripción, el producto se titula como lo escribe el comprador; la firma va al pie', async () => {
+    simularBackend({ '/productos/guante-latex-nitrilo': { ...PRODUCTO, descripcion: 'GUANTE DE LÁTEX Y NITRILO' } });
+    render(await PaginaProducto(params({ slug: 'guante-latex-nitrilo' })));
+    expect(screen.getByRole('heading', { level: 1, name: 'Guante de látex y nitrilo' })).toBeInTheDocument();
+    expect(screen.getByText(/«guante latex nitrilo»/)).toBeInTheDocument();
+  });
+
+  it('la ficha dice de qué meses son sus precios, y cada banda de cuántos organismos', async () => {
+    const conPeriodo = {
+      ...PRODUCTO,
+      periodo: { ventana_desde: '2025-04-01', ventana_hasta: '2026-03-31' },
+      unidades: [{ ...PRODUCTO.unidades[0], compradores: 31, cuota_mayor: 0.1, de_mercado: true }],
+    };
+    simularBackend({ '/productos/guante-latex-nitrilo': conPeriodo });
+    render(await PaginaProducto(params({ slug: 'guante-latex-nitrilo' })));
+    expect(screen.getByText(/abr 2025 – mar 2026 \(12 meses\)/)).toBeInTheDocument();
+    expect(screen.getByText('120 compras de 31 organismos.')).toBeInTheDocument();
+  });
+
   it('el producto pinta una banda por unidad y enlaza a quien lo compra', async () => {
     simularBackend({ '/productos/guante-latex-nitrilo': PRODUCTO });
     render(await PaginaProducto(params({ slug: 'guante-latex-nitrilo' })));
     expect(screen.getByRole('heading', { name: 'Por caja' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Por unidad' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Hospital de Prueba' })).toHaveAttribute('href', '/compradores/7297');
-    expect(screen.queryByText(/tómalo como una orientación/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/úsalo sólo para orientarte/)).not.toBeInTheDocument();
   });
 
   it('una banda con la unidad nula se pinta, con el rótulo de unidad ausente', async () => {
@@ -205,6 +224,6 @@ describe('enlaces entre fichas', () => {
   it('un producto no indexable avisa en la página', async () => {
     simularBackend({ '/productos/guante-latex-nitrilo': { ...PRODUCTO, indexable: false } });
     render(await PaginaProducto(params({ slug: 'guante-latex-nitrilo' })));
-    expect(screen.getByText(/tómalo como una orientación/)).toBeInTheDocument();
+    expect(screen.getByText(/úsalo sólo para orientarte/)).toBeInTheDocument();
   });
 });

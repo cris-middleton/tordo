@@ -60,6 +60,21 @@ describe('BloquePrecios', () => {
     expect(screen.getByRole('link', { name: /ver todos los productos/i })).toHaveAttribute('href', '/productos?q=guante+nitrilo');
   });
 
+  it('titula con la descripción del comprador y la banda dice de cuántos organismos y de cuándo', () => {
+    const productos = [{ ...PRODUCTOS[0], descripcion: 'GUANTE DE LÁTEX Y NITRILO' }, ...PRODUCTOS.slice(1)];
+    const ficha = {
+      ...PRODUCTO,
+      periodo: { ventana_desde: '2025-04-01', ventana_hasta: '2026-03-31' },
+      unidades: [{ ...PRODUCTO.unidades[0], compradores: 31, cuota_mayor: 0.1, de_mercado: true }],
+    };
+    render(<BloquePrecios termino={TERMINO} productos={ok(productos)} ficha={ok(ficha)} />);
+    expect(screen.getByRole('link', { name: 'Guante de látex y nitrilo' })).toHaveAttribute(
+      'href',
+      '/productos/guante-latex-nitrilo',
+    );
+    expect(screen.getByText('120 compras de 31 organismos, abr 2025 – mar 2026 (12 meses).')).toBeInTheDocument();
+  });
+
   it('si la ficha falla, la lista sigue y la banda se cambia por una línea', () => {
     render(<BloquePrecios termino={TERMINO} productos={ok(PRODUCTOS)} ficha={fallo<ProductoPublico>()} />);
     expect(screen.getByRole('link', { name: 'Guante latex nitrilo' })).toBeInTheDocument();

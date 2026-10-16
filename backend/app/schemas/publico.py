@@ -81,6 +81,21 @@ class BandaPorUnidad(BaseModel):
     p90: float | None = None
     predictibilidad: str | None = Field(None, description="alta | media | baja")
     confianza: float | None = None
+    compradores: int | None = Field(
+        None,
+        description="Organismos distintos detrás de la banda. Nulo si la tabla no lo trae.",
+    )
+    cuota_mayor: float | None = Field(
+        None,
+        description="Fracción de las compras (0–1) del organismo que más compró.",
+    )
+    de_mercado: bool = Field(
+        False,
+        description=(
+            "Precio de mercado: al menos 3 compradores y ninguno con más de la mitad de "
+            "las compras. Sólo una banda así hace indexable el producto."
+        ),
+    )
 
 
 class CompradorDeProducto(BaseModel):
@@ -114,6 +129,9 @@ class ProductoPublico(BaseModel):
 class ProductoEncontrado(BaseModel):
     slug: str
     firma: str
+    descripcion: str | None = Field(
+        None, description="Cómo lo escribe el comprador: la de su unidad con más compras."
+    )
     n: int
     indexable: bool
 

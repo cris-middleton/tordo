@@ -18,6 +18,7 @@ import {
 import { TITULO_DESTACADAS, mesesDeVentana, rutaCompraAgil } from '@/lib/compraAgil';
 import { urlCatalogoAbiertas } from '@/lib/filtrosCatalogo';
 import { normalizeText, shortRegion } from '@/lib/licitacionEstado';
+import { textoPeriodo } from '@/lib/periodo';
 import {
   entero,
   fechaCorta,
@@ -125,6 +126,11 @@ function PreciosEncontrados({
   const [primero, ...otros] = productos.slice(0, PRODUCTOS_EN_BUSCAR);
   // La banda de la unidad más comprada: el backend ordena `unidades` por n.
   const banda = ficha?.estado === 'ok' ? (ficha.datos.unidades[0] ?? null) : null;
+  // Aquí la banda va sola: dice ella misma de qué meses es.
+  const periodo =
+    ficha?.estado === 'ok'
+      ? textoPeriodo({ desde: ficha.datos.periodo?.ventana_desde, hasta: ficha.datos.periodo?.ventana_hasta })
+      : null;
 
   return (
     <div className="space-y-4">
@@ -140,7 +146,7 @@ function PreciosEncontrados({
       {ficha?.estado === 'fallo' ? (
         <AvisoDeFallo que="la banda de precio de este producto" motivo={ficha.motivo} />
       ) : banda ? (
-        <BandaPrecio banda={banda} />
+        <BandaPrecio banda={banda} periodo={periodo} />
       ) : (
         <p className="text-sm text-subtle">Todavía no hay compras suficientes para una banda.</p>
       )}

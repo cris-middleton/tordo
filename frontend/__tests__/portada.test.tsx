@@ -95,10 +95,13 @@ const BANDA: BandaUnidad = {
   p90: 11800,
   predictibilidad: 'media',
   confianza: 0.9,
+  compradores: 44,
+  cuota_mayor: 0.05,
+  de_mercado: true,
 };
 const PRODUCTO: ProductoPublico = {
   slug: PRODUCTO_PORTADA.slug,
-  firma: 'higienico jumbo papel',
+  firma: 'impresora multifuncional',
   nombre_generico: null,
   codigo_onu: null,
   descripcion: null,
@@ -475,6 +478,11 @@ describe('el panel de lecturas', () => {
     ['el producto no indexable', { producto: ok({ ...PRODUCTO, indexable: false }) }, CONCLUSION_PRECIO],
     ['el producto sin periodo', { producto: ok({ ...PRODUCTO, periodo: null }) }, CONCLUSION_PRECIO],
     ['el producto sin p25', { producto: ok({ ...PRODUCTO, unidades: [{ ...BANDA, p25: null }] }) }, CONCLUSION_PRECIO],
+    [
+      'el producto de un solo comprador',
+      { producto: ok({ ...PRODUCTO, unidades: [{ ...BANDA, compradores: 1, cuota_mayor: 1, de_mercado: false }] }) },
+      CONCLUSION_PRECIO,
+    ],
     ['un backend sin los tramos de cierre', { resumen: ok({ ...RESUMEN, compra_agil_por_cierre: undefined }) }, CONCLUSION_CIERRES],
     ['tramos de cierre mal formados', { resumen: ok({ ...RESUMEN, compra_agil_por_cierre: { hoy: 'muchas' } }) }, CONCLUSION_CIERRES],
     ['tramos que no suman las abiertas', { resumen: ok({ ...RESUMEN, compra_agil_abiertas: 9999 }) }, CONCLUSION_CIERRES],

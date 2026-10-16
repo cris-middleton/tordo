@@ -19,7 +19,7 @@ import type { CompraAgilPorCierre, ProductoPublico, ResumenPortada } from '@/typ
 
 import { urlCatalogoAbiertas } from './filtrosCatalogo';
 import { textoPeriodo } from './periodo';
-import { entero, plata, rutaProducto, unidadDeclarada } from './publico';
+import { comprasDeOrganismos, entero, plata, rutaProducto, unidadDeclarada } from './publico';
 
 // ── Comunes ─────────────────────────────────────────────────────────────────
 
@@ -169,25 +169,25 @@ export function lecturaSectores(datos: SectoresBI | null): LecturaSectores | nul
 
 /**
  * El producto de la lectura de precio. **El nombre va escrito a mano**: la firma
- * son sus palabras ordenadas y sin relleno («higiénico jumbo papel») y no se lee
- * como un nombre.
+ * son sus palabras ordenadas y sin relleno («impresora multifuncional» por
+ * suerte se lee bien; «higiénico jumbo papel» no) y la descripción del comprador
+ * puede traer marca o medidas.
  *
- * Elegido en producción el 2026-10-16 recorriendo `EJEMPLOS_BUSQUEDA` desde el
- * primero, con peticiones espaciadas: las dos fichas de guantes de nitrilo
- * miradas tenían predictibilidad baja, y la primera de papel higiénico, una
- * marca con los cinco percentiles iguales. Ésta es genérica, sin marca, y pasa
- * el filtro (paquete, 90 compras, predictibilidad media, $842–$2.106, periodo).
- * Esa banda dividía el precio por la cantidad (corregido el 2026-10-16, ver
- * CLAUDE.md, «El precio se agrupa por PRODUCTO»): en la copia local corregida
- * esta ficha da p25 = p75 = $16.850, y el filtro (`p75 > p25`) la ocultaría.
+ * Elegido el 2026-10-16 con el precio unitario corregido y la regla de precio
+ * de mercado (≥ 3 compradores, ninguno con más de la mitad; ver
+ * `backend/app/services/publico/indexables.py`). En la copia local: 46 compras de
+ * 40 organismos, el mayor con el 4 %, $150.921–$240.000 por unidad,
+ * predictibilidad alta. Genérico, sin marca, y algo que una PYME vende. El
+ * anterior, «Papel higiénico jumbo», salió porque 88 de sus 90 compras eran de
+ * un solo comprador y, corregido el precio, su banda era p25 = p75 = $16.850.
  *
  * **El slug tiene copia literal en `scripts/verificar-produccion.sh`**, que
  * comprueba tras desplegar que sigue indexable y pasando el filtro;
  * `__tests__/portada-ayudantes.test.ts` falla si las dos copias se separan.
  */
 export const PRODUCTO_PORTADA = {
-  slug: 'higienico-jumbo-papel',
-  nombre: 'Papel higiénico jumbo',
+  slug: 'impresora-multifuncional',
+  nombre: 'Impresora multifuncional',
 } as const;
 
 /** Bandas que se pueden creer: con predictibilidad baja el precio no decide. */
@@ -318,10 +318,13 @@ export function rotulosDeBanda(p25: MarcaPrecio, p75: MarcaPrecio): RotulosBanda
  * definición del rango intercuartílico. **No se muestran mínimo ni máximo**: son
  * lo que el Tukey de las bandas ya trata como atípico.
  *
- * **Sólo una banda que se pueda creer** (spec §3.4): unidad declarada,
- * predictibilidad alta o media, `p25 ≥ 1`, `p75 > p25`, que se escriban distinto
- * con `plata()` y periodo. Si no, nada: mejor ninguna banda que «entre $0 y $0»,
- * «entre $1.150 y $1.150» o «entre $2 millones y $2 millones».
+ * **Sólo una banda que se pueda creer** (spec §3.4): un precio de mercado
+ * (`de_mercado`, que decide el backend: ≥ 3 compradores y ninguno con más de la
+ * mitad), unidad declarada, predictibilidad alta o media, `p25 ≥ 1`, `p75 > p25`,
+ * que se escriban distinto con `plata()` y periodo. Si no, nada: mejor ninguna
+ * banda que «entre $0 y $0», «entre $1.150 y $1.150», «entre $2 millones y $2
+ * millones» o el precio del contrato de un solo comprador presentado como el
+ * del Estado. El pie dice de cuántos organismos son las compras.
  *
  * `nombre` es el escrito a mano junto al slug; por defecto, el de
  * `PRODUCTO_PORTADA`.
@@ -334,6 +337,8 @@ export function lecturaPrecio(
   const u = producto.unidades[0];
   // p75 > p25 estricto: «entre $1.150 y $1.150» no dice nada.
   if (!u || u.p25 == null || u.p75 == null || u.p25 < 1 || u.p75 <= u.p25) return null;
+  // Un precio «del Estado» necesita varios compradores. Sin el dato, tampoco.
+  if (u.de_mercado !== true) return null;
   // Distintos en el dato pero escritos igual tras redondear: lo mismo.
   if (plata(u.p25) === plata(u.p75)) return null;
   const unidad = unidadDeclarada(u.unidad);
@@ -350,11 +355,10 @@ export function lecturaPrecio(
   // hasta ≥ p75 > p25 ≥ desde: el riel nunca tiene ancho cero.
   const posicion = (v: number) => unDecimal(((v - desde) / (hasta - desde)) * 100);
   const marca = (v: number): MarcaPrecio => ({ valor: plata(v), posicion: posicion(v) });
-  const compras = u.n === 1 ? '1 compra' : `${entero(u.n)} compras`;
 
   return {
     conclusion: `${nombre}: la mitad se pagó entre ${plata(u.p25)} y ${plata(u.p75)}`,
-    pie: `Precio por ${unidad}, ${compras}, ${periodo}`,
+    pie: `Precio por ${unidad}, ${comprasDeOrganismos(u.n, u.compradores)}, ${periodo}`,
     enlace: { texto: 'Ver el producto', href: rutaProducto(producto.slug) },
     p10: u.p10 == null ? null : marca(u.p10),
     p25: marca(u.p25),

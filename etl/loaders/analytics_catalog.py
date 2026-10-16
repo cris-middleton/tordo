@@ -38,10 +38,23 @@ CATALOGO: list[TablaAnalytics] = [
             ["firma_producto", "CodigoOrganismoPublico"],
         ],
     ),
+    # La lee también la página pública de producto: `compradores` y
+    # `cuota_mayor` deciden si la banda es un precio de mercado
+    # (backend/app/services/publico/indexables.py).
     TablaAnalytics(
         tabla="product_price_bands_l0n",
         parquet="product_price_bands_L0N.parquet",
         indices=[["codigoProductoONU", "UnidadMedida"], ["firma_producto"]],
+        comentarios={
+            "compradores": (
+                "Organismos compradores distintos entre las compras de la banda (ya sin "
+                "atípicos: las mismas filas que dan n)."
+            ),
+            "cuota_mayor": (
+                "Fracción de las compras de la banda (0–1) que hizo el organismo que más "
+                "compró. Con 1 comprador vale 1: la banda es el precio de su contrato."
+            ),
+        },
     ),
     TablaAnalytics(
         tabla="product_price_bands_l1",
