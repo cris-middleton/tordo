@@ -5,7 +5,7 @@ import { ChevronDown } from 'lucide-react';
 import { CabeceraFicha, Seccion } from '@/components/publico/Piezas';
 import { PREGUNTAS } from '@/lib/acerca';
 import { COSTO_MENSUAL_APROXIMADO } from '@/lib/costos';
-import { nombreAutor } from '@/lib/autor';
+import { nombreAutor, rolAutor } from '@/lib/autor';
 import { CORREO_CONTACTO } from '@/lib/responsable';
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
@@ -25,9 +25,11 @@ export const metadata: Metadata = {
  * **«Lo hace X» sólo con `AUTOR_NOMBRE`** (`nombreAutor()`, spec PORTADA_V7 V5): sin
  * ella no se firma, ni con un hueco ni con un nombre inventado. La autoría no es el
  * responsable legal: `/terminos` y `/privacidad` siguen con `RESPONSABLE_LEGAL`.
+ * El rol sale de `AUTOR_ROL` (`rolAutor()`); sin él, el nombre solo.
  */
 export default function PaginaAcerca() {
   const autor = nombreAutor();
+  const rol = rolAutor();
 
   return (
     <article className="max-w-3xl">
@@ -76,7 +78,7 @@ export default function PaginaAcerca() {
             </Link>
             , y lo sostienen los aportes voluntarios de quienes lo usan.
           </p>
-          {autor && <p>Lo hace {autor}, data scientist, a título personal.</p>}
+          {autor && <p>{rol ? `Lo hace ${autor}, ${rol}, a título personal.` : `Lo hace ${autor}, a título personal.`}</p>}
           <p>
             ¿Un dato que no cuadra, una idea o una pregunta? Escribe a{' '}
             <a href={`mailto:${CORREO_CONTACTO}`} className="enlace">

@@ -9,15 +9,17 @@ const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
  * `AUTOR_NOMBRE`**: la portada no llega aquí sin nombre. Sin foto, sin
  * trayectoria y sin logos (spec §2, lo descartado): esto no es un CV.
  *
+ * El rol (`AUTOR_ROL`) va tras el nombre entre comas; sin él, el nombre solo.
+ *
  * El enlace del autor se nombra por su sitio («GitHub», «LinkedIn» o el dominio:
  * `nombreDelEnlace`).
  */
-export function FichaAutor({ nombre, url }: { nombre: string; url: string | null }) {
+export function FichaAutor({ nombre, rol, url }: { nombre: string; rol: string | null; url: string | null }) {
   return (
     <aside aria-label="Quién lo hace" className="rounded-lg border border-border p-6">
       <p className="text-text">
-        <strong className="font-semibold">{nombre}</strong> hace {APP_NAME}. Es data scientist y escribe las notas de
-        datos.
+        <strong className="font-semibold">{nombre}</strong>
+        {rol && `, ${rol},`} hace {APP_NAME} y escribe las notas de datos.
       </p>
       <p className="mt-2 text-sm text-muted">
         Si un número no cuadra con Mercado Público, escríbele: cada corrección sale como nota.

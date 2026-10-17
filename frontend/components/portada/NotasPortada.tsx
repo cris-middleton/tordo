@@ -18,10 +18,12 @@ export const NOTAS_EN_PORTADA = 4;
 export function NotasPortada({
   notas,
   autor,
+  rol,
   urlAutor,
 }: {
   notas: Nota[];
   autor: string | null;
+  rol: string | null;
   urlAutor: string | null;
 }) {
   if (notas.length === 0) return null;
@@ -60,7 +62,7 @@ export function NotasPortada({
         </div>
         {autor && (
           <div className="lg:col-span-5">
-            <FichaAutor nombre={autor} url={urlAutor} />
+            <FichaAutor nombre={autor} rol={rol} url={urlAutor} />
           </div>
         )}
       </div>

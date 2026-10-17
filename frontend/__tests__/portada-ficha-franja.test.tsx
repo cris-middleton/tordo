@@ -16,53 +16,68 @@ import { SE_ACTUALIZA, type DatosFranja } from '@/lib/portada';
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
 const leer = (f: string) => readFileSync(join(__dirname, '..', 'components', 'portada', f), 'utf8');
 
+const ROL = 'ingeniero que construye productos con datos';
 const BASE = '5,48 millones de órdenes de compra, nov 2023 a oct 2026';
 const filas = (dl: HTMLElement) =>
   [...dl.querySelectorAll('dt')].map((d) => [d.textContent, d.nextElementSibling?.textContent]);
 
 describe('FichaPortada (spec PORTADA_V7 §3.5)', () => {
   it('con todo: Base, Fuente, Se actualiza y Lo hace, en ese orden', () => {
-    const { container } = render(<FichaPortada base={BASE} autor="Nombre De Prueba" urlAutor="https://github.com/prueba" />);
+    const { container } = render(
+      <FichaPortada base={BASE} autor="Nombre De Prueba" rol={ROL} urlAutor="https://github.com/prueba" />,
+    );
     expect(filas(container.querySelector('dl') as HTMLElement)).toEqual([
       ['Base', BASE],
       ['Fuente', 'Datos abiertos de ChileCompra'],
       ['Se actualiza', SE_ACTUALIZA],
-      ['Lo hace', 'Nombre De Prueba, data scientist'],
+      ['Lo hace', `Nombre De Prueba, ${ROL}`],
     ]);
     expect(screen.getByRole('link', { name: 'Nombre De Prueba' })).toHaveAttribute('href', 'https://github.com/prueba');
   });
 
   it('sin base ni autor, esas filas no salen (ni un hueco)', () => {
-    const { container } = render(<FichaPortada base={null} autor={null} urlAutor={null} />);
+    const { container } = render(<FichaPortada base={null} autor={null} rol={ROL} urlAutor={null} />);
     expect(filas(container.querySelector('dl') as HTMLElement).map(([dt]) => dt)).toEqual(['Fuente', 'Se actualiza']);
-    expect(container.textContent).not.toMatch(/Lo hace|\[\[|null/);
+    expect(container.textContent).not.toMatch(/Lo hace|ingeniero|\[\[|null/);
   });
 
   it('con autor y sin URL, el nombre sin enlace', () => {
-    render(<FichaPortada base={BASE} autor="Nombre De Prueba" urlAutor={null} />);
+    render(<FichaPortada base={BASE} autor="Nombre De Prueba" rol={ROL} urlAutor={null} />);
     expect(screen.queryByRole('link')).toBeNull();
     expect(screen.getByText(/Nombre De Prueba/)).toBeInTheDocument();
   });
 
+  it('con autor y sin rol, sólo el nombre: no hay rol por defecto', () => {
+    const { container } = render(<FichaPortada base={BASE} autor="Nombre De Prueba" rol={null} urlAutor={null} />);
+    expect(filas(container.querySelector('dl') as HTMLElement).at(-1)).toEqual(['Lo hace', 'Nombre De Prueba']);
+  });
+
   it('«Se usa» se fue (V11): la salida a API, MCP y CSV es la de la cabecera y el pie', () => {
-    const { container } = render(<FichaPortada base={BASE} autor={null} urlAutor={null} />);
+    const { container } = render(<FichaPortada base={BASE} autor={null} rol={null} urlAutor={null} />);
     expect(container.textContent).not.toMatch(/Se usa|MCP|CSV/);
   });
 });
 
 describe('FichaAutor (spec PORTADA_V7 §3.6)', () => {
   it('quién lo hace, a quién escribir y su enlace con el nombre del sitio', () => {
-    render(<FichaAutor nombre="Nombre De Prueba" url="https://www.linkedin.com/in/prueba" />);
+    render(<FichaAutor nombre="Nombre De Prueba" rol={ROL} url="https://www.linkedin.com/in/prueba" />);
     const ficha = screen.getByRole('complementary', { name: 'Quién lo hace' });
-    expect(ficha).toHaveTextContent(`Nombre De Prueba hace ${APP_NAME}. Es data scientist y escribe las notas de datos.`);
+    expect(ficha).toHaveTextContent(`Nombre De Prueba, ${ROL}, hace ${APP_NAME} y escribe las notas de datos.`);
     expect(ficha).toHaveTextContent('Si un número no cuadra con Mercado Público, escríbele: cada corrección sale como nota.');
     expect(screen.getByRole('link', { name: 'hola@tordo.cl' })).toHaveAttribute('href', 'mailto:hola@tordo.cl');
     expect(screen.getByRole('link', { name: 'LinkedIn' })).toHaveAttribute('href', 'https://www.linkedin.com/in/prueba');
   });
 
   it('sin URL, sólo el correo', () => {
-    render(<FichaAutor nombre="Nombre De Prueba" url={null} />);
+    render(<FichaAutor nombre="Nombre De Prueba" rol={ROL} url={null} />);
     expect(screen.getAllByRole('link')).toHaveLength(1);
+  });
+
+  it('sin rol, el nombre solo: no hay rol por defecto', () => {
+    render(<FichaAutor nombre="Nombre De Prueba" rol={null} url={null} />);
+    const ficha = screen.getByRole('complementary', { name: 'Quién lo hace' });
+    expect(ficha).toHaveTextContent(`Nombre De Prueba hace ${APP_NAME} y escribe las notas de datos.`);
+    expect(ficha).not.toHaveTextContent(/data scientist/);
   });
 });
 

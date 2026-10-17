@@ -173,6 +173,7 @@ afterEach(() => {
   delete process.env.REPOSITORIO_URL;
   delete process.env.RESPONSABLE_LEGAL;
   delete process.env.AUTOR_NOMBRE;
+  delete process.env.AUTOR_ROL;
   delete process.env.AUTOR_URL;
 });
 
@@ -424,23 +425,39 @@ describe('quién lo hace y de dónde sale (spec PORTADA_V7 §3.5, §3.6)', () =>
     expect(container.textContent).not.toMatch(/NaN|undefined/);
   });
 
-  it('sin AUTOR_NOMBRE no firma, y nunca enseña el hueco', async () => {
+  it('sin AUTOR_NOMBRE no firma, ni con rol, y nunca enseña el hueco', async () => {
+    process.env.AUTOR_ROL = 'ingeniero que construye productos con datos';
     todo();
     const { container } = render(await Home());
-    expect(container.textContent).not.toMatch(/lo hace|data scientist|\[\[/i);
+    expect(container.textContent).not.toMatch(/lo hace|data scientist|ingeniero que construye|\[\[/i);
     expect(screen.queryByRole('complementary', { name: 'Quién lo hace' })).toBeNull();
   });
 
-  it('con AUTOR_NOMBRE y AUTOR_URL: «Lo hace» en la ficha y la ficha del autor junto a las notas', async () => {
+  it('con AUTOR_NOMBRE, AUTOR_ROL y AUTOR_URL: «Lo hace» en la ficha y la ficha del autor junto a las notas', async () => {
     process.env.AUTOR_NOMBRE = 'Nombre De Prueba';
+    process.env.AUTOR_ROL = 'ingeniero que construye productos con datos';
     process.env.AUTOR_URL = 'https://github.com/prueba';
     todo();
     render(await Home());
-    expect(screen.getByText('Lo hace').nextElementSibling).toHaveTextContent('Nombre De Prueba, data scientist');
+    expect(screen.getByText('Lo hace').nextElementSibling).toHaveTextContent(
+      'Nombre De Prueba, ingeniero que construye productos con datos',
+    );
     const ficha = screen.getByRole('complementary', { name: 'Quién lo hace' });
-    expect(ficha).toHaveTextContent(/Nombre De Prueba hace .+\. Es data scientist/);
+    expect(ficha).toHaveTextContent(
+      /Nombre De Prueba, ingeniero que construye productos con datos, hace .+ y escribe las notas de datos\./,
+    );
     expect(within(ficha).getByRole('link', { name: 'GitHub' })).toHaveAttribute('href', 'https://github.com/prueba');
     expect(screen.getByRole('region', { name: 'Notas de datos' })).toContainElement(ficha);
+  });
+
+  it('con AUTOR_NOMBRE y sin AUTOR_ROL: el nombre solo, sin rol por defecto', async () => {
+    process.env.AUTOR_NOMBRE = 'Nombre De Prueba';
+    todo();
+    const { container } = render(await Home());
+    expect(screen.getByText('Lo hace').nextElementSibling?.textContent).toBe('Nombre De Prueba');
+    const ficha = screen.getByRole('complementary', { name: 'Quién lo hace' });
+    expect(ficha).toHaveTextContent(/Nombre De Prueba hace .+ y escribe las notas de datos\./);
+    expect(container.textContent).not.toMatch(/data scientist/i);
   });
 
   it('firma la autoría, no el responsable legal (spec PORTADA_V7 V5)', async () => {

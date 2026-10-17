@@ -1,5 +1,5 @@
 /**
- * Quién hace el sitio (spec PORTADA_V7 §7, V5): `AUTOR_NOMBRE` y `AUTOR_URL`,
+ * Quién hace el sitio (spec PORTADA_V7 §7, V5): `AUTOR_NOMBRE`, `AUTOR_ROL` y `AUTOR_URL`,
  * variables de SERVIDOR y opcionales. La autoría no es el responsable legal:
  * así se firma sin tocar los términos. Sin la variable no se pinta nada.
  */
@@ -8,7 +8,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { nombreAutor, nombreDelEnlace, urlAutor } from '@/lib/autor';
+import { nombreAutor, nombreDelEnlace, rolAutor, urlAutor } from '@/lib/autor';
 import { commitDelSitio } from '@/lib/repositorio';
 
 describe('nombreAutor', () => {
@@ -27,6 +27,27 @@ describe('nombreAutor', () => {
 
   it('no lee RESPONSABLE_LEGAL: firmar y responder por el sitio son cosas distintas', () => {
     expect(nombreAutor({ RESPONSABLE_LEGAL: 'Otra Persona' })).toBeNull();
+  });
+});
+
+describe('rolAutor', () => {
+  it('devuelve el rol, sin espacios a los lados', () => {
+    expect(rolAutor({ AUTOR_ROL: '  ingeniero que construye productos con datos ' })).toBe(
+      'ingeniero que construye productos con datos',
+    );
+  });
+
+  it('acepta 80 caracteres justos', () => {
+    expect(rolAutor({ AUTOR_ROL: 'x'.repeat(80) })).toBe('x'.repeat(80));
+  });
+
+  it.each([
+    ['sin variable', {}],
+    ['vacía', { AUTOR_ROL: '' }],
+    ['sólo espacios', { AUTOR_ROL: '   ' }],
+    ['más de 80 caracteres', { AUTOR_ROL: 'x'.repeat(81) }],
+  ])('%s → null: no hay rol por defecto', (_, entorno) => {
+    expect(rolAutor(entorno)).toBeNull();
   });
 });
 

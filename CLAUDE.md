@@ -950,8 +950,8 @@ componentes cliente y la home perdería título y tarjeta de preview.
   de compra, nov 2023 a oct 2026», `baseDeLaFicha` sobre `GET /bi/sector`: la suma de `n_oc` y la
   ventana mínima y máxima, **nunca escrita a mano**; sin analytics, sin `n_oc` en alguna fila o sin
   ventana, la fila no sale—, **Fuente**, **Se actualiza** (`SE_ACTUALIZA`, que sale de
-  `HORAS_HABILES`) y **Lo hace** («{nombre}, data scientist», sólo con `AUTOR_NOMBRE`, enlazado a
-  `AUTOR_URL`). «Se usa» y «Úsalo como quieras» se fueron (V11): la salida a API, MCP y CSV es la de
+  `HORAS_HABILES`) y **Lo hace** («{nombre}, {rol}», sólo con `AUTOR_NOMBRE`, enlazado a
+  `AUTOR_URL`; el rol sale de `AUTOR_ROL` y sin ella va el nombre solo). «Se usa» y «Úsalo como quieras» se fueron (V11): la salida a API, MCP y CSV es la de
   la cabecera y el pie.
 - **«Lo que dicen los datos»** (`LecturasPortada`): sobre blanco, con un filete de 2 px en `primary`
   (el navy en claro) bajo el `h2` y la frase «Cada lectura dice de dónde sale, cómo se calcula y
@@ -1646,9 +1646,11 @@ obligatorio que nadie usa enseña a rellenar variables sin mirar.
 **`RESPONSABLE_LEGAL`** (servidor de Next, en el build): el nombre que firman `/terminos` y
 `/privacidad`. En Vercel tiene que estar definida al construir.
 
-**`AUTOR_NOMBRE` y `AUTOR_URL`** (servidor de Next, en el build, opcionales; `lib/autor.ts`): quién
-hace el sitio, en el «Lo hace» de la portada, `/acerca` («Lo hace {Nombre}, data scientist, a título
-personal.») y el pie. Sin `AUTOR_NOMBRE` no se firma nada; `AUTOR_URL` sólo `https://`, y
+**`AUTOR_NOMBRE`, `AUTOR_ROL` y `AUTOR_URL`** (servidor de Next, en el build, opcionales;
+`lib/autor.ts`): quién hace el sitio, en el «Lo hace» de la portada, `/acerca` («Lo hace {Nombre},
+{rol}, a título personal.»), la ficha del autor y el pie. Sin `AUTOR_NOMBRE` no se firma nada, ni el
+rol. `AUTOR_ROL` (≤ 80 caracteres; en producción «ingeniero que construye productos con datos») no
+tiene valor por defecto: sin ella se firma sólo con el nombre. `AUTOR_URL` sólo `https://`, y
 `nombreDelEnlace` la nombra «GitHub», «LinkedIn» o por su dominio. **`VERCEL_GIT_COMMIT_SHA`** la
 pone Vercel en el build: el commit del pie.
 

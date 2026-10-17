@@ -43,6 +43,7 @@ export function Portada({
   notas,
   repositorio,
   autor,
+  rol,
   urlAutor,
 }: {
   destacadas: CompraAgilDestacadasResponse | null;
@@ -57,6 +58,8 @@ export function Portada({
   repositorio: string | null;
   /** `nombreAutor()`: «Lo hace» y la ficha del autor sólo con nombre. */
   autor: string | null;
+  /** `rolAutor()`: tras el nombre, en la ficha y en la ficha del autor; sin él, el nombre solo. */
+  rol: string | null;
   /** `urlAutor()`: el enlace del nombre. */
   urlAutor: string | null;
 }) {
@@ -86,6 +89,7 @@ export function Portada({
         <FichaPortada
           base={baseDeLaFicha(sectores)}
           autor={autor}
+          rol={rol}
           urlAutor={urlAutor}
           className={`mt-8 lg:col-span-5 lg:col-start-8 lg:self-start ${tira ? 'lg:row-start-2 lg:mt-6' : 'lg:row-start-1 lg:mt-0'}`}
         />
@@ -99,7 +103,7 @@ export function Portada({
       {destacadas && horaHoy && (
         <BloqueHoy datos={destacadas} actualizado={horaHoy} horaEnLaFranja={franja !== null} />
       )}
-      <NotasPortada notas={notas} autor={autor} urlAutor={urlAutor} />
+      <NotasPortada notas={notas} autor={autor} rol={rol} urlAutor={urlAutor} />
     </Contenedor>
   );
 }

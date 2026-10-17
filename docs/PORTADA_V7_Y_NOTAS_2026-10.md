@@ -135,7 +135,7 @@ Filas, en este orden (etiqueta en `muted`, valor en `text`):
 | Base | «{N} millones de órdenes de compra, {desde} a {hasta}» (suma de `n_oc` de `GET /bi/sector`, con la ventana mínima y máxima de sus filas; redondeo a dos decimales con coma) | La fila no sale |
 | Fuente | «Datos abiertos de ChileCompra» | — |
 | Se actualiza | `SE_ACTUALIZA`, reescrito como «El catálogo, {n} veces cada día hábil. El análisis, cada domingo.» | — |
-| Lo hace | «{AUTOR_NOMBRE}, data scientist», el nombre enlazado a `AUTOR_URL` si existe | La fila no sale |
+| Lo hace | «{AUTOR_NOMBRE}, {AUTOR_ROL}», el nombre enlazado a `AUTOR_URL` si existe. El rol sale de `AUTOR_ROL` (antes, «data scientist» escrito en el código); sin ella, el nombre solo | La fila no sale |
 
 «Se usa» sale (V11). El pedido a `GET /bi/sector` sigue como hoy (`pedirSectoresPortada`, una
 semana, etiqueta `analytics`), pero ahora alimenta la fila «Base», no una lectura. Con
@@ -143,8 +143,9 @@ semana, etiqueta `analytics`), pero ahora alimenta la fila «Base», no una lect
 
 ### 3.6 Ficha del autor
 
-Sólo con `AUTOR_NOMBRE`. Un recuadro con borde: «**{Nombre}** hace {APP_NAME}. Es data scientist y
-escribe las notas de datos.» y «Si un número no cuadra con Mercado Público, escríbele: cada
+Sólo con `AUTOR_NOMBRE`. Un recuadro con borde: «**{Nombre}**, {rol}, hace {APP_NAME} y escribe las
+notas de datos.» El rol sale de `AUTOR_ROL` (antes, «Es data scientist» escrito en el código); sin
+ella, «**{Nombre}** hace {APP_NAME} y escribe las notas de datos.» y «Si un número no cuadra con Mercado Público, escríbele: cada
 corrección sale como nota.» Enlaces: `hola@tordo.cl` y `AUTOR_URL` (con el nombre de su dominio:
 «GitHub», «LinkedIn» o el dominio, por una función con test).
 
@@ -225,8 +226,9 @@ columnas si caben y la tercera debajo.
   atribución a ChileCompra en su línea, el selector de tema y «Sitio en el commit `abc1234`»
   (`VERCEL_GIT_COMMIT_SHA` en el build, enlazado al commit si hay `REPOSITORIO_URL`; sin la variable,
   no sale). Sin puntos medios: «No estamos afiliados al gobierno de Chile.» es una frase.
-- **«Hecho por»** de `/acerca`: pasa a `AUTOR_NOMBRE` («Lo hace {Nombre}, data scientist, a
-  título personal.»). `/terminos` y `/privacidad` siguen con `RESPONSABLE_LEGAL`.
+- **«Hecho por»** de `/acerca`: pasa a `AUTOR_NOMBRE` («Lo hace {Nombre}, {rol}, a título
+  personal.»; el rol sale de `AUTOR_ROL`, antes «data scientist» en el código, y sin ella va el
+  nombre solo). `/terminos` y `/privacidad` siguen con `RESPONSABLE_LEGAL`.
 - **Formatos**: todo número y fecha visibles con `es-CL` («29.586», «16 oct 2026»), con test que
   busque `toLocaleString()` sin locale en `app/`, `components/` y `lib/`.
 - **Ficha de producto**: el gráfico de §3.2 (con los mismos componentes) encima de «Quién lo
@@ -237,6 +239,7 @@ columnas si caben y la tercera debajo.
 | Variable | Servicio | Obligatoria | Formato | Qué hace |
 |---|---|---|---|---|
 | `AUTOR_NOMBRE` | Vercel (servidor, build) | No | Texto, ≤ 60 | La firma de la portada, `/acerca`, las notas y el pie. Sin ella, no se firma. |
+| `AUTOR_ROL` | Vercel (servidor, build) | No | Texto, ≤ 80 | El rol tras el nombre en la portada, `/acerca` y la ficha del autor. Sin ella, el nombre solo. |
 | `AUTOR_URL` | Vercel (servidor, build) | No | `https://` | El enlace del nombre. |
 
 Sin prefijo `NEXT_PUBLIC_`. Van a la tabla de `docs/DESPLIEGUE.md` y a `.env.example`.
