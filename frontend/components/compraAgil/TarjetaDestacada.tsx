@@ -52,10 +52,10 @@ export default function TarjetaDestacada({
     <article className="card flex flex-col gap-3" aria-labelledby={`ca-${item.codigo_externo}`}>
       <div className="flex items-start gap-3">
         {posicion !== undefined && (
-          <span
-            className="cifra flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold text-onAccent"
-            aria-label={`Puesto ${posicion}`}
-          >
+          // El puesto como texto oculto y no como `aria-label`: sobre un `span` sin
+          // rol, ARIA lo prohíbe y los lectores de pantalla lo ignoran.
+          <span className="cifra flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold text-onAccent">
+            <span className="sr-only">Puesto </span>
             {posicion}
           </span>
         )}

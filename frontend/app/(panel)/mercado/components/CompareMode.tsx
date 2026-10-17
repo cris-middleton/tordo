@@ -149,6 +149,7 @@ export function CompareMode({ rubroA, rubroB, allRubros, onChangeRubroA, onChang
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-sm font-semibold text-text">Comparando:</span>
         <select
+          aria-label="Primer rubro"
           value={rubroA}
           onChange={(e) => onChangeRubroA(e.target.value)}
           className="input-field max-w-xs"
@@ -159,6 +160,7 @@ export function CompareMode({ rubroA, rubroB, allRubros, onChangeRubroA, onChang
         </select>
         <span className="text-muted text-xs">vs.</span>
         <select
+          aria-label="Segundo rubro"
           value={rubroB}
           onChange={(e) => onChangeRubroB(e.target.value)}
           className="input-field max-w-xs"

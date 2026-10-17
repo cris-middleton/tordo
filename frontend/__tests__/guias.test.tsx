@@ -118,6 +118,14 @@ describe('Markdown mínimo', () => {
     const externo = render(<Markdown arbol={bloques('[z](https://www.chilecompra.cl)')} />);
     expect(externo.container.querySelector('a')).toHaveAttribute('rel', 'noopener noreferrer');
   });
+
+  it('un bloque de código se alcanza con el teclado: en móvil se desplaza (axe, scrollable-region-focusable)', () => {
+    const { container } = render(<Markdown arbol={bloques('```\nx = 1\n```')} />);
+    const pre = container.querySelector('pre');
+    expect(pre).toHaveAttribute('tabindex', '0');
+    expect(pre).toHaveAttribute('role', 'group');
+    expect(pre).toHaveAttribute('aria-label', 'Bloque de código');
+  });
 });
 
 // ── Rutas que existen ───────────────────────────────────────────────────────

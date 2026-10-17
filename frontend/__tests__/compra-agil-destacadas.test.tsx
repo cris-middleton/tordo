@@ -186,6 +186,13 @@ describe('la página', () => {
     expect(screen.getByRole('status').textContent).not.toMatch(/cotizaciones/i);
   });
 
+  it('el puesto se lee como texto, no como aria-label de un span (axe, aria-prohibited-attr)', async () => {
+    await montar();
+    const item = screen.getByRole('article');
+    expect(within(item).getByText(/^Puesto/)).toHaveClass('sr-only');
+    expect(item.querySelector('span[aria-label]')).toBeNull();
+  });
+
   it('enlaza al detalle y a Mercado Público', async () => {
     await montar();
     const item = screen.getByRole('article');

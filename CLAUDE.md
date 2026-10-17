@@ -422,6 +422,16 @@ programador en la nube, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
     HIT, sobre el servidor standalone del build de producción. `scripts/e2e.sh` genera
     `REVALIDAR_SECRETO` como `PROXY_SECRETO`. Que el dato cambie de verdad se comprueba a
     mano (docs/DESPLIEGUE.md, «Si algo falla»).
+- **Accesibilidad con axe** (`e2e/accesibilidad.spec.ts`, `@axe-core/playwright`): reglas
+  WCAG 2.0 y 2.1 A y AA sobre el DOM pintado de la portada, `/licitaciones` y una licitación,
+  `/compra-agil`, `/mercado`, `/productos`, `/notas` y una nota, `/guias` y una guía, `/acerca`,
+  `/apoyar`, `/abierto` y el 404, en claro y oscuro, a 1440 y 390. Ve lo que el test de tokens
+  no ve: nombres accesibles, ARIA prohibido, regiones con desplazamiento sin teclado. **Lo que
+  marque se arregla en el componente**; una exclusión va en `EXCLUSIONES`, con regla, selector
+  exacto y motivo, nunca una regla entera. Hoy está vacía. axe no decide el contraste del texto
+  dentro de un SVG de Recharts (lo da por «incompleto», no por fallo), así que ahí no vigila
+  nada. `__tests__/selects-con-nombre.test.ts` cubre los `<select>` que axe no ve porque no se
+  pintan al abrir la página.
 - **El navegador de los E2E se elige solo** (`E2E_NAVEGADOR=auto`): nativo si puede
   lanzarse, y si no, la imagen oficial de Playwright. En una máquina de trabajo
   `playwright install --with-deps` pide sudo; en CI no, y **bajar la imagen de 2 GB desde

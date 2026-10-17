@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 
 import { apiClient } from '@/lib/api';
@@ -36,6 +36,11 @@ export default function TabSimulador({ rubroInicial, organismosConNombre, allRub
   organismosConNombre?: OrganismoConNombre[];
   allRubros: string[];
 }) {
+  // Cada etiqueta nombra a su campo por `htmlFor`: sin eso sólo queda al lado.
+  const base = useId();
+  const idTipo = `${base}-tipo`;
+  const idRubro = `${base}-rubro`;
+  const idOrganismo = `${base}-organismo`;
   const [tipo, setTipo] = useState('LP');
   // Se deriva del rubro del panel mientras el usuario no elija otro, en vez de
   // sincronizarlo con un efecto.
@@ -207,16 +212,16 @@ export default function TabSimulador({ rubroInicial, organismosConNombre, allRub
       {/* Inputs */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <div>
-          <label className="text-xs text-muted block mb-1">Tipo</label>
-          <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="input-field w-full">
+          <label htmlFor={idTipo} className="text-xs text-muted block mb-1">Tipo</label>
+          <select id={idTipo} value={tipo} onChange={(e) => setTipo(e.target.value)} className="input-field w-full">
             <option value="L1">L1 — menor cuantía</option>
             <option value="LE">LE — mediana cuantía</option>
             <option value="LP">LP — pública</option>
           </select>
         </div>
         <div>
-          <label className="text-xs text-muted block mb-1">Rubro</label>
-          <select value={rubro} onChange={(e) => setRubro(e.target.value)} className="input-field w-full">
+          <label htmlFor={idRubro} className="text-xs text-muted block mb-1">Rubro</label>
+          <select id={idRubro} value={rubro} onChange={(e) => setRubro(e.target.value)} className="input-field w-full">
             <option value="">Selecciona rubro</option>
             {allRubros.map((r) => (
               <option key={r} value={r}>{r}</option>
@@ -224,9 +229,9 @@ export default function TabSimulador({ rubroInicial, organismosConNombre, allRub
           </select>
         </div>
         <div>
-          <label className="text-xs text-muted block mb-1">Organismo (opcional)</label>
+          <label htmlFor={idOrganismo} className="text-xs text-muted block mb-1">Organismo (opcional)</label>
           {organismosConNombre && organismosConNombre.length > 0 ? (
-            <select value={organismo} onChange={(e) => setOrganismo(e.target.value)} className="input-field w-full">
+            <select id={idOrganismo} value={organismo} onChange={(e) => setOrganismo(e.target.value)} className="input-field w-full">
               <option value="">Cualquiera</option>
               {organismosConNombre.map((o) => (
                 <option key={o.codigo} value={o.codigo} title={o.nombre}>
@@ -236,6 +241,7 @@ export default function TabSimulador({ rubroInicial, organismosConNombre, allRub
             </select>
           ) : (
             <input
+              id={idOrganismo}
               value={organismo}
               onChange={(e) => setOrganismo(e.target.value)}
               placeholder="Código organismo"
