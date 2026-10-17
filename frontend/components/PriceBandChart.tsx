@@ -37,6 +37,13 @@ const fmtCLP = (v?: number | null): string => {
   return `CLP ${decimal(v, 0)}`;
 };
 
+/**
+ * Los tokens son tripletes («84 99 122»): la variable a secas, sin `rgb()`, no es un
+ * color, y el tooltip salía sin fondo, con el texto encima del gráfico. Van dentro
+ * de `rgb()`, y en `style`: un atributo SVG no sabe leer `var()` en todos los navegadores.
+ */
+const TINTA_SUAVE = 'rgb(var(--color-muted))';
+
 const nivelLabel: Record<string, string> = {
   L1: 'datos del organismo',
   L2: 'datos del sector',
@@ -71,12 +78,14 @@ function ProductPriceSection({ p }: { p: PrecioFallback }) {
     );
   }
 
+  // La mediana en `dato` y el resto en `dato-tenue`, por clase: el CSS le gana al
+  // `fill` que Recharts escribe como atributo, y así siguen al tema.
   const chartData = [
-    { label: 'P10', value: p.p10, color: '#54637A' },
-    { label: 'P25', value: p.p25, color: '#5F7089' },
-    { label: 'P50', value: p.p50, color: '#3DB9BB' },
-    { label: 'P75', value: p.p75, color: '#5F7089' },
-    { label: 'P90', value: p.p90, color: '#54637A' },
+    { label: 'P10', value: p.p10, clase: 'fill-dato-tenue' },
+    { label: 'P25', value: p.p25, clase: 'fill-dato-tenue' },
+    { label: 'P50', value: p.p50, clase: 'fill-dato' },
+    { label: 'P75', value: p.p75, clase: 'fill-dato-tenue' },
+    { label: 'P90', value: p.p90, clase: 'fill-dato-tenue' },
   ];
 
   const nivelDesc = p.nivel_usado ? nivelLabel[p.nivel_usado] ?? p.nivel_usado : null;
@@ -94,31 +103,31 @@ function ProductPriceSection({ p }: { p: PrecioFallback }) {
           <BarChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
             <XAxis
               dataKey="label"
-              tick={{ fontSize: 11, fill: 'var(--color-muted, #5F7089)' }}
+              tick={{ fontSize: 12, style: { fill: TINTA_SUAVE } }}
               axisLine={false}
               tickLine={false}
             />
             <YAxis
               tickFormatter={(v) => fmtCLP(v)}
               width={80}
-              tick={{ fontSize: 10, fill: 'var(--color-muted, #5F7089)' }}
+              tick={{ fontSize: 12, style: { fill: TINTA_SUAVE } }}
               axisLine={false}
               tickLine={false}
             />
             <Tooltip
               formatter={(v: number) => [fmtCLP(v), 'Precio']}
               contentStyle={{
-                background: 'var(--color-surface, #1E293B)',
-                border: '1px solid var(--color-border, #334155)',
+                background: 'rgb(var(--color-surface))',
+                border: '1px solid rgb(var(--color-border))',
                 borderRadius: 6,
                 fontSize: 12,
               }}
-              labelStyle={{ color: 'var(--color-text, #F1F4F9)', fontWeight: 600 }}
-              itemStyle={{ color: 'var(--color-text, #F1F4F9)' }}
+              labelStyle={{ color: 'rgb(var(--color-text))', fontWeight: 600 }}
+              itemStyle={{ color: 'rgb(var(--color-text))' }}
             />
             <Bar dataKey="value" radius={[4, 4, 0, 0]}>
               {chartData.map((d, i) => (
-                <Cell key={i} fill={d.color} />
+                <Cell key={i} className={d.clase} />
               ))}
             </Bar>
           </BarChart>
