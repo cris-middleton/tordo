@@ -63,7 +63,7 @@ export default function BotonExportar({
         )}
         {etiqueta}
       </button>
-      {error && <span className="text-[11px] text-danger">{error}</span>}
+      {error && <span className="text-xs text-danger">{error}</span>}
     </div>
   );
 }

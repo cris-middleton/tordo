@@ -57,7 +57,7 @@ function TipoMercadoBadge({ tipo }: { tipo: string }) {
   const color = tipoColor[tipo] ?? 'bg-border/60 text-muted border-border';
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${color}`}
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${color}`}
     >
       {label}
     </span>
@@ -117,7 +117,7 @@ function CompetitorRow({
 
       {/* Incumbente badge */}
       {isIncumbente ? (
-        <span className="inline-flex items-center rounded-full border border-danger/20 bg-danger/10 px-2 py-0.5 text-[10px] font-semibold text-danger">
+        <span className="inline-flex items-center rounded-full border border-danger/20 bg-danger/10 px-2 py-0.5 text-xs font-semibold text-danger">
           Incumbente frecuente
         </span>
       ) : (

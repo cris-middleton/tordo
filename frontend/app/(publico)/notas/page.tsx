@@ -22,7 +22,7 @@ export const metadata: Metadata = {
 export default function PaginaNotas() {
   const notas = leerNotas();
   return (
-    <article className="max-w-3xl">
+    <article className="lectura max-w-3xl">
       <CabeceraFicha titulo="Notas de datos" subtitulo={DESCRIPCION_NOTAS}>
         <p className="mt-2 text-sm text-muted">
           Síguelas en tu lector de noticias con el{' '}

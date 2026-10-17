@@ -18,7 +18,7 @@ export function ConfidenceBadge({ n, className = '' }: ConfidenceBadgeProps) {
   const { color, label } = getConfidence(n);
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${color} ${className}`}
+      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${color} ${className}`}
     >
       {label}
     </span>

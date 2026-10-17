@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 export default function PaginaGuias() {
   const guias = leerGuias();
   return (
-    <article className="max-w-3xl">
+    <article className="lectura max-w-3xl">
       <CabeceraFicha
         titulo="Cómo leer los datos de compras públicas"
         subtitulo="Qué significa cada cifra, de dónde sale y dónde están sus límites."

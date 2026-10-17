@@ -334,7 +334,15 @@ programador en la nube, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
   saber a dónde mandarlo; un DSN sólo permite escribir eventos, no leerlos).
   `SENTRY_AUTH_TOKEN` es `ARG` y nunca `ENV`: un `ENV` lo deja escrito en los metadatos.
 - **Nunca hardcodear un color.** La paleta vive en tokens (`app/globals.css`) y se consume por
-  Tailwind. Los componentes tenían 112 hexes; hoy tienen cero.
+  Tailwind. Los componentes tenían 112 hexes; quedan sólo en los Recharts de `/mercado`, que son
+  deuda declarada de la guía de gráficos. Un token en un estilo en línea va dentro de `rgb()`: es
+  un triplete, y `var(--color-x)` a secas no es un color (el tooltip de `PriceBandChart` salía sin
+  fondo).
+- **Los gráficos siguen `docs/GUIA_GRAFICOS.md`** (reglas con test y criterios para leer, con sus
+  fuentes): `__tests__/guia-graficos.test.tsx` exige que todo fichero que dibuje datos esté
+  declarado como propio o como deuda, y fija en los propios tokens `dato`/`dato-tenue`, sin
+  leyendas ni adornos, texto de 12 px y el dibujo `aria-hidden` con los valores en texto.
+- **Ningún texto bajo 12 px** (`text-xs`): `__tests__/texto-minimo.test.ts`.
 - **Nunca `text-white` sobre un fondo de token.** Los rellenos se invierten con el tema: en
   claro `bg-accent` es teal oscuro con etiqueta blanca, en oscuro es teal claro con etiqueta
   navy. Usa `text-onAccent`, `text-onPrimary`, `text-onGold`… `__tests__/on-color.test.ts`
@@ -438,6 +446,7 @@ make setup                       # deps + hooks (clone o worktree nuevo)
 make hooks                       # sólo hooks
 make lint / make lint-fix        # ruff check + format (idéntico a CI)
 make audit                       # vulnerabilidades y antigüedad de dependencias
+make diseno [URL="http://localhost:3000/ …"]  # señales de plantilla (Impeccable, sin telemetría; fuera de CI)
 make test                        # backend + ETL + frontend
 make e2e                         # extremo a extremo (pila completa + Playwright)
 make medir-memoria               # ¿cabe la API en 512 MB? mide la imagen real
@@ -644,7 +653,9 @@ ninguna página ni layout de grupo pinta cabecera, pie, `PieAtribucion` ni `<mai
   `components/cascara/Contenedor.tsx` (`mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8`) lo usan
   la cabecera, el pie, los layouts de `(panel)` y `(publico)`, la portada, los legales, el 404 y
   `error.tsx`: **un solo borde izquierdo**. Ninguna página fija su `max-w-*` ni su relleno lateral;
-  las de lectura limitan el texto a `max-w-3xl` **dentro**, alineado a la izquierda. `pagina` añade
+  las de lectura limitan el texto a `max-w-3xl` **dentro**, alineado a la izquierda, y con la
+  clase `lectura` cada párrafo mide como mucho 58ch, ~77 caracteres (`__tests__/medida-lectura.test.ts`;
+  eran ~120). `pagina` añade
   el tope: **48 px de la cabecera al `h1` desde `lg`, 24 en móvil**, así que **nada va antes del
   `h1`** (ni antetítulo ni «← volver»; en `/mercado` el selector de rubro va debajo del `h1`).
   `h1` de página: `.page-title` (28/36 px); `h2` de sección: `h2.section-title` (22 px).
@@ -655,7 +666,9 @@ ninguna página ni layout de grupo pinta cabecera, pie, `PieAtribucion` ni `<mai
 - **Sin señales de plantilla** (V10): ni antetítulos ni encabezados en mayúsculas (`uppercase`,
   `tracking-wide*`), ni metadatos con punto medio: «Confianza alta, 90 compras», no «· N=90».
   `__tests__/senales-plantilla.test.ts` los busca en todo `app/` y `components/`, comentarios
-  incluidos. Se permite `first-letter:uppercase`.
+  incluidos. Se permite `first-letter:uppercase`. Tampoco bordes laterales gruesos de color
+  (`border-l-4` en un aviso o una tarjeta, la señal que más marca el detector de `make diseno`);
+  la excepción es el filete de las cifras de la portada (`TiraCifras`).
 - **Cifras y fechas en `es-CL`** (`__tests__/formatos-es-cl.test.ts`): ningún `toLocale*String` ni
   `new Intl.*` sin `'es-CL'`, ni un `format` de date-fns con nombres de mes sin `{ locale: es }`
   («29,586» y «16 Oct 26» salían en producción).

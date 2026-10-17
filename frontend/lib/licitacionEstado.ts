@@ -33,18 +33,6 @@ export const getEstadoCls = (estado?: string | null) => {
   return 'bg-border/50 text-muted border-border';
 };
 
-export const getEstadoAccent = (estado?: string | null) => {
-  if (!estado) return 'bg-primary/30';
-  const e = estado.toLowerCase();
-  if (e.includes('public')) return 'bg-accent';
-  if (e.includes('adjudic')) return 'bg-info';
-  if (e.includes('evaluac')) return 'bg-primary';
-  if (e.includes('desierta') || e.includes('suspend')) return 'bg-subtle';
-  if (e.includes('revocad') || e.includes('cancel')) return 'bg-danger';
-  if (e.includes('cerrada')) return 'bg-gold';
-  return 'bg-primary/30';
-};
-
 export const getClosingUrgency = (fechaCierre?: string | null) => {
   if (!fechaCierre) return null;
   const closing = new Date(fechaCierre);

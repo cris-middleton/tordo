@@ -239,6 +239,14 @@
 }
 
 @layer components {
+  /* La medida de lectura (__tests__/medida-lectura.test.ts): el texto corrido de
+     una página de lectura mide como mucho 58ch, unos 77 caracteres (antes, ~120).
+     La columna sigue siendo `max-w-3xl`; sólo se acorta el párrafo. `:where` no
+     suma especificidad, así que un `max-w-*` puesto en el elemento le gana. */
+  .lectura :where(p, li, dd, blockquote, figcaption) {
+    max-width: 58ch;
+  }
+
   /* ──────────────────────────────────────────────
      BUTTONS
   ────────────────────────────────────────────── */
@@ -354,27 +362,6 @@
      `bg-primary/5`: en tema claro daba 1.05:1 — texto literalmente invisible. */
   .alert-info {
     @apply flex items-start gap-3 rounded-lg border border-info/25 bg-infoLight px-4 py-3 text-sm text-info;
-  }
-
-  /* Critical — persistent, never auto-dismissed. Used for compliance blockers. */
-  .alert-critical {
-    @apply flex items-start gap-3 rounded-lg border border-danger/50 bg-dangerLight px-4 py-3 text-sm text-danger;
-    border-left-width: 3px;
-    border-left-color: theme('colors.danger');
-  }
-
-  /* Severity-coded alert rows (monitoring system style) */
-  .alert-row-critical {
-    @apply border-l-2 border-l-danger bg-danger/5;
-  }
-  .alert-row-high {
-    @apply border-l-2 border-l-warning bg-warning/5;
-  }
-  .alert-row-medium {
-    @apply border-l-2 border-l-gold bg-goldLight;
-  }
-  .alert-row-low {
-    @apply border-l-2 border-l-border;
   }
 
   /* ──────────────────────────────────────────────

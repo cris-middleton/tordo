@@ -91,21 +91,21 @@ function CompradorCard({ organismoId }: { organismoId: string }) {
               <p className="text-base font-semibold text-text mt-0.5">
                 {pctOpc(data.tramitacion?.tasa_adjudicacion)}
               </p>
-              <p className="text-[11px] text-subtle mt-0.5">de lo que llama</p>
+              <p className="text-xs text-subtle mt-0.5">de lo que llama</p>
             </div>
             <div className="rounded-lg bg-surface border border-border p-3">
               <p className="text-xs text-muted">Cancela</p>
               <p className="text-base font-semibold text-text mt-0.5">
                 {pctOpc(data.tramitacion?.tasa_cancelacion)}
               </p>
-              <p className="text-[11px] text-subtle mt-0.5">de sus órdenes</p>
+              <p className="text-xs text-subtle mt-0.5">de sus órdenes</p>
             </div>
             <div className="rounded-lg bg-surface border border-border p-3">
               <p className="text-xs text-muted">Órdenes aceptadas</p>
               <p className="text-base font-semibold text-text mt-0.5">
                 {pctOpc(data.tramitacion?.tasa_aceptacion)}
               </p>
-              <p className="text-[11px] text-subtle mt-0.5">por el proveedor</p>
+              <p className="text-xs text-subtle mt-0.5">por el proveedor</p>
             </div>
           </div>
 

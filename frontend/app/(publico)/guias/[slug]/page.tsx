@@ -43,7 +43,7 @@ export default async function PaginaGuia({ params }: Props) {
   if (!guia) notFound();
 
   return (
-    <article className="max-w-3xl">
+    <article className="lectura max-w-3xl">
       <CabeceraFicha
         titulo={guia.titulo}
         subtitulo={

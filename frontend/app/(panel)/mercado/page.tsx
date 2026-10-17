@@ -387,7 +387,7 @@ function BIContenido() {
             {/* ── 3. Detalle de un comprador ────────────────────────────── */}
             <div data-section="detalle-comprador" className="space-y-6">
               {focusedOrganismo && (
-                <div className="flex items-center gap-3 rounded-xl border-l-4 border-accent bg-accent/10 px-4 py-3">
+                <div className="flex items-center gap-3 rounded-xl border border-border bg-surface-elevated px-4 py-3">
                   <Target className="h-5 w-5 shrink-0 text-accent" aria-hidden="true" />
                   <div className="flex-1 text-sm">
                     <p className="text-text">
