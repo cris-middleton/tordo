@@ -924,18 +924,25 @@ negro con tornasol azul-verdoso:
 - Tema claro por defecto, con selector claro/oscuro/sistema en el pie del sitio
   (`components/SelectorTema.tsx`, dentro de `components/cascara/PieSitio.tsx`).
 
-**La portada v7: se busca arriba, se lee debajo** (`docs/PORTADA_V7_Y_NOTAS_2026-10.md` §3,
+**La portada v7: se busca a la izquierda, se lee a la derecha** (`docs/PORTADA_V7_Y_NOTAS_2026-10.md` §3,
 `app/page.tsx` + `components/portada/`): server component sin JS de cliente propio (las islas son
 de la cáscara), con ISR de 30 min. **No le pongas `'use client'`**: Next ignora `metadata` en
 componentes cliente y la home perdería título y tarjeta de preview.
-- **La fila de entrada, 7/5 de 12 columnas desde `lg`** (48 px entre ellas), dentro de
-  `Contenedor pagina`: a la izquierda «¿Qué le vendes al Estado?» y el buscador; a la derecha las
-  dos cifras y la ficha. Debajo, a lo ancho: «Lo que dicen los datos», la franja de hoy, «Lo mejor
-  de hoy» y las notas de datos, cada una con la separación de `Seccion` (`CLASE_SECCION`).
-- **En móvil, las lecturas van ANTES que la ficha** (§3.7): la conclusión de la primera tiene que
-  quedar sobre el pliegue a 390×844 (`e2e/portada.spec.ts`). Por eso la ficha va después de las
-  lecturas en el DOM y desde `lg` la rejilla la sube a la columna derecha (`lg:row-start-2`, bajo
-  las cifras). **Un solo ejemplar de cada pieza**: nada se pinta dos veces para esconder una.
+- **Dos columnas desde `lg`, `11fr / 10fr`** (48 px entre ellas; «opción 2», decidida el
+  2026-10-17), dentro de `Contenedor pagina`: a la izquierda «¿Qué le vendes al Estado?», el
+  buscador, las dos cifras y la ficha; a la derecha «Lo que dicen los datos» con **dos lecturas
+  apiladas**, que empiezan a la altura del `h1`. Así el primer gráfico empieza a ~230 px a 1440
+  (con la banda a lo ancho de antes, a 625). Debajo, a lo ancho: la franja de hoy, «Lo mejor de
+  hoy» y las notas de datos, cada una con la separación de `Seccion` (`CLASE_SECCION`). Coste
+  aceptado: a 1440 queda un hueco de ~220 px bajo la ficha, porque dos lecturas miden más que
+  buscador, cifras y ficha; no se rellena con piezas nuevas.
+- **En móvil y tableta, una columna: buscador, cifras, lecturas y ficha** (§3.7): la conclusión de
+  la primera lectura tiene que quedar sobre el pliegue a 390×844 (`e2e/portada.spec.ts`). Por eso la
+  ficha va después de las lecturas en el DOM; desde `lg` la rejilla la pone en la columna
+  izquierda (`lg:row-start-3`, bajo las cifras) y las lecturas a la derecha cubriendo las tres filas
+  (`lg:row-span-3`). La fila 3 es `1fr`: lo que las lecturas midan de más cae bajo la ficha, no
+  entre el buscador y las cifras. **Un solo ejemplar de cada pieza**: nada se pinta dos veces para
+  esconder una.
 - **El buscador** (`BuscadorPortada`), un `<form method="get" action="/buscar">` que funciona sin
   JavaScript; el `<h1>` es la etiqueta del campo, de 36 px en móvil y 56 desde `lg`, **en dos líneas
   «¿Qué le vendes / al Estado?»**: lo parte el ancho de la columna y `text-balance` (el E2E mide
@@ -953,13 +960,13 @@ componentes cliente y la home perdería título y tarjeta de preview.
   `HORAS_HABILES`) y **Lo hace** («{nombre}, {rol}», sólo con `AUTOR_NOMBRE`, enlazado a
   `AUTOR_URL`; el rol sale de `AUTOR_ROL` y sin ella va el nombre solo). «Se usa» y «Úsalo como quieras» se fueron (V11): la salida a API, MCP y CSV es la de
   la cabecera y el pie.
-- **«Lo que dicen los datos»** (`LecturasPortada`): sobre blanco, con un filete de 2 px en `primary`
-  (el navy en claro) bajo el `h2` y la frase «Cada lectura dice de dónde sale, cómo se calcula y
-  dónde bajarla.». Tres lecturas —precio, cierres y la última nota de datos—, separadas por un borde
-  vertical desde `lg`, dos por fila entre 768 y 1023 y una debajo de otra en móvil. **Si una falta,
-  las demás se reparten el ancho; sin ninguna, la banda no sale.** Desde `lg` cada lectura es una
-  subrejilla de tres filas (conclusión, gráfico, pie): la conclusión más alta fija dónde empiezan
-  los tres gráficos, y el gráfico más alto, dónde empiezan los tres pies. `dato` sólo en lo que la
+- **«Lo que dicen los datos»** (`LecturasPortada`): sobre blanco, el `h2` en chico (18 px) con un
+  filete de 2 px en `primary` (el navy en claro) debajo. **Dos lecturas como mucho, apiladas en
+  todos los anchos**, cada una con conclusión, gráfico y pie, una tras otra y separadas por un
+  borde: **las dos primeras disponibles en el orden precio → cierres → nota**
+  (`lecturasDeLaPortada`, `MAXIMO_LECTURAS_PORTADA`). Con todo, precio y cierres (la nota sigue en
+  «Notas de datos», más abajo); si falta una, entra la nota; con el backend caído, sólo la nota; sin
+  ninguna, la sección no sale. `dato` sólo en lo que la
   conclusión nombra; el resto, `dato-tenue`. **Cada frase sale del dato con una regla de
   `lib/lecturasPortada.ts`**, fijada con sus bordes en `__tests__/lecturas-portada.test.ts`, y
   **cada lectura se oculta entera si le falta su dato**.
@@ -990,10 +997,10 @@ componentes cliente y la home perdería título y tarjeta de preview.
     hora legible del resumen, no sale (su pie dice de cuándo es). Los tramos tienen que sumar las
     abiertas.
   - **La nota** (§3.4, `lecturaNota`): **la más reciente que trae `antes_despues`**
-    (`notaDeLaPortada`; si ninguna lo trae, la más reciente), para que las tres lecturas tengan
-    gráfico; la lista «Notas de datos» sigue con las cuatro últimas en su orden. Con su resumen y su
-    `antes_despues` (`components/notas/AntesDespues.tsx`). Es contenido del repo: sale siempre, así
-    que con el backend caído la banda sigue con una lectura.
+    (`notaDeLaPortada`; si ninguna lo trae, la más reciente), para que tenga gráfico como las
+    otras dos; la lista «Notas de datos» sigue con las cuatro últimas en su orden. Con su resumen y su
+    `antes_despues` (`components/notas/AntesDespues.tsx`). Es contenido del repo y está siempre:
+    entra cuando falta una de las otras dos, y con el backend caído la sección sigue con ella.
 - **El pie de método** (`components/metodo/PieDeMetodo.tsx`, V3) va bajo cada lectura —y bajo el
   gráfico de la ficha de producto—: base y periodo en una frase y los enlaces «Cómo se calcula»
   (guía y ancla), «Ver en la API» (`ORIGEN_API_PUBLICA`) y «Código» (`<REPOSITORIO_URL>/blob/main/<ruta>`,
@@ -1036,9 +1043,11 @@ componentes cliente y la home perdería título y tarjeta de preview.
 - **Sin «Inteligencia»** en la portada, los metadatos (`openGraph` y `twitter` incluidos) ni la
   tarjeta de vista previa (R10): `__tests__/r10-sin-inteligencia.test.ts`.
 - `e2e/portada.spec.ts` mide la portada a 320, 390, 1024 y 1440 px sin desborde y la captura en
-  claro y oscuro; a 1024 y 1440, el `h1` en dos líneas y las lecturas en una fila, del mismo ancho y
-  a la misma altura; a 390×844, la primera conclusión sobre el pliegue. El fixture del E2E trae la
-  lectura de cierres y la de la nota; la de precio se prueba en Vitest.
+  claro y oscuro; a 1024 y 1440, el `h1` en dos líneas y las lecturas a la derecha del buscador,
+  empezando más arriba que el campo y apiladas en una sola columna; a 1440×900, la primera
+  conclusión y el primer gráfico sobre el pliegue; a 390×844, la primera conclusión sobre el
+  pliegue. El fixture del E2E trae la lectura de cierres y la de la nota; la de precio se prueba en
+  Vitest.
 
 **La ficha de producto** (`/productos/[slug]`) lleva **el mismo gráfico de precio** encima de
 «Quién lo compra», con su pie de método (spec PORTADA_V7 §6): `precioDeBanda` sobre la unidad con

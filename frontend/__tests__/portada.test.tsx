@@ -1,7 +1,8 @@
 /**
- * La portada v7 (spec docs/PORTADA_V7_Y_NOTAS_2026-10.md §3 y §9): arriba se
- * busca, con las cifras y la ficha al lado; debajo, «Lo que dicen los datos», la
- * franja de hoy, «Lo mejor de hoy» y las notas de datos.
+ * La portada v7 (spec docs/PORTADA_V7_Y_NOTAS_2026-10.md §3 y §9), con la
+ * «opción 2» del 2026-10-17: a la izquierda se busca, con las cifras y la ficha
+ * debajo; a la derecha, «Lo que dicen los datos» con dos lecturas apiladas. Debajo,
+ * a lo ancho, la franja de hoy, «Lo mejor de hoy» y las notas de datos.
  *
  * Se fija:
  *   1. las cuatro piezas —la tira y la franja, «Lo mejor de hoy», los sectores
@@ -421,7 +422,7 @@ describe('quién lo hace y de dónde sale (spec PORTADA_V7 §3.5, §3.6)', () =>
     const { container } = render(await Home());
     expect(screen.queryByText('Base')).toBeNull();
     expect(screen.getByText('Fuente')).toBeInTheDocument();
-    expect(conclusiones()).toEqual([CONCLUSION_PRECIO, CONCLUSION_CIERRES, TITULO_NOTA]);
+    expect(conclusiones()).toEqual([CONCLUSION_PRECIO, CONCLUSION_CIERRES]);
     expect(container.textContent).not.toMatch(/NaN|undefined/);
   });
 
@@ -469,13 +470,15 @@ describe('quién lo hace y de dónde sale (spec PORTADA_V7 §3.5, §3.6)', () =>
 });
 
 describe('las notas de datos', () => {
-  it('la lectura es la nota más reciente con gráfico; la lista sigue en su orden', async () => {
-    todo();
+  it('sin el precio (como producción hasta la corrida semanal), la lectura es la nota más reciente con gráfico', async () => {
+    simularBackend({ ...TODO, producto: caido });
     const { container } = render(await Home());
+    expect(conclusiones()).toEqual([CONCLUSION_CIERRES, TITULO_NOTA]);
     const lectura = container.querySelector('article[aria-labelledby="lectura-nota"]') as HTMLElement;
     expect(NOTA_PORTADA.antes_despues).not.toBeNull();
     expect(lectura).toHaveTextContent(NOTA_PORTADA.titulo);
     expect(lectura.querySelector('figure')).not.toBeNull();
+    expect(within(lectura).getByRole('link', { name: 'Leer la nota' })).toHaveAttribute('href', rutaNota(NOTA_PORTADA.slug));
     // La lista no usa la regla: las cuatro últimas, en su orden (lo fija el test de abajo).
     expect(NOTA_PORTADA).toBe(NOTAS.find((n) => n.antes_despues !== null));
   });
@@ -518,32 +521,49 @@ describe('lo que ya no está', () => {
   });
 });
 
-describe('la estructura (spec PORTADA_V7 §3.1 y §3.7)', () => {
-  it('desde lg, la fila de entrada en 7/5: el buscador a la izquierda, las cifras y la ficha a la derecha', async () => {
+describe('la estructura (spec PORTADA_V7 §3.1 y §3.7, opción 2)', () => {
+  it('desde lg, dos columnas 11/10: buscador, cifras y ficha a la izquierda; las lecturas a la derecha', async () => {
     todo();
     const { container } = render(await Home());
     expect(container.querySelector('.max-w-6xl')).not.toBeNull();
-    const buscador = screen.getByRole('searchbox', { name: PREGUNTA }).closest('.lg\\:col-span-7') as HTMLElement;
-    expect(buscador).not.toBeNull();
-    expect(buscador.parentElement).toHaveClass('lg:grid-cols-12');
-    expect(screen.getByRole('list', { name: 'Abiertas ahora' }).parentElement).toHaveClass('lg:col-start-8');
-    expect(screen.getByText('Fuente').closest('dl')).toHaveClass('lg:col-start-8', 'lg:row-start-2');
+    const lecturas = screen.getByRole('region', { name: LECTURAS });
+    const rejilla = lecturas.parentElement as HTMLElement;
+    expect(rejilla).toHaveClass('lg:grid-cols-[11fr_10fr]', 'lg:gap-x-12');
+    expect(lecturas).toHaveClass('lg:col-start-2', 'lg:row-start-1', 'lg:row-span-3');
+    const buscador = screen.getByRole('searchbox', { name: PREGUNTA }).closest('.lg\\:col-start-1') as HTMLElement;
+    expect(buscador.parentElement).toBe(rejilla);
+    expect(buscador).toHaveClass('lg:row-start-1');
+    expect(screen.getByRole('list', { name: 'Abiertas ahora' }).parentElement).toHaveClass('lg:col-start-1', 'lg:row-start-2');
+    expect(screen.getByText('Fuente').closest('dl')).toHaveClass('lg:col-start-1', 'lg:row-start-3');
   });
 
-  it('en el DOM (y en móvil) las lecturas van antes que la ficha: la primera conclusión cabe en la primera pantalla', async () => {
+  it('en el DOM (y en móvil): buscador, cifras, lecturas y ficha; la primera conclusión cabe en la primera pantalla', async () => {
     todo();
     render(await Home());
-    const lecturas = screen.getByRole('region', { name: LECTURAS });
-    const ficha = screen.getByText('Fuente').closest('dl') as HTMLElement;
-    expect(lecturas.compareDocumentPosition(ficha) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(lecturas).toHaveClass('lg:row-start-3');
+    const orden = [
+      screen.getByRole('searchbox', { name: PREGUNTA }),
+      screen.getByRole('list', { name: 'Abiertas ahora' }),
+      screen.getByRole('region', { name: LECTURAS }),
+      screen.getByText('Fuente').closest('dl') as HTMLElement,
+    ];
+    for (let i = 1; i < orden.length; i++) {
+      expect(orden[i - 1].compareDocumentPosition(orden[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
   });
 
-  it('después de las lecturas: la franja, «Lo mejor de hoy» y las notas, en ese orden', async () => {
+  it('sin cifras, la ficha sigue a la izquierda, debajo del buscador', async () => {
+    simularBackend({ ...TODO, resumen: caido });
+    render(await Home());
+    expect(screen.queryByRole('list', { name: 'Abiertas ahora' })).toBeNull();
+    expect(screen.getByText('Fuente').closest('dl')).toHaveClass('lg:col-start-1', 'lg:row-start-3');
+  });
+
+  it('después de la ficha: la franja, «Lo mejor de hoy» y las notas, en ese orden', async () => {
     todo();
     const { container } = render(await Home());
     const orden = [
       screen.getByRole('region', { name: LECTURAS }),
+      screen.getByText('Fuente').closest('dl') as HTMLElement,
       screen.getByText('Actualizado el').closest('dl') as HTMLElement,
       container.querySelector('#hoy') as HTMLElement,
       screen.getByRole('region', { name: 'Notas de datos' }),
@@ -555,22 +575,25 @@ describe('la estructura (spec PORTADA_V7 §3.1 y §3.7)', () => {
 });
 
 describe('«Lo que dicen los datos»', () => {
-  it('con todo, tres lecturas sobre blanco —precio, cierres y la última nota—, cada una con su pie de método', async () => {
+  it('con todo, dos lecturas sobre blanco —precio y cierres—, apiladas y cada una con su pie de método', async () => {
     todo();
-    render(await Home());
+    const { container } = render(await Home());
     const banda = screen.getByRole('region', { name: LECTURAS });
-    expect(within(banda).getByText('Cada lectura dice de dónde sale, cómo se calcula y dónde bajarla.')).toBeInTheDocument();
-    expect(conclusiones()).toEqual([CONCLUSION_PRECIO, CONCLUSION_CIERRES, TITULO_NOTA]);
-    expect(within(banda).getAllByRole('article')).toHaveLength(3);
-    expect(within(banda).getAllByRole('list', { name: 'Método y datos' })).toHaveLength(3);
-    expect(banda.lastElementChild).toHaveClass('lg:grid-cols-3');
+    expect(within(banda).getByRole('heading', { level: 2 })).toHaveTextContent(LECTURAS);
+    expect(conclusiones()).toEqual([CONCLUSION_PRECIO, CONCLUSION_CIERRES]);
+    expect(within(banda).getAllByRole('article')).toHaveLength(2);
+    expect(within(banda).getAllByRole('list', { name: 'Método y datos' })).toHaveLength(2);
+    // Apiladas: ninguna rejilla de columnas ni subrejilla dentro de la sección.
+    expect(banda.innerHTML).not.toMatch(/grid-cols-[23]|subgrid/);
+    // La nota no entra: se queda en «Notas de datos», más abajo.
+    expect(container.querySelector('article[aria-labelledby="lectura-nota"]')).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Leer la nota' })).toBeNull();
     // «Ver el producto» es la conclusión misma (spec §3.2).
     expect(screen.getByRole('link', { name: CONCLUSION_PRECIO })).toHaveAttribute('href', rutaProducto(PRODUCTO_PORTADA.slug));
     expect(screen.getByRole('link', { name: 'Las que cierran primero' })).toHaveAttribute(
       'href',
       urlCatalogoAbiertas('compra_agil', [], { sort_by: 'fecha_cierre', sort_order: 'asc' }),
     );
-    expect(screen.getByRole('link', { name: 'Leer la nota' })).toHaveAttribute('href', rutaNota(NOTA_PORTADA.slug));
     expect(screen.getAllByRole('link', { name: 'Ver en la API' }).map((a) => a.getAttribute('href'))).toEqual([
       `https://api.tordo.cl/api/v1/publico/productos/${PRODUCTO_PORTADA.slug}`,
       'https://api.tordo.cl/api/v1/publico/portada',
@@ -616,14 +639,11 @@ describe('«Lo que dicen los datos»', () => {
     ['un backend sin los tramos de cierre', { resumen: ok({ ...RESUMEN, compra_agil_por_cierre: undefined }) }, CONCLUSION_CIERRES],
     ['tramos de cierre mal formados', { resumen: ok({ ...RESUMEN, compra_agil_por_cierre: { hoy: 'muchas' } }) }, CONCLUSION_CIERRES],
     ['tramos que no suman las abiertas', { resumen: ok({ ...RESUMEN, compra_agil_abiertas: 9999 }) }, CONCLUSION_CIERRES],
-  ])('con %s se oculta sólo esa lectura, y las otras dos se reparten el ancho', async (_, cambio, oculta) => {
+  ])('con %s se oculta sólo esa lectura, y entra la nota detrás de la otra', async (_, cambio, oculta) => {
     simularBackend({ ...TODO, ...cambio });
     const { container } = render(await Home());
-    expect(conclusiones()).not.toContain(oculta);
-    expect(conclusiones()).toHaveLength(2);
-    const rejilla = screen.getByRole('region', { name: LECTURAS }).lastElementChild;
-    expect(rejilla).toHaveClass('md:grid-cols-2');
-    expect(rejilla).not.toHaveClass('lg:grid-cols-3');
+    const otra = oculta === CONCLUSION_PRECIO ? CONCLUSION_CIERRES : CONCLUSION_PRECIO;
+    expect(conclusiones()).toEqual([otra, TITULO_NOTA]);
     expect(container.textContent).not.toMatch(/NaN|undefined|Infinity/);
     expect(screen.getByRole('searchbox', { name: PREGUNTA })).toBeInTheDocument();
   });
