@@ -20,16 +20,19 @@ import { TiraCifras } from './TiraCifras';
  * servidor entero, sin JavaScript propio**; la cabecera y el pie los pone la
  * cáscara única.
  *
- * Desde `lg` (§3.1), una fila de entrada en 7/5 de 12 columnas —a la izquierda la
- * pregunta y el buscador; a la derecha las cifras y la ficha— y debajo, a lo
- * ancho, «Lo que dicen los datos», la franja de hoy, «Lo mejor de hoy» y las
+ * Desde `lg` (§3.1, opción 2 del 2026-10-17), dos columnas `11fr / 10fr` con 48 px
+ * entre ellas: a la izquierda la pregunta y el buscador, las cifras y la ficha; a
+ * la derecha «Lo que dicen los datos», con dos lecturas apiladas que empiezan a la
+ * altura del `h1`. Debajo, a lo ancho, la franja de hoy, «Lo mejor de hoy» y las
  * notas con la ficha del autor.
  *
- * En móvil (§3.7), una columna con las lecturas **antes** de la ficha: las cifras
- * y la primera conclusión tienen que caber en la primera pantalla. Por eso la
- * ficha va después de las lecturas en el DOM, y desde `lg` la rejilla la sube a
- * la columna derecha (fila 2, bajo las cifras). Un solo ejemplar de cada cosa:
- * nada se pinta dos veces para esconder una.
+ * En móvil y tableta (§3.7), una columna: buscador, cifras, lecturas y ficha. Las
+ * cifras y la primera conclusión tienen que caber en la primera pantalla, así que
+ * la ficha va después de las lecturas en el DOM, y desde `lg` la rejilla la sube a
+ * la columna izquierda (fila 3, bajo las cifras) y pone las lecturas a la derecha
+ * cubriendo las tres filas. La fila 3 es `1fr`: si las lecturas miden más que la
+ * izquierda, el sobrante va bajo la ficha y no entre el buscador y las cifras. Un
+ * solo ejemplar de cada cosa: nada se pinta dos veces para esconder una.
  *
  * Todo lo vivo llega de `app/page.tsx` y puede faltar: `null`, una hora ilegible
  * o un campo mal formado ocultan SU bloque y nada más. El buscador no depende de
@@ -76,22 +79,22 @@ export function Portada({
 
   return (
     <Contenedor pagina>
-      <div className="grid lg:grid-cols-12 lg:grid-rows-[auto_1fr] lg:gap-x-12">
-        <div className="min-w-0 lg:col-span-7 lg:row-span-2">
+      <div className="grid lg:grid-cols-[11fr_10fr] lg:grid-rows-[auto_auto_1fr] lg:gap-x-12">
+        <div className="min-w-0 lg:col-start-1 lg:row-start-1">
           <BuscadorPortada />
         </div>
         {tira && (
-          <div className="mt-6 min-w-0 lg:col-span-5 lg:col-start-8 lg:row-start-1 lg:mt-0">
+          <div className="mt-6 min-w-0 lg:col-start-1 lg:row-start-2 lg:mt-12">
             <TiraCifras tira={tira} />
           </div>
         )}
-        <LecturasPortada lecturas={lecturas} className="lg:col-span-12 lg:row-start-3" />
+        <LecturasPortada lecturas={lecturas} className="mt-8 lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:mt-0" />
         <FichaPortada
           base={baseDeLaFicha(sectores)}
           autor={autor}
           rol={rol}
           urlAutor={urlAutor}
-          className={`mt-8 lg:col-span-5 lg:col-start-8 lg:self-start ${tira ? 'lg:row-start-2 lg:mt-6' : 'lg:row-start-1 lg:mt-0'}`}
+          className={`mt-8 lg:col-start-1 lg:row-start-3 lg:self-start ${tira ? 'lg:mt-6' : 'lg:mt-12'}`}
         />
       </div>
 

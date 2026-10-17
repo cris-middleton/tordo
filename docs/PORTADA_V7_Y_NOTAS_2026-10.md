@@ -1,6 +1,9 @@
 # Portada v7, escala de espacios y notas de datos — octubre 2026
 
-> **Estado:** decidida y construida el 2026-10-16 (PR #16 escala y cáscara, #17–#18 notas, #19 portada). **Sustituye** a §3.1 (estructura), §3.3 (lectura de
+> **Estado:** decidida y construida el 2026-10-16 (PR #16 escala y cáscara, #17–#18 notas, #19 portada).
+> **El 2026-10-17 la estructura de la portada cambió a la «opción 2»** (§3.9): las lecturas pasan de
+> una banda a lo ancho a la columna derecha, junto al buscador, y son dos en vez de tres. §3.1 y §3.7
+> ya lo dicen; V1 y V2 conservan su motivo y llevan la nota del cambio. **Sustituye** a §3.1 (estructura), §3.3 (lectura de
 > sectores) y a la parte de §5 que describe el panel oscuro de `IDENTIDAD_Y_PORTADA_2026-10.md`.
 > El resto de ese documento (Archivo, tokens de dato, el pájaro, la voz) sigue en vigor.
 > Maqueta: `docs/assets/portada-v7.png` (escritorio) y `docs/assets/portada-v7-390.png` (móvil).
@@ -36,8 +39,8 @@ encontró tres familias de problemas. El dueño añadió una cuarta.
 
 | # | Decisión | Por qué |
 |---|---|---|
-| V1 | **Fuera el panel navy.** Las lecturas van sobre blanco, en una banda a lo ancho bajo el buscador, con un filete navy de 2 px bajo su título. El navy queda en la marca, el filete y la tarjeta de vista previa. | El dueño pidió menos fondo y más espacio para los gráficos. A 1440 la banda da ~350 px de ancho por gráfico contra ~470 del panel entero hoy. |
-| V2 | **Tres lecturas: precio, cierres y la última nota de datos.** La de sectores sale de la portada. | La de sectores está oculta en producción (la tabla no publica su ventana) y su cifra estaba inflada. La nota es la pieza que más dice «aquí hay alguien revisando el dato», y no depende de la API. |
+| V1 | **Fuera el panel navy.** Las lecturas van sobre blanco, en una banda a lo ancho bajo el buscador, con un filete navy de 2 px bajo su título (desde el 2026-10-17, en la columna derecha: §3.9). El navy queda en la marca, el filete y la tarjeta de vista previa. | El dueño pidió menos fondo y más espacio para los gráficos. A 1440 la banda da ~350 px de ancho por gráfico contra ~470 del panel entero hoy. |
+| V2 | **Tres lecturas: precio, cierres y la última nota de datos.** La de sectores sale de la portada. Desde el 2026-10-17 se muestran dos, las primeras disponibles en ese orden (§3.9). | La de sectores está oculta en producción (la tabla no publica su ventana) y su cifra estaba inflada. La nota es la pieza que más dice «aquí hay alguien revisando el dato», y no depende de la API. |
 | V3 | **Cada gráfico lleva un pie de método** (`PieDeMetodo`): base, periodo y tres enlaces («Cómo se calcula», «Ver en la API», «Código»). | Es lo que comparten los referentes. Hoy sólo hay una línea de periodo. |
 | V4 | **Notas de datos** en `/notas`: hallazgos medidos con su método y su arreglo, en MDX, con RSS y en la navegación. | Convierten el sitio en portafolio sin decirlo. Las primeras ya están medidas en el repo. |
 | V5 | **Firma con nombre y oficio**, desde variables de servidor nuevas `AUTOR_NOMBRE` y `AUTOR_URL`. Sin la variable no se pinta nada. | La autoría no es lo mismo que el responsable legal: así se puede firmar sin tocar los términos. Ningún dato personal en el repo. |
@@ -66,17 +69,17 @@ encontró tres familias de problemas. El dueño añadió una cuarta.
 
 Dentro del contenedor (§4), de arriba abajo:
 
-1. **Fila de entrada**, dos columnas (7/5 de 12, 48 px entre ellas):
+1. **Fila de entrada**, dos columnas (`11fr / 10fr`, 48 px entre ellas; opción 2, §3.9):
    - Izquierda: `h1` «¿Qué le vendes al Estado?», partido **siempre** en «¿Qué le vendes / al
      Estado?». El salto lo da el ancho máximo del `h1` más `text-wrap: balance`, y el E2E lo
-     comprueba a 1024 y 1440. Después el subtítulo, el buscador y los ejemplos en una fila.
-   - Derecha: las dos cifras (`TiraCifras`, sin cambios de comportamiento) y debajo la ficha
-     (§3.5).
-2. **«Lo que dicen los datos»** (`h2`), con la frase «Cada lectura dice de dónde sale, cómo se
-   calcula y dónde bajarla.» a la derecha en `muted`, y un filete de 2 px en `brand-navy` debajo.
-   Tres columnas iguales separadas por un borde vertical (`border`): precio (§3.2), cierres (§3.3) y
-   nota (§3.4). Si una lectura falta, las demás se reparten el ancho; si faltan las tres, la banda
-   no sale.
+     comprueba a 1024 y 1440. Después el subtítulo, el buscador y los ejemplos; debajo, las dos
+     cifras (`TiraCifras`, sin cambios de comportamiento) y la ficha (§3.5).
+   - Derecha, desde la altura del `h1`: **«Lo que dicen los datos»** (`h2` de 18 px) con un filete de
+     2 px en `primary` debajo, y **dos lecturas apiladas**, cada una con conclusión, gráfico y pie
+     de método, una tras otra y separadas por un borde. Salen las dos primeras disponibles en el
+     orden precio (§3.2) → cierres (§3.3) → nota (§3.4) (`lecturasDeLaPortada`); sin ninguna, la
+     sección no sale.
+2. *(La banda a lo ancho de «Lo que dicen los datos» se fue el 2026-10-17: §3.9.)*
 3. **La franja de hoy** (`FranjaPortada`), como hoy.
 4. **Lo mejor de hoy en Compra Ágil** (`BloqueHoy`), como hoy (con lo que traiga el PR del tope).
 5. **Notas de datos**: a la izquierda (7/12) la lista de las cuatro últimas notas (fecha y título,
@@ -152,10 +155,10 @@ corrección sale como nota.» Enlaces: `hola@tordo.cl` y `AUTOR_URL` (con el nom
 ### 3.7 Móvil (< 1024 px)
 
 Una columna, en este orden: `h1`, subtítulo, buscador, ejemplos (pueden partirse en dos líneas),
-las dos cifras, **las tres lecturas** (precio, cierres, nota, cada una con su pie), la ficha, la
-franja, Lo mejor de hoy, Notas y la ficha del autor. La conclusión de la lectura de precio tiene
-que quedar **sobre el pliegue a 390×844** (E2E). Entre 640 y 1023 px, las lecturas van en dos
-columnas si caben y la tercera debajo.
+las dos cifras, **las dos lecturas** (las mismas que en escritorio, cada una con su pie), la ficha,
+la franja, Lo mejor de hoy, Notas y la ficha del autor. La conclusión de la primera lectura tiene
+que quedar **sobre el pliegue a 390×844** (E2E). Entre 640 y 1023 px, igual: una columna, con las
+lecturas apiladas.
 
 ### 3.8 Textos de la portada
 
@@ -165,6 +168,29 @@ columnas si caben y la tercera debajo.
   «cambio de aceite». Verificados en producción el 16-10 (ficha indexable para los seis); van a la
   copia de `scripts/verificar-produccion.sh` en el mismo PR.
 - El resto de textos nuevos están en §3.2–3.6. Todos siguen la voz (CLAUDE.md).
+
+### 3.9 Opción 2: las lecturas a la derecha del buscador (2026-10-17)
+
+**Decisión del dueño, el 2026-10-17**, entre la portada de §3.1 tal como se construyó el 16-10 (tres
+lecturas en una banda a lo ancho bajo el buscador) y dos maquetas hechas con el frontend real.
+
+- **Por qué.** Con la banda, a 1440×900 los gráficos empezaban a **625 px** (a 668 a 1024 y a 756
+  a 390) y medían 339 px de ancho el de precio: se veía el buscador y poco más de lo que el sitio
+  sabe. Con las lecturas en la columna derecha, el primer gráfico empieza a **~230 px** a 1440 y a
+  1024, y el de precio mide 495 px a 1440 (434 a 1024). A 390 la primera conclusión sube a ~650.
+- **Qué cambia.** Dos columnas `11fr / 10fr` desde `lg` (con 7/5 la derecha quedaba en ~425 px,
+  menos que el panel navy que se quitó). Dos lecturas en vez de tres: las dos primeras disponibles
+  en el orden precio → cierres → nota. Con todo, la nota se queda en «Notas de datos», más abajo;
+  si falta una de las vivas (hoy en producción, la de precio hasta la corrida semanal), entra la
+  nota. Sin la subrejilla de tres filas: apiladas, no hay columnas que alinear. Sin la frase «Cada
+  lectura dice de dónde sale…»: el título va en chico, como en la maqueta, y cada pie de método ya
+  lo dice.
+- **Coste aceptado.** A 1440 queda un hueco bajo la ficha (la izquierda termina a ~710 px; la
+  derecha, a ~930 con todo y a ~855 sin precio): dos lecturas apiladas miden más que buscador,
+  cifras y ficha. No se rellena con piezas nuevas.
+- **Lo que se descartó.** La «opción 3» (sólo el precio a la derecha y la banda de dos lecturas
+  debajo): enseña el primer gráfico a 190 px, pero es la página más larga, las celdas de cierres
+  caen justo en el pliegue y su gráfico más alto exigía pintarlo dos veces.
 
 ## 4. Escala de espacios y contenedor
 
@@ -267,8 +293,10 @@ Cada uno después de los PR de datos que toquen sus ficheros (compradores por ba
 - Nuevo `notas-frontmatter.test.ts` y `notas.test.tsx` (lista, página y RSS).
 - Nuevo `metodo.test.ts`: cada «Código» de un `PieDeMetodo` apunta a un fichero que existe y cada
   «Cómo se calcula» a una guía y un ancla que existen.
-- `e2e/portada.spec.ts`: la banda a 1024 y 1440 (tres columnas, sin desborde), la conclusión de
-  precio sobre el pliegue a 390×844, el `h1` en dos líneas.
+- `e2e/portada.spec.ts`: a 1024 y 1440, las lecturas a la derecha del buscador y apiladas, sin
+  desborde (opción 2; antes, la banda en tres columnas); a 1440×900, la primera conclusión y el
+  primer gráfico sobre el pliegue; la primera conclusión sobre el pliegue a 390×844; el `h1` en dos
+  líneas. `lecturas-portada.test.ts` fija cuáles dos salen (`lecturasDeLaPortada`).
 - Nuevo `e2e/escala.spec.ts` (§4).
 - `voz-textos.test.ts` cubre `content/notas/` y los componentes nuevos.
 

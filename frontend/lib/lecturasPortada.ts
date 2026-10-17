@@ -1,6 +1,7 @@
 /**
- * Las tres lecturas de la portada (spec docs/PORTADA_V7_Y_NOTAS_2026-10.md §3.2–§3.4):
- * a qué precio se compró, qué cierra pronto y la última nota de datos.
+ * Las lecturas de la portada (spec docs/PORTADA_V7_Y_NOTAS_2026-10.md §3.2–§3.4):
+ * a qué precio se compró, qué cierra pronto y la última nota de datos. Salen dos
+ * como mucho, las dos primeras disponibles en ese orden (`lecturasDeLaPortada`).
  *
  * **Cada frase sale del dato, con reglas** (D8 de la identidad). Las reglas viven
  * aquí y las fija `__tests__/lecturas-portada.test.ts` con sus bordes. Cada lectura
@@ -444,7 +445,7 @@ export function lecturaNota(nota: Nota | undefined, repositorio: string | null):
   };
 }
 
-// ── La banda ────────────────────────────────────────────────────────────────
+// ── Cuáles salen ────────────────────────────────────────────────────────────
 
 /** Las tres lecturas; cada una, `null` si no tiene dato que pintar con verdad. */
 export interface Lecturas {
@@ -453,7 +454,25 @@ export interface Lecturas {
   nota: LecturaNota | null;
 }
 
-/** Cuántas hay: las que están se reparten el ancho, y sin ninguna la banda no sale. */
-export function cuantasLecturas({ precio, cierres, nota }: Lecturas): number {
-  return [precio, cierres, nota].filter(Boolean).length;
+/** Una lectura elegida para la portada, con su tipo: cada una se pinta distinto. */
+export type LecturaDeLaPortada =
+  | { tipo: 'precio'; lectura: LecturaPrecio }
+  | { tipo: 'cierres'; lectura: LecturaCierres }
+  | { tipo: 'nota'; lectura: LecturaNota };
+
+/** Cuántas lecturas caben a la derecha del buscador (spec PORTADA_V7, decisión del 2026-10-17). */
+export const MAXIMO_LECTURAS_PORTADA = 2;
+
+/**
+ * Qué lecturas salen en la portada: **las dos primeras disponibles en el orden
+ * precio → cierres → nota**. Con todo, precio y cierres (la nota sigue en «Notas de
+ * datos», más abajo); si falta una de las vivas, entra la nota; con el backend caído,
+ * sólo la nota; sin ninguna, nada. Nunca más de `MAXIMO_LECTURAS_PORTADA`.
+ */
+export function lecturasDeLaPortada({ precio, cierres, nota }: Lecturas): LecturaDeLaPortada[] {
+  const disponibles: LecturaDeLaPortada[] = [];
+  if (precio) disponibles.push({ tipo: 'precio', lectura: precio });
+  if (cierres) disponibles.push({ tipo: 'cierres', lectura: cierres });
+  if (nota) disponibles.push({ tipo: 'nota', lectura: nota });
+  return disponibles.slice(0, MAXIMO_LECTURAS_PORTADA);
 }

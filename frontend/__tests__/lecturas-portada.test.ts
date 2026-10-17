@@ -13,7 +13,6 @@ import { describe, expect, it } from 'vitest';
 import { BASE_API_PUBLICA } from '@/lib/abierto';
 import { urlCatalogoAbiertas } from '@/lib/filtrosCatalogo';
 import {
-  cuantasLecturas,
   decimosDe,
   diaYHora,
   esConteo,
@@ -21,6 +20,7 @@ import {
   esSectores,
   fraseCierres,
   lecturaCierres,
+  lecturasDeLaPortada,
   lecturaNota,
   lecturaPrecio,
   notaDeLaPortada,
@@ -492,14 +492,26 @@ describe('notaDeLaPortada: la más reciente con gráfico', () => {
   });
 });
 
-describe('cuantasLecturas', () => {
-  const algo = {} as never;
+describe('lecturasDeLaPortada: las dos primeras en el orden precio → cierres → nota', () => {
+  const precio = { conclusion: 'precio' } as never;
+  const cierres = { conclusion: 'cierres' } as never;
+  const nota = { titulo: 'nota' } as never;
   it.each([
-    ['ninguna', { precio: null, cierres: null, nota: null }, 0],
-    ['sólo la nota', { precio: null, cierres: null, nota: algo }, 1],
-    ['precio y cierres', { precio: algo, cierres: algo, nota: null }, 2],
-    ['las tres', { precio: algo, cierres: algo, nota: algo }, 3],
+    ['las tres: precio y cierres; la nota se queda en «Notas de datos»', { precio, cierres, nota }, ['precio', 'cierres']],
+    ['falta el precio: cierres y la nota', { precio: null, cierres, nota }, ['cierres', 'nota']],
+    ['faltan los cierres: precio y la nota', { precio, cierres: null, nota }, ['precio', 'nota']],
+    ['faltan precio y cierres (el backend caído): sólo la nota', { precio: null, cierres: null, nota }, ['nota']],
+    ['precio y cierres sin nota', { precio, cierres, nota: null }, ['precio', 'cierres']],
+    ['sólo el precio', { precio, cierres: null, nota: null }, ['precio']],
+    ['ninguna', { precio: null, cierres: null, nota: null }, []],
   ])('%s', (_, lecturas, esperado) => {
-    expect(cuantasLecturas(lecturas)).toBe(esperado);
+    const elegidas = lecturasDeLaPortada(lecturas);
+    expect(elegidas.map((e) => e.tipo)).toEqual(esperado);
+    // Cada una lleva su lectura, no una copia ni otra.
+    for (const e of elegidas) expect(e.lectura).toBe(lecturas[e.tipo]);
+  });
+
+  it('nunca más de dos', () => {
+    expect(lecturasDeLaPortada({ precio, cierres, nota })).toHaveLength(2);
   });
 });

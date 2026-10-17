@@ -9,7 +9,7 @@
  */
 /**
  * La separación entre secciones, para la sección que necesita su propia cabecera
- * (la banda de lecturas de la portada, con su frase a la derecha y su filete).
+ * o no es un `<section>` con `h2` (en la portada: la franja de hoy, «Lo mejor de hoy» y las notas).
  */
 export const CLASE_SECCION = 'mt-8 scroll-mt-6 lg:mt-16';
 
