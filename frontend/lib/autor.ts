@@ -5,7 +5,7 @@
  * firmar sin tocar los términos ni la política de privacidad, que siguen con
  * `RESPONSABLE_LEGAL`.
  *
- * Sale de `AUTOR_NOMBRE` y `AUTOR_URL`, variables de SERVIDOR y opcionales, para
+ * Sale de `AUTOR_NOMBRE`, `AUTOR_ROL` y `AUTOR_URL`, variables de SERVIDOR y opcionales, para
  * que ningún dato personal viva en el repositorio. **Sin `AUTOR_NOMBRE` no se pinta
  * nada**: ni un hueco ni un nombre inventado. `AUTOR_URL` sólo vale con `https://`,
  * el mismo criterio que `REPOSITORIO_URL` (`urlSegura`).
@@ -24,6 +24,20 @@ const MAXIMO_NOMBRE = 60;
 export function nombreAutor(entorno: Entorno = process.env): string | null {
   const nombre = entorno.AUTOR_NOMBRE?.trim();
   return nombre && nombre.length <= MAXIMO_NOMBRE ? nombre : null;
+}
+
+/** El tope de `AUTOR_ROL`. Más largo es un error de configuración: no se dice el rol. */
+const MAXIMO_ROL = 80;
+
+/**
+ * Qué hace el autor («ingeniero que construye productos con datos»), para el «Lo
+ * hace» de la portada, `/acerca` y la ficha del autor. **No hay rol por defecto**:
+ * sin `AUTOR_ROL` se firma sólo con el nombre. Vive fuera del código para que el
+ * rol no dependa de un empleo y cambie sin un PR.
+ */
+export function rolAutor(entorno: Entorno = process.env): string | null {
+  const rol = entorno.AUTOR_ROL?.trim();
+  return rol && rol.length <= MAXIMO_ROL ? rol : null;
 }
 
 export function urlAutor(entorno: Entorno = process.env): string | null {

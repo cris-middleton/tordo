@@ -8,7 +8,7 @@ import {
   pedirResumenPortada,
   pedirSectoresPortada,
 } from '@/lib/publicoServidor';
-import { nombreAutor, urlAutor } from '@/lib/autor';
+import { nombreAutor, rolAutor, urlAutor } from '@/lib/autor';
 import { leerNotas } from '@/lib/notas';
 import { urlRepositorio } from '@/lib/repositorio';
 
@@ -90,6 +90,7 @@ export default async function Home() {
       notas={leerNotas()}
       repositorio={urlRepositorio()}
       autor={nombreAutor()}
+      rol={rolAutor()}
       urlAutor={urlAutor()}
     />
   );

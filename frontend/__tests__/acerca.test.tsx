@@ -19,6 +19,7 @@ const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
 
 afterEach(() => {
   delete process.env.AUTOR_NOMBRE;
+  delete process.env.AUTOR_ROL;
   delete process.env.RESPONSABLE_LEGAL;
 });
 
@@ -58,15 +59,26 @@ describe('la página /acerca', () => {
     expect(screen.getByRole('link', { name: 'hola@tordo.cl' })).toHaveAttribute('href', 'mailto:hola@tordo.cl');
   });
 
-  it('sin AUTOR_NOMBRE no dice quién lo hace: ni el hueco ni un nombre', () => {
+  it('sin AUTOR_NOMBRE no dice quién lo hace: ni el hueco ni un nombre, ni el rol', () => {
+    process.env.AUTOR_ROL = 'ingeniero que construye productos con datos';
     const { container } = render(<PaginaAcerca />);
-    expect(container.textContent).not.toMatch(/\[\[|lo hace /i);
+    expect(container.textContent).not.toMatch(/\[\[|lo hace |ingeniero que construye/i);
   });
 
-  it('con AUTOR_NOMBRE dice quién lo hace, con su oficio', () => {
+  it('con AUTOR_NOMBRE y AUTOR_ROL dice quién lo hace, con su rol', () => {
     process.env.AUTOR_NOMBRE = '  Nombre De Prueba ';
+    process.env.AUTOR_ROL = ' ingeniero que construye productos con datos ';
     render(<PaginaAcerca />);
-    expect(screen.getByText('Lo hace Nombre De Prueba, data scientist, a título personal.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Lo hace Nombre De Prueba, ingeniero que construye productos con datos, a título personal.'),
+    ).toBeInTheDocument();
+  });
+
+  it('con AUTOR_NOMBRE y sin AUTOR_ROL, sólo el nombre: no hay rol por defecto', () => {
+    process.env.AUTOR_NOMBRE = 'Nombre De Prueba';
+    const { container } = render(<PaginaAcerca />);
+    expect(screen.getByText('Lo hace Nombre De Prueba, a título personal.')).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/data scientist/i);
   });
 
   it('firma la autoría, no el responsable legal (spec PORTADA_V7 V5)', () => {

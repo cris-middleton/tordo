@@ -8,7 +8,8 @@ import { FUENTE_PORTADA, SE_ACTUALIZA } from '@/lib/portada';
  * - **Base** sale de `GET /bi/sector` (`baseDeLaFicha`), nunca escrita a mano; sin
  *   analytics o sin ventana, la fila no sale.
  * - **Se actualiza** sale del horario del cron (`SE_ACTUALIZA`).
- * - **Lo hace** sólo con `AUTOR_NOMBRE`, y el nombre enlaza a `AUTOR_URL` si está.
+ * - **Lo hace** sólo con `AUTOR_NOMBRE`, y el nombre enlaza a `AUTOR_URL` si está;
+ *   detrás, el rol de `AUTOR_ROL` si lo hay (sin rol, el nombre solo).
  *   Firma la autoría, no el responsable legal.
  *
  * «Se usa» se fue (V11): la salida a API, MCP y CSV está en la cabecera y el pie.
@@ -16,11 +17,14 @@ import { FUENTE_PORTADA, SE_ACTUALIZA } from '@/lib/portada';
 export function FichaPortada({
   base,
   autor,
+  rol,
   urlAutor,
   className = '',
 }: {
   base: string | null;
   autor: string | null;
+  /** `rolAutor()`: va tras el nombre; sin él, el nombre solo. */
+  rol: string | null;
   urlAutor: string | null;
   className?: string;
 }) {
@@ -49,7 +53,7 @@ export function FichaPortada({
             ) : (
               autor
             )}
-            , data scientist
+            {rol && `, ${rol}`}
           </dd>
         </>
       )}
