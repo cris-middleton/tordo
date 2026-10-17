@@ -55,6 +55,40 @@ describe('sin señales de plantilla en app/ y components/', () => {
     expect(hallazgos, que).toEqual([]);
   });
 
+  /**
+   * El borde lateral grueso de color sobre una tarjeta o un aviso («side-tab»): la
+   * señal de plantilla más reconocible según el detector de Impeccable
+   * (`make diseno`). Salía en el aviso «Mirando en detalle» de `/mercado`, en la
+   * franja de color de cada tarjeta de `/licitaciones` y en `.alert-critical`.
+   * Desde 3 px: el filete de 2 px de una cita (`components/guias/Markdown.tsx`)
+   * es la convención tipográfica de siempre, sin caja ni fondo, y el detector no
+   * lo marca. La franja de las tarjetas era un `div` de `w-1`, que esto no ve:
+   * para eso está `make diseno` sobre el render.
+   */
+  const BORDE_LATERAL = /\bborder-[lr]-(?:[3-9]|\[)|border-(?:left|right)-width:\s*[3-9]/;
+  /** Fichero → motivo. */
+  const BORDE_LATERAL_PERMITIDO: Record<string, string> = {
+    // Un filete junto a una cifra suelta, sin caja ni fondo: no es una tarjeta.
+    // El dueño lo vio en la portada y no lo objetó (2026-10-17), y el detector
+    // no lo marca en el render.
+    'components/portada/TiraCifras.tsx': 'filete de las cifras de la portada',
+  };
+
+  it('ningún borde lateral grueso de color (side-tab)', () => {
+    const hallazgos = ARCHIVOS.flatMap((ruta) => {
+      const rel = relative(RAIZ, ruta).split('\\').join('/');
+      if (rel in BORDE_LATERAL_PERMITIDO) return [];
+      return readFileSync(ruta, 'utf8')
+        .split('\n')
+        .flatMap((linea, i) => (BORDE_LATERAL.test(linea) ? [`${rel}:${i + 1}`] : []));
+    });
+    expect(hallazgos).toEqual([]);
+    expect(BORDE_LATERAL.test('rounded-xl border-l-4 border-accent')).toBe(true);
+    expect(BORDE_LATERAL.test('border-left-width: 3px;')).toBe(true);
+    expect(BORDE_LATERAL.test('border-l border-border')).toBe(false);
+    expect(BORDE_LATERAL.test('border-l-2 border-accent pl-4')).toBe(false);
+  });
+
   it('el patrón detecta lo que tiene que detectar', () => {
     const [mayus, , espaciado, punto] = PROHIBIDOS.map(([p]) => p);
     expect(mayus.test('className="text-xs uppercase text-muted"')).toBe(true);

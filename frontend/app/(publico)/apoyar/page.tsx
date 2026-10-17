@@ -32,7 +32,7 @@ export default function PaginaApoyar() {
   const [principal, ...otros] = enlaces;
 
   return (
-    <article className="max-w-3xl">
+    <article className="lectura max-w-3xl">
       <CabeceraFicha
         titulo={`${APP_NAME} es gratis. Mantenerlo, casi.`}
         subtitulo="Lo sostienen los aportes de quienes lo usan."

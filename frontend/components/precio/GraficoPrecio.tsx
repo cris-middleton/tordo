@@ -83,7 +83,7 @@ export function GraficoPrecio({ datos }: { datos: Datos }) {
           )}
         </g>
       ))}
-      <text x="0" y={total - 2} className="fill-muted text-[11px]">
+      <text x="0" y={total - 2} className="fill-muted text-[12px]">
         escala logarítmica
       </text>
     </svg>

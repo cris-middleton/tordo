@@ -34,7 +34,7 @@ export function BandaPrecio({ banda, periodo }: { banda: BandaUnidad; periodo?: 
         </h3>
         <div className="flex flex-wrap items-center gap-2">
           {info && (
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${info.clase}`}>
+            <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${info.clase}`}>
               {info.etiqueta}
             </span>
           )}
@@ -46,14 +46,17 @@ export function BandaPrecio({ banda, periodo }: { banda: BandaUnidad; periodo?: 
       <p className="cifra text-3xl font-bold leading-none text-text">{plata(p50)}</p>
 
       {completa && (
-        <div className="mt-6" role="img" aria-label={`Banda de precios: la mitad de las compras entre ${plata(p25)} y ${plata(p75)}`}>
-          <div className="relative h-3 rounded-full bg-primary/15">
+        // El dibujo es `aria-hidden`: las cinco cifras van debajo y la frase de la
+        // mitad central, al pie (docs/GUIA_GRAFICOS.md). P10–P90 en `border`, la
+        // mitad central en `dato-tenue` y la mediana, que es la cifra grande, en `dato`.
+        <div className="mt-6" aria-hidden="true">
+          <div className="relative h-3 rounded-full bg-border">
             <div
-              className="absolute inset-y-0 rounded-full bg-accent/40"
+              className="absolute inset-y-0 rounded-full bg-dato-tenue"
               style={{ left: `${pos(p25)}%`, width: `${Math.max(1, pos(p75) - pos(p25))}%` }}
             />
             <div
-              className="absolute -top-1 h-5 w-1 -translate-x-1/2 rounded-full bg-accent"
+              className="absolute -top-1 h-5 w-1 -translate-x-1/2 rounded-full bg-dato"
               style={{ left: `${pos(p50)}%` }}
             />
           </div>

@@ -32,7 +32,7 @@ export default function PaginaAcerca() {
   const rol = rolAutor();
 
   return (
-    <article className="max-w-3xl">
+    <article className="lectura max-w-3xl">
       <CabeceraFicha
         titulo={`Acerca de ${APP_NAME}`}
         subtitulo="Qué es, de dónde salen los datos, cómo se financia y las preguntas de siempre."

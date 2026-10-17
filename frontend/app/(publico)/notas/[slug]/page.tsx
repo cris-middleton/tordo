@@ -63,7 +63,7 @@ export default async function PaginaNota({ params }: Props) {
   const [antes, despues] = partirEnQueCambio(nota.cuerpo);
 
   return (
-    <article className="max-w-3xl">
+    <article className="lectura max-w-3xl">
       <CabeceraFicha titulo={nota.titulo}>
         <p className="mt-3 text-sm text-muted">
           Nota de datos del <time dateTime={nota.fecha}>{fechaLarga(nota.fecha)}</time>.

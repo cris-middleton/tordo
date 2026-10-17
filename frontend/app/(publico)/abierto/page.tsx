@@ -38,7 +38,7 @@ export default function PaginaAbierto() {
   const repositorio = urlRepositorio();
 
   return (
-    <article className="max-w-3xl">
+    <article className="lectura max-w-3xl">
       <CabeceraFicha
         titulo="Úsalo como quieras"
         subtitulo={`Todo lo que muestra ${APP_NAME} se puede leer desde otro programa, desde un asistente de IA o en una planilla.`}

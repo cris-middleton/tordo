@@ -444,7 +444,7 @@ function CatalogoContenido() {
                     </span>
                   </div>
                   {biPanel.precios[0].p25 != null && biPanel.precios[0].p75 != null && (
-                    <p className="text-[10px] text-muted">
+                    <p className="text-xs text-muted">
                       Rango: {biPanel.precios[0].p25 >= 1_000_000 ? `${decimal(biPanel.precios[0].p25/1_000_000, 1)}M` : `${decimal(biPanel.precios[0].p25/1_000, 0)}K`}
                       {' – '}
                       {biPanel.precios[0].p75 >= 1_000_000 ? `${decimal(biPanel.precios[0].p75/1_000_000, 1)}M` : `${decimal(biPanel.precios[0].p75/1_000, 0)}K`}

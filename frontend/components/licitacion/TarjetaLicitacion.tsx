@@ -15,7 +15,6 @@ import {
 import {
   formatCurrency,
   getClosingUrgency,
-  getEstadoAccent,
   getEstadoCls,
   normalizeText,
   shortRegion,
@@ -51,7 +50,6 @@ export default function TarjetaLicitacion({
   const urgency = getClosingUrgency(tender.fecha_cierre);
   const estadoDisplay = tender.estado ?? tender.detalle?.estado_actual;
   const estadoCls = getEstadoCls(estadoDisplay);
-  const accentCls = getEstadoAccent(estadoDisplay);
 
   return (
 
@@ -64,21 +62,18 @@ export default function TarjetaLicitacion({
           : 'border-border bg-surface hover:border-primary/20'
       }`}
     >
-      {/* Left accent bar */}
-      <div className={`w-1 shrink-0 ${accentCls}`} />
-
       <div className="flex flex-col flex-1 min-w-0 px-4 pt-3.5 pb-3">
         {/* Row 1: badge(s) + region */}
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="flex items-center gap-1.5 min-w-0">
             {estadoDisplay && (
-              <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold leading-none ${estadoCls}`}>
+              <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold leading-none ${estadoCls}`}>
                 {normalizeText(estadoDisplay)}
               </span>
             )}
           </div>
           {tender.region && (
-            <span className="flex items-center gap-0.5 text-[11px] text-muted shrink-0">
+            <span className="flex items-center gap-0.5 text-xs text-muted shrink-0">
               <MapPin className="h-2.5 w-2.5" />
               {shortRegion(tender.region)}
             </span>
@@ -95,7 +90,7 @@ export default function TarjetaLicitacion({
         </Link>
 
         {/* Organismo */}
-        <p className="text-[11px] text-muted truncate mb-3">
+        <p className="text-xs text-muted truncate mb-3">
           {tender.nombre_organismo ? (
             normalizeText(tender.nombre_organismo)
           ) : (
@@ -111,16 +106,16 @@ export default function TarjetaLicitacion({
                 {formatCurrency(tender.monto_estimado)}
               </p>
             ) : (
-              <p className="text-[11px] text-subtle leading-none">Sin monto</p>
+              <p className="text-xs text-subtle leading-none">Sin monto</p>
             )}
             <div className="flex items-center gap-2 mt-1">
               {tender.fecha_publicacion && (
-                <p className="text-[11px] text-subtle">
+                <p className="text-xs text-subtle">
                   {format(new Date(tender.fecha_publicacion), 'd MMM yyyy', { locale: es })}
                 </p>
               )}
               {urgency && (
-                <p className={`text-[11px] ${urgency.cls}`}>{urgency.label}</p>
+                <p className={`text-xs ${urgency.cls}`}>{urgency.label}</p>
               )}
             </div>
           </div>

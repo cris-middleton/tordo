@@ -3,6 +3,7 @@ import Link from 'next/link';
 
 import { PieDeMetodo } from '@/components/metodo/PieDeMetodo';
 import { AntesDespues } from '@/components/notas/AntesDespues';
+import { BarraCierres } from '@/components/portada/BarraCierres';
 import { GraficoPrecio } from '@/components/precio/GraficoPrecio';
 import {
   lecturasDeLaPortada,
@@ -87,9 +88,8 @@ function VistaPrecio({ lectura, primera }: { lectura: LecturaPrecio; primera: bo
 }
 
 /**
- * Diez celdas: tantas en `dato` como décimos de «hoy o mañana», con el mismo
- * redondeo que la frase («6 de cada 10» se cuenta a la vista). Debajo, la tabla
- * de los cuatro tramos con su cifra; hoy y mañana en negrita.
+ * La barra de diez décimos (`BarraCierres`) y debajo la tabla de los cuatro
+ * tramos con su cifra; hoy y mañana en negrita.
  */
 function VistaCierres({ lectura, primera }: { lectura: LecturaCierres; primera: boolean }) {
   const { decimos } = lectura;
@@ -101,17 +101,7 @@ function VistaCierres({ lectura, primera }: { lectura: LecturaCierres; primera: 
       pie={lectura.pie}
       enlaces={lectura.enlaces}
     >
-      <div aria-hidden="true">
-        <div className="grid grid-cols-10 gap-1">
-          {Array.from({ length: 10 }, (_, i) => (
-            <span key={i} data-decimo={i < decimos ? 'si' : 'no'} className={`h-8 rounded-sm ${i < decimos ? 'bg-dato' : 'bg-dato-tenue'}`} />
-          ))}
-        </div>
-        <div className="mt-1 flex justify-between text-xs text-muted">
-          {decimos > 0 && <span>hoy o mañana</span>}
-          {decimos < 10 && <span className="ml-auto">después</span>}
-        </div>
-      </div>
+      <BarraCierres decimos={decimos} />
       <table className="mt-4 w-full text-sm">
         <caption className="sr-only">Compras Ágiles abiertas por día de cierre</caption>
         <tbody>

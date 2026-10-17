@@ -176,7 +176,7 @@ function DriverBar({
       <div className="flex w-16 items-center justify-end gap-1">
         <span className="text-xs font-medium text-text">{pct}%</span>
         {note && (
-          <span className="rounded bg-accent/15 px-1 py-0.5 text-[9px] font-semibold text-accent">
+          <span className="rounded bg-accent/15 px-1 py-0.5 text-xs font-semibold text-accent">
             {note}
           </span>
         )}

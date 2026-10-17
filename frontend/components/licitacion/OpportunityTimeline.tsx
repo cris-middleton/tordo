@@ -31,8 +31,8 @@ export default function OpportunityTimeline({
               <div className={`h-3 w-3 shrink-0 rounded-full border-2 ${step.highlight ? 'border-primary bg-primary' : step.done ? 'border-accent bg-accent' : 'border-border bg-background'}`} />
               {i < steps.length - 1 && <div className="h-0.5 flex-1 bg-border" />}
             </div>
-            <p className="mt-1.5 text-center text-[10px] font-medium text-text leading-tight">{step.label}</p>
-            {step.date && <p className="text-[10px] text-muted text-center leading-tight">{step.date}</p>}
+            <p className="mt-1.5 text-center text-xs font-medium text-text leading-tight">{step.label}</p>
+            {step.date && <p className="text-xs text-muted text-center leading-tight">{step.date}</p>}
           </div>
         ))}
       </div>

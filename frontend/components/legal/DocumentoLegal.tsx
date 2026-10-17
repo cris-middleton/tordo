@@ -24,7 +24,7 @@ interface Props {
 export function DocumentoLegal({ titulo, vigenteDesde, children }: Props) {
   return (
     <Contenedor pagina>
-      <div className="max-w-3xl">
+      <div className="lectura max-w-3xl">
         <h1 className="page-title">{titulo}</h1>
         <p className="mt-2 text-sm text-muted">Vigente desde {vigenteDesde}</p>
         <div className="mt-8 text-sm leading-relaxed text-text [&_a]:text-primary [&_a]:underline [&_h2]:mt-12 [&_h2]:font-display [&_h2]:text-[22px] [&_h2]:leading-tight [&_h2]:text-text [&_li]:mt-2 [&_li]:text-muted [&_p]:mt-3 [&_p]:text-muted [&_strong]:text-text [&_ul]:mt-3 [&_ul]:list-disc [&_ul]:pl-6">

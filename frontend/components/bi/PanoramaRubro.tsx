@@ -254,7 +254,7 @@ export function PanoramaRubro({
                           title={`${m.nombre}: ${m.pct}%`}
                         />
                       </div>
-                      <span className="text-[9px] text-subtle">{m.nombre[0]}</span>
+                      <span className="text-xs text-subtle">{m.nombre[0]}</span>
                     </div>
                   );
                 })}

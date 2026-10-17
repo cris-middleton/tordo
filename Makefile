@@ -2,7 +2,7 @@
         dev-up dev-up-d dev-down dev-logs dev-build dev-restart dev-shell db-shell dev-clean \
         migrate migrate-create migrate-status downgrade \
         front-install front-dev front-build front-lint front-test \
-        hooks lock audit e2e ci medir-memoria
+        hooks lock audit diseno e2e ci medir-memoria
 
 # Compose resuelve `.env` desde el directorio del archivo (infra/), no desde la
 # raíz del repo. Sin --env-file, el .env que documenta el README se ignora por
@@ -86,6 +86,15 @@ e2e: ## Tests de extremo a extremo con Playwright (pila completa, base efímera)
 
 audit: ## Vulnerabilidades y antigüedad de las dependencias (Python + frontend)
 	uv run python scripts/auditar-dependencias.py
+
+# Fuera de CI, como `audit`: baja un binario a ~/.impeccable/ y necesita red. Sólo
+# `detect`: ni `install`, ni hooks, ni el «roll» que llama a impeccable.style.
+# Sobre el fuente sólo corren las reglas de texto; las de la página (texto chico,
+# medida, contraste) necesitan el render: URL="http://localhost:3000/ http://…".
+# Con URL hace falta un Chrome (o IMPECCABLE_BROWSER apuntando al de Playwright).
+IMPECCABLE := impeccable@4.6.0
+diseno: ## Señales de plantilla con el detector de Impeccable (fuente; URL="…" añade páginas)
+	DO_NOT_TRACK=1 IMPECCABLE_NO_TELEMETRY=1 npx -y $(IMPECCABLE) detect frontend/app frontend/components $(URL)
 
 lint: ## Lint + chequeo de formato (lo mismo que corre CI)
 	uv run ruff check backend/app backend/tests etl
