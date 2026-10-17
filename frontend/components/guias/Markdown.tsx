@@ -121,8 +121,15 @@ function UnBloque({ b }: { b: Bloque }) {
         </blockquote>
       );
     case 'codigo':
+      // Se desplaza en horizontal en móvil, así que se alcanza con el teclado
+      // (WCAG 2.1.1; axe, `scrollable-region-focusable`). Como en
+      // `components/abierto/Bloques.tsx`: `role="group"` para que el nombre se anuncie.
       return (
-        <pre className="mt-4 overflow-x-auto rounded-lg border border-border bg-surface-elevated px-4 py-3 text-sm text-text">
+        <pre
+          role="group"
+          aria-label="Bloque de código"
+          tabIndex={0}
+          className="mt-4 overflow-x-auto rounded-lg border border-border bg-surface-elevated px-4 py-3 text-sm text-text">
           <code className="font-mono">{b.v}</code>
         </pre>
       );

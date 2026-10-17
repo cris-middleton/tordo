@@ -136,6 +136,7 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
         {organismosConNombre && organismosConNombre.length > 0 ? (
           <select
+            aria-label="Organismo"
             value={organismo}
             onChange={(e) => setOrganismo(e.target.value)}
             className="input-field"

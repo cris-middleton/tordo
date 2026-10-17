@@ -263,6 +263,7 @@ function CatalogoContenido() {
             </button>
           )}
           <select
+            aria-label="Ordenar por"
             value={sortBy}
             onChange={(e) => cambiar({ sort_by: e.target.value as Orden })}
             className="min-w-0 max-w-full rounded border border-border bg-background px-2 py-1 text-base text-text sm:text-xs focus:border-primary/50 focus:outline-none"
@@ -274,6 +275,7 @@ function CatalogoContenido() {
             <option value="nombre">Nombre</option>
           </select>
           <select
+            aria-label="Sentido del orden"
             value={sortOrder}
             onChange={(e) => cambiar({ sort_order: e.target.value as 'asc' | 'desc' })}
             className="min-w-0 max-w-full rounded border border-border bg-background px-2 py-1 text-base text-text sm:text-xs focus:border-primary/50 focus:outline-none"
@@ -282,6 +284,7 @@ function CatalogoContenido() {
             <option value="asc">↑ Menor</option>
           </select>
           <select
+            aria-label="Resultados por página"
             value={String(limit)}
             onChange={(e) => cambiar({ limit: Number(e.target.value) })}
             className="min-w-0 max-w-full rounded border border-border bg-background px-2 py-1 text-base text-text sm:text-xs focus:border-primary/50 focus:outline-none"

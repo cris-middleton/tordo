@@ -135,7 +135,7 @@ def _compras_agiles(ahora: datetime) -> list[dict]:
 def sembrar(db: Session) -> None:
     ahora = datetime.now(UTC)
 
-    for datos in _licitaciones(ahora) + _compras_agiles(ahora):
+    for i, datos in enumerate(_licitaciones(ahora) + _compras_agiles(ahora)):
         existente = db.execute(
             select(Licitacion).where(Licitacion.codigo_externo == datos["codigo_externo"])
         ).scalar_one_or_none()
@@ -146,7 +146,11 @@ def sembrar(db: Session) -> None:
             continue
         db.add(
             Licitacion(
-                fecha_publicacion=ahora - timedelta(days=1),
+                # Un minuto de diferencia entre cada una: el catálogo ordena por
+                # publicación y, con todas en el mismo instante, el empate lo
+                # resolvía Postgres a su manera (`e2e/capturas.spec.ts` compara
+                # el listado pixel a pixel).
+                fecha_publicacion=ahora - timedelta(days=1, minutes=i),
                 moneda="CLP",
                 activo=True,
                 **datos,

@@ -106,6 +106,7 @@ export function CompetenciaSection({
 
         {!focused && topOrganismos.length > 1 && (
           <select
+            aria-label="Organismo"
             value={selectedOrganismo}
             onChange={(e) => onOrganismoChange(e.target.value)}
             disabled={disabled}
@@ -195,39 +196,47 @@ export function CompetenciaSection({
           </div>
 
           {!showTable ? (
-            <ResponsiveContainer width="100%" height={320}>
-              <ScatterChart margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#DCE3ED" />
-                <XAxis
-                  dataKey="win_rate_pct"
-                  name="Tasa adjudicación"
-                  type="number"
-                  label={{ value: 'Tasa de adjudicación (%)', position: 'insideBottom', offset: -10, fontSize: 11, fill: '#5F7089' }}
-                  tick={{ fontSize: 11, fill: '#5F7089' }}
-                />
-                <YAxis
-                  dataKey="market_share_pct"
-                  name="Participación"
-                  type="number"
-                  width={70}
-                  tick={{ fontSize: 11, fill: '#5F7089' }}
-                  label={{
-                    value: 'Participación de mercado (%)',
-                    angle: -90,
-                    position: 'insideLeft',
-                    offset: 0,
-                    style: { fontSize: 11, fill: '#54637A', textAnchor: 'middle' },
-                  }}
-                />
-                <ZAxis dataKey="n_oc" range={[40, 400]} />
-                <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3' }} />
-                <Scatter data={competidores} isAnimationActive={false}>
-                  {competidores.map((_, i) => (
-                    <Cell key={`cell-${i}`} fill={COLORS[i % COLORS.length]} fillOpacity={0.75} />
-                  ))}
-                </Scatter>
-              </ScatterChart>
-            </ResponsiveContainer>
+            <>
+              {/* Recharts 2.15 pone `role="img"` sin nombre en cada punto (`Scatter.js`), y
+                  un lector de pantalla anunciaba una imagen muda por proveedor. Los mismos
+                  datos están en la vista «Tabla», que sí se lee. */}
+              <p className="sr-only">Los datos del gráfico están en «Tabla».</p>
+              <div aria-hidden="true">
+                <ResponsiveContainer width="100%" height={320}>
+                  <ScatterChart margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#DCE3ED" />
+                    <XAxis
+                      dataKey="win_rate_pct"
+                      name="Tasa adjudicación"
+                      type="number"
+                      label={{ value: 'Tasa de adjudicación (%)', position: 'insideBottom', offset: -10, fontSize: 11, fill: '#5F7089' }}
+                      tick={{ fontSize: 11, fill: '#5F7089' }}
+                    />
+                    <YAxis
+                      dataKey="market_share_pct"
+                      name="Participación"
+                      type="number"
+                      width={70}
+                      tick={{ fontSize: 11, fill: '#5F7089' }}
+                      label={{
+                        value: 'Participación de mercado (%)',
+                        angle: -90,
+                        position: 'insideLeft',
+                        offset: 0,
+                        style: { fontSize: 11, fill: '#54637A', textAnchor: 'middle' },
+                      }}
+                    />
+                    <ZAxis dataKey="n_oc" range={[40, 400]} />
+                    <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3' }} />
+                    <Scatter data={competidores} isAnimationActive={false}>
+                      {competidores.map((_, i) => (
+                        <Cell key={`cell-${i}`} fill={COLORS[i % COLORS.length]} fillOpacity={0.75} />
+                      ))}
+                    </Scatter>
+                  </ScatterChart>
+                </ResponsiveContainer>
+              </div>
+            </>
           ) : (
             <div className="overflow-x-auto rounded-xl border border-border">
               <table className="w-full text-sm">

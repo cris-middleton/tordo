@@ -34,6 +34,10 @@ export default defineConfig({
   // En CI un `.only` olvidado haría pasar la suite ejecutando un solo test.
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
+  // En CI una captura sin línea base FALLA (y deja la de ahora en `test-results/`,
+  // que sube el artefacto). Con el 'missing' por defecto el primer intento la
+  // escribía y el reintento pasaba: una comparación contra sí misma, en verde.
+  updateSnapshots: process.env.CI ? 'none' : 'missing',
   reporter: process.env.CI ? [['github'], ['list']] : [['list']],
 
   use: {

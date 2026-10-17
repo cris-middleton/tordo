@@ -49,6 +49,7 @@ export default function TabForecast({ rubro }: { rubro: string }) {
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr_auto] gap-2">
         <select
+          aria-label="Tipo de licitación"
           value={tipo}
           onChange={(e) => setTipo(e.target.value)}
           className="input-field"

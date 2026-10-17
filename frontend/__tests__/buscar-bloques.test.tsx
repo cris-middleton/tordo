@@ -130,7 +130,7 @@ describe('BloqueAbiertas', () => {
     abiertas();
     const lista = screen.getByRole('list', { name: /compras ágiles abiertas/i });
     expect(within(lista).getAllByRole('article')).toHaveLength(3);
-    expect(within(lista).queryByLabelText(/^Puesto/)).toBeNull();
+    expect(within(lista).queryByText(/^Puesto/)).toBeNull();
     expect(screen.getByRole('link', { name: `Ver todas en «${TITULO_DESTACADAS}»` })).toHaveAttribute(
       'href',
       '/compra-agil?search=guante+nitrilo',

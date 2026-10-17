@@ -119,6 +119,7 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
 
         {!focused && optionsOrganismos.length > 1 && (
           <select
+            aria-label="Organismo"
             value={selectedOrg}
             onChange={(e) => setSelectedOrg(e.target.value)}
             disabled={!!focusedOrganismo}

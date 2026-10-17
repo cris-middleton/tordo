@@ -7,7 +7,7 @@
  * contestó que no hay.
  */
 import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CompetenciaSection } from '@/app/(panel)/mercado/components/CompetenciaSection';
 import { CompradoresSection } from '@/app/(panel)/mercado/components/CompradoresSection';
@@ -52,6 +52,10 @@ beforeEach(() => {
   estados.comprador = base();
   estados.competidores = base();
   estados.estacionalidad = base();
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe('CompradoresSection', () => {
@@ -102,6 +106,43 @@ describe('CompetenciaSection', () => {
     pintar();
 
     expect(screen.getByRole('button', { name: /reintentando/i })).toBeDisabled();
+  });
+
+  it('el gráfico de dispersión queda fuera del árbol accesible y remite a la tabla (axe, svg-img-alt)', () => {
+    // Recharts 2.15 pone `role="img"` sin nombre en cada punto (`Scatter.js`):
+    // un lector de pantalla anunciaba una imagen muda por proveedor.
+    // jsdom no trae ResizeObserver y `ResponsiveContainer` lo pide al montar.
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    estados.competidores = {
+      ...base(),
+      data: {
+        disponible: true,
+        competidores: [
+          {
+            CodigoProveedor: '1',
+            NombreProveedor: 'Proveedor A',
+            RubroN2: 'Aseo',
+            market_share_pct: 40,
+            win_rate_pct: 30,
+            rank_monto: 1,
+            n_oc: 12,
+          },
+        ],
+        concentracion: [],
+      },
+    };
+    const { container } = pintar();
+
+    const grafico = container.querySelector('.recharts-responsive-container');
+    expect(grafico?.closest('[aria-hidden="true"]')).not.toBeNull();
+    expect(screen.getByText('Los datos del gráfico están en «Tabla».')).toHaveClass('sr-only');
   });
 
   it('si el backend dice que no hay datos, sí es «Sin datos»', () => {
