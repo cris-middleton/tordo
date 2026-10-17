@@ -432,6 +432,19 @@ programador en la nube, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
   dentro de un SVG de Recharts (lo da por «incompleto», no por fallo), así que ahí no vigila
   nada. `__tests__/selects-con-nombre.test.ts` cubre los `<select>` que axe no ve porque no se
   pintan al abrir la página.
+- **Comparación de capturas** (`e2e/capturas.spec.ts`): la portada y `/licitaciones` a 1440 y
+  390 en claro, con `toHaveScreenshot`. **Sólo corre en Linux, y las líneas base
+  (`capturas.spec.ts-snapshots/*-chromium-linux.png`) salen del runner de CI**: macOS rasteriza
+  el texto distinto, y un Mac con Apple Silicon no es el x86-64 del runner. En un Mac se salta.
+  Fechas, horas y días de la semana se reescriben en el DOM antes de capturar (la semilla fecha
+  relativo a la hora en que corre), y la semilla separa un minuto cada publicación para que el
+  orden del catálogo no dependa de un empate. **Un cambio visual en esas dos pantallas, una nota
+  nueva incluida (la portada lista las cuatro últimas), exige rehacer la línea base**: borra el
+  PNG, empuja, y el test falla dejando la captura nueva con su nombre en el artefacto
+  «playwright» (`gh run download <id> -n playwright`); se copia a `capturas.spec.ts-snapshots/`
+  y se revisa a ojo antes de commitearla. En CI una captura sin línea base falla
+  (`updateSnapshots: 'none'`): con el valor por defecto el primer intento la escribía y el
+  reintento pasaba comparándola consigo misma.
 - **El navegador de los E2E se elige solo** (`E2E_NAVEGADOR=auto`): nativo si puede
   lanzarse, y si no, la imagen oficial de Playwright. En una máquina de trabajo
   `playwright install --with-deps` pide sudo; en CI no, y **bajar la imagen de 2 GB desde
