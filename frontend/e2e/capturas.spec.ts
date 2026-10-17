@@ -1,3 +1,6 @@
+import { existsSync } from 'node:fs';
+import { basename } from 'node:path';
+
 import { expect, test, type Page } from '@playwright/test';
 
 /**
@@ -53,7 +56,7 @@ async function fijarElReloj(page: Page): Promise<void> {
 
 for (const viewport of [ESCRITORIO, MOVIL]) {
   for (const { ruta, nombre, listo } of PANTALLAS) {
-    test(`captura de ${nombre} a ${viewport.width} px en tema claro`, async ({ page }) => {
+    test(`captura de ${nombre} a ${viewport.width} px en tema claro`, async ({ page }, testInfo) => {
       test.skip(process.platform !== 'linux', 'las líneas base son de Linux (ver la cabecera)');
       await page.setViewportSize(viewport);
       await page.goto(ruta);
@@ -62,11 +65,16 @@ for (const viewport of [ESCRITORIO, MOVIL]) {
       await page.evaluate(() => document.fonts.ready);
       await fijarElReloj(page);
 
-      await expect(page).toHaveScreenshot(`${nombre}-${viewport.width}.png`, {
-        fullPage: true,
-        animations: 'disabled',
-        caret: 'hide',
-      });
+      const archivo = `${nombre}-${viewport.width}.png`;
+      const opciones = { fullPage: true, animations: 'disabled', caret: 'hide', scale: 'css' } as const;
+      const base = testInfo.snapshotPath(archivo, { kind: 'screenshot' });
+      if (!existsSync(base)) {
+        // Sin línea base, la captura de ahora queda en `test-results/` con el
+        // nombre que le toca, y el artefacto de CI la sube: es de donde salen.
+        await page.screenshot({ ...opciones, path: testInfo.outputPath(basename(base)) });
+        throw new Error(`Falta la línea base ${basename(base)}: está en test-results/ (artefacto «playwright» en CI).`);
+      }
+      await expect(page).toHaveScreenshot(archivo, opciones);
     });
   }
 }
