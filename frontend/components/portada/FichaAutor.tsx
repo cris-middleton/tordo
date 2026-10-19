@@ -16,7 +16,7 @@ const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
  */
 export function FichaAutor({ nombre, rol, url }: { nombre: string; rol: string | null; url: string | null }) {
   return (
-    <aside aria-label="Quién lo hace" className="rounded-lg border border-border p-6">
+    <aside aria-label="Quién lo hace" className="border-t border-border pt-5">
       <p className="text-text">
         <strong className="font-semibold">{nombre}</strong>
         {rol && `, ${rol},`} hace {APP_NAME} y escribe las notas de datos.
