@@ -149,7 +149,9 @@ def sembrar(db: Session) -> None:
                 # Un minuto de diferencia entre cada una: el catálogo ordena por
                 # publicación y, con todas en el mismo instante, el empate lo
                 # resolvía Postgres a su manera (`e2e/capturas.spec.ts` compara
-                # el listado pixel a pixel).
+                # el listado pixel a pixel). Hoy el catálogo desempata por `id`
+                # y el orden sería estable igual, pero sería el inverso al de
+                # carga: quitar el minuto obliga a rehacer las líneas base.
                 fecha_publicacion=ahora - timedelta(days=1, minutes=i),
                 moneda="CLP",
                 activo=True,

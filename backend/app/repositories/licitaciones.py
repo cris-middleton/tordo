@@ -191,6 +191,12 @@ async def buscar(
 
     Se ordena por columna; un valor desconocido cae en fecha de publicación, que
     es el orden por defecto del producto.
+
+    **El último criterio es el `id`**, en el mismo sentido que la columna. Sin un
+    criterio único, dos filas empatadas —el ETL carga en lote, y muchas comparten
+    fecha al segundo— salen en cualquier orden, y con `OFFSET` la página 2 no
+    sigue a la 1: una licitación se repite y otra no sale nunca
+    (`tests/test_catalogo_desempate.py`).
     """
     consulta = _con_filtros(filtros)
 
@@ -199,8 +205,9 @@ async def buscar(
     )
 
     columna = COLUMNAS_ORDENABLES.get(orden or "", Licitacion.fecha_publicacion)
+    sentido = asc if ascendente else desc
     ordenada = consulta.order_by(
-        abiertas_primero(), (asc if ascendente else desc)(columna).nulls_last()
+        abiertas_primero(), sentido(columna).nulls_last(), sentido(Licitacion.id)
     )
 
     filas = (await db.execute(ordenada.offset(salto).limit(limite))).scalars().all()
@@ -274,6 +281,7 @@ async def buscar_por_relevancia(
         abiertas_primero(),
         (asc if ascendente else desc)(puntuacion),
         desc(Licitacion.fecha_publicacion),
+        desc(Licitacion.id),
     )
     filas = (await db.execute(ordenada.offset(salto).limit(limite))).scalars().all()
     return list(filas), total

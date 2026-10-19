@@ -21,7 +21,11 @@ import polars as pl
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.repositories._analytics_sql import parametros_busqueda, sql_busqueda_texto
+from app.repositories._analytics_sql import (
+    parametros_busqueda,
+    sql_busqueda_texto,
+    sql_consulta,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -75,27 +79,14 @@ async def consultar(
     if not await existe_tabla(db, tabla):
         return None
 
-    proyeccion = ", ".join(_ident(c) for c in columnas) if columnas else "*"
-    sql = f"SELECT {proyeccion} FROM {_ident(SCHEMA)}.{_ident(tabla)}"
-
-    params: dict[str, Any] = {}
-    if filtros:
-        clausulas = []
-        for i, (col, valor) in enumerate(filtros.items()):
-            if valor is None:
-                clausulas.append(f"{_ident(col)} IS NULL")
-            else:
-                clave = f"p{i}"
-                clausulas.append(f"{_ident(col)} = :{clave}")
-                params[clave] = valor
-        if clausulas:
-            sql += " WHERE " + " AND ".join(clausulas)
-
-    if orden:
-        sql += f" ORDER BY {_ident(orden)} {'DESC' if descendente else 'ASC'}"
-    if limite:
-        sql += f" LIMIT {int(limite)}"
-
+    sql, params = sql_consulta(
+        tabla,
+        filtros=filtros,
+        columnas=columnas,
+        orden=orden,
+        descendente=descendente,
+        limite=limite,
+    )
     res = await db.execute(text(sql), params)
     filas = res.mappings().all()
     if not filas:

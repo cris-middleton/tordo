@@ -31,7 +31,7 @@ def test_los_minimos_son_mayor_o_igual_con_parametros_ligados():
     )
 
     assert 'WHERE "RubroN2" = :p0 AND "n_anios" >= :m0 AND "total_oc" >= :m1' in consulta
-    assert consulta.endswith('ORDER BY "cagr" DESC NULLS LAST LIMIT 5')
+    assert consulta.endswith('ORDER BY "cagr" DESC NULLS LAST, ctid LIMIT 5')
     assert params == {"p0": "Aseo", "m0": 3, "m1": 15}
 
 
@@ -109,3 +109,51 @@ def test_contar_por_tabla_inexistente_devuelve_none():
         if IN_CI:
             raise
         pytest.skip(f"sin base de datos disponible ({type(exc).__name__})")
+
+
+def test_todo_orden_con_limite_termina_en_un_criterio_unico():
+    """Sin él, un `LIMIT` que corta en un empate devuelve cualquiera de las filas
+    empatadas, y no siempre las mismas. Las tablas de analytics no tienen clave
+    única: el desempate es la posición física (`DESEMPATE`)."""
+    con_orden, _ = sql.sql_consulta("t", orden="n", limite=3)
+    sin_orden, _ = sql.sql_consulta("t", limite=3)
+    busqueda = sql.sql_busqueda_texto("t", "nombre", orden="n")
+
+    assert con_orden.endswith('ORDER BY "n" DESC NULLS LAST, ctid LIMIT 3')
+    assert sin_orden.endswith("ORDER BY ctid LIMIT 3")
+    assert busqueda.endswith('ORDER BY "n" DESC NULLS LAST, ctid LIMIT :limite')
+
+
+TABLA_EMPATE = "tabla_empate_prueba"
+
+
+@pytest.fixture
+def tabla_empatada():
+    try:
+        with sync_engine.begin() as conn:
+            conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {sql.SCHEMA}"))
+            conn.execute(text(f'DROP TABLE IF EXISTS {sql.SCHEMA}."{TABLA_EMPATE}"'))
+            conn.execute(text(f'CREATE TABLE {sql.SCHEMA}."{TABLA_EMPATE}" (codigo TEXT, n INT)'))
+            # Tres con n = 9 y cinco empatadas con n = 5: un LIMIT 5 corta el empate.
+            conn.execute(
+                text(
+                    f'INSERT INTO {sql.SCHEMA}."{TABLA_EMPATE}" VALUES '
+                    "('a', 9), ('b', 5), ('c', 9), ('d', 5), ('e', 5), ('f', 9), ('g', 5), "
+                    "('h', 5)"
+                )
+            )
+    except Exception as exc:
+        if IN_CI:
+            raise
+        pytest.skip(f"sin base de datos disponible ({type(exc).__name__}) — usa `make dev-up-d`")
+    analytics_sync.invalidar_cache_existencia()
+    yield TABLA_EMPATE
+    with sync_engine.begin() as conn:
+        conn.execute(text(f'DROP TABLE IF EXISTS {sql.SCHEMA}."{TABLA_EMPATE}"'))
+    analytics_sync.invalidar_cache_existencia()
+
+
+def test_el_empate_se_rompe_por_el_orden_de_carga(tabla_empatada):
+    df = analytics_sync.consultar(tabla_empatada, orden="n", limite=5)
+
+    assert df["codigo"].to_list() == ["a", "c", "f", "b", "d"]
