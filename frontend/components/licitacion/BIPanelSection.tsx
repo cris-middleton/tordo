@@ -145,6 +145,21 @@ function Precios({ precios }: { precios: PrecioFallback[] }) {
  */
 export default function BIPanelSection({ panel }: { panel: BIPanel; tender?: TenderDetail }) {
   const { comprador, ventana, competidores, precios } = panel;
+  // Sin nada que comparar (lo normal en una Compra Ágil de un comprador sin
+  // historia en el análisis), una línea y no cuatro «Todavía no tenemos…».
+  const vacio =
+    !comprador.disponible &&
+    (!ventana.disponible || ventana.window_days == null) &&
+    (!competidores.disponible || (competidores.top5 ?? []).length === 0) &&
+    !precios.some((p) => p.disponible && p.p50 != null);
+  if (vacio) {
+    return (
+      <p className="max-w-[65ch] text-muted">
+        Todavía no tenemos historia de este comprador ni precios comparables para esta compra. El análisis se
+        rehace cada domingo con las órdenes de compra de ChileCompra.
+      </p>
+    );
+  }
   return (
     <div className="space-y-10">
       <Plazo ventana={ventana} />
