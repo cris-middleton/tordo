@@ -174,20 +174,19 @@ def buscar_texto(
     orden: str | None = None,
     limite: int = 20,
 ) -> pl.DataFrame | None:
-    """Búsqueda por subcadena, servida por el índice GIN de pg_trgm."""
+    """El término al comienzo de una palabra, servido por el índice GIN de pg_trgm.
+
+    La regla está en `repositories/busqueda.py`: «mesa» no encuentra «parmesano».
+    """
     if not existe_tabla(tabla):
         return None
 
-    consulta = sql.sql_busqueda_texto(tabla, columna, columnas=columnas, orden=orden)
-    with _engine().connect() as conn:
-        filas = (
-            conn.execute(
-                text(consulta),
-                {"patron": sql.patron_like(consulta_texto), "limite": limite},
-            )
-            .mappings()
-            .all()
-        )
+    params = sql.parametros_busqueda(consulta_texto)
+    filas = []
+    if params is not None:
+        consulta = sql.sql_busqueda_texto(tabla, columna, columnas=columnas, orden=orden)
+        with _engine().connect() as conn:
+            filas = conn.execute(text(consulta), {**params, "limite": limite}).mappings().all()
     if filas:
         return _a_polars([dict(f) for f in filas])
     return _a_polars([], columnas or sorted(columnas_de(tabla)))

@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.repositories import busqueda
+
 SCHEMA = "analytics"
 
 
@@ -152,14 +154,20 @@ def sql_busqueda_texto(
     proyeccion = ", ".join(ident(c) for c in columnas) if columnas else "*"
     sql = (
         f"SELECT {proyeccion} FROM {tabla_calificada(tabla, schema)} "
-        f"WHERE lower({ident(columna)}) LIKE :patron"
+        f"WHERE {busqueda.sql_comienza_palabra(f'lower({ident(columna)})')}"
     )
     if orden:
         sql += f" ORDER BY {ident(orden)} DESC NULLS LAST"
     return sql + " LIMIT :limite"
 
 
-def patron_like(consulta: str) -> str:
-    """Escapa los comodines que escriba el usuario para que se busquen literales."""
-    limpia = consulta.strip().lower().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-    return f"%{limpia}%"
+def parametros_busqueda(consulta: str) -> dict[str, str] | None:
+    """Los parámetros de `sql_busqueda_texto`, o None si no hay nada que buscar.
+
+    El término va en minúsculas —la columna se compara como `lower(col)`, que es
+    lo que indexa el trigrama— y desde su primera letra o dígito
+    (`busqueda.fragmento`). None («%», «&»): ninguna fila coincide y no hace
+    falta preguntarle a la base.
+    """
+    trozo = busqueda.fragmento(consulta.strip().lower())
+    return busqueda.parametros(trozo) if trozo else None

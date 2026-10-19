@@ -13,10 +13,12 @@ acabar en una respuesta.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import polars as pl
 
+from app.repositories.busqueda import fragmento
 from app.services.bi._base import MAX_FILAS_BUSQUEDA
 
 
@@ -106,13 +108,15 @@ class AnalyticsEnMemoria:
         columnas: list[str] | None = None,
         orden: str | None = None,
     ) -> pl.DataFrame | None:
-        """Como `_base._buscar`: subcadena sin mayúsculas, orden descendente, con tope."""
+        """Como `_base._buscar`: el término al comienzo de una palabra, sin
+        mayúsculas, orden descendente, con tope (`repositories/busqueda.py`)."""
         df = self.tablas.get(filename)
         if df is None:
             return None
-        df = df.filter(
-            pl.col(columna).str.to_lowercase().str.contains(texto.strip().lower(), literal=True)
-        )
+        trozo = fragmento(texto.strip().lower())
+        if not trozo:
+            return df.clear().select(columnas) if columnas else df.clear()
+        df = df.filter(pl.col(columna).str.to_lowercase().str.contains(rf"\b{re.escape(trozo)}"))
         if orden:
             df = df.sort(orden, descending=True, nulls_last=True)
         df = df.head(MAX_FILAS_BUSQUEDA)

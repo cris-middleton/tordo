@@ -10,7 +10,9 @@ Lo que estos tests fijan es el cambio de comportamiento, que es lo que un
 usuario nota:
 
 - se GANAN las coincidencias por palabra con stemming, en ambos campos;
-- se CONSERVAN los fragmentos a mitad de palabra en `nombre`;
+- se CONSERVAN los fragmentos en `nombre`, si empiezan una palabra («valvul»);
+- se PIERDEN los fragmentos a mitad de palabra («ospital», «bus» dentro de
+  «combustible»): ver `test_busqueda_comienzo_de_palabra.py`;
 - se PIERDEN los fragmentos a mitad de palabra que sólo estaban en
   `descripcion` — ahí no hay índice de trigramas a propósito: es texto largo y
   sería el más caro de mantener en cada carga del ETL.
@@ -103,9 +105,17 @@ async def test_busca_tambien_en_la_descripcion(async_db, licitaciones):
 
 
 @pytest.mark.asyncio
-async def test_conserva_el_fragmento_a_mitad_de_palabra_en_el_nombre(async_db, licitaciones):
-    """Lo que hacía el ILIKE de antes, ahora apoyado en el índice de trigramas."""
-    assert await _buscar(async_db, "ospital") == {"T-2"}
+async def test_conserva_el_comienzo_de_palabra_en_el_nombre(async_db, licitaciones):
+    """Lo que hacía el ILIKE de antes, apoyado en el índice de trigramas."""
+    assert await _buscar(async_db, "hospit") == {"T-2"}
+
+
+@pytest.mark.asyncio
+async def test_un_fragmento_a_mitad_de_palabra_ya_no_coincide(async_db, licitaciones):
+    """«ospital» encontraba «hospital» por `ILIKE '%t%'`: es lo mismo que hacía
+    que «bus» trajera «combustible». Ahora el fragmento tiene que empezar una
+    palabra (`repositories/busqueda.py`)."""
+    assert await _buscar(async_db, "ospital") == set()
 
 
 @pytest.mark.asyncio
@@ -146,7 +156,8 @@ async def test_tambien_al_reves(async_db, licitaciones):
 @pytest.mark.asyncio
 async def test_las_tildes_tampoco_importan_en_el_fragmento(async_db, licitaciones):
     """La otra vía de coincidencia, la del trigrama sobre `nombre_norm`."""
-    assert await _buscar(async_db, "onstruccion") == {"T-2"}
+    assert await _buscar(async_db, "construcc") == {"T-2"}
+    assert await _buscar(async_db, "construcció") == {"T-2"}
 
 
 @pytest.mark.asyncio

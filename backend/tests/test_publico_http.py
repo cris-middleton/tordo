@@ -517,6 +517,8 @@ class TestBusquedaConLaReglaDeLaFirma:
             _banda("arriendo conductor vehículos", "mes", 12, "media", 900_000.0),
             _banda("desechables guantes talla", "caja", 30, "alta", 5_000.0),
             _banda("aseo concepcion servicio", "mes", 15, "alta", 1_000_000.0),
+            _banda("parmesano queso rallado", "kg", 11, "alta", 20_000.0),
+            _banda("mesa reuniones", "unidad", 10, "alta", 150_000.0),
         ]
         indexables.invalidar()
         yield analytics
@@ -536,6 +538,18 @@ class TestBusquedaConLaReglaDeLaFirma:
 
     def test_los_digitos_del_termino_no_cuentan(self, firmas, cliente):
         assert self._slugs(cliente, "guantes nitrilo 100") == ["guantes-nitrilo-talla"]
+
+    def test_la_palabra_se_busca_al_comienzo_no_dentro_de_otra(self, firmas, cliente):
+        """«mesa» no encuentra «parmesano» (`repositories/busqueda.py`), y el
+        comienzo de una palabra sigue bastando: «parmes», «guante»."""
+        assert self._slugs(cliente, "mesa") == ["mesa-reuniones"]
+        assert self._slugs(cliente, "parmes") == ["parmesano-queso-rallado"]
+        assert self._slugs(cliente, "rallado queso") == ["parmesano-queso-rallado"]
+        assert self._slugs(cliente, "esano") == []
+        assert set(self._slugs(cliente, "guante")) == {
+            "guantes-nitrilo-talla",
+            "desechables-guantes-talla",
+        }
 
     @pytest.mark.parametrize("q", ["de la", "pc"])
     def test_sin_palabras_utiles_es_una_lista_vacia_y_no_un_error(self, firmas, cliente, q):

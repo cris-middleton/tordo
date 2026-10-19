@@ -21,6 +21,8 @@ import polars as pl
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.repositories._analytics_sql import parametros_busqueda, sql_busqueda_texto
+
 logger = logging.getLogger(__name__)
 
 SCHEMA = "analytics"
@@ -111,29 +113,21 @@ async def buscar_texto(
     orden: str | None = None,
     limite: int = 20,
 ) -> pl.DataFrame | None:
-    """Búsqueda por subcadena, sin distinguir mayúsculas.
+    """El término al comienzo de una palabra, sin distinguir mayúsculas.
 
-    La sirve el índice GIN con pg_trgm que crea el pipeline; sin él sería un scan
-    completo, porque `LIKE '%algo%'` con comodín inicial no lo puede servir
-    ningún B-tree.
+    La regla está en `repositories/busqueda.py` («mesa» no encuentra
+    «parmesano») y el SQL es el de la variante síncrona. La sirve el índice GIN
+    con pg_trgm que crea el pipeline sobre `lower(col)`.
     """
     if not await existe_tabla(db, tabla):
         return None
 
-    proyeccion = ", ".join(_ident(c) for c in columnas) if columnas else "*"
-    sql = (
-        f"SELECT {proyeccion} FROM {_ident(SCHEMA)}.{_ident(tabla)} "
-        f"WHERE lower({_ident(columna)}) LIKE :patron"
-    )
-    if orden:
-        sql += f" ORDER BY {_ident(orden)} DESC"
-    sql += " LIMIT :limite"
-
+    params = parametros_busqueda(consulta)
+    if params is None:
+        return pl.DataFrame()
     res = await db.execute(
-        text(sql),
-        # El % se escapa para que una consulta con comodines del usuario no
-        # cambie el significado del patrón.
-        {"patron": f"%{consulta.strip().lower().replace('%', chr(92) + '%')}%", "limite": limite},
+        text(sql_busqueda_texto(tabla, columna, columnas=columnas, orden=orden)),
+        {**params, "limite": limite},
     )
     filas = res.mappings().all()
     if not filas:

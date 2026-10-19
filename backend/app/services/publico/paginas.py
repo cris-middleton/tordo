@@ -12,6 +12,8 @@ el panorama (nombres o seudónimos `PN-` de los líderes, sin código ni RUT).
 
 from __future__ import annotations
 
+import re
+
 import polars as pl
 
 from app.repositories.compra_agil import CAMPOS_HISTORIA
@@ -286,8 +288,10 @@ def buscar_productos(q: str, limite: int) -> list[dict]:
 
     Se compara slug contra slug, así que la búsqueda **ignora tildes y
     mayúsculas** en los dos sentidos, y el orden de las palabras no importa (la
-    firma las guarda ordenadas). Cada palabra se busca como subcadena: «guante»
-    encuentra «guantes», no al revés. Primero los indexables, luego por compras.
+    firma las guarda ordenadas). Cada palabra se busca al **comienzo** de una
+    palabra del slug, que separa las palabras con guiones: «guante» encuentra
+    «guantes», no al revés, y «mesa» no encuentra «parmesano» (la regla de
+    `repositories/busqueda.py`). Primero los indexables, luego por compras.
 
     **Sin ninguna palabra que una firma pueda tener** («de la», «pc») devuelve
     `[]` sin mirar el índice. Antes «de la» traía cualquier firma con esas
@@ -299,7 +303,8 @@ def buscar_productos(q: str, limite: int) -> list[dict]:
     productos = indexables.indice().productos
     condicion = pl.lit(True)
     for palabra in palabras:
-        condicion = condicion & pl.col("slug").str.contains(palabra, literal=True)
+        # `palabra` es un slug: sin nada que escapar, pero se escapa igual.
+        condicion = condicion & pl.col("slug").str.contains(f"(?:^|-){re.escape(palabra)}")
     encontrados = (
         productos.filter(condicion)
         .sort(["indexable", "n", "slug"], descending=[True, True, False])
