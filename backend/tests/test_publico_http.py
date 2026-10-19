@@ -416,6 +416,70 @@ class TestProducto:
         assert banda["cuota_mayor"] is None
         assert banda["de_mercado"] is False
 
+    def test_los_compradores_salen_de_la_tabla_sin_minimo(self, analytics, cliente):
+        """«Quién lo compra» lee `product_price_compradores`: todos los
+        organismos de la banda, también los de una sola compra, que L0 dejaba
+        fuera (exige tres). Los primeros `TOP_ENLACES` por `puesto`."""
+        filas = [
+            {
+                "firma_producto": "guante nitrilo",
+                "UnidadMedida": "caja",
+                "CodigoOrganismoPublico": str(100 + i),
+                "OrganismoPublico": f"MUNICIPALIDAD {i}",
+                "n": 2 if i < 3 else 1,
+                "p50": 9_000.0 + i,
+                "puesto": i + 1,
+                **VENTANA,
+            }
+            for i in range(paginas.TOP_ENLACES + 5)
+        ]
+        # Otra firma no se cuela, aunque tenga más compras.
+        filas.append({**filas[0], "firma_producto": "guante látex", "n": 99, "puesto": 1})
+        # Desordenadas a propósito: el orden lo da `puesto`, no el de las filas.
+        analytics["product_price_compradores.parquet"] = list(reversed(filas))
+
+        compradores = _get(cliente, "/productos/guante-nitrilo").json()["compradores"]
+
+        assert len(compradores) == paginas.TOP_ENLACES
+        assert [c["codigo"] for c in compradores] == [
+            str(100 + i) for i in range(paginas.TOP_ENLACES)
+        ]
+        assert compradores[0] == {
+            "codigo": "100",
+            "nombre": "MUNICIPALIDAD 0",
+            "unidad": "caja",
+            "n": 2,
+            "p50": 9_000.0,
+        }
+        # Los de una sola compra también: es lo que L0 no podía dar.
+        assert compradores[-1]["n"] == 1
+        # Ninguno de L0 (HOSPITAL DE PRUEBA): con la tabla nueva no se mezclan.
+        assert "7297" not in {c["codigo"] for c in compradores}
+
+    def test_sin_la_tabla_de_compradores_cae_a_l0(self, analytics, cliente):
+        """Hasta la primera semanal que la genera, la ficha lista los de L0
+        (≥ 3 compras por organismo), como antes, sin error."""
+        assert "product_price_compradores.parquet" not in analytics.tablas
+        compradores = _get(cliente, "/productos/guante-nitrilo").json()["compradores"]
+        assert [c["codigo"] for c in compradores] == ["7297", "1"]
+
+    def test_con_la_tabla_y_sin_filas_no_cae_a_l0(self, analytics, cliente):
+        """Si la tabla existe, manda ella: una firma sin compradores ahí no
+        tiene compradores, y L0 (una tabla con otro criterio) no los inventa."""
+        analytics["product_price_compradores.parquet"] = [
+            {
+                "firma_producto": "guante látex",
+                "UnidadMedida": "par",
+                "CodigoOrganismoPublico": "1",
+                "OrganismoPublico": "MUNICIPALIDAD CHICA",
+                "n": 4,
+                "p50": 300.0,
+                "puesto": 1,
+                **VENTANA,
+            }
+        ]
+        assert _get(cliente, "/productos/guante-nitrilo").json()["compradores"] == []
+
     def test_desconocido_es_404(self, analytics, cliente):
         r = _get(cliente, "/productos/no-existe")
         assert r.status_code == 404

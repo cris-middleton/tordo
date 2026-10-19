@@ -21,13 +21,17 @@ Qué cubren:
   compras y predictibilidad alta, pero todas de un organismo. Es el precio de
   su contrato, no uno de mercado (`indexables.MIN_COMPRADORES_PRODUCTO`).
 
-Cada banda nacional trae `compradores` y `cuota_mayor`, como las del ETL.
+Cada banda nacional trae `compradores` y `cuota_mayor`, como las del ETL, y
+`product_price_compradores` trae esos compradores, uno por fila, con sus compras
+y su mediana: las filas de cada (firma, unidad) son su `compradores` y la suma
+de `n` es su `n`, como en el ETL. La resma no tiene filas: con 4 compras el ETL
+no le daría banda.
 La `descripcion` es la de un comprador que escribe el producto en mayúsculas y
 con artículos: el título de la ficha sale de ahí, no de la firma.
 
-Los compradores de L0 son códigos que sí están en el fixture (con perfil y con
-mercado), para que los enlaces producto → comprador lleven a una página que
-existe. Los nombres son inventados.
+Los compradores de L0 y de `product_price_compradores` son códigos que sí están
+en el fixture (con perfil y con mercado), para que los enlaces producto →
+comprador lleven a una página que existe. Los nombres son inventados.
 
 Uso (desde `backend/`):
 
@@ -45,7 +49,14 @@ DESTINO = Path(__file__).resolve().parent / "fixture_analytics"
 
 CODIGO_ONU = "99999901"
 VENTANA = {"ventana_desde": date(2025, 4, 1), "ventana_hasta": date(2026, 3, 31)}
-COMPRADORES = {"111875": "ORGANISMO DE PRUEBA A", "113812": "ORGANISMO DE PRUEBA B"}
+COMPRADORES = {
+    "111875": "ORGANISMO DE PRUEBA A",
+    "113812": "ORGANISMO DE PRUEBA B",
+    "100049": "ORGANISMO DE PRUEBA C",
+    "100072": "ORGANISMO DE PRUEBA D",
+    "100090": "ORGANISMO DE PRUEBA E",
+    "100107": "ORGANISMO DE PRUEBA F",
+}
 
 
 def _banda(
@@ -131,6 +142,72 @@ for _fila in POR_COMPRADOR:
     _fila["OrganismoPublico"] = COMPRADORES[_fila["CodigoOrganismoPublico"]]
 
 
+#: (firma, unidad) → [(comprador, compras, mediana)]. Cuadra con NACIONAL:
+#: seis compradores por banda (uno el cloro) y la suma de compras es su `n`.
+POR_BANDA = {
+    ("guante nitrilo prueba", "caja"): [
+        ("111875", 40, 8_800.0),
+        ("100049", 8, 9_100.0),
+        ("100072", 5, 8_600.0),
+        ("100090", 3, 9_400.0),
+        ("100107", 2, 9_900.0),
+        ("113812", 2, 8_300.0),
+    ],
+    ("guante nitrilo prueba", "unidad"): [
+        ("113812", 12, 95.0),
+        ("111875", 5, 88.0),
+        ("100049", 3, 92.0),
+        ("100072", 2, 85.0),
+        ("100090", 2, 99.0),
+        ("100107", 1, 90.0),
+    ],
+    ("jabon liquido prueba", "litro"): [
+        ("111875", 15, 1_950.0),
+        ("100049", 6, 2_050.0),
+        ("100072", 4, 2_000.0),
+        ("100090", 2, 2_100.0),
+        ("100107", 2, 1_900.0),
+        ("113812", 1, 2_200.0),
+    ],
+    ("jabón líquido prueba", "litro"): [
+        (codigo, 2, 2_100.0)
+        for codigo in ("111875", "113812", "100049", "100072", "100090", "100107")
+    ],
+    ("cloro tableta prueba", "unidad"): [("111875", 40, 300.0)],
+}
+
+
+def _compradores() -> pl.DataFrame:
+    """Como `_compradores_de_la_banda` del ETL: una fila por comprador, con su `puesto`."""
+    filas = [
+        {
+            "firma_producto": firma,
+            "UnidadMedida": unidad,
+            "CodigoOrganismoPublico": codigo,
+            "OrganismoPublico": COMPRADORES[codigo],
+            "n": n,
+            "p50": p50,
+        }
+        for (firma, unidad), compradores in POR_BANDA.items()
+        for codigo, n, p50 in compradores
+    ]
+    return (
+        pl.DataFrame(filas)
+        .with_columns(pl.col("n").cast(pl.UInt32))
+        .sort(
+            ["firma_producto", "n", "CodigoOrganismoPublico", "UnidadMedida"],
+            descending=[False, True, False, False],
+        )
+        .with_columns(
+            pl.int_range(1, pl.len() + 1, dtype=pl.UInt32).over("firma_producto").alias("puesto")
+        )
+        .with_columns(
+            pl.lit(VENTANA["ventana_desde"]).alias("ventana_desde"),
+            pl.lit(VENTANA["ventana_hasta"]).alias("ventana_hasta"),
+        )
+    )
+
+
 def main(destino: Path = DESTINO) -> None:
     pl.DataFrame(NACIONAL).with_columns(pl.col("n").cast(pl.UInt32)).write_parquet(
         destino / "product_price_bands_L0N.parquet"
@@ -141,6 +218,7 @@ def main(destino: Path = DESTINO) -> None:
         c for c in NACIONAL[0] if c not in ("firma_producto", "compradores", "cuota_mayor")
     ]
     l0.select(columnas).write_parquet(destino / "product_price_bands_L0.parquet")
+    _compradores().write_parquet(destino / "product_price_compradores.parquet")
 
 
 if __name__ == "__main__":

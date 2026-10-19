@@ -201,15 +201,39 @@ def _unidades(bandas: pl.DataFrame) -> list[dict]:
     ]
 
 
+_COLUMNAS_COMPRADOR = ["CodigoOrganismoPublico", "OrganismoPublico", "UnidadMedida", "n", "p50"]
+
+
 def _compradores_del_producto(firma: str) -> list[dict]:
+    """Los organismos que más compraron el producto, con la mediana de cada uno.
+
+    Salen de `product_price_compradores`: todos los compradores de las bandas
+    nacionales, **sin mínimo de compras**, sobre las mismas filas que la banda
+    (su `compradores` es el número de filas). Antes salían de L0, que exige tres
+    compras por organismo: «impresora multifuncional» decía 87 compras de 63
+    compradores y listaba uno. El `puesto` ya trae el desempate (más compras,
+    luego código y unidad), así que el corte en `TOP_ENLACES` es estable.
+
+    Sin esa tabla —un despliegue cuya semanal todavía no la generó— se cae a L0,
+    como antes: pocos compradores, pero ninguno inventado.
+    """
     df = _load(
-        "product_price_bands_L0.parquet",
+        "product_price_compradores.parquet",
         filtros={"firma_producto": firma},
-        columnas=["CodigoOrganismoPublico", "OrganismoPublico", "UnidadMedida", "n", "p50"],
-        orden="n",
-        descendente=True,
+        columnas=_COLUMNAS_COMPRADOR,
+        orden="puesto",
+        descendente=False,
         limite=TOP_ENLACES,
     )
+    if df is None:
+        df = _load(
+            "product_price_bands_L0.parquet",
+            filtros={"firma_producto": firma},
+            columnas=_COLUMNAS_COMPRADOR,
+            orden="n",
+            descendente=True,
+            limite=TOP_ENLACES,
+        )
     if df is None or df.is_empty():
         return []
     return [

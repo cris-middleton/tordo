@@ -72,6 +72,8 @@ Output:
   - product_price_bands_L1.parquet:  UNSPSC+organismo+unidad
   - product_price_bands_L2.parquet:  UNSPSC+sector+unidad
   - product_price_bands_L3.parquet:  UNSPSC+unidad (nacional)
+  - product_price_compradores.parquet: la mediana de cada comprador detrás de
+    cada banda L0N, sin mínimo de compras. Ver `_compradores_de_la_banda`.
 
 El resumen de cobertura por producto (`product_price_coverage`) se retiró: nada
 lo leía.
@@ -83,6 +85,7 @@ import polars as pl
 
 from .config import OC_PARQUET_DIR, OUTPUT_DIR
 from .data_loader import con_ventana, iter_oc_parquets, limites_ventana
+from .identidad import PERIODO, nombre_vigente
 from .normalizacion import canonizar_unidad, firma_es_utilizable, firma_producto
 
 logger = logging.getLogger(__name__)
@@ -497,6 +500,19 @@ def build_level_0(items: pl.DataFrame) -> pl.DataFrame:
 
 def build_level_0_nacional(items: pl.DataFrame) -> pl.DataFrame:
     """Nivel 0N: Firma del producto + Unidad, sin distinguir comprador."""
+    return build_level_0_nacional_y_compradores(items)[0]
+
+
+def build_level_0_nacional_y_compradores(
+    items: pl.DataFrame,
+) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """El nivel 0N y, de las MISMAS filas, la mediana de cada comprador.
+
+    Van juntos para que las dos salidas no puedan mirar filas distintas: la
+    banda dice «87 compras de 63 compradores» y la tabla de compradores tiene
+    que traer esos 63, con esas 87 compras. Calcularla aparte obligaría a
+    repetir el filtro de Tukey y a confiar en que nadie cambie uno sin el otro.
+    """
     logger.info("Calculando bandas Nivel 0N (Firma+Unidad, nacional)...")
 
     # `extract_unit_prices` devuelve un DataFrame SIN columnas cuando no hay
@@ -504,18 +520,18 @@ def build_level_0_nacional(items: pl.DataFrame) -> pl.DataFrame:
     # de devolver vacío, y el error aparecería en la corrida nocturna.
     if items.is_empty() or "firma_producto" not in items.columns:
         logger.warning("  sin ítems con firma de producto — se omite el nivel 0")
-        return pl.DataFrame()
+        return pl.DataFrame(), pl.DataFrame()
 
     utilizables = items.filter(firma_es_utilizable())
     if utilizables.is_empty():
-        return pl.DataFrame()
+        return pl.DataFrame(), pl.DataFrame()
 
     claves = ["firma_producto", "UnidadMedida"]
 
     cleaned = remove_outliers_iqr(utilizables, claves)
     bands = _compute_bands(cleaned, claves, MIN_N_L0N, level=0)
     if bands.is_empty():
-        return bands
+        return bands, pl.DataFrame()
 
     onu = (
         cleaned.group_by(claves + ["codigoProductoONU", "NombreroductoGenerico"])
@@ -528,10 +544,12 @@ def build_level_0_nacional(items: pl.DataFrame) -> pl.DataFrame:
     bands = bands.join(onu, on=claves, how="left", coalesce=True)
     bands = _con_descripcion(bands, cleaned, claves)
     bands = _con_compradores(bands, cleaned, claves)
+    compradores = _compradores_de_la_banda(bands, cleaned, claves)
 
     n_alta = bands.filter(pl.col("predictibilidad") == "alta").height
     logger.info(f"  L0N: {len(bands):,} bandas ({n_alta:,} con predictibilidad alta)")
-    return bands
+    logger.info(f"  compradores de L0N: {len(compradores):,} filas")
+    return bands, compradores
 
 
 def _con_compradores(bands: pl.DataFrame, items: pl.DataFrame, claves: list[str]) -> pl.DataFrame:
@@ -558,6 +576,67 @@ def _con_compradores(bands: pl.DataFrame, items: pl.DataFrame, claves: list[str]
         (pl.col("_compras").max() / pl.col("_compras").sum()).alias("cuota_mayor"),
     )
     return bands.join(resumen, on=claves, how="left", coalesce=True)
+
+
+def _compradores_de_la_banda(
+    bands: pl.DataFrame, items: pl.DataFrame, claves: list[str]
+) -> pl.DataFrame:
+    """Una fila por comprador detrás de cada banda L0N: cuántas compras y su mediana.
+
+    **Sin mínimo de compras.** Es lo que el nivel 0 no puede dar: L0 exige
+    `MIN_N_L0` compras por organismo, y en un producto que compran muchos
+    organismos pocas veces casi ninguno llega. Medido el 2026-10-19 con
+    «impresora multifuncional»: la banda decía 87 compras de 63 compradores y
+    L0 tenía uno, así que el gráfico de precio dibujaba un punto. Una mediana de
+    una sola compra es poca cosa, pero es lo que ese comprador pagó; el gráfico
+    la dibuja como un punto entre otros, no como una banda.
+
+    - Las filas son `items` YA sin atípicos, las mismas de `_con_compradores`:
+      las filas de cada (firma, unidad) son `compradores` y la suma de `n` es
+      el `n` de la banda.
+    - Sólo las (firma, unidad) que tienen banda L0N. Las demás no tienen
+      página que las lea, y son la mayoría de las filas.
+    - El organismo se identifica por su código; el nombre es el más reciente
+      (`identidad.nombre_vigente`), no parte de la clave.
+    - `puesto` ordena los compradores de cada firma (todas sus unidades): más
+      compras primero, y a igualdad, por código y unidad. La API pide los
+      primeros por `puesto` y el desempate no depende del orden de las filas.
+    """
+    if bands.is_empty() or items.is_empty():
+        return pl.DataFrame()
+    # Perezoso y sólo con las columnas que hacen falta: `items` es la tabla más
+    # grande del módulo, y una copia entera de ella para el semi-join se notaba
+    # en el pico del semanal, que es justo donde no hay margen.
+    return (
+        items.lazy()
+        .select(claves + ["CodigoOrganismoPublico", "OrganismoPublico", "pu", PERIODO])
+        .join(bands.lazy().select(claves), on=claves, how="semi")
+        .group_by(claves + ["CodigoOrganismoPublico"])
+        .agg(
+            pl.len().cast(pl.UInt32).alias("n"),
+            pl.col("pu").median().alias("p50"),
+            nombre_vigente("OrganismoPublico"),
+        )
+        .sort(
+            ["firma_producto", "n", "CodigoOrganismoPublico", "UnidadMedida"],
+            descending=[False, True, False, False],
+        )
+        .with_columns(
+            pl.int_range(1, pl.len() + 1, dtype=pl.UInt32).over("firma_producto").alias("puesto")
+        )
+        .select(
+            [
+                "firma_producto",
+                "UnidadMedida",
+                "CodigoOrganismoPublico",
+                "OrganismoPublico",
+                "n",
+                "p50",
+                "puesto",
+            ]
+        )
+        .collect()
+    )
 
 
 def build_level_1(items: pl.DataFrame) -> pl.DataFrame:
@@ -626,7 +705,7 @@ def run_product_price_bands() -> dict[str, pl.DataFrame]:
 
     # Calcular bandas por nivel
     l0 = build_level_0(items)
-    l0n = build_level_0_nacional(items)
+    l0n, compradores = build_level_0_nacional_y_compradores(items)
     l1 = build_level_1(items)
     l2 = build_level_2(items)
     l3 = build_level_3(items)
@@ -634,17 +713,32 @@ def run_product_price_bands() -> dict[str, pl.DataFrame]:
     # Guardar, cada nivel con su periodo: la API lo devuelve para que la banda
     # no se lea como histórica.
     limites = limites_ventana(OC_PARQUET_DIR, VENTANA_BANDAS_PRECIO_MESES)
-    for name, df in [("L0", l0), ("L0N", l0n), ("L1", l1), ("L2", l2), ("L3", l3)]:
+    salidas = [
+        ("product_price_bands_L0", l0),
+        ("product_price_bands_L0N", l0n),
+        ("product_price_bands_L1", l1),
+        ("product_price_bands_L2", l2),
+        ("product_price_bands_L3", l3),
+        ("product_price_compradores", compradores),
+    ]
+    for name, df in salidas:
         if df.is_empty():
             logger.warning(f"  {name}: vacío, no se escribe parquet")
             continue
-        path = OUTPUT_DIR / f"product_price_bands_{name}.parquet"
+        path = OUTPUT_DIR / f"{name}.parquet"
         con_ventana(df, limites).write_parquet(path, compression="snappy")
         logger.info(f"Guardado: {path.name} ({path.stat().st_size / 1024 / 1024:.1f} MB)")
 
     _reportar_predictibilidad(l0, l1)
 
-    return {"l0": l0, "l0n": l0n, "l1": l1, "l2": l2, "l3": l3}
+    return {
+        "l0": l0,
+        "l0n": l0n,
+        "l1": l1,
+        "l2": l2,
+        "l3": l3,
+        "compradores": compradores,
+    }
 
 
 def _reportar_predictibilidad(l0: pl.DataFrame, l1: pl.DataFrame) -> None:
