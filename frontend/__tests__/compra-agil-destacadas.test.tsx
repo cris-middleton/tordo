@@ -122,7 +122,7 @@ describe('la página', () => {
     expect(within(item).queryByText('1 cotización hasta ahora')).not.toBeInTheDocument();
     expect(within(item).getByText('Esta unidad: 120 órdenes de Compra Ágil en 6 meses')).toBeInTheDocument();
     expect(within(item).getByText('Cierra en 20 h')).toBeInTheDocument();
-    expect(within(item).getByText(/Suele comprar entre \$400K y \$1,5M/)).toBeInTheDocument();
+    expect(within(item).getByText(/Suele comprar entre \$400\.000 y \$1,5 millones/)).toBeInTheDocument();
     // Rediseño §6.7: ni «puntaje N/100» ni «X de Y».
     expect(item.textContent).not.toMatch(/puntaje|\/100/i);
     expect(item.textContent).not.toMatch(/\d de \d/);
@@ -158,14 +158,14 @@ describe('la página', () => {
 
   it('la descripción no promete «pocas cotizaciones» ni «adjudica lo que publica»', () => {
     expect(DESCRIPCION_DESTACADAS).not.toMatch(/cotiz|adjudica|publica/i);
-    expect(DESCRIPCION_DESTACADAS).toMatch(/heurística, no una predicción/);
+    expect(DESCRIPCION_DESTACADAS).toMatch(/sale de esas tres reglas y de nada más/);
     // «Buen monto» juzga; «de monto mayor» sólo dice lo que el orden hace.
     expect(DESCRIPCION_DESTACADAS).toMatch(/de monto mayor/);
     expect(DESCRIPCION_DESTACADAS).not.toMatch(/buen monto/);
     // La variante sin historia cumple lo mismo y no nombra al comprador como criterio.
     const sinHistoria = descripcionDestacadas(false);
     expect(sinHistoria).not.toMatch(/cotiz|adjudica|publica|compran seguido|buen monto/i);
-    expect(sinHistoria).toMatch(/heurística, no una predicción/);
+    expect(sinHistoria).toMatch(/sale de esas reglas y de nada más/);
     expect(sinHistoria).toMatch(/de monto mayor/);
     expect(sinHistoria).toMatch(/una vez por semana/);
     expect(descripcionDestacadas(true)).toBe(DESCRIPCION_DESTACADAS);
@@ -193,13 +193,11 @@ describe('la página', () => {
     expect(item.querySelector('span[aria-label]')).toBeNull();
   });
 
-  it('enlaza al detalle y a Mercado Público', async () => {
+  it('enlaza al detalle por el nombre y a Mercado Público', async () => {
     await montar();
     const item = screen.getByRole('article');
-    expect(within(item).getByRole('link', { name: /ver detalle/i })).toHaveAttribute(
-      'href',
-      '/licitaciones/1234-56-COT26',
-    );
+    const enlaces = within(item).getAllByRole('link');
+    expect(enlaces[0]).toHaveAttribute('href', '/licitaciones/1234-56-COT26');
     expect(within(item).getByRole('link', { name: /mercado público/i }).getAttribute('href')).toMatch(
       /^https:\/\/[a-z.]*mercadopublico\.cl\/.*1234-56-COT26/,
     );
@@ -223,18 +221,7 @@ describe('la página', () => {
     expect(item.textContent).not.toMatch(/historial|esta unidad|órdenes|suele comprar|su orden típica/i);
     // Lo demás sigue en pie: el tiempo y los enlaces.
     expect(within(item).getByText('Cierra en 20 h')).toBeInTheDocument();
-    expect(within(item).getByRole('link', { name: /ver detalle/i })).toBeInTheDocument();
-  });
-
-  it('las columnas de la tarjeta son las cosas que dice, sin hueco', async () => {
-    const { unmount } = await montar();
-    // Comprador y tiempo (las cotizaciones están apagadas): dos columnas, no tres.
-    expect(screen.getByRole('article').querySelector('ul')!.className).toMatch(/sm:grid-cols-2/);
-    expect(screen.getByRole('article').querySelector('ul')!.className).not.toMatch(/sm:grid-cols-3/);
-    unmount();
-    respuesta.historia_disponible = false;
-    await montar();
-    expect(screen.getByRole('article').querySelector('ul')!.className).toMatch(/sm:grid-cols-1/);
+    expect(within(item).getByRole('link', { name: /mercado público/i })).toBeInTheDocument();
   });
 
   it('si el monto es el tope de Compra Ágil, lo dice junto al monto, una sola vez', async () => {
@@ -242,15 +229,15 @@ describe('la página', () => {
     respuesta.items[0].monto_es_tope = true;
     await montar();
     const item = screen.getByRole('article');
-    expect(within(item).getByText('Hasta $7,2M')).toBeInTheDocument();
+    expect(within(item).getByText('Hasta $7,2 millones')).toBeInTheDocument();
     expect(within(item).getByText('Tope de Compra Ágil')).toBeInTheDocument();
-    expect(item.textContent!.match(/\$7,2M/g)).toHaveLength(1);
+    expect(item.textContent!.match(/\$7,2 millones/g)).toHaveLength(1);
   });
 
   it('un monto que no es el tope (o una API que aún no lo dice) se muestra como siempre', async () => {
     await montar();
     const item = screen.getByRole('article');
-    expect(within(item).getByText('$1,5M')).toBeInTheDocument();
+    expect(within(item).getByText('$1,5 millones')).toBeInTheDocument();
     expect(item.textContent).not.toMatch(/tope|hasta \$/i);
   });
 
@@ -299,10 +286,10 @@ describe('los textos', () => {
 
   it('monto en el RSS: el tope se dice como tope', () => {
     expect(textoMontoRss({ monto_estimado: 7_215_100, monto_es_tope: true })).toBe(
-      'Hasta $7,2M, el tope de Compra Ágil',
+      'Hasta $7,2 millones, el tope de Compra Ágil',
     );
-    expect(textoMontoRss({ monto_estimado: 2_000_000, monto_es_tope: false })).toBe('Monto estimado $2,0M');
-    expect(textoMontoRss({ monto_estimado: 2_000_000 })).toBe('Monto estimado $2,0M');
+    expect(textoMontoRss({ monto_estimado: 2_000_000, monto_es_tope: false })).toBe('Monto estimado $2 millones');
+    expect(textoMontoRss({ monto_estimado: 2_000_000 })).toBe('Monto estimado $2 millones');
     expect(textoMontoRss({ monto_estimado: null, monto_es_tope: true })).toBeNull();
   });
 

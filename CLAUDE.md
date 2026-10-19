@@ -696,6 +696,13 @@ ninguna página ni layout de grupo pinta cabecera, pie, `PieAtribucion` ni `<mai
   incluidos. Se permite `first-letter:uppercase`. Tampoco bordes laterales gruesos de color
   (`border-l-4` en un aviso o una tarjeta, la señal que más marca el detector de `make diseno`);
   la excepción es el filete de las cifras de la portada (`TiraCifras`).
+- **Un solo formato de montos: `monto()`** (`lib/formato.ts`; `formatCurrency` lo envuelve): «$825.000»,
+  «$7,2 millones», «$1,5 mil millones», «$2,1 billones». Convivían «$825K», «$7,2M», «$1,5B» (en Chile un
+  billón es 10¹²) y «$1.000K». `plata` (`lib/publico.ts`) redondea los millones a entero a propósito, para
+  las bandas de precio. Los de `/mercado` todavía escriben «CLP … M»: deuda de su pasada.
+- **Las Compras Ágiles se pintan con UNA fila**, `FilaCompraAgil`, en la portada (compacta), `/compra-agil`,
+  `/buscar` y la ficha del comprador (con `historia`: región, órdenes de la unidad y «Abrir en Mercado
+  Público», porque su dato no trae URL).
 - **Cifras y fechas en `es-CL`** (`__tests__/formatos-es-cl.test.ts`): ningún `toLocale*String` ni
   `new Intl.*` sin `'es-CL'`, ni un `format` de date-fns con nombres de mes sin `{ locale: es }`
   («29,586» y «16 Oct 26» salían en producción).

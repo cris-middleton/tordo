@@ -102,9 +102,9 @@ describe('BloqueHoy, compacto', () => {
       />,
     );
     const fila = within(lista()).getByRole('article');
-    expect(within(fila).getByText('Hasta $7,2M')).toBeInTheDocument();
+    expect(within(fila).getByText('Hasta $7,2 millones')).toBeInTheDocument();
     expect(within(fila).getByText('Tope de Compra Ágil')).toBeInTheDocument();
-    expect(fila.textContent!.match(/\$7,2M/g)).toHaveLength(1);
+    expect(fila.textContent!.match(/\$7,2 millones/g)).toHaveLength(1);
   });
 
   it('sin monto lo dice, en vez de un $0', () => {

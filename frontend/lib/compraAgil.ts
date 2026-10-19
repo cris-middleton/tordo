@@ -45,7 +45,7 @@ export const TITULO_DESTACADAS = 'Lo mejor de hoy en Compra Ágil';
  * `MOSTRAR_COTIZACIONES`).
  */
 export const DESCRIPCION_DESTACADAS =
-  'Abiertas, de compradores que compran seguido por Compra Ágil, de monto mayor y con tiempo para preparar la oferta. Es una heurística, no una predicción.';
+  'Abiertas, de compradores que compran seguido por Compra Ágil, de monto mayor y con tiempo para preparar la oferta. El orden sale de esas tres reglas y de nada más.';
 
 /**
  * La misma frase cuando **aún no hay historia por unidad** (`historia_disponible`
@@ -55,7 +55,7 @@ export const DESCRIPCION_DESTACADAS =
  * ordena nada.
  */
 export const DESCRIPCION_DESTACADAS_SIN_HISTORIA =
-  'Abiertas, de monto mayor y con tiempo para preparar la oferta. Cuánto compra cada comprador todavía no entra en el orden: se calcula una vez por semana. Es una heurística, no una predicción.';
+  'Abiertas, de monto mayor y con tiempo para preparar la oferta. Cuánto compra cada comprador todavía no entra en el orden: se calcula una vez por semana. El orden sale de esas reglas y de nada más.';
 
 /**
  * La descripción que corresponde al estado de los datos que se muestran al lado.
