@@ -211,7 +211,9 @@ function CatalogoContenido() {
             aria-expanded={filtrosAbiertos}
             aria-controls="filtros-catalogo"
             onClick={() => setFiltrosAbiertos((v) => !v)}
-            className="flex h-11 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm font-semibold text-text sm:hidden"
+            className={`flex h-11 items-center gap-2 rounded-lg border px-3 text-sm font-semibold text-text sm:hidden ${
+              filtrosAbiertos ? 'border-primary bg-surface-elevated' : 'border-border bg-surface'
+            }`}
           >
             Filtros
             {filtrosActivos > 0 && (
