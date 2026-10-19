@@ -50,9 +50,11 @@ test('un producto: su banda, quién lo compra y la Compra Ágil que coincide', a
     'href',
     '/productos/guante-nitrilo-prueba',
   );
-  await expect(precios.getByRole('heading', { name: 'Por caja' })).toBeVisible();
-  // Cuántos organismos hay detrás de la banda, y de cuándo es.
-  await expect(precios.getByText('60 compras de 6 organismos, abr 2025 – mar 2026 (12 meses).')).toBeVisible();
+  // La misma lectura que la ficha: conclusión de la unidad más comprada, cifras y método.
+  await expect(precios.getByText(/^Por caja: la mitad se pagó/)).toBeVisible();
+  // Cuántos organismos hay detrás de la banda, y de cuándo es (el pie de método).
+  await expect(precios.getByText('60 compras de 6 organismos', { exact: true })).toBeVisible();
+  await expect(precios.getByText(/60 compras de 6 compradores, abr 2025 a mar 2026/)).toBeVisible();
   await expect(precios.getByRole('link', { name: /ver todos los productos/i })).toHaveAttribute(
     'href',
     '/productos?q=guante',
