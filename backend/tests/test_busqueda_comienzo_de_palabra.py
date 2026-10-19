@@ -15,6 +15,7 @@ el patrón ni revienta la consulta.
 
 from __future__ import annotations
 
+import os
 from datetime import UTC, datetime
 
 import pytest
@@ -22,10 +23,14 @@ import pytest_asyncio
 from sqlalchemy import select, text
 from sqlalchemy.dialects import postgresql
 
+from app.db import sync_engine
 from app.models.licitacion import Licitacion
-from app.repositories import analytics as repo_analytics
-from app.repositories.busqueda import fragmento
+from app.repositories import _analytics_sql as sql
+from app.repositories import analytics_sync
+from app.repositories.busqueda import COLUMNA_BUSCABLE, fragmento, sql_normalizado
 from app.repositories.licitaciones import coincide_termino
+
+IN_CI = os.getenv("CI", "").lower() in ("1", "true")
 
 NOMBRES = {
     "B-COMBUSTIBLE": "Compra de combustible diésel",
@@ -151,45 +156,87 @@ async def test_el_indice_de_trigramas_sigue_sirviendo_el_fragmento(async_db):
     assert "ix_licitaciones_nombre_trgm" in plan, plan
 
 
-# ── /bi/productos: la tabla de analytics, sobre `lower(col)` ─────────────────
+# ── /bi/productos: la tabla de analytics, sin tildes ni mayúsculas ──────────
 
 TABLA = "tabla_busqueda_palabra"
 
+PRODUCTOS = (
+    "('Queso parmesano', 5), ('Mesa de reuniones', 4), ('Combustible', 3), "
+    "('Buses de acercamiento', 2), ('Válvula de bola', 1)"
+)
 
-@pytest_asyncio.fixture
-async def productos(async_db):
-    await async_db.execute(text(f"CREATE SCHEMA IF NOT EXISTS {repo_analytics.SCHEMA}"))
-    await async_db.execute(
-        text(f'CREATE TABLE {repo_analytics.SCHEMA}.{TABLA} ("nombre" TEXT, n BIGINT)')
+
+@pytest.fixture(params=["generada", "al_vuelo"])
+def productos(request):
+    """Las dos formas que tiene la tabla: con la columna generada que crea el ETL
+    (`COLUMNA_BUSCABLE`, con su índice) y sin ella, como una tabla materializada
+    antes de que existiera. Las dos tienen que encontrar lo mismo."""
+    generada = request.param == "generada"
+    columna = COLUMNA_BUSCABLE if generada else "nombre"
+    extra = (
+        f", {COLUMNA_BUSCABLE} TEXT GENERATED ALWAYS AS ({sql_normalizado('nombre')}) STORED"
+        if generada
+        else ""
     )
-    await async_db.execute(
-        text(
-            f"INSERT INTO {repo_analytics.SCHEMA}.{TABLA} VALUES "
-            "('Queso parmesano', 5), ('Mesa de reuniones', 4), ('Combustible', 3), "
-            "('Buses de acercamiento', 2), ('Válvula de bola', 1)"
-        )
-    )
-    return async_db
+    try:
+        with sync_engine.begin() as conn:
+            conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {analytics_sync.SCHEMA}"))
+            conn.execute(text(f"DROP TABLE IF EXISTS {analytics_sync.SCHEMA}.{TABLA}"))
+            conn.execute(
+                text(f"CREATE TABLE {analytics_sync.SCHEMA}.{TABLA} (nombre TEXT, n BIGINT{extra})")
+            )
+            conn.execute(
+                text(f"INSERT INTO {analytics_sync.SCHEMA}.{TABLA} (nombre, n) VALUES {PRODUCTOS}")
+            )
+    except Exception as exc:
+        if IN_CI:
+            raise
+        pytest.skip(f"sin base de datos disponible ({type(exc).__name__})")
+    analytics_sync.invalidar_cache_existencia()
+    yield columna
+    with sync_engine.begin() as conn:
+        conn.execute(text(f"DROP TABLE IF EXISTS {analytics_sync.SCHEMA}.{TABLA}"))
+    analytics_sync.invalidar_cache_existencia()
 
 
-async def _productos(db, termino: str) -> set[str]:
-    df = await repo_analytics.buscar_texto(db, TABLA, "nombre", termino, orden="n")
+def _productos(columna: str, termino: str) -> set[str]:
+    df = analytics_sync.buscar_texto(TABLA, columna, termino, columnas=["nombre"], orden="n")
     return set(df["nombre"].to_list()) if not df.is_empty() else set()
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("termino", "esperado"),
     [
         ("mesa", {"Mesa de reuniones"}),
         ("bus", {"Buses de acercamiento"}),
+        # Sin tildes en los dos sentidos.
+        ("valv", {"Válvula de bola"}),
         ("válv", {"Válvula de bola"}),
+        ("VALVULA", {"Válvula de bola"}),
         ("PARMES", {"Queso parmesano"}),
         ("esano", set()),
         ("%", set()),
         (".*", set()),
         ("(", set()),
+        ("x©)", set()),
     ],
 )
-async def test_productos_de_bi_con_la_misma_regla(productos, termino, esperado):
-    assert await _productos(productos, termino) == esperado
+def test_productos_de_bi_con_la_misma_regla(productos, termino, esperado):
+    assert _productos(productos, termino) == esperado
+
+
+def test_la_columna_generada_usa_el_indice_de_trigramas(productos):
+    if productos != COLUMNA_BUSCABLE:
+        pytest.skip("sólo la tabla con la columna generada tiene índice")
+    with sync_engine.begin() as conn:
+        conn.execute(
+            text(
+                f"CREATE INDEX ON {analytics_sync.SCHEMA}.{TABLA} "
+                f"USING gin ({COLUMNA_BUSCABLE} gin_trgm_ops)"
+            )
+        )
+        conn.execute(text("SET LOCAL enable_seqscan = off"))
+        consulta = sql.sql_busqueda_texto(TABLA, COLUMNA_BUSCABLE, orden="n")
+        params = {**sql.parametros_busqueda("valv"), "limite": 10}
+        plan = "\n".join(r[0] for r in conn.execute(text(f"EXPLAIN {consulta}"), params))
+    assert "Bitmap Index Scan" in plan, plan

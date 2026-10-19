@@ -14,12 +14,21 @@ acabar en una respuesta.
 from __future__ import annotations
 
 import re
+import unicodedata
 from typing import Any
 
 import polars as pl
 
 from app.repositories.busqueda import fragmento
 from app.services.bi._base import MAX_FILAS_BUSQUEDA
+
+
+def _sin_tildes(texto: str | None) -> str | None:
+    """Como `lower(inmutable_unaccent(...))` para las letras del castellano."""
+    if texto is None:
+        return None
+    descompuesto = unicodedata.normalize("NFKD", texto)
+    return "".join(c for c in descompuesto if not unicodedata.combining(c)).lower()
 
 
 class AnalyticsEnMemoria:
@@ -110,14 +119,15 @@ class AnalyticsEnMemoria:
         orden: str | None = None,
     ) -> pl.DataFrame | None:
         """Como `_base._buscar`: el término al comienzo de una palabra, sin
-        mayúsculas, orden descendente, con tope (`repositories/busqueda.py`)."""
+        tildes ni mayúsculas, orden descendente, con tope (`repositories/busqueda.py`)."""
         df = self.tablas.get(filename)
         if df is None:
             return None
-        trozo = fragmento(texto.strip().lower())
+        trozo = _sin_tildes(fragmento(texto.strip()))
         if not trozo:
             return df.clear().select(columnas) if columnas else df.clear()
-        df = df.filter(pl.col(columna).str.to_lowercase().str.contains(rf"\b{re.escape(trozo)}"))
+        normalizada = pl.col(columna).map_elements(_sin_tildes, return_dtype=pl.Utf8)
+        df = df.filter(normalizada.str.contains(rf"\b{re.escape(trozo)}"))
         if orden:
             df = df.sort(orden, descending=True, nulls_last=True, maintain_order=True)
         df = df.head(MAX_FILAS_BUSQUEDA)

@@ -16,6 +16,7 @@ import pytest
 from sqlalchemy import create_engine, text
 
 from etl.loaders.analytics_loader import SCHEMA, TablaAnalytics, materializar
+from etl.shared_imports import COLUMNA_BUSCABLE
 
 IN_CI = os.getenv("CI", "").lower() in ("1", "true")
 
@@ -167,3 +168,47 @@ def test_los_comentarios_de_columna_llegan_a_la_tabla_final(engine, df):
             {"s": SCHEMA, "t": spec.tabla},
         ).scalar()
     assert comentario == "Categoría UNSPSC, no producto."
+
+
+def test_la_columna_buscable_se_genera_sin_tildes_y_con_trigramas(engine, df):
+    """`buscable` añade `COLUMNA_BUSCABLE`, el nombre sin tildes ni mayúsculas, con
+    su índice de trigramas ya en la tabla final: es donde busca `/bi/productos`.
+    La primera candidata que no existe se salta (el typo histórico del nombre)."""
+    spec = TablaAnalytics(
+        tabla="tabla_de_prueba",
+        parquet="irrelevante.parquet",
+        buscable=("NombreProductoGenerico", "NombreroductoGenerico"),
+    )
+    con_tilde = df.with_columns(
+        pl.Series("NombreroductoGenerico", ["Computador PORTÁTIL", "Computador", "Servicio"])
+    )
+    assert materializar(con_tilde, spec, engine) == 3
+
+    with engine.begin() as conn:
+        valores = [
+            r[0]
+            for r in conn.execute(
+                text(f"SELECT {COLUMNA_BUSCABLE} FROM {SCHEMA}.{spec.tabla} ORDER BY n DESC")
+            )
+        ]
+        indices = {
+            r[0]: r[1]
+            for r in conn.execute(
+                text(
+                    "SELECT indexname, indexdef FROM pg_indexes "
+                    "WHERE schemaname = :s AND tablename = :t"
+                ),
+                {"s": SCHEMA, "t": spec.tabla},
+            )
+        }
+    assert valores == ["computador portatil", "computador", "servicio"]
+    trgm = [d for d in indices.values() if "gin_trgm_ops" in d]
+    assert len(trgm) == 1 and COLUMNA_BUSCABLE in trgm[0]
+    assert not any("__cargando" in i for i in indices)
+
+
+def test_sin_ninguna_columna_buscable_carga_igual(engine, df):
+    spec = TablaAnalytics(
+        tabla="tabla_de_prueba", parquet="irrelevante.parquet", buscable=("no_existe",)
+    )
+    assert materializar(df, spec, engine) == 3

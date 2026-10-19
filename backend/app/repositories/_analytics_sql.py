@@ -164,10 +164,23 @@ def sql_busqueda_texto(
     orden: str | None = None,
     schema: str = SCHEMA,
 ) -> str:
+    """Las filas donde `columna` tiene una palabra que empieza por el término.
+
+    Sin tildes ni mayúsculas en los dos lados (`busqueda.sql_normalizado`). La
+    columna generada `COLUMNA_BUSCABLE` ya viene normalizada y lleva el índice de
+    trigramas; cualquier otra se normaliza al vuelo, sin índice. Es lo que pasa
+    con una tabla materializada antes de que existiera la columna, hasta la
+    corrida semanal siguiente.
+    """
     proyeccion = ", ".join(ident(c) for c in columnas) if columnas else "*"
+    izquierda = (
+        ident(columna)
+        if columna == busqueda.COLUMNA_BUSCABLE
+        else busqueda.sql_normalizado(ident(columna))
+    )
     sql = (
         f"SELECT {proyeccion} FROM {tabla_calificada(tabla, schema)} "
-        f"WHERE {busqueda.sql_comienza_palabra(f'lower({ident(columna)})')}"
+        f"WHERE {busqueda.sql_comienza_palabra(izquierda)}"
     )
     orden_sql = f"{ident(orden)} DESC NULLS LAST, " if orden else ""
     return sql + f" ORDER BY {orden_sql}{DESEMPATE} LIMIT :limite"
@@ -176,10 +189,9 @@ def sql_busqueda_texto(
 def parametros_busqueda(consulta: str) -> dict[str, str] | None:
     """Los parámetros de `sql_busqueda_texto`, o None si no hay nada que buscar.
 
-    El término va en minúsculas —la columna se compara como `lower(col)`, que es
-    lo que indexa el trigrama— y desde su primera letra o dígito
-    (`busqueda.fragmento`). None («%», «&»): ninguna fila coincide y no hace
-    falta preguntarle a la base.
+    El término va desde su primera letra o dígito (`busqueda.fragmento`); las
+    tildes y las mayúsculas las quita Postgres. None («%», «&»): ninguna fila
+    coincide y no hace falta preguntarle a la base.
     """
-    trozo = busqueda.fragmento(consulta.strip().lower())
+    trozo = busqueda.fragmento(consulta.strip())
     return busqueda.parametros(trozo) if trozo else None

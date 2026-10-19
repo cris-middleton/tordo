@@ -43,6 +43,8 @@ import polars as pl
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
+from etl.shared_imports import COLUMNA_BUSCABLE, sql_normalizado
+
 logger = logging.getLogger(__name__)
 
 SCHEMA = "analytics"
@@ -83,6 +85,12 @@ class TablaAnalytics:
     #: columna → `COMMENT ON COLUMN`. Para lo que se lee mal sin explicación:
     #: estas tablas no tienen modelo SQLAlchemy donde poner `comment=`.
     comentarios: dict[str, str] = field(default_factory=dict)
+    #: Columnas candidatas (la primera que exista) de las que sale la columna
+    #: generada `COLUMNA_BUSCABLE`: el texto sin tildes y en minúsculas, con un
+    #: índice de trigramas. Es donde la API busca por comienzo de palabra
+    #: (`backend/app/repositories/busqueda.py`). Columna generada y no índice por
+    #: expresión, como `licitaciones.nombre_norm`.
+    buscable: tuple[str, ...] = ()
 
 
 def _tipo_pg(dtype) -> str:
@@ -121,9 +129,23 @@ def materializar(
     q_tabla = f"{_identificador(schema)}.{_identificador(spec.tabla)}"
     q_tmp = f"{_identificador(schema)}.{_identificador(tmp)}"
 
+    origen_buscable = next((c for c in spec.buscable if c in df.columns), None)
+    if spec.buscable and origen_buscable is None:
+        logger.warning(
+            "%s: no tiene ninguna de %s — sin columna buscable", spec.tabla, spec.buscable
+        )
+    ddl = _ddl_columnas(df)
+    if origen_buscable is not None:
+        # COPY sin lista de columnas se salta las generadas: el CSV no cambia.
+        ddl += (
+            f",\n  {_identificador(COLUMNA_BUSCABLE)} TEXT GENERATED ALWAYS AS "
+            f"({sql_normalizado(_identificador(origen_buscable))}) STORED"
+        )
+    indices_trgm = [[COLUMNA_BUSCABLE]] if origen_buscable is not None else []
+
     with engine.begin() as conn:
         conn.execute(text(f"DROP TABLE IF EXISTS {q_tmp}"))
-        conn.execute(text(f"CREATE TABLE {q_tmp} (\n  {_ddl_columnas(df)}\n)"))
+        conn.execute(text(f"CREATE TABLE {q_tmp} (\n  {ddl}\n)"))
 
     # COPY desde CSV en memoria. Es el camino más rápido de Polars a Postgres sin
     # añadir dependencias, y respeta los NULL con la opción NULL ''.
@@ -172,13 +194,21 @@ def materializar(
                     f"({', '.join(_identificador(c) for c in cols)})"
                 )
             )
+        for cols in indices_trgm:
+            nombre_tmp = f"ix_{tmp}_{'_'.join(cols)}"[:63]
+            conn.execute(
+                text(
+                    f"CREATE INDEX {_identificador(nombre_tmp)} ON {q_tmp} "
+                    f"USING gin ({_identificador(cols[0])} gin_trgm_ops)"
+                )
+            )
 
         # Swap atómico. La API o ve la versión anterior completa, o la nueva
         # completa: nunca una mezcla ni una tabla vacía.
         conn.execute(text(f"DROP TABLE IF EXISTS {q_tabla} CASCADE"))
         conn.execute(text(f"ALTER TABLE {q_tmp} RENAME TO {_identificador(spec.tabla)}"))
-        for cols in spec.indices:
-            if any(c not in df.columns for c in cols):
+        for cols in [*spec.indices, *indices_trgm]:
+            if any(c not in df.columns and c != COLUMNA_BUSCABLE for c in cols):
                 continue
             nombre_tmp = f"ix_{tmp}_{'_'.join(cols)}"[:63]
             nombre_final = f"ix_{spec.tabla}_{'_'.join(cols)}"[:63]

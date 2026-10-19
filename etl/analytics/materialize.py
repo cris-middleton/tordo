@@ -17,7 +17,7 @@ import logging
 import sys
 from pathlib import Path
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 
 # Mismo arranque que etl/analytics/run_all.py: permite invocarlo tanto desde la
 # raíz del repo (`python -m etl.analytics.materialize`) como desde etl/
@@ -33,11 +33,6 @@ from etl.loaders.analytics_loader import SCHEMA, materializar_desde_parquet  # n
 
 logger = logging.getLogger(__name__)
 
-# get_productos busca por subcadena sobre el nombre del producto. El nombre viene
-# con un typo histórico en el parquet ('NombreroductoGenerico'), así que se
-# intentan ambas variantes.
-_COLUMNAS_NOMBRE_PRODUCTO = ("NombreroductoGenerico", "NombreProductoGenerico")
-
 
 def _url_sync() -> str:
     """URL psycopg2. El ETL es sync; asyncpg no sirve aquí."""
@@ -45,40 +40,6 @@ def _url_sync() -> str:
     return url.replace("postgresql+asyncpg://", "postgresql://", 1).replace(
         "postgres+asyncpg://", "postgresql://", 1
     )
-
-
-def _crear_indice_busqueda_productos(engine) -> None:
-    """Índice GIN con pg_trgm sobre el nombre del producto.
-
-    Sin esto, la búsqueda de productos es un scan completo: `LIKE '%algo%'` con
-    comodín inicial no lo puede servir ningún B-tree.
-    """
-    with engine.begin() as conn:
-        existentes = {
-            r[0]
-            for r in conn.execute(
-                text(
-                    "SELECT column_name FROM information_schema.columns "
-                    "WHERE table_schema = :s AND table_name = 'product_price_bands_l3'"
-                ),
-                {"s": SCHEMA},
-            )
-        }
-        columna = next((c for c in _COLUMNAS_NOMBRE_PRODUCTO if c in existentes), None)
-        if columna is None:
-            logger.warning(
-                "product_price_bands_l3 no tiene columna de nombre de producto — "
-                "se omite el índice de búsqueda"
-            )
-            return
-        conn.execute(
-            text(
-                f"CREATE INDEX IF NOT EXISTS ix_product_price_bands_l3_nombre_trgm "
-                f"ON {SCHEMA}.product_price_bands_l3 "
-                f'USING gin (lower("{columna}") gin_trgm_ops)'
-            )
-        )
-        logger.info("índice de búsqueda de productos creado sobre %s", columna)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -133,12 +94,6 @@ def main(argv: list[str] | None = None) -> int:
                 omitidas.append(spec.tabla)
             else:
                 total += filas
-
-        if not fallidas:
-            try:
-                _crear_indice_busqueda_productos(engine)
-            except Exception:
-                logger.exception("falló la creación del índice de búsqueda de productos")
     finally:
         engine.dispose()
 
