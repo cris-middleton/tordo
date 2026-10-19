@@ -108,13 +108,11 @@ test('una guía: titulares semiexpandidos en 800, cuerpo y etiqueta a ancho norm
   expect(await enlace.evaluate((el) => getComputedStyle(el).textDecorationLine)).toBe('underline');
 });
 
-test('una ficha de comprador: h3 a ancho normal, cifras en Archivo, código en mono', async ({ page, request }) => {
+test('una ficha de comprador: titulares semiexpandidos, cifras en Archivo, código en mono', async ({ page, request }) => {
   await abrir(page, await primeraDelSitemap(request, 'compradores'), ['Archivo', 'IBM Plex Mono']);
   expect(await tipo(page.getByRole('heading', { level: 1 }))).toEqual(TITULAR);
-  // `.section-title` va también en h3: si arrastrara font-display, saldría expandido y en 800.
-  const h3 = await tipo(page.getByRole('heading', { level: 3, name: /perfil del comprador/i }));
-  expect(h3.familia).toBe('Archivo');
-  expect(h3.ancho).toBe('100%');
+  // «Cómo compra» es un h2 de sección: semiexpandido y en 800, como todo h2.
+  expect(await tipo(page.getByRole('heading', { level: 2, name: /cómo compra/i }))).toEqual(TITULAR);
 
   const cifras = await familiasDeTodas(page.locator('.cifra'));
   expect(cifras.length).toBeGreaterThan(0);
