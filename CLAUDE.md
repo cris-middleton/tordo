@@ -437,8 +437,9 @@ programador en la nube, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
   (`capturas.spec.ts-snapshots/*-chromium-linux.png`) salen del runner de CI**: macOS rasteriza
   el texto distinto, y un Mac con Apple Silicon no es el x86-64 del runner. En un Mac se salta.
   Fechas, horas y días de la semana se reescriben en el DOM antes de capturar (la semilla fecha
-  relativo a la hora en que corre), y la semilla separa un minuto cada publicación para que el
-  orden del catálogo no dependa de un empate. **Un cambio visual en esas dos pantallas, una nota
+  relativo a la hora en que corre), y la semilla separa un minuto cada publicación (el catálogo ya
+  desempata por `id`, pero el orden sería el inverso al de carga y habría que rehacer las líneas
+  base). **Un cambio visual en esas dos pantallas, una nota
   nueva incluida (la portada lista las cuatro últimas), exige rehacer la línea base**: borra el
   PNG, empuja, y el test falla dejando la captura nueva con su nombre en el artefacto
   «playwright» (`gh run download <id> -n playwright`); se copia a `capturas.spec.ts-snapshots/`
@@ -1294,6 +1295,14 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   «más publica hoy» (`publicadas_del_dia`) son otra consulta —una publicada hoy puede haber
   cerrado ya— y agrupan por `nombre_organismo` normalizado, porque la Compra Ágil no trae
   código (`tests/test_portada_hoy.py`, con un instante fijo de noche).
+- **Todo orden con `LIMIT` u `OFFSET` termina en un criterio único.** Sin él, dos filas
+  empatadas salen en cualquier orden y la paginación del catálogo repetía una licitación y se
+  saltaba otra (el ETL carga en lote: muchas comparten fecha al segundo). `GET /tenders/`
+  desempata por `Licitacion.id` en el sentido de la columna (`tests/test_catalogo_desempate.py`,
+  60 filas idénticas recorridas de 7 en 7 en cada orden); «Lo mejor de hoy», por
+  `codigo_externo`. **Las tablas de analytics no tienen clave única**: `sql_consulta` y
+  `sql_busqueda_texto` terminan en `ctid` (`_analytics_sql.DESEMPATE`), la fila física, que no
+  cambia mientras la tabla no se reescriba —el pipeline la reemplaza entera cada semana—.
 - **Analytics lee una VENTANA de historia, no toda** (`data_loader.VENTANA_ANALYTICS_MESES` = 36;
   las bandas de precio por producto, `VENTANA_BANDAS_PRECIO_MESES` = 12). Medido: **cada**
   módulo sube de RAM con los meses de historia —de 0,04 GB/mes (clustering, hoy retirado) a

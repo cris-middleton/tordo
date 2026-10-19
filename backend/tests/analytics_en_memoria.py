@@ -59,7 +59,8 @@ class AnalyticsEnMemoria:
             # Como en SQL: un NULL no pasa un mínimo.
             df = df.filter(pl.col(col) >= minimo)
         if orden:
-            df = df.sort(orden, descending=descendente, nulls_last=True)
+            # Estable, como el desempate por `ctid` del SQL: el orden de carga.
+            df = df.sort(orden, descending=descendente, nulls_last=True, maintain_order=True)
         if limite:
             df = df.head(limite)
         if columnas:
@@ -118,7 +119,7 @@ class AnalyticsEnMemoria:
             return df.clear().select(columnas) if columnas else df.clear()
         df = df.filter(pl.col(columna).str.to_lowercase().str.contains(rf"\b{re.escape(trozo)}"))
         if orden:
-            df = df.sort(orden, descending=True, nulls_last=True)
+            df = df.sort(orden, descending=True, nulls_last=True, maintain_order=True)
         df = df.head(MAX_FILAS_BUSQUEDA)
         return df.select(columnas) if columnas else df
 

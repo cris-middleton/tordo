@@ -16,6 +16,16 @@ from app.repositories import busqueda
 
 SCHEMA = "analytics"
 
+#: El último criterio de todo orden con `LIMIT`: la posición física de la fila.
+#: Las tablas de analytics no tienen clave única, y sin un criterio único dos
+#: filas empatadas en `orden` salen en cualquier orden —y un `LIMIT` que corta en
+#: el empate devuelve un conjunto distinto en cada petición (un recorrido
+#: secuencial sincronizado empieza donde va otro). `ctid` es único y no cambia
+#: mientras la tabla no se reescriba: el pipeline la reemplaza entera una vez por
+#: semana (`etl/loaders/analytics_loader.py`) y nunca la actualiza fila a fila.
+#: Es el orden en que se cargó, el del parquet.
+DESEMPATE = "ctid"
+
 
 def ident(nombre: str) -> str:
     """Cita un identificador. Las columnas vienen en camelCase desde el parquet."""
@@ -95,8 +105,11 @@ def sql_consulta(
     if clausulas:
         sql += " WHERE " + " AND ".join(clausulas)
 
-    if orden:
-        sql += f" ORDER BY {ident(orden)} {'DESC' if descendente else 'ASC'} NULLS LAST"
+    if orden or limite:
+        criterios = (
+            [f"{ident(orden)} {'DESC' if descendente else 'ASC'} NULLS LAST"] if orden else []
+        )
+        sql += " ORDER BY " + ", ".join([*criterios, DESEMPATE])
     if limite:
         sql += f" LIMIT {int(limite)}"
 
@@ -156,9 +169,8 @@ def sql_busqueda_texto(
         f"SELECT {proyeccion} FROM {tabla_calificada(tabla, schema)} "
         f"WHERE {busqueda.sql_comienza_palabra(f'lower({ident(columna)})')}"
     )
-    if orden:
-        sql += f" ORDER BY {ident(orden)} DESC NULLS LAST"
-    return sql + " LIMIT :limite"
+    orden_sql = f"{ident(orden)} DESC NULLS LAST, " if orden else ""
+    return sql + f" ORDER BY {orden_sql}{DESEMPATE} LIMIT :limite"
 
 
 def parametros_busqueda(consulta: str) -> dict[str, str] | None:
