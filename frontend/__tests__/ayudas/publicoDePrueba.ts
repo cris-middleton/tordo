@@ -26,7 +26,7 @@ export const COMPRADOR: CompradorPublico = {
     disponible: true,
     organismo_id: '7297',
     nombre: 'Hospital de Prueba',
-    buyer_score: 7.4,
+    buyer_score: 0.74,
     clasificacion: 'bueno',
     tramitacion: { tasa_adjudicacion: 0.8 },
     risk_flags: {

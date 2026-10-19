@@ -1,7 +1,5 @@
 'use client';
 
-import { AlertTriangle } from 'lucide-react';
-import { ConfidenceBadge } from './ConfidenceBadge';
 import { motivoParaPersona } from '@/lib/motivos';
 import { decimal } from '@/lib/formato';
 
@@ -28,174 +26,75 @@ interface BuyerProfilePanelProps {
   comprador: CompradorPanel;
 }
 
-// ── Label / color maps ─────────────────────────────────────────────────────
-
-// «Muy transp.» y «Poco transp.» no son palabras: son abreviaturas que sólo
-// se entienden si ya sabes qué dicen. En una ficha que se lee de un vistazo
-// para decidir si postular, obligar a descifrar la etiqueta cuesta más de lo
-// que ahorra en ancho.
-const transpLabel: Record<string, string> = {
-  muy_transparente: 'Muy abierto',
-  transparente: 'Abierto',
-  moderado: 'Normal',
-  poco_transparente: 'Poco abierto',
-  opaco: 'Opaco',
-};
-
-const transpColor: Record<string, string> = {
-  muy_transparente: 'text-accent',
-  transparente: 'text-accent',
-  moderado: 'text-gold',
-  poco_transparente: 'text-gold',
-  opaco: 'text-danger',
-};
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-function scoreColor(score: number): string {
-  if (score >= 7) return 'text-accent';
-  if (score >= 4) return 'text-gold';
-  return 'text-danger';
-}
-
-/** Cuanto más compra por trato directo, menos queda a competir de verdad. */
-function tratoDirectoColor(pct: number): string {
-  if (pct <= 0.15) return 'text-accent';
-  if (pct <= 0.35) return 'text-gold';
-  return 'text-danger';
-}
-
-function adjColor(tasa: number): string {
-  if (tasa >= 0.6) return 'text-accent';
-  if (tasa >= 0.3) return 'text-gold';
-  return 'text-danger';
-}
-
-// ── Sub-components ─────────────────────────────────────────────────────────
-
-function KpiTile({
-  label,
-  value,
-  valueColor,
-}: {
-  label: string;
-  value: string;
-  valueColor: string;
+/**
+ * Cómo compra un organismo, en cuatro cifras: su nota de 0 a 10, cuánto compra
+ * por trato directo (lo que no llega a competencia abierta), cuánto adjudica de
+ * lo que llama y sobre cuántas órdenes se calcula. Va en la ficha pública del
+ * comprador, bajo su nombre, y en la de cada licitación.
+ *
+ * Sin colores de semáforo ni etiquetas que juzgan: la nota iba en verde, ámbar
+ * o rojo y una «transparencia» decía «Muy abierto» u «Opaco», que se leían
+ * como recomendación. Tampoco repite el nombre: el título de la página ya lo
+ * dice.
+ */
+export function BuyerProfilePanel({
+  comprador,
+  titulo = 'Cómo compra',
+  nivel = 'h2',
+  extra,
+}: BuyerProfilePanelProps & {
+  titulo?: string;
+  nivel?: 'h2' | 'h3';
+  /** Más cifras en el mismo bloque (la ficha del comprador suma su volumen). Con ellas, la base no se repite. */
+  extra?: { etiqueta: string; valor: string }[];
 }) {
+  const Titulo = nivel;
+  const pct = (v?: number | null) => (v == null ? '—' : `${Math.round(v * 100)}%`);
+  const cifras = [
+    {
+      etiqueta: 'Nota',
+      // `buyer_score` viene de 0 a 1 (etl/analytics/buyer_scoring.py: «≥ 0,8» es su
+      // tramo alto); se lee de 0 a 10. Se pintaba tal cual: «0,9/10» para un 9,1.
+      valor: comprador.buyer_score != null ? `${decimal(comprador.buyer_score * 10, 1)} de 10` : '—',
+    },
+    { etiqueta: 'Trato directo', valor: pct(comprador.transparencia?.pct_trato_directo), detalle: 'de lo que compra' },
+    { etiqueta: 'Adjudica', valor: pct(comprador.tasa_adjudicacion), detalle: 'de lo que llama' },
+    ...(extra ?? [
+      {
+        etiqueta: 'Base',
+        valor: comprador.n_base != null ? `${comprador.n_base.toLocaleString('es-CL')} órdenes` : '—',
+      },
+    ]),
+  ];
+
   return (
-    <div className="rounded-lg border border-border bg-background px-3 py-2 text-center">
-      <p className="text-xs text-muted">{label}</p>
-      <p className={`mt-1 text-lg font-bold ${valueColor}`}>{value}</p>
-    </div>
-  );
-}
-
-// ── Main component ─────────────────────────────────────────────────────────
-
-export function BuyerProfilePanel({ comprador }: BuyerProfilePanelProps) {
-  return (
-    <div className="card flex flex-col gap-4">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div>
-          <h3 className="section-title">Perfil del comprador</h3>
-          {comprador.nombre && (
-            <p className="text-xs text-muted mt-0.5 truncate max-w-[220px]" title={comprador.nombre}>
-              {comprador.nombre}
-            </p>
-          )}
-        </div>
-        {comprador.n_base != null && <ConfidenceBadge n={comprador.n_base} />}
-      </div>
-
-      {/* Body */}
+    <section className="mt-2">
+      <Titulo className={nivel === 'h2' ? 'section-title' : 'font-sans text-lg font-semibold text-text'}>
+        {titulo}
+      </Titulo>
       {!comprador.disponible ? (
-        <p className="text-sm text-muted">
+        <p className="mt-3 text-sm text-muted">
           {motivoParaPersona(comprador.motivo, 'Todavía no tenemos historial de este comprador.')}
         </p>
       ) : (
-        <div className="flex flex-col gap-3">
-          {/* KPI tiles row */}
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {/* Score */}
-            <KpiTile
-              label="Nota del comprador"
-              value={
-                comprador.buyer_score != null
-                  ? `${decimal(comprador.buyer_score, 1)}/10`
-                  : '—'
-              }
-              valueColor={
-                comprador.buyer_score != null
-                  ? scoreColor(comprador.buyer_score)
-                  : 'text-muted'
-              }
-            />
-
-            {/* Trato directo.
-                Este hueco lo ocupaba «Pago med.», que mostraba los días hasta
-                que el PROVEEDOR acepta la orden bajo una etiqueta de plazo de
-                pago —y con una escala de color de 30/60 días para un dato cuya
-                mediana real es de 1,6—. El porcentaje de trato directo sí
-                cambia una decisión: es la parte del gasto que no llega a
-                competencia abierta. */}
-            <KpiTile
-              label="Trato directo"
-              value={
-                comprador.transparencia?.pct_trato_directo != null
-                  ? `${Math.round(comprador.transparencia.pct_trato_directo * 100)}%`
-                  : '—'
-              }
-              valueColor={
-                comprador.transparencia?.pct_trato_directo != null
-                  ? tratoDirectoColor(comprador.transparencia.pct_trato_directo)
-                  : 'text-muted'
-              }
-            />
-
-            {/* Tasa adjudicación */}
-            <KpiTile
-              label="Adjudica"
-              value={
-                comprador.tasa_adjudicacion != null
-                  ? `${Math.round(comprador.tasa_adjudicacion * 100)}%`
-                  : '—'
-              }
-              valueColor={
-                comprador.tasa_adjudicacion != null
-                  ? adjColor(comprador.tasa_adjudicacion)
-                  : 'text-muted'
-              }
-            />
-
-            {/* Transparencia */}
-            <KpiTile
-              label="Transparencia"
-              value={
-                comprador.transparencia?.clasificacion
-                  ? (transpLabel[comprador.transparencia.clasificacion] ??
-                    comprador.transparencia.clasificacion)
-                  : '—'
-              }
-              valueColor={
-                comprador.transparencia?.clasificacion
-                  ? (transpColor[comprador.transparencia.clasificacion] ?? 'text-muted')
-                  : 'text-muted'
-              }
-            />
-          </div>
-
-          {/* Risk flags */}
+        <>
+          <dl className="mt-4 grid max-w-3xl grid-cols-2 gap-x-6 gap-y-4 border-y border-border py-4 sm:grid-cols-4">
+            {cifras.map((c) => (
+              <div key={c.etiqueta}>
+                <dt className="text-sm text-muted">{c.etiqueta}</dt>
+                <dd className="cifra mt-1 font-semibold text-text">{c.valor}</dd>
+                {'detalle' in c && c.detalle && <dd className="text-sm text-muted">{c.detalle}</dd>}
+              </div>
+            ))}
+          </dl>
           {comprador.n_flags != null && comprador.n_flags > 0 && (
-            <div className="flex items-center gap-1.5 rounded border border-gold/20 bg-gold/10 px-2 py-1 text-xs text-gold">
-              <AlertTriangle size={12} />
-              {comprador.n_flags} señal
-              {comprador.n_flags > 1 ? 'es' : ''} de riesgo detectada
-              {comprador.n_flags > 1 ? 's' : ''}
-            </div>
+            <p className="mt-3 text-sm text-muted">
+              Tiene {comprador.n_flags} {comprador.n_flags === 1 ? 'señal' : 'señales'} en su historia que conviene
+              revisar antes de postular.
+            </p>
           )}
-        </div>
+        </>
       )}
-    </div>
+    </section>
   );
 }

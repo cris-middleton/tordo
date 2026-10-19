@@ -82,25 +82,24 @@ export default async function PaginaComprador({ params }: Props) {
         }
       />
 
-      <BuyerProfilePanel comprador={{ ...panelDesdePerfil(perfil, c.nombre), nombre: c.nombre }} />
-
-      {perfil.volumen && (
-        <div className="mt-4">
-          <FranjaDatos>
-            <Dato etiqueta="Órdenes de compra" valor={entero(perfil.volumen.n_oc_total)} />
-            <Dato etiqueta="Meses con compras" valor={entero(perfil.volumen.n_meses_activo)} />
-            <Dato
-              etiqueta="Ofertas por licitación"
-              valor={
-                perfil.volumen.prom_oferentes != null
-                  ? decimal(perfil.volumen.prom_oferentes, 1)
-                  : '—'
-              }
-            />
-            <Dato etiqueta="Licitaciones" valor={entero(perfil.transparencia?.n_lic_total)} />
-          </FranjaDatos>
-        </div>
-      )}
+      {/* Cómo compra y cuánto, en un solo bloque: antes eran dos franjas seguidas
+          que repetían las órdenes de compra. */}
+      <BuyerProfilePanel
+        comprador={{ ...panelDesdePerfil(perfil, c.nombre), nombre: c.nombre }}
+        extra={
+          perfil.volumen
+            ? [
+                { etiqueta: 'Órdenes de compra', valor: entero(perfil.volumen.n_oc_total) },
+                { etiqueta: 'Meses con compras', valor: entero(perfil.volumen.n_meses_activo) },
+                {
+                  etiqueta: 'Ofertas por licitación',
+                  valor: perfil.volumen.prom_oferentes != null ? decimal(perfil.volumen.prom_oferentes, 1) : '—',
+                },
+                { etiqueta: 'Licitaciones', valor: entero(perfil.transparencia?.n_lic_total) },
+              ]
+            : undefined
+        }
+      />
 
       {senales.length > 0 && (
         <Seccion

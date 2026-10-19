@@ -660,7 +660,7 @@ mirar dos sitios. Lo fija `tests/test_versionado_api.py`.
 
 ### Frontend — `frontend/`
 
-Next.js 16 App Router + TypeScript + Tailwind + Recharts. Componentes propios. El estado de
+Next.js 16 App Router + TypeScript + Tailwind. Componentes propios, y los gráficos también (SVG y cajas de servidor; Recharts salió en octubre de 2026). El estado de
 servidor va en TanStack Query (`lib/queries.ts`) y todo el tráfico pasa por `/api/proxy`,
 sin sesión — ver las reglas de frontend más arriba. Pantallas: el catálogo de
 licitaciones (`/licitaciones`, con su detalle; **los filtros viven en la URL**, `abiertas=1` incluido, así que

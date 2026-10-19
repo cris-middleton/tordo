@@ -44,7 +44,7 @@ async function comprobarFicha(page: Page, ruta: string) {
 test('una ficha de comprador', async ({ page, request }) => {
   const ruta = await primeraDelSitemap(request, 'compradores');
   await comprobarFicha(page, ruta);
-  await expect(page.getByText(/perfil del comprador/i)).toBeVisible();
+  await expect(page.getByRole('heading', { name: /cómo compra/i })).toBeVisible();
 });
 
 test('una ficha de rubro, y de ahí a Mercados', async ({ page, request }) => {

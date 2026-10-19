@@ -140,9 +140,6 @@ const PROPIOS: Record<string, Propio> = {
  * uno lo pasa a `PROPIOS`. Está también en `docs/GUIA_GRAFICOS.md` («Deuda»).
  */
 const DEUDA: Record<string, string> = {
-  'components/PriceBandChart.tsx': 'Recharts: barras P10–P90 desde cero, que no es el precio que importa',
-  'components/CompetitorsList.tsx': 'barra de cuota en primary, sin el valor como etiqueta directa',
-  'components/OpportunityScoreCard.tsx': 'barras de componentes en primary',
 };
 
 /** Ficheros que el detector ve pero no dibujan datos. */
@@ -169,7 +166,9 @@ describe('guía de gráficos: todo lo que dibuja datos está declarado', () => {
   const detectados = ARCHIVOS.filter((r) => DIBUJA.test(leer(r)));
 
   it('el detector encuentra gráficos (guarda contra comprobar el vacío)', () => {
-    expect(detectados.length).toBeGreaterThanOrEqual(10);
+    // Eran 13 con la deuda; sin ella (octubre de 2026) quedan 8: los seis propios
+    // y los dos que no son gráficos. Bajó con su motivo, no se borró.
+    expect(detectados.length).toBeGreaterThanOrEqual(7);
   });
 
   it('cada fichero que dibuja está en PROPIOS, DEUDA o NO_SON_GRAFICOS', () => {
