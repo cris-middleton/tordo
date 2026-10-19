@@ -6,7 +6,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import PaginaAcerca, { metadata } from '@/app/(publico)/acerca/page';
@@ -21,6 +21,7 @@ afterEach(() => {
   delete process.env.AUTOR_NOMBRE;
   delete process.env.AUTOR_ROL;
   delete process.env.RESPONSABLE_LEGAL;
+  delete process.env.REPOSITORIO_URL;
 });
 
 describe('la página /acerca', () => {
@@ -79,6 +80,42 @@ describe('la página /acerca', () => {
     const { container } = render(<PaginaAcerca />);
     expect(screen.getByText('Lo hace Nombre De Prueba, a título personal.')).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/data scientist/i);
+  });
+
+  it('«Quién lo hace» es su propia sección, sólo con AUTOR_NOMBRE, y enlaza a las notas', () => {
+    const sin = render(<PaginaAcerca />);
+    expect(sin.container.querySelector('section#quien-lo-hace')).toBeNull();
+    sin.unmount();
+
+    process.env.AUTOR_NOMBRE = 'Nombre De Prueba';
+    const { container } = render(<PaginaAcerca />);
+    const seccion = container.querySelector('section#quien-lo-hace') as HTMLElement;
+    expect(seccion).not.toBeNull();
+    expect(container.querySelector('section#financiacion')?.textContent).not.toMatch(/lo hace /i);
+    expect(within(seccion).getByRole('link', { name: 'notas de datos' })).toHaveAttribute('href', '/notas');
+    // Sin REPOSITORIO_URL no se enlaza el código.
+    expect(within(seccion).queryByRole('link', { name: /código/i })).toBeNull();
+  });
+
+  it('con REPOSITORIO_URL, «Quién lo hace» enlaza al código', () => {
+    process.env.AUTOR_NOMBRE = 'Nombre De Prueba';
+    process.env.REPOSITORIO_URL = 'https://github.com/x/tordo';
+    const { container } = render(<PaginaAcerca />);
+    const seccion = container.querySelector('section#quien-lo-hace') as HTMLElement;
+    expect(within(seccion).getByRole('link', { name: 'código del sitio' })).toHaveAttribute(
+      'href',
+      'https://github.com/x/tordo',
+    );
+  });
+
+  it('las preguntas van sin caja: filetes, summary de 44 px y chevron en text-muted', () => {
+    const { container } = render(<PaginaAcerca />);
+    for (const d of container.querySelectorAll('#preguntas details')) {
+      expect(d.className).not.toMatch(/\b(border|rounded|shadow)/);
+      const summary = d.querySelector('summary') as HTMLElement;
+      expect(summary.className).toMatch(/\bmin-h-11\b/);
+      expect(summary.querySelector('svg')?.getAttribute('class')).toMatch(/text-muted/);
+    }
   });
 
   it('firma la autoría, no el responsable legal (spec PORTADA_V7 V5)', () => {

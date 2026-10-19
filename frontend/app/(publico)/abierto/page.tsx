@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
-import { CajaInstalacion, Codigo } from '@/components/abierto/Bloques';
+import { Codigo, FilaInstalacion } from '@/components/abierto/Bloques';
 import { CabeceraFicha, Seccion } from '@/components/publico/Piezas';
 import {
   HERRAMIENTAS_MCP,
@@ -74,16 +74,16 @@ export default function PaginaAbierto() {
 
       <Seccion
         id="mcp"
-        titulo="Pregúntale a tu asistente de IA"
+        titulo="Pregúntale a tu asistente"
         descripcion={`Un servidor MCP anónimo: tu asistente consulta precios, compradores y licitaciones de ${APP_NAME} mientras conversas. Comparte con la API el límite por IP (${LIMITE_POR_MINUTO} peticiones por minuto).`}
       >
         <p className="text-sm text-muted">La dirección del servidor, siempre con la barra final:</p>
         <Codigo etiqueta="URL del servidor MCP">{URL_MCP}</Codigo>
-        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <ul className="mt-6 divide-y divide-border border-y border-border">
           {instalacionesMcp(APP_NAME).map((instalacion) => (
-            <CajaInstalacion key={instalacion.id} instalacion={instalacion} />
+            <FilaInstalacion key={instalacion.id} instalacion={instalacion} />
           ))}
-        </div>
+        </ul>
         <h3 className="mt-8 text-sm font-semibold text-text">Sus cuatro herramientas</h3>
         <ul className="mt-2 space-y-2 text-sm leading-relaxed text-muted">
           {HERRAMIENTAS_MCP.map((h) => (

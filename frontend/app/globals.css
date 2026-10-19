@@ -454,6 +454,40 @@
   .enlace {
     @apply font-medium text-primary underline decoration-1 underline-offset-2 transition-colors hover:text-accent;
   }
+
+  /* Un bloque de código que no cabe se desplaza, y se nota: las barras
+     superpuestas de macOS y de los móviles sólo aparecen al desplazar, así que
+     el bloque parecía cortado. Con `::-webkit-scrollbar` (Chrome, Safari) la
+     barra queda siempre a la vista; sin `scrollbar-color` en esos navegadores,
+     porque desde Chrome 121 esa propiedad apaga los pseudoelementos. Firefox
+     toma la versión estándar. */
+  .desplazable-x {
+    overflow-x: auto;
+    /* `scrollbar-color` se hereda de `:root` (los tokens de la barra), y con él
+       Chrome apaga los pseudoelementos de abajo: aquí vuelve a `auto`. */
+    scrollbar-color: auto;
+  }
+
+  .desplazable-x::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .desplazable-x::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 0 8px;
+  }
+
+  .desplazable-x::-webkit-scrollbar-thumb {
+    background: rgb(var(--color-border-input));
+    border-radius: 3px;
+  }
+
+  @supports not selector(::-webkit-scrollbar) {
+    .desplazable-x {
+      scrollbar-width: thin;
+      scrollbar-color: rgb(var(--color-border-input)) transparent;
+    }
+  }
 }
 
 @keyframes float {

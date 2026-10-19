@@ -24,7 +24,7 @@ vi.mock('@/lib/api', () => ({
 
 import PaginaApoyar from '@/app/(publico)/apoyar/page';
 import { GET, dynamic } from '@/app/api/apoyar/transferencia/route';
-import { COSTOS, COSTO_MENSUAL_APROXIMADO, TOTAL, USO_INCLUIDO_EN_EL_PLAN, USO_RAILWAY_PROYECTADO } from '@/lib/costos';
+import { COSTOS, COSTO_MENSUAL_APROXIMADO, TOTAL } from '@/lib/costos';
 import { datosTransferencia, mediosDeDonacion, urlSegura } from '@/lib/donaciones';
 
 const DATOS = 'Banco de Prueba\nCuenta Vista 000-111-222\nRUT 11.111.111-1\nhola@ejemplo.cl';
@@ -105,15 +105,23 @@ describe('la página', () => {
       expect(within(tabla).getByRole('rowheader', { name: c.concepto })).toBeInTheDocument();
     }
     expect(within(tabla).getByText(TOTAL.monto)).toBeInTheDocument();
-    // La prosa sale de las constantes: si el total cambia, esta frase cambia con él.
-    const prosa = within(seccion).getByText(/El plan de Railway cuesta/).textContent ?? '';
-    expect(prosa).toContain(`cuesta ${USO_INCLUIDO_EN_EL_PLAN} e incluye ${USO_INCLUIDO_EN_EL_PLAN} de uso`);
-    expect(prosa).toContain(`proyecta ${USO_RAILWAY_PROYECTADO} al mes`);
-    expect(prosa).toContain(`el total queda en ${COSTO_MENSUAL_APROXIMADO}`);
-    expect(within(seccion).getByText(/Es una proyección, no una factura/)).toBeInTheDocument();
+    expect(within(tabla).getByText(TOTAL.detalle)).toBeInTheDocument();
+    // El total sale dos veces: en la entrada y en la fila «Total». Ni un párrafo
+    // más abajo ni la letra chica lo repiten.
+    const cifra = COSTO_MENSUAL_APROXIMADO;
+    expect((seccion.textContent ?? '').split(cifra).length - 1).toBe(2);
+    expect(seccion.textContent).not.toMatch(/spec/i);
     expect(within(seccion).getAllByText(/^Estimado\.$/).length).toBe(
       COSTOS.filter((c) => c.base === 'estimado').length,
     );
+  });
+
+  it('los medios de aporte van antes que el costo', () => {
+    process.env.DONAR_MERCADO_PAGO_URL = 'https://link.mercadopago.cl/tordo';
+    const { container } = renderizar();
+    const ids = [...container.querySelectorAll('section[id]')].map((s) => s.id);
+    expect(ids.indexOf('aportar')).toBeGreaterThanOrEqual(0);
+    expect(ids.indexOf('aportar')).toBeLessThan(ids.indexOf('costos'));
   });
 
   it('los datos bancarios NO están en el HTML; llegan tras el clic', async () => {
