@@ -63,8 +63,8 @@ describe('CompradoresSection', () => {
     estados.comprador = fallo();
     render(<CompradoresSection topOrganismos={organismos} rubro="Aseo" />);
 
-    expect(screen.getByText(/no pudimos cargar el perfil del comprador/i)).toBeInTheDocument();
-    expect(screen.queryByText(/sin datos para organismo/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/no pudimos cargar este comprador/i)).toBeInTheDocument();
+    expect(screen.queryByText(/sin historia para el organismo/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /reintentar/i }));
     expect(estados.comprador.refetch).toHaveBeenCalledTimes(1);
@@ -74,7 +74,7 @@ describe('CompradoresSection', () => {
     estados.comprador = sinDatos();
     render(<CompradoresSection topOrganismos={organismos} rubro="Aseo" />);
 
-    expect(screen.getByText(/sin datos para organismo 7084/i)).toBeInTheDocument();
+    expect(screen.getByText(/sin historia para el organismo 7084/i)).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });
@@ -95,7 +95,7 @@ describe('CompetenciaSection', () => {
     pintar();
 
     expect(screen.getByText(/no pudimos cargar la competencia/i)).toBeInTheDocument();
-    expect(screen.queryByText(/sin datos de competencia/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no tiene órdenes de compra en el rubro/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /reintentar/i }));
     expect(estados.competidores.refetch).toHaveBeenCalledTimes(1);
@@ -108,18 +108,7 @@ describe('CompetenciaSection', () => {
     expect(screen.getByRole('button', { name: /reintentando/i })).toBeDisabled();
   });
 
-  it('el gráfico de dispersión queda fuera del árbol accesible y remite a la tabla (axe, svg-img-alt)', () => {
-    // Recharts 2.15 pone `role="img"` sin nombre en cada punto (`Scatter.js`):
-    // un lector de pantalla anunciaba una imagen muda por proveedor.
-    // jsdom no trae ResizeObserver y `ResponsiveContainer` lo pide al montar.
-    vi.stubGlobal(
-      'ResizeObserver',
-      class {
-        observe() {}
-        unobserve() {}
-        disconnect() {}
-      },
-    );
+  it('cada proveedor es una barra fuera del árbol accesible, con su cuota escrita como texto', () => {
     estados.competidores = {
       ...base(),
       data: {
@@ -140,16 +129,18 @@ describe('CompetenciaSection', () => {
     };
     const { container } = pintar();
 
-    const grafico = container.querySelector('.recharts-responsive-container');
-    expect(grafico?.closest('[aria-hidden="true"]')).not.toBeNull();
-    expect(screen.getByText('Los datos del gráfico están en «Tabla».')).toHaveClass('sr-only');
+    const barra = container.querySelector('.bg-dato');
+    expect(barra?.closest('[aria-hidden="true"]')).not.toBeNull();
+    expect(screen.getByText('Proveedor A')).toBeInTheDocument();
+    expect(screen.getByText('40,0 %')).toBeInTheDocument();
+    expect(container.querySelector('.recharts-responsive-container')).toBeNull();
   });
 
   it('si el backend dice que no hay datos, sí es «Sin datos»', () => {
     estados.competidores = sinDatos();
     pintar();
 
-    expect(screen.getByText(/sin datos de competencia/i)).toBeInTheDocument();
+    expect(screen.getByText(/no tiene órdenes de compra en el rubro/i)).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });
@@ -162,8 +153,8 @@ describe('EstacionalidadSection', () => {
     estados.estacionalidad = fallo();
     pintar();
 
-    expect(screen.getByText(/no pudimos cargar la estacionalidad/i)).toBeInTheDocument();
-    expect(screen.queryByText(/sin datos de estacionalidad/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/no pudimos cargar los meses de compra/i)).toBeInTheDocument();
+    expect(screen.queryByText(/no tiene compras del rubro/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /reintentar/i }));
     expect(estados.estacionalidad.refetch).toHaveBeenCalledTimes(1);
@@ -182,7 +173,7 @@ describe('EstacionalidadSection', () => {
     estados.estacionalidad = sinDatos();
     pintar();
 
-    expect(screen.getByText(/sin datos de estacionalidad/i)).toBeInTheDocument();
+    expect(screen.getByText(/no tiene compras del rubro/i)).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });

@@ -205,7 +205,7 @@ test('/mercado conserva sus filtros dentro de la página, y se quedan arriba al 
   await page.setViewportSize(ESCRITORIO);
   await page.goto('/mercado');
   await expect(page.getByRole('heading', { level: 1, name: /^mercados$/i })).toBeVisible({ timeout: 15_000 });
-  const filtro = page.getByRole('main').getByText('Mercado:', { exact: true });
+  const filtro = page.getByRole('main').getByRole('button', { name: /^Rubro: / });
   await expect(filtro).toBeVisible();
 
   const recorrido = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);

@@ -1,178 +1,125 @@
-// frontend/app/(panel)/mercado/components/CompradoresSection.tsx
 'use client';
 
-import { useState } from 'react';
-import { ChevronDown, ChevronUp, Loader2, Building2 } from 'lucide-react';
-import { CompradorResult, OrganismoConNombre, scoreColor, scoreBg } from '../types';
+import { Loader2 } from 'lucide-react';
+
 import { ErrorDeCarga } from '@/components/ErrorDeCarga';
-import { useComprador } from '@/lib/queries';
 import { decimal } from '@/lib/formato';
+import { normalizeText } from '@/lib/nombresChile';
+import { useComprador } from '@/lib/queries';
+
+import { CompradorResult, OrganismoConNombre } from '../types';
 
 interface CompradorSectionProps {
   topOrganismos: OrganismoConNombre[];
   rubro: string;
   focusedOrganismo?: OrganismoConNombre | null;
-  focusedNombre?: string; // NEW: display name of the focused organismo
+  focusedNombre?: string;
 }
 
 function pctOpc(v?: number | null): string {
   return v == null ? '—' : `${decimal(v * 100, 0)}%`;
 }
 
-function CompradorCard({ organismoId }: { organismoId: string }) {
-  // La deduplicación entre tarjetas la hace TanStack Query por clave: dos
-  // tarjetas del mismo organismo comparten una sola petición, que es lo que
-  // hacía a mano el `useCompradorCache` que se eliminó.
+/** Las señales del historial, en palabras y sin alarma: lo que el dato dice, no un juicio. */
+function senales(f: CompradorResult['risk_flags']): string[] {
+  if (!f || f.n_flags === 0) return [];
+  return [
+    f.aceptacion_lenta && 'sus órdenes tardan en aceptarse',
+    f.aceptacion_impredecible && 'el plazo de aceptación varía mucho',
+    f.cancelaciones && 'cancela seguido',
+    f.licitaciones_fallidas && 'declara desierto seguido',
+    f.baja_calificacion && 'los proveedores lo califican bajo',
+    f.compras_irregulares && 'compra de forma irregular en el año',
+  ].filter(Boolean) as string[];
+}
+
+/**
+ * Un comprador en una fila: su nota de 0 a 10 y los tres números de los que
+ * sale lo que importa para decidir —cuánto adjudica de lo que llama, cuánto
+ * cancela, cuántas órdenes le aceptan—, y sus señales en palabras.
+ *
+ * Antes era un acordeón con la nota en un color de semáforo y una insignia
+ * «excelente» que se leía como recomendación, bajo la pregunta «¿Son confiables
+ * los organismos que más compran?», que el dato no responde.
+ */
+function FilaComprador({ organismoId }: { organismoId: string }) {
   const consulta = useComprador(organismoId);
   const { data: respuesta, isPending: loading } = consulta;
   const data = (respuesta ?? null) as CompradorResult | null;
-  const [open, setOpen] = useState(false);
 
-  if (loading) return (
-    <div className="rounded-xl border border-border p-4 flex items-center gap-2 text-sm text-muted">
-      <Loader2 className="h-4 w-4 animate-spin" /> Cargando...
-    </div>
-  );
-
+  if (loading) {
+    return (
+      <li className="flex items-center gap-2 py-4 text-sm text-muted">
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Cargando el comprador
+      </li>
+    );
+  }
   // Un error NO es «sin datos»: decir que el organismo no tiene datos cuando la
   // API no respondió es una conclusión de negocio falsa.
-  if (consulta.isError) return (
-    <ErrorDeCarga
-      titulo="No pudimos cargar el perfil del comprador"
-      error={consulta.error}
-      onReintentar={() => void consulta.refetch()}
-      reintentando={consulta.isFetching}
-    />
-  );
+  if (consulta.isError) {
+    return (
+      <li className="py-4">
+        <ErrorDeCarga
+          titulo="No pudimos cargar este comprador"
+          error={consulta.error}
+          onReintentar={() => void consulta.refetch()}
+          reintentando={consulta.isFetching}
+        />
+      </li>
+    );
+  }
+  if (!data?.disponible) {
+    return <li className="py-4 text-sm text-muted">Sin historia para el organismo {organismoId}.</li>;
+  }
 
-  if (!data?.disponible) return (
-    <div className="rounded-xl border border-border p-4 text-sm text-muted">
-      Sin datos para organismo {organismoId}.
-    </div>
-  );
-
-  // buyer_score is 0-1 scale; scoreColor/scoreBg use 0-10 thresholds
-  const scoreDisplay = data.buyer_score != null ? data.buyer_score * 10 : null;
-  const scoreColorClass = scoreDisplay != null ? scoreColor(scoreDisplay) : 'text-muted';
-  const scoreClass = scoreDisplay != null ? scoreBg(scoreDisplay) : '';
+  const nota = data.buyer_score != null ? data.buyer_score * 10 : null;
+  const cifras = [
+    { etiqueta: 'Nota', valor: nota != null ? `${decimal(nota, 1)} de 10` : '—' },
+    { etiqueta: 'Adjudica', valor: pctOpc(data.tramitacion?.tasa_adjudicacion), detalle: 'de lo que llama' },
+    { etiqueta: 'Cancela', valor: pctOpc(data.tramitacion?.tasa_cancelacion), detalle: 'de sus órdenes' },
+    { etiqueta: 'Aceptadas', valor: pctOpc(data.tramitacion?.tasa_aceptacion), detalle: 'por el proveedor' },
+  ];
+  const lista = senales(data.risk_flags);
 
   return (
-    <div className="rounded-xl border border-border overflow-hidden">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-surface/60 hover:bg-primary/5 transition-colors text-left"
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          <Building2 className="h-4 w-4 text-muted shrink-0" />
-          <span className="font-medium text-text text-sm truncate">{data.nombre ?? organismoId}</span>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {scoreDisplay != null && (
-            <span className={`text-sm font-bold ${scoreColorClass}`}>{decimal(scoreDisplay, 1)}</span>
-          )}
-          {data.clasificacion && (
-            <span className={`text-xs rounded-full border px-2 py-0.5 ${scoreClass}`}>
-              {data.clasificacion}
-            </span>
-          )}
-          {open ? <ChevronUp className="h-3.5 w-3.5 text-muted" /> : <ChevronDown className="h-3.5 w-3.5 text-muted" />}
-        </div>
-      </button>
-
-      {open && (
-        <div className="px-4 py-4 space-y-4 border-t border-border">
-          {/* Los tres números son comportamiento del COMPRADOR, que es lo que
-              se puede usar para decidir. El que estaba en el primer hueco
-              —«Pago promedio: N días»— era comportamiento del proveedor
-              aceptando la orden, y encima anunciado como plazo de pago. */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-lg bg-surface border border-border p-3">
-              <p className="text-xs text-muted">Adjudica</p>
-              <p className="text-base font-semibold text-text mt-0.5">
-                {pctOpc(data.tramitacion?.tasa_adjudicacion)}
-              </p>
-              <p className="text-xs text-subtle mt-0.5">de lo que llama</p>
-            </div>
-            <div className="rounded-lg bg-surface border border-border p-3">
-              <p className="text-xs text-muted">Cancela</p>
-              <p className="text-base font-semibold text-text mt-0.5">
-                {pctOpc(data.tramitacion?.tasa_cancelacion)}
-              </p>
-              <p className="text-xs text-subtle mt-0.5">de sus órdenes</p>
-            </div>
-            <div className="rounded-lg bg-surface border border-border p-3">
-              <p className="text-xs text-muted">Órdenes aceptadas</p>
-              <p className="text-base font-semibold text-text mt-0.5">
-                {pctOpc(data.tramitacion?.tasa_aceptacion)}
-              </p>
-              <p className="text-xs text-subtle mt-0.5">por el proveedor</p>
-            </div>
+    <li className="py-4">
+      <p className="font-semibold text-text">{normalizeText(data.nombre ?? organismoId)}</p>
+      <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+        {cifras.map((c) => (
+          <div key={c.etiqueta}>
+            <dt className="text-sm text-muted">{c.etiqueta}</dt>
+            <dd className="cifra font-semibold text-text">{c.valor}</dd>
+            {c.detalle && <dd className="text-sm text-muted">{c.detalle}</dd>}
           </div>
-
-          {data.risk_flags && data.risk_flags.n_flags > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {data.risk_flags.aceptacion_lenta && (
-                <span
-                  title="Sus órdenes tardan en aceptarse mucho más que la mediana del sistema, que es de menos de dos días. Suele indicar fricción en el trámite."
-                  className="badge-danger text-xs cursor-help"
-                >
-                  ⚠ Trámite lento
-                </span>
-              )}
-              {data.risk_flags.aceptacion_impredecible && (
-                <span
-                  title="El tiempo hasta la aceptación varía mucho de una orden a otra."
-                  className="badge-danger text-xs cursor-help"
-                >
-                  ⚠ Trámite impredecible
-                </span>
-              )}
-              {data.risk_flags.cancelaciones && (
-                <span title="Alta tasa de órdenes canceladas" className="badge-danger text-xs cursor-help">⚠ Cancelaciones frecuentes</span>
-              )}
-              {data.risk_flags.licitaciones_fallidas && (
-                <span title="Declara desierta una parte alta de lo que llama a licitación" className="badge-danger text-xs cursor-help">⚠ Declara desierto seguido</span>
-              )}
-              {data.risk_flags.baja_calificacion && (
-                <span title="Calificación promedio de proveedores baja" className="badge-danger text-xs cursor-help">⚠ Baja calificación</span>
-              )}
-              {data.risk_flags.compras_irregulares && (
-                <span title="Compra de forma muy irregular a lo largo del año" className="badge-danger text-xs cursor-help">⚠ Compra irregular</span>
-              )}
-            </div>
-          )}
-        </div>
+        ))}
+      </dl>
+      {lista.length > 0 && (
+        <p className="mt-3 text-sm text-muted">
+          A tener en cuenta: {lista.join(', ')}.
+        </p>
       )}
-    </div>
+    </li>
   );
 }
 
-export function CompradoresSection({ topOrganismos, rubro, focusedOrganismo, focusedNombre }: CompradorSectionProps) {
+export function CompradoresSection({ topOrganismos, focusedOrganismo }: CompradorSectionProps) {
   const orgsAMostrar = focusedOrganismo ? [focusedOrganismo] : topOrganismos.slice(0, 3);
-
-  // Dynamic title and subtitle based on focus state and count
-  const tituloDinamico = focusedOrganismo || orgsAMostrar.length === 1
-    ? 'Perfil del comprador'
-    : 'Perfil de compradores';
-  const subtituloDinamico = focusedOrganismo
-    ? '¿Es confiable este comprador?'
-    : '¿Son confiables los organismos que más compran?';
+  const titulo = focusedOrganismo || orgsAMostrar.length === 1 ? 'Cómo compra' : 'Cómo compran los que más compran';
 
   return (
-    <section className="card space-y-4">
+    <section className="space-y-2">
       <div>
-        <h2 className="section-title flex items-center gap-2">
-          <Building2 className="h-5 w-5 text-primary" />
-          {tituloDinamico}
-        </h2>
-        <p className="text-xs text-muted mt-0.5">{subtituloDinamico}</p>
+        <h3 className="font-sans text-lg font-semibold text-text">{titulo}</h3>
+        <p className="mt-1 max-w-[65ch] text-sm text-muted">
+          Cuánto adjudica de lo que llama a licitación, cuánto cancela y cuántas de sus órdenes aceptan los
+          proveedores. La nota de 0 a 10 resume esos y otros cuatro datos de su historia.
+        </p>
       </div>
-
-      <div className="space-y-3">
+      <ul className="divide-y divide-border border-y border-border">
         {orgsAMostrar.map((org) => (
-          <CompradorCard key={org.codigo} organismoId={org.codigo} />
+          <FilaComprador key={org.codigo} organismoId={org.codigo} />
         ))}
-      </div>
+      </ul>
     </section>
   );
 }

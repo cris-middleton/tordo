@@ -1,26 +1,14 @@
-// frontend/app/(panel)/mercado/components/TendenciasSection.tsx
 'use client';
 
 import { useRef } from 'react';
-import { Loader2, TrendingUp } from 'lucide-react';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-  ReferenceLine,
-} from 'recharts';
-import { TendenciaItem, SerieAnualPunto } from '../types';
-import { TrendChart } from './TrendChart';
-import { InfoTooltip } from '@/components/bi/InfoTooltip';
-import { ShareMenu } from './ShareMenu';
+import { Loader2 } from 'lucide-react';
 
 import { EligeRubro } from '@/components/bi/EligeRubro';
-import { decimal } from '@/lib/formato';
+import { Columnas } from '@/components/graficos/Columnas';
+import { decimal, monto } from '@/lib/formato';
+
+import { SerieAnualPunto, TendenciaItem } from '../types';
+import { ShareMenu } from './ShareMenu';
 
 interface TendenciasSectionProps {
   tendencias: TendenciaItem[];
@@ -31,270 +19,87 @@ interface TendenciasSectionProps {
   cagrRubro?: number | null;
 }
 
-const CustomTooltip = ({ active, payload }: any) => {
-  if (!active || !payload?.length) return null;
-  const d = payload[0].payload as TendenciaItem;
-  return (
-    <div className="rounded-xl border border-border bg-surface shadow-lg px-4 py-3 text-sm max-w-xs">
-      <p className="font-semibold text-text mb-1">{d.RubroN2}</p>
-      <p className="text-muted">
-        Crecimiento anual: <span className={`font-bold ${d.cagr >= 0 ? 'text-accent' : 'text-danger'}`}>
-          {d.cagr > 0 ? '+' : ''}{decimal(d.cagr, 1)}%
-        </span>
-      </p>
-      {d.n_anios && (
-        <p className="text-xs text-subtle mt-1">
-          Basado en {d.total_oc?.toLocaleString('es-CL') ?? '?'} órdenes de compra en {d.n_anios} año{d.n_anios !== 1 ? 's' : ''}
-        </p>
-      )}
-    </div>
-  );
-};
+const conSigno = (v: number, digitos = 1) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${decimal(Math.abs(v), digitos)} %`;
 
-export function TendenciasSection({ tendencias, emergentes, loading, selectedRubro, serieAnual, cagrRubro }: TendenciasSectionProps) {
+/**
+ * Cuánto se compró en el rubro cada año: una columna por año con su monto, el
+ * último en `dato`, y la conclusión arriba en palabras («crece 12,4 % al año»).
+ *
+ * Antes era una curva de Recharts con el crecimiento en verde o rojo según el
+ * signo —el color como juicio— y, sin rubro, un ranking de 12 rubros en barras;
+ * desde que `/mercado` abre siempre con un rubro, esa rama no se pintaba nunca.
+ */
+export function TendenciasSection({ tendencias, loading, selectedRubro, serieAnual, cagrRubro }: TendenciasSectionProps) {
   const rootRef = useRef<HTMLElement>(null);
 
-  // Sin rubro no hay tendencia que enseñar, y decir «sin datos para este
-  // rubro» sobre un rubro que no se ha elegido describe mal el problema.
-  const sinRubro = !selectedRubro;
-
-  const summaryText = (() => {
-    if (selectedRubro && cagrRubro != null) {
-      return `Tendencias — ${selectedRubro}: ${cagrRubro > 0 ? '+' : ''}${decimal(cagrRubro, 1)}% anual promedio.`;
-    }
-    return `Tendencias del mercado: ${emergentes.length} rubros emergentes identificados.`;
-  })();
-
-  const shareFilename = `tordo-bi-tendencias-${selectedRubro ? selectedRubro.replace(/\s+/g, '-').toLowerCase() : 'mercado'}`;
-
-  if (loading) return (
-    <div className="card flex items-center justify-center py-12">
-      <Loader2 className="h-6 w-6 animate-spin text-primary" />
-    </div>
-  );
-
-  // Vista comprimida cuando hay rubro filtrado
-  if (selectedRubro && !loading) {
-    const found = tendencias.find((t) => t.RubroN2 === selectedRubro);
-
-    // CAGR a mostrar: prefiere cagr_rubro (computed from serie_anual, complete years only),
-    // fallback a found.cagr si cagr_rubro no está disponible
-    const cagrToShow = cagrRubro !== null && cagrRubro !== undefined
-      ? cagrRubro
-      : found?.cagr;
-
+  if (!selectedRubro) return <EligeRubro que="ver cómo viene creciendo ese mercado" />;
+  if (loading) {
     return (
-      <section ref={rootRef} className="card space-y-4">
-        <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="section-title flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-primary" />
-            Tendencias del mercado
-            <InfoTooltip
-              content={
-                <div className="space-y-1.5">
-                  <p className="font-semibold">¿Qué estoy viendo?</p>
-                  <p>
-                    El <b>monto total anual</b> adjudicado en Órdenes de Compra
-                    tramitadas vía Mercado Público para este rubro.
-                  </p>
-                  <p>
-                    Suma de todas las transacciones del año (todos los organismos compradores).
-                    No incluye licitaciones no adjudicadas.
-                  </p>
-                  <p className="text-subtle">Fuente: datos abiertos de ChileCompra.</p>
-                </div>
-              }
-              side="bottom"
-            />
-          </h2>
-          <p className="text-xs text-muted mt-0.5">¿Este mercado está creciendo o contrayéndose?</p>
-        </div>
-        <ShareMenu
-          targetRef={rootRef}
-          summaryText={summaryText}
-          filename={shareFilename}
-        />
-        </div>
-
-        {cagrToShow !== undefined && cagrToShow !== null ? (
-          <div className="rounded-xl border border-border bg-surface p-5">
-            <div className="grid grid-cols-1 md:grid-cols-[minmax(180px,1fr)_2fr] gap-5 items-center">
-              {/* Columna izquierda: métricas */}
-              {(() => {
-                // Computar YoY del último año desde serieAnual
-                let yoyPct: number | null = null;
-                let yoyFromYear: number | null = null;
-                let yoyToYear: number | null = null;
-                if (serieAnual && serieAnual.length >= 2) {
-                  const last = serieAnual[serieAnual.length - 1];
-                  const prev = serieAnual[serieAnual.length - 2];
-                  if (prev.monto_total > 0) {
-                    yoyPct = ((last.monto_total / prev.monto_total) - 1) * 100;
-                    yoyFromYear = prev.anio;
-                    yoyToYear = last.anio;
-                  }
-                }
-
-                const firstYear = serieAnual?.[0]?.anio;
-                const lastYear = serieAnual?.[serieAnual.length - 1]?.anio;
-                const cagrLabel = firstYear && lastYear ? `promedio anual ${firstYear}–${lastYear}` : 'promedio anual';
-
-                return (
-                  <div>
-                    <p className="text-sm text-muted">{selectedRubro}</p>
-
-                    {/* CAGR grande */}
-                    <p className={`text-3xl font-bold mt-1 ${(cagrToShow ?? 0) >= 0 ? 'text-accent' : 'text-danger'}`}>
-                      {(cagrToShow ?? 0) > 0 ? '+' : ''}{decimal(cagrToShow ?? 0, 1)}%
-                    </p>
-                    <p className="text-xs text-muted mt-0.5">{cagrLabel}</p>
-
-                    {/* YoY */}
-                    {yoyPct !== null && (
-                      <div className="mt-3 flex items-baseline gap-2">
-                        <span className={`text-sm font-semibold ${yoyPct >= 0 ? 'text-accent' : 'text-danger'}`}>
-                          {yoyPct > 0 ? '+' : ''}{decimal(yoyPct, 1)}%
-                        </span>
-                        <span className="text-xs text-muted">
-                          en {yoyToYear} vs. {yoyFromYear}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Stats pequeños */}
-                    <div className="mt-3 text-xs text-muted space-y-0.5">
-                      {found?.total_oc && <p>{found.total_oc.toLocaleString('es-CL')} OC totales</p>}
-                      {serieAnual && <p>{serieAnual.length} años completos</p>}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Columna derecha: chart que expande */}
-              {serieAnual && serieAnual.length >= 2 ? (
-                <div className="w-full h-[140px]">
-                  <TrendChart
-                    data={serieAnual}
-                    color={cagrToShow >= 0 ? '#0E7C7F' : '#B91C1C'}
-                  />
-                </div>
-              ) : (
-                <div className="w-full h-[140px] flex items-center justify-center text-xs text-muted">
-                  Sin serie anual disponible
-                </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <p className="text-sm text-muted">Sin datos de tendencia para este rubro.</p>
-        )}
-
-      </section>
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" aria-hidden="true" />
+      </div>
     );
   }
-  // Vista completa (sin rubro) — render original continúa abajo
 
-  const chartData = [...tendencias]
-    .sort((a, b) => b.cagr - a.cagr)
-    .slice(0, 12)
-    .map((t) => ({
-      ...t,
-      label: t.RubroN2.length > 35 ? t.RubroN2.slice(0, 35) + '…' : t.RubroN2,
-    }));
+  const fila = tendencias.find((t) => t.RubroN2 === selectedRubro);
+  const cagr = cagrRubro ?? fila?.cagr ?? null;
+  const serie = serieAnual ?? [];
+  const primero = serie[0]?.anio;
+  const ultimo = serie.at(-1)?.anio;
+  const conclusion =
+    cagr == null
+      ? null
+      : `${cagr >= 0 ? 'Crece' : 'Cae'} ${decimal(Math.abs(cagr), 1)} % al año${primero && ultimo ? ` entre ${primero} y ${ultimo}` : ''}.`;
+  const resumen = conclusion ? `${selectedRubro}: ${conclusion}` : selectedRubro;
+
+  let interanual: string | null = null;
+  if (serie.length >= 2) {
+    const [antes, despues] = serie.slice(-2);
+    if (antes.monto_total > 0) {
+      interanual = `${conSigno((despues.monto_total / antes.monto_total - 1) * 100)} en ${despues.anio} frente a ${antes.anio}`;
+    }
+  }
 
   return (
-    <section ref={rootRef} className="card space-y-4">
+    <section ref={rootRef} className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="section-title flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-primary" />
-            Tendencias del mercado
-            <InfoTooltip
-              content={
-                <div className="space-y-1.5">
-                  <p className="font-semibold">¿Qué estoy viendo?</p>
-                  <p>
-                    El <b>monto total anual</b> adjudicado en Órdenes de Compra
-                    tramitadas vía Mercado Público para este rubro.
-                  </p>
-                  <p>
-                    Suma de todas las transacciones del año (todos los organismos compradores).
-                    No incluye licitaciones no adjudicadas.
-                  </p>
-                  <p className="text-subtle">Fuente: datos abiertos de ChileCompra.</p>
-                </div>
-              }
-              side="bottom"
-            />
-          </h2>
-          <p className="text-xs text-muted mt-0.5">¿Este mercado está creciendo o contrayéndose?</p>
+          <h3 className="font-sans text-lg font-semibold text-text">Cómo viene creciendo</h3>
+          <p className="mt-1 text-sm text-muted">
+            Monto en órdenes de compra del rubro, por año, de todos los organismos.
+          </p>
         </div>
         <ShareMenu
           targetRef={rootRef}
-          summaryText={summaryText}
-          filename={shareFilename}
+          summaryText={resumen}
+          filename={`tordo-tendencia-${selectedRubro.replace(/\s+/g, '-').toLowerCase()}`}
         />
       </div>
 
-      {/* Emergentes badges */}
-      {emergentes.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          <span className="text-xs font-semibold text-muted self-center">En alza:</span>
-          {emergentes.slice(0, 3).map((e) => (
-            <span
-              key={e.RubroN2}
-              className="flex items-center gap-1.5 rounded-full bg-accent/15 border border-accent/25 px-3 py-1 text-xs font-semibold text-accent"
-            >
-              ↗ {e.RubroN2} {e.cagr > 0 ? '+' : ''}{decimal(e.cagr, 0)}% anual
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Horizontal bar chart */}
-      {chartData.length > 0 ? (
-        <ResponsiveContainer width="100%" height={Math.max(280, chartData.length * 36)}>
-          <BarChart
-            data={chartData}
-            layout="vertical"
-            margin={{ top: 0, right: 40, left: 8, bottom: 24 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#DCE3ED" />
-            <XAxis
-              type="number"
-              tickFormatter={(v) => `${v > 0 ? '+' : ''}${decimal(v, 1)}%`}
-              tick={{ fontSize: 11, fill: '#5F7089' }}
-              label={{ value: 'Crecimiento anual (%)', position: 'insideBottom', offset: -2, fontSize: 11, fill: '#5F7089' }}
+      {serie.length >= 2 ? (
+        <div className="max-w-3xl">
+          {conclusion && <p className="font-semibold text-text">{conclusion}</p>}
+          {interanual && <p className="mt-1 text-sm text-muted">{interanual}.</p>}
+          <div className="mt-4">
+            <Columnas
+              etiqueta="Monto en órdenes de compra por año"
+              columnas={serie.map((p, i) => ({
+                clave: String(p.anio),
+                etiqueta: String(p.anio),
+                valor: p.monto_total,
+                texto: monto(p.monto_total),
+                destacada: i === serie.length - 1,
+              }))}
             />
-            <YAxis
-              type="category"
-              dataKey="label"
-              width={200}
-              tick={{ fontSize: 11, fill: '#54637A' }}
-            />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F1F4F9' }} />
-            <ReferenceLine x={0} stroke="#C4D0E0" strokeWidth={1.5} />
-            <Bar dataKey="cagr" radius={[0, 4, 4, 0]} maxBarSize={20}>
-              {chartData.map((entry, i) => (
-                <Cell
-                  key={`cell-${i}`}
-                  fill={entry.cagr >= 0 ? '#0E7C7F' : '#B91C1C'}
-                  fillOpacity={0.85}
-                />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      ) : (
-        sinRubro ? (
-          <EligeRubro que="cómo viene creciendo ese mercado" />
-        ) : (
-          <div className="flex flex-col items-center gap-3 py-10 text-center">
-            <TrendingUp className="h-7 w-7 text-muted" />
-            <p className="text-sm text-muted">No hay datos de tendencias para este rubro.</p>
           </div>
-        )
+          {fila?.total_oc != null && (
+            <p className="mt-3 text-sm text-muted">
+              {fila.total_oc.toLocaleString('es-CL')} órdenes de compra en {serie.length} años completos.
+            </p>
+          )}
+        </div>
+      ) : (
+        <p className="text-sm text-muted">Este rubro no tiene dos años completos para comparar.</p>
       )}
     </section>
   );

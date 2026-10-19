@@ -62,7 +62,7 @@ describe('TabPrecio', () => {
     await waitFor(() => {
       expect(screen.getByText(/precio típico/i)).toBeInTheDocument();
     });
-    expect(screen.getByText('CLP 45K')).toBeInTheDocument();
+    expect(screen.getByText('$45.000')).toBeInTheDocument();
     expect(screen.getByText(/datos del organismo específico/)).toBeInTheDocument();
     // Con una sola banda no se anuncia una cuenta de "productos distintos".
     expect(screen.queryByText(/productos distintos/)).not.toBeInTheDocument();
@@ -86,8 +86,8 @@ describe('TabPrecio', () => {
     });
     // Las dos bandas se ven, no sólo la primera — es la corrección que se audita.
     expect(screen.getByText('Criovial 2 ml')).toBeInTheDocument();
-    expect(screen.getByText('CLP 557K')).toBeInTheDocument();
-    expect(screen.getByText('CLP 1')).toBeInTheDocument();
+    expect(screen.getByText('$557.000')).toBeInTheDocument();
+    expect(screen.getByText('$1')).toBeInTheDocument();
     // L0 tiene su propia lectura, distinta de "datos del organismo específico".
     expect(screen.getByText(/producto exacto/)).toBeInTheDocument();
     expect(screen.getByText(/2 productos distintos/)).toBeInTheDocument();

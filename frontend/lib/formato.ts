@@ -29,3 +29,27 @@ function formateador(digitos: number): Intl.NumberFormat {
 export function decimal(v: number, digitos = 1): string {
   return formateador(digitos).format(v);
 }
+
+/**
+ * Un monto en pesos, como se lee en Chile: «$825.000», «$7,2 millones», «$1 millón»,
+ * «$1,5 mil millones», «$2,1 billones». **El formato de montos de todo el sitio**
+ * (listas, fichas, RSS): antes convivían «$825K», «$7,2M», «$1,5B» (que en Chile se
+ * lee como billón, 10¹²), «CLP 42,1 billones» y hasta «$1.000K».
+ *
+ * Bajo un millón, la cifra entera: se lee de una vez y no pierde nada. Desde un
+ * millón, un decimal sin «,0». `plata` (`lib/publico.ts`) redondea los millones a
+ * entero a propósito, para las bandas de precio; aquí no.
+ */
+export function monto(clp: number): string {
+  const signo = clp < 0 ? '−' : '';
+  const v = Math.abs(clp);
+  const uno = (x: number) => decimal(Math.round(x * 10) / 10, 1).replace(/,0$/, '');
+  if (v < 999_950) return `${signo}$${decimal(Math.round(v), 0)}`;
+  if (v < 999_950_000) {
+    const m = uno(v / 1e6);
+    return `${signo}$${m} ${m === '1' ? 'millón' : 'millones'}`;
+  }
+  if (v < 999_950_000_000) return `${signo}$${uno(v / 1e9)} mil millones`;
+  const b = uno(v / 1e12);
+  return `${signo}$${b} ${b === '1' ? 'billón' : 'billones'}`;
+}

@@ -2,9 +2,10 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { BarChart3, Columns, Loader2, Target } from 'lucide-react';
+import { BarChart3, Loader2 } from 'lucide-react';
 
 import { ErrorDeCarga } from '@/components/ErrorDeCarga';
+import { MESES_ANALISIS } from '@/lib/periodo';
 import {
   useBIOportunidades,
   useBIPanorama,
@@ -53,8 +54,8 @@ import { TendenciasSection } from './components/TendenciasSection';
  *
  * Desde el pivote a sitio público no hay cuenta ni empresa: no hay «tu
  * posición», ni rubros guardados en un perfil, ni secciones con candado. Sin
- * rubro en la URL la pantalla arranca sin ninguno y cada sección invita a
- * elegirlo arriba.
+ * rubro en la URL abre en el de más mercados, y antes de él, lo nacional: cuánto
+ * compra cada sector (`SectorOverview`).
  *
  * Antes eran cinco secciones del mismo peso visual en un scroll largo, y la
  * primera pregunta —la que trae al usuario— no se respondía en ninguna.
@@ -101,10 +102,10 @@ function Seccion({
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-3">
+    <section className="space-y-6">
       <div>
         <h2 className="section-title">{titulo}</h2>
-        {descripcion && <p className="text-sm text-muted">{descripcion}</p>}
+        {descripcion && <p className="mt-2 max-w-[65ch] text-muted">{descripcion}</p>}
       </div>
       {children}
     </section>
@@ -131,13 +132,21 @@ function BIContenido() {
   const [orgElegido, setOrgElegido] = useState('');
 
   const consultaRubros = useBIRubros();
-  const allRubros = useMemo<string[]>(() => {
+  const rubrosPorFrecuencia = useMemo<string[]>(() => {
     const datos = consultaRubros.data as { disponible?: boolean; rubros?: string[] } | undefined;
-    if (!datos?.disponible) return [];
-    return [...(datos.rubros ?? [])].sort((a, b) => a.localeCompare(b, 'es'));
+    return datos?.disponible ? (datos.rubros ?? []) : [];
   }, [consultaRubros.data]);
+  const allRubros = useMemo(
+    () => [...rubrosPorFrecuencia].sort((a, b) => a.localeCompare(b, 'es')),
+    [rubrosPorFrecuencia],
+  );
 
-  const rubro = rubroElegido ?? '';
+  // Sin rubro en la URL, el de más mercados (`/bi/rubros` viene ordenado por
+  // frecuencia). Antes la pantalla abría con tres recuadros vacíos que pedían
+  // «Elige un rubro arriba». El elegido por defecto NO se escribe en la URL:
+  // `/mercado` sigue siendo `/mercado`.
+  const rubroPorDefecto = rubrosPorFrecuencia[0] ?? '';
+  const rubro = rubroElegido || rubroPorDefecto;
 
   // ── Datos de la pantalla ─────────────────────────────────────────────────
   const consultaPanorama = useBIPanorama(rubro || undefined);
@@ -209,12 +218,12 @@ function BIContenido() {
   // con `replaceState` para no llenar el historial con cada cambio de filtro.
   useEffect(() => {
     const siguiente = new URLSearchParams();
-    if (rubro) siguiente.set('rubro', rubro);
+    if (rubroElegido) siguiente.set('rubro', rubroElegido);
     if (focusCodigo) siguiente.set('focus', focusCodigo);
     if (compareMode && rubroB) siguiente.set('compare', rubroB);
     const qs = siguiente.toString();
     window.history.replaceState({}, '', qs ? `?${qs}` : window.location.pathname);
-  }, [rubro, focusCodigo, compareMode, rubroB]);
+  }, [rubroElegido, focusCodigo, compareMode, rubroB]);
 
   if (cargandoInicial) {
     return (
@@ -227,10 +236,7 @@ function BIContenido() {
   if (biDesactivado) {
     return (
       <div className="space-y-4">
-        <h1 className="page-title flex items-center gap-2">
-          <BarChart3 className="h-6 w-6 text-primary" aria-hidden="true" />
-          Mercados
-        </h1>
+        <h1 className="page-title">Mercados</h1>
         <BIDesactivado />
       </div>
     );
@@ -241,10 +247,7 @@ function BIContenido() {
   if (consultaRubros.isError) {
     return (
       <div className="space-y-4">
-        <h1 className="page-title flex items-center gap-2">
-          <BarChart3 className="h-6 w-6 text-primary" aria-hidden="true" />
-          Mercados
-        </h1>
+        <h1 className="page-title">Mercados</h1>
         <ErrorDeCarga
           titulo="No pudimos cargar los rubros"
           error={consultaRubros.error}
@@ -259,34 +262,26 @@ function BIContenido() {
   // del `h1`, el tope es el de toda página). El selector sigue pegado arriba al bajar.
   return (
     <div className="flex min-h-screen flex-col">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="page-title flex items-center gap-2">
-            <BarChart3 className="h-6 w-6 text-primary" aria-hidden="true" />
-            Mercados
-          </h1>
-          {rubro && <p className="mt-2 text-sm text-muted">{rubro}</p>}
-        </div>
-        {!compareMode && rubro && (
-          <button
-            onClick={() => setCompareMode(true)}
-            className="hidden items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-text transition-colors hover:border-primary hover:text-primary md:flex"
-          >
-            <Columns className="h-4 w-4" aria-hidden="true" />
-            Comparar con otro rubro
-          </button>
-        )}
-      </div>
+      <h1 className="page-title">Mercados</h1>
+      <p className="mt-2 max-w-[65ch] text-muted">
+        Cuánto compra el Estado por sector y por rubro, quién le vende y en qué meses compra, con los
+        últimos {MESES_ANALISIS} meses de órdenes de compra.
+      </p>
 
+      {!compareMode && <SectorOverview />}
+
+      <h2 className="section-title mt-8 lg:mt-16">Un rubro</h2>
       <RubroFilter
         rubros={allRubros}
         selectedRubro={rubro}
         onRubroChange={cambiarRubro}
         focusedOrganismo={focusedOrganismo}
         onClearFocus={() => setFocusCodigo(null)}
+        porDefecto={!rubroElegido && Boolean(rubro)}
+        onComparar={!compareMode && rubro ? () => setCompareMode(true) : undefined}
       />
 
-      <div className="flex-1 space-y-8 pt-6">
+      <div className="flex-1 space-y-12 pt-8 lg:space-y-16">
 
         {compareMode ? (
           <CompareMode
@@ -302,12 +297,10 @@ function BIContenido() {
           />
         ) : (
           <>
-            <SectorOverview />
-
             {/* ── 1. ¿Cómo está este mercado? ───────────────────────────── */}
             <Seccion
               titulo="Cómo está el mercado"
-              descripcion="Tamaño, competencia y calendario del rubro completo, no de un comprador suelto."
+              descripcion="Tamaño, competencia, calendario y crecimiento del rubro completo, con todos sus compradores."
             >
               {/* El párrafo primero y las cifras después: quien abre esto no
                   quiere leer un tablero, quiere que le digan cómo está el
@@ -336,12 +329,29 @@ function BIContenido() {
                   rubro={rubro}
                 />
               )}
+              {consultaTendencia.isError ? (
+                <ErrorDeCarga
+                  titulo="No pudimos cargar las tendencias"
+                  error={consultaTendencia.error}
+                  onReintentar={() => void consultaTendencia.refetch()}
+                  reintentando={consultaTendencia.isFetching}
+                />
+              ) : (
+                <TendenciasSection
+                  tendencias={tendencia?.tendencias ?? []}
+                  emergentes={tendencia?.emergentes ?? []}
+                  loading={consultaTendencia.isFetching}
+                  selectedRubro={rubro}
+                  serieAnual={tendencia?.serie_anual ?? null}
+                  cagrRubro={tendencia?.cagr_rubro ?? null}
+                />
+              )}
             </Seccion>
 
             {/* ── 2. ¿Qué hago esta semana? ─────────────────────────────── */}
             <Seccion
               titulo="Dónde mirar primero"
-              descripcion="Los mercados con mejor combinación de precio, competencia y regularidad."
+              descripcion="Los compradores de este rubro, ordenados por precio, competencia y regularidad de compra."
             >
               {consultaOportunidades.isError ? (
                 <ErrorDeCarga
@@ -365,30 +375,12 @@ function BIContenido() {
                   }}
                 />
               )}
-              {consultaTendencia.isError ? (
-                <ErrorDeCarga
-                  titulo="No pudimos cargar las tendencias"
-                  error={consultaTendencia.error}
-                  onReintentar={() => void consultaTendencia.refetch()}
-                  reintentando={consultaTendencia.isFetching}
-                />
-              ) : (
-                <TendenciasSection
-                  tendencias={tendencia?.tendencias ?? []}
-                  emergentes={tendencia?.emergentes ?? []}
-                  loading={consultaTendencia.isFetching}
-                  selectedRubro={rubro}
-                  serieAnual={tendencia?.serie_anual ?? null}
-                  cagrRubro={tendencia?.cagr_rubro ?? null}
-                />
-              )}
             </Seccion>
 
             {/* ── 3. Detalle de un comprador ────────────────────────────── */}
             <div data-section="detalle-comprador" className="space-y-6">
               {focusedOrganismo && (
                 <div className="flex items-center gap-3 rounded-xl border border-border bg-surface-elevated px-4 py-3">
-                  <Target className="h-5 w-5 shrink-0 text-accent" aria-hidden="true" />
                   <div className="flex-1 text-sm">
                     <p className="text-text">
                       <span className="text-muted">Mirando en detalle:</span>{' '}

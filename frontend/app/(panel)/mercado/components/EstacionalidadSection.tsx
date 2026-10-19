@@ -2,21 +2,14 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, Calendar } from 'lucide-react';
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
+import { Loader2 } from 'lucide-react';
+
+import { Columnas } from '@/components/graficos/Columnas';
 import { EstacionalidadMes, MESES, OrganismoConNombre } from '../types';
 import { ErrorDeCarga } from '@/components/ErrorDeCarga';
 import { useEstacionalidad } from '@/lib/queries';
-import { InfoTooltip } from '@/components/bi/InfoTooltip';
 import { decimal } from '@/lib/formato';
+import { normalizeText } from '@/lib/nombresChile';
 
 interface EstacionalidadSectionProps {
   topOrganismos: OrganismoConNombre[];
@@ -26,27 +19,13 @@ interface EstacionalidadSectionProps {
   focusedNombre?: string; // NEW: display name of the focused organismo
 }
 
-const CustomTooltip = ({ active, payload }: any) => {
-  if (!active || !payload?.length) return null;
-  const d = payload[0]?.payload as any;
-  if (!d) return null;
-  const prob = d.prob_mes != null ? decimal(d.prob_mes * 100, 0) : '?';
-  const consist = d.consistencia != null ? decimal(d.consistencia * 100, 0) : '?';
-  return (
-    <div className="rounded-xl border border-border bg-surface shadow-lg px-4 py-3 text-sm max-w-xs">
-      <p className="font-semibold text-text mb-1">{d.label}</p>
-      <p className="text-muted">
-        Probabilidad de compra: <span className="text-text font-medium">{prob}%</span>
-      </p>
-      <p className="text-muted">
-        Se repite el <span className="text-text font-medium">{consist}%</span> de los años
-      </p>
-      {d.es_pico_estacional && (
-        <p className="text-accent font-medium mt-1">📈 Mes pico</p>
-      )}
-    </div>
-  );
-};
+const MESES_LARGOS = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+
+/** «enero, febrero y octubre». */
+const enLista = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} y ${xs.at(-1)}`);
 
 export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, focused, focusedNombre }: EstacionalidadSectionProps) {
   // El organismo mostrado se DERIVA, no se sincroniza con dos efectos: manda el
@@ -69,51 +48,35 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
   const patrones = ((res?.disponible ? res.patrones : []) ?? []) as EstacionalidadMes[];
   const loading = Boolean(selectedOrg) && isFetching;
 
-  const chartData = Array.from({ length: 12 }, (_, i) => {
-    const mes = i + 1;
-    const found = patrones.find((p) => p.mes === mes);
-    const prob = found?.prob_mes ?? 0;
-    const consist = found?.consistencia ?? 0;
-    const spread = (1 - consist) * prob * 0.5;
+  const meses = Array.from({ length: 12 }, (_, i) => {
+    const found = patrones.find((p) => p.mes === i + 1);
     return {
-      label: MESES[i],
-      mes,
-      prob_mes: found?.prob_mes,
-      consistencia: found?.consistencia,
-      es_pico_estacional: found?.es_pico_estacional ?? false,
-      bandLow: Math.max(0, prob - spread),
-      bandHigh: Math.min(1, prob + spread),
-      probPct: prob * 100,
+      mes: i + 1,
+      etiqueta: MESES[i].toLowerCase(),
+      prob: found?.prob_mes ?? 0,
+      pico: found?.es_pico_estacional ?? false,
     };
   });
-
-  const picoMeses = chartData.filter((d) => d.es_pico_estacional).map((d) => d.label);
-  const avgConsist = patrones.length > 0
-    ? decimal(patrones.reduce((s, p) => s + (p.consistencia ?? 0), 0) / patrones.length * 100, 0)
-    : null;
+  const picoMeses = meses.filter((m) => m.pico).map((m) => MESES_LARGOS[m.mes - 1]);
+  const conclusion =
+    picoMeses.length > 0
+      ? `Compra sobre todo en ${enLista(picoMeses)}.`
+      : 'No tiene meses en que compre más que en el resto.';
 
   return (
-    <section className="card space-y-4">
+    <section className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="section-title flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-primary" />
-            Estacionalidad de compras
-            <InfoTooltip
-              content={
-                <div className="space-y-1.5">
-                  <p><b>Probabilidad de compra:</b> % de los años en que este comprador compra en ese mes.</p>
-                  <p><b>Cuánto se repite:</b> si el patrón se cumple todos los años. 100% = compra siempre en los mismos meses; 0% = impredecible.</p>
-                  <p><b>Picos</b> (punto grande): los meses en que compra de verdad, año tras año.</p>
-                </div>
-              }
-              side="bottom"
-            />
-          </h2>
-          <p className="text-xs text-muted mt-0.5">
-            {focused && focusedNombre
-              ? <>¿En qué meses compra <span className="font-medium text-text">{focusedNombre.length > 45 ? `${focusedNombre.slice(0, 45)}…` : focusedNombre}</span>?</>
-              : '¿En qué meses compran más?'}
+          <h3 className="font-sans text-lg font-semibold text-text">En qué meses compra</h3>
+          <p className="mt-1 text-sm text-muted">
+            {focused && focusedNombre ? (
+              <>
+                <span className="font-medium text-text">{focusedNombre}</span>: en cuántos de los años con datos
+                compró en cada mes.
+              </>
+            ) : (
+              'En cuántos de los años con datos compró en cada mes.'
+            )}
           </p>
         </div>
 
@@ -123,130 +86,53 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
             value={selectedOrg}
             onChange={(e) => setSelectedOrg(e.target.value)}
             disabled={!!focusedOrganismo}
-            className="min-w-0 max-w-full text-base sm:text-sm rounded-lg border border-border bg-surface px-3 py-1.5 text-text disabled:opacity-60 disabled:cursor-not-allowed"
+            className="h-11 min-w-0 max-w-full rounded-lg border border-borderInput bg-surface px-3 text-base text-text disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
           >
             {optionsOrganismos.map((o) => (
               <option key={o.codigo} value={o.codigo} title={o.nombre}>
-                {o.nombre.length > 40 ? `${o.nombre.slice(0, 40)}…` : o.nombre}
+                {normalizeText(o.nombre.length > 40 ? `${o.nombre.slice(0, 40)}…` : o.nombre)}
               </option>
             ))}
           </select>
         )}
       </div>
 
-      {picoMeses.length > 0 && (
-        <div className="rounded-xl border border-accent/25 bg-accent/10 px-4 py-2.5 text-sm text-accent flex flex-wrap items-center gap-1">
-          <span>Suele comprar más en</span>
-          <span className="font-semibold">{picoMeses.join(', ')}.</span>
-          {avgConsist && (
-            <span className="flex items-center gap-1">
-              <span>Se repite, en promedio:</span>
-              <InfoTooltip
-                content={
-                  <div>
-                    Qué tan repetible es el patrón año a año.
-                    <br />
-                    <b>100%</b> = compran siempre en los mismos meses.
-                    <br />
-                    <b>0%</b> = patrón errático.
-                  </div>
-                }
-              >
-                <span className="font-semibold">{avgConsist}%</span>
-              </InfoTooltip>
-            </span>
-          )}
-        </div>
-      )}
-
       {/* El error va antes que el spinner: durante un «Reintentar» `isFetching` es
           true y `isError` también, y no debe volver a girar sin decir qué pasó. */}
       {consulta.isError ? (
         <ErrorDeCarga
-          titulo="No pudimos cargar la estacionalidad"
+          titulo="No pudimos cargar los meses de compra"
           error={consulta.error}
           onReintentar={() => void consulta.refetch()}
           reintentando={consulta.isFetching}
         />
       ) : loading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden="true" />
         </div>
       ) : patrones.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 py-10 text-center">
-          <Calendar className="h-7 w-7 text-muted" />
-          <p className="text-sm text-muted">Sin datos de estacionalidad para este organismo y rubro.</p>
-        </div>
+        <p className="py-6 text-sm text-muted">Este organismo no tiene compras del rubro en los años con datos.</p>
       ) : (
-        <ResponsiveContainer width="100%" height={260}>
-          <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-            <defs>
-              <linearGradient id="bandGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#102858" stopOpacity={0.15} />
-                <stop offset="95%" stopColor="#102858" stopOpacity={0.02} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#DCE3ED" />
-            <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#5F7089' }} />
-            <YAxis
-              tickFormatter={(v) => `${decimal(v, 0)}%`}
-              tick={{ fontSize: 11, fill: '#5F7089' }}
-              domain={[0, 'auto']}
-              width={70}
-              label={{
-                value: 'Probabilidad de compra (%)',
-                angle: -90,
-                position: 'insideLeft',
-                offset: 0,
-                style: { fontSize: 11, fill: '#54637A', textAnchor: 'middle' },
-              }}
+        <div className="max-w-3xl">
+          <p className="font-semibold text-text">{conclusion}</p>
+          <div className="mt-4">
+            <Columnas
+              etiqueta="Porcentaje de los años en que compró en cada mes"
+              columnas={meses.map((m) => ({
+                clave: String(m.mes),
+                etiqueta: m.etiqueta,
+                valor: m.prob,
+                texto: `${decimal(m.prob * 100, 0)}%`,
+                destacada: m.pico,
+              }))}
             />
-            <Tooltip content={<CustomTooltip />} />
-
-            {/* Confidence band upper */}
-            <Area
-              type="monotone"
-              dataKey="bandHigh"
-              stroke="none"
-              fill="url(#bandGradient)"
-              isAnimationActive={false}
-            />
-            {/* Confidence band lower — masks to create band effect */}
-            <Area
-              type="monotone"
-              dataKey="bandLow"
-              stroke="none"
-              fill="#ffffff"
-              isAnimationActive={false}
-            />
-            {/* Main line */}
-            <Area
-              type="monotone"
-              dataKey="probPct"
-              stroke="#102858"
-              strokeWidth={2}
-              fill="none"
-              dot={(props: any) => {
-                const d = props.payload;
-                if (!d.es_pico_estacional) {
-                  return <circle key={props.key} cx={props.cx} cy={props.cy} r={3} fill="#102858" opacity={0.5} />;
-                }
-                return (
-                  <circle
-                    key={props.key}
-                    cx={props.cx}
-                    cy={props.cy}
-                    r={6}
-                    fill="#0E7C7F"
-                    stroke="#ffffff"
-                    strokeWidth={2}
-                  />
-                );
-              }}
-              isAnimationActive={false}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+          </div>
+          {picoMeses.length > 0 && (
+            <p className="mt-3 text-sm text-muted">
+              En color, los meses en que compra más que en el resto, año tras año.
+            </p>
+          )}
+        </div>
       )}
     </section>
   );

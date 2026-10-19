@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
-import { Loader2, Sparkles, Info } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { ResumenMercado } from '../types';
 import { buildFrases } from '../narrative/templates';
 import { ShareMenu } from './ShareMenu';
@@ -25,8 +25,8 @@ export function MarketSummaryCard({ resumen, loading, rubro }: MarketSummaryCard
   // Loading state
   if (loading) {
     return (
-      <section className="card flex items-center gap-3 py-6">
-        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+      <section className="flex items-center gap-3 py-6">
+        <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden="true" />
         <p className="text-sm text-muted">Analizando el mercado…</p>
       </section>
     );
@@ -38,9 +38,8 @@ export function MarketSummaryCard({ resumen, loading, rubro }: MarketSummaryCard
   // Backend retornó disponible:false — mostrar el motivo como diagnóstico liviano
   if (!resumen.disponible) {
     return (
-      <section className="card py-4">
+      <section className="py-2">
         <div className="flex items-start gap-3">
-          <Info className="h-4 w-4 text-muted shrink-0 mt-0.5" />
           <p className="text-sm text-muted">
             {motivoParaPersona(resumen.motivo, 'Resumen no disponible para este rubro.')}
           </p>
@@ -55,11 +54,10 @@ export function MarketSummaryCard({ resumen, loading, rubro }: MarketSummaryCard
   // No se pudo construir ninguna frase (todos los campos del backend vinieron null/insuficientes)
   if (frases.length === 0) {
     return (
-      <section className="card py-4">
+      <section className="py-2">
         <div className="flex items-start gap-3">
-          <Info className="h-4 w-4 text-muted shrink-0 mt-0.5" />
           <p className="text-sm text-muted">
-            Datos de resumen insuficientes para este rubro.
+            Este rubro no tiene datos suficientes para resumirlo.
           </p>
         </div>
       </section>
@@ -73,16 +71,16 @@ export function MarketSummaryCard({ resumen, loading, rubro }: MarketSummaryCard
   const filename = `tordo-bi-resumen-${resumen.rubro?.replace(/\s+/g, '-').toLowerCase() || 'mercado'}`;
 
   return (
-    <section ref={rootRef} className="card bg-gradient-to-br from-primary/5 via-background to-accent/5 border-primary/20">
+    // La conclusión del rubro en una o dos frases, como entrada de la sección.
+    // Antes iba en una tarjeta con degradado y un icono de destellos: el disfraz
+    // de «lo escribió una IA» sobre frases que salen de plantillas con el dato.
+    <section ref={rootRef}>
       <div className="flex items-start gap-3">
-        <div className="rounded-full bg-primary/15 p-2 shrink-0">
-          <Sparkles className="h-4 w-4 text-primary" />
-        </div>
-        <div className="flex-1 space-y-2">
+        <div className="max-w-[65ch] flex-1 space-y-2">
           {frases.map((f, i) => (
             <p
               key={i}
-              className="text-sm leading-relaxed text-text"
+              className="text-lg leading-relaxed text-text"
               dangerouslySetInnerHTML={{ __html: f }}
             />
           ))}
