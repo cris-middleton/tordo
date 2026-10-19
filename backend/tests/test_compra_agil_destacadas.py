@@ -552,6 +552,13 @@ async def test_search_filtra(cliente, mercado):
     assert _codigos(await cliente.get(RUTA, params={"search": "bodega montt"})) == ["CA-SUR"]
 
 
+async def test_search_busca_al_comienzo_de_la_palabra(cliente, mercado):
+    """La misma regla que el catálogo (`coincide_termino`): «mont» encuentra
+    «Montt»; «odega», a mitad de «bodega», no encuentra nada."""
+    assert _codigos(await cliente.get(RUTA, params={"search": "mont"})) == ["CA-SUR"]
+    assert _codigos(await cliente.get(RUTA, params={"search": "odega"})) == []
+
+
 async def test_es_publica_sin_authorization(cliente, mercado):
     r = await cliente.get(RUTA)
     assert r.status_code == 200

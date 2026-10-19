@@ -1427,7 +1427,8 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   - **La regla de la firma vive en `backend/app/utils/firma.py`** (Python puro) y el ETL la
     importa por `etl/shared_imports.py` — **no se copia**. La usa también la búsqueda de
     productos (`/publico/productos?q=`, `terminos_de_busqueda`): el término pasa por la misma
-    regla, así que «guantes de nitrilo» encuentra `guantes nitrilo talla`. Un término sin
+    regla, así que «guantes de nitrilo» encuentra `guantes nitrilo talla`, y cada palabra se
+    busca al comienzo de una palabra del slug («mesa» no encuentra «parmesano»). Un término sin
     ninguna palabra útil («de la», «pc») da `[]`. `etl/tests/test_normalizacion_precio.py`
     fija la firma byte a byte y que la regla de Python y la de Polars coinciden.
     **Cambiar `RUIDO` cambia firmas, slugs de páginas públicas y búsquedas a la vez.**
@@ -1570,6 +1571,15 @@ estos patrones, es señal de que hay que arreglar la causa, no de copiarlo:
   usa `coincide_termino()` en `repositories/licitaciones.py`, que combina las dos vías.
   **Ignora las tildes** en los dos sentidos: el texto se indexa normalizado con
   `inmutable_unaccent` y el término se normaliza igual antes de comparar.
+  **Un fragmento casa al COMIENZO de una palabra, nunca dentro de otra**
+  (`repositories/busqueda.py`): `nombre_norm ~* '\m<término>'`, que el mismo índice de
+  trigramas sirve como servía el `ILIKE '%t%'` de antes (medido con `EXPLAIN ANALYZE`;
+  `tests/test_busqueda_comienzo_de_palabra.py` lo fija). Con el `ILIKE`, «bus» traía
+  «combustible» y «mesa», «parmesano»; «valvul» sigue encontrando «válvula». El término se
+  escapa **en Postgres, después de `unaccent`** (que convierte «©» en «(C)»): todo lo que no
+  es letra, dígito o espacio se busca literal. La misma regla sirve a «Lo mejor de hoy» (por
+  `coincide_termino`), a `/bi/productos?q=` (`_analytics_sql.sql_busqueda_texto`, sobre
+  `lower(col)`) y, con el guion como separador de palabras del slug, a `/publico/productos?q=`.
   **El orden por relevancia también es Postgres** (`puntuacion_relevancia`: `ts_rank_cd`
   con todos los términos, que premia la cercanía, + `ts_rank` con cualquiera y sobre el
   nombre). Antes lo hacía el TF-IDF del ETL cargado en la API. **Relevancia ordena, no

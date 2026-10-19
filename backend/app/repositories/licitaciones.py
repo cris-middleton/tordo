@@ -19,13 +19,26 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
-from sqlalchemy import DateTime, Select, and_, asc, case, desc, func, literal, or_, select
+from sqlalchemy import (
+    DateTime,
+    Select,
+    and_,
+    asc,
+    case,
+    desc,
+    false,
+    func,
+    literal,
+    or_,
+    select,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.tiempo import ZONA_CHILE, hoy_chile, inicio_del_dia
 from app.models.convocatoria import TipoConvocatoria
 from app.models.licitacion import Licitacion
+from app.repositories import busqueda
 
 # Columnas por las que se puede ordenar. `relevance` no está: no es una columna
 # sino una puntuación contra los términos, y la resuelve `buscar_por_relevancia`.
@@ -44,16 +57,24 @@ def coincide_termino(termino: str):
 
     - `busqueda @@ plainto_tsquery('spanish', t)` — palabras, con stemming.
       Encuentra "servicio" buscando "servicios". Cubre nombre y descripción.
-    - `nombre_norm ILIKE '%t%'` — fragmentos a mitad de palabra, sobre el índice
-      de trigramas. Es lo que salva buscar "valvul".
+    - `nombre_norm ~* '\\m<t>'` — el término al COMIENZO de una palabra del
+      nombre, sobre el índice de trigramas (`repositories/busqueda.py`). Es lo
+      que salva buscar "valvul". Antes era `ILIKE '%t%'`, y un fragmento casaba
+      también DENTRO de otra palabra: "bus" traía "combustible".
 
     El término se normaliza igual que el texto indexado. Si sólo se normalizara
     un lado, buscar con tilde dejaría de encontrar lo que se indexó sin ella.
     """
     sin_tildes = func.inmutable_unaccent(termino)
+    trozo = busqueda.fragmento(termino)
+    por_fragmento = (
+        busqueda.comienza_palabra(Licitacion.nombre_norm, func.inmutable_unaccent(trozo))
+        if trozo
+        else false()
+    )
     return or_(
         Licitacion.busqueda.op("@@")(func.plainto_tsquery("spanish", sin_tildes)),
-        Licitacion.nombre_norm.ilike(func.inmutable_unaccent(f"%{termino}%")),
+        por_fragmento,
     )
 
 
@@ -203,8 +224,8 @@ def puntuacion_relevancia(terminos: list[str]):
 
     No se pesa con `setweight` en la columna generada porque eso es una
     migración que reescribe la tabla para ganar lo que aquí se gana sumando.
-    Un fragmento que sólo coincide por trigrama puntúa 0 y sale igual, al final:
-    el filtro decide qué sale; esto, en qué orden.
+    Un fragmento que sólo coincide por comienzo de palabra («valvul») puntúa 0 y
+    sale igual, al final: el filtro decide qué sale; esto, en qué orden.
     """
     todos = func.plainto_tsquery("spanish", func.inmutable_unaccent(" ".join(terminos)))
     cualquiera = func.plainto_tsquery("spanish", func.inmutable_unaccent(terminos[0]))

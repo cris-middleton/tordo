@@ -110,6 +110,12 @@ Para quedarse sólo con lo que se puede postular **ahora**, `GET /tenders/?abier
 publicadas, sin cierre o con cierre futuro. `estado=Publicada` no basta —no mira el
 cierre—. Es la misma definición que cuenta `GET /publico/portada`.
 
+`search=` (en `/tenders/` y en `/compra-agil/destacadas`) exige todas sus palabras,
+sin importar tildes ni mayúsculas. Una palabra coincide entera, con sus plurales, o
+por su comienzo en el nombre: «valvul» encuentra «válvula» y «bus» encuentra «buses»,
+pero no «combustible». `GET /bi/productos?q=` y `GET /publico/productos?q=` buscan
+también desde el comienzo de una palabra: «mesa» no encuentra «parmesano».
+
 ## «Lo mejor de hoy» en Compra Ágil
 
 `GET /api/v1/compra-agil/destacadas?limite=20&region=…&search=…` devuelve las
