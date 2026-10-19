@@ -29,23 +29,23 @@ export default function BusquedasGuardadas() {
 
   if (busquedas.length === 0) {
     return (
-      <div className="card py-8 text-center">
+      <div>
         <p className="font-medium text-text">Todavía no guardas ninguna búsqueda</p>
         <p className="mt-1 text-sm text-muted">
           En{' '}
           <Link href="/licitaciones" className="enlace">
             Licitaciones
           </Link>
-          , filtra como quieras y pulsa «Guardar esta búsqueda».
+          , filtra como quieras y pulsa «Guardar búsqueda».
         </p>
       </div>
     );
   }
 
   return (
-    <ul className="divide-y divide-border rounded-xl border border-border bg-surface">
+    <ul className="divide-y divide-border border-y border-border">
       {busquedas.map(({ consulta }) => (
-        <li key={consulta} className="flex flex-wrap items-center gap-3 px-4 py-3">
+        <li key={consulta} className="flex flex-wrap items-center gap-3 py-3">
           <Search className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" />
           <Link
             href={`/licitaciones${consulta ? `?${consulta}` : ''}`}

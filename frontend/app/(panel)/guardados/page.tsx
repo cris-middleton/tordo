@@ -44,7 +44,7 @@ export default function GuardadosPage() {
       </Seccion>
 
       <Seccion id="rss" titulo="Cómo seguir una búsqueda por RSS">
-        <div className="card space-y-3 text-sm text-text">
+        <div className="lectura space-y-3 text-text">
           <p>
             Un feed RSS te avisa de lo nuevo sin tener que volver a mirar: cada vez que se publique
             una licitación que cumpla tu búsqueda, aparece en tu lector.
@@ -55,7 +55,7 @@ export default function GuardadosPage() {
               <Link href="/licitaciones" className="enlace">
                 Licitaciones
               </Link>{' '}
-              y pulsa «Guardar esta búsqueda».
+              y pulsa «Guardar búsqueda».
             </li>
             <li>Aquí arriba, pulsa «Copiar URL de RSS».</li>
             <li>

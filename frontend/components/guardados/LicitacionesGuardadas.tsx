@@ -24,9 +24,9 @@ export default function LicitacionesGuardadas({
   if (lista.length === 0) return <p className="text-sm text-muted">{vacio}</p>;
 
   return (
-    <ul className="divide-y divide-border rounded-xl border border-border bg-surface">
+    <ul className="divide-y divide-border border-y border-border">
       {lista.map((t) => (
-        <li key={t.id} className="flex items-center gap-3 px-4 py-3">
+        <li key={t.id} className="flex items-center gap-3 py-3">
           <div className="min-w-0 flex-1">
             <Link
               href={`/licitaciones/${encodeURIComponent(t.codigo_externo)}`}
@@ -44,7 +44,7 @@ export default function LicitacionesGuardadas({
             type="button"
             onClick={() => toggleTender(coleccion, t)}
             aria-label={`Quitar ${normalizeText(t.nombre)}`}
-            className="rounded-lg p-1.5 text-muted hover:text-danger"
+            className="-mr-2.5 flex h-11 w-11 items-center justify-center rounded-lg text-muted hover:text-danger"
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
