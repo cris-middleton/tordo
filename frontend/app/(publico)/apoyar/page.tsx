@@ -5,7 +5,7 @@ import { ExternalLink, Heart } from 'lucide-react';
 import { TablaCostos } from '@/components/apoyar/TablaCostos';
 import { VerTransferencia } from '@/components/apoyar/VerTransferencia';
 import { CabeceraFicha, Seccion } from '@/components/publico/Piezas';
-import { COSTO_MENSUAL_APROXIMADO, USO_INCLUIDO_EN_EL_PLAN, USO_RAILWAY_PROYECTADO } from '@/lib/costos';
+import { COSTO_MENSUAL_APROXIMADO } from '@/lib/costos';
 import { mediosDeDonacion } from '@/lib/donaciones';
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
@@ -23,6 +23,11 @@ export const metadata: Metadata = {
  * servidor (`lib/donaciones.ts`); el que no la tiene no se muestra, y sin
  * ninguno la página lo dice en vez de enseñar botones muertos.
  *
+ * **Los medios van primero y el costo después**: con la tabla delante, el botón
+ * quedaba a tres pantallas y media en un teléfono. El total se dice dos veces,
+ * en la entrada de «Cuánto cuesta» y en la fila «Total»; el desglose de por qué
+ * se paga el uso y no el plan vive en las filas (`lib/costos.ts`).
+ *
  * **Sin publicidad, y no por gusto**: en Vercel Hobby un anuncio convierte el
  * sitio en comercial; pedir donaciones no (spec §4.1).
  */
@@ -38,39 +43,7 @@ export default function PaginaApoyar() {
         subtitulo="Lo sostienen los aportes de quienes lo usan."
       />
 
-      <Seccion id="costos" titulo="Cuánto cuesta">
-        <div className="space-y-3 text-sm leading-relaxed text-muted">
-          <p>
-            Tenerlo en línea cuesta{' '}
-            <strong className="text-text">alrededor de {COSTO_MENSUAL_APROXIMADO} al mes</strong>: el
-            servidor de la API, la base de datos, las tareas que traen los datos de ChileCompra varias
-            veces al día y el dominio. La página web se aloja gratis.
-          </p>
-          <TablaCostos />
-          <p>
-            El plan de Railway cuesta {USO_INCLUIDO_EN_EL_PLAN} e incluye {USO_INCLUIDO_EN_EL_PLAN} de
-            uso. El uso medido proyecta {USO_RAILWAY_PROYECTADO} al mes, más de lo incluido, así que se
-            paga el uso; con el dominio, el total queda en {COSTO_MENSUAL_APROXIMADO}.
-          </p>
-          <p className="text-xs text-subtle">
-            Es una proyección, no una factura: sale del uso que informó Railway en los primeros dos días
-            de su periodo de facturación, con los reinicios por falta de memoria y la
-            primera corrida del análisis dentro. Lo marcado como estimado no tiene medición; lo medido,
-            sí.
-          </p>
-          <p>
-            Un aporte es una <strong className="text-text">donación</strong>: no compra ningún
-            servicio, no da acceso a nada que no tenga cualquier visitante y no obliga a mantener el
-            sitio ni ninguna función por un plazo determinado. Está en los{' '}
-            <Link href="/terminos" className="enlace">
-              términos de uso
-            </Link>
-            .
-          </p>
-        </div>
-      </Seccion>
-
-      <Seccion titulo="Cómo aportar">
+      <Seccion id="aportar" titulo="Cómo aportar">
         {hayAlguno ? (
           <div className="space-y-6">
             {enlaces.length > 0 && (
@@ -107,16 +80,34 @@ export default function PaginaApoyar() {
                 <VerTransferencia />
               </div>
             )}
-            <p className="text-xs text-subtle">
-              El pago lo procesa cada plataforma bajo sus propias condiciones.
-            </p>
           </div>
         ) : (
-          <p className="rounded-xl border border-border bg-surface px-4 py-3 text-sm text-muted">
+          <p className="text-sm leading-relaxed text-muted">
             Todavía no hay medios de aporte habilitados. Mientras tanto, la mejor forma de apoyar
             es usarlo y contárselo a quien licite.
           </p>
         )}
+        <p className="mt-6 text-xs leading-relaxed text-subtle">
+          Un aporte es una donación: no compra ningún servicio, no da acceso a nada que no tenga
+          cualquier visitante y no obliga a mantener el sitio ni ninguna función por un plazo
+          determinado. El pago lo procesa cada plataforma bajo sus propias condiciones. Está en los{' '}
+          <Link href="/terminos" className="enlace">
+            términos de uso
+          </Link>
+          .
+        </p>
+      </Seccion>
+
+      <Seccion id="costos" titulo="Cuánto cuesta">
+        <p className="text-sm leading-relaxed text-muted">
+          Tenerlo en línea cuesta{' '}
+          <strong className="text-text">alrededor de {COSTO_MENSUAL_APROXIMADO} al mes</strong>. Casi
+          todo se va en Railway, donde corren la API, la base de datos y las tareas que traen los datos
+          de ChileCompra.
+        </p>
+        <div className="mt-4">
+          <TablaCostos />
+        </div>
       </Seccion>
 
       <Seccion titulo="Qué hacemos con tus datos">

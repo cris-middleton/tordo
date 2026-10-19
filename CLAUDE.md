@@ -1135,7 +1135,9 @@ decía la mitad central tres veces. Las tablas de las fichas (`TablaEnlaces`) va
 **Acerca** (`/acerca`, `app/(publico)/acerca/`): lo que la portada dejó de explicar —qué es, de
 dónde salen los datos, cómo se financia— y las preguntas frecuentes (`PREGUNTAS`, en
 `lib/acerca.ts`). Indexable, en `PAGINAS_FIJAS`, enlazada desde el pie junto a las licencias y
-el contacto (no es una sección de la navegación).
+el contacto (no es una sección de la navegación). Las preguntas son `<details>` sin caja, entre
+filetes, con el `<summary>` de 44 px como mínimo; «Quién lo hace» es su propia sección y sólo sale
+con `AUTOR_NOMBRE` (enlaza a `/notas` y, con `REPOSITORIO_URL`, al código).
 
 **Guías** (`/guias`, `/guias/[slug]`): el contenido vive en `frontend/content/explicativos/*.mdx`
 (Markdown plano; el test de frontmatter prohíbe `{` y `<`) y se publica en **`/guias/`** — los
@@ -1190,9 +1192,14 @@ medición se rotula «Estimado» (hoy, el dominio). El total es una **proyecció
 cuesta US$5 e incluye US$5 de uso, así que se paga el mayor de los dos —el uso medido, ~US$9–10—
 más el dominio (~US$1). Se repite al cerrar el primer periodo de facturación (2026-11-13). `/acerca`
 y `/apoyar` lo leen de ahí (la prosa de `/apoyar` sale de las mismas constantes). «Cuánto cuesta» está en el pie
-(columna «Sobre el sitio»).
+(columna «Sobre el sitio»). En `/apoyar` los medios de aporte van antes que el costo (con la tabla
+delante, el botón quedaba a 3,5 pantallas en un teléfono), y el total sale dos veces: en la entrada
+y en la fila «Total». La tabla es una sola en los dos anchos (`components/apoyar/TablaCostos.tsx`):
+desde `sm`, tres columnas con filetes y sin caja; por debajo, cada fila pone concepto y monto en una
+línea y «Cómo se sabe» debajo, con los roles de tabla explícitos porque cambia su `display`.
 
-**Abierto** (`/abierto`): API, MCP con una caja de instalación por cliente, CSV y RSS, código y
+**Abierto** (`/abierto`): API, MCP con una fila de instalación por cliente (una lista con filetes;
+en rejilla de dos, la quinta caja quedaba sola), CSV y RSS, código y
 licencias (código AGPL-3.0 o posterior, `AGPL-3.0-or-later`; lo que el sitio calcula, CC BY 4.0; el catálogo, condiciones de
 ChileCompra — los términos §4 y §7 lo dicen igual). **La dirección pública de la API vive sólo en
 `lib/abierto.ts`** (`ORIGEN_API_PUBLICA`, test que lo exige): no es `API_URL`, que es a dónde

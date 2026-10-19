@@ -65,7 +65,7 @@ export const COSTOS: Costo[] = [
     monto: 'US$5',
     base: 'tarifa',
     detalle:
-      'Incluye US$5 de uso: Railway cobra lo que sea mayor entre el plan y el uso. El uso medido de las tres filas siguientes (API, tareas y base de datos) pasa de esos US$5, así que se paga el uso, no el plan.',
+      'Incluye US$5 de uso, y Railway cobra el mayor de los dos. El uso de las tres filas siguientes pasa de US$5, así que se paga el uso.',
     fuentes: [
       { archivo: PIVOTE, cita: 'el plan Hobby cuesta US$5 **e incluye US$5 de uso**' },
       { archivo: DESPLIEGUE, cita: 'como el uso pasa de los US$5 incluidos, la factura de Railway es el uso' },
@@ -77,7 +77,7 @@ export const COSTOS: Costo[] = [
     monto: '~US$3,5',
     base: 'medido',
     detalle:
-      'Uso de Railway proyectado de los primeros 2 días (RAM media de 0,35 GB, incluidos los reinicios por falta de memoria del 14-10). Railway cobra la memoria que se usa, no el límite.',
+      'Proyectado de los primeros 2 días de uso: 0,35 GB de memoria en promedio, con los reinicios por falta de memoria del 14-10 dentro. Railway cobra la memoria que se usa.',
     fuentes: [
       { archivo: DESPLIEGUE, cita: '| api | 0,35 GB | US$0,23 | ~US$3,5 |' },
       { archivo: DESPLIEGUE, cita: 'Railway cobra la memoria **usada**, no el límite: bajarlo no ahorra.' },
@@ -89,7 +89,7 @@ export const COSTOS: Costo[] = [
     monto: '~US$1',
     base: 'medido',
     detalle:
-      'Suman entre US$0,7 y 1,5 al mes. Corren decenas de horas al mes, no el mes entero: la de Compra Ágil varias veces al día y la del análisis una vez por semana (15,5 minutos en su última medición). La primera corrida del análisis, que sube todo a R2, es la más cara.',
+      'Entre US$0,7 y 1,5 al mes. La de Compra Ágil corre varias veces al día y la del análisis una vez por semana, 15,5 minutos en su última medición.',
     fuentes: [
       { archivo: DESPLIEGUE, cita: 'Las dos tareas suman ~US$1 al mes (US$0,7–1,5)' },
       { archivo: DESPLIEGUE, cita: '| cron-frecuente | 0,03 GB | US$0,02 | ~US$0,3 |' },
@@ -102,12 +102,11 @@ export const COSTOS: Costo[] = [
     monto: '~US$4,5',
     base: 'medido',
     detalle:
-      'Uso de Railway proyectado de los primeros 2 días: RAM media de 0,41 GB (~US$4,1) más el volumen (~US$0,4). Es más que el objetivo de la spec (~US$3): hay 1,4 GB de datos y Railway cobra la memoria que se usa (~US$10 por GB al mes). La memoria de la base está limitada a 1 GB.',
+      'Proyectado de los primeros 2 días de uso: 0,41 GB de memoria en promedio (~US$4,1) más el disco (~US$0,4). Guarda 1,4 GB de datos, y Railway cobra unos US$10 al mes por cada GB de memoria.',
     fuentes: [
       { archivo: DESPLIEGUE, cita: '| Postgres | 0,41 GB | US$0,27 (+ US$0,03 de volumen) | ~US$4,5 |' },
       { archivo: DESPLIEGUE, cita: 'la base, **1,4 GB**' },
       { archivo: DESPLIEGUE, cita: 'Railway cobra la memoria usada (~US$10/GB-mes)' },
-      { archivo: DESPLIEGUE, cita: '**Límite de memoria: 1 GB**' },
     ],
   },
   {
@@ -159,10 +158,10 @@ export const COSTOS: Costo[] = [
 /** Lo que se dice en una frase («alrededor de US$10–11 al mes»). `/acerca` y `/apoyar` lo leen de aquí. */
 export const COSTO_MENSUAL_APROXIMADO = 'US$10–11';
 
-/** El uso de Railway proyectado (DESPLIEGUE §13.2); `/apoyar` lo lee de aquí. */
+/** El uso de Railway proyectado (DESPLIEGUE §13.2); lo dice la fila «Total». */
 export const USO_RAILWAY_PROYECTADO = 'US$9–10';
 
-/** Lo que incluye el plan Hobby; `/apoyar` lo lee de aquí. */
+/** Lo que incluye el plan Hobby; lo dice la fila «Total». */
 export const USO_INCLUIDO_EN_EL_PLAN = 'US$5';
 
 export const TOTAL: { monto: string; detalle: string; fuentes: [FuenteCosto, ...FuenteCosto[]] } = {

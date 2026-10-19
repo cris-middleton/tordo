@@ -6,6 +6,7 @@ import { CabeceraFicha, Seccion } from '@/components/publico/Piezas';
 import { PREGUNTAS } from '@/lib/acerca';
 import { COSTO_MENSUAL_APROXIMADO } from '@/lib/costos';
 import { nombreAutor, rolAutor } from '@/lib/autor';
+import { urlRepositorio } from '@/lib/repositorio';
 import { MESES_ANALISIS, MESES_PRECIOS } from '@/lib/periodo';
 import { FRECUENCIA_CATALOGO } from '@/lib/portada';
 import { CORREO_CONTACTO } from '@/lib/responsable';
@@ -23,15 +24,19 @@ export const metadata: Metadata = {
  * de ser un buscador —qué es, de dónde salen los datos, cómo se financia— y las
  * preguntas frecuentes (`lib/acerca.ts`). Mínima a propósito.
  *
- * Componente de servidor, sin JavaScript propio: el acordeón es `<details>`.
- * **«Lo hace X» sólo con `AUTOR_NOMBRE`** (`nombreAutor()`, spec PORTADA_V7 V5): sin
- * ella no se firma, ni con un hueco ni con un nombre inventado. La autoría no es el
+ * Componente de servidor, sin JavaScript propio: el acordeón es `<details>`, sin
+ * caja, separado por filetes y con el `<summary>` de 44 px como mínimo (un blanco
+ * táctil cómodo).
+ * **«Quién lo hace» sólo con `AUTOR_NOMBRE`** (`nombreAutor()`, spec PORTADA_V7 V5): sin
+ * ella la sección no sale, ni con un hueco ni con un nombre inventado. Enlaza a las
+ * notas de datos y, con `REPOSITORIO_URL`, al código. La autoría no es el
  * responsable legal: `/terminos` y `/privacidad` siguen con `RESPONSABLE_LEGAL`.
  * El rol sale de `AUTOR_ROL` (`rolAutor()`); sin él, el nombre solo.
  */
 export default function PaginaAcerca() {
   const autor = nombreAutor();
   const rol = rolAutor();
+  const repositorio = urlRepositorio();
 
   return (
     <article className="lectura max-w-3xl">
@@ -79,7 +84,6 @@ export default function PaginaAcerca() {
             </Link>
             , y lo sostienen los aportes voluntarios de quienes lo usan.
           </p>
-          {autor && <p>{rol ? `Lo hace ${autor}, ${rol}, a título personal.` : `Lo hace ${autor}, a título personal.`}</p>}
           <p>
             ¿Un dato que no cuadra, una idea o una pregunta? Escribe a{' '}
             <a href={`mailto:${CORREO_CONTACTO}`} className="enlace">
@@ -90,18 +94,42 @@ export default function PaginaAcerca() {
         </div>
       </Seccion>
 
+      {autor && (
+        <Seccion id="quien-lo-hace" titulo="Quién lo hace">
+          <div className="space-y-3 text-sm leading-relaxed text-muted">
+            <p>{rol ? `Lo hace ${autor}, ${rol}, a título personal.` : `Lo hace ${autor}, a título personal.`}</p>
+            <p>
+              Cada hallazgo sobre los datos, con cómo se midió, queda en las{' '}
+              <Link href="/notas" className="enlace">
+                notas de datos
+              </Link>
+              .
+              {repositorio && (
+                <>
+                  {' '}El{' '}
+                  <a href={repositorio} rel="noopener noreferrer" className="enlace">
+                    código del sitio
+                  </a>{' '}
+                  es público.
+                </>
+              )}
+            </p>
+          </div>
+        </Seccion>
+      )}
+
       <Seccion id="preguntas" titulo="Preguntas frecuentes">
-        <div className="space-y-3">
+        <div className="divide-y divide-border border-y border-border">
           {PREGUNTAS.map((p) => (
-            <details key={p.pregunta} className="group rounded-xl border border-border bg-surface open:shadow-card-md">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-xl px-5 py-4 text-sm font-semibold text-text hover:text-primary [&::-webkit-details-marker]:hidden">
+            <details key={p.pregunta} className="group">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 py-3 text-sm font-semibold text-text hover:text-primary [&::-webkit-details-marker]:hidden">
                 {p.pregunta}
                 <ChevronDown
-                  className="h-4 w-4 shrink-0 text-subtle transition-transform group-open:rotate-180"
+                  className="h-4 w-4 shrink-0 text-muted transition-transform group-open:rotate-180 motion-reduce:transition-none"
                   aria-hidden="true"
                 />
               </summary>
-              <div className="border-t border-border px-5 py-4 text-sm leading-relaxed text-muted">
+              <div className="pb-4 pr-8 text-sm leading-relaxed text-muted">
                 <p>{p.respuesta}</p>
                 {p.enlace && (
                   <Link href={p.enlace.href} className="enlace mt-2 inline-block">

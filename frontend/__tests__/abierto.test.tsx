@@ -185,6 +185,18 @@ describe('la página /abierto', () => {
     expect(within(lic).queryByText(/^Libre para usar/)).toBeNull();
   });
 
+  it('el MCP: título sin marca ajena y los clientes en una lista con filetes, sin rejilla', () => {
+    const { container } = render(<PaginaAbierto />);
+    const mcp = container.querySelector('section#mcp') as HTMLElement;
+    expect(within(mcp).getByRole('heading', { level: 2 })).toHaveTextContent('Pregúntale a tu asistente');
+    const lista = mcp.querySelector('ul.divide-y') as HTMLElement;
+    expect(lista).not.toBeNull();
+    expect(lista.children).toHaveLength(instalacionesMcp('Tordo').length);
+    expect(mcp.querySelector('.grid-cols-2, [class*="sm:grid-cols-2"]')).toBeNull();
+    // Lo que no cabe se desplaza dentro del bloque, con la barra a la vista.
+    for (const pre of container.querySelectorAll('pre')) expect(pre.className).toMatch(/\bdesplazable-x\b/);
+  });
+
   it('el MCP dice que comparte con la API el límite por IP', () => {
     const { container } = render(<PaginaAbierto />);
     const mcp = container.querySelector('section#mcp') as HTMLElement;
