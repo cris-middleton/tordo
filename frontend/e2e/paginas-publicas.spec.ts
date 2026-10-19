@@ -47,10 +47,10 @@ test('una ficha de comprador', async ({ page, request }) => {
   await expect(page.getByText(/perfil del comprador/i)).toBeVisible();
 });
 
-test('una ficha de rubro, y de ahí al panel', async ({ page, request }) => {
+test('una ficha de rubro, y de ahí a Mercados', async ({ page, request }) => {
   const ruta = await primeraDelSitemap(request, 'rubros');
   await comprobarFicha(page, ruta);
-  await page.getByRole('link', { name: /analizar este rubro en el panel/i }).click();
+  await page.getByRole('link', { name: /ver este rubro en mercados/i }).click();
   await expect(page).toHaveURL(/\/mercado\?rubro=/);
 });
 

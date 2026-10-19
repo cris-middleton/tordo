@@ -135,7 +135,10 @@ describe('los textos fijos de la portada', () => {
   });
 
   it('«se actualiza» sale del horario del cron frecuente, no se escribe', () => {
-    expect(SE_ACTUALIZA).toBe(`El catálogo, ${HORAS_HABILES.length} veces cada día hábil. El análisis, cada domingo.`);
+    expect(SE_ACTUALIZA).toBe(
+      'El catálogo, 4 veces al día de lunes a viernes y una al día el fin de semana. Los precios y los mercados, cada domingo.',
+    );
+    expect(HORAS_HABILES).toHaveLength(4);
   });
 });
 
@@ -188,8 +191,8 @@ describe('franjaDeLaPortada', () => {
 
   it('publicadas hoy, quién más publica (como en «Lo mejor de hoy») y la hora con el día', () => {
     expect(franjaDeLaPortada(CON_HOY)).toEqual({
-      publicadasHoy: '612',
-      masPublicaHoy: 'Servicio De Salud Metropolitano Sur',
+      publicadasHoy: '612 licitaciones y Compras Ágiles',
+      masPublicaHoy: 'Servicio de Salud Metropolitano Sur',
       actualizado: 'mié, 14 oct, 11:00',
     });
   });
@@ -205,7 +208,8 @@ describe('franjaDeLaPortada', () => {
   it('sin nombre que poner primero (todas sin nombre), sólo el conteo', () => {
     expect(franjaDeLaPortada({ ...CON_HOY, mas_publica_hoy: null })?.masPublicaHoy).toBeNull();
     expect(franjaDeLaPortada({ ...CON_HOY, mas_publica_hoy: '   ' })?.masPublicaHoy).toBeNull();
-    expect(franjaDeLaPortada({ ...CON_HOY, mas_publica_hoy: null })?.publicadasHoy).toBe('612');
+    expect(franjaDeLaPortada({ ...CON_HOY, mas_publica_hoy: null })?.publicadasHoy).toBe('612 licitaciones y Compras Ágiles');
+    expect(franjaDeLaPortada({ ...CON_HOY, publicadas_hoy: 1 })?.publicadasHoy).toBe('1 licitación o Compra Ágil');
   });
 
   it('un backend sin los campos nuevos: sólo la hora', () => {

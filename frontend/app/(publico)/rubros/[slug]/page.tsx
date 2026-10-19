@@ -4,6 +4,8 @@ import { notFound } from 'next/navigation';
 import { PanoramaRubro } from '@/components/bi/PanoramaRubro';
 import { CabeceraFicha, EnlacePanel, Seccion, TablaEnlaces } from '@/components/publico/Piezas';
 import { entero, metadataRubro, plata, rutaComprador, rutaPanelRubro } from '@/lib/publico';
+import { normalizeText } from '@/lib/nombresChile';
+import { MESES_ANALISIS } from '@/lib/periodo';
 import { pedirPublico, segmento } from '@/lib/publicoServidor';
 import type { RubroPublico } from '@/types/publico';
 
@@ -43,14 +45,14 @@ export default async function PaginaRubro({ params }: Props) {
     <article>
       <CabeceraFicha
         titulo={r.nombre}
-        subtitulo="Cómo está este mercado de compras públicas en Chile."
+        subtitulo="Cuánto compra el Estado en este rubro, cuántos proveedores le venden y en qué meses compra."
       />
 
       <PanoramaRubro panorama={r.panorama} cargando={false} rubro={r.nombre} />
 
       <Seccion
         titulo="Quién compra más"
-        descripcion="Los diez compradores con más monto en este rubro."
+        descripcion={`Los que más compraron en este rubro en los últimos ${MESES_ANALISIS} meses, hasta diez.`}
       >
         <TablaEnlaces
           encabezados={['Comprador', 'Monto', 'Órdenes']}
@@ -58,13 +60,13 @@ export default async function PaginaRubro({ params }: Props) {
           filas={r.compradores.map((c) => ({
             clave: c.codigo,
             href: rutaComprador(c.codigo),
-            nombre: c.nombre,
+            nombre: normalizeText(c.nombre),
             celdas: [plata(c.monto), entero(c.ordenes)],
           }))}
         />
       </Seccion>
 
-      <EnlacePanel href={rutaPanelRubro(r.nombre)}>Analizar este rubro en el panel</EnlacePanel>
+      <EnlacePanel href={rutaPanelRubro(r.nombre)}>Ver este rubro en Mercados</EnlacePanel>
     </article>
   );
 }

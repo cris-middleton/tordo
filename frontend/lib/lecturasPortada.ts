@@ -388,7 +388,8 @@ export function lecturaCierres(resumen: ResumenPortada | null, repositorio: stri
     conclusion: fraseCierres(pronto, abiertas),
     decimos: decimosDe(pronto, abiertas),
     tramos: valores.map((n, i) => ({ nombre: NOMBRES_CIERRE[i], valor: entero(n), destacada: pronto > 0 && i < 2 })),
-    pie: `${entero(abiertas)} ${abiertas === 1 ? 'abierta' : 'abiertas'} ${cuando}, por día de cierre en hora de Chile.`,
+    // Sin el total de abiertas: la tira de cifras lo dice al lado.
+    pie: `Contadas ${cuando}, por día de cierre en hora de Chile.`,
     enlaces: enlacesDeMetodo(METODO_CIERRES, {
       primero: {
         texto: 'Las que cierran primero',

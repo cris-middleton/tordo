@@ -22,7 +22,10 @@ import {
 } from '@/lib/publico';
 import { pedirPublico, segmento } from '@/lib/publicoServidor';
 import type { CompradorPublico } from '@/types/publico';
+import { TITULO_DESTACADAS } from '@/lib/compraAgil';
 import { decimal } from '@/lib/formato';
+import { normalizeText } from '@/lib/nombresChile';
+import { etiquetaPublicadas, MESES_COMPRA_AGIL } from '@/lib/periodo';
 
 /**
  * `/compradores/{codigo}` — la ficha pública de un comprador del Estado.
@@ -43,10 +46,15 @@ export function generateStaticParams(): { codigo: string }[] {
 
 type Props = { params: Promise<{ codigo: string }> };
 
+/**
+ * El nombre llega en MAYÚSCULAS desde analytics («I MUNICIPALIDAD DE AYSEN»): se
+ * escribe como en el resto del sitio (`normalizeText`) en el título, los
+ * metadatos y el perfil.
+ */
 async function obtener(codigo: string): Promise<CompradorPublico> {
   const comprador = await pedirPublico<CompradorPublico>(`/compradores/${segmento(codigo)}`);
   if (!comprador) notFound();
-  return comprador;
+  return { ...comprador, nombre: normalizeText(comprador.nombre) };
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -74,7 +82,7 @@ export default async function PaginaComprador({ params }: Props) {
         }
       />
 
-      <BuyerProfilePanel comprador={panelDesdePerfil(perfil, c.nombre)} />
+      <BuyerProfilePanel comprador={{ ...panelDesdePerfil(perfil, c.nombre), nombre: c.nombre }} />
 
       {perfil.volumen && (
         <div className="mt-4">
@@ -97,7 +105,7 @@ export default async function PaginaComprador({ params }: Props) {
       {senales.length > 0 && (
         <Seccion
           titulo="Señales en su historial"
-          descripcion="No significa que no haya que venderle: significa que conviene saberlo antes de ofertar."
+          descripcion="Conviene saberlo antes de ofertar."
         >
           <ul className="list-disc space-y-1.5 pl-5 text-sm text-muted">
             {senales.map((s) => (
@@ -110,11 +118,11 @@ export default async function PaginaComprador({ params }: Props) {
       {ca && (
         <Seccion
           titulo="Cómo compra por Compra Ágil"
-          descripcion="Compras de hasta 100 UTM con cotización abierta: la puerta de entrada más común para una PYME."
+          descripcion={`Sus órdenes por Compra Ágil en los últimos ${MESES_COMPRA_AGIL} meses: cuántas, a cuántos proveedores y de qué monto.`}
         >
           <FranjaDatos>
             <Dato etiqueta="Órdenes" valor={entero(ca.ordenes)} />
-            <Dato etiqueta="Publicadas" valor={entero(ca.publicadas)} />
+            <Dato etiqueta={etiquetaPublicadas(periodo.ventana_hasta)} valor={entero(ca.publicadas)} />
             <Dato etiqueta="Proveedores distintos" valor={entero(ca.proveedores_distintos)} />
             <Dato
               etiqueta="Cuota del proveedor principal"
@@ -124,7 +132,8 @@ export default async function PaginaComprador({ params }: Props) {
           </FranjaDatos>
           {ca.monto_p25 != null && ca.monto_p75 != null && (
             <p className="mt-3 text-sm text-muted">
-              La mitad de sus Compras Ágiles va de {plata(ca.monto_p25)} a {plata(ca.monto_p75)}.
+              La mitad de sus órdenes por Compra Ágil va de {plata(ca.monto_p25)} a{' '}
+              {plata(ca.monto_p75)}.
             </p>
           )}
         </Seccion>
@@ -132,7 +141,7 @@ export default async function PaginaComprador({ params }: Props) {
 
       <Seccion
         titulo="Compras Ágiles abiertas de este comprador"
-        descripcion="Las que siguen recibiendo cotizaciones, ordenadas por lo que conviene mirar primero."
+        descripcion={`Las que siguen recibiendo cotizaciones, en el orden de «${TITULO_DESTACADAS}».`}
       >
         <CompraAgilDelComprador codigo={c.codigo} />
       </Seccion>

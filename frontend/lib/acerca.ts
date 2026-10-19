@@ -7,6 +7,8 @@
  */
 
 import { DESCRIPCION_DESTACADAS, TITULO_DESTACADAS } from './compraAgil';
+import { MESES_ANALISIS, MESES_PRECIOS } from './periodo';
+import { FRECUENCIA_CATALOGO } from './portada';
 
 export interface Pregunta {
   pregunta: string;
@@ -23,13 +25,13 @@ export const PREGUNTAS: Pregunta[] = [
   {
     pregunta: '¿De dónde salen los datos?',
     respuesta:
-      'De ChileCompra: los archivos abiertos de órdenes de compra de los últimos tres años —para los precios, sólo el último— y la API de Mercado Público, que consultamos varias veces al día. Son datos oficiales y cualquier cifra se puede contrastar en Mercado Público.',
+      `De ChileCompra: los archivos abiertos de órdenes de compra de los últimos ${MESES_ANALISIS} meses (${MESES_PRECIOS} para los precios) y la API de Mercado Público, que consultamos ${FRECUENCIA_CATALOGO}. Son datos oficiales y cualquier cifra se puede contrastar en Mercado Público.`,
     enlace: { href: '/guias/de-donde-salen-los-datos', texto: 'De dónde salen los datos' },
   },
   {
     pregunta: '¿Me dicen exactamente cuánto cotizar?',
     respuesta:
-      'No. Mostramos el rango en que se ha adjudicado y cuán confiable es. Si el mismo comprador ha pagado cifras muy distintas por lo mismo, también lo decimos: probablemente el precio no sea lo que decide esa compra.',
+      `No. Mostramos entre qué precios se compró lo mismo en los últimos ${MESES_PRECIOS} meses, y cuántas compras y cuántos organismos hay detrás. Si se pagaron cifras muy distintas por lo mismo, también lo decimos.`,
     enlace: { href: '/guias/como-leer-una-banda-de-precio', texto: 'Cómo leer una banda de precio' },
   },
   {
@@ -46,6 +48,6 @@ export const PREGUNTAS: Pregunta[] = [
   {
     pregunta: '¿Necesito algo de ChileCompra para postular?',
     respuesta:
-      'Sí: estar inscrito como proveedor en Mercado Público y con el estado hábil al día. Este sitio no reemplaza ese registro; ayuda a decidir dónde y a qué precio postular.',
+      'Sí: estar inscrito como proveedor en Mercado Público y con el estado hábil al día. Eso se hace en Mercado Público; aquí decides dónde y a qué precio postular.',
   },
 ];

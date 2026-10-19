@@ -28,7 +28,7 @@ const RUTAS_PERMITIDAS = [
   '/mercado',
   '/guardados',
   '/rubros/',
-  '/productos/',
+  '/productos',
   '/compradores/',
   '/guias/',
 ];

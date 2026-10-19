@@ -113,7 +113,7 @@ describe('BloqueAbiertas', () => {
     abiertas();
     expect(screen.getByRole('heading', { level: 2, name: 'Qué está abierto ahora' })).toBeInTheDocument();
     const lista = screen.getByRole('list', { name: /licitaciones abiertas/i });
-    expect(within(lista).getByRole('link', { name: 'Adquisicion De Guantes De Nitrilo 1' })).toHaveAttribute(
+    expect(within(lista).getByRole('link', { name: 'Adquisicion de Guantes de Nitrilo 1' })).toHaveAttribute(
       'href',
       '/licitaciones/1234-1-LE26',
     );

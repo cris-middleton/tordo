@@ -16,7 +16,9 @@ import { useCompraAgilDestacadas } from '@/lib/queries';
  *
  * Vacío o con error, una línea discreta y el enlace a todas: no tener ninguna
  * abierta hoy es lo normal para la mayoría de los compradores, y un fallo de
- * esta sección no debería hacer parecer rota una ficha que sí cargó.
+ * esta sección no debería hacer parecer rota una ficha que sí cargó. Pero cada
+ * línea dice lo que pasó: con error no se sabe si tiene abiertas, y decir que
+ * no tiene sería falso.
  */
 export function CompraAgilDelComprador({ codigo }: { codigo: string }) {
   const consulta = useCompraAgilDestacadas({ codigo_organismo: codigo, limite: 10 });
@@ -30,7 +32,9 @@ export function CompraAgilDelComprador({ codigo }: { codigo: string }) {
   if (consulta.isError || items.length === 0) {
     return (
       <p className="text-sm text-subtle">
-        Este comprador no tiene Compras Ágiles abiertas ahora mismo.{' '}
+        {consulta.isError
+          ? 'No pudimos traer sus Compras Ágiles abiertas.'
+          : 'Este comprador no tiene Compras Ágiles abiertas ahora mismo.'}{' '}
         <Link href="/compra-agil" className="enlace">
           Ver todas las de hoy
         </Link>
