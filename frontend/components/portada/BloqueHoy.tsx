@@ -3,77 +3,9 @@ import { ArrowRight } from 'lucide-react';
 
 import { CLASE_SECCION } from '@/components/cascara/Seccion';
 
-import {
-  CON_PUESTO,
-  descripcionDestacadas,
-  esTopeCompraAgil,
-  MOSTRAR_COTIZACIONES,
-  NOTA_TOPE,
-  TITULO_DESTACADAS,
-  textoCompetencia,
-  textoTiempo,
-} from '@/lib/compraAgil';
-import { formatCurrency, normalizeText } from '@/lib/licitacionEstado';
-import type { CompraAgilDestacada, CompraAgilDestacadasResponse } from '@/types/compraAgil';
-
-/**
- * Una Compra Ágil en una fila: nombre (al detalle), comprador, cierre y monto.
- * **Sin puntaje y sin cocientes** (spec §6.7), y sin la historia de la unidad:
- * eso lo cuenta la tarjeta entera de `/compra-agil` (`TarjetaDestacada`). Las
- * cotizaciones, sólo si `MOSTRAR_COTIZACIONES`, como allí.
- *
- * `min-w-0`, `line-clamp-1` y `break-words`: un nombre de 300 letras, o uno sin
- * espacios, no ensancha la página en un teléfono.
- */
-function FilaDestacada({
-  item,
-  posicion,
-  actualizadoEn,
-}: {
-  item: CompraAgilDestacada;
-  posicion?: number;
-  actualizadoEn: string | null;
-}) {
-  const detalle = `/licitaciones/${encodeURIComponent(item.codigo_externo)}`;
-  return (
-    <article aria-labelledby={`hoy-${item.codigo_externo}`} className="flex items-start gap-3 py-3">
-      {posicion !== undefined && (
-        <span className="cifra w-5 shrink-0 text-right text-sm font-semibold text-subtle">
-          <span className="sr-only">Puesto </span>
-          {posicion}
-        </span>
-      )}
-      <div className="min-w-0 flex-1">
-        <Link
-          id={`hoy-${item.codigo_externo}`}
-          href={detalle}
-          className="line-clamp-1 break-words text-sm font-semibold text-text hover:text-primary"
-        >
-          {normalizeText(item.nombre)}
-        </Link>
-        <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted">
-          {item.nombre_organismo && (
-            <span className="min-w-0 break-words">{normalizeText(item.nombre_organismo)}</span>
-          )}
-          <span>{textoTiempo(item.horas_restantes)}</span>
-          {MOSTRAR_COTIZACIONES && (
-            <span>{textoCompetencia(item.ofertas_recibidas, item.ofertas_al, actualizadoEn)}</span>
-          )}
-        </p>
-      </div>
-      {esTopeCompraAgil(item) ? (
-        <div className="shrink-0 text-right">
-          <p className="cifra text-sm font-semibold text-text">Hasta {formatCurrency(item.monto_estimado ?? undefined)}</p>
-          <p className="text-xs text-muted">{NOTA_TOPE}</p>
-        </div>
-      ) : item.monto_estimado ? (
-        <p className="cifra shrink-0 text-sm font-semibold text-text">{formatCurrency(item.monto_estimado)}</p>
-      ) : (
-        <p className="shrink-0 text-xs text-subtle">Sin monto</p>
-      )}
-    </article>
-  );
-}
+import { FilaCompraAgil } from '@/components/compraAgil/FilaCompraAgil';
+import { CON_PUESTO, descripcionDestacadas, TITULO_DESTACADAS } from '@/lib/compraAgil';
+import type { CompraAgilDestacadasResponse } from '@/types/compraAgil';
 
 /**
  * «Lo mejor de hoy» en la portada —o «Cierran pronto», según
@@ -134,7 +66,7 @@ export function BloqueHoy({
         >
           {datos.items.map((item, i) => (
             <li key={item.codigo_externo}>
-              <FilaDestacada
+              <FilaCompraAgil
                 item={item}
                 posicion={CON_PUESTO ? i + 1 : undefined}
                 actualizadoEn={datos.actualizado_en}

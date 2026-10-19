@@ -269,7 +269,7 @@ describe('/rss/compra-agil', () => {
     });
     const { GET } = await import('@/app/rss/compra-agil/route');
     const xml = await (await GET(new NextRequest('https://tordo.cl/rss/compra-agil'))).text();
-    expect(xml).toContain('Hasta $7,2M, el tope de Compra Ágil');
+    expect(xml).toContain('Hasta $7,2 millones, el tope de Compra Ágil');
     expect(xml).not.toContain('Monto estimado');
   });
 

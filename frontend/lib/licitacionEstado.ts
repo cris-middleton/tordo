@@ -8,18 +8,13 @@
 
 import { format } from 'date-fns';
 import es from 'date-fns/locale/es';
-import { decimal } from '@/lib/formato';
+import { monto } from '@/lib/formato';
 
 // Viven aparte, sin `date-fns`: ver `nombresChile.ts`.
 export { normalizeText, shortRegion } from '@/lib/nombresChile';
 
-export const formatCurrency = (amount?: number) => {
-  if (amount == null) return null;
-  if (amount >= 1_000_000_000) return `$${decimal(amount / 1_000_000_000, 1)}B`;
-  if (amount >= 1_000_000) return `$${decimal(amount / 1_000_000, 1)}M`;
-  if (amount >= 1_000) return `$${decimal(amount / 1_000, 0)}K`;
-  return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 0 }).format(amount);
-};
+/** Un monto de una lista, o null sin monto. El formato es el de todo el sitio: `monto` (`lib/formato.ts`). */
+export const formatCurrency = (amount?: number | null) => (amount == null ? null : monto(amount));
 
 export const getEstadoCls = (estado?: string | null) => {
   if (!estado) return 'bg-border/50 text-subtle border-border';

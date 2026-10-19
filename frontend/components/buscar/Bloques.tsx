@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 
-import TarjetaDestacada from '@/components/compraAgil/TarjetaDestacada';
+import { FilaCompraAgil } from '@/components/compraAgil/FilaCompraAgil';
 import { BandaPrecio } from '@/components/publico/BandaPrecio';
 import { Seccion } from '@/components/publico/Piezas';
 import {
@@ -262,14 +262,13 @@ function ComprasAgiles({ termino, bloque }: { termino: string; bloque: Bloque<Co
   return (
     <>
       {/* Sin puesto: en una lista filtrada, «1» se leería como un ranking del término. */}
-      <ul aria-label="Compras Ágiles abiertas que coinciden" className="space-y-3">
+      <ul aria-label="Compras Ágiles abiertas que coinciden" className="divide-y divide-border border-y border-border">
         {datos.items.slice(0, COMPRAS_AGILES_EN_BUSCAR).map((item) => (
           <li key={item.codigo_externo}>
-            <TarjetaDestacada
+            <FilaCompraAgil
               item={item}
-              mesesVentana={meses}
               actualizadoEn={datos.actualizado_en}
-              historiaDisponible={datos.historia_disponible}
+              historia={{ meses, disponible: datos.historia_disponible }}
             />
           </li>
         ))}

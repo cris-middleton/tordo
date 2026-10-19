@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { decimal } from '@/lib/formato';
+import { decimal, monto } from '@/lib/formato';
 
 describe('decimal', () => {
   it('escribe con coma decimal', () => {
@@ -32,5 +32,32 @@ describe('decimal', () => {
 
   it('un decimal por defecto', () => {
     expect(decimal(9.87)).toBe('9,9');
+  });
+});
+
+describe('monto: el formato de montos del sitio', () => {
+  it('bajo un millón, la cifra entera con punto de miles', () => {
+    expect(monto(0)).toBe('$0');
+    expect(monto(825_000)).toBe('$825.000');
+    expect(monto(999_949)).toBe('$999.949');
+  });
+
+  it('millones con un decimal, sin «,0», y «millón» en singular', () => {
+    expect(monto(1_000_000)).toBe('$1 millón');
+    expect(monto(999_950)).toBe('$1 millón');
+    expect(monto(1_500_000)).toBe('$1,5 millones');
+    expect(monto(7_215_100)).toBe('$7,2 millones');
+    expect(monto(48_500_000)).toBe('$48,5 millones');
+  });
+
+  it('mil millones y billones a la chilena: nunca «B» ni «K»', () => {
+    expect(monto(1_500_000_000)).toBe('$1,5 mil millones');
+    expect(monto(2_100_000_000_000)).toBe('$2,1 billones');
+    expect(monto(1_000_000_000_000)).toBe('$1 billón');
+    for (const v of [1_000, 999_999, 1_000_000_000, 5e12]) expect(monto(v)).not.toMatch(/[KMB]$|K\b/);
+  });
+
+  it('un negativo lleva el signo menos tipográfico', () => {
+    expect(monto(-2_500_000)).toBe('−$2,5 millones');
   });
 });
