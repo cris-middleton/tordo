@@ -1,8 +1,8 @@
-import { PASO_PUNTOS, RADIO_PUNTO, ROTULO_FRANJA, type GraficoPrecio as Datos } from '@/lib/graficoPrecio';
+import { ROTULO_FRANJA, type GraficoPrecio as Datos } from '@/lib/graficoPrecio';
 
 /** Lo que mide cada franja horizontal del SVG, en px. */
 const ARRIBA = 20; // el rótulo «la mitad central»
-const ALTO_MINIMO = 168;
+const ALTO_MINIMO = 72; // con puntos: la nube manda, pero nunca más baja que esto
 const ALTO_SIN_PUNTOS = 44; // sin puntos, la franja no necesita alto: es un rango
 const BAJO_EJE = 18; // de la línea del eje a la base de sus rótulos
 const NOTA_ESCALA = 18; // «escala logarítmica»
@@ -26,8 +26,9 @@ const NOTA_ESCALA = 18; // «escala logarítmica»
  * pinta quien lo usa.
  */
 export function GraficoPrecio({ datos }: { datos: Datos }) {
-  const { franja, bigotes, mediana, puntos, filas, marcas, rotuloFranja } = datos;
-  const alto = puntos.length ? Math.max(ALTO_MINIMO, 2 * filas * PASO_PUNTOS + 2 * RADIO_PUNTO + 24) : ALTO_SIN_PUNTOS;
+  const { franja, bigotes, mediana, puntos, filas, marcas, rotuloFranja, radio } = datos;
+  const paso = 2 * radio + 1;
+  const alto = puntos.length ? Math.max(ALTO_MINIMO, 2 * filas * paso + 2 * radio + 32) : ALTO_SIN_PUNTOS;
   const centro = ARRIBA + alto / 2;
   const eje = ARRIBA + alto + 4;
   const rotulos = eje + BAJO_EJE;
@@ -79,7 +80,7 @@ export function GraficoPrecio({ datos }: { datos: Datos }) {
       )}
 
       {puntos.map((p, i) => (
-        <circle key={i} cx={`${p.x}%`} cy={centro + p.fila * PASO_PUNTOS} r={RADIO_PUNTO} className="fill-dato" />
+        <circle key={i} cx={`${p.x}%`} cy={centro + p.fila * paso} r={radio} className="fill-dato" />
       ))}
 
       <line x1="0" x2="100%" y1={eje} y2={eje} className="stroke-border" />

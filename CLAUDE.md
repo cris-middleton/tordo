@@ -1038,9 +1038,10 @@ componentes cliente y la home perdería título y tarjeta de preview.
     producto. **El gráfico** (`components/precio/GraficoPrecio.tsx`, geometría en
     `lib/graficoPrecio.ts`, `__tests__/grafico-precio.test.ts`): SVG de servidor y `aria-hidden`,
     escala logarítmica, la franja P25–P75 con su etiqueta directa «la mitad central», la mediana como una
-    raya, la línea fina de P10 a P90 («8 de cada 10»), **un punto por comprador en su mediana** (los de
-    `compradores` con la unidad de la banda —los 10 primeros de `product_price_compradores`, ver «Quién
-    lo compra»—; los de otra unidad no se dibujan) **sólo con `MINIMO_PUNTOS` (5) o más** —con menos,
+    raya, la línea fina de P10 a P90 («8 de cada 10»), **un punto por comprador en su mediana** (todos los
+    de la banda, de `medianas_compradores`, hasta 200; si la API aún no lo trae —`null`, hasta que la
+    semanal materialice su tabla— cae a los de `compradores` con la unidad de la banda, que son diez)
+    **sólo con `MINIMO_PUNTOS` (5) o más**, y más chicos cuantos más son (`radioPara`: 8, 5 o 3,5 px) —con menos,
     ninguno, y la franja baja a 44 px: dos puntos de 63 compradores se leían como «los compradores» y el
     pie decía «uno de los 1»—, P25 y P75 en negrita y dos valores redondos de contexto en `muted`. **Sin `viewBox`:
     lo horizontal va en % y lo vertical en px**, así que puntos y rótulos no se deforman; si dos

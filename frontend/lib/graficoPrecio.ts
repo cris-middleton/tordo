@@ -85,6 +85,16 @@ export interface MarcaEje {
   ancla: Ancla;
 }
 
+/**
+ * El radio de los puntos según cuántos son: 8 px hasta 20, 5 hasta 60 y 3,5 más
+ * allá. Con todos los compradores de una banda (63 en la impresora de la portada)
+ * a 8 px la nube se apilaba en una torre; más chicos, la forma de la distribución
+ * se ve entera en el mismo alto.
+ */
+export function radioPara(n: number): number {
+  return n <= 20 ? RADIO_PUNTO : n <= 60 ? 5 : 3.5;
+}
+
 export interface GraficoPrecio {
   /** La mitad central. `null` con un solo comprador: no hay franja que comparar. Si desde = hasta, es una línea. */
   franja: { desde: number; hasta: number } | null;
@@ -95,6 +105,8 @@ export interface GraficoPrecio {
   puntos: PuntoPrecio[];
   /** La fila más alejada del eje (0 si ningún punto se apila): da el alto del gráfico. */
   filas: number;
+  /** Radio de los puntos, en px (`radioPara`); la distancia entre filas es `2·radio + 1`. */
+  radio: number;
   marcas: MarcaEje[];
   /** «la mitad central», encima de la franja: dónde y de qué lado se ancla. `null` sin franja. */
   rotuloFranja: { xTexto: number; ancla: Ancla } | null;
@@ -134,14 +146,14 @@ export function valoresRedondos(desde: number, hasta: number): number[] {
  * La fila de cada punto, en el orden en que llegan: el primero que cabe en la
  * secuencia 0, -1, 1, -2, 2… sin tocar a otro de su fila (al ancho de referencia).
  */
-export function filasDePuntos(xs: number[], ancho = ANCHO_REFERENCIA): number[] {
+export function filasDePuntos(xs: number[], ancho = ANCHO_REFERENCIA, paso = PASO_PUNTOS): number[] {
   const ocupadas = new Map<number, number[]>();
   return xs.map((x) => {
     const px = (x / 100) * ancho;
     for (let i = 0; ; i++) {
       const fila = i === 0 ? 0 : i % 2 ? -Math.ceil(i / 2) : Math.ceil(i / 2);
       const enFila = ocupadas.get(fila) ?? [];
-      if (enFila.every((otro) => Math.abs(otro - px) >= PASO_PUNTOS)) {
+      if (enFila.every((otro) => Math.abs(otro - px) >= paso)) {
         ocupadas.set(fila, [...enFila, px]);
         return fila;
       }
@@ -233,10 +245,13 @@ export function graficoPrecio(
   const { p25, p75 } = banda;
   if (p25 == null || p75 == null || !(p25 > 0) || p75 < p25) return null;
   const unidad = unidadDeclarada(banda.unidad);
-  const medianas = compradores
-    .filter((c) => unidadDeclarada(c.unidad) === unidad && typeof c.p50 === 'number' && c.p50 > 0)
-    .map((c) => c.p50 as number)
-    .sort((a, b) => a - b);
+  // Todos los compradores de la banda si el backend los trae; si no (tabla aún sin
+  // materializar), los diez de `compradores` con la unidad de la banda.
+  const crudas =
+    banda.medianas_compradores != null
+      ? banda.medianas_compradores.map((m) => m.p50)
+      : compradores.filter((c) => unidadDeclarada(c.unidad) === unidad).map((c) => c.p50);
+  const medianas = crudas.filter((v): v is number => typeof v === 'number' && v > 0).sort((a, b) => a - b);
   const unSolo = banda.compradores === 1;
   const valores = unSolo && medianas.length === 0 ? [banda.p50 ?? p25] : unSolo ? medianas.slice(0, 1) : medianas;
   const dibujados = unSolo || valores.length >= MINIMO_PUNTOS ? valores : [];
@@ -261,7 +276,8 @@ export function graficoPrecio(
   const x = (v: number) => unDecimal(((Math.log(v) - a) / (b - a)) * 100);
 
   const xs = dibujados.map(x);
-  const filas = filasDePuntos(xs, ancho);
+  const radio = radioPara(dibujados.length);
+  const filas = filasDePuntos(xs, ancho, 2 * radio + 1);
   const puntos = xs.map((px, i) => ({ x: px, fila: filas[i] }));
 
   const marcas = unSolo
@@ -288,6 +304,7 @@ export function graficoPrecio(
     rotuloFranja: encima ? { xTexto: encima.xTexto, ancla: encima.ancla } : null,
     puntos,
     filas: Math.max(0, ...filas.map(Math.abs)),
+    radio,
     marcas,
   };
 }
