@@ -140,8 +140,8 @@ export default async function PaginaNota({ params }: Props) {
       </section>
 
       {/* Al final y no arriba: nada va antes del `h1` (spec PORTADA_V7 §4). */}
-      <Link href="/notas" className="mt-12 inline-block text-sm font-semibold text-primary hover:underline">
-        ← Todas las notas
+      <Link href="/notas" className="enlace mt-12 inline-block text-sm">
+        Todas las notas
       </Link>
     </article>
   );

@@ -67,8 +67,8 @@ export default async function PaginaGuia({ params }: Props) {
       </section>
 
       {/* Al final y no arriba: nada va antes del `h1` (spec PORTADA_V7 §4). */}
-      <Link href="/guias" className="mt-12 inline-block text-sm font-semibold text-primary hover:underline">
-        ← Todas las guías
+      <Link href="/guias" className="enlace mt-12 inline-block text-sm">
+        Todas las guías
       </Link>
     </article>
   );
