@@ -6,6 +6,8 @@ import { CabeceraFicha, Seccion } from '@/components/publico/Piezas';
 import { PREGUNTAS } from '@/lib/acerca';
 import { COSTO_MENSUAL_APROXIMADO } from '@/lib/costos';
 import { nombreAutor, rolAutor } from '@/lib/autor';
+import { MESES_ANALISIS, MESES_PRECIOS } from '@/lib/periodo';
+import { FRECUENCIA_CATALOGO } from '@/lib/portada';
 import { CORREO_CONTACTO } from '@/lib/responsable';
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
@@ -35,15 +37,14 @@ export default function PaginaAcerca() {
     <article className="lectura max-w-3xl">
       <CabeceraFicha
         titulo={`Acerca de ${APP_NAME}`}
-        subtitulo="Qué es, de dónde salen los datos, cómo se financia y las preguntas de siempre."
+        subtitulo="Lo que hay detrás del sitio."
       />
 
       <Seccion id="que-es" titulo="Qué es">
         <div className="space-y-3 text-sm leading-relaxed text-muted">
           <p>
-            Un sitio para quien le vende al Estado de Chile: qué se está comprando hoy, cuánto se ha
-            pagado por lo que vendes y contra quién compites. Responde una pregunta —¿me conviene
-            postular, y a qué precio?— con los datos públicos de Mercado Público.
+            Es para quien le vende al Estado de Chile. Te dice qué se compra hoy, a qué precio se ha
+            comprado lo que vendes y quién más le vende. Con eso decides si postular y a qué precio.
           </p>
           <p>
             Es gratis y no pide registro: lo que guardas se queda en tu navegador. También se puede
@@ -58,10 +59,10 @@ export default function PaginaAcerca() {
 
       <Seccion id="datos" titulo="De dónde salen los datos">
         <p className="text-sm leading-relaxed text-muted">
-          De los archivos abiertos de órdenes de compra de ChileCompra de los últimos tres años (los
-          precios, del último) y de la API de Mercado Público, que se consulta varias veces al día. Son
-          datos oficiales: cualquier cifra se puede contrastar en Mercado Público, y la cita de la
-          fuente va al pie de cada página.{' '}
+          De los archivos abiertos de órdenes de compra de ChileCompra de los últimos {MESES_ANALISIS}{' '}
+          meses ({MESES_PRECIOS} para los precios) y de la API de Mercado Público, que se consulta{' '}
+          {FRECUENCIA_CATALOGO}. Son datos oficiales: cualquier cifra se puede contrastar en Mercado
+          Público, y la cita de la fuente va al pie de cada página.{' '}
           <Link href="/guias/de-donde-salen-los-datos" className="enlace">
             Cómo se procesan
           </Link>

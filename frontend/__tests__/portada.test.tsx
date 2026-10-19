@@ -662,8 +662,8 @@ describe('la franja de hoy', () => {
   it('publicadas hoy, quién más publica y la hora con el día', async () => {
     todo();
     render(await Home());
-    expect(within(franja()).getByText('612')).toBeInTheDocument();
-    expect(within(franja()).getByTitle('Servicio De Salud Metropolitano Sur')).toBeInTheDocument();
+    expect(within(franja()).getByText('612 licitaciones y Compras Ágiles')).toBeInTheDocument();
+    expect(within(franja()).getByTitle('Servicio de Salud Metropolitano Sur')).toBeInTheDocument();
     expect(within(franja()).getByText('Actualizado el').nextElementSibling).toHaveTextContent(/14.*oct.*11:00/);
   });
 

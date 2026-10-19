@@ -1,13 +1,13 @@
 ---
 titulo: "«Lo mejor de hoy» en Compra Ágil: cómo se ordena"
-descripcion: "Qué mira la lista de Compras Ágiles abiertas: cuánto compra la unidad, el plazo y el monto. Y qué no es: una predicción."
+descripcion: "Qué mira la lista de Compras Ágiles abiertas: cuánto compra la unidad, el plazo y el monto, y cuánto pesa cada uno."
 slug: "lo-mejor-de-hoy-en-compra-agil"
-actualizado: "2026-10-16"
+actualizado: "2026-10-18"
 fuentes:
   - "API de Compra Ágil de Mercado Público (Compras Ágiles abiertas)"
   - "Descarga masiva de órdenes de compra de ChileCompra (órdenes de Compra Ágil por unidad de compra, 6 meses)"
   - "Código del ranking: backend/app/repositories/compra_agil.py"
-  - "Muestra de 232 Compras Ágiles abiertas (2026-10-14): docs/REDISENO_PUBLICO_2026-10.md"
+  - "Conteo de cotizaciones de 1.785 Compras Ágiles abiertas, medido el 2026-10-15 (compuerta G1): CLAUDE.md, «Lo mejor de hoy»"
   - "Monto por orden de Compra Ágil, OC 2025-10 a 2026-03 (365.299 órdenes): constante MONTO_REFERENCIA en backend/app/repositories/compra_agil.py"
   - "Medición del orden sobre las Compras Ágiles abiertas del 2026-10-14: backend/tests/test_orden_destacadas_instantanea.py"
   - "Tope de Compra Ágil leído de los montos declarados: tope_compra_agil en backend/app/repositories/compra_agil.py"
@@ -70,12 +70,12 @@ más monto vale más— y no una verdad medida: se puede revisar.
 ## La competencia se informa, pero no pesa
 
 Una Compra Ágil abierta trae cuántas cotizaciones lleva, y sería natural premiar a
-las que tienen pocas. **No lo hacemos, y por ahora no mostramos ese número.** Casi
-todas las abiertas dicen cero cotizaciones (el 97 % de una muestra de 232), y todavía no hemos comprobado si ese
-conteo se actualiza después de la primera vez que TORDO ve la Compra Ágil. Si no se
-actualiza, un «nadie ha cotizado aún» puede ser falso, y te llevaría a cotizar creyendo
-que no hay competencia o a descartar una que sí la tiene. Hasta saberlo, la
-competencia no entra en el puntaje ni en la pantalla.
+las que tienen pocas. **No lo hacemos, y por ahora no mostramos ese número**: el conteo
+no se actualiza después de la primera vez que TORDO ve la Compra Ágil. Lo medimos el
+15 de octubre de 2026: de 1.785 Compras Ágiles abiertas, ninguna subió su conteo en
+unas 3 horas, y el 82,9 % decía cero. Un «nadie ha cotizado aún» sería falso casi
+siempre, y te llevaría a cotizar creyendo que no hay competencia. Mientras el conteo
+no se refresque, la competencia no entra en el puntaje ni en la pantalla.
 
 ## Lo que no es
 
@@ -88,8 +88,8 @@ competencia no entra en el puntaje ni en la pantalla.
 
 ## Cada cuánto cambia
 
-La lista se actualiza cuando TORDO consulta la API: a las 10, 13, 16 y 19 horas los
-días hábiles, y a las 12 horas los fines de semana. La página dice a qué hora fue la
+La lista se actualiza cuando TORDO consulta la API: a las 10, 13, 16 y 19 horas de
+lunes a viernes, y a las 12 horas los fines de semana. La página dice a qué hora fue la
 última, y avisa si se saltó una.
 
 Para no tener que entrar a mirarla, síguela por RSS: `/rss/compra-agil` (ver

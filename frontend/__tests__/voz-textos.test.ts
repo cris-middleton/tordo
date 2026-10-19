@@ -101,7 +101,7 @@ describe('D11: fuera «gratis y sin cuenta» de títulos, descripciones y la por
   it('el título y la descripción de la portada dicen qué es, no qué no cobra', () => {
     expect(metadata.title).toEqual({ absolute: `${APP_NAME} — Qué compra el Estado de Chile y a qué precio` });
     expect(metadata.description).toBe(
-      'Busca lo que vendes y mira cuánto ha pagado el Estado, quién lo compra y qué está abierto hoy. Con los datos públicos de ChileCompra.',
+      'Busca lo que vendes y mira a qué precio lo compró el Estado en 12 meses, quién lo compra y qué está abierto hoy. Datos de ChileCompra.',
     );
   });
 });

@@ -15,12 +15,12 @@
 import type { SectoresBI } from '@/types/bi';
 import type { ResumenPortada } from '@/types/publico';
 
-import { HORAS_HABILES } from './compraAgil';
+import { HORAS_FIN_DE_SEMANA, HORAS_HABILES } from './compraAgil';
 import { urlCatalogoAbiertas } from './filtrosCatalogo';
 import { decimal } from './formato';
 import { esConteo, esFechaOAusente } from './lecturasPortada';
 import { normalizeText } from './nombresChile';
-import { rangoDeMeses } from './periodo';
+import { MESES_PRECIOS, rangoDeMeses } from './periodo';
 import { entero } from './publico';
 
 /** Lo que se ve en el bloque vivo de la portada. El resto, en la página entera. */
@@ -103,19 +103,31 @@ export function tiraDeLaPortada(resumen: ResumenPortada | null): TiraPortada | n
 }
 
 /** Bajo la pregunta: qué hace la búsqueda, en una frase (spec PORTADA_V7 §3.8). */
-export const SUBTITULO_PORTADA =
-  'Antes de cotizar, mira a qué precio se compró en los últimos 12 meses, quién lo compra y qué puedes postular hoy.';
+export const SUBTITULO_PORTADA = `Antes de cotizar, mira a qué precio se compró en los últimos ${MESES_PRECIOS} meses, quién lo compra y qué puedes postular hoy.`;
 
 /** El campo no repite los ejemplos: ya están debajo (spec §3.1). */
 export const PLACEHOLDER_BUSCADOR = 'Un producto o un servicio';
 
+/** «una», «4»: cuántas, para leerlo en una frase. */
+const cuantas = (n: number) => (n === 1 ? 'una' : String(n));
+const veces = (n: number) => `${cuantas(n)} ${n === 1 ? 'vez' : 'veces'}`;
+
 /**
- * «El catálogo, 4 veces cada día hábil. El análisis, cada domingo.», en la ficha
- * (spec PORTADA_V7 §3.5). El número sale del horario del cron frecuente
- * (`HORAS_HABILES`, copia de `etl/cron.py`): si el cron cambia, la frase cambia
- * con él. El semanal corre los domingos (`etl/cron.py`, `semanal`).
+ * «4 veces al día de lunes a viernes y una al día el fin de semana»: cada cuánto
+ * se consulta la API de Mercado Público. Sale del horario del cron frecuente
+ * (`HORAS_HABILES` y `HORAS_FIN_DE_SEMANA`, copia de `etl/cron.py`). «De lunes a
+ * viernes» y no «cada día hábil»: el cron corre también los festivos.
  */
-export const SE_ACTUALIZA = `El catálogo, ${HORAS_HABILES.length} veces cada día hábil. El análisis, cada domingo.`;
+export const FRECUENCIA_CATALOGO =
+  `${veces(HORAS_HABILES.length)} al día de lunes a viernes y ` +
+  `${cuantas(HORAS_FIN_DE_SEMANA.length)} al día el fin de semana`;
+
+/**
+ * «El catálogo, 4 veces al día de lunes a viernes y una al día el fin de semana.
+ * Los precios y los mercados, cada domingo.», en la ficha (spec PORTADA_V7 §3.5).
+ * El semanal corre los domingos (`etl/cron.py`, `semanal`).
+ */
+export const SE_ACTUALIZA = `El catálogo, ${FRECUENCIA_CATALOGO}. Los precios y los mercados, cada domingo.`;
 
 /** «Datos abiertos de ChileCompra»: la fila «Fuente» de la ficha. */
 export const FUENTE_PORTADA = 'Datos abiertos de ChileCompra';
@@ -157,7 +169,10 @@ export function baseDeLaFicha(sectores: SectoresBI | null): string | null {
 
 /** La franja bajo las dos columnas (spec §3.6). `null` = esa celda no se pinta. */
 export interface DatosFranja {
-  /** «612». Sin publicaciones hoy —cada madrugada—, null. */
+  /**
+   * «612 licitaciones y Compras Ágiles»: el número con lo que cuenta, que son las
+   * dos cosas. Sin publicaciones hoy —cada madrugada—, null.
+   */
   publicadasHoy: string | null;
   /** El organismo que más publicó hoy, como lo escribe «Lo mejor de hoy». */
   masPublicaHoy: string | null;
@@ -178,7 +193,7 @@ export function franjaDeLaPortada(resumen: ResumenPortada | null): DatosFranja |
   const hay = esConteo(n) && n > 0;
   const nombre = typeof resumen.mas_publica_hoy === 'string' ? resumen.mas_publica_hoy.trim() : '';
   return {
-    publicadasHoy: hay ? entero(n) : null,
+    publicadasHoy: hay ? `${entero(n)} ${n === 1 ? 'licitación o Compra Ágil' : 'licitaciones y Compras Ágiles'}` : null,
     masPublicaHoy: hay && nombre ? normalizeText(nombre) : null,
     actualizado,
   };

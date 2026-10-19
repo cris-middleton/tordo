@@ -2,7 +2,7 @@
 titulo: "Cómo leer una banda de precio"
 descripcion: "Qué significan P10, P50 y P90, qué es la predictibilidad y por qué agrupamos por producto y no por categoría del catálogo. Con las cifras medidas."
 slug: "como-leer-una-banda-de-precio"
-actualizado: "2026-10-16"
+actualizado: "2026-10-18"
 fuentes:
   - "Descarga masiva de órdenes de compra de ChileCompra (octubre de 2025 a marzo de 2026)"
   - "Código del cálculo: etl/analytics/product_price_bands.py y etl/analytics/normalizacion.py"
@@ -10,8 +10,8 @@ fuentes:
 ---
 
 Una banda de precio responde a una pregunta concreta: **¿a qué precio unitario ha
-comprado el Estado este producto?** No es una recomendación de precio: es lo que se
-pagó, ordenado para que se pueda leer de un vistazo.
+comprado el Estado este producto?** Es lo que se pagó, ordenado para leerlo de un
+vistazo.
 
 ## Los cinco números
 
@@ -95,6 +95,5 @@ estás.
 La banda mira sólo los **últimos 12 meses**, así que junta precios de un año como
 mucho. Los mostramos tal como se pagaron, sin ajustarlos por inflación.
 
-Para ver bandas de un producto concreto, búscalo en
-[Mercados](/mercado) o en su página, del estilo
-`/productos/guantes-nitrilo`.
+Para ver la banda de un producto concreto, búscalo en [Precios](/productos); cada
+uno tiene su página, del estilo `/productos/guantes-nitrilo`.

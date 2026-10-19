@@ -723,6 +723,13 @@ ninguna página ni layout de grupo pinta cabecera, pie, `PieAtribucion` ni `<mai
   contar. `normalizeText` y `shortRegion` viven ahora en `lib/nombresChile.ts` (sin imports) y
   `__tests__/isla-guardados-ligera.test.ts` falla si la isla vuelve a alcanzar `date-fns`,
   `recharts`, `axios` o TanStack Query.
+- **Los nombres de Mercado Público se escriben con `normalizeText`** (`lib/nombresChile.ts`): llegan
+  en MAYÚSCULAS y salen con mayúscula inicial, pero «de», «del», «la», «las», «los», «y», «e», «o»,
+  «en», «a», «al», «por», «para» y «con» en minúscula salvo al principio («Policia de Investigaciones de
+  Chile»). Un artículo que es parte de una comuna o región la conserva («Municipalidad de Las
+  Condes», `LUGARES_CON_ARTICULO`): ante la duda, mayúscula. Las tildes que faltan no se inventan.
+  La ficha del comprador y la tabla de compradores del rubro también lo pasan (analytics trae
+  los nombres en mayúsculas). `__tests__/nombres-chile.test.ts`.
 - **«Código» sólo con `REPOSITORIO_URL`** (`lib/repositorio.ts`), y por eso la cabecera tiene que
   ser de servidor: en un componente cliente la variable no existe y el enlace no saldría nunca.
 - **La fila completa aparece desde `lg` (1024 px), no desde 640**: mide ~720 px y en una tableta
@@ -992,8 +999,10 @@ componentes cliente y la home perdería título y tarjeta de preview.
   `urlCatalogoAbiertas`) y **la ficha** (`FichaPortada`, §3.5): **Base** —«5,48 millones de órdenes
   de compra, nov 2023 a oct 2026», `baseDeLaFicha` sobre `GET /bi/sector`: la suma de `n_oc` y la
   ventana mínima y máxima, **nunca escrita a mano**; sin analytics, sin `n_oc` en alguna fila o sin
-  ventana, la fila no sale—, **Fuente**, **Se actualiza** (`SE_ACTUALIZA`, que sale de
-  `HORAS_HABILES`) y **Lo hace** («{nombre}, {rol}», sólo con `AUTOR_NOMBRE`, enlazado a
+  ventana, la fila no sale—, **Fuente**, **Se actualiza** (`SE_ACTUALIZA`: «El catálogo, 4 veces al
+  día de lunes a viernes y una al día el fin de semana. Los precios y los mercados, cada domingo.»,
+  que sale de `HORAS_HABILES` y `HORAS_FIN_DE_SEMANA` vía `FRECUENCIA_CATALOGO`; «de lunes a
+  viernes» y no «día hábil», porque el cron corre también los festivos) y **Lo hace** («{nombre}, {rol}», sólo con `AUTOR_NOMBRE`, enlazado a
   `AUTOR_URL`; el rol sale de `AUTOR_ROL` y sin ella va el nombre solo). «Se usa» y «Úsalo como quieras» se fueron (V11): la salida a API, MCP y CSV es la de
   la cabecera y el pie.
 - **«Lo que dicen los datos»** (`LecturasPortada`): sobre blanco, el `h2` en chico (18 px) con un
@@ -1030,8 +1039,9 @@ componentes cliente y la home perdería título y tarjeta de preview.
   - **Cierres** (§3.3, `lecturaCierres`): «N de cada 10 Compras Ágiles abiertas cierran hoy o
     mañana» y **una barra de diez celdas con tantas en `dato` como esos décimos** (`decimosDe`, el
     mismo redondeo de la frase), y la tabla de los cuatro tramos con hoy y mañana en negrita. Sin
-    hora legible del resumen, no sale (su pie dice de cuándo es). Los tramos tienen que sumar las
-    abiertas.
+    hora legible del resumen, no sale (su pie dice de cuándo es: «Contadas el … a las …, por día de
+    cierre en hora de Chile.», sin el total de abiertas, que la tira dice al lado). Los tramos
+    tienen que sumar las abiertas.
   - **La nota** (§3.4, `lecturaNota`): **la más reciente que trae `antes_despues`**
     (`notaDeLaPortada`; si ninguna lo trae, la más reciente), para que tenga gráfico como las
     otras dos; la lista «Notas de datos» sigue con las cuatro últimas en su orden. Con su resumen y su
@@ -1056,8 +1066,8 @@ componentes cliente y la home perdería título y tarjeta de preview.
     sectores (`GET /bi/sector`, `pedirSectoresPortada`), que ya no son una lectura sino la fila
     «Base» de la ficha, y la ficha del producto (`pedirProductoPortada`). Con `FEATURE_ANALYTICS`
     apagada responden 503: la fila «Base» y la lectura de precio no salen.
-- **La franja de hoy** (`FranjaPortada`, `franjaDeLaPortada`): publicadas hoy, el organismo que más
-  publica (por nombre; truncado con `title`) y «Actualizado el» con el día —la portada se cachea—.
+- **La franja de hoy** (`FranjaPortada`, `franjaDeLaPortada`): publicadas hoy («612 licitaciones y
+  Compras Ágiles»: cuenta las dos), el organismo que más publica (por nombre; truncado con `title`) y «Actualizado el» con el día —la portada se cachea—.
   Con 0 publicadas hoy (cada madrugada) las dos primeras celdas se ocultan y la que queda primera
   no lleva sangría. Sin enlace: el catálogo no filtra por fecha de publicación.
 - **«Lo mejor de hoy», compacto** (`pedirDestacadas`, `BloqueHoy`): filas con nombre, comprador,
@@ -1298,6 +1308,13 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
     `price_bands`, `competitors_by_market`, `market_concentration` y `sector_dashboard`, y
     `periodo` en la API de precio, de competidores y en la ficha pública de producto. Una cifra
     sin periodo se lee como «de siempre».
+  - **Los textos del sitio dicen el número de meses con constantes, no a mano**:
+    `MESES_ANALISIS`, `MESES_PRECIOS` y `MESES_COMPRA_AGIL` en `frontend/lib/periodo.ts` son copias
+    de `VENTANA_ANALYTICS_MESES`, `VENTANA_BANDAS_PRECIO_MESES` y `VENTANA_COMPRA_AGIL_MESES`, y
+    `etl/tests/test_ventanas_del_frontend.py` falla si se separan. Las usan el subtítulo y la
+    descripción de la portada, `/acerca`, la ficha del comprador y la del rubro. Las «Publicadas» de
+    Compra Ágil se rotulan «Publicadas desde oct 2026» mientras la ventana de 6 meses incluya meses
+    sin recoger (`etiquetaPublicadas`).
   - **Sin ventana, a propósito**: el harness de evaluación (`meses=None`) y `tfidf_matcher`,
     cuyos splits fija el harness —cambiar su historia es cambiar el modelo.
   - `MIN_YEAR` ya no filtra: queda sólo como origen del índice temporal de `trend_analysis`.

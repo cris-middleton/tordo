@@ -393,7 +393,7 @@ describe('lecturaCierres', () => {
       { nombre: 'En 2 o 3 días', valor: '782', destacada: false },
       { nombre: 'Después', valor: '265', destacada: false },
     ]);
-    expect(l.pie).toBe('2.409 abiertas el viernes 16 de octubre a las 11:06, por día de cierre en hora de Chile.');
+    expect(l.pie).toBe('Contadas el viernes 16 de octubre a las 11:06, por día de cierre en hora de Chile.');
   });
 
   it('los enlaces: las que cierran primero, la API y el código', () => {
@@ -415,8 +415,8 @@ describe('lecturaCierres', () => {
     expect(l.tramos.map((t) => t.destacada)).toEqual([false, false, false, false]);
   });
 
-  it('una sola abierta, en singular', () => {
-    expect(lecturaCierres(conTramos(0, 0, 0, 1), REPO)!.pie).toMatch(/^1 abierta el /);
+  it('el pie no repite el total de abiertas: la tira de cifras lo dice al lado', () => {
+    expect(lecturaCierres(CIERRES, REPO)!.pie).not.toMatch(/2\.409|abiertas/);
   });
 
   it.each([

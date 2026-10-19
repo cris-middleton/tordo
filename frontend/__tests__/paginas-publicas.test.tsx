@@ -164,11 +164,22 @@ describe('enlaces entre fichas', () => {
     ).toBeInTheDocument();
   });
 
-  it('el rubro enlaza a sus compradores y al panel por el NOMBRE', async () => {
+  it('el comprador: nombre legible, Compra Ágil con su ventana y publicadas desde cuándo', async () => {
+    simularBackend({ '/compradores/7297': { ...COMPRADOR, nombre: 'HOSPITAL DE LA PRUEBA' } });
+    const { container } = render(await PaginaComprador(params({ codigo: '7297' })));
+    expect(screen.getByRole('heading', { level: 1, name: 'Hospital de la Prueba' })).toBeInTheDocument();
+    expect(screen.getByText('Sus órdenes por Compra Ágil en los últimos 6 meses: cuántas, a cuántos proveedores y de qué monto.')).toBeInTheDocument();
+    expect(screen.getByText('Publicadas desde oct 2026')).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/UTM|No significa/);
+    const m = await metaComprador(params({ codigo: '7297' }));
+    expect(String(m.title)).toMatch(/^Hospital de la Prueba/);
+  });
+
+  it('el rubro enlaza a sus compradores y a Mercados por el NOMBRE', async () => {
     simularBackend({ '/rubros/equipos-medicos': RUBRO });
     render(await PaginaRubro(params({ slug: 'equipos-medicos' })));
     expect(screen.getByRole('link', { name: 'Hospital de Prueba' })).toHaveAttribute('href', '/compradores/7297');
-    expect(screen.getByRole('link', { name: /analizar este rubro/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /ver este rubro en mercados/i })).toHaveAttribute(
       'href',
       '/mercado?rubro=Equipos%20m%C3%A9dicos',
     );

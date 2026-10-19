@@ -10,6 +10,7 @@ import {
 } from '@/lib/publicoServidor';
 import { nombreAutor, rolAutor, urlAutor } from '@/lib/autor';
 import { leerNotas } from '@/lib/notas';
+import { MESES_PRECIOS } from '@/lib/periodo';
 import { urlRepositorio } from '@/lib/repositorio';
 
 /**
@@ -40,8 +41,8 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://tordo.cl';
 // no qué no cobra. La descripción, bajo 155 caracteres.
 const TITLE = `${APP_NAME} — Qué compra el Estado de Chile y a qué precio`;
 const DESCRIPTION =
-  'Busca lo que vendes y mira cuánto ha pagado el Estado, quién lo compra y qué está abierto hoy. ' +
-  'Con los datos públicos de ChileCompra.';
+  `Busca lo que vendes y mira a qué precio lo compró el Estado en ${MESES_PRECIOS} meses, ` +
+  'quién lo compra y qué está abierto hoy. Datos de ChileCompra.';
 
 export const metadata: Metadata = {
   // Absoluto: el `template` del layout raíz le añadiría el nombre otra vez.

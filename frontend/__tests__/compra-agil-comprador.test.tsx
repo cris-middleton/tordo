@@ -43,8 +43,8 @@ beforeEach(() => {
   pedidas.length = 0;
 });
 
-function comprobarLineaVacia() {
-  expect(screen.getByText(/no tiene Compras Ágiles abiertas ahora mismo/)).toBeInTheDocument();
+function comprobarLineaVacia(texto = /no tiene Compras Ágiles abiertas ahora mismo/) {
+  expect(screen.getByText(texto)).toBeInTheDocument();
   expect(screen.getByRole('link', { name: /ver todas las de hoy/i })).toHaveAttribute(
     'href',
     '/compra-agil',
@@ -100,9 +100,10 @@ describe('Compras Ágiles abiertas del comprador', () => {
     comprobarLineaVacia();
   });
 
-  it('con error: lo mismo que vacía, sin caja de error', () => {
+  it('con error: una línea discreta que no dice que no tenga, sin caja de error', () => {
     estado = { isPending: false, isError: true };
     render(<CompraAgilDelComprador codigo="7297" />);
-    comprobarLineaVacia();
+    comprobarLineaVacia(/No pudimos traer sus Compras Ágiles abiertas/);
+    expect(screen.queryByText(/no tiene Compras Ágiles/)).not.toBeInTheDocument();
   });
 });
