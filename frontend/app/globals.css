@@ -247,6 +247,14 @@
     max-width: 58ch;
   }
 
+  /* Los bloques de código y las tablas, a la misma medida que el texto: a 768 px
+     sobresalían del párrafo (465 px). `ch` se resolvería en la fuente mono, más
+     ancha, así que va en rem: 58ch de Archivo a 16 px son 29 rem (medido a 1440).
+     Lo que no cabe se desplaza dentro del bloque. */
+  .lectura :where(pre, table) {
+    max-width: 29rem;
+  }
+
   /* ──────────────────────────────────────────────
      BUTTONS
   ────────────────────────────────────────────── */

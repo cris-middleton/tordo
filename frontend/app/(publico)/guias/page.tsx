@@ -12,7 +12,10 @@ export const metadata: Metadata = {
   alternates: { canonical: '/guias' },
 };
 
-/** `/guias` — el índice de las guías. Estático: se genera en el build. */
+/**
+ * `/guias` — el índice de las guías, en la misma lista que las notas: título,
+ * descripción y fecha, con filetes y sin tarjetas. Estático: se genera en el build.
+ */
 export default function PaginaGuias() {
   const guias = leerGuias();
   return (
@@ -21,19 +24,18 @@ export default function PaginaGuias() {
         titulo="Cómo leer los datos de compras públicas"
         subtitulo="Qué significa cada cifra, de dónde sale y dónde están sus límites."
       />
-      <ul className="space-y-3">
+      <ul className="max-w-[58ch] divide-y divide-border border-y border-border">
         {guias.map((g) => (
-          <li key={g.slug}>
-            <Link
-              href={rutaGuia(g.slug)}
-              className="group block rounded-xl border border-border bg-surface px-5 py-4 transition-shadow hover:shadow-md"
-            >
-              <h2 className="font-display text-base text-text group-hover:text-primary">
+          <li key={g.slug} className="py-6">
+            <h2 className="font-sans text-lg font-semibold leading-snug">
+              <Link href={rutaGuia(g.slug)} className="text-text hover:text-primary">
                 {g.titulo}
-              </h2>
-              <p className="mt-1 text-sm leading-relaxed text-muted">{g.descripcion}</p>
-              <p className="mt-2 text-xs text-subtle">Actualizada el {fechaCorta(g.actualizado)}</p>
-            </Link>
+              </Link>
+            </h2>
+            <p className="mt-2 text-muted">{g.descripcion}</p>
+            <p className="mt-2 text-sm text-subtle">
+              Actualizada el <span className="cifra">{fechaCorta(g.actualizado)}</span>
+            </p>
           </li>
         ))}
       </ul>
