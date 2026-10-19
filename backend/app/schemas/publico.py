@@ -69,6 +69,13 @@ class RubroPublico(BaseModel):
     compradores: list[CompradorDeRubro] = Field(description="Los 10 de más monto en el rubro.")
 
 
+class MedianaDeComprador(BaseModel):
+    """Lo que pagó un comprador de la banda: un punto del gráfico de precio."""
+
+    n: int = Field(description="Compras del organismo en la banda (desde 1).")
+    p50: float | None = Field(None, description="Mediana del precio unitario que pagó, en CLP.")
+
+
 class BandaPorUnidad(BaseModel):
     """La banda nacional (L0N) del producto en una unidad de medida."""
 
@@ -96,6 +103,14 @@ class BandaPorUnidad(BaseModel):
             "las compras. Sólo una banda así hace indexable el producto."
         ),
     )
+    medianas_compradores: list[MedianaDeComprador] | None = Field(
+        None,
+        description=(
+            "La mediana de cada organismo detrás de la banda, sobre las mismas compras: "
+            "tantas como `compradores`, salvo que corte el tope de 200 (las de más compras "
+            "primero). Nulo si todavía no se calculan; nunca una lista vacía en su lugar."
+        ),
+    )
 
 
 class CompradorDeProducto(BaseModel):
@@ -115,7 +130,10 @@ class ProductoPublico(BaseModel):
     indexable: bool
     unidades: list[BandaPorUnidad] = Field(description="Una banda por unidad, de más a menos n.")
     compradores: list[CompradorDeProducto] = Field(
-        description="Los 10 compradores que más lo compran (banda propia, L0)."
+        description=(
+            "Los 10 compradores que más lo compran: una fila por comprador y unidad, sin "
+            "mínimo de compras."
+        )
     )
     periodo: PeriodoPublico | None = Field(
         None,

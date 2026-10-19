@@ -30,6 +30,13 @@ TOP_ENLACES = 10
 #: Tope de resultados de la búsqueda de productos.
 MAX_RESULTADOS_BUSQUEDA = 50
 
+#: Cuántas medianas de comprador lleva como mucho cada banda (`medianas_compradores`),
+#: las de los organismos con más compras. Es el gráfico de precio, un punto por
+#: comprador: con los seis meses locales una firma llega a 505 compradores y casi
+#: ninguna pasa de 200. El tope acota la respuesta, que se cachea una semana; si
+#: corta, la lista trae menos medianas que el `compradores` de la banda.
+TOPE_MEDIANAS_POR_BANDA = 200
+
 
 def _periodo(indice: indexables.Indice) -> dict:
     periodo = indice.periodo or {}
@@ -179,9 +186,10 @@ def rubro(slug: str) -> dict | None:
 # ── Producto ─────────────────────────────────────────────────────────────────
 
 
-def _unidades(bandas: pl.DataFrame) -> list[dict]:
-    """Una banda por unidad, con cuántos organismos tiene detrás y si es un
-    precio de mercado (la regla vive en `indexables.de_mercado`)."""
+def _unidades(bandas: pl.DataFrame, firma: str) -> list[dict]:
+    """Una banda por unidad, con cuántos organismos tiene detrás, si es un
+    precio de mercado (la regla vive en `indexables.de_mercado`) y la mediana de
+    cada uno de esos organismos (`_medianas_compradores`)."""
     return [
         {
             "unidad": r.get("UnidadMedida"),
@@ -196,9 +204,37 @@ def _unidades(bandas: pl.DataFrame) -> list[dict]:
             "compradores": None if r.get("compradores") is None else int(r["compradores"]),
             "cuota_mayor": r.get("cuota_mayor"),
             "de_mercado": bool(r.get("de_mercado")),
+            "medianas_compradores": _medianas_compradores(firma, r.get("UnidadMedida")),
         }
         for r in indexables.con_de_mercado(bandas).iter_rows(named=True)
     ]
+
+
+def _medianas_compradores(firma: str, unidad: str | None) -> list[dict] | None:
+    """La mediana y las compras de cada comprador de la banda, para dibujarlos todos.
+
+    De `product_price_compradores`, las mismas filas que cuentan `compradores`:
+    sin tope, la lista tiene tantos elementos como organismos dice la banda. Van
+    por `puesto` (más compras primero; a igualdad, código) y como mucho
+    `TOPE_MEDIANAS_POR_BANDA`.
+
+    **None si la tabla no existe** (antes de la primera semanal que la genera),
+    no `[]`: una lista vacía diría «ningún comprador», y lo que pasa es que no se
+    sabe. Sin código ni nombre: los da `compradores`, y el gráfico no los usa.
+    """
+    if unidad is None:
+        return None
+    df = _load(
+        "product_price_compradores.parquet",
+        filtros={"firma_producto": firma, "UnidadMedida": unidad},
+        columnas=["n", "p50"],
+        orden="puesto",
+        descendente=False,
+        limite=TOPE_MEDIANAS_POR_BANDA,
+    )
+    if df is None:
+        return None
+    return [{"n": int(r["n"] or 0), "p50": r["p50"]} for r in df.iter_rows(named=True)]
 
 
 _COLUMNAS_COMPRADOR = ["CodigoOrganismoPublico", "OrganismoPublico", "UnidadMedida", "n", "p50"]
@@ -294,7 +330,7 @@ def producto(slug: str) -> dict | None:
         "codigo_onu": principal.get("codigoProductoONU"),
         "descripcion": principal.get("descripcion"),
         "indexable": bool(conocido["indexable"]),
-        "unidades": _unidades(bandas),
+        "unidades": _unidades(bandas, firma),
         "compradores": _compradores_del_producto(firma),
         "periodo": _periodo_de_bandas(bandas),
     }

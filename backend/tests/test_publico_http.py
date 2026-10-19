@@ -346,6 +346,7 @@ class TestProducto:
             "compradores",
             "cuota_mayor",
             "de_mercado",
+            "medianas_compradores",
         }
         assert cuerpo["unidades"][0]["compradores"] == 5
         assert cuerpo["unidades"][0]["cuota_mayor"] == 0.2
@@ -415,6 +416,65 @@ class TestProducto:
         assert banda["compradores"] is None
         assert banda["cuota_mayor"] is None
         assert banda["de_mercado"] is False
+
+    @staticmethod
+    def _comprador(unidad, codigo, n, p50, puesto, firma="guante nitrilo"):
+        return {
+            "firma_producto": firma,
+            "UnidadMedida": unidad,
+            "CodigoOrganismoPublico": codigo,
+            "OrganismoPublico": f"ORGANISMO {codigo}",
+            "n": n,
+            "p50": p50,
+            "puesto": puesto,
+            **VENTANA,
+        }
+
+    def test_cada_banda_trae_la_mediana_de_todos_sus_compradores(self, analytics, cliente):
+        """El gráfico dibuja un punto por comprador: cada banda trae los suyos,
+        de su unidad y en orden de `puesto`, más allá de los 10 de «Quién lo compra»."""
+        cajas = [self._comprador("caja", str(100 + i), 1, 9_000.0 + i, i + 2) for i in range(12)]
+        analytics["product_price_compradores.parquet"] = [
+            *reversed(cajas),
+            self._comprador("caja", "7297", 5, 8_800.0, 1),
+            self._comprador("unidad", "1", 3, 95.0, 14),
+            # Otra firma con la misma unidad no se cuela.
+            self._comprador("caja", "9", 50, 1.0, 1, firma="guante látex"),
+        ]
+
+        unidades = _get(cliente, "/productos/guante-nitrilo").json()["unidades"]
+
+        caja, unidad = unidades
+        assert caja["medianas_compradores"] == [{"n": 5, "p50": 8_800.0}] + [
+            {"n": 1, "p50": 9_000.0 + i} for i in range(12)
+        ]
+        assert unidad["medianas_compradores"] == [{"n": 3, "p50": 95.0}]
+
+    def test_las_medianas_tienen_tope(self, analytics, cliente, monkeypatch):
+        """Se quedan las de más compras: el `puesto` las ordena."""
+        monkeypatch.setattr(paginas, "TOPE_MEDIANAS_POR_BANDA", 2)
+        analytics["product_price_compradores.parquet"] = [
+            self._comprador("caja", "3", 1, 30.0, 3),
+            self._comprador("caja", "1", 4, 10.0, 1),
+            self._comprador("caja", "2", 2, 20.0, 2),
+        ]
+        caja = _get(cliente, "/productos/guante-nitrilo").json()["unidades"][0]
+        assert caja["medianas_compradores"] == [{"n": 4, "p50": 10.0}, {"n": 2, "p50": 20.0}]
+
+    def test_sin_la_tabla_las_medianas_son_nulas(self, analytics, cliente):
+        """No se sabe: null, no `[]` (que diría «ningún comprador»)."""
+        assert "product_price_compradores.parquet" not in analytics.tablas
+        unidades = _get(cliente, "/productos/guante-nitrilo").json()["unidades"]
+        assert [u["medianas_compradores"] for u in unidades] == [None, None]
+
+    def test_con_la_tabla_y_sin_filas_de_la_unidad_las_medianas_son_vacias(
+        self, analytics, cliente
+    ):
+        analytics["product_price_compradores.parquet"] = [
+            self._comprador("caja", "7297", 5, 8_800.0, 1)
+        ]
+        unidades = _get(cliente, "/productos/guante-nitrilo").json()["unidades"]
+        assert [len(u["medianas_compradores"]) for u in unidades] == [1, 0]
 
     def test_los_compradores_salen_de_la_tabla_sin_minimo(self, analytics, cliente):
         """«Quién lo compra» lee `product_price_compradores`: todos los

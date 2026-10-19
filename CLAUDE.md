@@ -868,6 +868,11 @@ contenedor único (cabecera y pie, con la atribución, son de la cáscara única
   filtro, 1,4 millones) y `puesto` ya ordenado (más compras, luego código y unidad), así que la API
   pide los 10 primeros por índice. **Sin la tabla** (hasta la primera semanal que la genera) la API
   cae a L0, como antes.
+  - **El gráfico dibuja a todos con `medianas_compradores`**, en cada banda de `unidades` de
+    `/publico/productos/{slug}`: `[{n, p50}]` de cada organismo de esa banda, por `puesto`, como mucho
+    `TOPE_MEDIANAS_POR_BANDA` (200; una firma local llega a 505). Sin tope son tantas como
+    `compradores` y suman su `n`. **`null` sin la tabla, nunca `[]`**: no se sabe, que no es
+    «ningún comprador». `compradores` (los 10 de «Quién lo compra») no cambia.
 - **Todo precio dice cuántos compradores tiene detrás y de cuándo** (`comprasDeOrganismos`,
   `frasePrecio`, `notaCompradores` en `lib/publico.ts`): «46 compras de 40 organismos, abr 2025
   – mar 2026 (12 meses)» en la ficha (el periodo en la cabecera), en `/buscar` (en la banda) y en

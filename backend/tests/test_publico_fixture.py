@@ -142,6 +142,13 @@ def test_producto_indexable_con_dos_unidades_y_compradores_enlazables(cliente):
         ("100090", "unidad", 2),
         ("100107", "caja", 2),
     ]
+    # Las medianas de TODOS los compradores de cada banda (el gráfico de precio):
+    # tantas como `compradores`, y sus compras suman la `n` de la banda.
+    for banda in cuerpo["unidades"]:
+        medianas = banda["medianas_compradores"]
+        assert len(medianas) == banda["compradores"] == 6
+        assert sum(m["n"] for m in medianas) == banda["n"]
+    assert cuerpo["unidades"][0]["medianas_compradores"][0] == {"n": 40, "p50": 8_800.0}
     # Cuántos organismos hay detrás de cada banda, de las columnas materializadas.
     assert [(u["compradores"], u["de_mercado"]) for u in cuerpo["unidades"]] == [
         (6, True),
