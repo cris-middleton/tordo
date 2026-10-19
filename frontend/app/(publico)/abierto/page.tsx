@@ -43,7 +43,7 @@ export default function PaginaAbierto() {
         titulo="Úsalo como quieras"
         subtitulo={`Lo que muestra ${APP_NAME} se lee también por API y desde tu asistente de IA. Los precios y los competidores se descargan en CSV, y las búsquedas se siguen por RSS.`}
       >
-        <nav aria-label="En esta página" className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+        <nav aria-label="En esta página" className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm [&>a]:py-1">
           <a href="#api" className="enlace">API</a>
           <a href="#mcp" className="enlace">MCP</a>
           <a href="#datos" className="enlace">CSV y RSS</a>

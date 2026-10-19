@@ -61,7 +61,7 @@ export function PieSitio() {
           {columnas.map((c) => (
             <div key={c.titulo}>
               <h2 className={TITULO_COLUMNA}>{c.titulo}</h2>
-              <ul className="mt-3 space-y-2 text-sm">
+              <ul className="mt-3 space-y-3 text-sm">
                 {c.enlaces.map((e) => (
                   <li key={e.href}>
                     <EnlacePie enlace={e} />

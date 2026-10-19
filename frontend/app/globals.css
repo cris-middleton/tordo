@@ -98,7 +98,6 @@
 
   /* Utility colors — full values (used in inline styles, not Tailwind opacity modifiers) */
   --color-scrollbar: #C4D0E0;
-  --color-scrollbar-hover: #5F7089;
   --color-border-hex: #DCE3ED;
   --color-surface-elevated-hex: #F1F4F9;
   --color-text-hex: #0A1626;
@@ -156,7 +155,6 @@
   --color-on-dato: 16 40 88;          /* #102858 — navy sobre turquesa: 6.04:1 */
 
   --color-scrollbar: #1E2736;
-  --color-scrollbar-hover: #2A3547;
   --color-border-hex: #1E2736;
   --color-surface-elevated-hex: #161D2A;
   --color-text-hex: #E4EAF2;
@@ -233,8 +231,21 @@
     color: rgb(var(--color-on-accent));
   }
 
+  /* El anillo de foco, entero: al 50 % daba 2,85:1 en oscuro, bajo el 3:1 de WCAG 2.4.11. */
   :focus-visible {
-    @apply outline-none ring-2 ring-primary/50 ring-offset-1 ring-offset-background;
+    @apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-background;
+  }
+
+  /* Lo que el navegador pinta solo también lleva la paleta: el cursor de escritura, las
+     casillas y radios nativos, y la barra de desplazamiento (antes, una clase que nadie usaba). */
+  :root {
+    accent-color: rgb(var(--color-primary));
+    scrollbar-color: var(--color-scrollbar) transparent;
+  }
+
+  input,
+  textarea {
+    caret-color: rgb(var(--color-accent));
   }
 }
 
@@ -283,7 +294,7 @@
      página al enfocar el campo. Un `text-sm` suelto en el elemento lo deshace
      (`__tests__/campos-moviles.test.ts`). */
   .input-field {
-    @apply w-full rounded-lg border border-borderInput bg-surface px-4 py-2.5 text-base text-text sm:text-sm placeholder-subtle shadow-sm transition-all duration-200 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:cursor-not-allowed disabled:bg-surface-elevated disabled:opacity-70 font-sans;
+    @apply w-full rounded-lg border border-borderInput bg-surface px-4 py-2.5 text-base text-text sm:text-sm placeholder-subtle shadow-sm transition-all duration-200 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/60 disabled:cursor-not-allowed disabled:bg-surface-elevated disabled:opacity-70 font-sans;
   }
 
   select.input-field {
@@ -442,31 +453,6 @@
   /* El foco lo pone la regla global `:focus-visible` de la capa base: no se redefine aquí. */
   .enlace {
     @apply font-medium text-primary underline decoration-1 underline-offset-2 transition-colors hover:text-accent;
-  }
-
-  /* ──────────────────────────────────────────────
-     SCROLLBAR
-  ────────────────────────────────────────────── */
-  .scrollbar-thin {
-    scrollbar-width: thin;
-    scrollbar-color: var(--color-scrollbar) transparent;
-  }
-
-  .scrollbar-thin::-webkit-scrollbar {
-    width: 4px;
-  }
-
-  .scrollbar-thin::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: var(--color-scrollbar);
-    border-radius: 2px;
-  }
-
-  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: var(--color-scrollbar-hover);
   }
 }
 
