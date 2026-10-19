@@ -402,7 +402,7 @@ programador en la nube, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
   regla globalmente.
 - **Ninguna pantalla pasa de 700 líneas.** Las tres que lo hacían están partidas por su
   seam natural: el detalle de licitación en `components/licitacion/` + `lib/licitacionDetalle.ts`,
-  el listado en `TarjetaLicitacion` + `lib/licitacionEstado.ts`, y las herramientas de BI en
+  el listado en `FilaLicitacion` + `lib/licitacionEstado.ts`, y las herramientas de BI en
   `app/(panel)/mercado/components/herramientas/` (una pestaña por fichero). **Los ayudantes de estado y formato
   van en `lib/`, no dentro del componente**: definidos dentro se reconstruían en cada render
   y no se podían reutilizar desde la tarjeta.
@@ -662,7 +662,9 @@ Next.js 16 App Router + TypeScript + Tailwind + Recharts. Componentes propios. E
 servidor va en TanStack Query (`lib/queries.ts`) y todo el tráfico pasa por `/api/proxy`,
 sin sesión — ver las reglas de frontend más arriba. Pantallas: el catálogo de
 licitaciones (`/licitaciones`, con su detalle; **los filtros viven en la URL**, `abiertas=1` incluido, así que
-una búsqueda es una URL), «Lo mejor de hoy en Compra Ágil» (`/compra-agil`), `/guardados`
+una búsqueda es una URL; **entrar sin nada en la URL abre en «Sólo abiertas»** (`filtrosIniciales`), y
+una URL con filtros se lee tal cual, así que un enlace, una búsqueda guardada o un RSS no cambian de
+sentido; cada licitación es una fila, `FilaLicitacion`, con el cierre en palabras de `cierreEnPalabras`), «Lo mejor de hoy en Compra Ágil» (`/compra-agil`), `/guardados`
 y los mercados por rubro (`/mercado`, «Mercados» en la navegación); y lo abierto en `/abierto`,
 enlazado como «API y MCP» desde la cabecera; la búsqueda en `/buscar?q=` (ver abajo); y las
 notas de datos en `/notas` (ver «Notas de datos»). Las del panel viven en el grupo de rutas

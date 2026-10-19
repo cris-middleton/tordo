@@ -4,33 +4,27 @@ import { Suspense, useCallback, useEffect, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useLicitaciones, usePanelLicitacion } from '@/lib/queries';
+import { useLicitaciones } from '@/lib/queries';
 import SelectField from '@/components/SelectField';
-import {
-  Search,
-  Loader2,
-  BookmarkPlus,
-  BookmarkCheck,
-  X,
-  ArrowRight,
-  AlertTriangle,
-} from 'lucide-react';
+import { Search, Loader2, BookmarkPlus, BookmarkCheck, X } from 'lucide-react';
 
 import { useDashboardCollections } from '@/hooks/useDashboardCollections';
 import { consultaDe, useBusquedasGuardadas } from '@/hooks/useBusquedasGuardadas';
-import TarjetaLicitacion from '@/components/licitacion/TarjetaLicitacion';
+import FilaLicitacion from '@/components/licitacion/FilaLicitacion';
 import { ESTADOS_LICITACION, REGIONES_CHILE, TIPOS_CONVOCATORIA } from '@/lib/constantesChile';
 import {
   type FiltrosCatalogo,
-  type Orden,
+  OPCIONES_ORDEN,
+  SUBTITULO_CATALOGO,
   TIPOS_SIN_COMPRA_AGIL,
+  claveOrden,
+  ordenDeClave,
   escribirFiltros,
-  leerFiltros,
+  filtrosIniciales,
   paramsDeApi,
 } from '@/lib/filtrosCatalogo';
-import { normalizeText } from '@/lib/licitacionEstado';
-import type { BIPanel, Tender } from '@/types/licitacion';
-import { decimal } from '@/lib/formato';
+import { shortRegion } from '@/lib/nombresChile';
+import type { Tender } from '@/types/licitacion';
 
 type CampoFiltro = 'estado' | 'tipo_convocatoria' | 'region' | 'min_amount' | 'max_amount';
 
@@ -46,19 +40,24 @@ type CampoFiltro = 'estado' | 'tipo_convocatoria' | 'region' | 'min_amount' | 'm
  */
 function CatalogoContenido() {
   const urlInicial = useSearchParams();
-  const [filtros, setFiltros] = useState<FiltrosCatalogo>(() => leerFiltros(urlInicial));
+  const [filtros, setFiltros] = useState<FiltrosCatalogo>(() => filtrosIniciales(urlInicial));
   const [searchInput, setSearchInput] = useState('');
   const { hydrated, isTenderStored, toggleTender } = useDashboardCollections();
   const busquedas = useBusquedasGuardadas();
 
-  const [selectedTender, setSelectedTender] = useState<Tender | null>(null);
+  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
+  // Una sola hora para todas las filas: «Cierra mañana» se cuenta desde aquí.
+  const [ahora] = useState(() => new Date());
 
-  const { page, limit, terminos: keywords, sort_by: sortBy, sort_order: sortOrder } = filtros;
+  const { page, terminos: keywords, sort_by: sortBy } = filtros;
 
   // ── Sincronizar la URL ───────────────────────────────────────────────────
   // No toca estado de React: escribe fuera. `replaceState` para no llenar el
   // historial con cada tecla.
-  const consultaUrl = escribirFiltros(filtros).toString();
+  // Sin ningún filtro la URL quedaría vacía, y una URL vacía abre en «Sólo
+  // abiertas» (`filtrosIniciales`): quien las apagó lo dice con `abiertas=0`,
+  // o recargar se las volvería a encender.
+  const consultaUrl = escribirFiltros(filtros).toString() || (filtros.abiertas ? '' : 'abiertas=0');
   useEffect(() => {
     window.history.replaceState({}, '', consultaUrl ? `?${consultaUrl}` : window.location.pathname);
   }, [consultaUrl]);
@@ -66,13 +65,6 @@ function CatalogoContenido() {
   // Lo que identifica la búsqueda guardada: sólo los filtros, sin orden ni página.
   const consultaGuardable = consultaDe(new URLSearchParams(consultaUrl));
   const busquedaGuardada = busquedas.estaGuardada(consultaGuardable);
-
-  // La cancelación con `active` y el vaciado al cambiar de licitación los hace
-  // la clave de la consulta: otra licitación, otra clave, otro resultado.
-  const consultaPanel = usePanelLicitacion(selectedTender?.codigo_externo);
-  const biPanel = (consultaPanel.data ?? null) as BIPanel | null;
-  const biLoading = Boolean(selectedTender) && consultaPanel.isFetching;
-  const biError = Boolean(consultaPanel.error);
 
   // Los parámetros SON la clave: cambiar un filtro cambia la clave y se pide de
   // nuevo. `placeholderData` mantiene la tabla anterior mientras llega la nueva,
@@ -137,30 +129,121 @@ function CatalogoContenido() {
   const setPage = (actualizar: (p: number) => number) =>
     setFiltros((prev) => ({ ...prev, page: actualizar(prev.page) }));
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="page-title">Licitaciones</h1>
-          <p className="mt-2 text-sm text-muted">Busca y explora licitaciones públicas</p>
-        </div>
-      </div>
+  const filtrosActivos = [
+    filtros.tipo_convocatoria,
+    filtros.estado,
+    filtros.region,
+    filtros.min_amount,
+    filtros.max_amount,
+  ].filter(Boolean).length;
 
-      {/* Search + Filters */}
-      <div className="card space-y-3 py-3 px-4">
+  return (
+    <div>
+      <h1 className="page-title">Licitaciones</h1>
+      <p className="mt-2 text-muted">{SUBTITULO_CATALOGO}</p>
+
+      <div className="mt-6 space-y-3">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted pointer-events-none" />
+          <Search
+            className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-muted"
+            aria-hidden="true"
+          />
           <input
-            type="text"
-            placeholder="Nombre, organismo o descripción — Enter para buscar"
+            type="search"
+            aria-label="Buscar licitaciones"
+            placeholder="Nombre, organismo o descripción"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={handleKeywordKeyDown}
-            className="input-field pl-9"
+            enterKeyHint="search"
+            className="input-field h-12 pl-11"
             autoComplete="off"
           />
         </div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+        {keywords.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            {keywords.map((keyword) => (
+              <span
+                key={keyword}
+                className="flex items-center gap-1 rounded-full border border-primary/30 bg-primary/8 py-1 pl-3 pr-1 text-sm font-medium text-primary"
+              >
+                {keyword}
+                <button
+                  type="button"
+                  onClick={() => removeKeyword(keyword)}
+                  aria-label={`Quitar «${keyword}»`}
+                  className="flex h-6 w-6 items-center justify-center rounded-full text-primary/70 hover:text-primary"
+                >
+                  <X className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              </span>
+            ))}
+            <button
+              type="button"
+              onClick={() =>
+                cambiar({
+                  terminos: [],
+                  sort_by: sortBy === 'relevance' ? 'fecha_publicacion' : sortBy,
+                })
+              }
+              className="px-2 py-1 text-sm text-muted hover:text-danger"
+            >
+              Limpiar
+            </button>
+          </div>
+        )}
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            aria-pressed={filtros.abiertas}
+            onClick={() => cambiar({ abiertas: !filtros.abiertas })}
+            className={`h-11 rounded-lg border px-3 text-sm font-semibold transition-colors ${
+              filtros.abiertas
+                ? 'border-accent bg-accent/10 text-accent'
+                : 'border-border bg-surface text-text hover:border-accent/50'
+            }`}
+          >
+            Sólo abiertas
+          </button>
+          <button
+            type="button"
+            aria-expanded={filtrosAbiertos}
+            aria-controls="filtros-catalogo"
+            onClick={() => setFiltrosAbiertos((v) => !v)}
+            className="flex h-11 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm font-semibold text-text sm:hidden"
+          >
+            Filtros
+            {filtrosActivos > 0 && (
+              <span className="cifra flex h-6 min-w-6 items-center justify-center rounded-full bg-primary px-1.5 text-xs text-onPrimary">
+                {filtrosActivos}
+              </span>
+            )}
+          </button>
+          {busquedaGuardada ? (
+            <Link
+              href="/guardados"
+              className="ml-auto flex h-11 items-center gap-1.5 px-2 text-sm font-medium text-primary hover:text-accent"
+            >
+              <BookmarkCheck className="h-4 w-4" aria-hidden="true" />
+              Búsqueda guardada
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={() => busquedas.guardar(consultaGuardable)}
+              className="ml-auto flex h-11 items-center gap-1.5 px-2 text-sm font-medium text-muted hover:text-primary"
+            >
+              <BookmarkPlus className="h-4 w-4" aria-hidden="true" />
+              Guardar búsqueda
+            </button>
+          )}
+        </div>
+
+        <div
+          id="filtros-catalogo"
+          className={`${filtrosAbiertos ? 'grid' : 'hidden'} grid-cols-1 gap-2 sm:grid sm:grid-cols-3 lg:grid-cols-5`}
+        >
           <SelectField
             value={filtros.tipo_convocatoria}
             onChange={(v) => handleFilterChange('tipo_convocatoria', v)}
@@ -185,11 +268,13 @@ function CatalogoContenido() {
             onChange={(v) => handleFilterChange('region', v)}
             options={[
               { value: '', label: 'Todas las regiones' },
-              ...REGIONES_CHILE.map((r) => ({ value: r, label: r.replace('Región ', '').replace('Región de ', '') })),
+              ...REGIONES_CHILE.map((r) => ({ value: r, label: shortRegion(r) })),
             ]}
           />
           <input
             type="number"
+            inputMode="numeric"
+            aria-label="Monto mínimo, en pesos"
             placeholder="Monto mínimo"
             value={filtros.min_amount}
             onChange={(e) => handleFilterChange('min_amount', e.target.value)}
@@ -197,298 +282,93 @@ function CatalogoContenido() {
           />
           <input
             type="number"
+            inputMode="numeric"
+            aria-label="Monto máximo, en pesos"
             placeholder="Monto máximo"
             value={filtros.max_amount}
             onChange={(e) => handleFilterChange('max_amount', e.target.value)}
             className="input-field"
           />
         </div>
-        <label className="flex w-fit cursor-pointer items-center gap-2 text-sm text-muted">
-          <input
-            type="checkbox"
-            checked={filtros.abiertas}
-            onChange={(e) => cambiar({ abiertas: e.target.checked })}
-            className="h-4 w-4 rounded border-border accent-primary"
-          />
-          Sólo las que se pueden postular ahora
-        </label>
-        {keywords.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            {keywords.map((keyword) => (
-              <span key={keyword} className="flex items-center gap-1 rounded-full border border-primary/30 bg-primary/8 px-2.5 py-0.5 text-xs font-medium text-primary">
-                {keyword}
-                <button type="button" onClick={() => removeKeyword(keyword)} className="ml-0.5 text-primary/60 hover:text-primary">
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            ))}
-            <button
-              type="button"
-              onClick={() =>
-                cambiar({
-                  terminos: [],
-                  sort_by: sortBy === 'relevance' ? 'fecha_publicacion' : sortBy,
-                })
-              }
-              className="text-xs text-muted hover:text-danger transition-colors"
-            >
-              Limpiar
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* Sort bar */}
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 rounded-lg border border-border bg-surface px-3 py-1.5">
-        <p className="text-xs text-muted">
-          <span className="font-semibold text-text">{total.toLocaleString('es-CL')}</span> resultado{total !== 1 ? 's' : ''}
+      <div className="mt-6 flex items-center justify-between gap-4 border-b border-border pb-3">
+        <p className="text-muted" aria-live="polite">
+          <span className="cifra font-semibold text-text">{total.toLocaleString('es-CL')}</span>{' '}
+          {filtros.abiertas ? (total === 1 ? 'abierta' : 'abiertas') : total === 1 ? 'resultado' : 'resultados'}
         </p>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {busquedaGuardada ? (
-            <Link
-              href="/guardados"
-              className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-primary hover:bg-primary/5"
-            >
-              <BookmarkCheck className="h-3.5 w-3.5" aria-hidden="true" />
-              Búsqueda guardada
-            </Link>
-          ) : (
-            <button
-              type="button"
-              onClick={() => busquedas.guardar(consultaGuardable)}
-              className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-muted hover:bg-primary/5 hover:text-primary"
-            >
-              <BookmarkPlus className="h-3.5 w-3.5" aria-hidden="true" />
-              Guardar esta búsqueda
-            </button>
-          )}
-          <select
+        <select
             aria-label="Ordenar por"
-            value={sortBy}
-            onChange={(e) => cambiar({ sort_by: e.target.value as Orden })}
-            className="min-w-0 max-w-full rounded border border-border bg-background px-2 py-1 text-base text-text sm:text-xs focus:border-primary/50 focus:outline-none"
+            value={claveOrden(filtros)}
+            onChange={(e) => cambiar(ordenDeClave(e.target.value))}
+            className="h-11 max-w-full rounded-lg border border-border bg-surface px-3 text-base font-semibold text-text focus:border-primary/50 focus:outline-none sm:text-sm"
           >
-            {keywords.length > 0 && <option value="relevance">Relevancia</option>}
-            <option value="fecha_publicacion">Publicación</option>
-            <option value="fecha_cierre">Cierre</option>
-            <option value="monto_estimado">Monto</option>
-            <option value="nombre">Nombre</option>
+          {OPCIONES_ORDEN.filter((o) => o.sort_by !== 'relevance' || keywords.length > 0).map((o) => (
+              <option key={claveOrden(o)} value={claveOrden(o)}>
+                {o.etiqueta}
+              </option>
+            ))}
           </select>
-          <select
-            aria-label="Sentido del orden"
-            value={sortOrder}
-            onChange={(e) => cambiar({ sort_order: e.target.value as 'asc' | 'desc' })}
-            className="min-w-0 max-w-full rounded border border-border bg-background px-2 py-1 text-base text-text sm:text-xs focus:border-primary/50 focus:outline-none"
-          >
-            <option value="desc">↓ Mayor</option>
-            <option value="asc">↑ Menor</option>
-          </select>
-          <select
-            aria-label="Resultados por página"
-            value={String(limit)}
-            onChange={(e) => cambiar({ limit: Number(e.target.value) })}
-            className="min-w-0 max-w-full rounded border border-border bg-background px-2 py-1 text-base text-text sm:text-xs focus:border-primary/50 focus:outline-none"
-          >
-            <option value="10">10</option>
-            <option value="20">20</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-          </select>
-        </div>
       </div>
 
-      {/* Cards */}
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {loading && tenders.length === 0 ? (
+        <ul aria-hidden="true" className="divide-y divide-border">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="rounded-xl border border-border bg-surface overflow-hidden animate-pulse">
-              <div className="flex">
-                <div className="w-1 bg-border shrink-0" />
-                <div className="flex-1 p-4 space-y-2.5">
-                  <div className="flex justify-between items-center">
-                    <div className="h-5 w-20 rounded-full bg-border" />
-                    <div className="h-3.5 w-16 rounded bg-border" />
-                  </div>
-                  <div className="h-4 w-full rounded bg-border" />
-                  <div className="h-4 w-4/5 rounded bg-border" />
-                  <div className="h-3 w-2/5 rounded bg-border" />
-                  <div className="pt-2 border-t border-border flex items-center justify-between">
-                    <div className="h-5 w-24 rounded bg-border" />
-                    <div className="flex gap-1">
-                      <div className="h-7 w-7 rounded-lg bg-border" />
-                      <div className="h-7 w-7 rounded-lg bg-border" />
-                      <div className="h-7 w-7 rounded-lg bg-border" />
-                    </div>
-                  </div>
-                </div>
+            <li key={i} className="flex animate-pulse gap-3 py-4">
+              <div className="flex-1 space-y-2">
+                <div className="h-4 w-4/5 rounded bg-border" />
+                <div className="h-3.5 w-2/5 rounded bg-border" />
+                <div className="h-3.5 w-1/3 rounded bg-border" />
               </div>
-            </div>
+              <div className="h-4 w-16 rounded bg-border" />
+            </li>
           ))}
-        </div>
+        </ul>
       ) : tenders.length === 0 ? (
-        <div className="card text-center py-12">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-surface">
-            <Search className="h-7 w-7 text-muted" />
-          </div>
-          <p className="font-medium text-text">No se encontraron licitaciones</p>
-          <p className="text-sm text-muted mt-1">Ajusta tus filtros o términos de búsqueda</p>
+        <div className="py-12">
+          <p className="font-semibold text-text">No hay licitaciones con estos filtros</p>
+          <p className="mt-1 text-muted">Quita un filtro o prueba con otra palabra.</p>
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <ul aria-label="Licitaciones" className={`divide-y divide-border border-b border-border ${loading ? 'opacity-60' : ''}`}>
             {tenders.map((tender) => (
-              <TarjetaLicitacion
-                key={tender.id}
-                tender={tender}
-                seleccionada={selectedTender?.id === tender.id}
-                onSeleccionar={() => setSelectedTender(tender)}
-                hydrated={hydrated}
-                estaGuardada={isTenderStored}
-                alternar={toggleTender}
-              />
+              <li key={tender.id}>
+                <FilaLicitacion
+                  tender={tender}
+                  ahora={ahora}
+                  hydrated={hydrated}
+                  estaGuardada={isTenderStored}
+                  alternar={toggleTender}
+                />
+              </li>
             ))}
-          </div>
+          </ul>
 
-          {/* Pagination */}
           {pages > 1 && (
-            <div className="flex items-center justify-center gap-2 pt-2">
+            <nav aria-label="Páginas" className="flex items-center justify-center gap-2 pt-6">
               <button
+                type="button"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="btn-secondary text-sm disabled:opacity-40"
+                className="btn-secondary h-11 disabled:opacity-40"
               >
                 Anterior
               </button>
-              <span className="px-3 text-xs text-muted">
-                {page} / {pages}
+              <span className="cifra px-3 text-sm text-muted">
+                Página {page} de {pages.toLocaleString('es-CL')}
               </span>
               <button
+                type="button"
                 onClick={() => setPage((p) => Math.min(pages, p + 1))}
                 disabled={page === pages}
-                className="btn-secondary text-sm disabled:opacity-40"
+                className="btn-secondary h-11 disabled:opacity-40"
               >
                 Siguiente
               </button>
-            </div>
+            </nav>
           )}
         </>
-      )}
-
-      {/* BI Panel */}
-      {selectedTender && (
-        <div className="card space-y-3">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-text line-clamp-1 leading-snug">
-                {normalizeText(selectedTender.nombre)}
-              </p>
-              <p className="text-xs text-muted mt-0.5 truncate">
-                {selectedTender.nombre_organismo ?? (
-                  <span className="font-mono">{selectedTender.codigo_externo}</span>
-                )}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setSelectedTender(null)}
-              className="shrink-0 rounded p-0.5 text-muted hover:text-text transition-colors"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-
-          {biLoading && (
-            <div className="animate-pulse grid grid-cols-1 sm:grid-cols-3 gap-3 py-2">
-              <div className="h-16 rounded-lg bg-border" />
-              <div className="h-16 rounded-lg bg-border" />
-              <div className="h-16 rounded-lg bg-border" />
-            </div>
-          )}
-
-          {!biLoading && biError && (
-            <p className="text-xs text-muted italic">Análisis BI no disponible para esta licitación.</p>
-          )}
-
-          {!biLoading && !biError && biPanel && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div className="rounded-lg border border-border bg-background px-3 py-2 space-y-1">
-                <p className="text-xs font-semibold text-muted">Comprador</p>
-                {biPanel.comprador.disponible ? (
-                  <>
-                    {biPanel.comprador.buyer_score != null && (
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted">Score</span>
-                        <span className="font-semibold text-text">{decimal(biPanel.comprador.buyer_score, 1)}/10</span>
-                      </div>
-                    )}
-                    {biPanel.comprador.tasa_adjudicacion != null && (
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted">Adjudica</span>
-                        <span className="text-text">
-                          {Math.round(biPanel.comprador.tasa_adjudicacion * 100)}%
-                        </span>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <p className="text-xs text-muted">Sin datos</p>
-                )}
-              </div>
-
-              {biPanel.precios.length > 0 && biPanel.precios[0].disponible && biPanel.precios[0].p50 != null && (
-                <div className="rounded-lg border border-border bg-background px-3 py-2 space-y-1">
-                  <p className="text-xs font-semibold text-muted">Precio de referencia</p>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted">P50</span>
-                    <span className="font-semibold text-primary">
-                      {biPanel.precios[0].p50 >= 1_000_000
-                        ? `CLP ${decimal(biPanel.precios[0].p50 / 1_000_000, 1)}M`
-                        : `CLP ${decimal(biPanel.precios[0].p50 / 1_000, 0)}K`}
-                    </span>
-                  </div>
-                  {biPanel.precios[0].p25 != null && biPanel.precios[0].p75 != null && (
-                    <p className="text-xs text-muted">
-                      Rango: {biPanel.precios[0].p25 >= 1_000_000 ? `${decimal(biPanel.precios[0].p25/1_000_000, 1)}M` : `${decimal(biPanel.precios[0].p25/1_000, 0)}K`}
-                      {' – '}
-                      {biPanel.precios[0].p75 >= 1_000_000 ? `${decimal(biPanel.precios[0].p75/1_000_000, 1)}M` : `${decimal(biPanel.precios[0].p75/1_000, 0)}K`}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {biPanel.competidores.disponible && (biPanel.competidores.top5?.length ?? 0) > 0 && (
-                <div className="rounded-lg border border-border bg-background px-3 py-2 space-y-1">
-                  <p className="text-xs font-semibold text-muted">
-                    Competidores{biPanel.competidores.tipo_mercado ? `, ${biPanel.competidores.tipo_mercado}` : ''}
-                  </p>
-                  {biPanel.competidores.top5!.slice(0, 3).map((c, i) => (
-                    <div key={i} className="flex items-center justify-between text-xs">
-                      <span className="text-text truncate max-w-[200px]">{i + 1}. {c.NombreProveedor ?? '—'}</span>
-                      <span className="text-muted shrink-0 ml-1">
-                        {c.market_share_pct != null ? `${decimal(c.market_share_pct, 0)}%` : '—'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {biPanel.ventana.disponible && biPanel.ventana.alerta_ventana_corta && (
-                <div className="flex items-center gap-1.5 rounded-lg border border-danger/20 bg-danger/5 px-3 py-2 text-xs text-danger">
-                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                  Ventana corta: {biPanel.ventana.window_days} días
-                </div>
-              )}
-            </div>
-          )}
-
-          <Link
-            href={`/licitaciones/${encodeURIComponent(selectedTender.codigo_externo)}`}
-            className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium text-primary transition-all hover:border-primary/30 hover:bg-primary/5"
-            onClick={(e) => e.stopPropagation()}
-          >
-            Ver análisis completo <ArrowRight className="h-3 w-3" />
-          </Link>
-        </div>
       )}
     </div>
   );
@@ -504,8 +384,9 @@ export default function TendersPage() {
       fallback={
         // El título va también en el respaldo: es lo que sirve el servidor, y
         // sin él el HTML del catálogo no tenía <h1>.
-        <div className="space-y-6">
+        <div>
           <h1 className="page-title">Licitaciones</h1>
+          <p className="mt-2 text-muted">{SUBTITULO_CATALOGO}</p>
           <div className="flex items-center justify-center py-24">
             <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
           </div>
