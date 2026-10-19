@@ -22,3 +22,22 @@ export function predictibilidadInfo(
       return null;
   }
 }
+
+/**
+ * La predictibilidad en palabras, sin color: en las fichas públicas va como
+ * texto neutro. Una insignia naranja («variación moderada») junto a una teal
+ * («confianza alta») se leía como alarma y aprobación a la vez, y el teal es el
+ * color de la acción.
+ */
+export function textoVariacion(predictibilidad?: string | null): string | null {
+  switch (predictibilidad) {
+    case 'alta':
+      return 'Precio estable';
+    case 'media':
+      return 'Variación media';
+    case 'baja':
+      return 'Precio muy disperso';
+    default:
+      return null;
+  }
+}

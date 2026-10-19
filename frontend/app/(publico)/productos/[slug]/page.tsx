@@ -1,21 +1,23 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { PieDeMetodo } from '@/components/metodo/PieDeMetodo';
 import { GraficoPrecio } from '@/components/precio/GraficoPrecio';
-import { BandaPrecio } from '@/components/publico/BandaPrecio';
-import { CabeceraFicha, EnlacePanel, Seccion, TablaEnlaces } from '@/components/publico/Piezas';
+import { CifrasBanda, TablaUnidades } from '@/components/publico/CifrasBanda';
+import { CabeceraFicha, Seccion, TablaEnlaces } from '@/components/publico/Piezas';
 import { precioDeBanda } from '@/lib/lecturasPortada';
 import {
   categoriaProducto,
   entero,
+  frasePrecio,
   metadataProducto,
   nombreProducto,
   plata,
   rutaComprador,
   tituloDeBanda,
-  unidadDeclarada,
 } from '@/lib/publico';
+import { normalizeText } from '@/lib/nombresChile';
 import { textoPeriodo } from '@/lib/periodo';
 import { pedirPublico, segmento } from '@/lib/publicoServidor';
 import { urlRepositorio } from '@/lib/repositorio';
@@ -38,11 +40,12 @@ import type { ProductoPublico } from '@/types/publico';
  * responde igual (`indexable: false`): la página existe, con `noindex`, y se
  * llega por búsqueda o por enlace.
  *
- * Encima de «Quién lo compra», el gráfico de precio de la portada (spec
- * PORTADA_V7 §6): un punto por comprador de la unidad con más compras sobre su
- * franja P25–P75, con su pie de método. Mismos componentes y mismas reglas
- * (`precioDeBanda`), sin el filtro de la portada: aquí se ve también la banda de
- * un solo comprador, y la frase lo dice.
+ * Primero «Cuánto se pagó»: el gráfico de precio de la portada (spec PORTADA_V7
+ * §6) para la unidad con más compras, sus cifras (`CifrasBanda`) y su pie de
+ * método; las demás unidades, en una tabla. Mismos componentes y mismas reglas
+ * que la portada (`precioDeBanda`), sin su filtro: aquí se ve también la banda
+ * de un solo comprador, y la frase lo dice. Antes una tarjeta de P10…P90 iba
+ * encima del gráfico y la ficha repetía la mitad central tres veces.
  */
 
 export const dynamicParams = true;
@@ -107,46 +110,52 @@ export default async function PaginaProducto({ params }: Props) {
         )}
       </CabeceraFicha>
 
-      <Seccion
-        titulo="Bandas de precio"
-        descripcion="Precio unitario pagado en órdenes de compra, una banda por unidad de medida."
-      >
-        {p.unidades.length === 0 ? (
+      <Seccion titulo="Cuánto se pagó">
+        {!principal ? (
           <p className="text-sm text-subtle">Todavía no hay compras suficientes para una banda.</p>
         ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {p.unidades.map((u, i) => (
-              <BandaPrecio key={unidadDeclarada(u.unidad) ?? `sin-unidad-${i}`} banda={u} />
-            ))}
+          <div className="max-w-3xl">
+            {precio ? (
+              <>
+                <h3 className="font-sans text-[17px] font-bold leading-snug text-text">{precio.conclusion}</h3>
+                <div className="mt-4">
+                  <GraficoPrecio datos={precio.grafico} />
+                  <ul className="sr-only">
+                    {precio.accesible.map((t) => (
+                      <li key={t}>{t}</li>
+                    ))}
+                  </ul>
+                </div>
+              </>
+            ) : (
+              <h3 className="font-sans text-[17px] font-bold leading-snug text-text">{frasePrecio(principal)}</h3>
+            )}
+            <CifrasBanda banda={principal} />
+            {precio && <PieDeMetodo texto={precio.pie} enlaces={precio.enlaces} />}
           </div>
         )}
       </Seccion>
 
-      {precio && (
-        <Seccion titulo="Cuánto pagó cada comprador">
-          <div className="max-w-2xl">
-            <h3 className="font-sans text-[17px] font-bold leading-snug text-text">{precio.conclusion}</h3>
-            <div className="mt-4">
-              <GraficoPrecio datos={precio.grafico} />
-              <ul className="sr-only">
-                {precio.accesible.map((t) => (
-                  <li key={t}>{t}</li>
-                ))}
-              </ul>
-            </div>
-            <PieDeMetodo texto={precio.pie} enlaces={precio.enlaces} className="mt-6" />
+      {p.unidades.length > 1 && (
+        <Seccion
+          titulo="Por unidad de medida"
+          descripcion="El mismo producto se compra por caja, por unidad o por paquete: cada unidad tiene su precio."
+        >
+          <div className="max-w-3xl">
+            <TablaUnidades unidades={p.unidades} titulo={(u) => tituloDeBanda(u.unidad)} />
           </div>
         </Seccion>
       )}
 
-      <Seccion titulo="Quién lo compra" descripcion="Los diez compradores con más compras de este producto.">
+      <Seccion titulo="Quién lo compra" descripcion="Los compradores con más compras de este producto, y lo que pagó cada uno.">
         <TablaEnlaces
           encabezados={['Comprador', 'Unidad', 'Compras', 'Precio mediano']}
           vacio="Todavía no hay compradores con datos de este producto."
+          ocultarEnMovil={[0]}
           filas={p.compradores.map((c) => ({
             clave: `${c.codigo}-${c.unidad}`,
             href: rutaComprador(c.codigo),
-            nombre: c.nombre,
+            nombre: normalizeText(c.nombre),
             celdas: [c.unidad, entero(c.n), plata(c.p50)],
           }))}
         />
@@ -156,7 +165,11 @@ export default async function PaginaProducto({ params }: Props) {
         Agrupado por la descripción que escribe el comprador (sin códigos ni cifras): «{p.firma}».
       </p>
 
-      <EnlacePanel href="/mercado">Más precios en el panel</EnlacePanel>
+      <p className="mt-4 text-sm">
+        <Link href="/productos" className="enlace">
+          Buscar otro producto
+        </Link>
+      </p>
     </article>
   );
 }

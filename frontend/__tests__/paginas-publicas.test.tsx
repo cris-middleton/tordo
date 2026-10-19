@@ -212,14 +212,16 @@ describe('enlaces entre fichas', () => {
     simularBackend({ '/productos/guante-latex-nitrilo': conPeriodo });
     render(await PaginaProducto(params({ slug: 'guante-latex-nitrilo' })));
     expect(screen.getByText(/abr 2025 – mar 2026 \(12 meses\)/)).toBeInTheDocument();
-    expect(screen.getByText('120 compras de 31 organismos.')).toBeInTheDocument();
+    // La base va en las cifras de la banda, bajo el gráfico.
+    expect(screen.getAllByText('120 compras de 31 organismos').length).toBeGreaterThan(0);
   });
 
-  it('el producto pinta una banda por unidad y enlaza a quien lo compra', async () => {
+  it('el producto pinta una fila por unidad y enlaza a quien lo compra', async () => {
     simularBackend({ '/productos/guante-latex-nitrilo': PRODUCTO });
     render(await PaginaProducto(params({ slug: 'guante-latex-nitrilo' })));
-    expect(screen.getByRole('heading', { name: 'Por caja' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Por unidad' })).toBeInTheDocument();
+    // Con más de una unidad, una tabla: cada unidad es otro envase.
+    expect(screen.getByRole('rowheader', { name: 'Por caja' })).toBeInTheDocument();
+    expect(screen.getByRole('rowheader', { name: 'Por unidad' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Hospital de Prueba' })).toHaveAttribute('href', '/compradores/7297');
     expect(screen.queryByText(/úsalo sólo para orientarte/)).not.toBeInTheDocument();
   });
@@ -232,16 +234,19 @@ describe('enlaces entre fichas', () => {
       compradores: [
         ...PRODUCTO.compradores,
         { codigo: '1', nombre: 'Municipalidad Uno', unidad: 'caja', n: 9, p50: 4100 },
+        { codigo: '3', nombre: 'Municipalidad Tres', unidad: 'caja', n: 8, p50: 4500 },
+        { codigo: '4', nombre: 'Municipalidad Cuatro', unidad: 'caja', n: 7, p50: 5200 },
+        { codigo: '5', nombre: 'Municipalidad Cinco', unidad: 'caja', n: 6, p50: 5900 },
         { codigo: '2', nombre: 'Municipalidad Dos', unidad: 'Unidad', n: 9, p50: 45 },
       ],
     };
     simularBackend({ '/productos/guante-latex-nitrilo': conCompradores });
     const { container } = render(await PaginaProducto(params({ slug: 'guante-latex-nitrilo' })));
-    const titulo = screen.getByRole('heading', { level: 2, name: 'Cuánto pagó cada comprador' });
+    const titulo = screen.getByRole('heading', { level: 2, name: 'Cuánto se pagó' });
     const seccion = titulo.closest('section') as HTMLElement;
     expect(within(seccion).getByRole('heading', { level: 3 })).toHaveTextContent('Por caja: la mitad se pagó entre $4.000 y $6.000');
     // Un punto por comprador de la unidad de la banda: los de «Unidad» no se comparan.
-    expect(seccion.querySelectorAll('svg circle')).toHaveLength(2);
+    expect(seccion.querySelectorAll('svg circle')).toHaveLength(5);
     expect(within(seccion).getByRole('link', { name: 'Cómo se calcula' })).toHaveAttribute(
       'href',
       '/guias/como-leer-una-banda-de-precio#los-cinco-numeros',
@@ -260,7 +265,7 @@ describe('enlaces entre fichas', () => {
     const sinUnidad = { ...PRODUCTO, unidades: [{ ...PRODUCTO.unidades[0], unidad: null }] };
     simularBackend({ '/productos/guante-latex-nitrilo': sinUnidad });
     render(await PaginaProducto(params({ slug: 'guante-latex-nitrilo' })));
-    expect(screen.getByRole('heading', { name: 'Sin unidad declarada' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: /^Sin unidad declarada: / })).toBeInTheDocument();
     expect(screen.getAllByText('$5.000').length).toBeGreaterThan(0);
   });
 

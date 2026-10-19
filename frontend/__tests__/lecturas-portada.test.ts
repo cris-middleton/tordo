@@ -139,7 +139,8 @@ describe('lecturaPrecio', () => {
   it('el pie: compras, compradores, periodo y unidad; y que el gráfico muestra sólo los 10 que más compran', () => {
     expect(lecturaPrecio(PRODUCTO, REPO)!.pie).toBe(
       '46 compras de 40 compradores, nov 2025 a oct 2026, precio por unidad. ' +
-        'Cada punto es lo que pagó uno de los 10 que más compran (su mediana); la franja, la mitad central de las compras.',
+        'Cada punto es lo que pagó uno de los 10 compradores con más compras (su mediana); la franja, la mitad central de las compras; ' +
+        'la raya, la mediana; la línea fina, 8 de cada 10.',
     );
   });
 
@@ -163,26 +164,39 @@ describe('lecturaPrecio', () => {
   it('un punto por comprador de la unidad, y el texto para quien no ve el gráfico', () => {
     const l = lecturaPrecio(PRODUCTO, REPO)!;
     expect(l.grafico.puntos).toHaveLength(10);
-    expect(l.accesible).toEqual(['Percentil 25: $150.921', 'Percentil 75: $240.000', '40 compradores']);
+    expect(l.accesible).toEqual([
+      'Percentil 10: $129.990',
+      'Percentil 25: $150.921',
+      'Mediana: $190.762',
+      'Percentil 75: $240.000',
+      'Percentil 90: $369.990',
+      '40 compradores',
+    ]);
   });
 
   it('los compradores de otra unidad no son puntos (es otro envase), y el pie lo cuenta bien', () => {
-    const mezcla = [...DIEZ.slice(0, 3), comprador(5_000, 'caja', 7), comprador(6_000, 'Caja', 8)];
+    const mezcla = [...DIEZ.slice(0, 5), comprador(5_000, 'caja', 7), comprador(6_000, 'Caja', 8)];
     const l = lecturaPrecio(conBanda({}, mezcla), REPO)!;
-    expect(l.grafico.puntos).toHaveLength(3);
-    expect(l.pie).toMatch(/uno de los 3 que más compran/);
+    expect(l.grafico.puntos).toHaveLength(5);
+    expect(l.pie).toMatch(/uno de los 5 compradores con más compras/);
   });
 
   it('puntos que coinciden se apilan sin solaparse', () => {
-    const iguales = Array.from({ length: 4 }, (_, i) => comprador(190_000, 'unidad', i));
-    expect(lecturaPrecio(conBanda({}, iguales), REPO)!.grafico.puntos.map((p) => p.fila)).toEqual([0, -1, 1, -2]);
+    const iguales = Array.from({ length: 5 }, (_, i) => comprador(190_000, 'unidad', i));
+    expect(lecturaPrecio(conBanda({}, iguales), REPO)!.grafico.puntos.map((p) => p.fila)).toEqual([0, -1, 1, -2, 2]);
+  });
+
+  it('con pocos compradores dibujables no hay puntos, y el pie no dice «uno de los 1»', () => {
+    const l = lecturaPrecio(conBanda({}, DIEZ.slice(0, 1)), REPO)!;
+    expect(l.grafico.puntos).toEqual([]);
+    expect(l.pie).not.toMatch(/uno de los|cada punto/i);
   });
 
   it('P25 = P75 con varios compradores: «la mitad se pagó a $X», y la franja es una línea', () => {
     const l = lecturaPrecio(conBanda({ p10: 15_000, p25: 16_850, p50: 16_850, p75: 16_850, p90: 18_000 }), REPO)!;
     expect(l.conclusion).toBe('Impresora multifuncional: la mitad se pagó a $16.850');
     expect(l.grafico.franja!.desde).toBe(l.grafico.franja!.hasta);
-    expect(l.pie).toMatch(/la línea, el precio de la mitad central de las compras\.$/);
+    expect(l.pie).toMatch(/la línea gruesa, el precio de la mitad central de las compras; la línea fina, 8 de cada 10\.$/);
   });
 
   it('P25 y P75 distintos pero escritos igual: también «se pagó a»', () => {
@@ -194,7 +208,7 @@ describe('lecturaPrecio', () => {
   it('sin compradores en la lista: la franja sola, y el pie no habla de puntos', () => {
     const l = lecturaPrecio(conBanda({}, []), REPO)!;
     expect(l.grafico.puntos).toEqual([]);
-    expect(l.pie).toMatch(/precio por unidad\. La franja, la mitad central de las compras\.$/);
+    expect(l.pie).toMatch(/precio por unidad\. La franja, la mitad central de las compras; la raya, la mediana; la línea fina, 8 de cada 10\.$/);
   });
 
   it('con otra ficha, su nombre y su enlace: nunca los de la constante', () => {

@@ -1032,9 +1032,12 @@ componentes cliente y la home perdería título y tarjeta de preview.
     p75» —o «la mitad se pagó a $X» si P25 y P75 se escriben igual—, y la conclusión es el enlace al
     producto. **El gráfico** (`components/precio/GraficoPrecio.tsx`, geometría en
     `lib/graficoPrecio.ts`, `__tests__/grafico-precio.test.ts`): SVG de servidor y `aria-hidden`,
-    escala logarítmica, la franja P25–P75 con su etiqueta directa «la mitad central», **un punto por
-    comprador en su mediana** (los de `compradores` con la unidad de la banda —los 10 primeros de
-    `product_price_compradores`, ver «Quién lo compra»—; los de otra unidad no se dibujan), P25 y P75 en negrita y dos valores redondos de contexto en `muted`. **Sin `viewBox`:
+    escala logarítmica, la franja P25–P75 con su etiqueta directa «la mitad central», la mediana como una
+    raya, la línea fina de P10 a P90 («8 de cada 10»), **un punto por comprador en su mediana** (los de
+    `compradores` con la unidad de la banda —los 10 primeros de `product_price_compradores`, ver «Quién
+    lo compra»—; los de otra unidad no se dibujan) **sólo con `MINIMO_PUNTOS` (5) o más** —con menos,
+    ninguno, y la franja baja a 44 px: dos puntos de 63 compradores se leían como «los compradores» y el
+    pie decía «uno de los 1»—, P25 y P75 en negrita y dos valores redondos de contexto en `muted`. **Sin `viewBox`:
     lo horizontal va en % y lo vertical en px**, así que puntos y rótulos no se deforman; si dos
     puntos se tocan (se apilan) o dos rótulos se pisan (se apartan, o se juntan en uno) se decide al
     ancho más estrecho en que se pinta (`ANCHO_REFERENCIA`, 280 px): más ancho, nada empieza a
@@ -1108,10 +1111,13 @@ componentes cliente y la home perdería título y tarjeta de preview.
   pliegue. El fixture del E2E trae la lectura de cierres y la de la nota; la de precio se prueba en
   Vitest.
 
-**La ficha de producto** (`/productos/[slug]`) lleva **el mismo gráfico de precio** encima de
-«Quién lo compra», con su pie de método (spec PORTADA_V7 §6): `precioDeBanda` sobre la unidad con
-más compras, titulada con `tituloDeBanda`, sin el filtro de la portada —una banda de un solo
-comprador dice «todas las compras son de {comprador}»—.
+**La ficha de producto** (`/productos/[slug]`) abre con **«Cuánto se pagó»**: el mismo gráfico de
+precio, con su pie de método (spec PORTADA_V7 §6), `precioDeBanda` sobre la unidad con más compras,
+titulada con `tituloDeBanda`, sin el filtro de la portada —una banda de un solo comprador dice «todas
+las compras son de {comprador}»—; debajo, sus cifras (`CifrasBanda`: mediana, la mitad central, 8 de
+cada 10 y la base, con la variación en palabras de `textoVariacion`, sin insignias de color). Con más de
+una unidad, una tabla (`TablaUnidades`). Ya no hay tarjeta de P10…P90 encima del gráfico: la ficha
+decía la mitad central tres veces. Las tablas de las fichas (`TablaEnlaces`) van con filetes y sin caja.
 
 **Acerca** (`/acerca`, `app/(publico)/acerca/`): lo que la portada dejó de explicar —qué es, de
 dónde salen los datos, cómo se financia— y las preguntas frecuentes (`PREGUNTAS`, en
