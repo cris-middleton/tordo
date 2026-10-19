@@ -1,0 +1,79 @@
+---
+titulo: "Las obras del MOP no están en las órdenes de compra"
+fecha: "2026-10-19"
+resumen: "Obras Públicas suma $0,75 billones en las órdenes de compra de 2025 y la cifra oficial es $3,09. La diferencia son los contratos de obra del MOP: ChileCompra los cuenta y su descarga masiva no los trae."
+estado: "medido"
+medido_sobre: "Descarga masiva de ChileCompra: órdenes de compra de los 36 meses de la ventana del análisis y licitaciones publicadas entre enero de 2023 y junio de 2026. Medido el 19 de octubre de 2026."
+script: "etl/scripts/medir_obras_mop.py"
+fuentes:
+  - "CLAUDE.md: «Obras Públicas queda en 0,75 contra 3,09 porque la descarga masiva de órdenes no trae los contratos de obra del MOP»"
+  - "CLAUDE.md: «De las 920 licitaciones de obra del MOP (tipos O1 y O2) adjudicadas en 2025, por $2,60 billones, sólo el 3 % tiene alguna orden en los 36 meses; las de obra de MINVU y los SERVIU, el 84 %, y las demás del MOP, el 95 %.»"
+  - "CLAUDE.md: «su Cuenta Pública 2026 pone la Ruta 7 de Aysén (US$76 millones) entre las «órdenes de compra relevantes 2025», y su licitación, la 5048-69-O123, adjudicada por $69.900 millones, no tiene orden en la descarga»"
+  - "CLAUDE.md: «Sumando lo adjudicado sin orden, $2,54 billones, 2025 da 3,29 contra 3,09.»"
+  - "CLAUDE.md: «lo que la descarga trae de Obras Públicas son MINVU, los SERVIU y las compras corrientes del MOP»"
+  - "CLAUDE.md: «Salud 6,64 (6,56), Gob. Central 5,70 (5,65), Municipalidades 4,28 (4,15)»"
+---
+
+## En corto
+
+- Obras Públicas suma $0,75 billones en las órdenes de compra de 2025. La cifra oficial de
+  ChileCompra es $3,09 billones.
+- De las 920 licitaciones de obra del MOP adjudicadas en 2025, el 3 % tiene una orden de
+  compra en la descarga. Las de obra de MINVU y los SERVIU, el 84 %.
+- Con las obras del MOP adjudicadas sin orden, $2,54 billones, 2025 da $3,29 billones contra
+  $3,09.
+
+## Qué vimos
+
+Con el monto saneado de [las órdenes en pesos marcadas como UF](/notas/pesos-marcados-como-uf-inflaban-municipios),
+2025 cuadra con la cifra oficial de ChileCompra en Salud (6,64 contra 6,56 billones),
+Gobierno Central (5,70 contra 5,65) y Municipalidades (4,28 contra 4,15). Obras Públicas se
+queda en 0,75 contra 3,09.
+
+El sector viene bien clasificado: sale del campo `sector` del propio ChileCompra, y el
+MOP, el Ministerio de Vivienda y los SERVIU caen todos en él. Lo que falta son las obras. En la
+descarga, la orden más grande del MOP en 2025 es de $30.000 millones, y su Cuenta Pública 2026
+pone entre las «órdenes de compra relevantes 2025» la Ruta 7 de Aysén, por US$76 millones. Esa
+licitación, la 5048-69-O123, se adjudicó por $69.900 millones y no tiene ninguna orden en la
+descarga.
+
+## Cómo lo medimos
+
+Bajamos de la descarga masiva de ChileCompra las licitaciones publicadas entre enero de 2023 y
+junio de 2026, y nos quedamos con las de Obras Públicas adjudicadas en 2025. Una licitación
+tiene orden si alguna orden de los 36 meses la nombra, en su código de licitación o en su
+nombre («ORDEN DE COMPRA DESDE 1151-5-O125»).
+
+Separamos las licitaciones de obra (tipos O1 y O2) del resto, y el MOP de Vivienda:
+
+| Licitaciones adjudicadas en 2025 | Cuántas | Con orden | Adjudicado, billones |
+|---|---|---|---|
+| Obras del MOP | 920 | 3 % | 2,60 |
+| Obras de MINVU y los SERVIU | 286 | 84 % | 0,21 |
+| Otras del MOP | 2.363 | 95 % | 0,16 |
+
+Las dos últimas filas son el control: ahí el cruce encuentra las órdenes. Sólo las obras del
+MOP se quedan sin ellas. Lo adjudicado sin orden suma $2,54 billones, y con los $0,75 de las
+órdenes da $3,29 billones, un 6 % sobre la cifra oficial.
+
+## Qué cambió
+
+- El monto de Obras Públicas sigue saliendo de las órdenes, igual que el de los demás
+  sectores. Lo que trae son las compras de Vivienda, de los SERVIU y las corrientes del MOP.
+- La diferencia con la cifra oficial queda medida, con el script que la reproduce.
+
+## Lo que todavía no sabemos
+
+- Por qué ChileCompra cuenta las obras del MOP como órdenes de compra y no las publica en su
+  descarga masiva.
+- Si el módulo de obras públicas que Mercado Público estrenó en diciembre de 2025 cambia eso
+  para 2026.
+
+## Reprodúcelo
+
+El script baja la descarga pública mes a mes, resume cada mes y borra el ZIP. Los 36 meses de
+órdenes son unos 3,6 GB de descarga. Imprime la tabla de arriba y la suma.
+
+```
+uv run python -m etl.scripts.medir_obras_mop
+```

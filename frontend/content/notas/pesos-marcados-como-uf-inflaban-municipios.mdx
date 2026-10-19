@@ -17,7 +17,7 @@ fuentes:
   - "etl/analytics/data_loader.py: «Una Gran Compra de 36 millones de «UF» ($1,44 billones, cancelada) era el 14 % de seis meses de compras.»"
   - "CLAUDE.md: «entre 1 y 3 M UF hay cuatro contratos que parecen legítimos (pago de pensiones, la red de comunicaciones de salud, el sistema de identificación: $314 mil millones) y dos imposibles ($129 mil millones), que se quedan»"
   - "CLAUDE.md: «Salud 6,64 (6,56), Gob. Central 5,70 (5,65), Municipalidades 4,28 (4,15)»"
-  - "CLAUDE.md: «Obras Públicas queda en 0,75 contra 3,09 y no es un monto inflado: la diferencia está en otra parte y no está explicada»"
+  - "CLAUDE.md: «Obras Públicas queda en 0,75 contra 3,09»"
   - "CLAUDE.md: «`sector_dashboard` no cuenta las canceladas»"
   - "CLAUDE.md: «Los demás módulos que suman montos todavía sí.»"
   - "docs/DESPLIEGUE.md: «`0 6 * * 0` (domingo 06:00 UTC»"
@@ -62,6 +62,9 @@ la cifra oficial, en billones de pesos:
 | Municipalidades | 4,28 | 4,15 |
 | Obras Públicas | 0,75 | 3,09 |
 
+Obras Públicas no cuadra por otro motivo: la descarga de órdenes no trae los contratos de obra
+del MOP. Lo cuenta la nota [Las obras del MOP no están en las órdenes de compra](/notas/obras-del-mop-no-estan-en-las-ordenes).
+
 ## Qué cambió
 
 - Una orden en UF o UTM con todos sus ítems en pesos vale su monto en pesos, tal cual.
@@ -76,8 +79,6 @@ la cifra oficial, en billones de pesos:
 
 ## Lo que todavía no sabemos
 
-- Por qué Obras Públicas queda en $0,75 billones contra $3,09 de la cifra oficial. No es
-  un monto inflado: la diferencia está en otra parte.
 - Entre 1 y 3 millones de UF quedan cuatro contratos que parecen legítimos, como el pago
   de pensiones o el sistema de identificación, y dos imposibles por $129 mil millones. Se
   quedan, porque quitarlos con un umbral más bajo se llevaba también los $314 mil
