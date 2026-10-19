@@ -41,7 +41,13 @@ export function BuyerProfilePanel({
   comprador,
   titulo = 'Cómo compra',
   nivel = 'h2',
-}: BuyerProfilePanelProps & { titulo?: string; nivel?: 'h2' | 'h3' }) {
+  extra,
+}: BuyerProfilePanelProps & {
+  titulo?: string;
+  nivel?: 'h2' | 'h3';
+  /** Más cifras en el mismo bloque (la ficha del comprador suma su volumen). Con ellas, la base no se repite. */
+  extra?: { etiqueta: string; valor: string }[];
+}) {
   const Titulo = nivel;
   const pct = (v?: number | null) => (v == null ? '—' : `${Math.round(v * 100)}%`);
   const cifras = [
@@ -53,10 +59,12 @@ export function BuyerProfilePanel({
     },
     { etiqueta: 'Trato directo', valor: pct(comprador.transparencia?.pct_trato_directo), detalle: 'de lo que compra' },
     { etiqueta: 'Adjudica', valor: pct(comprador.tasa_adjudicacion), detalle: 'de lo que llama' },
-    {
-      etiqueta: 'Base',
-      valor: comprador.n_base != null ? `${comprador.n_base.toLocaleString('es-CL')} órdenes` : '—',
-    },
+    ...(extra ?? [
+      {
+        etiqueta: 'Base',
+        valor: comprador.n_base != null ? `${comprador.n_base.toLocaleString('es-CL')} órdenes` : '—',
+      },
+    ]),
   ];
 
   return (
@@ -75,7 +83,7 @@ export function BuyerProfilePanel({
               <div key={c.etiqueta}>
                 <dt className="text-sm text-muted">{c.etiqueta}</dt>
                 <dd className="cifra mt-1 font-semibold text-text">{c.valor}</dd>
-                {c.detalle && <dd className="text-sm text-muted">{c.detalle}</dd>}
+                {'detalle' in c && c.detalle && <dd className="text-sm text-muted">{c.detalle}</dd>}
               </div>
             ))}
           </dl>
