@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import logging
 
+from app.repositories.busqueda import COLUMNA_BUSCABLE
 from app.services.bi._base import _buscar, _columna_presente, _load, periodo_de
 
 logger = logging.getLogger(__name__)
@@ -379,12 +380,18 @@ def get_productos(q: str, limit: int = 20) -> dict:
             return {"disponible": False, "motivo": "parquet no generado"}
         return {"disponible": False, "motivo": "columna de nombre no encontrada"}
 
-    # El filtro va a SQL, sobre el índice de trigramas que crea `materialize`.
+    # El filtro va a SQL, sobre la columna generada sin tildes y su índice de
+    # trigramas, que crea el ETL al materializar (`COLUMNA_BUSCABLE`). Una tabla
+    # materializada antes de que existiera se busca por el nombre, normalizado al
+    # vuelo: mismo resultado, sin índice, hasta la corrida semanal siguiente.
     # Antes se traía la tabla entera a Polars en cada petición y se filtraba
     # aquí: ~70 ms por búsqueda con seis meses de datos, gratis de pedir.
+    columna_busqueda = (
+        _columna_presente("product_price_bands_L3.parquet", COLUMNA_BUSCABLE) or nombre_col
+    )
     df = _buscar(
         "product_price_bands_L3.parquet",
-        nombre_col,
+        columna_busqueda,
         q,
         columnas=["codigoProductoONU", nombre_col, "n"],
         orden="n",

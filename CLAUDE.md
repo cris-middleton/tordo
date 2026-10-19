@@ -605,7 +605,8 @@ vuelva a pasar.
 ```
 api/            routers: tenders, bi, compra_agil, publico, health; documentacion.py
                 (superficie pública), limites.py (cotas de parámetros), dependencias.py
-repositories/   Acceso a datos: licitaciones (catálogo), compra_agil y analytics (sync y async).
+repositories/   Acceso a datos: licitaciones (catálogo), compra_agil, analytics (sync; del async
+                queda sólo `existe_tabla`) y busqueda (la regla de búsqueda por texto).
 services/       Lógica de negocio como funciones de módulo: bi/, publico/ (páginas
                 indexables), exportar.
                 services/bi/ está partido por dominio (precio, competencia,
@@ -1639,8 +1640,28 @@ estos patrones, es señal de que hay que arreglar la causa, no de copiarlo:
   «combustible» y «mesa», «parmesano»; «valvul» sigue encontrando «válvula». El término se
   escapa **en Postgres, después de `unaccent`** (que convierte «©» en «(C)»): todo lo que no
   es letra, dígito o espacio se busca literal. La misma regla sirve a «Lo mejor de hoy» (por
-  `coincide_termino`), a `/bi/productos?q=` (`_analytics_sql.sql_busqueda_texto`, sobre
-  `lower(col)`) y, con el guion como separador de palabras del slug, a `/publico/productos?q=`.
+  `coincide_termino`), a `/bi/productos?q=` (`_analytics_sql.sql_busqueda_texto`) y, con el
+  guion como separador de palabras del slug, a `/publico/productos?q=`.
+  - **`/bi/productos?q=` también ignora las tildes**: el ETL añade a `product_price_bands_l3`
+    la columna generada `texto_buscable` (`COLUMNA_BUSCABLE`, `lower(inmutable_unaccent(nombre))`)
+    con su índice de trigramas, en la tabla temporal y antes del swap (`TablaAnalytics.buscable`).
+    Columna generada y no índice por expresión, como `nombre_norm`; la expresión vive una vez, en
+    `busqueda.sql_normalizado`, y el ETL la importa. Sin la columna (una tabla materializada antes),
+    el nombre se normaliza al vuelo: mismo resultado, sin índice, hasta la semanal siguiente.
+  - **La vía de palabras tiene un límite conocido: el stemmer.** `plainto_tsquery('spanish',
+    'mesa')` es `'mes'`, el mismo lexema que «meses», así que «mesa» encuentra toda licitación
+    que diga «12 meses» en la descripción: en la copia local (4.706 licitaciones), **121 coincidencias, de las que 5
+    tienen una palabra que empieza por «mesa»**. Se queda así porque no hay un arreglo barato y
+    limpio: `busqueda` guarda sólo raíces, y distinguir «mesa» de «meses» exige las palabras
+    tal cual, que sólo están en el texto crudo. Exigir además que el texto (sin tildes) tenga
+    una palabra que empiece por el término —o que sea el término sin su «s»/«es» de plural,
+    para no perder «servicios» → «servicio»— funciona, pero se evalúa al vuelo sobre cada fila
+    que pasa la raíz, y `descripcion` no tiene índice: medido sobre 50.000 filas de 1.700
+    caracteres, **de 5 ms a 115 ms con 25.000 coincidencias y 270 ms con 50.000**, y el listado
+    lo hace dos veces (total y página). Lo limpio es un segundo `tsvector` con la configuración
+    `simple` (palabras sin raíz) y su GIN: una migración que reescribe `licitaciones`, otro
+    índice que mantener en cada carga del ETL y la regla del plural escrita a mano. Es una
+    decisión de producto, no un arreglo.
   **El orden por relevancia también es Postgres** (`puntuacion_relevancia`: `ts_rank_cd`
   con todos los términos, que premia la cercanía, + `ts_rank` con cualquiera y sobre el
   nombre). Antes lo hacía el TF-IDF del ETL cargado en la API. **Relevancia ordena, no

@@ -438,7 +438,10 @@ def get_resumen(
     "/productos",
     response_model=ProductosResponse,
     summary="Buscar productos por nombre (autocomplete)",
-    description="Busca en product_price_bands_L3 por substring en el nombre del producto.",
+    description=(
+        "Busca en product_price_bands_L3 productos cuyo nombre tiene una palabra que "
+        "empieza por `q`, sin distinguir tildes ni mayúsculas."
+    ),
 )
 def get_productos(
     q: str = Query(

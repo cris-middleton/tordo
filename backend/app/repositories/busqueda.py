@@ -24,7 +24,7 @@ sintaxis y no un «no encontré nada».
 
 Una sola regla para todas las búsquedas por fragmento de la API: el catálogo y
 «Lo mejor de hoy» (`coincide_termino`) y los productos de `/bi/productos`
-(`_analytics_sql.sql_busqueda_texto`). La búsqueda de `/publico/productos` compara
+(`_analytics_sql.sql_busqueda_texto`, sobre la columna generada `COLUMNA_BUSCABLE`). La búsqueda de `/publico/productos` compara
 contra slugs en Polars y usa la misma idea con el guion como separador
 (`services/publico/paginas.buscar_productos`).
 """
@@ -35,6 +35,11 @@ from typing import Any
 
 from sqlalchemy import String, func, literal
 from sqlalchemy.sql.elements import ColumnElement
+
+#: La columna generada (`sql_normalizado` del nombre) que el ETL añade a las
+#: tablas de analytics donde se busca texto, con su índice de trigramas. Hoy,
+#: `product_price_bands_l3` (`/bi/productos?q=`).
+COLUMNA_BUSCABLE = "texto_buscable"
 
 #: Comienzo de palabra en las regex de Postgres.
 COMIENZO_DE_PALABRA = r"\m"
@@ -76,11 +81,26 @@ def comienza_palabra(columna: Any, termino_sql: Any) -> ColumnElement:
     return columna.op("~*", is_comparison=True)(patron(termino_sql).self_group())
 
 
+def sql_normalizado(expresion_sql: str) -> str:
+    """Un texto como se compara en analytics: sin tildes y en minúsculas.
+
+    Es la expresión de la columna generada `COLUMNA_BUSCABLE` que el ETL añade a
+    las tablas donde se busca texto (`etl/loaders/analytics_loader.py`, que la
+    importa de aquí) y la que se aplica al término: los dos lados igual.
+    """
+    return f"lower(inmutable_unaccent({expresion_sql}))"
+
+
 def sql_comienza_palabra(columna_sql: str) -> str:
-    """La misma condición para SQL textual, con los parámetros de `parametros`."""
+    """La misma condición para SQL textual, con los parámetros de `parametros`.
+
+    El término se normaliza con `sql_normalizado` antes de escaparlo, así que
+    `columna_sql` tiene que venir normalizada igual: la columna generada
+    `COLUMNA_BUSCABLE` o `sql_normalizado(columna)`.
+    """
     return (
         f"{columna_sql} ~* (:comienzo_de_palabra || "
-        "regexp_replace(:termino, :no_alfanumerico, :escape, 'g'))"
+        f"regexp_replace({sql_normalizado(':termino')}, :no_alfanumerico, :escape, 'g'))"
     )
 
 

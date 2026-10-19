@@ -30,6 +30,11 @@ from app.models.convocatoria import TipoConvocatoria
 from app.models.licitacion import Licitacion
 from app.models.licitacion_detalle import LicitacionDetalle
 
+# La normalización del texto buscable de analytics se importa igual: el ETL crea
+# la columna generada con esa expresión y la API normaliza el término con la
+# misma; dos copias harían que «valv» dejara de encontrar «Válvula» sin aviso.
+from app.repositories.busqueda import COLUMNA_BUSCABLE, sql_normalizado
+
 # La regla de la firma de producto se importa, no se copia: el ETL agrupa por
 # ella y la búsqueda de productos de la API busca con ella, así que dos copias
 # harían que una búsqueda dejara de encontrar firmas sin que nada fallara.
@@ -41,6 +46,7 @@ from app.utils.rut import CEROS_INICIALES, FUERA_DE_RUT, normalizar_rut
 
 __all__ = [
     "CEROS_INICIALES",
+    "COLUMNA_BUSCABLE",
     "FUERA_DE_RUT",
     "FUERA_DE_TOKEN",
     "MAX_TOKENS",
@@ -49,6 +55,7 @@ __all__ = [
     "ZONA_CHILE",
     "en_hora_de_chile",
     "normalizar_rut",
+    "sql_normalizado",
     "TipoConvocatoria",
     "Licitacion",
     "LicitacionDetalle",

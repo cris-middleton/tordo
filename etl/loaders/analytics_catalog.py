@@ -96,9 +96,10 @@ CATALOGO: list[TablaAnalytics] = [
     TablaAnalytics(
         tabla="product_price_bands_l3",
         parquet="product_price_bands_L3.parquet",
-        # get_productos además busca por subcadena en el nombre; ese índice es
-        # GIN con pg_trgm y se crea en la migración, no aquí.
         indices=[["codigoProductoONU", "UnidadMedida"]],
+        # get_productos busca por comienzo de palabra en el nombre, sin tildes.
+        # El nombre trae un typo histórico en el parquet: se prueban las dos.
+        buscable=("NombreroductoGenerico", "NombreProductoGenerico"),
     ),
     TablaAnalytics(
         tabla="price_bands",

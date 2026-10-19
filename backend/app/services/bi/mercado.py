@@ -17,14 +17,22 @@ from app.services.bi.temporal import _compute_cagr_rubro_desde_time_series
 
 logger = logging.getLogger(__name__)
 
+#: Cuántos contextos de descuento devuelve `get_descuento`, los de más `n`.
+MAX_CONTEXTOS_DESCUENTO = 100
+
 
 def get_descuento(
     tipo: str | None = None,
     rubro: str | None = None,
     n_oferentes_rango: str | None = None,
 ) -> dict:
-    """
-    Optimal discount recommendations by competitive context (type + rubro + n_oferentes band).
+    """Bandas de descuento por contexto competitivo (tipo + rubro + rango de oferentes).
+
+    **Las de más licitaciones primero** (`n`), como mucho `MAX_CONTEXTOS_DESCUENTO`.
+    Con un rubro son pocas filas y caben todas; sin filtros, la tabla tiene una por
+    cada (tipo, rubro, rango) del país y lo que se devuelve son los contextos con
+    más observaciones —los que más dicen—. Antes era un `LIMIT 100` sin orden: cien
+    filas cualesquiera, las que Postgres leyera primero.
     """
     # Los filtros viajan a SQL. Antes se traía la tabla entera y se recortaba en
     # Polars a cien filas: el 99 % del trabajo era leer lo que se iba a tirar.
@@ -36,7 +44,12 @@ def get_descuento(
     if n_oferentes_rango:
         filtros["n_oferentes_rango"] = n_oferentes_rango
 
-    df = _load("discount_by_context.parquet", filtros=filtros or None, limite=100)
+    df = _load(
+        "discount_by_context.parquet",
+        filtros=filtros or None,
+        orden="n",
+        limite=MAX_CONTEXTOS_DESCUENTO,
+    )
     if df is None:
         return {"disponible": False, "motivo": "parquet no generado"}
 

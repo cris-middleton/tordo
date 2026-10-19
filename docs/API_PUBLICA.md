@@ -114,7 +114,8 @@ cierre—. Es la misma definición que cuenta `GET /publico/portada`.
 sin importar tildes ni mayúsculas. Una palabra coincide entera, con sus plurales, o
 por su comienzo en el nombre: «valvul» encuentra «válvula» y «bus» encuentra «buses»,
 pero no «combustible». `GET /bi/productos?q=` y `GET /publico/productos?q=` buscan
-también desde el comienzo de una palabra: «mesa» no encuentra «parmesano».
+también desde el comienzo de una palabra y sin tildes: «mesa» no encuentra «parmesano»
+y «valv» encuentra «Válvula».
 
 ## «Lo mejor de hoy» en Compra Ágil
 
