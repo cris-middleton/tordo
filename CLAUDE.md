@@ -883,7 +883,7 @@ contenedor único (cabecera y pie, con la atribución, son de la cáscara única
     «ningún comprador». `compradores` (los 10 de «Quién lo compra») no cambia.
 - **Todo precio dice cuántos compradores tiene detrás y de cuándo** (`comprasDeOrganismos`,
   `frasePrecio`, `notaCompradores` en `lib/publico.ts`): «46 compras de 40 organismos, abr 2025
-  – mar 2026 (12 meses)» en la ficha (el periodo en la cabecera), en `/buscar` (en la banda) y en
+  – mar 2026 (12 meses)» en la ficha (el periodo en la cabecera), en `/buscar` (en las cifras de la banda, `CifrasBanda`, con el mismo gráfico que la ficha) y en
   el pie de la lectura de la portada. Con p25 y p75 iguales tras `plata`, nunca «entre $X y $X».
 - **Un producto se titula como lo escribe quien lo compra** (`nombreProducto`): la
   `descripcion` de su banda con más compras, sin los códigos del principio, en tipo oración si

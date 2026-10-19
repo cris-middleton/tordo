@@ -49,8 +49,9 @@ describe('BloquePrecios', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Cuánto ha pagado el Estado' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Guante latex nitrilo' })).toHaveAttribute('href', '/productos/guante-latex-nitrilo');
     // La banda de la unidad más comprada: unidades[0] (Caja, n=120).
-    expect(screen.getByRole('heading', { level: 3, name: 'Por caja' })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { level: 3, name: 'Por unidad' })).toBeNull();
+    // La misma lectura que la ficha: conclusión, gráfico, cifras y método.
+    expect(screen.getByText(/^Por caja: la mitad se pagó/)).toBeInTheDocument();
+    expect(screen.queryByText(/^Por unidad:/)).toBeNull();
     const otros = screen.getByRole('list', { name: /otros productos/i });
     expect(within(otros).getAllByRole('link').map((a) => a.getAttribute('href'))).toEqual([
       '/productos/guante-nitrilo-talla',
@@ -72,7 +73,8 @@ describe('BloquePrecios', () => {
       'href',
       '/productos/guante-latex-nitrilo',
     );
-    expect(screen.getByText('120 compras de 31 organismos, abr 2025 – mar 2026 (12 meses).')).toBeInTheDocument();
+    expect(screen.getAllByText('120 compras de 31 organismos').length).toBeGreaterThan(0);
+    expect(screen.getByText(/120 compras de 31 compradores, abr 2025 a mar 2026/)).toBeInTheDocument();
   });
 
   it('si la ficha falla, la lista sigue y la banda se cambia por una línea', () => {

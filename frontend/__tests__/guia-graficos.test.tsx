@@ -33,7 +33,6 @@ import { Columnas } from '@/components/graficos/Columnas';
 import { AntesDespues } from '@/components/notas/AntesDespues';
 import { BarraCierres } from '@/components/portada/BarraCierres';
 import { GraficoPrecio } from '@/components/precio/GraficoPrecio';
-import { BandaPrecio } from '@/components/publico/BandaPrecio';
 import { graficoPrecio } from '@/lib/graficoPrecio';
 import type { BandaUnidad } from '@/types/publico';
 
@@ -128,10 +127,6 @@ const PROPIOS: Record<string, Propio> = {
         ]}
       />
     ),
-  },
-  'components/publico/BandaPrecio.tsx': {
-    que: 'la banda P10–P90 de una unidad (ficha de producto y /buscar)',
-    ejemplo: () => <BandaPrecio banda={BANDA} />,
   },
 };
 
