@@ -90,18 +90,13 @@ Lo que dibuja datos y todavía no sigue esta guía. Está también en `DEUDA`, d
 
 | fichero | qué falla |
 |---|---|
-| `app/(panel)/mercado/components/CompetenciaSection.tsx` | Recharts, hex fijos, una paleta categórica de seis colores |
-| `app/(panel)/mercado/components/EstacionalidadSection.tsx` | Recharts, hex fijos y un degradado bajo la curva |
-| `app/(panel)/mercado/components/TendenciasSection.tsx` | Recharts, hex fijos; verde y rojo por signo |
-| `app/(panel)/mercado/components/TrendChart.tsx` | Recharts, hex fijos |
-| `app/(panel)/mercado/components/OportunidadesSection.tsx` | barra de puntaje en semáforo (`accent`, `gold`, `danger`) |
-| `components/bi/PanoramaRubro.tsx` | barras de estacionalidad en `accent` y `primary` |
 | `components/PriceBandChart.tsx` | Recharts: cinco barras P10–P90 desde cero, que comparan alturas cuando lo que importa es dónde cae cada precio. Ya pinta con tokens. |
 | `components/CompetitorsList.tsx` | barra de cuota en `primary` |
 | `components/OpportunityScoreCard.tsx` | barras de componentes en `primary` |
 
-Los de `/mercado` usan además `fontSize` de 10 y 11 en los ejes y no se ven bien en tema oscuro
-(los hex no se invierten). Se reescriben en SVG de servidor cuando se rehaga esa pantalla, no antes.
+Los gráficos de Recharts de `/mercado` (competencia, meses de compra y serie anual) ya no existen:
+desde la pasada micro de octubre de 2026 se dibujan con `components/graficos/BarrasHorizontales.tsx`
+y `components/graficos/Columnas.tsx`, que siguen esta guía.
 
 ## Un gráfico nuevo, paso a paso
 

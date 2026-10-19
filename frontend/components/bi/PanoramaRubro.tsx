@@ -1,19 +1,14 @@
 'use client';
 
-import {
-  AlertTriangle,
-  CalendarRange,
-  Loader2,
-  TrendingUp,
-  Users,
-} from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 import { InfoTooltip } from './InfoTooltip';
 import type { Panorama, PanoramaLider } from '@/types/bi';
 
 import { EligeRubro } from './EligeRubro';
 import { motivoParaPersona } from '@/lib/motivos';
-import { decimal } from '@/lib/formato';
+import { Columnas } from '@/components/graficos/Columnas';
+import { decimal, monto } from '@/lib/formato';
 
 /**
  * El panorama del rubro: la cabecera de la pantalla de analítica.
@@ -39,22 +34,24 @@ function Cifra({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * Un bloque del panorama: título, ayuda opcional y contenido, con un filete
+ * arriba. Eran cuatro tarjetas iguales con icono; el filete separa igual sin
+ * convertir la pantalla en un tablero de cajas.
+ */
 function Tarjeta({
-  icono: Icono,
   titulo,
   ayuda,
   children,
 }: {
-  icono: React.ElementType;
   titulo: string;
   ayuda?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-border bg-surface p-4">
+    <section className="border-t border-border pt-4">
       <header className="mb-3 flex items-center gap-1.5">
-        <Icono className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
-        <h3 className="text-sm font-semibold text-text">{titulo}</h3>
+        <h3 className="font-sans text-base font-semibold text-text">{titulo}</h3>
         {ayuda && <InfoTooltip content={ayuda} />}
       </header>
       {children}
@@ -66,22 +63,17 @@ function SinDatos({ que }: { que: string }) {
   return <p className="text-sm text-subtle">Todavía no hay {que} para este rubro.</p>;
 }
 
-function plata(clp?: number | null): string {
-  if (clp == null) return '—';
-  if (clp >= 1e12) return `$${decimal(clp / 1e12, 1)} billones`;
-  if (clp >= 1e9) return `$${decimal(clp / 1e9, 1)} mil millones`;
-  if (clp >= 1e6) return `$${decimal(clp / 1e6, 0)} millones`;
-  return `$${Math.round(clp).toLocaleString('es-CL')}`;
-}
+const plata = (clp?: number | null): string => (clp == null ? '—' : monto(clp));
 
 function entero(n?: number | null): string {
   return n == null ? '—' : n.toLocaleString('es-CL');
 }
 
+/** El tramo se dice con palabras; el color no juzga (el teal es de la acción). */
 const TONO_MERCADO: Record<string, string> = {
-  fragmentado: 'text-accent',
-  moderado: 'text-gold',
-  concentrado: 'text-danger',
+  fragmentado: 'text-text',
+  moderado: 'text-text',
+  concentrado: 'text-text',
 };
 
 const EXPLICA_MERCADO: Record<string, string> = {
@@ -142,7 +134,7 @@ export function PanoramaRubro({
   return (
     <div className="space-y-4">
       {/* ── La franja de cabecera: el rubro en una línea ─────────────────── */}
-      <div className="rounded-xl border border-border bg-surface px-5 py-4">
+      <div className="border-y border-border py-4">
         <div className="flex flex-wrap items-end gap-x-8 gap-y-4">
           <div>
             <p className="text-xs text-muted">
@@ -175,7 +167,6 @@ export function PanoramaRubro({
       {/* ── Las cuatro preguntas ─────────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Tarjeta
-          icono={Users}
           titulo="Contra quién compites"
           ayuda="Cuota de cada proveedor sobre el monto de TODO el rubro, sumando sus compradores. Antes esta cifra era la cuota dentro de un solo comprador."
         >
@@ -210,7 +201,6 @@ export function PanoramaRubro({
         </Tarjeta>
 
         <Tarjeta
-          icono={CalendarRange}
           titulo="Cuándo compran"
           ayuda="Reparto de las compras del rubro a lo largo del año, sumando todos sus compradores. Con reparto plano cada mes sería un 8,3%."
         >
@@ -230,35 +220,18 @@ export function PanoramaRubro({
                   ? `Los tres meses más activos concentran el ${estacionalidad.pct_top3}% del año. Conviene tener capacidad disponible antes.`
                   : `Los tres meses más activos suman ${estacionalidad.pct_top3}%, casi lo mismo que cualquier trimestre. No hay que planificar alrededor de una temporada.`}
               </p>
-              {/* Doce barras y no un gráfico: para «¿cuándo compran?» la forma
-                  basta, y una librería de gráficos aquí sería peso sin lectura
-                  adicional. */}
-              <div
-                className="flex h-16 items-end gap-1"
-                role="img"
-                aria-label={`Reparto mensual de compras. Mes más activo: ${estacionalidad.mes_pico}`}
-              >
-                {estacionalidad.meses.map((m) => {
-                  const alto = Math.max(6, (m.pct / (estacionalidad.pct_pico || 1)) * 100);
-                  const esPico = m.nombre === estacionalidad.mes_pico;
-                  return (
-                    // `h-full` en la columna y la barra dentro de una caja
-                    // `flex-1`: el alto en % de la barra se resuelve contra su
-                    // padre, y sin alto definido en la columna valía cero — el
-                    // gráfico salía con las letras de los meses y sin barras.
-                    <div key={m.mes} className="flex h-full flex-1 flex-col items-center gap-1">
-                      <div className="flex w-full flex-1 items-end">
-                        <div
-                          className={`w-full rounded-sm ${esPico ? 'bg-accent' : 'bg-primary/25'}`}
-                          style={{ height: `${alto}%` }}
-                          title={`${m.nombre}: ${m.pct}%`}
-                        />
-                      </div>
-                      <span className="text-xs text-subtle">{m.nombre[0]}</span>
-                    </div>
-                  );
-                })}
-              </div>
+              <Columnas
+                etiqueta={`Reparto mensual de las compras del rubro. Mes más activo: ${estacionalidad.mes_pico}`}
+                alto={64}
+                textoArriba={false}
+                columnas={estacionalidad.meses.map((m) => ({
+                  clave: String(m.mes),
+                  etiqueta: m.nombre.slice(0, 1),
+                  valor: m.pct,
+                  texto: `${m.nombre}: ${m.pct}%`,
+                  destacada: m.nombre === estacionalidad.mes_pico,
+                }))}
+              />
             </>
           ) : (
             <SinDatos que="datos de estacionalidad" />
@@ -269,7 +242,6 @@ export function PanoramaRubro({
       {/* ── Compradores a vigilar ────────────────────────────────────────── */}
       {vigilar?.disponible && vigilar.compradores.length > 0 && (
         <Tarjeta
-          icono={AlertTriangle}
           titulo="Compradores a mirar con cuidado"
           ayuda="Compradores de este rubro con señales concretas en su historial. No significa que no haya que venderles: significa que conviene saberlo antes."
         >
@@ -289,7 +261,7 @@ export function PanoramaRubro({
       )}
 
       {vigilar?.disponible && vigilar.compradores.length === 0 && (
-        <Tarjeta icono={TrendingUp} titulo="Compradores a mirar con cuidado">
+        <Tarjeta titulo="Compradores a mirar con cuidado">
           <p className="text-sm text-muted">
             Ninguno de los {entero(vigilar.n_compradores_rubro)} compradores de este rubro tiene
             señales en su historial.

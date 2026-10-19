@@ -4,7 +4,7 @@ import { useBILibre } from '@/lib/queries';
 import { Loader2, X } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { OportunidadItem, ResumenMercado, TendenciaItem } from '../types';
-import { decimal } from '@/lib/formato';
+import { decimal, monto } from '@/lib/formato';
 
 interface CompareModeProps {
   rubroA: string;
@@ -41,12 +41,7 @@ async function loadRubroData(rubro: string): Promise<Omit<RubroData, 'loading'>>
   };
 }
 
-function formatCLPShort(v: number): string {
-  if (v >= 1e12) return `CLP ${decimal(v / 1e12, 1)}B`;
-  if (v >= 1e9) return `CLP ${decimal(v / 1e9, 1)} mil M`;
-  if (v >= 1e6) return `CLP ${decimal(v / 1e6, 0)} M`;
-  return `CLP ${v.toLocaleString('es-CL')}`;
-}
+const formatCLPShort = (v: number): string => monto(v);
 
 function RubroColumn({ rubro, data }: { rubro: string; data: RubroData }) {
   if (data.loading) {

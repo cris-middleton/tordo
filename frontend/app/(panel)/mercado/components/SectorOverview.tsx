@@ -1,18 +1,9 @@
 'use client';
 
-import { useState, useSyncExternalStore } from 'react';
-import { Map, X } from 'lucide-react';
+import { BarrasHorizontales } from '@/components/graficos/BarrasHorizontales';
+import { monto } from '@/lib/formato';
+import { rangoDeMeses } from '@/lib/periodo';
 import { useSectores } from '@/lib/queries';
-import { decimal } from '@/lib/formato';
-
-const DISMISS_KEY = 'tordo-bi-sector-dismiss-date';
-
-const hoy = (): string => new Date().toISOString().slice(0, 10);
-
-// Sin suscripción real: el descarte sólo cambia por acción propia dentro de este
-// componente, y eso ya lo cubre `descartadoAhora`.
-const suscribirDescarte = () => () => {};
-const leerDescarte = (): boolean => localStorage.getItem(DISMISS_KEY) === hoy();
 
 interface SectorRow {
   sector: string;
@@ -20,71 +11,72 @@ interface SectorRow {
   n_oc?: number;
   n_organismos?: number;
   n_proveedores?: number;
+  ventana_desde?: string | null;
+  ventana_hasta?: string | null;
 }
 
-function formatCLP(v: number): string {
-  const abs = Math.abs(v);
-  if (abs >= 1e12) return `CLP ${decimal(v / 1e12, 1)} billones`;
-  if (abs >= 1e9) return `CLP ${decimal(v / 1e9, 1)} mil millones`;
-  if (abs >= 1e6) return `CLP ${decimal(v / 1e6, 0)} millones`;
-  return `CLP ${v.toLocaleString('es-CL')}`;
-}
+/**
+ * Lo que dice cada sector que el dato no cuenta entero. Obras Públicas compra
+ * casi todo por contratos de obra, y ChileCompra no los publica en su descarga
+ * de órdenes de compra: medido, 0,75 contra 3,09 billones oficiales en 2025.
+ */
+const NOTAS_SECTOR: Record<string, string> = {
+  'Obras Públicas':
+    'No incluye los contratos de obra del MOP: ChileCompra no los publica en su descarga de órdenes de compra.',
+};
 
+const conMiles = (n: number) => n.toLocaleString('es-CL');
+
+/**
+ * Cuánto compra cada sector del Estado: el contexto nacional antes de bajar a un
+ * rubro. Barras con su monto escrito, la mayor en `dato`; debajo de cada una,
+ * cuántos organismos compran y cuántos proveedores venden.
+ *
+ * Antes eran seis tarjetas iguales en un recuadro teal que se podía cerrar «por
+ * hoy»: el dato no se comparaba a la vista, y cerrarlo escondía lo único nacional
+ * de la página. Si la consulta falla o viene vacía, no sale: es contexto.
+ */
 export function SectorOverview() {
-  // El "descartado de hoy" vive en localStorage y se lee con
-  // `useSyncExternalStore`, no con un efecto: así el valor está disponible en el
-  // primer render y la consulta puede decidir si corre.
-  const descartadoHoy = useSyncExternalStore(suscribirDescarte, leerDescarte, () => true);
-  const [descartadoAhora, setDescartadoAhora] = useState(false);
-  const dismissed = descartadoHoy || descartadoAhora;
-
-  // `enabled` sustituye al `if (dismissed !== false) return` del efecto.
-  const { data: res, isFetching: loading } = useSectores(!dismissed);
+  const { data: res } = useSectores(true);
   const sectores = ((res?.disponible ? (res.sectores ?? res.resultados) : []) ?? []) as SectorRow[];
+  if (sectores.length === 0) return null;
 
-  const dismiss = () => {
-    localStorage.setItem(DISMISS_KEY, hoy());
-    setDescartadoAhora(true);
-  };
-
-  if (dismissed) return null;
-  if (loading || sectores.length === 0) return null;
+  const ordenados = [...sectores].sort((a, b) => (b.monto_total ?? 0) - (a.monto_total ?? 0));
+  const desde = ordenados.map((s) => s.ventana_desde).filter(Boolean).sort()[0];
+  const hasta = ordenados.map((s) => s.ventana_hasta).filter(Boolean).sort().at(-1);
+  const periodo = rangoDeMeses(desde, hasta);
+  const mayor = ordenados[0];
 
   return (
-    <section className="card border-accent/20 bg-accent/5">
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="flex items-center gap-2">
-          <Map className="h-4 w-4 text-accent" />
-          <h3 className="text-sm font-semibold text-text">Mapa de sectores</h3>
-          <span className="text-xs text-muted">— los grandes compradores del Estado</span>
-        </div>
-        <button
-          onClick={dismiss}
-          aria-label="Ocultar por hoy"
-          className="text-muted hover:text-text p-0.5 rounded"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-        {sectores.slice(0, 6).map((s) => (
-          <div
-            key={s.sector}
-            className="rounded-lg border border-border bg-surface p-3"
-          >
-            <p className="text-xs text-muted truncate" title={s.sector}>
-              {s.sector || '—'}
-            </p>
-            <p className="cifra text-sm font-semibold text-text mt-0.5">
-              {formatCLP(s.monto_total ?? 0)}
-            </p>
-            <p className="text-xs text-subtle mt-0.5">
-              {s.n_organismos != null && `${s.n_organismos.toLocaleString('es-CL')} organismos`}
-              {s.n_organismos != null && s.n_proveedores != null && ', '}
-              {s.n_proveedores != null && `${s.n_proveedores.toLocaleString('es-CL')} proveedores`}
-            </p>
-          </div>
-        ))}
+    <section aria-labelledby="sectores-titulo" className="mt-8">
+      <h2 id="sectores-titulo" className="section-title">
+        Quién compra más
+      </h2>
+      <p className="mt-2 max-w-[65ch] text-muted">
+        {mayor.sector} es el sector que más compra: {monto(mayor.monto_total ?? 0)} en órdenes de compra
+        {periodo ? `, ${periodo}` : ''}.
+      </p>
+      <div className="mt-6 max-w-3xl">
+        <BarrasHorizontales
+          etiqueta="Monto en órdenes de compra por sector"
+          filas={ordenados.map((s) => ({
+            clave: s.sector,
+            etiqueta: s.sector || 'Sin sector',
+            valor: s.monto_total ?? 0,
+            texto: monto(s.monto_total ?? 0),
+            detalle: (
+              <>
+                {[
+                  s.n_organismos != null ? `${conMiles(s.n_organismos)} organismos` : null,
+                  s.n_proveedores != null ? `${conMiles(s.n_proveedores)} proveedores` : null,
+                ]
+                  .filter(Boolean)
+                  .join(', ')}
+                {NOTAS_SECTOR[s.sector] && <span className="block">{NOTAS_SECTOR[s.sector]}</span>}
+              </>
+            ),
+          }))}
+        />
       </div>
     </section>
   );

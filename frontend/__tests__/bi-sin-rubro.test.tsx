@@ -56,7 +56,7 @@ describe('CON rubro elegido se conserva el mensaje de «no hay datos»', () => {
     // cuando SÍ hay rubro y no hay resultados, decirlo sigue siendo correcto —
     // y la pista de bajar el score mínimo es accionable.
     render(<OportunidadesSection oportunidades={[]} loading={false} rubro="Servicios de aseo" />);
-    expect(screen.getByText(/no se encontraron oportunidades/i)).toBeInTheDocument();
+    expect(screen.getByText(/no tiene compradores con historia suficiente/i)).toBeInTheDocument();
     expect(screen.queryByText(INVITACION)).not.toBeInTheDocument();
   });
 });

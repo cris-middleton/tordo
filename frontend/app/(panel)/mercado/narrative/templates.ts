@@ -1,5 +1,5 @@
 import { ResumenMercado } from '../types';
-import { decimal } from '@/lib/formato';
+import { decimal, monto } from '@/lib/formato';
 
 /**
  * Escapa lo que viene de fuera.
@@ -18,13 +18,8 @@ function esc(texto: string): string {
     .replace(/"/g, '&quot;');
 }
 
-function formatCLP(value: number): string {
-  const abs = Math.abs(value);
-  if (abs >= 1e12) return `CLP ${decimal(value / 1e12, 1)} billones`;
-  if (abs >= 1e9) return `CLP ${decimal(value / 1e9, 1)} mil millones`;
-  if (abs >= 1e6) return `CLP ${decimal(value / 1e6, 1)} millones`;
-  return `CLP ${value.toLocaleString('es-CL')}`;
-}
+/** El monto en el formato de todo el sitio (`monto`). */
+const formatCLP = (value: number): string => monto(value);
 
 export function frase1(r: ResumenMercado): string | null {
   if (!r.rubro) return null;

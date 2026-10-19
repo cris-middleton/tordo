@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, Wrench } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 import type { OrganismoConNombre } from '../types';
 import type { HerramientasAvanzadasProps, Tab } from './herramientas/comun';
@@ -29,7 +29,7 @@ const TABS: Array<[Tab, string]> = [
   ['precio', 'Precio histórico'],
   ['descuento', 'Descuentos'],
   ['forecast', 'Competencia esperada'],
-  ['simular', '🎯 Simulador pre-bid'],
+  ['simular', 'Simulador de oferta'],
 ];
 
 export function HerramientasAvanzadas({ rubro, topOrganismos, allRubros = [] }: HerramientasAvanzadasProps) {
@@ -37,21 +37,20 @@ export function HerramientasAvanzadas({ rubro, topOrganismos, allRubros = [] }: 
   const [tab, setTab] = useState<Tab>('precio');
 
   return (
-    <section className="card">
+    <section className="border-t border-border pt-6">
       <button
+        type="button"
+        aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between gap-3 text-left"
+        className="flex w-full items-center justify-between gap-3 text-left"
       >
-        <div className="flex items-center gap-2">
-          <Wrench className="h-5 w-5 text-primary" />
-          <div>
-            <h2 className="section-title">Herramientas avanzadas</h2>
-            <p className="text-xs text-muted mt-0.5">
-              A qué precio, con qué descuento y contra cuánta competencia.
-            </p>
-          </div>
+        <div>
+          <h2 className="section-title">Herramientas</h2>
+          <p className="mt-1 text-sm text-muted">
+            A qué precio, con qué descuento y contra cuánta competencia: cálculos para una oferta concreta.
+          </p>
         </div>
-        {open ? <ChevronUp className="h-4 w-4 text-muted shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted shrink-0" />}
+        {open ? <ChevronUp className="h-5 w-5 shrink-0 text-muted" aria-hidden="true" /> : <ChevronDown className="h-5 w-5 shrink-0 text-muted" aria-hidden="true" />}
       </button>
 
       {open && (
@@ -61,7 +60,7 @@ export function HerramientasAvanzadas({ rubro, topOrganismos, allRubros = [] }: 
               <button
                 key={key}
                 onClick={() => setTab(key)}
-                className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${
+                className={`whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium transition-colors ${
                   tab === key
                     ? 'border-primary text-primary'
                     : 'border-transparent text-muted hover:text-text'

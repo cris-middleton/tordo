@@ -334,8 +334,8 @@ programador en la nube, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
   saber a dónde mandarlo; un DSN sólo permite escribir eventos, no leerlos).
   `SENTRY_AUTH_TOKEN` es `ARG` y nunca `ENV`: un `ENV` lo deja escrito en los metadatos.
 - **Nunca hardcodear un color.** La paleta vive en tokens (`app/globals.css`) y se consume por
-  Tailwind. Los componentes tenían 112 hexes; quedan sólo en los Recharts de `/mercado`, que son
-  deuda declarada de la guía de gráficos. Un token en un estilo en línea va dentro de `rgb()`: es
+  Tailwind. Los componentes tenían 112 hexes; los últimos, los de los Recharts de `/mercado`, se
+  fueron con ellos (pasada micro de octubre de 2026). Un token en un estilo en línea va dentro de `rgb()`: es
   un triplete, y `var(--color-x)` a secas no es un color (el tooltip de `PriceBandChart` salía sin
   fondo).
 - **Los gráficos siguen `docs/GUIA_GRAFICOS.md`** (reglas con test y criterios para leer, con sus
@@ -941,11 +941,17 @@ escapado y la cita de la fuente en cada ítem. Llaman al backend **como el visit
 (`cabecerasHaciaElBackend(ipDelVisitante(...))`), no como renderizado exento.
 
 **La pantalla de analítica (`app/(panel)/mercado/`, servida en `/mercado`) está ordenada por la decisión, no por lo
-que el pipeline sabe calcular**: cómo está el mercado → dónde estoy yo → qué hago esta
-semana → un comprador en concreto → herramientas. Antes eran cinco secciones del mismo peso
-visual y la primera pregunta —la que trae al usuario— no se respondía en ninguna. La
+que el pipeline sabe calcular**: lo nacional (cuánto compra cada sector, `SectorOverview`, en
+barras, con la línea de que los contratos de obra del MOP no están en las órdenes) → un rubro: cómo
+está el mercado (resumen, panorama y crecimiento) → dónde mirar primero → un comprador en concreto →
+herramientas. **Sin rubro en la URL abre en el de más mercados** (`/bi/rubros` viene por frecuencia;
+el elegido por defecto no se escribe en la URL): antes abría con tres recuadros vacíos. La
 cabecera del rubro la pinta `PanoramaRubro` desde `GET /bi/panorama`, que es una sola
-llamada para las cuatro preguntas de mercado.
+llamada para las cuatro preguntas de mercado. **Ya no hay Recharts en `/mercado`**: sectores y
+proveedores son `components/graficos/BarrasHorizontales.tsx` y los meses y años,
+`components/graficos/Columnas.tsx`, que siguen la guía de gráficos (`PROPIOS`). Sin «¿Son
+confiables?», sin la insignia «excelente», sin «Probabilidad de compra», sin semáforos: la nota
+del comprador es «9,2 de 10» y sus tres números al lado.
 
 **La URL de esa pantalla se lee, no sólo se escribe.** `rubro`, `focus` y `compare` se leen
 con `useSearchParams` en un inicializador perezoso —dentro de una frontera de `Suspense`,

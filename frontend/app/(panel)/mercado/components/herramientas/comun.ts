@@ -4,7 +4,7 @@ import type { Periodo } from '@/lib/periodo';
 
 import type { OrganismoConNombre } from '../../types';
 import { motivoParaPersona } from '@/lib/motivos';
-import { decimal } from '@/lib/formato';
+import { decimal, monto } from '@/lib/formato';
 
 /**
  * Lo que comparten las cuatro herramientas avanzadas de BI.
@@ -150,9 +150,5 @@ export interface ForecastResultado {
   motivo?: string;
 }
 
-export function formatCLPShort(v: number): string {
-  if (v >= 1e9) return `CLP ${decimal(v / 1e9, 1)} mil M`;
-  if (v >= 1e6) return `CLP ${decimal(v / 1e6, 1)} M`;
-  if (v >= 1e3) return `CLP ${decimal(v / 1e3, 0)}K`;
-  return `CLP ${Math.round(v).toLocaleString('es-CL')}`;
-}
+/** El monto en el formato de todo el sitio (`monto`, `lib/formato.ts`). */
+export const formatCLPShort = (v: number): string => monto(v);

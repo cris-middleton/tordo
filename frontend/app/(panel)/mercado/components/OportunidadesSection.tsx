@@ -2,13 +2,14 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { ChevronDown, ChevronUp, Loader2, Target } from 'lucide-react';
-import { OportunidadItem, CompradorResult, scoreColor, scoreBg } from '../types';
+import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { OportunidadItem, CompradorResult } from '../types';
 import { useComprador } from '@/lib/queries';
 import { ShareMenu } from './ShareMenu';
 
 import { EligeRubro } from '@/components/bi/EligeRubro';
 import { decimal } from '@/lib/formato';
+import { normalizeText } from '@/lib/nombresChile';
 
 interface OportunidadesSectionProps {
   oportunidades: OportunidadItem[];
@@ -16,46 +17,6 @@ interface OportunidadesSectionProps {
   onFocusOrganismo?: (o: { codigo: string; nombre: string }) => void;
   /** Vacío mientras el usuario no ha elegido rubro. Ver `EligeRubro`. */
   rubro?: string;
-}
-
-function ScoreBar({ value, max = 10 }: { value: number; max?: number }) {
-  const pct = Math.min(100, (value / max) * 100);
-  const color = pct >= 70 ? 'bg-accent' : pct >= 40 ? 'bg-gold' : 'bg-danger';
-  return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 rounded-full bg-border overflow-hidden">
-        <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
-      </div>
-      <span className="cifra text-xs text-muted w-6 text-right">
-        {decimal(value, 1)}
-      </span>
-    </div>
-  );
-}
-
-function CompetitionBadge({ n }: { n: number }) {
-  if (n < 5) {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-surface border border-border px-2 py-0.5 text-xs font-medium text-text">
-        <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-        Baja ({n})
-      </span>
-    );
-  }
-  if (n <= 15) {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-surface border border-border px-2 py-0.5 text-xs font-medium text-text">
-        <span className="h-1.5 w-1.5 rounded-full bg-gold" />
-        Media ({n})
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-surface border border-border px-2 py-0.5 text-xs font-medium text-text">
-      <span className="h-1.5 w-1.5 rounded-full bg-danger" />
-      Alta ({n})
-    </span>
-  );
 }
 
 function pctOpc(v?: number | null): string {
@@ -89,37 +50,29 @@ function ExpandedRow({
 
   // buyer_score is 0-1; multiply ×10 for display and color thresholds
   const scoreDisplay = data.buyer_score != null ? data.buyer_score * 10 : null;
-  const scoreClass = scoreDisplay != null ? scoreBg(scoreDisplay) : '';
 
   return (
-    <div className="p-4 bg-surface/60 border-t border-border grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+    <div className="grid grid-cols-2 gap-4 border-t border-border bg-surface-elevated p-4 text-sm sm:grid-cols-4">
       <div>
-        <p className="text-xs text-muted mb-1">Nota del comprador</p>
+        <p className="mb-1 text-muted">Nota del comprador</p>
         {scoreDisplay != null ? (
-          <span className={`font-bold text-base ${scoreColor(scoreDisplay)}`}>
-            {decimal(scoreDisplay, 1)}/10
-          </span>
+          <span className="cifra font-semibold text-text">{decimal(scoreDisplay, 1)} de 10</span>
         ) : <span className="text-muted">—</span>}
-        {data.clasificacion && (
-          <span className={`ml-2 text-xs rounded-full border px-2 py-0.5 ${scoreClass}`}>
-            {data.clasificacion}
-          </span>
-        )}
       </div>
       <div>
-        <p className="text-xs text-muted mb-1">Adjudica</p>
+        <p className="mb-1 text-muted">Adjudica</p>
         <p className="font-medium text-text">
           {pctOpc(data.tramitacion?.tasa_adjudicacion)}
         </p>
       </div>
       <div>
-        <p className="text-xs text-muted mb-1">Cancela</p>
+        <p className="mb-1 text-muted">Cancela</p>
         <p className="font-medium text-text">
           {pctOpc(data.tramitacion?.tasa_cancelacion)}
         </p>
       </div>
       <div>
-        <p className="text-xs text-muted mb-1">Órdenes aceptadas</p>
+        <p className="mb-1 text-muted">Órdenes aceptadas</p>
         <p className="font-medium text-text">
           {pctOpc(data.tramitacion?.tasa_aceptacion)}
         </p>
@@ -129,19 +82,19 @@ function ExpandedRow({
           {data.risk_flags.aceptacion_lenta && (
             <span
               title="Sus órdenes tardan en aceptarse mucho más que la mediana del sistema. Suele indicar fricción en el trámite."
-              className="badge-danger text-xs cursor-help"
+              className="rounded-full border border-border px-2 py-0.5 text-sm text-text"
             >
-              ⚠ Trámite lento
+              Trámite lento
             </span>
           )}
           {data.risk_flags.cancelaciones && (
-            <span title="Alta tasa de órdenes canceladas" className="badge-danger text-xs cursor-help">⚠ Cancelaciones frecuentes</span>
+            <span title="Alta tasa de órdenes canceladas" className="rounded-full border border-border px-2 py-0.5 text-sm text-text">Cancela seguido</span>
           )}
           {data.risk_flags.licitaciones_fallidas && (
-            <span title="Declara desierta una parte alta de lo que llama a licitación" className="badge-danger text-xs cursor-help">⚠ Declara desierto seguido</span>
+            <span title="Declara desierta una parte alta de lo que llama a licitación" className="rounded-full border border-border px-2 py-0.5 text-sm text-text">Declara desierto seguido</span>
           )}
           {data.risk_flags.baja_calificacion && (
-            <span title="Calificación promedio de proveedores baja" className="badge-danger text-xs cursor-help">⚠ Baja calificación</span>
+            <span title="Calificación promedio de proveedores baja" className="rounded-full border border-border px-2 py-0.5 text-sm text-text">Baja calificación</span>
           )}
         </div>
       )}
@@ -149,10 +102,9 @@ function ExpandedRow({
         <div className="col-span-full mt-4 pt-3 border-t border-border flex">
           <button
             onClick={() => onFocus({ codigo: organismo, nombre })}
-            className="btn-primary text-sm flex items-center gap-2"
+            className="btn-secondary h-11 text-sm"
           >
-            <Target className="h-4 w-4" />
-            Analizar este comprador en todo el panel
+            Mirar este comprador en detalle
           </button>
         </div>
       )}
@@ -173,16 +125,16 @@ export function OportunidadesSection({ oportunidades, loading, onFocusOrganismo,
 
   const summaryText = (() => {
     const parts: string[] = [];
-    parts.push(`Oportunidades destacadas: ${oportunidades.length} encontradas`);
+    parts.push(`Dónde mirar primero: ${oportunidades.length} compradores`);
     if (oportunidades.length > 0) {
-      parts.push(`mejor score ${decimal(maxScore, 1)}`);
+      parts.push(`el primero con ${decimal(maxScore, 1)} de 10`);
       parts.push(`competencia promedio ${Math.round(avgCompetidores)} proveedores`);
     }
     return parts.join(', ') + '.';
   })();
 
   if (loading) return (
-    <div className="card flex items-center justify-center py-12">
+    <div className="flex items-center justify-center py-12">
       <Loader2 className="h-6 w-6 animate-spin text-primary" />
     </div>
   );
@@ -192,116 +144,72 @@ export function OportunidadesSection({ oportunidades, loading, onFocusOrganismo,
   if (!loading && !rubro) return <EligeRubro que="dónde conviene mirar primero" />;
 
   if (!loading && oportunidades.length === 0) return (
-    <div className="card flex flex-col items-center gap-3 py-12 text-center">
-      <Target className="h-8 w-8 text-muted" />
-      <p className="text-sm text-muted">No se encontraron oportunidades para este rubro.</p>
-      <p className="text-xs text-subtle">Baja el score mínimo o prueba con otro rubro.</p>
-    </div>
+    <p className="py-6 text-sm text-muted">Este rubro no tiene compradores con historia suficiente para ordenarlos.</p>
   );
 
   return (
-    <section ref={rootRef} className="card space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="section-title flex items-center gap-2">
-            <Target className="h-5 w-5 text-primary" />
-            Oportunidades destacadas
-          </h2>
-          <p className="text-xs text-muted mt-0.5">¿Dónde hay oportunidad de negocio en este mercado?</p>
-        </div>
-        <ShareMenu
-          targetRef={rootRef}
-          summaryText={summaryText}
-          filename="tordo-bi-oportunidades"
-        />
+    <section ref={rootRef} aria-label="Compradores del rubro, ordenados" className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-muted">
+          Los {Math.min(10, oportunidades.length)} primeros de {oportunidades.length.toLocaleString('es-CL')}. El
+          puntaje va de 0 a 10; ábrelo para ver cómo compra cada uno.
+        </p>
+        <ShareMenu targetRef={rootRef} summaryText={summaryText} filename="tordo-donde-mirar" />
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-xl border border-border bg-surface p-3">
-          <p className="text-xs text-muted">Oportunidades encontradas</p>
-          <p className="text-2xl font-bold text-text mt-1">{oportunidades.length}</p>
-        </div>
-        <div className="rounded-xl border border-border bg-surface p-3">
-          <p className="text-xs text-muted mb-1">Mejor score</p>
-          <p className={`text-2xl font-bold ${maxScore > 0 ? scoreColor(maxScore) : 'text-muted'}`}>
-            {maxScore > 0 ? decimal(maxScore, 1) : '—'}
-          </p>
-        </div>
-        <div className="rounded-xl border border-border bg-surface p-3">
-          <p className="text-xs text-muted mb-1.5">Competencia promedio</p>
-          {avgCompetidores > 0 ? (
-            <CompetitionBadge n={Math.round(avgCompetidores)} />
-          ) : (
-            <span className="text-muted text-sm">—</span>
-          )}
-        </div>
-      </div>
-
-      {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-border">
+      <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border bg-surface/60 text-left">
-              <th className="px-4 py-2.5 text-xs font-medium text-muted">Organismo</th>
-              <th className="px-4 py-2.5 text-xs font-medium text-muted">Rubro</th>
-              <th className="px-4 py-2.5 text-xs font-medium text-muted w-40 whitespace-nowrap overflow-visible">
-                <div className="group relative inline-flex items-center gap-1 cursor-help">
-                  Score de oportunidad
-                  <span className="text-muted/60 font-normal">ℹ</span>
-                  <div className="pointer-events-none absolute bottom-[calc(100%+6px)] left-0 w-64 rounded-lg border border-border bg-surface px-3 py-2 text-xs text-text shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-[100] font-normal leading-relaxed whitespace-normal">
-                    Score 0–10 que combina volumen de compras, nivel de competencia, estacionalidad y tendencia de crecimiento. Mayor score = mejor oportunidad.
-                  </div>
-                </div>
-              </th>
-              <th className="px-4 py-2.5 text-xs font-medium text-muted">Órdenes históricas</th>
-              <th className="px-4 py-2.5 text-xs font-medium text-muted">Proveedores activos</th>
-              <th className="w-8" />
+            <tr className="border-b border-border text-left text-muted">
+              <th scope="col" className="py-2 pr-3 text-right font-normal">#</th>
+              <th scope="col" className="py-2 pr-3 font-normal">Comprador</th>
+              <th scope="col" className="py-2 pr-3 text-right font-normal">Puntaje</th>
+              <th scope="col" className="hidden py-2 pr-3 text-right font-normal sm:table-cell">Órdenes</th>
+              <th scope="col" className="py-2 pr-3 text-right font-normal">Proveedores</th>
+              <th scope="col" className="w-8"><span className="sr-only">Abrir</span></th>
             </tr>
           </thead>
           <tbody>
             {oportunidades.slice(0, 10).map((op, i) => {
               const rowKey = `${op.CodigoOrganismoPublico}-${op.RubroN2}-${i}`;
               const isExpanded = expandedRow === rowKey;
+              const nombre = op.NombreOrganismo ? normalizeText(op.NombreOrganismo) : op.CodigoOrganismoPublico;
               return (
                 <React.Fragment key={rowKey}>
-                  <tr
-                    className="border-b border-border last:border-0 hover:bg-primary/5 cursor-pointer"
-                    onClick={() => setExpandedRow(isExpanded ? null : rowKey)}
-                  >
-                    <td className="px-4 py-3 max-w-[160px]">
-                      {op.NombreOrganismo ? (
-                        <span
-                          title={op.NombreOrganismo}
-                          className="block truncate text-xs text-text capitalize-words"
-                          style={{ textTransform: 'capitalize' }}
-                        >
-                          {op.NombreOrganismo.toLowerCase()}
-                        </span>
-                      ) : (
-                        <span className="font-mono text-xs text-muted">{op.CodigoOrganismoPublico}</span>
-                      )}
+                  <tr className="border-b border-border">
+                    <td className="cifra py-3 pr-3 text-right text-subtle">{i + 1}</td>
+                    <td className="py-3 pr-3">
+                      <button
+                        type="button"
+                        aria-expanded={isExpanded}
+                        onClick={() => setExpandedRow(isExpanded ? null : rowKey)}
+                        className="text-left font-medium text-text hover:text-primary"
+                      >
+                        {nombre}
+                      </button>
                     </td>
-                    <td className="px-4 py-3 text-text max-w-[180px] truncate">{op.RubroN2}</td>
-                    <td className="px-4 py-3 w-40">
-                      <ScoreBar value={op.opportunity_score} />
+                    <td className="cifra py-3 pr-3 text-right font-semibold text-text">{decimal(op.opportunity_score, 1)}</td>
+                    <td className="cifra hidden py-3 pr-3 text-right text-muted sm:table-cell">
+                      {op.n_transacciones.toLocaleString('es-CL')}
                     </td>
-                    <td className="cifra px-4 py-3 text-text text-right">{op.n_transacciones.toLocaleString('es-CL')}</td>
-                    <td className="px-4 py-3">
-                      <CompetitionBadge n={op.n_proveedores} />
-                    </td>
-                    <td className="px-4 py-3">
-                      {isExpanded
-                        ? <ChevronUp className="h-3.5 w-3.5 text-muted" />
-                        : <ChevronDown className="h-3.5 w-3.5 text-muted" />}
+                    <td className="cifra py-3 pr-3 text-right text-muted">{op.n_proveedores.toLocaleString('es-CL')}</td>
+                    <td className="py-3">
+                      <button
+                        type="button"
+                        aria-label={isExpanded ? `Cerrar ${nombre}` : `Abrir ${nombre}`}
+                        onClick={() => setExpandedRow(isExpanded ? null : rowKey)}
+                        className="flex h-8 w-8 items-center justify-center text-muted hover:text-primary"
+                      >
+                        {isExpanded ? <ChevronUp className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}
+                      </button>
                     </td>
                   </tr>
                   {isExpanded && (
-                    <tr key={`${rowKey}-expanded`}>
+                    <tr>
                       <td colSpan={6} className="p-0">
                         <ExpandedRow
                           organismo={op.CodigoOrganismoPublico}
-                          nombre={op.NombreOrganismo || op.CodigoOrganismoPublico}
+                          nombre={nombre}
                           onFocus={onFocusOrganismo}
                         />
                       </td>

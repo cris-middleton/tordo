@@ -28,6 +28,8 @@ import { render } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { describe, expect, it } from 'vitest';
 
+import { BarrasHorizontales } from '@/components/graficos/BarrasHorizontales';
+import { Columnas } from '@/components/graficos/Columnas';
 import { AntesDespues } from '@/components/notas/AntesDespues';
 import { BarraCierres } from '@/components/portada/BarraCierres';
 import { GraficoPrecio } from '@/components/precio/GraficoPrecio';
@@ -103,6 +105,30 @@ const PROPIOS: Record<string, Propio> = {
     ejemplo: () => <BarraCierres decimos={6} />,
     valoresFuera: true,
   },
+  'components/graficos/BarrasHorizontales.tsx': {
+    que: 'barras horizontales con etiqueta y valor: sectores y proveedores en /mercado',
+    ejemplo: () => (
+      <BarrasHorizontales
+        etiqueta="Monto por sector"
+        filas={[
+          { clave: 'a', etiqueta: 'Salud', valor: 3e12, texto: '$3 billones' },
+          { clave: 'b', etiqueta: 'Municipalidades', valor: 2.9e12, texto: '$2,9 billones', detalle: '366 organismos' },
+        ]}
+      />
+    ),
+  },
+  'components/graficos/Columnas.tsx': {
+    que: 'columnas por mes o por año: estacionalidad y serie anual en /mercado',
+    ejemplo: () => (
+      <Columnas
+        etiqueta="Años en que compró cada mes"
+        columnas={[
+          { clave: '1', etiqueta: 'ene', valor: 0.12, texto: '12%' },
+          { clave: '2', etiqueta: 'feb', valor: 0.38, texto: '38%', destacada: true },
+        ]}
+      />
+    ),
+  },
   'components/publico/BandaPrecio.tsx': {
     que: 'la banda P10–P90 de una unidad (ficha de producto y /buscar)',
     ejemplo: () => <BandaPrecio banda={BANDA} />,
@@ -114,12 +140,6 @@ const PROPIOS: Record<string, Propio> = {
  * uno lo pasa a `PROPIOS`. Está también en `docs/GUIA_GRAFICOS.md` («Deuda»).
  */
 const DEUDA: Record<string, string> = {
-  'app/(panel)/mercado/components/CompetenciaSection.tsx': 'Recharts con hex fijos y una paleta categórica de seis colores',
-  'app/(panel)/mercado/components/EstacionalidadSection.tsx': 'Recharts con hex fijos y un degradado bajo la curva',
-  'app/(panel)/mercado/components/TendenciasSection.tsx': 'Recharts con hex fijos; verde y rojo por signo',
-  'app/(panel)/mercado/components/TrendChart.tsx': 'Recharts con hex fijos',
-  'app/(panel)/mercado/components/OportunidadesSection.tsx': 'barra de puntaje en semáforo (accent, gold, danger)',
-  'components/bi/PanoramaRubro.tsx': 'barras de estacionalidad en accent y primary',
   'components/PriceBandChart.tsx': 'Recharts: barras P10–P90 desde cero, que no es el precio que importa',
   'components/CompetitorsList.tsx': 'barra de cuota en primary, sin el valor como etiqueta directa',
   'components/OpportunityScoreCard.tsx': 'barras de componentes en primary',
