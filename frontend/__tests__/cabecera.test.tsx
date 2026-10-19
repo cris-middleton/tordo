@@ -95,12 +95,11 @@ describe('la cabecera única', () => {
 
   it('los enlaces de acción tienen área de toque de 24×24 px o más (WCAG 2.5.8)', () => {
     render(<Cabecera />);
-    // Icono o texto de 16–20 px + relleno de 6 px por lado = 28 px. El relleno es
-    // del enlace, no de la fila: la altura de la cabecera no cambia.
+    // Icono o texto de 16–20 px + relleno de 10 px por lado = 36 px. El relleno es
+    // del enlace, no de la fila: la altura de la cabecera (56 px) no cambia.
     for (const nombre of [/^apoyar$/i, /^guardados en este navegador/i]) {
       const clases = screen.getByRole('link', { name: nombre }).className;
-      expect(clases).toMatch(/\bpx-1\.5\b/);
-      expect(clases).toMatch(/\bpy-1\.5\b/);
+      expect(clases).toMatch(/\bp-2\.5\b|\bpx-2\.5 py-2\.5\b/);
     }
   });
 

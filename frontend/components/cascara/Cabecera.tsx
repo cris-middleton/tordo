@@ -37,7 +37,7 @@ export function Cabecera() {
   return (
     <MarcoCabecera className="relative z-30 border-b border-border bg-surface">
       <Contenedor className="flex h-14 items-center gap-2 sm:gap-3 lg:gap-8">
-        <Link href="/" className="flex shrink-0 items-center gap-2" aria-label={`${APP_NAME}, inicio`}>
+        <Link href="/" className="flex shrink-0 items-center gap-2 rounded-lg py-2" aria-label={`${APP_NAME}, inicio`}>
           <PajaroMarca />
           <span className="font-brand text-lg leading-none text-text">{APP_NAME}</span>
         </Link>
@@ -66,7 +66,7 @@ export function Cabecera() {
           <EnlaceGuardados />
           <Link
             href="/apoyar"
-            className="inline-flex items-center gap-1 rounded-lg px-1.5 py-1.5 text-sm font-semibold text-accent transition-colors hover:text-primary"
+            className="inline-flex items-center gap-1 rounded-lg p-2.5 text-sm font-semibold text-accent transition-colors hover:text-primary"
           >
             <Heart className="h-4 w-4" aria-hidden="true" />
             {/* Por debajo de 360 px sólo el corazón: a 320 la fila se pasaba del ancho (WCAG 1.4.10). */}

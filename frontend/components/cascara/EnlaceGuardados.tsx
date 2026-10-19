@@ -48,7 +48,7 @@ export function EnlaceGuardados() {
       href={GUARDADOS.href}
       aria-label={nombre}
       aria-current={activa ? 'page' : undefined}
-      className={`inline-flex items-center gap-1 rounded-lg px-1.5 py-1.5 text-sm transition-colors ${
+      className={`inline-flex items-center gap-1 rounded-lg p-2.5 text-sm transition-colors ${
         activa ? 'text-primary' : 'text-muted hover:text-primary'
       }`}
     >

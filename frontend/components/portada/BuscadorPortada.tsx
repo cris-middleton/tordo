@@ -60,9 +60,9 @@ export function BuscadorPortada() {
         </button>
       </form>
 
-      <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm">
+      <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-2 text-sm">
         <span className="text-muted">Por ejemplo:</span>
-        <ul aria-label="Ejemplos de búsqueda" className="flex flex-wrap gap-x-3 gap-y-1">
+        <ul aria-label="Ejemplos de búsqueda" className="flex flex-wrap gap-x-3 gap-y-2">
           {EJEMPLOS_BUSQUEDA.map((ejemplo) => (
             <li key={ejemplo}>
               <Link href={rutaBuscar(ejemplo)} className="enlace">

@@ -39,7 +39,7 @@ export default function SelectorTema() {
             role="radio"
             aria-checked={activo}
             onClick={() => setTheme(valor)}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium transition-colors ${
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-2.5 text-xs font-medium transition-colors ${
               activo ? 'bg-surface text-primary shadow-sm' : 'text-muted hover:text-text'
             }`}
           >
