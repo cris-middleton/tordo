@@ -127,7 +127,7 @@ test('una ficha de comprador: h3 a ancho normal, cifras en Archivo, código en m
 
 test('una ficha de producto: el precio mediano va en Archivo', async ({ page, request }) => {
   await abrir(page, await primeraDelSitemap(request, 'productos'), ['Archivo']);
-  await expect(page.getByRole('heading', { name: /bandas de precio/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /cuánto se pagó/i })).toBeVisible();
   const cifras = await familiasDeTodas(page.locator('.cifra'));
   expect(cifras.length).toBeGreaterThan(0);
   expect(new Set(cifras)).toEqual(new Set(['Archivo']));

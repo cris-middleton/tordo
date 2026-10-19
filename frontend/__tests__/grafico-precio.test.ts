@@ -11,6 +11,7 @@ import {
   ANCHO_REFERENCIA,
   filasDePuntos,
   graficoPrecio,
+  MINIMO_PUNTOS,
   PASO_PUNTOS,
   plataCorta,
   valoresRedondos,
@@ -124,18 +125,44 @@ describe('graficoPrecio', () => {
   });
 
   it('escala logarítmica: de $100 mil a $200 mil hay lo mismo que de $200 mil a $400 mil', () => {
-    const g = graficoPrecio(BANDA, [comprador(100_000), comprador(200_000, 'unidad', 1), comprador(400_000, 'unidad', 2)])!;
-    const [a, b, c] = g.puntos.map((p) => p.x);
+    const valores = [100_000, 141_421, 200_000, 282_843, 400_000];
+    const g = graficoPrecio(BANDA, valores.map((v, i) => comprador(v, 'unidad', i)))!;
+    const [a, , b, , c] = g.puntos.map((p) => p.x);
     expect(Math.abs(b - a - (c - b))).toBeLessThanOrEqual(0.2);
   });
 
   it('los compradores de otra unidad no se dibujan, ni los que no tienen mediana', () => {
-    const g = graficoPrecio(BANDA, [...DIEZ.slice(0, 3), comprador(5_000, 'caja', 9), comprador(null, 'unidad', 8)])!;
-    expect(g.puntos).toHaveLength(3);
+    const g = graficoPrecio(BANDA, [...DIEZ.slice(0, 5), comprador(5_000, 'caja', 9), comprador(null, 'unidad', 8)])!;
+    expect(g.puntos).toHaveLength(5);
   });
 
   it('la unidad se compara sin mayúsculas ni espacios de sobra', () => {
-    expect(graficoPrecio(BANDA, [comprador(180_000, ' UNIDAD ')])!.puntos).toHaveLength(1);
+    const cinco = Array.from({ length: 5 }, (_, i) => comprador(180_000 + i * 1_000, ' UNIDAD ', i));
+    expect(graficoPrecio(BANDA, cinco)!.puntos).toHaveLength(5);
+  });
+
+  it('con menos de MINIMO_PUNTOS compradores dibujables no hay puntos: dos puntos de 40 compradores se leerían como «los compradores»', () => {
+    expect(MINIMO_PUNTOS).toBe(5);
+    const g = graficoPrecio(BANDA, DIEZ.slice(0, MINIMO_PUNTOS - 1))!;
+    expect(g.puntos).toEqual([]);
+    expect(g.filas).toBe(0);
+    expect(g.franja).not.toBeNull();
+  });
+
+  it('la línea fina va de P10 a P90 y la raya en la mediana, dentro del dominio', () => {
+    const g = graficoPrecio(BANDA, DIEZ)!;
+    expect(g.bigotes!.desde).toBeLessThan(g.franja!.desde);
+    expect(g.bigotes!.hasta).toBeGreaterThan(g.franja!.hasta);
+    expect(g.bigotes!.desde).toBeGreaterThanOrEqual(0);
+    expect(g.bigotes!.hasta).toBeLessThanOrEqual(100);
+    expect(g.mediana!).toBeGreaterThan(g.franja!.desde);
+    expect(g.mediana!).toBeLessThan(g.franja!.hasta);
+  });
+
+  it('con un solo comprador no hay línea fina ni raya: el punto es todo', () => {
+    const g = graficoPrecio({ ...BANDA, compradores: 1 }, [comprador(16_850)])!;
+    expect(g.bigotes).toBeNull();
+    expect(g.mediana).toBeNull();
   });
 
   it('puntos que coinciden no se solapan: se apilan, y el alto lo dice', () => {

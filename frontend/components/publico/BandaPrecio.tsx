@@ -1,6 +1,5 @@
-import { ConfidenceBadge } from '@/components/ConfidenceBadge';
 import { comprasDeOrganismos, frasePrecio, notaCompradores, plata, tituloDeBanda } from '@/lib/publico';
-import { predictibilidadInfo } from '@/lib/predictibilidad';
+import { textoVariacion } from '@/lib/predictibilidad';
 import type { BandaUnidad } from '@/types/publico';
 
 /**
@@ -20,7 +19,9 @@ import type { BandaUnidad } from '@/types/publico';
  */
 export function BandaPrecio({ banda, periodo }: { banda: BandaUnidad; periodo?: string | null }) {
   const { p10, p25, p50, p75, p90 } = banda;
-  const info = predictibilidadInfo(banda.predictibilidad ?? undefined);
+  // Texto neutro y no insignias de color: una naranja («variación moderada») junto a
+  // una teal («confianza alta») se leían como alarma y aprobación a la vez.
+  const variacion = textoVariacion(banda.predictibilidad);
   const nota = notaCompradores(banda);
   const completa = p10 != null && p90 != null && p90 > p10;
   const pos = (v: number | null) =>
@@ -32,14 +33,7 @@ export function BandaPrecio({ banda, periodo }: { banda: BandaUnidad; periodo?: 
         <h3 className="text-sm font-semibold text-text">
           {tituloDeBanda(banda.unidad)}
         </h3>
-        <div className="flex flex-wrap items-center gap-2">
-          {info && (
-            <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${info.clase}`}>
-              {info.etiqueta}
-            </span>
-          )}
-          <ConfidenceBadge n={banda.n} />
-        </div>
+        {variacion && <p className="text-xs text-muted">{variacion}</p>}
       </header>
 
       <p className="mt-4 text-xs text-muted">Precio mediano</p>

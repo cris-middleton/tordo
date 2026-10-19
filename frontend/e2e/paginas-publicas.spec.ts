@@ -57,7 +57,7 @@ test('una ficha de rubro, y de ahí a Mercados', async ({ page, request }) => {
 test('una ficha de producto', async ({ page, request }) => {
   const ruta = await primeraDelSitemap(request, 'productos');
   await comprobarFicha(page, ruta);
-  await expect(page.getByRole('heading', { name: /bandas de precio/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /cuánto se pagó/i })).toBeVisible();
 });
 
 test('el buscador de productos se carga sin sesión', async ({ page }) => {

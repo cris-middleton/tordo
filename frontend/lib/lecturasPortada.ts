@@ -229,13 +229,18 @@ export function precioDeBanda({
 
   const puntos = grafico.puntos.length;
   const cadaPunto =
-    k != null && puntos < k ? `uno de los ${entero(puntos)} que más compran` : 'un comprador';
-  const franja = igual ? 'la línea, el precio de la mitad central de las compras' : 'la franja, la mitad central de las compras';
+    k != null && puntos < k ? `uno de los ${entero(puntos)} compradores con más compras` : 'un comprador';
+  const trazos = [
+    igual ? 'la línea gruesa, el precio de la mitad central de las compras' : 'la franja, la mitad central de las compras',
+    grafico.mediana != null && !igual ? 'la raya, la mediana' : null,
+    grafico.bigotes ? 'la línea fina, 8 de cada 10' : null,
+  ].filter(Boolean) as string[];
+  const deLosTrazos = trazos.join('; ');
   const metodo = unSolo
     ? 'El punto es su mediana.'
     : puntos === 0
-      ? `${franja.charAt(0).toUpperCase()}${franja.slice(1)}.`
-      : `Cada punto es lo que pagó ${cadaPunto} (su mediana); ${franja}.`;
+      ? `${deLosTrazos.charAt(0).toUpperCase()}${deLosTrazos.slice(1)}.`
+      : `Cada punto es lo que pagó ${cadaPunto} (su mediana); ${deLosTrazos}.`;
 
   return {
     conclusion,
@@ -248,7 +253,14 @@ export function precioDeBanda({
     }),
     accesible: unSolo
       ? [`Precio mediano: ${plata(banda.p50 ?? banda.p25)}`]
-      : [`Percentil 25: ${plata(banda.p25)}`, `Percentil 75: ${plata(banda.p75)}`, ...(k == null ? [] : [`${entero(k)} compradores`])],
+      : [
+          ...(banda.p10 != null ? [`Percentil 10: ${plata(banda.p10)}`] : []),
+          `Percentil 25: ${plata(banda.p25)}`,
+          ...(banda.p50 != null ? [`Mediana: ${plata(banda.p50)}`] : []),
+          `Percentil 75: ${plata(banda.p75)}`,
+          ...(banda.p90 != null ? [`Percentil 90: ${plata(banda.p90)}`] : []),
+          ...(k == null ? [] : [`${entero(k)} compradores`]),
+        ],
   };
 }
 

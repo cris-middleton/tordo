@@ -43,6 +43,15 @@ export const PASO_PUNTOS = 2 * RADIO_PUNTO + 1;
  */
 export const ANCHO_CARACTER = 6.6;
 
+/**
+ * Con menos compradores dibujables que esto, no se dibuja ninguno: dos o tres
+ * puntos sobre una franja hecha con 60 compradores se leen como «estos son los
+ * compradores», y son sólo los que la API alcanzó a traer. La franja y la línea
+ * fina dicen lo mismo sin mentir por omisión. (Con un solo comprador sí: el punto
+ * ES todas las compras.)
+ */
+export const MINIMO_PUNTOS = 5;
+
 /** Aire mínimo entre dos rótulos, en px. */
 const AIRE_ROTULOS = 6;
 
@@ -79,6 +88,10 @@ export interface MarcaEje {
 export interface GraficoPrecio {
   /** La mitad central. `null` con un solo comprador: no hay franja que comparar. Si desde = hasta, es una línea. */
   franja: { desde: number; hasta: number } | null;
+  /** De P10 a P90, la línea fina: 8 de cada 10 compras. `null` sin P10 o P90, o con un solo comprador. */
+  bigotes: { desde: number; hasta: number } | null;
+  /** La mediana (P50), una marca sobre la franja. `null` sin P50 o con un solo comprador (el punto ya lo es). */
+  mediana: number | null;
   puntos: PuntoPrecio[];
   /** La fila más alejada del eje (0 si ningún punto se apila): da el alto del gráfico. */
   filas: number;
@@ -226,6 +239,9 @@ export function graficoPrecio(
     .sort((a, b) => a - b);
   const unSolo = banda.compradores === 1;
   const valores = unSolo && medianas.length === 0 ? [banda.p50 ?? p25] : unSolo ? medianas.slice(0, 1) : medianas;
+  const dibujados = unSolo || valores.length >= MINIMO_PUNTOS ? valores : [];
+  const { p10, p50, p90 } = banda;
+  const conBigotes = !unSolo && p10 != null && p90 != null && p10 > 0 && p10 <= p25 && p90 >= p75;
 
   // Las dos marcas de contexto: el valor redondo más cercano a cada lado, a un
   // factor de la franja (o del único punto). El dominio llega hasta ellas.
@@ -236,14 +252,15 @@ export function graficoPrecio(
     valoresRedondos(derecha * FACTOR_CONTEXTO, derecha * 1000)[0],
   ].filter((v): v is number => v !== undefined);
 
-  let a = Math.log(Math.min(p25, ...valores, ...contexto));
-  let b = Math.log(Math.max(p75, ...valores, ...contexto));
+  const extremos = conBigotes ? [p10 as number, p90 as number] : [];
+  let a = Math.log(Math.min(p25, ...dibujados, ...extremos, ...contexto));
+  let b = Math.log(Math.max(p75, ...dibujados, ...extremos, ...contexto));
   const margen = (b - a) * 0.05;
   a -= margen;
   b += margen;
   const x = (v: number) => unDecimal(((Math.log(v) - a) / (b - a)) * 100);
 
-  const xs = valores.map(x);
+  const xs = dibujados.map(x);
   const filas = filasDePuntos(xs, ancho);
   const puntos = xs.map((px, i) => ({ x: px, fila: filas[i] }));
 
@@ -266,6 +283,8 @@ export function graficoPrecio(
 
   return {
     franja,
+    bigotes: conBigotes ? { desde: x(p10 as number), hasta: x(p90 as number) } : null,
+    mediana: !unSolo && p50 != null && p50 >= p25 && p50 <= p75 ? x(p50) : null,
     rotuloFranja: encima ? { xTexto: encima.xTexto, ancla: encima.ancla } : null,
     puntos,
     filas: Math.max(0, ...filas.map(Math.abs)),
