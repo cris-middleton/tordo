@@ -192,10 +192,8 @@ describe('identificadores en mono', () => {
     expect(infractores, `Usa font-medium como mucho:\n  ${infractores.join('\n  ')}`).toEqual([]);
   });
 
-  it('el listado muestra el código en mono cuando cae al código por falta de organismo', () => {
-    const pagina = leer('app/(panel)/licitaciones/page.tsx');
-    expect(pagina).toMatch(
-      /nombre_organismo \?\? \(\s*<span className="font-mono">\{selectedTender\.codigo_externo\}<\/span>/,
-    );
+  it('cada fila del listado muestra el código en mono', () => {
+    const fila = leer('components/licitacion/FilaLicitacion.tsx');
+    expect(fila).toMatch(/<span className="font-mono[^"]*">\{tender\.codigo_externo\}<\/span>/);
   });
 });

@@ -22,8 +22,9 @@ function tarjeta(page: Page, codigo: string) {
   return page.locator(`a[href="/licitaciones/${codigo}"]`).first();
 }
 
+/** Busca en el catálogo ENTERO (`abiertas=0`): sin eso abre en «Sólo abiertas» y la adjudicada no saldría nunca. */
 async function buscar(page: Page, termino: string) {
-  await page.goto('/licitaciones');
+  await page.goto('/licitaciones?abiertas=0');
   const buscador = page.getByPlaceholder(/Nombre, organismo o descripción/i);
   await buscador.fill(termino);
   await buscador.press('Enter');
@@ -51,10 +52,8 @@ test('abrir el detalle desde el listado', async ({ page }) => {
   await buscar(page, TERMINO);
   await tarjeta(page, CODIGO_VALVULAS).click();
 
-  await expect(page.getByRole('heading', { name: /detalle licitación/i })).toBeVisible({
-    timeout: 15_000,
-  });
-  await expect(page.getByText(/válvulas/i).first()).toBeVisible({ timeout: 15_000 });
+  // El título de la ficha es el nombre de la licitación.
+  await expect(page.getByRole('heading', { level: 1, name: /válvulas/i })).toBeVisible({ timeout: 15_000 });
 });
 
 test('un término sin resultados no rompe la pantalla', async ({ page }) => {
@@ -81,7 +80,19 @@ test('abiertas=1 llega al backend por el proxy y deja fuera lo cerrado', async (
   // a FastAPI, y que filtra de verdad.
   await page.goto('/licitaciones?abiertas=1');
 
-  await expect(page.getByRole('checkbox', { name: /se pueden postular ahora/i })).toBeChecked();
+  await expect(page.getByRole('button', { name: 'Sólo abiertas' })).toHaveAttribute('aria-pressed', 'true');
   await expect(tarjeta(page, CODIGO_VALVULAS)).toBeVisible({ timeout: 15_000 });
   await expect(tarjeta(page, CODIGO_ADJUDICADA)).toBeHidden();
+});
+
+test('entrar sin filtros abre en «Sólo abiertas», y apagarlo trae lo cerrado y sobrevive a recargar', async ({ page }) => {
+  await page.goto('/licitaciones');
+  await expect(page).toHaveURL(/abiertas=1/);
+  await expect(tarjeta(page, CODIGO_VALVULAS)).toBeVisible({ timeout: 15_000 });
+  await expect(tarjeta(page, CODIGO_ADJUDICADA)).toBeHidden();
+
+  await page.getByRole('button', { name: 'Sólo abiertas' }).click();
+  await expect(tarjeta(page, CODIGO_ADJUDICADA)).toBeVisible({ timeout: 15_000 });
+  await page.reload();
+  await expect(tarjeta(page, CODIGO_ADJUDICADA)).toBeVisible({ timeout: 15_000 });
 });

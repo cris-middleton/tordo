@@ -183,6 +183,21 @@ describe('la pantalla del catálogo', () => {
     expect(ultima.sort_by).toBe('relevance');
   });
 
+  it('entrar sin nada en la URL abre en «Sólo abiertas» y lo escribe en la URL', async () => {
+    urlInicial = new URLSearchParams();
+    await montar();
+    expect(screen.getByRole('button', { name: 'Sólo abiertas' })).toHaveAttribute('aria-pressed', 'true');
+    expect(pedidas.at(-1)!.abiertas).toBe(true);
+    expect(String(replaceState.mock.calls.at(-1)?.[2])).toContain('abiertas=1');
+  });
+
+  it('una URL con filtros y sin abiertas se lee tal cual: un enlace viejo no cambia de sentido', async () => {
+    urlInicial = new URLSearchParams('search=zafiro');
+    await montar();
+    expect(screen.getByRole('button', { name: 'Sólo abiertas' })).toHaveAttribute('aria-pressed', 'false');
+    expect(pedidas.at(-1)!).not.toHaveProperty('abiertas');
+  });
+
   it('al buscar, la URL se reescribe', async () => {
     urlInicial = new URLSearchParams();
     await montar();
@@ -196,29 +211,41 @@ describe('la pantalla del catálogo', () => {
     expect(pedidas.at(-1)!.search).toBe('válvulas');
   });
 
-  it('«Guardar esta búsqueda» la guarda con sus filtros', async () => {
+  it('«Guardar búsqueda» la guarda con sus filtros', async () => {
     urlInicial = new URLSearchParams('search=zafiro&page=3');
     await montar();
 
-    fireEvent.click(screen.getByRole('button', { name: /guardar esta búsqueda/i }));
+    fireEvent.click(screen.getByRole('button', { name: /guardar búsqueda/i }));
 
     const guardadas = JSON.parse(window.localStorage.getItem('tordo_busquedas_v1') ?? '[]');
     expect(guardadas.map((b: { consulta: string }) => b.consulta)).toEqual(['search=zafiro']);
     expect(screen.getByRole('link', { name: /búsqueda guardada/i })).toBeInTheDocument();
   });
 
-  it('abiertas=1 marca la casilla y se lo pide a la API; desmarcarla lo quita de la URL', async () => {
+  it('abiertas=1 enciende «Sólo abiertas» y se lo pide a la API; apagarlo lo escribe como abiertas=0', async () => {
     urlInicial = new URLSearchParams('abiertas=1');
     await montar();
 
-    const casilla = screen.getByRole('checkbox', { name: /se pueden postular ahora/i });
-    expect(casilla).toBeChecked();
+    const interruptor = screen.getByRole('button', { name: 'Sólo abiertas' });
+    expect(interruptor).toHaveAttribute('aria-pressed', 'true');
     expect(pedidas.at(-1)!.abiertas).toBe(true);
 
-    fireEvent.click(casilla);
+    fireEvent.click(interruptor);
     expect(pedidas.at(-1)!).not.toHaveProperty('abiertas');
+    // Sin otro filtro la URL dice `abiertas=0`: vacía, volvería a abrir en «Sólo abiertas».
     const url = String(replaceState.mock.calls.at(-1)?.[2]);
-    expect(url).not.toContain('abiertas');
+    expect(url).toContain('abiertas=0');
+  });
+
+  it('un solo desplegable de orden lleva el campo y el sentido a la URL', async () => {
+    await montar();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Ordenar por' }), {
+      target: { value: 'fecha_cierre:asc' },
+    });
+    expect(pedidas.at(-1)!).toMatchObject({ sort_by: 'fecha_cierre', sort_order: 'asc' });
+    const url = String(replaceState.mock.calls.at(-1)?.[2]);
+    expect(url).toContain('sort_by=fecha_cierre');
+    expect(url).toContain('sort_order=asc');
   });
 
   it('el mecanismo «todo menos Compra Ágil» se ve como tal', async () => {

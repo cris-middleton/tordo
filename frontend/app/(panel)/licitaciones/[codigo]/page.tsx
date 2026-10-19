@@ -1,21 +1,20 @@
 'use client';
 
 import { useMemo } from 'react';
-import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { format } from 'date-fns';
 import es from 'date-fns/locale/es';
 import {
-  AlertTriangle,
-  ArrowLeft,
-  Building2,
-  Calendar,
-  DollarSign,
+  Bookmark,
+  BookmarkCheck,
   ExternalLink,
-  Info,
+  CheckCircle2,
   Loader2,
-  MapPin,
+  Send,
 } from 'lucide-react';
+
+import { useDashboardCollections } from '@/hooks/useDashboardCollections';
+import { cierreEnPalabras, normalizeText, shortRegion } from '@/lib/licitacionEstado';
 
 import { useLicitacion, usePanelLicitacion } from '@/lib/queries';
 import BIPanelSection from '@/components/licitacion/BIPanelSection';
@@ -37,7 +36,7 @@ import { BICard } from './components/BICard';
  * sería si esto fuera un componente de servidor.
  */
 export default function TenderDetailPage() {
-  const router = useRouter();
+  const { hydrated, isTenderStored, toggleTender } = useDashboardCollections();
   const codigoRuta = decodeURIComponent(String(useParams().codigo ?? ''));
 
   // La licitación y su panel de BI salen de TanStack Query, como el resto del
@@ -74,18 +73,98 @@ export default function TenderDetailPage() {
       ? tenderData.moneda
       : 'CLP';
 
+  const nombre = tenderData ? normalizeText(tenderData.nombre) : null;
+  const cierre = cierreEnPalabras(tenderData?.fecha_cierre);
+  const fechaLarga = (iso?: string) =>
+    iso ? format(new Date(iso), "d 'de' MMMM yyyy, HH:mm", { locale: es }) : null;
+  const datosClave: { etiqueta: string; valor: string; detalle?: string | null; destacado?: boolean }[] = tenderData
+    ? [
+        {
+          etiqueta: 'Cierre',
+          valor: cierre?.texto ?? 'Sin fecha',
+          detalle: fechaLarga(tenderData.fecha_cierre),
+          destacado: cierre?.urgente,
+        },
+        {
+          etiqueta: 'Monto estimado',
+          valor:
+            tenderData.monto_estimado != null && !Number.isNaN(tenderData.monto_estimado)
+              ? formatCurrency(tenderData.monto_estimado, tenderCurrency)
+              : 'No lo informa',
+          detalle: tenderCurrency !== 'CLP' ? `En ${tenderCurrency}` : null,
+        },
+        {
+          etiqueta: 'Publicada',
+          valor: tenderData.fecha_publicacion
+            ? format(new Date(tenderData.fecha_publicacion), "d 'de' MMMM yyyy", { locale: es })
+            : 'Sin fecha',
+          detalle: tenderData.estado && !/^publicada$/i.test(tenderData.estado) ? `Estado: ${tenderData.estado}` : null,
+        },
+        {
+          etiqueta: 'Lugar',
+          valor: shortRegion(tenderData.region) || 'Sin región',
+          detalle: tenderData.comuna ? normalizeText(tenderData.comuna) : null,
+        },
+      ]
+    : [];
+  const comprador = tenderData?.nombre_organismo ? normalizeText(tenderData.nombre_organismo) : '';
+  const guardada = Boolean(tenderData) && hydrated && isTenderStored('saved', tenderData!.id);
+  const postulada = Boolean(tenderData) && hydrated && isTenderStored('applied', tenderData!.id);
+
+  // Sin «Volver» antes del título (spec PORTADA_V7 §4: nada va antes del h1):
+  // el navegador ya vuelve, y el botón con `router.back()` sacaba del sitio a
+  // quien llegaba por un enlace compartido.
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => router.back()}
-          className="btn-secondary flex items-center gap-2"
-          type="button"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Volver
-        </button>
-        <h1 className="page-title">Detalle Licitación</h1>
+      <div>
+        <h1 className="page-title break-words">{nombre ?? 'Licitación'}</h1>
+        {tenderData && (
+          <>
+            {comprador && <p className="mt-2 text-muted">{comprador}</p>}
+            <p className="mt-1 font-mono text-sm text-subtle">{tenderData.codigo_externo}</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={!hydrated}
+                aria-pressed={guardada}
+                onClick={() => toggleTender('saved', tenderData)}
+                className="btn-secondary flex h-11 items-center gap-2 disabled:opacity-50"
+              >
+                {guardada ? (
+                  <BookmarkCheck className="h-4 w-4 text-primary" aria-hidden="true" />
+                ) : (
+                  <Bookmark className="h-4 w-4" aria-hidden="true" />
+                )}
+                {guardada ? 'Guardada' : 'Guardar'}
+              </button>
+              <button
+                type="button"
+                disabled={!hydrated}
+                aria-pressed={postulada}
+                onClick={() => toggleTender('applied', tenderData)}
+                className="btn-secondary flex h-11 items-center gap-2 disabled:opacity-50"
+              >
+                {postulada ? (
+                  <CheckCircle2 className="h-4 w-4 text-accent" aria-hidden="true" />
+                ) : (
+                  <Send className="h-4 w-4" aria-hidden="true" />
+                )}
+                {postulada ? 'Postulé' : 'Marcar que postulé'}
+              </button>
+              {tenderData.url_licitacion && (
+                <a
+                  href={tenderData.url_licitacion}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-secondary flex h-11 items-center gap-2"
+                >
+                  <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                  Abrir en Mercado Público
+                </a>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       {loading ? (
@@ -99,163 +178,31 @@ export default function TenderDetailPage() {
       ) : !tenderData ? (
         <div className="card p-6 text-muted">No se encontró la licitación solicitada.</div>
       ) : (
-        <div className="space-y-6">
-          {/* ── Header card ─────────────────────────────────────── */}
-          <div className="card space-y-4">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="space-y-2">
-                <p className="text-sm text-muted">Código externo</p>
-                <h2 className="font-mono text-2xl font-medium text-text">{tenderData.codigo_externo}</h2>
+        <div className="space-y-8 lg:space-y-12">
+          {/* Los datos con que se decide, antes de la descripción: como Find a
+              Tender o TED, el cierre y el monto van bajo el título. */}
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-4 border-y border-border py-4 lg:grid-cols-4 lg:gap-x-8">
+            {datosClave.map(({ etiqueta, valor, detalle, destacado }) => (
+              <div key={etiqueta} className="min-w-0">
+                <dt className="text-sm text-muted">{etiqueta}</dt>
+                <dd className={`mt-1 font-semibold ${destacado ? 'text-danger' : 'text-text'}`}>{valor}</dd>
+                {detalle && <dd className="text-sm text-muted">{detalle}</dd>}
               </div>
+            ))}
+          </dl>
 
-              <div className="flex flex-col gap-2 sm:items-end sm:shrink-0">
-                {tenderData.url_licitacion && (
-                  <Link
-                    href={tenderData.url_licitacion}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn-secondary flex items-center gap-2 sm:w-auto w-full justify-center"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    Abrir en Mercado Público
-                  </Link>
-                )}
-
-              </div>
-            </div>
-
-            <div>
-              <p className="text-sm text-muted">Nombre</p>
-              <p className="text-lg font-medium text-text">{tenderData.nombre}</p>
-            </div>
-
-            {tenderData.descripcion && (
-              <div>
-                <p className="text-sm text-muted">Descripción</p>
-                <p className="text-sm leading-6 text-text">{tenderData.descripcion}</p>
-              </div>
-            )}
-          </div>
-
-          {/* ── Info cards ─────────────────────────────────────── */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <div className="card space-y-3">
-              <div className="flex items-center gap-2 text-sm font-medium text-text">
-                <Calendar className="h-4 w-4 text-primary" />
-                Fechas
-              </div>
-              <div className="space-y-2 text-sm text-muted">
-                <p>
-                  <span className="font-medium text-text">Publicación: </span>
-                  {tenderData.fecha_publicacion
-                    ? format(new Date(tenderData.fecha_publicacion), 'd MMM yyyy', { locale: es })
-                    : 'Sin información'}
-                </p>
-                <p>
-                  <span className="font-medium text-text">Cierre: </span>
-                  {tenderData.fecha_cierre
-                    ? format(new Date(tenderData.fecha_cierre), 'd MMM yyyy', { locale: es })
-                    : 'Sin información'}
-                </p>
-                {typeof tenderData.dias_publicacion === 'number' && (
-                  <p>
-                    <span className="font-medium text-text">Días publicada: </span>
-                    {tenderData.dias_publicacion}
-                  </p>
-                )}
-                {typeof tenderData.dias_cierre === 'number' && (
-                  <p>
-                    <span className="font-medium text-text">Días hasta cierre: </span>
-                    {tenderData.dias_cierre}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="card space-y-3">
-              <div className="flex items-center gap-2 text-sm font-medium text-text">
-                <DollarSign className="h-4 w-4 text-primary" />
-                Monto y clasificación
-              </div>
-              <div className="space-y-2 text-sm text-muted">
-                <p>
-                  <span className="font-medium text-text">Monto estimado: </span>
-                  {formatCurrency(tenderData.monto_estimado, tenderCurrency)}
-                </p>
-                {tenderData.categoria && (
-                  <p>
-                    <span className="font-medium text-text">Categoría: </span>
-                    {tenderData.categoria}
-                  </p>
-                )}
-                {tenderData.tipo_licitacion && (
-                  <p>
-                    <span className="font-medium text-text">Tipo: </span>
-                    {tenderData.tipo_licitacion}
-                  </p>
-                )}
-                {tenderData.moneda && (
-                  <p>
-                    <span className="font-medium text-text">Moneda: </span>
-                    {tenderData.moneda}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="card space-y-3">
-              <div className="flex items-center gap-2 text-sm font-medium text-text">
-                <MapPin className="h-4 w-4 text-primaryDark" />
-                Ubicación y organismo
-              </div>
-              <div className="space-y-2 text-sm text-muted">
-                <p>
-                  <span className="font-medium text-text">Región: </span>
-                  {tenderData.region || 'Sin información'}
-                </p>
-                <p>
-                  <span className="font-medium text-text">Comuna: </span>
-                  {tenderData.comuna || 'Sin información'}
-                </p>
-                {tenderData.nombre_organismo && (
-                  <div className="flex items-start gap-2">
-                    <Building2 className="mt-1 h-4 w-4 text-primary" />
-                    <div>
-                      <p className="text-xs text-muted">Organismo público</p>
-                      <p className="text-sm text-text">{tenderData.nombre_organismo}</p>
-                      {tenderData.codigo_organismo && (
-                        <p className="text-xs text-muted">
-                          Código: <span className="font-mono">{tenderData.codigo_organismo}</span>
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* ── Información adicional ────────────────────────────── */}
-          <div className="card space-y-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-text">
-              <Info className="h-4 w-4 text-primary" />
-              Información adicional
-            </div>
-            <div className="grid grid-cols-1 gap-4 text-sm text-muted sm:grid-cols-2">
-              <div>
-                <p className="font-medium text-text">Estado</p>
-                <p>{tenderData.estado || 'Sin información'}</p>
-              </div>
-              <div>
-                <p className="font-medium text-text">ID interno</p>
-                <p>{tenderData.id}</p>
-              </div>
-            </div>
-          </div>
+          {tenderData.descripcion && (
+            <section aria-labelledby="descripcion-titulo">
+              <h2 id="descripcion-titulo" className="section-title">
+                Qué se compra
+              </h2>
+              <p className="lectura mt-3 text-text">{tenderData.descripcion}</p>
+            </section>
+          )}
 
           {/* ── BI Panel ─────────────────────────────────────────── */}
           <div className="mt-6">
-            <h2 className="text-base text-text mb-3">Análisis de Mercado</h2>
+            <h2 className="section-title mb-3">El mercado de esta licitación</h2>
             {biLoading && (
               <div className="animate-pulse bg-border rounded-xl h-48 flex items-center justify-center">
                 <span className="text-muted text-sm">Cargando análisis de mercado…</span>
@@ -266,7 +213,7 @@ export default function TenderDetailPage() {
             )}
             {!biLoading && !biPanel && (
               <p className="text-sm text-muted italic bg-surface-elevated rounded-xl px-4 py-3">
-                Panel BI no disponible para esta licitación.
+                El análisis de este comprador no está disponible ahora.
               </p>
             )}
           </div>

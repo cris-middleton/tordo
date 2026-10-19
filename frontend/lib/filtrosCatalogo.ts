@@ -16,8 +16,46 @@
 import { TIPOS_CONVOCATORIA } from './constantesChile';
 import { shortRegion } from './nombresChile';
 
+/**
+ * Lo que dice el catálogo bajo su título, y su descripción para buscadores.
+ * Dice que hay Compras Ágiles y cerradas: la lista por defecto las trae.
+ */
+export const SUBTITULO_CATALOGO =
+  'Licitaciones y Compras Ágiles de Mercado Público, abiertas y recién cerradas.';
+
 export const ORDENES = ['relevance', 'fecha_publicacion', 'fecha_cierre', 'monto_estimado', 'nombre'] as const;
 export type Orden = (typeof ORDENES)[number];
+
+/**
+ * El orden del catálogo en UN desplegable: cada opción es un par (campo,
+ * sentido). Antes eran dos desplegables de 12 px —«Cierre» y «↓ Mayor»— que
+ * había que combinar en la cabeza. Están los nueve pares que la URL puede
+ * traer, así que ninguna URL antigua queda sin su opción.
+ */
+export const OPCIONES_ORDEN: ReadonlyArray<{ sort_by: Orden; sort_order: 'asc' | 'desc'; etiqueta: string }> = [
+  { sort_by: 'relevance', sort_order: 'desc', etiqueta: 'Más parecidas' },
+  { sort_by: 'fecha_publicacion', sort_order: 'desc', etiqueta: 'Más recientes' },
+  { sort_by: 'fecha_publicacion', sort_order: 'asc', etiqueta: 'Más antiguas' },
+  { sort_by: 'fecha_cierre', sort_order: 'asc', etiqueta: 'Cierran antes' },
+  { sort_by: 'fecha_cierre', sort_order: 'desc', etiqueta: 'Cierran más tarde' },
+  { sort_by: 'monto_estimado', sort_order: 'desc', etiqueta: 'Mayor monto' },
+  { sort_by: 'monto_estimado', sort_order: 'asc', etiqueta: 'Menor monto' },
+  { sort_by: 'nombre', sort_order: 'asc', etiqueta: 'Nombre, de la A a la Z' },
+  { sort_by: 'nombre', sort_order: 'desc', etiqueta: 'Nombre, de la Z a la A' },
+];
+
+/** La clave de un orden en el desplegable. La relevancia no tiene sentido inverso: siempre es una. */
+export function claveOrden(f: Pick<FiltrosCatalogo, 'sort_by' | 'sort_order'>): string {
+  return f.sort_by === 'relevance' ? 'relevance:desc' : `${f.sort_by}:${f.sort_order}`;
+}
+
+/** Lo inverso de `claveOrden`. Una clave desconocida vale el orden por defecto. */
+export function ordenDeClave(clave: string): Pick<FiltrosCatalogo, 'sort_by' | 'sort_order'> {
+  const opcion = OPCIONES_ORDEN.find((o) => claveOrden(o) === clave);
+  return opcion
+    ? { sort_by: opcion.sort_by, sort_order: opcion.sort_order }
+    : { sort_by: FILTROS_POR_DEFECTO.sort_by, sort_order: FILTROS_POR_DEFECTO.sort_order };
+}
 
 export const TAMANOS_PAGINA = [10, 20, 50, 100] as const;
 
@@ -122,6 +160,19 @@ export function leerFiltros(params: URLSearchParams | { get(nombre: string): str
     limit: (TAMANOS_PAGINA as readonly number[]).includes(limite) ? limite : FILTROS_POR_DEFECTO.limit,
     page: entero(params.get('page'), 1, 1),
   };
+}
+
+/**
+ * Los filtros con que abre el catálogo. **Entrar sin nada en la URL** (desde la
+ * cabecera o un enlace a secas) **abre en «Sólo abiertas»**: es lo que busca
+ * quien llega a postular, y la lista entera mezclaba 29.000 filas de abiertas y
+ * cerradas. Una URL con cualquier parámetro se lee tal cual, así que un enlace
+ * compartido, una búsqueda guardada o un RSS significan lo mismo que el día en
+ * que se crearon: ahí `abiertas` sólo vale si está escrito.
+ */
+export function filtrosIniciales(params: URLSearchParams | { get(nombre: string): string | null; toString(): string }): FiltrosCatalogo {
+  if (!params.toString()) return { ...FILTROS_POR_DEFECTO, abiertas: true };
+  return leerFiltros(params);
 }
 
 /** La URL de unos filtros. Omite lo que vale lo de por defecto: URLs cortas. */

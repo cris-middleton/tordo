@@ -21,6 +21,8 @@ export interface Tender {
   fecha_cierre?: string;
   monto_estimado?: number;
   estado?: string;
+  /** Mecanismo: `licitacion`, `compra_agil`, `convenio_marco` o `trato_directo`. */
+  tipo_convocatoria?: string;
   region?: string;
   comuna?: string;
   nombre_organismo?: string;

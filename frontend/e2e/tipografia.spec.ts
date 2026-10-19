@@ -135,14 +135,14 @@ test('una ficha de producto: el precio mediano va en Archivo', async ({ page, re
 
 test('el detalle de una licitación: el código va en mono, sin negrita sintética', async ({ page }) => {
   await page.goto(`/licitaciones/${CODIGO_VALVULAS}`);
-  const codigo = page.getByRole('heading', { level: 2, name: CODIGO_VALVULAS });
+  // El título es el nombre; el código va debajo, en mono y en una cara cargada.
+  const codigo = page.getByText(CODIGO_VALVULAS, { exact: true }).first();
   await expect(codigo).toBeVisible({ timeout: 15_000 });
   await esperarCaras(page, ['IBM Plex Mono']);
-  // El peso 500 tiene que existir como cara cargada: sin ella sería negrita sintética.
-  expect(await carasCargadas(page)).toEqual(
-    expect.arrayContaining([expect.objectContaining({ familia: 'IBM Plex Mono', peso: '500' })]),
-  );
   const t = await tipo(codigo);
   expect(t.familia).toBe('IBM Plex Mono');
-  expect(t.peso).toBe('500');
+  // Su peso tiene que existir como cara cargada: sin ella sería negrita sintética.
+  expect(await carasCargadas(page)).toEqual(
+    expect.arrayContaining([expect.objectContaining({ familia: 'IBM Plex Mono', peso: t.peso })]),
+  );
 });
