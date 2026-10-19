@@ -14,6 +14,7 @@ from analytics.product_price_bands import (
     _compute_bands,
     build_level_0,
     build_level_0_nacional,
+    build_level_0_nacional_y_compradores,
     build_level_1,
 )
 
@@ -257,3 +258,130 @@ class TestCompradoresDeLaBanda:
         assert l0n["n"][0] == 10
         assert l0n["compradores"][0] == 2
         assert l0n["cuota_mayor"][0] == 0.5
+
+
+class TestCompradoresDelProducto:
+    """La mediana de cada comprador detrás de una banda L0N, sin mínimo de compras.
+
+    Es lo que dibuja el gráfico de precio y lista «Quién lo compra». Salía de
+    L0, que pide tres compras por organismo: «impresora multifuncional» decía 87
+    compras de 63 compradores y dibujaba un punto.
+    """
+
+    @staticmethod
+    def _compras(
+        organismo: str,
+        veces: int,
+        precio: float = 100.0,
+        *,
+        firma: str = "guantes nitrilo",
+        nombre: str | None = None,
+        periodo: str = "2026-3",
+    ) -> list[dict]:
+        return [
+            {
+                "firma_producto": firma,
+                "EspecificacionComprador": firma,
+                "pu": precio,
+                "CodigoOrganismoPublico": organismo,
+                "OrganismoPublico": nombre or f"ORGANISMO {organismo}",
+                "_periodo_archivo": periodo,
+            }
+            for _ in range(veces)
+        ]
+
+    def test_cuadra_con_la_banda_compradores_y_compras(self):
+        """Las filas de una (firma, unidad) son su `compradores`, y la suma de
+        `n` es su `n`: el gráfico dibuja exactamente lo que la banda cuenta."""
+        df = _items(
+            self._compras("1", 3)
+            + self._compras("2", 1)
+            + self._compras("3", 1)
+            + self._compras("4", 1)
+        )
+        banda, compradores = build_level_0_nacional_y_compradores(df)
+        assert banda["compradores"][0] == compradores.height == 4
+        assert banda["n"][0] == compradores["n"].sum() == 6
+
+    def test_no_pide_minimo_de_compras(self):
+        """Un organismo de una sola compra está; en L0 no (pide `MIN_N_L0`)."""
+        df = _items(
+            self._compras("1", 1, precio=100.0)
+            + self._compras("1", 1, precio=105.0)
+            + self._compras("1", 1, precio=110.0)
+            + self._compras("1", 1, precio=115.0)
+            + self._compras("2", 1, precio=110.0)
+        )
+        _, compradores = build_level_0_nacional_y_compradores(df)
+        assert build_level_0(df)["CodigoOrganismoPublico"].to_list() == ["1"]
+        uno = compradores.filter(pl.col("CodigoOrganismoPublico") == "2").row(0, named=True)
+        assert uno["n"] == 1
+        assert uno["p50"] == 110.0
+
+    def test_la_mediana_es_la_del_comprador(self):
+        df = _items(
+            self._compras("1", 1, precio=100.0)
+            + self._compras("1", 1, precio=120.0)
+            + self._compras("1", 1, precio=140.0)
+            + self._compras("2", 1, precio=110.0)
+            + self._compras("2", 1, precio=130.0)
+            + self._compras("2", 1, precio=150.0)
+        )
+        _, compradores = build_level_0_nacional_y_compradores(df)
+        p50 = dict(compradores.select("CodigoOrganismoPublico", "p50").iter_rows())
+        assert p50 == {"1": 120.0, "2": 130.0}
+
+    def test_sin_la_compra_atipica(self):
+        """Tukey saca la compra atípica de la banda y de aquí: mismas filas."""
+        df = _items(
+            self._compras("1", 5)
+            + self._compras("2", 5, precio=101.0)
+            + self._compras("3", 1, precio=1_000_000.0)
+        )
+        _, compradores = build_level_0_nacional_y_compradores(df)
+        assert sorted(compradores["CodigoOrganismoPublico"].to_list()) == ["1", "2"]
+
+    def test_solo_las_firmas_con_banda(self):
+        """Una firma sin banda L0N (menos de `MIN_N_L0N` compras) no tiene
+        página que la lea: no ocupa filas en Postgres."""
+        df = _items(self._compras("1", 6) + self._compras("1", 2, firma="resma papel carta"))
+        banda, compradores = build_level_0_nacional_y_compradores(df)
+        assert banda["firma_producto"].to_list() == ["guantes nitrilo"]
+        assert compradores["firma_producto"].unique().to_list() == ["guantes nitrilo"]
+
+    def test_el_nombre_es_el_mas_reciente_y_no_parte_la_clave(self):
+        """Un organismo renombrado es UN comprador, con su nombre de hoy."""
+        df = _items(
+            self._compras("1", 3, nombre="GOBERNACION PROVINCIAL", periodo="2025-11")
+            + self._compras("1", 3, nombre="DELEGACION PRESIDENCIAL", periodo="2026-2")
+        )
+        banda, compradores = build_level_0_nacional_y_compradores(df)
+        assert banda["compradores"][0] == 1
+        assert compradores["OrganismoPublico"].to_list() == ["DELEGACION PRESIDENCIAL"]
+        assert compradores["n"].to_list() == [6]
+
+    def test_puesto_por_compras_y_desempate_por_codigo(self):
+        """El puesto ordena los compradores de cada firma, todas sus unidades
+        juntas, y no depende del orden de las filas: la API corta por él."""
+        filas = (
+            self._compras("9", 3)
+            + self._compras("5", 1)
+            + self._compras("3", 1)
+            + self._compras("7", 2, firma="resma papel carta")
+            + self._compras("8", 3, firma="resma papel carta")
+        )
+        df = _items(filas)
+        _, a = build_level_0_nacional_y_compradores(df)
+        _, b = build_level_0_nacional_y_compradores(df.sample(fraction=1.0, shuffle=True, seed=3))
+        assert a.equals(b)
+        orden = {
+            firma: grupo.sort("puesto")["CodigoOrganismoPublico"].to_list()
+            for (firma,), grupo in a.group_by(["firma_producto"])
+        }
+        assert orden == {"guantes nitrilo": ["9", "3", "5"], "resma papel carta": ["8", "7"]}
+        guantes = a.filter(pl.col("firma_producto") == "guantes nitrilo")
+        assert sorted(guantes["puesto"]) == [1, 2, 3]
+
+    def test_sin_datos_no_revienta(self):
+        banda, compradores = build_level_0_nacional_y_compradores(_items([]).clear())
+        assert banda.is_empty() and compradores.is_empty()

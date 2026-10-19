@@ -122,7 +122,8 @@ export function paramsLicitacionesAbiertas(terminos: string[]): URLSearchParams 
 
 /**
  * Un comprador por código, en el orden del backend (más compras primero). Los
- * compradores de la ficha vienen de L0: una fila por comprador y unidad.
+ * compradores de la ficha traen una fila por comprador y unidad
+ * (`product_price_compradores`, o L0 mientras la tabla no exista).
  */
 export function compradoresDistintos(
   compradores: CompradorDeProducto[],

@@ -56,7 +56,11 @@ CLAVES = {
 # Bandas por producto: NO se recortan de la descarga. Son sintéticas y las
 # escribe `fixture_productos.py` (con un código ONU que no existe, para no tocar
 # la cascada de los casos del golden). Recortarlas de datos reales las cambiaría.
-SINTETICAS = {"product_price_bands_L0.parquet", "product_price_bands_L0N.parquet"}
+SINTETICAS = {
+    "product_price_bands_L0.parquet",
+    "product_price_bands_L0N.parquet",
+    "product_price_compradores.parquet",
+}
 
 # Tope por tabla. Suficiente para que las agregaciones globales sean
 # representativas sin que el fixture crezca.

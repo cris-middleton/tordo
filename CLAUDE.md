@@ -855,6 +855,16 @@ contenedor único (cabecera y pie, con la atribución, son de la cáscara única
   cada banda de `/publico/productos/{slug}`: la portada y `verificar-produccion.sh` leen ese
   booleano, no recalculan. Una tabla sin las columnas (materializada antes) no indexa ningún
   producto.
+- **«Quién lo compra» y los puntos del gráfico salen de `analytics.product_price_compradores`**
+  (`_compradores_de_la_banda` en `etl/analytics/product_price_bands.py`): la mediana y las compras
+  de cada organismo detrás de cada banda L0N, **sin mínimo de compras**, sobre las mismas filas ya
+  sin atípicos: las filas de una (firma, unidad) son su `compradores` y la suma de `n`, su `n`. Antes
+  salían de L0, que pide `MIN_N_L0` = 3 compras por organismo: «impresora multifuncional» decía «87
+  compras de 63 compradores» y dibujaba un punto. **`MIN_N_L0` no se toca**: L0 es del fallback del
+  BI. Sólo las (firma, unidad) con banda L0N (233.318 filas con los seis meses locales; sin ese
+  filtro, 1,4 millones) y `puesto` ya ordenado (más compras, luego código y unidad), así que la API
+  pide los 10 primeros por índice. **Sin la tabla** (hasta la primera semanal que la genera) la API
+  cae a L0, como antes.
 - **Todo precio dice cuántos compradores tiene detrás y de cuándo** (`comprasDeOrganismos`,
   `frasePrecio`, `notaCompradores` en `lib/publico.ts`): «46 compras de 40 organismos, abr 2025
   – mar 2026 (12 meses)» en la ficha (el periodo en la cabecera), en `/buscar` (en la banda) y en
@@ -1020,8 +1030,8 @@ componentes cliente y la home perdería título y tarjeta de preview.
     producto. **El gráfico** (`components/precio/GraficoPrecio.tsx`, geometría en
     `lib/graficoPrecio.ts`, `__tests__/grafico-precio.test.ts`): SVG de servidor y `aria-hidden`,
     escala logarítmica, la franja P25–P75 con su etiqueta directa «la mitad central», **un punto por
-    comprador en su mediana** (los de `compradores` con la unidad de la banda; los de otra unidad no
-    se dibujan), P25 y P75 en negrita y dos valores redondos de contexto en `muted`. **Sin `viewBox`:
+    comprador en su mediana** (los de `compradores` con la unidad de la banda —los 10 primeros de
+    `product_price_compradores`, ver «Quién lo compra»—; los de otra unidad no se dibujan), P25 y P75 en negrita y dos valores redondos de contexto en `muted`. **Sin `viewBox`:
     lo horizontal va en % y lo vertical en px**, así que puntos y rótulos no se deforman; si dos
     puntos se tocan (se apilan) o dos rótulos se pisan (se apartan, o se juntan en uno) se decide al
     ancho más estrecho en que se pinta (`ANCHO_REFERENCIA`, 280 px): más ancho, nada empieza a
@@ -1427,6 +1437,9 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   comprador (QCD mediano 0,00); **entre las de mercado (≥ 3 compradores, ninguno sobre la
   mitad) el QCD mediano es 0,12**. L0 cubre el 17–32 % de los ítems (de 1 a 6 meses); del resto
   sigue encargándose L1.
+  - **L0 no sirve para listar quién compra un producto**: pide 3 compras por organismo, y un
+    producto que compran muchos organismos pocas veces se queda sin casi ninguno. Para eso está
+    `product_price_compradores` (ver «Quién lo compra» en las páginas públicas).
   - **El precio unitario es `precioNeto`, tal cual** (`extract_unit_prices`). En las OC
     masivas ya es el precio de una unidad: `precioNeto × cantidad = totalLineaNeto` (±1 %)
     en el 99,98 % de las líneas en pesos. Hasta el 2026-10-16 se dividía otra vez por la

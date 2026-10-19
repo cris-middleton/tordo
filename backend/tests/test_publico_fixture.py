@@ -127,7 +127,21 @@ def test_producto_indexable_con_dos_unidades_y_compradores_enlazables(cliente):
     assert cuerpo["codigo_onu"] == "99999901"
     assert cuerpo["nombre_generico"] == "Producto de prueba"
     assert [u["unidad"] for u in cuerpo["unidades"]] == ["caja", "unidad"]
-    assert [c["codigo"] for c in cuerpo["compradores"]] == ["111875", "113812"]
+    # De `product_price_compradores`, materializada: los 10 primeros por `puesto`
+    # (más compras, luego código y unidad), con los de una o dos compras que L0
+    # dejaba fuera.
+    assert [(c["codigo"], c["unidad"], c["n"]) for c in cuerpo["compradores"]] == [
+        ("111875", "caja", 40),
+        ("113812", "unidad", 12),
+        ("100049", "caja", 8),
+        ("100072", "caja", 5),
+        ("111875", "unidad", 5),
+        ("100049", "unidad", 3),
+        ("100090", "caja", 3),
+        ("100072", "unidad", 2),
+        ("100090", "unidad", 2),
+        ("100107", "caja", 2),
+    ]
     # Cuántos organismos hay detrás de cada banda, de las columnas materializadas.
     assert [(u["compradores"], u["de_mercado"]) for u in cuerpo["unidades"]] == [
         (6, True),

@@ -56,6 +56,33 @@ CATALOGO: list[TablaAnalytics] = [
             ),
         },
     ),
+    # «Quién lo compra» y los puntos del gráfico de la página de producto
+    # (`paginas._compradores_del_producto`): los primeros por `puesto` de una
+    # firma. Sin mínimo de compras por comprador, a diferencia de L0.
+    TablaAnalytics(
+        tabla="product_price_compradores",
+        parquet="product_price_compradores.parquet",
+        indices=[["firma_producto", "puesto"]],
+        comentarios={
+            "firma_producto": (
+                "Firma del producto (etl/analytics/normalizacion.py). Sólo las firmas y "
+                "unidades que tienen banda en product_price_bands_l0n."
+            ),
+            "UnidadMedida": "Unidad canónica de la banda L0N a la que pertenece la fila.",
+            "CodigoOrganismoPublico": "Organismo comprador (código). Una fila por firma, unidad y organismo.",
+            "OrganismoPublico": "Nombre más reciente del organismo en la ventana (no es parte de la clave).",
+            "n": (
+                "Compras del organismo en la banda, ya sin atípicos, SIN mínimo: puede ser 1. "
+                "Las filas de una (firma, unidad) son product_price_bands_l0n.compradores y "
+                "la suma de n es su n."
+            ),
+            "p50": "Mediana del precio unitario (CLP) que pagó el organismo en esas compras.",
+            "puesto": (
+                "Orden del organismo dentro de la firma (todas sus unidades), desde 1: más "
+                "compras primero; a igualdad, por código y unidad."
+            ),
+        },
+    ),
     TablaAnalytics(
         tabla="product_price_bands_l1",
         parquet="product_price_bands_L1.parquet",
