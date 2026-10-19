@@ -1366,14 +1366,23 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
     legítimos (pago de pensiones, la red de comunicaciones de salud, el sistema de
     identificación: $314 mil millones) y dos imposibles ($129 mil millones), que se quedan.
   - Con las dos, 2025 cuadra con la cifra oficial: Salud 6,64 (6,56), Gob. Central 5,70 (5,65),
-    Municipalidades 4,28 (4,15). **Obras Públicas queda en 0,75 contra 3,09** y no es un monto
-    inflado: la diferencia está en otra parte y no está explicada.
+    Municipalidades 4,28 (4,15). **Obras Públicas queda en 0,75 contra 3,09** porque la descarga
+    masiva de órdenes no trae los contratos de obra del MOP. De las 920 licitaciones de obra del
+    MOP (tipos O1 y O2) adjudicadas en 2025, por $2,60 billones, sólo el 3 % tiene alguna orden en
+    los 36 meses; las de obra de MINVU y los SERVIU, el 84 %, y las demás del MOP, el 95 %.
+    ChileCompra sí cuenta esas obras: su Cuenta Pública 2026 pone la Ruta 7 de Aysén (US$76
+    millones) entre las «órdenes de compra relevantes 2025», y su licitación, la 5048-69-O123,
+    adjudicada por $69.900 millones, no tiene orden en la descarga. Sumando lo adjudicado sin
+    orden, $2,54 billones, 2025 da 3,29 contra 3,09. Es una diferencia de cobertura de la fuente:
+    lo que la descarga trae de Obras Públicas son MINVU, los SERVIU y las compras corrientes del
+    MOP. Lo mide `etl/scripts/medir_obras_mop.py`, que baja la descarga pública y hace el cruce.
   - Comparar el total con la suma de las líneas no distingue nada: las imposibles cuadran igual
     (33.047 de 34.912 órdenes en UF o UTM). Un tope por tipo de licitación (LE ≤ 1.000 UTM…)
     atrapa casi sólo lo que ya atrapa (a).
   - `sector_dashboard` **no cuenta las canceladas** (`compra_agil_mensual.ESTADOS_CANCELADOS`,
     la misma tupla, importada). Los demás módulos que suman montos todavía sí.
-  - Lo fija `etl/tests/test_monto_saneado.py`, con los casos reales en órdenes sintéticas.
+  - Lo fija `etl/tests/test_monto_saneado.py`, con los casos reales en órdenes sintéticas. El
+    cruce de Obras Públicas, `etl/tests/test_medir_obras_mop.py`.
 - **`competitors_by_market` tiene una fila por *(organismo, rubro, proveedor)*.** Cualquier
   métrica de rubro **agrega por proveedor primero**. Contar filas decía 128.462 proveedores
   donde hay 77.720, y tomar una fila suelta como representativa daba tres «líderes del
