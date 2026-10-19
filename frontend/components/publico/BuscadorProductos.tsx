@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { Search } from 'lucide-react';
 
 import { useValorRetardado } from '@/hooks/useValorRetardado';
+import { EJEMPLOS_BUSQUEDA } from '@/lib/buscar';
 import {
   PARAMETRO_BUSQUEDA_PRODUCTOS,
   entero,
@@ -101,7 +102,21 @@ function Buscador() {
 
       <div className="mt-4" aria-live="polite">
         {!buscable ? (
-          <p className="text-sm text-subtle">Escribe al menos tres letras.</p>
+          <div>
+            <p className="text-sm text-subtle">Escribe al menos tres letras.</p>
+            {/* Sin nada escrito, la página no queda en blanco: los mismos ejemplos de la
+                portada, verificados en producción, llenan el campo al pulsarlos. */}
+            <p className="mt-4 text-sm text-muted">Por ejemplo:</p>
+            <ul aria-label="Ejemplos de búsqueda" className="mt-1 flex flex-wrap gap-x-4 gap-y-2 text-sm">
+              {EJEMPLOS_BUSQUEDA.map((ejemplo) => (
+                <li key={ejemplo}>
+                  <button type="button" onClick={() => setTexto(ejemplo)} className="enlace py-1">
+                    {ejemplo}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : consulta.isError ? (
           <p className="text-sm text-subtle">No pudimos buscar ahora. Prueba de nuevo en un momento.</p>
         ) : consulta.isPending ? (
@@ -112,12 +127,12 @@ function Buscador() {
             <p>Las palabras de menos de tres letras y los números no cuentan en la búsqueda.</p>
           </div>
         ) : (
-          <ul aria-label="Productos encontrados" className="divide-y divide-border rounded-xl border border-border bg-surface">
+          <ul aria-label="Productos encontrados" className="divide-y divide-border border-y border-border">
             {resultados.map((p) => (
               <li key={p.slug}>
                 <Link
                   href={rutaProducto(p.slug)}
-                  className="flex items-baseline justify-between gap-3 px-4 py-2.5 hover:bg-surface-elevated"
+                  className="flex items-baseline justify-between gap-3 py-2.5 hover:text-accent"
                 >
                   <span className="min-w-0 truncate font-medium text-primary">{nombreProducto(p)}</span>
                   <span className="cifra shrink-0 text-xs text-muted">

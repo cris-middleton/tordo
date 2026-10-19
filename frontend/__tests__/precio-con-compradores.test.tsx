@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { BandaPrecio } from '@/components/publico/BandaPrecio';
+import { CifrasBanda } from '@/components/publico/CifrasBanda';
 import {
   comprasDeOrganismos,
   frasePrecio,
@@ -91,35 +91,27 @@ describe('notaCompradores', () => {
   });
 });
 
-describe('BandaPrecio', () => {
-  it('dice cuántas compras, de cuántos organismos y de cuándo', () => {
-    render(<BandaPrecio banda={banda()} periodo="abr 2025 – mar 2026 (12 meses)" />);
-    expect(screen.getByText('46 compras de 40 organismos, abr 2025 – mar 2026 (12 meses).')).toBeTruthy();
-    expect(screen.getByText('La mitad de las 46 compras se pagó entre $150.921 y $240.000.')).toBeTruthy();
+describe('CifrasBanda (la ficha de producto y /buscar)', () => {
+  it('dice cuántas compras y de cuántos organismos', () => {
+    render(<CifrasBanda banda={banda()} />);
+    expect(screen.getByText('46 compras de 40 organismos')).toBeTruthy();
+    expect(screen.getByText('$150.921 a $240.000')).toBeTruthy();
   });
 
-  it('sin periodo, sólo cuántas y de cuántos', () => {
-    render(<BandaPrecio banda={banda()} />);
-    expect(screen.getByText('46 compras de 40 organismos.')).toBeTruthy();
-  });
-
-  it('nunca «entre $X y $X»', () => {
-    const { container } = render(
-      <BandaPrecio banda={banda({ n: 191, p10: 1150, p25: 1150, p50: 1150, p75: 1150, p90: 1150 })} />,
-    );
-    expect(container.textContent).toContain('Las 191 compras se pagaron a $1.150.');
-    expect(container.textContent).not.toMatch(/entre \$1\.150 y \$1\.150/);
+  it('nunca «$X a $X»', () => {
+    const { container } = render(<CifrasBanda banda={banda({ n: 191, p10: 1150, p25: 1150, p50: 1150, p75: 1150, p90: 1150 })} />);
+    expect(container.textContent).not.toMatch(/\$1\.150 a \$1\.150/);
   });
 
   it('con un organismo que pesa más de la mitad, lo avisa', () => {
     const { container } = render(
-      <BandaPrecio banda={banda({ n: 90, compradores: 2, cuota_mayor: 88 / 90, de_mercado: false })} />,
+      <CifrasBanda banda={banda({ n: 90, compradores: 2, cuota_mayor: 88 / 90, de_mercado: false })} />,
     );
     expect(container.textContent).toContain('88 de las 90 compras son de un mismo organismo.');
   });
 
   it('con precios dispersos no atribuye causas: dice lo que se ve', () => {
-    const { container } = render(<BandaPrecio banda={banda({ predictibilidad: 'baja' })} />);
+    const { container } = render(<CifrasBanda banda={banda({ predictibilidad: 'baja' })} />);
     expect(container.textContent).not.toMatch(/decide la adjudicaci/);
     expect(container.textContent).toContain('Se pagaron precios muy distintos por lo mismo.');
   });

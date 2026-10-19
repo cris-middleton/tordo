@@ -2,7 +2,7 @@
 
 Léela antes de tocar un gráfico o de dibujar uno nuevo: `components/precio/GraficoPrecio.tsx` (con
 su geometría en `lib/graficoPrecio.ts`), `components/notas/AntesDespues.tsx`,
-`components/portada/BarraCierres.tsx` y `components/publico/BandaPrecio.tsx`.
+`components/portada/BarraCierres.tsx`, `components/graficos/BarrasHorizontales.tsx` y `components/graficos/Columnas.tsx`.
 
 Las reglas salen de cuatro guías públicas (al final, con su URL) y de lo que el sitio ya decidió en
 la portada v7 (`PORTADA_V7_Y_NOTAS_2026-10.md` §3.2–§3.4). Hay dos clases:
@@ -45,7 +45,7 @@ titular, palabras de todos los días: «la mitad central» en vez de «P25–P75
 | relación | forma aquí | dónde |
 |---|---|---|
 | distribución | una franja con un punto por comprador (*dot strip*) | `GraficoPrecio` |
-| distribución, resumida | una barra P10–P90 con la mitad central y la mediana | `BandaPrecio` |
+| distribución, resumida | la franja P25–P75, la línea fina P10–P90 y la mediana, con un punto por comprador | `GraficoPrecio` |
 | magnitud | barras horizontales con el valor escrito al lado | `AntesDespues` |
 | parte de un todo | diez celdas (*gridplot*), una por décimo | `BarraCierres` |
 
