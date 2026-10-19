@@ -14,6 +14,8 @@ import {
   MINIMO_PUNTOS,
   PASO_PUNTOS,
   plataCorta,
+  radioPara,
+  RADIO_PUNTO,
   valoresRedondos,
   type GraficoPrecio,
   type MarcaEje,
@@ -218,5 +220,25 @@ describe('graficoPrecio', () => {
     const g = graficoPrecio(BANDA, [])!;
     expect(g.puntos).toEqual([]);
     expect(g.franja).not.toBeNull();
+  });
+
+  it('con medianas_compradores dibuja a todos los compradores de la banda, no sólo los diez de la lista', () => {
+    const todas = Array.from({ length: 63 }, (_, i) => ({ n: 3, p50: 120_000 + i * 3_000 }));
+    const g = graficoPrecio({ ...BANDA, compradores: 63, medianas_compradores: todas }, DIEZ)!;
+    expect(g.puntos).toHaveLength(63);
+    // Muchos puntos, más chicos: la nube cabe sin volverse una torre.
+    expect(g.radio).toBe(radioPara(63));
+    expect(g.radio).toBeLessThan(RADIO_PUNTO);
+  });
+
+  it('medianas_compradores null cae a la lista de compradores; [] no dibuja ninguno', () => {
+    expect(graficoPrecio({ ...BANDA, medianas_compradores: null }, DIEZ)!.puntos).toHaveLength(10);
+    expect(graficoPrecio({ ...BANDA, medianas_compradores: [] }, DIEZ)!.puntos).toEqual([]);
+  });
+
+  it('el radio baja con la cantidad de puntos', () => {
+    expect(radioPara(10)).toBe(RADIO_PUNTO);
+    expect(radioPara(40)).toBe(5);
+    expect(radioPara(150)).toBe(3.5);
   });
 });

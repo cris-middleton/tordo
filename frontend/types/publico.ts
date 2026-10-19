@@ -90,6 +90,13 @@ export interface BandaUnidad {
   /** Fracción de las compras (0–1) del organismo que más compró. */
   cuota_mayor?: number | null;
   /**
+   * La mediana de cada comprador de ESTA unidad, sin mínimo de compras, por `n`
+   * descendente (tope de 200 en el backend: `TOPE_MEDIANAS_POR_BANDA`). Sin código
+   * ni nombre. `null` si la tabla aún no existe (entonces el gráfico cae a
+   * `compradores`, que sólo trae los diez con más compras); `[]` si no hay filas.
+   */
+  medianas_compradores?: { n: number; p50: number | null }[] | null;
+  /**
    * Precio de mercado: ≥ 3 compradores y ninguno con más de la mitad. **La regla
    * vive en el backend** (`services/publico/indexables.py`); aquí no se recalcula.
    */
