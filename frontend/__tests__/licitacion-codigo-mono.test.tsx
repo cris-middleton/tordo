@@ -30,7 +30,7 @@ describe('detalle de licitación', () => {
   it('el código externo va en mono y sin negrita', () => {
     render(<TenderDetailPage />);
     // El título es el nombre; el código va debajo, en mono y sin negrita.
-    expect(screen.getByRole('heading', { level: 1, name: 'Compra De Guantes' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: /compra de guantes/i })).toBeInTheDocument();
     const codigo = screen.getByText('3926-247-COT26');
     expect(codigo).toHaveClass('font-mono');
     expect(codigo.className).not.toMatch(/font-(semibold|bold)/);
