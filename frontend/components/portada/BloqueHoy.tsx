@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
 
 import { CLASE_SECCION } from '@/components/cascara/Seccion';
 
@@ -43,10 +42,9 @@ export function BloqueHoy({
         <Link
           href="/compra-agil"
           aria-label={`Ver todas: ${TITULO_DESTACADAS}`}
-          className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:text-accent"
+          className="enlace py-1 text-sm"
         >
           Ver todas
-          <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </Link>
       </div>
       <p className="mt-2 text-sm text-muted">
