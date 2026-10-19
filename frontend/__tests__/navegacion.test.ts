@@ -119,7 +119,7 @@ describe('R10: el nombre del menú es el de la página que abre', () => {
       'app/(panel)/mercado/page.tsx',
       'app/(panel)/mercado/layout.tsx',
       'lib/portada.ts',
-      'app/(panel)/licitaciones/[codigo]/components/BICard.tsx',
+      'components/licitacion/BIPanelSection.tsx',
       'content/explicativos/concentracion-de-mercado.mdx',
       'content/explicativos/como-leer-una-banda-de-precio.mdx',
     ];

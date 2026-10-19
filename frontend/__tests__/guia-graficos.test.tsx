@@ -140,9 +140,6 @@ const PROPIOS: Record<string, Propio> = {
  * uno lo pasa a `PROPIOS`. Está también en `docs/GUIA_GRAFICOS.md` («Deuda»).
  */
 const DEUDA: Record<string, string> = {
-  'components/PriceBandChart.tsx': 'Recharts: barras P10–P90 desde cero, que no es el precio que importa',
-  'components/CompetitorsList.tsx': 'barra de cuota en primary, sin el valor como etiqueta directa',
-  'components/OpportunityScoreCard.tsx': 'barras de componentes en primary',
 };
 
 /** Ficheros que el detector ve pero no dibujan datos. */

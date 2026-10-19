@@ -37,15 +37,15 @@ export { Seccion } from '@/components/cascara/Seccion';
 export function Dato({ etiqueta, valor }: { etiqueta: string; valor: string }) {
   return (
     <div>
-      <p className="text-xs text-muted">{etiqueta}</p>
-      <p className="cifra mt-1 text-xl font-bold leading-none text-text">{valor}</p>
+      <p className="text-sm text-muted">{etiqueta}</p>
+      <p className="cifra mt-1 text-lg font-semibold leading-none text-text">{valor}</p>
     </div>
   );
 }
 
 export function FranjaDatos({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex flex-wrap gap-x-8 gap-y-4 rounded-xl border border-border bg-surface px-5 py-4">
+    <div className="flex flex-wrap gap-x-8 gap-y-4 border-y border-border py-4">
       {children}
     </div>
   );

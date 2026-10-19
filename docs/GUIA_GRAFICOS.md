@@ -88,15 +88,12 @@ dato que desaparece (Datawrapper).
 Lo que dibuja datos y todavía no sigue esta guía. Está también en `DEUDA`, dentro de
 `__tests__/guia-graficos.test.tsx`; quien arregle uno lo pasa a `PROPIOS` en el mismo PR.
 
-| fichero | qué falla |
-|---|---|
-| `components/PriceBandChart.tsx` | Recharts: cinco barras P10–P90 desde cero, que comparan alturas cuando lo que importa es dónde cae cada precio. Ya pinta con tokens. |
-| `components/CompetitorsList.tsx` | barra de cuota en `primary` |
-| `components/OpportunityScoreCard.tsx` | barras de componentes en `primary` |
-
-Los gráficos de Recharts de `/mercado` (competencia, meses de compra y serie anual) ya no existen:
-desde la pasada micro de octubre de 2026 se dibujan con `components/graficos/BarrasHorizontales.tsx`
-y `components/graficos/Columnas.tsx`, que siguen esta guía.
+**Hoy no queda deuda.** La pasada micro de octubre de 2026 reescribió los últimos: los Recharts de
+`/mercado` (competencia, meses de compra y serie anual) y de la ficha de licitación (precios de
+referencia) se dibujan con `components/graficos/BarrasHorizontales.tsx` y
+`components/graficos/Columnas.tsx`, o pasaron a una tabla; la barra en semáforo de «Dónde mirar
+primero», las barras de `PanoramaRubro` y el «score» de la ficha de licitación se fueron. Recharts
+salió de las dependencias.
 
 ## Un gráfico nuevo, paso a paso
 

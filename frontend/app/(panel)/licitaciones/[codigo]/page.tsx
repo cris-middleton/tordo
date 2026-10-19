@@ -20,7 +20,6 @@ import { useLicitacion, usePanelLicitacion } from '@/lib/queries';
 import BIPanelSection from '@/components/licitacion/BIPanelSection';
 import { normalizeTenderDetail } from '@/lib/licitacionDetalle';
 import type { BIPanel, TenderDetail } from '@/types/licitacionDetalle';
-import { BICard } from './components/BICard';
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
@@ -40,8 +39,7 @@ export default function TenderDetailPage() {
   const codigoRuta = decodeURIComponent(String(useParams().codigo ?? ''));
 
   // La licitación y su panel de BI salen de TanStack Query, como el resto del
-  // estado de servidor. El panel comparte clave con `BICard`, así que las dos
-  // piezas de la ficha hacen una sola petición. Un 503 (analítica apagada) o
+  // estado de servidor. Un 503 (analítica apagada) o
   // un 404 dejan `panel` vacío y la sección lo dice.
   const consultaLicitacion = useLicitacion(codigoRuta || undefined);
   const tender = (consultaLicitacion.data ?? null) as TenderDetail | null;
@@ -218,8 +216,6 @@ export default function TenderDetailPage() {
             )}
           </div>
 
-          {/* ── Mercado (resumen plegable) ─── */}
-          <BICard codigoExterno={tenderData.codigo_externo} />
         </div>
       )}
     </div>
