@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 
 import { useDashboardCollections } from '@/hooks/useDashboardCollections';
+import { urlMercadoPublico } from '@/lib/compraAgil';
 import { cierreEnPalabras, normalizeText, shortRegion } from '@/lib/licitacionEstado';
 
 import { useLicitacion, usePanelLicitacion } from '@/lib/queries';
@@ -106,6 +107,13 @@ export default function TenderDetailPage() {
       ]
     : [];
   const comprador = tenderData?.nombre_organismo ? normalizeText(tenderData.nombre_organismo) : '';
+  // La Compra Ágil no trae URL en el dato: se arma la del buscador público por código
+  // (`urlMercadoPublico`). Sin esto su ficha no tenía cómo ir a cotizar.
+  const esCompraAgil =
+    tenderData?.tipo_convocatoria === 'compra_agil' || /-COT\d+$/i.test(tenderData?.codigo_externo ?? '');
+  const urlFicha = tenderData
+    ? tenderData.url_licitacion || (esCompraAgil ? urlMercadoPublico(tenderData.codigo_externo) : null)
+    : null;
   const guardada = Boolean(tenderData) && hydrated && isTenderStored('saved', tenderData!.id);
   const postulada = Boolean(tenderData) && hydrated && isTenderStored('applied', tenderData!.id);
 
@@ -119,7 +127,10 @@ export default function TenderDetailPage() {
         {tenderData && (
           <>
             {comprador && <p className="mt-2 text-muted">{comprador}</p>}
-            <p className="mt-1 font-mono text-sm text-subtle">{tenderData.codigo_externo}</p>
+            <p className="mt-1 flex flex-wrap gap-x-3 text-sm text-subtle">
+              <span className="font-mono">{tenderData.codigo_externo}</span>
+              {esCompraAgil && <span>Compra Ágil</span>}
+            </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <button
                 type="button"
@@ -149,9 +160,9 @@ export default function TenderDetailPage() {
                 )}
                 {postulada ? 'Postulé' : 'Marcar que postulé'}
               </button>
-              {tenderData.url_licitacion && (
+              {urlFicha && (
                 <a
-                  href={tenderData.url_licitacion}
+                  href={urlFicha}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn-secondary flex h-11 items-center gap-2"

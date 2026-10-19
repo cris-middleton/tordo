@@ -35,4 +35,13 @@ describe('detalle de licitación', () => {
     expect(codigo).toHaveClass('font-mono');
     expect(codigo.className).not.toMatch(/font-(semibold|bold)/);
   });
+
+  it('una Compra Ágil sin URL en el dato enlaza a su ficha del buscador público, y lo dice', () => {
+    render(<TenderDetailPage />);
+    expect(screen.getByRole('link', { name: /abrir en mercado público/i })).toHaveAttribute(
+      'href',
+      'https://buscador.mercadopublico.cl/ficha?code=3926-247-COT26',
+    );
+    expect(screen.getByText('Compra Ágil')).toBeInTheDocument();
+  });
 });

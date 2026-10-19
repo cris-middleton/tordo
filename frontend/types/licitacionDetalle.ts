@@ -10,6 +10,8 @@ export interface TenderDetail {
   id: number;
   codigo_externo: string;
   nombre: string;
+  /** Mecanismo: `licitacion`, `compra_agil`, `convenio_marco` o `trato_directo`. */
+  tipo_convocatoria?: string;
   descripcion?: string;
   fecha_publicacion?: string;
   fecha_cierre?: string;
