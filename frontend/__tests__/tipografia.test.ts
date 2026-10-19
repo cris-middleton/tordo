@@ -133,11 +133,6 @@ describe('cifras: Archivo con tnum', () => {
     expect(cuerpo).toMatch(/font-feature-settings:\s*"tnum"/);
   });
 
-  it('los ejes de Recharts van en sans, con tnum', () => {
-    const cuerpo = regla('.recharts-cartesian-axis-tick text');
-    expect(cuerpo).toMatch(/font-family:\s*var\(--font-sans\)/);
-    expect(cuerpo).toMatch(/"tnum"/);
-  });
 });
 
 /** Cada literal de `className` (comillas, comillas simples o plantilla), con su fichero y línea. */

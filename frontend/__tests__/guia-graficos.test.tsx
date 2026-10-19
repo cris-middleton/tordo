@@ -166,7 +166,9 @@ describe('guía de gráficos: todo lo que dibuja datos está declarado', () => {
   const detectados = ARCHIVOS.filter((r) => DIBUJA.test(leer(r)));
 
   it('el detector encuentra gráficos (guarda contra comprobar el vacío)', () => {
-    expect(detectados.length).toBeGreaterThanOrEqual(10);
+    // Eran 13 con la deuda; sin ella (octubre de 2026) quedan 8: los seis propios
+    // y los dos que no son gráficos. Bajó con su motivo, no se borró.
+    expect(detectados.length).toBeGreaterThanOrEqual(7);
   });
 
   it('cada fichero que dibuja está en PROPIOS, DEUDA o NO_SON_GRAFICOS', () => {
