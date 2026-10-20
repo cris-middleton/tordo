@@ -14,11 +14,11 @@
  * - `tarifa`: el precio del plan de pago.
  * - `gratuito`: un plan sin costo.
  *
- * **El total es una PROYECCIÓN de ~US$10–11, no una factura.** El plan Hobby de
+ * **El total es una PROYECCIÓN de ~US$30–31, no una factura.** El plan Hobby de
  * Railway cuesta US$5 e INCLUYE US$5 de uso, así que se paga max(5, uso), no
  * 5 + uso. El uso medido es mayor que los US$5 incluidos (~US$9–10 al mes,
- * proyectado de los primeros ~2 días), así que Railway cobra el uso; el dominio
- * (~US$1) va aparte. Si Railway factura otra cosa, se anota en
+ * proyectado de los primeros ~2 días), así que Railway cobra el uso; Vercel Pro
+ * (US$20, desde el 2026-10-20) y el dominio (~US$1) van aparte. Si Railway factura otra cosa, se anota en
  * docs/DESPLIEGUE.md (§13.2) y se cita aquí.
  *
  * **Las cifras medidas salen de los primeros 1,95 días del periodo**, con las
@@ -125,13 +125,14 @@ export const COSTOS: Costo[] = [
   },
   {
     id: 'vercel',
-    concepto: 'Sitio web (Vercel Hobby)',
-    monto: 'US$0',
-    base: 'gratuito',
-    detalle: 'Por eso no hay publicidad: con anuncios habría que pasar al plan de pago (US$20 al mes).',
+    concepto: 'Sitio web (Vercel Pro)',
+    monto: 'US$20',
+    base: 'tarifa',
+    detalle:
+      'Incluye US$20 de uso. Desde el 20 de octubre de 2026: el plan gratuito pausó el sitio cuando los rastreadores llenaron su caché.',
     fuentes: [
-      { archivo: PIVOTE, cita: '| Frontend | ~$2–3 | **$0** (Vercel Hobby) |' },
-      { archivo: PIVOTE, cita: '**Consecuencia: anuncios = Vercel Pro (US$20/mes)**' },
+      { archivo: DESPLIEGUE, cita: 'El plan Pro de Vercel cuesta **US$20 al mes** e incluye US$20 de uso' },
+      { archivo: DESPLIEGUE, cita: '### 13.4 La cuenta de Vercel, pausada por la caché (2026-10-19)' },
     ],
   },
   {
@@ -155,8 +156,8 @@ export const COSTOS: Costo[] = [
   },
 ];
 
-/** Lo que se dice en una frase («alrededor de US$10–11 al mes»). `/acerca` y `/apoyar` lo leen de aquí. */
-export const COSTO_MENSUAL_APROXIMADO = 'US$10–11';
+/** Lo que se dice en una frase («alrededor de US$30–31 al mes»). `/acerca` y `/apoyar` lo leen de aquí. */
+export const COSTO_MENSUAL_APROXIMADO = 'US$30–31';
 
 /** El uso de Railway proyectado (DESPLIEGUE §13.2); lo dice la fila «Total». */
 export const USO_RAILWAY_PROYECTADO = 'US$9–10';
@@ -166,10 +167,10 @@ export const USO_INCLUIDO_EN_EL_PLAN = 'US$5';
 
 export const TOTAL: { monto: string; detalle: string; fuentes: [FuenteCosto, ...FuenteCosto[]] } = {
   monto: `~${COSTO_MENSUAL_APROXIMADO}`,
-  detalle: `Proyección con el uso de Railway de los primeros 2 días (${USO_RAILWAY_PROYECTADO} al mes, más que los ${USO_INCLUIDO_EN_EL_PLAN} que incluye el plan) más el dominio. No es una factura completa.`,
+  detalle: `Proyección con el uso de Railway de los primeros 2 días (${USO_RAILWAY_PROYECTADO} al mes, más que los ${USO_INCLUIDO_EN_EL_PLAN} que incluye el plan), más Vercel y el dominio. No es una factura completa.`,
   fuentes: [
     { archivo: DESPLIEGUE, cita: 'uso de Railway de ~US$9–10 al mes' },
-    { archivo: DESPLIEGUE, cita: '**~US$10–11 al mes**' },
+    { archivo: DESPLIEGUE, cita: '**~US$30–31 al mes**' },
     { archivo: PIVOTE, cita: 'el plan Hobby cuesta US$5 **e incluye US$5 de uso**' },
   ],
 };

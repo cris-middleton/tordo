@@ -55,12 +55,13 @@ describe('costos', () => {
     else expect(cita).toContain(sinUS(costo.monto));
   });
 
-  it('el total: Railway cobra max(plan, uso) y el dominio va aparte', () => {
+  it('el total: Railway cobra max(plan, uso); Vercel y el dominio van aparte', () => {
     for (const f of TOTAL.fuentes) citaPresente(f);
     expect(TOTAL.monto).toBe(`~${COSTO_MENSUAL_APROXIMADO}`);
     const cifra = (monto: string) => Number(monto.replace(/[^\d,]/g, '').replace(',', '.'));
     const plan = COSTOS.find((c) => c.id === 'railway-plan')!;
     const dominio = COSTOS.find((c) => c.id === 'dominio')!;
+    const vercel = COSTOS.find((c) => c.id === 'vercel')!;
     // El uso proyectado sale de la cita del total (DESPLIEGUE §13.2), no de aquí.
     const uso = /~US\$(\d+)–(\d+) al mes/.exec(TOTAL.fuentes[0].cita);
     expect(uso, 'la primera cita del total trae el rango de uso «~US$9–10 al mes»').not.toBeNull();
@@ -71,8 +72,9 @@ describe('costos', () => {
     const railwayMin = Math.max(cifra(plan.monto), usoMin);
     const railwayMax = Math.max(cifra(plan.monto), usoMax);
     const [bajo, alto] = COSTO_MENSUAL_APROXIMADO.split('–').map((n) => Number(n.replace(/[^\d]/g, '')));
-    expect(bajo).toBe(railwayMin + cifra(dominio.monto));
-    expect(alto).toBe(railwayMax + cifra(dominio.monto));
+    const aparte = cifra(vercel.monto) + cifra(dominio.monto);
+    expect(bajo).toBe(railwayMin + aparte);
+    expect(alto).toBe(railwayMax + aparte);
     expect(TOTAL.fuentes.map((f) => f.cita)).toContain('el plan Hobby cuesta US$5 **e incluye US$5 de uso**');
   });
 
@@ -107,7 +109,7 @@ describe('costos', () => {
   });
 
   it('los planes gratuitos se rotulan como tales', () => {
-    expect(COSTOS.filter((c) => c.base === 'gratuito').map((c) => c.id)).toEqual(['vercel', 'sentry']);
+    expect(COSTOS.filter((c) => c.base === 'gratuito').map((c) => c.id)).toEqual(['sentry']);
     expect(ETIQUETA_BASE.gratuito).toBe('Plan gratuito');
   });
 

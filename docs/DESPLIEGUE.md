@@ -1,7 +1,7 @@
 # Despliegue
 
 La guía para poner TORDO en producción: **Railway** (API, Postgres y dos cron),
-**Cloudflare R2** (parquets), **Vercel Hobby** (el sitio), **Healthchecks.io**
+**Cloudflare R2** (parquets), **Vercel Pro** (el sitio; Hobby hasta el 2026-10-20, §13.4), **Healthchecks.io**
 (latido de los cron) y **Sentry**. Sustituye a las guías del SaaS
 (`deploy_steps/`), que describen otro sistema.
 
@@ -710,30 +710,44 @@ en `frontend/lib/publico.ts`); los buscadores y los asistentes que responden a u
 siguen entrando. Es un pedido, no una barrera: un rastreador que ignore `robots.txt` sigue
 igual, y para eso está el Firewall.
 
-**El Firewall, por aplicar** (lo decide el dueño; cada regla primero en `log`). Una regla
-que **registra** a quien pide más de 120 fichas por minuto desde una IP, para saber quién
-es antes de bloquear nada:
+**El Firewall, aplicado el 2026-10-20 y sólo en `log`**: no bloquea a nadie. Una regla que
+**registra** a quien pide más de 120 fichas por minuto desde una IP, para saber quién es antes
+de bloquear nada, y el conjunto *AI Bots* también en **Log**:
 
 ```bash
-cd frontend && vercel link   # una vez
+cd frontend && vercel link --yes --project tordo   # una vez (ver abajo)
 vercel firewall rules add "Fichas: ráfagas por IP" \
   --condition '{"type":"path","op":"re","value":"^/(productos|compradores|rubros)/"}' \
   --action rate_limit \
   --rate-limit-window 60 --rate-limit-requests 120 --rate-limit-keys ip \
   --rate-limit-action log --yes
 vercel firewall diff          # revisar
-vercel firewall publish --yes # lo publica el dueño
+vercel firewall publish --yes
+# AI Bots en Log: el CLI no lo tiene, va por la API del Firewall
+vercel api -X PATCH "/v1/security/firewall/config?projectId=<proyecto>&teamId=<equipo>" \
+  --input <(echo '{"action":"managedRules.update","id":"ai_bots","value":{"active":true,"action":"log"}}')
 ```
 
-Y en el panel, *Firewall → Bot Management → AI Bots* en **Log**. Tras unos días de tráfico,
+`vercel link` baja además un `frontend/.env.local` con las variables de Vercel y añade una
+línea al `.gitignore`: borra el primero y deshaz la segunda. Tras unos días de tráfico,
 la vista filtrada por la regla dice qué agentes e IP llenan la caché; sólo entonces se pasa
 la acción a `rate_limit` (429) o `challenge`. **Ninguna regla por `user_agent` a secas**:
 `bot` o `crawler` atrapan también a Googlebot y a las vistas previas de enlaces.
 
-**Si se pasa a Pro**: configurar *Spend Management* el mismo día (un monto mensual, avisos
-y la pausa sólo del proyecto que se pasa), y revisar *Observability → ISR* para ver qué
-rutas escriben más. El costo del sitio (`frontend/lib/costos.ts`, `/apoyar#costos`) cambia
-con el plan: se corrige en el mismo PR que lo registre.
+**Pro desde el 2026-10-20.** El plan Pro de Vercel cuesta **US$20 al mes** e incluye US$20 de
+uso; lo que pase de ahí se cobra, en vez de pausar la cuenta. Con él, el sitio cuesta
+**~US$30–31 al mes**: los ~US$10–11 de §13.2 más los US$20 de Vercel. Es la cifra de
+`frontend/lib/costos.ts` y `/apoyar#costos`. *Spend Management* se configura en el panel
+(*Settings → Billing*; la API pública no lo tiene): avisos al 50, 75 y 100 % de un monto
+mensual, **sin pausar los proyectos**, porque una pausa es la misma página 402 que se quería
+evitar. En Pro, cada petición que evalúa la regla de límite se cobra (US$0,50 el millón):
+con las ráfagas medidas, centavos. *Observability → ISR* dice qué rutas escriben más en la
+caché.
+
+**Lo que ve un visitante con la cuenta pausada** es el texto plano de Vercel («Payment
+required», `DEPLOYMENT_DISABLED` y un id), y no se puede cambiar: lo sirve el borde de Vercel
+antes de llegar al proyecto. Las páginas de error propias de Vercel cubren los errores de la
+plataforma (500, 502, 504) y son de Enterprise.
 
 **Verifica**: `vercel api /v2/teams/cris-middleton-s-projects` sin `softBlock`, y
 `curl -sI https://tordo.cl` en 200.
