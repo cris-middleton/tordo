@@ -28,8 +28,9 @@ export const metadata: Metadata = {
  * en la entrada de «Cuánto cuesta» y en la fila «Total»; el desglose de por qué
  * se paga el uso y no el plan vive en las filas (`lib/costos.ts`).
  *
- * **Sin publicidad, y no por gusto**: en Vercel Hobby un anuncio convierte el
- * sitio en comercial; pedir donaciones no (spec §4.1).
+ * **Sin publicidad** (spec §4.1): se decidió cuando el sitio estaba en Vercel
+ * Hobby, donde un anuncio lo convertía en comercial. Desde el 2026-10-20 está en
+ * Pro y ese motivo ya no aplica; la decisión sigue.
  */
 export default function PaginaApoyar() {
   const { enlaces, transferencia } = mediosDeDonacion();
@@ -101,9 +102,9 @@ export default function PaginaApoyar() {
       <Seccion id="costos" titulo="Cuánto cuesta">
         <p className="text-sm leading-relaxed text-muted">
           Tenerlo en línea cuesta{' '}
-          <strong className="text-text">alrededor de {COSTO_MENSUAL_APROXIMADO} al mes</strong>. Casi
-          todo se va en Railway, donde corren la API, la base de datos y las tareas que traen los datos
-          de ChileCompra.
+          <strong className="text-text">alrededor de {COSTO_MENSUAL_APROXIMADO} al mes</strong>. Se va en
+          Vercel, que sirve las páginas, y en Railway, donde corren la API, la base de datos y las
+          tareas que traen los datos de ChileCompra.
         </p>
         <div className="mt-4">
           <TablaCostos />

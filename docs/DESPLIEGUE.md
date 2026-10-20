@@ -1,7 +1,7 @@
 # Despliegue
 
 La guía para poner TORDO en producción: **Railway** (API, Postgres y dos cron),
-**Cloudflare R2** (parquets), **Vercel Hobby** (el sitio), **Healthchecks.io**
+**Cloudflare R2** (parquets), **Vercel Pro** (el sitio; Hobby hasta el 2026-10-20, §13.4), **Healthchecks.io**
 (latido de los cron) y **Sentry**. Sustituye a las guías del SaaS
 (`deploy_steps/`), que describen otro sistema.
 
@@ -59,8 +59,11 @@ publica como URL de la API y del MCP.
   <https://docs.railway.com/cron-jobs>, <https://docs.railway.com/builds/dockerfiles>
   (consultadas el 2026-10-12).
 - **Vercel**: hay un `frontend/vercel.json` y hace **una sola cosa**: que sólo `main`
-  despliegue (`git.deploymentEnabled`: `"*": false`, `"main": true`;
-  <https://vercel.com/docs/project-configuration/git-configuration>). Sin él, cada rama
+  despliegue (`git.deploymentEnabled`: `"**": false`, `"main": true`;
+  <https://vercel.com/docs/project-configuration/git-configuration>). **`**` y no `*`**:
+  Vercel compara las ramas con un glob y `*` no cruza una `/`, así que con `"*"` toda rama
+  `feat/…` siguió construyendo (100 *Preview* del 13 al 19-10;
+  `frontend/__tests__/vercel-json.test.ts` lo fija). Sin él, cada rama
   construiría un *Preview* sin variables —una página rota que además gasta minutos de
   build—, y es mejor que esa regla viva en el repo que en un ajuste del panel que hay
   que recordar. Lo demás queda **por defecto**: la región de las funciones ya es
@@ -678,6 +681,77 @@ el primer domingo la llena y el orden y los textos pasan solos a su forma comple
 del orden (`INSTANTANEA_DESTACADAS`, ver `backend/tests/test_orden_destacadas_instantanea.py`):
 la de 2026-10-14 usó percentiles por organismo como aproximación de los de unidad.
 
+
+### 13.4 La cuenta de Vercel, pausada por la caché (2026-10-19)
+
+El 2026-10-19 a las 14:36 (Santiago) Vercel pausó **la cuenta entera** por 30 días: tordo.cl
+y pixelframe.cl respondían `402 Payment required` con `x-vercel-error: DEPLOYMENT_DISABLED`.
+El equipo traía `softBlock.reason = FAIR_USE_LIMITS_EXCEEDED` y
+`blockedDueToOverageType = dataCacheWrite`, con `unpauseAt` el 2026-11-18. En Hobby no hay
+aviso con margen ni tope de gasto: pasarse de una cuota pausa todos los proyectos.
+
+**Qué lo causó, medido** (uso por hora de Vercel y registros HTTP de la API en Railway):
+
+- **No fueron los despliegues.** 168 en la semana (68 a producción, 100 *Preview*), pero las
+  23 horas con un despliegue a producción escribieron 0,43 MB por hora en promedio y las 136
+  sin despliegue, 0,89. El 92 % de lo escrito (121 de 131 MB) cayó en horas sin despliegue.
+- **Fueron ráfagas de rastreo, de madrugada.** Las horas de más escritura (4 a 8 h de
+  Santiago, los días 13, 16, 18 y 19) traían de 10.000 a 26.000 peticiones, casi todas sin
+  caché: el 16-10 a las 7 h, 23.315 fallos de caché contra 2.919 aciertos; el 18-10 a las
+  5 h, 10.563 contra 34. El 19-10 entre las 3 y las 5 h, Vercel pidió a la API **580 rutas
+  distintas**: 335 rubros, 220 productos y 23 compradores, cada una una ficha nueva en caché.
+- **Quién rastreaba tordo.cl no se sabe**: Hobby guarda una hora de registros. A la API le
+  llegaban directo, esas mismas horas, los rastreadores de Perplexity, Claude, Kimi, Cohere y
+  You.com.
+
+**Lo que se cambió**: `robots.txt` aparta las fichas bajo pedido (`/productos/`,
+`/compradores/`, `/rubros/`) de los rastreadores de entrenamiento (`RASTREADORES_DE_ENTRENAMIENTO`
+en `frontend/lib/publico.ts`); los buscadores y los asistentes que responden a una persona
+siguen entrando. Es un pedido, no una barrera: un rastreador que ignore `robots.txt` sigue
+igual, y para eso está el Firewall.
+
+**El Firewall, aplicado el 2026-10-20 y sólo en `log`**: no bloquea a nadie. Una regla que
+**registra** a quien pide más de 120 fichas por minuto desde una IP, para saber quién es antes
+de bloquear nada, y el conjunto *AI Bots* también en **Log**:
+
+```bash
+cd frontend && vercel link --yes --project tordo   # una vez (ver abajo)
+vercel firewall rules add "Fichas: ráfagas por IP" \
+  --condition '{"type":"path","op":"re","value":"^/(productos|compradores|rubros)/"}' \
+  --action rate_limit \
+  --rate-limit-window 60 --rate-limit-requests 120 --rate-limit-keys ip \
+  --rate-limit-action log --yes
+vercel firewall diff          # revisar
+vercel firewall publish --yes
+# AI Bots en Log: el CLI no lo tiene, va por la API del Firewall
+vercel api -X PATCH "/v1/security/firewall/config?projectId=<proyecto>&teamId=<equipo>" \
+  --input <(echo '{"action":"managedRules.update","id":"ai_bots","value":{"active":true,"action":"log"}}')
+```
+
+`vercel link` baja además un `frontend/.env.local` con las variables de Vercel y añade una
+línea al `.gitignore`: borra el primero y deshaz la segunda. Tras unos días de tráfico,
+la vista filtrada por la regla dice qué agentes e IP llenan la caché; sólo entonces se pasa
+la acción a `rate_limit` (429) o `challenge`. **Ninguna regla por `user_agent` a secas**:
+`bot` o `crawler` atrapan también a Googlebot y a las vistas previas de enlaces.
+
+**Pro desde el 2026-10-20.** El plan Pro de Vercel cuesta **US$20 al mes** e incluye US$20 de
+uso; lo que pase de ahí se cobra, en vez de pausar la cuenta. Con él, el sitio cuesta
+**~US$30–31 al mes**: los ~US$10–11 de §13.2 más los US$20 de Vercel. Es la cifra de
+`frontend/lib/costos.ts` y `/apoyar#costos`. *Spend Management* se configura en el panel
+(*Settings → Billing*; la API pública no lo tiene): avisos al 50, 75 y 100 % de un monto
+mensual, **sin pausar los proyectos**, porque una pausa es la misma página 402 que se quería
+evitar. En Pro, cada petición que evalúa la regla de límite se cobra (US$0,50 el millón):
+con las ráfagas medidas, centavos. *Observability → ISR* dice qué rutas escriben más en la
+caché.
+
+**Lo que ve un visitante con la cuenta pausada** es el texto plano de Vercel («Payment
+required», `DEPLOYMENT_DISABLED` y un id), y no se puede cambiar: lo sirve el borde de Vercel
+antes de llegar al proyecto. Las páginas de error propias de Vercel cubren los errores de la
+plataforma (500, 502, 504) y son de Enterprise.
+
+**Verifica**: `vercel api /v2/teams/cris-middleton-s-projects` sin `softBlock`, y
+`curl -sI https://tordo.cl` en 200.
+
 ---
 
 ## 14. Verificación final
@@ -798,6 +872,7 @@ punto tiene su momento. En orden.
 | La API en `CRASHED` y no vuelve | *Restart policy* distinta de **Always** (paso 6): agotó los reintentos. Redeploy (`railway redeploy -s api`) y corrígela |
 | Un cron corre varias veces seguidas tras fallar | *Restart policy* distinta de **Never** en ese servicio (pasos 7 y 8) |
 | Un cron falla con `CredencialRechazada` | ticket de Mercado Público inválido o vencido: pide otro y cámbialo en los dos cron |
+| tordo.cl responde `402` con `DEPLOYMENT_DISABLED` | la cuenta de Vercel está pausada por una cuota de uso (§13.4): `vercel api /v2/teams/<equipo>` dice cuál en `softBlock` |
 | `revalidación … HTTP 401` en el log de un cron | `REVALIDAR_SECRETO` distinto en Vercel y en ese cron |
 | `revalidación … HTTP 503` | Vercel no tiene `REVALIDAR_SECRETO` |
 | Las páginas públicas no cambian tras la semanal | revalidación sin configurar (`… omitida` en INFO): falta `REVALIDAR_URL` o `REVALIDAR_SECRETO` en el cron |

@@ -1194,10 +1194,10 @@ del pivote). `__tests__/costos.test.ts` falla si el fragmento deja de estar o no
 cifra: **si corriges un costo en docs/, corrige la tabla en el mismo PR**. Las filas de uso de
 Railway son **medidas** (*Usage*, 2026-10-15, `docs/DESPLIEGUE.md` §13.2, con su método y sus
 límites: 1,95 días, con los reinicios por OOM y la primera semanal dentro); lo que no tiene
-medición se rotula «Estimado» (hoy, el dominio). El total es una **proyección, ~US$10–11**
+medición se rotula «Estimado» (hoy, el dominio). El total es una **proyección, ~US$30–31**
 (`COSTO_MENSUAL_APROXIMADO`), no una factura y no los US$5 de antes: el plan Hobby de Railway
 cuesta US$5 e incluye US$5 de uso, así que se paga el mayor de los dos —el uso medido, ~US$9–10—
-más el dominio (~US$1). Se repite al cerrar el primer periodo de facturación (2026-11-13). `/acerca`
+más Vercel Pro (US$20, desde el 2026-10-20) y el dominio (~US$1). Se repite al cerrar el primer periodo de facturación (2026-11-13). `/acerca`
 y `/apoyar` lo leen de ahí (la prosa de `/apoyar` sale de las mismas constantes). «Cuánto cuesta» está en el pie
 (columna «Sobre el sitio»). En `/apoyar` los medios de aporte van antes que el costo (con la tabla
 delante, el botón quedaba a 3,5 pantallas en un teléfono), y el total sale dos veces: en la entrada
@@ -1780,8 +1780,19 @@ de Railway no admite servicios nuevos y deja de leerse el 2026-12-01, su IaC no 
 ni ruta del Dockerfile (se usa la variable `RAILWAY_DOCKERFILE_PATH`), y los dos cron llevan
 *Restart policy* **Never** en el panel (con el «On Failure» por defecto, un cron que falla se
 re-ejecutaría hasta 10 veces). El `vercel.json` sólo deja desplegar `main`
-(`git.deploymentEnabled`): un *Preview* no tiene variables y sería una página rota; la región
-sigue siendo la de por defecto, `iad1`. La guía es
+(`git.deploymentEnabled`, con `"**"`: `*` no cruza la `/` de `feat/…`, y con él se
+construyeron 100 *Preview* en una semana): un *Preview* no tiene variables y sería una página
+rota; la región sigue siendo la de por defecto, `iad1`.
+
+**Vercel Hobby pausa la cuenta entera al pasarse de una cuota** (2026-10-19, escrituras en la
+Data Cache: tordo.cl y pixelframe.cl en 402 durante 30 días; `docs/DESPLIEGUE.md` §13.4). Lo
+causaron rastreadores recorriendo miles de fichas bajo pedido, no los despliegues. Por eso
+`robots.txt` aparta esas fichas de los rastreadores de entrenamiento
+(`RASTREADORES_DE_ENTRENAMIENTO`, `FICHAS_BAJO_PEDIDO` en `lib/publico.ts`). **Una sección
+nueva con miles de páginas en ISR multiplica las escrituras**: se mide antes de abrirla.
+Desde el 2026-10-20 la cuenta está en **Pro** (el gasto avisa y no pausa) y el Firewall
+registra (`log`, sin bloquear) las ráfagas de más de 120 fichas por minuto por IP y los bots
+de IA. La guía es
 una lista ordenada con una comprobación por paso
 (Railway, R2, Healthchecks, Sentry, Vercel, DNS, correo y la prueba en vivo del
 `X-Forwarded-For`). Las variables de cada servicio están ahí; si cambias una aquí o en un

@@ -75,6 +75,34 @@ export const PAGINAS_FIJAS = [
  */
 export const NO_RASTREAR = ['/api/', '/rss/', '/guardados'] as const;
 
+/**
+ * Los rastreadores que bajan el sitio para entrenar un modelo. No traen
+ * visitas, y recorrer miles de fichas cuesta: cada una que no está en caché se
+ * genera y se escribe en la Data Cache de Vercel. El 2026-10-19 la cuenta Hobby
+ * quedó pausada 30 días por esas escrituras (docs/DESPLIEGUE.md §13.4).
+ *
+ * Los que buscan o responden a una persona (OAI-SearchBot, ChatGPT-User,
+ * Claude-SearchBot, Claude-User, PerplexityBot, Perplexity-User) siguen la
+ * regla general: traen a alguien al sitio o citan el dato.
+ */
+export const RASTREADORES_DE_ENTRENAMIENTO = [
+  'GPTBot',
+  'ClaudeBot',
+  'CCBot',
+  'Bytespider',
+  'meta-externalagent',
+  'Amazonbot',
+  'cohere-ai',
+  'cohere-training-data-crawler',
+] as const;
+
+/**
+ * Lo que esos rastreadores no recorren, además de `NO_RASTREAR`: las fichas que
+ * se generan bajo pedido y se guardan en caché. Son miles, y el resto del sitio
+ * cabe en unas decenas de páginas.
+ */
+export const FICHAS_BAJO_PEDIDO = ['/productos/', '/compradores/', '/rubros/'] as const;
+
 /** El origen público del sitio, sin barra final. Lo usan sitemap y robots. */
 export function origenDelSitio(): string {
   return (process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://tordo.cl').replace(/\/+$/, '');
