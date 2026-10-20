@@ -1780,8 +1780,16 @@ de Railway no admite servicios nuevos y deja de leerse el 2026-12-01, su IaC no 
 ni ruta del Dockerfile (se usa la variable `RAILWAY_DOCKERFILE_PATH`), y los dos cron llevan
 *Restart policy* **Never** en el panel (con el «On Failure» por defecto, un cron que falla se
 re-ejecutaría hasta 10 veces). El `vercel.json` sólo deja desplegar `main`
-(`git.deploymentEnabled`): un *Preview* no tiene variables y sería una página rota; la región
-sigue siendo la de por defecto, `iad1`. La guía es
+(`git.deploymentEnabled`, con `"**"`: `*` no cruza la `/` de `feat/…`, y con él se
+construyeron 100 *Preview* en una semana): un *Preview* no tiene variables y sería una página
+rota; la región sigue siendo la de por defecto, `iad1`.
+
+**Vercel Hobby pausa la cuenta entera al pasarse de una cuota** (2026-10-19, escrituras en la
+Data Cache: tordo.cl y pixelframe.cl en 402 durante 30 días; `docs/DESPLIEGUE.md` §13.4). Lo
+causaron rastreadores recorriendo miles de fichas bajo pedido, no los despliegues. Por eso
+`robots.txt` aparta esas fichas de los rastreadores de entrenamiento
+(`RASTREADORES_DE_ENTRENAMIENTO`, `FICHAS_BAJO_PEDIDO` en `lib/publico.ts`). **Una sección
+nueva con miles de páginas en ISR multiplica las escrituras**: se mide antes de abrirla. La guía es
 una lista ordenada con una comprobación por paso
 (Railway, R2, Healthchecks, Sentry, Vercel, DNS, correo y la prueba en vivo del
 `X-Forwarded-For`). Las variables de cada servicio están ahí; si cambias una aquí o en un

@@ -15,7 +15,7 @@ import sitemap from '@/app/sitemap';
 
 import { leerGuias } from '@/lib/guias';
 import { leerNotas } from '@/lib/notas';
-import { NO_RASTREAR, PAGINAS_FIJAS } from '@/lib/publico';
+import { NO_RASTREAR, PAGINAS_FIJAS, RASTREADORES_DE_ENTRENAMIENTO } from '@/lib/publico';
 
 import { SITEMAP } from './ayudas/publicoDePrueba';
 
@@ -101,11 +101,31 @@ describe('sitemap y robots', () => {
   it('robots deja fuera la API, los feeds y los guardados, y enlaza el sitemap', () => {
     const r = robots();
     expect(r.sitemap).toBe('https://tordo.prueba/sitemap.xml');
-    expect(r.rules).toEqual({
-      userAgent: '*',
-      allow: '/',
-      disallow: ['/api/', '/rss/', '/guardados'],
-    });
+    expect(r.rules).toEqual([
+      { userAgent: '*', allow: '/', disallow: ['/api/', '/rss/', '/guardados'] },
+      {
+        userAgent: [...RASTREADORES_DE_ENTRENAMIENTO],
+        allow: '/',
+        disallow: ['/api/', '/rss/', '/guardados', '/productos/', '/compradores/', '/rubros/'],
+      },
+    ]);
+  });
+
+  it('los buscadores y los asistentes que responden a una persona siguen la regla general', () => {
+    // Un grupo propio sustituye al de `*`: cualquiera de estos en la lista
+    // dejaría de llegar a las fichas, que es lo que se quiere encontrable.
+    const deBusqueda = [
+      'Googlebot',
+      'Bingbot',
+      'OAI-SearchBot',
+      'ChatGPT-User',
+      'Claude-SearchBot',
+      'Claude-User',
+      'PerplexityBot',
+      'Perplexity-User',
+    ];
+    const listados = RASTREADORES_DE_ENTRENAMIENTO.map((r) => r.toLowerCase());
+    for (const agente of deBusqueda) expect(listados).not.toContain(agente.toLowerCase());
   });
 
   it('/buscar no va al sitemap ni se bloquea en robots: su noindex tiene que poder leerse', async () => {
