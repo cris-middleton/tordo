@@ -61,8 +61,8 @@ def extract_lic_competition() -> pl.DataFrame:
             df.filter(pl.col("CodigoExterno").is_not_null() & (pl.col("CodigoExterno") != "null"))
             .with_columns(
                 [
-                    pl.col("NumeroOferentes").cast(pl.Float64, strict=False).alias("n_ofer"),
-                    pl.col("MontoEstimado").cast(pl.Float64, strict=False).alias("monto_est"),
+                    pl.col("NumeroOferentes").alias("n_ofer"),
+                    pl.col("MontoEstimado").alias("monto_est"),
                 ]
             )
             .filter(pl.col("n_ofer").is_not_null() & (pl.col("n_ofer") >= 0))

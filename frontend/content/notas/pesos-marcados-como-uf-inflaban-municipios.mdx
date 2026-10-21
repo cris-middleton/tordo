@@ -18,8 +18,7 @@ fuentes:
   - "CLAUDE.md: «entre 1 y 3 M UF hay cuatro contratos que parecen legítimos (pago de pensiones, la red de comunicaciones de salud, el sistema de identificación: $314 mil millones) y dos imposibles ($129 mil millones), que se quedan»"
   - "CLAUDE.md: «Salud 6,64 (6,56), Gob. Central 5,70 (5,65), Municipalidades 4,28 (4,15)»"
   - "CLAUDE.md: «Obras Públicas queda en 0,75 contra 3,09»"
-  - "CLAUDE.md: «`sector_dashboard` no cuenta las canceladas»"
-  - "CLAUDE.md: «Los demás módulos que suman montos todavía sí.»"
+  - "CLAUDE.md: «Hasta el 2026-10-21 sólo `sector_dashboard` las quitaba.»"
   - "docs/DESPLIEGUE.md: «`0 6 * * 0` (domingo 06:00 UTC»"
 ---
 
@@ -72,8 +71,8 @@ del MOP. Lo cuenta la nota [Las obras del MOP no están en las órdenes de compr
   quedan en unos pocos pesos, ~$1.000 millones en 36 meses.
 - Una orden en UF o UTM sobre $120.000 millones sigue contando como orden, pero sin
   monto, y queda en el registro del análisis con su código y su organismo.
-- El tablero por sector deja fuera las órdenes canceladas. Los demás cálculos que suman
-  montos todavía las cuentan.
+- El tablero por sector deja fuera las órdenes canceladas. Desde el 21 de octubre, ningún
+  cálculo que suma montos las cuenta.
 - Todo cálculo que lee las órdenes hereda el saneado: se hace al leer, en un solo sitio.
 - El arreglo llega al sitio con el análisis del domingo 18 de octubre.
 

@@ -165,16 +165,27 @@ def test_el_cargador_entrega_los_datos_ya_tapados(tmp_path, monkeypatch):
     _frame(PERSONA, EMPRESA).with_columns(
         pl.lit("2026-03-01").alias("FechaCreacion")
     ).write_parquet(oc / "2026-3.parquet")
+    lic = tmp_path / "lic"
+    lic.mkdir()
+    pl.DataFrame(
+        {
+            "CodigoProveedor": [PERSONA["CodigoProveedor"], EMPRESA["CodigoProveedor"]],
+            "RutProveedor": [PERSONA["RutSucursal"], EMPRESA["RutSucursal"]],
+            "NombreProveedor": [PERSONA["NombreProveedor"], EMPRESA["NombreProveedor"]],
+            "FechaCreacion": ["2026-03-01"] * 2,
+        }
+    ).write_parquet(lic / "2026-3.parquet")
     monkeypatch.setattr(data_loader, "OC_PARQUET_DIR", oc)
-    monkeypatch.setattr(data_loader, "LIC_PARQUET_DIR", tmp_path / "lic")
+    monkeypatch.setattr(data_loader, "LIC_PARQUET_DIR", lic)
 
     # Un módulo que sólo pide el nombre recibe sólo el nombre — ya tapado.
     ((_, df),) = list(data_loader.iter_oc_parquets(columns=["NombreProveedor"]))
     assert df.columns == ["NombreProveedor"]
     assert df["NombreProveedor"].to_list() == [NOMBRE_ENMASCARADO, "Crecer SpA"]
 
-    lazy = data_loader.scan_oc(columns=["CodigoProveedor", "FechaCreacion"]).collect()
-    assert PERSONA["CodigoProveedor"] not in lazy["CodigoProveedor"].to_list()
+    # Y las licitaciones, por el mismo camino.
+    ((_, lic),) = list(data_loader.iter_lic_parquets(columns=["CodigoProveedor"]))
+    assert PERSONA["CodigoProveedor"] not in lic["CodigoProveedor"].to_list()
 
 
 # ── Foco nº 3: toda salida, recorrida ────────────────────────────────────────
