@@ -997,7 +997,7 @@ escapado y la cita de la fuente en cada ítem. Llaman al backend **como el visit
 
 **La pantalla de analítica (`app/(panel)/mercado/`, servida en `/mercado`) está ordenada por la decisión, no por lo
 que el pipeline sabe calcular**: lo nacional (cuánto compra cada sector, `SectorOverview`, en
-barras, con la línea de que los contratos de obra del MOP no están en las órdenes) → un rubro: cómo
+barras con el color de cada sector —el mismo de la portada, `lib/sectores.ts`—, con la línea de que los contratos de obra del MOP no están en las órdenes) → un rubro: cómo
 está el mercado (resumen, panorama y crecimiento) → dónde mirar primero → un comprador en concreto →
 herramientas. **Sin rubro en la URL abre en el de más mercados** (`/bi/rubros` viene por frecuencia;
 el elegido por defecto no se escribe en la URL): antes abría con tres recuadros vacíos. La

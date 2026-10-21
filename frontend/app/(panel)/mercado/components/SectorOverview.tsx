@@ -3,6 +3,7 @@
 import { BarrasHorizontales } from '@/components/graficos/BarrasHorizontales';
 import { monto } from '@/lib/formato';
 import { rangoDeMeses } from '@/lib/periodo';
+import { sectorConColor } from '@/lib/sectores';
 import { useSectores } from '@/lib/queries';
 
 interface SectorRow {
@@ -29,8 +30,9 @@ const conMiles = (n: number) => n.toLocaleString('es-CL');
 
 /**
  * Cuánto compra cada sector del Estado: el contexto nacional antes de bajar a un
- * rubro. Barras con su monto escrito, la mayor en `dato`; debajo de cada una,
- * cuántos organismos compran y cuántos proveedores venden.
+ * rubro. Barras con su monto escrito, cada una con el color de su sector —el
+ * mismo de la portada (`lib/sectores.ts`)—; debajo de cada una, cuántos
+ * organismos compran y cuántos proveedores venden.
  *
  * Antes eran seis tarjetas iguales en un recuadro teal que se podía cerrar «por
  * hoy»: el dato no se comparaba a la vista, y cerrarlo escondía lo único nacional
@@ -62,6 +64,7 @@ export function SectorOverview() {
           filas={ordenados.map((s) => ({
             clave: s.sector,
             etiqueta: s.sector || 'Sin sector',
+            relleno: sectorConColor(s.sector).fondo,
             valor: s.monto_total ?? 0,
             texto: monto(s.monto_total ?? 0),
             detalle: (

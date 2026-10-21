@@ -9,6 +9,11 @@ export interface FilaBarra {
   texto: string;
   /** Una línea debajo, en `muted`: la base o una advertencia. */
   detalle?: ReactNode;
+  /**
+   * El relleno de la barra cuando las filas son categorías con color propio
+   * (`lib/sectores.ts`: `bg-serie-1`…). Sin él, `dato` o `dato-tenue` según `destacadas`.
+   */
+  relleno?: string;
 }
 
 /**
@@ -17,6 +22,9 @@ export interface FilaBarra {
  * proveedores, compradores—. Las `destacadas` primeras van en `dato` (lo que nombra
  * la conclusión que va encima) y el resto en `dato-tenue`; la barra es `aria-hidden`
  * y el valor se lee en el texto. Sin ejes ni leyenda: cada barra lleva su cifra.
+ *
+ * Con `relleno` por fila, cada barra lleva el color de su categoría —los sectores,
+ * con el mismo color que en la portada—; nunca un color por puesto.
  *
  * Reemplaza a las tarjetas de sectores y al gráfico de dispersión de competencia
  * de `/mercado`, que pintaba cada proveedor de un color sin significado.
@@ -44,7 +52,7 @@ export function BarrasHorizontales({
           </div>
           <div aria-hidden="true" className="mt-1.5 h-2">
             <div
-              className={`h-full rounded-sm ${i < destacadas ? 'bg-dato' : 'bg-dato-tenue'}`}
+              className={`h-full rounded-sm ${f.relleno ?? (i < destacadas ? 'bg-dato' : 'bg-dato-tenue')}`}
               style={{ width: `${tope > 0 ? Math.max(0.5, (f.valor / tope) * 100) : 0}%` }}
             />
           </div>
