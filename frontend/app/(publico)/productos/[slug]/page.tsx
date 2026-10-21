@@ -19,6 +19,7 @@ import {
 } from '@/lib/publico';
 import { normalizeText } from '@/lib/nombresChile';
 import { textoPeriodo } from '@/lib/periodo';
+import { esSlugPublico } from '@/lib/parametrosPublicos';
 import { pedirPublico, segmento } from '@/lib/publicoServidor';
 import { urlRepositorio } from '@/lib/repositorio';
 import type { ProductoPublico } from '@/types/publico';
@@ -57,6 +58,8 @@ export function generateStaticParams(): { slug: string }[] {
 type Props = { params: Promise<{ slug: string }> };
 
 async function obtener(slug: string): Promise<ProductoPublico> {
+  // Un slug con otra forma no existe: 404 sin llamar al backend (`lib/parametrosPublicos.ts`).
+  if (!esSlugPublico(slug)) notFound();
   const producto = await pedirPublico<ProductoPublico>(`/productos/${segmento(slug)}`);
   if (!producto) notFound();
   return producto;
