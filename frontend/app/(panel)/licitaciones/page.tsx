@@ -10,6 +10,8 @@ import { Search, Loader2, BookmarkPlus, BookmarkCheck, X } from 'lucide-react';
 
 import { useDashboardCollections } from '@/hooks/useDashboardCollections';
 import { consultaDe, useBusquedasGuardadas } from '@/hooks/useBusquedasGuardadas';
+import { useClaveDeUrlExterna } from '@/hooks/useClaveDeUrlExterna';
+import { ErrorDeCarga } from '@/components/ErrorDeCarga';
 import FilaLicitacion from '@/components/licitacion/FilaLicitacion';
 import { ESTADOS_LICITACION, REGIONES_CHILE, TIPOS_CONVOCATORIA } from '@/lib/constantesChile';
 import {
@@ -17,13 +19,19 @@ import {
   OPCIONES_ORDEN,
   SUBTITULO_CATALOGO,
   TIPOS_SIN_COMPRA_AGIL,
+  agregarTerminos,
   claveOrden,
   ordenDeClave,
   escribirFiltros,
   filtrosIniciales,
+  montoDeEntrada,
+  montoParaMostrar,
+  paginaMaxima,
   paramsDeApi,
 } from '@/lib/filtrosCatalogo';
+import { MAXIMO_CARACTERES_BUSCAR, MAXIMO_TERMINOS_BUSCAR } from '@/lib/buscar';
 import { shortRegion } from '@/lib/nombresChile';
+import { escribirUrlPropia } from '@/lib/urlPropia';
 import type { Tender } from '@/types/licitacion';
 
 type CampoFiltro = 'estado' | 'tipo_convocatoria' | 'region' | 'min_amount' | 'max_amount';
@@ -31,9 +39,12 @@ type CampoFiltro = 'estado' | 'tipo_convocatoria' | 'region' | 'min_amount' | 'm
 /**
  * El catálogo de licitaciones.
  *
- * **Los filtros viven en la URL** (`lib/filtrosCatalogo.ts`): se leen una vez
- * al montar, con `useSearchParams` en un inicializador perezoso, y se escriben
- * con `replaceState` — el mismo patrón que la pantalla de analítica. Antes
+ * **Los filtros viven en la URL** (`lib/filtrosCatalogo.ts`): se leen al
+ * montar, con `useSearchParams` en un inicializador perezoso, y se escriben
+ * con `replaceState` — el mismo patrón que la pantalla de analítica. Una URL
+ * que llega de fuera (la cabecera, una búsqueda guardada) vuelve a montar el
+ * contenido con su clave (`useClaveDeUrlExterna`): Next 16 no desmonta la
+ * página cuando sólo cambia la consulta. Antes
  * vivían sólo en `useState`: recargar los perdía y una búsqueda no se podía
  * compartir, guardar ni seguir por RSS. `abiertas=1` incluido: es el enlace de
  * las cifras de la portada.
@@ -42,6 +53,8 @@ function CatalogoContenido() {
   const urlInicial = useSearchParams();
   const [filtros, setFiltros] = useState<FiltrosCatalogo>(() => filtrosIniciales(urlInicial));
   const [searchInput, setSearchInput] = useState('');
+  // Se dice al cortar: un término que desaparece sin aviso parece un fallo.
+  const [terminosRecortados, setTerminosRecortados] = useState(false);
   const { hydrated, isTenderStored, toggleTender } = useDashboardCollections();
   const busquedas = useBusquedasGuardadas();
 
@@ -59,7 +72,7 @@ function CatalogoContenido() {
   // o recargar se las volvería a encender.
   const consultaUrl = escribirFiltros(filtros).toString() || (filtros.abiertas ? '' : 'abiertas=0');
   useEffect(() => {
-    window.history.replaceState({}, '', consultaUrl ? `?${consultaUrl}` : window.location.pathname);
+    escribirUrlPropia('licitaciones', consultaUrl);
   }, [consultaUrl]);
 
   // Lo que identifica la búsqueda guardada: sólo los filtros, sin orden ni página.
@@ -69,12 +82,16 @@ function CatalogoContenido() {
   // Los parámetros SON la clave: cambiar un filtro cambia la clave y se pide de
   // nuevo. `placeholderData` mantiene la tabla anterior mientras llega la nueva,
   // así que ya no parpadea en cada tecleo del buscador.
-  const { data: respuesta, isFetching: loading } = useLicitaciones(paramsDeApi(filtros));
+  const consulta = useLicitaciones(paramsDeApi(filtros));
+  const { data: respuesta, isFetching: loading } = consulta;
   const tenders: Tender[] = respuesta?.items ?? [];
   const total: number = respuesta?.total ?? 0;
   // Las páginas las calcula el backend. Antes había un `useState` que nadie
-  // actualizaba, y la paginación no aparecía nunca.
-  const pages: number = respuesta?.pages ?? 1;
+  // actualizaba, y la paginación no aparecía nunca. Más allá de
+  // `paginaMaxima` el backend responde 422: «Siguiente» se apaga ahí.
+  const pages: number = Math.min(respuesta?.pages ?? 1, paginaMaxima(filtros.limit));
+  // Un error de la API no es «0 resultados»: se dice y se ofrece reintentar.
+  const fallo = Boolean(consulta.isError);
 
   /** Cambia filtros y vuelve a la primera página, salvo que se cambie la página. */
   const cambiar = useCallback((cambios: Partial<FiltrosCatalogo>) => {
@@ -83,24 +100,23 @@ function CatalogoContenido() {
 
   const handleFilterChange = (key: CampoFiltro, value: string) => cambiar({ [key]: value });
 
-  const addKeyword = useCallback((value: string) => {
-    const normalized = value.trim();
-    if (!normalized) return;
-    setFiltros((prev) => {
-      if (prev.terminos.some((k) => k.toLowerCase() === normalized.toLowerCase())) return prev;
-      return {
-        ...prev,
-        // Un término con espacios son varios para el backend; en la URL
-        // también, así que se parten aquí para que el chip y la URL coincidan.
-        terminos: [...prev.terminos, ...normalized.split(/\s+/)],
-        // Con el primer término, relevancia si el usuario seguía en el orden
-        // por defecto. Puede cambiarlo luego en el desplegable.
-        sort_by: prev.sort_by === 'fecha_publicacion' ? 'relevance' : prev.sort_by,
-        page: 1,
-      };
-    });
+  const addKeyword = (value: string) => {
+    if (!value.trim()) return;
+    // Sin repetidos y dentro de las cotas de la API (`agregarTerminos`): con
+    // más de ocho palabras o cien letras el backend responde 422.
+    const { terminos, recortados } = agregarTerminos(filtros.terminos, value);
+    setTerminosRecortados(recortados);
     setSearchInput('');
-  }, []);
+    if (terminos.length === filtros.terminos.length) return;
+    setFiltros((prev) => ({
+      ...prev,
+      terminos,
+      // Con el primer término, relevancia si el usuario seguía en el orden
+      // por defecto. Puede cambiarlo luego en el desplegable.
+      sort_by: prev.sort_by === 'fecha_publicacion' ? 'relevance' : prev.sort_by,
+      page: 1,
+    }));
+  };
 
   const handleKeywordKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
@@ -115,6 +131,7 @@ function CatalogoContenido() {
   };
 
   const removeKeyword = useCallback((value: string) => {
+    setTerminosRecortados(false);
     setFiltros((prev) => {
       const terminos = prev.terminos.filter((k) => k.toLowerCase() !== value.toLowerCase());
       return {
@@ -156,10 +173,17 @@ function CatalogoContenido() {
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={handleKeywordKeyDown}
             enterKeyHint="search"
+            maxLength={MAXIMO_CARACTERES_BUSCAR}
             className="input-field h-12 pl-11"
             autoComplete="off"
           />
         </div>
+        {terminosRecortados && (
+          <p className="text-sm text-muted" role="status">
+            La búsqueda admite hasta {MAXIMO_TERMINOS_BUSCAR} palabras y {MAXIMO_CARACTERES_BUSCAR} letras.
+            Dejamos las primeras.
+          </p>
+        )}
         {keywords.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
             {keywords.map((keyword) => (
@@ -180,12 +204,13 @@ function CatalogoContenido() {
             ))}
             <button
               type="button"
-              onClick={() =>
+              onClick={() => {
+                setTerminosRecortados(false);
                 cambiar({
                   terminos: [],
                   sort_by: sortBy === 'relevance' ? 'fecha_publicacion' : sortBy,
-                })
-              }
+                });
+              }}
               className="px-2 py-1 text-sm text-muted hover:text-danger"
             >
               Limpiar
@@ -273,31 +298,40 @@ function CatalogoContenido() {
               ...REGIONES_CHILE.map((r) => ({ value: r, label: shortRegion(r) })),
             ]}
           />
+          {/* Texto y no `type="number"`: «5.000.000» dejaba el campo vacío y
+              «5.000» eran cinco pesos. Se escribe como se lee en Chile y la URL
+              guarda sólo las cifras (`montoDeEntrada`). */}
           <input
-            type="number"
+            type="text"
             inputMode="numeric"
             aria-label="Monto mínimo, en pesos"
             placeholder="Monto mínimo"
-            value={filtros.min_amount}
-            onChange={(e) => handleFilterChange('min_amount', e.target.value)}
+            value={montoParaMostrar(filtros.min_amount)}
+            onChange={(e) => handleFilterChange('min_amount', montoDeEntrada(e.target.value))}
             className="input-field"
+            autoComplete="off"
           />
           <input
-            type="number"
+            type="text"
             inputMode="numeric"
             aria-label="Monto máximo, en pesos"
             placeholder="Monto máximo"
-            value={filtros.max_amount}
-            onChange={(e) => handleFilterChange('max_amount', e.target.value)}
+            value={montoParaMostrar(filtros.max_amount)}
+            onChange={(e) => handleFilterChange('max_amount', montoDeEntrada(e.target.value))}
             className="input-field"
+            autoComplete="off"
           />
         </div>
       </div>
 
       <div className="mt-6 flex items-center justify-between gap-4 border-b border-border pb-3">
         <p className="text-muted" aria-live="polite">
-          <span className="cifra font-semibold text-text">{total.toLocaleString('es-CL')}</span>{' '}
-          {filtros.abiertas ? (total === 1 ? 'abierta' : 'abiertas') : total === 1 ? 'resultado' : 'resultados'}
+          {!fallo && (
+            <>
+              <span className="cifra font-semibold text-text">{total.toLocaleString('es-CL')}</span>{' '}
+              {filtros.abiertas ? (total === 1 ? 'abierta' : 'abiertas') : total === 1 ? 'resultado' : 'resultados'}
+            </>
+          )}
         </p>
         <select
             aria-label="Ordenar por"
@@ -313,7 +347,16 @@ function CatalogoContenido() {
           </select>
       </div>
 
-      {loading && tenders.length === 0 ? (
+      {fallo ? (
+        <div className="mt-6">
+          <ErrorDeCarga
+            titulo="No pudimos cargar las licitaciones"
+            error={consulta.error}
+            onReintentar={() => void consulta.refetch()}
+            reintentando={loading}
+          />
+        </div>
+      ) : loading && tenders.length === 0 ? (
         <ul aria-hidden="true" className="divide-y divide-border">
           {[...Array(6)].map((_, i) => (
             <li key={i} className="flex animate-pulse gap-3 py-4">
@@ -326,6 +369,15 @@ function CatalogoContenido() {
             </li>
           ))}
         </ul>
+      ) : tenders.length === 0 && total > 0 && page > 1 ? (
+        // Una página que ya no existe (un enlace viejo, o el catálogo encogió):
+        // sin esto decía «N resultados» sobre una lista vacía y sin paginación.
+        <div className="py-12">
+          <p className="font-semibold text-text">Esta página ya no tiene licitaciones</p>
+          <button type="button" onClick={() => setPage(() => 1)} className="btn-secondary mt-3 h-11">
+            Ir a la página 1
+          </button>
+        </div>
       ) : tenders.length === 0 ? (
         <div className="py-12">
           <p className="font-semibold text-text">No hay licitaciones con estos filtros</p>
@@ -376,6 +428,12 @@ function CatalogoContenido() {
   );
 }
 
+/** Vuelve a montar el catálogo cuando la URL llega de fuera: ver `lib/urlPropia.ts`. */
+function CatalogoDeLaUrl() {
+  const clave = useClaveDeUrlExterna('licitaciones');
+  return <CatalogoContenido key={clave} />;
+}
+
 /**
  * `useSearchParams` obliga a una frontera de Suspense: sin ella el build
  * estático falla en esta ruta.
@@ -395,7 +453,7 @@ export default function TendersPage() {
         </div>
       }
     >
-      <CatalogoContenido />
+      <CatalogoDeLaUrl />
     </Suspense>
   );
 }

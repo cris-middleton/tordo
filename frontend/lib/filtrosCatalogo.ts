@@ -13,8 +13,88 @@
  * Funciones puras: no tocan `window` ni React.
  */
 
+// `buscar.ts` importa este módulo y éste importa sus cotas: el ciclo es sólo de
+// constantes y funciones, y ningún módulo llama al otro al cargarse. Las cotas
+// viven allá porque `backend/tests/test_buscar_limites_del_frontend.py` las lee
+// de ese fichero.
+import { ESPACIOS, MAXIMO_CARACTERES_BUSCAR, MAXIMO_TERMINOS_BUSCAR } from './buscar';
 import { TIPOS_CONVOCATORIA } from './constantesChile';
+import { decimal } from './formato';
 import { shortRegion } from './nombresChile';
+
+/**
+ * Copia de `limites.OFFSET_MAX` (`backend/app/api/limites.py`): `GET /tenders/`
+ * responde 422 con un `offset` mayor, y el catálogo lo pintaba como «0 resultados».
+ */
+export const OFFSET_MAXIMO = 100_000;
+
+/** Copia de `limites.NOMBRE`: el largo máximo de `estado` y `region` en la API. */
+const LARGO_MAXIMO_NOMBRE = 200;
+
+/** Un monto de más de 15 cifras ya no es un número exacto en JavaScript, ni un monto. */
+const CIFRAS_MAXIMAS_MONTO = 15;
+
+/** La última página que se puede pedir con este tamaño de página sin pasar `OFFSET_MAXIMO`. */
+export function paginaMaxima(limite: number): number {
+  return Math.floor(OFFSET_MAXIMO / limite) + 1;
+}
+
+/**
+ * Los términos del buscador como los acepta la API: sin repetidos (sin mirar
+ * mayúsculas), como mucho `MAXIMO_TERMINOS_BUSCAR` y `MAXIMO_CARACTERES_BUSCAR`
+ * caracteres en total, contados como los cuenta Python (puntos de código). Con
+ * más, `GET /tenders/` responde 422 y la pantalla decía «0 resultados».
+ */
+export function limitarTerminos(terminos: readonly string[]): { terminos: string[]; recortados: boolean } {
+  const vistos = new Set<string>();
+  const salida: string[] = [];
+  let largo = 0;
+  let recortados = false;
+  for (const termino of terminos) {
+    const clave = termino.toLowerCase();
+    if (vistos.has(clave)) continue;
+    const caracteres = Array.from(termino).length;
+    const conEspacio = salida.length ? caracteres + 1 : caracteres;
+    if (salida.length === MAXIMO_TERMINOS_BUSCAR || largo + conEspacio > MAXIMO_CARACTERES_BUSCAR) {
+      recortados = true;
+      break;
+    }
+    vistos.add(clave);
+    salida.push(termino);
+    largo += conEspacio;
+  }
+  return { terminos: salida, recortados };
+}
+
+/**
+ * Añade lo que se escribió en el buscador a los términos que ya hay. Un texto
+ * con espacios son varios términos —para el backend y en la URL—, así que se
+ * parte aquí para que los chips y la URL coincidan.
+ */
+export function agregarTerminos(
+  actuales: readonly string[],
+  texto: string,
+): { terminos: string[]; recortados: boolean } {
+  return limitarTerminos([...actuales, ...texto.split(ESPACIOS).filter(Boolean)]);
+}
+
+/**
+ * Lo que se escribe en un campo de monto, como cifra para la URL: «5.000.000»,
+ * «$ 5.000.000» y «5000000» son lo mismo. Con `type="number"`, «5.000.000» dejaba
+ * el campo vacío y «5.000» se leía como cinco pesos. Lo que va tras una coma
+ * son centavos y se descarta; sin ninguna cifra, vacío.
+ */
+export function montoDeEntrada(texto: string): string {
+  const cifras = texto.split(',')[0].replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+  return cifras.slice(0, CIFRAS_MAXIMAS_MONTO);
+}
+
+/** Un monto de la URL como se lee en el campo: «5.000.000». */
+export function montoParaMostrar(valor: string): string {
+  if (!valor) return '';
+  const n = Number(valor);
+  return Number.isFinite(n) ? decimal(Math.trunc(n), 0) : '';
+}
 
 /**
  * Lo que dice el catálogo bajo su título, y su descripción para buscadores.
@@ -113,20 +193,26 @@ const VERDADERO = ['1', 'true'];
  * Pone los mecanismos de un `tipo_convocatoria` con varios valores en el orden
  * de `TIPOS_CONVOCATORIA`. El desplegable compara el texto entero, y una URL
  * armada a mano con los mismos tres tipos en otro orden filtraba bien pero
- * pintaba «Todos los mecanismos». Un valor desconocido va al final, tal cual.
+ * pintaba «Todos los mecanismos». **Un valor desconocido se descarta**: el
+ * backend responde 422 a un mecanismo que no conoce, y el catálogo entero se
+ * quedaba en error por una URL mal escrita.
  */
 function ordenarMecanismos(valor: string): string {
-  if (!valor.includes(',')) return valor;
-  const posicion = (t: string) => {
-    const i = TIPOS_CONVOCATORIA.findIndex((x) => x.value === t);
-    return i === -1 ? TIPOS_CONVOCATORIA.length : i;
-  };
-  return valor
-    .split(',')
-    .map((t) => t.trim())
-    .filter(Boolean)
+  const posicion = (t: string) => TIPOS_CONVOCATORIA.findIndex((x) => x.value === t);
+  return [...new Set(valor.split(',').map((t) => t.trim()))]
+    .filter((t) => posicion(t) !== -1)
     .sort((a, b) => posicion(a) - posicion(b))
     .join(',');
+}
+
+/** Un texto de la URL que la API acepta; más largo, 422: se ignora. */
+function nombre(valor: string | null): string {
+  return valor && valor.length <= LARGO_MAXIMO_NOMBRE ? valor : '';
+}
+
+/** Un monto de la URL: cifras sin signo (una cifra negativa es un 422) y de largo razonable. */
+function montoDeUrl(valor: string | null): string {
+  return valor && NUMERO.test(valor) && valor.length <= CIFRAS_MAXIMAS_MONTO + 3 ? valor : '';
 }
 
 function entero(valor: string | null, min: number, porDefecto: number): number {
@@ -136,17 +222,20 @@ function entero(valor: string | null, min: number, porDefecto: number): number {
 
 /** Lee los filtros de una URL. Un valor inválido vale lo de por defecto, nunca rompe. */
 export function leerFiltros(params: URLSearchParams | { get(nombre: string): string | null }): FiltrosCatalogo {
-  const terminos = (params.get('search') ?? '').split(/\s+/).filter(Boolean);
+  // Sin repetidos y dentro de las cotas de la API: `search=mesa+mesa` era un
+  // chip repetido, y uno de 200 letras, un 422.
+  const { terminos } = agregarTerminos([], params.get('search') ?? '');
   const sortBy = params.get('sort_by');
-  const limite = Number(params.get('limit'));
-  const minimo = params.get('min_amount') ?? '';
-  const maximo = params.get('max_amount') ?? '';
+  const limiteCrudo = Number(params.get('limit'));
+  const limite = (TAMANOS_PAGINA as readonly number[]).includes(limiteCrudo)
+    ? limiteCrudo
+    : FILTROS_POR_DEFECTO.limit;
   return {
-    estado: params.get('estado') ?? '',
+    estado: nombre(params.get('estado')),
     tipo_convocatoria: ordenarMecanismos(params.get('tipo_convocatoria') ?? ''),
-    region: params.get('region') ?? '',
-    min_amount: NUMERO.test(minimo) ? minimo : '',
-    max_amount: NUMERO.test(maximo) ? maximo : '',
+    region: nombre(params.get('region')),
+    min_amount: montoDeUrl(params.get('min_amount')),
+    max_amount: montoDeUrl(params.get('max_amount')),
     abiertas: VERDADERO.includes(params.get('abiertas') ?? ''),
     terminos,
     // Con términos y sin orden explícito se ordena por relevancia, como al
@@ -157,21 +246,30 @@ export function leerFiltros(params: URLSearchParams | { get(nombre: string): str
         ? 'relevance'
         : FILTROS_POR_DEFECTO.sort_by,
     sort_order: params.get('sort_order') === 'asc' ? 'asc' : 'desc',
-    limit: (TAMANOS_PAGINA as readonly number[]).includes(limite) ? limite : FILTROS_POR_DEFECTO.limit,
-    page: entero(params.get('page'), 1, 1),
+    limit: limite,
+    // Más allá de `OFFSET_MAXIMO` el backend responde 422: se queda en la última que puede pedir.
+    page: Math.min(entero(params.get('page'), 1, 1), paginaMaxima(limite)),
   };
 }
+
+/**
+ * Los parámetros del catálogo: los que filtran, más orden y página. Sólo
+ * estos deciden si una URL «trae algo»: un `fbclid` o un `utm_source` que añade
+ * quien comparte el enlace no es una búsqueda.
+ */
+export const PARAMS_CATALOGO = [...PARAMS_FILTRO, 'sort_by', 'sort_order', 'limit', 'page'] as const;
 
 /**
  * Los filtros con que abre el catálogo. **Entrar sin nada en la URL** (desde la
  * cabecera o un enlace a secas) **abre en «Sólo abiertas»**: es lo que busca
  * quien llega a postular, y la lista entera mezclaba 29.000 filas de abiertas y
- * cerradas. Una URL con cualquier parámetro se lee tal cual, así que un enlace
- * compartido, una búsqueda guardada o un RSS significan lo mismo que el día en
- * que se crearon: ahí `abiertas` sólo vale si está escrito.
+ * cerradas. Una URL con algún parámetro del catálogo (`PARAMS_CATALOGO`) se lee
+ * tal cual, así que un enlace compartido, una búsqueda guardada o un RSS
+ * significan lo mismo que el día en que se crearon: ahí `abiertas` sólo vale si
+ * está escrito. Los parámetros ajenos (`fbclid`, `utm_*`) no cuentan.
  */
-export function filtrosIniciales(params: URLSearchParams | { get(nombre: string): string | null; toString(): string }): FiltrosCatalogo {
-  if (!params.toString()) return { ...FILTROS_POR_DEFECTO, abiertas: true };
+export function filtrosIniciales(params: URLSearchParams | { get(nombre: string): string | null }): FiltrosCatalogo {
+  if (!PARAMS_CATALOGO.some((nombre) => params.get(nombre))) return { ...FILTROS_POR_DEFECTO, abiertas: true };
   return leerFiltros(params);
 }
 
@@ -196,7 +294,7 @@ export function escribirFiltros(f: FiltrosCatalogo): URLSearchParams {
 /** Los parámetros de `GET /tenders/` para unos filtros. */
 export function paramsDeApi(f: FiltrosCatalogo): Record<string, unknown> {
   const params: Record<string, unknown> = {
-    offset: (f.page - 1) * f.limit,
+    offset: Math.min((f.page - 1) * f.limit, OFFSET_MAXIMO),
     limit: f.limit,
     // Sin términos no hay relevancia que calcular.
     sort_by: f.sort_by === 'relevance' && !f.terminos.length ? 'fecha_publicacion' : f.sort_by,
