@@ -213,7 +213,7 @@ function CatalogoContenido() {
               }}
               className="px-2 py-1 text-sm text-muted hover:text-danger"
             >
-              Quitar todas
+              Borrar filtros
             </button>
           </div>
         )}

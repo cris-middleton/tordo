@@ -82,7 +82,7 @@ describe('catálogo', () => {
 
   it('un término repetido no hace un chip repetido, y más de ocho palabras se avisan', async () => {
     await montar();
-    const buscador = screen.getByPlaceholderText(/Nombre, organismo o descripción/i);
+    const buscador = screen.getByPlaceholderText(/Producto o comprador/i);
     fireEvent.change(buscador, { target: { value: 'mesa Mesa' } });
     fireEvent.keyDown(buscador, { key: 'Enter' });
     expect(screen.getAllByRole('button', { name: /^Quitar/ })).toHaveLength(1);
@@ -96,6 +96,6 @@ describe('catálogo', () => {
 
   it('el buscador corta en 100 caracteres, como la API', async () => {
     await montar();
-    expect(screen.getByPlaceholderText(/Nombre, organismo o descripción/i)).toHaveAttribute('maxlength', '100');
+    expect(screen.getByPlaceholderText(/Producto o comprador/i)).toHaveAttribute('maxlength', '100');
   });
 });

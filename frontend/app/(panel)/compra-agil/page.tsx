@@ -126,7 +126,7 @@ function CompraAgilContenido() {
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
             placeholder="Qué vendes: resmas, mantención…"
-            aria-label="Buscar en esta lista"
+            aria-label="Buscar en las Compras Ágiles de esta lista"
             enterKeyHint="search"
             maxLength={MAXIMO_CARACTERES_BUSCAR}
             className="input-field h-12 pl-11"
