@@ -30,6 +30,18 @@ class CredencialRechazada(RuntimeError):
     """
 
 
+class ConsultaFallida(RuntimeError):
+    """La API no respondió a NINGUNA de las consultas de un listado.
+
+    No es «no hay datos»: es la API caída, o la red. Antes el listado devolvía
+    `[]` —un día sin licitaciones, una hora sin Compras Ágiles— y la corrida
+    terminaba bien con 0 registros. Un fallo aislado (un día de varios, una
+    hora de veintiséis) se registra y se tolera: lo recoge la pasada siguiente.
+    A diferencia de `CredencialRechazada`, ésta sí la recogen los `except
+    Exception` del ETL: el paso devuelve `False` y la corrida termina en `/fail`.
+    """
+
+
 class BaseExtractor(ABC):
     """Base class for all data extractors"""
 

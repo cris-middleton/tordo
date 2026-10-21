@@ -24,6 +24,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from etl.extractors.base import ConsultaFallida  # noqa: E402
 from etl.extractors.compra_agil import (  # noqa: E402
     CompraAgilExtractor,
     CuotaDiariaAgotada,
@@ -155,8 +156,8 @@ def test_un_429_no_se_reintenta(monkeypatch):
 def test_una_respuesta_no_ok_no_se_toma_por_buena(monkeypatch):
     """La v2 puede responder HTTP 200 con `success: "NOK"`.
 
-    Tratarla como vacía es correcto; tratarla como datos metería `None` en la
-    base.
+    Tratarla como datos metería `None` en la base; tratarla como vacía daba la
+    corrida por buena con la API rota. Si así responde a todo, es un fallo.
     """
     monkeypatch.setattr(
         "etl.extractors.compra_agil.requests.get",
@@ -164,7 +165,8 @@ def test_una_respuesta_no_ok_no_se_toma_por_buena(monkeypatch):
             {"success": "NOK", "payload": None, "errors": [{"codigo": "500"}]}
         ),
     )
-    assert CompraAgilExtractor({"COMPRA_AGIL_TICKET": "T"}).extract() == []
+    with pytest.raises(ConsultaFallida):
+        CompraAgilExtractor({"COMPRA_AGIL_TICKET": "T"}).extract()
 
 
 # ── El transformador ─────────────────────────────────────────────────────────

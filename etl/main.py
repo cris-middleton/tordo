@@ -83,10 +83,15 @@ def run_etl_licitaciones_v2(fecha_desde: str | None = None, fecha_hasta: str | N
         logger.info(f"Transformed {len(transformed_data)} valid records")
 
         if not transformed_data:
-            logger.warning("No valid transformed records")
-            return True
+            # Hubo registros y no se pudo transformar NINGUNO: es un fallo del
+            # transformador, no un día vacío.
+            logger.error(
+                f"Licitaciones: ninguno de los {len(raw_data)} registros se pudo transformar"
+            )
+            return False
 
-        # Load
+        # Load. Si no entra ninguna tanda, `load_licitaciones` lanza
+        # `CargaFallida` y el `except` de abajo devuelve False.
         logger.info("Step 3: Loading Licitaciones data into database...")
         loader.connect()
         try:
@@ -175,7 +180,10 @@ def run_etl_compra_agil(cambio_desde=None, cambio_hasta=None, cuota_agotada_es_f
 
         logger.info("Compra Ágil: %d filas válidas", len(filas))
         if not filas:
-            return True
+            logger.error(
+                "Compra Ágil: ninguno de los %d registros se pudo transformar", len(crudos)
+            )
+            return False
 
         loader.connect()
         try:

@@ -8,7 +8,7 @@ from typing import Any, Dict, List
 
 import requests
 
-from etl.extractors.base import BaseExtractor, CredencialRechazada, sin_ticket
+from etl.extractors.base import BaseExtractor, ConsultaFallida, CredencialRechazada, sin_ticket
 from etl.utils import now_santiago
 
 #: Lo que la API clásica responde a un ticket inválido, verificado en vivo
@@ -128,6 +128,7 @@ class MercadoPublicoLicitacionesExtractor(BaseExtractor):
         self.logger.info(f"Extracting licitaciones from {fecha_desde} to {fecha_hasta}")
 
         all_records = []
+        dias = fallidos = 0
 
         # Process each date in the range
         current_date = datetime.strptime(fecha_desde, "%Y-%m-%d")
@@ -140,7 +141,15 @@ class MercadoPublicoLicitacionesExtractor(BaseExtractor):
             params = {"fecha": fecha_formatted}
 
             data = self._make_request(params)
+            dias += 1
 
+            if data is None:
+                # `None` es que la petición falló tras los reintentos; un cuerpo
+                # vacío es un día sin licitaciones. Antes eran lo mismo.
+                fallidos += 1
+                self.logger.error(f"Sin respuesta de la API clásica para el día {fecha_formatted}")
+                current_date += timedelta(days=1)
+                continue
             if not data:
                 current_date += timedelta(days=1)
                 continue
@@ -169,6 +178,11 @@ class MercadoPublicoLicitacionesExtractor(BaseExtractor):
             current_date += timedelta(days=1)
             time.sleep(1)  # Rate limiting
 
+        if dias and fallidos == dias:
+            raise ConsultaFallida(
+                f"API clásica de Mercado Público: falló la consulta de los {dias} día(s) "
+                f"entre {fecha_desde} y {fecha_hasta} (¿API caída?)"
+            )
         self.log_extraction(len(all_records), "Mercado Público Licitaciones")
         return all_records
 

@@ -41,6 +41,7 @@ import traceback
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -51,6 +52,7 @@ from etl.analytics import materialize, run_all
 from etl.analytics.config import DATA_DIR
 from etl.analytics.data_loader import VENTANA_ANALYTICS_MESES
 from etl.extractors.compra_agil import CuotaDiariaAgotada
+from etl.loaders.analytics_catalog import CATALOGO
 from etl.scripts import descargar_datos_masivos as descarga
 
 logger = logging.getLogger("etl.cron")
@@ -68,11 +70,6 @@ HORAS_FIN_DE_SEMANA = (12,)
 #: Lo que la ventana de Compra Ágil retrocede más allá de la corrida anterior:
 #: cubre que ésta haya llegado tarde o que la API publique con retraso.
 SOLAPE = timedelta(hours=1)
-
-#: La primera corrida del día mira 26 h atrás, como la diaria de Celery: si una
-#: corrida intermedia falló entera, su tramo se recoge aquí. La inserción es
-#: idempotente, así que repetir cuesta sólo peticiones (~26, de 10.000 al día).
-VENTANA_PRIMERA_DEL_DIA = timedelta(hours=26)
 
 #: Cuánto del error viaja en el /fail. Healthchecks guarda 10 kB por ping;
 #: la cola es lo que dice qué pasó.
@@ -128,6 +125,18 @@ def es_primera_del_dia(instante: datetime) -> bool:
     return local.hour == horas_programadas(local.date())[0]
 
 
+def primera_de_ayer(instante: datetime) -> datetime:
+    """La primera corrida programada del día anterior al de `instante`, en Chile."""
+    ayer = _en_chile(instante).date() - timedelta(days=1)
+    hora = instante
+    while True:
+        hora = corrida_anterior(hora)
+        if hora.date() < ayer:  # pragma: no cover — siempre hay una ayer
+            raise AssertionError(f"ninguna corrida programada el {ayer}")
+        if hora.date() == ayer and es_primera_del_dia(hora):
+            return hora
+
+
 def corrida_anterior(instante: datetime) -> datetime:
     """La última hora programada ESTRICTAMENTE anterior a la hora de `instante`.
 
@@ -145,15 +154,24 @@ def corrida_anterior(instante: datetime) -> datetime:
 def ventana_compra_agil(instante: datetime) -> tuple[datetime, datetime]:
     """[desde, hasta) del listado de Compra Ágil, en hora de Chile y sin zona.
 
+    Desde la corrida programada anterior menos `SOLAPE`; en la primera del día,
+    desde la anterior a la primera de ayer.
+
     Sin zona porque la API las espera así: sus marcas son de Chile aunque digan
     `Z` (§6.1). La aritmética se hace en tiempo real, no de reloj, para que el
     día del cambio de hora la ventana no pierda ni gane una hora.
     """
-    if es_primera_del_dia(instante):
-        desde = instante.astimezone(UTC).replace(minute=0, second=0, microsecond=0)
-        desde -= VENTANA_PRIMERA_DEL_DIA
-    else:
-        desde = corrida_anterior(instante).astimezone(UTC) - SOLAPE
+    # La primera del día parte de la corrida anterior a la primera de AYER:
+    # ~42 h en sábado o domingo, ~47 h en lunes o martes. Así recoge tanto una
+    # corrida intermedia que falló entera como la primera de ayer, cuya ventana
+    # nadie más cubría. Antes eran 26 h fijas, que llegan justo hasta la primera
+    # de ayer: si ésa fallaba, lo que cambió entre la última de anteayer y ella
+    # se perdía. No se guarda cuál fue la última corrida BUENA (no hay dónde sin
+    # añadir estado), así que dos primeras del día seguidas fallidas sí dejan
+    # hueco. La inserción es idempotente: lo repetido cuesta peticiones, y lo que
+    # se añade son sobre todo horas de noche, con pocos cambios.
+    referencia = primera_de_ayer(instante) if es_primera_del_dia(instante) else instante
+    desde = corrida_anterior(referencia).astimezone(UTC) - SOLAPE
     return (
         _en_chile(desde).replace(tzinfo=None),
         _en_chile(instante).replace(tzinfo=None),
@@ -177,7 +195,7 @@ class PasosFrecuente:
     compra_agil: Callable[[datetime, datetime], bool]
     licitaciones: Callable[[str], bool]
     detalles_nuevos: Callable[[], bool]
-    barrido: Callable[[str], bool]
+    barrido: Callable[[str, str], bool]
     resultados: Callable[[], bool]
     revalidar: Callable[[list[str]], object] = lambda _etiquetas: None
 
@@ -187,10 +205,10 @@ class PasosFrecuente:
             compra_agil=_compra_agil,
             licitaciones=lambda dia: etl.run_etl_licitaciones_v2(dia, dia),
             detalles_nuevos=etl.run_etl_extraer_detalles_nuevos_licitaciones,
-            # Lo que hacía la diaria de las 02:00: licitaciones y órdenes del día
-            # anterior con sus detalles. Compra Ágil no: su ventana ya la cubre.
-            barrido=lambda dia: etl.run_etl_pipeline_v2(
-                fecha_desde=dia, fecha_hasta=dia, extract_compra_agil=False
+            # Lo que hacía la diaria de las 02:00: licitaciones de los días
+            # anteriores con sus detalles. Compra Ágil no: su ventana ya la cubre.
+            barrido=lambda desde, hasta: etl.run_etl_pipeline_v2(
+                fecha_desde=desde, fecha_hasta=hasta, extract_compra_agil=False
             ),
             resultados=lambda: etl.run_etl_resultados_licitaciones(
                 dias=DIAS_RESULTADOS,
@@ -219,7 +237,12 @@ def _compra_agil(desde: datetime, hasta: datetime) -> bool:
 
 def correr_frecuente(instante: datetime, pasos: PasosFrecuente) -> bool:
     """Compra Ágil, licitaciones de hoy, detalles nuevos y, a primera hora, el
-    barrido de ayer y la re-consulta de resultados.
+    barrido de anteayer y ayer y la re-consulta de resultados.
+
+    El barrido cubre DOS días por lo mismo que la ventana de Compra Ágil mira
+    más allá de la primera de ayer: si ésa falló, su barrido de anteayer no se
+    hizo. Cuesta una petición de listado más (el detalle sólo se pide de lo
+    nuevo).
 
     **El listado de Compra Ágil va primero** (§5.3): nada de lo que venga
     después puede dejarlo sin cuota. La re-consulta de resultados, la más
@@ -237,9 +260,10 @@ def correr_frecuente(instante: datetime, pasos: PasosFrecuente) -> bool:
         pasos.detalles_nuevos(),
     ]
     if es_primera_del_dia(instante):
+        anteayer = (hoy - timedelta(days=2)).isoformat()
         ayer = (hoy - timedelta(days=1)).isoformat()
-        logger.info("frecuente: primera del día, barrido de %s", ayer)
-        resultados.append(pasos.barrido(ayer))
+        logger.info("frecuente: primera del día, barrido de %s a %s", anteayer, ayer)
+        resultados.append(pasos.barrido(anteayer, ayer))
         logger.info("frecuente: re-consulta de resultados de licitaciones cerradas")
         resultados.append(pasos.resultados())
     # Al final y pase lo que pase con los pasos: lo que sí entró merece verse.
@@ -248,13 +272,25 @@ def correr_frecuente(instante: datetime, pasos: PasosFrecuente) -> bool:
     return all(resultados)
 
 
+#: Por tipo (`oc`, `lic`), los meses que tenían consolidado antes de purgarlos.
+ConDatos = Mapping[str, set[tuple[int, int]]]
+
+
+@dataclass
+class Materializacion:
+    """Qué tablas de `analytics.*` se reemplazaron y cuáles fallaron."""
+
+    hechas: list[str]
+    fallidas: list[str]
+
+
 @dataclass
 class PasosSemanal:
     bajar: Callable[[], int]
-    purgar: Callable[[list[tuple[int, int]]], bool]
-    descargar: Callable[[list[tuple[int, int]]], bool]
+    purgar: Callable[[list[tuple[int, int]]], ConDatos]
+    descargar: Callable[[list[tuple[int, int]], ConDatos], bool]
     analytics: Callable[[], list[str]]
-    materializar: Callable[[], bool]
+    materializar: Callable[[], Materializacion]
     subir: Callable[[], int]
     retener: Callable[[datetime], object]
     revalidar: Callable[[list[str]], object] = lambda _etiquetas: None
@@ -271,7 +307,7 @@ class PasosSemanal:
             purgar=_purgar,
             descargar=_descargar,
             analytics=run_all.ejecutar_todos,
-            materializar=lambda: materialize.main([]) == 0,
+            materializar=_materializar,
             subir=destino.subir,
             retener=retencion.purgar_catalogo,
             revalidar=Revalidador.desde_entorno().revalidar,
@@ -296,49 +332,107 @@ def conservar_ventana(meses: list[tuple[int, int]]) -> almacen.Conservar:
     return conservar
 
 
-def _purgar(periodos: list[tuple[int, int]]) -> bool:
+TIPOS_MASIVOS = ("oc", "lic")
+
+
+def _consolidado(tipo: str, periodo: tuple[int, int]) -> Path:
+    anio, mes = periodo
+    return descarga.CONSOLIDATED_DIR / tipo / f"{anio}-{mes}.parquet"
+
+
+def _purgar(periodos: list[tuple[int, int]]) -> dict[str, set[tuple[int, int]]]:
     """Borra los ZIPs Y los consolidados de esos meses, para rehacerlos.
 
     Sólo los ZIPs no bastaba: `consolidar_tipo` se salta un mes cuyo parquet ya
     existe, así que el ZIP nuevo se bajaba y nunca llegaba a analytics — lo que
     ChileCompra corrige de los meses recientes no entraba jamás.
+
+    Devuelve, por tipo, los meses que TENÍAN datos: de ésos, un 404 al
+    re-bajarlos no es «aún no publicado» (ver `_descargar`).
     """
-    for tipo in ("oc", "lic"):
+    con_datos: dict[str, set[tuple[int, int]]] = {tipo: set() for tipo in TIPOS_MASIVOS}
+    for tipo in TIPOS_MASIVOS:
         for anio, mes in periodos:
             for ruta in (
                 descarga.RAW_DIR / tipo / f"{anio}-{mes}.zip",
-                descarga.CONSOLIDATED_DIR / tipo / f"{anio}-{mes}.parquet",
+                _consolidado(tipo, (anio, mes)),
             ):
                 if ruta.exists():
+                    con_datos[tipo].add((anio, mes))
                     ruta.unlink()
                     logger.info("semanal: borrado %s", ruta)
-    return True
+    return con_datos
 
 
-def _descargar(periodos: list[tuple[int, int]]) -> bool:
+def _descargar(periodos: list[tuple[int, int]], con_datos: ConDatos) -> bool:
     """Descarga y consolida, de OC y LIC, los meses de `periodos` sin consolidado.
 
     Recibe la ventana entera: lo que `bajar` trajo de R2 se salta, y lo que se
     purgó para rehacerlo, no. Así la primera corrida, con R2 vacío, llena la
-    ventana completa, y las siguientes bajan sólo los meses recientes. Un mes aún
-    no publicado (404) no es error.
+    ventana completa, y las siguientes bajan sólo los meses recientes.
+
+    **Termina bien sólo si cada mes de la ventana tiene su consolidado**, salvo
+    un 404 de un mes reciente (los `MESES_A_REDESCARGAR` últimos) que no tenía
+    datos antes de purgar: es un mes que ChileCompra aún no publica — el en
+    curso, o el anterior en los primeros días del mes. Falla con:
+
+    - un timeout, un 5xx o una conexión cortada (antes se contaban como 404);
+    - un 404 de un mes que SÍ tenía datos: se purgó y no se pudo rehacer;
+    - un 404 de un mes viejo: ChileCompra lo tiene desde siempre;
+    - un ZIP que no se puede leer (antes `consolidar_tipo` devolvía la carpeta
+      igual y el mes quedaba sin parquet).
+
+    Sin esto, la semanal reconstruía y publicaba analytics con un agujero, y el
+    latido daba verde.
     """
+    recientes = set(periodos[-MESES_A_REDESCARGAR:])
     ok = True
-    for tipo in ("oc", "lic"):
-        faltan = [
-            (anio, mes)
-            for anio, mes in periodos
-            if not (descarga.CONSOLIDATED_DIR / tipo / f"{anio}-{mes}.parquet").exists()
-        ]
+    for tipo in TIPOS_MASIVOS:
+        faltan = [p for p in periodos if not _consolidado(tipo, p).exists()]
         logger.info("semanal: %s, %d meses por descargar", tipo, len(faltan))
         resultado = descarga.descargar_tipo(tipo, faltan)
-        if resultado["error"]:
-            logger.error("semanal: %d descargas de %s fallaron", resultado["error"], tipo)
+        if resultado["fallidos"]:
+            logger.error("semanal: %s, falló la descarga de %s", tipo, resultado["fallidos"])
             ok = False
-        if descarga.consolidar_tipo(tipo) is None:
-            logger.error("semanal: no se pudo consolidar %s", tipo)
+        aun_no = {
+            p
+            for p in resultado["no_publicados"]
+            if p in recientes and p not in con_datos.get(tipo, set())
+        }
+        if aun_no:
+            logger.info("semanal: %s, aún no publicados: %s", tipo, sorted(aun_no))
+        if resultado["ok"] and descarga.consolidar_tipo(tipo) is None:
+            logger.error("semanal: %s, algún ZIP no se pudo consolidar", tipo)
+            ok = False
+        sin_consolidado = [
+            p for p in periodos if p not in aun_no and not _consolidado(tipo, p).exists()
+        ]
+        if sin_consolidado:
+            logger.error(
+                "semanal: %s, la ventana queda sin %s; no se reconstruye analytics",
+                tipo,
+                sin_consolidado,
+            )
             ok = False
     return ok
+
+
+def _materializar() -> Materializacion:
+    """`materialize` tabla por tabla, para saber cuáles se reemplazaron.
+
+    `materialize.main` devuelve un solo código para todas: con una tabla rota,
+    la semanal no sabía si las demás habían entrado y no revalidaba nada, y las
+    páginas públicas se quedaban una semana con lo anterior aunque sus tablas sí
+    se hubieran actualizado. Una tabla sin parquet cuenta como hecha, como en
+    `main` (no hay nada nuevo que llevar, y no es un fallo).
+    """
+    hechas: list[str] = []
+    fallidas: list[str] = []
+    for spec in CATALOGO:
+        (hechas if materialize.main(["--solo", spec.tabla]) == 0 else fallidas).append(spec.tabla)
+    if fallidas:
+        logger.error("semanal: no se materializaron %s", ", ".join(fallidas))
+    return Materializacion(hechas=hechas, fallidas=fallidas)
 
 
 def correr_semanal(instante: datetime, pasos: PasosSemanal) -> bool:
@@ -353,8 +447,8 @@ def correr_semanal(instante: datetime, pasos: PasosSemanal) -> bool:
 
     # La historia vive en R2 (`etl/almacen.py`): el contenedor arranca vacío.
     pasos.bajar()
-    pasos.purgar(periodos)
-    if not pasos.descargar(ventana):
+    con_datos = pasos.purgar(periodos)
+    if not pasos.descargar(ventana, con_datos):
         # Los meses ya están purgados en local: reconstruir ahora sería hacerlo
         # sin ellos y publicar un análisis con un agujero. Tampoco se sube nada,
         # así que el bucket conserva la versión anterior intacta.
@@ -365,10 +459,13 @@ def correr_semanal(instante: datetime, pasos: PasosSemanal) -> bool:
         logger.error("semanal: módulos de analytics fallidos: %s", ", ".join(fallidos))
     # Se materializa igual: un módulo roto deja su parquet de la semana pasada,
     # y lo que sí se reconstruyó merece llegar a la API.
-    materializado = pasos.materializar()
-    if materializado:
+    materializacion = pasos.materializar()
+    materializado = not materializacion.fallidas
+    if materializacion.hechas:
         # Las páginas públicas salen de `analytics.*`: sin esto seguirían
-        # mostrando la semana anterior hasta que caducara su caché.
+        # mostrando la semana anterior hasta que caducara su caché. Basta con
+        # una tabla nueva —la etiqueta es una sola para todo analytics—; la que
+        # falló sigue sirviendo la semana anterior y la corrida termina en /fail.
         pasos.revalidar(ETIQUETAS_SEMANAL)
     # Y se sube igual: los consolidados nuevos valen aunque un módulo fallara.
     pasos.subir()
