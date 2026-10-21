@@ -3,7 +3,6 @@
 import { useState } from 'react';
 
 import type { GraficoGasto } from '@/lib/graficoGasto';
-import { entero } from '@/lib/publico';
 
 import { FilaGlobo, Globo } from './Globo';
 
@@ -13,7 +12,7 @@ import { FilaGlobo, Globo } from './Globo';
  * la vez la cifra de cada sector en el periodo.
  *
  * **Interactivo**, y por eso componente cliente (se pinta igual en el servidor):
- * - pasar el mouse o tocar un mes abre su globo con el total y lo de cada sector;
+ * - pasar el mouse o tocar un mes abre su globo con el total y el % de cada sector;
  * - pasar el mouse por un sector de la leyenda lo resalta en todos los meses.
  * Lo que dice el globo está también en texto: la leyenda escribe el total de cada
  * sector y la tabla `sr-only` el de cada mes. El dibujo es `aria-hidden`.
@@ -74,7 +73,6 @@ export function GastoMensual({ datos }: { datos: GraficoGasto }) {
                     <FilaGlobo key={s.clave} llave={s.fondo} nombre={s.nombre} valor={`${Math.round((v / activo.total) * 100)} %`} />
                   ))}
               </div>
-              <p className="mt-1.5 text-muted">{entero(activo.ordenes)} órdenes de compra</p>
             </Globo>
           )}
         </div>

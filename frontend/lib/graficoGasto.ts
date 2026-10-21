@@ -55,7 +55,6 @@ export interface MesGasto {
   partes: number[];
   /** El alto de la columna, en % del mes más alto. */
   alto: number;
-  ordenes: number;
 }
 
 export interface MarcaGasto {
@@ -73,7 +72,6 @@ export interface GraficoGasto {
   /** «En billones de pesos»: la unidad de las marcas, dicha una vez. */
   unidad: string;
   total: number;
-  ordenes: number;
   pico: MesGasto;
   /** La mediana de los totales mensuales: un mes típico. */
   tipico: number;
@@ -131,11 +129,9 @@ export function graficoGasto(filas: GastoMensual[] | null | undefined): GraficoG
 
   const claves = SECTORES_CON_COLOR.map((s) => s.clave);
   const montos = Array.from({ length: cuantos }, () => claves.map(() => 0));
-  const ordenes = Array.from({ length: cuantos }, () => 0);
   for (const f of filas) {
     const i = indice(f.anio, f.mes) - primero;
     montos[i][claves.indexOf(sectorConColor(f.sector).clave)] += f.monto;
-    ordenes[i] += f.n_oc;
   }
 
   const totales = montos.map((m) => m.reduce((a, b) => a + b, 0));
@@ -164,7 +160,6 @@ export function graficoGasto(filas: GastoMensual[] | null | undefined): GraficoG
       texto: monto(t),
       partes: montos[i],
       alto: (t / maximo) * 100,
-      ordenes: ordenes[i],
     };
   });
 
@@ -189,7 +184,6 @@ export function graficoGasto(filas: GastoMensual[] | null | undefined): GraficoG
     marcas,
     unidad: `En ${escala.nombre} de pesos`,
     total,
-    ordenes: ordenes.reduce((a, b) => a + b, 0),
     pico,
     tipico,
     veces: tipico > 0 ? pico.total / tipico : 0,

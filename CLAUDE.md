@@ -1093,12 +1093,13 @@ que se pintan igual en el servidor). **No le pongas `'use client'` a la página*
   Armadas `serie-5`, y el resto —«Otros», «Legislativo y judicial», sin sector— junto en
   `serie-otros`). El `h2` es la conclusión (`fraseGasto`): «El Estado compró $X en N meses.
   {Mes} fue el mes más alto: 1,7 veces un mes típico.» —el mes típico es la mediana; bajo
-  `VECES_PICO` (1,25), «Compra parejo»—. **Globo** al pasar el mouse o tocar un mes (total, el %
-  de cada sector y las órdenes); la leyenda es una lista de cifras (cada sector con su total y su
+  `VECES_PICO` (1,25), «Compra parejo»—. **Globo** al pasar el mouse o tocar un mes (total y el %
+  de cada sector; **sin contar órdenes**: `time_series` las cuenta únicas por rubro, y al sumar
+  rubros una orden de dos rubros salía dos veces —7,1 millones contra los 5,5 de la ficha—); la leyenda es una lista de cifras (cada sector con su total y su
   %) y pasar por un sector lo resalta en todos los meses. Eje con la unidad dicha una vez («En
   billones de pesos») y marcas chicas («$0,5», «$1»). Un mes que falta entre el primero y el
-  último se pinta como hueco. **Con menos de `MINIMO_MESES` (6) no sale.** El pie dice las
-  órdenes, el periodo, qué es un mes típico y que las obras del MOP casi no pasan por órdenes.
+  último se pinta como hueco. **Con menos de `MINIMO_MESES` (6) no sale.** El pie dice el
+  periodo, qué es un mes típico y que las obras del MOP casi no pasan por órdenes.
 - **«Para empezar»** (`LecturasPortada`, `TITULO_LECTURAS`): `h2` de sección y **tres lecturas en
   fila desde `lg`**, alineadas por subrejilla (la conclusión, el gráfico y el pie de cada una
   empiezan a la misma altura); en móvil, una tras otra. **Las tres primeras disponibles en el orden
