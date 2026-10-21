@@ -8,9 +8,10 @@ import { CODIGO_VALVULAS } from './datos';
  * después de la cascada, y una clase de componente puede ganarle a la regla que el test
  * estático sí ve (un `font-bold` en un h1 lo devuelve a 700).
  *
- * - Todo en Archivo. `h1` y `h2` semiexpandidos (`font-stretch` 112,5 %) y en 800; `h3`,
- *   el cuerpo y las etiquetas en `h2` («Fuentes»), a ancho normal.
- * - Toda `.cifra` en Archivo: un precio en otra familia es el fallo que se busca.
+ * - `h1` y `h2` en Libre Franklin y en 800; `h3`, el cuerpo y las etiquetas en `h2`
+ *   («Fuentes»), en Public Sans.
+ * - Toda `.cifra` en Public Sans: un precio en otra familia (Libre Franklin no trae cifras
+ *   tabulares) es el fallo que se busca.
  * - Los identificadores en IBM Plex Mono, en 400 o 500: Plex Mono no trae más pesos y
  *   cualquier otro sería una negrita sintética.
  * - Las fuentes salen del propio dominio: ninguna petición a Google.
@@ -18,17 +19,15 @@ import { CODIGO_VALVULAS } from './datos';
 
 interface Tipo {
   familia: string;
-  ancho: string;
   peso: string;
 }
 
-/** Familia (la primera de la pila), ancho y peso que resuelve el navegador. */
+/** Familia (la primera de la pila) y peso que resuelve el navegador. */
 async function tipo(l: Locator): Promise<Tipo> {
   return l.evaluate((el) => {
     const s = getComputedStyle(el);
     return {
       familia: s.fontFamily.split(',')[0].trim().replace(/^["']|["']$/g, ''),
-      ancho: s.fontStretch,
       peso: s.fontWeight,
     };
   });
@@ -44,11 +43,12 @@ async function pesosDeTodas(l: Locator): Promise<string[]> {
   return l.evaluateAll((els) => els.map((el) => getComputedStyle(el).fontWeight));
 }
 
-const TITULAR = { familia: 'Archivo', ancho: '112.5%', peso: '800' };
+const TITULAR = { familia: 'Libre Franklin', peso: '800' };
+const TEXTO = 'Public Sans';
 
 /**
  * `font-family` computado es la pila DECLARADA: si el archivo de la fuente no
- * baja, sigue diciendo «Archivo» y el navegador pinta con la de respaldo.
+ * baja, sigue diciendo «Public Sans» y el navegador pinta con la de respaldo.
  * Lo que prueba que la cara se usó de verdad es que figure como CARGADA.
  */
 async function carasCargadas(page: Page): Promise<{ familia: string; peso: string }[]> {
@@ -89,46 +89,45 @@ async function primeraDelSitemap(request: APIRequestContext, tipo: 'compradores'
   return ruta as string;
 }
 
-test('una guía: titulares semiexpandidos en 800, cuerpo y etiqueta a ancho normal', async ({ page }) => {
-  const aGoogle = await abrir(page, '/guias/como-leer-una-banda-de-precio', ['Archivo']);
+test('una guía: titulares en Libre Franklin 800, cuerpo y etiqueta en Public Sans', async ({ page }) => {
+  const aGoogle = await abrir(page, '/guias/como-leer-una-banda-de-precio', ['Libre Franklin', TEXTO]);
   expect(aGoogle, 'las fuentes se sirven desde el propio dominio').toEqual([]);
 
   expect(await tipo(page.getByRole('heading', { level: 1 }))).toEqual(TITULAR);
   expect(await tipo(page.getByRole('heading', { level: 2, name: 'Los cinco números' }))).toEqual(TITULAR);
-  // «Fuentes» es una etiqueta, no un titular: `font-sans` la devuelve a ancho normal.
+  // «Fuentes» es una etiqueta, no un titular: `font-sans` la devuelve a la familia del texto.
   expect(await tipo(page.getByRole('heading', { level: 2, name: 'Fuentes' }))).toEqual({
-    familia: 'Archivo',
-    ancho: '100%',
+    familia: TEXTO,
     peso: '700',
   });
-  expect(await tipo(page.locator('main p').first())).toMatchObject({ familia: 'Archivo', ancho: '100%' });
+  expect(await tipo(page.locator('main p').first())).toMatchObject({ familia: TEXTO });
 
   const enlace = page.locator('main a.enlace').first();
   await expect(enlace).toBeVisible();
   expect(await enlace.evaluate((el) => getComputedStyle(el).textDecorationLine)).toBe('underline');
 });
 
-test('una ficha de comprador: titulares semiexpandidos, cifras en Archivo, código en mono', async ({ page, request }) => {
-  await abrir(page, await primeraDelSitemap(request, 'compradores'), ['Archivo', 'IBM Plex Mono']);
+test('una ficha de comprador: titulares en Libre Franklin, cifras en Public Sans, código en mono', async ({ page, request }) => {
+  await abrir(page, await primeraDelSitemap(request, 'compradores'), ['Libre Franklin', TEXTO, 'IBM Plex Mono']);
   expect(await tipo(page.getByRole('heading', { level: 1 }))).toEqual(TITULAR);
-  // «Cómo compra» es un h2 de sección: semiexpandido y en 800, como todo h2.
+  // «Cómo compra» es un h2 de sección: en Libre Franklin y en 800, como todo h2.
   expect(await tipo(page.getByRole('heading', { level: 2, name: /cómo compra/i }))).toEqual(TITULAR);
 
   const cifras = await familiasDeTodas(page.locator('.cifra'));
   expect(cifras.length).toBeGreaterThan(0);
-  expect(new Set(cifras)).toEqual(new Set(['Archivo']));
+  expect(new Set(cifras)).toEqual(new Set([TEXTO]));
 
   const mono = page.locator('main .font-mono');
   expect((await tipo(mono.first())).familia).toBe('IBM Plex Mono');
   for (const peso of await pesosDeTodas(mono)) expect(['400', '500']).toContain(peso);
 });
 
-test('una ficha de producto: el precio mediano va en Archivo', async ({ page, request }) => {
-  await abrir(page, await primeraDelSitemap(request, 'productos'), ['Archivo']);
+test('una ficha de producto: el precio mediano va en Public Sans', async ({ page, request }) => {
+  await abrir(page, await primeraDelSitemap(request, 'productos'), [TEXTO]);
   await expect(page.getByRole('heading', { name: /cuánto se pagó/i })).toBeVisible();
   const cifras = await familiasDeTodas(page.locator('.cifra'));
   expect(cifras.length).toBeGreaterThan(0);
-  expect(new Set(cifras)).toEqual(new Set(['Archivo']));
+  expect(new Set(cifras)).toEqual(new Set([TEXTO]));
 });
 
 test('el detalle de una licitación: el código va en mono, sin negrita sintética', async ({ page }) => {

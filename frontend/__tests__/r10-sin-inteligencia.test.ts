@@ -38,8 +38,8 @@ describe('R10: sin «Inteligencia» en la portada, los metadatos y la tarjeta', 
     expect(leer(f)).not.toMatch(/inteligencia/i);
   });
 
-  it('la tarjeta de vista previa dice la pregunta de la portada', () => {
-    expect(leer('app/opengraph-image.tsx')).toContain('¿Qué le vendes al Estado?');
+  it('la tarjeta de vista previa dice el titular de la portada', () => {
+    expect(leer('app/opengraph-image.tsx')).toContain('Cuánto paga el Estado por lo que vendes');
   });
 
   it('la de X/Twitter sigue siendo la misma tarjeta, con el mismo alt', () => {

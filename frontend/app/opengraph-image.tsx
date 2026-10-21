@@ -21,7 +21,7 @@ import { origenDelSitio } from '@/lib/publico';
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
 const DOMINIO = origenDelSitio().replace(/^https?:\/\//, '');
 
-export const alt = `${APP_NAME}: ¿qué le vendes al Estado? Datos públicos de ChileCompra: precios pagados, licitaciones abiertas y Compra Ágil`;
+export const alt = `${APP_NAME}: cuánto paga el Estado por lo que vendes. Precios pagados, licitaciones abiertas y Compra Ágil, con datos públicos de ChileCompra`;
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -50,7 +50,7 @@ export default async function Image() {
           <div style={{ display: 'flex', marginTop: 22, fontFamily: 'Varien', fontSize: 58, letterSpacing: 2 }}>
             {APP_NAME.toUpperCase()}
           </div>
-          <div style={{ display: 'flex', marginTop: 16, fontFamily: 'Archivo', fontSize: 34, color: C.dominio.hex }}>
+          <div style={{ display: 'flex', marginTop: 16, fontFamily: 'Libre Franklin', fontSize: 34, color: C.dominio.hex }}>
             {DOMINIO}
           </div>
         </div>
@@ -69,13 +69,13 @@ export default async function Image() {
           <div
             style={{
               display: 'flex',
-              fontFamily: 'Archivo Expandida',
-              fontSize: 96,
-              lineHeight: 0.98,
+              fontFamily: 'Libre Franklin ExtraBold',
+              fontSize: 84,
+              lineHeight: 1,
               letterSpacing: -2,
             }}
           >
-            ¿Qué le vendes al Estado?
+            Cuánto paga el Estado por lo que vendes
           </div>
           <div
             style={{
@@ -84,7 +84,7 @@ export default async function Image() {
               marginTop: 40,
               padding: '12px 28px',
               borderRadius: 99,
-              fontFamily: 'Archivo',
+              fontFamily: 'Libre Franklin',
               fontSize: 37,
               whiteSpace: 'nowrap',
               background: C.pildora.hex,
