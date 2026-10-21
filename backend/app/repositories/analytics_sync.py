@@ -22,6 +22,9 @@ logger = logging.getLogger(__name__)
 
 SCHEMA = sql.SCHEMA
 
+#: Tramos de 10 puntos de la cuota del líder que agrega `concentracion_de_mercados`.
+TRAMOS_CUOTA = sql.TRAMOS_CUOTA
+
 
 def _engine():
     # Import diferido a propósito: `app.db` crea los engines al importarse y eso
@@ -190,3 +193,56 @@ def buscar_texto(
     if filas:
         return _a_polars([dict(f) for f in filas])
     return _a_polars([], columnas or sorted(columnas_de(tabla)))
+
+
+def gasto_mensual_por_sector(tabla: str = "time_series") -> list[dict] | None:
+    """Monto y órdenes por (año, mes, sector), agregados en SQL; None sin tabla.
+
+    Lo pide la portada (`/publico/mercado`). La tabla nunca llega a la API: vuelve
+    una fila por mes y sector (~40 meses por ~8 sectores en producción).
+    """
+    if not existe_tabla(tabla):
+        return None
+    with _engine().connect() as conn:
+        filas = conn.execute(text(sql.sql_gasto_mensual(tabla))).mappings().all()
+    return [
+        {
+            "anio": int(f["anio"]),
+            "mes": int(f["mes"]),
+            "sector": f["sector"],
+            "monto": float(f["monto"]),
+            "n_oc": int(f["n_oc"]),
+        }
+        for f in filas
+    ]
+
+
+def concentracion_de_mercados(tabla: str = "market_concentration") -> dict | None:
+    """Conteos, montos y tramos de la cuota del líder, agregados en SQL; None sin tabla.
+
+    Dos consultas: los totales (con la ventana si la tabla la publica) y los
+    tramos que tienen mercados. Los tramos vacíos los rellena el servicio.
+    """
+    if not existe_tabla(tabla):
+        return None
+    con_ventana = {"ventana_desde", "ventana_hasta"} <= columnas_de(tabla)
+    with _engine().connect() as conn:
+        totales = dict(
+            conn.execute(text(sql.sql_concentracion_totales(tabla, con_ventana=con_ventana)))
+            .mappings()
+            .one()
+        )
+        tramos = conn.execute(text(sql.sql_concentracion_tramos(tabla))).mappings().all()
+    return {
+        "mercados": int(totales["mercados"]),
+        "sobre_la_mitad": int(totales["sobre_la_mitad"]),
+        "un_proveedor": int(totales["un_proveedor"]),
+        "monto_total": float(totales["monto_total"]),
+        "monto_sobre_la_mitad": float(totales["monto_sobre_la_mitad"]),
+        "ventana_desde": totales.get("ventana_desde"),
+        "ventana_hasta": totales.get("ventana_hasta"),
+        "tramos": [
+            {"tramo": int(f["tramo"]), "mercados": int(f["mercados"]), "monto": float(f["monto"])}
+            for f in tramos
+        ],
+    }

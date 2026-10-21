@@ -65,7 +65,9 @@ ETIQUETAS: list[dict[str, str]] = [
         "description": (
             "Páginas públicas de comprador, rubro y producto, su sitemap y las "
             "cifras de la portada (`/publico/portada`: cuántas licitaciones y "
-            "Compras Ágiles se pueden postular ahora, con su hora). Las "
+            "Compras Ágiles se pueden postular ahora, con su hora) y del mercado "
+            "entero (`/publico/mercado`: gasto mensual por sector y en cuántos "
+            "mercados un proveedor se lleva la mitad o más). Las "
             "URL van por código de comprador o por `slug` (sin tildes, minúsculas, "
             "guiones): el slug lo da la API, no se calcula del lado del cliente. "
             "`indexable` dice si la página tiene datos suficientes para ofrecerse "
