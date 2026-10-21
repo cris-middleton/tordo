@@ -12,7 +12,7 @@ import {
   GUARDADOS,
   SECCIONES,
   enlacesAbiertos,
-  columnasDelPie,
+  enlacesDelPie,
   esSeccionActiva,
   mapaDelSitio,
 } from '@/lib/navegacion';
@@ -47,22 +47,24 @@ describe('las secciones', () => {
   });
 });
 
-describe('las columnas del pie (spec PORTADA_V7 §6)', () => {
-  it('«Sitio», «Abierto» y «Sobre el sitio», y cada ruta interna tiene su página', () => {
-    const columnas = columnasDelPie(null, 'hola@tordo.cl');
-    expect(columnas.map((c) => c.titulo)).toEqual(['Sitio', 'Abierto', 'Sobre el sitio']);
-    const internas = columnas.flatMap((c) => c.enlaces).filter((e) => !e.externo);
-    expect(internas.length).toBeGreaterThanOrEqual(12);
+describe('los enlaces del pie', () => {
+  it('cada ruta interna tiene su página', () => {
+    const internas = enlacesDelPie(null, 'hola@tordo.cl').filter((e) => !e.externo);
+    expect(internas.length).toBeGreaterThanOrEqual(5);
     expect(internas.filter((e) => !existePagina(e.href)).map((e) => e.href)).toEqual([]);
   });
 
-  it('«Sitio» son las secciones de la cabecera y Guardados: una sola lista', () => {
-    expect(columnasDelPie(null, 'x@y.cl')[0].enlaces).toEqual([...SECCIONES, GUARDADOS]);
+  it('no repite lo que ya está en la cabecera', () => {
+    const hrefs = enlacesDelPie('https://github.com/x/tordo', 'x@y.cl').map((e) => e.href);
+    for (const s of [...SECCIONES, GUARDADOS]) expect(hrefs).not.toContain(s.href);
   });
 
-  it('el contacto, con el correo que se le pasa', () => {
-    const sobre = columnasDelPie(null, 'hola@tordo.cl')[2].enlaces;
-    expect(sobre.at(-1)).toEqual({ nombre: 'Contacto', href: 'mailto:hola@tordo.cl', externo: true });
+  it('el contacto, al final, con el correo que se le pasa', () => {
+    expect(enlacesDelPie(null, 'hola@tordo.cl').at(-1)).toEqual({
+      nombre: 'Contacto',
+      href: 'mailto:hola@tordo.cl',
+      externo: true,
+    });
   });
 });
 

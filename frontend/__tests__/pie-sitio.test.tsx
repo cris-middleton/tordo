@@ -1,8 +1,7 @@
 /**
- * El pie único (spec PORTADA_V7 §6): cuatro columnas —«Sitio», «Abierto»,
- * «Sobre el sitio» y, con `AUTOR_NOMBRE`, «Lo hace»—, la cita de ChileCompra una
- * sola vez, el selector de tema y el commit del despliegue. El mapa sale de la
- * misma lista que la cabecera.
+ * El pie único: una fila de enlaces (lo que la cabecera no tiene), el selector de
+ * tema compacto, la cita de ChileCompra una sola vez, quién lo hace y el commit
+ * del despliegue. La fila sale de `enlacesDelPie`, en `lib/navegacion.ts`.
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -11,6 +10,7 @@ import { render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { PieSitio } from '@/components/cascara/PieSitio';
+import { SECCIONES } from '@/lib/navegacion';
 
 const VARIABLES = ['REPOSITORIO_URL', 'AUTOR_NOMBRE', 'AUTOR_URL', 'VERCEL_GIT_COMMIT_SHA'];
 const SHA = '0123456789abcdef0123456789abcdef01234567';
@@ -20,12 +20,8 @@ afterEach(() => {
 });
 
 const mapa = () => screen.getByRole('navigation', { name: 'Mapa del sitio' });
-const columna = (titulo: string) =>
+const enlacesDelMapa = () =>
   within(mapa())
-    .getByRole('heading', { level: 2, name: titulo })
-    .closest('div') as HTMLElement;
-const enlacesDe = (titulo: string) =>
-  within(columna(titulo))
     .getAllByRole('link')
     .map((a) => [a.textContent, a.getAttribute('href')]);
 
@@ -35,66 +31,46 @@ describe('el pie único', () => {
     expect(screen.getByRole('contentinfo')).toBeInTheDocument();
   });
 
-  it('tres columnas sin AUTOR_NOMBRE, en su orden', () => {
+  it('una fila: acerca, costo, lo abierto, licencias, legales y contacto, en su orden', () => {
     render(<PieSitio />);
-    expect(
-      within(mapa())
-        .getAllByRole('heading', { level: 2 })
-        .map((h) => h.textContent),
-    ).toEqual(['Sitio', 'Abierto', 'Sobre el sitio']);
-  });
-
-  it('«Sitio»: las secciones de la cabecera y Guardados', () => {
-    render(<PieSitio />);
-    expect(enlacesDe('Sitio')).toEqual([
-      ['Compra Ágil', '/compra-agil'],
-      ['Licitaciones', '/licitaciones'],
-      ['Precios', '/productos'],
-      ['Mercados', '/mercado'],
-      ['Guías', '/guias'],
-      ['Notas', '/notas'],
-      ['Guardados', '/guardados'],
-    ]);
-  });
-
-  it('«Abierto»: API y MCP y Licencias; «Código» sólo con REPOSITORIO_URL', () => {
-    render(<PieSitio />);
-    expect(enlacesDe('Abierto')).toEqual([
-      ['API y MCP', '/abierto'],
-      ['Licencias', '/abierto#licencias'],
-    ]);
-  });
-
-  it('con REPOSITORIO_URL, también «Código», fuera del sitio', () => {
-    process.env.REPOSITORIO_URL = 'https://github.com/x/tordo';
-    render(<PieSitio />);
-    const codigo = within(columna('Abierto')).getByRole('link', { name: 'Código' });
-    expect(codigo).toHaveAttribute('href', 'https://github.com/x/tordo');
-    expect(codigo).toHaveAttribute('rel', 'noopener noreferrer');
-  });
-
-  it('«Sobre el sitio»: acerca, costo, apoyar, legales y contacto', () => {
-    render(<PieSitio />);
-    expect(enlacesDe('Sobre el sitio')).toEqual([
+    expect(enlacesDelMapa()).toEqual([
       ['Acerca', '/acerca'],
       ['Cuánto cuesta', '/apoyar#costos'],
-      ['Apoyar', '/apoyar'],
+      ['API y MCP', '/abierto'],
+      ['Licencias', '/abierto#licencias'],
       ['Términos de uso', '/terminos'],
       ['Privacidad', '/privacidad'],
       ['Contacto', 'mailto:hola@tordo.cl'],
     ]);
   });
 
-  it('con AUTOR_NOMBRE, «Lo hace» con el nombre; enlazado sólo con AUTOR_URL https', () => {
+  it('no repite la cabecera: ni las secciones, ni Guardados, ni Apoyar', () => {
+    render(<PieSitio />);
+    const hrefs = enlacesDelMapa().map(([, href]) => href);
+    for (const s of SECCIONES) expect(hrefs).not.toContain(s.href);
+    expect(hrefs).not.toContain('/guardados');
+    expect(hrefs).not.toContain('/apoyar');
+  });
+
+  it('con REPOSITORIO_URL, también «Código», fuera del sitio y junto a la API', () => {
+    process.env.REPOSITORIO_URL = 'https://github.com/x/tordo';
+    render(<PieSitio />);
+    const codigo = within(mapa()).getByRole('link', { name: 'Código' });
+    expect(codigo).toHaveAttribute('href', 'https://github.com/x/tordo');
+    expect(codigo).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(enlacesDelMapa().map(([n]) => n).slice(2, 4)).toEqual(['API y MCP', 'Código']);
+  });
+
+  it('con AUTOR_NOMBRE, «Lo hace {nombre}.»; enlazado sólo con AUTOR_URL https', () => {
     process.env.AUTOR_NOMBRE = 'Nombre De Prueba';
-    const { unmount } = render(<PieSitio />);
-    expect(within(columna('Lo hace')).getByText('Nombre De Prueba')).toBeInTheDocument();
-    expect(within(columna('Lo hace')).queryByRole('link')).toBeNull();
+    const { container, unmount } = render(<PieSitio />);
+    expect(container.textContent).toMatch(/Lo hace Nombre De Prueba\./);
+    expect(screen.queryByRole('link', { name: 'Nombre De Prueba' })).toBeNull();
     unmount();
 
     process.env.AUTOR_URL = 'https://github.com/alguien';
     render(<PieSitio />);
-    const nombre = within(columna('Lo hace')).getByRole('link', { name: 'Nombre De Prueba' });
+    const nombre = screen.getByRole('link', { name: 'Nombre De Prueba' });
     expect(nombre).toHaveAttribute('href', 'https://github.com/alguien');
     expect(nombre).toHaveAttribute('rel', 'noopener noreferrer');
   });
@@ -138,13 +114,19 @@ describe('el pie único', () => {
     );
   });
 
-  it('el selector de tema vive aquí (§5.2: «el selector baja al pie»)', () => {
+  it('el selector de tema vive aquí, compacto: tres íconos con su nombre', () => {
     render(<PieSitio />);
-    expect(screen.getByRole('radiogroup', { name: 'Apariencia' })).toBeInTheDocument();
+    const selector = screen.getByRole('radiogroup', { name: 'Apariencia' });
+    expect(within(selector).getAllByRole('radio').map((b) => b.getAttribute('aria-label'))).toEqual([
+      'Claro',
+      'Oscuro',
+      'Sistema',
+    ]);
   });
 
-  it('cuatro columnas desde lg y dos por debajo', () => {
+  it('sin columnas: el pie es una fila, no un mapa en rejilla', () => {
     const fuente = readFileSync(join(__dirname, '..', 'components', 'cascara', 'PieSitio.tsx'), 'utf8');
-    expect(fuente).toMatch(/grid-cols-2\b[^"]*\blg:grid-cols-4\b/);
+    expect(fuente).not.toMatch(/grid-cols-[2-4]\b/);
+    expect(fuente).not.toMatch(/<h2\b/);
   });
 });
