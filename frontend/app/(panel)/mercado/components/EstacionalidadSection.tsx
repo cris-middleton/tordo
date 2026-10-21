@@ -71,11 +71,11 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
           <p className="mt-1 text-sm text-muted">
             {focused && focusedNombre ? (
               <>
-                <span className="font-medium text-text">{focusedNombre}</span>: en cuántos de los años con datos
-                compró en cada mes.
+                <span className="font-medium text-text">{focusedNombre}</span>: qué parte de sus compras del rubro cae en cada
+                mes.
               </>
             ) : (
-              'En cuántos de los años con datos compró en cada mes.'
+              'Qué parte de sus compras del rubro cae en cada mes.'
             )}
           </p>
         </div>
@@ -117,7 +117,7 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
           <p className="font-semibold text-text">{conclusion}</p>
           <div className="mt-4">
             <Columnas
-              etiqueta="Porcentaje de los años en que compró en cada mes"
+              etiqueta="Parte de sus compras del rubro en cada mes"
               columnas={meses.map((m) => ({
                 clave: String(m.mes),
                 etiqueta: m.etiqueta,

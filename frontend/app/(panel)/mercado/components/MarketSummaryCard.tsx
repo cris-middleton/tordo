@@ -68,7 +68,7 @@ export function MarketSummaryCard({ resumen, loading, rubro }: MarketSummaryCard
   const summaryText = frases
     .map((f) => f.replace(/<[^>]*>/g, ''))
     .join(' ');
-  const filename = `tordo-bi-resumen-${resumen.rubro?.replace(/\s+/g, '-').toLowerCase() || 'mercado'}`;
+  const filename = `resumen-${resumen.rubro?.replace(/\s+/g, '-').toLowerCase() || 'mercado'}`;
 
   return (
     // La conclusión del rubro en una o dos frases, como entrada de la sección.

@@ -75,7 +75,7 @@ export function TendenciasSection({ loading, selectedRubro, serieAnual, cagrRubr
         <ShareMenu
           targetRef={rootRef}
           summaryText={resumen}
-          filename={`tordo-tendencia-${selectedRubro.replace(/\s+/g, '-').toLowerCase()}`}
+          filename={`tendencia-${selectedRubro.replace(/\s+/g, '-').toLowerCase()}`}
         />
       </div>
 

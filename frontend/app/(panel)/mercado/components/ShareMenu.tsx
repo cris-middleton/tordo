@@ -12,7 +12,7 @@ interface ShareMenuProps {
   targetRef: RefObject<HTMLElement | null>;
   /** Texto a copiar cuando el user elige "Copiar resumen" (texto plano, sin HTML) */
   summaryText: string;
-  /** Nombre del archivo PNG sin extensión */
+  /** Tema del PNG, sin marca ni extensión (`tendencia-papel`): la marca la pone el menú. */
   filename: string;
 }
 
@@ -71,7 +71,8 @@ export function ShareMenu({ targetRef, summaryText, filename }: ShareMenuProps) 
         logging: false,
       });
       const link = document.createElement('a');
-      link.download = `${filename}.png`;
+      // La marca sale de `NEXT_PUBLIC_APP_NAME`: los llamadores pasan sólo el tema.
+      link.download = `${APP_NAME.toLowerCase().replace(/\s+/g, '-')}-${filename}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
     } catch {
