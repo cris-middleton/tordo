@@ -29,7 +29,7 @@ export const PREGUNTAS: Pregunta[] = [
   },
   {
     pregunta: '¿Me dicen cuánto cotizar?',
-    respuesta: `No, porque nadie sabe cuánto ofertarán los demás. Te mostramos a qué precio se compró lo mismo en los últimos ${MESES_PRECIOS} meses: entre cuánto y cuánto se pagó la mitad de las compras, cuántas compras son y de cuántos organismos. Si por lo mismo se pagaron precios muy distintos, también te lo decimos.`,
+    respuesta: `No, porque nadie sabe cuánto van a cotizar los demás. Te mostramos a qué precio se compró lo mismo en los últimos ${MESES_PRECIOS} meses: entre cuánto y cuánto se pagó la mitad de las compras, cuántas compras son y de cuántos compradores. Si por lo mismo se pagaron precios muy distintos, también te lo decimos.`,
     enlace: { href: '/guias/como-leer-una-banda-de-precio', texto: 'Cómo leer una banda de precio' },
   },
   {
