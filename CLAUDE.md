@@ -1167,7 +1167,7 @@ que se pintan igual en el servidor). **No le pongas `'use client'` a la página*
     estable, y la frase lo dice. La copia en `verificar-produccion.sh` aplica el mismo filtro: si
     cambia uno, cambia el otro.
   - **Concentración** (`lecturaConcentracion` → `Concentracion`; `GET /publico/mercado`,
-    `concentracion`): «5 de cada 10 pesos se compran en mercados donde un solo proveedor se lleva la
+    `concentracion`): «5 de cada 10 pesos se gastan en mercados donde un solo proveedor se lleva la
     mitad o más» (los bordes del redondeo con palabras, como en los cierres). Un histograma de diez
     tramos de 10 puntos —cuánto se lleva el proveedor principal de cada mercado, un comprador en un
     rubro—, del alto del **monto** que se compra en ellos (contar mercados exageraba: los chicos salen
