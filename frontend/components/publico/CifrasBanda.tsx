@@ -11,10 +11,11 @@ export function rango(desde: number | null, hasta: number | null): string | null
 }
 
 /**
- * Las cifras de una banda bajo su gráfico: la mediana, la mitad de las compras,
- * 8 de cada 10 compras y de cuántas compras y organismos salen. Cuánto se
- * parecen los precios (`textoVariacion`) va bajo la mitad de las compras, que
- * es lo que mide. Antes iban en una tarjeta
+ * Las cifras de una banda bajo su gráfico: la mediana, la mitad de las compras
+ * y 8 de cada 10 compras. De cuántas compras y compradores salen lo dice el pie
+ * del gráfico, justo debajo: repetirlo aquí lo ponía dos veces en dos líneas.
+ * Cuánto se parecen los precios (`textoVariacion`) va bajo la mitad de las
+ * compras, que es lo que mide. Antes iban en una tarjeta
  * aparte (P10…P90 con su propia barra), encima del gráfico, y la ficha decía lo
  * mismo tres veces.
  */
@@ -25,11 +26,10 @@ export function CifrasBanda({ banda }: { banda: BandaUnidad }) {
     { etiqueta: 'Mediana', valor: plata(banda.p50), detalle: 'El precio del medio' },
     { etiqueta: 'La mitad de las compras', valor: rango(banda.p25, banda.p75), detalle: variacion },
     { etiqueta: '8 de cada 10 compras', valor: rango(banda.p10, banda.p90) },
-    { etiqueta: 'Cuántas compras', valor: comprasDeOrganismos(banda.n, banda.compradores) },
   ];
   return (
     <div className="mt-6">
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border py-4 sm:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border py-4 sm:grid-cols-3">
         {cifras
           .filter((c) => c.valor)
           .map((c) => (
