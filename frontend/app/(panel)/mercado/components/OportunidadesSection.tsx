@@ -154,7 +154,7 @@ export function OportunidadesSection({ oportunidades, loading, onFocusOrganismo,
           Los {Math.min(10, oportunidades.length)} primeros de {oportunidades.length.toLocaleString('es-CL')}. El
           puntaje va de 0 a 10; ábrelo para ver cómo compra cada uno.
         </p>
-        <ShareMenu targetRef={rootRef} summaryText={summaryText} filename="tordo-donde-mirar" />
+        <ShareMenu targetRef={rootRef} summaryText={summaryText} filename="donde-mirar" />
       </div>
 
       <div className="overflow-x-auto">
