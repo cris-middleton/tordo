@@ -1,5 +1,8 @@
 """Tests for /api/bi/tendencia serie_anual extension."""
 
+import pytest
+import pytest_asyncio
+
 
 def test_tendencia_sin_rubro_no_serie_anual():
     """Without a rubro filter, serie_anual must be None regardless of data availability."""
@@ -82,3 +85,64 @@ def test_cagr_rubro_none_when_no_rubro(monkeypatch, tmp_path):
     result = bi_service.get_tendencia(rubro=None, tendencia=None, solo_emergentes=False, limit=10)
     if result.get("disponible"):
         assert result.get("cagr_rubro") is None
+
+
+# ── El filtro `tendencia`: los valores del ETL, y 422 para los demás ─────────
+
+
+@pytest_asyncio.fixture
+async def cliente(async_db, monkeypatch):
+    from httpx import ASGITransport, AsyncClient
+
+    from app.config import settings
+    from app.db import get_db
+    from app.main import app
+
+    monkeypatch.setattr(settings, "feature_analytics", True)
+
+    async def _get_db():
+        yield async_db
+
+    app.dependency_overrides[get_db] = _get_db
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        yield c
+    app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("valor", ["creciente", "decreciente", "subiendo"])
+async def test_un_valor_de_tendencia_desconocido_es_422(cliente, valor):
+    """La documentación pedía «creciente | decreciente» y el ETL escribe
+    «crecimiento | decrecimiento»: el filtro devolvía una lista vacía, que se
+    leía como «no hay mercados creciendo»."""
+    from app.core.versionado import PREFIJO_API
+
+    r = await cliente.get(f"{PREFIJO_API}/bi/tendencia", params={"tendencia": valor})
+    assert r.status_code == 422
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("valor", ["crecimiento", "decrecimiento", "estable"])
+async def test_los_valores_del_etl_se_aceptan(cliente, valor, monkeypatch):
+    from app.core.versionado import PREFIJO_API
+    from app.services import bi as bi_service
+
+    pedidos: list = []
+    monkeypatch.setattr(
+        bi_service,
+        "get_tendencia",
+        lambda *args: pedidos.append(args) or {"disponible": True, "tendencias": [], "total": 0},
+    )
+
+    r = await cliente.get(f"{PREFIJO_API}/bi/tendencia", params={"tendencia": valor})
+    assert r.status_code == 200, r.text
+    assert pedidos[0][1] == valor
+
+
+def test_el_etl_escribe_esos_valores():
+    """Si el ETL cambia sus etiquetas, la validación de la API tiene que cambiar."""
+    from pathlib import Path
+
+    fuente = (Path(__file__).parents[2] / "etl" / "analytics" / "trend_analysis.py").read_text()
+    for valor in ("crecimiento", "decrecimiento", "estable"):
+        assert f'"{valor}"' in fuente

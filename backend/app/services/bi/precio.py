@@ -30,8 +30,17 @@ from __future__ import annotations
 
 import logging
 
+import polars as pl
+
 from app.repositories.busqueda import COLUMNA_BUSCABLE
-from app.services.bi._base import _buscar, _columna_presente, _load, periodo_de
+from app.services.bi._base import (
+    _buscar,
+    _columna_presente,
+    _columnas,
+    _contar_filas,
+    _load,
+    periodo_de,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -146,16 +155,6 @@ def get_precio_producto(
             return df["UnidadMedida"] == unidad_medida
         return None
 
-    def _mejores(df, tope: int = MAX_PRODUCTOS_L0):
-        """Los productos con más respaldo primero, y sólo los primeros.
-
-        Se desempata por la firma, que es única dentro del grupo: sin el
-        desempate, dos productos con la misma `n` alternarían el orden entre
-        llamadas y la pantalla parecería inestable sin que cambiara el dato.
-        """
-        columnas = ["n"] + (["firma_producto"] if "firma_producto" in df.columns else [])
-        return df.sort(columnas, descending=[True] + [False] * (len(columnas) - 1)).head(tope)
-
     def _filtros(**kv) -> dict:
         """Descarta las claves sin valor.
 
@@ -163,6 +162,37 @@ def get_precio_producto(
         incluirlo sin querer devolvería cero filas.
         """
         return {k: v for k, v in kv.items() if v is not None}
+
+    def _productos(filename: str, filtros: dict, cols: list[str]):
+        """Los `MAX_PRODUCTOS_L0` productos con más compras y cuántos hay en total.
+
+        Orden, tope y columnas van a SQL: una categoría amplia —la `0` de las
+        órdenes sin código, sobre todo— tiene miles de productos, y se traían
+        todos con todas sus columnas para devolver doce. Se desempata por la
+        firma, que es única dentro del grupo: sin el desempate, dos productos con
+        la misma `n` alternarían el orden entre llamadas y la pantalla parecería
+        inestable sin que cambiara el dato.
+
+        None si la tabla no existe, es anterior al nivel (sin `firma_producto`)
+        o no tiene filas para el filtro.
+        """
+        presentes = _columnas(filename)
+        if "firma_producto" not in presentes:
+            return None
+        columnas = [c for c in [*cols, "ventana_desde", "ventana_hasta"] if c in presentes]
+        rows = _load(
+            filename,
+            filtros=filtros,
+            columnas=columnas,
+            orden="n",
+            desempate_texto="firma_producto",
+            limite=MAX_PRODUCTOS_L0,
+        )
+        if rows is None or rows.is_empty():
+            return None
+        # El total de verdad, no el de la página: antes se contaba después de
+        # cortar a doce y `total_registros` decía 12 con 300 productos detrás.
+        return rows, _contar_filas(filename, filtros=filtros)
 
     # ── Level 0: el mismo producto, este comprador ───────────────────────────
     #
@@ -172,62 +202,50 @@ def get_precio_producto(
     #
     # Se ordena por muestra descendente y se corta: una categoría amplia puede
     # tener cientos de productos y la pantalla no los quiere todos. El corte va
-    # aquí y no en el endpoint para que la cuota de BI cubra siempre lo mismo.
+    # aquí y no en el endpoint para que toda llamada cubra siempre lo mismo.
     if organismo_id:
-        df0 = _load(
+        l0 = _productos(
             "product_price_bands_L0.parquet",
-            filtros=_filtros(
+            _filtros(
                 codigoProductoONU=str(codigo_producto),
                 CodigoOrganismoPublico=str(organismo_id),
                 UnidadMedida=unidad_medida,
             ),
+            COLS_L0,
         )
-        if df0 is not None and "firma_producto" in df0.columns:
-            mask = (df0["codigoProductoONU"].cast(str) == str(codigo_producto)) & (
-                df0["CodigoOrganismoPublico"].cast(str) == str(organismo_id)
-            )
-            um = _unit_mask(df0)
-            if um is not None:
-                mask = mask & um
-            rows = df0.filter(mask)
-            if not rows.is_empty():
-                rows = _mejores(rows)
-                return {
-                    "disponible": True,
-                    "codigo_producto": codigo_producto,
-                    "resultado": _to_dicts(rows, COLS_L0),
-                    "total_registros": len(rows),
-                    "nivel_usado": "L0",
-                    "periodo": periodo_de(df0),
-                    "fallback": False,
-                }
-
-    # ── Level 0N: el mismo producto, cualquier comprador ─────────────────────
-    df0n = _load(
-        "product_price_bands_L0N.parquet",
-        filtros=_filtros(codigoProductoONU=str(codigo_producto), UnidadMedida=unidad_medida),
-    )
-    if df0n is not None and "firma_producto" in df0n.columns:
-        mask = df0n["codigoProductoONU"].cast(str) == str(codigo_producto)
-        um = _unit_mask(df0n)
-        if um is not None:
-            mask = mask & um
-        rows = df0n.filter(mask)
-        if not rows.is_empty():
-            rows = _mejores(rows)
+        if l0 is not None:
+            rows, total = l0
             return {
                 "disponible": True,
                 "codigo_producto": codigo_producto,
-                "resultado": _to_dicts(rows, COLS_L0N),
-                "total_registros": len(rows),
-                "nivel_usado": "L0N",
-                "periodo": periodo_de(df0n),
-                "fallback": True,
-                "fallback_motivo": (
-                    "sin datos de este comprador para estos productos — referencia nacional "
-                    "del mismo producto"
-                ),
+                "resultado": _to_dicts(rows, COLS_L0),
+                "total_registros": total,
+                "nivel_usado": "L0",
+                "periodo": periodo_de(rows),
+                "fallback": False,
             }
+
+    # ── Level 0N: el mismo producto, cualquier comprador ─────────────────────
+    l0n = _productos(
+        "product_price_bands_L0N.parquet",
+        _filtros(codigoProductoONU=str(codigo_producto), UnidadMedida=unidad_medida),
+        COLS_L0N,
+    )
+    if l0n is not None:
+        rows, total = l0n
+        return {
+            "disponible": True,
+            "codigo_producto": codigo_producto,
+            "resultado": _to_dicts(rows, COLS_L0N),
+            "total_registros": total,
+            "nivel_usado": "L0N",
+            "periodo": periodo_de(rows),
+            "fallback": True,
+            "fallback_motivo": (
+                "sin datos de este comprador para estos productos — referencia nacional "
+                "del mismo producto"
+            ),
+        }
 
     # ── Level 1: producto + organismo ────────────────────────────────────────
     if organismo_id:
@@ -306,10 +324,18 @@ def get_precio_producto(
 
     # ── Level 4: organismo-level price bands (general context) ───────────────
     if organismo_id:
-        df4 = _load("price_bands.parquet", filtros={"CodigoOrganismoPublico": str(organismo_id)})
+        # Los cinco rubros del organismo con más transacciones, empate por nombre.
+        # Era un `head(5)` sin orden: cinco rubros cualesquiera, los que Postgres
+        # leyera primero.
+        df4 = _load(
+            "price_bands.parquet",
+            filtros={"CodigoOrganismoPublico": str(organismo_id)},
+            orden="n_transacciones",
+            desempate_texto="RubroN2",
+            limite=5,
+        )
         if df4 is not None:
-            mask4 = df4["CodigoOrganismoPublico"].cast(str) == str(organismo_id)
-            rows4 = df4.filter(mask4).head(5)
+            rows4 = df4
             if not rows4.is_empty():
                 # Map price_bands columns to PrecioBanda layout
                 mapped = []
@@ -366,8 +392,6 @@ def get_productos(q: str, limit: int = 20) -> dict:
     Busca productos por nombre en product_price_bands_L3.
     Retorna lista de {codigo, nombre, n} ordenada por frecuencia (n).
     """
-    import polars as pl
-
     if not q or len(q.strip()) < 2:
         return {"disponible": True, "resultados": []}
 

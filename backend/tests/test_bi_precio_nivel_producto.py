@@ -4,7 +4,7 @@
 niveles L0/L0N agrupan por producto real (la firma de `EspecificacionComprador`)
 y llevan el código dentro para poder encontrarse desde ahí.
 
-Se prueba con dobles de `_load` en vez de con la base: lo que hay que fijar aquí
+Se prueba con un doble de las tablas en vez de con la base: lo que hay que fijar aquí
 es el **orden de la cascada y la forma de la respuesta**, no el SQL — que ya lo
 cubre el golden master.
 """
@@ -15,6 +15,7 @@ import polars as pl
 import pytest
 
 from app.services.bi import precio as servicio
+from tests.analytics_en_memoria import AnalyticsEnMemoria
 
 CODIGO = "41116000"
 ORGANISMO = "7416"
@@ -43,16 +44,16 @@ def _banda(**kv) -> dict:
 
 
 @pytest.fixture
-def tablas(monkeypatch):
-    """Sustituye `_load` por un diccionario de tablas en memoria."""
-    contenido: dict[str, pl.DataFrame] = {}
+def tablas(monkeypatch) -> dict[str, pl.DataFrame]:
+    """Las tablas en memoria, con filtros, orden, tope y columnas como el SQL.
 
-    def _load(filename, *, filtros=None, columnas=None, **_):
-        df = contenido.get(filename)
-        return df if df is not None and not df.is_empty() else None
-
-    monkeypatch.setattr(servicio, "_load", _load)
-    return contenido
+    L0 y L0N empujan a SQL el orden por muestra y el tope de productos, y
+    preguntan qué columnas tiene la tabla y cuántas filas cumplen el filtro: un
+    doble que devolviera la tabla entera sin filtrar no probaría ese recorte.
+    """
+    datos = AnalyticsEnMemoria()
+    datos.instalar(monkeypatch, servicio)
+    return datos.tablas
 
 
 class TestCascada:
@@ -146,7 +147,9 @@ class TestVariosProductos:
 
         r = servicio.get_precio_producto(CODIGO, organismo_id=ORGANISMO)
 
-        assert r["total_registros"] == servicio.MAX_PRODUCTOS_L0
+        assert len(r["resultado"]) == servicio.MAX_PRODUCTOS_L0
+        # El total es el de la categoría, no el de la página (antes decía 12).
+        assert r["total_registros"] == len(filas)
         assert r["resultado"][0]["n"] == max(f["n"] for f in filas)
 
     def test_el_orden_es_estable_ante_empates(self, tablas):

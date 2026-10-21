@@ -30,7 +30,8 @@ import logging
 
 import polars as pl
 
-from app.services.bi._base import _load
+from app.services.bi._base import _agregado, _distintos, _load, _totales, clasificar_hhi
+from app.services.bi.temporal import anios_completos, ventana_de_los_datos
 
 logger = logging.getLogger(__name__)
 
@@ -41,29 +42,13 @@ TOP = 10
 #: Meses en el orden en que se muestran.
 MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
 
-#: Cortes del índice de Herfindahl. Son los de la literatura de competencia
-#: (DOJ/FTC): por debajo de 1.500 el mercado se considera desconcentrado, entre
-#: 1.500 y 2.500 moderadamente concentrado, y por encima concentrado.
-HHI_MODERADO = 1500
-HHI_CONCENTRADO = 2500
-
-
-def _clasificar_mercado(hhi: float | None) -> str | None:
-    if hhi is None:
-        return None
-    if hhi > HHI_CONCENTRADO:
-        return "concentrado"
-    if hhi > HHI_MODERADO:
-        return "moderado"
-    return "fragmentado"
-
 
 def _tamano_del_mercado(rubro: str) -> dict:
     """Monto y órdenes del último año COMPLETO, más el ticket típico.
 
     El último año completo y no el corriente: en enero, el año en curso lleva un
     mes y compararlo con el anterior sugiere un desplome que no existe. Es el
-    mismo criterio que ya usa el cálculo del CAGR.
+    mismo criterio que usa el cálculo del CAGR (`anios_completos`).
     """
     ts = _load(
         "time_series.parquet",
@@ -73,8 +58,7 @@ def _tamano_del_mercado(rubro: str) -> dict:
     if ts is None or ts.is_empty():
         return {"disponible": False}
 
-    cobertura = ts.group_by("anio").agg(pl.col("mes").max().alias("max_mes"))
-    completos = cobertura.filter(pl.col("max_mes") == 12).select("anio").to_series().to_list()
+    completos = anios_completos(ts, ventana_de_los_datos())
     if not completos:
         return {"disponible": False}
 
@@ -103,66 +87,72 @@ def _tamano_del_mercado(rubro: str) -> dict:
 
 
 def _competencia_del_rubro(rubro: str) -> dict:
-    """Quién gana en el rubro, con qué cuota, y cuán concentrado está."""
-    df = _load(
+    """Quién gana en el rubro, con qué cuota, y cuán concentrado está.
+
+    Agregado por proveedor en SQL (`_agregado`, `_totales`): antes se traían a
+    la API todas las filas del rubro en `competitors_by_market` —una por
+    organismo y proveedor— para devolver diez, y `/mercado` lo hacía tres veces
+    al abrir un rubro (aquí, en los compradores a vigilar y en el resumen).
+    """
+    filtros = {"RubroN2": rubro}
+    sumas = ["monto_total", "n_oc"]
+    total = _totales(
         "competitors_by_market.parquet",
-        filtros={"RubroN2": rubro},
-        columnas=[
-            "CodigoOrganismoPublico",
-            "CodigoProveedor",
-            "NombreProveedor",
-            "monto_total",
-            "n_oc",
-        ],
+        "CodigoProveedor",
+        filtros=filtros,
+        sumas=sumas,
+        distintos=["CodigoOrganismoPublico"],
     )
-    if df is None or df.is_empty():
+    if total is None or not total["grupos"]:
         return {"disponible": False}
 
-    monto_rubro = float(df.select(pl.col("monto_total").sum()).item() or 0)
+    monto_rubro = float(total["monto_total"] or 0)
     if monto_rubro <= 0:
         return {"disponible": False}
 
-    oc_rubro = int(df.select(pl.col("n_oc").sum()).item() or 0)
+    oc_rubro = int(total["n_oc"] or 0)
 
-    por_proveedor = (
-        df.group_by("CodigoProveedor")
-        .agg(
-            pl.col("monto_total").sum().alias("monto"),
-            pl.col("n_oc").sum().alias("oc"),
-            pl.col("CodigoOrganismoPublico").n_unique().alias("compradores"),
-            pl.col("NombreProveedor").first().alias("nombre"),
-        )
-        .with_columns(
-            (pl.col("monto") / monto_rubro * 100).alias("share_pct"),
+    top = _agregado(
+        "competitors_by_market.parquet",
+        "CodigoProveedor",
+        filtros=filtros,
+        sumas=sumas,
+        distintos=["CodigoOrganismoPublico"],
+        primeros=["NombreProveedor"],
+        limite=TOP,
+    )
+    lideres = [
+        {
+            "nombre": r["NombreProveedor"],
+            "share_pct": (r["monto_total"] or 0) / monto_rubro * 100,
             # **Cuota por ÓRDENES, no sólo por monto.** El monto lo puede
             # dominar una sola compra enorme: en «Suministros de oficina» un
             # proveedor tiene el 85 % del monto y la lectura ingenua es «este
             # mercado está tomado». La cuota por órdenes dice contra qué se
             # compite de verdad — cuántas veces gana alguien, no cuánto factura
             # — y es la cifra que le sirve a una PYME que pelea compras chicas.
-            (pl.col("oc") / max(oc_rubro, 1) * 100).alias("share_oc_pct"),
-        )
-        .sort(["monto", "CodigoProveedor"], descending=[True, False])
-    )
+            "share_oc_pct": (r["n_oc"] or 0) / max(oc_rubro, 1) * 100,
+            "oc": r["n_oc"] or 0,
+            "compradores": r["distintos_CodigoOrganismoPublico"],
+        }
+        for r in top.iter_rows(named=True)
+    ]
 
-    hhi = float(por_proveedor.select((pl.col("share_pct") ** 2).sum()).item() or 0)
-    top = por_proveedor.head(TOP).select(
-        ["nombre", "share_pct", "share_oc_pct", "oc", "compradores"]
-    )
+    # El HHI es la suma de los cuadrados de las cuotas: Σ(mᵢ/M·100)² =
+    # Σmᵢ² / M² · 10.000, y `cuadrados` es Σmᵢ² sobre TODOS los proveedores.
+    hhi = float(total["cuadrados"] or 0) / monto_rubro**2 * 10_000
 
     return {
         "disponible": True,
-        "n_proveedores": por_proveedor.height,
-        "n_compradores": df.select("CodigoOrganismoPublico").n_unique(),
+        "n_proveedores": int(total["grupos"]),
+        "n_compradores": int(total["distintos_CodigoOrganismoPublico"]),
         "monto_clp": monto_rubro,
         "n_oc": oc_rubro,
         "hhi": round(hhi),
-        "tipo_mercado": _clasificar_mercado(hhi),
+        "tipo_mercado": clasificar_hhi(hhi),
         # Cuánto se llevan los cinco primeros. Es más legible que el HHI y dice
         # lo mismo: «entre cinco se llevan el 80 %» se entiende sin explicación.
-        "share_top5_pct": round(
-            float(por_proveedor.head(5).select(pl.col("share_pct").sum()).item() or 0), 1
-        ),
+        "share_top5_pct": round(sum(lider["share_pct"] for lider in lideres[:5]), 1),
         "lideres": [
             {
                 "nombre": r["nombre"],
@@ -171,7 +161,7 @@ def _competencia_del_rubro(rubro: str) -> dict:
                 "n_oc": int(r["oc"]),
                 "n_compradores": int(r["compradores"]),
             }
-            for r in top.iter_rows(named=True)
+            for r in lideres
         ],
     }
 
@@ -230,17 +220,14 @@ def _compradores_a_vigilar(rubro: str) -> dict:
     Son avisos concretos —cancela mucho, declara desierto, compra a saltos— y es
     justo lo que un proveedor quiere saber antes de invertir en una oferta.
     """
-    mercados = _load(
-        "competitors_by_market.parquet",
-        filtros={"RubroN2": rubro},
-        columnas=["CodigoOrganismoPublico"],
+    # Los compradores distintos del rubro, en SQL: antes se traía una fila por
+    # (organismo, proveedor) del rubro para quedarse con los códigos.
+    distintos = _distintos(
+        "competitors_by_market.parquet", "CodigoOrganismoPublico", filtros={"RubroN2": rubro}
     )
-    if mercados is None or mercados.is_empty():
+    if not distintos:
         return {"disponible": False}
-
-    codigos = mercados.select("CodigoOrganismoPublico").unique().to_series().cast(str).to_list()
-    if not codigos:
-        return {"disponible": False}
+    codigos = [str(c) for c in distintos]
 
     # La tabla de banderas tiene ~200 filas: se trae entera y se cruza en
     # memoria. Filtrar por una lista de miles de códigos en SQL sería una

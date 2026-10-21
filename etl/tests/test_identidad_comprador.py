@@ -140,6 +140,23 @@ class TestLider:
         assert r["tipo_mercado"] == "concentrado"
 
 
+class TestRangoEntero:
+    def test_un_empate_comparte_el_puesto_y_el_rango_es_entero(self):
+        """Con el método por defecto de Polars (`average`) dos empatados en el
+        2.º puesto salían con 2,5: la columna era Float64 y la API, que declara
+        `rank_monto` entero, respondía 500 al encontrarla."""
+        empate = MERCADO.with_columns(
+            pl.when(pl.col("CodigoProveedor") == "333")
+            .then(pl.lit(80.0))
+            .otherwise(pl.col("monto_total"))
+            .alias("monto_total")
+        )
+        rangos = compute_market_shares(empate).select("CodigoProveedor", "rank_monto")
+
+        assert rangos["rank_monto"].dtype.is_integer()
+        assert dict(rangos.iter_rows()) == {"111": 1, "222": 2, "333": 2}
+
+
 class TestNombreVigente:
     def test_se_queda_con_el_ultimo_periodo(self):
         df = pl.DataFrame(

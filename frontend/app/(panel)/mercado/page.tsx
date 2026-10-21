@@ -338,8 +338,6 @@ function BIContenido() {
                 />
               ) : (
                 <TendenciasSection
-                  tendencias={tendencia?.tendencias ?? []}
-                  emergentes={tendencia?.emergentes ?? []}
                   loading={consultaTendencia.isFetching}
                   selectedRubro={rubro}
                   serieAnual={tendencia?.serie_anual ?? null}

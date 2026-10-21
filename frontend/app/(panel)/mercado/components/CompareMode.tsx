@@ -1,9 +1,12 @@
 'use client';
 
+import type { UseQueryResult } from '@tanstack/react-query';
+
+import { ErrorDeCarga } from '@/components/ErrorDeCarga';
 import { useBILibre } from '@/lib/queries';
 import { Loader2, X } from 'lucide-react';
 import { apiClient } from '@/lib/api';
-import { OportunidadItem, ResumenMercado, TendenciaItem } from '../types';
+import { OportunidadItem, ResumenMercado } from '../types';
 import { decimal, monto } from '@/lib/formato';
 
 interface CompareModeProps {
@@ -15,42 +18,60 @@ interface CompareModeProps {
   onClose: () => void;
 }
 
-interface RubroData {
+interface DatosRubro {
   resumen: ResumenMercado | null;
   oportunidades: OportunidadItem[];
-  tendencia: TendenciaItem | null;
-  loading: boolean;
 }
 
-async function loadRubroData(rubro: string): Promise<Omit<RubroData, 'loading'>> {
-  const [resumenRes, opRes, tendRes] = await Promise.allSettled([
+/**
+ * Lo que la columna de un rubro necesita, en dos llamadas.
+ *
+ * **Si una falla, falla la columna**: con `Promise.allSettled` un error se
+ * tragaba y la columna enseñaba «0 oportunidades» y cifras vacías como si el
+ * rubro no tuviera nada. Ahora la consulta queda en error y la columna lo dice,
+ * con «Reintentar». Un `disponible: false` sí es «no hay datos».
+ *
+ * Ya no se pide `/bi/tendencia`: sólo servía de respaldo del crecimiento, y su
+ * fila es la de UN organismo en el rubro, con el CAGR como fracción (un 25 %
+ * salía «+0,3 %»). El crecimiento del rubro es `cagr_pct` del resumen.
+ */
+async function loadRubroData(rubro: string): Promise<DatosRubro> {
+  const [resumen, op] = await Promise.all([
     apiClient.getBIResumen(rubro),
     apiClient.getBIOportunidades({ rubro, min_score: 4, limit: 10 }),
-    apiClient.getBITendencia({ rubro, limit: 5 }),
   ]);
   return {
-    resumen: resumenRes.status === 'fulfilled' ? resumenRes.value : null,
-    oportunidades:
-      opRes.status === 'fulfilled' && opRes.value?.disponible
-        ? (opRes.value.oportunidades ?? [])
-        : [],
-    tendencia:
-      tendRes.status === 'fulfilled' && tendRes.value?.disponible
-        ? (tendRes.value.tendencias?.find((t: TendenciaItem) => t.RubroN2 === rubro) ?? tendRes.value.tendencias?.[0] ?? null)
-        : null,
+    resumen: resumen ?? null,
+    oportunidades: op?.disponible ? (op.oportunidades ?? []) : [],
   };
 }
 
 const formatCLPShort = (v: number): string => monto(v);
 
-function RubroColumn({ rubro, data }: { rubro: string; data: RubroData }) {
-  if (data.loading) {
+function RubroColumn({ rubro, consulta }: { rubro: string; consulta: UseQueryResult<DatosRubro> }) {
+  // El error antes que el spinner: durante un «Reintentar» las dos cosas son
+  // ciertas, y no debe volver a girar sin decir qué pasó.
+  if (consulta.isError) {
     return (
-      <div className="card flex items-center justify-center py-10">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-text truncate" title={rubro}>{rubro}</h3>
+        <ErrorDeCarga
+          titulo="No pudimos cargar este rubro"
+          error={consulta.error}
+          onReintentar={() => void consulta.refetch()}
+          reintentando={consulta.isFetching}
+        />
       </div>
     );
   }
+  if (!consulta.data) {
+    return (
+      <div className="card flex items-center justify-center py-10">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" aria-hidden="true" />
+      </div>
+    );
+  }
+  const data = consulta.data;
 
   const maxScore = data.oportunidades.length > 0
     ? Math.max(...data.oportunidades.map((o) => o.opportunity_score))
@@ -58,7 +79,7 @@ function RubroColumn({ rubro, data }: { rubro: string; data: RubroData }) {
   const avgCompetencia = data.oportunidades.length > 0
     ? data.oportunidades.reduce((s, o) => s + o.n_proveedores, 0) / data.oportunidades.length
     : 0;
-  const cagr = data.resumen?.cagr_pct ?? data.tendencia?.cagr ?? null;
+  const cagr = data.resumen?.cagr_pct ?? null;
   const topComprador = data.resumen?.top_comprador?.nombre;
 
   return (
@@ -131,14 +152,6 @@ export function CompareMode({ rubroA, rubroB, allRubros, onChangeRubroA, onChang
   const consultaA = useBILibre('comparar-rubro', rubroA, () => loadRubroData(rubroA), Boolean(rubroA));
   const consultaB = useBILibre('comparar-rubro', rubroB, () => loadRubroData(rubroB), Boolean(rubroB));
 
-  const vacio: RubroData = { resumen: null, oportunidades: [], tendencia: null, loading: false };
-  const dataA: RubroData = consultaA.data
-    ? { ...(consultaA.data as RubroData), loading: false }
-    : { ...vacio, loading: Boolean(rubroA) };
-  const dataB: RubroData = consultaB.data
-    ? { ...(consultaB.data as RubroData), loading: false }
-    : { ...vacio, loading: Boolean(rubroB) };
-
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
@@ -181,8 +194,8 @@ export function CompareMode({ rubroA, rubroB, allRubros, onChangeRubroA, onChang
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <RubroColumn rubro={rubroA} data={dataA} />
-          <RubroColumn rubro={rubroB} data={dataB} />
+          <RubroColumn rubro={rubroA} consulta={consultaA} />
+          <RubroColumn rubro={rubroB} consulta={consultaB} />
         </div>
       )}
     </div>

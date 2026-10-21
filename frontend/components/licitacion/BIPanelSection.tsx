@@ -65,7 +65,7 @@ function Competencia({ competidores }: { competidores: CompetidoresPanel }) {
       <h3 className={TITULO}>Quién le vende a este comprador</h3>
       {!competidores.disponible || lista.length === 0 ? (
         <p className="mt-2 text-sm text-muted">
-          {motivoParaPersona(competidores.motivo, 'Todavía no tenemos proveedores de este comprador en el rubro.')}
+          {motivoParaPersona(competidores.motivo, 'Todavía no tenemos proveedores de este comprador.')}
         </p>
       ) : (
         <div className="mt-2 max-w-3xl">

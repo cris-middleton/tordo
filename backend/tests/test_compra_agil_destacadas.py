@@ -743,3 +743,20 @@ async def test_los_ceros_se_ordenan_por_tiempo_por_monto(cliente, mercado):
     items = r.json()["items"]
     assert [i["puntaje"] for i in items] == [0.0, 0.0, 0.0]
     assert all(i["factores"]["comprador"] == 0.0 for i in items)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("vacio", ["", "   "])
+async def test_un_codigo_de_comprador_vacio_no_filtra(cliente, mercado, vacio):
+    """`?codigo_organismo=` llegaba como cadena vacía, se comparaba tal cual
+    contra los códigos y la respuesta era una lista vacía: un filtro roto que
+    parecía «este comprador no tiene ninguna»."""
+    todas = [f["codigo_externo"] for f in await repo.destacadas(mercado, limite=50, ahora=AHORA)]
+    con_vacio = await repo.destacadas(mercado, limite=50, ahora=AHORA, codigo_organismo=vacio)
+
+    assert todas
+    assert [f["codigo_externo"] for f in con_vacio] == todas
+
+    r = await cliente.get(RUTA, params={"codigo_organismo": vacio})
+    assert r.status_code == 200
+    assert set(_codigos(r)) == set(todas)

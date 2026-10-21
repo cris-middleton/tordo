@@ -1403,6 +1403,13 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
     `price_bands`, `competitors_by_market`, `market_concentration` y `sector_dashboard`, y
     `periodo` en la API de precio, de competidores y en la ficha pública de producto. Una cifra
     sin periodo se lee como «de siempre».
+  - **Un año es completo si la ventana lo cubre de enero a diciembre** (`temporal.anios_completos`,
+    con la ventana de `competitors_by_market`; sin ella, si la serie trae los doce meses). Antes
+    bastaba con que tuviera diciembre, y como la ventana empieza a mitad de año (noviembre de
+    2023, p. ej.) el primer año entraba al CAGR con dos meses: un rubro plano salía creciendo un
+    ~145 % al año. El CAGR del rubro se calcula en un solo sitio
+    (`_compute_cagr_rubro_desde_time_series`), para `/bi/tendencia` y `/bi/resumen`, y el
+    tamaño del panorama usa la misma regla (`tests/test_bi_anios_completos.py`).
   - **Los textos del sitio dicen el número de meses con constantes, no a mano**:
     `MESES_ANALISIS`, `MESES_PRECIOS` y `MESES_COMPRA_AGIL` en `frontend/lib/periodo.ts` son copias
     de `VENTANA_ANALYTICS_MESES`, `VENTANA_BANDAS_PRECIO_MESES` y `VENTANA_COMPRA_AGIL_MESES`, y
@@ -1462,6 +1469,19 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   donde hay 77.720, y tomar una fila suelta como representativa daba tres «líderes del
   rubro» con 99,9 %, 99,9 % y 99,0 %… cada uno de un comprador distinto. Lo fija
   `tests/test_bi_metricas.py`, con un mercado de juguete donde el error se ve.
+  - **Se agrega en Postgres** (`_base._agregado` y `_totales`, sobre `sql_agregado` y
+    `sql_totales`): los grupos de más monto con tope, y los totales con la suma de los
+    cuadrados para el HHI. El panorama, el resumen y los competidores de un organismo traían
+    todas las filas del rubro a la API (512 MB) para devolver diez; `/mercado` con un rubro, tres
+    veces. `tests/test_bi_agregado_sql.py` compara el SQL con el cálculo de Polars de antes.
+  - **Sin rubro, `/bi/competidores/{org}` y el panel de una licitación agregan sobre TODO lo que
+    compra el organismo**: cuota sobre su monto total, `rank_monto` el puesto en ese total y una
+    sola entrada de `concentracion`, sin rubro. Antes se ordenaban las filas del organismo por
+    `rank_monto` y salían los n.º 1 de cinco rubros cualesquiera, cada uno con la cuota de su
+    rubro. La licitación no trae `RubroN2` (sale de las órdenes), por eso el panel va sin rubro.
+  - **`rank_monto` se rankea con `method="min"`** (dos empatados en el 2.º son 2.º). Con el
+    `average` de Polars salía 2,5, la columna era Float64 y `Competidor.rank_monto: int`
+    devolvía 500; el esquema trunca los decimales de las tablas materializadas antes.
 - **La identidad de una entidad es su CÓDIGO. El nombre nunca va en la clave de agrupación**
   (`etl/analytics/identidad.py`). En el histórico de ChileCompra **145 de 1.186 compradores
   (12,2 %) aparecen con más de un nombre** —los cambios de 2021 dejaron a la misma repartición
@@ -1643,10 +1663,14 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   en Postgres) y `oportunidades`, `tendencia` y `rubros` sin rubro traían sus tablas
   completas a la vez; la API moría por OOM (11 `Killed` el 2026-10-14 y el servicio en
   `CRASHED`). Los mínimos van como `minimos` de `sql_consulta`, el top-N como `orden`+`limite`
-  y los conteos con `contar_por` (`COLLATE "C"`, el orden de Polars).
+  (con `desempate_texto` cuando el empate se resolvía por una columna de texto), los conteos con
+  `contar_por` y `contar_filas`, los valores distintos con `distintos(filtros=)` y lo que agrega
+  por proveedor con `agregado`/`totales` (`COLLATE "C"`, el orden de Polars). `_a_polars`
+  infiere el esquema con todas las filas: con las 100 primeras, una columna nula ahí y con
+  texto después lanzaba `ComputeError`.
   `tests/test_bi_mercado_acotado.py` recorre **las 16 funciones `get_*` de `services/bi`**
   (las llamadas del golden más las de primera visita, sin rubro ni organismo) contra el
-  doble de `_load` y falla si alguna lee una tabla sin `filtros` ni `limite`, salvo tres
+  doble de `_load` (y de los agregados) y falla si alguna lee una tabla sin `filtros` ni `limite`, salvo tres
   que se leen enteras por pequeñas, cada una con su motivo escrito en el test
   (`sector_dashboard`, `buyer_scores`, `buyer_risk_flags`). Una función nueva sin llamadas
   en la guarda también la hace fallar. **No cubre** `services/publico/` (las páginas

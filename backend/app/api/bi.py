@@ -15,6 +15,7 @@ por contenedor».
 """
 
 import logging
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -73,6 +74,12 @@ def get_precio_producto(
     "/competidores/{organismo_id}",
     response_model=CompetidoresResponse,
     summary="Top competidores en el mercado de un comprador",
+    description=(
+        "Con `rubro`, los proveedores de ese mercado (organismo × rubro) con su cuota y el "
+        "HHI del mercado. Sin `rubro`, los de todo lo que compra el organismo, agregados por "
+        "proveedor: la cuota es sobre el monto total del organismo, `rank_monto` el puesto en "
+        "ese total y `concentracion` una sola entrada, sin rubro, con el HHI de esas cuotas."
+    ),
 )
 def get_competidores(
     organismo_id: str = Path(max_length=limites.CODIGO),
@@ -193,7 +200,9 @@ async def get_licitacion_panel(
     summary="Patrones de estacionalidad de compras para un organismo",
     description=(
         "Retorna probabilidad de compra, consistencia y picos estacionales por mes "
-        "(1–12) para el organismo indicado, con filtro opcional por rubro. "
+        "(1–12) para el organismo indicado, con filtro opcional por rubro. Sin rubro, "
+        "los rubros del organismo se suman mes a mes; `consistencia` y "
+        "`es_pico_estacional` van nulas porque no se pueden reconstruir de la suma. "
         "Fuente: seasonality_patterns.parquet."
     ),
 )
@@ -218,8 +227,11 @@ def get_estacionalidad(
 )
 def get_tendencia(
     rubro: str | None = Query(None, max_length=limites.NOMBRE, description="Filtrar por RubroN2"),
-    tendencia: str | None = Query(
-        None, max_length=limites.NOMBRE, description="creciente | decreciente | estable"
+    # Los valores que escribe el ETL (`etl/analytics/trend_analysis.py`). La
+    # documentación decía «creciente | decreciente», que no coinciden con nada:
+    # el filtro devolvía una lista vacía sin decir por qué. Ahora es 422.
+    tendencia: Literal["crecimiento", "decrecimiento", "estable"] | None = Query(
+        None, description="crecimiento | decrecimiento | estable"
     ),
     solo_emergentes: bool = Query(False, description="Retornar solo mercados emergentes"),
     limit: int = Query(50, ge=1, le=200),
