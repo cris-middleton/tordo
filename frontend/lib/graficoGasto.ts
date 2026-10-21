@@ -108,9 +108,7 @@ const esFila = (f: GastoMensual) =>
   f.mes >= 1 &&
   f.mes <= 12 &&
   Number.isFinite(f.monto) &&
-  f.monto >= 0 &&
-  Number.isFinite(f.n_oc) &&
-  f.n_oc >= 0;
+  f.monto >= 0;
 
 /**
  * Las columnas, de la más vieja a la más nueva, con los meses que falten entre

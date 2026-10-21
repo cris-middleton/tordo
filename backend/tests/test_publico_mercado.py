@@ -107,10 +107,10 @@ def test_gasto_mensual_suma_por_mes_y_sector_y_funde_los_vacios_en_otros(tablas,
     r = cliente.get(URL)
     assert r.status_code == 200
     assert r.json()["gasto_mensual"] == [
-        {"anio": 2025, "mes": 10, "sector": "Municipalidades", "monto": 700.0, "n_oc": 7},
-        {"anio": 2025, "mes": 10, "sector": "Otros", "monto": 60.0, "n_oc": 7},
-        {"anio": 2025, "mes": 10, "sector": "Salud", "monto": 500.0, "n_oc": 5},
-        {"anio": 2025, "mes": 11, "sector": "Salud", "monto": 400.0, "n_oc": 4},
+        {"anio": 2025, "mes": 10, "sector": "Municipalidades", "monto": 700.0},
+        {"anio": 2025, "mes": 10, "sector": "Otros", "monto": 60.0},
+        {"anio": 2025, "mes": 10, "sector": "Salud", "monto": 500.0},
+        {"anio": 2025, "mes": 11, "sector": "Salud", "monto": 400.0},
     ]
 
 

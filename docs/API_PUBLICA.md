@@ -264,8 +264,9 @@ cliente que no los conoce los ignora.
 `/publico/mercado` no lleva parámetros y trae dos bloques, cada uno `null` mientras la
 corrida semanal no haya escrito su tabla (y 503 con el BI apagado, como las fichas):
 
-- **`gasto_mensual`**: una fila por mes y sector —`anio`, `mes`, `sector`, `monto` (CLP) y
-  `n_oc`—, en orden de mes y de sector. El sector vacío se suma a `Otros`. Sale de las
+- **`gasto_mensual`**: una fila por mes y sector —`anio`, `mes`, `sector` y `monto` (CLP)—,
+  en orden de mes y de sector. Sin el número de órdenes: la tabla de origen las cuenta por
+  rubro, y sumadas por sector una orden de dos rubros salía dos veces. El sector vacío se suma a `Otros`. Sale de las
   órdenes de compra: el último mes puede estar a medias, y los contratos de obra del MOP no
   están, porque la descarga masiva de órdenes no los trae.
 - **`concentracion`**: `mercados` (los que tienen cuota del líder), `sobre_la_mitad` (el líder

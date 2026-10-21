@@ -27,8 +27,7 @@ function esFilaGasto(f: unknown): f is GastoMensual {
     Number.isInteger(f.anio) &&
     Number.isInteger(f.mes) &&
     typeof f.sector === 'string' &&
-    esNumero(f.monto) &&
-    esNumero(f.n_oc)
+    esNumero(f.monto)
   );
 }
 

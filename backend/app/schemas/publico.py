@@ -216,7 +216,6 @@ class GastoMensualSector(BaseModel):
     mes: int = Field(description="Mes del año, de 1 a 12.")
     sector: str = Field(description="Sector del comprador. El vacío se suma a «Otros».")
     monto: float = Field(description="Monto de las órdenes de compra del mes, CLP.")
-    n_oc: int = Field(description="Órdenes de compra del mes.")
 
 
 class TramoConcentracion(BaseModel):

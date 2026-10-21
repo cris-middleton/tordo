@@ -335,7 +335,12 @@ TRAMOS_CUOTA = 10
 
 
 def sql_gasto_mensual(tabla: str, *, schema: str = SCHEMA) -> str:
-    """Monto y órdenes por (año, mes, sector), en orden de mes y de sector.
+    """Monto por (año, mes, sector), en orden de mes y de sector.
+
+    **Sin contar órdenes**: `time_series.n_oc` son las órdenes únicas de cada
+    (comprador, rubro, mes), y sumadas entre rubros una orden con líneas de dos
+    rubros se cuenta dos veces (7,1 millones contra 5,5 en producción). El monto
+    no tiene el problema: va repartido por línea.
 
     El sector vacío o nulo cae en `SECTOR_SIN_NOMBRE`, y se agrupa por la
     expresión ya traducida: así se funde con el «Otros» que haya, en vez de salir
@@ -347,8 +352,7 @@ def sql_gasto_mensual(tabla: str, *, schema: str = SCHEMA) -> str:
     sector = f"COALESCE(NULLIF(btrim({ident('sector')}), ''), {sin_nombre})"
     return (
         f"SELECT {ident('anio')} AS anio, {ident('mes')} AS mes, {sector} AS sector, "
-        f"COALESCE(SUM({ident('monto_total')}), 0) AS monto, "
-        f"COALESCE(SUM({ident('n_oc')}), 0) AS n_oc "
+        f"COALESCE(SUM({ident('monto_total')}), 0) AS monto "
         f"FROM {tabla_calificada(tabla, schema)} "
         f"WHERE {ident('anio')} IS NOT NULL AND {ident('mes')} IS NOT NULL "
         # El sector se ordena por bytes, como en el resto del módulo: no depende
