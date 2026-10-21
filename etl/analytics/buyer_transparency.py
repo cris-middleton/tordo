@@ -4,7 +4,8 @@
 Evalúa cuán transparente es el proceso de compra de cada organismo,
 combinando tres dimensiones:
 
-  1. % Trato Directo (CodigoTipo == "TD" en LIC)
+  1. % Trato Directo, de las ÓRDENES (`trato_directo.py`; en la descarga de
+     licitaciones no hay ninguno, y por eso valía 0 % para todos).
      Compras sin competencia declarada. Alto % → menos oportunidades
      para nuevos proveedores, más riesgo de mercado cautivo.
 
@@ -31,6 +32,7 @@ import logging
 
 import polars as pl
 
+from . import trato_directo
 from .config import OUTPUT_DIR
 from .data_loader import iter_lic_parquets
 from .identidad import PERIODO, nombre_vigente
@@ -49,7 +51,6 @@ def build_transparency_metrics() -> pl.DataFrame:
         "CodigoOrganismo",
         "NombreOrganismo",
         "sector",
-        "CodigoTipo",
         "Estado",
         "CodigoProveedor",
     ]
@@ -62,7 +63,6 @@ def build_transparency_metrics() -> pl.DataFrame:
             continue
 
         estado_col = "Estado" if "Estado" in df.columns else None
-        tipo_col = "CodigoTipo" if "CodigoTipo" in df.columns else None
 
         batch = df.filter(
             pl.col("CodigoExterno").is_not_null()
@@ -82,7 +82,6 @@ def build_transparency_metrics() -> pl.DataFrame:
                     pl.col("CodigoOrganismo").first(),
                     pl.col("NombreOrganismo").first(),
                     pl.col("sector").first(),
-                    pl.col("CodigoTipo").first() if tipo_col else pl.lit(None).alias("CodigoTipo"),
                     pl.col("Estado").str.to_lowercase().first().alias("estado_lower")
                     if estado_col
                     else pl.lit("").alias("estado_lower"),
@@ -111,7 +110,6 @@ def build_transparency_metrics() -> pl.DataFrame:
     result = (
         all_lics.with_columns(
             [
-                (pl.col("CodigoTipo") == "TD").cast(pl.Int8).alias("es_td"),
                 pl.col("estado_lower")
                 .str.contains("revocad|desierta")
                 .cast(pl.Int8)
@@ -132,7 +130,6 @@ def build_transparency_metrics() -> pl.DataFrame:
                 nombre_vigente("NombreOrganismo"),
                 nombre_vigente("sector"),
                 pl.len().alias("n_lic_total"),
-                pl.col("es_td").sum().alias("n_trato_directo"),
                 pl.col("es_fracaso").sum().alias("n_fracasos"),
                 pl.col("es_adjudicada").sum().alias("n_adjudicadas"),
                 # Para HHI: recopilar proveedores ganadores
@@ -144,7 +141,6 @@ def build_transparency_metrics() -> pl.DataFrame:
         .filter(pl.col("n_lic_total") >= MIN_LIC)
         .with_columns(
             [
-                (pl.col("n_trato_directo") / pl.col("n_lic_total")).alias("pct_trato_directo"),
                 (pl.col("n_fracasos") / pl.col("n_lic_total")).alias("tasa_fracaso"),
             ]
         )
@@ -174,9 +170,16 @@ def build_transparency_metrics() -> pl.DataFrame:
         .agg(pl.col("share_sq").sum().alias("hhi"))
     )
 
+    tratos = trato_directo.por_organismo().select(
+        pl.col(trato_directo.ORGANISMO).alias("CodigoOrganismo"),
+        "n_trato_directo",
+        "pct_trato_directo",
+    )
+
     # Join con result
     result = (
         result.join(hhi, on="CodigoOrganismo", how="left")
+        .join(tratos, on="CodigoOrganismo", how="left")
         .with_columns(
             [
                 pl.col("hhi").fill_null(1.0),
@@ -190,7 +193,10 @@ def build_transparency_metrics() -> pl.DataFrame:
         result.with_columns(
             [
                 # 1 - pct_td: penaliza trato directo (0% TD → 1.0, 50%+ → 0.0)
-                (1 - (pl.col("pct_trato_directo") / 0.50).clip(0, 1)).alias("score_pct_td"),
+                # Sin órdenes en la ventana no se sabe: vale el neutro de la escala.
+                (1 - (pl.col("pct_trato_directo") / 0.50).clip(0, 1))
+                .fill_null(0.5)
+                .alias("score_pct_td"),
                 # 1 - tasa_fracaso: penaliza licitaciones fallidas
                 (1 - (pl.col("tasa_fracaso") / 0.40).clip(0, 1)).alias("score_fracaso"),
                 # 1 - hhi: penaliza alta concentración (HHI=1 → siempre mismo proveedor)

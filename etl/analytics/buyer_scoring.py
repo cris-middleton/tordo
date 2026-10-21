@@ -49,6 +49,7 @@ import logging
 
 import polars as pl
 
+from . import trato_directo
 from .config import OUTPUT_DIR
 from .data_loader import iter_lic_parquets, iter_oc_parquets, orden_por_fila
 from .identidad import nombre_vigente
@@ -110,6 +111,7 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
         "CantidadEvaluacion",
         "MontoTotalOC_PesosChilenos",
         "_periodo_archivo",
+        "Tipo",
     ]
 
     # Acumuladores por organismo
@@ -117,6 +119,7 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
     status_frames = []
     volume_frames = []
     rating_frames = []
+    td_frames = []
 
     # Con las canceladas: la tasa de cancelación las cuenta, y sin ellas en el
     # denominador todo comprador saldría con 0 %.
@@ -131,6 +134,10 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
         # aceptación quedaban ponderados por cuántos ítems tenía cada orden.
         # Todo lo que se mira aquí —fechas, estado, organismo— es de la orden.
         df = orden_por_fila(df)
+
+        # --- Trato directo: de las órdenes, no de las licitaciones ---
+        # (`trato_directo.py`: en la descarga de licitaciones no hay ninguno).
+        td_frames.append(trato_directo.contar(df))
 
         # --- Velocidad de ACEPTACIÓN: días entre FechaEnvio y FechaAceptacion ---
         #
@@ -378,6 +385,8 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
     else:
         ratings = pl.DataFrame({org_col: []})
 
+    tratos = trato_directo.combinar(td_frames).select([org_col, "pct_trato_directo"])
+
     # ─── Join todo ───
 
     # Usar regularity como base (tiene n_oc_total)
@@ -385,6 +394,7 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
         regularity.join(payments, on=org_col, how="left")
         .join(statuses, on=org_col, how="left")
         .join(ratings, on=org_col, how="left")
+        .join(tratos, on=org_col, how="left")
     )
 
     logger.info(f"Métricas OC: {len(result):,} organismos")
@@ -412,7 +422,6 @@ def build_lic_buyer_metrics() -> pl.DataFrame:
         "Estado",
         "NumeroOferentes",
         "CantidadReclamos",
-        "CodigoTipo",
     ]
     org_col = "CodigoOrganismo"
 
@@ -444,7 +453,6 @@ def build_lic_buyer_metrics() -> pl.DataFrame:
                 pl.col("Estado").str.to_lowercase().first().alias("estado_lower"),
                 pl.col("NumeroOferentes").first().alias("n_oferentes"),
                 pl.col("CantidadReclamos").first().alias("n_reclamos"),
-                (pl.col("CodigoTipo").first() == "TD").cast(pl.Int8).alias("es_td"),
             )
             .with_columns(pl.lit(periodo).alias("_periodo_archivo"))
         )
@@ -471,7 +479,6 @@ def build_lic_buyer_metrics() -> pl.DataFrame:
                 pl.col("estado_lower").str.contains("desierta").sum().alias("n_desiertas"),
                 pl.col("n_oferentes").mean().alias("prom_oferentes"),
                 pl.col("n_reclamos").mean().alias("prom_reclamos"),
-                pl.col("es_td").sum().alias("n_trato_directo"),
             ]
         )
         .with_columns(
@@ -482,9 +489,6 @@ def build_lic_buyer_metrics() -> pl.DataFrame:
                         pl.col("n_adjudicadas") + pl.col("n_revocadas") + pl.col("n_desiertas")
                     ).clip(lower_bound=1)
                 ).alias("tasa_adjudicacion"),
-                (pl.col("n_trato_directo") / pl.col("n_lic").clip(lower_bound=1)).alias(
-                    "pct_trato_directo"
-                ),
             ]
         )
         .select(
@@ -497,7 +501,6 @@ def build_lic_buyer_metrics() -> pl.DataFrame:
                 "n_desiertas",
                 "prom_oferentes",
                 "prom_reclamos",
-                "pct_trato_directo",
             ]
         )
     )

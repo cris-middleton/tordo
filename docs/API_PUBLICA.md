@@ -95,13 +95,14 @@ alguien pudiera estar usando:
 
 ## Respuestas de `v1` que se corrigieron
 
-Tres respuestas de `/bi` cambiaron de significado en octubre de 2026. Las tres
+Cuatro respuestas de `/bi` cambiaron de significado en octubre de 2026. Las cuatro
 estaban mal, y la que había no servía para decidir nada:
 
 | dónde | antes | ahora |
 |---|---|---|
 | `/bi/competidores/{organismo_id}` sin `rubro` (y `competidores` del panel de una licitación) | los n.º 1 de rubros cualesquiera, cada uno con la cuota de su rubro, y en `concentracion` una fila por rubro | los proveedores de todo lo que compra el organismo: `market_share_pct` sobre su monto total, `rank_monto` el puesto en ese total, `RubroN2` nulo y una sola entrada de `concentracion` con el HHI de esas cuotas |
 | `/bi/estacionalidad/{organismo_id}` sin `rubro` | doce filas por rubro, sin decir de cuál | doce filas, los rubros sumados mes a mes; `consistencia` y `es_pico_estacional` nulas, porque no salen de la suma. Con un solo rubro, las suyas |
+| `pct_trato_directo` en `/bi/comprador/{organismo_id}` (`transparencia` y `score`) | 0 para todo comprador: se buscaba en las licitaciones, donde no hay tratos directos | la parte de sus órdenes de compra que viene de un trato directo (`Tipo` TD), contadas por orden y sin canceladas |
 | `/bi/tendencia?tendencia=` | se documentaba `creciente`, `decreciente`, `estable`; los dos primeros devolvían una lista vacía | `crecimiento`, `decrecimiento` o `estable`, los valores que trae cada fila; otro valor es 422 |
 
 Con `rubro`, `/bi/competidores` y `/bi/estacionalidad` responden lo mismo que

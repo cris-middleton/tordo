@@ -56,8 +56,9 @@ def test_cada_licitacion_cuenta_una_vez(licitaciones):
     assert fila["tasa_adjudicacion"] == pytest.approx(1 / 3)
     # Por filas: (10·8 + 1 + 2) / 12 = 6,9. Por licitaciones: (8 + 1 + 2) / 3.
     assert fila["prom_oferentes"] == pytest.approx(11 / 3)
-    # Por filas: 1 / 12. Por licitaciones: 1 / 3.
-    assert fila["pct_trato_directo"] == pytest.approx(1 / 3)
+    # El trato directo ya no sale de aquí: no hay ninguno en la descarga de
+    # licitaciones (`test_trato_directo.py`).
+    assert "pct_trato_directo" not in fila
     assert fila["NombreOrganismo"] == "HOSPITAL"
 
 
