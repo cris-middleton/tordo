@@ -177,10 +177,16 @@ EXENTA = None
 #: Cuántas peticiones exentas (renderizados del servidor de Next) se atienden a
 #: la vez; las demás esperan turno. Una página ISR se genera en el primer pedido
 #: con el slug que trae la URL, así que quien pida mil slugs distintos dispara mil
-#: renderizados que el límite no cuenta. No se rechazan —un error no se cachea y
-#: la página se rompería—: se encolan, y la API no tiene más de estas abiertas
-#: que las que cabe en 512 MB. La página tarda más; la API no se cae.
-MAX_EXENTAS_A_LA_VEZ = 4
+#: renderizados que el límite no cuenta. Se encolan, y la API no tiene más de
+#: estas abiertas que las que caben en 512 MB. La portada sola pide cinco a la
+#: vez, así que el tope deja sitio para ella y algo más.
+MAX_EXENTAS_A_LA_VEZ = 8
+
+#: Cuánto espera turno una exenta antes de rendirse con un 503. Sin tope, una
+#: tanda de rastreadores tras la revalidación semanal dejaba la fila creciendo, y
+#: la portada (que corta a los 8 s) se cacheaba media hora sin sus bloques. Un 503
+#: no se cachea: la página se rehace en el pedido siguiente.
+ESPERA_MAXIMA_EXENTA_S = 5.0
 
 
 def identificar(
@@ -233,6 +239,25 @@ def _cabeceras(decision: Decision) -> list[tuple[bytes, bytes]]:
     ]
 
 
+async def _responder_ocupado(send: Send) -> None:
+    """503 con `Retry-After`: la fila de renderizados exentos está llena."""
+    cuerpo = json.dumps(
+        {"detail": "El servidor está ocupado. Intenta de nuevo en unos segundos."}
+    ).encode()
+    await send(
+        {
+            "type": "http.response.start",
+            "status": 503,
+            "headers": [
+                (b"content-type", b"application/json"),
+                (b"content-length", str(len(cuerpo)).encode()),
+                (b"retry-after", b"5"),
+            ],
+        }
+    )
+    await send({"type": "http.response.body", "body": cuerpo})
+
+
 class LimitePorIPMiddleware:
     """Middleware ASGI puro: no envuelve el cuerpo, así que no rompe el
     streaming del MCP."""
@@ -266,8 +291,15 @@ class LimitePorIPMiddleware:
             confiar_xff=self.confiar_xff,
         )
         if clave is EXENTA:
-            async with self.exentas:
+            try:
+                await asyncio.wait_for(self.exentas.acquire(), ESPERA_MAXIMA_EXENTA_S)
+            except TimeoutError:
+                await _responder_ocupado(send)
+                return
+            try:
                 await self.app(scope, receive, send)
+            finally:
+                self.exentas.release()
             return
 
         decision = self.limitador.consumir(clave)

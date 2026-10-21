@@ -12,8 +12,12 @@
 
 import { ErrorDelBackend, pedirAlBackend } from './rssServidor';
 
-/** Lo que se espera antes de pintar la ficha de todos modos: la página no se cae con la API. */
-export const TIEMPO_MAXIMO_EXISTENCIA_MS = 4000;
+/**
+ * Lo que se espera antes de pintar la ficha de todos modos: la página no se cae con la
+ * API. Corto a propósito: la ficha no tiene `loading.tsx` y la espera es pantalla en
+ * blanco; buscar por código es una consulta por índice único, de milisegundos.
+ */
+export const TIEMPO_MAXIMO_EXISTENCIA_MS = 2000;
 
 /**
  * `false` sólo si el backend dice que no existe (404, o 422 con un código

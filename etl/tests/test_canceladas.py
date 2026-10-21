@@ -191,6 +191,9 @@ def test_la_tasa_de_cancelacion_si_las_cuenta(salidas):
     )
     municipal = stats.filter(pl.col("CodigoOrganismoPublico") == "2000").row(0, named=True)
     assert municipal["tasa_cancelacion"] == 0
+    # El volumen, en cambio, sólo cuenta lo que compró: es el `n_oc_total` que
+    # muestra la ficha del comprador y el umbral para indexarla.
+    assert hospital["n_oc_total"] == len(MESES) * vivas_por_mes
 
 
 def test_una_orden_sin_estado_se_queda():

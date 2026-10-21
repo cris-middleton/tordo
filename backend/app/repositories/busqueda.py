@@ -83,38 +83,58 @@ def comienza_palabra(columna: Any, termino_sql: Any) -> ColumnElement:
     return columna.op("~*", is_comparison=True)(patron(termino_sql).self_group())
 
 
-#: Las palabras de un término, como las corta el parser de Postgres: letras y
-#: dígitos ASCII una vez quitadas las tildes.
-_PALABRA = re.compile(r"[a-z0-9]+")
+#: Una palabra que se corrige: sólo letras. El stemmer sólo confunde palabras
+#: («mesa» con «meses»); con dígitos o signos («covid-19», «2.500», «1/2») el
+#: parser de Postgres corta distinto que Python, y exigirlas aquí las dejaba sin
+#: ninguna coincidencia.
+_PALABRA = re.compile(r"[a-z]+")
 
 
 def palabras(termino: str) -> list[str]:
-    """Las palabras del término, en minúsculas y sin tildes («Válvulas» → `valvulas`).
+    """Las palabras de sólo letras del término, en minúsculas y sin tildes.
 
-    Es lo que hace `inmutable_unaccent` + la configuración `simple` con el texto
-    indexado en `licitaciones.busqueda_palabras`: los dos lados igual.
+    «Válvulas covid-19» → `["valvulas"]`. Es lo que hace `inmutable_unaccent` +
+    la configuración `simple` con el texto indexado en
+    `licitaciones.busqueda_palabras`: los dos lados igual. Lo demás queda sólo
+    con el stemmer, como antes.
     """
     sin_tildes = "".join(
         c for c in unicodedata.normalize("NFKD", termino.lower()) if not unicodedata.combining(c)
     )
-    return _PALABRA.findall(sin_tildes)
+    return [w for w in sin_tildes.split() if _PALABRA.fullmatch(w)]
+
+
+#: El otro género de una terminación: «clínica» tiene que encontrar «clínico».
+_GENERO = {"a": "o", "o": "a"}
 
 
 def consulta_prefijos(palabra: str) -> str:
     """Un `tsquery` (`simple`): una palabra que EMPIECE por esta, o que SEA su singular.
 
     El stemmer español junta «mesa» con «meses» (raíz `mes`); esto es lo que los
-    separa: «mesa» exige una palabra que empiece por `mesa`. El singular se pide
-    para no perder lo que el stemmer sí acertaba: «servicios» encuentra
-    «servicio» y «camiones», «camión». El singular va exacto y no como prefijo:
-    con `mes:*`, «meses» volvería a encontrar «mesas». Una palabra de `palabras`
-    sólo trae `[a-z0-9]`, así que no hay nada que escapar.
+    separa: «mesa» exige una palabra que empiece por `mesa`. Y no se pierde lo
+    que el stemmer sí acertaba:
+
+    - el singular, exacto: «servicios» encuentra «servicio» y «camiones»,
+      «camión». Exacto y no como prefijo: con `mes:*`, «meses» volvería a
+      encontrar «mesas»;
+    - el otro género, como prefijo: «clínica» encuentra «clínico» y «clínicos»,
+      «eléctrico», «eléctrica». Sin esto «clínica» bajaba de 108 coincidencias a
+      20 en la copia local. «mesa» pide además `meso:*`, que no es «meses».
+
+    Una palabra de `palabras` sólo trae `[a-z]`, así que no hay nada que escapar.
     """
-    variantes = [f"{palabra}:*"]
+    singulares = []
     if len(palabra) > 3 and palabra.endswith("s"):
-        variantes.append(palabra[:-1])
+        singulares.append(palabra[:-1])
     if len(palabra) > 4 and palabra.endswith("es"):
-        variantes.append(palabra[:-2])
+        singulares.append(palabra[:-2])
+    variantes = [f"{palabra}:*", *singulares]
+    for base in (palabra, *singulares):
+        if len(base) > 3 and base[-1] in _GENERO:
+            otro = f"{base[:-1]}{_GENERO[base[-1]]}:*"
+            if otro not in variantes:
+                variantes.append(otro)
     return " | ".join(variantes)
 
 

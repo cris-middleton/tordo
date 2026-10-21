@@ -16,7 +16,9 @@ export async function generateMetadata({
   params: Promise<{ codigo: string }>;
 }): Promise<Metadata> {
   const { codigo } = await params;
-  const limpio = decodeURIComponent(codigo);
+  // Con el mismo ayudante que la página: un `%` suelto en la URL hacía que
+  // `decodeURIComponent` lanzara y la ficha respondía 500 en vez de 404.
+  const limpio = codigoDeRutaLicitacion(`/licitaciones/${codigo}`) ?? codigo;
   return {
     title: `Licitación ${limpio}`,
     description: `Ficha de la licitación ${limpio} de Mercado Público: comprador, plazos, monto y el historial de precios y competencia del comprador.`,

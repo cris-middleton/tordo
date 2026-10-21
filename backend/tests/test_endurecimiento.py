@@ -121,7 +121,7 @@ def test_un_request_id_valido_se_respeta_y_uno_raro_se_reemplaza():
 # ── Renderizados exentos, en fila ────────────────────────────────────────────
 
 
-async def test_los_renderizados_exentos_no_pasan_de_cuatro_a_la_vez():
+async def test_los_renderizados_exentos_no_pasan_del_tope_a_la_vez():
     """Una ficha ISR se genera con el slug que trae la URL y va exenta del límite:
     mil slugs inventados eran mil consultas a la vez. Se encolan, no se rechazan."""
     activas = 0
@@ -145,7 +145,7 @@ async def test_los_renderizados_exentos_no_pasan_de_cuatro_a_la_vez():
     )
     async with _cliente(app) as c:
         respuestas = await asyncio.gather(
-            *(c.get(f"{PREFIJO_API}/cosa", headers={CABECERA_SECRETO: SECRETO}) for _ in range(20))
+            *(c.get(f"{PREFIJO_API}/cosa", headers={CABECERA_SECRETO: SECRETO}) for _ in range(30))
         )
     assert {r.status_code for r in respuestas} == {200}
     assert maximo == limite_ip.MAX_EXENTAS_A_LA_VEZ
@@ -172,3 +172,46 @@ def test_sentry_no_recibe_el_secreto_del_proxy_ni_la_ip_del_visitante():
     assert SECRETO not in str(cabeceras)
     assert "200.1.2.3" not in str(cabeceras)
     assert cabeceras["Accept"] == "application/json"
+
+
+async def test_una_exenta_que_espera_demasiado_recibe_503(monkeypatch):
+    """Sin tope de espera, la fila crecía sin fin y la portada se cacheaba sin
+    sus bloques. Un 503 no se cachea."""
+    monkeypatch.setattr(limite_ip, "MAX_EXENTAS_A_LA_VEZ", 1)
+    monkeypatch.setattr(limite_ip, "ESPERA_MAXIMA_EXENTA_S", 0.05)
+    soltar = asyncio.Event()
+
+    async def bloqueada(request: Request):
+        await soltar.wait()
+        return JSONResponse({"ok": True})
+
+    interna = Starlette(routes=[Route(f"{PREFIJO_API}/cosa", bloqueada)])
+    app = LimitePorIPMiddleware(
+        interna,
+        limitador=LimitadorEnMemoria(1000),
+        prefijo_api=PREFIJO_API,
+        secreto=SECRETO,
+        confiar_xff=False,
+    )
+    async with _cliente(app) as c:
+        primera = asyncio.create_task(
+            c.get(f"{PREFIJO_API}/cosa", headers={CABECERA_SECRETO: SECRETO})
+        )
+        await asyncio.sleep(0.01)
+        segunda = await c.get(f"{PREFIJO_API}/cosa", headers={CABECERA_SECRETO: SECRETO})
+        soltar.set()
+        assert (await primera).status_code == 200
+    assert segunda.status_code == 503
+    assert segunda.headers["retry-after"] == "5"
+
+
+async def test_una_guarda_responde_con_cors_y_request_id():
+    """La guarda va por fuera de CORS: sin la cabecera, el navegador de un
+    integrador mostraba «Network Error» en vez del 413."""
+    interna = Starlette(routes=[Route("/mcp/", _eco, methods=["POST"])])
+    app = EndurecimientoMiddleware(interna, cors_todos=True)
+    async with _cliente(app) as c:
+        r = await c.post("/mcp/", content=b"x" * (MAX_CUERPO + 1))
+    assert r.status_code == 413
+    assert r.headers["access-control-allow-origin"] == "*"
+    assert r.headers["x-request-id"] == r.json()["request_id"]

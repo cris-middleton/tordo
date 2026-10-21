@@ -20,6 +20,7 @@ que no rompe el *streaming* del MCP):
 from __future__ import annotations
 
 import json
+import uuid
 
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -35,19 +36,21 @@ CABECERAS_SEGURIDAD = [
 ]
 
 
-async def _responder(send: Send, estado: int, detalle: str) -> None:
-    cuerpo = json.dumps({"detail": detalle}, ensure_ascii=False).encode()
-    await send(
-        {
-            "type": "http.response.start",
-            "status": estado,
-            "headers": [
-                (b"content-type", b"application/json"),
-                (b"content-length", str(len(cuerpo)).encode()),
-                *CABECERAS_SEGURIDAD,
-            ],
-        }
-    )
+async def _responder(send: Send, estado: int, detalle: str, *, cors_todos: bool) -> None:
+    """La respuesta de una guarda. Va por fuera de CORS y del `X-Request-ID`, así
+    que los pone ella: sin el primero, un integrador desde el navegador veía
+    «Network Error» en vez del 413 o el 422."""
+    request_id = uuid.uuid4().hex
+    cuerpo = json.dumps({"detail": detalle, "request_id": request_id}, ensure_ascii=False).encode()
+    cabeceras = [
+        (b"content-type", b"application/json"),
+        (b"content-length", str(len(cuerpo)).encode()),
+        (b"x-request-id", request_id.encode()),
+        *CABECERAS_SEGURIDAD,
+    ]
+    if cors_todos:
+        cabeceras.append((b"access-control-allow-origin", b"*"))
+    await send({"type": "http.response.start", "status": estado, "headers": cabeceras})
     await send({"type": "http.response.body", "body": cuerpo})
 
 
@@ -59,9 +62,10 @@ def lleva_nul(scope: Scope) -> bool:
 
 
 class EndurecimientoMiddleware:
-    def __init__(self, app: ASGIApp, *, max_cuerpo: int = MAX_CUERPO):
+    def __init__(self, app: ASGIApp, *, max_cuerpo: int = MAX_CUERPO, cors_todos: bool = False):
         self.app = app
         self.max_cuerpo = max_cuerpo
+        self.cors_todos = cors_todos
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -69,7 +73,9 @@ class EndurecimientoMiddleware:
             return
 
         if lleva_nul(scope):
-            await _responder(send, 422, "La petición lleva un carácter nulo (%00).")
+            await _responder(
+                send, 422, "La petición lleva un carácter nulo (%00).", cors_todos=self.cors_todos
+            )
             return
 
         cabeceras = dict(scope.get("headers") or [])
@@ -80,7 +86,12 @@ class EndurecimientoMiddleware:
             except ValueError:
                 largo = self.max_cuerpo + 1
             if largo > self.max_cuerpo:
-                await _responder(send, 413, "El cuerpo de la petición es demasiado grande.")
+                await _responder(
+                    send,
+                    413,
+                    "El cuerpo de la petición es demasiado grande.",
+                    cors_todos=self.cors_todos,
+                )
                 return
 
         if declarado is None and scope.get("method") not in ("GET", "HEAD", "OPTIONS"):
@@ -96,7 +107,12 @@ class EndurecimientoMiddleware:
                 trozos.append(mensaje.get("body", b""))
                 leidos += len(trozos[-1])
                 if leidos > self.max_cuerpo:
-                    await _responder(send, 413, "El cuerpo de la petición es demasiado grande.")
+                    await _responder(
+                        send,
+                        413,
+                        "El cuerpo de la petición es demasiado grande.",
+                        cors_todos=self.cors_todos,
+                    )
                     return
                 if not mensaje.get("more_body", False):
                     break

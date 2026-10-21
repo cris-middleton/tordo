@@ -193,6 +193,10 @@ def build_transparency_metrics() -> pl.DataFrame:
         result.with_columns(
             [
                 # 1 - pct_td: penaliza trato directo (0% TD → 1.0, 50%+ → 0.0)
+                # `pct_trato_directo` cuenta ÓRDENES (`trato_directo.py`), no
+                # licitaciones como `n_lic_total`: mediana 3,7 % y p75 9,4 % en local,
+                # así que la mayoría queda sobre 0,9 y lo que separa es la cola (26 de
+                # 1.128 organismos pasan del 40 %).
                 # Sin órdenes en la ventana no se sabe: vale el neutro de la escala.
                 (1 - (pl.col("pct_trato_directo") / 0.50).clip(0, 1))
                 .fill_null(0.5)
