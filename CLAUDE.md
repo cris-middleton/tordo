@@ -709,20 +709,22 @@ ninguna página ni layout de grupo pinta cabecera, pie, `PieAtribucion` ni `<mai
 - **Campos a 16 px en móvil**: `.input-field` es `text-base sm:text-sm` (Safari amplía la página
   con menos), y un `text-sm` suelto en el campo lo deshace. `__tests__/campos-moviles.test.ts`.
 - **La navegación es UNA lista**, `lib/navegacion.ts` (`SECCIONES`, `GUARDADOS`,
-  `enlacesAbiertos`, `mapaDelSitio`, `columnasDelPie`, `esSeccionActiva`): de ahí salen la fila de
-  escritorio, el menú móvil y las columnas del pie. «Compra Ágil», no «Hoy» (V12). Una sección nueva se añade ahí y en ningún otro sitio;
+  `enlacesAbiertos`, `mapaDelSitio`, `enlacesDelPie`, `esSeccionActiva`): de ahí salen la fila de
+  escritorio, el menú móvil y la fila de enlaces del pie. «Compra Ágil», no «Hoy» (V12). Una sección nueva se añade ahí y en ningún otro sitio;
   `__tests__/navegacion.test.ts` exige que cada ruta interna tenga su página. **El fichero no
   importa nada**: lo leen también los E2E, que no resuelven `@/`.
 - **Cabecera y pie son componentes de servidor** con cuatro islas cliente: `EnlaceSeccion` (sección
   activa con `usePathname` y `aria-current`), `MarcoCabecera` (el `<header>`, con un solo
   `onClick` que cierra el menú móvil al pulsar cualquier enlace), `EnlaceGuardados` (contador con
   `useSyncExternalStore` sobre los almacenes de `/guardados`: licitaciones guardadas o postuladas,
-  sin repetir, más búsquedas) y `SelectorTema`, en el pie. **El pie** (`PieSitio`, spec PORTADA_V7
-  §6): cuatro columnas desde `lg` y dos en móvil —«Sitio», «Abierto», «Sobre el sitio» (con los
-  legales, el costo y el contacto) y, sólo con `AUTOR_NOMBRE`, «Lo hace»—; debajo, la cita
-  (`PieAtribucion`, ya sin enlaces), «No estamos afiliados al gobierno de Chile.», «Sitio en el
-  commit `abc1234`» (sólo con `VERCEL_GIT_COMMIT_SHA`, enlazado si hay repositorio;
-  `commitDelSitio` en `lib/repositorio.ts`) y el selector de tema. `__tests__/cabecera.test.tsx` falla si
+  sin repetir, más búsquedas) y `SelectorTema`, en el pie. **El pie** (`PieSitio`): **una fila de enlaces**
+  con lo que la cabecera no tiene (`enlacesDelPie`: acerca, costo, API y MCP, código, licencias,
+  legales y contacto; ni las secciones, ni Guardados, ni «Apoyar», que ya están arriba) y el
+  selector de tema compacto (tres íconos); debajo, la cita (`PieAtribucion`), «No estamos afiliados
+  al gobierno de Chile.», «Lo hace {nombre}.» (sólo con `AUTOR_NOMBRE`) y «Sitio en el commit
+  `abc1234`» (sólo con `VERCEL_GIT_COMMIT_SHA`, enlazado si hay repositorio; `commitDelSitio` en
+  `lib/repositorio.ts`). Eran cuatro columnas con 18 enlaces, la mitad repetidos: ~520 px en
+  escritorio y ~900 en un teléfono; ahora, ~250 y ~370. `__tests__/cabecera.test.tsx` falla si
   otro fichero de `components/cascara/` se vuelve cliente o usa un color crudo.
   **La marca lleva el pájaro del logo** (`PajaroMarca`): SVG de servidor con los trazos de
   `lib/pajaroImagen.ts` (la misma copia que la tarjeta de vista previa) y los tokens invariantes
@@ -1198,8 +1200,7 @@ medición se rotula «Estimado» (hoy, el dominio). El total es una **proyecció
 (`COSTO_MENSUAL_APROXIMADO`), no una factura y no los US$5 de antes: el plan Hobby de Railway
 cuesta US$5 e incluye US$5 de uso, así que se paga el mayor de los dos —el uso medido, ~US$9–10—
 más Vercel Pro (US$20, desde el 2026-10-20) y el dominio (~US$1). Se repite al cerrar el primer periodo de facturación (2026-11-13). `/acerca`
-y `/apoyar` lo leen de ahí (la prosa de `/apoyar` sale de las mismas constantes). «Cuánto cuesta» está en el pie
-(columna «Sobre el sitio»). En `/apoyar` los medios de aporte van antes que el costo (con la tabla
+y `/apoyar` lo leen de ahí (la prosa de `/apoyar` sale de las mismas constantes). «Cuánto cuesta» está en el pie. En `/apoyar` los medios de aporte van antes que el costo (con la tabla
 delante, el botón quedaba a 3,5 pantallas en un teléfono), y el total sale dos veces: en la entrada
 y en la fila «Total». La tabla es una sola en los dos anchos (`components/apoyar/TablaCostos.tsx`):
 desde `sm`, tres columnas con filetes y sin caja; por debajo, cada fila pone concepto y monto en una
