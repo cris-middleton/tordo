@@ -177,7 +177,7 @@ export default function PrivacidadPage() {
       <p>
         Si haces un aporte, lo procesa la plataforma que elijas (Mercado Pago, tu banco o
         GitHub Sponsors) bajo su propia política de privacidad. Recibimos de ella lo que nos
-        informa —normalmente nombre, monto y fecha— y lo conservamos sólo para la
+        informa, normalmente nombre, monto y fecha, y lo conservamos sólo para la
         contabilidad y las obligaciones tributarias, por el plazo que exige la ley tributaria
         (hasta seis años). No lo publicamos sin tu permiso.
       </p>
