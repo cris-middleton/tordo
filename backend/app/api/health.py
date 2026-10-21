@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends
@@ -6,6 +7,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/health", tags=["health"])
 
@@ -22,12 +25,11 @@ async def readiness_check(db: AsyncSession = Depends(get_db)):
     try:
         await db.execute(text("SELECT 1"))
         return {"status": "ready", "timestamp": datetime.now(UTC).isoformat()}
-    except Exception as e:
+    except Exception:
+        # El texto del error se queda en el log: trae el host interno de la
+        # base, su usuario y mensajes del driver, y esta ruta es pública.
+        logger.exception("readiness: la base no responde")
         return JSONResponse(
             status_code=503,
-            content={
-                "status": "not_ready",
-                "error": str(e),
-                "timestamp": datetime.now(UTC).isoformat(),
-            },
+            content={"status": "not_ready", "timestamp": datetime.now(UTC).isoformat()},
         )

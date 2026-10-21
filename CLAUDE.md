@@ -1255,6 +1255,9 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   configuración regional chilena mete todo en una columna. Un CSV que se abre mal no es un
   entregable, y son dos detalles que un refactor bienintencionado rompe sin que falle nada.
   **La primera línea es la cita de la fuente** y los encabezados van en la segunda (abajo).
+  **Un texto que empieza por `=`, `+`, `-` o `@` sale con un apóstrofo delante**
+  (`exportar.INICIO_DE_FORMULA`): Excel lo leía como fórmula, y hay ~1.000 descripciones de
+  producto que empiezan por «-». La fecha del nombre del archivo es la de Chile.
 - **Atribución a ChileCompra: es una condición de uso de los datos, no un adorno**
   (`docs/DECLARACION_USO_DATOS.md`). La frase literal «Fuente: Dirección de Compras y
   Contratación Pública (ChileCompra / Mercado Público)» y que ChileCompra no respalda el
@@ -1576,6 +1579,20 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
     abierta para la disponibilidad.
   - IPv6 cuenta por /64. Uvicorn arranca con `--no-proxy-headers`: la regla es una sola.
   - Las capas por clave de API y por cuota diaria se fueron con las cuentas.
+  - **Las exentas van en fila** (`MAX_EXENTAS_A_LA_VEZ` = 4): una ficha ISR se genera con el
+    slug que trae la URL, así que mil slugs inventados eran mil consultas que el límite no
+    contaba. No se rechazan (un error no se cachea): esperan turno.
+- **Endurecimiento de toda petición** (`app/core/endurecimiento.py`, el middleware más
+  externo): cuerpo de 64 KB como mucho (413; lo único que recibe cuerpo es el MCP, cuyo SDK lo
+  lee entero en memoria), ningún `%00` en ruta ni query (422: Postgres no admite el carácter 0
+  y salía 500), y `nosniff`, `no-referrer` y `X-Frame-Options: DENY` en toda respuesta. Un
+  `X-Request-ID` de fuera sólo se respeta si es `[A-Za-z0-9-]{1,64}`. `/health/ready` no
+  devuelve el texto del error de la base, y un 500 lleva `Access-Control-Allow-Origin: *` con
+  `CORS_ORIGINS=*` (antes un integrador veía «Network Error»).
+- **Sentry no recibe `X-Tordo-Proxy` ni `X-Tordo-Visitante`** (`CABECERAS_PRIVADAS` en
+  `app/observability/sentry.py`): `send_default_pii=False` sólo filtra la lista propia de
+  Sentry, y el secreto del proxy viajaba en cada error y en cada traza muestreada.
+- **La imagen de la API corre sin root** (`USER api` en `backend/Dockerfile`).
 - **Las redirecciones de la API son relativas** (`app/core/redirecciones.py`, rediseño 0d).
   Detrás del TLS de Railway la app ve `scheme=http` y `redirect_slashes` escribía
   `Location: http://…` en las 29 redirecciones por barra final: `https://api.tordo.cl/mcp`
@@ -1588,8 +1605,8 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   esquivando por host cualquier `Location` absoluto, pero ya no lo necesita para los propios.
 - **Todo parámetro público tiene cota** (`app/api/limites.py`): textos con `max_length`,
   enteros con `le=`, `offset` hasta 100.000, ids dentro de un `integer` de Postgres (uno
-  mayor llegaba a la base y volvía **500**), y como mucho 8 términos en la búsqueda de
-  Compra Ágil. `tests/test_parametros_acotados.py` recorre el OpenAPI y falla con un
+  mayor llegaba a la base y volvía **500**), y como mucho 8 términos en la búsqueda (catálogo y
+  Compra Ágil, `limites.MAX_TERMINOS`). `tests/test_parametros_acotados.py` recorre el OpenAPI y falla con un
   parámetro nuevo sin cota. **Y nada que se pida gratis carga una tabla entera**:
   `/bi/productos?q=` traía `product_price_bands_l3` completa a Polars en cada petición
   (~70 ms con seis meses); ahora filtra en SQL sobre el índice de trigramas, con tope de
@@ -1742,6 +1759,10 @@ versiona su propio protocolo.
   llamadas donde una persona hace tres. Nació para no agotar una cuota en una conversación;
   sin cuotas, sigue acotando la carga que mete un cliente anónimo. Hay un test que falla si
   aparece una quinta herramienta.
+- **Sus argumentos tienen las cotas de la API** (`Codigo`, `Texto`, de `limites.py`;
+  `test_todo_argumento_de_texto_tiene_cota`), y **los servicios de BI corren en un hilo**
+  (`_en_hilo`, como mucho dos a la vez): son síncronos, y llamados desde la corrutina
+  bloqueaban el bucle, con lo que toda la API REST esperaba a que terminara un panel.
 - **Ninguna herramienta acepta `empresa_id`**: un modelo rellenaría ese hueco con lo que le
   pareciera. Un test lo comprueba.
 - **`tests/test_mcp.py` habla el protocolo por HTTP**, no llama a las funciones. Es la única

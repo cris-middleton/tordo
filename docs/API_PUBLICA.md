@@ -309,7 +309,8 @@ traen `{"detail": "…"}`.
 | código | qué significa | qué hacer |
 |---|---|---|
 | 404 | no existe | revisar el código o identificador |
-| 422 | parámetros inválidos | `detail` nombra el campo |
+| 413 | cuerpo de más de 64 KB (sólo el MCP recibe cuerpo) | acortar la petición |
+| 422 | parámetros inválidos (también: más de 8 palabras en una búsqueda, o un `%00`) | `detail` nombra el campo |
 | 429 | límite por minuto | esperar lo que diga `Retry-After` |
 | 503 | el módulo está desactivado en este despliegue | no depende del cliente |
 

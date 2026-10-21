@@ -41,6 +41,13 @@ RUN uv sync --frozen --no-default-groups --group api
 WORKDIR /app
 COPY backend/ ./
 
+# Sin root. El proceso sirve tráfico anónimo de internet: si alguien llegara a
+# ejecutar algo dentro, que no sea como dueño del contenedor. Sólo lee el código
+# y el entorno (`/opt/venv`), y PYTHONDONTWRITEBYTECODE evita que intente
+# escribir `__pycache__` en `/app`.
+RUN useradd --system --uid 10001 --no-create-home api
+USER api
+
 EXPOSE ${PORT:-8000}
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

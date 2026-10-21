@@ -54,6 +54,7 @@ dirección dejaría a cualquiera rotar entre 2⁶⁴ cubos.
 
 from __future__ import annotations
 
+import asyncio
 import hmac
 import ipaddress
 import json
@@ -173,6 +174,14 @@ def secreto_valido(presentado: str | None, secreto: str | None) -> bool:
 #: Lo que devuelve `identificar` para una petición exenta.
 EXENTA = None
 
+#: Cuántas peticiones exentas (renderizados del servidor de Next) se atienden a
+#: la vez; las demás esperan turno. Una página ISR se genera en el primer pedido
+#: con el slug que trae la URL, así que quien pida mil slugs distintos dispara mil
+#: renderizados que el límite no cuenta. No se rechazan —un error no se cachea y
+#: la página se rompería—: se encolan, y la API no tiene más de estas abiertas
+#: que las que cabe en 512 MB. La página tarda más; la API no se cae.
+MAX_EXENTAS_A_LA_VEZ = 4
+
 
 def identificar(
     headers: Headers,
@@ -242,6 +251,7 @@ class LimitePorIPMiddleware:
         self.prefijo_api = prefijo_api
         self.secreto = secreto or None
         self.confiar_xff = confiar_xff
+        self.exentas = asyncio.Semaphore(MAX_EXENTAS_A_LA_VEZ)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http" or not aplica(scope["path"], self.prefijo_api):
@@ -256,7 +266,8 @@ class LimitePorIPMiddleware:
             confiar_xff=self.confiar_xff,
         )
         if clave is EXENTA:
-            await self.app(scope, receive, send)
+            async with self.exentas:
+                await self.app(scope, receive, send)
             return
 
         decision = self.limitador.consumir(clave)
