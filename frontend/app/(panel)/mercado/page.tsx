@@ -228,13 +228,7 @@ function BIContenido() {
     escribirUrlPropia('mercado', siguiente.toString());
   }, [rubroElegido, focusCodigo, compareMode, rubroB]);
 
-  if (cargandoInicial) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
-      </div>
-    );
-  }
+  if (cargandoInicial) return <Cargando />;
 
   if (biDesactivado) {
     return (
@@ -458,19 +452,29 @@ function BIDeLaUrl() {
 }
 
 /**
+ * La espera, con el título: el respaldo de `Suspense` es lo que sirve el
+ * servidor, y sin el `h1` el HTML de `/mercado` no tenía título (ahora va al
+ * sitemap, y `e2e/calidad-paginas.spec.ts` exige uno).
+ */
+function Cargando() {
+  return (
+    <div>
+      <h1 className="page-title">Mercados</h1>
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
+      </div>
+    </div>
+  );
+}
+
+/**
  * `useSearchParams` obliga a una frontera de Suspense: sin ella el build
- * estático falla en esta ruta. El fallback es el mismo spinner de la carga
+ * estático falla en esta ruta. El fallback es la misma espera de la carga
  * inicial, así que el usuario no ve dos estados de espera distintos.
  */
 export default function BIPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex items-center justify-center py-24">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
-        </div>
-      }
-    >
+    <Suspense fallback={<Cargando />}>
       <BIDeLaUrl />
     </Suspense>
   );
