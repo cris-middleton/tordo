@@ -288,6 +288,12 @@ programador en la nube, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
   dominio). Existe por dos motivos: la URL del backend es de servidor, y las redirecciones
   internas de FastAPI se siguen ahí y no en el navegador. `__tests__/proxy-sin-sesion.test.ts`
   lo fija.
+  - **Sólo reenvía `GET` bajo `/api/v1/`** (el prefijo sale de `lib/versionApi.ts`), que es
+    todo lo que pide el navegador. Lo demás da 404 sin llamar al backend, y cualquier otro
+    método, 405 (Next arma `HEAD` con el mismo manejador). Reenviaba cualquier ruta y
+    método: `/api/proxy/docs` servía el Swagger en el origen del sitio, y `/mcp` o un `POST`
+    llegaban por ahí. Un segmento con `..`, barra, `?`, `#` o `%` también es 404, y una
+    redirección del backend fuera de `/api/v1/` no se sigue. `__tests__/proxy-solo-api.test.ts`.
   - **La URL del backend es `API_URL`, de SERVIDOR.** Cualquier variable `NEXT_PUBLIC_*` se
     inlinea en el bundle.
   - **El proxy le dice al backend quién es el visitante** (`lib/backendServidor.ts`):
@@ -845,6 +851,10 @@ contenedor único (cabecera y pie, con la atribución, son de la cáscara única
   primer pedido con `fetch(…, { next: { revalidate: 604800, tags: ['analytics'] } })` desde
   `lib/publicoServidor.ts`, **como renderizado del servidor** (`cabecerasHaciaElBackend(null)`,
   exento del límite por IP). Un error que no sea 404 lanza: una página rota no se cachea.
+  **Por eso el parámetro se valida antes de pedir** (`lib/parametrosPublicos.ts`): un slug
+  con otra forma que la de `app/utils/slug.py` (o de más de 80 caracteres) o un código de
+  comprador que no sea un número es `notFound()` sin llamar al backend. Sin eso, cada URL
+  inventada era una llamada que el límite no contaba.
   La excepción es `GET /publico/portada`, que no lee analytics: la pide la portada con
   `pedirResumenPortada()` (media hora, etiqueta `compra-agil`, nunca lanza).
 - **Revalidación desde los cron**: `POST /api/revalidar` con `X-Revalidar-Secreto`

@@ -1,0 +1,33 @@
+# El contexto de build de la imagen del frontend es esta carpeta
+# (`infra/docker-compose.yml`, `context: ../frontend`), así que el
+# `.dockerignore` de la raíz no la cubre. Sin este archivo `COPY . .` metía en
+# la imagen el `.env` local, y el daemon recibía node_modules y .next.
+#
+# No excluye nada que el Dockerfile necesite: el código, `content/`, `assets/`,
+# `public/` y las configuraciones viajan; `node_modules` lo instala la etapa
+# `deps`, y `.next` lo genera `npm run build`.
+
+# Secretos y estado local
+.env
+.env.*
+!.env.example
+.vercel
+*.pem
+
+# Lo que se instala o se genera en la imagen
+node_modules
+.next
+out
+build
+*.tsbuildinfo
+
+# Artefactos de los tests
+coverage
+test-results
+playwright-report
+blob-report
+
+# Control de versiones y sistema
+.git
+.DS_Store
+npm-debug.log*

@@ -89,10 +89,17 @@ describe('llamada al backend', () => {
     await expect(PaginaRubro(params({ slug: 'equipos-medicos' }))).rejects.toThrow(/500/);
   });
 
-  it('escapa el segmento que viene de la URL', async () => {
+  it('un slug o un código con otra forma es 404 sin llamar al backend', async () => {
+    // La ficha pide exenta del límite por IP: una URL inventada no puede ser
+    // una llamada gratis al backend (`lib/parametrosPublicos.ts`).
     simularBackend({});
     await expect(PaginaProducto(params({ slug: '../bi/x?y' }))).rejects.toThrow('NEXT_NOT_FOUND');
-    expect(pedidas[0].url).toBe(`${BACKEND}/api/v1/publico/productos/..%2Fbi%2Fx%3Fy`);
+    await expect(metaProducto(params({ slug: 'Guante-Latex' }))).rejects.toThrow('NEXT_NOT_FOUND');
+    await expect(PaginaRubro(params({ slug: 'a'.repeat(81) }))).rejects.toThrow('NEXT_NOT_FOUND');
+    await expect(metaRubro(params({ slug: 'equipos--medicos' }))).rejects.toThrow('NEXT_NOT_FOUND');
+    await expect(PaginaComprador(params({ codigo: 'no-existe' }))).rejects.toThrow('NEXT_NOT_FOUND');
+    await expect(metaComprador(params({ codigo: '7297/../x' }))).rejects.toThrow('NEXT_NOT_FOUND');
+    expect(pedidas).toEqual([]);
   });
 });
 

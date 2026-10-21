@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { cabecerasHaciaElBackend, ipDelVisitante } from '@/lib/backendServidor';
+import { API } from '@/lib/versionApi';
 
 /**
  * Proxy hacia el backend. Todo el tráfico del navegador pasa por aquí.
@@ -20,6 +21,12 @@ import { cabecerasHaciaElBackend, ipDelVisitante } from '@/lib/backendServidor';
  * Lo que sí añade es **quién es el visitante** y el secreto que hace que el
  * backend lo crea (`lib/backendServidor.ts`): sin eso el límite por IP del
  * backend contaría a todo el sitio como un solo cliente.
+ *
+ * **Sólo reenvía `GET` bajo `/api/v1/`**, que es todo lo que pide el navegador
+ * (`lib/api.ts`). Antes reenviaba cualquier ruta y cualquier método, así que
+ * `/api/proxy/docs` servía el Swagger del backend en el origen del sitio, y
+ * `/mcp`, `/redoc` o un `POST` llegaban al backend desde aquí. Lo demás da 404;
+ * un método que no sea `GET` (o `HEAD`, que Next arma a partir de `GET`), 405.
  */
 
 const BACKEND = process.env.API_URL || 'http://localhost:8000';
@@ -28,7 +35,25 @@ function urlBackend(ruta: string): string {
   return `${BACKEND}${ruta.startsWith('/') ? ruta : `/${ruta}`}`;
 }
 
-const SIN_CUERPO = new Set(['GET', 'HEAD']);
+/** Los segmentos de la versión de la API (`['api', 'v1']`), de `lib/versionApi.ts`. */
+const SEGMENTOS_API = API.split('/').filter(Boolean);
+
+/**
+ * La ruta pedida, si es de la API versionada; `null` si no. Se comprueba la
+ * lista de segmentos Y la ruta ya resuelta: un `..` (o `%2e%2e`, que el parser
+ * de URL trata igual) sacaría la petición de `/api/v1/`, y una barra, `?` o `#`
+ * dentro de un segmento (llegan decodificados) cambiarían la ruta o la consulta.
+ * Un `%` sólo aparece si el cliente codificó dos veces —ningún código ni slug
+ * del sitio lo lleva— y el backend lo volvería a decodificar.
+ */
+function rutaDeLaApi(ruta: string[]): string | null {
+  if (ruta.length <= SEGMENTOS_API.length) return null;
+  if (!SEGMENTOS_API.every((s, i) => ruta[i] === s)) return null;
+  if (ruta.some((s) => s === '' || s === '.' || s === '..' || /[/\\?#%]/.test(s))) return null;
+  const completa = `/${ruta.join('/')}`;
+  if (!new URL(completa, 'http://x').pathname.startsWith(`${API}/`)) return null;
+  return completa;
+}
 
 /**
  * Cuántas redirecciones internas del backend se siguen antes de rendirse.
@@ -83,6 +108,8 @@ async function seguirRedirecciones(
     if (!destino) return actual;
     const absoluto = new URL(destino, urlBackend('/'));
     if (absoluto.host !== new URL(urlBackend('/')).host) return actual;
+    // Tampoco fuera de la API versionada: la misma frontera que la petición.
+    if (!absoluto.pathname.startsWith(`${API}/`)) return actual;
     actual = await reenviar(urlBackend(`${absoluto.pathname}${absoluto.search}`));
   }
   return actual;
@@ -92,11 +119,11 @@ async function manejar(req: NextRequest, ctx: { params: Promise<{ ruta: string[]
   const { ruta } = await ctx.params;
   // El cliente ya manda la ruta completa del backend (`/api/v1/tenders`), así
   // que aquí sólo se quita el prefijo del proxy.
-  const destino = urlBackend(`/${ruta.join('/')}${req.nextUrl.search}`);
-
-  // El cuerpo se lee UNA vez: un `Request` no se puede consumir dos veces, y
-  // seguir una redirección necesita el mismo cuerpo.
-  const cuerpo = SIN_CUERPO.has(req.method) ? undefined : await req.arrayBuffer();
+  const deLaApi = rutaDeLaApi(ruta);
+  if (!deLaApi) {
+    return NextResponse.json({ detail: 'No encontrado' }, { status: 404 });
+  }
+  const destino = urlBackend(`${deLaApi}${req.nextUrl.search}`);
 
   const cabecerasHaciaBackend = {
     'Content-Type': req.headers.get('content-type') ?? 'application/json',
@@ -107,7 +134,6 @@ async function manejar(req: NextRequest, ctx: { params: Promise<{ ruta: string[]
     fetch(url, {
       method: req.method,
       headers: cabecerasHaciaBackend,
-      body: cuerpo && cuerpo.byteLength > 0 ? cuerpo : undefined,
       cache: 'no-store',
       redirect: 'manual',
     });
@@ -127,11 +153,8 @@ async function manejar(req: NextRequest, ctx: { params: Promise<{ ruta: string[]
   });
 }
 
+// Sólo `GET`: Next responde `HEAD` con este mismo manejador y 405 a los demás.
 export const GET = manejar;
-export const POST = manejar;
-export const PUT = manejar;
-export const PATCH = manejar;
-export const DELETE = manejar;
 
 // Sin caché en el proxy: el backend decide qué se puede cachear y cuánto.
 export const dynamic = 'force-dynamic';
