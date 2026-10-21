@@ -275,10 +275,10 @@ function CatalogoContenido() {
             value={filtros.tipo_convocatoria}
             onChange={(v) => handleFilterChange('tipo_convocatoria', v)}
             options={[
-              { value: '', label: 'Todos los tipos de compra' },
+              { value: '', label: 'Todos los tipos' },
               ...TIPOS_CONVOCATORIA.map((t) => ({ value: t.value, label: t.label })),
               // Lo que enlazan las cifras de la portada: sin esta opción el filtro
-              // funcionaría pero la pantalla diría «Todos los tipos de compra».
+              // funcionaría pero la pantalla diría «Todos los tipos».
               { value: TIPOS_SIN_COMPRA_AGIL, label: 'Todo menos Compra Ágil' },
             ]}
           />

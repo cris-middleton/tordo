@@ -144,7 +144,7 @@ function PreciosEncontrados({
         <p className="cifra text-xs text-muted">
           {entero(primero.n)} compras
           {/* El total suma todas las unidades de medida; la banda de abajo es sólo la más comprada. */}
-          {banda && banda.n < primero.n ? ', sumando todas sus unidades de medida' : ''}
+          {banda && banda.n < primero.n ? ', en todas sus presentaciones' : ''}
           {primero.indexable ? '' : ', precio orientativo'}
         </p>
       </div>

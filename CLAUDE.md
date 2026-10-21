@@ -771,8 +771,8 @@ ninguna página ni layout de grupo pinta cabecera, pie, `PieAtribucion` ni `<mai
   sin repetir, más búsquedas) y `SelectorTema`, en el pie. **El pie** (`PieSitio`): **una fila de enlaces**
   con lo que la cabecera no tiene (`enlacesDelPie`: acerca, costo, API y MCP, código, licencias,
   legales y contacto; ni las secciones, ni Guardados, ni «Apoyar», que ya están arriba) y el
-  selector de tema compacto (tres íconos); debajo, la cita (`PieAtribucion`), «No estamos afiliados
-  al gobierno de Chile.», «Lo hace {nombre}.» (sólo con `AUTOR_NOMBRE`) y «Sitio en el commit
+  selector de tema compacto (tres íconos); debajo, la cita (`PieAtribucion`), «Un proyecto
+  independiente, sin relación con el gobierno de Chile.», «Lo hace {nombre}.» (sólo con `AUTOR_NOMBRE`) y «Sitio en el commit
   `abc1234`» (sólo con `VERCEL_GIT_COMMIT_SHA`, enlazado si hay repositorio; `commitDelSitio` en
   `lib/repositorio.ts`). Eran cuatro columnas con 18 enlaces, la mitad repetidos: ~520 px en
   escritorio y ~900 en un teléfono; ahora, ~250 y ~370. `__tests__/cabecera.test.tsx` falla si
@@ -853,8 +853,9 @@ escala**. Es una heurística sin verdad contra la que evaluarla: ordena, no pred
   menos de `TOLERANCIA_TOPE` (2 %) **por arriba o por abajo**: cubre el tope del mes anterior, el
   nuevo a principio de mes (aún no se repite: hace de referencia el viejo) y «7.200.000», y deja
   fuera 7.000.000 (a un 3 %) y el error. La instantánea del golden siembra el tope tres veces
-  (`_historia_del_tope`): como top 50, lo trae una sola. El sitio lo dice junto al monto («Hasta $7,2M»
-  y «Tope de Compra Ágil» debajo; `NOTA_TOPE` en `lib/compraAgil.ts`), sin repetir la cifra.
+  (`_historia_del_tope`): como top 50, lo trae una sola. El sitio lo dice junto al monto («Hasta $7,2
+  millones» y «El máximo que permite Compra Ágil» debajo; `NOTA_TOPE` en `lib/compraAgil.ts`), sin repetir
+  la cifra.
 - **La competencia `1/(1+cotizaciones)` viaja en `factores` pero NO está en el puntaje**
   (`EN_EL_PUNTAJE`), y el sitio **no muestra el conteo** (`MOSTRAR_COTIZACIONES = false` en
   `lib/compraAgil.ts`). **Compuerta G1 cerrada (2026-10-15, medida en producción en sólo
@@ -947,8 +948,8 @@ contenedor único (cabecera y pie, con la atribución, son de la cáscara única
     `compradores` y suman su `n`. **`null` sin la tabla, nunca `[]`**: no se sabe, que no es
     «ningún comprador». `compradores` (los 10 de «Quién lo compra») no cambia.
 - **Todo precio dice cuántos compradores tiene detrás y de cuándo** (`comprasDeOrganismos`,
-  `frasePrecio`, `notaCompradores` en `lib/publico.ts`): «46 compras de 40 organismos, abr 2025
-  – mar 2026 (12 meses)» en la ficha (el periodo en la cabecera), en `/buscar` (en las cifras de la banda, `CifrasBanda`, con el mismo gráfico que la ficha) y en
+  `frasePrecio`, `notaCompradores` en `lib/publico.ts`): «46 compras de 40 compradores» y el periodo
+  («de abr 2025 a mar 2026») en la ficha (el periodo en la cabecera), en `/buscar` (en las cifras de la banda, `CifrasBanda`, con el mismo gráfico que la ficha) y en
   el pie de la lectura de la portada. Con p25 y p75 iguales tras `plata`, nunca «entre $X y $X».
 - **Un producto se titula como lo escribe quien lo compra** (`nombreProducto`): la
   `descripcion` de su banda con más compras, sin los códigos del principio, en tipo oración si
@@ -1214,8 +1215,8 @@ que se pintan igual en el servidor). **No le pongas `'use client'` a la página*
   `/compra-agil`. `Portada` lee la hora una vez y se la pasa al bloque.
   **Su descripción depende de los datos que tiene al lado** (`descripcionDestacadas(historia_disponible
   === true)`, en la portada, en `/compra-agil` y en el RSS): sin historia por unidad el factor
-  comprador vale lo mismo para todas y el orden es sólo tiempo y monto, así que no dice «de
-  compradores que compran seguido». `DESCRIPCION_DESTACADAS` suelta describe el método
+  comprador vale lo mismo para todas y el orden es sólo tiempo y monto, así que dice «Ordenadas por dos cosas: el
+  monto y el tiempo…» y no nombra al comprador. `DESCRIPCION_DESTACADAS` suelta describe el método
   (metadatos, `/acerca`) y no el estado.
 - **Notas de datos** (`NotasPortada`): las cuatro últimas, con fecha y título y «Arreglo en curso»
   donde toque, y «Todas las notas». A la derecha (5/12) **la ficha del autor** (`FichaAutor`, §3.6,
@@ -1238,10 +1239,11 @@ que se pintan igual en el servidor). **No le pongas `'use client'` a la página*
 **La ficha de producto** (`/productos/[slug]`) abre con **«Cuánto se pagó»**: el mismo gráfico de
 precio, con su pie de método (spec PORTADA_V7 §6), `precioDeBanda` sobre la unidad con más compras,
 titulada con `tituloDeBanda`, sin el filtro de la portada —una banda de un solo comprador dice «todas
-las compras son de {comprador}»—; debajo, sus cifras (`CifrasBanda`: mediana, la mitad central, 8 de
-cada 10 y la base, con la variación en palabras de `textoVariacion`, sin insignias de color). Con más de
+las compras son de {comprador}»—; debajo, sus cifras (`CifrasBanda`: mediana, la mitad de las compras,
+8 de cada 10 compras y cuántas compras, con la variación en palabras de `textoVariacion` —«Precios
+parecidos entre sí»…—, sin insignias de color). Con más de
 una unidad, una tabla (`TablaUnidades`). Ya no hay tarjeta de P10…P90 encima del gráfico: la ficha
-decía la mitad central tres veces. Las tablas de las fichas (`TablaEnlaces`) van con filetes y sin caja.
+decía la mitad de las compras tres veces. Las tablas de las fichas (`TablaEnlaces`) van con filetes y sin caja.
 
 **Acerca** (`/acerca`, `app/(publico)/acerca/`): lo que la portada dejó de explicar —qué es, de
 dónde salen los datos, cómo se financia— y las preguntas frecuentes (`PREGUNTAS`, en

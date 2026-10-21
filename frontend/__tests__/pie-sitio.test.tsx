@@ -84,7 +84,7 @@ describe('el pie único', () => {
   it('la cita de la fuente una sola vez, y que no es un sitio del gobierno, como frase', () => {
     render(<PieSitio />);
     expect(screen.getAllByText(/^Fuente: Dirección de Compras y Contratación Pública/)).toHaveLength(1);
-    expect(screen.getByText('No estamos afiliados al gobierno de Chile.')).toBeInTheDocument();
+    expect(screen.getByText('Un proyecto independiente, sin relación con el gobierno de Chile.')).toBeInTheDocument();
   });
 
   it('sin puntos medios (spec PORTADA_V7 V10)', () => {

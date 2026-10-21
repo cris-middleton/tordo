@@ -1,6 +1,7 @@
 import { ResumenMercado } from '../types';
 import { decimal, monto } from '@/lib/formato';
 import { MESES_ANALISIS } from '@/lib/periodo';
+import { normalizeText } from '@/lib/nombresChile';
 
 /**
  * Escapa lo que viene de fuera.
@@ -127,9 +128,9 @@ export function frase3(r: ResumenMercado): string | null {
   // `n_oc_total` —todas las suyas— salía «con 1.596.100 órdenes» en un rubro
   // que en total tenía 6.377.
   if (t.n_oc_rubro != null && t.n_oc_rubro > 0) {
-    return `El comprador más activo es <b>${esc(t.nombre)}</b>, con <b>${t.n_oc_rubro.toLocaleString('es-CL')} órdenes</b> en este rubro.`;
+    return `El comprador más activo es <b>${esc(normalizeText(t.nombre))}</b>, con <b>${t.n_oc_rubro.toLocaleString('es-CL')} órdenes</b> en este rubro.`;
   }
-  return `El comprador más activo es <b>${esc(t.nombre)}</b>.`;
+  return `El comprador más activo es <b>${esc(normalizeText(t.nombre))}</b>.`;
 }
 
 export function buildFrases(r: ResumenMercado): string[] {

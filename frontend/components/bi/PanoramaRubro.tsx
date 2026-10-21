@@ -10,6 +10,7 @@ import { motivoParaPersona } from '@/lib/motivos';
 import { Columnas } from '@/components/graficos/Columnas';
 import { decimal, monto } from '@/lib/formato';
 import { MESES_ANALISIS } from '@/lib/periodo';
+import { normalizeText } from '@/lib/nombresChile';
 
 /**
  * El panorama del rubro: la cabecera de la pantalla de analítica.
@@ -96,15 +97,15 @@ const EXPLICA_MERCADO: Record<string, string> = {
 function Lider({ lider }: { lider: PanoramaLider }) {
   return (
     <li className="flex items-baseline justify-between gap-3 text-sm">
-      <span className="min-w-0 truncate text-text">{lider.nombre ?? 'Sin nombre'}</span>
+      <span className="min-w-0 truncate text-text">{lider.nombre ? normalizeText(lider.nombre) : 'Sin nombre'}</span>
       <span className="cifra shrink-0 text-xs text-muted">
-        {lider.share_pct != null ? `${decimal(lider.share_pct, 1)}%` : '—'} del monto
+        {lider.share_pct != null ? `${decimal(lider.share_pct, 1)} %` : '—'} del monto
         {/* La cuota por órdenes va al lado a propósito: en varios rubros el
             monto lo domina una sola compra enorme, y sin este número la lectura
             sería «este mercado está tomado» cuando lo que hay son compras
             chicas repartidas entre muchos. */}
         {lider.share_oc_pct != null && (
-          <span className="text-subtle">, {decimal(lider.share_oc_pct, 1)}% de las órdenes</span>
+          <span className="text-subtle">, {decimal(lider.share_oc_pct, 1)} % de las órdenes</span>
         )}
       </span>
     </li>
@@ -149,12 +150,12 @@ export function PanoramaRubro({
         <div className="flex flex-wrap items-end gap-x-8 gap-y-4">
           <div>
             <p className="text-xs text-muted">
-              Comprado en {mercado?.anio ?? '—'}
+              {mercado?.anio != null ? `Comprado en ${mercado.anio}` : 'Comprado en el último año'}
             </p>
             <Cifra>{plata(mercado?.monto_clp)}</Cifra>
           </div>
           <div>
-            <p className="text-xs text-muted">Órdenes de compra en {mercado?.anio ?? '—'}</p>
+            <p className="text-xs text-muted">{mercado?.anio != null ? `Órdenes de compra en ${mercado.anio}` : 'Órdenes en el último año'}</p>
             <Cifra>{entero(mercado?.n_oc)}</Cifra>
           </div>
           <div>
@@ -263,7 +264,7 @@ export function PanoramaRubro({
           <ul className="space-y-2">
             {vigilar.compradores.slice(0, 5).map((c) => (
               <li key={c.codigo} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                <span className="text-sm font-medium text-text">{c.nombre ?? c.codigo}</span>
+                <span className="text-sm font-medium text-text">{c.nombre ? normalizeText(c.nombre) : c.codigo}</span>
                 <span className="text-xs text-muted">{c.motivos.join(', ')}</span>
               </li>
             ))}

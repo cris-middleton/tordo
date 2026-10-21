@@ -88,7 +88,7 @@ export default function PaginaAcerca() {
           <Link href="/apoyar#costos" className="enlace">
             alrededor de {COSTO_MENSUAL_APROXIMADO} al mes
           </Link>
-          , y se paga con aportes voluntarios de quienes lo usan.
+          . Lo pagamos nosotros, con la ayuda de quienes aportan.
         </p>
       </Seccion>
 

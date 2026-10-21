@@ -26,7 +26,7 @@ import type { CompradorPublico } from '@/types/publico';
 import { TITULO_DESTACADAS } from '@/lib/compraAgil';
 import { decimal } from '@/lib/formato';
 import { normalizeText } from '@/lib/nombresChile';
-import { etiquetaPublicadas, MESES_ANALISIS, MESES_COMPRA_AGIL } from '@/lib/periodo';
+import { etiquetaPublicadas, MESES_COMPRA_AGIL } from '@/lib/periodo';
 
 /**
  * `/compradores/{codigo}` — la ficha pública de un comprador del Estado.
@@ -93,13 +93,7 @@ export default async function PaginaComprador({ params }: Props) {
           perfil.volumen
             ? [
                 { etiqueta: 'Órdenes de compra', valor: entero(perfil.volumen.n_oc_total) },
-                {
-                  etiqueta: 'Meses con compras',
-                  valor:
-                    perfil.volumen.n_meses_activo != null
-                      ? `${entero(perfil.volumen.n_meses_activo)} de ${MESES_ANALISIS}`
-                      : '—',
-                },
+                { etiqueta: 'Meses con compras', valor: entero(perfil.volumen.n_meses_activo) },
                 {
                   etiqueta: 'Ofertas por licitación, en promedio',
                   valor: perfil.volumen.prom_oferentes != null ? decimal(perfil.volumen.prom_oferentes, 1) : '—',

@@ -70,7 +70,7 @@ export function SectorOverview() {
             detalle: (
               <>
                 {[
-                  s.n_organismos != null ? `${conMiles(s.n_organismos)} organismos compradores` : null,
+                  s.n_organismos != null ? `${conMiles(s.n_organismos)} compradores` : null,
                   s.n_proveedores != null ? `${conMiles(s.n_proveedores)} proveedores` : null,
                 ]
                   .filter(Boolean)

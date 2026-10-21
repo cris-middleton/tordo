@@ -25,7 +25,7 @@ export function CifrasBanda({ banda }: { banda: BandaUnidad }) {
     { etiqueta: 'Mediana', valor: plata(banda.p50), detalle: 'El precio del medio' },
     { etiqueta: 'La mitad de las compras', valor: rango(banda.p25, banda.p75), detalle: variacion },
     { etiqueta: '8 de cada 10 compras', valor: rango(banda.p10, banda.p90) },
-    { etiqueta: 'De dónde sale', valor: comprasDeOrganismos(banda.n, banda.compradores) },
+    { etiqueta: 'Cuántas compras', valor: comprasDeOrganismos(banda.n, banda.compradores) },
   ];
   return (
     <div className="mt-6">
@@ -64,7 +64,7 @@ export function TablaUnidades({ unidades, titulo }: { unidades: BandaUnidad[]; t
             <th scope="col" className="py-2 pr-4 text-right font-normal">Mediana</th>
             <th scope="col" className="py-2 pr-4 text-right font-normal">La mitad de las compras</th>
             <th scope="col" className="hidden py-2 pr-4 text-right font-normal sm:table-cell">8 de cada 10 compras</th>
-            <th scope="col" className="py-2 text-right font-normal">De dónde sale</th>
+            <th scope="col" className="py-2 text-right font-normal">Cuántas compras</th>
           </tr>
         </thead>
         <tbody>
