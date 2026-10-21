@@ -53,7 +53,6 @@ test('un producto: su banda, quién lo compra y la Compra Ágil que coincide', a
   // La misma lectura que la ficha: conclusión de la unidad más comprada, cifras y método.
   await expect(precios.getByText(/^Precio por caja: la mitad de las compras se pagó/)).toBeVisible();
   // Cuántos compradores hay detrás de la banda, y de cuándo es (el pie de método).
-  await expect(precios.getByText('60 compras de 6 compradores', { exact: true })).toBeVisible();
   await expect(precios.getByText(/60 compras de 6 compradores, abr 2025 a mar 2026/)).toBeVisible();
   await expect(precios.getByRole('link', { name: /ver todos los productos/i })).toHaveAttribute(
     'href',

@@ -222,8 +222,8 @@ describe('enlaces entre fichas', () => {
     simularBackend({ '/productos/guante-latex-nitrilo': conPeriodo });
     render(await PaginaProducto(params({ slug: 'guante-latex-nitrilo' })));
     expect(screen.getByText(/de abr 2025 a mar 2026/)).toBeInTheDocument();
-    // La base va en las cifras de la banda, bajo el gráfico.
-    expect(screen.getAllByText('120 compras de 31 compradores').length).toBeGreaterThan(0);
+    // La base va en el pie del gráfico, una sola vez (las cifras de la banda no la repiten).
+    expect(screen.getAllByText(/120 compras de 31 compradores/)).toHaveLength(1);
   });
 
   it('el producto pinta una fila por unidad y enlaza a quien lo compra', async () => {

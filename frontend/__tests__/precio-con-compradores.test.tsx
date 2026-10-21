@@ -92,9 +92,9 @@ describe('notaCompradores', () => {
 });
 
 describe('CifrasBanda (la ficha de producto y /buscar)', () => {
-  it('dice cuántas compras y de cuántos compradores', () => {
+  it('no repite cuántas compras y compradores: lo dice el pie del gráfico, justo debajo', () => {
     render(<CifrasBanda banda={banda()} />);
-    expect(screen.getByText('46 compras de 40 compradores')).toBeTruthy();
+    expect(screen.queryByText(/46 compras de 40 compradores/)).toBeNull();
     expect(screen.getByText('$150.921 a $240.000')).toBeTruthy();
   });
 

@@ -72,7 +72,8 @@ describe('BloquePrecios', () => {
       'href',
       '/productos/guante-latex-nitrilo',
     );
-    expect(screen.getAllByText('120 compras de 31 compradores').length).toBeGreaterThan(0);
+    // Una sola vez, en el pie del gráfico: las cifras de la banda ya no la repiten.
+    expect(screen.getAllByText(/120 compras de 31 compradores/)).toHaveLength(1);
     expect(screen.getByText(/120 compras de 31 compradores, abr 2025 a mar 2026/)).toBeInTheDocument();
   });
 
