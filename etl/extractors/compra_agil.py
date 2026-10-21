@@ -30,7 +30,7 @@ from typing import Any, Dict, Iterator, List
 import requests
 
 from etl.config import config as etl_config
-from etl.extractors.base import BaseExtractor, CredencialRechazada
+from etl.extractors.base import BaseExtractor, ConsultaFallida, CredencialRechazada
 from etl.utils import now_santiago
 
 #: La API v2 vive en otro host que la clásica.
@@ -205,28 +205,45 @@ class CompraAgilExtractor(BaseExtractor):
         Sin ventana, las últimas `VENTANA_POR_DEFECTO`. La ventana se parte en
         tramos de `VENTANA_MAXIMA`: ver ahí por qué una consulta ancha pierde
         datos en silencio.
+
+        Si la primera página de TODOS los tramos falla, lanza `ConsultaFallida`:
+        es la API caída, no una ventana sin cambios. Un tramo suelto que falla
+        se registra en ERROR y se sigue; lo recoge la primera corrida del día
+        siguiente, que vuelve a mirar hacia atrás (`etl/cron.py`).
         """
         hasta = _a_datetime(cambio_hasta) or now_santiago().replace(tzinfo=None)
         desde = _a_datetime(cambio_desde) or hasta - VENTANA_POR_DEFECTO
 
         registros: List[Dict[str, Any]] = []
         vistos: set[str] = set()
+        n_tramos = sin_respuesta = 0
         for inicio, fin in tramos(desde, hasta):
-            for registro in self._extraer_tramo(
+            n_tramos += 1
+            del_tramo = self._extraer_tramo(
                 inicio.strftime(FORMATO_CONSULTA), fin.strftime(FORMATO_CONSULTA), estados
-            ):
+            )
+            if del_tramo is None:
+                sin_respuesta += 1
+                continue
+            for registro in del_tramo:
                 # Un registro que cambia justo en el borde sale en dos tramos.
                 codigo = registro.get("codigo")
                 if codigo in vistos:
                     continue
                 vistos.add(codigo)
                 registros.append(registro)
+        if n_tramos and sin_respuesta == n_tramos:
+            raise ConsultaFallida(
+                f"API de Compra Ágil: falló la primera página de los {n_tramos} tramo(s) "
+                f"entre {desde} y {hasta} (¿API caída?)"
+            )
         self.logger.info("Compra Ágil: %d registros entre %s y %s", len(registros), desde, hasta)
         return registros
 
     def _extraer_tramo(
         self, cambio_desde: str, cambio_hasta: str, estados: str | None
-    ) -> List[Dict[str, Any]]:
+    ) -> List[Dict[str, Any]] | None:
+        """Los registros de un tramo, o `None` si ni la primera página respondió."""
         self.logger.info("Compra Ágil: cambios entre %s y %s", cambio_desde, cambio_hasta)
 
         registros: List[Dict[str, Any]] = []
@@ -249,9 +266,19 @@ class CompraAgilExtractor(BaseExtractor):
                     # «0 registros» y la integración parece funcionar mientras
                     # no trae nada.
                     self.logger.error(
-                        "Compra Ágil: la consulta falló (¿ticket inválido o API caída?). "
-                        "No es que no haya resultados."
+                        "Compra Ágil: la consulta de %s a %s falló (¿API caída?). "
+                        "No es que no haya resultados.",
+                        cambio_desde,
+                        cambio_hasta,
                     )
+                    return None
+                # Lo de las páginas anteriores vale, pero el tramo queda a medias.
+                self.logger.error(
+                    "Compra Ágil: la página %d de %s a %s falló; el tramo queda incompleto",
+                    pagina,
+                    cambio_desde,
+                    cambio_hasta,
+                )
                 break
 
             items = payload.get("items") or []

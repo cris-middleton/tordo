@@ -104,7 +104,7 @@ function leTocaAlCron(instante: number): boolean {
  * hora del horario en o antes de `ahora - 1 h`.
  *
  * Se retrocede de hora en hora en UTC y se mira la hora de Chile de cada una,
- * como hace `ultima_hora_programada` en `etl/cron.py`: así el día del cambio
+ * como hace `corrida_anterior` en `etl/cron.py`: así el día del cambio
  * de hora no se salta ni se repite ninguna.
  */
 export function ultimaCorridaEsperada(ahora: number): number {

@@ -208,10 +208,10 @@ def test_semanal_con_r2_rechazando_las_credenciales_falla(monkeypatch):
 
     pasos = cron.PasosSemanal(
         bajar=bajar,
-        purgar=lambda periodos: True,
-        descargar=lambda periodos: True,
+        purgar=lambda periodos: {},
+        descargar=lambda periodos, con_datos: True,
         analytics=lambda: [],
-        materializar=lambda: True,
+        materializar=lambda: cron.Materializacion(hechas=[], fallidas=[]),
         subir=lambda: 0,
         retener=lambda instante: None,
     )

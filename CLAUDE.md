@@ -502,10 +502,15 @@ pivote (`docs/PIVOTE_PUBLICO_2026-10.md` §3.1), con la tabla `task_failures`: e
 que la leía lo sustituye el latido. En local no hay programador; los cron se lanzan a mano. `frecuente` se dispara **cada hora en UTC** y
 decide él si le toca —10, 13, 16 y 19 h de Santiago entre semana, 12 h el fin de semana—
 porque Chile cambia de hora y Railway no. Corre en proceso, sin `subprocess`. La ventana
-de Compra Ágil va desde la corrida **programada** anterior menos 1 h; la primera del día
-mira 26 h atrás y barre además el día anterior, como hacía la diaria de las 02:00 — sólo
-licitaciones: **las órdenes de compra ya no se ingieren por la API** (paso 7); salen de la
-descarga masiva, y cada una costaba un detalle de la cuota.
+de Compra Ágil va desde la corrida **programada** anterior menos 1 h; **la primera del día,
+desde la anterior a la primera de AYER** (~42–47 h), y barre además las licitaciones de
+anteayer y ayer, como hacía la diaria de las 02:00 — sólo licitaciones: **las órdenes de
+compra ya no se ingieren por la API** (paso 7); salen de la descarga masiva, y cada una
+costaba un detalle de la cuota. Antes eran 26 h y un día: si fallaba la primera de un día,
+lo que cambió entre la última de anteayer y ella no lo miraba nadie
+(`test_una_corrida_cualquiera_que_falla_no_deja_hueco`). No se guarda cuál fue la última
+corrida **buena** (no hay dónde sin añadir estado), así que dos primeras del día seguidas
+fallidas sí dejan hueco.
 **La primera del día re-consulta además los resultados** de las licitaciones cerradas en los
 últimos 30 días sin adjudicación (tope 500/día, el 5 % de la cuota de la API clásica; ni
 desiertas, ni revocadas, ni Compra Ágil). Sin esto la adjudicación sólo se llenaba si
@@ -522,11 +527,25 @@ registraba y seguía. Con el ticket roto los cron terminaban bien y el latido da
 no se reintenta, `main.py` la deja pasar por sus `except Exception` y llega al `/fail`. **Un
 `except Exception` nuevo en el ETL tiene que dejarla pasar.**
 
+**Un fallo TOTAL también hace fallar la corrida; uno aislado, no** (`etl/tests/test_fallo_total.py`).
+Con la API clásica caída cada día salía «0 registros», con la primera página de Compra Ágil
+caída el listado era `[]`, y con todas las tandas del upsert fallidas `load_licitaciones`
+devolvía 0: los tres terminaban «bien». Ahora el listado clásico sin respuesta en NINGÚN día y
+Compra Ágil sin primera página en NINGÚN tramo lanzan `ConsultaFallida`
+(`etl/extractors/base.py`), y `load_licitaciones` sin ninguna tanda escrita, `CargaFallida`;
+las dos caen en los `except Exception` de `main.py`, el paso devuelve `False` y la corrida
+termina en `/fail`. Hubo registros y no se transformó ninguno: también `False`. Un día de
+varios, un tramo de veintiséis (o una página siguiente) o una tanda de varias quedan en ERROR
+y se toleran: los recoge la ventana larga de la primera del día siguiente.
+
 **Los cron revalidan las páginas públicas** (`Revalidador` en `etl/cron.py`): `POST
 REVALIDAR_URL` con `X-Revalidar-Secreto: REVALIDAR_SECRETO` y `{"etiquetas": [...]}`; la
 semanal manda `["analytics"]` tras materializar y la frecuente `["compra-agil"]` al final. Sin
 las variables no hace nada; un fallo queda en ERROR y **no** tumba la corrida (la página sólo
-se queda vieja). El mismo secreto en Vercel y en los dos cron.
+se queda vieja). El mismo secreto en Vercel y en los dos cron. **La semanal materializa tabla
+por tabla y revalida si entró al menos una** (`_materializar`): antes una sola tabla rota
+dejaba sin revalidar todas las páginas una semana. La tabla rota sigue llevando la corrida
+al `/fail`.
 
 **`semanal` guarda la historia en R2** (`etl/almacen.py`): el contenedor de Railway arranca
 con el disco vacío. Baja `consolidated/` y `analytics/` al empezar y sube lo que cambió al
@@ -560,6 +579,15 @@ ChileCompra, que es su fuente.
   Postgres puede contar con lo purgado**: un conteo de Compra Ágil de 90–180 días (hoy, el
   «Publicadas» de la ficha pública del comprador; «lo mejor de hoy» ya no lo usa) sale de
   `analytics.compra_agil_mensual`, nunca de `licitaciones`.
+- **La ventana tiene que quedar entera, o no se reconstruye** (`_descargar`). Un 404 sólo vale
+  para un mes reciente (los 3 que se rehacen) **que no tenía datos antes de purgar**: el mes en
+  curso, o el anterior en los primeros días de un mes, que ChileCompra aún no publica. Un
+  timeout, un 5xx o una conexión cortada (`bajar_zip` ya no los cuenta como 404), un 404 de un
+  mes purgado que sí tenía datos, uno de un mes viejo o un ZIP ilegible (`consolidar_tipo`
+  devuelve `None`) hacen fallar la corrida antes de analytics: no se materializa ni se sube, y
+  R2 conserva la versión anterior. Antes todo eso pasaba por «aún no publicado», y analytics se
+  publicaba sin los meses purgados con el latido en verde. El ZIP se escribe a `.part` y se
+  renombra al terminar.
 - **Purga ZIP Y consolidado** de los 3 meses que rehace. Antes sólo el ZIP, y
   `consolidar_tipo` se salta un mes ya consolidado: lo que ChileCompra corregía de los meses
   recientes nunca llegaba a analytics.

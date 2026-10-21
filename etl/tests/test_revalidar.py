@@ -109,13 +109,17 @@ class _Registro:
         return [llamada[0] for llamada in self.llamadas]
 
 
-def _semanal(r, materializado=True):
+def _semanal(r, hechas=("time_series",), fallidas=()):
+    def materializar():
+        r.llamadas.append(("materializar",))
+        return cron.Materializacion(hechas=list(hechas), fallidas=list(fallidas))
+
     return cron.PasosSemanal(
         bajar=r.paso("bajar"),
         purgar=r.paso("purgar"),
         descargar=r.paso("descargar"),
         analytics=lambda: [],
-        materializar=r.paso("materializar", materializado),
+        materializar=materializar,
         subir=r.paso("subir"),
         retener=r.paso("retener"),
         revalidar=r.paso("revalidar", False),
@@ -131,10 +135,38 @@ def test_la_semanal_revalida_analytics_despues_de_materializar():
     assert ("revalidar", ["analytics"]) in r.llamadas
 
 
-def test_sin_materializar_no_se_revalida():
+def test_sin_materializar_nada_no_se_revalida():
     r = _Registro()
-    cron.correr_semanal(_chile("2026-10-11T03:00:00"), _semanal(r, materializado=False))
+    pasos = _semanal(r, hechas=(), fallidas=("time_series", "price_bands"))
+    assert not cron.correr_semanal(_chile("2026-10-11T03:00:00"), pasos)
     assert "revalidar" not in r.nombres()
+
+
+def test_una_tabla_rota_no_deja_las_paginas_viejas_una_semana():
+    """Antes, con una sola tabla fallida no se revalidaba nada: las páginas
+    seguían con la semana anterior aunque las demás tablas ya fueran nuevas.
+    La etiqueta es una para todo analytics: basta una tabla nueva. La corrida
+    sigue terminando mal, para que el /fail diga qué tabla."""
+    r = _Registro()
+    pasos = _semanal(r, hechas=("time_series",), fallidas=("price_bands",))
+    assert not cron.correr_semanal(_chile("2026-10-11T03:00:00"), pasos)
+    assert ("revalidar", ["analytics"]) in r.llamadas
+
+
+def test_materializar_tabla_por_tabla_dice_cuales_fallaron(monkeypatch):
+    tablas = [spec.tabla for spec in cron.CATALOGO]
+    rota = tablas[1]
+    pedidas = []
+
+    def main(argv):
+        pedidas.append(argv)
+        return 1 if argv == ["--solo", rota] else 0
+
+    monkeypatch.setattr(cron.materialize, "main", main)
+    resultado = cron._materializar()
+    assert resultado.fallidas == [rota]
+    assert resultado.hechas == [t for t in tablas if t != rota]
+    assert pedidas == [["--solo", t] for t in tablas]
 
 
 def _frecuente(r, ok=True):
