@@ -2,8 +2,6 @@
 
 import { useMemo } from 'react';
 import { useParams } from 'next/navigation';
-import { format } from 'date-fns';
-import es from 'date-fns/locale/es';
 import {
   Bookmark,
   BookmarkCheck,
@@ -14,12 +12,15 @@ import {
 } from 'lucide-react';
 
 import { useDashboardCollections } from '@/hooks/useDashboardCollections';
+import { ErrorDeCarga } from '@/components/ErrorDeCarga';
+import { FueraDelCatalogo } from '@/components/licitacion/FueraDelCatalogo';
+import { fechaLargaDeChile } from '@/lib/horaChile';
 import { urlMercadoPublico } from '@/lib/compraAgil';
 import { cierreEnPalabras, normalizeText, shortRegion } from '@/lib/licitacionEstado';
 
 import { useLicitacion, usePanelLicitacion } from '@/lib/queries';
 import BIPanelSection from '@/components/licitacion/BIPanelSection';
-import { normalizeTenderDetail } from '@/lib/licitacionDetalle';
+import { esNoEncontrada, montoConMoneda, normalizeTenderDetail } from '@/lib/licitacionDetalle';
 import type { BIPanel, TenderDetail } from '@/types/licitacionDetalle';
 
 // ─── Main page ────────────────────────────────────────────────────────────────
@@ -45,22 +46,15 @@ export default function TenderDetailPage() {
   const consultaLicitacion = useLicitacion(codigoRuta || undefined);
   const tender = (consultaLicitacion.data ?? null) as TenderDetail | null;
   const loading = consultaLicitacion.isPending && Boolean(codigoRuta);
-  const error = consultaLicitacion.isError
-    ? 'No pudimos cargar la información de la licitación seleccionada.'
-    : null;
+  // Un 404 es una licitación que ya salió del catálogo (o un código mal
+  // escrito), no una caída: se dice por qué y dónde buscarla. El servidor ya
+  // responde 404 en ese caso (`layout.tsx`); esto cubre lo que cambie después.
+  const noEncontrada = consultaLicitacion.isError && esNoEncontrada(consultaLicitacion.error);
+  const fallo = consultaLicitacion.isError && !noEncontrada;
 
   const consultaPanel = usePanelLicitacion(tender?.codigo_externo ?? undefined);
   const biPanel = (consultaPanel.data ?? null) as BIPanel | null;
   const biLoading = consultaPanel.isLoading;
-
-  const formatCurrency = (amount?: number, currency: string = 'CLP') => {
-    if (amount === undefined || amount === null || Number.isNaN(amount)) return 'N/A';
-    return new Intl.NumberFormat('es-CL', {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
 
   const tenderData = useMemo(() => {
     if (!tender) return null;
@@ -74,29 +68,23 @@ export default function TenderDetailPage() {
 
   const nombre = tenderData ? normalizeText(tenderData.nombre) : null;
   const cierre = cierreEnPalabras(tenderData?.fecha_cierre);
-  const fechaLarga = (iso?: string) =>
-    iso ? format(new Date(iso), "d 'de' MMMM yyyy, HH:mm", { locale: es }) : null;
+  // En hora de Chile, como el resto del sitio: con `date-fns` salía en la del
+  // navegador, y la misma ficha mezclaba los dos husos.
   const datosClave: { etiqueta: string; valor: string; detalle?: string | null; destacado?: boolean }[] = tenderData
     ? [
         {
           etiqueta: 'Cierre',
           valor: cierre?.texto ?? 'Sin fecha',
-          detalle: fechaLarga(tenderData.fecha_cierre),
+          detalle: fechaLargaDeChile(tenderData.fecha_cierre, true),
           destacado: cierre?.urgente,
         },
         {
           etiqueta: 'Monto estimado',
-          valor:
-            tenderData.monto_estimado != null && !Number.isNaN(tenderData.monto_estimado)
-              ? formatCurrency(tenderData.monto_estimado, tenderCurrency)
-              : 'No lo informa',
-          detalle: tenderCurrency !== 'CLP' ? `En ${tenderCurrency}` : null,
+          valor: montoConMoneda(tenderData.monto_estimado, tenderCurrency) ?? 'No lo informa',
         },
         {
           etiqueta: 'Publicada',
-          valor: tenderData.fecha_publicacion
-            ? format(new Date(tenderData.fecha_publicacion), "d 'de' MMMM yyyy", { locale: es })
-            : 'Sin fecha',
+          valor: fechaLargaDeChile(tenderData.fecha_publicacion) ?? 'Sin fecha',
           detalle: tenderData.estado && !/^publicada$/i.test(tenderData.estado) ? `Estado: ${tenderData.estado}` : null,
         },
         {
@@ -123,7 +111,9 @@ export default function TenderDetailPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="page-title break-words">{nombre ?? 'Licitación'}</h1>
+        <h1 className="page-title break-words">
+          {noEncontrada ? 'No tenemos esta licitación' : (nombre ?? 'Licitación')}
+        </h1>
         {tenderData && (
           <>
             {comprador && <p className="mt-2 text-muted">{comprador}</p>}
@@ -180,10 +170,15 @@ export default function TenderDetailPage() {
         <div className="card flex min-h-[300px] items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      ) : error ? (
-        <div className="card border border-destructive/40 bg-destructive/5 p-6 text-destructive">
-          {error}
-        </div>
+      ) : noEncontrada ? (
+        <FueraDelCatalogo codigo={codigoRuta || null} />
+      ) : fallo ? (
+        <ErrorDeCarga
+          titulo="No pudimos cargar esta licitación"
+          error={consultaLicitacion.error}
+          onReintentar={() => void consultaLicitacion.refetch()}
+          reintentando={consultaLicitacion.isFetching}
+        />
       ) : !tenderData ? (
         <div className="card p-6 text-muted">No se encontró la licitación solicitada.</div>
       ) : (

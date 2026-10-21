@@ -5,6 +5,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Search } from 'lucide-react';
 
+import { useClaveDeUrlExterna } from '@/hooks/useClaveDeUrlExterna';
 import { useValorRetardado } from '@/hooks/useValorRetardado';
 import { EJEMPLOS_BUSQUEDA } from '@/lib/buscar';
 import {
@@ -19,6 +20,7 @@ import {
   MINIMO_BUSQUEDA_PRODUCTOS,
   useBuscarProductosPublicos,
 } from '@/lib/queries';
+import { escribirUrlPropia } from '@/lib/urlPropia';
 
 /**
  * El buscador de `/productos`. Es como se llega a la ficha de un producto que
@@ -37,13 +39,21 @@ import {
  * prerenderizar `/productos`. Va aquí y no en la página para que la página siga
  * siendo un componente de servidor estático: leer `searchParams` en ella la
  * volvería dinámica en cada petición. Hasta que hidrata se ve el campo vacío.
+ *
+ * Una URL que llega de fuera («Precios» en la cabecera con una búsqueda puesta)
+ * vuelve a montar el buscador con su término: ver `lib/urlPropia.ts`.
  */
 export function BuscadorProductos() {
   return (
     <Suspense fallback={<Campo texto="" />}>
-      <Buscador />
+      <BuscadorDeLaUrl />
     </Suspense>
   );
+}
+
+function BuscadorDeLaUrl() {
+  const clave = useClaveDeUrlExterna('productos');
+  return <Buscador key={clave} />;
 }
 
 function Campo({ texto, alCambiar }: { texto: string; alCambiar?: (valor: string) => void }) {
@@ -91,10 +101,10 @@ function Buscador() {
   // Con el término YA retardado —no con cada tecla— y sólo si se busca: la URL
   // es la búsqueda que se hizo. No toca estado de React: escribe fuera.
   // `replaceState` para no llenar el historial.
-  const destino = rutaBusquedaProductos(buscable ? termino : '');
+  const consultaUrl = rutaBusquedaProductos(buscable ? termino : '').split('?')[1] ?? '';
   useEffect(() => {
-    window.history.replaceState({}, '', destino);
-  }, [destino]);
+    escribirUrlPropia('productos', consultaUrl, '/productos');
+  }, [consultaUrl]);
 
   return (
     <div>
@@ -118,7 +128,19 @@ function Buscador() {
             </ul>
           </div>
         ) : consulta.isError ? (
-          <p className="text-sm text-subtle">No pudimos buscar ahora. Prueba de nuevo en un momento.</p>
+          // Una línea y no una caja, como el resto de la búsqueda; con el
+          // botón para volver a intentarlo, que antes no había.
+          <p className="text-sm text-subtle">
+            No pudimos buscar ahora.{' '}
+            <button
+              type="button"
+              onClick={() => void consulta.refetch()}
+              disabled={consulta.isFetching}
+              className="enlace py-1 disabled:opacity-60"
+            >
+              {consulta.isFetching ? 'Reintentando…' : 'Reintentar'}
+            </button>
+          </p>
         ) : consulta.isPending ? (
           <p className="text-sm text-subtle">Buscando…</p>
         ) : resultados.length === 0 ? (

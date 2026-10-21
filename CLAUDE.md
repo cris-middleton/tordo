@@ -326,7 +326,8 @@ programador en la nube, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
   - **`app/error.tsx` y `app/global-error.tsx`.** No existía ninguna frontera de error: un
     fallo al renderizar dejaba una página en blanco y **nada registrado**. `global-error`
     lleva sus estilos en línea porque si lo que falló es el layout, las hojas de estilo
-    pueden no haber llegado.
+    pueden no haber llegado. **«Reintentar» llama a `retry()`, no a `reset()`**: en Next 16
+    `retry()` vuelve a pedir el segmento al servidor y `reset()` sólo repinta lo que ya había.
 - **`NEXT_PUBLIC_*` se inlinea en el BUILD, no en ejecución.** Ponerlo en el `environment`
   del contenedor no llega al navegador: van como `ARG` en el Dockerfile y como `build.args`
   en el compose. Es el motivo por el que `API_URL` **no** lleva ese prefijo, y por el que el
@@ -417,6 +418,11 @@ programador en la nube, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
   - **`params` es una Promesa desde Next 16**, y las dos páginas de detalle la leían como
     objeto: pedían `/codigo/undefined`. Rotas desde la actualización.
   - En un componente cliente el parámetro de ruta se lee con **`useParams()`**.
+  - **Una licitación que no está responde 404 de verdad**: `licitaciones/[codigo]/layout.tsx`
+    pregunta al backend (`licitacionExiste`, como el visitante, 4 s de tope) y llama a
+    `notFound()` en el layout y no en `generateMetadata`, que puede salir con la respuesta ya
+    empezada en 200. `licitaciones/not-found.tsx` dice que la retención la sacó y enlaza a
+    Mercado Público; con el backend caído la ficha se pinta igual y el navegador reintenta.
   - **La revalidación se prueba ahí** (`e2e/revalidacion.spec.ts`): el contrato de
     `/api/revalidar` y que revalidar `analytics` pasa una ficha de HIT a STALE y de vuelta a
     HIT, sobre el servidor standalone del build de producción. `scripts/e2e.sh` genera
@@ -666,7 +672,10 @@ sin sesión — ver las reglas de frontend más arriba. Pantallas: el catálogo 
 licitaciones (`/licitaciones`, con su detalle; **los filtros viven en la URL**, `abiertas=1` incluido, así que
 una búsqueda es una URL; **entrar sin nada en la URL abre en «Sólo abiertas»** (`filtrosIniciales`), y
 una URL con filtros se lee tal cual, así que un enlace, una búsqueda guardada o un RSS no cambian de
-sentido; cada licitación es una fila, `FilaLicitacion`, con el cierre en palabras de `cierreEnPalabras`), «Lo mejor de hoy en Compra Ágil» (`/compra-agil`), `/guardados`
+sentido —sólo cuentan los parámetros del catálogo, `PARAMS_CATALOGO`: un `fbclid` no es un filtro—; lo
+que la API rechazaría no sale de la URL ni del buscador (más de 8 palabras o 100 letras, términos
+repetidos, un mecanismo desconocido, un `offset` sobre 100.000): un 422 se veía como «0 resultados»,
+y un error de la API se pinta con `ErrorDeCarga`; cada licitación es una fila, `FilaLicitacion`, con el cierre en palabras de `cierreEnPalabras`), «Lo mejor de hoy en Compra Ágil» (`/compra-agil`), `/guardados`
 y los mercados por rubro (`/mercado`, «Mercados» en la navegación); y lo abierto en `/abierto`,
 enlazado como «API y MCP» desde la cabecera; la búsqueda en `/buscar?q=` (ver abajo); y las
 notas de datos en `/notas` (ver «Notas de datos»). Las del panel viven en el grupo de rutas
@@ -946,6 +955,15 @@ haya `{`/`<` fuera de código (MDX los lee como JSX).
 API sigue siendo sólo JSON) con caché de CDN de 30 min, lista blanca de parámetros, XML
 escapado y la cita de la fuente en cada ítem. Llaman al backend **como el visitante**
 (`cabecerasHaciaElBackend(ipDelVisitante(...))`), no como renderizado exento.
+**«Todas las licitaciones» se guarda como `abiertas=0`, nunca como la consulta vacía**
+(`consultaCanonica`): vacía, el catálogo abre en «Sólo abiertas».
+
+**Una URL que llega de fuera vuelve a montar la pantalla** (`lib/urlPropia.ts`,
+`useClaveDeUrlExterna`): `/licitaciones`, `/compra-agil`, `/mercado` y `/productos` leen sus
+filtros de la URL al montar, y Next 16 no desmonta la página cuando sólo cambia la consulta, así
+que pulsar «Licitaciones» en la cabecera con un filtro puesto dejaba el filtro con la URL limpia.
+Cada pantalla escribe su URL con `escribirUrlPropia`, que la anota; una consulta distinta de la
+anotada cambia la clave del contenido.
 
 **La pantalla de analítica (`app/(panel)/mercado/`, servida en `/mercado`) está ordenada por la decisión, no por lo
 que el pipeline sabe calcular**: lo nacional (cuánto compra cada sector, `SectorOverview`, en
@@ -963,7 +981,8 @@ del comprador es «9,2 de 10» y sus tres números al lado.
 **La URL de esa pantalla se lee, no sólo se escribe.** `rubro`, `focus` y `compare` se leen
 con `useSearchParams` en un inicializador perezoso —dentro de una frontera de `Suspense`,
 que `useSearchParams` exige— y se escriben con `replaceState`. Antes sólo se escribían:
-compartir el enlace de un rubro abría el rubro por defecto del que lo recibía.
+compartir el enlace de un rubro abría el rubro por defecto del que lo recibía. «Copiar enlace»
+lleva el rubro que se ve, también el de por defecto (`RubroMostrado`, `enlaceConRubro`).
 
 **Sistema de diseño por tokens** en `app/globals.css`, mapeado a Tailwind en
 `tailwind.config.js`. Paleta "Iridiscencia", sacada del propio logo — el tordo es un pájaro
@@ -1107,7 +1126,8 @@ componentes cliente y la home perdería título y tarjeta de preview.
   Con 0 publicadas hoy (cada madrugada) las dos primeras celdas se ocultan y la que queda primera
   no lleva sangría. Sin enlace: el catálogo no filtra por fecha de publicación.
 - **«Lo mejor de hoy», compacto** (`pedirDestacadas`, `BloqueHoy`): filas con nombre, comprador,
-  cierre y monto; sin puntaje, sin cocientes y sin la historia de la unidad, que vive en
+  cierre y monto; **el cierre es la hora en Santiago** («Cierra el 22 oct a las 18:00», `cierreFijo`),
+  no «Cierra en 3 h», que envejece con la caché; sin puntaje, sin cocientes y sin la historia de la unidad, que vive en
   `/compra-agil`. `Portada` lee la hora una vez y se la pasa al bloque.
   **Su descripción depende de los datos que tiene al lado** (`descripcionDestacadas(historia_disponible
   === true)`, en la portada, en `/compra-agil` y en el RSS): sin historia por unidad el factor

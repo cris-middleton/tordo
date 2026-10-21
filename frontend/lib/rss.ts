@@ -9,7 +9,9 @@
  */
 
 import { FUENTE_DATOS } from './atribucion';
+import { prepararBusqueda } from './buscar';
 import { PARAMS_FILTRO } from './filtrosCatalogo';
+import { instanteDeChile } from './horaChile';
 
 /** Lo que cada feed reenvía al backend. **Nada más**: ni `limit`, ni `offset`. */
 export const PARAMS_RSS_LICITACIONES = PARAMS_FILTRO;
@@ -41,9 +43,14 @@ export function escaparXml(texto: string): string {
     .replace(/'/g, '&apos;');
 }
 
+/** Copia de `limites.NOMBRE`: el largo máximo de un parámetro de texto que no es la búsqueda. */
+const LARGO_MAXIMO_PARAMETRO = 200;
+
 /**
  * Sólo los parámetros de la lista blanca, recortados y sin vacíos. Un
  * parámetro desconocido no llega al backend: un feed no es un proxy abierto.
+ * `search` se recorta como en `/buscar` (`prepararBusqueda`): el backend acepta
+ * 100 caracteres y 8 palabras, y con más el feed respondía 400.
  */
 export function filtrarParams(
   entrada: URLSearchParams,
@@ -51,9 +58,10 @@ export function filtrarParams(
 ): URLSearchParams {
   const salida = new URLSearchParams();
   for (const nombre of permitidos) {
-    const valor = entrada.get(nombre)?.trim();
+    const crudo = entrada.get(nombre)?.trim();
     // Tope de largo: nadie busca con 500 caracteres, y la URL es la clave de caché.
-    if (valor) salida.set(nombre, valor.slice(0, 200));
+    const valor = nombre === 'search' ? prepararBusqueda(crudo).termino : crudo?.slice(0, LARGO_MAXIMO_PARAMETRO);
+    if (valor) salida.set(nombre, valor);
   }
   return salida;
 }
@@ -103,8 +111,18 @@ export interface CanalRss {
   items: ItemRss[];
 }
 
-function fechaRfc822(iso: string | null | undefined): string | null {
+/** La hora con que se fecha lo que sólo trae día (las notas de datos): media mañana en Chile. */
+export const HORA_DE_LO_QUE_SOLO_TIENE_DIA = 9;
+
+/**
+ * La fecha de un ítem. Un día solo («2026-10-20», el de una nota) se fecha a las
+ * 09:00 de Santiago: leído a secas es la medianoche UTC, y un lector en Chile lo
+ * mostraba la tarde del día anterior.
+ */
+export function fechaRfc822(iso: string | null | undefined): string | null {
   if (!iso) return null;
+  const soloDia = instanteDeChile(iso, HORA_DE_LO_QUE_SOLO_TIENE_DIA);
+  if (soloDia) return soloDia.toUTCString();
   const t = Date.parse(iso);
   return Number.isFinite(t) ? new Date(t).toUTCString() : null;
 }

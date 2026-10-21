@@ -18,6 +18,7 @@ import {
 import { motivoParaPersona } from '@/lib/motivos';
 import { textoPeriodo } from '@/lib/periodo';
 import { decimal } from '@/lib/formato';
+import { type ConsultaPrecio, rutaExportarPrecio } from '@/lib/exportar';
 
 interface ProductoOption {
   codigoProductoONU?: string;
@@ -35,6 +36,9 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
   const [cerradoAMano, setCerradoAMano] = useState(false);
   const [organismo, setOrganismo] = useState('');
   const [resultado, setResultado] = useState<PrecioResultado | null>(null);
+  // Con qué se consultó: el título y la descarga salen de aquí, no de lo que el
+  // formulario tenga escrito después (`lib/exportar.ts`).
+  const [consultada, setConsultada] = useState<ConsultaPrecio | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -62,17 +66,20 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
     }
     setLoading(true);
     setError('');
+    const pedida: ConsultaPrecio = { codigo, nombre: selected?.nombre, organismo: organismo.trim() };
     try {
       const res: PrecioResultado = await apiClient.getBIPrecio(codigo, {
-        organismo_id: organismo.trim() || undefined,
+        organismo_id: pedida.organismo || undefined,
       });
       setResultado(res);
+      setConsultada(pedida);
       if (!res.disponible) {
         setError(motivoParaPersona(res.motivo, 'Sin datos para este producto.'));
       }
     } catch (err) {
       setError(extractErrorMessage(err));
       setResultado(null);
+      setConsultada(null);
     } finally {
       setLoading(false);
     }
@@ -179,8 +186,8 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
 
       {bandas.length > 0 && (
         <div className="space-y-3">
-          {selected?.nombre && (
-            <p className="font-semibold text-text">{selected.nombre}</p>
+          {consultada?.nombre && (
+            <p className="font-semibold text-text">{consultada.nombre}</p>
           )}
           {resultado?.nivel_usado && (
             <p className="text-xs text-muted">
@@ -199,14 +206,11 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
               <BandaPrecioCard key={b.firma_producto || b.codigoProductoONU || i} banda={b} />
             ))}
           </div>
-          {selected?.codigoProductoONU && (
+          {consultada && (
             <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
               {/* La descarga es lo que convierte esto en un entregable: se pega
                   en una propuesta interna o se manda al socio que decide. */}
-              <BotonExportar
-                ruta={`bi/exportar/precio/${encodeURIComponent(selected.codigoProductoONU)}`}
-                etiqueta="Descargar"
-              />
+              <BotonExportar ruta={rutaExportarPrecio(consultada)} etiqueta="Descargar" />
             </div>
           )}
         </div>

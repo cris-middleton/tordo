@@ -116,13 +116,16 @@ describe('buscador de productos', () => {
     expect(screen.getByText(/menos de tres letras y los números no cuentan/i)).toBeInTheDocument();
   });
 
-  it('un error es una línea, no una caja', () => {
-    estado = { isPending: false, isError: true };
+  it('un error es una línea, no una caja, y se puede reintentar', () => {
+    const refetch = vi.fn();
+    estado = { isPending: false, isError: true, refetch } as typeof estado;
     render(<BuscadorProductos />);
     escribir('guante');
     act(() => vi.advanceTimersByTime(300));
     expect(screen.getByText(/no pudimos buscar ahora/i)).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+    expect(refetch).toHaveBeenCalledTimes(1);
   });
 });
 

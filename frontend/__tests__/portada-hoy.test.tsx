@@ -62,7 +62,15 @@ describe('BloqueHoy, compacto', () => {
     );
     expect(within(primera).getByText(normalizeText('Hospital de Prueba'))).toBeInTheDocument();
     expect(within(primera).getByText(formatCurrency(500000)!)).toBeInTheDocument();
-    expect(within(primera).getByText(textoTiempo(30))).toBeInTheDocument();
+    // La hora de cierre en Santiago, no la cuenta atrás: la portada se sirve
+    // desde caché y «Cierra en 30 h» envejecía (10:00 UTC son las 07:00 en octubre).
+    expect(within(primera).getByText('Cierra el 14 oct a las 07:00')).toBeInTheDocument();
+    expect(within(primera).queryByText(textoTiempo(30))).not.toBeInTheDocument();
+  });
+
+  it('sin fecha de cierre legible no inventa una cuenta atrás', () => {
+    render(<BloqueHoy datos={{ ...DATOS, items: [item(1, { fecha_cierre: null })] }} actualizado={HORA} />);
+    expect(lista().textContent).not.toMatch(/cierra/i);
   });
 
   it('sin puntaje, sin cocientes y sin la historia de la unidad', () => {

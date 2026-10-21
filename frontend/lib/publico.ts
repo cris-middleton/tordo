@@ -49,12 +49,17 @@ export const rutaBusquedaProductos = (termino: string) => {
 export const rutaPanelRubro = (nombre: string) =>
   `/mercado?rubro=${encodeURIComponent(nombre)}`;
 
-/** Las páginas fijas que van al sitemap, además de las de cada entidad. */
+/**
+ * Las páginas fijas que van al sitemap, además de las de cada entidad. Las
+ * secciones de la navegación (`lib/navegacion.ts`) están todas: `/mercado`
+ * faltaba, aunque es indexable y tiene su canonical.
+ */
 export const PAGINAS_FIJAS = [
   '/',
   '/compra-agil',
   '/licitaciones',
   '/productos',
+  '/mercado',
   '/guias',
   '/notas',
   '/abierto',
