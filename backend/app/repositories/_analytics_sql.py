@@ -195,3 +195,82 @@ def parametros_busqueda(consulta: str) -> dict[str, str] | None:
     """
     trozo = busqueda.fragmento(consulta.strip())
     return busqueda.parametros(trozo) if trozo else None
+
+
+# ── Agregados del mercado para la portada (`/publico/mercado`) ───────────────
+#
+# Se agregan en Postgres y no en Polars: `time_series` pesa 301 MB en
+# producción, y traerla entera para sumarla es lo que mató a la API por memoria
+# el 2026-10-14. Lo que vuelve son unas decenas de filas.
+
+#: Cómo sale un sector sin nombre (NULL o vacío): se suma al «Otros» que ya trae
+#: el ETL, en vez de pintar un sector en blanco al lado.
+SECTOR_SIN_NOMBRE = "Otros"
+
+#: Cuántos tramos de 10 puntos tiene la distribución de la cuota del líder.
+TRAMOS_CUOTA = 10
+
+
+def sql_gasto_mensual(tabla: str, *, schema: str = SCHEMA) -> str:
+    """Monto y órdenes por (año, mes, sector), en orden de mes y de sector.
+
+    El sector vacío o nulo cae en `SECTOR_SIN_NOMBRE`, y se agrupa por la
+    expresión ya traducida: así se funde con el «Otros» que haya, en vez de salir
+    dos veces. Va como literal y no como parámetro porque la misma expresión
+    aparece en el `SELECT` y en el `ORDER BY`, y Postgres sólo las reconoce
+    iguales si lo son al pie de la letra (con dos parámetros ligados no lo son).
+    """
+    sin_nombre = "'" + SECTOR_SIN_NOMBRE.replace("'", "''") + "'"
+    sector = f"COALESCE(NULLIF(btrim({ident('sector')}), ''), {sin_nombre})"
+    return (
+        f"SELECT {ident('anio')} AS anio, {ident('mes')} AS mes, {sector} AS sector, "
+        f"COALESCE(SUM({ident('monto_total')}), 0) AS monto, "
+        f"COALESCE(SUM({ident('n_oc')}), 0) AS n_oc "
+        f"FROM {tabla_calificada(tabla, schema)} "
+        f"WHERE {ident('anio')} IS NOT NULL AND {ident('mes')} IS NOT NULL "
+        # El sector se ordena por bytes, como en el resto del módulo: no depende
+        # de la intercalación de la base.
+        f'GROUP BY 1, 2, 3 ORDER BY 1, 2, {sector} COLLATE "C"'
+    )
+
+
+def sql_concentracion_totales(tabla: str, *, con_ventana: bool, schema: str = SCHEMA) -> str:
+    """Los conteos y montos de `market_concentration` en una sola pasada.
+
+    Un mercado cuenta si tiene cuota del líder: es la base de la distribución,
+    y así `mercados` es la suma de los tramos. `un_proveedor` se cuenta sobre los
+    mismos. Con `con_ventana`, también el periodo (es igual en todas las filas).
+    """
+    cuota, monto = ident("top_share_pct"), ident("monto_total_mercado")
+    ventana = (
+        f", MIN({ident('ventana_desde')}) AS ventana_desde, "
+        f"MAX({ident('ventana_hasta')}) AS ventana_hasta"
+        if con_ventana
+        else ""
+    )
+    return (
+        "SELECT count(*) AS mercados, "
+        f"count(*) FILTER (WHERE {cuota} >= 50) AS sobre_la_mitad, "
+        f"count(*) FILTER (WHERE {ident('n_proveedores')} = 1) AS un_proveedor, "
+        f"COALESCE(SUM({monto}), 0) AS monto_total, "
+        f"COALESCE(SUM({monto}) FILTER (WHERE {cuota} >= 50), 0) AS monto_sobre_la_mitad"
+        f"{ventana} FROM {tabla_calificada(tabla, schema)} WHERE {cuota} IS NOT NULL"
+    )
+
+
+def sql_concentracion_tramos(tabla: str, *, schema: str = SCHEMA) -> str:
+    """Mercados y monto por tramo de 10 puntos de la cuota del líder (0 a 9).
+
+    El 100 % cae en el último tramo (`LEAST`), y una cuota fuera de [0, 100] —que
+    la aritmética no permite, pero un dato roto sí— en el tramo del borde. Los
+    tramos sin mercados no vienen: los rellena quien llama.
+    """
+    cuota, monto = ident("top_share_pct"), ident("monto_total_mercado")
+    ultimo = TRAMOS_CUOTA - 1
+    tramo = f"LEAST(GREATEST(floor({cuota} / 10)::int, 0), {ultimo})"
+    return (
+        f"SELECT {tramo} AS tramo, count(*) AS mercados, "
+        f"COALESCE(SUM({monto}), 0) AS monto "
+        f"FROM {tabla_calificada(tabla, schema)} WHERE {cuota} IS NOT NULL "
+        "GROUP BY 1 ORDER BY 1"
+    )

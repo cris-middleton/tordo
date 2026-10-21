@@ -627,7 +627,7 @@ schemas/        Pydantic — todos van aquí
 utils/          slug.py (la única función de slugs)
 ```
 
-**Routers**: tenders (3 rutas), bi (18), compra_agil (1), publico (6), health. Todos anónimos. Los de cuenta (auth, users,
+**Routers**: tenders (3 rutas), bi (18), compra_agil (1), publico (7), health. Todos anónimos. Los de cuenta (auth, users,
 empresas, alerts, documentos, postulaciones, estado_habil, dashboard, billing, webhooks) y el
 explorador `data_inspection` se borraron en el pivote público.
 
@@ -857,6 +857,14 @@ contenedor único (cabecera y pie, con la atribución, son de la cáscara única
   inventada era una llamada que el límite no contaba.
   La excepción es `GET /publico/portada`, que no lee analytics: la pide la portada con
   `pedirResumenPortada()` (media hora, etiqueta `compra-agil`, nunca lanza).
+- **`GET /publico/mercado`** (`services/publico/mercado.py`): el gasto mensual por sector
+  (`time_series`) y la concentración de los mercados (`market_concentration`: cuántos con el
+  líder en el 50 % o más, con un solo proveedor, y la cuota del líder en diez tramos con su
+  monto), para la portada. **Se agrega en SQL** (`analytics_sync.gasto_mensual_por_sector` y
+  `concentracion_de_mercados`), nunca en Polars: `time_series` pesa 301 MB en producción. Sin
+  su tabla, cada bloque sale `null`; con `FEATURE_ANALYTICS` apagada, 503 como las fichas. Se
+  guarda 10 min en memoria del proceso, sólo si viene completa. `tests/test_publico_mercado.py`,
+  sobre Postgres.
 - **Revalidación desde los cron**: `POST /api/revalidar` con `X-Revalidar-Secreto`
   (`REVALIDAR_SECRETO`, servidor, sin valor por defecto: sin él responde 503) y
   `{"etiquetas": ["analytics" | "compra-agil"]}` → `revalidateTag(tag, 'max')`. Lo llama
@@ -1606,6 +1614,7 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   (`sector_dashboard`, `buyer_scores`, `buyer_risk_flags`). Una función nueva sin llamadas
   en la guarda también la hace fallar. **No cubre** `services/publico/` (las páginas
   indexables también leen analytics con `_load`) ni `repositories/`: ahí la guarda no existe.
+  `/publico/mercado` agrega en el repositorio y no pasa por `_load`.
 - **CORS abierto en producción (`CORS_ORIGINS=*`), sin credenciales**: la API es pública y
   anónima, y limitarla a los dominios del sitio dejaba fuera a los integradores que la
   llaman desde una aplicación web. No abre el MCP: su lista de `Host`/`Origin` es otra

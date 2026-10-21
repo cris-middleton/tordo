@@ -207,3 +207,53 @@ class ResumenPortada(BaseModel):
             "con nombre."
         ),
     )
+
+
+class GastoMensualSector(BaseModel):
+    """Lo que compró un sector en un mes, sumado sobre sus compradores y rubros."""
+
+    anio: int
+    mes: int = Field(description="Mes del año, de 1 a 12.")
+    sector: str = Field(description="Sector del comprador. El vacío se suma a «Otros».")
+    monto: float = Field(description="Monto de las órdenes de compra del mes, CLP.")
+    n_oc: int = Field(description="Órdenes de compra del mes.")
+
+
+class TramoConcentracion(BaseModel):
+    """Los mercados en que el proveedor líder tiene entre `desde` y `hasta` % del monto."""
+
+    desde: int = Field(description="Cuota del líder desde la que cuenta el tramo, en %.")
+    hasta: int = Field(
+        description="Cuota del líder hasta la que cuenta, sin incluirla; el último incluye 100."
+    )
+    mercados: int
+    monto: float = Field(description="Monto de esos mercados en la ventana, CLP.")
+
+
+class ConcentracionMercados(BaseModel):
+    """Cuánto se lleva el proveedor líder de cada mercado: un comprador en un rubro."""
+
+    mercados: int = Field(description="Mercados (comprador y rubro) con cuota del líder.")
+    sobre_la_mitad: int = Field(description="Mercados en que el líder se lleva el 50 % o más.")
+    un_proveedor: int = Field(description="Mercados con un solo proveedor.")
+    monto_total: float = Field(description="Monto de todos esos mercados en la ventana, CLP.")
+    monto_sobre_la_mitad: float = Field(
+        description="Monto de los mercados en que el líder se lleva el 50 % o más, CLP."
+    )
+    tramos: list[TramoConcentracion] = Field(
+        description="Diez tramos de 10 puntos de la cuota del líder, de 0 a 100. Suman `mercados`."
+    )
+    ventana_desde: date | None = Field(
+        None, description="Primer día de los datos. Nulo si la tabla no publica su ventana."
+    )
+    ventana_hasta: date | None = Field(None, description="Último día de los datos.")
+
+
+class MercadoPortada(BaseModel):
+    """El mercado entero en dos bloques, para la portada. Un bloque sin su tabla
+    de analytics (antes de la primera corrida semanal) es nulo."""
+
+    gasto_mensual: list[GastoMensualSector] | None = Field(
+        None, description="Monto y órdenes por mes y sector, en orden de mes y de sector."
+    )
+    concentracion: ConcentracionMercados | None = None
