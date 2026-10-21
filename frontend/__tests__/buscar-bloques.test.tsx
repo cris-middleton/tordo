@@ -50,7 +50,7 @@ describe('BloquePrecios', () => {
     expect(screen.getByRole('link', { name: 'Guante latex nitrilo' })).toHaveAttribute('href', '/productos/guante-latex-nitrilo');
     // La banda de la unidad más comprada: unidades[0] (Caja, n=120).
     // La misma lectura que la ficha: conclusión, gráfico, cifras y método.
-    expect(screen.getByText(/^Por caja: la mitad se pagó/)).toBeInTheDocument();
+    expect(screen.getByText(/^Por caja: la mitad de las compras se pagó/)).toBeInTheDocument();
     expect(screen.queryByText(/^Por unidad:/)).toBeNull();
     const otros = screen.getByRole('list', { name: /otros productos/i });
     expect(within(otros).getAllByRole('link').map((a) => a.getAttribute('href'))).toEqual([

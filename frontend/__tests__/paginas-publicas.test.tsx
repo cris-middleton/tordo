@@ -251,9 +251,9 @@ describe('enlaces entre fichas', () => {
     const { container } = render(await PaginaProducto(params({ slug: 'guante-latex-nitrilo' })));
     const titulo = screen.getByRole('heading', { level: 2, name: 'Cuánto se pagó' });
     const seccion = titulo.closest('section') as HTMLElement;
-    expect(within(seccion).getByRole('heading', { level: 3 })).toHaveTextContent('Por caja: la mitad se pagó entre $4.000 y $6.000');
+    expect(within(seccion).getByRole('heading', { level: 3 })).toHaveTextContent('Por caja: la mitad de las compras se pagó entre $4.000 y $6.000');
     // Un punto por comprador de la unidad de la banda: los de «Unidad» no se comparan.
-    expect(seccion.querySelectorAll('svg circle')).toHaveLength(5);
+    expect(seccion.querySelectorAll('svg circle.fill-dato')).toHaveLength(5);
     expect(within(seccion).getByRole('link', { name: 'Cómo se calcula' })).toHaveAttribute(
       'href',
       '/guias/como-leer-una-banda-de-precio#los-cinco-numeros',

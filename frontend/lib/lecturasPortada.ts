@@ -22,6 +22,7 @@ import type { BandaUnidad, CompraAgilPorCierre, ProductoPublico, ResumenPortada 
 
 import { urlCatalogoAbiertas } from './filtrosCatalogo';
 import { graficoPrecio, type GraficoPrecio } from './graficoPrecio';
+import type { LecturaConcentracion } from './lecturasMercado';
 import { enlacesDeMetodo, METODO_CIERRES, METODO_PRECIO, type EnlaceMetodo } from './metodo';
 import { fechaLarga, rutaNota, type AntesDespues, type Nota } from './notas';
 import { rangoDeMeses } from './periodo';
@@ -184,11 +185,11 @@ function compradoresDeLaBanda(producto: ProductoPublico, banda: BandaUnidad) {
 /**
  * La lectura de una banda, sin filtro: lo que dice la frase, el gráfico y el pie.
  *
- * - «{nombre}: la mitad se pagó entre {p25} y {p75}», cierta por definición del
+ * - «{nombre}: la mitad de las compras se pagó entre {p25} y {p75}», cierta por definición del
  *   rango intercuartílico;
- * - si P25 y P75 se escriben igual con `plata()`, «la mitad se pagó a {p25}» (y la
+ * - si P25 y P75 se escriben igual con `plata()`, «la mitad de las compras se pagó a {p25}» (y la
  *   franja del gráfico es una línea);
- * - con un solo comprador, «todas las compras son de {comprador}»: no hay franja
+ * - con un solo comprador, «Todas las compras a este precio son de {comprador}»: no hay franja
  *   que comparar.
  *
  * El pie dice de cuántas compras y de cuántos compradores sale, de cuándo y por
@@ -216,10 +217,10 @@ export function precioDeBanda({
   const igual = plata(banda.p25) === plata(banda.p75);
 
   const conclusion = unSolo
-    ? `${nombre}: todas las compras son de ${suyos.length === 1 ? suyos[0].nombre.trim() : 'un solo comprador'}`
+    ? `Todas las compras a este precio son de ${suyos.length === 1 ? suyos[0].nombre.trim() : 'un solo comprador'}`
     : igual
-      ? `${nombre}: la mitad se pagó a ${plata(banda.p25)}`
-      : `${nombre}: la mitad se pagó entre ${plata(banda.p25)} y ${plata(banda.p75)}`;
+      ? `${nombre}: la mitad de las compras se pagó a ${plata(banda.p25)}`
+      : `${nombre}: la mitad de las compras se pagó entre ${plata(banda.p25)} y ${plata(banda.p75)}`;
 
   const compras = banda.n === 1 ? '1 compra' : `${entero(banda.n)} compras`;
   const deQuien = k == null ? '' : ` de ${entero(k)} ${k === 1 ? 'comprador' : 'compradores'}`;
@@ -231,16 +232,16 @@ export function precioDeBanda({
   const cadaPunto =
     k != null && puntos < k ? `uno de los ${entero(puntos)} compradores con más compras` : 'un comprador';
   const trazos = [
-    igual ? 'la línea gruesa, el precio de la mitad central de las compras' : 'la franja, la mitad central de las compras',
+    igual ? 'la línea gruesa es el precio de la mitad de las compras' : 'la franja es la mitad de las compras',
     grafico.mediana != null && !igual ? 'la raya, la mediana' : null,
-    grafico.bigotes ? 'la línea fina, 8 de cada 10' : null,
+    grafico.bigotes ? 'la línea fina, 8 de cada 10 compras' : null,
   ].filter(Boolean) as string[];
   const deLosTrazos = trazos.join('; ');
   const metodo = unSolo
     ? 'El punto es su mediana.'
     : puntos === 0
       ? `${deLosTrazos.charAt(0).toUpperCase()}${deLosTrazos.slice(1)}.`
-      : `Cada punto es lo que pagó ${cadaPunto} (su mediana); ${deLosTrazos}.`;
+      : `Cada punto es ${cadaPunto}, en su mediana. ${deLosTrazos.charAt(0).toUpperCase()}${deLosTrazos.slice(1)}.`;
 
   return {
     conclusion,
@@ -274,7 +275,7 @@ export function precioDeBanda({
  * contrato de un solo comprador presentado como el del Estado.
  *
  * P25 = P75 (o escritos igual) ya no oculta la lectura: con varios compradores es
- * un precio estable, y la frase dice «la mitad se pagó a $X» (spec PORTADA_V7 §3.2).
+ * un precio estable, y la frase dice «la mitad de las compras se pagó a $X» (spec PORTADA_V7 §3.2).
  *
  * `nombre` es el escrito a mano junto al slug; por defecto, el de `PRODUCTO_PORTADA`.
  */
@@ -401,7 +402,7 @@ export function lecturaCierres(resumen: ResumenPortada | null, repositorio: stri
     decimos: decimosDe(pronto, abiertas),
     tramos: valores.map((n, i) => ({ nombre: NOMBRES_CIERRE[i], valor: entero(n), destacada: pronto > 0 && i < 2 })),
     // Sin el total de abiertas: la tira de cifras lo dice al lado.
-    pie: `Contadas ${cuando}, por día de cierre en hora de Chile.`,
+    pie: `Contadas ${cuando}, hora de Chile.`,
     enlaces: enlacesDeMetodo(METODO_CIERRES, {
       primero: {
         texto: 'Las que cierran primero',
@@ -460,9 +461,10 @@ export function lecturaNota(nota: Nota | undefined, repositorio: string | null):
 
 // ── Cuáles salen ────────────────────────────────────────────────────────────
 
-/** Las tres lecturas; cada una, `null` si no tiene dato que pintar con verdad. */
+/** Las lecturas de «Para empezar»; cada una, `null` si no tiene dato que pintar con verdad. */
 export interface Lecturas {
   precio: LecturaPrecio | null;
+  concentracion: LecturaConcentracion | null;
   cierres: LecturaCierres | null;
   nota: LecturaNota | null;
 }
@@ -470,21 +472,23 @@ export interface Lecturas {
 /** Una lectura elegida para la portada, con su tipo: cada una se pinta distinto. */
 export type LecturaDeLaPortada =
   | { tipo: 'precio'; lectura: LecturaPrecio }
+  | { tipo: 'concentracion'; lectura: LecturaConcentracion }
   | { tipo: 'cierres'; lectura: LecturaCierres }
   | { tipo: 'nota'; lectura: LecturaNota };
 
-/** Cuántas lecturas caben a la derecha del buscador (spec PORTADA_V7, decisión del 2026-10-17). */
-export const MAXIMO_LECTURAS_PORTADA = 2;
+/** Cuántas lecturas van en «Para empezar»: una fila de tres desde `lg`. */
+export const MAXIMO_LECTURAS_PORTADA = 3;
 
 /**
- * Qué lecturas salen en la portada: **las dos primeras disponibles en el orden
- * precio → cierres → nota**. Con todo, precio y cierres (la nota sigue en «Notas de
- * datos», más abajo); si falta una de las vivas, entra la nota; con el backend caído,
- * sólo la nota; sin ninguna, nada. Nunca más de `MAXIMO_LECTURAS_PORTADA`.
+ * Qué lecturas salen en «Para empezar»: **las tres primeras disponibles en el
+ * orden precio → concentración → cierres → nota**. Con todo, las tres de datos
+ * (la nota sigue en «Notas de datos», más abajo); si falta una, entra la nota; con
+ * el backend caído, sólo la nota; sin ninguna, nada.
  */
-export function lecturasDeLaPortada({ precio, cierres, nota }: Lecturas): LecturaDeLaPortada[] {
+export function lecturasDeLaPortada({ precio, concentracion, cierres, nota }: Lecturas): LecturaDeLaPortada[] {
   const disponibles: LecturaDeLaPortada[] = [];
   if (precio) disponibles.push({ tipo: 'precio', lectura: precio });
+  if (concentracion) disponibles.push({ tipo: 'concentracion', lectura: concentracion });
   if (cierres) disponibles.push({ tipo: 'cierres', lectura: cierres });
   if (nota) disponibles.push({ tipo: 'nota', lectura: nota });
   return disponibles.slice(0, MAXIMO_LECTURAS_PORTADA);

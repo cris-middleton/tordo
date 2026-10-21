@@ -94,8 +94,8 @@ function sobre(color: Rgb, alfa: number, base: Rgb): Rgb {
   return color.map((c, i) => Math.round(c * alfa + base[i] * (1 - alfa))) as Rgb;
 }
 
-type Uso = 'texto' | 'texto-grande' | 'borde-control';
-const UMBRAL: Record<Uso, number> = { texto: 4.5, 'texto-grande': 3, 'borde-control': 3 };
+type Uso = 'texto' | 'texto-grande' | 'borde-control' | 'grafico';
+const UMBRAL: Record<Uso, number> = { texto: 4.5, 'texto-grande': 3, 'borde-control': 3, grafico: 3 };
 
 interface Par {
   tema: 'claro' | 'oscuro';
@@ -110,6 +110,8 @@ const TINTAS = ['text', 'muted', 'subtle', 'primary', 'accent', 'gold', 'info', 
 const NEUTRAS = ['background', 'surface', 'surface-elevated'];
 const RELLENOS = ['primary', 'accent', 'success', 'danger', 'warning', 'gold', 'info', 'dato'];
 const TENUES = ['accent', 'gold', 'info', 'danger', 'warning', 'success'];
+/** Las series de los gráficos: marcas, no texto (WCAG 1.4.11, 3:1 contra cada superficie). */
+const SERIES = ['serie-1', 'serie-2', 'serie-3', 'serie-4', 'serie-5', 'serie-otros'];
 
 function paresDelTema(tema: 'claro' | 'oscuro'): Par[] {
   const pares: Par[] = [];
@@ -122,6 +124,7 @@ function paresDelTema(tema: 'claro' | 'oscuro'): Par[] {
     pares.push({ tema, tinta: 'text', fondo: `${t}-light`, uso: 'texto' });
     pares.push({ tema, tinta: 'muted', fondo: `${t}-light`, uso: 'texto' });
   }
+  for (const serie of SERIES) for (const fondo of NEUTRAS) pares.push({ tema, tinta: serie, fondo, uso: 'grafico' });
   for (const fondo of ['background', 'surface']) {
     pares.push({ tema, tinta: 'border-input', fondo, uso: 'borde-control' });
     pares.push({ tema, tinta: 'primary', fondo: 'primary', uso: 'texto', alfa: { valor: 0.1, base: fondo } });
@@ -201,8 +204,8 @@ describe('contraste WCAG AA de los tokens de color', () => {
   });
 
   it('declara todos los pares (guarda: un recorrido vacío pasa siempre)', () => {
-    // 2 temas × (33 tinta/neutra + 10 on-* + 18 tenues + 2 bordes + 2 badge) + 4 de la tarjeta.
-    expect(PARES).toHaveLength(134);
+    // 2 temas × (33 tinta/neutra + 10 on-* + 18 tenues + 18 series + 2 bordes + 2 badge) + 4 de la tarjeta.
+    expect(PARES).toHaveLength(170);
   });
 
   it('cada par de la tarjeta mide el color que la tarjeta pinta, en el tema donde ese token lo vale', () => {

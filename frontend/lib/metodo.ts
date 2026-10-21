@@ -41,10 +41,24 @@ export const METODO_CIERRES: Metodo = {
   codigo: 'backend/app/repositories/licitaciones.py',
 };
 
+/** El monto de las órdenes de compra por mes y sector (`analytics.time_series`). */
+export const METODO_GASTO: Metodo = {
+  guia: { slug: 'de-donde-salen-los-datos', ancla: 'las-dos-fuentes' },
+  codigo: 'etl/analytics/trend_analysis.py',
+};
+
+/** Cuánto se lleva el proveedor principal de cada mercado (`analytics.market_concentration`). */
+export const METODO_CONCENTRACION: Metodo = {
+  guia: { slug: 'concentracion-de-mercado', ancla: 'como-se-calcula' },
+  codigo: 'etl/analytics/competitor_analysis.py',
+};
+
 /** Todos, para el test: uno nuevo se añade aquí y el test lo revisa. */
 export const METODOS: Readonly<Record<string, Metodo>> = {
   precio: METODO_PRECIO,
   cierres: METODO_CIERRES,
+  gasto: METODO_GASTO,
+  concentracion: METODO_CONCENTRACION,
 };
 
 /** `/guias/<slug>#<ancla>`. */

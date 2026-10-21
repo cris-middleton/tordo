@@ -62,8 +62,8 @@ describe('FichaAutor (spec PORTADA_V7 §3.6)', () => {
   it('quién lo hace, a quién escribir y su enlace con el nombre del sitio', () => {
     render(<FichaAutor nombre="Nombre De Prueba" rol={ROL} url="https://www.linkedin.com/in/prueba" />);
     const ficha = screen.getByRole('complementary', { name: 'Quién lo hace' });
-    expect(ficha).toHaveTextContent(`Nombre De Prueba, ${ROL}, hace ${APP_NAME} y escribe las notas de datos.`);
-    expect(ficha).toHaveTextContent('Si un número no cuadra con Mercado Público, escríbele: cada corrección sale como nota.');
+    expect(ficha).toHaveTextContent(`Nombre De Prueba, ${ROL}, hace ${APP_NAME} y escribe las notas.`);
+    expect(ficha).toHaveTextContent('Si un número no te cuadra con Mercado Público, escríbele: cada corrección termina en una nota.');
     expect(screen.getByRole('link', { name: 'hola@tordo.cl' })).toHaveAttribute('href', 'mailto:hola@tordo.cl');
     expect(screen.getByRole('link', { name: 'LinkedIn' })).toHaveAttribute('href', 'https://www.linkedin.com/in/prueba');
   });
@@ -76,7 +76,7 @@ describe('FichaAutor (spec PORTADA_V7 §3.6)', () => {
   it('sin rol, el nombre solo: no hay rol por defecto', () => {
     render(<FichaAutor nombre="Nombre De Prueba" rol={null} url={null} />);
     const ficha = screen.getByRole('complementary', { name: 'Quién lo hace' });
-    expect(ficha).toHaveTextContent(`Nombre De Prueba hace ${APP_NAME} y escribe las notas de datos.`);
+    expect(ficha).toHaveTextContent(`Nombre De Prueba hace ${APP_NAME} y escribe las notas.`);
     expect(ficha).not.toHaveTextContent(/data scientist/);
   });
 });

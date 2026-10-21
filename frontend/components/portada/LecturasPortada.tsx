@@ -3,6 +3,7 @@ import Link from 'next/link';
 
 import { PieDeMetodo } from '@/components/metodo/PieDeMetodo';
 import { AntesDespues } from '@/components/notas/AntesDespues';
+import { Concentracion } from '@/components/graficos/Concentracion';
 import { BarraCierres } from '@/components/portada/BarraCierres';
 import { GraficoPrecio } from '@/components/precio/GraficoPrecio';
 import {
@@ -13,16 +14,16 @@ import {
   type LecturaPrecio,
   type Lecturas,
 } from '@/lib/lecturasPortada';
+import type { LecturaConcentracion } from '@/lib/lecturasMercado';
 import type { EnlaceMetodo } from '@/lib/metodo';
 
-export const TITULO_LECTURAS = 'Lo que dicen los datos';
+export const TITULO_LECTURAS = 'Para empezar';
 
 /**
- * Una lectura: la conclusión, el gráfico y el pie de método, uno tras otro. Van
- * apiladas en una sola columna, así que no hay nada que alinear entre lecturas
- * (la subrejilla de la banda a lo ancho se fue con ella). La primera sin borde
- * encima: el filete del título ya la separa. La última sin relleno debajo: lo que
- * sigue (la ficha en móvil, la franja desde `lg`) pone su propia separación.
+ * Una lectura: la conclusión, el gráfico y el pie de método, uno tras otro. Desde
+ * `lg` van tres en fila; cada una es una subrejilla de tres filas (conclusión,
+ * gráfico, pie), así que los gráficos empiezan a la misma altura aunque una
+ * conclusión ocupe una línea más, y los pies quedan alineados abajo.
  */
 function Lectura({
   id,
@@ -40,10 +41,13 @@ function Lectura({
   children: ReactNode;
 }) {
   return (
-    <article aria-labelledby={id} className={`min-w-0 py-6 last:pb-0 ${primera ? '' : 'border-t border-border'}`.trim()}>
+    <article
+      aria-labelledby={id}
+      className={`grid min-w-0 grid-rows-[auto_1fr_auto] py-6 lg:row-span-3 lg:grid-rows-subgrid lg:border-t-0 lg:py-0 ${primera ? '' : 'border-t border-border'}`.trim()}
+    >
       <header>{cabecera}</header>
       <div className="mt-4">{children}</div>
-      <PieDeMetodo texto={pie} enlaces={enlaces} className="mt-6" />
+      <PieDeMetodo texto={pie} enlaces={enlaces} className="mt-6 self-end" />
     </article>
   );
 }
@@ -83,6 +87,20 @@ function VistaPrecio({ lectura, primera }: { lectura: LecturaPrecio; primera: bo
           <li key={t}>{t}</li>
         ))}
       </ul>
+    </Lectura>
+  );
+}
+
+function VistaConcentracion({ lectura, primera }: { lectura: LecturaConcentracion; primera: boolean }) {
+  return (
+    <Lectura
+      id="lectura-concentracion"
+      primera={primera}
+      cabecera={<Conclusion id="lectura-concentracion">{lectura.conclusion}</Conclusion>}
+      pie={lectura.pie}
+      enlaces={lectura.enlaces}
+    >
+      <Concentracion datos={lectura.grafico} />
     </Lectura>
   );
 }
@@ -144,6 +162,8 @@ function Vista({ elegida, primera }: { elegida: LecturaDeLaPortada; primera: boo
   switch (elegida.tipo) {
     case 'precio':
       return <VistaPrecio lectura={elegida.lectura} primera={primera} />;
+    case 'concentracion':
+      return <VistaConcentracion lectura={elegida.lectura} primera={primera} />;
     case 'cierres':
       return <VistaCierres lectura={elegida.lectura} primera={primera} />;
     case 'nota':
@@ -152,15 +172,13 @@ function Vista({ elegida, primera }: { elegida: LecturaDeLaPortada; primera: boo
 }
 
 /**
- * «Lo que dicen los datos» (spec docs/PORTADA_V7_Y_NOTAS_2026-10.md §3.1–§3.4, V1,
- * y la opción 2 del 2026-10-17): desde `lg`, la columna derecha de la portada, a
- * la altura del buscador. El título en chico (18 px) con un filete de 2 px en
- * `primary` (el navy en tema claro) y debajo **dos lecturas apiladas**: las dos
- * primeras disponibles en el orden precio → cierres → nota (`lecturasDeLaPortada`).
- * Sin ninguna, la sección no sale.
+ * «Para empezar»: las lecturas cortas de la portada, bajo el buscador y el gráfico
+ * grande. Desde `lg`, tres en fila, alineadas por subrejilla; en móvil, una tras
+ * otra. Las tres primeras disponibles en el orden precio → concentración →
+ * cierres → nota (`lecturasDeLaPortada`). Sin ninguna, la sección no sale.
  *
- * `dato` sólo en lo que nombra la conclusión, `dato-tenue` el resto. Cada lectura
- * lleva su pie de método.
+ * Cada lectura: la conclusión que sale del dato, el gráfico (con globo al pasar
+ * el mouse donde lo tiene) y su pie de método.
  */
 export function LecturasPortada({ lecturas, className = '' }: { lecturas: Lecturas; className?: string }) {
   const elegidas = lecturasDeLaPortada(lecturas);
@@ -168,12 +186,14 @@ export function LecturasPortada({ lecturas, className = '' }: { lecturas: Lectur
 
   return (
     <section aria-labelledby="lecturas-titulo" className={`min-w-0 ${className}`.trim()}>
-      <h2 id="lecturas-titulo" className="border-b-2 border-primary pb-3 text-lg leading-snug text-text">
+      <h2 id="lecturas-titulo" className="section-title">
         {TITULO_LECTURAS}
       </h2>
-      {elegidas.map((elegida, i) => (
-        <Vista key={elegida.tipo} elegida={elegida} primera={i === 0} />
-      ))}
+      <div className="mt-2 grid lg:mt-6 lg:grid-cols-3 lg:gap-x-10 lg:border-t lg:border-border lg:pt-6">
+        {elegidas.map((elegida, i) => (
+          <Vista key={elegida.tipo} elegida={elegida} primera={i === 0} />
+        ))}
+      </div>
     </section>
   );
 }
