@@ -53,6 +53,57 @@ def _a_polars(filas: list[dict], columnas_vacio: list[str] | None = None) -> pl.
     return pl.DataFrame()
 
 
+def _columnas_a_polars(nombres: list[str], filas) -> pl.DataFrame:
+    """Filas (tuplas) a Polars por columnas: cada una infiere su tipo con todos
+    sus valores, como `infer_schema_length=None`, sin un diccionario por fila."""
+    return pl.DataFrame(
+        {
+            nombre: list(valores)
+            for nombre, valores in zip(nombres, zip(*filas, strict=True), strict=True)
+        }
+    )
+
+
+def _resultado_a_polars(resultado, columnas_vacio: list[str] | None = None) -> pl.DataFrame:
+    """Como `_a_polars`, pero por columnas, desde el resultado de la consulta.
+
+    Da el mismo DataFrame —mismos tipos, mismo orden— sin pasar por un
+    diccionario por fila: con las 49.000 firmas del índice de páginas públicas
+    (`services/publico/indexables.py`), construir por filas pesaba +38 MiB de
+    pico y por columnas +24 (lo demás es el resultado de psycopg2).
+    `tests/test_publico_indice_sql.py` compara las dos vías tabla a tabla.
+    """
+    nombres = list(resultado.keys())
+    filas = resultado.all()
+    if not filas:
+        return _a_polars([], columnas_vacio)
+    return _columnas_a_polars(nombres, filas)
+
+
+#: Filas por trozo cuando un agregado se trae sin límite (`agregado(limite=None)`).
+FILAS_POR_TROZO = 10_000
+
+
+def _por_trozos(conn, consulta: str, params: dict, columnas_vacio: list[str]) -> pl.DataFrame:
+    """La consulta con un cursor de servidor, de `FILAS_POR_TROZO` en `FILAS_POR_TROZO`.
+
+    Sólo para lo que es de la tabla entera por naturaleza —las ~50.000 firmas
+    del índice de páginas públicas—: psycopg2 trae por defecto el resultado
+    completo a memoria antes de devolver la primera fila, y con el triple de las
+    firmas locales eso eran +66 MiB de pico; por trozos, +21. Las lecturas
+    acotadas no lo usan: un cursor de servidor cuesta idas y vueltas de más.
+    """
+    resultado = conn.execution_options(stream_results=True, max_row_buffer=FILAS_POR_TROZO).execute(
+        text(consulta), params
+    )
+    nombres = list(resultado.keys())
+    partes = [_columnas_a_polars(nombres, t) for t in resultado.partitions(FILAS_POR_TROZO)]
+    if not partes:
+        return _a_polars([], columnas_vacio)
+    # `vertical_relaxed`: un trozo con una columna toda nula sale de tipo Null.
+    return pl.concat(partes, how="vertical_relaxed")
+
+
 #: Tablas que ya se vieron existir. **Sólo se recuerda el sí.** Con
 #: `lru_cache` se recordaba también el no, para siempre: la API del lanzamiento
 #: arrancó antes de la primera corrida semanal, guardó «no existe» para cada
@@ -133,9 +184,9 @@ def consultar(
         limite=limite,
     )
     with _engine().connect() as conn:
-        filas = conn.execute(text(consulta), params).mappings().all()
-    if filas:
-        return _a_polars([dict(f) for f in filas])
+        df = _resultado_a_polars(conn.execute(text(consulta), params))
+    if df.width:
+        return df
     # Sin filas: se recupera el esquema para no perder los nombres de columna.
     return _a_polars([], columnas or sorted(columnas_de(tabla)))
 
@@ -157,9 +208,12 @@ def agregado(
     sumas: list[str],
     distintos: list[str] = (),
     primeros: list[str] = (),
-    limite: int,
+    limite: int | None,
 ) -> pl.DataFrame | None:
     """Los grupos de más `sumas[0]`, agregados en SQL; None si no hay tabla.
+
+    `limite=None` trae todos los grupos (ver `sql_agregado`), por trozos
+    (`_por_trozos`).
 
     Columnas: la clave, cada suma con su nombre, `distintos_<col>` y cada
     columna de `primeros` (su primer valor en el orden de carga).
@@ -175,10 +229,11 @@ def agregado(
         primeros=primeros,
         limite=limite,
     )
-    with _engine().connect() as conn:
-        filas = conn.execute(text(consulta), params).mappings().all()
     nombres = [clave, *sumas, *(f"distintos_{c}" for c in distintos), *primeros]
-    return _a_polars([dict(f) for f in filas], nombres)
+    with _engine().connect() as conn:
+        if limite is None:
+            return _por_trozos(conn, consulta, params, nombres)
+        return _resultado_a_polars(conn.execute(text(consulta), params), nombres)
 
 
 def totales(

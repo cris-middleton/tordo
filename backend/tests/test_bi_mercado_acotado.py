@@ -8,6 +8,10 @@ local con seis meses; producción guarda 36), y sin rubro `oportunidades`,
 
 Se fija con un doble que registra cada lectura: toda lectura de una tabla
 grande va acotada (filtro de igualdad o LIMIT), y acotar no cambia la respuesta.
+
+Esto cubre `services/bi`. Las páginas públicas (`/publico/*`, que reutilizan el
+perfil de comprador y el panorama de aquí) tienen su propia guarda, ruta por
+ruta: `test_publico_acotado.py`.
 """
 
 from __future__ import annotations
@@ -28,8 +32,7 @@ from app.services.bi import (
     rubro,
     temporal,
 )
-from app.services.bi._base import MAX_FILAS_BUSQUEDA
-from tests.analytics_en_memoria import AnalyticsEnMemoria
+from tests.analytics_en_memoria import RegistroDeLecturas
 
 GOLDEN = Path(__file__).parent / "golden"
 
@@ -41,42 +44,9 @@ GRANDES = {
 }
 
 
-class Registro(AnalyticsEnMemoria):
-    def __init__(self) -> None:
-        super().__init__()
-        self.lecturas: list[dict] = []
-
-    def _load(self, filename, **kwargs):
-        self.lecturas.append({"tabla": filename, **kwargs})
-        return super()._load(filename, **kwargs)
-
-    # El conteo agrupado y la búsqueda por subcadena también son lecturas, pero
-    # acotadas por construcción: el SQL agrega, o corta a `MAX_FILAS_BUSQUEDA`.
-    def _contar(self, filename, columna, **kwargs):
-        self.lecturas.append({"tabla": filename, "limite": kwargs["limite"], "conteo": columna})
-        return super()._contar(filename, columna, **kwargs)
-
-    def _buscar(self, filename, columna, texto, **kwargs):
-        self.lecturas.append({"tabla": filename, "limite": MAX_FILAS_BUSQUEDA, "busqueda": columna})
-        return super()._buscar(filename, columna, texto, **kwargs)
-
-    # Los agregados viajan con su filtro: se registran con él, y uno sin filtro
-    # (todo el país) haría fallar la guarda igual que una lectura entera.
-    def _agregado(self, filename, clave, **kwargs):
-        self.lecturas.append({"tabla": filename, "agregado": clave, **kwargs})
-        return super()._agregado(filename, clave, **kwargs)
-
-    def _totales(self, filename, clave, **kwargs):
-        self.lecturas.append({"tabla": filename, "totales": clave, **kwargs})
-        return super()._totales(filename, clave, **kwargs)
-
-    def _distintos(self, filename, columna, **kwargs):
-        self.lecturas.append({"tabla": filename, "distintos": columna, **kwargs})
-        return super()._distintos(filename, columna, **kwargs)
-
-    def _contar_filas(self, filename, **kwargs):
-        self.lecturas.append({"tabla": filename, "contar": True, **kwargs})
-        return super()._contar_filas(filename, **kwargs)
+#: El doble que registra cada lectura vive con el doble de las tablas, porque
+#: lo usa también la guarda de `/publico/*` (`test_publico_acotado.py`).
+Registro = RegistroDeLecturas
 
 
 def _oportunidad(codigo: str, rubro: str, score: float) -> dict:

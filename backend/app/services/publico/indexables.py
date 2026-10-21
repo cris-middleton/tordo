@@ -68,8 +68,28 @@ Tres tipos de página:
   indexables también tienen página —200 con `indexable: false`, que el
   frontend marca `noindex`— y se llega por búsqueda.
 
-**Caché.** Construir el índice lee ~100.000 filas pequeñas (las firmas de L0N
-son la mayoría). Se guarda `TTL_SEGUNDOS` en memoria del proceso: analytics se
+**Se agrega en Postgres y viaja lo justo.** El índice es por naturaleza de la
+tabla entera —una fila por comprador, rubro y producto—, pero no hace falta
+traer las filas para armarlo. Antes leía `market_concentration` entera (una fila
+por comprador y rubro) y las bandas L0N enteras con cinco columnas, y agrupaba
+en Polars: +79–97 MiB de RSS en cada construcción con los datos locales y
++207–248 MiB a tres veces esa escala, en un contenedor de 512 MB. Ahora son
++41–45 y +88–95 (medido el 2026-10-21):
+
+- compradores y rubros salen de dos `GROUP BY` sobre `market_concentration`
+  (`_agregado`, ~1.000 y ~300 filas), con el nombre de la primera fila en orden
+  de carga (`primeros`), que es la que se quedaba Polars;
+- los productos, de un `GROUP BY firma_producto` (firma y compras: la única
+  lectura que crece con la tabla, porque el índice ES la lista de firmas) y de
+  las bandas que ya pasan `n` y predictibilidad en SQL (`filtros`, `minimos`),
+  sobre las que se aplica `de_mercado()` en Polars: la regla sigue viviendo en
+  un solo sitio.
+
+`tests/test_publico_acotado.py` fija que ninguna otra lectura de `/publico/*`
+traiga una tabla sin filtro ni límite, y `tests/test_publico_indice_sql.py` que
+el índice sale idéntico al cálculo de antes.
+
+**Caché.** Se guarda `TTL_SEGUNDOS` en memoria del proceso: analytics se
 re-materializa una vez por semana, en otro proceso, así que un índice de hasta
 diez minutos de antigüedad sólo retrasa diez minutos la aparición de una página
 nueva. Va como DataFrame de Polars y no como diccionarios: son ~50.000 firmas, y
@@ -86,7 +106,7 @@ from dataclasses import dataclass
 
 import polars as pl
 
-from app.services.bi._base import _columnas, _distintos, _load, periodo_de
+from app.services.bi._base import _agregado, _columnas, _distintos, _load, periodo_de
 from app.utils.slug import slug
 
 logger = logging.getLogger(__name__)
@@ -138,6 +158,10 @@ def con_de_mercado(bandas: pl.DataFrame) -> pl.DataFrame:
     return bandas.with_columns(de_mercado().alias("de_mercado"))
 
 
+#: De dónde salen compradores y rubros, y las bandas de los productos.
+MERCADOS = "market_concentration.parquet"
+BANDAS = "product_price_bands_L0N.parquet"
+
 #: Rubros que no son un rubro: el ETL rellena así los vacíos.
 _RUBROS_VACIOS = ("", "NA")
 
@@ -176,7 +200,20 @@ def _ganador_por_slug(df: pl.DataFrame, nombre: str) -> pl.DataFrame:
     )
 
 
-def _compradores(mercados: pl.DataFrame | None) -> pl.DataFrame:
+def _entero(columna: str) -> pl.Expr:
+    """Una suma de SQL como entero: `sum()` llega en `double precision`, y NULL si
+    todas las filas del grupo lo eran (Polars daba 0)."""
+    return pl.col(columna).cast(pl.Float64).fill_null(0).cast(pl.Int64)
+
+
+def _mercados_por(clave: str, **kwargs) -> pl.DataFrame | None:
+    """Una fila por valor de `clave` en `market_concentration`, agregada en SQL."""
+    return _agregado(MERCADOS, clave, sumas=["n_transacciones"], limite=None, **kwargs)
+
+
+def _compradores(por_comprador: pl.DataFrame | None) -> pl.DataFrame:
+    """Los compradores con página. `por_comprador` es una fila por código de
+    `market_concentration` (`_mercados_por`), con el nombre de su primera fila."""
     vacio = pl.DataFrame(schema={"codigo": pl.Utf8, "nombre": pl.Utf8, "indexable": pl.Boolean})
     scores = _load(
         "buyer_scores.parquet",
@@ -196,9 +233,9 @@ def _compradores(mercados: pl.DataFrame | None) -> pl.DataFrame:
                 (pl.col("n_oc_total").fill_null(0) >= MIN_ORDENES_COMPRADOR).alias("con_volumen"),
             )
         )
-    if mercados is not None and not mercados.is_empty():
+    if por_comprador is not None and not por_comprador.is_empty():
         partes.append(
-            mercados.unique(subset="CodigoOrganismoPublico", keep="first").select(
+            por_comprador.select(
                 pl.col("CodigoOrganismoPublico").cast(pl.Utf8).alias("codigo"),
                 pl.col("OrganismoPublico").cast(pl.Utf8).alias("nombre"),
                 pl.lit(None, dtype=pl.Boolean).alias("con_volumen"),
@@ -208,8 +245,8 @@ def _compradores(mercados: pl.DataFrame | None) -> pl.DataFrame:
         return vacio
 
     con_mercado = (
-        set(mercados.get_column("CodigoOrganismoPublico").cast(pl.Utf8).to_list())
-        if mercados is not None
+        set(por_comprador.get_column("CodigoOrganismoPublico").cast(pl.Utf8).to_list())
+        if por_comprador is not None
         else set()
     )
     # El perfil va primero: su nombre gana, y `con_volumen` sólo lo tiene él.
@@ -226,20 +263,19 @@ def _compradores(mercados: pl.DataFrame | None) -> pl.DataFrame:
     )
 
 
-def _rubros(mercados: pl.DataFrame | None, con_competencia: set[str]) -> pl.DataFrame:
-    """Los rubros con página; `indexable` si tienen competidores (ver docstring)."""
-    if mercados is None or mercados.is_empty():
+def _rubros(por_rubro: pl.DataFrame | None, con_competencia: set[str]) -> pl.DataFrame:
+    """Los rubros con página; `indexable` si tienen competidores (ver docstring).
+
+    `por_rubro` es una fila por rubro de `market_concentration` con sus órdenes
+    sumadas (`_mercados_por`)."""
+    if por_rubro is None or por_rubro.is_empty():
         return pl.DataFrame(
             schema={"slug": pl.Utf8, "nombre": pl.Utf8, "n": pl.Int64, "indexable": pl.Boolean}
         )
-    por_rubro = (
-        mercados.filter(
-            pl.col("RubroN2").is_not_null() & ~pl.col("RubroN2").is_in(list(_RUBROS_VACIOS))
-        )
-        .group_by("RubroN2")
-        .agg(pl.col("n_transacciones").cast(pl.Int64).sum().alias("n"))
-        .rename({"RubroN2": "nombre"})
-    )
+    por_rubro = por_rubro.select(
+        pl.col("RubroN2").cast(pl.Utf8).alias("nombre"),
+        _entero("n_transacciones").alias("n"),
+    ).filter(pl.col("nombre").is_not_null() & ~pl.col("nombre").is_in(list(_RUBROS_VACIOS)))
     # La colisión de slug se resuelve ANTES de mirar si es indexable: si no, un
     # rubro sin datos podría quedarse la URL que el otro sí llenaría.
     return _ganador_por_slug(por_rubro, "nombre").select(
@@ -250,11 +286,36 @@ def _rubros(mercados: pl.DataFrame | None, con_competencia: set[str]) -> pl.Data
     )
 
 
+def _firmas_indexables(tabla: str) -> set[str]:
+    """Las firmas con alguna banda indexable.
+
+    `n` y predictibilidad se filtran en SQL; `de_mercado()` se aplica aquí, sobre
+    lo que queda (en la copia local, el 13 % de las bandas), para que la
+    regla no se escriba dos veces. Una banda tiene que cumplir las tres cosas a
+    la vez: no se suman méritos de dos unidades.
+    """
+    bandas = _load(
+        tabla,
+        filtros={"predictibilidad": list(PREDICTIBILIDAD_INDEXABLE)},
+        minimos={"n": MIN_COMPRAS_PRODUCTO},
+        columnas=["firma_producto", *COLUMNAS_COMPRADORES],
+    )
+    if bandas is None or bandas.is_empty():
+        return set()
+    return set(
+        con_de_mercado(bandas)
+        .filter(pl.col("de_mercado") & pl.col("firma_producto").is_not_null())
+        .get_column("firma_producto")
+        .cast(pl.Utf8)
+        .to_list()
+    )
+
+
 def _productos() -> pl.DataFrame:
     vacio = pl.DataFrame(
         schema={"slug": pl.Utf8, "firma": pl.Utf8, "n": pl.Int64, "indexable": pl.Boolean}
     )
-    tabla = "product_price_bands_L0N.parquet"
+    tabla = BANDAS
     presentes = _columnas(tabla)
     sin_compradores = not set(COLUMNAS_COMPRADORES) <= presentes
     if presentes and sin_compradores:
@@ -263,46 +324,38 @@ def _productos() -> pl.DataFrame:
             tabla,
             ", ".join(COLUMNAS_COMPRADORES),
         )
-    columnas = ["firma_producto", "n", "predictibilidad"]
-    if not sin_compradores:
-        columnas += list(COLUMNAS_COMPRADORES)
-    bandas = _load(tabla, columnas=columnas)
-    if bandas is None or bandas.is_empty():
+    # Una fila por firma con sus compras: es lo único que crece con la tabla.
+    por_firma = _agregado(tabla, "firma_producto", sumas=["n"], limite=None)
+    if por_firma is None or por_firma.is_empty():
         return vacio
+    con_banda_indexable = set() if sin_compradores else _firmas_indexables(tabla)
     por_firma = (
-        con_de_mercado(bandas.filter(pl.col("firma_producto").is_not_null()))
-        .group_by("firma_producto")
-        .agg(
-            pl.col("n").cast(pl.Int64).sum().alias("n"),
-            (
-                (pl.col("n") >= MIN_COMPRAS_PRODUCTO)
-                & pl.col("predictibilidad").is_in(list(PREDICTIBILIDAD_INDEXABLE))
-                & pl.col("de_mercado")
-            )
-            .any()
-            .alias("indexable"),
+        por_firma.select(
+            pl.col("firma_producto").cast(pl.Utf8).alias("firma"),
+            _entero("n").alias("n"),
         )
-        .rename({"firma_producto": "firma"})
+        .filter(pl.col("firma").is_not_null())
+        .with_columns(pl.col("firma").is_in(list(con_banda_indexable)).alias("indexable"))
     )
     return _ganador_por_slug(por_firma, "firma").select("slug", "firma", "n", "indexable")
 
 
 def construir() -> Indice:
     """Lee analytics y arma el índice. Sin caché: para eso está `indice()`."""
-    mercados = _load(
-        "market_concentration.parquet",
-        columnas=["CodigoOrganismoPublico", "OrganismoPublico", "RubroN2", "n_transacciones"],
-    )
+    # El nombre de un comprador sin perfil es el de su primera fila en orden de
+    # carga (`primeros`): el que se quedaba `unique(keep="first")` en Polars.
+    por_comprador = _mercados_por("CodigoOrganismoPublico", primeros=["OrganismoPublico"])
+    por_rubro = _mercados_por("RubroN2")
     # La ventana es la misma en todas las filas: basta una. Se pide aparte y sin
     # lista de columnas porque una tabla materializada antes de que existiera
     # la ventana no tiene esas columnas, y pedirlas por nombre levantaría error.
-    primera = _load("market_concentration.parquet", limite=1)
+    primera = _load(MERCADOS, limite=1)
     con_competencia = {
         str(r) for r in (_distintos("competitors_by_market.parquet", "RubroN2") or [])
     }
     return Indice(
-        compradores=_compradores(mercados),
-        rubros=_rubros(mercados, con_competencia),
+        compradores=_compradores(por_comprador),
+        rubros=_rubros(por_rubro, con_competencia),
         productos=_productos(),
         periodo=periodo_de(primera),
     )
