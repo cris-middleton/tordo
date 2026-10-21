@@ -181,12 +181,17 @@ def clasificar(pares: pl.DataFrame) -> frozenset[str]:
 
 
 def _pares(parquet: Path) -> pl.DataFrame | None:
-    esquema = pl.read_parquet_schema(parquet)
-    columna_rut = next((c for c in COLUMNAS_RUT if c in esquema), None)
-    if COLUMNA_CODIGO not in esquema:
-        return None
-    columnas = [COLUMNA_CODIGO] + ([columna_rut] if columna_rut else [])
-    df = pl.read_parquet(parquet, columns=columnas)
+    # Un archivo ilegible hace fallar la clasificación, con su nombre: el error
+    # de Polars no lo dice, y saltárselo dejaría sin tapar a quien sólo aparece ahí.
+    try:
+        esquema = pl.read_parquet_schema(parquet)
+        columna_rut = next((c for c in COLUMNAS_RUT if c in esquema), None)
+        if COLUMNA_CODIGO not in esquema:
+            return None
+        columnas = [COLUMNA_CODIGO] + ([columna_rut] if columna_rut else [])
+        df = pl.read_parquet(parquet, columns=columnas)
+    except Exception as e:
+        raise RuntimeError(f"No se pudo leer {parquet}: {e}") from e
     rut = numero_rut(columna_rut) if columna_rut else pl.lit(None, dtype=pl.Int64)
     return df.select(_codigo_limpio().alias(COLUMNA_CODIGO), rut.alias("rut")).unique()
 

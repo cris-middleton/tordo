@@ -89,10 +89,13 @@ def extract_lic_discounts() -> pl.DataFrame:
         batch = df.filter(
             pl.col("CodigoExterno").is_not_null() & (pl.col("CodigoExterno") != "null")
         ).with_columns(
+            # Ya son número: `iter_lic_parquets` lee la coma decimal y la
+            # notación científica («2,5e+07»). Con un `cast` aquí se perdía el
+            # 21 % de los presupuestos.
             [
-                pl.col("MontoEstimado").cast(pl.Float64, strict=False).alias("monto_est"),
-                pl.col("MontoLineaAdjudica").cast(pl.Float64, strict=False).alias("monto_adj_line"),
-                pl.col("NumeroOferentes").cast(pl.Float64, strict=False).alias("n_ofer"),
+                pl.col("MontoEstimado").alias("monto_est"),
+                pl.col("MontoLineaAdjudica").alias("monto_adj_line"),
+                pl.col("NumeroOferentes").alias("n_ofer"),
             ]
         )
 

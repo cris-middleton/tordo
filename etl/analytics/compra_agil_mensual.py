@@ -52,7 +52,7 @@ import polars as pl
 from sqlalchemy import create_engine, text
 
 from etl.analytics.config import OUTPUT_DIR
-from etl.analytics.data_loader import iter_oc_parquets
+from etl.analytics.data_loader import ESTADOS_CANCELADOS, iter_oc_parquets
 from etl.config import config
 from etl.shared_imports import CEROS_INICIALES, FUERA_DE_RUT
 
@@ -60,9 +60,6 @@ logger = logging.getLogger(__name__)
 
 SALIDA = "compra_agil_mensual.parquet"
 CLAVE = ["CodigoOrganismoPublico", "mes"]
-
-#: Estados de una orden que no llegó a comprar nada.
-ESTADOS_CANCELADOS = ("Cancelacion solicitada", "Cancelada", "Cancelación solicitada")
 
 COLUMNAS_OC = ["Codigo", "CodigoOrganismoPublico", "RutUnidadCompra", "FechaCreacion"]
 COLUMNAS_OC_FILTRO = ["EsCompraAgil", "Estado"]
@@ -111,6 +108,8 @@ def ordenes_compra_agil(frames: Iterable[pl.DataFrame], extra: Iterable[str] = (
         if not {"EsCompraAgil", "Codigo"} <= set(df.columns):
             continue
         filtro = pl.col("EsCompraAgil") == "Si"
+        # `iter_oc_parquets` ya las quita; el filtro se queda porque los tests
+        # (y quien inyecte `frames`) entregan órdenes sin pasar por él.
         if "Estado" in df.columns:
             filtro &= ~pl.col("Estado").is_in(ESTADOS_CANCELADOS)
         partes.append(

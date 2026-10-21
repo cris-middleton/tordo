@@ -25,7 +25,11 @@ def _assert_no_future_leakage(evaluable, artifact, window: SplitWindow) -> None:
 
     max_seen: date | None = None
     for _p, df in iter_oc_parquets(
-        columns=["FechaCreacion"], min_year=2018, max_date=window.train_end, meses=None
+        columns=["FechaCreacion"],
+        min_year=2018,
+        max_date=window.train_end,
+        meses=None,
+        canceladas=True,
     ):
         if df.is_empty():
             continue

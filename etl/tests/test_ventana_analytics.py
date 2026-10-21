@@ -17,7 +17,6 @@ from etl.analytics.data_loader import (
     inicio_ventana,
     iter_oc_parquets,
     limites_ventana,
-    scan_oc,
 )
 from etl.analytics.product_price_bands import VENTANA_BANDAS_PRECIO_MESES
 
@@ -112,9 +111,11 @@ def test_sin_ventana_se_lee_todo(cuatro_anios):
     assert len(_leidas(meses=None)) == 48 * 2 + 1
 
 
-def test_scan_respeta_la_misma_ventana(cuatro_anios):
-    lazy = scan_oc(columns=["Codigo", "FechaCreacion"]).collect()
-    assert set(lazy["Codigo"]) == set(_leidas()["Codigo"])
+def test_un_archivo_ilegible_hace_fallar_la_lectura(cuatro_anios):
+    """Antes se saltaba con un WARNING y el módulo publicaba un mes menos."""
+    (cuatro_anios / "2024-3.parquet").write_bytes(b"no es un parquet")
+    with pytest.raises(RuntimeError, match="2024-3.parquet"):
+        list(iter_oc_parquets(columns=["Codigo"]))
 
 
 def test_quien_no_pide_la_fecha_no_la_recibe(cuatro_anios):

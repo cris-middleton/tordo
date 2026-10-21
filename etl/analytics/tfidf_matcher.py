@@ -81,10 +81,11 @@ def build_provider_corpus(max_date: "date | None" = None) -> pl.DataFrame:
     # Esto reduce el volumen de texto de ~100M a ~2-5M únicos
     prov_products: dict[str, dict] = {}
 
-    # Sin la ventana de analytics (`meses=None`): el harness de evaluación fija
-    # sus splits sobre esta historia, y cambiarla es cambiar el modelo.
+    # Sin la ventana de analytics (`meses=None`) y con las canceladas: el
+    # harness de evaluación fija sus splits sobre esta historia, y cambiarla es
+    # cambiar el modelo.
     for _periodo, df in iter_oc_parquets(
-        columns=cols_needed, min_year=2018, max_date=max_date, meses=None
+        columns=cols_needed, min_year=2018, max_date=max_date, meses=None, canceladas=True
     ):
         if "CodigoProveedor" not in df.columns:
             continue

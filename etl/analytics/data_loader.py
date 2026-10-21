@@ -18,15 +18,6 @@ from .personas import codigos_persona_natural, columnas_para_enmascarar, enmasca
 logger = logging.getLogger(__name__)
 
 
-def _available_cols(parquet_dir: Path, wanted: list[str]) -> list[str]:
-    """Determina qué columnas del listado deseado existen en los parquets."""
-    sample = next(parquet_dir.glob("*.parquet"), None)
-    if sample is None:
-        raise FileNotFoundError(f"No parquets in {parquet_dir}")
-    schema = pl.read_parquet_schema(sample)
-    return [c for c in wanted if c in schema]
-
-
 #: Columnas numéricas del archivo de órdenes. Vienen como TEXTO y con COMA
 #: decimal («1449449,75»): `cast(Float64, strict=False)` las convertía en nulo,
 #: y cada módulo filtraba los nulos. Medido en los seis meses locales: **el 53 %
@@ -46,7 +37,25 @@ NUMERICAS_OC = (
 )
 
 
-def con_numeros(df: pl.DataFrame) -> pl.DataFrame:
+#: Lo mismo en el archivo de licitaciones, con un agravante: los montos grandes
+#: vienen en notación científica y con coma («2,5e+07», «1,053e+09»). Medido en
+#: los 42 meses de 2023-01 a 2026-06: **el 21 % de las licitaciones (95.158 de
+#: 450.922) tenía un `MontoEstimado` que no se leía**, y sesgado hacia los
+#: presupuestos redondos, que son justo los que se escriben así. Cada módulo
+#: hacía su propio `cast(Float64, strict=False)` y los perdía todos.
+NUMERICAS_LIC = (
+    "MontoEstimado",
+    "MontoLineaAdjudica",
+    "Monto Estimado Adjudicado",
+    "MontoUnitarioOferta",
+    "Valor Total Ofertado",
+    "CantidadAdjudicada",
+    "NumeroOferentes",
+    "CantidadReclamos",
+)
+
+
+def con_numeros(df: pl.DataFrame, columnas: tuple[str, ...] = NUMERICAS_OC) -> pl.DataFrame:
     """Las columnas numéricas presentes, como número (coma decimal incluida)."""
     return df.with_columns(
         [
@@ -54,7 +63,7 @@ def con_numeros(df: pl.DataFrame) -> pl.DataFrame:
             .cast(pl.Utf8)
             .str.replace(",", ".", literal=True)
             .cast(pl.Float64, strict=False)
-            for c in NUMERICAS_OC
+            for c in columnas
             if c in df.columns
         ]
     )
@@ -218,6 +227,23 @@ def orden_por_fila(df: pl.DataFrame) -> pl.DataFrame:
     return df.unique(subset=["Codigo"], keep="first", maintain_order=True)
 
 
+#: Estados de una orden que no llegó a comprar nada.
+ESTADOS_CANCELADOS = ("Cancelacion solicitada", "Cancelada", "Cancelación solicitada")
+
+
+def sin_canceladas(df: pl.DataFrame) -> pl.DataFrame:
+    """Fuera las órdenes canceladas, enteras (el estado es de la orden y se
+    repite en cada línea). Una orden sin estado se queda: no se sabe que no
+    comprara.
+
+    Ojo con los paréntesis: `~col.is_in(...).fill_null(True)` niega DESPUÉS de
+    rellenar, y entonces es la orden sin estado la que se va.
+    """
+    if "Estado" not in df.columns:
+        return df
+    return df.filter((~pl.col("Estado").is_in(ESTADOS_CANCELADOS)).fill_null(True))
+
+
 #: Lo que hace falta para sanear el monto (`con_monto_saneado`) y anotar en el
 #: log de quién era la orden. Se lee y se quita: nadie recibe lo que no pidió.
 COLUMNAS_PARA_SANEAR = ("TipoMonedaOC", "MontoTotalOC", "monedaItem", "OrganismoPublico")
@@ -249,13 +275,6 @@ def _leer(p: Path, cols: list[str]) -> pl.DataFrame:
     pedidas = [c for c in cols if c in esquema]
     df = pl.read_parquet(p, columns=columnas_para_enmascarar(pedidas, esquema))
     return enmascarar(df, _personas_naturales()).select(pedidas)
-
-
-def _escanear(p: Path, cols: list[str]) -> pl.LazyFrame:
-    esquema = pl.read_parquet_schema(p)
-    pedidas = [c for c in cols if c in esquema]
-    lf = pl.scan_parquet(p).select(columnas_para_enmascarar(pedidas, esquema))
-    return enmascarar(lf, _personas_naturales()).select(pedidas)
 
 
 def _parse_periodo(periodo_str: str) -> tuple[int, int]:
@@ -363,35 +382,6 @@ def _filtro_fechas(desde: date | None, max_date: date | None) -> pl.Expr | None:
     return filtro
 
 
-def _escanear_todos(
-    directorio: Path,
-    nombre: str,
-    cols: list[str],
-    min_year: int | None,
-    max_date: date | None,
-    meses: int | None,
-) -> pl.LazyFrame:
-    available = _available_cols(directorio, cols)
-    archivos, desde = _archivos(directorio, min_year, max_date, meses)
-    if not archivos:
-        raise FileNotFoundError(f"No hay parquets de {nombre} en la ventana pedida")
-    logger.info(
-        f"Scanning {len(archivos)} {nombre} parquets ({archivos[0].stem} → {archivos[-1].stem})"
-        + (f", desde {desde}" if desde else "")
-    )
-    filtro = _filtro_fechas(desde, max_date)
-    frames = []
-    for p in archivos:
-        try:
-            lf = _escanear(p, available)
-            if filtro is not None and "FechaCreacion" in pl.read_parquet_schema(p):
-                lf = lf.filter(filtro)
-            frames.append(lf)
-        except Exception as e:
-            logger.warning(f"Skip {p.name}: {e}")
-    return pl.concat(frames, how="diagonal_relaxed")
-
-
 def _iterar(
     directorio: Path,
     cols: list[str],
@@ -406,38 +396,23 @@ def _iterar(
     anadida = filtro is not None and "FechaCreacion" not in cols
     if anadida:
         cols = [*cols, "FechaCreacion"]
+    # **Un archivo que no se puede leer hace fallar la corrida.** Antes se
+    # saltaba con un WARNING y el módulo terminaba bien: publicaba un análisis
+    # con un mes menos, sin que nada lo dijera, y el latido daba verde. Un
+    # parquet roto se arregla rehaciéndolo; leer sin él es publicar otra cosa.
+    # La clasificación de personas naturales lee TODOS los archivos: se hace
+    # antes, para que su error no salga atribuido al primer archivo de la ventana.
+    _personas_naturales()
     for p in archivos:
         try:
             df = _leer(p, cols)
-            if filtro is not None and "FechaCreacion" in df.columns:
-                df = df.filter(filtro)
-            if anadida and "FechaCreacion" in df.columns:
-                df = df.drop("FechaCreacion")
-            yield p.stem, df
         except Exception as e:
-            logger.warning(f"Skip {p.name}: {e}")
-
-
-def scan_oc(
-    columns: list[str] | None = None,
-    min_year: int | None = None,
-    max_date: date | None = None,
-    meses: int | None = VENTANA_ANALYTICS_MESES,
-) -> pl.LazyFrame:
-    """Carga lazy de las OC de la ventana (`meses`; None = toda la historia)."""
-    return _escanear_todos(OC_PARQUET_DIR, "OC", columns or OC_COLS_CORE, min_year, max_date, meses)
-
-
-def scan_lic(
-    columns: list[str] | None = None,
-    min_year: int | None = None,
-    max_date: date | None = None,
-    meses: int | None = VENTANA_ANALYTICS_MESES,
-) -> pl.LazyFrame:
-    """Carga lazy de las licitaciones de la ventana."""
-    return _escanear_todos(
-        LIC_PARQUET_DIR, "LIC", columns or LIC_COLS_CORE, min_year, max_date, meses
-    )
+            raise RuntimeError(f"No se pudo leer {p}: {e}") from e
+        if filtro is not None and "FechaCreacion" in df.columns:
+            df = df.filter(filtro)
+        if anadida and "FechaCreacion" in df.columns:
+            df = df.drop("FechaCreacion")
+        yield p.stem, df
 
 
 def iter_oc_parquets(
@@ -445,16 +420,31 @@ def iter_oc_parquets(
     min_year: int | None = None,
     max_date: date | None = None,
     meses: int | None = VENTANA_ANALYTICS_MESES,
+    *,
+    canceladas: bool = False,
 ):
     """Un DataFrame de OC por archivo, dentro de la ventana de `meses`.
 
     `max_date` (harness de evaluación) corta además por arriba, y ancla la
     ventana en su mes. `meses=None` lee toda la historia.
+
+    **Sin las órdenes canceladas, salvo `canceladas=True`.** Una orden cancelada
+    no compró nada: no es un precio pagado, ni una cuota de mercado, ni un mes
+    con compras. Antes sólo `sector_dashboard` las quitaba y todo lo demás las
+    sumaba. Las piden quien las cuenta (`buyer_scoring`, la tasa de cancelación
+    y su denominador) y el modelo de referencia del harness (`tfidf_matcher` y
+    `evaluation/`), cuyos datos de entrenamiento no deben cambiar con esto.
+    Se quitan antes de sanear el monto y repartirlo por línea, así que se va la
+    orden entera.
     """
     pedidas = list(columns or OC_COLS_CORE)
     cols = _columnas_para_montos(pedidas)
-    sobran = [c for c in COLUMNAS_PARA_SANEAR if c in cols and c not in pedidas]
+    if not canceladas:
+        cols = list(dict.fromkeys([*cols, "Estado"]))
+    sobran = [c for c in (*COLUMNAS_PARA_SANEAR, "Estado") if c in cols and c not in pedidas]
     for periodo, df in _iterar(OC_PARQUET_DIR, cols, min_year, max_date, meses):
+        if not canceladas:
+            df = sin_canceladas(df)
         df = con_monto_por_linea(con_monto_saneado(con_numeros(con_vacios(df))))
         yield periodo, df.drop([c for c in sobran if c in df.columns])
 
@@ -465,5 +455,11 @@ def iter_lic_parquets(
     max_date: date | None = None,
     meses: int | None = VENTANA_ANALYTICS_MESES,
 ):
-    """Un DataFrame de licitaciones por archivo, dentro de la ventana de `meses`."""
-    yield from _iterar(LIC_PARQUET_DIR, list(columns or LIC_COLS_CORE), min_year, max_date, meses)
+    """Un DataFrame de licitaciones por archivo, dentro de la ventana de `meses`.
+
+    Los montos y conteos (`NUMERICAS_LIC`) llegan ya como número: coma decimal y
+    notación científica incluidas. Ningún módulo los convierte por su cuenta.
+    """
+    pedidas = list(columns or LIC_COLS_CORE)
+    for periodo, df in _iterar(LIC_PARQUET_DIR, pedidas, min_year, max_date, meses):
+        yield periodo, con_numeros(df, NUMERICAS_LIC)

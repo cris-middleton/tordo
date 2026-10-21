@@ -35,6 +35,8 @@ from analytics.data_loader import (
     con_vacios,
 )
 
+from etl.analytics import data_loader as cargador
+
 UF = 39_841.0
 UTM = 69_542.0
 
@@ -218,8 +220,11 @@ def test_todos_los_modulos_lo_heredan_por_iter_oc_parquets(archivo_oc):
     por_orden = dict(df.group_by("Codigo").agg(pl.col("monto_linea_clp").sum()).iter_rows())
     assert por_orden["RB-76"] == pytest.approx(5_276_900)
     assert por_orden["LR-120"] == 0
-    # ...y no recibe las columnas que hicieron falta para sanearlo.
+    # ...y no recibe las columnas que hicieron falta para sanearlo, ni el
+    # `Estado` con el que se quitaron las canceladas.
     assert set(df.columns) == {*pedidas, "Codigo", "totalLineaNeto", "monto_linea_clp"}
+    # La Gran Compra cancelada no llega.
+    assert "MOP-36" not in df["Codigo"].to_list()
 
 
 def test_el_tablero_por_sector_no_suma_lo_imposible_ni_lo_cancelado(archivo_oc):
@@ -234,5 +239,7 @@ def test_el_tablero_por_sector_no_suma_lo_imposible_ni_lo_cancelado(archivo_oc):
     assert "Obras Públicas" not in fila
 
 
-def test_las_canceladas_son_las_mismas_que_en_compra_agil():
-    assert sector_intelligence.ESTADOS_CANCELADOS is compra_agil_mensual.ESTADOS_CANCELADOS
+def test_las_canceladas_se_definen_una_vez_en_el_cargador():
+    # `compra_agil_mensual` importa `etl.analytics.data_loader`, no `analytics.data_loader`.
+    assert compra_agil_mensual.ESTADOS_CANCELADOS is cargador.ESTADOS_CANCELADOS
+    assert compra_agil_mensual.ESTADOS_CANCELADOS == data_loader.ESTADOS_CANCELADOS

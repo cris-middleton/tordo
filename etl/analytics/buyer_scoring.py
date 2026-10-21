@@ -118,7 +118,9 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
     volume_frames = []
     rating_frames = []
 
-    for _periodo, df in iter_oc_parquets(columns=cols_needed):
+    # Con las canceladas: la tasa de cancelación las cuenta, y sin ellas en el
+    # denominador todo comprador saldría con 0 %.
+    for _periodo, df in iter_oc_parquets(columns=cols_needed, canceladas=True):
         org_col = "CodigoOrganismoPublico"
         if org_col not in df.columns:
             continue
@@ -426,8 +428,8 @@ def build_lic_buyer_metrics() -> pl.DataFrame:
             .with_columns(
                 [
                     pl.col("Estado").str.to_lowercase().alias("estado_lower"),
-                    pl.col("NumeroOferentes").cast(pl.Float64, strict=False).alias("n_oferentes"),
-                    pl.col("CantidadReclamos").cast(pl.Float64, strict=False).alias("n_reclamos"),
+                    pl.col("NumeroOferentes").alias("n_oferentes"),
+                    pl.col("CantidadReclamos").alias("n_reclamos"),
                     (pl.col("CodigoTipo") == "TD").cast(pl.Int8).alias("es_td"),
                     pl.lit(periodo).alias("_periodo_archivo"),
                 ]

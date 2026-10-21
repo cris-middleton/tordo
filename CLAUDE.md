@@ -1437,6 +1437,26 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   RUT → código sale de las OC masivas, que traen los dos (`RutSucursal` y `CodigoProveedor`;
   la tabla `ordenes_compra` que también los tenía se fue en el paso 7). «Tu posición» comparaba el RUT normalizado contra esa columna y **no
   coincidía nunca**; esa pantalla se retiró con las cuentas, pero el dato sigue siendo así.
+- **Los números de la descarga masiva se leen en `data_loader`, no en cada módulo**
+  (`con_numeros`, con `NUMERICAS_OC` y `NUMERICAS_LIC`). Vienen como texto, con coma decimal y,
+  en licitaciones, en notación científica («2,5e+07»): con un `cast(Float64, strict=False)` por
+  módulo se perdía el 53 % de las filas de órdenes y **el 21 % de los presupuestos de licitación**
+  (95.158 de 450.922 en 42 meses), sesgado hacia los redondos. `discount_by_context` pasó de
+  280.827 a 366.942 licitaciones adjudicadas con descuento calculable. **Un módulo no vuelve a
+  convertir un número que ya llega convertido.** `etl/tests/test_numeros_licitaciones.py`.
+  - **Un parquet que no se puede leer hace fallar la corrida** (`_iterar`, y la clasificación
+    de personas naturales con el nombre del archivo). Antes se saltaba con un WARNING, el módulo
+    terminaba bien y publicaba un mes menos con el latido en verde. `scan_oc` y `scan_lic`, que
+    no saneaban el monto ni lo repartían por línea y sólo usaban los tests, se borraron: el
+    único camino a los consolidados es `iter_oc_parquets` / `iter_lic_parquets`.
+- **Ninguna salida de analytics cuenta las órdenes canceladas**
+  (`data_loader.ESTADOS_CANCELADOS`): `iter_oc_parquets` las quita al leer, enteras, antes de
+  sanear y repartir el monto. Una orden cancelada no es un precio pagado ni una cuota de
+  mercado. Hasta el 2026-10-21 sólo `sector_dashboard` las quitaba. Las piden con
+  `canceladas=True` `buyer_scoring` (su tasa de cancelación y el denominador) y el modelo de
+  referencia del harness (`tfidf_matcher`, `evaluation/`), cuyo entrenamiento no cambia. Una
+  orden sin estado se queda. `etl/tests/test_canceladas.py` pasa un mercado entero de
+  canceladas por cinco módulos y lo busca en cada salida.
 - **El monto en pesos de una orden se sanea al LEER, en un solo sitio**
   (`data_loader.con_monto_saneado`, que `iter_oc_parquets` aplica antes de
   `con_monto_por_linea`): todo módulo lo hereda. ChileCompra pasa a pesos multiplicando
@@ -1469,8 +1489,6 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   - Comparar el total con la suma de las líneas no distingue nada: las imposibles cuadran igual
     (33.047 de 34.912 órdenes en UF o UTM). Un tope por tipo de licitación (LE ≤ 1.000 UTM…)
     atrapa casi sólo lo que ya atrapa (a).
-  - `sector_dashboard` **no cuenta las canceladas** (`compra_agil_mensual.ESTADOS_CANCELADOS`,
-    la misma tupla, importada). Los demás módulos que suman montos todavía sí.
   - Lo fija `etl/tests/test_monto_saneado.py`, con los casos reales en órdenes sintéticas. El
     cruce de Obras Públicas, `etl/tests/test_medir_obras_mop.py`.
 - **`competitors_by_market` tiene una fila por *(organismo, rubro, proveedor)*.** Cualquier
