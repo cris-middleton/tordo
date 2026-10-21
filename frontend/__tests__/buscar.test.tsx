@@ -94,7 +94,7 @@ describe('con búsqueda', () => {
     expect(screen.getByText(/no pudimos consultar las licitaciones abiertas/i)).toBeInTheDocument();
     expect(screen.queryByRole('list', { name: /licitaciones abiertas/i })).toBeNull();
     // La banda de precio sigue pintada: lo que falló fue otro bloque.
-    expect(screen.getByText(/^Por caja: la mitad se pagó/)).toBeInTheDocument();
+    expect(screen.getByText(/^Por caja: la mitad de las compras se pagó/)).toBeInTheDocument();
     // Las Compras Ágiles se pintan aunque las licitaciones hayan fallado (la banda
     // de precio también es un <article>: se cuenta sólo dentro de su lista).
     const compras = screen.getByRole('list', { name: /compras ágiles abiertas/i });

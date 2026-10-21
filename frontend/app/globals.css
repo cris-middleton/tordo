@@ -86,6 +86,18 @@
   --color-dato: 40 72 173;            /* #2848AD — azul del cuerpo del pájaro */
   --color-dato-tenue: 201 211 232;    /* #C9D3E8 */
 
+  /* Las series (docs/GUIA_GRAFICOS.md, R2): cuando un gráfico compara CATEGORÍAS que el
+     lector tiene que distinguir —los sectores, siempre con el mismo color en todo el sitio—.
+     Cinco tonos en orden fijo y un gris para «Otros». Validados con el validador de paletas
+     de la skill de visualización (daltonismo y visión normal, pares vecinos, ≥ 3:1 sobre las
+     tres superficies); `contraste-wcag.test.ts` mide el 3:1. Nunca llevan texto encima. */
+  --color-serie-1: 40 72 173;         /* #2848AD — azul del pájaro */
+  --color-serie-2: 0 138 126;         /* #008A7E — verde agua */
+  --color-serie-3: 194 113 0;         /* #C27100 — ámbar */
+  --color-serie-4: 138 79 200;        /* #8A4FC8 — violeta */
+  --color-serie-5: 201 63 103;        /* #C93F67 — frambuesa */
+  --color-serie-otros: 125 138 158;   /* #7D8A9E — el resto */
+
   /* Etiqueta que va ENCIMA de cada relleno de color. Nunca `text-white` a mano. */
   --color-on-primary: 255 255 255;
   --color-on-accent: 255 255 255;
@@ -144,6 +156,14 @@
   --color-dato: 61 185 187;           /* #3DB9BB — turquesa del ala; sobre brand-navy 6.04:1 */
   --color-dato-tenue: 52 80 143;      /* #34508F */
 
+  /* Las mismas series, escalonadas para el fondo oscuro (banda L 0,48–0,67). */
+  --color-serie-1: 79 120 232;        /* #4F78E8 */
+  --color-serie-2: 17 156 138;        /* #119C8A */
+  --color-serie-3: 196 127 21;        /* #C47F15 */
+  --color-serie-4: 156 108 230;       /* #9C6CE6 */
+  --color-serie-5: 222 90 124;        /* #DE5A7C */
+  --color-serie-otros: 107 122 144;   /* #6B7A90 */
+
   /* En tema oscuro los rellenos son claros → la etiqueta va oscura. */
   --color-on-primary: 10 22 38;       /* #0A1626 */
   --color-on-accent: 16 40 88;        /* #102858 — navy sobre teal: 6.04:1 */
@@ -181,6 +201,19 @@
 }
 
 @layer base {
+  /* Sin una palabra sola en la última línea de un párrafo, y titulares parejos
+     (el detector de `make diseno` los marca como «straggler» y «unbalanced heading»). */
+  p,
+  dd,
+  li {
+    text-wrap: pretty;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

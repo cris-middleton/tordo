@@ -2,7 +2,10 @@
 
 Léela antes de tocar un gráfico o de dibujar uno nuevo: `components/precio/GraficoPrecio.tsx` (con
 su geometría en `lib/graficoPrecio.ts`), `components/notas/AntesDespues.tsx`,
-`components/portada/BarraCierres.tsx`, `components/graficos/BarrasHorizontales.tsx` y `components/graficos/Columnas.tsx`.
+`components/portada/BarraCierres.tsx`, `components/graficos/BarrasHorizontales.tsx`,
+`components/graficos/Columnas.tsx`, `components/graficos/GastoMensual.tsx` (geometría en
+`lib/graficoGasto.ts`) y `components/graficos/Concentracion.tsx`, con su globo en
+`components/graficos/Globo.tsx`.
 
 Las reglas salen de cuatro guías públicas (al final, con su URL) y de lo que el sitio ya decidió en
 la portada v7 (`PORTADA_V7_Y_NOTAS_2026-10.md` §3.2–§3.4). Hay dos clases:
@@ -16,16 +19,18 @@ Un gráfico responde una pregunta y la respuesta va arriba, escrita. Debajo, el 
 cada cosa lleva su nombre al lado. Al pie, de dónde sale y cómo se calcula (`PieDeMetodo`). El
 dibujo es un SVG o unas cajas de servidor, `aria-hidden`; los valores van en texto, para quien no ve
 el dibujo y para el buscador. El color se gasta en una sola cosa: lo que nombra la conclusión va en
-`dato` y el resto en `dato-tenue`.
+`dato` y el resto en `dato-tenue`. **La excepción son las categorías que el lector tiene que
+distinguir** (los sectores): ahí cada una lleva su serie, siempre la misma en todo el sitio. Y donde
+hay una marca que leer, **el globo**: pasar el mouse o tocar dice su valor exacto.
 
 ## Reglas (las fija un test)
 
 | # | regla | por qué | test |
 |---|---|---|---|
 | R1 | **Todo fichero que dibuja datos está declarado**: en `PROPIOS` (sigue esta guía), en `DEUDA` o en `NO_SON_GRAFICOS`, con su motivo. Se detecta por un `<svg>`, una marca en `dato-tenue`, Recharts o una geometría en línea (`width: \`${…}%\``). La deuda sólo encoge. | Un gráfico nuevo tiene que pasar por alguien que decida si cumple esto. | `guia-graficos.test.tsx` |
-| R2 | **Un gráfico propio pinta con `dato`, `dato-tenue` y tintas neutras** (`text`, `muted`, `subtle`, `border`, `surface`). Ni un hex, ni `accent`, ni `primary`, ni un color por categoría. | Resaltar con un color y dejar el resto en gris (Datawrapper); usar el color para destacar algo y no para decorar (RSS). Teal es acción y verde es «bueno»: en un gráfico se leerían como tales. | `guia-graficos.test.tsx` |
-| R3 | **Sin adornos**: ni degradados, ni sombras, ni filtros, ni animaciones. | Todo lo que no añade información sobra; el dato es el protagonista (RSS). | `guia-graficos.test.tsx` |
-| R4 | **Sin leyenda**: la etiqueta va junto a lo que nombra («la mitad central», «hoy o mañana»). | Etiquetar directo y omitir la leyenda cuando se pueda (Urban, Datawrapper). | `guia-graficos.test.tsx` (prohíbe `Legend`) |
+| R2 | **Un gráfico propio pinta con `dato`, `dato-tenue`, las series y tintas neutras** (`text`, `muted`, `subtle`, `border`, `surface`). Ni un hex, ni `accent`, ni `primary`. **Las series** (`serie-1…5` y `serie-otros`) son sólo para categorías que el lector tiene que distinguir, con el color fijo de cada una en `lib/sectores.ts`: el color sigue a la entidad, nunca a su puesto. | Resaltar con un color y dejar el resto en gris (Datawrapper); usar el color para destacar algo y no para decorar (RSS). Teal es acción y verde es «bueno»: en un gráfico se leerían como tales. La paleta de series pasó el validador de la skill de visualización (daltonismo en pares vecinos, visión normal, banda de luminosidad, 3:1 contra la superficie) en los dos temas. | `guia-graficos.test.tsx`, `contraste-wcag.test.ts` |
+| R3 | **Sin adornos**: ni degradados, ni sombras, ni filtros, ni animaciones. El globo y el resaltado al pasar el mouse no son adornos: son la lectura del valor, sin transición. | Todo lo que no añade información sobra; el dato es el protagonista (RSS). | `guia-graficos.test.tsx` |
+| R4 | **Sin leyenda aparte**: la etiqueta va junto a lo que nombra («la mitad de las compras», «hoy o mañana»). Con series, la leyenda es una lista de cifras —cada sector con su total— bajo el gráfico, nunca un recuadro de colores sin valores. | Etiquetar directo y omitir la leyenda cuando se pueda (Urban, Datawrapper). | `guia-graficos.test.tsx` (prohíbe `Legend`) |
 | R5 | **Ningún texto bajo 12 px**, dentro y fuera de los gráficos. | 12 como mínimo en la web (RSS); «más de 12 px» (Datawrapper). Urban deja la fuente y las notas en 11: aquí no, porque el pie de método es parte de la lectura. | `guia-graficos.test.tsx`, `texto-minimo.test.ts` |
 | R6 | **El dibujo es `aria-hidden` y los valores van en texto**: cada marca en `dato` o `dato-tenue` cuelga de un `aria-hidden`; el gráfico que no escribe sus valores (`GraficoPrecio`, `BarraCierres`) los tiene al lado, en una lista `sr-only` o en una tabla. | El texto alternativo describe el contenido y la función (Urban, RSS). Una lista de cifras se lee mejor que un `aria-label` de 300 caracteres, y la indexa el buscador. | `guia-graficos.test.tsx` |
 | R7 | **La escala logarítmica se declara en el propio gráfico** («escala logarítmica», bajo el eje). | Se usa para comparar razones (RSS), y quien no lo sabe lee mal las distancias. | `guia-graficos.test.tsx` |
@@ -48,6 +53,8 @@ titular, palabras de todos los días: «la mitad central» en vez de «P25–P75
 | distribución, resumida | la franja P25–P75, la línea fina P10–P90 y la mediana, con un punto por comprador | `GraficoPrecio` |
 | magnitud | barras horizontales con el valor escrito al lado | `AntesDespues` |
 | parte de un todo | diez celdas (*gridplot*), una por décimo | `BarraCierres` |
+| cambio en el tiempo, por partes | columnas por mes apiladas por sector, con la leyenda de cifras | `GastoMensual` |
+| distribución, de muchos | un histograma: diez tramos, destacados los de la conclusión | `Concentracion` |
 
 Si una pregunta nueva no cabe en la tabla, mira el *Visual Vocabulary* antes de inventar una forma.
 
@@ -75,6 +82,16 @@ en una tabla bajo las diez celdas, con hoy y mañana en negrita.
 **Los rótulos no se giran.** Si no caben, se acortan o se cambia la forma (Datawrapper).
 
 **El color nunca es la única señal** (RSS). La conclusión escribe el valor que el color destaca.
+
+**El globo refuerza, no reemplaza** (`components/graficos/Globo.tsx`). Todo lo que dice está también en
+texto —la conclusión, la leyenda de cifras o una tabla `sr-only`—, así que es `aria-hidden`. El valor
+manda (en negrita) y el nombre lo sigue; las filas de series llevan una raya corta del color, no un
+recuadro. El área que responde al puntero es más grande que la marca (un punto de 3,5 px responde en
+20). En un gráfico ancho va al costado de la marca; en uno angosto, encima del gráfico. Lo marcado se
+resalta atenuando lo demás. Pasar el mouse por un sector de la leyenda lo resalta en todos los meses.
+
+**Una tabla `sr-only` va dentro de un `div.sr-only`**: una `<table>` no respeta el ancho de 1 px y
+ensanchaba la página a 390 px.
 
 **Jerarquía del texto.** La conclusión en `text` y negrita; rótulos, ejes y pie en `muted`; dos
 tamaños como mucho dentro del gráfico (Datawrapper). Alineado a la izquierda.

@@ -8,7 +8,7 @@ import {
   PARAMETRO_BUSCAR,
   rutaBuscar,
 } from '@/lib/buscar';
-import { PLACEHOLDER_BUSCADOR, SUBTITULO_PORTADA } from '@/lib/portada';
+import { ETIQUETA_BUSCADOR, PLACEHOLDER_BUSCADOR, SUBTITULO_PORTADA, TITULO_PORTADA } from '@/lib/portada';
 
 /**
  * Lo primero de la portada (spec del rediseño §6.3, principio 1, e
@@ -16,12 +16,11 @@ import { PLACEHOLDER_BUSCADOR, SUBTITULO_PORTADA } from '@/lib/portada';
  * **Un `<form>` GET a `/buscar`, sin JavaScript**: funciona antes de hidratar
  * —y sin hidratar— y deja la portada como componente de servidor.
  *
- * El `<h1>` ES la etiqueta del campo: un lector de pantalla anuncia la pregunta
- * al entrar en él, sin un `<label>` oculto que repita el titular. Sin clase de
- * peso: la regla de los titulares (`h1, h2 { font-display }`) ya lo pone en 800.
- * El `h1` mide 36 px en móvil y 56 desde `lg` (spec PORTADA_V7 §4) y va en dos
- * líneas, «¿Qué le vendes / al Estado?»: el ancho de la columna lo parte y
- * `text-balance` deja las dos líneas parejas (`e2e/portada.spec.ts` lo mide).
+ * El `<h1>` dice lo que el sitio responde (`TITULO_PORTADA`) y el campo tiene su
+ * propio nombre (`ETIQUETA_BUSCADOR`): el titular ya no es una pregunta que sirva
+ * de etiqueta. Sin clase de peso: la regla de los titulares (`h1, h2 {
+ * font-display }`) ya lo pone en 800. Mide 36 px en móvil y 48 desde `lg`, con
+ * `text-balance` para que las líneas queden parejas.
  * El campo no repite los ejemplos (`PLACEHOLDER_BUSCADOR`): ya están debajo. El
  * botón va en `dato` con `text-onDato` encima, nunca `text-white` sobre un token;
  * el foco, el de la regla global `:focus-visible`.
@@ -33,14 +32,13 @@ import { PLACEHOLDER_BUSCADOR, SUBTITULO_PORTADA } from '@/lib/portada';
 export function BuscadorPortada() {
   return (
     <div>
-      <h1 className="text-balance text-[36px] leading-[1.05] tracking-tight text-text lg:text-[56px]">
-        <label htmlFor="buscar-portada">¿Qué le vendes al Estado?</label>
-      </h1>
+      <h1 className="text-balance text-[36px] leading-[1.05] tracking-tight text-text lg:text-[48px]">{TITULO_PORTADA}</h1>
       <p className="mt-4 max-w-[40ch] text-lg leading-relaxed text-muted">{SUBTITULO_PORTADA}</p>
 
       <form method="get" action="/buscar" role="search" className="mt-6 flex flex-col gap-2 sm:flex-row">
         <input
           id="buscar-portada"
+          aria-label={ETIQUETA_BUSCADOR}
           name={PARAMETRO_BUSCAR}
           type="search"
           required

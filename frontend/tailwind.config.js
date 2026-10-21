@@ -5,6 +5,8 @@ module.exports = {
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
+    // `lib/sectores.ts` escribe las clases de color de cada sector.
+    './lib/**/*.{ts,tsx}',
   ],
   theme: {
     extend: {
@@ -40,6 +42,13 @@ module.exports = {
         // El dato de un gráfico: `dato` lo que nombra la conclusión, `dato-tenue` el resto.
         dato: 'rgb(var(--color-dato) / <alpha-value>)',
         'dato-tenue': 'rgb(var(--color-dato-tenue) / <alpha-value>)',
+        // Las series de un gráfico que compara categorías (los sectores): orden fijo.
+        'serie-1': 'rgb(var(--color-serie-1) / <alpha-value>)',
+        'serie-2': 'rgb(var(--color-serie-2) / <alpha-value>)',
+        'serie-3': 'rgb(var(--color-serie-3) / <alpha-value>)',
+        'serie-4': 'rgb(var(--color-serie-4) / <alpha-value>)',
+        'serie-5': 'rgb(var(--color-serie-5) / <alpha-value>)',
+        'serie-otros': 'rgb(var(--color-serie-otros) / <alpha-value>)',
         // Etiqueta que va ENCIMA de cada relleno de color. En tema claro los
         // rellenos son oscuros y estas son blancas; en oscuro se invierten.
         // Usa `text-onAccent` en vez de `text-white` sobre `bg-accent`.

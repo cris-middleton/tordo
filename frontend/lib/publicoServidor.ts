@@ -19,9 +19,10 @@ import { API } from './versionApi';
 import { cabecerasHaciaElBackend, urlDelBackend } from './backendServidor';
 import type { SectoresBI } from '@/types/bi';
 import type { CompraAgilDestacada, CompraAgilDestacadasResponse } from '@/types/compraAgil';
-import type { ProductoPublico, ResumenPortada } from '@/types/publico';
+import type { MercadoPortada, ProductoPublico, ResumenPortada } from '@/types/publico';
 
 import { esConteo, esProductoPortada, esSectores, PRODUCTO_PORTADA } from './lecturasPortada';
+import { esMercadoPortada } from './lecturasMercado';
 import {
   ETIQUETA_ANALYTICS,
   ETIQUETA_COMPRA_AGIL,
@@ -167,6 +168,11 @@ export async function pedirResumenPortada(): Promise<ResumenPortada | null> {
 /** Lectura 1: el gasto por sector (`GET /bi/sector`). */
 export async function pedirSectoresPortada(): Promise<SectoresBI | null> {
   return pedirParaLaPortada(`${API}/bi/sector`, esSectores, 'el gasto por sector', CACHE_ANALYTICS);
+}
+
+/** `GET /publico/mercado`: el gasto mensual por sector y la concentración, o null. Analytics: una semana. */
+export async function pedirMercadoPortada(): Promise<MercadoPortada | null> {
+  return pedirParaLaPortada(`${API}/publico/mercado`, esMercadoPortada, 'el mercado', CACHE_ANALYTICS);
 }
 
 /** Lectura 2: la ficha pública de `PRODUCTO_PORTADA`. Un 404 la oculta, no lanza. */

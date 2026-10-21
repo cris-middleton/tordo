@@ -1,7 +1,7 @@
 /**
- * Lo primero de la portada (spec del rediseño §6.3, principio 1): la pregunta,
- * el buscador como `<form>` GET a /buscar —funciona sin JavaScript—, sus
- * ejemplos y la tira de cifras vivas con su hora.
+ * Lo primero de la portada (spec del rediseño §6.3, principio 1): el titular, el
+ * buscador como `<form>` GET a /buscar —funciona sin JavaScript—, sus ejemplos y
+ * la frase de lo que se puede postular ahora.
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -10,25 +10,35 @@ import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { BuscadorPortada } from '@/components/portada/BuscadorPortada';
-import { TiraCifras } from '@/components/portada/TiraCifras';
+import { AbiertasAhora } from '@/components/portada/AbiertasAhora';
 import { EJEMPLOS_BUSQUEDA, rutaBuscar } from '@/lib/buscar';
 import { urlCatalogoAbiertas } from '@/lib/filtrosCatalogo';
-import { PLACEHOLDER_BUSCADOR, SUBTITULO_PORTADA, tiraDeLaPortada } from '@/lib/portada';
+import {
+  ETIQUETA_BUSCADOR,
+  PLACEHOLDER_BUSCADOR,
+  SUBTITULO_PORTADA,
+  TITULO_PORTADA,
+  tiraDeLaPortada,
+} from '@/lib/portada';
 
-const PREGUNTA = '¿Qué le vendes al Estado?';
 const leer = (f: string) => readFileSync(join(__dirname, '..', 'components', 'portada', f), 'utf8');
 
 describe('BuscadorPortada', () => {
-  it('la pregunta es el h1 y, a la vez, la etiqueta del campo', () => {
+  it('el h1 dice lo que el sitio responde, sin signos de pregunta, y el campo tiene su propio nombre', () => {
     render(<BuscadorPortada />);
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(PREGUNTA);
-    expect(screen.getByRole('searchbox', { name: PREGUNTA })).toBeInTheDocument();
+    const h1 = screen.getByRole('heading', { level: 1 });
+    expect(h1).toHaveTextContent(TITULO_PORTADA);
+    expect(TITULO_PORTADA).toBe('Cuánto paga el Estado por lo que vendes');
+    expect(h1.textContent).not.toMatch(/[¿?]/);
+    expect(h1.querySelector('label')).toBeNull();
+    expect(screen.getByRole('searchbox', { name: ETIQUETA_BUSCADOR })).toBeInTheDocument();
+    expect(ETIQUETA_BUSCADOR).toBe('Producto o servicio que vendes');
   });
 
   it('el subtítulo dice qué hace la búsqueda, y el campo no repite los ejemplos', () => {
     render(<BuscadorPortada />);
     expect(screen.getByText(SUBTITULO_PORTADA)).toBeInTheDocument();
-    expect(screen.getByRole('searchbox', { name: PREGUNTA })).toHaveAttribute('placeholder', PLACEHOLDER_BUSCADOR);
+    expect(screen.getByRole('searchbox', { name: ETIQUETA_BUSCADOR })).toHaveAttribute('placeholder', PLACEHOLDER_BUSCADOR);
   });
 
   it('el botón va en el color del dato con su etiqueta encima, no en el de acción', () => {
@@ -64,7 +74,7 @@ describe('BuscadorPortada', () => {
     expect(enlaces.map((a) => a.getAttribute('href'))).toEqual(EJEMPLOS_BUSQUEDA.map(rutaBuscar));
   });
 
-  it.each(['BuscadorPortada.tsx', 'TiraCifras.tsx'])('%s no lleva JavaScript propio', (f) => {
+  it.each(['BuscadorPortada.tsx', 'AbiertasAhora.tsx'])('%s no lleva JavaScript propio', (f) => {
     expect(leer(f)).not.toMatch(/^\s*['"]use client['"]/m);
   });
 
@@ -86,34 +96,30 @@ describe('BuscadorPortada', () => {
   });
 });
 
-describe('TiraCifras', () => {
+describe('AbiertasAhora', () => {
   const tira = tiraDeLaPortada({
     licitaciones_abiertas: 4232,
     compra_agil_abiertas: 2714,
     actualizado_en: '2026-10-14T11:00:00-03:00',
   })!;
 
-  it('dos cifras, cada una al catálogo con el filtro que la cuenta; la hora va en la franja', () => {
-    render(<TiraCifras tira={tira} />);
-    const lista = screen.getByRole('list', { name: 'Abiertas ahora' });
-    expect(within(lista).getByRole('link', { name: '4.232 licitaciones abiertas' })).toHaveAttribute(
-      'href',
-      urlCatalogoAbiertas('licitaciones'),
-    );
-    expect(within(lista).getByRole('link', { name: '2.714 Compras Ágiles abiertas' })).toHaveAttribute(
-      'href',
-      urlCatalogoAbiertas('compra_agil'),
-    );
+  it('una frase, con cada cifra al catálogo con el filtro que la cuenta; la hora va en la franja', () => {
+    const { container } = render(<AbiertasAhora tira={tira} />);
+    expect(container.textContent).toBe('Ahora puedes postular a 4.232 licitaciones y 2.714 Compras Ágiles.');
+    expect(screen.getByRole('link', { name: '4.232 licitaciones' })).toHaveAttribute('href', urlCatalogoAbiertas('licitaciones'));
+    expect(screen.getByRole('link', { name: '2.714 Compras Ágiles' })).toHaveAttribute('href', urlCatalogoAbiertas('compra_agil'));
     expect(screen.queryByText(/actualizado/i)).toBeNull();
   });
 
-  it('cada cifra, un bloque con su borde en el color del dato', () => {
-    render(<TiraCifras tira={tira} />);
-    const bloques = within(screen.getByRole('list', { name: 'Abiertas ahora' })).getAllByRole('listitem');
-    expect(bloques).toHaveLength(2);
-    for (const bloque of bloques) {
-      expect(bloque).toHaveClass('border-dato');
-      expect(bloque).not.toHaveClass('border-accent');
-    }
+  it('en singular cuando hay una', () => {
+    const una = tiraDeLaPortada({ licitaciones_abiertas: 1, compra_agil_abiertas: 1, actualizado_en: '2026-10-14T11:00:00-03:00' })!;
+    const { container } = render(<AbiertasAhora tira={una} />);
+    expect(container.textContent).toBe('Ahora puedes postular a 1 licitación y 1 Compra Ágil.');
+  });
+
+  it('sin la plantilla de «métrica de héroe»: ni lista de bloques ni filete lateral', () => {
+    const { container } = render(<AbiertasAhora tira={tira} />);
+    expect(screen.queryByRole('list')).toBeNull();
+    expect(container.innerHTML).not.toMatch(/border-l-/);
   });
 });

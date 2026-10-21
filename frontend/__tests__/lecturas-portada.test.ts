@@ -23,6 +23,7 @@ import {
   lecturasDeLaPortada,
   lecturaNota,
   lecturaPrecio,
+  MAXIMO_LECTURAS_PORTADA,
   notaDeLaPortada,
   precioDeBanda,
   PRODUCTO_PORTADA,
@@ -130,23 +131,23 @@ describe('PRODUCTO_PORTADA', () => {
 });
 
 describe('lecturaPrecio', () => {
-  it('la mitad se pagó entre p25 y p75, de la unidad con más compras, con el nombre a mano', () => {
+  it('la mitad de las compras se pagó entre p25 y p75, de la unidad con más compras, con el nombre a mano', () => {
     const l = lecturaPrecio(PRODUCTO, REPO)!;
-    expect(l.conclusion).toBe('Impresora multifuncional: la mitad se pagó entre $150.921 y $240.000');
+    expect(l.conclusion).toBe('Impresora multifuncional: la mitad de las compras se pagó entre $150.921 y $240.000');
     expect(l.conclusion).not.toContain(PRODUCTO.firma);
   });
 
   it('el pie: compras, compradores, periodo y unidad; y que el gráfico muestra sólo los 10 que más compran', () => {
     expect(lecturaPrecio(PRODUCTO, REPO)!.pie).toBe(
       '46 compras de 40 compradores, nov 2025 a oct 2026, precio por unidad. ' +
-        'Cada punto es lo que pagó uno de los 10 compradores con más compras (su mediana); la franja, la mitad central de las compras; ' +
-        'la raya, la mediana; la línea fina, 8 de cada 10.',
+        'Cada punto es uno de los 10 compradores con más compras, en su mediana. La franja es la mitad de las compras; ' +
+        'la raya, la mediana; la línea fina, 8 de cada 10 compras.',
     );
   });
 
-  it('con todos los compradores en el gráfico, «cada punto es lo que pagó un comprador»', () => {
+  it('con todos los compradores en el gráfico, «cada punto es un comprador»', () => {
     expect(lecturaPrecio(conBanda({ compradores: 10 }), REPO)!.pie).toMatch(
-      /^46 compras de 10 compradores, .*\. Cada punto es lo que pagó un comprador \(su mediana\)/,
+      /^46 compras de 10 compradores, .*\. Cada punto es un comprador, en su mediana\./,
     );
   });
 
@@ -192,23 +193,23 @@ describe('lecturaPrecio', () => {
     expect(l.pie).not.toMatch(/uno de los|cada punto/i);
   });
 
-  it('P25 = P75 con varios compradores: «la mitad se pagó a $X», y la franja es una línea', () => {
+  it('P25 = P75 con varios compradores: «la mitad de las compras se pagó a $X», y la franja es una línea', () => {
     const l = lecturaPrecio(conBanda({ p10: 15_000, p25: 16_850, p50: 16_850, p75: 16_850, p90: 18_000 }), REPO)!;
-    expect(l.conclusion).toBe('Impresora multifuncional: la mitad se pagó a $16.850');
+    expect(l.conclusion).toBe('Impresora multifuncional: la mitad de las compras se pagó a $16.850');
     expect(l.grafico.franja!.desde).toBe(l.grafico.franja!.hasta);
-    expect(l.pie).toMatch(/la línea gruesa, el precio de la mitad central de las compras; la línea fina, 8 de cada 10\.$/);
+    expect(l.pie).toMatch(/La línea gruesa es el precio de la mitad de las compras; la línea fina, 8 de cada 10 compras\.$/);
   });
 
   it('P25 y P75 distintos pero escritos igual: también «se pagó a»', () => {
     expect(lecturaPrecio(conBanda({ p25: 1_500_000, p75: 1_600_000 }), REPO)!.conclusion).toBe(
-      'Impresora multifuncional: la mitad se pagó a $2 millones',
+      'Impresora multifuncional: la mitad de las compras se pagó a $2 millones',
     );
   });
 
   it('sin compradores en la lista: la franja sola, y el pie no habla de puntos', () => {
     const l = lecturaPrecio(conBanda({}, []), REPO)!;
     expect(l.grafico.puntos).toEqual([]);
-    expect(l.pie).toMatch(/precio por unidad\. La franja, la mitad central de las compras; la raya, la mediana; la línea fina, 8 de cada 10\.$/);
+    expect(l.pie).toMatch(/precio por unidad\. La franja es la mitad de las compras; la raya, la mediana; la línea fina, 8 de cada 10 compras\.$/);
   });
 
   it('con otra ficha, su nombre y su enlace: nunca los de la constante', () => {
@@ -256,7 +257,7 @@ describe('lecturaPrecio', () => {
 });
 
 describe('precioDeBanda (la ficha de producto: sin el filtro de la portada)', () => {
-  it('con un solo comprador: «todas las compras son de» él, un punto y sin franja', () => {
+  it('con un solo comprador: «todas las compras a este precio son de» él, un punto y sin franja', () => {
     const banda = { ...BANDA, compradores: 1, cuota_mayor: 1, de_mercado: false, p25: 16_850, p50: 16_850, p75: 16_850 };
     const l = precioDeBanda({
       producto: { ...PRODUCTO, compradores: [{ ...comprador(16_850), nombre: ' Hospital de Prueba ' }] },
@@ -264,7 +265,7 @@ describe('precioDeBanda (la ficha de producto: sin el filtro de la portada)', ()
       nombre: 'Por unidad',
       repositorio: null,
     })!;
-    expect(l.conclusion).toBe('Por unidad: todas las compras son de Hospital de Prueba');
+    expect(l.conclusion).toBe('Todas las compras a este precio son de Hospital de Prueba');
     expect(l.grafico.franja).toBeNull();
     expect(l.grafico.puntos).toHaveLength(1);
     expect(l.pie).toBe('46 compras de 1 comprador, nov 2025 a oct 2026, precio por unidad. El punto es su mediana.');
@@ -276,7 +277,7 @@ describe('precioDeBanda (la ficha de producto: sin el filtro de la portada)', ()
   it('un solo comprador que no viene en la lista: «un solo comprador»', () => {
     const banda = { ...BANDA, compradores: 1 };
     const l = precioDeBanda({ producto: { ...PRODUCTO, compradores: [] }, banda, nombre: 'Por unidad', repositorio: null })!;
-    expect(l.conclusion).toBe('Por unidad: todas las compras son de un solo comprador');
+    expect(l.conclusion).toBe('Todas las compras a este precio son de un solo comprador');
   });
 
   it('sin periodo, el pie no lo inventa', () => {
@@ -407,7 +408,7 @@ describe('lecturaCierres', () => {
       { nombre: 'En 2 o 3 días', valor: '782', destacada: false },
       { nombre: 'Después', valor: '265', destacada: false },
     ]);
-    expect(l.pie).toBe('Contadas el viernes 16 de octubre a las 11:06, por día de cierre en hora de Chile.');
+    expect(l.pie).toBe('Contadas el viernes 16 de octubre a las 11:06, hora de Chile.');
   });
 
   it('los enlaces: las que cierran primero, la API y el código', () => {
@@ -506,18 +507,29 @@ describe('notaDeLaPortada: la más reciente con gráfico', () => {
   });
 });
 
-describe('lecturasDeLaPortada: las dos primeras en el orden precio → cierres → nota', () => {
+describe('lecturasDeLaPortada: las tres primeras en el orden precio → concentración → cierres → nota', () => {
   const precio = { conclusion: 'precio' } as never;
+  const concentracion = { conclusion: 'concentracion' } as never;
   const cierres = { conclusion: 'cierres' } as never;
   const nota = { titulo: 'nota' } as never;
   it.each([
-    ['las tres: precio y cierres; la nota se queda en «Notas de datos»', { precio, cierres, nota }, ['precio', 'cierres']],
-    ['falta el precio: cierres y la nota', { precio: null, cierres, nota }, ['cierres', 'nota']],
-    ['faltan los cierres: precio y la nota', { precio, cierres: null, nota }, ['precio', 'nota']],
-    ['faltan precio y cierres (el backend caído): sólo la nota', { precio: null, cierres: null, nota }, ['nota']],
-    ['precio y cierres sin nota', { precio, cierres, nota: null }, ['precio', 'cierres']],
-    ['sólo el precio', { precio, cierres: null, nota: null }, ['precio']],
-    ['ninguna', { precio: null, cierres: null, nota: null }, []],
+    [
+      'las cuatro: precio, concentración y cierres; la nota se queda en «Notas de datos»',
+      { precio, concentracion, cierres, nota },
+      ['precio', 'concentracion', 'cierres'],
+    ],
+    ['falta el precio: concentración, cierres y la nota', { precio: null, concentracion, cierres, nota }, ['concentracion', 'cierres', 'nota']],
+    ['falta la concentración: precio, cierres y la nota', { precio, concentracion: null, cierres, nota }, ['precio', 'cierres', 'nota']],
+    ['faltan los cierres: precio, concentración y la nota', { precio, concentracion, cierres: null, nota }, ['precio', 'concentracion', 'nota']],
+    [
+      'sin analytics (precio y concentración): cierres y la nota',
+      { precio: null, concentracion: null, cierres, nota },
+      ['cierres', 'nota'],
+    ],
+    ['el backend caído: sólo la nota', { precio: null, concentracion: null, cierres: null, nota }, ['nota']],
+    ['las tres de datos sin nota', { precio, concentracion, cierres, nota: null }, ['precio', 'concentracion', 'cierres']],
+    ['sólo el precio', { precio, concentracion: null, cierres: null, nota: null }, ['precio']],
+    ['ninguna', { precio: null, concentracion: null, cierres: null, nota: null }, []],
   ])('%s', (_, lecturas, esperado) => {
     const elegidas = lecturasDeLaPortada(lecturas);
     expect(elegidas.map((e) => e.tipo)).toEqual(esperado);
@@ -525,7 +537,8 @@ describe('lecturasDeLaPortada: las dos primeras en el orden precio → cierres �
     for (const e of elegidas) expect(e.lectura).toBe(lecturas[e.tipo]);
   });
 
-  it('nunca más de dos', () => {
-    expect(lecturasDeLaPortada({ precio, cierres, nota })).toHaveLength(2);
+  it('nunca más de tres (MAXIMO_LECTURAS_PORTADA)', () => {
+    expect(MAXIMO_LECTURAS_PORTADA).toBe(3);
+    expect(lecturasDeLaPortada({ precio, concentracion, cierres, nota })).toHaveLength(3);
   });
 });

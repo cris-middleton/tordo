@@ -728,8 +728,8 @@ ninguna página ni layout de grupo pinta cabecera, pie, `PieAtribucion` ni `<mai
   `tracking-wide*`), ni metadatos con punto medio: «Confianza alta, 90 compras», no «· N=90».
   `__tests__/senales-plantilla.test.ts` los busca en todo `app/` y `components/`, comentarios
   incluidos. Se permite `first-letter:uppercase`. Tampoco bordes laterales gruesos de color
-  (`border-l-4` en un aviso o una tarjeta, la señal que más marca el detector de `make diseno`);
-  la excepción es el filete de las cifras de la portada (`TiraCifras`).
+  (`border-l-4` en un aviso o una tarjeta, la señal que más marca el detector de `make diseno`),
+  sin excepción: el filete de las cifras de la portada se fue con `TiraCifras`.
 - **Un solo formato de montos: `monto()`** (`lib/formato.ts`; `formatCurrency` lo envuelve): «$825.000»,
   «$7,2 millones», «$1,5 mil millones», «$2,1 billones». Convivían «$825K», «$7,2M», «$1,5B» (en Chile un
   billón es 10¹²) y «$1.000K». `plata` (`lib/publico.ts`) redondea los millones a entero a propósito, para
@@ -1047,59 +1047,73 @@ negro con tornasol azul-verdoso:
 - Tema claro por defecto, con selector claro/oscuro/sistema en el pie del sitio
   (`components/SelectorTema.tsx`, dentro de `components/cascara/PieSitio.tsx`).
 
-**La portada v7: se busca a la izquierda, se lee a la derecha** (`docs/PORTADA_V7_Y_NOTAS_2026-10.md` §3,
-`app/page.tsx` + `components/portada/`): server component sin JS de cliente propio (las islas son
-de la cáscara), con ISR de 30 min. **No le pongas `'use client'`**: Next ignora `metadata` en
-componentes cliente y la home perdería título y tarjeta de preview.
-- **Dos columnas desde `lg`, `11fr / 10fr`** (48 px entre ellas; «opción 2», decidida el
-  2026-10-17), dentro de `Contenedor pagina`: a la izquierda «¿Qué le vendes al Estado?», el
-  buscador, las dos cifras y la ficha; a la derecha «Lo que dicen los datos» con **dos lecturas
-  apiladas**, que empiezan a la altura del `h1`. Así el primer gráfico empieza a ~230 px a 1440
-  (con la banda a lo ancho de antes, a 625). Debajo, a lo ancho: la franja de hoy, «Lo mejor de
-  hoy» y las notas de datos, cada una con la separación de `Seccion` (`CLASE_SECCION`). Coste
-  aceptado: a 1440 queda un hueco de ~220 px bajo la ficha, porque dos lecturas miden más que
-  buscador, cifras y ficha; no se rellena con piezas nuevas.
-- **En móvil y tableta, una columna: buscador, cifras, lecturas y ficha** (§3.7): la conclusión de
-  la primera lectura tiene que quedar sobre el pliegue a 390×844 (`e2e/portada.spec.ts`). Por eso la
-  ficha va después de las lecturas en el DOM; desde `lg` la rejilla la pone en la columna
-  izquierda (`lg:row-start-3`, bajo las cifras) y las lecturas a la derecha cubriendo las tres filas
-  (`lg:row-span-3`). La fila 3 es `1fr`: lo que las lecturas midan de más cae bajo la ficha, no
-  entre el buscador y las cifras. **Un solo ejemplar de cada pieza**: nada se pinta dos veces para
-  esconder una.
+**La portada de gráficos: se busca a la izquierda, el gasto del Estado a la derecha** (octubre de
+2026, sobre `docs/PORTADA_V7_Y_NOTAS_2026-10.md` §3; `app/page.tsx` + `components/portada/`): server
+component con ISR de 30 min; las únicas islas cliente propias son los gráficos con globo
+(`components/graficos/GastoMensual.tsx`, `Concentracion.tsx` y `components/precio/GraficoPrecio.tsx`,
+que se pintan igual en el servidor). **No le pongas `'use client'` a la página**: Next ignora
+`metadata` en componentes cliente y la home perdería título y tarjeta de preview.
+- **Dos columnas desde `lg`, `5fr / 7fr`** (48 px entre ellas), dentro de `Contenedor pagina`: a la
+  izquierda el titular («Cuánto paga el Estado por lo que vendes», `TITULO_PORTADA`), el buscador,
+  las abiertas de ahora y la ficha; a la derecha **el gráfico grande** (`GastoPortada`): cuánto
+  compra el Estado mes a mes, por sector, a la altura del `h1`. Debajo, a lo ancho: «Para empezar»
+  (tres lecturas en fila), la franja de hoy, «Lo mejor de hoy» y las notas de datos, cada una con la
+  separación de `Seccion` (`CLASE_SECCION`). **Sin el gráfico grande** (menos de seis meses de
+  `time_series`, como en el fixture del E2E) la parte de arriba es una columna `max-w-2xl` y la
+  ficha baja tras «Para empezar».
+- **En móvil, una columna: buscador, abiertas, el gráfico grande y la ficha**: la conclusión del
+  gráfico grande —o, sin él, la de la primera lectura— queda sobre el pliegue a 390×844
+  (`e2e/portada.spec.ts`). La ficha va después del gráfico en el DOM y desde `lg` la rejilla la sube
+  a la columna izquierda (`lg:row-start-2`). **Un solo ejemplar de cada pieza**.
 - **El buscador** (`BuscadorPortada`), un `<form method="get" action="/buscar">` que funciona sin
-  JavaScript; el `<h1>` es la etiqueta del campo, de 36 px en móvil y 56 desde `lg`, **en dos líneas
-  «¿Qué le vendes / al Estado?»**: lo parte el ancho de la columna y `text-balance` (el E2E mide
-  dónde cae «al» a 1024 y 1440). Debajo, `SUBTITULO_PORTADA`; el campo dice
-  `PLACEHOLDER_BUSCADOR` (no repite los ejemplos) y el botón es `bg-dato text-onDato`. Los ejemplos
-  (`EJEMPLOS_BUSQUEDA`, `rutaBuscar` y los límites del campo, todos de `lib/buscar.ts`) están
-  **verificados contra producción**: `scripts/verificar-produccion.sh` pide cada uno, espaciados y
-  sin bucle, con una copia literal que `__tests__/portada-ayudantes.test.ts` compara. Un ejemplo
-  nuevo se verifica antes en producción y nunca es corto ni alfanumérico («pc», «A4»).
-- **Las cifras** (`TiraCifras`: cada bloque entero enlaza al catálogo con el filtro que lo cuenta,
-  `urlCatalogoAbiertas`) y **la ficha** (`FichaPortada`, §3.5): **Base** —«5,48 millones de órdenes
-  de compra, nov 2023 a oct 2026», `baseDeLaFicha` sobre `GET /bi/sector`: la suma de `n_oc` y la
-  ventana mínima y máxima, **nunca escrita a mano**; sin analytics, sin `n_oc` en alguna fila o sin
-  ventana, la fila no sale—, **Fuente**, **Se actualiza** (`SE_ACTUALIZA`: «El catálogo, 4 veces al
-  día de lunes a viernes y una al día el fin de semana. Los precios y los mercados, cada domingo.»,
-  que sale de `HORAS_HABILES` y `HORAS_FIN_DE_SEMANA` vía `FRECUENCIA_CATALOGO`; «de lunes a
-  viernes» y no «día hábil», porque el cron corre también los festivos) y **Lo hace** («{nombre}, {rol}», sólo con `AUTOR_NOMBRE`, enlazado a
-  `AUTOR_URL`; el rol sale de `AUTOR_ROL` y sin ella va el nombre solo). «Se usa» y «Úsalo como quieras» se fueron (V11): la salida a API, MCP y CSV es la de
-  la cabecera y el pie.
-- **«Lo que dicen los datos»** (`LecturasPortada`): sobre blanco, el `h2` en chico (18 px) con un
-  filete de 2 px en `primary` (el navy en claro) debajo. **Dos lecturas como mucho, apiladas en
-  todos los anchos**, cada una con conclusión, gráfico y pie, una tras otra y separadas por un
-  borde: **las dos primeras disponibles en el orden precio → cierres → nota**
-  (`lecturasDeLaPortada`, `MAXIMO_LECTURAS_PORTADA`). Con todo, precio y cierres (la nota sigue en
-  «Notas de datos», más abajo); si falta una, entra la nota; con el backend caído, sólo la nota; sin
-  ninguna, la sección no sale. `dato` sólo en lo que la
-  conclusión nombra; el resto, `dato-tenue`. **Cada frase sale del dato con una regla de
-  `lib/lecturasPortada.ts`**, fijada con sus bordes en `__tests__/lecturas-portada.test.ts`, y
-  **cada lectura se oculta entera si le falta su dato**.
-  - **Precio** (§3.2, `lecturaPrecio` → `precioDeBanda`): «{nombre}: la mitad se pagó entre p25 y
-    p75» —o «la mitad se pagó a $X» si P25 y P75 se escriben igual—, y la conclusión es el enlace al
-    producto. **El gráfico** (`components/precio/GraficoPrecio.tsx`, geometría en
-    `lib/graficoPrecio.ts`, `__tests__/grafico-precio.test.ts`): SVG de servidor y `aria-hidden`,
-    escala logarítmica, la franja P25–P75 con su etiqueta directa «la mitad central», la mediana como una
+  JavaScript. El `<h1>` ya no es la etiqueta del campo: el campo se llama `ETIQUETA_BUSCADOR`
+  («Producto o servicio que vendes», en `aria-label`). 36 px en móvil y 48 desde `lg`, con
+  `text-balance`; el E2E exige que no pase de tres líneas a 1024 y 1440. Debajo,
+  `SUBTITULO_PORTADA`; el campo dice `PLACEHOLDER_BUSCADOR` (no repite los ejemplos) y el botón es
+  `bg-dato text-onDato`. Los ejemplos (`EJEMPLOS_BUSQUEDA`, `rutaBuscar` y los límites del campo,
+  todos de `lib/buscar.ts`) están **verificados contra producción**: `scripts/verificar-produccion.sh`
+  pide cada uno, espaciados y sin bucle, con una copia literal que `__tests__/portada-ayudantes.test.ts`
+  compara. Un ejemplo nuevo se verifica antes en producción y nunca es corto ni alfanumérico («pc», «A4»).
+- **Las abiertas, en una frase** (`AbiertasAhora`, sobre `tiraDeLaPortada`): «Ahora puedes postular a
+  4.409 licitaciones y 2.409 Compras Ágiles.», cada cifra con lo que cuenta enlazada al catálogo con
+  el filtro que la cuenta (`urlCatalogoAbiertas`). Reemplaza a `TiraCifras`, dos bloques con número
+  grande y filete lateral grueso: la plantilla de «métrica de héroe» que el dueño no quería.
+- **La ficha** (`FichaPortada`, §3.5): **Base** —«5,48 millones de órdenes de compra, nov 2023 a oct
+  2026», `baseDeLaFicha` sobre `GET /bi/sector`: la suma de `n_oc` y la ventana mínima y máxima,
+  **nunca escrita a mano**; sin analytics, sin `n_oc` en alguna fila o sin ventana, la fila no
+  sale—, **Fuente**, **Se actualiza** (`SE_ACTUALIZA`: «Licitaciones y Compras Ágiles, 4 veces al día
+  de lunes a viernes y una el fin de semana. Precios y mercados, cada domingo.», que sale de
+  `HORAS_HABILES` y `HORAS_FIN_DE_SEMANA`; «de lunes a viernes» y no «día hábil», porque el cron
+  corre también los festivos) y **Lo hace** («{nombre}, {rol}», sólo con `AUTOR_NOMBRE`, enlazado a
+  `AUTOR_URL`; el rol sale de `AUTOR_ROL` y sin ella va el nombre solo).
+- **El gráfico grande** (`GastoPortada` → `GastoMensual`, geometría en `lib/graficoGasto.ts`, frase
+  en `lib/lecturasMercado.ts`; datos de `GET /publico/mercado`, `gasto_mensual`): una columna por
+  mes, **apilada por sector con el color fijo de cada uno** (`lib/sectores.ts`: Salud `serie-1`,
+  Municipalidades `serie-2`, Gobierno y universidades `serie-3`, Obras públicas `serie-4`, Fuerzas
+  Armadas `serie-5`, y el resto —«Otros», «Legislativo y judicial», sin sector— junto en
+  `serie-otros`). El `h2` es la conclusión (`fraseGasto`): «El Estado compró $X en N meses.
+  {Mes} fue el mes más alto: 1,7 veces un mes típico.» —el mes típico es la mediana; bajo
+  `VECES_PICO` (1,25), «Compra parejo»—. **Globo** al pasar el mouse o tocar un mes (total, el %
+  de cada sector y las órdenes); la leyenda es una lista de cifras (cada sector con su total y su
+  %) y pasar por un sector lo resalta en todos los meses. Eje con la unidad dicha una vez («En
+  billones de pesos») y marcas chicas («$0,5», «$1»). Un mes que falta entre el primero y el
+  último se pinta como hueco. **Con menos de `MINIMO_MESES` (6) no sale.** El pie dice las
+  órdenes, el periodo, qué es un mes típico y que las obras del MOP casi no pasan por órdenes.
+- **«Para empezar»** (`LecturasPortada`, `TITULO_LECTURAS`): `h2` de sección y **tres lecturas en
+  fila desde `lg`**, alineadas por subrejilla (la conclusión, el gráfico y el pie de cada una
+  empiezan a la misma altura); en móvil, una tras otra. **Las tres primeras disponibles en el orden
+  precio → concentración → cierres → nota** (`lecturasDeLaPortada`, `MAXIMO_LECTURAS_PORTADA` = 3):
+  con todo, las tres de datos; si falta una, entra la nota; con el backend caído, sólo la nota; sin
+  ninguna, la sección no sale. **Cada frase sale del dato con una regla** (`lib/lecturasPortada.ts`
+  y `lib/lecturasMercado.ts`, fijadas en `__tests__/lecturas-portada.test.ts` y
+  `__tests__/lecturas-mercado.test.ts`), y **cada lectura se oculta entera si le falta su dato**.
+  - **Precio** (§3.2, `lecturaPrecio` → `precioDeBanda`): «{nombre}: la mitad de las compras se pagó
+    entre p25 y p75» —o «…se pagó a $X» si P25 y P75 se escriben igual—, y la conclusión es el enlace
+    al producto. **El gráfico** (`components/precio/GraficoPrecio.tsx`, geometría en
+    `lib/graficoPrecio.ts`, `__tests__/grafico-precio.test.ts`): SVG `aria-hidden` con **globo** (cada
+    punto dice la mediana del comprador y sus compras, con un área de toque de 20 px; la franja, entre
+    qué precios se pagó la mitad y la mediana), escala logarítmica, la franja P25–P75 con su etiqueta
+    directa «la mitad de las compras», la mediana como una
     raya, la línea fina de P10 a P90 («8 de cada 10»), **un punto por comprador en su mediana** (todos los
     de la banda, de `medianas_compradores`, hasta 200; si la API aún no lo trae —`null`, hasta que la
     semanal materialice su tabla— cae a los de `compradores` con la unidad de la banda, que son diez)
@@ -1120,36 +1134,45 @@ componentes cliente y la home perdería título y tarjeta de preview.
     y periodo legible. **P25 = P75 ya no la oculta** (antes sí): con varios compradores es un precio
     estable, y la frase lo dice. La copia en `verificar-produccion.sh` aplica el mismo filtro: si
     cambia uno, cambia el otro.
+  - **Concentración** (`lecturaConcentracion` → `Concentracion`; `GET /publico/mercado`,
+    `concentracion`): «5 de cada 10 pesos se compran en mercados donde un solo proveedor se lleva la
+    mitad o más» (los bordes del redondeo con palabras, como en los cierres). Un histograma de diez
+    tramos de 10 puntos —cuánto se lleva el proveedor principal de cada mercado, un comprador en un
+    rubro—, del alto del **monto** que se compra en ellos (contar mercados exageraba: los chicos salen
+    más concentrados por tener pocas compras); en `dato` los tramos de la mitad o más. Globo por tramo
+    (monto y mercados). El pie dice cuántos mercados, de qué periodo y cuántos tienen un solo proveedor.
   - **Cierres** (§3.3, `lecturaCierres`): «N de cada 10 Compras Ágiles abiertas cierran hoy o
     mañana» y **una barra de diez celdas con tantas en `dato` como esos décimos** (`decimosDe`, el
     mismo redondeo de la frase), y la tabla de los cuatro tramos con hoy y mañana en negrita. Sin
-    hora legible del resumen, no sale (su pie dice de cuándo es: «Contadas el … a las …, por día de
-    cierre en hora de Chile.», sin el total de abiertas, que la tira dice al lado). Los tramos
+    hora legible del resumen, no sale (su pie dice de cuándo es: «Contadas el … a las …, hora de
+    Chile.», sin el total de abiertas, que la frase de arriba ya dice). Los tramos
     tienen que sumar las abiertas.
   - **La nota** (§3.4, `lecturaNota`): **la más reciente que trae `antes_despues`**
     (`notaDeLaPortada`; si ninguna lo trae, la más reciente), para que tenga gráfico como las
-    otras dos; la lista «Notas de datos» sigue con las cuatro últimas en su orden. Con su resumen y su
+    otras; la lista «Notas de datos» sigue con las cuatro últimas en su orden. Con su resumen y su
     `antes_despues` (`components/notas/AntesDespues.tsx`). Es contenido del repo y está siempre:
-    entra cuando falta una de las otras dos, y con el backend caído la sección sigue con ella.
+    entra cuando falta una de las de datos, y con el backend caído la sección sigue con ella.
 - **El pie de método** (`components/metodo/PieDeMetodo.tsx`, V3) va bajo cada lectura —y bajo el
   gráfico de la ficha de producto—: base y periodo en una frase y los enlaces «Cómo se calcula»
   (guía y ancla), «Ver en la API» (`ORIGEN_API_PUBLICA`) y «Código» (`<REPOSITORIO_URL>/blob/main/<ruta>`,
   sólo con repositorio). **Cada método se declara una vez en `lib/metodo.ts` (`METODOS`)** y
   `__tests__/metodo.test.ts` falla si su fichero ya no existe o si la guía o el ancla cambiaron.
   Las anclas son los `id` que `lib/markdown.ts` (`idDeTitulo`) da a cada título de una guía.
-- **Cuatro piezas vivas, pedidas en paralelo desde el servidor**, y **cada una se oculta sola si el
+- **Cinco piezas vivas, pedidas en paralelo desde el servidor**, y **cada una se oculta sola si el
   backend falla o si un campo que se pinta viene mal formado**, y además, por principio 4 (una cifra
   viva sin hora no se publica): «Lo mejor de hoy» sin `actualizado_en` legible se oculta; el
-  resumen sin hora legible oculta la tira, la franja **y la lectura de cierres**; el producto, sin
+  resumen sin hora legible oculta las abiertas, la franja **y la lectura de cierres**; el producto, sin
   periodo legible. `pedirParaLaPortada(ruta, validador, bloque, cache)` nunca lanza, y la caché la
   elige quien llama:
   - **lo vivo, media hora y etiqueta `compra-agil`** (la revalida el cron frecuente): el resumen
-    (`GET /publico/portada`, `pedirResumenPortada`) —la tira, la lectura de cierres y la franja— y
+    (`GET /publico/portada`, `pedirResumenPortada`) —las abiertas, la lectura de cierres y la franja— y
     «Lo mejor de hoy» (`pedirDestacadas`);
   - **lo de analytics, una semana y etiqueta `analytics`** (la revalida el cron semanal): los
     sectores (`GET /bi/sector`, `pedirSectoresPortada`), que ya no son una lectura sino la fila
-    «Base» de la ficha, y la ficha del producto (`pedirProductoPortada`). Con `FEATURE_ANALYTICS`
-    apagada responden 503: la fila «Base» y la lectura de precio no salen.
+    «Base» de la ficha, el mercado (`GET /publico/mercado`, `pedirMercadoPortada`, validado por
+    `esMercadoPortada`: el gráfico grande y la concentración) y la ficha del producto
+    (`pedirProductoPortada`). Con `FEATURE_ANALYTICS` apagada responden 503: la fila «Base», el
+    gráfico grande y las lecturas de precio y de concentración no salen.
 - **La franja de hoy** (`FranjaPortada`, `franjaDeLaPortada`): publicadas hoy («612 licitaciones y
   Compras Ágiles»: cuenta las dos), el organismo que más publica (por nombre; truncado con `title`) y «Actualizado el» con el día —la portada se cachea—.
   Con 0 publicadas hoy (cada madrugada) las dos primeras celdas se ocultan y la que queda primera
@@ -1173,11 +1196,12 @@ componentes cliente y la home perdería título y tarjeta de preview.
 - **Sin «Inteligencia»** en la portada, los metadatos (`openGraph` y `twitter` incluidos) ni la
   tarjeta de vista previa (R10): `__tests__/r10-sin-inteligencia.test.ts`.
 - `e2e/portada.spec.ts` mide la portada a 320, 390, 1024 y 1440 px sin desborde y la captura en
-  claro y oscuro; a 1024 y 1440, el `h1` en dos líneas y las lecturas a la derecha del buscador,
-  empezando más arriba que el campo y apiladas en una sola columna; a 1440×900, la primera
-  conclusión y el primer gráfico sobre el pliegue; a 390×844, la primera conclusión sobre el
-  pliegue. El fixture del E2E trae la lectura de cierres y la de la nota; la de precio se prueba en
-  Vitest.
+  claro y oscuro; a 1024 y 1440, el `h1` en tres líneas como mucho, «Para empezar» en fila (misma
+  altura, una al lado de otra) y, si está, el gráfico grande a la derecha del buscador y a su altura;
+  a 1440×900, la primera conclusión de datos y su gráfico sobre el pliegue; a 390×844, la primera
+  conclusión sobre el pliegue; y que el globo sale al pasar el mouse y se va al salir. El fixture
+  del E2E trae tres meses de `time_series` (sin gráfico grande), la concentración, los cierres y la
+  nota; el gráfico grande y la de precio se prueban en Vitest.
 
 **La ficha de producto** (`/productos/[slug]`) abre con **«Cuánto se pagó»**: el mismo gráfico de
 precio, con su pie de método (spec PORTADA_V7 §6), `precioDeBanda` sobre la unidad con más compras,
