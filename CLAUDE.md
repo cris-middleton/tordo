@@ -216,10 +216,10 @@ IP de `/api/v1/bi/*`. Que lo público no pida sesión se prueba también por HTT
   Las de ingesta crecen sin techo y `integer` se queda corto; las de negocio se exponen en
   URLs y no conviene que sean adivinables.
 - **Las dos reglas anteriores las verifica `tests/test_convenciones_modelo.py`**, con
-  trinquete: **las tablas ya están todas comentadas**; quedan 43 columnas sin comentario y
-  2 PK `integer`, así que el test **no exige arreglarlas** — falla si aparece deuda **nueva**.
-  La deuda vive en `tests/convenciones_baseline.json` y sólo puede encoger.
-  Al arreglar algo: `cd backend && uv run --project .. python tests/regenerar_baseline.py`.
+  trinquete. **La deuda está en cero** (migración `e8e7e0f3f5e5`: las 43 columnas que
+  quedaban, comentadas, y `licitaciones` y `licitaciones_detalle` con clave y secuencia
+  `bigint`), así que `tests/convenciones_baseline.json` está vacío y sólo puede seguir así.
+  Una columna sin `comment=` o una PK `integer` nueva hacen fallar el test.
 - Los errores de negocio se devuelven con `HTTPException` y mensaje en español — los ve el usuario.
 
 ### La voz de los textos
