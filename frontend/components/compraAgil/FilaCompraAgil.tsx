@@ -11,6 +11,7 @@ import {
   textoTiempo,
   urlMercadoPublico,
 } from '@/lib/compraAgil';
+import { cierreFijo } from '@/lib/horaChile';
 import { formatCurrency, normalizeText, shortRegion } from '@/lib/licitacionEstado';
 import type { CompraAgilDestacada } from '@/types/compraAgil';
 
@@ -27,19 +28,28 @@ import type { CompraAgilDestacada } from '@/types/compraAgil';
  *
  * `min-w-0`, `line-clamp-*` y `break-words`: un nombre de 300 letras, o uno sin
  * espacios, no ensancha la página en un teléfono.
+ *
+ * `cierreFijo`: la portada se sirve desde caché media hora o más, y «Cierra en
+ * 3 h» envejecía sin que nadie lo notara. Ahí va la hora de cierre en Santiago
+ * («Cierra el 22 oct a las 18:00»); donde la lista se pide al abrirla, la cuenta
+ * atrás que calcula el backend.
  */
 export function FilaCompraAgil({
   item,
   posicion,
   actualizadoEn,
   historia,
+  cierreFijo: conCierreFijo = false,
 }: {
   item: CompraAgilDestacada;
   posicion?: number;
   actualizadoEn: string | null;
   /** La historia de la unidad. `disponible` es `historia_disponible` de la respuesta: falso = no se dice nada del comprador. */
   historia?: { meses: number | null; disponible: boolean };
+  /** La hora de cierre en vez de la cuenta atrás: para lo que se sirve desde caché. */
+  cierreFijo?: boolean;
 }) {
+  const cierre = conCierreFijo ? cierreFijo(item.fecha_cierre) : textoTiempo(item.horas_restantes);
   const detalle = `/licitaciones/${encodeURIComponent(item.codigo_externo)}`;
   const deLaUnidad = historia ? textoComprador(item.comprador, historia.meses, historia.disponible) : null;
   const suele = historia?.disponible ? textoMontoTipico(item.comprador) : null;
@@ -91,7 +101,7 @@ export function FilaCompraAgil({
           {!historia && (
             <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted">
               {lugar && <span className="min-w-0 break-words">{lugar}</span>}
-              <span>{textoTiempo(item.horas_restantes)}</span>
+              {cierre && <span>{cierre}</span>}
               {MOSTRAR_COTIZACIONES && <span>{textoCompetencia(item.ofertas_recibidas, item.ofertas_al, actualizadoEn)}</span>}
             </p>
           )}
@@ -101,7 +111,7 @@ export function FilaCompraAgil({
           <div className="min-w-0 text-xs text-muted">
             <p className="flex flex-wrap gap-x-3 gap-y-1">
               {lugar && <span className="min-w-0 break-words">{lugar}</span>}
-              <span>{textoTiempo(item.horas_restantes)}</span>
+              {cierre && <span>{cierre}</span>}
               {MOSTRAR_COTIZACIONES && (
                 <span>{textoCompetencia(item.ofertas_recibidas, item.ofertas_al, actualizadoEn)}</span>
               )}

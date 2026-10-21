@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useRef, useEffect, RefObject } from 'react';
+import { createContext, useContext, useState, useRef, useEffect, RefObject } from 'react';
 import { MoreHorizontal, Copy, Download, Link as LinkIcon, Check } from 'lucide-react';
+
+import { enlaceConRubro } from '@/lib/compartir';
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
 
@@ -15,12 +17,21 @@ interface ShareMenuProps {
 }
 
 /**
+ * El rubro que la pantalla muestra, también el elegido por defecto, que no va en
+ * su URL. Lo pone `/mercado` y lo lee el menú: así no hay que pasarlo por cada
+ * sección que tiene uno.
+ */
+const ContextoRubro = createContext('');
+export const RubroMostrado = ContextoRubro.Provider;
+
+/**
  * Menú `⋯` con 3 acciones: copiar resumen, descargar PNG y copiar link.
  * Usa html2canvas (dynamic import, solo se carga al descargar).
  */
 export function ShareMenu({ targetRef, summaryText, filename }: ShareMenuProps) {
   const [open, setOpen] = useState(false);
-  const [copiedKey, setCopiedKey] = useState<'text' | 'link' | null>(null);
+  const [copiedKey, setCopiedKey] = useState<'text' | 'link' | 'fallo' | null>(null);
+  const rubro = useContext(ContextoRubro);
   const rootRef = useRef<HTMLDivElement>(null);
 
   // Click-outside para cerrar
@@ -34,25 +45,21 @@ export function ShareMenu({ targetRef, summaryText, filename }: ShareMenuProps) 
     }
   }, [open]);
 
-  const copiarResumen = async () => {
+  // Sin permiso de portapapeles (o fuera de https) se dice: antes no pasaba nada
+  // y parecía copiado.
+  const copiar = async (texto: string, clave: 'text' | 'link') => {
     try {
-      await navigator.clipboard.writeText(`${summaryText}\n\nVer en ${APP_NAME} → ${window.location.href}`);
-      setCopiedKey('text');
-      setTimeout(() => setCopiedKey(null), 1500);
+      await navigator.clipboard.writeText(texto);
+      setCopiedKey(clave);
     } catch {
-      // no-op
+      setCopiedKey('fallo');
     }
+    setTimeout(() => setCopiedKey(null), 2500);
   };
 
-  const copiarLink = async () => {
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-      setCopiedKey('link');
-      setTimeout(() => setCopiedKey(null), 1500);
-    } catch {
-      // no-op
-    }
-  };
+  const enlace = () => enlaceConRubro(window.location.href, rubro);
+  const copiarResumen = () => copiar(`${summaryText}\n\nVer en ${APP_NAME} → ${enlace()}`, 'text');
+  const copiarLink = () => copiar(enlace(), 'link');
 
   const descargarPNG = async () => {
     if (!targetRef.current) return;
@@ -97,6 +104,11 @@ export function ShareMenu({ targetRef, summaryText, filename }: ShareMenuProps) 
             {copiedKey === 'link' ? <Check className="h-3.5 w-3.5 text-accent" /> : <LinkIcon className="h-3.5 w-3.5 text-muted" />}
             {copiedKey === 'link' ? 'Copiado' : 'Copiar enlace'}
           </button>
+          {copiedKey === 'fallo' && (
+            <p role="status" className="px-3 py-2 text-sm text-danger">
+              No se pudo copiar.
+            </p>
+          )}
         </div>
       )}
     </div>

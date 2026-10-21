@@ -18,12 +18,12 @@ import {
 } from '@/lib/buscar';
 import { TITULO_DESTACADAS, mesesDeVentana, rutaCompraAgil } from '@/lib/compraAgil';
 import { urlCatalogoAbiertas } from '@/lib/filtrosCatalogo';
+import { fechaCortaDeChile } from '@/lib/horaChile';
 import { normalizeText, shortRegion } from '@/lib/licitacionEstado';
 import { precioDeBanda } from '@/lib/lecturasPortada';
 import { urlRepositorio } from '@/lib/repositorio';
 import {
   entero,
-  fechaCorta,
   frasePrecio,
   nombreProducto,
   plata,
@@ -220,7 +220,9 @@ export function BloquePrecios({
 
 function FilaLicitacion({ licitacion: t }: { licitacion: Tender }) {
   const monto = montoNumerico(t.monto_estimado);
-  const cierre = fechaCorta(t.fecha_cierre);
+  // El día del cierre en Santiago: cortar el texto daba el día en UTC, y un
+  // cierre a las 22:00 salía al día siguiente.
+  const cierre = fechaCortaDeChile(t.fecha_cierre);
   return (
     <li className="py-3">
       <Link href={rutaLicitacion(t.codigo_externo)} className="break-words font-medium text-primary hover:underline">

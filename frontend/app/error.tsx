@@ -14,16 +14,18 @@ import { Contenedor } from '@/components/cascara/Contenedor';
  * client-side exception has occurred"— y **nada quedaba registrado**. El
  * usuario veía una página en blanco y nosotros no nos enterábamos.
  *
- * `reset()` vuelve a montar el segmento. Vale la pena porque muchos de estos
- * fallos son transitorios (una respuesta a medias, una carrera al cambiar de
- * empresa) y reintentar los resuelve sin perder la sesión.
+ * «Reintentar» llama a `retry()`, que vuelve a pedir al servidor el segmento y
+ * lo pinta de nuevo. Desde Next 16 `reset()` sólo vuelve a pintar lo que ya
+ * había, sin pedir nada: si lo que falló fue la respuesta del servidor, el
+ * botón no arreglaba nada. Vale la pena porque muchos de estos fallos son
+ * transitorios (una respuesta a medias, el backend reiniciando).
  */
 export default function Error({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }) {
   useEffect(() => {
     Sentry.captureException(error);
@@ -37,7 +39,7 @@ export default function Error({
           El fallo quedó registrado. Puedes reintentar: muchas veces es pasajero.
         </p>
         <div className="mt-6 flex items-center gap-3">
-          <button type="button" onClick={reset} className="btn-primary gap-2">
+          <button type="button" onClick={() => retry()} className="btn-primary gap-2">
             <RotateCcw size={15} />
             Reintentar
           </button>

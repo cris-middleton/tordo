@@ -5,7 +5,9 @@ import { useSearchParams } from 'next/navigation';
 import { BarChart3, Loader2 } from 'lucide-react';
 
 import { ErrorDeCarga } from '@/components/ErrorDeCarga';
+import { useClaveDeUrlExterna } from '@/hooks/useClaveDeUrlExterna';
 import { MESES_ANALISIS } from '@/lib/periodo';
+import { escribirUrlPropia } from '@/lib/urlPropia';
 import {
   useBIOportunidades,
   useBIPanorama,
@@ -30,6 +32,7 @@ import { MarketSummaryCard } from './components/MarketSummaryCard';
 import { OportunidadesSection } from './components/OportunidadesSection';
 import { PanoramaRubro } from '@/components/bi/PanoramaRubro';
 import { RubroFilter } from './components/RubroFilter';
+import { RubroMostrado } from './components/ShareMenu';
 import { SectorOverview } from './components/SectorOverview';
 import { TendenciasSection } from './components/TendenciasSection';
 
@@ -115,7 +118,8 @@ function Seccion({
 function BIContenido() {
   // La URL se LEE al montar, no sólo se escribe. Antes esta pantalla la
   // escribía en un efecto y nunca la leía: compartir el enlace de un rubro
-  // abría el rubro por defecto del que lo recibía.
+  // abría el rubro por defecto del que lo recibía. Una URL que llega de fuera
+  // (la cabecera) vuelve a montar la pantalla: `BIDeLaUrl`.
   //
   // Se lee con `useSearchParams` y un inicializador perezoso —una vez— en vez
   // de con `useEffect` + `setState`: `window` no existe en el prerender, así
@@ -221,17 +225,10 @@ function BIContenido() {
     if (rubroElegido) siguiente.set('rubro', rubroElegido);
     if (focusCodigo) siguiente.set('focus', focusCodigo);
     if (compareMode && rubroB) siguiente.set('compare', rubroB);
-    const qs = siguiente.toString();
-    window.history.replaceState({}, '', qs ? `?${qs}` : window.location.pathname);
+    escribirUrlPropia('mercado', siguiente.toString());
   }, [rubroElegido, focusCodigo, compareMode, rubroB]);
 
-  if (cargandoInicial) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
-      </div>
-    );
-  }
+  if (cargandoInicial) return <Cargando />;
 
   if (biDesactivado) {
     return (
@@ -260,183 +257,209 @@ function BIContenido() {
 
   // El `h1` va primero y el selector de rubro debajo (spec PORTADA_V7 §4: nada antes
   // del `h1`, el tope es el de toda página). El selector sigue pegado arriba al bajar.
+  // `RubroMostrado`: «Copiar enlace» lleva el rubro que se ve, también el
+  // elegido por defecto, que no se escribe en la URL de la pantalla.
   return (
-    <div className="flex min-h-screen flex-col">
-      <h1 className="page-title">Mercados</h1>
-      <p className="mt-2 max-w-[65ch] text-muted">
-        Cuánto compra el Estado por sector y por rubro, quién le vende y en qué meses compra, con los
-        últimos {MESES_ANALISIS} meses de órdenes de compra.
-      </p>
+    <RubroMostrado value={rubro}>
+      <div className="flex min-h-screen flex-col">
+        <h1 className="page-title">Mercados</h1>
+        <p className="mt-2 max-w-[65ch] text-muted">
+          Cuánto compra el Estado por sector y por rubro, quién le vende y en qué meses compra, con los
+          últimos {MESES_ANALISIS} meses de órdenes de compra.
+        </p>
 
-      {!compareMode && <SectorOverview />}
+        {!compareMode && <SectorOverview />}
 
-      <h2 className="section-title mt-8 lg:mt-16">Un rubro</h2>
-      <RubroFilter
-        rubros={allRubros}
-        selectedRubro={rubro}
-        onRubroChange={cambiarRubro}
-        focusedOrganismo={focusedOrganismo}
-        onClearFocus={() => setFocusCodigo(null)}
-        porDefecto={!rubroElegido && Boolean(rubro)}
-        onComparar={!compareMode && rubro ? () => setCompareMode(true) : undefined}
-      />
+        <h2 className="section-title mt-8 lg:mt-16">Un rubro</h2>
+        <RubroFilter
+          rubros={allRubros}
+          selectedRubro={rubro}
+          onRubroChange={cambiarRubro}
+          focusedOrganismo={focusedOrganismo}
+          onClearFocus={() => setFocusCodigo(null)}
+          porDefecto={!rubroElegido && Boolean(rubro)}
+          onComparar={!compareMode && rubro ? () => setCompareMode(true) : undefined}
+        />
 
-      <div className="flex-1 space-y-12 pt-8 lg:space-y-16">
+        <div className="flex-1 space-y-12 pt-8 lg:space-y-16">
 
-        {compareMode ? (
-          <CompareMode
-            rubroA={rubro}
-            rubroB={rubroB}
-            allRubros={allRubros}
-            onChangeRubroA={setRubroElegido}
-            onChangeRubroB={setRubroB}
-            onClose={() => {
-              setCompareMode(false);
-              setRubroB('');
-            }}
-          />
-        ) : (
-          <>
-            {/* ── 1. ¿Cómo está este mercado? ───────────────────────────── */}
-            <Seccion
-              titulo="Cómo está el mercado"
-              descripcion="Tamaño, competencia, calendario y crecimiento del rubro completo, con todos sus compradores."
-            >
-              {/* El párrafo primero y las cifras después: quien abre esto no
-                  quiere leer un tablero, quiere que le digan cómo está el
-                  mercado. Las cifras están debajo para el que sí. */}
-              {consultaResumen.isError ? (
-                <ErrorDeCarga
-                  titulo="No pudimos cargar el resumen del rubro"
-                  error={consultaResumen.error}
-                  onReintentar={() => void consultaResumen.refetch()}
-                  reintentando={consultaResumen.isFetching}
-                />
-              ) : (
-                <MarketSummaryCard resumen={resumen} loading={consultaResumen.isFetching} rubro={rubro} />
-              )}
-              {consultaPanorama.isError ? (
-                <ErrorDeCarga
-                  titulo="No pudimos cargar el panorama del rubro"
-                  error={consultaPanorama.error}
-                  onReintentar={() => void consultaPanorama.refetch()}
-                  reintentando={consultaPanorama.isFetching}
-                />
-              ) : (
-                <PanoramaRubro
-                  panorama={panorama}
-                  cargando={consultaPanorama.isPending && !!rubro}
-                  rubro={rubro}
-                />
-              )}
-              {consultaTendencia.isError ? (
-                <ErrorDeCarga
-                  titulo="No pudimos cargar las tendencias"
-                  error={consultaTendencia.error}
-                  onReintentar={() => void consultaTendencia.refetch()}
-                  reintentando={consultaTendencia.isFetching}
-                />
-              ) : (
-                <TendenciasSection
-                  loading={consultaTendencia.isFetching}
-                  selectedRubro={rubro}
-                  serieAnual={tendencia?.serie_anual ?? null}
-                  cagrRubro={tendencia?.cagr_rubro ?? null}
-                />
-              )}
-            </Seccion>
-
-            {/* ── 2. ¿Qué hago esta semana? ─────────────────────────────── */}
-            <Seccion
-              titulo="Dónde mirar primero"
-              descripcion="Los compradores de este rubro, ordenados por precio, competencia y regularidad de compra."
-            >
-              {consultaOportunidades.isError ? (
-                <ErrorDeCarga
-                  titulo="No pudimos cargar las oportunidades"
-                  error={consultaOportunidades.error}
-                  onReintentar={() => void consultaOportunidades.refetch()}
-                  reintentando={consultaOportunidades.isFetching}
-                />
-              ) : (
-                <OportunidadesSection
-                  oportunidades={oportunidades}
-                  loading={consultaOportunidades.isFetching}
-                  rubro={rubro}
-                  onFocusOrganismo={(o) => {
-                    setFocusCodigo(o.codigo);
-                    setTimeout(() => {
-                      document
-                        .querySelector('[data-section="detalle-comprador"]')
-                        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }, 100);
-                  }}
-                />
-              )}
-            </Seccion>
-
-            {/* ── 3. Detalle de un comprador ────────────────────────────── */}
-            <div data-section="detalle-comprador" className="space-y-6">
-              {focusedOrganismo && (
-                <div className="flex items-center gap-3 rounded-xl border border-border bg-surface-elevated px-4 py-3">
-                  <div className="flex-1 text-sm">
-                    <p className="text-text">
-                      <span className="text-muted">Mirando en detalle:</span>{' '}
-                      <span className="font-semibold">{focusedOrganismo.nombre}</span>
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setFocusCodigo(null)}
-                    className="shrink-0 text-xs font-medium text-muted transition-colors hover:text-danger"
-                  >
-                    Quitar
-                  </button>
-                </div>
-              )}
-
-              <Seccion
-                titulo="Un comprador en concreto"
-                descripcion="Quién le vende, cómo tramita y en qué meses compra."
-              >
-                <div className="space-y-6">
-                  <CompetenciaSection
-                    topOrganismos={topOrganismos}
-                    selectedOrganismo={focusedOrganismo?.codigo || organismoComparado}
-                    onOrganismoChange={setOrgElegido}
-                    rubro={rubro}
-                    disabled={!!focusedOrganismo}
-                    focused={!!focusedOrganismo}
-                    focusedNombre={focusedOrganismo?.nombre}
-                  />
-                  {(topOrganismos.length > 0 || focusedOrganismo) && (
-                    <>
-                      <CompradoresSection
-                        topOrganismos={topOrganismos}
-                        rubro={rubro}
-                        focusedOrganismo={focusedOrganismo}
-                        focusedNombre={focusedOrganismo?.nombre}
-                      />
-                      <EstacionalidadSection
-                        topOrganismos={topOrganismos}
-                        rubro={rubro}
-                        focusedOrganismo={focusedOrganismo}
-                        focused={!!focusedOrganismo}
-                        focusedNombre={focusedOrganismo?.nombre}
-                      />
-                    </>
-                  )}
-                </div>
-              </Seccion>
-            </div>
-
-            {/* ── 4. Cálculos puntuales ─────────────────────────────────── */}
-            <HerramientasAvanzadas
-              rubro={rubro}
-              topOrganismos={topOrganismos}
+          {compareMode ? (
+            <CompareMode
+              rubroA={rubro}
+              rubroB={rubroB}
               allRubros={allRubros}
+              onChangeRubroA={setRubroElegido}
+              onChangeRubroB={setRubroB}
+              onClose={() => {
+                setCompareMode(false);
+                setRubroB('');
+              }}
             />
-          </>
-        )}
+          ) : (
+            <>
+              {/* ── 1. ¿Cómo está este mercado? ───────────────────────────── */}
+              <Seccion
+                titulo="Cómo está el mercado"
+                descripcion="Tamaño, competencia, calendario y crecimiento del rubro completo, con todos sus compradores."
+              >
+                {/* El párrafo primero y las cifras después: quien abre esto no
+                    quiere leer un tablero, quiere que le digan cómo está el
+                    mercado. Las cifras están debajo para el que sí. */}
+                {consultaResumen.isError ? (
+                  <ErrorDeCarga
+                    titulo="No pudimos cargar el resumen del rubro"
+                    error={consultaResumen.error}
+                    onReintentar={() => void consultaResumen.refetch()}
+                    reintentando={consultaResumen.isFetching}
+                  />
+                ) : (
+                  <MarketSummaryCard resumen={resumen} loading={consultaResumen.isFetching} rubro={rubro} />
+                )}
+                {consultaPanorama.isError ? (
+                  <ErrorDeCarga
+                    titulo="No pudimos cargar el panorama del rubro"
+                    error={consultaPanorama.error}
+                    onReintentar={() => void consultaPanorama.refetch()}
+                    reintentando={consultaPanorama.isFetching}
+                  />
+                ) : (
+                  <PanoramaRubro
+                    panorama={panorama}
+                    cargando={consultaPanorama.isPending && !!rubro}
+                    rubro={rubro}
+                  />
+                )}
+                {consultaTendencia.isError ? (
+                  <ErrorDeCarga
+                    titulo="No pudimos cargar las tendencias"
+                    error={consultaTendencia.error}
+                    onReintentar={() => void consultaTendencia.refetch()}
+                    reintentando={consultaTendencia.isFetching}
+                  />
+                ) : (
+                  <TendenciasSection
+                    loading={consultaTendencia.isFetching}
+                    selectedRubro={rubro}
+                    serieAnual={tendencia?.serie_anual ?? null}
+                    cagrRubro={tendencia?.cagr_rubro ?? null}
+                  />
+                )}
+              </Seccion>
+
+              {/* ── 2. ¿Qué hago esta semana? ─────────────────────────────── */}
+              <Seccion
+                titulo="Dónde mirar primero"
+                descripcion="Los compradores de este rubro, ordenados por precio, competencia y regularidad de compra."
+              >
+                {consultaOportunidades.isError ? (
+                  <ErrorDeCarga
+                    titulo="No pudimos cargar las oportunidades"
+                    error={consultaOportunidades.error}
+                    onReintentar={() => void consultaOportunidades.refetch()}
+                    reintentando={consultaOportunidades.isFetching}
+                  />
+                ) : (
+                  <OportunidadesSection
+                    oportunidades={oportunidades}
+                    loading={consultaOportunidades.isFetching}
+                    rubro={rubro}
+                    onFocusOrganismo={(o) => {
+                      setFocusCodigo(o.codigo);
+                      setTimeout(() => {
+                        document
+                          .querySelector('[data-section="detalle-comprador"]')
+                          ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }, 100);
+                    }}
+                  />
+                )}
+              </Seccion>
+
+              {/* ── 3. Detalle de un comprador ────────────────────────────── */}
+              <div data-section="detalle-comprador" className="space-y-6">
+                {focusedOrganismo && (
+                  <div className="flex items-center gap-3 rounded-xl border border-border bg-surface-elevated px-4 py-3">
+                    <div className="flex-1 text-sm">
+                      <p className="text-text">
+                        <span className="text-muted">Mirando en detalle:</span>{' '}
+                        <span className="font-semibold">{focusedOrganismo.nombre}</span>
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setFocusCodigo(null)}
+                      className="shrink-0 text-xs font-medium text-muted transition-colors hover:text-danger"
+                    >
+                      Quitar
+                    </button>
+                  </div>
+                )}
+
+                <Seccion
+                  titulo="Un comprador en concreto"
+                  descripcion="Quién le vende, cómo tramita y en qué meses compra."
+                >
+                  <div className="space-y-6">
+                    <CompetenciaSection
+                      topOrganismos={topOrganismos}
+                      selectedOrganismo={focusedOrganismo?.codigo || organismoComparado}
+                      onOrganismoChange={setOrgElegido}
+                      rubro={rubro}
+                      disabled={!!focusedOrganismo}
+                      focused={!!focusedOrganismo}
+                      focusedNombre={focusedOrganismo?.nombre}
+                    />
+                    {(topOrganismos.length > 0 || focusedOrganismo) && (
+                      <>
+                        <CompradoresSection
+                          topOrganismos={topOrganismos}
+                          rubro={rubro}
+                          focusedOrganismo={focusedOrganismo}
+                          focusedNombre={focusedOrganismo?.nombre}
+                        />
+                        <EstacionalidadSection
+                          topOrganismos={topOrganismos}
+                          rubro={rubro}
+                          focusedOrganismo={focusedOrganismo}
+                          focused={!!focusedOrganismo}
+                          focusedNombre={focusedOrganismo?.nombre}
+                        />
+                      </>
+                    )}
+                  </div>
+                </Seccion>
+              </div>
+
+              {/* ── 4. Cálculos puntuales ─────────────────────────────────── */}
+              <HerramientasAvanzadas
+                rubro={rubro}
+                topOrganismos={topOrganismos}
+                allRubros={allRubros}
+              />
+            </>
+          )}
+        </div>
+      </div>
+    </RubroMostrado>
+  );
+}
+
+/** Vuelve a montar la pantalla cuando la URL llega de fuera: ver `lib/urlPropia.ts`. */
+function BIDeLaUrl() {
+  const clave = useClaveDeUrlExterna('mercado');
+  return <BIContenido key={clave} />;
+}
+
+/**
+ * La espera, con el título: el respaldo de `Suspense` es lo que sirve el
+ * servidor, y sin el `h1` el HTML de `/mercado` no tenía título (ahora va al
+ * sitemap, y `e2e/calidad-paginas.spec.ts` exige uno).
+ */
+function Cargando() {
+  return (
+    <div>
+      <h1 className="page-title">Mercados</h1>
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
       </div>
     </div>
   );
@@ -444,19 +467,13 @@ function BIContenido() {
 
 /**
  * `useSearchParams` obliga a una frontera de Suspense: sin ella el build
- * estático falla en esta ruta. El fallback es el mismo spinner de la carga
+ * estático falla en esta ruta. El fallback es la misma espera de la carga
  * inicial, así que el usuario no ve dos estados de espera distintos.
  */
 export default function BIPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex items-center justify-center py-24">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
-        </div>
-      }
-    >
-      <BIContenido />
+    <Suspense fallback={<Cargando />}>
+      <BIDeLaUrl />
     </Suspense>
   );
 }

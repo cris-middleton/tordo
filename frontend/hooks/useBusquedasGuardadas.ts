@@ -29,9 +29,14 @@ const VACIA: BusquedaGuardada[] = [];
  * otro texto que la página, que siempre compara contra `leer → escribir`. Sin
  * esto, esa búsqueda dejaba de reconocerse como guardada y guardarla otra vez
  * añadía una gemela.
+ *
+ * **«Todas las licitaciones» es `abiertas=0`, nunca la consulta vacía**: una
+ * URL vacía abre el catálogo en «Sólo abiertas» (`filtrosIniciales`), así que
+ * guardada como `''` se reabría con la mitad de lo que se guardó. Una guardada
+ * vacía de antes de ese cambio significaba lo mismo y se lee igual.
  */
 export function consultaCanonica(consulta: string): string {
-  return consultaDe(escribirFiltros(leerFiltros(new URLSearchParams(consulta))));
+  return consultaDe(escribirFiltros(leerFiltros(new URLSearchParams(consulta)))) || 'abiertas=0';
 }
 
 function interpretar(crudo: unknown): BusquedaGuardada[] {

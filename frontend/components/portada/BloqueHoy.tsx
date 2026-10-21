@@ -18,7 +18,8 @@ import type { CompraAgilDestacadasResponse } from '@/types/compraAgil';
  * aquí no se vuelve a leer. Lleva su propia hora porque la franja de la portada
  * puede faltar sin él; **cuando la franja está, no la repite**
  * (`horaEnLaFranja`): «Actualizado el …» dos veces a pocos centímetros es ruido.
- * La hora se sigue exigiendo para pintar el bloque.
+ * La hora se sigue exigiendo para pintar el bloque. Cada fila dice la hora de
+ * cierre y no «Cierra en 3 h» (`cierreFijo`): la cuenta atrás envejece en caché.
  */
 export function BloqueHoy({
   datos,
@@ -68,6 +69,7 @@ export function BloqueHoy({
                 item={item}
                 posicion={CON_PUESTO ? i + 1 : undefined}
                 actualizadoEn={datos.actualizado_en}
+                cierreFijo
               />
             </li>
           ))}

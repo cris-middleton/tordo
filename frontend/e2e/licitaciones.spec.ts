@@ -96,3 +96,26 @@ test('entrar sin filtros abre en «Sólo abiertas», y apagarlo trae lo cerrado 
   await page.reload();
   await expect(tarjeta(page, CODIGO_ADJUDICADA)).toBeVisible({ timeout: 15_000 });
 });
+
+test('una licitación que no está responde 404, sin indexar, y enlaza a Mercado Público', async ({ page }) => {
+  // La retención la borra 90 días después de cerrar: el backend da 404, y la
+  // página también (no un 200 que dice «no la encontramos»).
+  const respuesta = await page.goto('/licitaciones/E2E-9999-NOEXISTE');
+  expect(respuesta?.status()).toBe(404);
+  await expect(page.getByRole('heading', { level: 1, name: 'No tenemos esta licitación' })).toBeVisible();
+  await expect(page.getByRole('link', { name: /buscarla en mercado público/i })).toHaveAttribute(
+    'href',
+    'https://buscador.mercadopublico.cl/ficha?code=E2E-9999-NOEXISTE',
+  );
+  await expect(page.locator('meta[name="robots"][content*="noindex"]').first()).toBeAttached();
+});
+
+test('el enlace de la cabecera limpia los filtros aunque la página no se desmonte', async ({ page }) => {
+  await buscar(page, TERMINO);
+  await expect(page).toHaveURL(new RegExp(`search=${TERMINO}`));
+  await expect(page.getByRole('button', { name: `Quitar «${TERMINO}»` })).toBeVisible();
+  await page.getByRole('navigation', { name: 'Secciones' }).getByRole('link', { name: 'Licitaciones', exact: true }).click();
+  await expect(page).toHaveURL(/\/licitaciones\?abiertas=1$/);
+  await expect(page.getByRole('button', { name: `Quitar «${TERMINO}»` })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Sólo abiertas' })).toHaveAttribute('aria-pressed', 'true');
+});

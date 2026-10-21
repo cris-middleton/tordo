@@ -7,8 +7,11 @@ import { useSearchParams } from 'next/navigation';
 import { AlertTriangle, Loader2, Rss, Search } from 'lucide-react';
 
 import SelectField from '@/components/SelectField';
+import { ErrorDeCarga } from '@/components/ErrorDeCarga';
 import { FilaCompraAgil } from '@/components/compraAgil/FilaCompraAgil';
 import { useAhora } from '@/hooks/useAhora';
+import { useClaveDeUrlExterna } from '@/hooks/useClaveDeUrlExterna';
+import { MAXIMO_CARACTERES_BUSCAR, prepararBusqueda } from '@/lib/buscar';
 import {
   CON_PUESTO,
   descripcionDestacadas,
@@ -19,8 +22,8 @@ import {
 } from '@/lib/compraAgil';
 import { REGIONES_CHILE } from '@/lib/constantesChile';
 import { shortRegion } from '@/lib/nombresChile';
-import { mensajeDeError } from '@/lib/errores';
 import { useCompraAgilDestacadas } from '@/lib/queries';
+import { escribirUrlPropia } from '@/lib/urlPropia';
 
 /**
  * «Lo mejor de hoy en Compra Ágil».
@@ -37,12 +40,16 @@ import { useCompraAgilDestacadas } from '@/lib/queries';
  *
  * Región y búsqueda viven en la URL, con el patrón de la analítica: el enlace
  * se comparte con sus filtros, y el RSS de la misma búsqueda es la misma URL
- * bajo `/rss/compra-agil`.
+ * bajo `/rss/compra-agil`. Una URL que llega de fuera vuelve a montar la
+ * pantalla (`useClaveDeUrlExterna`); la búsqueda se recorta a las cotas de la
+ * API (`prepararBusqueda`): con más de ocho palabras responde 422.
  */
 function CompraAgilContenido() {
   const urlInicial = useSearchParams();
   const [region, setRegion] = useState(() => urlInicial.get('region') ?? '');
-  const [busqueda, setBusqueda] = useState(() => urlInicial.get(PARAMETRO_BUSQUEDA_COMPRA_AGIL) ?? '');
+  const [busqueda, setBusqueda] = useState(
+    () => prepararBusqueda(urlInicial.get(PARAMETRO_BUSQUEDA_COMPRA_AGIL)).termino,
+  );
   const [texto, setTexto] = useState(busqueda);
   const ahora = useAhora();
   const Lista = CON_PUESTO ? 'ol' : 'ul';
@@ -51,7 +58,7 @@ function CompraAgilContenido() {
     Object.entries({ region, [PARAMETRO_BUSQUEDA_COMPRA_AGIL]: busqueda }).filter(([, v]) => v),
   ).toString();
   useEffect(() => {
-    window.history.replaceState({}, '', consultaUrl ? `?${consultaUrl}` : window.location.pathname);
+    escribirUrlPropia('compra-agil', consultaUrl);
   }, [consultaUrl]);
 
   const consulta = useCompraAgilDestacadas({
@@ -66,7 +73,9 @@ function CompraAgilContenido() {
 
   const buscar = (e: FormEvent) => {
     e.preventDefault();
-    setBusqueda(texto.trim());
+    const { termino } = prepararBusqueda(texto);
+    setBusqueda(termino);
+    setTexto(termino);
   };
 
   return (
@@ -119,6 +128,7 @@ function CompraAgilContenido() {
             placeholder="Qué vendes: resmas, mantención…"
             aria-label="Buscar en las Compras Ágiles destacadas"
             enterKeyHint="search"
+            maxLength={MAXIMO_CARACTERES_BUSCAR}
             className="input-field h-12 pl-11"
             autoComplete="off"
           />
@@ -150,9 +160,13 @@ function CompraAgilContenido() {
           ))}
         </ul>
       ) : consulta.isError ? (
-        <div className="alert-error mt-6" role="alert">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-          <p>{mensajeDeError(consulta.error)}</p>
+        <div className="mt-6">
+          <ErrorDeCarga
+            titulo="No pudimos cargar las Compras Ágiles"
+            error={consulta.error}
+            onReintentar={() => void consulta.refetch()}
+            reintentando={consulta.isFetching}
+          />
         </div>
       ) : items.length === 0 ? (
         <div className="py-12">
@@ -179,6 +193,12 @@ function CompraAgilContenido() {
   );
 }
 
+/** Vuelve a montar la lista cuando la URL llega de fuera: ver `lib/urlPropia.ts`. */
+function CompraAgilDeLaUrl() {
+  const clave = useClaveDeUrlExterna('compra-agil');
+  return <CompraAgilContenido key={clave} />;
+}
+
 /** `useSearchParams` obliga a una frontera de Suspense. */
 export default function CompraAgilPage() {
   return (
@@ -194,7 +214,7 @@ export default function CompraAgilPage() {
         </div>
       }
     >
-      <CompraAgilContenido />
+      <CompraAgilDeLaUrl />
     </Suspense>
   );
 }

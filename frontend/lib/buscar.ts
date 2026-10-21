@@ -74,7 +74,7 @@ export interface Busqueda {
  * los separadores U+001C–U+001F, que Python también corta. Sin ellos, un `q`
  * armado a propósito llegaba a Compra Ágil con más de 8 palabras (422).
  */
-const ESPACIOS = /[\s\u001c-\u001f]+/;
+export const ESPACIOS = /[\s\u001c-\u001f]+/;
 
 /**
  * El término de `?q=` listo para buscar. Con dos `q` vale la primera; los

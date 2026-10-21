@@ -1,4 +1,9 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
+import { notFound } from 'next/navigation';
+
+import { codigoDeRutaLicitacion } from '@/lib/licitacionDetalle';
+import { licitacionExiste } from '@/lib/licitacionServidor';
 
 /*
  * El detalle es cliente; su título y canonical se ponen aquí. Sin esto heredaba
@@ -19,6 +24,21 @@ export async function generateMetadata({
   };
 }
 
-export default function LayoutFicha({ children }: { children: React.ReactNode }) {
+/**
+ * Una licitación que no está —borrada por la retención, o un código mal
+ * escrito— responde 404 con `noindex` (`notFound()`). Se mira aquí y no en
+ * `generateMetadata`, que Next puede enviar después de empezar la respuesta:
+ * entonces el 200 ya habría salido. Si el backend no contesta, la ficha se pinta
+ * igual y el navegador ofrece reintentar.
+ */
+export default async function LayoutFicha({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: Promise<{ codigo: string }>;
+}) {
+  const codigo = codigoDeRutaLicitacion(`/licitaciones/${(await params).codigo}`);
+  if (!codigo || !(await licitacionExiste(codigo, await headers()))) notFound();
   return children;
 }

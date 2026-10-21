@@ -8,7 +8,7 @@
  */
 
 import type { TenderDetail } from '@/types/licitacionDetalle';
-import { decimal } from '@/lib/formato';
+import { decimal, monto } from '@/lib/formato';
 
 export const normalizeKey = (key: string) => key.toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -138,3 +138,36 @@ export const fmtPct = (n?: number) =>
 
 export const fmtDays = (n?: number) =>
   n == null ? '—' : `${n} días`;
+
+/** Cómo se escribe cada moneda de Mercado Público junto a la cifra. La UF llega como `CLF`. */
+const NOMBRE_MONEDA: Record<string, string> = { CLF: 'UF', UF: 'UF', UTM: 'UTM', USD: 'US$', EUR: 'euros' };
+
+/**
+ * El monto de una ficha. En pesos, `monto()`, el formato de todo el sitio
+ * («$7,2 millones»); antes la ficha tenía su propio formateador y decía
+ * «$7.200.000». En otra moneda, la cifra en es-CL con su nombre: «1.500 UF».
+ */
+export function montoConMoneda(cantidad: number | null | undefined, moneda?: string | null): string | null {
+  if (cantidad == null || !Number.isFinite(cantidad)) return null;
+  const codigo = (moneda ?? '').trim().toUpperCase();
+  if (!codigo || codigo === 'CLP') return monto(cantidad);
+  const cifra = decimal(cantidad, Number.isInteger(cantidad) ? 0 : 2);
+  const nombre = NOMBRE_MONEDA[codigo] ?? codigo;
+  return nombre === 'US$' ? `US$${cifra}` : `${cifra} ${nombre}`;
+}
+
+/** ¿El backend dijo que no existe? Un 404 no se arregla reintentando. */
+export function esNoEncontrada(error: unknown): boolean {
+  return (error as { response?: { status?: number } } | null)?.response?.status === 404;
+}
+
+/** El código de `/licitaciones/{codigo}`, decodificado; null si la ruta no es una ficha. */
+export function codigoDeRutaLicitacion(ruta: string | null | undefined): string | null {
+  const m = ruta?.match(/^\/licitaciones\/([^/]+)\/?$/);
+  if (!m) return null;
+  try {
+    return decodeURIComponent(m[1]);
+  } catch {
+    return m[1];
+  }
+}

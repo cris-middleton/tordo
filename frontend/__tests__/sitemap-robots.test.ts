@@ -56,6 +56,7 @@ describe('sitemap y robots', () => {
       'https://tordo.prueba/compra-agil',
       'https://tordo.prueba/licitaciones',
       'https://tordo.prueba/productos',
+      'https://tordo.prueba/mercado',
       'https://tordo.prueba/guias',
       'https://tordo.prueba/notas',
       'https://tordo.prueba/abierto',
@@ -134,5 +135,12 @@ describe('sitemap y robots', () => {
     expect((await sitemap()).some((e) => new URL(e.url).pathname.startsWith('/buscar'))).toBe(false);
     // Un buscador que no rastrea la página no ve su `noindex` (spec del rediseño §6.4).
     expect(NO_RASTREAR.some((prefijo) => '/buscar?q=resma'.startsWith(prefijo))).toBe(false);
+  });
+});
+
+describe('las secciones de la navegación', () => {
+  it('van todas al sitemap', async () => {
+    const { SECCIONES } = await import('@/lib/navegacion');
+    for (const s of SECCIONES) expect(PAGINAS_FIJAS).toContain(s.href);
   });
 });
