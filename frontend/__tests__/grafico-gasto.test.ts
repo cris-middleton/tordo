@@ -9,12 +9,11 @@ import { graficoGasto, MINIMO_MESES, pasoRedondo } from '@/lib/graficoGasto';
 import { SECTORES_CON_COLOR, sectorConColor } from '@/lib/sectores';
 import type { GastoMensual } from '@/types/publico';
 
-const fila = (anio: number, mes: number, sector: string, monto: number, n_oc = 10): GastoMensual => ({
+const fila = (anio: number, mes: number, sector: string, monto: number): GastoMensual => ({
   anio,
   mes,
   sector,
   monto,
-  n_oc,
 });
 
 /** Doce meses de 2025, Salud y Municipalidades; diciembre al doble. */

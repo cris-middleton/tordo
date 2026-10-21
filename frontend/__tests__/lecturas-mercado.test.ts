@@ -22,7 +22,6 @@ const meses = (pico: number): GastoMensual[] =>
     mes: i + 1,
     sector: 'Salud',
     monto: i === 11 ? pico : 1e12,
-    n_oc: 1000,
   }));
 
 const CONCENTRACION: ConcentracionMercados = {

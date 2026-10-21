@@ -134,8 +134,8 @@ const GASTO: GastoMensual[] = Array.from({ length: 12 }, (_, i) => {
   const anio = i < 2 ? 2025 : 2026;
   const mes = ((10 + i) % 12) + 1;
   return [
-    { anio, mes, sector: 'Salud', monto: mes === 12 ? 2e12 : 1e12, n_oc: 1000 },
-    { anio, mes, sector: 'Municipalidades', monto: 0.5e12, n_oc: 500 },
+    { anio, mes, sector: 'Salud', monto: mes === 12 ? 2e12 : 1e12 },
+    { anio, mes, sector: 'Municipalidades', monto: 0.5e12 },
   ];
 }).flat();
 /** Diez tramos; de la mitad para arriba, $1,5 billones cada uno: 7,5 de 12,5 = 6 de cada 10 pesos. */

@@ -178,7 +178,6 @@ export interface GastoMensual {
   mes: number;
   sector: string;
   monto: number;
-  n_oc: number;
 }
 
 /** Los mercados cuyo proveedor principal se lleva entre `desde` y `hasta` % del monto. */

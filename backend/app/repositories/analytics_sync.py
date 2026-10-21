@@ -334,7 +334,6 @@ def gasto_mensual_por_sector(tabla: str = "time_series") -> list[dict] | None:
             "mes": int(f["mes"]),
             "sector": f["sector"],
             "monto": float(f["monto"]),
-            "n_oc": int(f["n_oc"]),
         }
         for f in filas
     ]

@@ -86,7 +86,6 @@ const DATOS_GASTO = graficoGasto(
       mes: i + 1,
       sector,
       monto: (j + 1) * 1e11 * (i === 11 ? 1.6 : 1),
-      n_oc: 1000,
     })),
   ).flat(),
 )!;
