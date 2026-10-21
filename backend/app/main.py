@@ -138,7 +138,7 @@ app.add_middleware(MCPSinBarraMiddleware)
 
 # Lo más externo: cuerpo acotado, ningún `%00` y las cabeceras de endurecimiento
 # en toda respuesta, también en un 429 o un 413 (`app/core/endurecimiento.py`).
-app.add_middleware(EndurecimientoMiddleware)
+app.add_middleware(EndurecimientoMiddleware, cors_todos="*" in settings.cors_origins)
 
 
 @app.exception_handler(Exception)

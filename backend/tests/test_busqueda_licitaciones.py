@@ -211,6 +211,20 @@ async def con_raiz_compartida(async_db):
             fecha_publicacion=datetime.now(UTC),
             activo=True,
         ),
+        Licitacion(
+            codigo_externo="M-4",
+            nombre="Compra de insumos",
+            descripcion="Insumos clínicos para el servicio de urgencia",
+            fecha_publicacion=datetime.now(UTC),
+            activo=True,
+        ),
+        Licitacion(
+            codigo_externo="M-5",
+            nombre="Compra de reactivos",
+            descripcion="Test rápido covid-19 y resmas de 2.500 hojas",
+            fecha_publicacion=datetime.now(UTC),
+            activo=True,
+        ),
     ]
     async_db.add_all(filas)
     await async_db.flush()
@@ -247,6 +261,22 @@ async def test_el_plural_sigue_encontrando_el_singular(async_db, con_raiz_compar
     """Lo que el stemmer sí acertaba se conserva: «camiones» encuentra «camión»."""
     assert await _buscar_m(async_db, "camiones") == {"M-3"}
     assert await _buscar_m(async_db, "camion") == {"M-3"}
+
+
+@pytest.mark.asyncio
+async def test_el_otro_genero_sigue_encontrandose(async_db, con_raiz_compartida):
+    """El stemmer juntaba «clínica» con «clínicos»; exigir el comienzo exacto
+    los separaba (108 → 20 en la copia local). El otro género va como prefijo."""
+    assert await _buscar_m(async_db, "clínica") == {"M-4"}
+    assert await _buscar_m(async_db, "clinicas") == {"M-4"}
+
+
+@pytest.mark.asyncio
+async def test_lo_que_lleva_digitos_o_signos_queda_con_el_stemmer(async_db, con_raiz_compartida):
+    """Postgres corta «covid-19» o «2.500» distinto que Python: exigirlos aquí
+    los dejaba sin ninguna coincidencia."""
+    assert await _buscar_m(async_db, "covid-19") == {"M-5"}
+    assert await _buscar_m(async_db, "2.500") == {"M-5"}
 
 
 @pytest.mark.asyncio

@@ -42,11 +42,20 @@ export class ErrorDelBackendPublico extends Error {
  * que la siguiente visita lo vuelve a intentar en vez de servir una página
  * rota durante una semana.
  */
+/**
+ * Cuánto se espera al backend al generar una ficha. Sin tope, una ficha esperaba
+ * para siempre en la fila de renderizados exentos de la API (`limite_ip.py`, que
+ * responde 503 a los 5 s); con él, falla, lanza y no se cachea: el pedido
+ * siguiente la rehace.
+ */
+export const TIEMPO_MAXIMO_FICHA_MS = 10_000;
+
 export async function pedirPublico<T>(ruta: string): Promise<T | null> {
   const completa = `${API}/publico${ruta}`;
   const respuesta = await fetch(urlDelBackend(completa), {
     headers: { Accept: 'application/json', ...cabecerasHaciaElBackend(null) },
     next: { revalidate: SEGUNDOS_CACHE_ANALYTICS, tags: [ETIQUETA_ANALYTICS] },
+    signal: AbortSignal.timeout(TIEMPO_MAXIMO_FICHA_MS),
   });
   if (respuesta.status === 404) return null;
   if (!respuesta.ok) throw new ErrorDelBackendPublico(respuesta.status, completa);

@@ -17,8 +17,8 @@ TEXTO = 100
 #: Paginación por `offset`: más allá, quien recorre todo debería usar la descarga
 #: masiva de ChileCompra, no paginar el catálogo.
 OFFSET_MAX = 100_000
-#: Los id de `licitaciones` son `integer` de Postgres: uno mayor no existe, y sin
-#: cota llegaba a la base y volvía 500 en vez de 404.
-ID_MAX = 2_147_483_647
+#: Los id de `licitaciones` son `bigint` de Postgres (migración e8e7e0f3f5e5): uno
+#: mayor no existe, y sin cota llegaba a la base y volvía 500 en vez de 404.
+ID_MAX = 9_223_372_036_854_775_807
 #: Términos de búsqueda que se combinan con AND en Compra Ágil.
 MAX_TERMINOS = 8

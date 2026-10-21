@@ -51,7 +51,7 @@ import polars as pl
 
 from . import trato_directo
 from .config import OUTPUT_DIR
-from .data_loader import iter_lic_parquets, iter_oc_parquets, orden_por_fila
+from .data_loader import iter_lic_parquets, iter_oc_parquets, orden_por_fila, sin_canceladas
 from .identidad import nombre_vigente
 
 logger = logging.getLogger(__name__)
@@ -223,9 +223,13 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
             status_frames.append(estados)
 
         # --- Volumen mensual (para regularidad) ---
+        # Sin las canceladas: no compraron nada, y `n_oc_total` es el volumen que
+        # muestra la ficha del comprador y el umbral para indexarla. Sólo la tasa
+        # de cancelación (arriba) las necesita.
         if "_periodo_archivo" in df.columns:
             vol = (
-                df.filter(pl.col(org_col).is_not_null())
+                sin_canceladas(df)
+                .filter(pl.col(org_col).is_not_null())
                 .group_by([org_col, "_periodo_archivo"])
                 .agg(pl.len().alias("oc_mes"))
             )

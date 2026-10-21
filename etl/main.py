@@ -183,6 +183,13 @@ def run_etl_compra_agil(cambio_desde=None, cambio_hasta=None, cuota_agotada_es_f
             logger.error(
                 "Compra Ágil: ninguno de los %d registros se pudo transformar", len(crudos)
             )
+            # El atraso de detalles no depende de esta tanda: se sigue completando
+            # aunque la corrida falle.
+            loader.connect()
+            try:
+                _completar_compras_agiles(extractor, loader, cuota_agotada_es_fallo)
+            finally:
+                loader.disconnect()
             return False
 
         loader.connect()

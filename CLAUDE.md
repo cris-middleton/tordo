@@ -425,7 +425,7 @@ programador en la nube, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
     objeto: pedían `/codigo/undefined`. Rotas desde la actualización.
   - En un componente cliente el parámetro de ruta se lee con **`useParams()`**.
   - **Una licitación que no está responde 404 de verdad**: `licitaciones/[codigo]/layout.tsx`
-    pregunta al backend (`licitacionExiste`, como el visitante, 4 s de tope) y llama a
+    pregunta al backend (`licitacionExiste`, como el visitante, 2 s de tope) y llama a
     `notFound()` en el layout y no en `generateMetadata`, que puede salir con la respuesta ya
     empezada en 200. `licitaciones/not-found.tsx` dice que la retención la sacó y enlaza a
     Mercado Público; con el backend caído la ficha se pinta igual y el navegador reintenta.
@@ -1506,7 +1506,8 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   (`data_loader.ESTADOS_CANCELADOS`): `iter_oc_parquets` las quita al leer, enteras, antes de
   sanear y repartir el monto. Una orden cancelada no es un precio pagado ni una cuota de
   mercado. Hasta el 2026-10-21 sólo `sector_dashboard` las quitaba. Las piden con
-  `canceladas=True` `buyer_scoring` (su tasa de cancelación y el denominador) y el modelo de
+  `canceladas=True` `buyer_scoring` (sólo para su tasa de cancelación y su denominador: el
+  volumen, `n_oc_total`, las quita) y el modelo de
   referencia del harness (`tfidf_matcher`, `evaluation/`), cuyo entrenamiento no cambia. Una
   orden sin estado se queda. `etl/tests/test_canceladas.py` pasa un mercado entero de
   canceladas por cinco módulos y lo busca en cada salida.
@@ -1724,9 +1725,11 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
     abierta para la disponibilidad.
   - IPv6 cuenta por /64. Uvicorn arranca con `--no-proxy-headers`: la regla es una sola.
   - Las capas por clave de API y por cuota diaria se fueron con las cuentas.
-  - **Las exentas van en fila** (`MAX_EXENTAS_A_LA_VEZ` = 4): una ficha ISR se genera con el
-    slug que trae la URL, así que mil slugs inventados eran mil consultas que el límite no
-    contaba. No se rechazan (un error no se cachea): esperan turno.
+  - **Las exentas van en fila** (`MAX_EXENTAS_A_LA_VEZ` = 8; la portada sola pide cinco a la
+    vez): una ficha ISR se genera con el slug que trae la URL, así que mil slugs inventados
+    eran mil consultas que el límite no contaba. Esperan turno **como mucho 5 s**
+    (`ESPERA_MAXIMA_EXENTA_S`) y luego reciben 503 con `Retry-After`, que Next no cachea; sin
+    tope, la portada se cacheaba media hora sin sus bloques. `pedirPublico` corta a los 10 s.
 - **Endurecimiento de toda petición** (`app/core/endurecimiento.py`, el middleware más
   externo): cuerpo de 64 KB como mucho (413; lo único que recibe cuerpo es el MCP, cuyo SDK lo
   lee entero en memoria), ningún `%00` en ruta ni query (422: Postgres no admite el carácter 0
@@ -1749,7 +1752,7 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   detrás de un borde TLS simulado (`tests/borde_tls.py`). El proxy de Next (#155) sigue
   esquivando por host cualquier `Location` absoluto, pero ya no lo necesita para los propios.
 - **Todo parámetro público tiene cota** (`app/api/limites.py`): textos con `max_length`,
-  enteros con `le=`, `offset` hasta 100.000, ids dentro de un `integer` de Postgres (uno
+  enteros con `le=`, `offset` hasta 100.000, ids dentro de un `bigint` de Postgres (uno
   mayor llegaba a la base y volvía **500**), y como mucho 8 términos en la búsqueda (catálogo y
   Compra Ágil, `limites.MAX_TERMINOS`). `tests/test_parametros_acotados.py` recorre el OpenAPI y falla con un
   parámetro nuevo sin cota. **Y nada que se pida gratis carga una tabla entera**:
