@@ -699,7 +699,7 @@ ninguna página ni layout de grupo pinta cabecera, pie, `PieAtribucion` ni `<mai
 - **Un solo formato de montos: `monto()`** (`lib/formato.ts`; `formatCurrency` lo envuelve): «$825.000»,
   «$7,2 millones», «$1,5 mil millones», «$2,1 billones». Convivían «$825K», «$7,2M», «$1,5B» (en Chile un
   billón es 10¹²) y «$1.000K». `plata` (`lib/publico.ts`) redondea los millones a entero a propósito, para
-  las bandas de precio. Los de `/mercado` todavía escriben «CLP … M»: deuda de su pasada.
+  las bandas de precio. `/mercado` también pasa por `monto()`.
 - **Las Compras Ágiles se pintan con UNA fila**, `FilaCompraAgil`, en la portada (compacta), `/compra-agil`,
   `/buscar` y la ficha del comprador (con `historia`: región, órdenes de la unidad y «Abrir en Mercado
   Público», porque su dato no trae URL).
@@ -1669,20 +1669,18 @@ estos patrones, es señal de que hay que arreglar la causa, no de copiarlo:
     Columna generada y no índice por expresión, como `nombre_norm`; la expresión vive una vez, en
     `busqueda.sql_normalizado`, y el ETL la importa. Sin la columna (una tabla materializada antes),
     el nombre se normaliza al vuelo: mismo resultado, sin índice, hasta la semanal siguiente.
-  - **La vía de palabras tiene un límite conocido: el stemmer.** `plainto_tsquery('spanish',
-    'mesa')` es `'mes'`, el mismo lexema que «meses», así que «mesa» encuentra toda licitación
-    que diga «12 meses» en la descripción: en la copia local (4.706 licitaciones), **121 coincidencias, de las que 5
-    tienen una palabra que empieza por «mesa»**. Se queda así porque no hay un arreglo barato y
-    limpio: `busqueda` guarda sólo raíces, y distinguir «mesa» de «meses» exige las palabras
-    tal cual, que sólo están en el texto crudo. Exigir además que el texto (sin tildes) tenga
-    una palabra que empiece por el término —o que sea el término sin su «s»/«es» de plural,
-    para no perder «servicios» → «servicio»— funciona, pero se evalúa al vuelo sobre cada fila
-    que pasa la raíz, y `descripcion` no tiene índice: medido sobre 50.000 filas de 1.700
-    caracteres, **de 5 ms a 115 ms con 25.000 coincidencias y 270 ms con 50.000**, y el listado
-    lo hace dos veces (total y página). Lo limpio es un segundo `tsvector` con la configuración
-    `simple` (palabras sin raíz) y su GIN: una migración que reescribe `licitaciones`, otro
-    índice que mantener en cada carga del ETL y la regla del plural escrita a mano. Es una
-    decisión de producto, no un arreglo.
+  - **La vía de palabras corrige al stemmer** (`_empieza_alguna_palabra`, migración
+    `94f54e8e1fdf`). `plainto_tsquery('spanish', 'mesa')` es `'mes'`, el mismo lexema que
+    «meses», y «mesa» encontraba toda licitación de «12 meses»: en la copia local (4.706
+    licitaciones), 121 coincidencias de las que 5 eran mesas. Ahora cada palabra del término
+    tiene que, además, **empezar** alguna palabra de `busqueda_palabras` (el mismo texto con la
+    configuración `simple`, sin raíz) **o ser exactamente su singular** (sin «s»/«es»):
+    «servicios» encuentra «servicio» y «camiones», «camión»; el singular va exacto porque con
+    `mes:*` «meses» volvería a traer «mesas». Una palabra que el español descarta («de») no exige
+    nada. Con eso «mesa» da 5 y «computador» deja de traer «tomografía computada». **Sin índice
+    a propósito**: sólo filtra lo que encontró el GIN de `busqueda`, y comparar un tsvector
+    guardado es barato —medido sobre 50.000 filas de 1.700 caracteres, ~1 ms más con 50.000
+    coincidencias; la regex sobre `descripcion` que se descartó costaba 270 ms—.
   **El orden por relevancia también es Postgres** (`puntuacion_relevancia`: `ts_rank_cd`
   con todos los términos, que premia la cercanía, + `ts_rank` con cualquiera y sobre el
   nombre). Antes lo hacía el TF-IDF del ETL cargado en la API. **Relevancia ordena, no
