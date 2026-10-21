@@ -15,8 +15,10 @@ from __future__ import annotations
 import polars as pl
 import pytest
 
-from app.services.bi import competencia
+from app.services.bi import competencia, temporal
 from app.services.bi import rubro as svc_rubro
+from app.services.bi._base import clasificar_hhi
+from tests.analytics_en_memoria import AnalyticsEnMemoria
 
 RUBRO = "Servicios de aseo"
 
@@ -83,22 +85,16 @@ COMPETIDORES = pl.DataFrame(
 )
 
 
-def _stub(tablas: dict[str, pl.DataFrame]):
-    """Un `_load` que filtra y recorta como el de verdad."""
+def _instalar(monkeypatch, tablas: dict[str, pl.DataFrame]) -> AnalyticsEnMemoria:
+    """Las tablas en memoria para los servicios: lecturas, agregados y conteos.
 
-    def _load(nombre, *, filtros=None, columnas=None, **_):
-        df = tablas.get(nombre)
-        if df is None:
-            return None
-        if filtros:
-            for clave, valor in filtros.items():
-                if clave in df.columns:
-                    df = df.filter(pl.col(clave).cast(pl.Utf8) == str(valor))
-        if columnas:
-            df = df.select([c for c in columnas if c in df.columns])
-        return df
-
-    return _load
+    El agregado por proveedor va en SQL (`_agregado`, `_totales`): un doble que
+    sólo cambiara `_load` dejaría esas consultas yendo a la base de verdad.
+    """
+    datos = AnalyticsEnMemoria()
+    datos.tablas.update(tablas)
+    datos.instalar(monkeypatch, competencia, svc_rubro, temporal)
+    return datos
 
 
 @pytest.fixture
@@ -106,8 +102,7 @@ def mercado(monkeypatch):
     tablas = {
         "competitors_by_market.parquet": COMPETIDORES.with_columns(pl.lit(RUBRO).alias("RubroN2"))
     }
-    monkeypatch.setattr(competencia, "_load", _stub(tablas))
-    monkeypatch.setattr(svc_rubro, "_load", _stub(tablas))
+    _instalar(monkeypatch, tablas)
     return tablas
 
 
@@ -146,7 +141,7 @@ class TestCompetenciaDelRubro:
     def test_los_cortes_del_hhi_son_los_de_la_literatura(self, hhi, esperado):
         """1.500 y 2.500 son los umbrales de las guías de competencia (DOJ/FTC).
         Están aquí para que nadie los mueva por intuición."""
-        assert svc_rubro._clasificar_mercado(hhi) == esperado
+        assert clasificar_hhi(hhi) == esperado
 
 
 # ── Panorama: estacionalidad ─────────────────────────────────────────────────
@@ -159,9 +154,7 @@ class TestEstacionalidad:
             for org in ("A", "B")
             for i, c in enumerate(compras_por_mes)
         ]
-        monkeypatch.setattr(
-            svc_rubro, "_load", _stub({"seasonality_patterns.parquet": pl.DataFrame(filas)})
-        )
+        _instalar(monkeypatch, {"seasonality_patterns.parquet": pl.DataFrame(filas)})
 
     def test_suma_todos_los_compradores_del_rubro(self, monkeypatch):
         """La estacionalidad que existía era la de UN organismo. Para decidir
@@ -183,7 +176,7 @@ class TestEstacionalidad:
         assert e["mes_pico"] in ("Oct", "Nov", "Dic")
 
     def test_sin_datos_lo_dice(self, monkeypatch):
-        monkeypatch.setattr(svc_rubro, "_load", _stub({}))
+        _instalar(monkeypatch, {})
         assert svc_rubro._estacionalidad_del_rubro(RUBRO)["disponible"] is False
 
 
@@ -197,7 +190,7 @@ class TestPanorama:
     def test_un_rubro_sin_histórico_lo_dice_una_vez(self, monkeypatch):
         """Cuatro bloques vacíos obligan al frontend a decidir qué significa el
         conjunto. Una respuesta no disponible con motivo, no."""
-        monkeypatch.setattr(svc_rubro, "_load", _stub({}))
+        _instalar(monkeypatch, {})
         r = svc_rubro.get_panorama("Rubro que no existe")
         assert r["disponible"] is False
         assert "Rubro que no existe" in r["motivo"]

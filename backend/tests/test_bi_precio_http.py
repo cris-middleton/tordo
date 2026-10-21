@@ -84,6 +84,8 @@ def solo_nivel_4(monkeypatch):
         )
 
     monkeypatch.setattr(servicio_precio, "_load", _load)
+    # Sin columnas de L0/L0N: esos niveles no se consultan en la base de verdad.
+    monkeypatch.setattr(servicio_precio, "_columnas", lambda filename: set())
     monkeypatch.setattr(settings, "feature_analytics", True)
 
 
@@ -144,6 +146,8 @@ async def test_la_unidad_de_medida_llega_al_cliente(cliente, monkeypatch):
         )
 
     monkeypatch.setattr(servicio_precio, "_load", _load)
+    # Sin columnas de L0/L0N: esos niveles no se consultan en la base de verdad.
+    monkeypatch.setattr(servicio_precio, "_columnas", lambda filename: set())
     monkeypatch.setattr(settings, "feature_analytics", True)
 
     r = await cliente.get(

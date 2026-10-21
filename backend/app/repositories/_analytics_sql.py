@@ -50,33 +50,15 @@ def sql_columnas() -> str:
     )
 
 
-def sql_consulta(
-    tabla: str,
-    *,
+def _donde(
     filtros: dict[str, Any] | None = None,
     minimos: dict[str, float] | None = None,
-    columnas: list[str] | None = None,
-    orden: str | None = None,
-    descendente: bool = True,
-    limite: int | None = None,
-    schema: str = SCHEMA,
 ) -> tuple[str, dict[str, Any]]:
-    """Devuelve (sql, params).
+    """La cláusula WHERE (con su « WHERE » delante, o vacía) y sus parámetros.
 
-    Los filtros son igualdades por columna; un valor None significa "IS NULL".
-    Los valores van siempre como parámetros ligados, nunca interpolados.
-
-    Cuando el valor es una lista o tupla se genera un `IN`, que es lo que hace
-    falta para los filtros por varios rubros u organismos a la vez.
-
-    `minimos` son cotas inferiores (`col >= valor`). Existen porque filtrar en
-    Polars DESPUÉS de traer la tabla mataba la API por memoria (`/mercado`, spec
-    del rediseño §8.2), y filtrar después de un `LIMIT` cambiaba la respuesta.
-    Un NULL no pasa un mínimo, igual que en Polars.
+    Una sola construcción para todas las consultas: los filtros de una lectura,
+    de un conteo y de un agregado tienen que significar lo mismo.
     """
-    proyeccion = ", ".join(ident(c) for c in columnas) if columnas else "*"
-    sql = f"SELECT {proyeccion} FROM {tabla_calificada(tabla, schema)}"
-
     params: dict[str, Any] = {}
     clausulas: list[str] = []
     for i, (col, valor) in enumerate((filtros or {}).items()):
@@ -102,18 +84,150 @@ def sql_consulta(
         clave = f"m{i}"
         clausulas.append(f"{ident(col)} >= :{clave}")
         params[clave] = valor
-    if clausulas:
-        sql += " WHERE " + " AND ".join(clausulas)
+    return (" WHERE " + " AND ".join(clausulas) if clausulas else ""), params
+
+
+def sql_consulta(
+    tabla: str,
+    *,
+    filtros: dict[str, Any] | None = None,
+    minimos: dict[str, float] | None = None,
+    columnas: list[str] | None = None,
+    orden: str | None = None,
+    descendente: bool = True,
+    desempate_texto: str | None = None,
+    limite: int | None = None,
+    schema: str = SCHEMA,
+) -> tuple[str, dict[str, Any]]:
+    """Devuelve (sql, params).
+
+    Los filtros son igualdades por columna; un valor None significa "IS NULL".
+    Los valores van siempre como parámetros ligados, nunca interpolados.
+
+    Cuando el valor es una lista o tupla se genera un `IN`, que es lo que hace
+    falta para los filtros por varios rubros u organismos a la vez.
+
+    `minimos` son cotas inferiores (`col >= valor`). Existen porque filtrar en
+    Polars DESPUÉS de traer la tabla mataba la API por memoria (`/mercado`, spec
+    del rediseño §8.2), y filtrar después de un `LIMIT` cambiaba la respuesta.
+    Un NULL no pasa un mínimo, igual que en Polars.
+
+    `desempate_texto` es un segundo criterio, ascendente y por bytes
+    (`COLLATE "C"`, como ordena Polars), antes de `ctid`: hace falta cuando el
+    `LIMIT` corta en un empate de `orden` y el desempate de siempre era una
+    columna de texto, no el orden de carga.
+    """
+    proyeccion = ", ".join(ident(c) for c in columnas) if columnas else "*"
+    donde, params = _donde(filtros, minimos)
+    sql = f"SELECT {proyeccion} FROM {tabla_calificada(tabla, schema)}{donde}"
 
     if orden or limite:
         criterios = (
             [f"{ident(orden)} {'DESC' if descendente else 'ASC'} NULLS LAST"] if orden else []
         )
+        if desempate_texto:
+            criterios.append(f'{ident(desempate_texto)} COLLATE "C" ASC')
         sql += " ORDER BY " + ", ".join([*criterios, DESEMPATE])
     if limite:
         sql += f" LIMIT {int(limite)}"
 
     return sql, params
+
+
+def sql_contar_filas(
+    tabla: str,
+    *,
+    filtros: dict[str, Any] | None = None,
+    schema: str = SCHEMA,
+) -> tuple[str, dict[str, Any]]:
+    """Cuántas filas cumplen los filtros, sin traerlas."""
+    donde, params = _donde(filtros)
+    return f"SELECT count(*) FROM {tabla_calificada(tabla, schema)}{donde}", params
+
+
+def _sql_grupos(
+    tabla: str,
+    clave: str,
+    *,
+    filtros: dict[str, Any] | None,
+    sumas: list[str],
+    distintos: list[str] = (),
+    primeros: list[str] = (),
+    schema: str,
+) -> tuple[str, dict[str, Any]]:
+    """Una fila por valor de `clave`: las `sumas`, los `distintos` contados y el
+    PRIMER valor de cada columna de `primeros` en el orden de carga (`ctid`), que
+    es lo que daba `.first()` de Polars sobre la tabla leída sin ordenar."""
+    donde, params = _donde(filtros)
+    columnas = [f"{ident(clave)} AS {ident(clave)}"]
+    columnas += [f"sum({ident(c)})::double precision AS {ident(c)}" for c in sumas]
+    columnas += [f"count(DISTINCT {ident(c)}) AS {ident('distintos_' + c)}" for c in distintos]
+    columnas += [f"(array_agg({ident(c)} ORDER BY {DESEMPATE}))[1] AS {ident(c)}" for c in primeros]
+    sql = (
+        f"SELECT {', '.join(columnas)} FROM {tabla_calificada(tabla, schema)}{donde} "
+        f"GROUP BY {ident(clave)}"
+    )
+    return sql, params
+
+
+def sql_agregado(
+    tabla: str,
+    clave: str,
+    *,
+    filtros: dict[str, Any] | None = None,
+    sumas: list[str],
+    distintos: list[str] = (),
+    primeros: list[str] = (),
+    limite: int,
+    schema: str = SCHEMA,
+) -> tuple[str, dict[str, Any]]:
+    """Los `limite` grupos de más `sumas[0]`, agregados en Postgres.
+
+    Existe por `competitors_by_market`, que tiene una fila por (organismo,
+    rubro, proveedor): cualquier cifra de un rubro o de un organismo agrega por
+    proveedor primero, y hacerlo en Polars traía a la API todas las filas del
+    rubro para devolver diez. Empates por la clave, por bytes, como Polars.
+    """
+    grupos, params = _sql_grupos(
+        tabla,
+        clave,
+        filtros=filtros,
+        sumas=sumas,
+        distintos=distintos,
+        primeros=primeros,
+        schema=schema,
+    )
+    sql = (
+        f"{grupos} ORDER BY {ident(sumas[0])} DESC NULLS LAST, "
+        f'{ident(clave)} COLLATE "C" ASC LIMIT {int(limite)}'
+    )
+    return sql, params
+
+
+def sql_totales(
+    tabla: str,
+    clave: str,
+    *,
+    filtros: dict[str, Any] | None = None,
+    sumas: list[str],
+    distintos: list[str] = (),
+    schema: str = SCHEMA,
+) -> tuple[str, dict[str, Any]]:
+    """Los totales del mismo agregado: cuántos grupos hay, la suma de cada
+    columna de `sumas`, la suma de los CUADRADOS de `sumas[0]` por grupo (con
+    ella sale el HHI sin traer los grupos) y los `distintos` sobre las filas.
+    """
+    grupos, params = _sql_grupos(tabla, clave, filtros=filtros, sumas=sumas, schema=schema)
+    columnas = ["count(*) AS grupos"]
+    columnas += [f"sum(g.{ident(c)}) AS {ident(c)}" for c in sumas]
+    columnas.append(f"sum(g.{ident(sumas[0])} * g.{ident(sumas[0])}) AS cuadrados")
+    donde, _ = _donde(filtros)
+    columnas += [
+        f"(SELECT count(DISTINCT {ident(c)}) FROM {tabla_calificada(tabla, schema)}{donde}) "
+        f"AS {ident('distintos_' + c)}"
+        for c in distintos
+    ]
+    return f"SELECT {', '.join(columnas)} FROM ({grupos}) AS g", params
 
 
 def sql_contar_por(
@@ -146,14 +260,23 @@ def sql_contar_por(
     return sql, params
 
 
-def sql_distintos(tabla: str, columna: str, *, schema: str = SCHEMA) -> str:
-    """Los valores distintos y no nulos de una columna.
+def sql_distintos(
+    tabla: str,
+    columna: str,
+    *,
+    filtros: dict[str, Any] | None = None,
+    schema: str = SCHEMA,
+) -> tuple[str, dict[str, Any]]:
+    """Los valores distintos y no nulos de una columna, con filtros opcionales.
 
-    Existe para preguntar «¿qué rubros tienen filas?» sin traer las filas: en
-    `competitors_by_market` serían millones para quedarse con unos cientos.
+    Existe para preguntar «¿qué rubros tienen filas?» —o «¿qué compradores tiene
+    este rubro?»— sin traer las filas: en `competitors_by_market` serían
+    millones para quedarse con unos cientos.
     """
     col = ident(columna)
-    return f"SELECT DISTINCT {col} FROM {tabla_calificada(tabla, schema)} WHERE {col} IS NOT NULL"
+    donde, params = _donde(filtros)
+    condicion = f"{donde} AND {col} IS NOT NULL" if donde else f" WHERE {col} IS NOT NULL"
+    return f"SELECT DISTINCT {col} FROM {tabla_calificada(tabla, schema)}{condicion}", params
 
 
 def sql_busqueda_texto(

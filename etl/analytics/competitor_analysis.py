@@ -188,11 +188,15 @@ def compute_market_shares(markets: pl.DataFrame) -> pl.DataFrame:
                 (pl.col("n_oc") / pl.col("oc_mercado") * 100).alias("win_rate_pct"),
             ]
         )
-        # Ranking dentro de cada mercado
+        # Ranking dentro de cada mercado. **`method="min"`**: con el método por
+        # defecto (`average`) dos proveedores empatados en el 2.º puesto salían
+        # con 2,5, la columna era Float64 y la API, que declara un entero,
+        # respondía 500. Con `min` los dos son 2.º y el siguiente es 4.º, como
+        # en una tabla de posiciones.
         .with_columns(
             [
                 pl.col("monto_total")
-                .rank(descending=True)
+                .rank(method="min", descending=True)
                 .over(["CodigoOrganismoPublico", "RubroN2"])
                 .alias("rank_monto"),
             ]

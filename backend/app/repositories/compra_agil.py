@@ -406,6 +406,10 @@ async def destacadas(
     Con historia, una unidad que no figura vale `COMPRADOR_SIN_ORDENES`; sin ella,
     todas valen el neutro y ninguna lleva `tiene_historia`.
     """
+    # Un código vacío o de espacios (`?codigo_organismo=`) es «sin filtro», no
+    # «el comprador sin código»: comparado tal cual no casaba con nada y la
+    # respuesta era una lista vacía.
+    codigo_organismo = (codigo_organismo or "").strip() or None
     if con_historia is None:
         con_historia = await hay_historia_de_unidades(db)
     if codigo_organismo is not None and not await existe_tabla(db, TABLA_RUT):
@@ -461,7 +465,7 @@ async def destacadas(
     for termino in terminos or []:
         consulta = consulta.where(coincide_termino(termino))
     if codigo_organismo is not None:
-        consulta = consulta.where(ruts.c.CodigoOrganismoPublico == codigo_organismo.strip())
+        consulta = consulta.where(ruts.c.CodigoOrganismoPublico == codigo_organismo)
 
     # Empates (los ceros incluidos) por tiempo × monto: una unidad ausente da puntaje
     # 0 sea cual sea el tiempo o el monto, y sin esto el fondo quedaría por cierre.

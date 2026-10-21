@@ -60,6 +60,24 @@ class Registro(AnalyticsEnMemoria):
         self.lecturas.append({"tabla": filename, "limite": MAX_FILAS_BUSQUEDA, "busqueda": columna})
         return super()._buscar(filename, columna, texto, **kwargs)
 
+    # Los agregados viajan con su filtro: se registran con él, y uno sin filtro
+    # (todo el país) haría fallar la guarda igual que una lectura entera.
+    def _agregado(self, filename, clave, **kwargs):
+        self.lecturas.append({"tabla": filename, "agregado": clave, **kwargs})
+        return super()._agregado(filename, clave, **kwargs)
+
+    def _totales(self, filename, clave, **kwargs):
+        self.lecturas.append({"tabla": filename, "totales": clave, **kwargs})
+        return super()._totales(filename, clave, **kwargs)
+
+    def _distintos(self, filename, columna, **kwargs):
+        self.lecturas.append({"tabla": filename, "distintos": columna, **kwargs})
+        return super()._distintos(filename, columna, **kwargs)
+
+    def _contar_filas(self, filename, **kwargs):
+        self.lecturas.append({"tabla": filename, "contar": True, **kwargs})
+        return super()._contar_filas(filename, **kwargs)
+
 
 def _oportunidad(codigo: str, rubro: str, score: float) -> dict:
     return {
@@ -394,3 +412,32 @@ def test_forecast_sin_datos(pronostico):
     res = competencia.get_forecast_competidores("999", "Nada", "9")
 
     assert res == {"disponible": False, "motivo": "sin datos para los parámetros solicitados"}
+
+
+# ── competitors_by_market: se agrega en SQL, no se trae ──────────────────────
+
+
+@pytest.mark.parametrize(
+    "llamada",
+    [
+        lambda: bi.get_panorama("Válvulas electrónicas"),
+        lambda: bi.get_resumen("Válvulas electrónicas"),
+        lambda: bi.get_competidores("7084"),
+        lambda: bi.get_licitacion_panel("2405-24-B226", organismo_id="7084"),
+    ],
+    ids=["panorama", "resumen", "competidores-sin-rubro", "panel"],
+)
+def test_competitors_by_market_se_agrega_en_sql(fixture_en_memoria, llamada):
+    """Una fila por (organismo, rubro, proveedor): un rubro son miles de filas.
+    `/mercado` con un rubro las traía tres veces a la API (panorama, compradores
+    a vigilar y resumen) para devolver diez proveedores; ahora sólo viajan
+    agregados, valores distintos o una página con tope."""
+    llamada()
+
+    lecturas = [
+        x for x in fixture_en_memoria.lecturas if x["tabla"] == "competitors_by_market.parquet"
+    ]
+    assert lecturas, "no se registró ninguna lectura de competitors_by_market"
+    for lectura in lecturas:
+        acotada = {"agregado", "totales", "distintos"} & set(lectura) or lectura.get("limite")
+        assert acotada, f"competitors_by_market se trae fila a fila: {lectura}"
