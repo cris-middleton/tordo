@@ -35,7 +35,7 @@ export function BuscadorPortada() {
       <h1 className="text-balance text-[36px] leading-[1.05] tracking-tight text-text lg:text-[48px]">{TITULO_PORTADA}</h1>
       <p className="mt-4 max-w-[40ch] text-lg leading-relaxed text-muted">{SUBTITULO_PORTADA}</p>
 
-      <form method="get" action="/buscar" role="search" className="mt-6 flex flex-col gap-2 sm:flex-row">
+      <form method="get" action="/buscar" role="search" className="mt-6 flex flex-col gap-2 sm:flex-row lg:flex-col xl:flex-row">
         <input
           id="buscar-portada"
           aria-label={ETIQUETA_BUSCADOR}
