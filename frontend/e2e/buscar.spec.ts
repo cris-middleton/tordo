@@ -51,7 +51,7 @@ test('un producto: su banda, quién lo compra y la Compra Ágil que coincide', a
     '/productos/guante-nitrilo-prueba',
   );
   // La misma lectura que la ficha: conclusión de la unidad más comprada, cifras y método.
-  await expect(precios.getByText(/^Por caja: la mitad se pagó/)).toBeVisible();
+  await expect(precios.getByText(/^Por caja: la mitad de las compras se pagó/)).toBeVisible();
   // Cuántos organismos hay detrás de la banda, y de cuándo es (el pie de método).
   await expect(precios.getByText('60 compras de 6 organismos', { exact: true })).toBeVisible();
   await expect(precios.getByText(/60 compras de 6 compradores, abr 2025 a mar 2026/)).toBeVisible();
