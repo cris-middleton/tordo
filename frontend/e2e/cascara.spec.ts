@@ -189,7 +189,7 @@ test('en móvil, la búsqueda de cada pantalla queda en la primera pantalla', as
   await page.setViewportSize(MOVIL);
   const campos = [
     { ruta: '/productos', campo: () => page.locator('#buscar-producto') },
-    { ruta: '/licitaciones', campo: () => page.getByPlaceholder(/nombre, organismo o descripción/i) },
+    { ruta: '/licitaciones', campo: () => page.getByPlaceholder(/producto o comprador/i) },
   ];
   for (const { ruta, campo } of campos) {
     await page.goto(ruta);
@@ -237,7 +237,7 @@ test('/mercado a 390 px: un tooltip abierto con el teclado queda dentro de la pa
 
 const PANTALLAS = [
   { ruta: '/mercado', titulo: /^mercados$/i },
-  { ruta: '/licitaciones', titulo: /^licitaciones$/i },
+  { ruta: '/licitaciones', titulo: /^licitaciones y compras ágiles$/i },
 ];
 
 for (const tema of ['claro', 'oscuro'] as const) {

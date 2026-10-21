@@ -168,7 +168,7 @@ function CatalogoContenido() {
           <input
             type="search"
             aria-label="Buscar licitaciones"
-            placeholder="Producto o comprador: resmas, municipalidad…"
+            placeholder="Producto o comprador"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={handleKeywordKeyDown}
