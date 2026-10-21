@@ -21,7 +21,7 @@ from etl.analytics.competitor_analysis import (
     compute_market_concentration,
     compute_market_shares,
 )
-from etl.analytics.identidad import nombre_vigente
+from etl.analytics.identidad import nombre_vigente, periodo_maximo, periodo_minimo
 
 RUBRO = "Suministros de oficina"
 
@@ -181,3 +181,31 @@ class TestNombreVigente:
         )
         r = df.group_by("codigo").agg(nombre_vigente("nombre"))
         assert r.row(0, named=True)["nombre"] == "NUEVO"
+
+    def test_el_periodo_se_ordena_por_fecha_y_no_como_texto(self):
+        """El período real es «2025-9», sin cero: como texto, «2025-9» > «2025-12»."""
+        df = pl.DataFrame(
+            {
+                "codigo": ["A", "A", "A"],
+                "nombre": ["GOBERNACION", "DELEGACION", None],
+                "_periodo_archivo": ["2025-9", "2025-12", "2026-1"],
+            }
+        )
+        r = df.group_by("codigo").agg(
+            nombre_vigente("nombre"), periodo_maximo(), periodo_minimo().alias("desde")
+        )
+        fila = r.row(0, named=True)
+        assert fila["nombre"] == "DELEGACION"
+        assert fila["_periodo_archivo"] == "2026-1"
+        assert fila["desde"] == "2025-9"
+
+    def test_un_grupo_sin_ningun_nombre_no_rompe_la_agregacion(self):
+        df = pl.DataFrame(
+            {
+                "codigo": ["A", "B"],
+                "nombre": ["NUEVO", None],
+                "_periodo_archivo": ["2024-3", "2024-4"],
+            }
+        )
+        r = dict(df.group_by("codigo").agg(nombre_vigente("nombre")).iter_rows())
+        assert r == {"A": "NUEVO", "B": None}

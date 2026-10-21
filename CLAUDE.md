@@ -1376,7 +1376,9 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
     anterior y lo que se ve ahora. No hay historia previa: se llena desde el despliegue.
   - La Compra Ágil ingerida trae el RUT del comprador, no su código: se traduce con las OC
     (`RutUnidadCompra` → `CodigoOrganismoPublico`, el más frecuente). Lo que no se traduce
-    cuenta igual, con código nulo.
+    cuenta igual, con código nulo, y **el código nulo es una clave más** al acumular
+    (`join_nulls=True`): sin eso no casaba con el de la semana anterior y cada corrida añadía
+    otra fila (nulo, mes). Las ya duplicadas se colapsan al leer la tabla anterior, con el máximo.
 - **«Abierta» tiene una sola definición: `esta_abierta()`** (`repositories/licitaciones.py`):
   publicada y con cierre futuro o sin cierre, siempre sobre `activo`. La usan el orden del
   catálogo, el filtro `abiertas` de `GET /tenders/` (`/licitaciones?abiertas=1`), la cuenta de
@@ -1398,6 +1400,12 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   `codigo_externo`. **Las tablas de analytics no tienen clave única**: `sql_consulta` y
   `sql_busqueda_texto` terminan en `ctid` (`_analytics_sql.DESEMPATE`), la fila física, que no
   cambia mientras la tabla no se reescriba —el pipeline la reemplaza entera cada semana—.
+- **La serie de gasto (`time_series`, `trend_by_market`) cuenta por mes de CREACIÓN y sólo
+  meses completos** (`trend_analysis.py`): desde el período del primer archivo leído hasta el
+  penúltimo (el último es el mes en curso). Por mes de archivo, el primer mes de la ventana
+  perdía las órdenes creadas antes de ella (un 9 % del archivo, medido en local). La regresión
+  rellena con ceros los meses sin compras, y el CAGR compara el primer y el último **año de
+  calendario** del rango; con menos de 24 meses va nulo (`opportunity_scorer` le pone su neutro).
 - **Analytics lee una VENTANA de historia, no toda** (`data_loader.VENTANA_ANALYTICS_MESES` = 36;
   las bandas de precio por producto, `VENTANA_BANDAS_PRECIO_MESES` = 12). Medido: **cada**
   módulo sube de RAM con los meses de historia —de 0,04 GB/mes (clustering, hoy retirado) a
@@ -1517,6 +1525,18 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   mentira: 7 de 11 tablas materializadas tenían su clave natural duplicada. El nombre se
   arrastra con `nombre_vigente()`, que se queda con el **más reciente** — un organismo
   renombrado debe salir con su nombre de hoy, y el más frecuente sería siempre el viejo.
+  - **«Más reciente» es por fecha, no por texto.** `_periodo_archivo` es el nombre del ZIP,
+    «2026-3», sin cero: como texto «2025-9» > «2025-12». `nombre_vigente`, `periodo_maximo` y
+    `periodo_minimo` ordenan por `clave_periodo` (año·12 + mes); hasta el 2026-10-21 una ventana
+    que cruzaba septiembre y diciembre se quedaba con el nombre de septiembre, y
+    `provider_diversification.ultimo_periodo` decía «2026-9» a quien vendió en octubre.
+  - Lo cumplen también las bandas de precio L0–L3, `competitor_forecast_l1` y
+    `buyer_transparency`, que agrupaban por nombre de organismo, de sector o de producto. El
+    nombre genérico de un producto llega truncado de dos formas («…personal sanitari»): 770
+    códigos traen dos nombres el mismo mes. **La excepción es Convenio Marco**: toda su línea
+    lleva el código de producto «0» (400.896 de 2,48 M líneas en los seis meses locales) y el
+    producto es su nombre de catálogo, así que L1–L3 agrupan por `_producto` (el código, o «0|»
+    más el nombre). Las tablas conservan sus columnas y su orden.
 - **El HHI tiene una invariante aritmética: con *n* proveedores no puede bajar de 10.000/*n*,
   y la cuota del líder no puede quedar por debajo de 100/*n*.** Las dos se violaban a la vez
   —13,6 % y 98,7 % de las filas— y por separado cada número parecía razonable. De 5.675
@@ -1548,7 +1568,9 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   real 1,63 días— y el producto lo publicaba como plazo de pago en la pantalla, en el correo
   y en la landing. Se renombró a `*_aceptacion` en todas partes y **no se muestra como cifra
   suelta**: sólo como bandera cuando se sale de rango. Lo que sí sale del dato y decide algo
-  es `tasa_adjudicacion` (cuánto de lo que llama termina adjudicando). `Forma de Pago`
+  es `tasa_adjudicacion` (cuánto de lo que llama termina adjudicando), **contada por
+  licitación**: el archivo trae una fila por (línea, oferta), y por filas daba 93,2 % donde
+  por licitaciones es 84,2 % (42 meses). Igual `prom_oferentes` y `pct_trato_directo`. `Forma de Pago`
   tampoco sirve de sustituto: el 98,7 % de las órdenes dice lo mismo.
   **La landing fue el último sitio en soltarla**, y estuvo meses prometiéndola después de que
   el correo y el panel del comprador ya la hubieran retirado: `MockupAviso` mostraba «Paga a

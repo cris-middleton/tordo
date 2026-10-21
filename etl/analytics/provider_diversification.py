@@ -41,6 +41,7 @@ import polars as pl
 
 from .config import OUTPUT_DIR
 from .data_loader import iter_oc_parquets
+from .identidad import periodo_maximo, periodo_minimo
 
 logger = logging.getLogger(__name__)
 
@@ -130,8 +131,9 @@ def build_provider_metrics() -> pl.DataFrame:
                     pl.col("_periodo_archivo").n_unique().alias("n_periodos"),
                     pl.col("Codigo").n_unique().alias("n_oc"),
                     pl.col("monto").sum().alias("monto_total"),
-                    pl.col("_periodo_archivo").min().alias("primer_periodo"),
-                    pl.col("_periodo_archivo").max().alias("ultimo_periodo"),
+                    # Por fecha, no como texto: «2025-9» > «2025-12».
+                    periodo_minimo().alias("primer_periodo"),
+                    periodo_maximo().alias("ultimo_periodo"),
                 ]
             )
             period_frames.append(prd)
@@ -153,8 +155,8 @@ def build_provider_metrics() -> pl.DataFrame:
                 pl.col("n_oc").sum(),
                 pl.col("monto_total").sum(),
                 pl.col("n_periodos").sum().alias("n_periodos_activo"),
-                pl.col("primer_periodo").min(),
-                pl.col("ultimo_periodo").max(),
+                periodo_minimo("primer_periodo"),
+                periodo_maximo("ultimo_periodo"),
             ]
         )
         .filter(pl.col("n_oc") >= MIN_OC)
