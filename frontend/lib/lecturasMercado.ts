@@ -131,17 +131,17 @@ export interface LecturaConcentracion {
 export const pesosDeCadaDiez = (parte: number) => Math.round(parte * 10);
 
 /**
- * «5 de cada 10 pesos se compran en mercados donde un solo proveedor se lleva la
+ * «5 de cada 10 pesos se gastan en mercados donde un solo proveedor se lleva la
  * mitad o más.» Los bordes del redondeo con palabras, como en los cierres: nunca
  * «0 de cada 10» ni «10 de cada 10» de algo que no lo es.
  */
 export function fraseConcentracion(parte: number): string {
   const n = pesosDeCadaDiez(parte);
-  const cola = 'se compran en mercados donde un solo proveedor se lleva la mitad o más';
+  const cola = 'se gastan en mercados donde un solo proveedor se lleva la mitad o más';
   if (parte === 0) return 'Ningún mercado tiene un proveedor que se lleve la mitad o más';
   if (n === 0) return `Menos de 1 de cada 10 pesos ${cola}`;
-  if (n === 10) return `Casi todo el monto ${cola.replace('se compran', 'se compra')}`;
-  if (n === 1) return `1 de cada 10 pesos ${cola.replace('se compran', 'se compra')}`;
+  if (n === 10) return `Casi todo el monto ${cola.replace('se gastan', 'se gasta')}`;
+  if (n === 1) return `1 de cada 10 pesos ${cola.replace('se gastan', 'se gasta')}`;
   return `${n} de cada 10 pesos ${cola}`;
 }
 
@@ -166,7 +166,7 @@ export function lecturaConcentracion(mercado: MercadoPortada | null, repositorio
     conclusion: fraseConcentracion(parte),
     grafico: { tramos },
     pie:
-      `${entero(c.mercados)} mercados${periodo ? `, ${periodo}` : ''}: cada uno es un comprador comprando en un rubro. ` +
+      `${entero(c.mercados)} mercados${periodo ? `, ${periodo}` : ''}: cada uno es lo que un comprador compra en un rubro. ` +
       `La altura es lo que se compró en ellos; el tramo, cuánto se lleva el proveedor que más vende. ` +
       `En ${entero(c.un_proveedor)} de ellos hay un solo proveedor.`,
     enlaces: enlacesDeMetodo(METODO_CONCENTRACION, {

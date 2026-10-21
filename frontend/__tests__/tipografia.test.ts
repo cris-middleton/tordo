@@ -7,17 +7,17 @@ import { describe, expect, it } from 'vitest';
 /**
  * La tipografía de la identidad (docs/IDENTIDAD_Y_PORTADA_2026-10.md §4), fijada:
  *
- * - **Archivo** (`--font-sans`) para todo. Los titulares —`h1`, `h2` y la clase
- *   `font-display`— van semiexpandidos (`font-stretch: 112.5%`) y en 800; el resto, a
- *   ancho normal. **Nunca un número en `font-display`.**
+ * - **Libre Franklin** (`--font-titular`) sólo para los titulares —`h1`, `h2` y la clase
+ *   `font-display`—, en 800. **Nunca un número en `font-display`**: no trae cifras tabulares.
+ * - **Public Sans** (`--font-sans`) para todo lo demás: cuerpo, interfaz y cifras.
  * - **IBM Plex Mono** (`--font-mono`, `font-mono`) sólo para identificadores,
  *   cargada en 400 y 500.
  * - **Varien**, sólo la marca (sin cambio, `@font-face` propio).
  *
- * Lo que se rompe sin que falle nada más: un precio semiexpandido (`cifra` junto a
+ * Lo que se rompe sin que falle nada más: un precio en la fuente del titular (`cifra` junto a
  * `font-display`, o un `fontFamily` en línea que le gana a `.cifra`), un titular que
  * vuelve a 700 porque alguien le puso `font-bold`, una etiqueta en un h2 que sale
- * expandida, y una negrita sintética en mono (600 no está cargado). El navegador lo
+ * como titular, y una negrita sintética en mono (600 no está cargado). El navegador lo
  * comprueba además en `e2e/tipografia.spec.ts`.
  */
 
@@ -49,37 +49,40 @@ function archivosTsx(dir: string): string[] {
 const FUENTES = ['app', 'components'].flatMap((c) => archivosTsx(join(RAIZ, c)));
 
 describe('familias tipográficas', () => {
-  it('layout.tsx carga Archivo (con el eje de ancho) e IBM Plex Mono, y nada más', () => {
-    expect(layout).toMatch(/import\s*\{\s*Archivo,\s*IBM_Plex_Mono\s*\}\s*from\s*'next\/font\/google'/);
-    expect(layout).toMatch(/Archivo\(\{[^}]*variable:\s*'--font-sans'/);
-    expect(layout).toMatch(/Archivo\(\{[^}]*axes:\s*\['wdth'\]/);
+  it('layout.tsx carga Libre Franklin, Public Sans e IBM Plex Mono, y nada más', () => {
+    expect(layout).toMatch(
+      /import\s*\{\s*IBM_Plex_Mono,\s*Libre_Franklin,\s*Public_Sans\s*\}\s*from\s*'next\/font\/google'/,
+    );
+    expect(layout).toMatch(/Libre_Franklin\(\{[^}]*variable:\s*'--font-titular'/);
+    expect(layout).toMatch(/Public_Sans\(\{[^}]*variable:\s*'--font-sans'/);
+    expect(layout).toMatch(/Public_Sans\(\{[^}]*style:\s*\['normal',\s*'italic'\]/);
     expect(layout).toMatch(/IBM_Plex_Mono\(\{[^}]*variable:\s*'--font-mono'/);
     expect(layout).toMatch(/IBM_Plex_Mono\(\{[^}]*weight:\s*\['400',\s*'500'\]/);
   });
 
-  it('se fueron Newsreader, Public Sans, DM Sans y la variable --font-display', () => {
-    expect(layout).not.toMatch(/\bNewsreader\b|\bPublic_Sans\b|\bDM_Sans\b|--font-display|--font-dm-sans/);
+  it('se fueron Newsreader, Archivo, DM Sans y la variable --font-display', () => {
+    expect(layout).not.toMatch(/\bNewsreader\b|\bArchivo\b|\bDM_Sans\b|--font-display|--font-dm-sans/);
     const infractores = [join(RAIZ, 'app', 'globals.css'), join(RAIZ, 'tailwind.config.js'), ...FUENTES]
-      .filter((f) => /Newsreader|Public Sans|--font-display|--font-dm-sans/.test(readFileSync(f, 'utf8')))
+      .filter((f) => /Newsreader|font-stretch|--font-display|--font-dm-sans/.test(readFileSync(f, 'utf8')))
       .map((f) => relative(RAIZ, f));
     expect(infractores).toEqual([]);
   });
 
-  it('tailwind: sans y display son la misma familia (Archivo); mono, Plex Mono', () => {
+  it('tailwind: sans es Public Sans, display es Libre Franklin (y cae a Public Sans); mono, Plex Mono', () => {
     const config = createRequire(__filename)(join(RAIZ, 'tailwind.config.js'));
     const familias = config.theme.extend.fontFamily;
     expect(familias.sans[0]).toBe('var(--font-sans)');
-    expect(familias.display[0]).toBe('var(--font-sans)');
+    expect(familias.display.slice(0, 2)).toEqual(['var(--font-titular)', 'var(--font-sans)']);
     expect(familias.mono[0]).toBe('var(--font-mono)');
     expect(familias.display).not.toContain('serif');
   });
 });
 
-describe('titulares: h1 y h2 semiexpandidos y en 800', () => {
-  it('font-display fija el ancho (112,5 %) y el peso (800); font-sans vuelve al ancho normal', () => {
-    expect(regla('.font-display')).toMatch(/font-stretch:\s*112\.5%/);
+describe('titulares: h1 y h2 en Libre Franklin y en 800', () => {
+  it('font-display fija el peso (800) y aprieta; font-sans vuelve al espaciado normal', () => {
     expect(regla('.font-display')).toMatch(/font-weight:\s*800/);
-    expect(regla('.font-sans')).toMatch(/font-stretch:\s*100%/);
+    expect(regla('.font-display')).toMatch(/letter-spacing:\s*-0\.015em/);
+    expect(regla('.font-sans')).toMatch(/letter-spacing:\s*normal/);
   });
 
   it('la regla base aplica font-display a h1 y h2, y a nada más', () => {
@@ -87,7 +90,7 @@ describe('titulares: h1 y h2 semiexpandidos y en 800', () => {
       m[1].trim().replace(/\s+/g, ' '),
     );
     // `.section-title` y `.page-title` NO: van en h1/h2 (que ya son titulares) y en
-    // h3 (BuyerProfilePanel, CompetitorsList…), que tienen que quedar a ancho normal.
+    // h3 (BuyerProfilePanel, CompetitorsList…), que tienen que quedar en la del texto.
     expect(selectores).toEqual(['h1, h2']);
   });
 
@@ -125,7 +128,7 @@ describe('titulares: h1 y h2 semiexpandidos y en 800', () => {
   });
 });
 
-describe('cifras: Archivo con tnum', () => {
+describe('cifras: Public Sans con tnum', () => {
   it('.cifra va sobre --font-sans con cifras tabulares', () => {
     const cuerpo = regla('.cifra');
     expect(cuerpo).toMatch(/font-family:\s*var\(--font-sans\)/);

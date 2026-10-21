@@ -153,3 +153,62 @@ describe('§6.1: sin exclamaciones en los textos de la portada', () => {
     expect(exclamaciones('const b = {a: 1}; if (!c) { d(); }')).toEqual([]);
   });
 });
+
+/**
+ * docs/VOZ.md §3 y §4, en lo que se puede comprobar sin leer: las muletillas de folleto
+ * («Descubre», «a un clic»…) y las palabras que el vocabulario fijo sustituyó («la mitad
+ * central», «Tope de Compra Ágil», el titular ambiguo de la portada). Se buscan en los
+ * literales y el texto JSX de `app/`, `components/` y los `lib/` de textos, y en las guías y
+ * las notas enteras (sin bloques de código ni el frontmatter `fuentes`, que cita el repo tal
+ * cual). Los ficheros de la portada entran igual: la regla es del sitio, no de una página.
+ */
+const MULETILLAS =
+  /\b(descubre|explora|potencia tu|optimiza)\b|\ba un clic\b|\ben un solo lugar\b|\binsights?\b|r[aá]pida y sencilla|\bherramienta poderosa\b/i;
+const VOCABULARIO_VIEJO = /la mitad central|tope de compra ágil|qué le vendes al estado|organismos compradores/i;
+
+const LIB_DE_TEXTOS = ['publico', 'compraAgil', 'acerca', 'abierto', 'costos', 'notas', 'buscar', 'metodo', 'errores', 'rss']
+  .map((n) => join(RAIZ, 'lib', `${n}.ts`))
+  .filter((f) => existsSync(f));
+const CON_TEXTO = [
+  ...archivos(join(RAIZ, 'app'), /\.tsx?$/),
+  ...archivos(join(RAIZ, 'components'), /\.tsx$/),
+  ...LIB_DE_TEXTOS,
+];
+/** Una ruta o una URL suelta («/_vercel/insights/script.js»): código, no texto. */
+const esRuta = (literal: string) => /^.[^\s]*\/[^\s]*.$/.test(literal);
+/** Lo visible de un fuente: sus literales (menos las rutas) y su texto JSX, sin comentarios. */
+const visible = (fuente: string) => {
+  const limpio = sinComentarios(fuente);
+  const literales = (limpio.match(LITERAL) ?? []).filter((l) => !esRuta(l));
+  return [...literales, ...[...limpio.matchAll(TEXTO_JSX)].map((m) => m[1])].join('\n');
+};
+/** El contenido de una guía o una nota, sin código y sin las citas literales de `fuentes`. */
+const prosa = (fuente: string) => sinBloquesDeCodigo(fuente.replace(/^\s+- ".*"$/gm, ''));
+
+describe('VOZ.md: sin muletillas de folleto ni vocabulario viejo', () => {
+  it('guarda: hay ficheros que revisar', () => {
+    expect(CON_TEXTO.length).toBeGreaterThanOrEqual(100);
+    expect(LIB_DE_TEXTOS.length).toBeGreaterThanOrEqual(8);
+  });
+
+  it.each(CON_TEXTO.map((f) => [relative(RAIZ, f), f]))('%s', (_, fichero) => {
+    const texto = visible(readFileSync(fichero, 'utf8'));
+    expect(texto).not.toMatch(MULETILLAS);
+    expect(texto).not.toMatch(VOCABULARIO_VIEJO);
+  });
+
+  it.each([...GUIAS, ...NOTAS].map((f) => [relative(RAIZ, f), f]))('%s', (_, fichero) => {
+    const texto = prosa(readFileSync(fichero, 'utf8'));
+    expect(texto).not.toMatch(MULETILLAS);
+    expect(texto).not.toMatch(VOCABULARIO_VIEJO);
+  });
+
+  it('el detector ve una muletilla y deja pasar lo que se le parece', () => {
+    expect('Descubre los precios').toMatch(MULETILLAS);
+    expect('todo en un solo lugar').toMatch(MULETILLAS);
+    expect('Potencia tu negocio').toMatch(MULETILLAS);
+    expect('la potencia del motor').not.toMatch(MULETILLAS);
+    expect(visible("const s = '/_vercel/insights/script.js';")).not.toMatch(MULETILLAS);
+    expect('Lo explorado').not.toMatch(MULETILLAS);
+  });
+});

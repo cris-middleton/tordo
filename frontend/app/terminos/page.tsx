@@ -10,7 +10,7 @@ import { urlRepositorio } from '@/lib/repositorio';
 export const metadata: Metadata = {
   title: 'Términos de uso',
   description:
-    'Condiciones de uso del sitio: de dónde salen los datos, qué no son y cómo se puede usar la API.',
+    'Las condiciones para usar el sitio, su API y su servidor MCP: de dónde salen los datos, qué no son y cómo puedes reutilizarlos.',
   alternates: { canonical: '/terminos' },
 };
 
@@ -30,9 +30,10 @@ export default function TerminosPage() {
   return (
     <DocumentoLegal titulo="Términos de uso" vigenteDesde={VIGENTE_DESDE}>
       <p>
-        Este sitio es un proyecto personal, público y gratuito, mantenido por{' '}
-        <strong>{RESPONSABLE}</strong> (en adelante, «el responsable»). Usar el sitio, su API o su servidor MCP supone aceptar
-        estas condiciones. No hace falta registrarse: el sitio no tiene cuentas.
+        Este sitio es un proyecto personal, público y gratuito. Lo mantiene{' '}
+        <strong>{RESPONSABLE}</strong> (en adelante, «el responsable»). Si usas el sitio, su API o
+        su servidor MCP, aceptas estas condiciones. No hace falta registrarse: el sitio no tiene
+        cuentas.
       </p>
 
       <h2>1. Qué es</h2>
@@ -44,15 +45,15 @@ export default function TerminosPage() {
 
       <h2>2. De dónde salen los datos</h2>
       <p>
-        Los datos provienen de la API pública de Mercado Público y de los archivos de datos
-        abiertos que publica la Dirección de Compras y Contratación Pública. {FUENTE_DATOS}.
+        Los datos vienen de la API pública de Mercado Público y de los archivos de datos abiertos
+        que publica la Dirección de Compras y Contratación Pública. {FUENTE_DATOS}.
       </p>
       <p>
         <strong>El sitio no está afiliado a ChileCompra ni a ningún organismo del Estado</strong>{' '}
         y no actúa en su representación. {DESCARGO_CHILECOMPRA}
       </p>
       <p>
-        Los datos no se modifican en su contenido. Sí se normalizan en forma (fechas, tipos,
+        Los datos no se modifican en su contenido. Sí se normalizan en su forma (fechas, tipos,
         mayúsculas, unidades) y se calculan agregados sobre ellos. Además, los proveedores
         que son <strong>personas naturales</strong> no aparecen con su nombre ni su RUT: se
         reemplazan por la etiqueta «Persona natural» y, en los análisis, por un seudónimo que
@@ -64,15 +65,14 @@ export default function TerminosPage() {
       <p>
         Los rangos de precio, puntajes, indicadores y demás análisis son{' '}
         <strong>estimaciones estadísticas sobre datos históricos</strong>. No son asesoría legal,
-        financiera ni comercial, no son una recomendación de cuánto ofertar y no garantizan
-        ningún resultado en un proceso de compra. Las decisiones que se tomen con ellos son de
-        quien las toma.
+        financiera ni comercial. Tampoco son una recomendación de cuánto ofertar, ni garantizan
+        ningún resultado en un proceso de compra. Las decisiones que tomes con ellos son tuyas.
       </p>
       <p>
-        La exactitud, integridad y oportunidad de la información dependen de la fuente. El
-        responsable no controla lo que publica ChileCompra, y no responde por errores,
-        omisiones o retrasos originados en ella ni en su procesamiento. Ante cualquier duda, el
-        dato oficial es el que figura en{' '}
+        Que la información sea exacta, completa y oportuna depende de la fuente. El responsable
+        no controla lo que publica ChileCompra, y no responde por errores, omisiones o retrasos
+        originados en ella ni en su procesamiento. Ante cualquier duda, el dato oficial es el que
+        figura en{' '}
         <a href="https://www.mercadopublico.cl" rel="noopener noreferrer">
           mercadopublico.cl
         </a>
@@ -85,7 +85,7 @@ export default function TerminosPage() {
           Puedes consultar, citar y reutilizar los datos y análisis, también con fines
           comerciales, <strong>citando la fuente oficial</strong> tal como aparece arriba.
           Los archivos CSV que descargas ya la traen en su primera línea. Los análisis que
-          calcula el sitio —rangos de precio, puntajes e indicadores—, sus CSV y esas mismas
+          calcula el sitio (rangos de precio, puntajes e indicadores), sus CSV y esas mismas
           cifras en la API y el servidor MCP se publican además bajo licencia{' '}
           <strong>CC BY 4.0</strong>: al reutilizarlos, cita también este sitio, conservando la
           cita de la fuente de ChileCompra, e indica si hiciste cambios. El contenido del

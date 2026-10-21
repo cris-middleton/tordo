@@ -18,36 +18,40 @@ export interface Pregunta {
 
 export const PREGUNTAS: Pregunta[] = [
   {
-    pregunta: '¿Cuesta algo? ¿Tengo que crear una cuenta?',
+    pregunta: '¿Cuánto cuesta usarlo?',
     respuesta:
-      'No y no. Todo lo que calculamos se ve entero, sin registrarte. Lo que marcas como favorito y las búsquedas que guardas se quedan en tu navegador, no en un servidor.',
+      'Nada, y no hay cuenta que crear. Todo lo que calculamos se ve entero, el primer día y el día cien.',
   },
   {
-    pregunta: '¿De dónde salen los datos?',
-    respuesta:
-      `De ChileCompra: los archivos abiertos de órdenes de compra de los últimos ${MESES_ANALISIS} meses (${MESES_PRECIOS} para los precios) y la API de Mercado Público, que consultamos ${FRECUENCIA_CATALOGO}. Son datos oficiales y cualquier cifra se puede contrastar en Mercado Público.`,
-    enlace: { href: '/guias/de-donde-salen-los-datos', texto: 'De dónde salen los datos' },
+    pregunta: '¿Qué tan al día están los datos?',
+    respuesta: `Las licitaciones y Compras Ágiles se actualizan ${FRECUENCIA_CATALOGO}. Los precios y los mercados se recalculan cada domingo, con los últimos ${MESES_ANALISIS} meses de órdenes de compra (${MESES_PRECIOS} para los precios).`,
+    enlace: { href: '/guias/de-donde-salen-los-datos', texto: 'Qué trae cada fuente y qué no' },
   },
   {
-    pregunta: '¿Me dicen exactamente cuánto cotizar?',
-    respuesta:
-      `No. Mostramos entre qué precios se compró lo mismo en los últimos ${MESES_PRECIOS} meses, y cuántas compras y cuántos organismos hay detrás. Si se pagaron cifras muy distintas por lo mismo, también lo decimos.`,
+    pregunta: '¿Me dicen cuánto cotizar?',
+    respuesta: `No, porque nadie sabe cuánto van a cotizar los demás. Te mostramos a qué precio se compró lo mismo en los últimos ${MESES_PRECIOS} meses: entre cuánto y cuánto se pagó la mitad de las compras, cuántas compras son y de cuántos compradores. Si por lo mismo se pagaron precios muy distintos, también te lo decimos.`,
     enlace: { href: '/guias/como-leer-una-banda-de-precio', texto: 'Cómo leer una banda de precio' },
   },
   {
     pregunta: `¿Cómo se ordena «${TITULO_DESTACADAS}»?`,
     respuesta: DESCRIPCION_DESTACADAS,
-    enlace: { href: '/guias/lo-mejor-de-hoy-en-compra-agil', texto: 'Cómo se elige' },
+    enlace: { href: '/guias/lo-mejor-de-hoy-en-compra-agil', texto: 'Cuánto pesa cada cosa' },
   },
   {
-    pregunta: '¿Cómo me entero de lo nuevo sin cuenta?',
+    pregunta: '¿Cómo me entero de lo nuevo?',
     respuesta:
-      'Cada búsqueda tiene su canal RSS: lo agregas a un lector y te llega lo nuevo sin dejar tu correo en ninguna parte.',
+      'Con RSS, un enlace que un lector de noticias revisa por ti. Cada búsqueda de licitaciones tiene el suyo, y «Lo mejor de hoy» también. No tienes que dejar tu correo en ninguna parte.',
     enlace: { href: '/guias/seguir-una-busqueda-por-rss', texto: 'Seguir una búsqueda por RSS' },
+  },
+  {
+    pregunta: '¿Por qué algunos proveedores no salen con su nombre?',
+    respuesta:
+      'Porque son personas naturales: le venden al Estado con su propio RUT. En vez de su nombre mostramos «Persona natural» y, en los análisis, un seudónimo.',
+    enlace: { href: '/privacidad', texto: 'Por qué lo hacemos' },
   },
   {
     pregunta: '¿Necesito algo de ChileCompra para postular?',
     respuesta:
-      'Sí: estar inscrito como proveedor en Mercado Público y con el estado hábil al día. Eso se hace en Mercado Público; aquí decides dónde y a qué precio postular.',
+      'Sí: estar inscrito como proveedor en Mercado Público y hábil para contratar con el Estado. Eso se hace allá, y las ofertas también se mandan allá. Aquí decides dónde y a cuánto.',
   },
 ];

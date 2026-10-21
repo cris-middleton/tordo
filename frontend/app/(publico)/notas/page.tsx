@@ -27,11 +27,11 @@ export default function PaginaNotas() {
     <article className="lectura max-w-3xl">
       <CabeceraFicha titulo="Notas de datos" subtitulo={DESCRIPCION_NOTAS}>
         <p className="mt-2 text-sm text-muted">
-          Síguelas en tu lector de noticias con el{' '}
+          Para leerlas apenas salen, agrega el{' '}
           <a href="/rss/notas" className="enlace">
             feed RSS
-          </a>
-          .
+          </a>{' '}
+          a tu lector de noticias.
         </p>
       </CabeceraFicha>
       {/* La fila mide lo que el texto (58ch) más la columna de la fecha: los

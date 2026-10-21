@@ -121,7 +121,7 @@ describe('/mercado con la API fallando', () => {
     estados.oportunidades = mal({ code: 'ECONNABORTED' });
     pintar();
 
-    expect(screen.getByText(/no pudimos cargar las oportunidades/i)).toBeInTheDocument();
+    expect(screen.getByText(/no pudimos cargar los compradores del rubro/i)).toBeInTheDocument();
     expect(screen.getByText(/tardó demasiado/i)).toBeInTheDocument();
   });
 

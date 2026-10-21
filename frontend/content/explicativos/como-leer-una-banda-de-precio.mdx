@@ -1,99 +1,103 @@
 ---
 titulo: "Cómo leer una banda de precio"
-descripcion: "Qué significan P10, P50 y P90, qué es la predictibilidad y por qué agrupamos por producto y no por categoría del catálogo. Con las cifras medidas."
+descripcion: "Qué dicen la mediana, la mitad de las compras y 8 de cada 10, cuándo fiarte de una banda y por qué agrupamos por producto y no por categoría."
 slug: "como-leer-una-banda-de-precio"
-actualizado: "2026-10-18"
+actualizado: "2026-10-21"
 fuentes:
   - "Descarga masiva de órdenes de compra de ChileCompra (octubre de 2025 a marzo de 2026)"
   - "Código del cálculo: etl/analytics/product_price_bands.py y etl/analytics/normalizacion.py"
   - "Regla del precio de mercado: backend/app/services/publico/indexables.py"
 ---
 
-Una banda de precio responde a una pregunta concreta: **¿a qué precio unitario ha
-comprado el Estado este producto?** Es lo que se pagó, ordenado para leerlo de un
-vistazo.
+Vas a cotizar y quieres saber a cuánto compró el Estado lo mismo que vendes. Una banda
+de precio responde eso: toma lo que se pagó por un producto en los **últimos 12 meses** y
+lo resume en cinco números.
 
 ## Los cinco números
 
-Tomamos los precios unitarios de las órdenes de compra de los **últimos 12 meses** y
-los ordenamos de menor a mayor:
+Ponemos en fila, de menor a mayor, los precios por unidad de las órdenes de compra de esos
+12 meses, y leemos cinco puntos de la fila. En la API se llaman `p10`, `p25`, `p50`, `p75`
+y `p90`. En la ficha de cada producto se leen así:
 
-- **P10**: el 10 % de las compras se pagó a este precio o menos. Es el piso habitual.
-- **P25**: un cuarto de las compras quedó por debajo.
-- **P50, la mediana**: la mitad pagó menos y la mitad más. Es el precio «típico».
-- **P75**: tres cuartos quedaron por debajo.
-- **P90**: sólo el 10 % pagó más. Es el techo habitual.
+- **La mediana** (`p50`): el precio del medio. La mitad de las compras se pagó a menos y la
+  otra mitad, a más. Es el número que conviene mirar primero.
+- **La mitad de las compras** (de `p25` a `p75`): entre esos dos precios se pagó la mitad
+  de las compras. Un cuarto quedó por debajo y otro cuarto, por encima. Es la franja del
+  gráfico.
+- **8 de cada 10 compras** (de `p10` a `p90`): deja fuera sólo al 10 % más barato y al
+  10 % más caro. Es la línea fina del gráfico.
 
-Antes de calcularlos se descartan los precios anómalos de cada grupo (el método de
-Tukey: lo que se aleja más de 1,5 veces el rango entre P25 y P75). Junto a la banda
-siempre va **cuántas compras la forman**, **de cuántos organismos son** y **de qué
-período son**: una banda sin fecha se lee como «de siempre», y no lo es.
+Antes de calcularlos sacamos los precios anómalos de cada grupo, con el método de Tukey:
+fuera lo que se aleja de la franja más de 1,5 veces su ancho. Junto a cada banda va de
+cuántas compras sale, de cuántos organismos y de qué periodo. Una banda sin fecha se lee
+como «de siempre», y no lo es.
 
 ## Un precio de mercado tiene varios compradores
 
-Si casi todas las compras son de un mismo organismo, la banda es el precio de su
-contrato. Por eso sólo tratamos como precio de mercado una banda con **al menos 3
-organismos compradores y ninguno con más de la mitad de las compras**. Sólo esas
-salen en los buscadores y en la portada. Las demás se pueden ver, con el aviso de
-que sirven para orientarte.
+Si casi todas las compras son de un solo comprador, la banda dice el precio de su contrato
+y poco más. Por eso llamamos precio de mercado sólo a una banda con **al menos 3
+compradores y ninguno con más de la mitad de las compras**. Sólo esas se abren
+a los buscadores, como Google, y sólo esas salen en la portada. Las demás se pueden ver
+igual, y la ficha avisa cuando un comprador tiene más de la mitad de las compras.
 
-Medido en la copia local de seis meses: de las bandas nacionales con 10 compras o
-más y predictibilidad alta o media, el 37 % venía de un solo organismo y el 49 %
-tenía uno con más de la mitad de las compras.
+Hacía falta. En la copia local de seis meses, de las bandas nacionales con 10 compras o
+más y predictibilidad alta o media, el 37 % venía de un solo comprador y el 49 % tenía uno
+con más de la mitad de las compras.
 
-## La predictibilidad: cuánto puedes fiarte de la banda
+## Cuánto puedes fiarte de una banda
 
-No todas las bandas sirven igual. Medimos su dispersión con el **coeficiente
-cuartílico de dispersión (QCD)**, que compara P25 con P75, y la traducimos a una
-palabra:
+Dos bandas con la misma mediana pueden decir cosas muy distintas. En una, casi todos
+pagaron lo mismo. En la otra, el precio va de un extremo al otro. Para separarlas medimos
+la dispersión con el **coeficiente cuartílico de dispersión (QCD)**, que compara los dos
+bordes de la mitad de las compras, y la traducimos a una palabra, la predictibilidad:
 
 | predictibilidad | qué exige | qué significa |
 |---|---|---|
-| **alta** | QCD menor que 0,25 y al menos 5 compras | P75 es como mucho ~1,7 veces P25: el precio es estable |
-| **media** | QCD menor que 0,45 y al menos 3 compras | P75 es como mucho ~2,6 veces P25 |
+| **alta** | QCD menor que 0,25 y al menos 5 compras | el borde de arriba es como mucho ~1,7 veces el de abajo: el precio es estable |
+| **media** | QCD menor que 0,45 y al menos 3 compras | el borde de arriba es como mucho ~2,6 veces el de abajo |
 | **baja** | el resto | el precio varía demasiado para anclarse en él |
 
-Los cortes son fijos: dicen cuánto cabe entre P25 y P75, y no dependen de cómo se
-repartan las demás bandas. Entre las bandas de mercado, el 70 % tiene
-predictibilidad alta, el 18 % media y el 12 % baja.
+La ficha de cada producto lo dice con palabras: «Precios parecidos entre sí» si es alta,
+«algo distintos» si es media y «muy distintos» si es baja.
 
-**Una predictibilidad baja también es información.** Se pagaron precios muy
-distintos por lo mismo: puede pesar el plazo, la marca, el volumen o el lugar de
-entrega. Antes de fijar tu precio, mira quién lo compra y a cuánto. Preferimos
-decirlo antes que mostrar un número con aspecto de respuesta.
+Los cortes son fijos: miden cuánto cabe en la franja y no dependen de cómo se repartan las
+demás bandas. Entre las bandas de mercado, el 70 % sale alta, el 18 % media y el 12 % baja.
 
-Usamos el QCD y no la desviación estándar porque los precios de compras públicas
-tienen colas muy largas: la desviación estándar mide la compra rara que sobrevivió al
-filtro, no el mercado.
+**Una predictibilidad baja también te dice algo.** Por lo mismo se pagaron precios muy
+distintos, y el dato no dice por qué: puede ser el plazo, la marca, el volumen o el lugar
+de entrega. Antes de fijar tu precio, mira quién lo compra y a cuánto. Preferimos decírtelo
+a mostrarte un número con cara de respuesta.
 
-## Por qué por producto y no por categoría
+La desviación estándar, la medida más conocida, aquí sirve poco. Los precios de las
+compras públicas tienen colas muy largas, y termina midiendo la compra rara que sobrevivió
+al filtro. El QCD sólo mira la mitad de las compras del medio.
 
-El catálogo de Mercado Público clasifica cada línea con un código UNSPSC, pero ese
-código es una **categoría**, no un producto. Medido sobre marzo de 2026: dentro de
-una misma categoría, en un mismo hospital y en un mismo mes, conviven artículos cuyos
-precios difieren en **cinco órdenes de magnitud**. Bajo «Reactivos» aparecían a la vez
-un calibrador de $557.062 y un criovial de $1.
+## Por qué agrupamos por producto
 
-Una banda de toda esa categoría no describe el precio de nada. Por eso, cuando se
-puede, agrupamos por **producto**: una firma que sale de la descripción que escribe
-el comprador, con las palabras ordenadas y sin los códigos internos. Medido:
+El catálogo de Mercado Público le pone a cada línea un código UNSPSC, y ese código es una
+**categoría** amplia. En marzo de 2026, dentro de una misma categoría, en un mismo hospital
+y en un mismo mes, había artículos cuyos precios se separaban en **cinco órdenes de
+magnitud**. Bajo «Reactivos» estaban a la vez un calibrador de $557.062 y un criovial de $1.
 
-- **QCD mediano de 0 agrupando por producto en un mismo comprador, contra 0,27 por
-  categoría.** En más de la mitad de esos pares, P25 y P75 son el mismo precio: el
-  comprador repite el de su contrato.
-- La agrupación por producto en un mismo comprador **cubre el 32 % de las líneas de
-  compra** con seis meses de historia. Para el resto usamos la categoría, y la banda
-  lo indica.
+Una banda de toda esa categoría no describe el precio de nada. Por eso, cuando se puede,
+agrupamos por **producto**: una firma que sale de lo que escribe el comprador en la orden,
+con las palabras ordenadas y sin los códigos internos. Así da lo mismo en qué orden
+escribió las palabras. Lo medimos:
 
-Si no hay suficientes compras, la banda se amplía en este orden: el mismo producto
-en el mismo comprador, el mismo producto en todo el país, la categoría en el mismo
-comprador, en el mismo sector y en todo el país. Siempre te decimos en qué nivel
-estás.
+- **Agrupando por producto dentro de un mismo comprador, el QCD mediano es 0. Por
+  categoría, 0,27.** En más de la mitad de esos grupos los dos bordes de la franja son el
+  mismo precio: el comprador repite el de su contrato.
+- Esa agrupación **cubre el 32 % de las líneas de compra** con seis meses de historia. El
+  resto se agrupa por categoría, y la banda lo dice.
 
-## Lo que no hacemos: ajustar por inflación
+Si no hay compras suficientes, la banda se amplía en este orden: el mismo producto en el
+mismo comprador, el mismo producto en todo el país, la categoría en el mismo comprador, en
+el mismo sector y en todo el país. Siempre te decimos en qué nivel estás.
 
-La banda mira sólo los **últimos 12 meses**, así que junta precios de un año como
-mucho. Los mostramos tal como se pagaron, sin ajustarlos por inflación.
+## Los precios van sin ajustar por inflación
 
-Para ver la banda de un producto concreto, búscalo en [Precios](/productos); cada
-uno tiene su página, del estilo `/productos/guantes-nitrilo`.
+La banda mira sólo los últimos 12 meses, así que junta precios de un año como mucho. Los
+mostramos tal como se pagaron.
+
+Para ver la banda de un producto, búscalo en [Precios](/productos). Cada uno tiene su
+página, como `/productos/guantes-nitrilo`.

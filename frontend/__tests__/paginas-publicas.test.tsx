@@ -109,6 +109,7 @@ describe('metadatos', () => {
     const m = await metaComprador(params({ codigo: '7297' }));
     expect(m.title).toMatch(/Hospital de Prueba/);
     expect(m.description).toMatch(/1\.234 órdenes de compra/);
+    expect(String(m.description).length).toBeLessThanOrEqual(155);
     expect(m.alternates?.canonical).toBe('/compradores/7297');
     expect(m.robots).toBeUndefined();
   });
@@ -116,8 +117,9 @@ describe('metadatos', () => {
   it('rubro: monto del año en la descripción', async () => {
     simularBackend({ '/rubros/equipos-medicos': RUBRO });
     const m = await metaRubro(params({ slug: 'equipos-medicos' }));
-    expect(m.title).toMatch(/Equipos médicos/);
-    expect(m.description).toMatch(/\$320 mil millones en compras públicas en 2025/);
+    expect(m.title).toBe('Cuánto compra el Estado en equipos médicos');
+    expect(m.description).toMatch(/El Estado compró \$320 mil millones en equipos médicos en 2025\./);
+    expect(String(m.description).length).toBeLessThanOrEqual(155);
     expect(m.alternates?.canonical).toBe('/rubros/equipos-medicos');
   });
 
@@ -126,20 +128,21 @@ describe('metadatos', () => {
     const m = await metaProducto(params({ slug: 'guante-latex-nitrilo' }));
     // La firma, no la categoría del catálogo: miles de productos comparten
     // categoría, y con ella de título serían páginas duplicadas.
-    expect(m.title).toBe('Precio de Guante latex nitrilo en compras públicas');
-    expect(m.description).toMatch(/^Guante latex nitrilo \(Guante de nitrilo\): /);
-    expect(m.description).toMatch(/precio mediano \$5\.000 por caja \(120 compras\)/);
+    expect(m.title).toBe('Cuánto paga el Estado por guante latex nitrilo');
+    expect(m.description).toMatch(/^Guante latex nitrilo: precio mediano \$5\.000 por caja en 120 compras/);
+    expect(String(m.description).length).toBeLessThanOrEqual(155);
   });
 
   it('producto con la unidad nula (el backend la permite): la descripción la omite', async () => {
     const sinUnidad = { ...PRODUCTO, unidades: [{ ...PRODUCTO.unidades[0], unidad: null }] };
     simularBackend({ '/productos/guante-latex-nitrilo': sinUnidad });
     const m = await metaProducto(params({ slug: 'guante-latex-nitrilo' }));
-    expect(m.description).toMatch(/precio mediano \$5\.000 \(120 compras\)/);
+    expect(m.description).toMatch(/precio mediano \$5\.000 en 120 compras/);
     expect(m.description).not.toMatch(/ por (null|undefined)/);
   });
 
   it('producto sin categoría: la descripción no deja paréntesis vacíos', async () => {
+    // La categoría ya no va en la descripción; la regla sigue: nada de «()».
     simularBackend({ '/productos/guante-latex-nitrilo': { ...PRODUCTO, nombre_generico: null } });
     const m = await metaProducto(params({ slug: 'guante-latex-nitrilo' }));
     expect(m.description).toMatch(/^Guante latex nitrilo: /);
@@ -175,7 +178,7 @@ describe('enlaces entre fichas', () => {
     simularBackend({ '/compradores/7297': { ...COMPRADOR, nombre: 'HOSPITAL DE LA PRUEBA' } });
     const { container } = render(await PaginaComprador(params({ codigo: '7297' })));
     expect(screen.getByRole('heading', { level: 1, name: 'Hospital de la Prueba' })).toBeInTheDocument();
-    expect(screen.getByText('Sus órdenes por Compra Ágil en los últimos 6 meses: cuántas, a cuántos proveedores y de qué monto.')).toBeInTheDocument();
+    expect(screen.getByText('Sus órdenes por Compra Ágil de los últimos 6 meses.')).toBeInTheDocument();
     expect(screen.getByText('Publicadas desde oct 2026')).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/UTM|No significa/);
     const m = await metaComprador(params({ codigo: '7297' }));
@@ -210,7 +213,7 @@ describe('enlaces entre fichas', () => {
     expect(screen.getByText(/«guante latex nitrilo»/)).toBeInTheDocument();
   });
 
-  it('la ficha dice de qué meses son sus precios, y cada banda de cuántos organismos', async () => {
+  it('la ficha dice de qué meses son sus precios, y cada banda de cuántos compradores', async () => {
     const conPeriodo = {
       ...PRODUCTO,
       periodo: { ventana_desde: '2025-04-01', ventana_hasta: '2026-03-31' },
@@ -218,9 +221,9 @@ describe('enlaces entre fichas', () => {
     };
     simularBackend({ '/productos/guante-latex-nitrilo': conPeriodo });
     render(await PaginaProducto(params({ slug: 'guante-latex-nitrilo' })));
-    expect(screen.getByText(/abr 2025 – mar 2026 \(12 meses\)/)).toBeInTheDocument();
+    expect(screen.getByText(/de abr 2025 a mar 2026/)).toBeInTheDocument();
     // La base va en las cifras de la banda, bajo el gráfico.
-    expect(screen.getAllByText('120 compras de 31 organismos').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('120 compras de 31 compradores').length).toBeGreaterThan(0);
   });
 
   it('el producto pinta una fila por unidad y enlaza a quien lo compra', async () => {
@@ -230,7 +233,7 @@ describe('enlaces entre fichas', () => {
     expect(screen.getByRole('rowheader', { name: 'Por caja' })).toBeInTheDocument();
     expect(screen.getByRole('rowheader', { name: 'Por unidad' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Hospital de Prueba' })).toHaveAttribute('href', '/compradores/7297');
-    expect(screen.queryByText(/úsalo sólo para orientarte/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/[Úú]salo sólo para orientarte/)).not.toBeInTheDocument();
   });
 
   it('encima de «Quién lo compra», el gráfico de precio de la portada, con su pie de método (spec PORTADA_V7 §6)', async () => {
@@ -251,7 +254,7 @@ describe('enlaces entre fichas', () => {
     const { container } = render(await PaginaProducto(params({ slug: 'guante-latex-nitrilo' })));
     const titulo = screen.getByRole('heading', { level: 2, name: 'Cuánto se pagó' });
     const seccion = titulo.closest('section') as HTMLElement;
-    expect(within(seccion).getByRole('heading', { level: 3 })).toHaveTextContent('Por caja: la mitad de las compras se pagó entre $4.000 y $6.000');
+    expect(within(seccion).getByRole('heading', { level: 3 })).toHaveTextContent('Precio por caja: la mitad de las compras se pagó entre $4.000 y $6.000');
     // Un punto por comprador de la unidad de la banda: los de «Unidad» no se comparan.
     expect(seccion.querySelectorAll('svg circle.fill-dato')).toHaveLength(5);
     expect(within(seccion).getByRole('link', { name: 'Cómo se calcula' })).toHaveAttribute(
@@ -272,13 +275,13 @@ describe('enlaces entre fichas', () => {
     const sinUnidad = { ...PRODUCTO, unidades: [{ ...PRODUCTO.unidades[0], unidad: null }] };
     simularBackend({ '/productos/guante-latex-nitrilo': sinUnidad });
     render(await PaginaProducto(params({ slug: 'guante-latex-nitrilo' })));
-    expect(screen.getByRole('heading', { level: 3, name: /^Sin unidad declarada: / })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: /^Precio sin unidad declarada: / })).toBeInTheDocument();
     expect(screen.getAllByText('$5.000').length).toBeGreaterThan(0);
   });
 
   it('un producto no indexable avisa en la página', async () => {
     simularBackend({ '/productos/guante-latex-nitrilo': { ...PRODUCTO, indexable: false } });
     render(await PaginaProducto(params({ slug: 'guante-latex-nitrilo' })));
-    expect(screen.getByText(/úsalo sólo para orientarte/)).toBeInTheDocument();
+    expect(screen.getByText(/[Úú]salo sólo para orientarte/)).toBeInTheDocument();
   });
 });

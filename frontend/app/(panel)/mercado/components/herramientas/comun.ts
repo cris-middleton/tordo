@@ -30,11 +30,11 @@ export function extractErrorMessage(err: unknown): string {
     return 'Demasiadas consultas seguidas. Espera un momento y vuelve a intentarlo.';
   }
   if (status === 503) {
-    return detail || 'Módulo no disponible en esta instalación.';
+    return detail || 'Esta herramienta no está disponible ahora.';
   }
   if (detail) return detail;
-  if (e?.message) return `Error: ${e.message}`;
-  return 'Error desconocido al consultar.';
+  if (e?.message) return `No pudimos hacer el cálculo (${e.message}).`;
+  return 'No pudimos hacer el cálculo. Prueba de nuevo.';
 }
 
 export type Tab = 'precio' | 'descuento' | 'forecast' | 'simular';
@@ -104,17 +104,17 @@ export interface PrecioResultado {
 export function nivelLabel(nivel?: string): string {
   switch (nivel) {
     case 'L0':
-      return 'este producto exacto, en el organismo consultado';
+      return 'las compras de este producto que hizo este comprador';
     case 'L0N':
-      return 'este producto exacto, a nivel nacional';
+      return 'las compras de este producto en todo el Estado';
     case 'L1':
-      return 'datos del organismo específico';
+      return 'las compras de su categoría del catálogo que hizo este comprador';
     case 'L2':
-      return 'datos del sector';
+      return 'las compras de su categoría del catálogo en el sector de este comprador';
     case 'L3':
-      return 'datos a nivel nacional';
+      return 'las compras de su categoría del catálogo en todo el Estado';
     case 'L4':
-      return 'contexto general del organismo, sin datos de este producto';
+      return 'todo lo que compra este comprador en el rubro: no hay compras de este producto';
     default:
       return nivel || '';
   }

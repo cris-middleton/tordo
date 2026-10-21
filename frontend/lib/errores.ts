@@ -74,7 +74,7 @@ function textoDeValidaciones(detalle: unknown[]): string | null {
   return unicos.length > 0 ? unicos.join(' ') : null;
 }
 
-export function mensajeDeError(error: unknown, respaldo = 'No se pudo completar la operación.'): string {
+export function mensajeDeError(error: unknown, respaldo = 'No pudimos traer estos datos. Vuelve a intentarlo en un momento.'): string {
   const detalle = (error as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
   if (typeof detalle === 'string') return detalle;
   if (Array.isArray(detalle)) return textoDeValidaciones(detalle) ?? respaldo;
@@ -90,16 +90,16 @@ export function mensajeDeError(error: unknown, respaldo = 'No se pudo completar 
  */
 export function mensajeDeCarga(error: unknown): string {
   if (esTiempoAgotado(error)) {
-    return 'La consulta tardó demasiado. Vuelve a intentarlo en un momento.';
+    return 'La consulta tardó demasiado y la cortamos. Vuelve a intentarlo en un momento.';
   }
   const status = (error as { response?: { status?: number } } | null)?.response?.status;
   if (status === 429) {
-    return 'Demasiadas consultas seguidas. Espera un momento y vuelve a intentarlo.';
+    return 'Llegaron demasiadas consultas seguidas desde tu conexión. Espera un momento y vuelve a intentarlo.';
   }
   const delBackend = mensajeDeError(error, '');
   if (delBackend) return delBackend;
   if (!status || status >= 500) {
-    return `El servidor de datos no respondió. Vuelve a intentarlo en un minuto; si sigue igual, escríbenos a ${CORREO_CONTACTO}.`;
+    return `Nuestro servidor de datos no respondió. Vuelve a intentarlo en un minuto. Si sigue igual, escríbenos a ${CORREO_CONTACTO}.`;
   }
-  return 'No se pudo cargar esta sección.';
+  return 'No pudimos cargar esta sección.';
 }

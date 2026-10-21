@@ -1,8 +1,8 @@
 ---
-titulo: "«Lo mejor de hoy» en Compra Ágil: cómo se ordena"
-descripcion: "Qué mira la lista de Compras Ágiles abiertas: cuánto compra la unidad, el plazo y el monto, y cuánto pesa cada uno."
+titulo: "Cómo se ordena «Lo mejor de hoy»"
+descripcion: "Las Compras Ágiles abiertas, ordenadas por tres cosas: cuánto compra la unidad de compra, el tiempo que queda y el monto. Cuánto pesa cada una."
 slug: "lo-mejor-de-hoy-en-compra-agil"
-actualizado: "2026-10-18"
+actualizado: "2026-10-21"
 fuentes:
   - "API de Compra Ágil de Mercado Público (Compras Ágiles abiertas)"
   - "Descarga masiva de órdenes de compra de ChileCompra (órdenes de Compra Ágil por unidad de compra, 6 meses)"
@@ -13,84 +13,87 @@ fuentes:
   - "Tope de Compra Ágil leído de los montos declarados: tope_compra_agil en backend/app/repositories/compra_agil.py"
 ---
 
-Cada día se publican unas 5.000 Compras Ágiles. [Lo mejor de hoy](/compra-agil)
-las ordena para que empieces por las que tienen más sentido. **No sabemos qué te
-conviene a ti** —no tenemos tu perfil—, así que ordena por tres cosas que valen para
+De lunes a viernes se publican unas 5.000 Compras Ágiles al día. Nadie alcanza a leerlas
+todas. [Lo mejor de hoy](/compra-agil) las ordena para que empieces por las que tienen más
+sentido. Como no sabemos quién eres ni qué vendes, el orden usa tres cosas que valen para
 cualquier proveedor.
 
 ## Qué entra
 
-Sólo Compras Ágiles **abiertas que cierran en más de 2 horas**. Con menos no da tiempo
-a preparar una cotización, y ponerlas arriba sería hacerte perder el tiempo.
+Sólo Compras Ágiles **abiertas que cierran en más de 2 horas**. Con menos no alcanzas a
+preparar una cotización, y ponerlas arriba sería hacerte perder el tiempo.
 
 ## Los tres factores
 
-Cada uno va de 0 a 1 (el del monto, de 0,5 a 1), y el puntaje es su producto:
+Cada uno va de 0 a 1 (el del monto, de 0,5 a 1). El puntaje es los tres multiplicados.
 
-1. **Comprador**: cuánto compra por Compra Ágil la **unidad de compra** que publica
-   (la repartición con su propio RUT, no el organismo entero). Se mide por el número de
-   órdenes de Compra Ágil que emitió en los últimos 6 meses, y el factor es la parte de
-   las unidades que emitió *menos* que ella: 0,9 quiere decir que compra más que el
-   90 % de las unidades. **Mide cuánto compra, no si adjudica lo que publica.** Una
-   unidad sin ninguna orden de Compra Ágil en esos 6 meses vale 0: no compró, y eso
-   también es información. Si todavía no hemos calculado la historia de ninguna
-   unidad (pasa unos días tras una actualización del sitio), el factor vale 0,5 para
-   todas y la tarjeta no dice nada del comprador. Una unidad que no podemos casar con
-   ninguna orden cuenta como «sin historia» y va al final; entre las que quedan en 0,
-   se ordena por tiempo y monto.
-2. **Tiempo**: horas hasta el cierre divididas por 72, con tope en 1. Tres días ya
-   son holgados. Con el tope en 24 horas, más de la mitad de las Compras Ágiles
-   empataban en 1 (la mediana de cierre es de 42 horas).
-3. **Monto**: `0,5 + 0,5 · m / (m + 708.050)`, donde *m* es el monto estimado en
-   pesos. Crece con el monto pero se aplana: $708.050 (la mediana del monto total por
-   orden de Compra Ágil, en 365.299 órdenes de octubre de 2025 a marzo de 2026) vale 0,75. **Pesa en el puntaje, no sólo desempata**: entre el
-   monto más chico y el más grande de las Compras Ágiles que medimos el 14 de octubre
-   de 2026 (de $80.000 a $7.000.000), el factor va de 0,55 a 0,95, y con los demás
-   factores iguales el puntaje queda hasta 1,7 veces mayor. Sin monto vale 0,75.
+1. **Comprador**: cuánto compra por Compra Ágil la **unidad de compra** que publica, es
+   decir, la oficina con su propio RUT dentro del comprador. Se mide por cuántas órdenes de
+   Compra Ágil emitió en los últimos 6 meses. El factor es la parte de las unidades que
+   emitió *menos* órdenes que ella: 0,9 quiere decir que compra más que el 90 % de las
+   unidades. **Mide cuánto compra. No mide si adjudica lo que publica.**
 
-   **El tope de Compra Ágil vale lo mismo que no tener monto.** El monto es el que
-   declara el comprador, y muchos ponen el tope de la modalidad en vez de lo que
-   piensan gastar. Ese monto no dice cuánto se va a comprar, así que vale 0,75, y la
-   lista lo dice junto a la cifra: «Hasta $7,2M», con «Tope de Compra Ágil» debajo.
-   El tope cambia cada mes con la UTM. Lo leemos de los montos declarados: es el mayor
-   que se repite en al menos tres Compras Ágiles de las que guardamos, así que un monto
-   mal escrito no lo mueve. Cuenta como tope lo que queda a menos de un 2 % de él.
+   Una unidad sin ninguna orden de Compra Ágil en esos 6 meses vale 0: no compró nada, y
+   eso también dice algo. Lo mismo vale para una unidad que no logramos cruzar con ninguna
+   orden. Entre las que valen 0, mandan el tiempo y el monto. Si todavía no tenemos la
+   historia de ninguna unidad (pasa unos días después de una actualización del sitio), el
+   factor vale 0,5 para todas y la lista no dice nada del comprador.
+2. **Tiempo**: las horas que faltan para el cierre, divididas por 72, con tope en 1. Tres
+   días ya es harto plazo. Con el tope en 24 horas, más de la mitad de las Compras Ágiles
+   empataban en 1. La mediana de cierre es de 42 horas: la mitad cierra antes y la otra
+   mitad, después.
+3. **Monto**: `0,5 + 0,5 · m / (m + 708.050)`, donde *m* es el monto estimado en pesos.
+   Sube con el monto, pero cada vez menos. $708.050 vale 0,75: es la mediana del monto por
+   orden de Compra Ágil, en 365.299 órdenes de octubre de 2025 a marzo de 2026.
 
-**Un factor sin dato vale el centro de su escala**: ni premia ni castiga. Una Compra
-Ágil sin monto, por ejemplo, no sube ni baja por eso. **El comprador es la excepción**: no
-tener órdenes en 6 meses no es falta de dato sino un dato, y esa unidad queda al
-fondo de la escala (0), por debajo de la que compra poco.
+   **El monto pesa en el puntaje, y no sólo para desempatar.** Entre el monto más chico y
+   el más grande de las Compras Ágiles que medimos el 14 de octubre de 2026 (de $80.000 a
+   $7.000.000), el factor va de 0,55 a 0,95. Con lo demás igual, el puntaje queda hasta 1,7
+   veces mayor. Sin monto, vale 0,75.
 
-**Por qué entra el monto.** Con sólo comprador y tiempo, entre las 50 primeras había
-un grupo de 6 con el mismo puntaje (seis Compras Ágiles del mismo comprador, con el
-mismo cierre) y sólo 37 puntajes distintos; con el monto, el grupo más grande es de 2
-y hay 49 puntajes distintos. Es una decisión de producto —a igual esfuerzo de cotizar,
-más monto vale más— y no una verdad medida: se puede revisar.
+   **El tope de la Compra Ágil vale lo mismo que no tener monto.** El monto lo declara el
+   comprador, y muchos ponen el máximo de la modalidad en vez de lo que piensan gastar. Ese
+   número no dice cuánto se va a comprar, así que vale 0,75, y la lista lo marca: antepone
+   «Hasta» al monto y avisa que es el máximo que permite Compra Ágil. El tope cambia cada
+   mes con la UTM, así que no lo escribimos a mano: lo leemos de los montos declarados. Es
+   el monto más alto que se repite en al menos tres Compras Ágiles de las que guardamos, y
+   así un monto mal tipeado no lo mueve. Cuenta como tope lo que queda a menos de un 2 % de
+   él.
 
-## La competencia se informa, pero no pesa
+**Un factor sin dato vale el centro de su escala**: ni premia ni castiga. Una Compra Ágil
+sin monto, por ejemplo, ni sube ni baja por eso. **El comprador es la excepción**: una
+unidad sin órdenes en 6 meses sí es un dato, porque no compró, y queda al fondo de la
+escala, en 0, debajo de la que compra poco.
 
-Una Compra Ágil abierta trae cuántas cotizaciones lleva, y sería natural premiar a
-las que tienen pocas. **No lo hacemos, y por ahora no mostramos ese número**: el conteo
-no se actualiza después de la primera vez que TORDO ve la Compra Ágil. Lo medimos el
-15 de octubre de 2026: de 1.785 Compras Ágiles abiertas, ninguna subió su conteo en
-unas 3 horas, y el 82,9 % decía cero. Un «nadie ha cotizado aún» sería falso casi
-siempre, y te llevaría a cotizar creyendo que no hay competencia. Mientras el conteo
-no se refresque, la competencia no entra en el puntaje ni en la pantalla.
+**Por qué entra el monto.** Con sólo comprador y tiempo, entre las 50 primeras había un
+grupo de 6 con el mismo puntaje (seis Compras Ágiles del mismo comprador, con el mismo
+cierre) y sólo 37 puntajes distintos. Con el monto, el grupo más grande es de 2 y hay 49
+puntajes distintos. Es una decisión nuestra, y se puede revisar: a igual esfuerzo de
+cotizar, más monto vale más.
 
-## Lo que no es
+## Por qué no contamos cuántos ya cotizaron
 
-- **No es una probabilidad de ganar.** No hay datos con los que comprobar qué Compras
-  Ágiles le convenía cotizar a cada proveedor, así que la lista ordena; no predice.
-- **No mira tu rubro.** Usa la búsqueda y el filtro de región para quedarte con lo
-  tuyo.
-- **No reemplaza leer la Compra Ágil.** Plazo de entrega, lugar y especificaciones
-  pueden descartarla en un minuto.
+Una Compra Ágil abierta trae cuántas cotizaciones lleva, y sería natural premiar a las que
+tienen pocas. **No lo hacemos, y por ahora no mostramos ese número**: el conteo no se
+actualiza después de la primera vez que TORDO ve la Compra Ágil. Lo medimos el 15 de
+octubre de 2026: de 1.785 Compras Ágiles abiertas, ninguna subió su conteo en unas 3 horas,
+y el 82,9 % decía cero. Un «nadie ha cotizado aún» sería falso casi siempre, y te haría
+cotizar creyendo que no tienes competencia. Mientras el conteo no se refresque, no entra en
+el puntaje ni en la pantalla.
+
+## Lo que la lista no hace
+
+- **No calcula tu probabilidad de ganar.** No hay datos para comprobar qué Compras Ágiles
+  le convenía cotizar a cada proveedor, así que la lista ordena y nada más.
+- **No mira tu rubro.** Usa la búsqueda y el filtro de región para quedarte con lo tuyo.
+- **No reemplaza leer la Compra Ágil.** El plazo de entrega, el lugar o las
+  especificaciones pueden descartarla en un minuto.
 
 ## Cada cuánto cambia
 
-La lista se actualiza cuando TORDO consulta la API: a las 10, 13, 16 y 19 horas de
-lunes a viernes, y a las 12 horas los fines de semana. La página dice a qué hora fue la
-última, y avisa si se saltó una.
+La lista se actualiza cada vez que TORDO consulta la API: a las 10, 13, 16 y 19 horas de
+lunes a viernes, y a las 12 los sábados y domingos. La página dice a qué hora fue la última
+consulta, y avisa si se saltó una.
 
-Para no tener que entrar a mirarla, síguela por RSS: `/rss/compra-agil` (ver
-[cómo seguir una búsqueda por RSS](/guias/seguir-una-busqueda-por-rss)).
+Para no tener que entrar a mirarla, síguela por RSS en `/rss/compra-agil`
+([cómo seguir una búsqueda por RSS](/guias/seguir-una-busqueda-por-rss)).

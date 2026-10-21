@@ -65,7 +65,7 @@ export const COSTOS: Costo[] = [
     monto: 'US$5',
     base: 'tarifa',
     detalle:
-      'Incluye US$5 de uso, y Railway cobra el mayor de los dos. El uso de las tres filas siguientes pasa de US$5, así que se paga el uso.',
+      'Incluye US$5 de uso, y Railway cobra lo que sea mayor: el plan o el uso. Las tres filas siguientes suman más de US$5, así que se paga el uso.',
     fuentes: [
       { archivo: PIVOTE, cita: 'el plan Hobby cuesta US$5 **e incluye US$5 de uso**' },
       { archivo: DESPLIEGUE, cita: 'como el uso pasa de los US$5 incluidos, la factura de Railway es el uso' },
@@ -77,7 +77,7 @@ export const COSTOS: Costo[] = [
     monto: '~US$3,5',
     base: 'medido',
     detalle:
-      'Proyectado de los primeros 2 días de uso: 0,35 GB de memoria en promedio, con los reinicios por falta de memoria del 14-10 dentro. Railway cobra la memoria que se usa.',
+      'Proyectado con los primeros 2 días de uso, contando los reinicios por falta de memoria del 14 de octubre: 0,35 GB de memoria en promedio. Railway cobra la memoria que se usa.',
     fuentes: [
       { archivo: DESPLIEGUE, cita: '| api | 0,35 GB | US$0,23 | ~US$3,5 |' },
       { archivo: DESPLIEGUE, cita: 'Railway cobra la memoria **usada**, no el límite: bajarlo no ahorra.' },
@@ -89,7 +89,7 @@ export const COSTOS: Costo[] = [
     monto: '~US$1',
     base: 'medido',
     detalle:
-      'Entre US$0,7 y 1,5 al mes. La de Compra Ágil corre varias veces al día y la del análisis una vez por semana, 15,5 minutos en su última medición.',
+      'Entre US$0,7 y 1,5 al mes. Una trae licitaciones y Compras Ágiles varias veces al día. La otra recalcula precios y mercados cada domingo, y la última vez tardó 15,5 minutos.',
     fuentes: [
       { archivo: DESPLIEGUE, cita: 'Las dos tareas suman ~US$1 al mes (US$0,7–1,5)' },
       { archivo: DESPLIEGUE, cita: '| cron-frecuente | 0,03 GB | US$0,02 | ~US$0,3 |' },
@@ -102,7 +102,7 @@ export const COSTOS: Costo[] = [
     monto: '~US$4,5',
     base: 'medido',
     detalle:
-      'Proyectado de los primeros 2 días de uso: 0,41 GB de memoria en promedio (~US$4,1) más el disco (~US$0,4). Guarda 1,4 GB de datos, y Railway cobra unos US$10 al mes por cada GB de memoria.',
+      'Proyectado con los primeros 2 días de uso: 0,41 GB de memoria en promedio (~US$4,1) más el disco (~US$0,4). Guarda 1,4 GB de datos. Railway cobra unos US$10 al mes por cada GB de memoria.',
     fuentes: [
       { archivo: DESPLIEGUE, cita: '| Postgres | 0,41 GB | US$0,27 (+ US$0,03 de volumen) | ~US$4,5 |' },
       { archivo: DESPLIEGUE, cita: 'la base, **1,4 GB**' },
@@ -114,7 +114,7 @@ export const COSTOS: Costo[] = [
     concepto: 'Archivos del análisis (Cloudflare R2)',
     monto: 'US$0',
     base: 'medido',
-    detalle: 'Unos 4,5 GB, dentro de la capa gratuita de 10 GB.',
+    detalle: 'Unos 4,5 GB de historia de compras, dentro de los 10 GB gratuitos.',
     fuentes: [
       { archivo: PIVOTE, cita: '| MinIO / R2 | ~$1 | $0 (≤ 10 GB) |' },
       {
@@ -129,7 +129,7 @@ export const COSTOS: Costo[] = [
     monto: 'US$20',
     base: 'tarifa',
     detalle:
-      'Incluye US$20 de uso. Desde el 20 de octubre de 2026: el plan gratuito pausó el sitio cuando los rastreadores llenaron su caché.',
+      'Incluye US$20 de uso. Lo pagamos desde el 20 de octubre de 2026: en el plan gratuito, los robots que recorren la web gastaron la cuota de caché y Vercel pausó el sitio.',
     fuentes: [
       { archivo: DESPLIEGUE, cita: 'El plan Pro de Vercel cuesta **US$20 al mes** e incluye US$20 de uso' },
       { archivo: DESPLIEGUE, cita: '### 13.4 La cuenta de Vercel, pausada por la caché (2026-10-19)' },
@@ -140,7 +140,7 @@ export const COSTOS: Costo[] = [
     concepto: 'Dominio .cl (NIC Chile)',
     monto: '~US$1',
     base: 'estimado',
-    detalle: 'El dominio del sitio, registrado en NIC Chile.',
+    detalle: 'La dirección del sitio.',
     fuentes: [
       { archivo: PIVOTE, cita: '| Dominio .cl | — | ~$1 |' },
       { archivo: DESPLIEGUE, cita: 'Dominio `tordo.cl` registrado en NIC Chile.' },

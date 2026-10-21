@@ -21,7 +21,7 @@ const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
 
 export const metadata: Metadata = {
   title: 'API, MCP y datos abiertos',
-  description: `Cómo usar los datos de ${APP_NAME} fuera del sitio: API sin clave, servidor MCP para Claude y ChatGPT, CSV, RSS, código y licencias.`,
+  description: `La API de ${APP_NAME} no pide clave. También hay un servidor MCP para Claude y ChatGPT, descargas en CSV, RSS y el código del sitio, con sus licencias.`,
   alternates: { canonical: '/abierto' },
 };
 
@@ -40,8 +40,8 @@ export default function PaginaAbierto() {
   return (
     <article className="lectura max-w-3xl">
       <CabeceraFicha
-        titulo="Úsalo como quieras"
-        subtitulo={`Lo que muestra ${APP_NAME} se lee también por API y desde tu asistente de IA. Los precios y los competidores se descargan en CSV, y las búsquedas se siguen por RSS.`}
+        titulo="Los mismos datos, para tu código o tu asistente"
+        subtitulo="La API y el servidor MCP no piden clave. Los precios también se bajan en CSV, y las búsquedas se siguen por RSS."
       >
         <nav aria-label="En esta página" className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm [&>a]:py-1">
           <a href="#api" className="enlace">API</a>
@@ -55,18 +55,18 @@ export default function PaginaAbierto() {
       <Seccion id="api" titulo="API">
         <div className="space-y-3 text-sm leading-relaxed text-muted">
           <p>
-            Una API de sólo lectura, en JSON y{' '}
-            <strong className="text-text">sin cuentas ni claves</strong>: el catálogo de licitaciones
-            y Compras Ágiles, las bandas de precio, la competencia y los compradores. La referencia
-            de cada ruta, con su guía de uso, está en{' '}
+            Es de sólo lectura y responde en JSON. Trae el catálogo de licitaciones y Compras Ágiles,
+            los precios pagados por producto, la competencia en cada rubro y el historial de cada
+            comprador. La referencia de cada ruta, con su guía de uso, está en{' '}
             <a href={URL_DOCS_API} className="enlace">{URL_DOCS_API}</a>.
           </p>
           <p>
             El límite es de{' '}
             <strong className="text-text">{LIMITE_POR_MINUTO} peticiones por minuto por IP</strong>.
-            Cada respuesta dice cuántas te quedan en las cabeceras{' '}
-            <code className="font-mono text-text">X-RateLimit-*</code>; si te pasas, recibes un 429 con{' '}
-            <code className="font-mono text-text">Retry-After</code>.
+            Cada respuesta trae en las cabeceras{' '}
+            <code className="font-mono text-text">X-RateLimit-*</code> cuántas te quedan. Si te pasas,
+            recibes un 429 con <code className="font-mono text-text">Retry-After</code>, que dice
+            cuántos segundos esperar.
           </p>
           <Codigo etiqueta="Ejemplo con curl">{ejemploCurl()}</Codigo>
         </div>
@@ -75,9 +75,9 @@ export default function PaginaAbierto() {
       <Seccion
         id="mcp"
         titulo="Pregúntale a tu asistente"
-        descripcion={`Un servidor MCP anónimo: tu asistente consulta precios, compradores y licitaciones de ${APP_NAME} mientras conversas. Comparte con la API el límite por IP (${LIMITE_POR_MINUTO} peticiones por minuto).`}
+        descripcion={`MCP es la forma en que un asistente de IA, como Claude o ChatGPT, consulta otros sistemas. Con este servidor, el tuyo busca precios, compradores y licitaciones mientras conversas. Comparte con la API el límite por IP (${LIMITE_POR_MINUTO} peticiones por minuto).`}
       >
-        <p className="text-sm text-muted">La dirección del servidor, siempre con la barra final:</p>
+        <p className="text-sm text-muted">Su dirección, con la barra del final:</p>
         <Codigo etiqueta="URL del servidor MCP">{URL_MCP}</Codigo>
         <ul className="mt-6 divide-y divide-border border-y border-border">
           {instalacionesMcp(APP_NAME).map((instalacion) => (
@@ -88,7 +88,7 @@ export default function PaginaAbierto() {
         <ul className="mt-2 space-y-2 text-sm leading-relaxed text-muted">
           {HERRAMIENTAS_MCP.map((h) => (
             <li key={h.nombre}>
-              <code className="font-mono text-text">{h.nombre}</code> — {h.descripcion}
+              <code className="font-mono text-text">{h.nombre}</code>: {h.descripcion}
             </li>
           ))}
         </ul>
@@ -100,12 +100,13 @@ export default function PaginaAbierto() {
       <Seccion id="datos" titulo="CSV y RSS">
         <ul className="space-y-3 text-sm leading-relaxed text-muted">
           <li>
-            <strong className="text-text">CSV.</strong> La banda de precio de un producto se
-            descarga desde la herramienta de precio de{' '}
+            <strong className="text-text">CSV.</strong> Los precios de un producto se bajan desde
+            la herramienta de precio de{' '}
             <Link href="/mercado" className="enlace">/mercado</Link>, con el mismo cálculo que ves en
-            pantalla. Va con BOM y separada por <code className="font-mono text-text">;</code> para
-            que Excel en Chile la abra bien, y su primera línea cita la fuente. Por la API también
-            la de competidores de un comprador:{' '}
+            pantalla. El archivo va separado por <code className="font-mono text-text">;</code> y con
+            BOM (una marca invisible al inicio), para que Excel en Chile lo abra en columnas y con
+            tildes. La primera línea cita la fuente. Por la API se bajan también los competidores de
+            un comprador:{' '}
             <code className="font-mono text-text">/api/v1/bi/exportar/precio/…</code> y{' '}
             <code className="font-mono text-text">/api/v1/bi/exportar/competidores/…</code>.
           </li>
@@ -113,13 +114,13 @@ export default function PaginaAbierto() {
             <strong className="text-text">RSS.</strong> Cada búsqueda guardada del{' '}
             <Link href="/licitaciones" className="enlace">catálogo</Link> tiene su feed, y «Lo mejor
             de hoy» en Compra Ágil también (<a href="/rss/compra-agil" className="enlace">/rss/compra-agil</a>).
-            Cómo se sigue una:{' '}
+            El paso a paso está en{' '}
             <Link href="/guias/seguir-una-busqueda-por-rss" className="enlace">la guía del RSS</Link>.
           </li>
           <li>
-            <strong className="text-text">De dónde salen.</strong> De la API y los datos abiertos de
-            ChileCompra:{' '}
-            <Link href="/guias/de-donde-salen-los-datos" className="enlace">qué se usa y sus límites</Link>.
+            <strong className="text-text">De dónde salen.</strong> De la API y los archivos abiertos
+            de ChileCompra.{' '}
+            <Link href="/guias/de-donde-salen-los-datos" className="enlace">Qué trae cada fuente y qué no</Link>.
           </li>
         </ul>
       </Seccion>
@@ -139,10 +140,10 @@ export default function PaginaAbierto() {
             </p>
           )}
           <p>
-            ¿Un error, un dato raro o un problema de seguridad? Escribe a{' '}
-            <a href={`mailto:${CORREO_CONTACTO}`} className="enlace">{CORREO_CONTACTO}</a>. Si viene
-            de la API, incluye la cabecera <code className="font-mono text-text">X-Request-ID</code>{' '}
-            de la respuesta: lleva directo al registro del servidor.
+            ¿Encontraste un error o un problema de seguridad? Escribe a{' '}
+            <a href={`mailto:${CORREO_CONTACTO}`} className="enlace">{CORREO_CONTACTO}</a>. Si es de
+            la API, copia la cabecera <code className="font-mono text-text">X-Request-ID</code> de la
+            respuesta: con ella encontramos tu petición en el registro del servidor.
           </p>
         </div>
       </Seccion>

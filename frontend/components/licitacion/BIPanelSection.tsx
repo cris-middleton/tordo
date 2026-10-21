@@ -12,9 +12,9 @@ const TITULO = 'font-sans text-lg font-semibold text-text';
 
 /** De dónde salen los precios de referencia, en palabras (el fallback L1→L3 del BI). */
 const ORIGEN_PRECIO: Record<string, string> = {
-  L0: 'compras de este organismo del mismo producto',
+  L0: 'compras del mismo producto por este comprador',
   L0N: 'compras del mismo producto en todo el país',
-  L1: 'compras de este organismo',
+  L1: 'compras de este comprador',
   L2: 'compras del sector',
   L3: 'compras de todo el país',
 };
@@ -62,7 +62,7 @@ function Competencia({ competidores }: { competidores: CompetidoresPanel }) {
   const tramo = competidores.tipo_mercado ? TRAMO_MERCADO[competidores.tipo_mercado.toLowerCase()] : null;
   return (
     <section>
-      <h3 className={TITULO}>Quién le vende a este comprador</h3>
+      <h3 className={TITULO}>Quién le vende</h3>
       {!competidores.disponible || lista.length === 0 ? (
         <p className="mt-2 text-sm text-muted">
           {motivoParaPersona(competidores.motivo, 'Todavía no tenemos proveedores de este comprador.')}
@@ -71,7 +71,7 @@ function Competencia({ competidores }: { competidores: CompetidoresPanel }) {
         <div className="mt-2 max-w-3xl">
           {tramo && <p className="mb-4 text-sm text-muted">{tramo}</p>}
           <BarrasHorizontales
-            etiqueta="Parte de lo que compra este organismo que se lleva cada proveedor"
+            etiqueta="Qué parte de lo que compra se lleva cada proveedor"
             filas={lista.map((c, i) => ({
               clave: `${c.NombreProveedor ?? 'proveedor'}-${i}`,
               etiqueta: c.NombreProveedor ?? 'Sin nombre',
@@ -91,12 +91,13 @@ function Precios({ precios }: { precios: PrecioFallback[] }) {
   const con = precios.filter((p) => p.disponible && p.p50 != null);
   return (
     <section>
-      <h3 className={TITULO}>Precios de referencia</h3>
+      <h3 className={TITULO}>Cuánto se pagó en las mismas categorías</h3>
       <p className="mt-1 max-w-[65ch] text-sm text-muted">
-        Precio unitario pagado en órdenes de compra, por categoría del catálogo de lo que pide esta licitación.
+        Precio por unidad en órdenes de compra de las categorías del catálogo que pide esta licitación. La
+        mediana es el precio del medio: la mitad de las compras se pagó menos y la otra mitad, más.
       </p>
       {con.length === 0 ? (
-        <p className="mt-2 text-sm text-muted">Todavía no hay compras comparables de estos productos.</p>
+        <p className="mt-2 text-sm text-muted">Todavía no hay compras de estas categorías para comparar.</p>
       ) : (
         <div className="mt-3 max-w-3xl overflow-x-auto">
           <table className="w-full text-sm">
@@ -104,7 +105,7 @@ function Precios({ precios }: { precios: PrecioFallback[] }) {
               <tr className="border-b border-border text-left text-muted">
                 <th scope="col" className="py-2 pr-4 font-normal">Categoría</th>
                 <th scope="col" className="py-2 pr-4 text-right font-normal">Mediana</th>
-                <th scope="col" className="py-2 pr-4 text-right font-normal">La mitad central</th>
+                <th scope="col" className="py-2 pr-4 text-right font-normal">La mitad de las compras</th>
                 <th scope="col" className="hidden py-2 text-left font-normal sm:table-cell">De dónde sale</th>
               </tr>
             </thead>
@@ -155,8 +156,8 @@ export default function BIPanelSection({ panel }: { panel: BIPanel; tender?: Ten
   if (vacio) {
     return (
       <p className="max-w-[65ch] text-muted">
-        Todavía no tenemos historia de este comprador ni precios comparables para esta compra. El análisis se
-        rehace cada domingo con las órdenes de compra de ChileCompra.
+        Todavía no tenemos compras anteriores de este comprador ni precios para comparar. Lo recalculamos todo
+        cada domingo con las órdenes de compra de ChileCompra.
       </p>
     );
   }
@@ -165,7 +166,7 @@ export default function BIPanelSection({ panel }: { panel: BIPanel; tender?: Ten
       <Plazo ventana={ventana} />
       <BuyerProfilePanel
         comprador={comprador}
-        titulo="El comprador"
+        titulo="Cómo compra"
         nivel="h3"
       />
       <Competencia competidores={competidores} />

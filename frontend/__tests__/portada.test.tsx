@@ -159,7 +159,7 @@ const MERCADO: MercadoPortada = {
 const NOTAS = leerNotas();
 const CONCLUSION_GASTO = 'El Estado compró $19 billones en 12 meses. Diciembre de 2025 fue el mes más alto: 1,7 veces un mes típico.';
 const CONCLUSION_PRECIO = `${PRODUCTO_PORTADA.nombre}: la mitad de las compras se pagó entre $150.921 y $240.000`;
-const CONCLUSION_CONCENTRACION = '6 de cada 10 pesos se compran en mercados donde un solo proveedor se lleva la mitad o más';
+const CONCLUSION_CONCENTRACION = '6 de cada 10 pesos se gastan en mercados donde un solo proveedor se lleva la mitad o más';
 const CONCLUSION_CIERRES = '4 de cada 10 Compras Ágiles abiertas cierran hoy o mañana';
 // La lectura de la nota es la más reciente CON `antes_despues`, no la primera de la lista.
 const NOTA_PORTADA = notaDeLaPortada(NOTAS)!;
@@ -384,7 +384,7 @@ describe('«Lo mejor de hoy»', () => {
     // Las cotizaciones las decide MOSTRAR_COTIZACIONES (portada-hoy.test.tsx); aquí, lo que nunca sale.
     expect(bloque.textContent).not.toMatch(/puntaje|\/100|esta unidad/i);
     expect(bloque).toHaveTextContent(descripcionDestacadas(true));
-    expect(bloque).toHaveTextContent(/compran seguido/);
+    expect(bloque).toHaveTextContent(/cuánto compra ese comprador/);
   });
 
   it('sin historia aún, la portada no afirma un criterio que no ordena', async () => {
@@ -395,7 +395,7 @@ describe('«Lo mejor de hoy»', () => {
     const { container } = render(await Home());
     const bloque = container.querySelector('#hoy') as HTMLElement;
     expect(bloque).toHaveTextContent(descripcionDestacadas(false));
-    expect(bloque.textContent).not.toMatch(/compran seguido/);
+    expect(bloque.textContent).not.toMatch(/compra ese comprador/);
   });
 
   it('si la respuesta no trae `historia_disponible`, tampoco lo promete', async () => {
@@ -403,7 +403,7 @@ describe('«Lo mejor de hoy»', () => {
     simularBackend({ destacadas: ok(sinCampo), resumen: ok(RESUMEN) });
     const { container } = render(await Home());
     const bloque = container.querySelector('#hoy') as HTMLElement;
-    expect(bloque.textContent).not.toMatch(/compran seguido/);
+    expect(bloque.textContent).not.toMatch(/compra ese comprador/);
   });
 
   it.each([

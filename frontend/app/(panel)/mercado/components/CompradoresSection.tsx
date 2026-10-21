@@ -69,13 +69,13 @@ function FilaComprador({ organismoId }: { organismoId: string }) {
     );
   }
   if (!data?.disponible) {
-    return <li className="py-4 text-sm text-muted">Sin historia para el organismo {organismoId}.</li>;
+    return <li className="py-4 text-sm text-muted">Todavía no tenemos historia del comprador {organismoId}.</li>;
   }
 
   const nota = data.buyer_score != null ? data.buyer_score * 10 : null;
   const cifras = [
-    { etiqueta: 'Nota', valor: nota != null ? `${decimal(nota, 1)} de 10` : '—' },
-    { etiqueta: 'Adjudica', valor: pctOpc(data.tramitacion?.tasa_adjudicacion), detalle: 'de lo que llama' },
+    { etiqueta: 'Nota como comprador', valor: nota != null ? `${decimal(nota, 1)} de 10` : '—' },
+    { etiqueta: 'Adjudica', valor: pctOpc(data.tramitacion?.tasa_adjudicacion), detalle: 'de lo que licita' },
     { etiqueta: 'Cancela', valor: pctOpc(data.tramitacion?.tasa_cancelacion), detalle: 'de sus órdenes' },
     { etiqueta: 'Aceptadas', valor: pctOpc(data.tramitacion?.tasa_aceptacion), detalle: 'por el proveedor' },
   ];
@@ -104,15 +104,17 @@ function FilaComprador({ organismoId }: { organismoId: string }) {
 
 export function CompradoresSection({ topOrganismos, focusedOrganismo }: CompradorSectionProps) {
   const orgsAMostrar = focusedOrganismo ? [focusedOrganismo] : topOrganismos.slice(0, 3);
-  const titulo = focusedOrganismo || orgsAMostrar.length === 1 ? 'Cómo compra' : 'Cómo compran los que más compran';
+  // Los de `topOrganismos` son los primeros por PUNTAJE, no por volumen: el título
+  // decía «los que más compran».
+  const titulo = focusedOrganismo || orgsAMostrar.length === 1 ? 'Cómo compra' : 'Cómo compran los primeros de la lista';
 
   return (
     <section className="space-y-2">
       <div>
         <h3 className="font-sans text-lg font-semibold text-text">{titulo}</h3>
         <p className="mt-1 max-w-[65ch] text-sm text-muted">
-          Cuánto adjudica de lo que llama a licitación, cuánto cancela y cuántas de sus órdenes aceptan los
-          proveedores. La nota de 0 a 10 resume esos y otros cuatro datos de su historia.
+          Qué parte de lo que licita adjudica, cuántas órdenes cancela y cuántas le aceptan los proveedores.
+          La nota de 0 a 10 junta esos tres datos y cuatro más de su historia.
         </p>
       </div>
       <ul className="divide-y divide-border border-y border-border">

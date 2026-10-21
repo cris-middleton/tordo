@@ -25,7 +25,7 @@ function tarjeta(page: Page, codigo: string) {
 /** Busca en el catálogo ENTERO (`abiertas=0`): sin eso abre en «Sólo abiertas» y la adjudicada no saldría nunca. */
 async function buscar(page: Page, termino: string) {
   await page.goto('/licitaciones?abiertas=0');
-  const buscador = page.getByPlaceholder(/Nombre, organismo o descripción/i);
+  const buscador = page.getByPlaceholder(/Producto o comprador/i);
   await buscador.fill(termino);
   await buscador.press('Enter');
 }
@@ -62,7 +62,7 @@ test('un término sin resultados no rompe la pantalla', async ({ page }) => {
   // El fallo típico aquí es una pantalla en blanco por un `.map()` sobre
   // undefined, así que se comprueba que el buscador sigue en pie.
   await expect(page.getByText(/0 resultados/i)).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByPlaceholder(/Nombre, organismo o descripción/i)).toBeVisible();
+  await expect(page.getByPlaceholder(/Producto o comprador/i)).toBeVisible();
 });
 
 test('la búsqueda queda en la URL y sobrevive a recargar', async ({ page }) => {

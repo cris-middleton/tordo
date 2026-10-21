@@ -242,8 +242,8 @@ describe('/rss/compra-agil', () => {
 
   it('con historia disponible, cada ítem dice las órdenes de su unidad', async () => {
     const xml = await rssConHistoria(true);
-    expect(xml).toContain('Esta unidad: 524 órdenes de Compra Ágil en 6 meses');
-    expect(xml).toMatch(/Suele comprar entre/);
+    expect(xml).toContain('Su unidad de compra: 524 órdenes de Compra Ágil en 6 meses');
+    expect(xml).toMatch(/La mitad de sus órdenes va de/);
   });
 
   it('el tope de Compra Ágil se dice como tope', async () => {
@@ -269,15 +269,15 @@ describe('/rss/compra-agil', () => {
     });
     const { GET } = await import('@/app/rss/compra-agil/route');
     const xml = await (await GET(new NextRequest('https://tordo.cl/rss/compra-agil'))).text();
-    expect(xml).toContain('Hasta $7,2 millones, el tope de Compra Ágil');
+    expect(xml).toContain('Hasta $7,2 millones (el máximo que permite Compra Ágil)');
     expect(xml).not.toContain('Monto estimado');
   });
 
   it('sin historia aún, el ítem no dice nada del comprador', async () => {
     const xml = await rssConHistoria(false);
-    expect(xml).not.toMatch(/historial|esta unidad|suele comprar|su orden típica/i);
+    expect(xml).not.toMatch(/historial|unidad de compra|la mitad de sus/i);
     // Ni el canal afirma un criterio que no está ordenando nada.
     expect(xml).toContain(escaparXml(descripcionDestacadas(false)));
-    expect(xml).not.toMatch(/compran seguido/);
+    expect(xml).not.toMatch(/compra ese comprador/);
   });
 });

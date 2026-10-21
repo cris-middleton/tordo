@@ -22,7 +22,7 @@ export function FormularioBuscar({ termino }: { termino: string }) {
   return (
     <form role="search" method="get" action="/buscar" className="flex flex-col gap-2 sm:flex-row">
       <label htmlFor="buscar-q" className="sr-only">
-        Qué le vendes al Estado
+        Lo que vendes: un producto o un servicio
       </label>
       <div className="relative flex-1">
         <Search

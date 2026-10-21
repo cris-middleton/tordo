@@ -104,7 +104,7 @@ afterEach(() => {
 describe('la página', () => {
   it('muestra la hora de la última actualización, en hora de Chile', async () => {
     await montar();
-    expect(screen.getByText(/actualizado a las/i)).toHaveTextContent('13:05');
+    expect(screen.getByText(/lista actualizada a las/i)).toHaveTextContent('13:05');
     expect(screen.queryByText(/puede estar\s+desactualizada/i)).not.toBeInTheDocument();
   });
 
@@ -120,9 +120,9 @@ describe('la página', () => {
     const item = screen.getByRole('article');
     // El conteo de cotizaciones está apagado (G1 cerrada: no se refresca): no se dice.
     expect(within(item).queryByText('1 cotización hasta ahora')).not.toBeInTheDocument();
-    expect(within(item).getByText('Esta unidad: 120 órdenes de Compra Ágil en 6 meses')).toBeInTheDocument();
+    expect(within(item).getByText('Su unidad de compra: 120 órdenes de Compra Ágil en 6 meses')).toBeInTheDocument();
     expect(within(item).getByText('Cierra en 20 h')).toBeInTheDocument();
-    expect(within(item).getByText(/Suele comprar entre \$400\.000 y \$1,5 millones/)).toBeInTheDocument();
+    expect(within(item).getByText(/La mitad de sus órdenes va de \$400\.000 a \$1,5 millones/)).toBeInTheDocument();
     // Rediseño §6.7: ni «puntaje N/100» ni «X de Y».
     expect(item.textContent).not.toMatch(/puntaje|\/100/i);
     expect(item.textContent).not.toMatch(/\d de \d/);
@@ -134,17 +134,17 @@ describe('la página', () => {
     expect(screen.getByText(descripcionDestacadas(true))).toBeInTheDocument();
   });
 
-  it('con historia, la descripción habla de los compradores que compran seguido', async () => {
+  it('con historia, la descripción dice que cuenta cuánto compra ese comprador', async () => {
     await montar();
-    expect(screen.getByText(/compran seguido/)).toBeInTheDocument();
+    expect(screen.getByText(/cuánto compra ese comprador/)).toBeInTheDocument();
   });
 
   it('sin historia aún, la descripción no afirma un criterio que no ordena', async () => {
     respuesta.historia_disponible = false;
     await montar();
-    expect(document.body.textContent).not.toMatch(/compran seguido/);
+    expect(document.body.textContent).not.toMatch(/compra ese comprador/);
     expect(screen.getByText(descripcionDestacadas(false))).toBeInTheDocument();
-    expect(screen.getByText(/todavía no entra en el orden/)).toBeInTheDocument();
+    expect(screen.getByText(/todavía no entra/)).toBeInTheDocument();
   });
 
   it('sin conteo de cotizaciones mantenido, no se dice nada de cotizaciones', async () => {
@@ -158,16 +158,17 @@ describe('la página', () => {
 
   it('la descripción no promete «pocas cotizaciones» ni «adjudica lo que publica»', () => {
     expect(DESCRIPCION_DESTACADAS).not.toMatch(/cotiz|adjudica|publica/i);
-    expect(DESCRIPCION_DESTACADAS).toMatch(/sale de esas tres reglas y de nada más/);
-    // «Buen monto» juzga; «de monto mayor» sólo dice lo que el orden hace.
-    expect(DESCRIPCION_DESTACADAS).toMatch(/de monto mayor/);
+    // Dice que el orden usa esas tres cosas y ninguna otra.
+    expect(DESCRIPCION_DESTACADAS).toMatch(/^Ordenadas por tres cosas: .* Nada más\.$/);
+    // «Buen monto» juzga; «el monto» sólo dice lo que el orden usa.
+    expect(DESCRIPCION_DESTACADAS).toMatch(/el monto/);
     expect(DESCRIPCION_DESTACADAS).not.toMatch(/buen monto/);
     // La variante sin historia cumple lo mismo y no nombra al comprador como criterio.
     const sinHistoria = descripcionDestacadas(false);
-    expect(sinHistoria).not.toMatch(/cotiz|adjudica|publica|compran seguido|buen monto/i);
-    expect(sinHistoria).toMatch(/sale de esas reglas y de nada más/);
-    expect(sinHistoria).toMatch(/de monto mayor/);
-    expect(sinHistoria).toMatch(/una vez por semana/);
+    expect(sinHistoria).not.toMatch(/cotiz|adjudica|publica|compra ese comprador|buen monto/i);
+    expect(sinHistoria).toMatch(/^Ordenadas por dos cosas: el monto y el tiempo/);
+    expect(sinHistoria).toMatch(/todavía no entra/);
+    expect(sinHistoria).toMatch(/los domingos/);
     expect(descripcionDestacadas(true)).toBe(DESCRIPCION_DESTACADAS);
     expect(sinHistoria.length).toBeLessThanOrEqual(DESCRIPCION_DESTACADAS.length + 80);
   });
@@ -208,7 +209,7 @@ describe('la página', () => {
     respuesta.items[0].ofertas_recibidas = null;
     await montar();
     expect(screen.queryByText('Sin dato de cotizaciones')).not.toBeInTheDocument();
-    expect(screen.getByText('Esta unidad: sin órdenes de Compra Ágil en 6 meses')).toBeInTheDocument();
+    expect(screen.getByText('Su unidad de compra: sin órdenes de Compra Ágil en 6 meses')).toBeInTheDocument();
   });
 
   it('con la historia aún no disponible, la tarjeta no dice NADA del comprador', async () => {
@@ -218,7 +219,7 @@ describe('la página', () => {
     respuesta.items[0].comprador = null;
     await montar();
     const item = screen.getByRole('article');
-    expect(item.textContent).not.toMatch(/historial|esta unidad|órdenes|suele comprar|su orden típica/i);
+    expect(item.textContent).not.toMatch(/historial|unidad de compra|órdenes|la mitad de sus/i);
     // Lo demás sigue en pie: el tiempo y los enlaces.
     expect(within(item).getByText('Cierra en 20 h')).toBeInTheDocument();
     expect(within(item).getByRole('link', { name: /mercado público/i })).toBeInTheDocument();
@@ -230,7 +231,7 @@ describe('la página', () => {
     await montar();
     const item = screen.getByRole('article');
     expect(within(item).getByText('Hasta $7,2 millones')).toBeInTheDocument();
-    expect(within(item).getByText('Tope de Compra Ágil')).toBeInTheDocument();
+    expect(within(item).getByText('El máximo que permite Compra Ágil')).toBeInTheDocument();
     expect(item.textContent!.match(/\$7,2 millones/g)).toHaveLength(1);
   });
 
@@ -238,7 +239,7 @@ describe('la página', () => {
     await montar();
     const item = screen.getByRole('article');
     expect(within(item).getByText('$1,5 millones')).toBeInTheDocument();
-    expect(item.textContent).not.toMatch(/tope|hasta \$/i);
+    expect(item.textContent).not.toMatch(/tope|máximo que permite|hasta \$/i);
   });
 
   it('sin ítems no rompe', async () => {
@@ -258,16 +259,16 @@ describe('los textos', () => {
   it('comprador: conteos de la UNIDAD, nunca un cociente', () => {
     const c = BASE.items[0].comprador!;
     expect(textoComprador({ ...c, ordenes: 1 }, 6, true)).toBe(
-      'Esta unidad: 1 orden de Compra Ágil en 6 meses',
+      'Su unidad de compra: 1 orden de Compra Ágil en 6 meses',
     );
     expect(textoComprador({ ...c, ordenes: 0 }, 6, true)).toBe(
-      'Esta unidad: sin órdenes de Compra Ágil en 6 meses',
+      'Su unidad de compra: sin órdenes de Compra Ágil en 6 meses',
     );
     expect(textoComprador({ ...c, ordenes: 2953, publicadas: 11 }, 6, true)).toBe(
-      'Esta unidad: 2.953 órdenes de Compra Ágil en 6 meses',
+      'Su unidad de compra: 2.953 órdenes de Compra Ágil en 6 meses',
     );
     // Con historia disponible, una unidad ausente no tuvo órdenes.
-    expect(textoComprador(null, 6, true)).toBe('Esta unidad: sin órdenes de Compra Ágil en 6 meses');
+    expect(textoComprador(null, 6, true)).toBe('Su unidad de compra: sin órdenes de Compra Ágil en 6 meses');
   });
 
   it('comprador: sin historia disponible no se dice nada, haya o no unidad', () => {
@@ -286,7 +287,7 @@ describe('los textos', () => {
 
   it('monto en el RSS: el tope se dice como tope', () => {
     expect(textoMontoRss({ monto_estimado: 7_215_100, monto_es_tope: true })).toBe(
-      'Hasta $7,2 millones, el tope de Compra Ágil',
+      'Hasta $7,2 millones (el máximo que permite Compra Ágil)',
     );
     expect(textoMontoRss({ monto_estimado: 2_000_000, monto_es_tope: false })).toBe('Monto estimado $2 millones');
     expect(textoMontoRss({ monto_estimado: 2_000_000 })).toBe('Monto estimado $2 millones');

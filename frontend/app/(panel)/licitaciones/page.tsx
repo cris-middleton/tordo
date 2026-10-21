@@ -156,7 +156,7 @@ function CatalogoContenido() {
 
   return (
     <div>
-      <h1 className="page-title">Licitaciones</h1>
+      <h1 className="page-title">Licitaciones y Compras Ágiles</h1>
       <p className="mt-2 text-muted">{SUBTITULO_CATALOGO}</p>
 
       <div className="mt-6 space-y-3">
@@ -168,7 +168,7 @@ function CatalogoContenido() {
           <input
             type="search"
             aria-label="Buscar licitaciones"
-            placeholder="Nombre, organismo o descripción"
+            placeholder="Producto o comprador"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={handleKeywordKeyDown}
@@ -213,7 +213,7 @@ function CatalogoContenido() {
               }}
               className="px-2 py-1 text-sm text-muted hover:text-danger"
             >
-              Limpiar
+              Borrar filtros
             </button>
           </div>
         )}
@@ -275,10 +275,10 @@ function CatalogoContenido() {
             value={filtros.tipo_convocatoria}
             onChange={(v) => handleFilterChange('tipo_convocatoria', v)}
             options={[
-              { value: '', label: 'Todos los mecanismos' },
+              { value: '', label: 'Todos los tipos' },
               ...TIPOS_CONVOCATORIA.map((t) => ({ value: t.value, label: t.label })),
               // Lo que enlazan las cifras de la portada: sin esta opción el filtro
-              // funcionaría pero la pantalla diría «Todos los mecanismos».
+              // funcionaría pero la pantalla diría «Todos los tipos».
               { value: TIPOS_SIN_COMPRA_AGIL, label: 'Todo menos Compra Ágil' },
             ]}
           />
@@ -380,7 +380,7 @@ function CatalogoContenido() {
         </div>
       ) : tenders.length === 0 ? (
         <div className="py-12">
-          <p className="font-semibold text-text">No hay licitaciones con estos filtros</p>
+          <p className="font-semibold text-text">Ninguna licitación con estos filtros</p>
           <p className="mt-1 text-muted">Quita un filtro o prueba con otra palabra.</p>
         </div>
       ) : (
@@ -445,7 +445,7 @@ export default function TendersPage() {
         // El título va también en el respaldo: es lo que sirve el servidor, y
         // sin él el HTML del catálogo no tenía <h1>.
         <div>
-          <h1 className="page-title">Licitaciones</h1>
+          <h1 className="page-title">Licitaciones y Compras Ágiles</h1>
           <p className="mt-2 text-muted">{SUBTITULO_CATALOGO}</p>
           <div className="flex items-center justify-center py-24">
             <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />

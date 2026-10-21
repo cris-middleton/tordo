@@ -62,11 +62,11 @@ module.exports = {
         onDato: 'rgb(var(--color-on-dato) / <alpha-value>)',
       },
       fontFamily: {
-        // Las dos son Archivo. `font-display` = titular (h1, h2): semiexpandida y en 800,
-        // con el ancho y el peso en globals.css (`@layer utilities`). Nunca un número: las
-        // cifras van con `.cifra`, a ancho normal.
+        // `sans` = Public Sans (texto, interfaz y cifras); `display` = Libre Franklin, el
+        // titular (h1, h2), con el peso y el espaciado en globals.css (`@layer utilities`).
+        // Nunca un número en `display`: las cifras van con `.cifra`, que es Public Sans.
         sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
-        display: ['var(--font-sans)', 'system-ui', 'sans-serif'],
+        display: ['var(--font-titular)', 'var(--font-sans)', 'system-ui', 'sans-serif'],
         mono: ['var(--font-mono)', 'ui-monospace', 'monospace'],
         brand: ['var(--font-varien)', 'system-ui', 'sans-serif'],
       },

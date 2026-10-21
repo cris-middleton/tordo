@@ -14,11 +14,12 @@ import {
   metadataProducto,
   nombreProducto,
   plata,
+  precioDeLaBanda,
   rutaComprador,
   tituloDeBanda,
 } from '@/lib/publico';
 import { normalizeText } from '@/lib/nombresChile';
-import { textoPeriodo } from '@/lib/periodo';
+import { rangoDeMeses } from '@/lib/periodo';
 import { esSlugPublico } from '@/lib/parametrosPublicos';
 import { pedirPublico, segmento } from '@/lib/publicoServidor';
 import { urlRepositorio } from '@/lib/repositorio';
@@ -75,10 +76,10 @@ export default async function PaginaProducto({ params }: Props) {
   const p = await obtener(slug);
   const nombre = nombreProducto(p);
   const categoria = categoriaProducto(p);
-  const periodo = textoPeriodo({ desde: p.periodo?.ventana_desde, hasta: p.periodo?.ventana_hasta });
+  const periodo = rangoDeMeses(p.periodo?.ventana_desde, p.periodo?.ventana_hasta);
   const principal = p.unidades[0];
   const precio = principal
-    ? precioDeBanda({ producto: p, banda: principal, nombre: tituloDeBanda(principal.unidad), repositorio: urlRepositorio() })
+    ? precioDeBanda({ producto: p, banda: principal, nombre: precioDeLaBanda(principal.unidad), repositorio: urlRepositorio() })
     : null;
 
   return (
@@ -86,9 +87,7 @@ export default async function PaginaProducto({ params }: Props) {
       <CabeceraFicha
         titulo={nombre}
         subtitulo={
-          periodo
-            ? `Lo que pagaron los compradores públicos en Chile, ${periodo}.`
-            : 'Lo que pagan los compradores públicos en Chile.'
+          periodo ? `Lo que pagó el Estado de ${periodo}, y quién lo compró.` : 'Lo que pagó el Estado, y quién lo compró.'
         }
       >
         {(categoria || p.codigo_onu) && (
@@ -108,14 +107,14 @@ export default async function PaginaProducto({ params }: Props) {
         )}
         {!p.indexable && (
           <p className="mt-3 max-w-3xl rounded-lg border border-gold/25 bg-gold/10 px-3 py-2 text-xs text-gold">
-            Hay pocas compras, pocos compradores o precios muy distintos: úsalo sólo para orientarte.
+            Hay pocas compras, pocos compradores o precios muy distintos. Úsalo sólo para orientarte.
           </p>
         )}
       </CabeceraFicha>
 
       <Seccion titulo="Cuánto se pagó">
         {!principal ? (
-          <p className="text-sm text-subtle">Todavía no hay compras suficientes para una banda.</p>
+          <p className="text-sm text-subtle">Todavía hay muy pocas compras para darte un precio.</p>
         ) : (
           <div className="max-w-3xl">
             {precio ? (
@@ -142,7 +141,7 @@ export default async function PaginaProducto({ params }: Props) {
       {p.unidades.length > 1 && (
         <Seccion
           titulo="Por unidad de medida"
-          descripcion="El mismo producto se compra por caja, por unidad o por paquete: cada unidad tiene su precio."
+          descripcion="Lo mismo se compra por caja, por unidad o por paquete. Cada forma tiene su precio."
         >
           <div className="max-w-3xl">
             <TablaUnidades unidades={p.unidades} titulo={(u) => tituloDeBanda(u.unidad)} />
@@ -150,9 +149,9 @@ export default async function PaginaProducto({ params }: Props) {
         </Seccion>
       )}
 
-      <Seccion titulo="Quién lo compra" descripcion="Los compradores con más compras de este producto, y lo que pagó cada uno.">
+      <Seccion titulo="Quién lo compra" descripcion="Los que más veces lo compraron, y lo que pagó cada uno (su mediana).">
         <TablaEnlaces
-          encabezados={['Comprador', 'Unidad', 'Compras', 'Precio mediano']}
+          encabezados={['Comprador', 'Unidad de medida', 'Compras', 'Mediana']}
           vacio="Todavía no hay compradores con datos de este producto."
           ocultarEnMovil={[0]}
           filas={p.compradores.map((c) => ({
@@ -165,7 +164,8 @@ export default async function PaginaProducto({ params }: Props) {
       </Seccion>
 
       <p className="mt-6 text-xs text-subtle">
-        Agrupado por la descripción que escribe el comprador (sin códigos ni cifras): «{p.firma}».
+        Esta ficha junta las compras descritas con estas palabras, en cualquier orden y sin contar números ni
+        códigos: «{p.firma}».
       </p>
 
       <p className="mt-4 text-sm">

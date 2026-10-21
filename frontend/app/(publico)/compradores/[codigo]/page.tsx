@@ -80,7 +80,7 @@ export default async function PaginaComprador({ params }: Props) {
         subtitulo={
           <>
             Código <span className="font-mono">{c.codigo}</span> en Mercado Público
-            {desde && hasta ? `. Datos del ${desde} al ${hasta}.` : '.'}
+            {desde && hasta ? `. Sus compras del ${desde} al ${hasta}.` : '.'}
           </>
         }
       />
@@ -95,7 +95,7 @@ export default async function PaginaComprador({ params }: Props) {
                 { etiqueta: 'Órdenes de compra', valor: entero(perfil.volumen.n_oc_total) },
                 { etiqueta: 'Meses con compras', valor: entero(perfil.volumen.n_meses_activo) },
                 {
-                  etiqueta: 'Ofertas por licitación',
+                  etiqueta: 'Ofertas por licitación, en promedio',
                   valor: perfil.volumen.prom_oferentes != null ? decimal(perfil.volumen.prom_oferentes, 1) : '—',
                 },
                 { etiqueta: 'Licitaciones', valor: entero(perfil.transparencia?.n_lic_total) },
@@ -107,7 +107,7 @@ export default async function PaginaComprador({ params }: Props) {
       {senales.length > 0 && (
         <Seccion
           titulo="Señales en su historial"
-          descripcion="Conviene saberlo antes de ofertar."
+          descripcion="Conviene saberlo antes de postular."
         >
           <ul className="list-disc space-y-1.5 pl-5 text-sm text-muted">
             {senales.map((s) => (
@@ -120,21 +120,21 @@ export default async function PaginaComprador({ params }: Props) {
       {ca && (
         <Seccion
           titulo="Cómo compra por Compra Ágil"
-          descripcion={`Sus órdenes por Compra Ágil en los últimos ${MESES_COMPRA_AGIL} meses: cuántas, a cuántos proveedores y de qué monto.`}
+          descripcion={`Sus órdenes por Compra Ágil de los últimos ${MESES_COMPRA_AGIL} meses.`}
         >
           <FranjaDatos>
             <Dato etiqueta="Órdenes" valor={entero(ca.ordenes)} />
             <Dato etiqueta={etiquetaPublicadas(periodo.ventana_hasta)} valor={entero(ca.publicadas)} />
-            <Dato etiqueta="Proveedores distintos" valor={entero(ca.proveedores_distintos)} />
+            <Dato etiqueta="Proveedores que le vendieron" valor={entero(ca.proveedores_distintos)} />
             <Dato
-              etiqueta="Cuota del proveedor principal"
-              valor={ca.cuota_lider_pct != null ? `${Math.round(ca.cuota_lider_pct)}%` : '—'}
+              etiqueta="Su proveedor principal"
+              valor={ca.cuota_lider_pct != null ? `${Math.round(ca.cuota_lider_pct)}% de las órdenes` : '—'}
             />
-            <Dato etiqueta="Monto mediano" valor={plata(ca.monto_mediana)} />
+            <Dato etiqueta="Monto mediano por orden" valor={plata(ca.monto_mediana)} />
           </FranjaDatos>
           {ca.monto_p25 != null && ca.monto_p75 != null && (
             <p className="mt-3 text-sm text-muted">
-              La mitad de sus órdenes por Compra Ágil va de {plata(ca.monto_p25)} a{' '}
+              La mitad de sus órdenes por Compra Ágil fue de entre {plata(ca.monto_p25)} y{' '}
               {plata(ca.monto_p75)}.
             </p>
           )}
@@ -143,12 +143,12 @@ export default async function PaginaComprador({ params }: Props) {
 
       <Seccion
         titulo="Compras Ágiles abiertas de este comprador"
-        descripcion={`Las que siguen recibiendo cotizaciones, en el orden de «${TITULO_DESTACADAS}».`}
+        descripcion={`Las que todavía reciben cotizaciones, ordenadas como en «${TITULO_DESTACADAS}».`}
       >
         <CompraAgilDelComprador codigo={c.codigo} />
       </Seccion>
 
-      <Seccion titulo="Qué compra" descripcion="Sus diez rubros con más monto en el periodo.">
+      <Seccion titulo="Qué compra" descripcion="Los diez rubros en que más gastó en el periodo.">
         <TablaEnlaces
           encabezados={['Rubro', 'Monto', 'Órdenes']}
           vacio="Todavía no hay rubros con datos para este comprador."

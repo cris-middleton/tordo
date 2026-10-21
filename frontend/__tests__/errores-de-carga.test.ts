@@ -39,6 +39,6 @@ describe('mensajeDeCarga', () => {
   });
 
   it('un 4xx sin detalle no inventa una causa', () => {
-    expect(mensajeDeCarga({ response: { status: 404 } })).toBe('No se pudo cargar esta sección.');
+    expect(mensajeDeCarga({ response: { status: 404 } })).toBe('No pudimos cargar esta sección.');
   });
 });

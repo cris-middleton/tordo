@@ -8,7 +8,7 @@ import { fechaCorta } from '@/lib/publico';
 export const metadata: Metadata = {
   title: 'Guías',
   description:
-    'Cómo leer una banda de precio, un comprador o la concentración de un mercado, y de dónde salen los datos de compras públicas.',
+    'Cómo leer el precio de un producto, a un comprador o la concentración de un mercado, y de dónde salen los datos de compras públicas.',
   alternates: { canonical: '/guias' },
 };
 
@@ -22,7 +22,7 @@ export default function PaginaGuias() {
     <article className="lectura max-w-3xl">
       <CabeceraFicha
         titulo="Cómo leer los datos de compras públicas"
-        subtitulo="Qué significa cada cifra, de dónde sale y dónde están sus límites."
+        subtitulo="Qué significa cada cifra del sitio y lo que no alcanza a decir."
       />
       <ul className="max-w-[58ch] divide-y divide-border border-y border-border">
         {guias.map((g) => (

@@ -36,7 +36,7 @@ export function CompraAgilDelComprador({ codigo }: { codigo: string }) {
           ? 'No pudimos traer sus Compras Ágiles abiertas.'
           : 'Este comprador no tiene Compras Ágiles abiertas ahora mismo.'}{' '}
         <Link href="/compra-agil" className="enlace">
-          Ver todas las de hoy
+          Ver las de todos los compradores
         </Link>
       </p>
     );

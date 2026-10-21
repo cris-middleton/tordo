@@ -85,7 +85,7 @@ export default async function PaginaNota({ params }: Props) {
         <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
           <dt className="text-muted">Estado</dt>
           <dd className="font-semibold text-text">{ETIQUETA_ESTADO[nota.estado]}</dd>
-          <dt className="text-muted">Datos</dt>
+          <dt className="text-muted">Con qué datos</dt>
           <dd className="text-text">{nota.medido_sobre}</dd>
         </dl>
       </CabeceraFicha>

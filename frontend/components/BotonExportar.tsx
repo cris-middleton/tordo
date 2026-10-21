@@ -42,7 +42,7 @@ export default function BotonExportar({
       URL.revokeObjectURL(url);
     } catch {
       // Basta con que el botón deje de girar y diga algo.
-      setError('No se pudo descargar. Inténtalo de nuevo.');
+      setError('No pudimos descargar el archivo. Inténtalo de nuevo.');
     } finally {
       setBajando(false);
     }

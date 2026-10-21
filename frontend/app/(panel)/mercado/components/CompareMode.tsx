@@ -89,26 +89,26 @@ function RubroColumn({ rubro, consulta }: { rubro: string; consulta: UseQueryRes
       <div className="card space-y-2.5 text-sm">
         {data.resumen?.monto_anual_clp != null && (
           <div>
-            <p className="text-xs text-muted">Monto anual</p>
+            <p className="text-xs text-muted">Comprado el último año completo</p>
             <p className="cifra font-semibold text-text">{formatCLPShort(data.resumen.monto_anual_clp)}</p>
           </div>
         )}
 
         <div>
-          <p className="text-xs text-muted">Oportunidades encontradas</p>
+          <p className="text-xs text-muted">Compradores con puntaje de 4 o más (hasta 10)</p>
           <p className="cifra font-semibold text-text">{data.oportunidades.length}</p>
         </div>
 
         {maxScore > 0 && (
           <div>
-            <p className="text-xs text-muted">Mejor score</p>
-            <p className="cifra font-semibold text-text">{decimal(maxScore, 1)}</p>
+            <p className="text-xs text-muted">Mejor puntaje</p>
+            <p className="cifra font-semibold text-text">{decimal(maxScore, 1)} de 10</p>
           </div>
         )}
 
         {cagr != null && (
           <div>
-            <p className="text-xs text-muted">Crecimiento anual</p>
+            <p className="text-xs text-muted">Crecimiento al año, en promedio</p>
             <p className={`cifra font-semibold ${cagr >= 0 ? 'text-accent' : 'text-danger'}`}>
               {cagr > 0 ? '+' : ''}{decimal(cagr, 1)}%
             </p>
@@ -117,7 +117,7 @@ function RubroColumn({ rubro, consulta }: { rubro: string; consulta: UseQueryRes
 
         {data.resumen?.n_proveedores_actual != null && (
           <div>
-            <p className="text-xs text-muted">Proveedores activos</p>
+            <p className="text-xs text-muted">Proveedores que le venden al rubro</p>
             <p className="cifra font-semibold text-text">
               {data.resumen.n_proveedores_actual.toLocaleString('es-CL')}
             </p>
@@ -126,14 +126,14 @@ function RubroColumn({ rubro, consulta }: { rubro: string; consulta: UseQueryRes
 
         {avgCompetencia > 0 && (
           <div>
-            <p className="text-xs text-muted">Competencia promedio por oportunidad</p>
+            <p className="text-xs text-muted">Proveedores por comprador, en promedio</p>
             <p className="font-semibold text-text">{Math.round(avgCompetencia)} proveedores</p>
           </div>
         )}
 
         {topComprador && (
           <div>
-            <p className="text-xs text-muted">Quién más compra</p>
+            <p className="text-xs text-muted">Comprador más activo</p>
             <p className="font-semibold text-text text-sm" title={topComprador}>
               {topComprador.length > 35 ? `${topComprador.slice(0, 35)}\u2026` : topComprador}
             </p>
@@ -155,7 +155,7 @@ export function CompareMode({ rubroA, rubroB, allRubros, onChangeRubroA, onChang
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-sm font-semibold text-text">Comparando:</span>
+        <span className="text-sm font-semibold text-text">Comparas</span>
         <select
           aria-label="Primer rubro"
           value={rubroA}
@@ -166,14 +166,14 @@ export function CompareMode({ rubroA, rubroB, allRubros, onChangeRubroA, onChang
             <option key={r} value={r}>{r}</option>
           ))}
         </select>
-        <span className="text-muted text-xs">vs.</span>
+        <span className="text-muted text-xs">con</span>
         <select
           aria-label="Segundo rubro"
           value={rubroB}
           onChange={(e) => onChangeRubroB(e.target.value)}
           className="input-field max-w-xs"
         >
-          <option value="">Selecciona rubro para comparar</option>
+          <option value="">Elige el segundo rubro</option>
           {allRubros.filter((r) => r !== rubroA).map((r) => (
             <option key={r} value={r}>{r}</option>
           ))}
@@ -181,7 +181,7 @@ export function CompareMode({ rubroA, rubroB, allRubros, onChangeRubroA, onChang
         <button
           onClick={onClose}
           className="ml-auto text-muted hover:text-danger transition-colors flex items-center gap-1"
-          aria-label="Cerrar modo comparar"
+          aria-label="Dejar de comparar"
         >
           <X className="h-4 w-4" />
           <span className="text-xs">Cerrar</span>
@@ -190,7 +190,7 @@ export function CompareMode({ rubroA, rubroB, allRubros, onChangeRubroA, onChang
 
       {!rubroB ? (
         <div className="card text-sm text-muted text-center py-8">
-          Selecciona el segundo rubro para ver la comparación.
+          Elige un segundo rubro para ponerlos lado a lado.
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

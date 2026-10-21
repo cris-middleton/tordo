@@ -224,11 +224,19 @@ IP de `/api/v1/bi/*`. Que lo público no pida sesión se prueba también por HTT
 
 ### La voz de los textos
 
-Todo texto que se escriba o se toque desde octubre de 2026 sigue esta voz (spec
-`docs/IDENTIDAD_Y_PORTADA_2026-10.md` §6.1, tomada de la guía de voz de PixelFrame):
+Todo texto que se escriba o se toque sigue **`docs/VOZ.md`** (desde el 2026-10-21; antes era la
+§6.1 de `docs/IDENTIDAD_Y_PORTADA_2026-10.md`): la voz de PixelFrame más la del newsletter de
+Fintual, *precisa como una tabla, hablada como una persona*. Ahí están las seis reglas, las
+muletillas de folleto que se borran, **el vocabulario fijo** (comprador, unidad de compra, «la
+mitad de las compras», mediana, «8 de cada 10 compras»…) y ejemplos de antes y después. Lo más
+corto de recordar:
 
+- **Primero la respuesta.** Un título dice lo que la página contesta. Una pregunta como título sólo
+  si es la del lector; «¿Qué le vendes al Estado?» se fue por ambigua (¿me pregunta?, ¿me vende?).
 - **Chileno, en segunda persona y concreto.** Cifras, plazos y objetos con nombre antes que
-  adjetivos.
+  adjetivos. La jerga, traducida en la misma frase la primera vez.
+- **Carácter con medida**: una frase con gracia por pantalla como mucho, en lo secundario (vacíos,
+  errores, 404, notas), nunca sobre una cifra.
 - **Frases cortas y afirmativas.** Sin signos de exclamación y sin emojis.
 - **Suena a quien confía en lo que hace, no a una tienda que necesita vender.**
 - **Los cuatro vicios**, que se revisan antes de dar un texto por bueno:
@@ -383,13 +391,13 @@ programador en la nube, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
 - **La tarjeta de vista previa** (`app/opengraph-image.tsx`, la misma para X en `twitter-image.tsx`)
   es un panel `brand-blue` (el azul del cuerpo del pájaro, invariante de tema; lo pinta también el
   pájaro de la cabecera) con
-  el pájaro, la marca en Varien y el dominio, y un lienzo blanco con «¿Qué le vendes al Estado?» en
-  navy y la píldora «Datos públicos de ChileCompra». Sin subtítulo: casi siempre se ve a 260 px.
+  el pájaro, la marca en Varien y el dominio, y un lienzo blanco con «Cuánto paga el Estado por lo
+  que vendes» (el titular de la portada) en navy y la píldora «Datos públicos de ChileCompra». Sin subtítulo: casi siempre se ve a 260 px.
   Se dibuja sin CSS, así que sus colores son copias de tokens en `lib/coloresImagen.ts`
   (`colores-imagen.test.ts` vigila la copia) y sus pares de texto, `PARES_IMAGEN`, los mide
   `contraste-wcag.test.ts`. Los trazos del pájaro están copiados del logo en `lib/pajaroImagen.ts`
   (`pajaro-imagen.test.ts`), y las fuentes van en WOFF (Satori no lee WOFF2 ni ejes variables): dos
-  instancias estáticas de Archivo en `assets/fuentes-imagen/` (cómo rehacerlas, en
+  instancias estáticas de Libre Franklin (800 y 700) en `assets/fuentes-imagen/` (cómo rehacerlas, en
   `lib/fuentesImagen.ts`) y Varien desde `public/fonts/varien/WOFF/`. **Rutas literales** al leerlas:
   una ruta armada empaqueta el proyecto entero en el servidor (aviso de Turbopack).
 - **El estado de servidor va en TanStack Query, sin excepciones.** Las consultas y sus claves
@@ -763,8 +771,8 @@ ninguna página ni layout de grupo pinta cabecera, pie, `PieAtribucion` ni `<mai
   sin repetir, más búsquedas) y `SelectorTema`, en el pie. **El pie** (`PieSitio`): **una fila de enlaces**
   con lo que la cabecera no tiene (`enlacesDelPie`: acerca, costo, API y MCP, código, licencias,
   legales y contacto; ni las secciones, ni Guardados, ni «Apoyar», que ya están arriba) y el
-  selector de tema compacto (tres íconos); debajo, la cita (`PieAtribucion`), «No estamos afiliados
-  al gobierno de Chile.», «Lo hace {nombre}.» (sólo con `AUTOR_NOMBRE`) y «Sitio en el commit
+  selector de tema compacto (tres íconos); debajo, la cita (`PieAtribucion`), «Un proyecto
+  independiente, sin relación con el gobierno de Chile.», «Lo hace {nombre}.» (sólo con `AUTOR_NOMBRE`) y «Sitio en el commit
   `abc1234`» (sólo con `VERCEL_GIT_COMMIT_SHA`, enlazado si hay repositorio; `commitDelSitio` en
   `lib/repositorio.ts`). Eran cuatro columnas con 18 enlaces, la mitad repetidos: ~520 px en
   escritorio y ~900 en un teléfono; ahora, ~250 y ~370. `__tests__/cabecera.test.tsx` falla si
@@ -845,8 +853,9 @@ escala**. Es una heurística sin verdad contra la que evaluarla: ordena, no pred
   menos de `TOLERANCIA_TOPE` (2 %) **por arriba o por abajo**: cubre el tope del mes anterior, el
   nuevo a principio de mes (aún no se repite: hace de referencia el viejo) y «7.200.000», y deja
   fuera 7.000.000 (a un 3 %) y el error. La instantánea del golden siembra el tope tres veces
-  (`_historia_del_tope`): como top 50, lo trae una sola. El sitio lo dice junto al monto («Hasta $7,2M»
-  y «Tope de Compra Ágil» debajo; `NOTA_TOPE` en `lib/compraAgil.ts`), sin repetir la cifra.
+  (`_historia_del_tope`): como top 50, lo trae una sola. El sitio lo dice junto al monto («Hasta $7,2
+  millones» y «El máximo que permite Compra Ágil» debajo; `NOTA_TOPE` en `lib/compraAgil.ts`), sin repetir
+  la cifra.
 - **La competencia `1/(1+cotizaciones)` viaja en `factores` pero NO está en el puntaje**
   (`EN_EL_PUNTAJE`), y el sitio **no muestra el conteo** (`MOSTRAR_COTIZACIONES = false` en
   `lib/compraAgil.ts`). **Compuerta G1 cerrada (2026-10-15, medida en producción en sólo
@@ -939,8 +948,8 @@ contenedor único (cabecera y pie, con la atribución, son de la cáscara única
     `compradores` y suman su `n`. **`null` sin la tabla, nunca `[]`**: no se sabe, que no es
     «ningún comprador». `compradores` (los 10 de «Quién lo compra») no cambia.
 - **Todo precio dice cuántos compradores tiene detrás y de cuándo** (`comprasDeOrganismos`,
-  `frasePrecio`, `notaCompradores` en `lib/publico.ts`): «46 compras de 40 organismos, abr 2025
-  – mar 2026 (12 meses)» en la ficha (el periodo en la cabecera), en `/buscar` (en las cifras de la banda, `CifrasBanda`, con el mismo gráfico que la ficha) y en
+  `frasePrecio`, `notaCompradores` en `lib/publico.ts`): «46 compras de 40 compradores» y el periodo
+  («de abr 2025 a mar 2026») en la ficha (el periodo en la cabecera), en `/buscar` (en las cifras de la banda, `CifrasBanda`, con el mismo gráfico que la ficha) y en
   el pie de la lectura de la portada. Con p25 y p75 iguales tras `plata`, nunca «entre $X y $X».
 - **Un producto se titula como lo escribe quien lo compra** (`nombreProducto`): la
   `descripcion` de su banda con más compras, sin los códigos del principio, en tipo oración si
@@ -1045,17 +1054,20 @@ negro con tornasol azul-verdoso:
   cada gráfico pinta en `dato` sólo lo que nombra su conclusión y deja el resto en `dato-tenue`,
   que es decorativo (`SIN_PAR`): nunca lleva texto y el valor va escrito al lado. Claro: el azul
   del cuerpo del pájaro; oscuro: el turquesa del ala.
-- Tipografía (identidad de octubre de 2026, `docs/IDENTIDAD_Y_PORTADA_2026-10.md` §4,
-  `app/layout.tsx`, `next/font/google`, autoalojada): **Archivo** en todo —titulares, cuerpo,
-  interfaz y **todas las cifras**—, variable con eje de ancho. **`h1` y `h2` van semiexpandidos
-  (`font-stretch: 112.5%`) y en 800** (`font-display`, por la regla base); el resto, a ancho
-  normal (`font-sans`). Las dos utilidades fijan ancho y peso en `@layer utilities` de
-  `globals.css`, que Tailwind emite después de las suyas: `font-display` le gana a un
-  `font-bold`, y un titular **no lleva clase de peso** (salvo que declare que no es titular
-  con `font-sans` o `font-mono`). **IBM Plex Mono** sólo para identificadores (códigos de
+- Tipografía (`docs/IDENTIDAD_Y_PORTADA_2026-10.md` §4, revisada el 2026-10-21; `app/layout.tsx`,
+  `next/font/google`, autoalojada): **Libre Franklin sólo en los titulares** (`h1`, `h2` y
+  `font-display`: 800 y `letter-spacing: -0.015em`), **Public Sans en todo lo demás** —cuerpo,
+  interfaz y **todas las cifras**—. Archivo semiexpandida se fue porque al dueño no le convencía:
+  se compararon catorce familias con textos del sitio. Libre Franklin (la Franklin Gothic de los
+  diarios) da el carácter pero **no trae `tnum`**; Public Sans salió de ella, sí lo trae (punto de
+  miles a medio ancho) y comparte esqueleto. Las dos utilidades fijan peso y espaciado en
+  `@layer utilities` de `globals.css`, que Tailwind emite después de las suyas: `font-display` le
+  gana a un `font-bold`, y un titular **no lleva clase de peso** (salvo que declare que no es
+  titular con `font-sans` o `font-mono`). **IBM Plex Mono** sólo para identificadores (códigos de
   licitación, de comprador, ONU; nunca un monto, y nunca en negrita: está cargada en 400 y 500)
-  y **Varien** sólo para la marca, junto al pájaro. `.cifra` va sobre Archivo con `tnum`.
-  **Nunca `cifra` junto a `font-display`, ni un `style={{ fontFamily }}`**.
+  y **Varien** sólo para la marca, junto al pájaro. `.cifra` va sobre Public Sans con `tnum`.
+  **Nunca `cifra` junto a `font-display`** (saldría en Libre Franklin, sin cifras tabulares), **ni
+  un `style={{ fontFamily }}`**.
   `__tests__/tipografia.test.ts` y `e2e/tipografia.spec.ts`.
 - Fondo de página en tema claro: **blanco** (`--color-background` = `--color-surface`); las
   tarjetas se separan por su borde. **`bg-background` sin borde no se distingue en claro**: para
@@ -1155,7 +1167,7 @@ que se pintan igual en el servidor). **No le pongas `'use client'` a la página*
     estable, y la frase lo dice. La copia en `verificar-produccion.sh` aplica el mismo filtro: si
     cambia uno, cambia el otro.
   - **Concentración** (`lecturaConcentracion` → `Concentracion`; `GET /publico/mercado`,
-    `concentracion`): «5 de cada 10 pesos se compran en mercados donde un solo proveedor se lleva la
+    `concentracion`): «5 de cada 10 pesos se gastan en mercados donde un solo proveedor se lleva la
     mitad o más» (los bordes del redondeo con palabras, como en los cierres). Un histograma de diez
     tramos de 10 puntos —cuánto se lleva el proveedor principal de cada mercado, un comprador en un
     rubro—, del alto del **monto** que se compra en ellos (contar mercados exageraba: los chicos salen
@@ -1203,8 +1215,8 @@ que se pintan igual en el servidor). **No le pongas `'use client'` a la página*
   `/compra-agil`. `Portada` lee la hora una vez y se la pasa al bloque.
   **Su descripción depende de los datos que tiene al lado** (`descripcionDestacadas(historia_disponible
   === true)`, en la portada, en `/compra-agil` y en el RSS): sin historia por unidad el factor
-  comprador vale lo mismo para todas y el orden es sólo tiempo y monto, así que no dice «de
-  compradores que compran seguido». `DESCRIPCION_DESTACADAS` suelta describe el método
+  comprador vale lo mismo para todas y el orden es sólo tiempo y monto, así que dice «Ordenadas por dos cosas: el
+  monto y el tiempo…» y no nombra al comprador. `DESCRIPCION_DESTACADAS` suelta describe el método
   (metadatos, `/acerca`) y no el estado.
 - **Notas de datos** (`NotasPortada`): las cuatro últimas, con fecha y título y «Arreglo en curso»
   donde toque, y «Todas las notas». A la derecha (5/12) **la ficha del autor** (`FichaAutor`, §3.6,
@@ -1227,10 +1239,11 @@ que se pintan igual en el servidor). **No le pongas `'use client'` a la página*
 **La ficha de producto** (`/productos/[slug]`) abre con **«Cuánto se pagó»**: el mismo gráfico de
 precio, con su pie de método (spec PORTADA_V7 §6), `precioDeBanda` sobre la unidad con más compras,
 titulada con `tituloDeBanda`, sin el filtro de la portada —una banda de un solo comprador dice «todas
-las compras son de {comprador}»—; debajo, sus cifras (`CifrasBanda`: mediana, la mitad central, 8 de
-cada 10 y la base, con la variación en palabras de `textoVariacion`, sin insignias de color). Con más de
+las compras son de {comprador}»—; debajo, sus cifras (`CifrasBanda`: mediana, la mitad de las compras,
+8 de cada 10 compras y cuántas compras, con la variación en palabras de `textoVariacion` —«Precios
+parecidos entre sí»…—, sin insignias de color). Con más de
 una unidad, una tabla (`TablaUnidades`). Ya no hay tarjeta de P10…P90 encima del gráfico: la ficha
-decía la mitad central tres veces. Las tablas de las fichas (`TablaEnlaces`) van con filetes y sin caja.
+decía la mitad de las compras tres veces. Las tablas de las fichas (`TablaEnlaces`) van con filetes y sin caja.
 
 **Acerca** (`/acerca`, `app/(publico)/acerca/`): lo que la portada dejó de explicar —qué es, de
 dónde salen los datos, cómo se financia— y las preguntas frecuentes (`PREGUNTAS`, en

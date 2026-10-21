@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
 
   return respuestaRss(
     construirRss({
-      titulo: `${TITULO_DESTACADAS} — ${NOMBRE_SITIO}`,
+      titulo: `${TITULO_DESTACADAS} | ${NOMBRE_SITIO}`,
       enlace: `${origen}/compra-agil${consulta ? `?${consulta}` : ''}`,
       descripcion: descripcionDestacadas(respuesta.historia_disponible === true),
       items: (respuesta.items ?? []).map((item) => ({

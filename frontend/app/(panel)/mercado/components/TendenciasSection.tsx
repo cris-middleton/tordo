@@ -30,7 +30,7 @@ const conSigno = (v: number, digitos = 1) => `${v > 0 ? '+' : v < 0 ? '−' : ''
 export function TendenciasSection({ loading, selectedRubro, serieAnual, cagrRubro }: TendenciasSectionProps) {
   const rootRef = useRef<HTMLElement>(null);
 
-  if (!selectedRubro) return <EligeRubro que="ver cómo viene creciendo ese mercado" />;
+  if (!selectedRubro) return <EligeRubro que="cuánto se compra cada año" />;
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -52,7 +52,7 @@ export function TendenciasSection({ loading, selectedRubro, serieAnual, cagrRubr
   const conclusion =
     cagr == null
       ? null
-      : `${cagr >= 0 ? 'Crece' : 'Cae'} ${decimal(Math.abs(cagr), 1)} % al año${primero && ultimo ? ` entre ${primero} y ${ultimo}` : ''}.`;
+      : `${cagr >= 0 ? 'Crece' : 'Cae'} ${decimal(Math.abs(cagr), 1)} % al año en promedio${primero && ultimo ? `, de ${primero} a ${ultimo}` : ''}.`;
   const resumen = conclusion ? `${selectedRubro}: ${conclusion}` : selectedRubro;
 
   let interanual: string | null = null;
@@ -67,9 +67,9 @@ export function TendenciasSection({ loading, selectedRubro, serieAnual, cagrRubr
     <section ref={rootRef} className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="font-sans text-lg font-semibold text-text">Cómo viene creciendo</h3>
+          <h3 className="font-sans text-lg font-semibold text-text">Cuánto se compra cada año</h3>
           <p className="mt-1 text-sm text-muted">
-            Monto en órdenes de compra del rubro, por año, de todos los organismos.
+            La suma de las órdenes de compra del rubro, año por año, de todos sus compradores.
           </p>
         </div>
         <ShareMenu

@@ -73,16 +73,16 @@ describe('lecturaGasto', () => {
 describe('fraseConcentracion', () => {
   it('de cada 10 pesos, con el redondeo de la frase', () => {
     expect(fraseConcentracion(0.52)).toBe(
-      '5 de cada 10 pesos se compran en mercados donde un solo proveedor se lleva la mitad o más',
+      '5 de cada 10 pesos se gastan en mercados donde un solo proveedor se lleva la mitad o más',
     );
     expect(pesosDeCadaDiez(0.52)).toBe(5);
   });
 
   it('los bordes con palabras: nunca 0 ni 10 de algo que no lo es, y 1 en singular', () => {
     expect(fraseConcentracion(0)).toBe('Ningún mercado tiene un proveedor que se lleve la mitad o más');
-    expect(fraseConcentracion(0.03)).toMatch(/^Menos de 1 de cada 10 pesos se compran/);
-    expect(fraseConcentracion(0.1)).toMatch(/^1 de cada 10 pesos se compra en/);
-    expect(fraseConcentracion(0.97)).toMatch(/^Casi todo el monto se compra en/);
+    expect(fraseConcentracion(0.03)).toMatch(/^Menos de 1 de cada 10 pesos se gastan/);
+    expect(fraseConcentracion(0.1)).toMatch(/^1 de cada 10 pesos se gasta en/);
+    expect(fraseConcentracion(0.97)).toMatch(/^Casi todo el monto se gasta en/);
   });
 });
 

@@ -45,7 +45,7 @@ function banda(parcial: Partial<PrecioBanda>): PrecioBanda {
 async function consultarProducto() {
   render(<TabPrecio />);
   await userEvent.click(screen.getByText('Guantes de nitrilo'));
-  await userEvent.click(screen.getByRole('button', { name: 'Consultar' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Ver precios' }));
 }
 
 describe('TabPrecio', () => {
@@ -60,10 +60,10 @@ describe('TabPrecio', () => {
     await consultarProducto();
 
     await waitFor(() => {
-      expect(screen.getByText(/precio típico/i)).toBeInTheDocument();
+      expect(screen.getByText(/la mitad pagó menos de/i)).toBeInTheDocument();
     });
     expect(screen.getByText('$45.000')).toBeInTheDocument();
-    expect(screen.getByText(/datos del organismo específico/)).toBeInTheDocument();
+    expect(screen.getByText(/su categoría del catálogo que hizo este comprador/)).toBeInTheDocument();
     // Con una sola banda no se anuncia una cuenta de "productos distintos".
     expect(screen.queryByText(/productos distintos/)).not.toBeInTheDocument();
   });
@@ -89,7 +89,7 @@ describe('TabPrecio', () => {
     expect(screen.getByText('$557.000')).toBeInTheDocument();
     expect(screen.getByText('$1')).toBeInTheDocument();
     // L0 tiene su propia lectura, distinta de "datos del organismo específico".
-    expect(screen.getByText(/producto exacto/)).toBeInTheDocument();
+    expect(screen.getByText(/compras de este producto que hizo este comprador/)).toBeInTheDocument();
     expect(screen.getByText(/2 productos distintos/)).toBeInTheDocument();
   });
 
@@ -123,11 +123,11 @@ describe('TabPrecio', () => {
     await consultarProducto();
 
     await waitFor(() => {
-      expect(screen.getByText(/precio típico/i)).toBeInTheDocument();
+      expect(screen.getByText(/la mitad pagó menos de/i)).toBeInTheDocument();
     });
-    expect(screen.getByText(/contexto general del organismo/)).toBeInTheDocument();
+    expect(screen.getByText(/no hay compras de este producto/)).toBeInTheDocument();
     // L4 agrega por rubro, sin unidad: se avisa en vez de asumir una.
-    expect(screen.getByText(/no trae la unidad de medida/)).toBeInTheDocument();
+    expect(screen.getByText(/sin unidad de medida/)).toBeInTheDocument();
   });
 
   it('muestra la unidad junto al precio cuando el backend la manda', async () => {
@@ -141,10 +141,10 @@ describe('TabPrecio', () => {
     await consultarProducto();
 
     await waitFor(() => {
-      expect(screen.getByText(/precio típico/i)).toBeInTheDocument();
+      expect(screen.getByText(/la mitad pagó menos de/i)).toBeInTheDocument();
     });
     expect(screen.getByText(/por caja de 100/)).toBeInTheDocument();
     // Con unidad no hay nada que avisar.
-    expect(screen.queryByText(/no trae la unidad de medida/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/sin unidad de medida/)).not.toBeInTheDocument();
   });
 });

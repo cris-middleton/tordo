@@ -42,9 +42,9 @@ export async function GET(req: NextRequest) {
 
   return respuestaRss(
     construirRss({
-      titulo: `${busqueda} — ${NOMBRE_SITIO}`,
+      titulo: `${busqueda} | ${NOMBRE_SITIO}`,
       enlace: `${origen}/licitaciones${consulta ? `?${consulta}` : ''}`,
-      descripcion: `Las últimas licitaciones publicadas en Mercado Público que cumplen esta búsqueda: ${busqueda}.`,
+      descripcion: `Las 50 licitaciones más recientes de Mercado Público que cumplen esta búsqueda: ${busqueda}.`,
       items: (respuesta.items ?? []).map((t) => ({
         titulo: normalizeText(t.nombre),
         enlace: `${origen}/licitaciones/${encodeURIComponent(t.codigo_externo)}`,

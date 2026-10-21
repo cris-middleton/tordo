@@ -1,28 +1,37 @@
 import React from 'react';
 import type { Metadata, Viewport } from 'next';
-import { Archivo, IBM_Plex_Mono } from 'next/font/google';
+import { IBM_Plex_Mono, Libre_Franklin, Public_Sans } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
 import { AnaliticaWeb } from '@/components/AnaliticaWeb';
 import { Cascara } from '@/components/cascara/Cascara';
 
-// Dos familias, cada una con su trabajo, y Varien para la marca
-// (docs/IDENTIDAD_Y_PORTADA_2026-10.md §4):
+// Tres familias, cada una con su trabajo, y Varien para la marca
+// (docs/IDENTIDAD_Y_PORTADA_2026-10.md §4, con la comparación que las eligió):
 //
-// - Archivo, TODO: titulares, cuerpo, interfaz y todas las cifras (trae `tnum`).
-//   Variable con eje de ancho (`wdth` 62–125) y de peso: los titulares (`h1`, `h2`,
-//   `font-display`) van semiexpandidos (112,5 %) y en 800; el resto, a ancho normal.
-//   Es la de la tarjeta de vista previa. `next/font` carga el eje de peso entero
-//   (100–900): no admite un rango parcial, y es el mismo archivo.
+// - Libre Franklin, sólo titulares (`h1`, `h2`, `font-display`), en 800 y un poco
+//   apretada. Es la versión libre de Franklin Gothic, la gótica de los diarios y de sus
+//   gráficos de datos: es la que le da carácter al sitio. No trae cifras tabulares, y por
+//   eso no hace nada más.
+// - Public Sans, todo lo demás: cuerpo, interfaz y todas las cifras (trae `tnum`, con un
+//   punto de miles de medio ancho). Salió de Libre Franklin para el sistema de diseño del
+//   gobierno de Estados Unidos, así que las dos comparten esqueleto: el titular y el texto
+//   se notan distintos sin pelearse. Con cursiva propia (las notas y las guías la usan).
 // - IBM Plex Mono, sólo identificadores: códigos de licitación y de Compra Ágil,
 //   RUT, códigos ONU, `curl`. Nunca un monto: un precio en mono parece un log.
 //
 // `next/font` las sirve desde este dominio: ninguna petición nueva a un tercero.
-const sans = Archivo({
+const titular = Libre_Franklin({
+  subsets: ['latin'],
+  variable: '--font-titular',
+  display: 'swap',
+});
+
+const sans = Public_Sans({
   subsets: ['latin'],
   variable: '--font-sans',
   display: 'swap',
-  axes: ['wdth'],
+  style: ['normal', 'italic'],
 });
 
 const mono = IBM_Plex_Mono({
@@ -49,7 +58,7 @@ export const metadata: Metadata = {
     template: `%s | ${APP_NAME}`,
   },
   // Vocabulario llano (R10 del rediseño), y nada de lo que se fue con las cuentas.
-  description: `${APP_NAME} — compras públicas de Chile para quien le vende al Estado: precios pagados, licitaciones abiertas y Compra Ágil. Datos públicos de ChileCompra.`,
+  description: `${APP_NAME} muestra a qué precio compró el Estado de Chile, qué licitaciones y Compras Ágiles están abiertas y quién compra. Con datos públicos de ChileCompra.`,
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: '48x48' },
@@ -74,7 +83,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es" className={`${sans.variable} ${mono.variable}`} suppressHydrationWarning>
+    <html lang="es" className={`${titular.variable} ${sans.variable} ${mono.variable}`} suppressHydrationWarning>
       <body className="flex min-h-screen flex-col bg-background font-sans text-text">
         <Providers>
           <Cascara>{children}</Cascara>

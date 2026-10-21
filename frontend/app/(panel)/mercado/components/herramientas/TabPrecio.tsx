@@ -61,7 +61,7 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
   const consultar = async () => {
     const codigo = selected?.codigoProductoONU?.trim();
     if (!codigo) {
-      setError('Selecciona un producto de la lista.');
+      setError('Elige un producto de la lista.');
       return;
     }
     setLoading(true);
@@ -74,7 +74,7 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
       setResultado(res);
       setConsultada(pedida);
       if (!res.disponible) {
-        setError(motivoParaPersona(res.motivo, 'Sin datos para este producto.'));
+        setError(motivoParaPersona(res.motivo, 'Sin datos de compras de este producto.'));
       }
     } catch (err) {
       setError(extractErrorMessage(err));
@@ -95,7 +95,7 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted">
-        Busca un producto por nombre. Opcionalmente filtra por organismo.
+        Busca un producto. Si eliges un comprador, ves sólo lo que pagó él.
       </p>
 
       {/* Combobox producto */}
@@ -107,7 +107,7 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
           onChange={(e) => { setQuery(e.target.value); setSelected(null); setCerradoAMano(false); }}
           onFocus={() => setCerradoAMano(false)}
           onBlur={() => { setTimeout(() => setCerradoAMano(true), 150); }}
-          placeholder="Escribe al menos 2 letras (ej: uniformes, reactivos, papel)"
+          placeholder="Por ejemplo, uniformes, reactivos o papel"
           className="input-field pl-9 pr-9 w-full"
         />
         {searching && (
@@ -130,8 +130,8 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
               >
                 <p className="text-sm text-text font-medium">{p.nombre}</p>
                 <p className="text-xs text-muted">
-                  Código <span className="font-mono">{p.codigoProductoONU}</span>
-                  {p.n != null && <>, {p.n.toLocaleString('es-CL')} transacciones</>}
+                  Código ONU <span className="font-mono">{p.codigoProductoONU}</span>
+                  {p.n != null && <>, {p.n.toLocaleString('es-CL')} compras</>}
                 </p>
               </button>
             ))}
@@ -143,12 +143,12 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
         {organismosConNombre && organismosConNombre.length > 0 ? (
           <select
-            aria-label="Organismo"
+            aria-label="Comprador"
             value={organismo}
             onChange={(e) => setOrganismo(e.target.value)}
             className="input-field"
           >
-            <option value="">Todos los organismos (opcional)</option>
+            <option value="">Todos los compradores</option>
             {organismosConNombre.map((o) => (
               <option key={o.codigo} value={o.codigo} title={o.nombre}>
                 {o.nombre.length > 45 ? `${o.nombre.slice(0, 45)}…` : o.nombre}
@@ -159,7 +159,7 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
           <input
             value={organismo}
             onChange={(e) => setOrganismo(e.target.value)}
-            placeholder="Organismo (opcional)"
+            placeholder="Código del comprador (opcional)"
             className="input-field"
           />
         )}
@@ -168,7 +168,7 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
           disabled={loading || !selected}
           className="btn-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Consultar'}
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Ver precios'}
         </button>
       </div>
 
@@ -191,14 +191,14 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
           )}
           {resultado?.nivel_usado && (
             <p className="text-xs text-muted">
-              Fuente: {nivelLabel(resultado.nivel_usado)}
+              Sale de {nivelLabel(resultado.nivel_usado)}
               {/* Sólo se anuncia la cuenta cuando hay más de una: es la
                   diferencia visible entre "un precio" y "esta categoría son
                   varios productos distintos" — el hallazgo que motivó L0. */}
               {bandas.length > 1 && <>. {bandas.length} productos distintos en esta categoría</>}
               {/* Sin esto la banda se lee como histórica, y son sólo los
                   últimos 12 meses de datos (36 en la referencia del organismo). */}
-              {textoPeriodo(resultado.periodo) && <>. Precios de {textoPeriodo(resultado.periodo)}</>}
+              {textoPeriodo(resultado.periodo) && <>. Compras de {textoPeriodo(resultado.periodo)}</>}
             </p>
           )}
           <div className="space-y-2">
@@ -210,7 +210,7 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
             <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
               {/* La descarga es lo que convierte esto en un entregable: se pega
                   en una propuesta interna o se manda al socio que decide. */}
-              <BotonExportar ruta={rutaExportarPrecio(consultada)} etiqueta="Descargar" />
+              <BotonExportar ruta={rutaExportarPrecio(consultada)} etiqueta="Descargar en CSV" />
             </div>
           )}
         </div>
@@ -240,26 +240,29 @@ function BandaPrecioCard({ banda }: { banda: PrecioBanda }) {
         <p className="font-medium text-text">{banda.descripcion}</p>
       )}
       <p className="text-text">
-        Precio típico: <b>{formatCLPShort(banda.p50)}</b>
+        {/* La mediana dicha en palabras (docs/VOZ.md, regla 3), sin la palabra. */}
+        La mitad pagó menos de <b>{formatCLPShort(banda.p50)}</b>
         {/* Un precio es siempre precio POR ALGO: "$2.380" significa algo
             distinto por unidad que por caja de 100. Se pega a la cifra, no a
             un pie de página, para que nunca se lea el número sin su unidad. */}
         {banda.UnidadMedida && <> por {banda.UnidadMedida}</>}
+        {' y la otra mitad, más.'}
         {banda.p10 != null && banda.p90 != null && (
-          <>, rango habitual: <b>{formatCLPShort(banda.p10)}</b> a <b>{formatCLPShort(banda.p90)}</b></>
+          <> 8 de cada 10 compras, entre <b>{formatCLPShort(banda.p10)}</b> y <b>{formatCLPShort(banda.p90)}</b>.</>
         )}
-        {'.'}
       </p>
       {!banda.UnidadMedida && (
         <p className="text-xs text-warning">
-          Este nivel no trae la unidad de medida: no asumas cuál es antes de cotizar.
+          Este precio viene sin unidad de medida. Antes de cotizar, confirma si es por unidad, caja o kilo.
         </p>
       )}
       <p className="text-xs text-muted">
-        {banda.n != null && <>Basado en <b>{banda.n.toLocaleString('es-CL')}</b> transacciones</>}
+        {banda.n != null && <><b>{banda.n.toLocaleString('es-CL')}</b> compras</>}
         {/* `confianza` es un float 0-1 del backend, no el texto que declaraba
             el tipo antes — se muestra como porcentaje, que es lo que es. */}
-        {banda.confianza != null && <>. Confianza: {Math.round(banda.confianza * 100)}%</>}
+        {banda.confianza != null && (
+          <>. Confianza del cálculo: {Math.round(banda.confianza * 100)} % (sube con más compras y precios más parejos)</>
+        )}
       </p>
       {info && (
         <div className="flex flex-wrap items-center gap-2">
@@ -271,14 +274,14 @@ function BandaPrecioCard({ banda }: { banda: PrecioBanda }) {
               palabra. No se inventa un corte nuevo aquí — el corte ya lo
               hizo el backend al calcular `predictibilidad`. */}
           {banda.qcd != null && (
-            <span className="text-xs text-subtle">dispersión (QCD): {decimal(banda.qcd, 2)}</span>
+            <span className="text-xs text-subtle">dispersión {decimal(banda.qcd, 2)}, de 0 (precios parejos) a 1 (muy distintos)</span>
           )}
         </div>
       )}
       {banda.predictibilidad === 'baja' && (
         <p className="text-xs text-danger">
-          Este comprador ha pagado precios muy distintos por el mismo producto: el precio
-          probablemente no sea lo único que decide la adjudicación aquí.
+          Por este producto se pagaron precios muy distintos, y el dato no dice por qué. Lee bien
+          las bases antes de fijar tu precio.
         </p>
       )}
     </div>

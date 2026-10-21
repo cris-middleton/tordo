@@ -48,14 +48,14 @@ export default async function PaginaRubro({ params }: Props) {
     <article>
       <CabeceraFicha
         titulo={r.nombre}
-        subtitulo="Cuánto compra el Estado en este rubro, cuántos proveedores le venden y en qué meses compra."
+        subtitulo="Cuánto compra el Estado en este rubro, a quién le compra y en qué meses."
       />
 
       <PanoramaRubro panorama={r.panorama} cargando={false} rubro={r.nombre} />
 
       <Seccion
         titulo="Quién compra más"
-        descripcion={`Los que más compraron en este rubro en los últimos ${MESES_ANALISIS} meses, hasta diez.`}
+        descripcion={`Los que más gastaron en este rubro en los últimos ${MESES_ANALISIS} meses.`}
       >
         <TablaEnlaces
           encabezados={['Comprador', 'Monto', 'Órdenes']}

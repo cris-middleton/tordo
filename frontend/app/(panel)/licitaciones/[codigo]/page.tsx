@@ -183,7 +183,7 @@ export default function TenderDetailPage() {
           reintentando={consultaLicitacion.isFetching}
         />
       ) : !tenderData ? (
-        <div className="card p-6 text-muted">No se encontró la licitación solicitada.</div>
+        <div className="card p-6 text-muted">No encontramos esta licitación.</div>
       ) : (
         <div className="space-y-8 lg:space-y-12">
           {/* Los datos con que se decide, antes de la descripción: como Find a
@@ -209,10 +209,10 @@ export default function TenderDetailPage() {
 
           {/* ── BI Panel ─────────────────────────────────────────── */}
           <div className="mt-6">
-            <h2 className="section-title mb-3">El mercado de esta licitación</h2>
+            <h2 className="section-title mb-3">Lo que sabemos de este comprador</h2>
             {biLoading && (
               <div className="animate-pulse bg-border rounded-xl h-48 flex items-center justify-center">
-                <span className="text-muted text-sm">Cargando análisis de mercado…</span>
+                <span className="text-muted text-sm">Buscando sus compras anteriores…</span>
               </div>
             )}
             {!biLoading && biPanel && (
@@ -220,7 +220,7 @@ export default function TenderDetailPage() {
             )}
             {!biLoading && !biPanel && (
               <p className="text-sm text-muted italic bg-surface-elevated rounded-xl px-4 py-3">
-                El análisis de este comprador no está disponible ahora.
+                Las compras anteriores de este comprador no están disponibles ahora.
               </p>
             )}
           </div>

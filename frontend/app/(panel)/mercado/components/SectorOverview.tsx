@@ -23,7 +23,7 @@ interface SectorRow {
  */
 const NOTAS_SECTOR: Record<string, string> = {
   'Obras Públicas':
-    'No incluye los contratos de obra del MOP: ChileCompra no los publica en su descarga de órdenes de compra.',
+    'Sin los contratos de obra del MOP, que ChileCompra no publica en su descarga de órdenes de compra.',
 };
 
 const conMiles = (n: number) => n.toLocaleString('es-CL');
@@ -52,11 +52,11 @@ export function SectorOverview() {
   return (
     <section aria-labelledby="sectores-titulo" className="mt-8">
       <h2 id="sectores-titulo" className="section-title">
-        Quién compra más
+        Qué sector del Estado compra más
       </h2>
       <p className="mt-2 max-w-[65ch] text-muted">
-        {mayor.sector} es el sector que más compra: {monto(mayor.monto_total ?? 0)} en órdenes de compra
-        {periodo ? `, ${periodo}` : ''}.
+        {mayor.sector}: {monto(mayor.monto_total ?? 0)} en órdenes de compra
+        {periodo ? ` de ${periodo}` : ''}, más que cualquier otro sector.
       </p>
       <div className="mt-6 max-w-3xl">
         <BarrasHorizontales
@@ -70,7 +70,7 @@ export function SectorOverview() {
             detalle: (
               <>
                 {[
-                  s.n_organismos != null ? `${conMiles(s.n_organismos)} organismos` : null,
+                  s.n_organismos != null ? `${conMiles(s.n_organismos)} compradores` : null,
                   s.n_proveedores != null ? `${conMiles(s.n_proveedores)} proveedores` : null,
                 ]
                   .filter(Boolean)

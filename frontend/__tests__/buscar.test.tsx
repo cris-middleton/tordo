@@ -44,7 +44,7 @@ describe('sin búsqueda', () => {
     const pedidas = simularBackend(TODO_BIEN);
     render(await PaginaBuscar(props()));
     expect(pedidas).toHaveLength(0);
-    expect(screen.getByRole('heading', { level: 1, name: '¿Qué le vendes al Estado?' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Cuánto paga el Estado por lo que vendes' })).toBeInTheDocument();
     expect(screen.getByRole('searchbox')).toHaveValue('');
     const ejemplos = screen.getByRole('list', { name: /ejemplos/i });
     expect(within(ejemplos).getAllByRole('link')).toHaveLength(EJEMPLOS_BUSQUEDA.length);
@@ -75,11 +75,11 @@ describe('con búsqueda', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Resultados para «guante nitrilo»' })).toBeInTheDocument();
     expect(screen.getByRole('searchbox')).toHaveValue('guante nitrilo');
     expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual([
-      'Cuánto ha pagado el Estado',
-      'Qué está abierto ahora',
+      'A qué precio lo compró el Estado',
+      'Dónde postular hoy',
       'Quién lo compra',
     ]);
-    expect(screen.queryByText(/no encontramos nada/i)).toBeNull();
+    expect(screen.queryByText(/no encontramos «/i)).toBeNull();
   });
 
   it('con dos q en la URL busca la primera', async () => {
@@ -94,7 +94,7 @@ describe('con búsqueda', () => {
     expect(screen.getByText(/no pudimos consultar las licitaciones abiertas/i)).toBeInTheDocument();
     expect(screen.queryByRole('list', { name: /licitaciones abiertas/i })).toBeNull();
     // La banda de precio sigue pintada: lo que falló fue otro bloque.
-    expect(screen.getByText(/^Por caja: la mitad de las compras se pagó/)).toBeInTheDocument();
+    expect(screen.getByText(/^Precio por caja: la mitad de las compras se pagó/)).toBeInTheDocument();
     // Las Compras Ágiles se pintan aunque las licitaciones hayan fallado (la banda
     // de precio también es un <article>: se cuenta sólo dentro de su lista).
     const compras = screen.getByRole('list', { name: /compras ágiles abiertas/i });
@@ -109,7 +109,7 @@ describe('con búsqueda', () => {
       '/compra-agil/destacadas': () => json({ ...DESTACADAS, items: [] }),
     });
     render(await PaginaBuscar(props('xqzwvk')));
-    expect(screen.getByText(/no encontramos nada para «xqzwvk»/i)).toBeInTheDocument();
+    expect(screen.getByText(/no encontramos «xqzwvk»/i)).toBeInTheDocument();
     const ejemplos = screen.getByRole('list', { name: /ejemplos/i });
     expect(within(ejemplos).getAllByRole('link')[0]).toHaveAttribute('href', rutaBuscar(EJEMPLOS_BUSQUEDA[0]));
     expect(screen.queryByRole('heading', { level: 2 })).toBeNull();
@@ -118,7 +118,7 @@ describe('con búsqueda', () => {
   it('con todo caído no dice «no encontramos nada»: dice que no pudo', async () => {
     simularBackend({});
     render(await PaginaBuscar(props('guante')));
-    expect(screen.queryByText(/no encontramos nada/i)).toBeNull();
+    expect(screen.queryByText(/no encontramos «/i)).toBeNull();
     expect(screen.getByText(/no pudimos consultar los precios/i)).toBeInTheDocument();
     expect(screen.getByText(/no pudimos consultar las licitaciones abiertas/i)).toBeInTheDocument();
     expect(screen.getByText(/no pudimos consultar las compras ágiles abiertas/i)).toBeInTheDocument();

@@ -1,32 +1,32 @@
 ---
 titulo: "Cómo seguir una búsqueda por RSS"
-descripcion: "Guarda una búsqueda de licitaciones o de Compra Ágil y recibe lo nuevo en tu lector de RSS, tu correo o Slack. Paso a paso."
+descripcion: "Copia la dirección RSS de una búsqueda de licitaciones o de Compra Ágil y recibe lo nuevo en tu lector, tu correo o Slack. Paso a paso."
 slug: "seguir-una-busqueda-por-rss"
-actualizado: "2026-10-18"
+actualizado: "2026-10-21"
 fuentes:
   - "API pública de Mercado Público y API de Compra Ágil, vía el catálogo de TORDO"
 ---
 
-TORDO no tiene cuentas: no te pedimos correo ni contraseña. Para enterarte de lo nuevo
-sin volver a mirar, cada búsqueda tiene su **feed RSS**: una dirección que tu lector
-consulta solo y te muestra lo que va apareciendo.
+TORDO no te pide tu correo, así que no te puede escribir. Para enterarte de lo nuevo sin
+volver a buscar, cada búsqueda tiene su **feed RSS**: una dirección que tu lector revisa
+solo y donde va apareciendo lo nuevo.
 
 ## Paso a paso
 
-1. Arma tu búsqueda en el [catálogo de licitaciones](/licitaciones): texto,
-   región, estado, mecanismo de compra, monto mínimo o máximo.
+1. Arma tu búsqueda en el [catálogo de licitaciones](/licitaciones): texto, región,
+   estado, mecanismo de compra, monto mínimo o máximo.
 2. Pulsa **«Guardar búsqueda»**.
 3. En [Guardados](/guardados), pulsa **«Copiar URL de RSS»**.
-4. Pégala como suscripción nueva en tu lector: Feedly, Inoreader, NetNewsWire,
-   Thunderbird o el que uses. Muchos clientes de correo y Slack también aceptan feeds.
+4. Pégala como suscripción nueva en tu lector: Feedly, Inoreader, NetNewsWire, Thunderbird
+   o el que uses. Muchos clientes de correo, y también Slack, leen feeds.
 
 ## Qué trae el feed
 
-- Las **50 licitaciones más recientes** que cumplen la búsqueda.
+- Las **50 licitaciones más recientes** que cumplen tu búsqueda.
 - Se renueva **cada media hora**. Como TORDO consulta Mercado Público a las 10, 13, 16 y
-  19 horas de lunes a viernes (12 horas los fines de semana), lo nuevo entra en tu lector
-  poco después.
-- Cada ítem lleva la cita de la fuente: los datos son de ChileCompra.
+  19 horas de lunes a viernes, y a las 12 los sábados y domingos, lo nuevo llega a tu
+  lector poco después.
+- Cada ítem cita la fuente: los datos son de ChileCompra.
 
 La dirección tiene esta forma, con los filtros de tu búsqueda:
 
@@ -34,24 +34,23 @@ La dirección tiene esta forma, con los filtros de tu búsqueda:
 https://tordo.cl/rss/licitaciones?search=aseo&min_amount=1000000
 ```
 
-Sólo se tienen en cuenta los filtros (`search`, `estado`, `tipo_convocatoria`,
-`region`, `min_amount`, `max_amount`); el orden y la página se ignoran.
+Sólo cuentan los filtros (`search`, `estado`, `tipo_convocatoria`, `region`,
+`min_amount`, `max_amount`). El orden y la página se ignoran.
 
 ## Compra Ágil tiene su propio feed
 
-[Lo mejor de hoy en Compra Ágil](/compra-agil) se sigue en
-`/rss/compra-agil`, y acepta `region` y `search`:
+[Lo mejor de hoy en Compra Ágil](/compra-agil) se sigue en `/rss/compra-agil`, que acepta
+`region` y `search`:
 
 ```
 https://tordo.cl/rss/compra-agil?search=resmas
 ```
 
-Como una Compra Ágil puede cerrar a las 24 horas de publicarse, aquí el feed sirve
-más que en ninguna parte.
+Como una Compra Ágil puede cerrar 24 horas después de publicarse, aquí es donde el feed
+más rinde.
 
 ## Dónde queda guardado
 
-Tus búsquedas y licitaciones guardadas viven **en este navegador**, no en un servidor.
-Si borras los datos del navegador o cambias de equipo, desaparecen. Pero el feed no:
-la URL de RSS lleva la búsqueda dentro y funciona sola, en cualquier lector. Si la
-copiaste, la tienes.
+Tus búsquedas y licitaciones guardadas viven **en este navegador**, en ningún servidor. Si
+borras los datos del navegador o cambias de equipo, se pierden. El feed no: la URL de RSS
+lleva la búsqueda adentro y funciona sola, en cualquier lector. Si la copiaste, la tienes.

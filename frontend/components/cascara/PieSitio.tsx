@@ -73,7 +73,7 @@ export function PieSitio() {
         <div className="mt-6 grid gap-4 border-t border-border pt-6 text-xs text-muted lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-12">
           <div className="max-w-3xl space-y-1">
             <PieAtribucion />
-            <p>No estamos afiliados al gobierno de Chile.</p>
+            <p>Un proyecto independiente, sin relación con el gobierno de Chile.</p>
           </div>
           <div className="space-y-1 lg:text-right">
             {autor && (

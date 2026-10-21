@@ -98,10 +98,10 @@ export function montoParaMostrar(valor: string): string {
 
 /**
  * Lo que dice el catálogo bajo su título, y su descripción para buscadores.
- * Dice que hay Compras Ágiles y cerradas: la lista por defecto las trae.
+ * Dice que hay cerradas: con «Sólo abiertas» apagado, la lista las trae.
  */
 export const SUBTITULO_CATALOGO =
-  'Licitaciones y Compras Ágiles de Mercado Público, abiertas y recién cerradas.';
+  'Lo que el Estado está comprando en Mercado Público, y lo que cerró hace poco.';
 
 export const ORDENES = ['relevance', 'fecha_publicacion', 'fecha_cierre', 'monto_estimado', 'nombre'] as const;
 export type Orden = (typeof ORDENES)[number];
@@ -113,10 +113,10 @@ export type Orden = (typeof ORDENES)[number];
  * traer, así que ninguna URL antigua queda sin su opción.
  */
 export const OPCIONES_ORDEN: ReadonlyArray<{ sort_by: Orden; sort_order: 'asc' | 'desc'; etiqueta: string }> = [
-  { sort_by: 'relevance', sort_order: 'desc', etiqueta: 'Más parecidas' },
+  { sort_by: 'relevance', sort_order: 'desc', etiqueta: 'Más parecidas a tu búsqueda' },
   { sort_by: 'fecha_publicacion', sort_order: 'desc', etiqueta: 'Más recientes' },
   { sort_by: 'fecha_publicacion', sort_order: 'asc', etiqueta: 'Más antiguas' },
-  { sort_by: 'fecha_cierre', sort_order: 'asc', etiqueta: 'Cierran antes' },
+  { sort_by: 'fecha_cierre', sort_order: 'asc', etiqueta: 'Cierran primero' },
   { sort_by: 'fecha_cierre', sort_order: 'desc', etiqueta: 'Cierran más tarde' },
   { sort_by: 'monto_estimado', sort_order: 'desc', etiqueta: 'Mayor monto' },
   { sort_by: 'monto_estimado', sort_order: 'asc', etiqueta: 'Menor monto' },

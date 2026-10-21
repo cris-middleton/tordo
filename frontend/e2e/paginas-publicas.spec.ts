@@ -105,7 +105,7 @@ test('lo que no existe es un 404, no una página vacía', async ({ page }) => {
     const respuesta = await page.goto(ruta);
     expect(respuesta?.status(), ruta).toBe(404);
     // El 404 propio, con salida, y no la página genérica de Next.
-    await expect(page.getByRole('heading', { name: /no encontramos esta página/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /esta página no está/i })).toBeVisible();
   }
 });
 

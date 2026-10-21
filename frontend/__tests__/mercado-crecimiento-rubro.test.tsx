@@ -79,7 +79,7 @@ describe('Comparar rubros', () => {
     comparar();
 
     // Una sola columna lo dice: la otra no tiene la cifra del rubro.
-    expect(screen.getAllByText('Crecimiento anual')).toHaveLength(1);
+    expect(screen.getAllByText('Crecimiento al año, en promedio')).toHaveLength(1);
     expect(screen.getByText('+25,0%')).toBeTruthy();
     expect(screen.queryByText(/0,3/)).toBeNull();
   });
@@ -106,7 +106,7 @@ describe('Comparar rubros', () => {
 
     expect(screen.getByText('No pudimos cargar este rubro')).toBeTruthy();
     // La columna que sí cargó dice su cifra; la que falló no pinta un 0.
-    expect(screen.getAllByText('Oportunidades encontradas')).toHaveLength(1);
+    expect(screen.getAllByText('Compradores con puntaje de 4 o más (hasta 10)')).toHaveLength(1);
     fireEvent.click(screen.getByRole('button', { name: /reintentar/i }));
     expect(consultas.Obras.refetch).toHaveBeenCalled();
   });
@@ -138,7 +138,7 @@ describe('Cómo viene creciendo', () => {
   it('con la cifra del rubro la dice en porcentaje', () => {
     render(<TendenciasSection loading={false} selectedRubro="Aseo" serieAnual={serie} cagrRubro={25} />);
 
-    expect(screen.getByText('Crece 25,0 % al año entre 2024 y 2025.')).toBeTruthy();
+    expect(screen.getByText('Crece 25,0 % al año en promedio, de 2024 a 2025.')).toBeTruthy();
   });
 
   it('las órdenes son las del rubro en esos años, no las de un organismo', () => {

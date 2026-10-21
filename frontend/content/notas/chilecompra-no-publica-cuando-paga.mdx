@@ -1,7 +1,7 @@
 ---
-titulo: "ChileCompra no publica cuándo paga el Estado"
+titulo: "Publicábamos un plazo de pago que no existe"
 fecha: "2026-08-16"
-resumen: "Las órdenes de compra de ChileCompra no traen fecha de pago. Lo que publicábamos como plazo de pago era lo que tarda el proveedor en aceptar la orden: una mediana de 1,63 días."
+resumen: "Las órdenes de compra de ChileCompra no traen fecha de pago. Lo que mostrábamos como «paga a tantos días» era lo que tarda el proveedor en aceptar la orden: una mediana de 1,63 días."
 estado: "medido"
 medido_sobre: "Órdenes de compra del histórico de ChileCompra. Medido el 16 de agosto de 2026, antes de abrir el sitio público."
 fuentes:
@@ -14,38 +14,41 @@ fuentes:
 
 ## En corto
 
-- Lo que medíamos como días de pago era lo que tarda el proveedor en aceptar la orden:
+- Lo que mostrábamos como días de pago era lo que tarda el proveedor en aceptar la orden:
   una mediana de 1,63 días.
 - La forma de pago declarada tampoco sirve: el 98,7 % de las órdenes dice lo mismo.
-- La portada de la versión anterior mostraba un ejemplo con «Paga a 32 días en promedio».
+- La portada anterior traía un ejemplo con «Paga a 32 días en promedio».
 
 ## Qué vimos
 
 El análisis tenía una cifra llamada `mediana_dias_pago`. Medía el tiempo entre
-`FechaEnvio` y `FechaAceptacion`: desde que el comprador envía la orden hasta que el
-proveedor la acepta. La mediana es 1,63 días. La pantalla del comprador, el correo y
-la portada de entonces la publicaban como el plazo en que paga el comprador.
+`FechaEnvio` y `FechaAceptacion`, o sea, desde que el comprador envía la orden hasta que el
+proveedor la acepta. La mediana es 1,63 días: la mitad de las órdenes se acepta antes y la
+otra mitad, después.
+
+La pantalla del comprador, el correo y la portada de entonces publicaban esa cifra como el
+plazo en que paga el comprador. Medía otra cosa: lo rápido que contesta el proveedor.
 
 ## Cómo lo medimos
 
 Buscamos en las órdenes de compra un campo con la fecha del pago, y no hay ninguno. Una
-orden trae, entre otras, la fecha en que se envió y la fecha en que el proveedor la
-aceptó. Ninguna dice cuándo llegó la plata.
+orden trae, entre otras, la fecha en que se envió y la fecha en que el proveedor la aceptó.
+Ninguna dice cuándo llegó la plata.
 
-Probamos también la forma de pago declarada, por si separaba a los compradores. El 98,7 %
-de las órdenes dice lo mismo.
+Probamos también la forma de pago declarada, por si separaba a unos compradores de otros.
+El 98,7 % de las órdenes dice lo mismo.
 
 ## Qué cambió
 
-- La cifra se llama ahora por lo que mide, aceptación, y no se muestra como cifra
-  suelta. Sólo aparece como señal cuando se sale de rango.
-- La cifra del comprador que sí sale del dato y decide algo es la tasa de
-  adjudicación: qué parte de lo que licita termina adjudicada. La
+- La cifra se llama ahora por lo que mide, la aceptación, y no se muestra sola. Sólo
+  aparece como señal cuando se sale de rango.
+- La cifra del comprador que sí sale del dato y decide algo es la tasa de adjudicación:
+  qué parte de lo que licita termina adjudicada. La
   [guía del comprador](/guias/como-leer-un-comprador) explica cómo leerla.
 - El ejemplo con «Paga a 32 días en promedio» salió de la portada.
 
 ## Lo que todavía no sabemos
 
-Cuánto tarda el Estado en pagarle a un proveedor. Con las órdenes de compra de
-ChileCompra no se puede saber. Si alguien te muestra un plazo de pago sacado de Mercado
-Público, pregúntale de dónde sale.
+Cuánto tarda el Estado en pagarle a un proveedor. Con las órdenes de compra de ChileCompra
+no se puede saber. Si alguien te muestra un plazo de pago sacado de Mercado Público,
+pregúntale de dónde lo sacó. Nosotros lo buscamos y no está.

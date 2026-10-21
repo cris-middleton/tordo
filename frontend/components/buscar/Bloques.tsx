@@ -16,7 +16,7 @@ import {
   rutaBuscar,
   textoDeFallo,
 } from '@/lib/buscar';
-import { TITULO_DESTACADAS, mesesDeVentana, rutaCompraAgil } from '@/lib/compraAgil';
+import { mesesDeVentana, rutaCompraAgil } from '@/lib/compraAgil';
 import { urlCatalogoAbiertas } from '@/lib/filtrosCatalogo';
 import { fechaCortaDeChile } from '@/lib/horaChile';
 import { normalizeText, shortRegion } from '@/lib/licitacionEstado';
@@ -27,11 +27,11 @@ import {
   frasePrecio,
   nombreProducto,
   plata,
+  precioDeLaBanda,
   rutaBusquedaProductos,
   rutaComprador,
   rutaLicitacion,
   rutaProducto,
-  tituloDeBanda,
 } from '@/lib/publico';
 import type { Bloque, LicitacionesEncontradas, MotivoFallo } from '@/types/buscar';
 import type { CompraAgilDestacadasResponse } from '@/types/compraAgil';
@@ -90,7 +90,7 @@ export function SinResultados({ termino }: { termino: string }) {
   return (
     <div className="mt-8 border-y border-border py-6">
       <p className="text-sm text-text">
-        No encontramos nada para «{termino}»: ni precios pagados, ni licitaciones o Compras Ágiles abiertas.
+        No encontramos «{termino}» en los precios pagados ni en lo que está abierto hoy.
       </p>
       <p className="mt-1 text-sm text-muted">
         Las palabras de menos de tres letras y los números no cuentan en la búsqueda de precios.
@@ -100,7 +100,7 @@ export function SinResultados({ termino }: { termino: string }) {
   );
 }
 
-// ── 1. Cuánto ha pagado el Estado ────────────────────────────────────────────
+// ── 1. A qué precio lo compró el Estado ────────────────────────────────────────
 
 function ProductoEnLista({ producto }: { producto: ProductoEncontrado }) {
   return (
@@ -110,7 +110,7 @@ function ProductoEnLista({ producto }: { producto: ProductoEncontrado }) {
     >
       <span className="min-w-0 truncate font-medium text-primary">{nombreProducto(producto)}</span>
       <span className="cifra shrink-0 text-xs text-muted">
-        {entero(producto.n)} compras{producto.indexable ? '' : ', orientativo'}
+        {entero(producto.n)} compras{producto.indexable ? '' : ', precio orientativo'}
       </span>
     </Link>
   );
@@ -132,7 +132,7 @@ function PreciosEncontrados({
   // cifras y método. Antes aquí iba una tarjeta de P10…P90 propia de esta página.
   const precio =
     ficha?.estado === 'ok' && banda
-      ? precioDeBanda({ producto: ficha.datos, banda, nombre: tituloDeBanda(banda.unidad), repositorio: urlRepositorio() })
+      ? precioDeBanda({ producto: ficha.datos, banda, nombre: precioDeLaBanda(banda.unidad), repositorio: urlRepositorio() })
       : null;
 
   return (
@@ -142,12 +142,15 @@ function PreciosEncontrados({
           {nombreProducto(primero)}
         </Link>
         <p className="cifra text-xs text-muted">
-          {entero(primero.n)} compras{primero.indexable ? '' : ', orientativo'}
+          {entero(primero.n)} compras
+          {/* El total suma todas las unidades de medida; la banda de abajo es sólo la más comprada. */}
+          {banda && banda.n < primero.n ? ', en todas sus presentaciones' : ''}
+          {primero.indexable ? '' : ', precio orientativo'}
         </p>
       </div>
 
       {ficha?.estado === 'fallo' ? (
-        <AvisoDeFallo que="la banda de precio de este producto" motivo={ficha.motivo} />
+        <AvisoDeFallo que="el precio de este producto" motivo={ficha.motivo} />
       ) : banda ? (
         <div className="max-w-3xl">
           {precio ? (
@@ -169,7 +172,7 @@ function PreciosEncontrados({
           {precio && <PieDeMetodo texto={precio.pie} enlaces={precio.enlaces} />}
         </div>
       ) : (
-        <p className="text-sm text-subtle">Todavía no hay compras suficientes para una banda.</p>
+        <p className="text-sm text-subtle">Todavía hay muy pocas compras para darte un precio.</p>
       )}
 
       {otros.length > 0 && (
@@ -182,7 +185,7 @@ function PreciosEncontrados({
         </ul>
       )}
 
-      <VerTodos href={rutaBusquedaProductos(termino)}>Ver todos los productos que coinciden</VerTodos>
+      <VerTodos href={rutaBusquedaProductos(termino)}>Ver todos los productos con «{termino}»</VerTodos>
     </div>
   );
 }
@@ -199,8 +202,8 @@ export function BloquePrecios({
   return (
     <Seccion
       id="precios"
-      titulo="Cuánto ha pagado el Estado"
-      descripcion="Precio unitario pagado en órdenes de compra, por producto."
+      titulo="A qué precio lo compró el Estado"
+      descripcion="Precio por unidad, sacado de las órdenes de compra."
     >
       {productos.estado === 'fallo' ? (
         <AvisoDeFallo que="los precios" motivo={productos.motivo} />
@@ -216,7 +219,7 @@ export function BloquePrecios({
   );
 }
 
-// ── 2. Qué está abierto ahora ────────────────────────────────────────────────
+// ── 2. Dónde postular hoy ────────────────────────────────────────────────────
 
 function FilaLicitacion({ licitacion: t }: { licitacion: Tender }) {
   const monto = montoNumerico(t.monto_estimado);
@@ -251,13 +254,13 @@ function Licitaciones({
   if (bloque.estado === 'fallo') return <AvisoDeFallo que="las licitaciones abiertas" motivo={bloque.motivo} />;
   const { items, total } = bloque.datos;
   if (items.length === 0) {
-    return <p className="text-sm text-subtle">Ninguna licitación abierta coincide con «{termino}».</p>;
+    return <p className="text-sm text-subtle">No hay licitaciones abiertas que mencionen «{termino}».</p>;
   }
   return (
     <>
       <p className="text-sm text-muted">
-        <span className="cifra font-semibold text-text">{entero(total)}</span>{' '}
-        {total === 1 ? 'abierta coincide' : 'abiertas coinciden'} con «{termino}».
+        Hay <span className="cifra font-semibold text-text">{entero(total)}</span>{' '}
+        {total === 1 ? 'licitación abierta que menciona' : 'licitaciones abiertas que mencionan'} «{termino}».
       </p>
       <ul aria-label="Licitaciones abiertas que coinciden" className={`mt-3 ${LISTA}`}>
         {items.slice(0, LICITACIONES_EN_BUSCAR).map((t) => (
@@ -265,7 +268,7 @@ function Licitaciones({
         ))}
       </ul>
       <VerTodos href={urlCatalogoAbiertas('licitaciones', terminos)}>
-        {total === 1 ? 'Verla en el catálogo' : `Ver las ${entero(total)} en el catálogo`}
+        {total === 1 ? 'Ver esta licitación en el catálogo' : `Ver las ${entero(total)} licitaciones en el catálogo`}
       </VerTodos>
     </>
   );
@@ -277,7 +280,7 @@ function ComprasAgiles({ termino, bloque }: { termino: string; bloque: Bloque<Co
   if (datos.items.length === 0) {
     return (
       <p className="text-sm text-subtle">
-        Ninguna Compra Ágil abierta que cierre en más de dos horas coincide con «{termino}».
+        No hay Compras Ágiles abiertas que mencionen «{termino}» y cierren en más de dos horas.
       </p>
     );
   }
@@ -296,7 +299,7 @@ function ComprasAgiles({ termino, bloque }: { termino: string; bloque: Bloque<Co
           </li>
         ))}
       </ul>
-      <VerTodos href={rutaCompraAgil(termino)}>Ver todas en «{TITULO_DESTACADAS}»</VerTodos>
+      <VerTodos href={rutaCompraAgil(termino)}>Ver todas las Compras Ágiles con «{termino}»</VerTodos>
     </>
   );
 }
@@ -313,7 +316,7 @@ export function BloqueAbiertas({
   comprasAgiles: Bloque<CompraAgilDestacadasResponse>;
 }) {
   return (
-    <Seccion id="abiertas" titulo="Qué está abierto ahora">
+    <Seccion id="abiertas" titulo="Dónde postular hoy">
       <div className="space-y-8">
         <div>
           <Subtitulo>Licitaciones</Subtitulo>
@@ -354,7 +357,7 @@ function Compradores({ producto }: { producto: ProductoPublico }) {
           </li>
         ))}
       </ul>
-      <VerTodos href={rutaProducto(producto.slug)}>Ver la ficha del producto</VerTodos>
+      <VerTodos href={rutaProducto(producto.slug)}>Ver qué pagó cada comprador</VerTodos>
     </>
   );
 }
@@ -365,7 +368,7 @@ export function BloqueCompradores({ ficha }: { ficha: Bloque<ProductoPublico> })
       id="compradores"
       titulo="Quién lo compra"
       descripcion={
-        ficha.estado === 'ok' ? `Los compradores con más compras de «${nombreProducto(ficha.datos)}».` : undefined
+        ficha.estado === 'ok' ? `Los que más veces compraron «${nombreProducto(ficha.datos)}».` : undefined
       }
     >
       {ficha.estado === 'fallo' ? (

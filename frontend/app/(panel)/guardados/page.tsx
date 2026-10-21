@@ -23,7 +23,7 @@ export default function GuardadosPage() {
       <div>
         <h1 className="page-title">Guardados</h1>
         <p className="mt-2 text-sm text-muted">
-          Se guardan en este navegador, sin cuenta: no los verás desde otro equipo, y se borran si
+          Se guardan en este navegador, sin cuenta: desde otro equipo no los verás, y se borran si
           borras los datos del sitio.
         </p>
       </div>
@@ -35,19 +35,23 @@ export default function GuardadosPage() {
       <Seccion titulo="Licitaciones guardadas">
         <LicitacionesGuardadas
           coleccion="saved"
-          vacio="Ninguna todavía. Usa el marcador de cada licitación en el catálogo."
+          vacio="Ninguna todavía. Guárdalas con el marcador que tiene cada licitación del catálogo."
         />
       </Seccion>
 
-      <Seccion titulo="Marcadas como postuladas">
-        <LicitacionesGuardadas coleccion="applied" vacio="Ninguna todavía." />
+      <Seccion titulo="Licitaciones a las que postulaste">
+        <LicitacionesGuardadas
+          coleccion="applied"
+          vacio="Ninguna todavía. En la ficha de cada licitación está el botón «Marcar que postulé»."
+        />
       </Seccion>
 
       <Seccion id="rss" titulo="Cómo seguir una búsqueda por RSS">
         <div className="lectura space-y-3 text-text">
           <p>
-            Un feed RSS te avisa de lo nuevo sin tener que volver a mirar: cada vez que se publique
-            una licitación que cumpla tu búsqueda, aparece en tu lector.
+            RSS es un formato que leen las apps de noticias y muchos programas de correo. Con él,
+            cada licitación nueva que cumpla tu búsqueda aparece en tu lector, sin que tengas que
+            volver aquí a mirar.
           </p>
           <ol className="list-decimal space-y-1.5 pl-5">
             <li>
@@ -59,13 +63,13 @@ export default function GuardadosPage() {
             </li>
             <li>Aquí arriba, pulsa «Copiar URL de RSS».</li>
             <li>
-              Pégala en tu lector de RSS —Feedly, Inoreader, NetNewsWire, Thunderbird o el que uses—
-              como una suscripción nueva. Muchos clientes de correo y Slack también aceptan feeds.
+              Pégala como suscripción nueva en tu lector de RSS (Feedly, Inoreader, NetNewsWire,
+              Thunderbird o el que uses). Slack también los acepta.
             </li>
           </ol>
           <p className="text-muted">
-            El feed trae las 50 licitaciones más recientes de la búsqueda y se renueva cada media
-            hora. «Lo mejor de hoy en Compra Ágil» tiene su propio feed:{' '}
+            Cada feed trae las 50 licitaciones más recientes de su búsqueda y se renueva cada media
+            hora. «Lo mejor de hoy en Compra Ágil» tiene el suyo:{' '}
             <a href="/rss/compra-agil" className="enlace">
               /rss/compra-agil
             </a>

@@ -248,8 +248,8 @@
     transition: background-color 0.25s ease, color 0.25s ease;
   }
 
-  /* Titulares: `h1` y `h2` en Archivo semiexpandida y en 800 (`font-display`, abajo en
-     utilidades). `h3`–`h6` heredan del body el ancho normal. Un h1/h2 con una clase de peso
+  /* Titulares: `h1` y `h2` en Libre Franklin y en 800 (`font-display`, abajo en
+     utilidades). `h3`–`h6` heredan del body Public Sans. Un h1/h2 con una clase de peso
      (`font-bold`…) la gana: por eso los titulares no la llevan (`__tests__/tipografia.test.ts`). */
   h1, h2 {
     @apply font-display;
@@ -293,10 +293,11 @@
 
   /* Los bloques de código y las tablas, a la misma medida que el texto: a 768 px
      sobresalían del párrafo (465 px). `ch` se resolvería en la fuente mono, más
-     ancha, así que va en rem: 58ch de Archivo a 16 px son 29 rem (medido a 1440).
+     ancha, así que va en rem: 58ch de Public Sans a 16 px son 35,5 rem; 31 rem
+     deja la tabla un poco más corta que el párrafo, como con la fuente anterior.
      Lo que no cabe se desplaza dentro del bloque. */
   .lectura :where(pre, table) {
-    max-width: 29rem;
+    max-width: 31rem;
   }
 
   /* ──────────────────────────────────────────────
@@ -456,11 +457,11 @@
      (un "1" es más estrecho que un "0") y deja de leerse de un vistazo — que
      es justo lo que el producto vende.
 
-     Archivo trae `tnum`, así que las cifras van en la MISMA familia que el
-     cuerpo, a su ancho normal.
+     Public Sans trae `tnum`, así que las cifras van en la MISMA familia que el
+     cuerpo. Libre Franklin, la de los titulares, no lo trae.
 
-     Nunca `cifra` junto a `font-display`: el número saldría semiexpandido y en
-     800. `font-display` es «titular».
+     Nunca `cifra` junto a `font-display`: el número saldría en Libre Franklin,
+     en 800 y sin cifras tabulares. `font-display` es «titular».
   ────────────────────────────────────────────── */
   .cifra {
     font-family: var(--font-sans), system-ui, sans-serif;
@@ -525,18 +526,18 @@
     animation: float 6s ease-in-out infinite;
   }
 
-  /* Las dos caras de Archivo (docs/IDENTIDAD_Y_PORTADA_2026-10.md §4). La familia la pone
-     `fontFamily` de tailwind.config.js; el ancho y el peso, esto. Tailwind emite estas
+  /* Titular y texto (docs/IDENTIDAD_Y_PORTADA_2026-10.md §4). La familia la pone
+     `fontFamily` de tailwind.config.js; el peso y el espaciado, esto. Tailwind emite estas
      utilidades DESPUÉS de las suyas, así que `font-display` le gana a un `font-bold` en el
-     mismo elemento, y `font-sans` devuelve a ancho normal lo que hereda de un titular (la
-     etiqueta «Fuentes» de una guía, el globo de un InfoTooltip dentro de un h2).
+     mismo elemento, y `font-sans` devuelve la familia y el espaciado del texto a lo que hereda de un titular
+     (la etiqueta «Fuentes» de una guía, el globo de un InfoTooltip dentro de un h2).
      `e2e/tipografia.spec.ts` lo comprueba en el navegador. */
   .font-sans {
-    font-stretch: 100%;
+    letter-spacing: normal;
   }
 
   .font-display {
-    font-stretch: 112.5%;
     font-weight: 800;
+    letter-spacing: -0.015em;
   }
 }

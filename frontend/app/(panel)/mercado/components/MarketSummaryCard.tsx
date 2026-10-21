@@ -20,14 +20,14 @@ export function MarketSummaryCard({ resumen, loading, rubro }: MarketSummaryCard
   // Must be declared before any early returns (hooks rules)
   const rootRef = useRef<HTMLElement>(null);
 
-  if (!loading && !rubro) return <EligeRubro que="el resumen de ese mercado" />;
+  if (!loading && !rubro) return <EligeRubro que="cómo está ese rubro" />;
 
   // Loading state
   if (loading) {
     return (
       <section className="flex items-center gap-3 py-6">
         <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden="true" />
-        <p className="text-sm text-muted">Analizando el mercado…</p>
+        <p className="text-sm text-muted">Cargando el rubro…</p>
       </section>
     );
   }
@@ -41,7 +41,7 @@ export function MarketSummaryCard({ resumen, loading, rubro }: MarketSummaryCard
       <section className="py-2">
         <div className="flex items-start gap-3">
           <p className="text-sm text-muted">
-            {motivoParaPersona(resumen.motivo, 'Resumen no disponible para este rubro.')}
+            {motivoParaPersona(resumen.motivo, 'Todavía no podemos resumir este rubro.')}
           </p>
         </div>
       </section>
@@ -57,7 +57,7 @@ export function MarketSummaryCard({ resumen, loading, rubro }: MarketSummaryCard
       <section className="py-2">
         <div className="flex items-start gap-3">
           <p className="text-sm text-muted">
-            Este rubro no tiene datos suficientes para resumirlo.
+            Este rubro tiene muy pocas compras para resumirlo.
           </p>
         </div>
       </section>

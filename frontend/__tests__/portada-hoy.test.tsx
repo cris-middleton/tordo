@@ -75,7 +75,7 @@ describe('BloqueHoy, compacto', () => {
 
   it('sin puntaje, sin cocientes y sin la historia de la unidad', () => {
     const { container } = render(<BloqueHoy datos={DATOS} actualizado={HORA} />);
-    expect(container.textContent).not.toMatch(/puntaje|\/100|adjudica \d|esta unidad|órdenes|suele comprar/i);
+    expect(container.textContent).not.toMatch(/puntaje|\/100|adjudica \d|unidad de compra|órdenes|la mitad de sus/i);
     if (!MOSTRAR_COTIZACIONES) expect(container.textContent).not.toMatch(/cotiz/i);
   });
 
@@ -111,7 +111,7 @@ describe('BloqueHoy, compacto', () => {
     );
     const fila = within(lista()).getByRole('article');
     expect(within(fila).getByText('Hasta $7,2 millones')).toBeInTheDocument();
-    expect(within(fila).getByText('Tope de Compra Ágil')).toBeInTheDocument();
+    expect(within(fila).getByText('El máximo que permite Compra Ágil')).toBeInTheDocument();
     expect(fila.textContent!.match(/\$7,2 millones/g)).toHaveLength(1);
   });
 

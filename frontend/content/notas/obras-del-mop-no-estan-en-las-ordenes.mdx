@@ -1,7 +1,7 @@
 ---
 titulo: "Las obras del MOP no están en las órdenes de compra"
 fecha: "2026-10-19"
-resumen: "Obras Públicas suma $0,75 billones en las órdenes de compra de 2025 y la cifra oficial es $3,09. La diferencia son los contratos de obra del MOP: ChileCompra los cuenta y su descarga masiva no los trae."
+resumen: "En las órdenes de compra de 2025, Obras Públicas suma $0,75 billones; la cifra oficial es $3,09. Faltan los contratos de obra del MOP: ChileCompra los cuenta, pero su descarga masiva no los trae."
 estado: "medido"
 medido_sobre: "Descarga masiva de ChileCompra: órdenes de compra de los 36 meses de la ventana del análisis y licitaciones publicadas entre enero de 2023 y junio de 2026. Medido el 19 de octubre de 2026."
 script: "etl/scripts/medir_obras_mop.py"
@@ -26,23 +26,24 @@ fuentes:
 ## Qué vimos
 
 Con el monto saneado de [las órdenes en pesos marcadas como UF](/notas/pesos-marcados-como-uf-inflaban-municipios),
-2025 cuadra con la cifra oficial de ChileCompra en Salud (6,64 contra 6,56 billones),
-Gobierno Central (5,70 contra 5,65) y Municipalidades (4,28 contra 4,15). Obras Públicas se
-queda en 0,75 contra 3,09.
+2025 cuadra con la cifra oficial de ChileCompra en Salud (6,64 contra 6,56 billones de
+pesos), Gobierno Central (5,70 contra 5,65) y Municipalidades (4,28 contra 4,15). Un
+billón, en Chile, es un millón de millones. Obras Públicas se queda en 0,75 contra 3,09: le
+falta más de dos tercios.
 
-El sector viene bien clasificado: sale del campo `sector` del propio ChileCompra, y el
-MOP, el Ministerio de Vivienda y los SERVIU caen todos en él. Lo que falta son las obras. En la
-descarga, la orden más grande del MOP en 2025 es de $30.000 millones, y su Cuenta Pública 2026
-pone entre las «órdenes de compra relevantes 2025» la Ruta 7 de Aysén, por US$76 millones. Esa
-licitación, la 5048-69-O123, se adjudicó por $69.900 millones y no tiene ninguna orden en la
-descarga.
+El sector viene bien clasificado: sale del campo `sector` del propio ChileCompra, y el MOP,
+el Ministerio de Vivienda y los SERVIU caen todos en él. Lo que falta son las obras. En la
+descarga, la orden más grande del MOP en 2025 es de $30.000 millones. La Cuenta Pública 2026
+de ChileCompra, en cambio, pone entre las «órdenes de compra relevantes 2025» la Ruta 7 de
+Aysén, por US$76 millones. Esa licitación, la 5048-69-O123, se adjudicó por $69.900 millones
+y no tiene ninguna orden en la descarga.
 
 ## Cómo lo medimos
 
-Bajamos de la descarga masiva de ChileCompra las licitaciones publicadas entre enero de 2023 y
-junio de 2026, y nos quedamos con las de Obras Públicas adjudicadas en 2025. Una licitación
-tiene orden si alguna orden de los 36 meses la nombra, en su código de licitación o en su
-nombre («ORDEN DE COMPRA DESDE 1151-5-O125»).
+Bajamos de la descarga masiva de ChileCompra las licitaciones publicadas entre enero de 2023
+y junio de 2026, y nos quedamos con las de Obras Públicas adjudicadas en 2025. Una
+licitación tiene orden si alguna orden de los 36 meses la nombra, en su código de licitación
+o en su nombre («ORDEN DE COMPRA DESDE 1151-5-O125»).
 
 Separamos las licitaciones de obra (tipos O1 y O2) del resto, y el MOP de Vivienda:
 

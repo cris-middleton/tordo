@@ -23,7 +23,7 @@ test('el índice enlaza las notas, con su feed', async ({ page }) => {
 test('una nota, con fecha, estado, fuentes, el cambio, canonical y atribución', async ({ page }) => {
   const respuesta = await page.goto(NOTA);
   expect(respuesta?.status()).toBe(200);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Dividíamos el precio unitario dos veces');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Dividíamos dos veces el precio por unidad');
   await expect(page.getByText(/^Nota de datos del 16 de octubre de 2026\./)).toBeVisible();
   await expect(page.getByText('Arreglado', { exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Fuentes' })).toBeVisible();

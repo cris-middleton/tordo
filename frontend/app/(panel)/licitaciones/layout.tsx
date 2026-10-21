@@ -7,7 +7,7 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = {
   title: 'Licitaciones y Compras Ágiles de Mercado Público',
   description:
-    'Busca licitaciones y Compras Ágiles de Mercado Público por palabra, región, monto y tipo, con la historia del comprador al lado.',
+    'Busca licitaciones y Compras Ágiles de Mercado Público por producto, comprador, región o monto. En cada una, el plazo y quién le vende a ese comprador.',
   alternates: { canonical: '/licitaciones' },
 };
 

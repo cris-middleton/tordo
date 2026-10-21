@@ -1,7 +1,7 @@
 ---
-titulo: "144 órdenes en pesos marcadas como UF o UTM inflaban lo que compran los municipios"
+titulo: "144 órdenes en pesos, leídas como UF, inflaban a los municipios"
 fecha: "2026-10-16"
-resumen: "Algunas órdenes de compra traen el monto en pesos y la moneda en UF o UTM. Convertidas otra vez, Municipalidades sumaba ~$14 billones al año, contra $4,15 de la cifra oficial."
+resumen: "Algunas órdenes de compra traen el monto en pesos y la moneda en UF o UTM, y se convertían otra vez. Así, Municipalidades sumaba ~$14 billones al año, contra $4,15 billones de la cifra oficial de 2025."
 estado: "arreglado"
 medido_sobre: "Descarga masiva de órdenes de compra de ChileCompra, los 36 meses de la ventana del análisis. Medido el 16 de octubre de 2026."
 cambio: "https://github.com/cris-middleton/tordo/pull/15"
@@ -26,17 +26,17 @@ fuentes:
 
 - 144 órdenes de 36 meses traían el monto en pesos y la moneda en UF o UTM. Sumaban $34
   billones y eran $553 millones.
-- Por eso Municipalidades sumaba ~$14 billones al año. La cifra oficial de ChileCompra
-  para 2025 es $4,15 billones.
+- Por eso Municipalidades sumaba ~$14 billones al año. La cifra oficial de ChileCompra para
+  2025 es $4,15 billones.
 - Con el monto saneado, Municipalidades da $4,28 billones en 2025.
 
 ## Qué vimos
 
-ChileCompra pasa a pesos el monto de una orden en UF o UTM multiplicándolo por el valor
-de esa moneda. Algunas órdenes dicen «CLF» (la UF) o «UTM», pero su monto ya estaba en
-pesos, y la conversión lo multiplica otra vez. Las dos mayores eran 233,5 y 187,4
-millones de pesos marcados como UTM: salían como $15,7 y $12,4 billones, más que un año
-de compras de todos los municipios.
+ChileCompra pasa a pesos el monto de una orden en UF o UTM multiplicándolo por el valor de
+esa moneda. Algunas órdenes dicen «CLF» (la UF) o «UTM», pero su monto ya estaba en pesos,
+y la conversión lo multiplica otra vez. Las dos mayores eran 233,5 y 187,4 millones de
+pesos marcados como UTM: salían como $15,7 y $12,4 billones, más que un año de compras de
+todos los municipios juntos.
 
 Comparamos las sumas por sector de los 36 meses con la cifra oficial de ChileCompra para
 2025. Municipalidades sumaba ~$14 billones al año contra $4,15, Obras Públicas 5,7 contra
@@ -45,11 +45,11 @@ Comparamos las sumas por sector de los 36 meses con la cifra oficial de ChileCom
 ## Cómo lo medimos
 
 Buscamos las órdenes en UF o UTM cuyos ítems vienen todos en pesos. Son 144 en 36 meses:
-convertidas sumaban $34 billones, y en pesos tal cual, $553 millones.
+convertidas sumaban $34 billones, y en pesos, tal cual, $553 millones.
 
 Después miramos las que quedaban en UF o UTM por montos enormes. Sobre $120.000 millones,
-unas 3 millones de UF, hay cinco órdenes en 36 meses, todas imposibles. Una Gran Compra de 36 millones de
-«UF», cancelada, era por sí sola el 14 % de seis meses de compras.
+unas 3 millones de UF, hay cinco órdenes en 36 meses, todas imposibles. Una Gran Compra de
+36 millones de «UF», cancelada, era por sí sola el 14 % de seis meses de compras.
 
 Por último, volvimos a sumar 2025 por sector con las órdenes saneadas y lo comparamos con
 la cifra oficial, en billones de pesos:
@@ -61,32 +61,33 @@ la cifra oficial, en billones de pesos:
 | Municipalidades | 4,28 | 4,15 |
 | Obras Públicas | 0,75 | 3,09 |
 
-Obras Públicas no cuadra por otro motivo: la descarga de órdenes no trae los contratos de obra
-del MOP. Lo cuenta la nota [Las obras del MOP no están en las órdenes de compra](/notas/obras-del-mop-no-estan-en-las-ordenes).
+Obras Públicas no cuadra por otro motivo: la descarga de órdenes no trae los contratos de
+obra del MOP. Lo cuenta la nota
+[Las obras del MOP no están en las órdenes de compra](/notas/obras-del-mop-no-estan-en-las-ordenes).
 
 ## Qué cambió
 
 - Una orden en UF o UTM con todos sus ítems en pesos vale su monto en pesos, tal cual.
   Tiene un costo medido: algunas pólizas de verdad en UF, con el ítem marcado en pesos,
   quedan en unos pocos pesos, ~$1.000 millones en 36 meses.
-- Una orden en UF o UTM sobre $120.000 millones sigue contando como orden, pero sin
-  monto, y queda en el registro del análisis con su código y su organismo.
+- Una orden en UF o UTM sobre $120.000 millones sigue contando como orden, pero sin monto,
+  y queda en el registro del análisis con su código y su comprador.
 - El tablero por sector deja fuera las órdenes canceladas. Desde el 21 de octubre, ningún
   cálculo que suma montos las cuenta.
-- Todo cálculo que lee las órdenes hereda el saneado: se hace al leer, en un solo sitio.
-- El arreglo llega al sitio con el análisis del domingo 18 de octubre.
+- Todo cálculo que lee las órdenes hereda el saneado, porque se hace al leer, en un solo
+  sitio.
+- El arreglo entró al sitio con el análisis del domingo 18 de octubre.
 
 ## Lo que todavía no sabemos
 
-- Entre 1 y 3 millones de UF quedan cuatro contratos que parecen legítimos, como el pago
-  de pensiones o el sistema de identificación, y dos imposibles por $129 mil millones. Se
-  quedan, porque quitarlos con un umbral más bajo se llevaba también los $314 mil
-  millones legítimos.
+- Entre 1 y 3 millones de UF quedan cuatro contratos que parecen legítimos, como el pago de
+  pensiones o el sistema de identificación, y dos imposibles por $129 mil millones. Se
+  quedan, porque un umbral más bajo se llevaba también los $314 mil millones legítimos.
 
 ## Reprodúcelo
 
-El test arma órdenes sintéticas con los montos de casos reales: pesos marcados como UF,
-una Gran Compra imposible y contratos grandes de verdad que tienen que quedarse.
+El test arma órdenes sintéticas con los montos de casos reales: pesos marcados como UF, una
+Gran Compra imposible y contratos grandes de verdad que tienen que quedarse.
 
 ```
 cd etl && uv run --project .. pytest tests/test_monto_saneado.py

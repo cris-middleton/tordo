@@ -18,6 +18,7 @@ import {
   type Busqueda,
 } from '@/lib/buscar';
 import { buscarTodo } from '@/lib/buscarServidor';
+import { MESES_PRECIOS } from '@/lib/periodo';
 import type { ResultadosBusqueda } from '@/types/buscar';
 
 /**
@@ -47,7 +48,7 @@ export const maxDuration = 20;
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const { termino, buscable } = await leerBusqueda(searchParams);
   const descripcion =
-    'Cuánto ha pagado el Estado por un producto, qué licitaciones y Compras Ágiles están abiertas y quién lo compra, con datos de ChileCompra.';
+    'A qué precio compró el Estado lo que vendes, quién lo compra y qué licitaciones y Compras Ágiles están abiertas hoy. Con datos de ChileCompra.';
   return {
     // El término sólo va en `<title>`. Las tarjetas de vista previa (Open Graph y
     // Twitter) ignoran `noindex`: si llevaran el término, quien comparta una URL
@@ -86,7 +87,7 @@ export default async function PaginaBuscar({ searchParams }: Props) {
     <div>
       <div className="mb-2">
         <h1 className="page-title">
-          {busqueda.buscable ? `Resultados para «${busqueda.termino}»` : '¿Qué le vendes al Estado?'}
+          {busqueda.buscable ? `Resultados para «${busqueda.termino}»` : 'Cuánto paga el Estado por lo que vendes'}
         </h1>
         <div className="mt-4">
           <FormularioBuscar termino={busqueda.termino} />
@@ -106,7 +107,7 @@ export default async function PaginaBuscar({ searchParams }: Props) {
           <p>
             {busqueda.termino
               ? 'Escribe al menos tres letras.'
-              : 'Busca un producto o servicio: te mostramos cuánto ha pagado el Estado, qué está abierto ahora y quién lo compra.'}
+              : `Escribe un producto o un servicio. Te mostramos a qué precio lo compró el Estado en los últimos ${MESES_PRECIOS} meses, quién lo compra y dónde postular hoy.`}
           </p>
           <EjemplosBusqueda />
         </div>

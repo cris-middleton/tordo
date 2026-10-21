@@ -12,7 +12,7 @@ const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
 
 export const metadata: Metadata = {
   title: 'Apoyar el sitio',
-  description: `${APP_NAME} se mantiene con aportes voluntarios. Aquí está lo que cuesta, concepto por concepto.`,
+  description: `Cuánto cuesta tener ${APP_NAME} en línea, concepto por concepto, y cómo aportar si te sirve.`,
   alternates: { canonical: '/apoyar' },
 };
 
@@ -41,7 +41,7 @@ export default function PaginaApoyar() {
     <article className="lectura max-w-3xl">
       <CabeceraFicha
         titulo={`${APP_NAME} es gratis. Mantenerlo, casi.`}
-        subtitulo="Lo sostienen los aportes de quienes lo usan."
+        subtitulo="Si te sirve, un aporte ayuda a pagar los servidores. Abajo está lo que cuestan, dólar por dólar."
       />
 
       <Seccion id="aportar" titulo="Cómo aportar">
@@ -84,14 +84,14 @@ export default function PaginaApoyar() {
           </div>
         ) : (
           <p className="text-sm leading-relaxed text-muted">
-            Todavía no hay medios de aporte habilitados. Mientras tanto, la mejor forma de apoyar
-            es usarlo y contárselo a quien licite.
+            Todavía no hay medios de aporte habilitados. Mientras, la mejor ayuda es que se lo
+            cuentes a alguien que licite.
           </p>
         )}
         <p className="mt-6 text-xs leading-relaxed text-subtle">
-          Un aporte es una donación: no compra ningún servicio, no da acceso a nada que no tenga
-          cualquier visitante y no obliga a mantener el sitio ni ninguna función por un plazo
-          determinado. El pago lo procesa cada plataforma bajo sus propias condiciones. Está en los{' '}
+          Un aporte es una donación. No compra ningún servicio ni da acceso a nada que no tenga
+          cualquier visitante, y no obliga a mantener el sitio ni ninguna función por un plazo
+          determinado. Cada plataforma procesa el pago con sus propias condiciones. Lo dicen los{' '}
           <Link href="/terminos" className="enlace">
             términos de uso
           </Link>
@@ -102,20 +102,20 @@ export default function PaginaApoyar() {
       <Seccion id="costos" titulo="Cuánto cuesta">
         <p className="text-sm leading-relaxed text-muted">
           Tenerlo en línea cuesta{' '}
-          <strong className="text-text">alrededor de {COSTO_MENSUAL_APROXIMADO} al mes</strong>. Se va en
-          Vercel, que sirve las páginas, y en Railway, donde corren la API, la base de datos y las
-          tareas que traen los datos de ChileCompra.
+          <strong className="text-text">alrededor de {COSTO_MENSUAL_APROXIMADO} al mes</strong>. La
+          plata se va en Vercel, que sirve las páginas, y en Railway, donde viven la API, la base de
+          datos y las tareas que traen los datos de ChileCompra.
         </p>
         <div className="mt-4">
           <TablaCostos />
         </div>
       </Seccion>
 
-      <Seccion titulo="Qué hacemos con tus datos">
+      <Seccion titulo="Qué hacemos con tus datos si aportas">
         <p className="text-sm leading-relaxed text-muted">
-          De la plataforma que elijas recibimos normalmente tu nombre, el monto y la fecha. Lo
-          guardamos sólo para la contabilidad y no lo publicamos sin tu permiso. El detalle está en
-          la{' '}
+          Si aportas, la plataforma que elijas nos informa normalmente tu nombre, el monto y la
+          fecha. Lo guardamos sólo para la contabilidad y no lo publicamos sin tu permiso. El
+          detalle está en la{' '}
           <Link href="/privacidad" className="enlace">
             política de privacidad
           </Link>

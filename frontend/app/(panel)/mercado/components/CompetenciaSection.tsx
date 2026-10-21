@@ -49,16 +49,15 @@ export function CompetenciaSection({
     if (!tipo) return '';
     const lower = tipo.toLowerCase().trim();
     const known: Record<string, string> = {
-      concentrado: 'Concentrado',
-      moderado: 'Moderado',
-      fragmentado: 'Fragmentado',
+      concentrado: 'concentrado',
+      moderado: 'moderado',
+      fragmentado: 'fragmentado',
       // Nombre anterior del mismo tramo; sigue llegando hasta la próxima
       // materialización semanal de analytics.
-      competitivo: 'Fragmentado',
+      competitivo: 'fragmentado',
     };
-    if (known[lower]) return known[lower];
-    // Fallback: capitaliza primera letra del string raw del backend
-    return lower.charAt(0).toUpperCase() + lower.slice(1);
+    // Va a media frase («Mercado concentrado»): en minúscula, también el respaldo.
+    return known[lower] ?? lower;
   }
 
   return (
@@ -69,18 +68,18 @@ export function CompetenciaSection({
           <p className="mt-1 text-sm text-muted">
             {focused && focusedNombre ? (
               <>
-                Los proveedores de <span className="font-medium text-text">{focusedNombre}</span> en este rubro, por su
-                parte de lo que compra.
+                Qué parte de lo que compra <span className="font-medium text-text">{focusedNombre}</span> en este
+                rubro se lleva cada proveedor.
               </>
             ) : (
-              'Los proveedores de este organismo en el rubro, por su parte de lo que compra.'
+              'Qué parte de lo que compra este comprador en el rubro se lleva cada proveedor.'
             )}
           </p>
         </div>
 
         {!focused && topOrganismos.length > 1 && (
           <select
-            aria-label="Organismo"
+            aria-label="Comprador"
             value={selectedOrganismo}
             onChange={(e) => onOrganismoChange(e.target.value)}
             disabled={disabled}
@@ -122,9 +121,9 @@ export function CompetenciaSection({
                    decían qué implica cada tramo para quien va a postular en vez
                    de describir el índice. */
                 <div className="space-y-1.5">
-                  <p><b>Concentrado:</b> pocos proveedores se llevan casi todo. Entrar cuesta más.</p>
-                  <p><b>Moderado:</b> hay competidores fuertes, pero el mercado no está cerrado.</p>
-                  <p><b>Fragmentado:</b> muchos proveedores se reparten el mercado. Hay espacio.</p>
+                  <p><b>Concentrado:</b> unos pocos proveedores se llevan casi todo. Entrar cuesta más.</p>
+                  <p><b>Moderado:</b> hay proveedores fuertes, pero ninguno se lleva todo.</p>
+                  <p><b>Fragmentado:</b> muchos proveedores se reparten las compras. Hay espacio para entrar.</p>
                 </div>
               }
             >
@@ -134,7 +133,7 @@ export function CompetenciaSection({
         </div>
       )}
 
-      {periodo && <p className="text-sm text-muted">Participación de {periodo}.</p>}
+      {periodo && <p className="text-sm text-muted">Órdenes de compra de {periodo}.</p>}
 
       {consulta.isError ? (
         <ErrorDeCarga
@@ -148,17 +147,19 @@ export function CompetenciaSection({
           <Loader2 className="h-5 w-5 animate-spin text-primary" />
         </div>
       ) : competidores.length === 0 ? (
-        <p className="py-6 text-sm text-muted">Este organismo no tiene órdenes de compra en el rubro.</p>
+        <p className="py-6 text-sm text-muted">Este comprador no tiene órdenes de compra en el rubro.</p>
       ) : (
         <div className="max-w-3xl">
         <BarrasHorizontales
-          etiqueta="Participación de cada proveedor en lo que compra este organismo"
+          etiqueta="Parte del monto que compra este comprador que se lleva cada proveedor"
           filas={competidores.slice(0, 10).map((c) => ({
             clave: c.CodigoProveedor,
             etiqueta: c.NombreProveedor,
             valor: c.market_share_pct,
             texto: `${decimal(c.market_share_pct, 1)} %`,
-            detalle: `${c.n_oc.toLocaleString('es-CL')} ${c.n_oc === 1 ? 'orden' : 'órdenes'} de compra; tasa de adjudicación ${decimal(c.win_rate_pct, 0)} %`,
+            // `win_rate_pct` es n_oc / órdenes del mercado (etl/analytics/competitor_analysis.py):
+            // su parte de las órdenes, no una tasa de adjudicación, que es como se rotulaba.
+            detalle: `${c.n_oc.toLocaleString('es-CL')} ${c.n_oc === 1 ? 'orden' : 'órdenes'} de compra, el ${decimal(c.win_rate_pct, 0)} % de las de este comprador`,
           }))}
         />
         </div>
