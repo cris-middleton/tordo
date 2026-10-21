@@ -33,6 +33,7 @@ import polars as pl
 
 from .config import OUTPUT_DIR
 from .data_loader import iter_lic_parquets
+from .identidad import PERIODO, nombre_vigente
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +57,7 @@ def build_transparency_metrics() -> pl.DataFrame:
     frames = []
     seen_lics: set[str] = set()
 
-    for _periodo, df in iter_lic_parquets(columns=cols_needed):
+    for periodo, df in iter_lic_parquets(columns=cols_needed):
         if "CodigoExterno" not in df.columns or "CodigoOrganismo" not in df.columns:
             continue
 
@@ -74,17 +75,21 @@ def build_transparency_metrics() -> pl.DataFrame:
             continue
 
         # Deduplicar por licitación (primera fila por CodigoExterno)
-        lic_dedup = batch.group_by("CodigoExterno").agg(
-            [
-                pl.col("CodigoOrganismo").first(),
-                pl.col("NombreOrganismo").first(),
-                pl.col("sector").first(),
-                pl.col("CodigoTipo").first() if tipo_col else pl.lit(None).alias("CodigoTipo"),
-                pl.col("Estado").str.to_lowercase().first().alias("estado_lower")
-                if estado_col
-                else pl.lit("").alias("estado_lower"),
-                pl.col("CodigoProveedor").first(),
-            ]
+        lic_dedup = (
+            batch.group_by("CodigoExterno")
+            .agg(
+                [
+                    pl.col("CodigoOrganismo").first(),
+                    pl.col("NombreOrganismo").first(),
+                    pl.col("sector").first(),
+                    pl.col("CodigoTipo").first() if tipo_col else pl.lit(None).alias("CodigoTipo"),
+                    pl.col("Estado").str.to_lowercase().first().alias("estado_lower")
+                    if estado_col
+                    else pl.lit("").alias("estado_lower"),
+                    pl.col("CodigoProveedor").first(),
+                ]
+            )
+            .with_columns(pl.lit(periodo).alias(PERIODO))
         )
 
         # Filtrar ya vistos
@@ -117,9 +122,15 @@ def build_transparency_metrics() -> pl.DataFrame:
                 .alias("es_adjudicada"),
             ]
         )
-        .group_by(["CodigoOrganismo", "NombreOrganismo", "sector"])
+        # La clave es el CÓDIGO: nombre y sector se arrastran con su valor más
+        # reciente. Con ellos en la clave, un organismo renombrado (o que cambió
+        # de sector) partía sus licitaciones en dos filas, cada una con menos de
+        # las que tiene, y la API se quedaba con una (`identidad.py`).
+        .group_by("CodigoOrganismo")
         .agg(
             [
+                nombre_vigente("NombreOrganismo"),
+                nombre_vigente("sector"),
                 pl.len().alias("n_lic_total"),
                 pl.col("es_td").sum().alias("n_trato_directo"),
                 pl.col("es_fracaso").sum().alias("n_fracasos"),

@@ -30,45 +30,51 @@ logger = logging.getLogger(__name__)
 
 
 def build_time_series() -> pl.DataFrame:
-    """Pre-agrega gasto mensual por (organismo, rubro, sector)."""
+    """Pre-agrega gasto mensual por (organismo, rubro, sector).
+
+    **El mes es el de CREACIÓN de la orden, no el del archivo.** Un archivo
+    mensual trae órdenes creadas antes (se envían tarde), y la ventana de
+    analytics corta por `FechaCreacion`: contar por archivo dejaba el primer mes
+    de la ventana sin las órdenes creadas antes de ella (un 9–12 % menos) y
+    repartía cada mes entre varios archivos.
+
+    **Sólo los meses completos**: desde el período del primer archivo leído
+    (lo creado antes llega a medias, sólo lo que se envió tarde) hasta el
+    penúltimo. El último archivo es el del mes en curso, o el de un mes al que
+    aún le faltan las órdenes que se envían tarde.
+    """
     logger.info("Construyendo series temporales de gasto...")
 
     cols_needed = [
+        "Codigo",
         "CodigoOrganismoPublico",
         "OrganismoPublico",
         "RubroN2",
         "sector",
         "MontoTotalOC_PesosChilenos",
+        "FechaCreacion",
         "_periodo_archivo",
     ]
 
     frames = []
-    for _periodo, df in iter_oc_parquets(columns=cols_needed):
-        if "MontoTotalOC_PesosChilenos" not in df.columns:
+    periodos: list[int] = []
+    for periodo, df in iter_oc_parquets(columns=cols_needed):
+        periodos.append(_clave(periodo))
+        if "MontoTotalOC_PesosChilenos" not in df.columns or "FechaCreacion" not in df.columns:
             continue
 
-        # Usar _periodo_archivo como proxy de año-mes (más confiable que parsear fechas)
+        fecha = pl.col("FechaCreacion").cast(pl.Utf8).str.slice(0, 10).cast(pl.Date, strict=False)
         agg = (
             df.with_columns(
                 [
                     # Por línea: ver `data_loader.con_monto_por_linea`.
                     pl.col("monto_linea_clp").alias("monto"),
+                    fecha.dt.year().cast(pl.Int32).alias("anio"),
+                    fecha.dt.month().cast(pl.Int32).alias("mes"),
                 ]
             )
-            .filter(pl.col("monto").is_not_null() & (pl.col("monto") > 0))
-            .with_columns(
-                [
-                    pl.col("_periodo_archivo")
-                    .str.split("-")
-                    .list.get(0)
-                    .cast(pl.Int32)
-                    .alias("anio"),
-                    pl.col("_periodo_archivo")
-                    .str.split("-")
-                    .list.get(1)
-                    .cast(pl.Int32)
-                    .alias("mes"),
-                ]
+            .filter(
+                pl.col("monto").is_not_null() & (pl.col("monto") > 0) & pl.col("anio").is_not_null()
             )
             .group_by(["CodigoOrganismoPublico", "RubroN2", "sector", "anio", "mes"])
             .agg(
@@ -88,7 +94,11 @@ def build_time_series() -> pl.DataFrame:
     if not frames:
         return pl.DataFrame()
 
-    combined = pl.concat(frames, how="diagonal_relaxed")
+    desde, hasta = min(periodos), max(periodos)
+    combined = pl.concat(frames, how="diagonal_relaxed").filter(
+        (pl.col("anio") * 12 + pl.col("mes") >= desde)
+        & (pl.col("anio") * 12 + pl.col("mes") < hasta)
+    )
     result = (
         combined.group_by(["CodigoOrganismoPublico", "RubroN2", "sector", "anio", "mes"])
         .agg(
@@ -105,6 +115,16 @@ def build_time_series() -> pl.DataFrame:
     return result
 
 
+def _clave(periodo: str) -> int:
+    """«2026-3» → 2026·12 + 3, como `identidad.clave_periodo` sobre un texto suelto."""
+    anio, mes = periodo.split("-")
+    return int(anio) * 12 + int(mes)
+
+
+#: Meses que pide un CAGR: un año al principio y otro al final, sin solaparse.
+MESES_PARA_CAGR = 24
+
+
 def compute_market_trends(ts: pl.DataFrame) -> pl.DataFrame:
     """
     Calcula tendencia de gasto por (organismo, rubro) usando regresión lineal
@@ -113,8 +133,20 @@ def compute_market_trends(ts: pl.DataFrame) -> pl.DataFrame:
     Retorna:
     - slope: pendiente mensual (CLP/mes) — positiva = crecimiento
     - r_squared: calidad del ajuste lineal
-    - cagr: tasa de crecimiento anual compuesta
-    - monto_ultimo_anio: gasto del último año completo
+    - cagr: tasa de crecimiento anual compuesta (nula con menos de dos años)
+
+    **La serie va completa, con ceros.** Un mes sin compras es un mes de gasto
+    cero, no un mes que no existe: sin rellenarlo, la regresión y el «primer
+    año» saltaban los huecos, y un mercado que compra tres veces en tres años
+    parecía tan regular como uno que compra cada mes. El rango es el de toda la
+    serie (los meses completos de `build_time_series`), igual para todos los
+    mercados.
+
+    **El primer y el último año son de CALENDARIO**: los 12 primeros y los 12
+    últimos meses del rango, no los 12 primeros meses con compras. Con menos de
+    `MESES_PARA_CAGR` meses no hay dos años que comparar y el CAGR va nulo
+    (`opportunity_scorer` le pone su neutro). Antes salía de comparar el
+    primer y el último mes activo.
     """
     logger.info("Calculando tendencias de mercado...")
 
@@ -124,6 +156,10 @@ def compute_market_trends(ts: pl.DataFrame) -> pl.DataFrame:
             ((pl.col("anio") - MIN_YEAR) * 12 + pl.col("mes")).alias("t"),
         ]
     )
+
+    t_desde = ts_indexed["t"].min()
+    n_meses = ts_indexed["t"].max() - t_desde + 1
+    t_rango = np.arange(t_desde, t_desde + n_meses, dtype=float)
 
     # Agrupar por mercado y calcular regresión
     markets = (
@@ -148,11 +184,12 @@ def compute_market_trends(ts: pl.DataFrame) -> pl.DataFrame:
     # Calcular regresión lineal para cada mercado
     results = []
     for row in markets.iter_rows(named=True):
-        t = np.array(row["ts"], dtype=float)
-        y = np.array(row["montos"], dtype=float)
-
-        if len(t) < 3 or np.std(t) == 0:
+        if len(row["ts"]) < 3 or n_meses < 3:
             continue
+        t = t_rango
+        # Un mes puede venir en varias filas (un organismo con dos sectores): se suman.
+        y = np.zeros(n_meses)
+        np.add.at(y, np.array(row["ts"], dtype=int) - t_desde, np.array(row["montos"], float))
 
         # Regresión lineal
         slope, intercept = np.polyfit(t, y, 1)
@@ -161,15 +198,17 @@ def compute_market_trends(ts: pl.DataFrame) -> pl.DataFrame:
         ss_tot = np.sum((y - np.mean(y)) ** 2)
         r_sq = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
 
-        # CAGR (si hay suficientes datos)
-        first_year_avg = np.mean(y[:12]) if len(y) >= 12 else y[0]
-        last_year_avg = np.mean(y[-12:]) if len(y) >= 12 else y[-1]
-        n_years = max(1, (t[-1] - t[0]) / 12)
-
-        if first_year_avg > 0 and last_year_avg > 0:
-            cagr = (last_year_avg / first_year_avg) ** (1 / n_years) - 1
+        # CAGR entre el primer y el último año de calendario del rango.
+        if n_meses >= MESES_PARA_CAGR:
+            first_year_avg = np.mean(y[:12])
+            last_year_avg = np.mean(y[-12:])
+            n_years = (n_meses - 12) / 12
+            if first_year_avg > 0 and last_year_avg > 0:
+                cagr = round((last_year_avg / first_year_avg) ** (1 / n_years) - 1, 4)
+            else:
+                cagr = 0.0
         else:
-            cagr = 0
+            cagr = None
 
         results.append(
             {
@@ -178,7 +217,7 @@ def compute_market_trends(ts: pl.DataFrame) -> pl.DataFrame:
                 "RubroN2": row["RubroN2"],
                 "slope_mensual": round(slope, 2),
                 "r_squared": round(r_sq, 4),
-                "cagr": round(cagr, 4),
+                "cagr": cagr,
                 "monto_acumulado": row["monto_acumulado"],
                 "total_oc": row["total_oc"],
                 "n_anios": row["n_anios"],
@@ -215,7 +254,9 @@ def compute_market_trends(ts: pl.DataFrame) -> pl.DataFrame:
             }
         )
 
-    trend_df = pl.DataFrame(results).sort("cagr", descending=True)
+    trend_df = pl.DataFrame(results, schema_overrides={"cagr": pl.Float64}).sort(
+        "cagr", descending=True, nulls_last=True
+    )
     for t in ["crecimiento", "estable", "decrecimiento"]:
         n = trend_df.filter(pl.col("tendencia") == t).shape[0]
         logger.info(f"  {t}: {n:,} mercados")

@@ -25,6 +25,7 @@ import polars as pl
 
 from .config import OUTPUT_DIR
 from .data_loader import iter_lic_parquets
+from .identidad import nombre_vigente
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +114,13 @@ def compute_competitor_forecast(lics: pl.DataFrame) -> pl.DataFrame:
     """
     logger.info("Calculando distribución de competidores por contexto...")
 
-    def _compute(df: pl.DataFrame, group_cols: list[str], level: int) -> pl.DataFrame:
+    def _compute(
+        df: pl.DataFrame, group_cols: list[str], level: int, nombres: tuple[str, ...] = ()
+    ) -> pl.DataFrame:
+        # La clave son los códigos; `nombres` se arrastran con `nombre_vigente()`.
+        # Con `NombreOrganismo` en la clave, un organismo renombrado repartía su
+        # historia entre dos contextos, cada uno con menos licitaciones de las
+        # que tiene (`identidad.py`).
         return (
             # Mismo caso que en preparation_window: `all()` de Python llama a
             # bool() sobre cada expresión de Polars. Hay que usar pl.all_horizontal.
@@ -125,6 +132,7 @@ def compute_competitor_forecast(lics: pl.DataFrame) -> pl.DataFrame:
             .group_by(group_cols)
             .agg(
                 [
+                    *[nombre_vigente(c) for c in nombres],
                     pl.len().alias("n"),
                     pl.col("n_ofer").quantile(0.10).alias("p10"),
                     pl.col("n_ofer").quantile(0.25).alias("p25"),
@@ -148,8 +156,14 @@ def compute_competitor_forecast(lics: pl.DataFrame) -> pl.DataFrame:
         )
 
     # L1: organismo + rubro + tipo
-    l1_cols = ["CodigoOrganismo", "NombreOrganismo", "Rubro2", "CodigoTipo"]
-    l1 = _compute(lics, [c for c in l1_cols if c in lics.columns], 1)
+    l1 = _compute(
+        lics, ["CodigoOrganismo", "Rubro2", "CodigoTipo"], 1, nombres=("NombreOrganismo",)
+    )
+    # Las columnas, en el orden de siempre: organismo, nombre, rubro y tipo.
+    l1 = l1.select(
+        ["CodigoOrganismo", "NombreOrganismo"]
+        + [c for c in l1.columns if c not in ("CodigoOrganismo", "NombreOrganismo")]
+    )
 
     # L2: rubro + tipo
     l2 = _compute(lics, ["Rubro2", "CodigoTipo"], 2)

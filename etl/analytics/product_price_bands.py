@@ -356,13 +356,34 @@ def remove_outliers_iqr(
 # ─────────────────────────────────────────────────────────────────────
 
 
-def _compute_bands(df: pl.DataFrame, group_cols: list[str], min_n: int, level: int) -> pl.DataFrame:
-    """Calcula bandas de precio para un nivel de agrupación dado."""
+def _compute_bands(
+    df: pl.DataFrame,
+    group_cols: list[str],
+    min_n: int,
+    level: int,
+    claves: list[str] | None = None,
+) -> pl.DataFrame:
+    """Calcula bandas de precio para un nivel de agrupación dado.
+
+    `claves` son los CÓDIGOS que definen la banda; las columnas de `group_cols`
+    que no están en ellas son nombres, y se arrastran con `nombre_vigente()`
+    (`identidad.py`). Con el nombre en la clave, un organismo renombrado o un
+    código de producto con dos nombres genéricos partía la banda en dos. Medido
+    en los seis meses locales: 770 códigos traen dos nombres el mismo mes (el
+    mismo texto truncado: «…para el personal sanitari»), y fuera de Convenio
+    Marco L3 salía con 8.996 filas para 8.759 pares (código, unidad). La tabla
+    conserva las columnas de `group_cols`, en su orden: la API filtra por ellas.
+    """
+    claves = claves or group_cols
+    nombres = [c for c in group_cols if c not in claves]
+    # Una clave que no es columna de la tabla (`PRODUCTO`) se usa y se suelta.
+    auxiliares = [c for c in claves if c not in group_cols]
 
     bands = (
-        df.group_by(group_cols)
+        df.group_by(claves)
         .agg(
             [
+                *[nombre_vigente(c) for c in nombres],
                 pl.len().alias("n"),
                 pl.col("pu").quantile(0.10).alias("p10"),
                 pl.col("pu").quantile(0.25).alias("p25"),
@@ -431,7 +452,27 @@ def _compute_bands(df: pl.DataFrame, group_cols: list[str], min_n: int, level: i
         )
     )
 
-    return bands
+    return bands.select(
+        group_cols + [c for c in bands.columns if c not in group_cols and c not in auxiliares]
+    )
+
+
+#: La identidad del producto en L1–L3. Es su código UNSPSC, salvo en Convenio
+#: Marco: ahí toda línea lleva el código «0» (400.896 de 2,48 M líneas en los
+#: seis meses locales, 66.094 nombres distintos) y lo que identifica al producto
+#: es su nombre de catálogo («AZUCAR COLISEO BLANCA GRANULADA BOLSA 1 K…»).
+#: Agrupar ese «0» por código sumaría todo el catálogo en una banda.
+PRODUCTO = "_producto"
+CODIGO_CONVENIO_MARCO = "0"
+
+
+def _con_producto(items: pl.DataFrame) -> pl.DataFrame:
+    return items.with_columns(
+        pl.when(pl.col("codigoProductoONU") == CODIGO_CONVENIO_MARCO)
+        .then(pl.lit(f"{CODIGO_CONVENIO_MARCO}|") + pl.col("NombreroductoGenerico"))
+        .otherwise(pl.col("codigoProductoONU"))
+        .alias(PRODUCTO)
+    )
 
 
 def _con_descripcion(bands: pl.DataFrame, items: pl.DataFrame, claves: list[str]) -> pl.DataFrame:
@@ -475,7 +516,7 @@ def build_level_0(items: pl.DataFrame) -> pl.DataFrame:
     claves = ["firma_producto", "CodigoOrganismoPublico", "UnidadMedida"]
 
     cleaned = remove_outliers_iqr(utilizables, claves)
-    bands = _compute_bands(cleaned, group_cols, MIN_N_L0, level=0)
+    bands = _compute_bands(cleaned, group_cols, MIN_N_L0, level=0, claves=claves)
     if bands.is_empty():
         return bands
 
@@ -650,9 +691,10 @@ def build_level_1(items: pl.DataFrame) -> pl.DataFrame:
         "OrganismoPublico",
         "UnidadMedida",
     ]
+    claves = [PRODUCTO, "CodigoOrganismoPublico", "UnidadMedida"]
 
-    cleaned = remove_outliers_iqr(items, group_cols[:3] + [group_cols[4]])
-    bands = _compute_bands(cleaned, group_cols, MIN_N_L1, level=1)
+    cleaned = remove_outliers_iqr(_con_producto(items), claves)
+    bands = _compute_bands(cleaned, group_cols, MIN_N_L1, level=1, claves=claves)
 
     n_pred = bands.filter(pl.col("confianza") >= 0.5).height
     logger.info(f"  L1: {len(bands):,} bandas ({n_pred:,} con confianza ≥ 0.5)")
@@ -664,9 +706,10 @@ def build_level_2(items: pl.DataFrame) -> pl.DataFrame:
     logger.info("Calculando bandas Nivel 2 (Producto+Sector+Unidad)...")
 
     group_cols = ["codigoProductoONU", "NombreroductoGenerico", "sector", "UnidadMedida"]
+    claves = [PRODUCTO, "sector", "UnidadMedida"]
 
-    cleaned = remove_outliers_iqr(items, [group_cols[0], group_cols[2], group_cols[3]])
-    bands = _compute_bands(cleaned, group_cols, MIN_N_L2, level=2)
+    cleaned = remove_outliers_iqr(_con_producto(items), claves)
+    bands = _compute_bands(cleaned, group_cols, MIN_N_L2, level=2, claves=claves)
 
     n_pred = bands.filter(pl.col("confianza") >= 0.5).height
     logger.info(f"  L2: {len(bands):,} bandas ({n_pred:,} con confianza ≥ 0.5)")
@@ -678,9 +721,10 @@ def build_level_3(items: pl.DataFrame) -> pl.DataFrame:
     logger.info("Calculando bandas Nivel 3 (Producto+Unidad, nacional)...")
 
     group_cols = ["codigoProductoONU", "NombreroductoGenerico", "UnidadMedida"]
+    claves = [PRODUCTO, "UnidadMedida"]
 
-    cleaned = remove_outliers_iqr(items, [group_cols[0], group_cols[2]])
-    bands = _compute_bands(cleaned, group_cols, MIN_N_L3, level=3)
+    cleaned = remove_outliers_iqr(_con_producto(items), claves)
+    bands = _compute_bands(cleaned, group_cols, MIN_N_L3, level=3, claves=claves)
 
     n_pred = bands.filter(pl.col("confianza") >= 0.5).height
     logger.info(f"  L3: {len(bands):,} bandas ({n_pred:,} con confianza ≥ 0.5)")
