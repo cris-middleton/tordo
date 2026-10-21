@@ -75,9 +75,14 @@ def _agregado(
     sumas: list[str],
     distintos: list[str] = (),
     primeros: list[str] = (),
-    limite: int,
+    limite: int | None,
 ) -> Any:
     """Los `limite` grupos de `clave` con más `sumas[0]`, agregados en SQL.
+
+    `limite=None` trae todos los grupos, y hay que pedirlo por escrito: sin
+    filtro es una fila por grupo de la tabla entera (lo usa el índice de páginas
+    públicas, en caché). Las guardas de lecturas acotadas lo tratan como lectura
+    entera.
 
     Para `competitors_by_market`, que tiene una fila por (organismo, rubro,
     proveedor): «quién gana en este rubro» u «a quién le compra este organismo»

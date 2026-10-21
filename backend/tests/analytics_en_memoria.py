@@ -122,17 +122,16 @@ class AnalyticsEnMemoria:
         sumas: list[str],
         distintos: list[str] = (),
         primeros: list[str] = (),
-        limite: int,
+        limite: int | None,
     ) -> pl.DataFrame | None:
         """Como `sql_agregado`: grupos por `sumas[0]` descendente, empate por la
-        clave (bytes), con tope."""
+        clave (bytes), con tope (sin tope con `limite=None`)."""
         df = self.tablas.get(filename)
         if df is None:
             return None
         grupos = self._grupos(self._filtrar(df, filtros), clave, sumas, distintos, primeros)
-        return grupos.sort([sumas[0], clave], descending=[True, False], nulls_last=True).head(
-            limite
-        )
+        grupos = grupos.sort([sumas[0], clave], descending=[True, False], nulls_last=True)
+        return grupos if limite is None else grupos.head(limite)
 
     def _totales(
         self,
@@ -224,3 +223,48 @@ class AnalyticsEnMemoria:
             ):
                 if hasattr(modulo, nombre):
                     monkeypatch.setattr(modulo, nombre, getattr(self, nombre))
+
+
+class RegistroDeLecturas(AnalyticsEnMemoria):
+    """El doble, anotando cada lectura con sus argumentos en `lecturas`.
+
+    Lo usan las guardas de lecturas acotadas (`test_bi_mercado_acotado.py` y
+    `test_publico_acotado.py`): una lectura sin `filtros` ni `limite` trae la
+    tabla entera, y eso es lo que miran.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.lecturas: list[dict] = []
+
+    def _load(self, filename, **kwargs):
+        self.lecturas.append({"tabla": filename, **kwargs})
+        return super()._load(filename, **kwargs)
+
+    # El conteo agrupado y la búsqueda por subcadena también son lecturas, pero
+    # acotadas por construcción: el SQL agrega, o corta a `MAX_FILAS_BUSQUEDA`.
+    def _contar(self, filename, columna, **kwargs):
+        self.lecturas.append({"tabla": filename, "limite": kwargs["limite"], "conteo": columna})
+        return super()._contar(filename, columna, **kwargs)
+
+    def _buscar(self, filename, columna, texto, **kwargs):
+        self.lecturas.append({"tabla": filename, "limite": MAX_FILAS_BUSQUEDA, "busqueda": columna})
+        return super()._buscar(filename, columna, texto, **kwargs)
+
+    # Los agregados viajan con su filtro: se registran con él, y uno sin filtro
+    # (todo el país) haría fallar la guarda igual que una lectura entera.
+    def _agregado(self, filename, clave, **kwargs):
+        self.lecturas.append({"tabla": filename, "agregado": clave, **kwargs})
+        return super()._agregado(filename, clave, **kwargs)
+
+    def _totales(self, filename, clave, **kwargs):
+        self.lecturas.append({"tabla": filename, "totales": clave, **kwargs})
+        return super()._totales(filename, clave, **kwargs)
+
+    def _distintos(self, filename, columna, **kwargs):
+        self.lecturas.append({"tabla": filename, "distintos": columna, **kwargs})
+        return super()._distintos(filename, columna, **kwargs)
+
+    def _contar_filas(self, filename, **kwargs):
+        self.lecturas.append({"tabla": filename, "contar": True, **kwargs})
+        return super()._contar_filas(filename, **kwargs)

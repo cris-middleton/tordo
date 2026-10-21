@@ -1681,9 +1681,30 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   doble de `_load` (y de los agregados) y falla si alguna lee una tabla sin `filtros` ni `limite`, salvo tres
   que se leen enteras por pequeñas, cada una con su motivo escrito en el test
   (`sector_dashboard`, `buyer_scores`, `buyer_risk_flags`). Una función nueva sin llamadas
-  en la guarda también la hace fallar. **No cubre** `services/publico/` (las páginas
-  indexables también leen analytics con `_load`) ni `repositories/`: ahí la guarda no existe.
-  `/publico/mercado` agrega en el repositorio y no pasa por `_load`.
+  en la guarda también la hace fallar. **`/publico/*` tiene su propia guarda**,
+  `tests/test_publico_acotado.py`, ruta por ruta: toda ruta de `api/publico.py` tiene llamadas
+  en ella o una exención con motivo (`/portada`, que cuenta el catálogo), y una ruta nueva la
+  hace fallar hasta que alguien decida qué lee. Cada lectura de una petición va acotada, salvo
+  las de `LECTURA_ENTERA_PERMITIDA` (los dos agregados en SQL de `/publico/mercado`, que
+  registra aparte porque no pasan por `_load`, y `buyer_risk_flags`); lo que es de la tabla
+  entera por naturaleza —el índice de páginas, `LECTURAS_DEL_INDICE`— sólo lo lee
+  `indexables.construir`, y con el índice en caché ninguna ruta vuelve a leerlo (el sitemap no
+  lee nada). Sigue sin cubrir `repositories/` de catálogo (`licitaciones`, `compra_agil`).
+- **El índice de páginas públicas se agrega en Postgres** (`services/publico/indexables.py`).
+  Es de la tabla entera por naturaleza (una fila por comprador, rubro y firma) y se construye
+  una vez cada 10 min por proceso (`TTL_SEGUNDOS`, con cerrojo), pero leía `market_concentration`
+  entera y las bandas L0N enteras con cinco columnas para agrupar en Polars. Ahora son
+  `GROUP BY` con `_agregado(limite=None)` —`None` hay que escribirlo, y trae los grupos por
+  trozos de 10.000 con un cursor de servidor (`analytics_sync._por_trozos`)— más las bandas que
+  ya pasan `n` y predictibilidad en SQL, sobre las que se aplica `de_mercado()` en Polars (la
+  regla no se duplica en SQL). Las consultas de `consultar` y `agregado` construyen el
+  DataFrame **por columnas** (`_resultado_a_polars`), sin un diccionario por fila. Medido el
+  2026-10-21 con las tablas locales (49.000 firmas): **de +79–97 MiB de RSS por construcción a
+  +41–45**; a tres veces esa escala (~144.000 firmas, sintético), **de +207–248 MiB a +88–95**.
+  El tiempo no cambia de forma apreciable (~0,3 s y ~0,9 s; el ruido de la máquina es mayor que
+  la diferencia). `tests/test_publico_indice_sql.py` compara el índice con el cálculo de
+  antes (tablas aleatorias en el doble y el fixture en Postgres) y la construcción por columnas
+  y por trozos con la de siempre, tabla a tabla.
 - **CORS abierto en producción (`CORS_ORIGINS=*`), sin credenciales**: la API es pública y
   anónima, y limitarla a los dominios del sitio dejaba fuera a los integradores que la
   llaman desde una aplicación web. No abre el MCP: su lista de `Host`/`Origin` es otra

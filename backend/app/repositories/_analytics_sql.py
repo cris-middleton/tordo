@@ -178,7 +178,7 @@ def sql_agregado(
     sumas: list[str],
     distintos: list[str] = (),
     primeros: list[str] = (),
-    limite: int,
+    limite: int | None,
     schema: str = SCHEMA,
 ) -> tuple[str, dict[str, Any]]:
     """Los `limite` grupos de más `sumas[0]`, agregados en Postgres.
@@ -187,6 +187,11 @@ def sql_agregado(
     rubro, proveedor): cualquier cifra de un rubro o de un organismo agrega por
     proveedor primero, y hacerlo en Polars traía a la API todas las filas del
     rubro para devolver diez. Empates por la clave, por bytes, como Polars.
+
+    `limite=None` trae **todos** los grupos, y hay que escribirlo: es para el
+    índice de páginas públicas (`services/publico/indexables.py`), que necesita
+    una fila por comprador, rubro o producto y se construye una vez cada diez
+    minutos. Vuelve una fila por grupo, no por fila de la tabla.
     """
     grupos, params = _sql_grupos(
         tabla,
@@ -197,10 +202,9 @@ def sql_agregado(
         primeros=primeros,
         schema=schema,
     )
-    sql = (
-        f"{grupos} ORDER BY {ident(sumas[0])} DESC NULLS LAST, "
-        f'{ident(clave)} COLLATE "C" ASC LIMIT {int(limite)}'
-    )
+    sql = f'{grupos} ORDER BY {ident(sumas[0])} DESC NULLS LAST, {ident(clave)} COLLATE "C" ASC'
+    if limite is not None:
+        sql += f" LIMIT {int(limite)}"
     return sql, params
 
 
