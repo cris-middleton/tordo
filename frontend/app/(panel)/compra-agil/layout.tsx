@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 
 import { DESCRIPCION_DESTACADAS, TITULO_DESTACADAS } from '@/lib/compraAgil';
+import { FRECUENCIA_CATALOGO } from '@/lib/portada';
 
 /*
  * Metadatos de «Lo mejor de hoy». La página es cliente (filtros en la URL), y
@@ -10,7 +11,7 @@ import { DESCRIPCION_DESTACADAS, TITULO_DESTACADAS } from '@/lib/compraAgil';
  */
 export const metadata: Metadata = {
   title: TITULO_DESTACADAS,
-  description: `${DESCRIPCION_DESTACADAS} Actualizado varias veces al día.`,
+  description: `${DESCRIPCION_DESTACADAS} Se actualiza ${FRECUENCIA_CATALOGO}.`,
   alternates: { canonical: '/compra-agil' },
 };
 

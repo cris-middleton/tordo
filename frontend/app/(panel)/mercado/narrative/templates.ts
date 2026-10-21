@@ -1,5 +1,6 @@
 import { ResumenMercado } from '../types';
 import { decimal, monto } from '@/lib/formato';
+import { MESES_ANALISIS } from '@/lib/periodo';
 
 /**
  * Escapa lo que viene de fuera.
@@ -26,21 +27,26 @@ export function frase1(r: ResumenMercado): string | null {
   if (r.monto_anual_clp == null && r.n_organismos == null) return null;
 
   const parts: string[] = [];
-  parts.push(`El mercado de <b>${esc(r.rubro)}</b>`);
+  parts.push(`En el último año completo, <b>${esc(r.rubro)}</b>`);
 
   if (r.monto_anual_clp != null) {
-    parts.push(`movió <b>${formatCLP(r.monto_anual_clp)}</b> el último año`);
+    parts.push(`movió <b>${formatCLP(r.monto_anual_clp)}</b>`);
   }
 
   if (r.n_organismos != null) {
     if (r.monto_anual_clp != null) {
       parts.push(`entre <b>${r.n_organismos.toLocaleString('es-CL')} compradores</b>`);
     } else {
-      parts.push(`tiene <b>${r.n_organismos.toLocaleString('es-CL')} compradores activos</b>`);
+      parts.push(`tuvo <b>${r.n_organismos.toLocaleString('es-CL')} compradores</b>`);
     }
   }
 
   return parts.join(' ') + '.';
+}
+
+/** Los proveedores salen de la ventana de analytics, no del último año: se dice. */
+function proveedores(n: number): string {
+  return `En los últimos ${MESES_ANALISIS} meses le vendieron <b>${n.toLocaleString('es-CL')} proveedores</b>.`;
 }
 
 export function frase2(r: ResumenMercado): string | null {
@@ -49,18 +55,19 @@ export function frase2(r: ResumenMercado): string | null {
   if (cagr == null && yoy == null) return null;
 
   // Helpers
-  const fmtPct = (v: number) => `${v > 0 ? '+' : ''}${decimal(v, 0)}%`;
+  const fmtPct = (v: number) => `${v > 0 ? '+' : ''}${decimal(v, 0)} %`;
+  const sinSigno = (v: number) => `${decimal(Math.abs(v), 0)} %`;
 
   // Clasificación del CAGR histórico (lenguaje en pasado/promedio, no "está")
   let leading: string;
   if (cagr != null && cagr > 10) {
-    leading = `Ha crecido en promedio <b>${fmtPct(cagr)} anual</b>`;
+    leading = `Ha crecido <b>${sinSigno(cagr)} al año</b> en promedio`;
   } else if (cagr != null && cagr < -5) {
-    leading = `Se ha contraído en promedio <b>${fmtPct(cagr).replace('+', '')} anual</b>`;
+    leading = `Se ha achicado <b>${sinSigno(cagr)} al año</b> en promedio`;
   } else if (cagr != null) {
-    leading = `Ha sido <b>estable</b> (${fmtPct(cagr)} anual en promedio)`;
+    leading = `Se ha mantenido <b>estable</b> (${fmtPct(cagr)} al año en promedio)`;
   } else {
-    leading = `Tuvo una variación de <b>${fmtPct(yoy!)}</b> el último año`;
+    leading = `El último año cambió <b>${fmtPct(yoy!)}</b>`;
   }
 
   // Si CAGR y YoY divergen mucho (abs diff > 15pp) → tendencia reciente distinta al promedio
@@ -68,21 +75,21 @@ export function frase2(r: ResumenMercado): string | null {
 
   if (divergent) {
     if (Math.abs(yoy!) < 5) {
-      return `${leading}, pero <b>se estabilizó el último año</b> (${fmtPct(yoy!)}).`;
+      return `${leading}, pero el último año <b>se estancó</b> (${fmtPct(yoy!)}).`;
     }
     if ((cagr < 0 && yoy! > 0) || (cagr > 0 && yoy! < 0)) {
-      const direction = yoy! > 0 ? 'se recuperó' : 'retrocedió';
-      return `${leading}, aunque el último año <b>${direction} ${fmtPct(yoy!)}</b>.`;
+      const direction = yoy! > 0 ? 'subió' : 'bajó';
+      return `${leading}, aunque el último año <b>${direction} ${sinSigno(yoy!)}</b>.`;
     }
-    return `${leading}; el último año: <b>${fmtPct(yoy!)}</b>.`;
+    return `${leading}, y el último año cambió <b>${fmtPct(yoy!)}</b>.`;
   }
 
   // Caso normal: CAGR y YoY consistentes (o solo tenemos uno)
   if (yoy != null && Math.abs(yoy) >= 2 && cagr != null) {
     if (r.n_proveedores_actual != null) {
-      return `${leading} (último año: ${fmtPct(yoy)}), con <b>${r.n_proveedores_actual.toLocaleString('es-CL')} proveedores activos</b>.`;
+      return `${leading} (el último año, ${fmtPct(yoy)}). ${proveedores(r.n_proveedores_actual)}`;
     }
-    return `${leading} (último año: ${fmtPct(yoy)}).`;
+    return `${leading} (el último año, ${fmtPct(yoy)}).`;
   }
 
   // Sin YoY o YoY muy pequeño.
@@ -94,7 +101,7 @@ export function frase2(r: ResumenMercado): string | null {
   // evolución de la competencia exigiría una serie por rubro que el pipeline no
   // materializa — y decirla a medias es peor que no decirla.
   if (r.n_proveedores_actual != null) {
-    return `${leading}, con <b>${r.n_proveedores_actual.toLocaleString('es-CL')} proveedores activos</b>.`;
+    return `${leading}. ${proveedores(r.n_proveedores_actual)}`;
   }
 
   return `${leading}.`;

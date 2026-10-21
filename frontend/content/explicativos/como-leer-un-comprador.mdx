@@ -1,69 +1,68 @@
 ---
-titulo: "Cómo leer a un comprador"
-descripcion: "Qué dice la tasa de adjudicación de un organismo, por qué no mostramos plazos de pago y cómo reconocer al mismo comprador aunque cambie de nombre."
+titulo: "Qué mirar de un comprador antes de postular"
+descripcion: "Si adjudica lo que licita, cuántas Compras Ágiles publica y adjudica, por qué no decimos cuándo paga y cómo seguirlo aunque cambie de nombre."
 slug: "como-leer-un-comprador"
-actualizado: "2026-10-18"
+actualizado: "2026-10-21"
 fuentes:
   - "Descarga masiva de órdenes de compra y licitaciones de ChileCompra"
   - "Diccionario de datos oficial de la API de Mercado Público (Órdenes de Compra)"
   - "API de Compra Ágil de Mercado Público"
 ---
 
-Postular le cuesta horas a una PYME. Antes de gastarlas conviene saber **cómo compra
-quien llama**: si suele adjudicar lo que publica, a quién le compra y cuánto paga.
-Cada organismo tiene su página, del estilo `/compradores/1234567`.
+Postular te cuesta horas. Antes de gastarlas, conviene saber **cómo compra quien llama**:
+si suele adjudicar lo que publica, a quién le compra y cuánto paga. Cada comprador tiene su
+página, como `/compradores/1234567`.
 
-## Tasa de adjudicación: ¿termina comprando lo que llama?
+## ¿Termina comprando lo que licita?
 
-La **tasa de adjudicación** es qué parte de lo que un comprador licita termina
-adjudicada. Un organismo que declara desierta o revoca buena parte de lo que publica
-hace perder tiempo a quien postula; uno que adjudica casi todo, no.
+La **tasa de adjudicación** es la parte de lo que un comprador licita que termina
+adjudicada, es decir, con un ganador. Un comprador que declara desierta o revoca buena
+parte de lo que publica te hace perder el tiempo. Uno que adjudica casi todo, no.
 
-Es la cifra que más decide de las que salen de los datos, y por eso va primero. Es la
-de las **licitaciones**: para la Compra Ágil no hay una tasa (ver abajo).
+De las cifras que salen de los datos, es la que más decide, y por eso va primero. Vale
+para las **licitaciones**. La Compra Ágil no tiene tasa, y abajo va por qué.
 
-## Compra Ágil: publicadas y adjudicadas, por separado
+## En Compra Ágil, dos conteos por separado
 
-Para la Compra Ágil mostramos **dos conteos**, no una tasa:
+Para la Compra Ágil mostramos **dos conteos**:
 
-- **Publicadas**: las Compras Ágiles que ese comprador publicó en el mes, contadas
-  desde lo que TORDO recoge de la API cada día. Empezamos a recogerlas en octubre de
-  2026: antes de esa fecha no hay publicadas que contar.
-- **Adjudicadas**: las órdenes de compra de Compra Ágil que emitió en el mes, de la
+- **Publicadas**: las Compras Ágiles que ese comprador publicó en el mes, contadas desde
+  lo que TORDO recoge de la API cada día. Empezamos a recogerlas en octubre de 2026, así
+  que antes de esa fecha no hay nada que contar.
+- **Adjudicadas**: las órdenes de compra de Compra Ágil que emitió en el mes, según la
   descarga masiva de ChileCompra.
 
-No las dividimos porque **ningún campo une una orden con su Compra Ágil**, y la orden
-sale días después de publicar: en los bordes de mes el cociente se desplaza y puede
-pasar de 1. Donde la orden sí menciona su Compra Ágil (en el texto), en marzo de 2026
-**una Compra Ágil dio una sola orden en el 99,996 % de los casos**: contar órdenes es,
-en la práctica, contar adjudicadas. Lo que no coincide es el mes. Por eso conviene
-mirar varios meses juntos, no uno.
+No las dividimos porque **ningún campo une una orden con su Compra Ágil**, y la orden sale
+días después de la publicación. En el borde de un mes el cociente se corre y puede pasar de
+1: más adjudicadas que publicadas. Donde la orden sí nombra su Compra Ágil en el texto, en
+marzo de 2026, **una Compra Ágil dio una sola orden en el 99,996 % de los casos**. Contar
+órdenes es, en la práctica, contar adjudicadas. Lo que se corre es el mes, así que conviene
+mirar varios meses juntos.
 
-## Por qué no mostramos «paga a X días»
+## Por qué no decimos cuándo paga
 
-Porque **el dato no existe**. En las órdenes de compra de ChileCompra no hay ninguna
-fecha de pago. Lo que hay es:
+Porque **el dato no existe**. Las órdenes de compra de ChileCompra no traen ninguna fecha de
+pago. Traen esto:
 
-- **La fecha en que el proveedor acepta la orden.** Medido: la mediana entre el envío
-  y la aceptación es de **1,63 días**. Es lo que tarda el *proveedor*, no el
-  comprador, y publicarlo como plazo de pago sería engañoso.
-- **La forma de pago declarada**, que no sirve para distinguir: el **98,7 %** de las
-  órdenes dice lo mismo.
+- **La fecha en que el proveedor acepta la orden.** Entre el envío y la aceptación pasa una
+  mediana de **1,63 días**: la mitad de las órdenes se acepta antes y la otra mitad, después.
+  Eso mide lo que tarda el *proveedor*. Publicarlo como plazo de pago sería engañarte.
+- **La forma de pago declarada**, que no distingue a nadie: el **98,7 %** de las órdenes
+  dice lo mismo.
 
-Si alguien te muestra «este organismo paga a 32 días» a partir de datos de
-Mercado Público, pregunta de dónde sale.
+Si alguien te dice que un comprador «paga a 32 días» con datos de Mercado Público,
+pregúntale de dónde lo sacó. Nosotros lo buscamos y no está.
 
 ## El mismo comprador con otro nombre
 
-Los organismos cambian de nombre —en 2021 muchas gobernaciones provinciales pasaron a
-ser delegaciones presidenciales— y en el histórico de ChileCompra **145 de 1.186
-compradores (12,2 %) aparecen con más de un nombre**. Por eso identificamos a cada
-comprador por su **código** de Mercado Público y mostramos su **nombre más reciente**.
-Si buscas un organismo por su nombre antiguo, búscalo por su código.
+Los compradores cambian de nombre. En 2021 muchas gobernaciones provinciales pasaron a ser
+delegaciones presidenciales, y en el histórico de ChileCompra **145 de 1.186 compradores
+(12,2 %) aparecen con más de un nombre**. Por eso identificamos a cada uno por su
+**código** de Mercado Público y lo mostramos con su **nombre más reciente**. Si lo buscas
+por su nombre antiguo y no aparece, búscalo por su código.
 
 ## A quién le compra
 
 En la página de cada comprador ves sus proveedores principales por rubro y su
-[concentración](/guias/concentracion-de-mercado). Un comprador que reparte
-entre muchos proveedores es más abordable para uno nuevo que uno que le compra casi
-todo al mismo.
+[concentración](/guias/concentracion-de-mercado). Un comprador que reparte entre muchos
+proveedores le deja más espacio a uno nuevo que uno que le compra casi todo al mismo.

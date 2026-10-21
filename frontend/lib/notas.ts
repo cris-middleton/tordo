@@ -42,7 +42,7 @@ export const PREFIJO_CAMBIO = 'https://github.com/cris-middleton/tordo/pull/';
 
 /** La descripción de `/notas` y de su feed. */
 export const DESCRIPCION_NOTAS =
-  'Lo que encontramos al revisar los datos de compras públicas: qué vimos, cómo lo medimos y qué cambió en el sitio.';
+  'Errores que encontramos en los datos de compras públicas, varios nuestros, y qué hicimos con cada uno.';
 
 /** El resumen va a la meta description y a la portada (spec §3.4). */
 export const MAXIMO_RESUMEN = 220;

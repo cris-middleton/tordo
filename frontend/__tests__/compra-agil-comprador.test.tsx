@@ -45,7 +45,7 @@ beforeEach(() => {
 
 function comprobarLineaVacia(texto = /no tiene Compras Ágiles abiertas ahora mismo/) {
   expect(screen.getByText(texto)).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: /ver todas las de hoy/i })).toHaveAttribute(
+  expect(screen.getByRole('link', { name: /ver las de todos los compradores/i })).toHaveAttribute(
     'href',
     '/compra-agil',
   );

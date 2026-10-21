@@ -9,6 +9,7 @@
 
 import type { Metadata } from 'next';
 
+import { MESES_ANALISIS, MESES_PRECIOS, rangoDeMeses } from '@/lib/periodo';
 import type { CompradorPerfil } from '@/types/bi';
 import type {
   BandaUnidad,
@@ -122,9 +123,11 @@ export function origenDelSitio(): string {
 export function plata(clp?: number | null): string {
   if (clp == null) return '—';
   const uno = (v: number) => v.toLocaleString('es-CL', { maximumFractionDigits: 1 });
-  if (clp >= 1e12) return `$${uno(clp / 1e12)} billones`;
+  // «$1 millón», no «$1 millones»: el singular cuando la cifra escrita es 1.
+  const con = (cifra: string, singular: string, plural: string) => `$${cifra} ${cifra === '1' ? singular : plural}`;
+  if (clp >= 1e12) return con(uno(clp / 1e12), 'billón', 'billones');
   if (clp >= 1e9) return `$${uno(clp / 1e9)} mil millones`;
-  if (clp >= 1e6) return `$${Math.round(clp / 1e6).toLocaleString('es-CL')} millones`;
+  if (clp >= 1e6) return con(Math.round(clp / 1e6).toLocaleString('es-CL'), 'millón', 'millones');
   return `$${Math.round(clp).toLocaleString('es-CL')}`;
 }
 
@@ -191,15 +194,16 @@ export function nombreProducto(p: { firma: string; descripcion?: string | null }
 }
 
 /**
- * «46 compras de 40 organismos». Sin el dato de compradores (un backend o una
- * tabla anteriores), sólo las compras. Con una sola compra, sin organismos: se
- * da por dicho.
+ * «46 compras de 40 compradores» (la misma palabra que el pie del gráfico, al
+ * lado: docs/VOZ.md §4). Sin el dato de compradores (un backend o una tabla
+ * anteriores), sólo las compras. Con una sola compra, sin compradores: se da por
+ * dicho.
  */
 export function comprasDeOrganismos(n: number, compradores?: number | null): string {
   if (n === 1) return '1 compra';
   const compras = `${entero(n)} compras`;
   if (compradores == null) return compras;
-  return `${compras} de ${entero(compradores)} ${compradores === 1 ? 'organismo' : 'organismos'}`;
+  return `${compras} de ${entero(compradores)} ${compradores === 1 ? 'comprador' : 'compradores'}`;
 }
 
 /**
@@ -223,10 +227,10 @@ export function frasePrecio(banda: BandaUnidad): string {
  */
 export function notaCompradores(banda: BandaUnidad): string | null {
   if (banda.de_mercado !== false || banda.compradores == null) return null;
-  if (banda.compradores === 1) return 'Todas son de un mismo organismo: es el precio de su contrato.';
+  if (banda.compradores === 1) return 'Todas las compras son de un mismo comprador: es el precio de su contrato.';
   if (banda.cuota_mayor == null || banda.cuota_mayor <= 0.5) return null;
   const suyas = Math.round(banda.cuota_mayor * banda.n);
-  return `${entero(suyas)} de las ${entero(banda.n)} compras son de un mismo organismo.`;
+  return `${entero(suyas)} de las ${entero(banda.n)} compras son de un mismo comprador.`;
 }
 
 /** La categoría del catálogo, como contexto debajo del nombre; null si no hay. */
@@ -256,6 +260,25 @@ export function unidadDeclarada(unidad: string | null | undefined): string | nul
 export function tituloDeBanda(unidad: string | null | undefined): string {
   const u = unidadDeclarada(unidad);
   return u ? `Por ${u}` : 'Sin unidad declarada';
+}
+
+/**
+ * El sujeto de la frase de precio de una banda, en la ficha y en `/buscar`:
+ * «Precio por caja: la mitad de las compras se pagó entre…». Con «Por caja» a
+ * secas, la frase no decía de qué era la mitad.
+ */
+export function precioDeLaBanda(unidad: string | null | undefined): string {
+  const u = unidadDeclarada(unidad);
+  return u ? `Precio por ${u}` : 'Precio sin unidad declarada';
+}
+
+/**
+ * Un nombre dentro de una frase: «Cuánto paga el Estado por resmas tamaño
+ * oficio». Baja la primera letra sólo si la segunda ya es minúscula, para no
+ * tocar una sigla («HP», «UPS»).
+ */
+export function enFrase(nombre: string): string {
+  return /^\p{Lu}\p{Ll}/u.test(nombre) ? nombre.charAt(0).toLowerCase() + nombre.slice(1) : nombre;
 }
 
 /** La banda con más observaciones: la que resume el producto en el título. */
@@ -307,6 +330,22 @@ export function panelDesdePerfil(perfil: CompradorPerfil, nombre: string) {
 
 // ── Metadatos ───────────────────────────────────────────────────────────────
 
+/** Lo que mide una meta description antes de que el buscador la corte. */
+export const LARGO_DESCRIPCION = 155;
+
+/**
+ * La primera opción que cabe en `LARGO_DESCRIPCION`, de la más completa a la más
+ * corta. Si ninguna cabe (un nombre de 80 caracteres), la última, cortada en una
+ * palabra.
+ */
+function laQueCabe(...opciones: string[]): string {
+  const cabe = opciones.find((o) => o.length <= LARGO_DESCRIPCION);
+  if (cabe) return cabe;
+  const ultima = opciones[opciones.length - 1];
+  const corte = ultima.lastIndexOf(' ', LARGO_DESCRIPCION - 1);
+  return `${ultima.slice(0, corte > 0 ? corte : LARGO_DESCRIPCION - 1)}…`;
+}
+
 /**
  * Lo común a las tres: canonical y, si el backend dice que la página no tiene
  * datos suficientes, `noindex`. La página existe igual —se llega por
@@ -324,52 +363,65 @@ function base(ruta: string, titulo: string, descripcion: string, indexable: bool
 
 export function metadataComprador(c: CompradorPublico): Metadata {
   const ordenes = c.perfil.volumen?.n_oc_total;
+  const meses = rangoDeMeses(c.periodo?.ventana_desde, c.periodo?.ventana_hasta);
   const cifra =
     ordenes != null
-      ? `${entero(ordenes)} órdenes de compra`
+      ? `${entero(ordenes)} órdenes de compra${meses ? ` de ${meses}` : ''}`
       : c.compra_agil
         ? `${entero(c.compra_agil.ordenes)} órdenes por Compra Ágil`
-        : 'su historial de compras';
+        : null;
   const rubro = c.rubros[0]?.nombre;
+  const resumen = cifra
+    ? `${c.nombre}: ${cifra}${rubro ? `, sobre todo en ${enFrase(rubro)}` : ''}.`
+    : `${c.nombre} en Mercado Público.`;
   return base(
     rutaComprador(c.codigo),
     `${c.nombre}: qué compra y cómo`,
-    `${c.nombre} en Mercado Público: ${cifra}${rubro ? `, sobre todo en ${rubro}` : ''}. ` +
-      'Nota del comprador, trato directo, adjudicación y rubros, con datos de ChileCompra.',
+    laQueCabe(
+      `${resumen} Qué compra, si adjudica lo que licita y cómo compra por Compra Ágil.`,
+      `${resumen} Qué compra y si adjudica lo que licita.`,
+      resumen,
+    ),
     c.indexable,
   );
 }
 
 export function metadataRubro(r: RubroPublico): Metadata {
   const m = r.panorama.mercado;
-  const cifra =
-    m?.monto_clp != null && m.anio != null
-      ? `${plata(m.monto_clp)} en compras públicas en ${m.anio}`
-      : 'compras públicas';
+  const nombre = enFrase(r.nombre);
   const proveedores = r.panorama.competencia?.n_proveedores;
+  const monto =
+    m?.monto_clp != null && m.anio != null
+      ? `El Estado compró ${plata(m.monto_clp)} en ${nombre} en ${m.anio}.`
+      : `Lo que compra el Estado en ${nombre}.`;
+  const vendedores =
+    proveedores != null ? ` ${entero(proveedores)} proveedores le vendieron en los últimos ${MESES_ANALISIS} meses.` : '';
   return base(
     rutaRubro(r.slug),
-    `${r.nombre}: mercado público en Chile`,
-    `${r.nombre}: ${cifra}${proveedores != null ? `, ${entero(proveedores)} proveedores` : ''}. ` +
-      'Quién compra, contra quién se compite y cuándo, con datos de ChileCompra.',
+    `Cuánto compra el Estado en ${nombre}`,
+    laQueCabe(
+      `${monto}${vendedores} Quién compra más, quién vende más y en qué meses.`,
+      `${monto}${vendedores}`,
+      monto,
+    ),
     r.indexable,
   );
 }
 
 export function metadataProducto(p: ProductoPublico): Metadata {
   const nombre = nombreProducto(p);
-  const categoria = categoriaProducto(p);
   const banda = bandaPrincipal(p.unidades);
   const unidad = unidadDeclarada(banda?.unidad);
+  const meses = rangoDeMeses(p.periodo?.ventana_desde, p.periodo?.ventana_hasta);
   const cifra =
     banda?.p50 != null
-      ? `precio mediano ${plata(banda.p50)}${unidad ? ` por ${unidad}` : ''} (${entero(banda.n)} compras)`
-      : 'precios pagados por el Estado';
+      ? `precio mediano ${plata(banda.p50)}${unidad ? ` por ${unidad}` : ''} en ${comprasDeOrganismos(banda.n, banda.compradores)}`
+      : `lo que pagó el Estado en los últimos ${MESES_PRECIOS} meses`;
+  const resumen = `${nombre}: ${cifra}${banda?.p50 != null && meses ? `, ${meses}` : ''}.`;
   return base(
     rutaProducto(p.slug),
-    `Precio de ${nombre} en compras públicas`,
-    `${nombre}${categoria ? ` (${categoria})` : ''}: ${cifra}. ` +
-      'Bandas de precio por unidad y quién lo compra, con datos de ChileCompra.',
+    `Cuánto paga el Estado por ${enFrase(nombre)}`,
+    laQueCabe(`${resumen} Quién lo compra y a qué precio.`, resumen, `${nombre}: ${cifra}.`),
     p.indexable,
   );
 }

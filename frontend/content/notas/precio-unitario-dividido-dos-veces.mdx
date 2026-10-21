@@ -1,7 +1,7 @@
 ---
-titulo: "Dividíamos el precio unitario dos veces"
+titulo: "Dividíamos dos veces el precio por unidad"
 fecha: "2026-10-16"
-resumen: "Cada línea de una orden de compra ya trae el precio de una unidad, y lo dividíamos otra vez por la cantidad. Todas las bandas de precio por producto salían bajas."
+resumen: "Cada línea de una orden de compra ya trae el precio de una unidad, y lo volvíamos a dividir por la cantidad. Todas las bandas de precio por producto salían más bajas de lo que se pagó."
 estado: "arreglado"
 medido_sobre: "Órdenes de compra de ChileCompra de octubre de 2025 a marzo de 2026: 2.387.370 líneas en pesos. Medido el 16 de octubre de 2026."
 cambio: "https://github.com/cris-middleton/tordo/pull/10"
@@ -31,7 +31,7 @@ fuentes:
 
 ## En corto
 
-- En el 99,98 % de las líneas en pesos, precio por cantidad da el total de la línea:
+- En el 99,98 % de las líneas en pesos, el precio por la cantidad da el total de la línea:
   el precio ya viene por unidad.
 - Lo dividíamos otra vez por la cantidad. El papel higiénico jumbo salía entre $843 y
   $2.106, y el paquete se paga a $16.850.
@@ -44,10 +44,10 @@ Cada línea de una orden de compra de ChileCompra trae el precio neto, la cantid
 total de la línea. Las bandas de precio de TORDO tomaban el precio neto y lo dividían por
 la cantidad, como si fuera el total. Estaba así desde el primer cálculo de bandas.
 
-Cada banda publicaba entonces el precio de una unidad repartido entre las unidades de la
-orden. Mientras más unidades compraba un organismo, más barato parecía pagar. Un caso: el
-papel higiénico jumbo se compra a $16.850 el paquete, y su ficha decía que la mitad se
-pagó entre $843 y $2.106.
+Cada banda publicaba entonces el precio de una unidad repartido entre todas las unidades
+de la orden. Mientras más unidades llevaba una orden, más barato parecía el producto. Un
+caso: el papel higiénico jumbo se compra a $16.850 el paquete, y su ficha decía que la
+mitad de las compras se pagó entre $843 y $2.106.
 
 ## Cómo lo medimos
 
@@ -62,24 +62,24 @@ tolerancia de 1 % o $1:
 Cuadra en el 99,98 %. Si el precio neto fuera el total de la línea, cuadraría sólo en las
 líneas de una unidad.
 
-De paso apareció otra cosa: el 0,56 % de las líneas viene en UF, dólares, UTM o euros, y
-su precio está en esa moneda. Leído como pesos, daba bandas de $1.
+De paso apareció otra cosa: el 0,56 % de las líneas viene en UF, dólares, UTM o euros, y su
+precio está en esa moneda. Leído como pesos, daba bandas de $1.
 
 ## Qué cambió
 
-- El precio unitario es el precio neto, tal cual.
-- Entra sólo la línea en pesos que cuadra con su total. Queda fuera el 0,018 %: líneas
-  con un descuento o un cargo propio, donde no se sabe cuál es el precio pagado.
-- Con el precio corregido, el QCD mediano, que compara P25 con P75, es 0,012 en la
-  banda nacional por producto y 0,27 en la de categoría por comprador. La [guía de bandas](/guias/como-leer-una-banda-de-precio) explica cómo
-  leerlo.
-- Parte de ese 82 % lo pone el comprador único: una banda de un solo organismo repite su
-  precio de contrato y sale estable. Entre las bandas de mercado, con tres compradores o
+- El precio por unidad es el precio neto, tal cual.
+- Entra sólo la línea en pesos que cuadra con su total. Queda fuera el 0,018 %: líneas con
+  un descuento o un cargo propio, donde no se sabe cuál fue el precio pagado.
+- Con el precio corregido, el QCD mediano, que compara los dos bordes de la mitad de las
+  compras, es 0,012 en la banda nacional por producto y 0,27 en la de categoría por
+  comprador. La [guía de bandas](/guias/como-leer-una-banda-de-precio) explica cómo leerlo.
+- Parte de ese 82 % lo pone el comprador único: si toda la banda es de un comprador, repite
+  su precio de contrato y sale estable. Entre las bandas de mercado, con tres compradores o
   más y ninguno sobre la mitad, el 70 % es «alta», el 18 % «media» y el 12 % «baja».
-- Los cortes de predictibilidad (QCD 0,25 para «alta» y 0,45 para «media») se quedan.
-  Son absolutos, así que el error no los movió.
-- El arreglo llega al sitio con el análisis del domingo 18 de octubre. Ese día las
-  fichas de producto, la búsqueda y la API toman las bandas nuevas.
+- Los cortes de predictibilidad (QCD 0,25 para «alta» y 0,45 para «media») se quedan. Son
+  absolutos, así que el error no los movió.
+- El arreglo entró al sitio con el análisis del domingo 18 de octubre. Desde ese día las fichas de
+  producto, la búsqueda y la API usan las bandas nuevas.
 
 ## Lo que todavía no sabemos
 
@@ -89,7 +89,7 @@ repetirlo pide más historia que los seis meses de la copia local.
 ## Reprodúcelo
 
 El test arma filas con la forma del archivo real de ChileCompra: todo es texto, con coma
-decimal, y cada línea trae su moneda. Fallaba con el cálculo anterior.
+decimal, y cada línea trae su moneda. Con el cálculo anterior, fallaba.
 
 ```
 cd etl && uv run --project .. pytest tests/test_precio_unitario.py

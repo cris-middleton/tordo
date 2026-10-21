@@ -202,7 +202,7 @@ describe('la pantalla del catálogo', () => {
     urlInicial = new URLSearchParams();
     await montar();
 
-    const buscador = screen.getByPlaceholderText(/Nombre, organismo o descripción/i);
+    const buscador = screen.getByPlaceholderText(/Producto o comprador/i);
     fireEvent.change(buscador, { target: { value: 'válvulas' } });
     fireEvent.keyDown(buscador, { key: 'Enter' });
 

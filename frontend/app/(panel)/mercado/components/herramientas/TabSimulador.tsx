@@ -54,7 +54,7 @@ export default function TabSimulador({ rubroInicial, organismosConNombre, allRub
 
   const simular = async () => {
     if (!rubro) {
-      setError('Selecciona un rubro.');
+      setError('Elige un rubro.');
       return;
     }
     setLoading(true);
@@ -134,21 +134,22 @@ export default function TabSimulador({ rubroInicial, organismosConNombre, allRub
     if (forecast?.min != null && forecast?.max != null) {
       bullets.push(
         <li key="forecast">
-          Esperas entre <b>{forecast.min}</b> y <b>{forecast.max}</b> competidores
-          {forecast.promedio != null && <> (promedio: {decimal(forecast.promedio, 1)})</>}.
+          Postulan entre <b>{forecast.min}</b> y <b>{forecast.max}</b>
+          {forecast.promedio != null && <> (en promedio, {decimal(forecast.promedio, 1)})</>}.
         </li>
       );
     } else if (forecast?.promedio != null) {
       bullets.push(
-        <li key="forecast-avg">Competencia promedio: <b>{decimal(forecast.promedio, 1)}</b> oferentes.</li>
+        <li key="forecast-avg">En promedio postulan <b>{decimal(forecast.promedio, 1)}</b>.</li>
       );
     }
 
     if (descuento?.p50 != null) {
       bullets.push(
         <li key="descuento">
-          Descuento típico: <b>{decimal(descuento.p50, 1)}%</b>
-          {descuento.p90 != null && <> (hasta {decimal(descuento.p90, 1)}% en casos muy competitivos)</>}.
+          {descuento.rango_oferentes ? <>Con {descuento.rango_oferentes} postulantes, la</> : 'La'} mitad se
+          adjudicó <b>{decimal(descuento.p50, 1)} %</b> o más bajo el presupuesto
+          {descuento.p90 != null && <>; 1 de cada 10, {decimal(descuento.p90, 1)} % o más</>}.
         </li>
       );
     }
@@ -158,16 +159,15 @@ export default function TabSimulador({ rubroInicial, organismosConNombre, allRub
         const adjudica = Math.round(comprador.tasa_adjudicacion * 100);
         bullets.push(
           <li key="adjudica">
-            Este comprador adjudica el <b>{adjudica}%</b> de lo que llama
-            {adjudica < 100 && <> y declara desierto el resto</>}.
+            Este comprador adjudica el <b>{adjudica} %</b> de lo que licita.
           </li>
         );
       }
       if (comprador.alerta_desierto) {
         bullets.push(
           <li key="alerta" className="text-danger">
-            ⚠ Declara desierta una parte alta de sus licitaciones: prepara la oferta contando
-            con eso.
+            Declara desierta una parte alta de sus licitaciones. Tenlo en cuenta antes de dedicarle
+            horas a la oferta.
           </li>
         );
       }
@@ -176,60 +176,34 @@ export default function TabSimulador({ rubroInicial, organismosConNombre, allRub
     return bullets.length > 0 ? bullets : null;
   })();
 
-  // Veredicto heurístico: "Alta conveniencia" / "Media" / "Baja"
-  const veredicto = (() => {
-    if (!result) return null;
-    const { forecast, descuento, comprador } = result;
-    let puntos = 0;
-    let totales = 0;
-
-    if (forecast?.min != null) {
-      totales++;
-      if (forecast.min <= 3) puntos++; // poca competencia = bueno
-    }
-    if (descuento?.p50 != null) {
-      totales++;
-      if (descuento.p50 < 10) puntos++; // descuento típico bajo = bueno
-    }
-    if (comprador) {
-      totales++;
-      if (comprador.clasificacion === 'bueno' && !comprador.alerta_desierto) puntos++;
-    }
-
-    if (totales === 0) return null;
-    const ratio = puntos / totales;
-    if (ratio >= 0.67) return { label: 'Alta conveniencia', color: 'text-accent', bg: 'bg-accent/10 border-accent/30' };
-    if (ratio >= 0.34) return { label: 'Conveniencia media', color: 'text-gold', bg: 'bg-gold/10 border-gold/30' };
-    return { label: 'Baja conveniencia', color: 'text-danger', bg: 'bg-danger/10 border-danger/30' };
-  })();
-
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted">
-        Si postularas a una licitación hipotética con estos parámetros, ¿qué esperar?
+        Elige el tipo de licitación, el rubro y, si quieres, el comprador. Te mostramos cuántos suelen
+        postular, cuánto bajo el presupuesto se adjudica y cuánto adjudica ese comprador.
       </p>
 
       {/* Inputs */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <div>
-          <label htmlFor={idTipo} className="text-xs text-muted block mb-1">Tipo</label>
+          <label htmlFor={idTipo} className="text-xs text-muted block mb-1">Tipo de licitación</label>
           <select id={idTipo} value={tipo} onChange={(e) => setTipo(e.target.value)} className="input-field w-full">
-            <option value="L1">L1 — menor cuantía</option>
-            <option value="LE">LE — mediana cuantía</option>
-            <option value="LP">LP — pública</option>
+            <option value="L1">Menor cuantía (L1)</option>
+            <option value="LE">Mediana cuantía (LE)</option>
+            <option value="LP">Licitación pública (LP)</option>
           </select>
         </div>
         <div>
           <label htmlFor={idRubro} className="text-xs text-muted block mb-1">Rubro</label>
           <select id={idRubro} value={rubro} onChange={(e) => setRubro(e.target.value)} className="input-field w-full">
-            <option value="">Selecciona rubro</option>
+            <option value="">Elige un rubro</option>
             {allRubros.map((r) => (
               <option key={r} value={r}>{r}</option>
             ))}
           </select>
         </div>
         <div>
-          <label htmlFor={idOrganismo} className="text-xs text-muted block mb-1">Organismo (opcional)</label>
+          <label htmlFor={idOrganismo} className="text-xs text-muted block mb-1">Comprador (opcional)</label>
           {organismosConNombre && organismosConNombre.length > 0 ? (
             <select id={idOrganismo} value={organismo} onChange={(e) => setOrganismo(e.target.value)} className="input-field w-full">
               <option value="">Cualquiera</option>
@@ -244,7 +218,7 @@ export default function TabSimulador({ rubroInicial, organismosConNombre, allRub
               id={idOrganismo}
               value={organismo}
               onChange={(e) => setOrganismo(e.target.value)}
-              placeholder="Código organismo"
+              placeholder="Código del comprador"
               className="input-field w-full"
             />
           )}
@@ -264,20 +238,15 @@ export default function TabSimulador({ rubroInicial, organismosConNombre, allRub
       {/* Resultado */}
       {result && narrativa && (
         <div className="space-y-3 pt-2">
-          {veredicto && (
-            <div className={`rounded-xl border p-3 text-sm font-semibold ${veredicto.bg} ${veredicto.color}`}>
-              Veredicto: {veredicto.label}
-            </div>
-          )}
           <div className="rounded-xl border border-border bg-surface p-4 text-sm">
-            <p className="font-semibold text-text mb-2">Si postulas a una {tipo} en {rubro}{organismo && ', con este organismo,'}:</p>
+            <p className="font-semibold text-text mb-2">Si postulas a una licitación {tipo} de {rubro}{organismo && ' con este comprador'}:</p>
             <ul className="space-y-1.5 text-text list-none">
               {narrativa}
             </ul>
           </div>
           {!result.forecast && !result.descuento && !result.comprador && (
             <p className="text-xs text-muted">
-              Sin datos suficientes para esta combinación. Intenta con otro tipo o rubro.
+              Hay muy pocas licitaciones con esta combinación. Prueba otro tipo o rubro.
             </p>
           )}
         </div>

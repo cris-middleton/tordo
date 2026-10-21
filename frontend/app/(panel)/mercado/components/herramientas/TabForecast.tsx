@@ -26,7 +26,7 @@ export default function TabForecast({ rubro }: { rubro: string }) {
       });
       setResultado(res);
       if (!res.disponible) {
-        setError(motivoParaPersona(res.motivo, 'Sin datos para esta combinación.'));
+        setError(motivoParaPersona(res.motivo, 'Sin datos de licitaciones con esta combinación.'));
       }
     } catch (err) {
       setError(extractErrorMessage(err));
@@ -37,15 +37,15 @@ export default function TabForecast({ rubro }: { rubro: string }) {
   };
 
   const nivelLabel = (nivel?: string) =>
-    nivel === 'L1' ? 'datos del organismo + rubro + tipo'
-      : nivel === 'L2' ? 'datos del rubro + tipo a nivel nacional'
-      : nivel === 'L3' ? 'datos del tipo de licitación nivel nacional'
+    nivel === 'L1' ? 'del mismo comprador, rubro y tipo'
+      : nivel === 'L2' ? 'del mismo rubro y tipo, en todo el Estado'
+      : nivel === 'L3' ? 'del mismo tipo, en todo el Estado'
       : nivel || '';
 
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted">
-        ¿Cuántos competidores esperar si postulo a una licitación de este tipo en este rubro/organismo?
+        Cuántos suelen postular a una licitación como la tuya, según su tipo, el rubro y el comprador.
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr_auto] gap-2">
         <select
@@ -54,15 +54,15 @@ export default function TabForecast({ rubro }: { rubro: string }) {
           onChange={(e) => setTipo(e.target.value)}
           className="input-field"
         >
-          <option value="L1">L1 — menor cuantía</option>
-          <option value="LE">LE — mediana cuantía</option>
-          <option value="LP">LP — pública</option>
+          <option value="L1">Menor cuantía (L1)</option>
+          <option value="LE">Mediana cuantía (LE)</option>
+          <option value="LP">Licitación pública (LP)</option>
         </select>
         <input
           value={organismo}
           onChange={(e) => setOrganismo(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && consultar()}
-          placeholder="Organismo (opcional)"
+          placeholder="Código del comprador (opcional)"
           className="input-field"
         />
         <button
@@ -70,13 +70,13 @@ export default function TabForecast({ rubro }: { rubro: string }) {
           disabled={loading}
           className="btn-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Pronosticar'}
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Ver cuántos postulan'}
         </button>
       </div>
 
       {!rubro && (
         <p className="text-xs text-muted">
-          Tip: si tienes un rubro seleccionado en el filtro superior, el pronóstico será más preciso.
+          Elige un rubro arriba y el cálculo mira sólo ese rubro.
         </p>
       )}
 
@@ -90,9 +90,9 @@ export default function TabForecast({ rubro }: { rubro: string }) {
             <div className="flex-1">
               {isMissingParquet ? (
                 <>
-                  <p className="font-medium text-text">Todavía no tenemos este dato</p>
+                  <p className="font-medium text-text">Todavía no calculamos cuántos postulan aquí</p>
                   <p className="text-xs mt-0.5">
-                    Esta herramienta requiere que el ETL genere los parquets de pronóstico. Contacta al administrador.
+                    Si lo necesitas, escríbenos a hola@tordo.cl.
                   </p>
                 </>
               ) : error}
@@ -113,20 +113,21 @@ export default function TabForecast({ rubro }: { rubro: string }) {
           <div className="rounded-xl border border-border bg-surface p-4 text-sm space-y-2">
             {p10 != null && p90 != null ? (
               <p className="text-text">
-                Este tipo de licitación suele atraer entre <b>{p10}</b> y <b>{p90}</b> competidores
-                {media != null && <> (promedio: {media})</>}.
+                En 8 de cada 10 licitaciones así postularon entre <b>{p10}</b> y <b>{p90}</b>
+                {media != null && <> (en promedio, {media})</>}.
               </p>
             ) : media != null ? (
               <p className="text-text">
-                Promedio de competidores para esta combinación: <b>{media}</b>.
+                En promedio postulan <b>{media}</b>.
               </p>
             ) : (
-              <p className="text-muted">Resultado sin rangos disponibles.</p>
+              <p className="text-muted">No hay suficientes licitaciones para dar un rango.</p>
             )}
             <p className="text-xs text-muted">
-              {nCasos && <>Basado en {nCasos} casos históricos</>}
-              {resultado?.nivel_usado && <>. Fuente: {nivelLabel(resultado.nivel_usado)}</>}
-              {resultado?.fallback && <>. <span className="italic">fallback a nivel más general</span></>}
+              {nCasos && <>Sale de {nCasos} licitaciones anteriores</>}
+              {resultado?.nivel_usado && <> {nivelLabel(resultado.nivel_usado)}</>}
+              {resultado?.fallback && <>. Con tu combinación había muy pocas, así que miramos un grupo más amplio</>}
+              {(nCasos || resultado?.nivel_usado || resultado?.fallback) && '.'}
             </p>
           </div>
         );

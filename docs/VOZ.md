@@ -31,7 +31,7 @@ hablada como una persona.**
    paga el Estado por lo que vendes», no «Precios». Una pregunta como título sólo si es la que el
    lector se haría con sus palabras («¿Me conviene postular?»), nunca una que el sitio le hace al
    lector sin decir para qué (**«¿Qué le vendes al Estado?»: ¿me pregunta?, ¿me quiere vender?**).
-2. **Cada cifra dice qué cuenta, de cuándo y de cuántos.** «87 compras de 63 organismos, nov 2025
+2. **Cada cifra dice qué cuenta, de cuándo y de cuántos.** «87 compras de 63 compradores, nov 2025
    a oct 2026». Una cifra sin su base se lee como «de siempre» y «de todos».
 3. **La jerga se traduce en la misma frase, la primera vez.** «La mediana: la mitad pagó menos de
    $214.000 y la otra mitad, más.» Después se puede usar sola. En una ficha, la traducción va una
@@ -72,7 +72,7 @@ Una sola palabra por cosa, en todo el sitio. Si cambia aquí, cambia en todas pa
 
 | se dice | no se dice | nota |
 |---|---|---|
-| **comprador** | organismo, institución, entidad (al lector) | «organismo» sólo cuando se cuenta: «63 organismos» |
+| **comprador** | organismo, institución, entidad | También al contar: «87 compras de 63 compradores». «Organismo» sólo dentro de un nombre propio |
 | **unidad de compra** | unidad (a secas) | La oficina que compra dentro del comprador. «Unidad» a secas se confunde con la unidad de medida del precio |
 | **compra** | transacción, registro, observación | Una línea de una orden de compra |
 | **orden de compra** | OC | |
@@ -95,7 +95,7 @@ Una sola palabra por cosa, en todo el sitio. Si cambia aquí, cambia en todas pa
 | Portada, bajada | Antes de cotizar, mira a qué precio se compró en los últimos 12 meses, quién lo compra y qué puedes postular hoy. | Escribe tu producto. Te mostramos a qué precio lo compró el Estado en los últimos 12 meses, quién lo compra y dónde postular hoy. |
 | Lectura de precio | Impresora multifuncional: la mitad se pagó entre $167.227 y $320.900 | Impresora multifuncional: la mitad de las compras se pagó entre $167.227 y $320.900 |
 | «Lo mejor de hoy» | Abiertas, de compradores que compran seguido por Compra Ágil, de monto mayor y con tiempo para preparar la oferta. El orden sale de esas tres reglas y de nada más. | Ordenadas por tres cosas: cuánto compra ese comprador por Compra Ágil, el monto y el tiempo que queda para cotizar. Nada más. |
-| Notas de datos | Lo que encontramos al revisar los datos de compras públicas: qué vimos, cómo lo medimos y qué cambió en el sitio. | Errores que encontramos en los datos, algunos nuestros, y cómo los arreglamos. |
+| Notas de datos | Lo que encontramos al revisar los datos de compras públicas: qué vimos, cómo lo medimos y qué cambió en el sitio. | Errores que encontramos en los datos de compras públicas, varios nuestros, y qué hicimos con cada uno. |
 | `/abierto` | Úsalo como quieras | Los mismos datos, para tu código o tu asistente |
 
 ## 6. Cómo se revisa un texto

@@ -74,7 +74,7 @@ function Campo({ texto, alCambiar }: { texto: string; alCambiar?: (valor: string
           onChange={(e) => alCambiar?.(e.target.value)}
           readOnly={!alCambiar}
           maxLength={MAXIMO_BUSQUEDA_PRODUCTOS}
-          placeholder="Ej.: guante de nitrilo, resma carta, toner"
+          placeholder="Ej.: guante de nitrilo, resma carta, tóner"
           autoComplete="off"
           className="input-field w-full pl-9"
         />
@@ -158,7 +158,7 @@ function Buscador() {
                 >
                   <span className="min-w-0 truncate font-medium text-primary">{nombreProducto(p)}</span>
                   <span className="cifra shrink-0 text-xs text-muted">
-                    {entero(p.n)} compras{p.indexable ? '' : ', orientativo'}
+                    {entero(p.n)} compras{p.indexable ? '' : ', precio orientativo'}
                   </span>
                 </Link>
               </li>

@@ -85,7 +85,7 @@ function CompraAgilContenido() {
       <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
         {actualizacion ? (
           <span>
-            Actualizado a las <span className="cifra font-semibold text-text">{actualizacion.hora}</span>
+            Lista actualizada a las <span className="cifra font-semibold text-text">{actualizacion.hora}</span>
             {actualizacion.dia && <> del {actualizacion.dia}</>}
           </span>
         ) : (
@@ -108,9 +108,9 @@ function CompraAgilContenido() {
         <div className="alert-warning mt-4" role="status">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <p>
-            Esta lista se saltó al menos una actualización programada y puede estar
-            desactualizada: algunas de estas compras quizá ya cerraron o cambiaron. Confirma en
-            Mercado Público antes de cotizar.
+            Esta lista se saltó al menos una actualización programada. Algunas de estas compras
+            pueden haber cerrado o cambiado: revisa cada una en Mercado Público antes de preparar
+            tu oferta.
           </p>
         </div>
       )}
@@ -126,7 +126,7 @@ function CompraAgilContenido() {
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
             placeholder="Qué vendes: resmas, mantención…"
-            aria-label="Buscar en las Compras Ágiles destacadas"
+            aria-label="Buscar en esta lista"
             enterKeyHint="search"
             maxLength={MAXIMO_CARACTERES_BUSCAR}
             className="input-field h-12 pl-11"
@@ -172,7 +172,8 @@ function CompraAgilContenido() {
         <div className="py-12">
           <p className="font-semibold text-text">No hay Compras Ágiles abiertas con estos filtros</p>
           <p className="mt-1 text-muted">
-            Sólo salen las que cierran en más de 2 horas. Prueba con otra región o sin búsqueda.
+            La lista sólo trae las que cierran en más de 2 horas. Prueba con otra región o borra la
+            búsqueda.
           </p>
         </div>
       ) : (

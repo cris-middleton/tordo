@@ -61,7 +61,7 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
   const conclusion =
     picoMeses.length > 0
       ? `Compra sobre todo en ${enLista(picoMeses)}.`
-      : 'No tiene meses en que compre más que en el resto.';
+      : 'Compra parejo todo el año.';
 
   return (
     <section className="space-y-4">
@@ -82,7 +82,7 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
 
         {!focused && optionsOrganismos.length > 1 && (
           <select
-            aria-label="Organismo"
+            aria-label="Comprador"
             value={selectedOrg}
             onChange={(e) => setSelectedOrg(e.target.value)}
             disabled={!!focusedOrganismo}
@@ -111,7 +111,7 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
           <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden="true" />
         </div>
       ) : patrones.length === 0 ? (
-        <p className="py-6 text-sm text-muted">Este organismo no tiene compras del rubro en los años con datos.</p>
+        <p className="py-6 text-sm text-muted">Este comprador no tiene compras del rubro en los años con datos.</p>
       ) : (
         <div className="max-w-3xl">
           <p className="font-semibold text-text">{conclusion}</p>

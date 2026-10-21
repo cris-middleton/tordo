@@ -40,12 +40,12 @@ function ExpandedRow({
 
   if (loading) return (
     <div className="p-4 flex items-center gap-2 text-sm text-muted">
-      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Cargando perfil del comprador...
+      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Cargando el comprador…
     </div>
   );
 
   if (!data?.disponible) return (
-    <div className="p-4 text-sm text-muted">Sin datos de este comprador.</div>
+    <div className="p-4 text-sm text-muted">Todavía no tenemos la historia de este comprador.</div>
   );
 
   // buyer_score is 0-1; multiply ×10 for display and color thresholds
@@ -54,25 +54,25 @@ function ExpandedRow({
   return (
     <div className="grid grid-cols-2 gap-4 border-t border-border bg-surface-elevated p-4 text-sm sm:grid-cols-4">
       <div>
-        <p className="mb-1 text-muted">Nota del comprador</p>
+        <p className="mb-1 text-muted">Nota como comprador</p>
         {scoreDisplay != null ? (
           <span className="cifra font-semibold text-text">{decimal(scoreDisplay, 1)} de 10</span>
         ) : <span className="text-muted">—</span>}
       </div>
       <div>
-        <p className="mb-1 text-muted">Adjudica</p>
+        <p className="mb-1 text-muted">Adjudica de lo que licita</p>
         <p className="font-medium text-text">
           {pctOpc(data.tramitacion?.tasa_adjudicacion)}
         </p>
       </div>
       <div>
-        <p className="mb-1 text-muted">Cancela</p>
+        <p className="mb-1 text-muted">Cancela de sus órdenes</p>
         <p className="font-medium text-text">
           {pctOpc(data.tramitacion?.tasa_cancelacion)}
         </p>
       </div>
       <div>
-        <p className="mb-1 text-muted">Órdenes aceptadas</p>
+        <p className="mb-1 text-muted">Órdenes que el proveedor acepta</p>
         <p className="font-medium text-text">
           {pctOpc(data.tramitacion?.tasa_aceptacion)}
         </p>
@@ -81,20 +81,20 @@ function ExpandedRow({
         <div className="col-span-full flex flex-wrap gap-1.5">
           {data.risk_flags.aceptacion_lenta && (
             <span
-              title="Sus órdenes tardan en aceptarse mucho más que la mediana del sistema. Suele indicar fricción en el trámite."
+              title="Sus órdenes tardan en aceptarse mucho más que las de un comprador típico."
               className="rounded-full border border-border px-2 py-0.5 text-sm text-text"
             >
               Trámite lento
             </span>
           )}
           {data.risk_flags.cancelaciones && (
-            <span title="Alta tasa de órdenes canceladas" className="rounded-full border border-border px-2 py-0.5 text-sm text-text">Cancela seguido</span>
+            <span title="Cancela una parte alta de sus órdenes" className="rounded-full border border-border px-2 py-0.5 text-sm text-text">Cancela seguido</span>
           )}
           {data.risk_flags.licitaciones_fallidas && (
-            <span title="Declara desierta una parte alta de lo que llama a licitación" className="rounded-full border border-border px-2 py-0.5 text-sm text-text">Declara desierto seguido</span>
+            <span title="Declara desierta una parte alta de lo que licita" className="rounded-full border border-border px-2 py-0.5 text-sm text-text">Declara desierto seguido</span>
           )}
           {data.risk_flags.baja_calificacion && (
-            <span title="Calificación promedio de proveedores baja" className="rounded-full border border-border px-2 py-0.5 text-sm text-text">Baja calificación</span>
+            <span title="Los proveedores que le vendieron le ponen nota baja" className="rounded-full border border-border px-2 py-0.5 text-sm text-text">Mal calificado por proveedores</span>
           )}
         </div>
       )}
@@ -104,7 +104,7 @@ function ExpandedRow({
             onClick={() => onFocus({ codigo: organismo, nombre })}
             className="btn-secondary h-11 text-sm"
           >
-            Mirar este comprador en detalle
+            Ver este comprador de cerca
           </button>
         </div>
       )}
@@ -125,10 +125,10 @@ export function OportunidadesSection({ oportunidades, loading, onFocusOrganismo,
 
   const summaryText = (() => {
     const parts: string[] = [];
-    parts.push(`Dónde mirar primero: ${oportunidades.length} compradores`);
+    parts.push(`Compradores para mirar primero: ${oportunidades.length}`);
     if (oportunidades.length > 0) {
       parts.push(`el primero con ${decimal(maxScore, 1)} de 10`);
-      parts.push(`competencia promedio ${Math.round(avgCompetidores)} proveedores`);
+      parts.push(`${Math.round(avgCompetidores)} proveedores por comprador, en promedio`);
     }
     return parts.join(', ') + '.';
   })();
@@ -141,7 +141,7 @@ export function OportunidadesSection({ oportunidades, loading, onFocusOrganismo,
 
   // Sin rubro elegido no hay nada que buscar todavía, y decir «no se
   // encontraron oportunidades» sugiere que se miró y no había.
-  if (!loading && !rubro) return <EligeRubro que="dónde conviene mirar primero" />;
+  if (!loading && !rubro) return <EligeRubro que="qué compradores mirar primero" />;
 
   if (!loading && oportunidades.length === 0) return (
     <p className="py-6 text-sm text-muted">Este rubro no tiene compradores con historia suficiente para ordenarlos.</p>
@@ -151,8 +151,7 @@ export function OportunidadesSection({ oportunidades, loading, onFocusOrganismo,
     <section ref={rootRef} aria-label="Compradores del rubro, ordenados" className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-muted">
-          Los {Math.min(10, oportunidades.length)} primeros de {oportunidades.length.toLocaleString('es-CL')}. El
-          puntaje va de 0 a 10; ábrelo para ver cómo compra cada uno.
+          Los {Math.min(10, oportunidades.length)} con mejor puntaje. Toca un nombre para ver cómo compra.
         </p>
         <ShareMenu targetRef={rootRef} summaryText={summaryText} filename="donde-mirar" />
       </div>
@@ -164,7 +163,7 @@ export function OportunidadesSection({ oportunidades, loading, onFocusOrganismo,
               <th scope="col" className="py-2 pr-3 text-right font-normal">#</th>
               <th scope="col" className="py-2 pr-3 font-normal">Comprador</th>
               <th scope="col" className="py-2 pr-3 text-right font-normal">Puntaje</th>
-              <th scope="col" className="hidden py-2 pr-3 text-right font-normal sm:table-cell">Órdenes</th>
+              <th scope="col" className="hidden py-2 pr-3 text-right font-normal sm:table-cell">Compras</th>
               <th scope="col" className="py-2 pr-3 text-right font-normal">Proveedores</th>
               <th scope="col" className="w-8"><span className="sr-only">Abrir</span></th>
             </tr>

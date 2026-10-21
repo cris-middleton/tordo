@@ -10,7 +10,6 @@ import { describe, expect, it } from 'vitest';
 import { BloqueAbiertas, BloqueCompradores, BloquePrecios, EjemplosBusqueda, SinResultados } from '@/components/buscar/Bloques';
 import { FormularioBuscar } from '@/components/buscar/FormularioBuscar';
 import { EJEMPLOS_BUSQUEDA, rutaBuscar } from '@/lib/buscar';
-import { TITULO_DESTACADAS } from '@/lib/compraAgil';
 import { urlCatalogoAbiertas } from '@/lib/filtrosCatalogo';
 import type { Bloque, LicitacionesEncontradas } from '@/types/buscar';
 import type { CompraAgilDestacadasResponse } from '@/types/compraAgil';
@@ -27,7 +26,7 @@ describe('FormularioBuscar', () => {
     const form = screen.getByRole('search');
     expect(form).toHaveAttribute('method', 'get');
     expect(form).toHaveAttribute('action', '/buscar');
-    const campo = within(form).getByRole('searchbox', { name: /qué le vendes al estado/i });
+    const campo = within(form).getByRole('searchbox', { name: /lo que vendes/i });
     expect(campo).toHaveAttribute('name', 'q');
     expect(campo).toHaveValue('resma');
     expect(campo).toHaveAttribute('minlength', '3');
@@ -46,12 +45,12 @@ describe('FormularioBuscar', () => {
 describe('BloquePrecios', () => {
   it('el primer producto con su banda, los otros como enlaces y «ver todos»', () => {
     render(<BloquePrecios termino={TERMINO} productos={ok(PRODUCTOS)} ficha={ok(PRODUCTO)} />);
-    expect(screen.getByRole('heading', { level: 2, name: 'Cuánto ha pagado el Estado' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'A qué precio lo compró el Estado' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Guante latex nitrilo' })).toHaveAttribute('href', '/productos/guante-latex-nitrilo');
     // La banda de la unidad más comprada: unidades[0] (Caja, n=120).
     // La misma lectura que la ficha: conclusión, gráfico, cifras y método.
-    expect(screen.getByText(/^Por caja: la mitad de las compras se pagó/)).toBeInTheDocument();
-    expect(screen.queryByText(/^Por unidad:/)).toBeNull();
+    expect(screen.getByText(/^Precio por caja: la mitad de las compras se pagó/)).toBeInTheDocument();
+    expect(screen.queryByText(/^Precio por unidad:/)).toBeNull();
     const otros = screen.getByRole('list', { name: /otros productos/i });
     expect(within(otros).getAllByRole('link').map((a) => a.getAttribute('href'))).toEqual([
       '/productos/guante-nitrilo-talla',
@@ -61,7 +60,7 @@ describe('BloquePrecios', () => {
     expect(screen.getByRole('link', { name: /ver todos los productos/i })).toHaveAttribute('href', '/productos?q=guante+nitrilo');
   });
 
-  it('titula con la descripción del comprador y la banda dice de cuántos organismos y de cuándo', () => {
+  it('titula con la descripción del comprador y la banda dice de cuántos compradores y de cuándo', () => {
     const productos = [{ ...PRODUCTOS[0], descripcion: 'GUANTE DE LÁTEX Y NITRILO' }, ...PRODUCTOS.slice(1)];
     const ficha = {
       ...PRODUCTO,
@@ -73,14 +72,14 @@ describe('BloquePrecios', () => {
       'href',
       '/productos/guante-latex-nitrilo',
     );
-    expect(screen.getAllByText('120 compras de 31 organismos').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('120 compras de 31 compradores').length).toBeGreaterThan(0);
     expect(screen.getByText(/120 compras de 31 compradores, abr 2025 a mar 2026/)).toBeInTheDocument();
   });
 
   it('si la ficha falla, la lista sigue y la banda se cambia por una línea', () => {
     render(<BloquePrecios termino={TERMINO} productos={ok(PRODUCTOS)} ficha={fallo<ProductoPublico>()} />);
     expect(screen.getByRole('link', { name: 'Guante latex nitrilo' })).toBeInTheDocument();
-    expect(screen.getByText(/no pudimos consultar la banda de precio de este producto/i)).toBeInTheDocument();
+    expect(screen.getByText(/no pudimos consultar el precio de este producto/i)).toBeInTheDocument();
     expect(screen.queryByRole('heading', { level: 3 })).toBeNull();
   });
 
@@ -93,7 +92,7 @@ describe('BloquePrecios', () => {
 
   it('fallido: una línea y nada más', () => {
     render(<BloquePrecios termino={TERMINO} productos={fallo<ProductoEncontrado[]>('limite')} ficha={null} />);
-    expect(screen.getByText(/espera un momento/)).toBeInTheDocument();
+    expect(screen.getByText(/espera un momento/i)).toBeInTheDocument();
     expect(screen.queryByRole('link')).toBeNull();
   });
 
@@ -113,7 +112,7 @@ describe('BloqueAbiertas', () => {
 
   it('licitaciones: las de la página, el total y el enlace con el mismo filtro', () => {
     abiertas();
-    expect(screen.getByRole('heading', { level: 2, name: 'Qué está abierto ahora' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Dónde postular hoy' })).toBeInTheDocument();
     const lista = screen.getByRole('list', { name: /licitaciones abiertas/i });
     expect(within(lista).getByRole('link', { name: 'Adquisicion de Guantes de Nitrilo 1' })).toHaveAttribute(
       'href',
@@ -121,8 +120,10 @@ describe('BloqueAbiertas', () => {
     );
     expect(within(lista).getByText('1234-1-LE26')).toHaveClass('font-mono');
     expect(within(lista).getAllByText('$3 millones')).toHaveLength(2);
-    expect(screen.getByText(/abiertas coinciden/)).toHaveTextContent('12 abiertas coinciden con «guante nitrilo».');
-    expect(screen.getByRole('link', { name: 'Ver las 12 en el catálogo' })).toHaveAttribute(
+    expect(screen.getByText(/abiertas que mencionan/)).toHaveTextContent(
+      'Hay 12 licitaciones abiertas que mencionan «guante nitrilo».',
+    );
+    expect(screen.getByRole('link', { name: 'Ver las 12 licitaciones en el catálogo' })).toHaveAttribute(
       'href',
       urlCatalogoAbiertas('licitaciones', TERMINOS),
     );
@@ -133,7 +134,7 @@ describe('BloqueAbiertas', () => {
     const lista = screen.getByRole('list', { name: /compras ágiles abiertas/i });
     expect(within(lista).getAllByRole('article')).toHaveLength(3);
     expect(within(lista).queryByText(/^Puesto/)).toBeNull();
-    expect(screen.getByRole('link', { name: `Ver todas en «${TITULO_DESTACADAS}»` })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Ver todas las Compras Ágiles con «guante nitrilo»' })).toHaveAttribute(
       'href',
       '/compra-agil?search=guante+nitrilo',
     );
@@ -141,23 +142,23 @@ describe('BloqueAbiertas', () => {
 
   it('cada mitad falla por su cuenta', () => {
     abiertas(fallo<LicitacionesEncontradas>('limite'), ok(DESTACADAS));
-    expect(screen.getByText(/espera un momento y vuelve a cargar la página para ver las licitaciones abiertas/)).toBeInTheDocument();
+    expect(screen.getByText(/espera un momento y vuelve a cargar la página para ver las licitaciones abiertas/i)).toBeInTheDocument();
     expect(screen.getAllByRole('article')).toHaveLength(3);
   });
 
   it('vacías: lo dicen, sin enlaces', () => {
     abiertas(ok({ items: [], total: 0 }), ok({ ...DESTACADAS, items: [] }));
-    expect(screen.getByText('Ninguna licitación abierta coincide con «guante nitrilo».')).toBeInTheDocument();
+    expect(screen.getByText('No hay licitaciones abiertas que mencionen «guante nitrilo».')).toBeInTheDocument();
     expect(
-      screen.getByText('Ninguna Compra Ágil abierta que cierre en más de dos horas coincide con «guante nitrilo».'),
+      screen.getByText('No hay Compras Ágiles abiertas que mencionen «guante nitrilo» y cierren en más de dos horas.'),
     ).toBeInTheDocument();
     expect(screen.queryByRole('link')).toBeNull();
   });
 
   it('una sola licitación se dice en singular', () => {
     abiertas(ok({ items: [LICITACIONES.items[0]], total: 1 }), ok(DESTACADAS));
-    expect(screen.getByText(/abierta coincide/)).toHaveTextContent('1 abierta coincide con «guante nitrilo».');
-    expect(screen.getByRole('link', { name: 'Verla en el catálogo' })).toBeInTheDocument();
+    expect(screen.getByText(/abierta que menciona/)).toHaveTextContent('Hay 1 licitación abierta que menciona «guante nitrilo».');
+    expect(screen.getByRole('link', { name: 'Ver esta licitación en el catálogo' })).toBeInTheDocument();
   });
 });
 
@@ -181,7 +182,7 @@ describe('BloqueCompradores', () => {
       '/compradores/3',
       '/compradores/4',
     ]);
-    expect(screen.getByRole('link', { name: 'Ver la ficha del producto' })).toHaveAttribute('href', '/productos/guante-latex-nitrilo');
+    expect(screen.getByRole('link', { name: 'Ver qué pagó cada comprador' })).toHaveAttribute('href', '/productos/guante-latex-nitrilo');
   });
 
   it('sin compradores lo dice; con la ficha caída, una línea', () => {
@@ -196,7 +197,7 @@ describe('BloqueCompradores', () => {
 describe('sin resultados y ejemplos', () => {
   it('lo dice y ofrece los ejemplos, cada uno a /buscar', () => {
     render(<SinResultados termino="xqz" />);
-    expect(screen.getByText(/no encontramos nada para «xqz»/i)).toBeInTheDocument();
+    expect(screen.getByText(/no encontramos «xqz»/i)).toBeInTheDocument();
     const ejemplos = screen.getByRole('list', { name: /ejemplos/i });
     expect(within(ejemplos).getAllByRole('link').map((a) => a.getAttribute('href'))).toEqual(
       EJEMPLOS_BUSQUEDA.map(rutaBuscar),

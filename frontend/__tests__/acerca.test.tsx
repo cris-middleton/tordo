@@ -28,7 +28,7 @@ describe('la página /acerca', () => {
   it('un solo h1 y sus cuatro secciones, con ancla', () => {
     const { container } = render(<PaginaAcerca />);
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(`Acerca de ${APP_NAME}`);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(`Qué es ${APP_NAME}`);
     for (const id of ['que-es', 'datos', 'financiacion', 'preguntas']) {
       expect(container.querySelector(`section#${id}`), id).not.toBeNull();
     }
@@ -52,7 +52,7 @@ describe('la página /acerca', () => {
 
   it('enlaza la guía de los datos, lo abierto y el contacto', () => {
     render(<PaginaAcerca />);
-    expect(screen.getByRole('link', { name: 'Cómo se procesan' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'la guía de los datos' })).toHaveAttribute(
       'href',
       '/guias/de-donde-salen-los-datos',
     );

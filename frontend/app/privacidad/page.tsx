@@ -71,7 +71,7 @@ export default function PrivacidadPage() {
         Entre los proveedores del Estado hay muchas <strong>personas naturales</strong> que
         venden con su propio RUT. Que su nombre figure en un registro público no significa
         que deba republicarse, indexarse en buscadores y cruzarse con otros datos: la
-        finalidad con que ChileCompra lo publica —la transparencia de cada compra— no exige
+        finalidad con que ChileCompra lo publica, la transparencia de cada compra, no exige
         que un sitio de análisis lo difunda. Por eso, antes de calcular ningún análisis,{' '}
         <strong>el sitio reemplaza el nombre, el RUT y los códigos que identifican a una
         persona natural</strong> por la etiqueta «Persona natural» y un seudónimo que cambia
@@ -85,8 +85,8 @@ export default function PrivacidadPage() {
         jurídicas y se muestran, aunque su razón social lleve un nombre propio.
       </p>
       <p>
-        Si apareces en el sitio y crees que no deberías —por ejemplo, porque tu empresa lleva
-        tu nombre, o porque un dato tuyo quedó visible por error—, puedes pedir que se omita
+        Si apareces en el sitio y crees que no deberías (por ejemplo, porque tu empresa lleva
+        tu nombre, o porque un dato tuyo quedó visible por error), puedes pedir que se omita
         (sección 7).
       </p>
 
@@ -136,16 +136,16 @@ export default function PrivacidadPage() {
       </p>
       <ul>
         <li>
-          <strong>Vercel</strong> — alojamiento del sitio web y estadísticas de uso sin cookies.
+          <strong>Vercel</strong>: alojamiento del sitio web y estadísticas de uso sin cookies.
         </li>
         <li>
-          <strong>Railway</strong> — alojamiento de la API y de la base de datos.
+          <strong>Railway</strong>: alojamiento de la API y de la base de datos.
         </li>
         <li>
-          <strong>Sentry</strong> — informes de errores, sin datos personales.
+          <strong>Sentry</strong>: informes de errores, sin datos personales.
         </li>
         <li>
-          <strong>Cloudflare</strong> — almacenamiento de los archivos de datos públicos. No
+          <strong>Cloudflare</strong>: almacenamiento de los archivos de datos públicos. No
           recibe datos de quienes visitan el sitio.
         </li>
       </ul>

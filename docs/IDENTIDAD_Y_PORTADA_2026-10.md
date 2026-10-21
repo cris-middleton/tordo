@@ -56,7 +56,7 @@ importa.
 
 | # | Decisión | Motivo |
 |---|---|---|
-| D1 | **Archivo** sustituye a Newsreader y Public Sans en todo el sitio | Una sola familia variable con eje de ancho: titulares expandidos (`wdth` 112–115, peso 800) y cuerpo normal. Trae cifras tabulares. Es la tipografía de las maquetas aprobadas y la que ya usa la tarjeta para compartir |
+| D1 | **Archivo** sustituye a Newsreader y Public Sans en todo el sitio (**revisada el 2026-10-21**: ver §4) | Una sola familia variable con eje de ancho: titulares expandidos (`wdth` 112–115, peso 800) y cuerpo normal. Trae cifras tabulares. Es la tipografía de las maquetas aprobadas y la que ya usa la tarjeta para compartir |
 | D2 | **IBM Plex Mono se queda, sólo para identificadores**; **Varien, para la marca**, junto al pájaro en la cabecera. El pájaro pasa a ser un componente de **servidor** con los colores del logo en tokens (`PajaroMarca`) y sustituye a `TordoLogo` | Ninguna de las dos familias estaba en la queja. `TordoLogo` era una isla cliente con hex crudos en una cabecera que debe ser de servidor; se pierde el aleteo al pasar el ratón |
 | D3 | **Fondo de página blanco** en tema claro; se va el papel cálido (`#F7F4EC`) | Es la primera señal de «hecho con Claude» |
 | D4 | **El panel de lecturas es una superficie oscura**: `dark bg-brand-navy`, el patrón que el sitio ya tiene para eso (los tokens se invierten solos dentro) | Variante B de la v6. Separa las dos zonas sin bordes ni sombras, que era lo que le faltaba a la v4, y usa los dos colores del logo: el navy de fondo y el turquesa del ala en las barras de la conclusión |
@@ -271,6 +271,16 @@ sin franja, lo conserva.
 
 ## 4. Tipografía (sustituye a §5.1 del rediseño)
 
+> **Revisada el 2026-10-21**: Archivo semiexpandida no convencía al dueño. Se compararon catorce
+> familias de Google Fonts con textos reales del sitio (titular, párrafo largo de una nota, cifras
+> grandes y una tabla de montos) y se miró, con fontTools, qué trae cada una. **Titulares en Libre
+> Franklin 800** (la versión libre de Franklin Gothic, la gótica de los diarios y sus gráficos de
+> datos) **y todo lo demás en Public Sans**, que salió de Libre Franklin y sí trae `tnum` con el
+> punto de miles a medio ancho. Descartadas por las cifras: Libre Franklin sola y Hanken Grotesk
+> (sin `tnum`) y Schibsted Grotesk (su `tnum` da al punto un ancho entero: «$7 . 000 . 000»).
+> Plex Mono y Varien no cambian. La tabla de abajo describe la decisión de octubre y queda como
+> historia.
+
 | Familia | Uso | Carga |
 |---|---|---|
 | **Archivo** | Todo: titulares (`h1`–`h2` a `wdth` 112–115 y peso 800; `h3` a ancho 100; el peso lo pone cada componente), cuerpo, interfaz y **todas las cifras** (`tnum`) | variable (`next/font` carga el eje de peso entero) y `wdth` 62–125, por `next/font/google` (autoalojada, sin petición a un tercero) |
@@ -326,6 +336,9 @@ sin franja, lo conserva.
 ## 6. Textos
 
 ### 6.1 La voz (D13)
+
+> **Sustituida el 2026-10-21 por [`VOZ.md`](VOZ.md)**, que la amplía con la voz del newsletter de
+> Fintual, el vocabulario fijo y ejemplos. Lo de abajo queda como historia.
 
 Sale de la guía de voz de PixelFrame (su `CLAUDE.md`, «The site's voice», y su brief de marca).
 Se escribe en `CLAUDE.md` de TORDO en el PR de textos, para que valga también para lo que se

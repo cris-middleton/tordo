@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 
 import { BuscadorProductos } from '@/components/publico/BuscadorProductos';
 import { CabeceraFicha } from '@/components/publico/Piezas';
+import { MESES_PRECIOS } from '@/lib/periodo';
 
 /**
  * `/productos` — buscar el precio de referencia de un producto.
@@ -15,9 +16,8 @@ import { CabeceraFicha } from '@/components/publico/Piezas';
  * `/productos`, así que las búsquedas no compiten con ella en el buscador.
  */
 export const metadata: Metadata = {
-  title: 'Precios de referencia de productos',
-  description:
-    'Busca un producto y mira cuánto pagan por él los compradores públicos en Chile, con datos de ChileCompra.',
+  title: 'Cuánto paga el Estado, producto por producto',
+  description: `Busca un producto y mira a qué precio lo compró el Estado de Chile en los últimos ${MESES_PRECIOS} meses, y quién lo compra. Con datos de ChileCompra.`,
   alternates: { canonical: '/productos' },
 };
 
@@ -26,7 +26,7 @@ export default function PaginaProductos() {
     <article className="max-w-3xl">
       <CabeceraFicha
         titulo="¿Cuánto paga el Estado por…?"
-        subtitulo="Busca un producto por cómo lo describen los compradores. Cada ficha trae la banda de precios por unidad y quién lo compra."
+        subtitulo={`Escríbelo como lo pediría un comprador. Cada ficha dice a qué precio se compró en los últimos ${MESES_PRECIOS} meses y quién lo compra.`}
       />
       <BuscadorProductos />
     </article>

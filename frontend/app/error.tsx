@@ -36,7 +36,7 @@ export default function Error({
       <div className="max-w-3xl">
         <h1 className="page-title">Algo se rompió</h1>
         <p className="mt-2 text-sm text-muted">
-          El fallo quedó registrado. Puedes reintentar: muchas veces es pasajero.
+          Fue de nuestro lado y ya quedó registrado. Suele ser pasajero: prueba de nuevo.
         </p>
         <div className="mt-6 flex items-center gap-3">
           <button type="button" onClick={() => retry()} className="btn-primary gap-2">
@@ -44,7 +44,7 @@ export default function Error({
             Reintentar
           </button>
           <Link href="/" className="btn-secondary">
-            Ir al inicio
+            Volver al inicio
           </Link>
         </div>
         {error.digest && (
@@ -52,7 +52,7 @@ export default function Error({
           // logs del servidor: sin él, un reporte de soporte no se puede cruzar
           // con nada.
           <p className="text-xs text-subtle mt-6">
-            Referencia: <code>{error.digest}</code>
+            Código del error, por si nos escribes: <code>{error.digest}</code>
           </p>
         )}
       </div>

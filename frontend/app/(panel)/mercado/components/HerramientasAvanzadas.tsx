@@ -26,10 +26,10 @@ import TabSimulador from './herramientas/TabSimulador';
  */
 
 const TABS: Array<[Tab, string]> = [
-  ['precio', 'Precio histórico'],
+  ['precio', 'Precio de un producto'],
   ['descuento', 'Descuentos'],
-  ['forecast', 'Competencia esperada'],
-  ['simular', 'Simulador de oferta'],
+  ['forecast', 'Cuántos postulan'],
+  ['simular', 'Simular una licitación'],
 ];
 
 export function HerramientasAvanzadas({ rubro, topOrganismos, allRubros = [] }: HerramientasAvanzadasProps) {
@@ -45,9 +45,9 @@ export function HerramientasAvanzadas({ rubro, topOrganismos, allRubros = [] }: 
         className="flex w-full items-center justify-between gap-3 text-left"
       >
         <div>
-          <h2 className="section-title">Herramientas</h2>
+          <h2 className="section-title">Cálculos para postular</h2>
           <p className="mt-1 text-sm text-muted">
-            A qué precio, con qué descuento y contra cuánta competencia: cálculos para una oferta concreta.
+            A qué precio se compró un producto, cuánto bajo el presupuesto se adjudica y cuántos suelen postular.
           </p>
         </div>
         {open ? <ChevronUp className="h-5 w-5 shrink-0 text-muted" aria-hidden="true" /> : <ChevronDown className="h-5 w-5 shrink-0 text-muted" aria-hidden="true" />}

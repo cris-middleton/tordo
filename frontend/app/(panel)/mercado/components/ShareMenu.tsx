@@ -58,7 +58,7 @@ export function ShareMenu({ targetRef, summaryText, filename }: ShareMenuProps) 
   };
 
   const enlace = () => enlaceConRubro(window.location.href, rubro);
-  const copiarResumen = () => copiar(`${summaryText}\n\nVer en ${APP_NAME} → ${enlace()}`, 'text');
+  const copiarResumen = () => copiar(`${summaryText}\n\nVer en ${APP_NAME}: ${enlace()}`, 'text');
   const copiarLink = () => copiar(enlace(), 'link');
 
   const descargarPNG = async () => {

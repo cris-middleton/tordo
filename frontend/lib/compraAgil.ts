@@ -4,8 +4,8 @@
  * El puntaje del backend es el producto de sus factores en [0, 1] (comprador,
  * tiempo y monto; la competencia viaja pero no pesa). Un número así no le dice
  * nada a quien cotiza, y **no se muestra** (rediseño §6.7): lo que sí le dice
- * algo es el dato del que sale cada factor —«Esta unidad: 524 órdenes de Compra Ágil», «cierra
- * en 20 h»—. Nunca un cociente: órdenes y publicadas no son la misma cosa.
+ * algo es el dato del que sale cada factor —«Su unidad de compra: 524 órdenes de Compra
+ * Ágil», «cierra en 20 h»—. Nunca un cociente: órdenes y publicadas no son la misma cosa.
  *
  * Funciones puras: las usan la pantalla, la portada y el RSS.
  */
@@ -45,7 +45,7 @@ export const TITULO_DESTACADAS = 'Lo mejor de hoy en Compra Ágil';
  * `MOSTRAR_COTIZACIONES`).
  */
 export const DESCRIPCION_DESTACADAS =
-  'Abiertas, de compradores que compran seguido por Compra Ágil, de monto mayor y con tiempo para preparar la oferta. El orden sale de esas tres reglas y de nada más.';
+  'Ordenadas por tres cosas: cuánto compra ese comprador por Compra Ágil, el monto y el tiempo que queda para preparar la oferta. Nada más.';
 
 /**
  * La misma frase cuando **aún no hay historia por unidad** (`historia_disponible`
@@ -55,7 +55,7 @@ export const DESCRIPCION_DESTACADAS =
  * ordena nada.
  */
 export const DESCRIPCION_DESTACADAS_SIN_HISTORIA =
-  'Abiertas, de monto mayor y con tiempo para preparar la oferta. Cuánto compra cada comprador todavía no entra en el orden: se calcula una vez por semana. El orden sale de esas reglas y de nada más.';
+  'Ordenadas por dos cosas: el monto y el tiempo que queda para preparar la oferta. Cuánto compra cada comprador todavía no entra: lo calculamos los domingos.';
 
 /**
  * La descripción que corresponde al estado de los datos que se muestran al lado.
@@ -173,11 +173,12 @@ function enMeses(meses: number | null): string {
 }
 
 /**
- * La historia de la unidad que compra, como conteo: «Esta unidad: 524 órdenes de
- * Compra Ágil en 6 meses». **Nunca un cociente**: «Adjudica 2.953 de 11» se leía
+ * La historia de la unidad que compra, como conteo: «Su unidad de compra: 524
+ * órdenes de Compra Ágil en 6 meses». **Nunca un cociente**: «Adjudica 2.953 de 11» se leía
  * como un error, y órdenes y publicadas son cosas distintas en meses distintos
- * (CLAUDE.md, `compra_agil_mensual`). Dice «esta unidad» porque la cifra es de la
- * unidad de compra, no de su organismo (en la ficha del comprador conviven las dos).
+ * (CLAUDE.md, `compra_agil_mensual`). Dice «unidad de compra», entera, porque la
+ * cifra es de la oficina que compra y no de su organismo (en la ficha del
+ * comprador conviven las dos), y «unidad» a secas se lee como unidad de medida.
  *
  * **Devuelve `null` si la historia aún no está disponible** (`historia_disponible`
  * false): entre el despliegue y la primera corrida semanal no se sabe nada de
@@ -192,10 +193,10 @@ export function textoComprador(
   if (!historiaDisponible) return null;
   const periodo = enMeses(meses);
   if (!comprador || comprador.ordenes === 0) {
-    return `Esta unidad: sin órdenes de Compra Ágil${periodo}`;
+    return `Su unidad de compra: sin órdenes de Compra Ágil${periodo}`;
   }
   const n = comprador.ordenes.toLocaleString('es-CL');
-  return `Esta unidad: ${n} ${comprador.ordenes === 1 ? 'orden' : 'órdenes'} de Compra Ágil${periodo}`;
+  return `Su unidad de compra: ${n} ${comprador.ordenes === 1 ? 'orden' : 'órdenes'} de Compra Ágil${periodo}`;
 }
 
 export function textoTiempo(horas: number): string {
@@ -214,7 +215,7 @@ type MontoDeLista = Pick<CompraAgilDestacada, 'monto_estimado' | 'monto_es_tope'
  * «Hasta» delante y esta línea debajo, y el orden no lo premia
  * (`backend/app/repositories/compra_agil.py`).
  */
-export const NOTA_TOPE = 'Tope de Compra Ágil';
+export const NOTA_TOPE = 'El máximo que permite Compra Ágil';
 
 /** ¿Se dice como tope? Sólo con monto y con `monto_es_tope` explícito. */
 export function esTopeCompraAgil(item: MontoDeLista): boolean {
@@ -225,17 +226,21 @@ export function esTopeCompraAgil(item: MontoDeLista): boolean {
 export function textoMontoRss(item: MontoDeLista): string | null {
   if (!item.monto_estimado) return null;
   const monto = formatCurrency(item.monto_estimado);
-  return esTopeCompraAgil(item) ? `Hasta ${monto}, el tope de Compra Ágil` : `Monto estimado ${monto}`;
+  return esTopeCompraAgil(item) ? `Hasta ${monto} (el máximo que permite Compra Ágil)` : `Monto estimado ${monto}`;
 }
 
-/** «Suele comprar entre $400K y $1.5M», o null sin datos. */
+/**
+ * «La mitad de sus órdenes va de $400.000 a $1,5 millones», o null sin datos.
+ * Con P25 y P75 iguales (o sin ellos), la mediana dicha en palabras: la mitad
+ * de sus órdenes fue por ese monto o menos.
+ */
 export function textoMontoTipico(comprador: CompradorCompraAgil | null): string | null {
   if (!comprador || comprador.monto_mediana === null) return null;
   const { monto_p25: p25, monto_p75: p75, monto_mediana: mediana } = comprador;
   if (p25 !== null && p75 !== null && p25 < p75) {
-    return `Suele comprar entre ${formatCurrency(p25)} y ${formatCurrency(p75)} por orden`;
+    return `La mitad de sus órdenes va de ${formatCurrency(p25)} a ${formatCurrency(p75)}`;
   }
-  return `Su orden típica es de ${formatCurrency(mediana)}`;
+  return `La mitad de sus órdenes es de ${formatCurrency(mediana)} o menos`;
 }
 
 /**

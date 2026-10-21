@@ -36,13 +36,13 @@ const banda = (cambio: Partial<BandaUnidad> = {}): BandaUnidad => ({
 
 describe('comprasDeOrganismos', () => {
   it.each([
-    [46, 40, '46 compras de 40 organismos'],
-    [90, 1, '90 compras de 1 organismo'],
+    [46, 40, '46 compras de 40 compradores'],
+    [90, 1, '90 compras de 1 comprador'],
     [1, 1, '1 compra'],
-    [1_250, 300, '1.250 compras de 300 organismos'],
+    [1_250, 300, '1.250 compras de 300 compradores'],
     [12, null, '12 compras'],
     [12, undefined, '12 compras'],
-  ])('%d compras, %j organismos → «%s»', (n, compradores, esperado) => {
+  ])('%d compras, %j compradores → «%s»', (n, compradores, esperado) => {
     expect(comprasDeOrganismos(n, compradores)).toBe(esperado);
   });
 });
@@ -76,13 +76,13 @@ describe('notaCompradores', () => {
 
   it('de un solo organismo: lo dice', () => {
     expect(notaCompradores(banda({ n: 90, compradores: 1, cuota_mayor: 1, de_mercado: false }))).toBe(
-      'Todas son de un mismo organismo: es el precio de su contrato.',
+      'Todas las compras son de un mismo comprador: es el precio de su contrato.',
     );
   });
 
   it('con uno sobre la mitad: cuántas son suyas', () => {
     expect(notaCompradores(banda({ n: 90, compradores: 2, cuota_mayor: 88 / 90, de_mercado: false }))).toBe(
-      '88 de las 90 compras son de un mismo organismo.',
+      '88 de las 90 compras son de un mismo comprador.',
     );
   });
 
@@ -92,9 +92,9 @@ describe('notaCompradores', () => {
 });
 
 describe('CifrasBanda (la ficha de producto y /buscar)', () => {
-  it('dice cuántas compras y de cuántos organismos', () => {
+  it('dice cuántas compras y de cuántos compradores', () => {
     render(<CifrasBanda banda={banda()} />);
-    expect(screen.getByText('46 compras de 40 organismos')).toBeTruthy();
+    expect(screen.getByText('46 compras de 40 compradores')).toBeTruthy();
     expect(screen.getByText('$150.921 a $240.000')).toBeTruthy();
   });
 
@@ -107,13 +107,13 @@ describe('CifrasBanda (la ficha de producto y /buscar)', () => {
     const { container } = render(
       <CifrasBanda banda={banda({ n: 90, compradores: 2, cuota_mayor: 88 / 90, de_mercado: false })} />,
     );
-    expect(container.textContent).toContain('88 de las 90 compras son de un mismo organismo.');
+    expect(container.textContent).toContain('88 de las 90 compras son de un mismo comprador.');
   });
 
   it('con precios dispersos no atribuye causas: dice lo que se ve', () => {
     const { container } = render(<CifrasBanda banda={banda({ predictibilidad: 'baja' })} />);
     expect(container.textContent).not.toMatch(/decide la adjudicaci/);
-    expect(container.textContent).toContain('Se pagaron precios muy distintos por lo mismo.');
+    expect(container.textContent).toContain('Con precios tan distintos, la mediana orienta poco.');
   });
 });
 
@@ -156,6 +156,6 @@ describe('nombreProducto', () => {
       unidades: [banda()],
       compradores: [],
     } as ProductoPublico;
-    expect(String(metadataProducto(producto).title)).toBe('Precio de Papel higiénico jumbo en compras públicas');
+    expect(String(metadataProducto(producto).title)).toBe('Cuánto paga el Estado por papel higiénico jumbo');
   });
 });

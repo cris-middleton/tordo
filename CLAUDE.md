@@ -224,11 +224,19 @@ IP de `/api/v1/bi/*`. Que lo público no pida sesión se prueba también por HTT
 
 ### La voz de los textos
 
-Todo texto que se escriba o se toque desde octubre de 2026 sigue esta voz (spec
-`docs/IDENTIDAD_Y_PORTADA_2026-10.md` §6.1, tomada de la guía de voz de PixelFrame):
+Todo texto que se escriba o se toque sigue **`docs/VOZ.md`** (desde el 2026-10-21; antes era la
+§6.1 de `docs/IDENTIDAD_Y_PORTADA_2026-10.md`): la voz de PixelFrame más la del newsletter de
+Fintual, *precisa como una tabla, hablada como una persona*. Ahí están las seis reglas, las
+muletillas de folleto que se borran, **el vocabulario fijo** (comprador, unidad de compra, «la
+mitad de las compras», mediana, «8 de cada 10 compras»…) y ejemplos de antes y después. Lo más
+corto de recordar:
 
+- **Primero la respuesta.** Un título dice lo que la página contesta. Una pregunta como título sólo
+  si es la del lector; «¿Qué le vendes al Estado?» se fue por ambigua (¿me pregunta?, ¿me vende?).
 - **Chileno, en segunda persona y concreto.** Cifras, plazos y objetos con nombre antes que
-  adjetivos.
+  adjetivos. La jerga, traducida en la misma frase la primera vez.
+- **Carácter con medida**: una frase con gracia por pantalla como mucho, en lo secundario (vacíos,
+  errores, 404, notas), nunca sobre una cifra.
 - **Frases cortas y afirmativas.** Sin signos de exclamación y sin emojis.
 - **Suena a quien confía en lo que hace, no a una tienda que necesita vender.**
 - **Los cuatro vicios**, que se revisan antes de dar un texto por bueno:
@@ -383,13 +391,13 @@ programador en la nube, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
 - **La tarjeta de vista previa** (`app/opengraph-image.tsx`, la misma para X en `twitter-image.tsx`)
   es un panel `brand-blue` (el azul del cuerpo del pájaro, invariante de tema; lo pinta también el
   pájaro de la cabecera) con
-  el pájaro, la marca en Varien y el dominio, y un lienzo blanco con «¿Qué le vendes al Estado?» en
-  navy y la píldora «Datos públicos de ChileCompra». Sin subtítulo: casi siempre se ve a 260 px.
+  el pájaro, la marca en Varien y el dominio, y un lienzo blanco con «Cuánto paga el Estado por lo
+  que vendes» (el titular de la portada) en navy y la píldora «Datos públicos de ChileCompra». Sin subtítulo: casi siempre se ve a 260 px.
   Se dibuja sin CSS, así que sus colores son copias de tokens en `lib/coloresImagen.ts`
   (`colores-imagen.test.ts` vigila la copia) y sus pares de texto, `PARES_IMAGEN`, los mide
   `contraste-wcag.test.ts`. Los trazos del pájaro están copiados del logo en `lib/pajaroImagen.ts`
   (`pajaro-imagen.test.ts`), y las fuentes van en WOFF (Satori no lee WOFF2 ni ejes variables): dos
-  instancias estáticas de Archivo en `assets/fuentes-imagen/` (cómo rehacerlas, en
+  instancias estáticas de Libre Franklin (800 y 700) en `assets/fuentes-imagen/` (cómo rehacerlas, en
   `lib/fuentesImagen.ts`) y Varien desde `public/fonts/varien/WOFF/`. **Rutas literales** al leerlas:
   una ruta armada empaqueta el proyecto entero en el servidor (aviso de Turbopack).
 - **El estado de servidor va en TanStack Query, sin excepciones.** Las consultas y sus claves
@@ -1045,17 +1053,20 @@ negro con tornasol azul-verdoso:
   cada gráfico pinta en `dato` sólo lo que nombra su conclusión y deja el resto en `dato-tenue`,
   que es decorativo (`SIN_PAR`): nunca lleva texto y el valor va escrito al lado. Claro: el azul
   del cuerpo del pájaro; oscuro: el turquesa del ala.
-- Tipografía (identidad de octubre de 2026, `docs/IDENTIDAD_Y_PORTADA_2026-10.md` §4,
-  `app/layout.tsx`, `next/font/google`, autoalojada): **Archivo** en todo —titulares, cuerpo,
-  interfaz y **todas las cifras**—, variable con eje de ancho. **`h1` y `h2` van semiexpandidos
-  (`font-stretch: 112.5%`) y en 800** (`font-display`, por la regla base); el resto, a ancho
-  normal (`font-sans`). Las dos utilidades fijan ancho y peso en `@layer utilities` de
-  `globals.css`, que Tailwind emite después de las suyas: `font-display` le gana a un
-  `font-bold`, y un titular **no lleva clase de peso** (salvo que declare que no es titular
-  con `font-sans` o `font-mono`). **IBM Plex Mono** sólo para identificadores (códigos de
+- Tipografía (`docs/IDENTIDAD_Y_PORTADA_2026-10.md` §4, revisada el 2026-10-21; `app/layout.tsx`,
+  `next/font/google`, autoalojada): **Libre Franklin sólo en los titulares** (`h1`, `h2` y
+  `font-display`: 800 y `letter-spacing: -0.015em`), **Public Sans en todo lo demás** —cuerpo,
+  interfaz y **todas las cifras**—. Archivo semiexpandida se fue porque al dueño no le convencía:
+  se compararon catorce familias con textos del sitio. Libre Franklin (la Franklin Gothic de los
+  diarios) da el carácter pero **no trae `tnum`**; Public Sans salió de ella, sí lo trae (punto de
+  miles a medio ancho) y comparte esqueleto. Las dos utilidades fijan peso y espaciado en
+  `@layer utilities` de `globals.css`, que Tailwind emite después de las suyas: `font-display` le
+  gana a un `font-bold`, y un titular **no lleva clase de peso** (salvo que declare que no es
+  titular con `font-sans` o `font-mono`). **IBM Plex Mono** sólo para identificadores (códigos de
   licitación, de comprador, ONU; nunca un monto, y nunca en negrita: está cargada en 400 y 500)
-  y **Varien** sólo para la marca, junto al pájaro. `.cifra` va sobre Archivo con `tnum`.
-  **Nunca `cifra` junto a `font-display`, ni un `style={{ fontFamily }}`**.
+  y **Varien** sólo para la marca, junto al pájaro. `.cifra` va sobre Public Sans con `tnum`.
+  **Nunca `cifra` junto a `font-display`** (saldría en Libre Franklin, sin cifras tabulares), **ni
+  un `style={{ fontFamily }}`**.
   `__tests__/tipografia.test.ts` y `e2e/tipografia.spec.ts`.
 - Fondo de página en tema claro: **blanco** (`--color-background` = `--color-surface`); las
   tarjetas se separan por su borde. **`bg-background` sin borde no se distingue en claro**: para

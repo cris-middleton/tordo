@@ -264,13 +264,13 @@ function BIContenido() {
       <div className="flex min-h-screen flex-col">
         <h1 className="page-title">Mercados</h1>
         <p className="mt-2 max-w-[65ch] text-muted">
-          Cuánto compra el Estado por sector y por rubro, quién le vende y en qué meses compra, con los
-          últimos {MESES_ANALISIS} meses de órdenes de compra.
+          Cuánto compra el Estado en cada rubro, quién le vende y en qué meses. Contamos las órdenes de
+          compra de los últimos {MESES_ANALISIS} meses.
         </p>
 
         {!compareMode && <SectorOverview />}
 
-        <h2 className="section-title mt-8 lg:mt-16">Un rubro</h2>
+        <h2 className="section-title mt-8 lg:mt-16">Elige tu rubro</h2>
         <RubroFilter
           rubros={allRubros}
           selectedRubro={rubro}
@@ -299,8 +299,8 @@ function BIContenido() {
             <>
               {/* ── 1. ¿Cómo está este mercado? ───────────────────────────── */}
               <Seccion
-                titulo="Cómo está el mercado"
-                descripcion="Tamaño, competencia, calendario y crecimiento del rubro completo, con todos sus compradores."
+                titulo="Cómo está el rubro"
+                descripcion="Cuánto se compra, quién le vende, en qué meses y si crece. Suma a todos los compradores del rubro."
               >
                 {/* El párrafo primero y las cifras después: quien abre esto no
                     quiere leer un tablero, quiere que le digan cómo está el
@@ -348,12 +348,12 @@ function BIContenido() {
 
               {/* ── 2. ¿Qué hago esta semana? ─────────────────────────────── */}
               <Seccion
-                titulo="Dónde mirar primero"
-                descripcion="Los compradores de este rubro, ordenados por precio, competencia y regularidad de compra."
+                titulo="Qué compradores mirar primero"
+                descripcion="Puntaje de 0 a 10. Sube si el comprador compra mucho, crece, paga precios parejos, compra en los mismos meses y ningún proveedor se lleva todo."
               >
                 {consultaOportunidades.isError ? (
                   <ErrorDeCarga
-                    titulo="No pudimos cargar las oportunidades"
+                    titulo="No pudimos cargar los compradores del rubro"
                     error={consultaOportunidades.error}
                     onReintentar={() => void consultaOportunidades.refetch()}
                     reintentando={consultaOportunidades.isFetching}
@@ -381,7 +381,7 @@ function BIContenido() {
                   <div className="flex items-center gap-3 rounded-xl border border-border bg-surface-elevated px-4 py-3">
                     <div className="flex-1 text-sm">
                       <p className="text-text">
-                        <span className="text-muted">Mirando en detalle:</span>{' '}
+                        <span className="text-muted">Estás mirando:</span>{' '}
                         <span className="font-semibold">{focusedOrganismo.nombre}</span>
                       </p>
                     </div>
@@ -395,8 +395,8 @@ function BIContenido() {
                 )}
 
                 <Seccion
-                  titulo="Un comprador en concreto"
-                  descripcion="Quién le vende, cómo tramita y en qué meses compra."
+                  titulo="Un comprador de cerca"
+                  descripcion="Quién le vende, cuánto de lo que licita adjudica y en qué meses compra. Para ver otro, ábrelo en la lista de arriba."
                 >
                   <div className="space-y-6">
                     <CompetenciaSection

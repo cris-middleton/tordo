@@ -384,7 +384,7 @@ describe('«Lo mejor de hoy»', () => {
     // Las cotizaciones las decide MOSTRAR_COTIZACIONES (portada-hoy.test.tsx); aquí, lo que nunca sale.
     expect(bloque.textContent).not.toMatch(/puntaje|\/100|esta unidad/i);
     expect(bloque).toHaveTextContent(descripcionDestacadas(true));
-    expect(bloque).toHaveTextContent(/compran seguido/);
+    expect(bloque).toHaveTextContent(/cuánto compra ese comprador/);
   });
 
   it('sin historia aún, la portada no afirma un criterio que no ordena', async () => {
@@ -395,7 +395,7 @@ describe('«Lo mejor de hoy»', () => {
     const { container } = render(await Home());
     const bloque = container.querySelector('#hoy') as HTMLElement;
     expect(bloque).toHaveTextContent(descripcionDestacadas(false));
-    expect(bloque.textContent).not.toMatch(/compran seguido/);
+    expect(bloque.textContent).not.toMatch(/compra ese comprador/);
   });
 
   it('si la respuesta no trae `historia_disponible`, tampoco lo promete', async () => {
@@ -403,7 +403,7 @@ describe('«Lo mejor de hoy»', () => {
     simularBackend({ destacadas: ok(sinCampo), resumen: ok(RESUMEN) });
     const { container } = render(await Home());
     const bloque = container.querySelector('#hoy') as HTMLElement;
-    expect(bloque.textContent).not.toMatch(/compran seguido/);
+    expect(bloque.textContent).not.toMatch(/compra ese comprador/);
   });
 
   it.each([

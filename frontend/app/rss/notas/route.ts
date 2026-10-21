@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   const origen = origenPublico(req.headers, req.url);
   return respuestaRss(
     construirRss({
-      titulo: `Notas de datos — ${NOMBRE_SITIO}`,
+      titulo: `Notas de datos | ${NOMBRE_SITIO}`,
       enlace: `${origen}/notas`,
       descripcion: DESCRIPCION_NOTAS,
       items: leerNotas().map((n) => ({

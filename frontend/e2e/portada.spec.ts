@@ -140,7 +140,7 @@ test('el pie lleva a /acerca', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('contentinfo').getByRole('link', { name: 'Acerca', exact: true }).click();
   await expect(page).toHaveURL(/\/acerca$/);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^acerca de /i);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^qué es /i);
   expect(await page.locator('#preguntas details').count()).toBeGreaterThanOrEqual(6);
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /\/acerca$/);
 });
@@ -226,7 +226,7 @@ test('el globo de un gráfico sale al pasar el mouse y se va al salir', async ({
 
 const PANTALLAS = [
   { ruta: '/', nombre: 'portada', titulo: TITULAR, anchos: [ESTRECHO, MOVIL, TABLETA, ESCRITORIO] },
-  { ruta: '/acerca', nombre: 'acerca', titulo: /^acerca de /i, anchos: [ESCRITORIO, MOVIL] },
+  { ruta: '/acerca', nombre: 'acerca', titulo: /^qué es /i, anchos: [ESCRITORIO, MOVIL] },
 ];
 
 for (const tema of ['claro', 'oscuro'] as const) {

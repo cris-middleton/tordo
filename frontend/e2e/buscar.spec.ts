@@ -22,8 +22,8 @@ test('sin término: el formulario y los ejemplos, y nada se indexa', async ({ pa
   const respuesta = await page.goto('/buscar');
   expect(respuesta?.status()).toBe(200);
   const main = page.getByRole('main');
-  await expect(main.getByRole('heading', { level: 1, name: '¿Qué le vendes al Estado?' })).toBeVisible();
-  await expect(main.getByRole('searchbox', { name: /qué le vendes al estado/i })).toHaveValue('');
+  await expect(main.getByRole('heading', { level: 1, name: 'Cuánto paga el Estado por lo que vendes' })).toBeVisible();
+  await expect(main.getByRole('searchbox', { name: /lo que vendes/i })).toHaveValue('');
   await expect(main.getByRole('link', { name: 'cambio de aceite' })).toHaveAttribute(
     'href',
     '/buscar?q=cambio+de+aceite',
@@ -51,9 +51,9 @@ test('un producto: su banda, quién lo compra y la Compra Ágil que coincide', a
     '/productos/guante-nitrilo-prueba',
   );
   // La misma lectura que la ficha: conclusión de la unidad más comprada, cifras y método.
-  await expect(precios.getByText(/^Por caja: la mitad de las compras se pagó/)).toBeVisible();
-  // Cuántos organismos hay detrás de la banda, y de cuándo es (el pie de método).
-  await expect(precios.getByText('60 compras de 6 organismos', { exact: true })).toBeVisible();
+  await expect(precios.getByText(/^Precio por caja: la mitad de las compras se pagó/)).toBeVisible();
+  // Cuántos compradores hay detrás de la banda, y de cuándo es (el pie de método).
+  await expect(precios.getByText('60 compras de 6 compradores', { exact: true })).toBeVisible();
   await expect(precios.getByText(/60 compras de 6 compradores, abr 2025 a mar 2026/)).toBeVisible();
   await expect(precios.getByRole('link', { name: /ver todos los productos/i })).toHaveAttribute(
     'href',
@@ -61,9 +61,9 @@ test('un producto: su banda, quién lo compra y la Compra Ágil que coincide', a
   );
 
   const abiertas = main.locator('#abiertas');
-  await expect(abiertas.getByText(/ninguna licitación abierta coincide/i)).toBeVisible();
+  await expect(abiertas.getByText(/no hay licitaciones abiertas que mencionen/i)).toBeVisible();
   await expect(abiertas.locator('a[href="/licitaciones/E2E-2002-COT26"]').first()).toBeVisible();
-  await expect(abiertas.getByRole('link', { name: /^ver todas en «/i })).toHaveAttribute(
+  await expect(abiertas.getByRole('link', { name: /^ver todas las compras ágiles con «/i })).toHaveAttribute(
     'href',
     '/compra-agil?search=guante',
   );
@@ -78,7 +78,7 @@ test('un producto: su banda, quién lo compra y la Compra Ágil que coincide', a
 
 test('«ver todas» de Compra Ágil abre la lista con la búsqueda puesta', async ({ page }) => {
   await page.goto('/buscar?q=guante');
-  await page.getByRole('main').locator('#abiertas').getByRole('link', { name: /^ver todas en «/i }).click();
+  await page.getByRole('main').locator('#abiertas').getByRole('link', { name: /^ver todas las compras ágiles con «/i }).click();
   await expect(page).toHaveURL(/\/compra-agil\?search=guante$/);
   await expect(page.locator('a[href="/licitaciones/E2E-2002-COT26"]').first()).toBeVisible({ timeout: 15_000 });
   await expect(page.locator('a[href="/licitaciones/E2E-2001-COT26"]')).toHaveCount(0);
@@ -91,9 +91,9 @@ test('licitaciones abiertas: el total es el del catálogo al que lleva su enlace
   await expect(abiertas.locator('a[href="/licitaciones/E2E-1002-LP24"]').first()).toBeVisible();
   // La cerrada (`E2E-1003-LE23`) no puede colarse en «abiertas».
   await expect(abiertas.locator('a[href="/licitaciones/E2E-1003-LE23"]')).toHaveCount(0);
-  await expect(abiertas.getByText(/2 abiertas coinciden/)).toBeVisible();
+  await expect(abiertas.getByText(/2 licitaciones abiertas que mencionan/)).toBeVisible();
 
-  const verTodas = abiertas.getByRole('link', { name: 'Ver las 2 en el catálogo' });
+  const verTodas = abiertas.getByRole('link', { name: 'Ver las 2 licitaciones en el catálogo' });
   await expect(verTodas).toHaveAttribute('href', URL_CATALOGO_ZAFIRO);
   await verTodas.click();
   await expect(page).toHaveURL(/\/licitaciones\?.*abiertas=1/);
@@ -104,7 +104,7 @@ test('licitaciones abiertas: el total es el del catálogo al que lleva su enlace
 test('sin resultados en ninguno: lo dice, y un ejemplo lleva a su búsqueda con el campo al día', async ({ page }) => {
   await page.goto('/buscar?q=xqzwvk');
   const main = page.getByRole('main');
-  await expect(main.getByText(/no encontramos nada para «xqzwvk»/i)).toBeVisible();
+  await expect(main.getByText(/no encontramos «xqzwvk»/i)).toBeVisible();
   const ejemplo = main.getByRole('link', { name: 'pendón' });
   await expect(ejemplo).toHaveAttribute('href', '/buscar?q=pend%C3%B3n');
   await ejemplo.click();

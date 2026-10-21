@@ -50,7 +50,7 @@ export function RubroFilter({
           onClick={() => { setOpen((o) => !o); setDropdownSearch(''); }}
           aria-haspopup="listbox"
           aria-expanded={open}
-          aria-label={`Rubro: ${selectedRubro || 'ninguno'}. Cambiar`}
+          aria-label={`Rubro: ${selectedRubro || 'ninguno'}. Elegir otro`}
           className="flex h-11 max-w-full items-center gap-2 rounded-lg border border-borderInput bg-surface px-3 text-sm font-semibold text-text transition-colors hover:border-primary/40"
         >
           <span className="max-w-[260px] truncate sm:max-w-[420px]">{selectedRubro || 'Elige un rubro'}</span>
@@ -71,7 +71,7 @@ export function RubroFilter({
                     autoFocus
                     type="text"
                     className="w-full pl-8 pr-3 py-1.5 text-base sm:text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 outline-none"
-                    placeholder="Buscar rubro..."
+                    placeholder="Busca un rubro"
                     value={dropdownSearch}
                     onChange={(e) => setDropdownSearch(e.target.value)}
                     onClick={(e) => e.stopPropagation()}
@@ -102,7 +102,7 @@ export function RubroFilter({
         )}
       </div>
 
-      {porDefecto && <span className="text-sm text-muted">El rubro con más mercados. Elige otro aquí.</span>}
+      {porDefecto && <span className="text-sm text-muted">Partimos por el rubro con más compradores.</span>}
       {onComparar && (
         <button
           type="button"
@@ -116,10 +116,10 @@ export function RubroFilter({
       {/* Focused organismo chip */}
       {focusedOrganismo && (
         <span className="flex items-center gap-1.5 rounded-full bg-accent/15 border border-accent/30 px-3 py-1 text-xs font-medium text-accent">
-          Enfocado: {focusedOrganismo.nombre.length > 32 ? `${focusedOrganismo.nombre.slice(0, 32)}…` : focusedOrganismo.nombre}
+          Comprador: {focusedOrganismo.nombre.length > 32 ? `${focusedOrganismo.nombre.slice(0, 32)}…` : focusedOrganismo.nombre}
           <button
             onClick={onClearFocus}
-            aria-label="Desfijar organismo"
+            aria-label="Quitar el comprador"
             className="hover:text-danger transition-colors"
           >
             <X className="h-3 w-3" />

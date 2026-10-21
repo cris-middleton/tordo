@@ -32,11 +32,11 @@ export function predictibilidadInfo(
 export function textoVariacion(predictibilidad?: string | null): string | null {
   switch (predictibilidad) {
     case 'alta':
-      return 'Precio estable';
+      return 'Precios parecidos entre sí';
     case 'media':
-      return 'Variación media';
+      return 'Precios algo distintos entre sí';
     case 'baja':
-      return 'Precio muy disperso';
+      return 'Precios muy distintos entre sí';
     default:
       return null;
   }

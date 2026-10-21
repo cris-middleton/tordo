@@ -21,7 +21,7 @@ export async function generateMetadata({
   const limpio = codigoDeRutaLicitacion(`/licitaciones/${codigo}`) ?? codigo;
   return {
     title: `Licitación ${limpio}`,
-    description: `Ficha de la licitación ${limpio} de Mercado Público: comprador, plazos, monto y el historial de precios y competencia del comprador.`,
+    description: `La licitación ${limpio} de Mercado Público: quién la publica, cuándo cierra, el monto y a quién le ha comprado antes ese comprador.`,
     alternates: { canonical: `/licitaciones/${encodeURIComponent(limpio)}` },
   };
 }

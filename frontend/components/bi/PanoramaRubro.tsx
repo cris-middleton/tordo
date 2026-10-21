@@ -9,6 +9,7 @@ import { EligeRubro } from './EligeRubro';
 import { motivoParaPersona } from '@/lib/motivos';
 import { Columnas } from '@/components/graficos/Columnas';
 import { decimal, monto } from '@/lib/formato';
+import { MESES_ANALISIS } from '@/lib/periodo';
 
 /**
  * El panorama del rubro: la cabecera de la pantalla de analítica.
@@ -60,8 +61,18 @@ function Tarjeta({
 }
 
 function SinDatos({ que }: { que: string }) {
-  return <p className="text-sm text-subtle">Todavía no hay {que} para este rubro.</p>;
+  return <p className="text-sm text-subtle">Todavía no tenemos {que} de este rubro.</p>;
 }
+
+/** La API manda el mes abreviado («Mar»); en una frase va entero. */
+const MES_ENTERO: Record<string, string> = {
+  Ene: 'enero', Feb: 'febrero', Mar: 'marzo', Abr: 'abril', May: 'mayo', Jun: 'junio',
+  Jul: 'julio', Ago: 'agosto', Sep: 'septiembre', Oct: 'octubre', Nov: 'noviembre', Dic: 'diciembre',
+};
+const mesEntero = (abreviado?: string | null) => (abreviado ? (MES_ENTERO[abreviado] ?? abreviado) : '');
+
+/** Porcentaje en es-CL: la API manda 34.5 y se pintaba «34.5%». */
+const pct = (v?: number | null) => (v == null ? '—' : `${decimal(v, 1)} %`);
 
 const plata = (clp?: number | null): string => (clp == null ? '—' : monto(clp));
 
@@ -77,9 +88,9 @@ const TONO_MERCADO: Record<string, string> = {
 };
 
 const EXPLICA_MERCADO: Record<string, string> = {
-  fragmentado: 'Muchos proveedores se reparten el mercado: hay espacio para entrar.',
-  moderado: 'Hay competidores fuertes, pero el mercado no está cerrado.',
-  concentrado: 'Pocos proveedores concentran casi todo. Entrar cuesta más.',
+  fragmentado: 'Muchos proveedores se reparten las compras. Hay espacio para entrar.',
+  moderado: 'Hay proveedores fuertes, pero ninguno se lleva todo.',
+  concentrado: 'Unos pocos proveedores se llevan casi todo. Entrar cuesta más.',
 };
 
 function Lider({ lider }: { lider: PanoramaLider }) {
@@ -109,7 +120,7 @@ export function PanoramaRubro({
   cargando: boolean;
   rubro: string;
 }) {
-  if (!rubro) return <EligeRubro que="cómo está ese mercado" />;
+  if (!rubro) return <EligeRubro que="sus cifras" />;
 
   if (cargando) {
     return (
@@ -123,7 +134,7 @@ export function PanoramaRubro({
     return (
       <div className="rounded-xl border border-border bg-surface p-6">
         <p className="text-sm text-muted">
-          {motivoParaPersona(panorama?.motivo, 'No tenemos histórico de este rubro todavía.')}
+          {motivoParaPersona(panorama?.motivo, 'Todavía no tenemos historia de este rubro.')}
         </p>
       </div>
     );
@@ -138,27 +149,27 @@ export function PanoramaRubro({
         <div className="flex flex-wrap items-end gap-x-8 gap-y-4">
           <div>
             <p className="text-xs text-muted">
-              Se compró en {mercado?.anio ?? '—'}
+              Comprado en {mercado?.anio ?? '—'}
             </p>
             <Cifra>{plata(mercado?.monto_clp)}</Cifra>
           </div>
           <div>
-            <p className="text-xs text-muted">Órdenes</p>
+            <p className="text-xs text-muted">Órdenes de compra en {mercado?.anio ?? '—'}</p>
             <Cifra>{entero(mercado?.n_oc)}</Cifra>
           </div>
           <div>
             <p className="flex items-center gap-1 text-xs text-muted">
-              Orden promedio
-              <InfoTooltip content="Monto total dividido por número de órdenes. Es un promedio, no una mediana: el dato viene agregado por mes, así que no quedan órdenes sueltas sobre las que sacarla." />
+              Monto promedio por orden
+              <InfoTooltip content="Lo comprado en el año dividido por sus órdenes. Unas pocas órdenes grandes lo suben, así que la orden común suele ser más chica." />
             </p>
             <Cifra>{plata(mercado?.ticket_promedio_clp)}</Cifra>
           </div>
           <div>
-            <p className="text-xs text-muted">Proveedores</p>
+            <p className="text-xs text-muted">Proveedores en {MESES_ANALISIS} meses</p>
             <Cifra>{entero(competencia?.n_proveedores)}</Cifra>
           </div>
           <div>
-            <p className="text-xs text-muted">Compradores</p>
+            <p className="text-xs text-muted">Compradores en {MESES_ANALISIS} meses</p>
             <Cifra>{entero(competencia?.n_compradores)}</Cifra>
           </div>
         </div>
@@ -168,7 +179,7 @@ export function PanoramaRubro({
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Tarjeta
           titulo="Contra quién compites"
-          ayuda="Cuota de cada proveedor sobre el monto de TODO el rubro, sumando sus compradores. Antes esta cifra era la cuota dentro de un solo comprador."
+          ayuda={`Qué parte del monto del rubro se lleva cada proveedor, sumando a todos los compradores, en los últimos ${MESES_ANALISIS} meses.`}
         >
           {competencia?.disponible ? (
             <>
@@ -176,11 +187,11 @@ export function PanoramaRubro({
                 <span
                   className={`text-lg font-bold ${TONO_MERCADO[competencia.tipo_mercado ?? ''] ?? 'text-text'}`}
                 >
-                  Mercado {competencia.tipo_mercado ?? 'sin clasificar'}
+                  Rubro {competencia.tipo_mercado ?? 'sin clasificar'}
                 </span>
                 {competencia.share_top5_pct != null && (
                   <span className="cifra text-xs text-muted">
-                    los 5 primeros se llevan {competencia.share_top5_pct}%
+                    los 5 primeros se llevan el {pct(competencia.share_top5_pct)} del monto
                   </span>
                 )}
               </div>
@@ -196,13 +207,13 @@ export function PanoramaRubro({
               </ul>
             </>
           ) : (
-            <SinDatos que="datos de competencia" />
+            <SinDatos que="las ventas de cada proveedor" />
           )}
         </Tarjeta>
 
         <Tarjeta
-          titulo="Cuándo compran"
-          ayuda="Reparto de las compras del rubro a lo largo del año, sumando todos sus compradores. Con reparto plano cada mes sería un 8,3%."
+          titulo="En qué meses se compra"
+          ayuda="Qué parte de las compras del año cae en cada mes, sumando a todos los compradores del rubro. Si fuera parejo, cada mes tendría un 8,3 %."
         >
           {estacionalidad?.disponible ? (
             <>
@@ -211,30 +222,30 @@ export function PanoramaRubro({
                   className="text-lg font-bold text-text"
                 >
                   {estacionalidad.tiene_temporada
-                    ? `Temporada alta en ${estacionalidad.mes_pico}`
-                    : 'Compra pareja todo el año'}
+                    ? `Temporada alta en ${mesEntero(estacionalidad.mes_pico)}`
+                    : 'Se compra parejo todo el año'}
                 </span>
               </div>
               <p className="mb-3 text-xs leading-relaxed text-muted">
                 {estacionalidad.tiene_temporada
-                  ? `Los tres meses más activos concentran el ${estacionalidad.pct_top3}% del año. Conviene tener capacidad disponible antes.`
-                  : `Los tres meses más activos suman ${estacionalidad.pct_top3}%, casi lo mismo que cualquier trimestre. No hay que planificar alrededor de una temporada.`}
+                  ? `Los tres meses con más compras suman el ${pct(estacionalidad.pct_top3)} del año. Conviene llegar preparado antes de ${mesEntero(estacionalidad.mes_pico)}.`
+                  : `Los tres meses con más compras suman el ${pct(estacionalidad.pct_top3)} del año, cerca del 25 % que les tocaría si fuera parejo. No hay una temporada que esperar.`}
               </p>
               <Columnas
-                etiqueta={`Reparto mensual de las compras del rubro. Mes más activo: ${estacionalidad.mes_pico}`}
+                etiqueta={`Compras del rubro por mes. El mes con más compras es ${mesEntero(estacionalidad.mes_pico)}`}
                 alto={64}
                 textoArriba={false}
                 columnas={estacionalidad.meses.map((m) => ({
                   clave: String(m.mes),
                   etiqueta: m.nombre.slice(0, 1),
                   valor: m.pct,
-                  texto: `${m.nombre}: ${m.pct}%`,
+                  texto: `${mesEntero(m.nombre)}: ${pct(m.pct)}`,
                   destacada: m.nombre === estacionalidad.mes_pico,
                 }))}
               />
             </>
           ) : (
-            <SinDatos que="datos de estacionalidad" />
+            <SinDatos que="los meses de compra" />
           )}
         </Tarjeta>
       </div>
@@ -243,11 +254,11 @@ export function PanoramaRubro({
       {vigilar?.disponible && vigilar.compradores.length > 0 && (
         <Tarjeta
           titulo="Compradores a mirar con cuidado"
-          ayuda="Compradores de este rubro con señales concretas en su historial. No significa que no haya que venderles: significa que conviene saberlo antes."
+          ayuda="Compradores del rubro con alguna señal en su historia, como cancelar órdenes seguido o declarar desierto lo que licitan. Conviene saberlo antes de postular."
         >
           <p className="mb-3 text-xs text-muted">
-            {vigilar.n_con_banderas} de {entero(vigilar.n_compradores_rubro)} compradores del rubro
-            tienen alguna señal.
+            {entero(vigilar.n_con_banderas)} de los {entero(vigilar.n_compradores_rubro)} compradores del rubro
+            tienen al menos una de estas señales.
           </p>
           <ul className="space-y-2">
             {vigilar.compradores.slice(0, 5).map((c) => (
@@ -263,8 +274,8 @@ export function PanoramaRubro({
       {vigilar?.disponible && vigilar.compradores.length === 0 && (
         <Tarjeta titulo="Compradores a mirar con cuidado">
           <p className="text-sm text-muted">
-            Ninguno de los {entero(vigilar.n_compradores_rubro)} compradores de este rubro tiene
-            señales en su historial.
+            Ninguno de los {entero(vigilar.n_compradores_rubro)} compradores del rubro tiene señales de
+            alerta en su historia.
           </p>
         </Tarjeta>
       )}

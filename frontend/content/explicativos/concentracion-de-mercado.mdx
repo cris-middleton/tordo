@@ -1,67 +1,68 @@
 ---
-titulo: "Concentración de mercado: qué te dice el HHI"
-descripcion: "Cómo se mide si un mercado lo dominan pocos proveedores, qué significan los tramos fragmentado, moderado y concentrado, y cómo usarlo para decidir."
+titulo: "Cómo saber si pocos proveedores dominan un mercado"
+descripcion: "El HHI mide si lo que gasta un comprador en un rubro se lo llevan uno o dos proveedores. Cómo se calcula, qué dicen sus tres tramos y cómo usarlo."
 slug: "concentracion-de-mercado"
-actualizado: "2026-10-18"
+actualizado: "2026-10-21"
 fuentes:
   - "Descarga masiva de órdenes de compra de ChileCompra (ventana de 36 meses)"
   - "Guías de concentración horizontal del Departamento de Justicia y la FTC de Estados Unidos (cortes de 1.500 y 2.500)"
   - "Código del cálculo: etl/analytics/competitor_analysis.py"
 ---
 
-Antes de postular conviene saber si en ese mercado —un comprador y un rubro— el
-dinero se reparte entre muchos proveedores o se lo llevan uno o dos. Para eso usamos
-el **índice de Herfindahl-Hirschman (HHI)**.
+Antes de postular conviene saber si en ese mercado la plata se reparte entre muchos
+proveedores o se la llevan uno o dos. Un mercado, aquí, es un comprador y un rubro: lo que
+un hospital gasta en aseo, por ejemplo. Para medirlo usamos el **índice de
+Herfindahl-Hirschman (HHI)**.
 
 ## Cómo se calcula
 
-1. Para cada proveedor, su **participación** en lo que ese comprador gastó en ese
-   rubro, en porcentaje.
-2. Se eleva cada participación al cuadrado y se suman.
+1. Para cada proveedor, su **participación**: qué porcentaje de lo que ese comprador gastó
+   en ese rubro se lo llevó él.
+2. Cada participación se eleva al cuadrado, y se suman.
 
 El resultado va de casi 0 a **10.000**. Un solo proveedor con el 100 % da
 100 × 100 = 10.000. Diez proveedores con el 10 % cada uno dan 10 × 100 = 1.000.
 
-El cuadrado hace que pesen más los grandes: dos proveedores con 50 % y 50 % dan
-5.000; uno con 90 % y otro con 10 % dan 8.200, aunque en los dos casos sean dos.
+El cuadrado hace pesar más a los grandes. Dos proveedores con 50 % y 50 % dan 5.000. Uno
+con 90 % y otro con 10 % dan 8.200: también son dos, pero uno manda.
 
 ## Los tres tramos
 
-| HHI | tramo | lectura |
+| HHI | tramo | qué quiere decir |
 |---|---|---|
-| menos de 1.500 | **fragmentado** | ningún proveedor domina; hay espacio, pero también más competencia |
-| 1.500 a 2.500 | **moderadamente concentrado** | unos pocos llevan buena parte |
+| menos de 1.500 | **fragmentado** | ningún proveedor domina: hay espacio, y también más competencia |
+| 1.500 a 2.500 | **moderadamente concentrado** | unos pocos se llevan buena parte |
 | más de 2.500 | **altamente concentrado** | uno o dos se llevan casi todo |
 
-Los cortes son los de las guías de concentración del Departamento de Justicia y la FTC
-de Estados Unidos, el estándar más usado.
+Los cortes son los de las guías de concentración del Departamento de Justicia y la FTC de
+Estados Unidos, el estándar más usado.
 
 **¿Por qué «fragmentado» y no «competitivo»?** Porque el HHI mide concentración, y lo
-contrario de concentrado es fragmentado. «Competitivo» se presta a leerse al revés:
-suena a «difícil de ganar» cuando el índice dice «repartido».
+contrario de concentrado es fragmentado. «Competitivo» se presta a leerse al revés: suena a
+«difícil de ganar» cuando el índice dice «repartido».
 
-## Cómo usarlo para decidir
+## Cómo usarlo antes de postular
 
 - **Concentrado, con un proveedor que se lleva casi todo**: puede haber una relación
-  establecida. Entrar cuesta más; si postulas, que sea con algo que el actual no
-  ofrezca (plazo, precio, formato).
-- **Fragmentado**: el comprador reparte. Es el mercado donde un proveedor nuevo
-  tiene más opciones, aunque tendrá que competir en precio.
+  establecida. Entrar cuesta más. Si postulas, que sea con algo que el actual no ofrezca:
+  plazo, precio o formato.
+- **Fragmentado**: el comprador reparte. Es donde un proveedor nuevo tiene más opciones,
+  aunque tendrá que competir en precio.
 - **Pocas compras**: un HHI alto con tres órdenes no dice mucho. Mira siempre cuántas
-  compras y cuántos proveedores hay detrás.
+  compras y cuántos proveedores tiene detrás.
 
-Una regla sirve para revisar cualquier cifra: con *n* proveedores, el HHI no puede
-bajar de 10.000 / *n*, y la participación del líder no puede ser menor que 100 / *n*
-por ciento. Si un mercado tiene un solo proveedor, su HHI es 10.000, siempre.
+Una regla aritmética te sirve para revisar cualquier HHI, el nuestro incluido: con *n*
+proveedores, el índice no puede bajar de 10.000 / *n*, y la participación del líder no
+puede ser menor que 100 / *n* por ciento. Un mercado con un solo proveedor tiene un HHI de
+10.000, siempre.
 
 ## Lo que mide y lo que no
 
 - Mide **cómo se repartió el gasto en los últimos 36 meses**, por comprador y rubro.
-- Cuenta a cada proveedor **una vez**, sumando todas sus órdenes en ese mercado.
-- No mide cuántos **ofertaron**: sólo a quién se le compró.
-- Los proveedores que son personas naturales cuentan con su participación, pero sin
-  nombre (ver [de dónde salen los datos](/guias/de-donde-salen-los-datos)).
+- Cuenta a cada proveedor **una vez**, con todas sus órdenes en ese mercado sumadas.
+- No mide cuántos **cotizaron** o postularon: sólo a quién se le compró.
+- Los proveedores que son personas naturales cuentan con su participación, pero sin nombre
+  ([de dónde salen los datos](/guias/de-donde-salen-los-datos)).
 
-La concentración de cada rubro aparece en
-[Mercados](/mercado) y en las páginas de rubro, del estilo
+La concentración de cada rubro está en [Mercados](/mercado) y en las páginas de rubro, como
 `/rubros/servicios-de-aseo`.

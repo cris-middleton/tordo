@@ -64,7 +64,7 @@ describe('CompradoresSection', () => {
     render(<CompradoresSection topOrganismos={organismos} rubro="Aseo" />);
 
     expect(screen.getByText(/no pudimos cargar este comprador/i)).toBeInTheDocument();
-    expect(screen.queryByText(/sin historia para el organismo/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/todavía no tenemos historia del comprador/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /reintentar/i }));
     expect(estados.comprador.refetch).toHaveBeenCalledTimes(1);
@@ -74,7 +74,7 @@ describe('CompradoresSection', () => {
     estados.comprador = sinDatos();
     render(<CompradoresSection topOrganismos={organismos} rubro="Aseo" />);
 
-    expect(screen.getByText(/sin historia para el organismo 7084/i)).toBeInTheDocument();
+    expect(screen.getByText(/todavía no tenemos historia del comprador 7084/i)).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });

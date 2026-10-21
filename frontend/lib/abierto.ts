@@ -53,17 +53,17 @@ export const HERRAMIENTAS_MCP = [
   {
     nombre: 'panel_de_licitacion',
     descripcion:
-      'Todo para decidir si postular a una licitación, en una llamada: el comprador, el plazo, los competidores habituales y las bandas de precio de sus productos.',
+      'Lo que necesitas para decidir si postular a una licitación, en una llamada: quién compra, cuánto plazo da, quién suele competir y a qué precio se compraron sus productos.',
   },
   {
     nombre: 'precio_de_producto',
     descripcion:
-      'Bandas de precio históricas de un producto (código ONU), siempre con su confianza y su tamaño de muestra.',
+      'A qué precio se compró un producto, por su código ONU (el del catálogo de Mercado Público), con cuántas compras hay detrás y qué tan confiable es.',
   },
   {
     nombre: 'perfil_de_comprador',
     descripcion:
-      'Cómo se comporta un organismo público: cuánto de lo que llama termina adjudicando y sus señales de riesgo.',
+      'Cómo compra un comprador del Estado: cuánto de lo que licita termina adjudicando y qué señales de riesgo tiene.',
   },
   {
     nombre: 'buscar_productos',

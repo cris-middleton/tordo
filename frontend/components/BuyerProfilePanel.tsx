@@ -52,16 +52,16 @@ export function BuyerProfilePanel({
   const pct = (v?: number | null) => (v == null ? '—' : `${Math.round(v * 100)}%`);
   const cifras = [
     {
-      etiqueta: 'Nota',
+      etiqueta: 'Nota como comprador',
       // `buyer_score` viene de 0 a 1 (etl/analytics/buyer_scoring.py: «≥ 0,8» es su
       // tramo alto); se lee de 0 a 10. Se pintaba tal cual: «0,9/10» para un 9,1.
       valor: comprador.buyer_score != null ? `${decimal(comprador.buyer_score * 10, 1)} de 10` : '—',
     },
-    { etiqueta: 'Trato directo', valor: pct(comprador.transparencia?.pct_trato_directo), detalle: 'de lo que compra' },
-    { etiqueta: 'Adjudica', valor: pct(comprador.tasa_adjudicacion), detalle: 'de lo que llama' },
+    { etiqueta: 'Trato directo', valor: pct(comprador.transparencia?.pct_trato_directo), detalle: 'de lo que compra, sin licitar' },
+    { etiqueta: 'Adjudica', valor: pct(comprador.tasa_adjudicacion), detalle: 'de lo que licita' },
     ...(extra ?? [
       {
-        etiqueta: 'Base',
+        etiqueta: 'Calculado con',
         valor: comprador.n_base != null ? `${comprador.n_base.toLocaleString('es-CL')} órdenes` : '—',
       },
     ]),
@@ -89,8 +89,8 @@ export function BuyerProfilePanel({
           </dl>
           {comprador.n_flags != null && comprador.n_flags > 0 && (
             <p className="mt-3 text-sm text-muted">
-              Tiene {comprador.n_flags} {comprador.n_flags === 1 ? 'señal' : 'señales'} en su historia que conviene
-              revisar antes de postular.
+              Tiene {comprador.n_flags} {comprador.n_flags === 1 ? 'señal' : 'señales'} de alerta en su historia.
+              Conviene saberlo antes de postular.
             </p>
           )}
         </>

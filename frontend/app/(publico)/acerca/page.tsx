@@ -15,7 +15,7 @@ const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
 
 export const metadata: Metadata = {
   title: 'Acerca',
-  description: `Qué es ${APP_NAME}, de dónde salen sus datos, cómo se financia y las preguntas frecuentes.`,
+  description: `Qué es ${APP_NAME}, de dónde salen sus cifras y quién lo paga. Más las preguntas frecuentes.`,
   alternates: { canonical: '/acerca' },
 };
 
@@ -41,19 +41,20 @@ export default function PaginaAcerca() {
   return (
     <article className="lectura max-w-3xl">
       <CabeceraFicha
-        titulo={`Acerca de ${APP_NAME}`}
-        subtitulo="Lo que hay detrás del sitio."
+        titulo={`Qué es ${APP_NAME}`}
+        subtitulo="Un sitio con lo que el Estado de Chile ya compró, a qué precio y a quién. Con eso decides si postular y a cuánto."
       />
 
-      <Seccion id="que-es" titulo="Qué es">
+      <Seccion id="que-es" titulo="Qué puedes hacer aquí">
         <div className="space-y-3 text-sm leading-relaxed text-muted">
           <p>
-            Es para quien le vende al Estado de Chile. Te dice qué se compra hoy, a qué precio se ha
-            comprado lo que vendes y quién más le vende. Con eso decides si postular y a qué precio.
+            Escribes lo que vendes y ves a qué precio lo compró el Estado en los últimos {MESES_PRECIOS}{' '}
+            meses, y quién lo compra. También están las licitaciones y Compras Ágiles abiertas hoy y,
+            en cada rubro, quién más le vende al Estado.
           </p>
           <p>
-            Es gratis y no pide registro: lo que guardas se queda en tu navegador. También se puede
-            usar fuera del sitio: hay una{' '}
+            No tienes que registrarte: lo que guardas queda en tu navegador. Si quieres usar las mismas
+            cifras desde tu código o tu asistente de IA, hay una{' '}
             <Link href="/abierto" className="enlace">
               API, un servidor MCP y descargas en CSV
             </Link>
@@ -63,35 +64,32 @@ export default function PaginaAcerca() {
       </Seccion>
 
       <Seccion id="datos" titulo="De dónde salen los datos">
-        <p className="text-sm leading-relaxed text-muted">
-          De los archivos abiertos de órdenes de compra de ChileCompra de los últimos {MESES_ANALISIS}{' '}
-          meses ({MESES_PRECIOS} para los precios) y de la API de Mercado Público, que se consulta{' '}
-          {FRECUENCIA_CATALOGO}. Son datos oficiales: cualquier cifra se puede contrastar en Mercado
-          Público, y la cita de la fuente va al pie de cada página.{' '}
-          <Link href="/guias/de-donde-salen-los-datos" className="enlace">
-            Cómo se procesan
-          </Link>
-          .
-        </p>
-      </Seccion>
-
-      <Seccion id="financiacion" titulo="Cómo se financia">
         <div className="space-y-3 text-sm leading-relaxed text-muted">
           <p>
-            Mantenerlo en línea cuesta{' '}
-            <Link href="/apoyar#costos" className="enlace">
-              alrededor de {COSTO_MENSUAL_APROXIMADO} al mes
-            </Link>
-            , y lo sostienen los aportes voluntarios de quienes lo usan.
+            Todo sale de ChileCompra. Los precios y los mercados, de sus archivos abiertos de órdenes
+            de compra: los últimos {MESES_ANALISIS} meses, y {MESES_PRECIOS} para los precios. Las
+            licitaciones y Compras Ágiles, de la API de Mercado Público, que consultamos{' '}
+            {FRECUENCIA_CATALOGO}.
           </p>
           <p>
-            ¿Un dato que no cuadra, una idea o una pregunta? Escribe a{' '}
-            <a href={`mailto:${CORREO_CONTACTO}`} className="enlace">
-              {CORREO_CONTACTO}
-            </a>
+            Cualquier cifra la puedes contrastar en Mercado Público. Cómo procesamos los datos, y lo
+            que no traen, está en{' '}
+            <Link href="/guias/de-donde-salen-los-datos" className="enlace">
+              la guía de los datos
+            </Link>
             .
           </p>
         </div>
+      </Seccion>
+
+      <Seccion id="financiacion" titulo="Quién lo paga">
+        <p className="text-sm leading-relaxed text-muted">
+          Tenerlo en línea cuesta{' '}
+          <Link href="/apoyar#costos" className="enlace">
+            alrededor de {COSTO_MENSUAL_APROXIMADO} al mes
+          </Link>
+          , y se paga con aportes voluntarios de quienes lo usan.
+        </p>
       </Seccion>
 
       {autor && (
@@ -99,11 +97,11 @@ export default function PaginaAcerca() {
           <div className="space-y-3 text-sm leading-relaxed text-muted">
             <p>{rol ? `Lo hace ${autor}, ${rol}, a título personal.` : `Lo hace ${autor}, a título personal.`}</p>
             <p>
-              Cada hallazgo sobre los datos, con cómo se midió, queda en las{' '}
+              Cuando encontramos un error en los datos, o uno nuestro, lo contamos en las{' '}
               <Link href="/notas" className="enlace">
                 notas de datos
               </Link>
-              .
+              , con cómo lo medimos.
               {repositorio && (
                 <>
                   {' '}El{' '}
@@ -140,6 +138,13 @@ export default function PaginaAcerca() {
             </details>
           ))}
         </div>
+        <p className="mt-4 text-sm leading-relaxed text-muted">
+          ¿Tu pregunta no está, o viste un dato que no cuadra? Escribe a{' '}
+          <a href={`mailto:${CORREO_CONTACTO}`} className="enlace">
+            {CORREO_CONTACTO}
+          </a>
+          .
+        </p>
       </Seccion>
     </article>
   );

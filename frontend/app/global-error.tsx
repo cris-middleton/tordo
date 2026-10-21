@@ -38,9 +38,9 @@ export default function GlobalError({
         }}
       >
         <div style={{ textAlign: 'center', padding: '1.5rem', maxWidth: '28rem' }}>
-          <h1 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>La aplicación no pudo cargar</h1>
+          <h1 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>El sitio no pudo cargar</h1>
           <p style={{ fontSize: '0.875rem', color: '#555', marginBottom: '1.5rem' }}>
-            El fallo quedó registrado. Vuelve a intentarlo en un momento.
+            Fue de nuestro lado y ya quedó registrado. Espera un momento y recarga.
           </p>
           {/* `<a>` y no `<Link/>` a propósito: `Link` navega por el router, y
               lo que acaba de fallar es el layout que lo sostiene. Aquí hace
@@ -63,7 +63,7 @@ export default function GlobalError({
           </a>
           {error.digest && (
             <p style={{ fontSize: '0.75rem', color: '#888', marginTop: '1.5rem' }}>
-              Referencia: <code>{error.digest}</code>
+              Código del error, por si nos escribes: <code>{error.digest}</code>
             </p>
           )}
         </div>
