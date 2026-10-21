@@ -1,8 +1,8 @@
 /**
  * La navegación del sitio, en UNA lista (spec del rediseño §6.1 y §6.2).
  *
- * De aquí salen la fila de la cabecera en escritorio, el menú móvil y el mapa
- * del pie (`components/cascara/`). Antes había dos menús —el de la barra lateral
+ * De aquí salen la fila de la cabecera en escritorio, el menú móvil y la fila
+ * de enlaces del pie (`components/cascara/`). Antes había dos menús —el de la barra lateral
  * del panel y el de la cabecera pública— con nombres distintos para la misma
  * página: «Inteligencia de mercado» frente a «Mercados», «Precios por producto»
  * frente a «Precios». Una sección nueva se añade aquí y en ningún otro sitio.
@@ -32,7 +32,7 @@ export const SECCIONES: readonly EnlaceNavegacion[] = [
   { nombre: 'Notas', href: '/notas' },
 ];
 
-/** Lo guardado en este navegador. En la cabecera es un ícono con contador; en el pie, un enlace más. */
+/** Lo guardado en este navegador. En la cabecera es un ícono con contador. */
 export const GUARDADOS: EnlaceNavegacion = { nombre: 'Guardados', href: '/guardados' };
 
 /**
@@ -50,35 +50,23 @@ export function mapaDelSitio(repositorio: string | null): EnlaceNavegacion[] {
   return [...SECCIONES, GUARDADOS, ...enlacesAbiertos(repositorio)];
 }
 
-export interface ColumnaDelPie {
-  titulo: string;
-  enlaces: EnlaceNavegacion[];
-}
-
 /**
- * Las columnas del pie (spec PORTADA_V7 §6): «Sitio» (las secciones y Guardados),
- * «Abierto» (API y MCP, Código, Licencias) y «Sobre el sitio». La cuarta, «Lo
- * hace», depende de `AUTOR_NOMBRE` y la pone el pie. `correo` llega como
+ * Los enlaces del pie, en UNA fila. Las secciones y Guardados ya están en la
+ * cabecera (y en su menú móvil), y «Apoyar» también: el pie no los repite. Quedan
+ * lo que la cabecera no tiene —acerca, costo, licencias, legales y contacto— y lo
+ * abierto. Antes eran cuatro columnas con 18 enlaces, la mitad repetidos, que
+ * medían ~430 px en escritorio y ~900 en un teléfono. `correo` llega como
  * parámetro porque este fichero no importa nada.
  */
-export function columnasDelPie(repositorio: string | null, correo: string): ColumnaDelPie[] {
+export function enlacesDelPie(repositorio: string | null, correo: string): EnlaceNavegacion[] {
   return [
-    { titulo: 'Sitio', enlaces: [...SECCIONES, GUARDADOS] },
-    {
-      titulo: 'Abierto',
-      enlaces: [...enlacesAbiertos(repositorio), { nombre: 'Licencias', href: '/abierto#licencias' }],
-    },
-    {
-      titulo: 'Sobre el sitio',
-      enlaces: [
-        { nombre: 'Acerca', href: '/acerca' },
-        { nombre: 'Cuánto cuesta', href: '/apoyar#costos' },
-        { nombre: 'Apoyar', href: '/apoyar' },
-        { nombre: 'Términos de uso', href: '/terminos' },
-        { nombre: 'Privacidad', href: '/privacidad' },
-        { nombre: 'Contacto', href: `mailto:${correo}`, externo: true },
-      ],
-    },
+    { nombre: 'Acerca', href: '/acerca' },
+    { nombre: 'Cuánto cuesta', href: '/apoyar#costos' },
+    ...enlacesAbiertos(repositorio),
+    { nombre: 'Licencias', href: '/abierto#licencias' },
+    { nombre: 'Términos de uso', href: '/terminos' },
+    { nombre: 'Privacidad', href: '/privacidad' },
+    { nombre: 'Contacto', href: `mailto:${correo}`, externo: true },
   ];
 }
 

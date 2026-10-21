@@ -24,9 +24,12 @@ from datetime import UTC, datetime
 
 import pytest
 import pytest_asyncio
+from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from app.api.tenders import list_tenders
+from app.core.versionado import PREFIJO_API
+from app.main import app
 from app.models.licitacion import Licitacion
 from app.repositories.licitaciones import coincide_termino as _coincide_termino
 
@@ -180,6 +183,79 @@ async def test_la_sintaxis_de_tsquery_no_se_interpreta(async_db, licitaciones):
     assert await _buscar(async_db, "!") == set()
 
 
+# ── El stemmer junta palabras distintas ──────────────────────────────────────
+
+
+@pytest_asyncio.fixture
+async def con_raiz_compartida(async_db):
+    """«mesa», «meses» y «mesas» tienen la misma raíz en español: `mes`."""
+    filas = [
+        Licitacion(
+            codigo_externo="M-1",
+            nombre="Mesas de comedor para jardín infantil",
+            descripcion="Mobiliario",
+            fecha_publicacion=datetime.now(UTC),
+            activo=True,
+        ),
+        Licitacion(
+            codigo_externo="M-2",
+            nombre="Servicio de vigilancia",
+            descripcion="Contrato por 12 meses",
+            fecha_publicacion=datetime.now(UTC),
+            activo=True,
+        ),
+        Licitacion(
+            codigo_externo="M-3",
+            nombre="Arriendo de camión aljibe",
+            descripcion="Reparto de agua",
+            fecha_publicacion=datetime.now(UTC),
+            activo=True,
+        ),
+    ]
+    async_db.add_all(filas)
+    await async_db.flush()
+    return filas
+
+
+async def _buscar_m(db, termino: str) -> set[str]:
+    filas = (
+        (
+            await db.execute(
+                select(Licitacion).where(
+                    Licitacion.codigo_externo.startswith("M-"),
+                    _coincide_termino(termino),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return {f.codigo_externo for f in filas}
+
+
+@pytest.mark.asyncio
+async def test_mesa_no_encuentra_meses(async_db, con_raiz_compartida):
+    """Con el stemmer solo, «mesa» traía toda licitación de «12 meses»: en la
+    copia local, 121 coincidencias de las que 5 eran mesas."""
+    assert await _buscar_m(async_db, "mesa") == {"M-1"}
+    assert await _buscar_m(async_db, "mesas") == {"M-1"}
+    assert await _buscar_m(async_db, "meses") == {"M-2"}
+
+
+@pytest.mark.asyncio
+async def test_el_plural_sigue_encontrando_el_singular(async_db, con_raiz_compartida):
+    """Lo que el stemmer sí acertaba se conserva: «camiones» encuentra «camión»."""
+    assert await _buscar_m(async_db, "camiones") == {"M-3"}
+    assert await _buscar_m(async_db, "camion") == {"M-3"}
+
+
+@pytest.mark.asyncio
+async def test_las_palabras_vacias_no_exigen_nada(async_db, con_raiz_compartida):
+    """«de» no está en el vector español; tampoco se le pide al de palabras."""
+    assert await _buscar_m(async_db, "mesas de comedor") == {"M-1"}
+    assert await _buscar_m(async_db, "camión de agua") == {"M-3"}
+
+
 # ── El término como FILTRO, no sólo como criterio de orden ───────────────────
 
 
@@ -236,3 +312,11 @@ async def test_relevancia_sin_termino_no_filtra_nada(async_db, licitaciones):
     )
     codigos = {i.codigo_externo for i in respuesta.items if i.codigo_externo.startswith("T-")}
     assert codigos == {"T-1", "T-2", "T-3"}
+
+
+def test_el_catalogo_rechaza_mas_de_ocho_palabras():
+    """El mismo tope que «Lo mejor de hoy» (`limites.MAX_TERMINOS`): cada palabra
+    es una búsqueda de texto y una regex, evaluadas dos veces."""
+    r = TestClient(app).get(f"{PREFIJO_API}/tenders/", params={"search": "a b c d e f g h i"})
+    assert r.status_code == 422
+    assert "8 palabras" in r.json()["detail"]

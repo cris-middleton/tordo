@@ -111,3 +111,26 @@ def test_sin_nada_sale_una_tabla_vacia_con_su_esquema(tmp_path):
     tabla = cam.run_compra_agil_mensual(tmp_path, frames=[], publicadas=_publicadas())
     assert tabla.schema == cam.ESQUEMA
     assert (tmp_path / cam.SALIDA).exists()
+
+
+def test_lo_que_no_se_traduce_no_se_duplica_cada_semana(tmp_path):
+    """Un código nulo no casa en un join: cada corrida añadía otra fila (nulo, mes)."""
+    sin_codigo = _publicadas(("999999999", date(2026, 3, 1), 7))
+    for semana in range(4):
+        tabla = cam.run_compra_agil_mensual(tmp_path, frames=[ARCHIVO_MARZO], publicadas=sin_codigo)
+        nulas = tabla.filter(pl.col("CodigoOrganismoPublico").is_null())
+        assert len(nulas) == 1, f"semana {semana + 1}: {len(nulas)} filas (nulo, marzo)"
+        assert nulas["publicadas"].to_list() == [7]
+    assert tabla.select(cam.CLAVE).is_duplicated().sum() == 0
+
+
+def test_los_duplicados_ya_guardados_se_colapsan_al_leer(tmp_path):
+    """La tabla de producción ya trae varias filas (nulo, mes): se quedan en una."""
+    pl.DataFrame(
+        [(None, date(2026, 3, 1), 5, None)] * 3 + [(None, date(2026, 3, 1), 7, None)],
+        schema=cam.ESQUEMA,
+        orient="row",
+    ).write_parquet(tmp_path / cam.SALIDA)
+    tabla = cam.run_compra_agil_mensual(tmp_path, frames=[], publicadas=_publicadas())
+    assert len(tabla) == 1
+    assert _tabla(tabla) == {(None, date(2026, 3, 1)): (7, None)}

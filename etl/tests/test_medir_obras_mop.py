@@ -10,8 +10,8 @@ del sector se sume como `sector_dashboard` (saneado, sin las canceladas).
 from __future__ import annotations
 
 import polars as pl
-from analytics import compra_agil_mensual
 
+from etl.analytics import data_loader
 from etl.scripts import medir_obras_mop as m
 
 
@@ -95,5 +95,5 @@ def test_el_monto_del_sector_es_el_de_sector_dashboard():
     assert m.monto_del_sector(ordenes, "2024") == 0
 
 
-def test_los_estados_cancelados_son_los_del_tablero():
-    assert m.ESTADOS_CANCELADOS == compra_agil_mensual.ESTADOS_CANCELADOS
+def test_los_estados_cancelados_son_los_del_cargador():
+    assert m.ESTADOS_CANCELADOS is data_loader.ESTADOS_CANCELADOS

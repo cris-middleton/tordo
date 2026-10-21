@@ -3,12 +3,15 @@
 Nada de red ni de base: los pasos y el cliente HTTP se inyectan.
 """
 
+import io
 import logging
 import sys
-from datetime import UTC, datetime
+import zipfile
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
+import requests
 
 from etl import cron
 from etl import main as etl_main
@@ -61,9 +64,10 @@ def test_la_puerta_sigue_al_cambio_de_hora_del_mismo_dia_de_la_semana():
 # ── Ventana de Compra Ágil ───────────────────────────────────────────────────
 #
 # Regla: desde la corrida PROGRAMADA anterior menos una hora de solape, hasta
-# ahora. La primera corrida del día abre 26 h, como la red diaria de antes: si
-# una corrida intermedia falló entera, su tramo se recoge al día siguiente.
-# Las horas son de Chile y sin zona, que es como las espera la API.
+# ahora. La primera corrida del día parte de la corrida anterior a la primera
+# de AYER: si cualquier corrida falló entera —la primera de ayer incluida—, su
+# tramo se recoge al día siguiente. Las horas son de Chile y sin zona, que es
+# como las espera la API.
 
 
 @pytest.mark.parametrize(
@@ -73,13 +77,15 @@ def test_la_puerta_sigue_al_cambio_de_hora_del_mismo_dia_de_la_semana():
         ("2026-07-14T13:00:00", "2026-07-14T09:00:00"),
         ("2026-07-14T16:02:00", "2026-07-14T12:00:00"),
         ("2026-07-14T19:00:00", "2026-07-14T15:00:00"),
-        # Martes 10 h, primera del día: 26 h (cubre las 15 h desde las 19 h).
-        ("2026-07-14T10:00:00", "2026-07-13T08:00:00"),
-        # Lunes 10 h tras el finde: la anterior fue el domingo a las 12 h (22 h
-        # atrás); 26 h llega más lejos, hasta el domingo a las 8.
-        ("2026-07-13T10:00:00", "2026-07-12T08:00:00"),
-        # Sábado 12 h: la anterior fue el viernes a las 19 h.
-        ("2026-07-18T12:00:00", "2026-07-17T10:00:00"),
+        # Martes 10 h, primera del día: la primera de ayer fue el lunes a las
+        # 10 h, y la anterior a ésa, el domingo a las 12 h → desde las 11.
+        ("2026-07-14T10:00:00", "2026-07-12T11:00:00"),
+        # Lunes 10 h tras el finde: la primera de ayer fue el domingo a las
+        # 12 h, y la anterior, el sábado a las 12 h.
+        ("2026-07-13T10:00:00", "2026-07-11T11:00:00"),
+        # Sábado 12 h: la primera de ayer fue el viernes a las 10 h, y la
+        # anterior, el jueves a las 19 h.
+        ("2026-07-18T12:00:00", "2026-07-16T18:00:00"),
     ],
 )
 def test_ventana_compra_agil(ahora, desde):
@@ -96,11 +102,49 @@ def test_ventana_forzada_fuera_de_hora_parte_de_la_anterior():
 
 
 def test_ventana_cruza_el_cambio_de_hora():
-    """Domingo 6 de sept., primer día CLST: 26 h en tiempo real, no de reloj."""
+    """Domingo 6 de sept., primer día CLST: la primera de ayer es la del sábado
+    a las 12 h CLT, y la anterior, la del viernes a las 19 h CLT."""
     inicio, _ = cron.ventana_compra_agil(_chile("2026-09-06T12:00:00"))
-    # A medianoche el reloj saltó de 00:00 a 01:00: 26 h reales antes de las
-    # 12:00 CLST son las 09:00 CLT del sábado, no las 10:00.
-    assert inicio == datetime(2026, 9, 5, 9, 0)
+    assert inicio == datetime(2026, 9, 4, 18, 0)
+    # Y el lunes, ya en CLST, encuentra la del domingo aunque el reloj saltara.
+    inicio, _ = cron.ventana_compra_agil(_chile("2026-09-07T10:00:00"))
+    assert inicio == datetime(2026, 9, 5, 11, 0)
+
+
+def _horas_programadas_entre(desde: datetime, hasta: datetime) -> list[datetime]:
+    hora, horas = desde.astimezone(UTC), []
+    while hora < hasta:
+        if cron.le_toca(hora):
+            horas.append(hora)
+        hora += timedelta(hours=1)
+    return horas
+
+
+def _cubre(tramos: list[tuple[datetime, datetime]], desde: datetime, hasta: datetime) -> bool:
+    cubierto = desde
+    for inicio, fin in sorted(tramos):
+        if inicio > cubierto:
+            break
+        cubierto = max(cubierto, fin)
+    return cubierto >= hasta
+
+
+def test_una_corrida_cualquiera_que_falla_no_deja_hueco():
+    """Tres semanas de corridas, con el cambio de hora dentro. Se tira cada una
+    por turno: su ventana tiene que quedar cubierta por las demás. Con las 26 h
+    fijas de antes, tirar la primera de un día dejaba sin mirar lo que cambió
+    entre la última de anteayer y ella."""
+    corridas = _horas_programadas_entre(
+        datetime(2026, 8, 24, tzinfo=ZONA_CHILE), datetime(2026, 9, 14, tzinfo=ZONA_CHILE)
+    )
+    ventanas = [cron.ventana_compra_agil(c) for c in corridas]
+    # Ni la primera semana (le faltan las anteriores) ni la última (le faltan
+    # las siguientes que la recogerían).
+    for i in range(len(corridas)):
+        if not (datetime(2026, 8, 31) <= ventanas[i][1] < datetime(2026, 9, 7)):
+            continue
+        otras = ventanas[:i] + ventanas[i + 1 :]
+        assert _cubre(otras, *ventanas[i]), f"hueco si falla la de {corridas[i]}"
 
 
 @pytest.mark.parametrize(
@@ -136,6 +180,13 @@ class _Registro:
     def nombres(self):
         return [llamada[0] for llamada in self.llamadas]
 
+    def materializar(self, fallidas=(), hechas=("time_series",)):
+        def _paso():
+            self.llamadas.append(("materializar",))
+            return cron.Materializacion(hechas=list(hechas), fallidas=list(fallidas))
+
+        return _paso
+
 
 def _pasos_frecuente(registro):
     return cron.PasosFrecuente(
@@ -156,7 +207,7 @@ def test_frecuente_corre_compra_agil_primero():
     assert r.llamadas[1] == ("licitaciones", "2026-07-14")
 
 
-def test_la_primera_del_dia_barre_el_dia_anterior_y_reconsulta_resultados():
+def test_la_primera_del_dia_barre_anteayer_y_ayer_y_reconsulta_resultados():
     r = _Registro()
     cron.correr_frecuente(_chile("2026-07-13T10:00:00"), _pasos_frecuente(r))
     # Compra Ágil sigue siendo lo primero; los resultados, lo último.
@@ -167,7 +218,8 @@ def test_la_primera_del_dia_barre_el_dia_anterior_y_reconsulta_resultados():
         "barrido",
         "resultados",
     ]
-    assert ("barrido", "2026-07-12") in r.llamadas
+    # Dos días: si la primera de ayer falló, su barrido de anteayer no se hizo.
+    assert ("barrido", "2026-07-11", "2026-07-12") in r.llamadas
 
 
 @pytest.mark.parametrize("hora", ["13:00", "16:00", "19:00"])
@@ -338,7 +390,7 @@ def test_semanal_en_orden_y_falla_si_falla_un_modulo():
         purgar=r.paso("purgar"),
         descargar=r.paso("descargar"),
         analytics=lambda: (r.llamadas.append(("analytics",)), ["scorer"])[1],
-        materializar=r.paso("materializar"),
+        materializar=r.materializar(),
         subir=r.paso("subir"),
         retener=r.paso("retener"),
     )
@@ -370,7 +422,7 @@ def test_semanal_no_materializa_si_la_descarga_falla():
         purgar=r.paso("purgar"),
         descargar=r.paso("descargar"),
         analytics=lambda: [],
-        materializar=r.paso("materializar"),
+        materializar=r.materializar(),
         subir=r.paso("subir"),
         retener=r.paso("retener"),
     )
@@ -385,7 +437,7 @@ def _pasos_semanal(r, fallidos=()):
         purgar=r.paso("purgar"),
         descargar=r.paso("descargar"),
         analytics=lambda: list(fallidos),
-        materializar=r.paso("materializar"),
+        materializar=r.materializar(),
         subir=r.paso("subir"),
         retener=r.paso("retener"),
     )
@@ -630,10 +682,181 @@ def test_descargar_baja_solo_los_meses_sin_consolidado(tmp_path, monkeypatch):
 
     def descargar_tipo(tipo, periodos):
         pedidos[tipo] = periodos
-        return {"ok": len(periodos), "skip_404": 0, "error": 0}
+        return {"ok": len(periodos), "skip_404": 0, "error": 0, "no_publicados": [], "fallidos": []}
+
+    def consolidar_tipo(tipo):
+        for anio, mes in pedidos[tipo]:
+            (tmp_path / tipo).mkdir(exist_ok=True)
+            (tmp_path / tipo / f"{anio}-{mes}.parquet").write_bytes(b"x")
+        return tmp_path / tipo
 
     monkeypatch.setattr(cron.descarga, "descargar_tipo", descargar_tipo)
-    monkeypatch.setattr(cron.descarga, "consolidar_tipo", lambda tipo: tmp_path / tipo)
+    monkeypatch.setattr(cron.descarga, "consolidar_tipo", consolidar_tipo)
 
-    assert cron._descargar([(2026, 8), (2026, 9), (2026, 10)])
+    assert cron._descargar([(2026, 8), (2026, 9), (2026, 10)], {})
     assert pedidos == {"oc": [(2026, 9), (2026, 10)], "lic": [(2026, 8), (2026, 9), (2026, 10)]}
+
+
+# ── La descarga masiva, con la red falsa ─────────────────────────────────────
+#
+# Lo que pasaba: la semanal purga los tres meses recientes y los vuelve a bajar.
+# Si la descarga caía (timeout, 5xx, conexión cortada), `descargar_zip` borraba
+# el parcial y devolvía False, `descargar_tipo` lo contaba como 404 («aún no
+# publicado») y `_descargar` daba la ventana por completa: analytics se publicaba
+# sin esos meses y el latido daba verde.
+
+
+def _zip_con_csv(filas: int = 3) -> bytes:
+    contenido = "Codigo;Monto\n" + "".join(f"{i};{i * 10}\n" for i in range(filas))
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as zf:
+        zf.writestr("datos.csv", contenido.encode("latin-1"))
+    return buffer.getvalue()
+
+
+class _RespuestaMasiva:
+    def __init__(self, estado=200, cuerpo=b"", corta=False):
+        self.status_code = estado
+        self.cuerpo = cuerpo
+        self.corta = corta
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise requests.HTTPError(f"{self.status_code}", response=self)
+
+    def iter_content(self, chunk_size):
+        yield self.cuerpo[: len(self.cuerpo) // 2]
+        if self.corta:
+            raise requests.exceptions.ChunkedEncodingError("Connection reset by peer")
+        yield self.cuerpo[len(self.cuerpo) // 2 :]
+
+
+@pytest.fixture
+def masiva(tmp_path, monkeypatch):
+    """La descarga masiva sobre un directorio temporal y una red de mentira.
+
+    `respuestas[(tipo, (anio, mes))]` es lo que responde ese ZIP: un
+    `_RespuestaMasiva` o una excepción de `requests`. Lo que no está, 404.
+    """
+    monkeypatch.setattr(cron.descarga, "RAW_DIR", tmp_path / "raw")
+    monkeypatch.setattr(cron.descarga, "CONSOLIDATED_DIR", tmp_path / "consolidated")
+    respuestas: dict = {}
+
+    def get(url, stream=True, timeout=None):
+        tipo = "oc" if "/oc-da/" in url else "lic"
+        anio, mes = (int(x) for x in url.rsplit("/", 1)[1].removesuffix(".zip").split("-"))
+        respuesta = respuestas.get((tipo, (anio, mes)), _RespuestaMasiva(404))
+        if isinstance(respuesta, Exception):
+            raise respuesta
+        return respuesta
+
+    monkeypatch.setattr(cron.descarga.requests, "get", get)
+    return respuestas
+
+
+def _publicados(respuestas, periodos, tipos=("oc", "lic")):
+    for tipo in tipos:
+        for periodo in periodos:
+            respuestas[(tipo, periodo)] = _RespuestaMasiva(cuerpo=_zip_con_csv())
+
+
+VENTANA_CORTA = [(2026, 8), (2026, 9), (2026, 10)]
+
+
+def test_una_conexion_cortada_es_un_error_y_no_un_404(masiva, tmp_path):
+    masiva[("oc", (2026, 9))] = requests.ConnectionError("Connection reset by peer")
+    masiva[("oc", (2026, 10))] = _RespuestaMasiva(cuerpo=_zip_con_csv(), corta=True)
+    resultado = cron.descarga.descargar_tipo("oc", [(2026, 9), (2026, 10)])
+    assert (resultado["ok"], resultado["skip_404"], resultado["error"]) == (0, 0, 2)
+    assert resultado["fallidos"] == [(2026, 9), (2026, 10)]
+    # Ni el ZIP truncado ni su parcial se quedan: la próxima vez se baja entero.
+    assert list((tmp_path / "raw" / "oc").iterdir()) == []
+
+
+@pytest.mark.parametrize(
+    "falla",
+    [
+        requests.Timeout("read timed out"),
+        requests.ConnectionError("Connection reset by peer"),
+        _RespuestaMasiva(503),
+        _RespuestaMasiva(cuerpo=_zip_con_csv(), corta=True),
+    ],
+    ids=["timeout", "conexion", "503", "cortada-a-medias"],
+)
+def test_la_semanal_falla_si_un_mes_purgado_no_se_puede_rehacer(masiva, falla):
+    _publicados(masiva, VENTANA_CORTA)
+    masiva[("lic", (2026, 9))] = falla
+    con_datos = {"oc": set(VENTANA_CORTA), "lic": set(VENTANA_CORTA)}
+    assert not cron._descargar(VENTANA_CORTA, con_datos)
+
+
+def test_el_mes_en_curso_aun_no_publicado_no_es_un_fallo(masiva, tmp_path):
+    """El 404 legítimo: el mes en curso (y el anterior, los primeros días de un
+    mes) todavía no tienen ZIP, ni lo tenían la semana pasada."""
+    _publicados(masiva, VENTANA_CORTA[:1])
+    con_datos = {"oc": {(2026, 8)}, "lic": {(2026, 8)}}
+    assert cron._descargar(VENTANA_CORTA, con_datos)
+    assert (tmp_path / "consolidated" / "lic" / "2026-8.parquet").exists()
+
+
+def test_un_404_de_un_mes_que_tenia_datos_es_un_fallo(masiva):
+    """Se purgó para rehacerlo y ya no está: analytics saldría sin ese mes."""
+    _publicados(masiva, VENTANA_CORTA[:2])
+    con_datos = {"oc": set(VENTANA_CORTA), "lic": set(VENTANA_CORTA[:2])}
+    assert not cron._descargar(VENTANA_CORTA, con_datos)
+
+
+def test_un_404_de_un_mes_viejo_de_la_ventana_es_un_fallo(masiva):
+    """La primera corrida, con R2 vacío: un mes de hace dos años existe siempre."""
+    ventana = [(2024, 1), *VENTANA_CORTA]
+    _publicados(masiva, VENTANA_CORTA)
+    assert not cron._descargar(ventana, {})
+
+
+def test_un_zip_ilegible_hace_fallar_la_consolidacion(masiva, tmp_path):
+    _publicados(masiva, VENTANA_CORTA)
+    masiva[("oc", (2026, 9))] = _RespuestaMasiva(cuerpo=b"esto no es un zip")
+    assert not cron._descargar(VENTANA_CORTA, {})
+    assert cron.descarga.consolidar_tipo("oc") is None
+    assert not (tmp_path / "consolidated" / "oc" / "2026-9.parquet").exists()
+
+
+def test_purgar_dice_que_meses_tenian_datos(tmp_path, monkeypatch):
+    monkeypatch.setattr(cron.descarga, "RAW_DIR", tmp_path / "raw")
+    monkeypatch.setattr(cron.descarga, "CONSOLIDATED_DIR", tmp_path / "consolidated")
+    (tmp_path / "consolidated" / "oc").mkdir(parents=True)
+    (tmp_path / "consolidated" / "oc" / "2026-9.parquet").write_bytes(b"x")
+    assert cron._purgar([(2026, 9), (2026, 10)]) == {"oc": {(2026, 9)}, "lic": set()}
+
+
+def test_la_semanal_pasa_a_la_descarga_lo_que_tenia_datos():
+    r = _Registro()
+    con_datos = {"oc": {(2026, 9)}, "lic": set()}
+    pasos = _pasos_semanal(r)
+    pasos.purgar = lambda periodos: con_datos
+    pasos.descargar = r.paso("descargar")
+    cron.correr_semanal(_chile("2026-10-11T03:00:00"), pasos)
+    assert [ll for ll in r.llamadas if ll[0] == "descargar"][0][2] is con_datos
+
+
+def test_la_semanal_entera_falla_y_no_reconstruye_con_la_descarga_caida(masiva):
+    """De punta a punta con la `_descargar` real: la red cae al rehacer un mes
+    purgado → ni analytics, ni materializar, ni subir, y el latido en /fail."""
+    _publicados(masiva, VENTANA_CORTA)
+    masiva[("oc", (2026, 10))] = requests.ConnectionError("Connection reset by peer")
+    r = _Registro()
+    pasos = _pasos_semanal(r)
+    pasos.purgar = lambda periodos: {"oc": set(VENTANA_CORTA), "lic": set(VENTANA_CORTA)}
+    # Sólo los meses recientes: los 36 anteriores darían 404 en esta red falsa.
+    pasos.descargar = lambda ventana, con_datos: cron._descargar(ventana[-3:], con_datos)
+    transporte = _Transporte()
+    codigo = cron.ejecutar(
+        "semanal",
+        ahora=lambda: _chile("2026-10-11T03:00:00"),
+        corridas={"semanal": lambda instante: cron.correr_semanal(instante, pasos)},
+        latido=cron.Latido(URL, httpx.Client(transport=httpx.MockTransport(transporte))),
+    )
+    assert codigo == 1
+    assert transporte.urls()[-1] == f"{URL}/fail"
+    assert "2026, 10" in transporte.peticiones[-1].content.decode()
+    assert "materializar" not in r.nombres() and "subir" not in r.nombres()

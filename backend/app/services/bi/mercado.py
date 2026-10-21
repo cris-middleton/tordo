@@ -10,9 +10,7 @@ from __future__ import annotations
 
 import logging
 
-import polars as pl
-
-from app.services.bi._base import _load
+from app.services.bi._base import _agregado, _distintos, _load, _totales, clasificar_hhi
 from app.services.bi.temporal import _compute_cagr_rubro_desde_time_series
 
 logger = logging.getLogger(__name__)
@@ -185,49 +183,54 @@ def get_resumen(rubro: str | None = None) -> dict:
     n_organismos: int | None = None
     if serie_rows:
         monto_anual = float(serie_rows[-1]["monto_total"])
-
-    ts_df = _load("time_series.parquet", filtros={"RubroN2": rubro})
-    if ts_df is not None and "RubroN2" in ts_df.columns and serie_rows:
-        years = [r["anio"] for r in serie_rows]
-        last_year = years[-1]
-        rubro_last = ts_df.filter((ts_df["RubroN2"] == rubro) & (ts_df["anio"] == last_year))
-        if "CodigoOrganismoPublico" in rubro_last.columns and len(rubro_last) > 0:
-            n_organismos = rubro_last.select("CodigoOrganismoPublico").n_unique()
+        # Los compradores distintos del último año completo, contados en SQL.
+        organismos = _distintos(
+            "time_series.parquet",
+            "CodigoOrganismoPublico",
+            filtros={"RubroN2": rubro, "anio": serie_rows[-1]["anio"]},
+        )
+        if organismos:
+            n_organismos = len(organismos)
 
     # ── Proveedores y líder REAL del rubro ───────────────────────────────────
     #
-    # Una sola lectura de `competitors_by_market` para las dos cosas: el número
-    # de proveedores distintos y quién lidera de verdad. Antes eran dos lecturas
-    # y la segunda daba un resultado incorrecto (ver abajo).
+    # Agregado por proveedor en SQL: el número de proveedores distintos, quién
+    # lidera de verdad y el HHI, sin traer a la API las filas del rubro (una por
+    # organismo y proveedor). Antes la segunda de dos lecturas daba un
+    # resultado incorrecto (ver abajo).
     n_prov_actual: int | None = None
     lider: dict | None = None
     hhi_rubro: float | None = None
-    df_comp = _load(
+    filtros_rubro = {"RubroN2": rubro}
+    total = _totales(
         "competitors_by_market.parquet",
-        filtros={"RubroN2": rubro},
-        columnas=["CodigoProveedor", "NombreProveedor", "monto_total"],
+        "CodigoProveedor",
+        filtros=filtros_rubro,
+        sumas=["monto_total"],
     )
-    if df_comp is not None and not df_comp.is_empty():
-        n_prov_actual = df_comp.select("CodigoProveedor").n_unique()
+    if total is not None and total["grupos"]:
+        n_prov_actual = int(total["grupos"])
 
-        monto_rubro = df_comp.select(pl.col("monto_total").sum()).item() or 0
+        monto_rubro = float(total["monto_total"] or 0)
         if monto_rubro > 0:
-            por_proveedor = (
-                df_comp.group_by("CodigoProveedor")
-                .agg(
-                    pl.col("monto_total").sum().alias("monto"),
-                    pl.col("NombreProveedor").first().alias("nombre"),
-                )
-                .with_columns((pl.col("monto") / monto_rubro * 100).alias("share"))
+            top = _agregado(
+                "competitors_by_market.parquet",
+                "CodigoProveedor",
+                filtros=filtros_rubro,
+                sumas=["monto_total"],
+                primeros=["NombreProveedor"],
+                limite=1,
             )
-            top = por_proveedor.sort(["monto", "CodigoProveedor"], descending=[True, False]).head(1)
             fila = top.row(0, named=True)
-            lider = {"nombre": fila["nombre"], "share_pct": round(float(fila["share"]), 2)}
+            lider = {
+                "nombre": fila["NombreProveedor"],
+                "share_pct": round(float(fila["monto_total"] or 0) / monto_rubro * 100, 2),
+            }
             # HHI de verdad: suma de los cuadrados de las cuotas de TODOS los
             # proveedores del rubro. El que se usaba antes venía de
             # `market_concentration`, que lo calcula por (organismo, rubro): es
             # la concentración dentro de UN comprador, no la del mercado.
-            hhi_rubro = float(por_proveedor.select((pl.col("share") ** 2).sum()).item())
+            hhi_rubro = float(total["cuadrados"] or 0) / monto_rubro**2 * 10_000
 
     # ── Top comprador: organismo más activo del rubro en opportunity_scores ──
     top_comprador: dict | None = None
@@ -280,18 +283,10 @@ def get_resumen(rubro: str | None = None) -> dict:
     # completo, que es lo que la frase promete.
     teaser_competencia: dict | None = None
     if lider and lider.get("nombre"):
-        if hhi_rubro is None:
-            tipo_mercado = None
-        elif hhi_rubro > 2500:
-            tipo_mercado = "concentrado"
-        elif hhi_rubro > 1500:
-            tipo_mercado = "moderado"
-        else:
-            tipo_mercado = "fragmentado"
         teaser_competencia = {
             "lider_nombre": lider["nombre"],
             "lider_share_pct": lider["share_pct"],
-            "tipo_mercado": tipo_mercado,
+            "tipo_mercado": clasificar_hhi(hhi_rubro),
             "hhi": round(hhi_rubro) if hhi_rubro is not None else None,
         }
 

@@ -93,6 +93,12 @@ def _vacio_a_null(valor, columna):
     return valor
 
 
+class CargaFallida(RuntimeError):
+    """No se pudo escribir NINGUNA tanda: la base caída o una fila que tumba
+    todas. Antes se registraba cada tanda y se devolvía 0, y la corrida
+    terminaba bien sin haber escrito nada."""
+
+
 class DatabaseLoaderV2(BaseLoader):
     """Load data into PostgreSQL: `licitaciones` y `licitaciones_detalle`
 
@@ -250,10 +256,12 @@ class DatabaseLoaderV2(BaseLoader):
         total_loaded = 0
         total_updated = 0
         total_errors = 0
+        tandas = tandas_fallidas = 0
 
         for batch_start in range(0, len(data), BATCH_SIZE):
             batch = data[batch_start : batch_start + BATCH_SIZE]
             batch_num = batch_start // BATCH_SIZE + 1
+            tandas += 1
             try:
                 # Identify which codes already exist so we can count new vs updated
                 codes = [r.get("codigo_externo") for r in batch]
@@ -304,10 +312,17 @@ class DatabaseLoaderV2(BaseLoader):
                     f"Error in licitaciones batch {batch_num}: {str(e)}", exc_info=True
                 )
                 total_errors += len(batch)
+                tandas_fallidas += 1
 
         self.logger.info(
             f"Licitaciones loaded: {total_loaded} new, {total_updated} updated, {total_errors} errors"
         )
+        # Una tanda suelta que falla se tolera (las otras sí entraron); que fallen
+        # TODAS es la base caída o un error de esquema, y la corrida tiene que verlo.
+        if tandas and tandas_fallidas == tandas:
+            raise CargaFallida(
+                f"Licitaciones: fallaron las {tandas} tanda(s); no se escribió ninguna fila"
+            )
 
         return total_loaded + total_updated
 

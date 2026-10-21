@@ -216,10 +216,10 @@ IP de `/api/v1/bi/*`. Que lo público no pida sesión se prueba también por HTT
   Las de ingesta crecen sin techo y `integer` se queda corto; las de negocio se exponen en
   URLs y no conviene que sean adivinables.
 - **Las dos reglas anteriores las verifica `tests/test_convenciones_modelo.py`**, con
-  trinquete: **las tablas ya están todas comentadas**; quedan 43 columnas sin comentario y
-  2 PK `integer`, así que el test **no exige arreglarlas** — falla si aparece deuda **nueva**.
-  La deuda vive en `tests/convenciones_baseline.json` y sólo puede encoger.
-  Al arreglar algo: `cd backend && uv run --project .. python tests/regenerar_baseline.py`.
+  trinquete. **La deuda está en cero** (migración `e8e7e0f3f5e5`: las 43 columnas que
+  quedaban, comentadas, y `licitaciones` y `licitaciones_detalle` con clave y secuencia
+  `bigint`), así que `tests/convenciones_baseline.json` está vacío y sólo puede seguir así.
+  Una columna sin `comment=` o una PK `integer` nueva hacen fallar el test.
 - Los errores de negocio se devuelven con `HTTPException` y mensaje en español — los ve el usuario.
 
 ### La voz de los textos
@@ -288,6 +288,12 @@ programador en la nube, y no tiene Pub/Sub, Cloud Tasks ni cola de tareas.
   dominio). Existe por dos motivos: la URL del backend es de servidor, y las redirecciones
   internas de FastAPI se siguen ahí y no en el navegador. `__tests__/proxy-sin-sesion.test.ts`
   lo fija.
+  - **Sólo reenvía `GET` bajo `/api/v1/`** (el prefijo sale de `lib/versionApi.ts`), que es
+    todo lo que pide el navegador. Lo demás da 404 sin llamar al backend, y cualquier otro
+    método, 405 (Next arma `HEAD` con el mismo manejador). Reenviaba cualquier ruta y
+    método: `/api/proxy/docs` servía el Swagger en el origen del sitio, y `/mcp` o un `POST`
+    llegaban por ahí. Un segmento con `..`, barra, `?`, `#` o `%` también es 404, y una
+    redirección del backend fuera de `/api/v1/` no se sigue. `__tests__/proxy-solo-api.test.ts`.
   - **La URL del backend es `API_URL`, de SERVIDOR.** Cualquier variable `NEXT_PUBLIC_*` se
     inlinea en el bundle.
   - **El proxy le dice al backend quién es el visitante** (`lib/backendServidor.ts`):
@@ -502,10 +508,15 @@ pivote (`docs/PIVOTE_PUBLICO_2026-10.md` §3.1), con la tabla `task_failures`: e
 que la leía lo sustituye el latido. En local no hay programador; los cron se lanzan a mano. `frecuente` se dispara **cada hora en UTC** y
 decide él si le toca —10, 13, 16 y 19 h de Santiago entre semana, 12 h el fin de semana—
 porque Chile cambia de hora y Railway no. Corre en proceso, sin `subprocess`. La ventana
-de Compra Ágil va desde la corrida **programada** anterior menos 1 h; la primera del día
-mira 26 h atrás y barre además el día anterior, como hacía la diaria de las 02:00 — sólo
-licitaciones: **las órdenes de compra ya no se ingieren por la API** (paso 7); salen de la
-descarga masiva, y cada una costaba un detalle de la cuota.
+de Compra Ágil va desde la corrida **programada** anterior menos 1 h; **la primera del día,
+desde la anterior a la primera de AYER** (~42–47 h), y barre además las licitaciones de
+anteayer y ayer, como hacía la diaria de las 02:00 — sólo licitaciones: **las órdenes de
+compra ya no se ingieren por la API** (paso 7); salen de la descarga masiva, y cada una
+costaba un detalle de la cuota. Antes eran 26 h y un día: si fallaba la primera de un día,
+lo que cambió entre la última de anteayer y ella no lo miraba nadie
+(`test_una_corrida_cualquiera_que_falla_no_deja_hueco`). No se guarda cuál fue la última
+corrida **buena** (no hay dónde sin añadir estado), así que dos primeras del día seguidas
+fallidas sí dejan hueco.
 **La primera del día re-consulta además los resultados** de las licitaciones cerradas en los
 últimos 30 días sin adjudicación (tope 500/día, el 5 % de la cuota de la API clásica; ni
 desiertas, ni revocadas, ni Compra Ágil). Sin esto la adjudicación sólo se llenaba si
@@ -522,11 +533,25 @@ registraba y seguía. Con el ticket roto los cron terminaban bien y el latido da
 no se reintenta, `main.py` la deja pasar por sus `except Exception` y llega al `/fail`. **Un
 `except Exception` nuevo en el ETL tiene que dejarla pasar.**
 
+**Un fallo TOTAL también hace fallar la corrida; uno aislado, no** (`etl/tests/test_fallo_total.py`).
+Con la API clásica caída cada día salía «0 registros», con la primera página de Compra Ágil
+caída el listado era `[]`, y con todas las tandas del upsert fallidas `load_licitaciones`
+devolvía 0: los tres terminaban «bien». Ahora el listado clásico sin respuesta en NINGÚN día y
+Compra Ágil sin primera página en NINGÚN tramo lanzan `ConsultaFallida`
+(`etl/extractors/base.py`), y `load_licitaciones` sin ninguna tanda escrita, `CargaFallida`;
+las dos caen en los `except Exception` de `main.py`, el paso devuelve `False` y la corrida
+termina en `/fail`. Hubo registros y no se transformó ninguno: también `False`. Un día de
+varios, un tramo de veintiséis (o una página siguiente) o una tanda de varias quedan en ERROR
+y se toleran: los recoge la ventana larga de la primera del día siguiente.
+
 **Los cron revalidan las páginas públicas** (`Revalidador` en `etl/cron.py`): `POST
 REVALIDAR_URL` con `X-Revalidar-Secreto: REVALIDAR_SECRETO` y `{"etiquetas": [...]}`; la
 semanal manda `["analytics"]` tras materializar y la frecuente `["compra-agil"]` al final. Sin
 las variables no hace nada; un fallo queda en ERROR y **no** tumba la corrida (la página sólo
-se queda vieja). El mismo secreto en Vercel y en los dos cron.
+se queda vieja). El mismo secreto en Vercel y en los dos cron. **La semanal materializa tabla
+por tabla y revalida si entró al menos una** (`_materializar`): antes una sola tabla rota
+dejaba sin revalidar todas las páginas una semana. La tabla rota sigue llevando la corrida
+al `/fail`.
 
 **`semanal` guarda la historia en R2** (`etl/almacen.py`): el contenedor de Railway arranca
 con el disco vacío. Baja `consolidated/` y `analytics/` al empezar y sube lo que cambió al
@@ -560,6 +585,15 @@ ChileCompra, que es su fuente.
   Postgres puede contar con lo purgado**: un conteo de Compra Ágil de 90–180 días (hoy, el
   «Publicadas» de la ficha pública del comprador; «lo mejor de hoy» ya no lo usa) sale de
   `analytics.compra_agil_mensual`, nunca de `licitaciones`.
+- **La ventana tiene que quedar entera, o no se reconstruye** (`_descargar`). Un 404 sólo vale
+  para un mes reciente (los 3 que se rehacen) **que no tenía datos antes de purgar**: el mes en
+  curso, o el anterior en los primeros días de un mes, que ChileCompra aún no publica. Un
+  timeout, un 5xx o una conexión cortada (`bajar_zip` ya no los cuenta como 404), un 404 de un
+  mes purgado que sí tenía datos, uno de un mes viejo o un ZIP ilegible (`consolidar_tipo`
+  devuelve `None`) hacen fallar la corrida antes de analytics: no se materializa ni se sube, y
+  R2 conserva la versión anterior. Antes todo eso pasaba por «aún no publicado», y analytics se
+  publicaba sin los meses purgados con el latido en verde. El ZIP se escribe a `.part` y se
+  renombra al terminar.
 - **Purga ZIP Y consolidado** de los 3 meses que rehace. Antes sólo el ZIP, y
   `consolidar_tipo` se salta un mes ya consolidado: lo que ChileCompra corregía de los meses
   recientes nunca llegaba a analytics.
@@ -627,7 +661,7 @@ schemas/        Pydantic — todos van aquí
 utils/          slug.py (la única función de slugs)
 ```
 
-**Routers**: tenders (3 rutas), bi (18), compra_agil (1), publico (6), health. Todos anónimos. Los de cuenta (auth, users,
+**Routers**: tenders (3 rutas), bi (18), compra_agil (1), publico (7), health. Todos anónimos. Los de cuenta (auth, users,
 empresas, alerts, documentos, postulaciones, estado_habil, dashboard, billing, webhooks) y el
 explorador `data_inspection` se borraron en el pivote público.
 
@@ -703,12 +737,12 @@ ninguna página ni layout de grupo pinta cabecera, pie, `PieAtribucion` ni `<mai
   `tracking-wide*`), ni metadatos con punto medio: «Confianza alta, 90 compras», no «· N=90».
   `__tests__/senales-plantilla.test.ts` los busca en todo `app/` y `components/`, comentarios
   incluidos. Se permite `first-letter:uppercase`. Tampoco bordes laterales gruesos de color
-  (`border-l-4` en un aviso o una tarjeta, la señal que más marca el detector de `make diseno`);
-  la excepción es el filete de las cifras de la portada (`TiraCifras`).
+  (`border-l-4` en un aviso o una tarjeta, la señal que más marca el detector de `make diseno`),
+  sin excepción: el filete de las cifras de la portada se fue con `TiraCifras`.
 - **Un solo formato de montos: `monto()`** (`lib/formato.ts`; `formatCurrency` lo envuelve): «$825.000»,
   «$7,2 millones», «$1,5 mil millones», «$2,1 billones». Convivían «$825K», «$7,2M», «$1,5B» (en Chile un
   billón es 10¹²) y «$1.000K». `plata` (`lib/publico.ts`) redondea los millones a entero a propósito, para
-  las bandas de precio. Los de `/mercado` todavía escriben «CLP … M»: deuda de su pasada.
+  las bandas de precio. `/mercado` también pasa por `monto()`.
 - **Las Compras Ágiles se pintan con UNA fila**, `FilaCompraAgil`, en la portada (compacta), `/compra-agil`,
   `/buscar` y la ficha del comprador (con `historia`: región, órdenes de la unidad y «Abrir en Mercado
   Público», porque su dato no trae URL).
@@ -718,20 +752,22 @@ ninguna página ni layout de grupo pinta cabecera, pie, `PieAtribucion` ni `<mai
 - **Campos a 16 px en móvil**: `.input-field` es `text-base sm:text-sm` (Safari amplía la página
   con menos), y un `text-sm` suelto en el campo lo deshace. `__tests__/campos-moviles.test.ts`.
 - **La navegación es UNA lista**, `lib/navegacion.ts` (`SECCIONES`, `GUARDADOS`,
-  `enlacesAbiertos`, `mapaDelSitio`, `columnasDelPie`, `esSeccionActiva`): de ahí salen la fila de
-  escritorio, el menú móvil y las columnas del pie. «Compra Ágil», no «Hoy» (V12). Una sección nueva se añade ahí y en ningún otro sitio;
+  `enlacesAbiertos`, `mapaDelSitio`, `enlacesDelPie`, `esSeccionActiva`): de ahí salen la fila de
+  escritorio, el menú móvil y la fila de enlaces del pie. «Compra Ágil», no «Hoy» (V12). Una sección nueva se añade ahí y en ningún otro sitio;
   `__tests__/navegacion.test.ts` exige que cada ruta interna tenga su página. **El fichero no
   importa nada**: lo leen también los E2E, que no resuelven `@/`.
 - **Cabecera y pie son componentes de servidor** con cuatro islas cliente: `EnlaceSeccion` (sección
   activa con `usePathname` y `aria-current`), `MarcoCabecera` (el `<header>`, con un solo
   `onClick` que cierra el menú móvil al pulsar cualquier enlace), `EnlaceGuardados` (contador con
   `useSyncExternalStore` sobre los almacenes de `/guardados`: licitaciones guardadas o postuladas,
-  sin repetir, más búsquedas) y `SelectorTema`, en el pie. **El pie** (`PieSitio`, spec PORTADA_V7
-  §6): cuatro columnas desde `lg` y dos en móvil —«Sitio», «Abierto», «Sobre el sitio» (con los
-  legales, el costo y el contacto) y, sólo con `AUTOR_NOMBRE`, «Lo hace»—; debajo, la cita
-  (`PieAtribucion`, ya sin enlaces), «No estamos afiliados al gobierno de Chile.», «Sitio en el
-  commit `abc1234`» (sólo con `VERCEL_GIT_COMMIT_SHA`, enlazado si hay repositorio;
-  `commitDelSitio` en `lib/repositorio.ts`) y el selector de tema. `__tests__/cabecera.test.tsx` falla si
+  sin repetir, más búsquedas) y `SelectorTema`, en el pie. **El pie** (`PieSitio`): **una fila de enlaces**
+  con lo que la cabecera no tiene (`enlacesDelPie`: acerca, costo, API y MCP, código, licencias,
+  legales y contacto; ni las secciones, ni Guardados, ni «Apoyar», que ya están arriba) y el
+  selector de tema compacto (tres íconos); debajo, la cita (`PieAtribucion`), «No estamos afiliados
+  al gobierno de Chile.», «Lo hace {nombre}.» (sólo con `AUTOR_NOMBRE`) y «Sitio en el commit
+  `abc1234`» (sólo con `VERCEL_GIT_COMMIT_SHA`, enlazado si hay repositorio; `commitDelSitio` en
+  `lib/repositorio.ts`). Eran cuatro columnas con 18 enlaces, la mitad repetidos: ~520 px en
+  escritorio y ~900 en un teléfono; ahora, ~250 y ~370. `__tests__/cabecera.test.tsx` falla si
   otro fichero de `components/cascara/` se vuelve cliente o usa un color crudo.
   **La marca lleva el pájaro del logo** (`PajaroMarca`): SVG de servidor con los trazos de
   `lib/pajaroImagen.ts` (la misma copia que la tarjeta de vista previa) y los tokens invariantes
@@ -854,8 +890,20 @@ contenedor único (cabecera y pie, con la atribución, son de la cáscara única
   primer pedido con `fetch(…, { next: { revalidate: 604800, tags: ['analytics'] } })` desde
   `lib/publicoServidor.ts`, **como renderizado del servidor** (`cabecerasHaciaElBackend(null)`,
   exento del límite por IP). Un error que no sea 404 lanza: una página rota no se cachea.
+  **Por eso el parámetro se valida antes de pedir** (`lib/parametrosPublicos.ts`): un slug
+  con otra forma que la de `app/utils/slug.py` (o de más de 80 caracteres) o un código de
+  comprador que no sea un número es `notFound()` sin llamar al backend. Sin eso, cada URL
+  inventada era una llamada que el límite no contaba.
   La excepción es `GET /publico/portada`, que no lee analytics: la pide la portada con
   `pedirResumenPortada()` (media hora, etiqueta `compra-agil`, nunca lanza).
+- **`GET /publico/mercado`** (`services/publico/mercado.py`): el gasto mensual por sector
+  (`time_series`) y la concentración de los mercados (`market_concentration`: cuántos con el
+  líder en el 50 % o más, con un solo proveedor, y la cuota del líder en diez tramos con su
+  monto), para la portada. **Se agrega en SQL** (`analytics_sync.gasto_mensual_por_sector` y
+  `concentracion_de_mercados`), nunca en Polars: `time_series` pesa 301 MB en producción. Sin
+  su tabla, cada bloque sale `null`; con `FEATURE_ANALYTICS` apagada, 503 como las fichas. Se
+  guarda 10 min en memoria del proceso, sólo si viene completa. `tests/test_publico_mercado.py`,
+  sobre Postgres.
 - **Revalidación desde los cron**: `POST /api/revalidar` con `X-Revalidar-Secreto`
   (`REVALIDAR_SECRETO`, servidor, sin valor por defecto: sin él responde 503) y
   `{"etiquetas": ["analytics" | "compra-agil"]}` → `revalidateTag(tag, 'max')`. Lo llama
@@ -1018,59 +1066,73 @@ negro con tornasol azul-verdoso:
 - Tema claro por defecto, con selector claro/oscuro/sistema en el pie del sitio
   (`components/SelectorTema.tsx`, dentro de `components/cascara/PieSitio.tsx`).
 
-**La portada v7: se busca a la izquierda, se lee a la derecha** (`docs/PORTADA_V7_Y_NOTAS_2026-10.md` §3,
-`app/page.tsx` + `components/portada/`): server component sin JS de cliente propio (las islas son
-de la cáscara), con ISR de 30 min. **No le pongas `'use client'`**: Next ignora `metadata` en
-componentes cliente y la home perdería título y tarjeta de preview.
-- **Dos columnas desde `lg`, `11fr / 10fr`** (48 px entre ellas; «opción 2», decidida el
-  2026-10-17), dentro de `Contenedor pagina`: a la izquierda «¿Qué le vendes al Estado?», el
-  buscador, las dos cifras y la ficha; a la derecha «Lo que dicen los datos» con **dos lecturas
-  apiladas**, que empiezan a la altura del `h1`. Así el primer gráfico empieza a ~230 px a 1440
-  (con la banda a lo ancho de antes, a 625). Debajo, a lo ancho: la franja de hoy, «Lo mejor de
-  hoy» y las notas de datos, cada una con la separación de `Seccion` (`CLASE_SECCION`). Coste
-  aceptado: a 1440 queda un hueco de ~220 px bajo la ficha, porque dos lecturas miden más que
-  buscador, cifras y ficha; no se rellena con piezas nuevas.
-- **En móvil y tableta, una columna: buscador, cifras, lecturas y ficha** (§3.7): la conclusión de
-  la primera lectura tiene que quedar sobre el pliegue a 390×844 (`e2e/portada.spec.ts`). Por eso la
-  ficha va después de las lecturas en el DOM; desde `lg` la rejilla la pone en la columna
-  izquierda (`lg:row-start-3`, bajo las cifras) y las lecturas a la derecha cubriendo las tres filas
-  (`lg:row-span-3`). La fila 3 es `1fr`: lo que las lecturas midan de más cae bajo la ficha, no
-  entre el buscador y las cifras. **Un solo ejemplar de cada pieza**: nada se pinta dos veces para
-  esconder una.
+**La portada de gráficos: se busca a la izquierda, el gasto del Estado a la derecha** (octubre de
+2026, sobre `docs/PORTADA_V7_Y_NOTAS_2026-10.md` §3; `app/page.tsx` + `components/portada/`): server
+component con ISR de 30 min; las únicas islas cliente propias son los gráficos con globo
+(`components/graficos/GastoMensual.tsx`, `Concentracion.tsx` y `components/precio/GraficoPrecio.tsx`,
+que se pintan igual en el servidor). **No le pongas `'use client'` a la página**: Next ignora
+`metadata` en componentes cliente y la home perdería título y tarjeta de preview.
+- **Dos columnas desde `lg`, `5fr / 7fr`** (48 px entre ellas), dentro de `Contenedor pagina`: a la
+  izquierda el titular («Cuánto paga el Estado por lo que vendes», `TITULO_PORTADA`), el buscador,
+  las abiertas de ahora y la ficha; a la derecha **el gráfico grande** (`GastoPortada`): cuánto
+  compra el Estado mes a mes, por sector, a la altura del `h1`. Debajo, a lo ancho: «Para empezar»
+  (tres lecturas en fila), la franja de hoy, «Lo mejor de hoy» y las notas de datos, cada una con la
+  separación de `Seccion` (`CLASE_SECCION`). **Sin el gráfico grande** (menos de seis meses de
+  `time_series`, como en el fixture del E2E) la parte de arriba es una columna `max-w-2xl` y la
+  ficha baja tras «Para empezar».
+- **En móvil, una columna: buscador, abiertas, el gráfico grande y la ficha**: la conclusión del
+  gráfico grande —o, sin él, la de la primera lectura— queda sobre el pliegue a 390×844
+  (`e2e/portada.spec.ts`). La ficha va después del gráfico en el DOM y desde `lg` la rejilla la sube
+  a la columna izquierda (`lg:row-start-2`). **Un solo ejemplar de cada pieza**.
 - **El buscador** (`BuscadorPortada`), un `<form method="get" action="/buscar">` que funciona sin
-  JavaScript; el `<h1>` es la etiqueta del campo, de 36 px en móvil y 56 desde `lg`, **en dos líneas
-  «¿Qué le vendes / al Estado?»**: lo parte el ancho de la columna y `text-balance` (el E2E mide
-  dónde cae «al» a 1024 y 1440). Debajo, `SUBTITULO_PORTADA`; el campo dice
-  `PLACEHOLDER_BUSCADOR` (no repite los ejemplos) y el botón es `bg-dato text-onDato`. Los ejemplos
-  (`EJEMPLOS_BUSQUEDA`, `rutaBuscar` y los límites del campo, todos de `lib/buscar.ts`) están
-  **verificados contra producción**: `scripts/verificar-produccion.sh` pide cada uno, espaciados y
-  sin bucle, con una copia literal que `__tests__/portada-ayudantes.test.ts` compara. Un ejemplo
-  nuevo se verifica antes en producción y nunca es corto ni alfanumérico («pc», «A4»).
-- **Las cifras** (`TiraCifras`: cada bloque entero enlaza al catálogo con el filtro que lo cuenta,
-  `urlCatalogoAbiertas`) y **la ficha** (`FichaPortada`, §3.5): **Base** —«5,48 millones de órdenes
-  de compra, nov 2023 a oct 2026», `baseDeLaFicha` sobre `GET /bi/sector`: la suma de `n_oc` y la
-  ventana mínima y máxima, **nunca escrita a mano**; sin analytics, sin `n_oc` en alguna fila o sin
-  ventana, la fila no sale—, **Fuente**, **Se actualiza** (`SE_ACTUALIZA`: «El catálogo, 4 veces al
-  día de lunes a viernes y una al día el fin de semana. Los precios y los mercados, cada domingo.»,
-  que sale de `HORAS_HABILES` y `HORAS_FIN_DE_SEMANA` vía `FRECUENCIA_CATALOGO`; «de lunes a
-  viernes» y no «día hábil», porque el cron corre también los festivos) y **Lo hace** («{nombre}, {rol}», sólo con `AUTOR_NOMBRE`, enlazado a
-  `AUTOR_URL`; el rol sale de `AUTOR_ROL` y sin ella va el nombre solo). «Se usa» y «Úsalo como quieras» se fueron (V11): la salida a API, MCP y CSV es la de
-  la cabecera y el pie.
-- **«Lo que dicen los datos»** (`LecturasPortada`): sobre blanco, el `h2` en chico (18 px) con un
-  filete de 2 px en `primary` (el navy en claro) debajo. **Dos lecturas como mucho, apiladas en
-  todos los anchos**, cada una con conclusión, gráfico y pie, una tras otra y separadas por un
-  borde: **las dos primeras disponibles en el orden precio → cierres → nota**
-  (`lecturasDeLaPortada`, `MAXIMO_LECTURAS_PORTADA`). Con todo, precio y cierres (la nota sigue en
-  «Notas de datos», más abajo); si falta una, entra la nota; con el backend caído, sólo la nota; sin
-  ninguna, la sección no sale. `dato` sólo en lo que la
-  conclusión nombra; el resto, `dato-tenue`. **Cada frase sale del dato con una regla de
-  `lib/lecturasPortada.ts`**, fijada con sus bordes en `__tests__/lecturas-portada.test.ts`, y
-  **cada lectura se oculta entera si le falta su dato**.
-  - **Precio** (§3.2, `lecturaPrecio` → `precioDeBanda`): «{nombre}: la mitad se pagó entre p25 y
-    p75» —o «la mitad se pagó a $X» si P25 y P75 se escriben igual—, y la conclusión es el enlace al
-    producto. **El gráfico** (`components/precio/GraficoPrecio.tsx`, geometría en
-    `lib/graficoPrecio.ts`, `__tests__/grafico-precio.test.ts`): SVG de servidor y `aria-hidden`,
-    escala logarítmica, la franja P25–P75 con su etiqueta directa «la mitad central», la mediana como una
+  JavaScript. El `<h1>` ya no es la etiqueta del campo: el campo se llama `ETIQUETA_BUSCADOR`
+  («Producto o servicio que vendes», en `aria-label`). 36 px en móvil y 48 desde `lg`, con
+  `text-balance`; el E2E exige que no pase de tres líneas a 1024 y 1440. Debajo,
+  `SUBTITULO_PORTADA`; el campo dice `PLACEHOLDER_BUSCADOR` (no repite los ejemplos) y el botón es
+  `bg-dato text-onDato`. Los ejemplos (`EJEMPLOS_BUSQUEDA`, `rutaBuscar` y los límites del campo,
+  todos de `lib/buscar.ts`) están **verificados contra producción**: `scripts/verificar-produccion.sh`
+  pide cada uno, espaciados y sin bucle, con una copia literal que `__tests__/portada-ayudantes.test.ts`
+  compara. Un ejemplo nuevo se verifica antes en producción y nunca es corto ni alfanumérico («pc», «A4»).
+- **Las abiertas, en una frase** (`AbiertasAhora`, sobre `tiraDeLaPortada`): «Ahora puedes postular a
+  4.409 licitaciones y 2.409 Compras Ágiles.», cada cifra con lo que cuenta enlazada al catálogo con
+  el filtro que la cuenta (`urlCatalogoAbiertas`). Reemplaza a `TiraCifras`, dos bloques con número
+  grande y filete lateral grueso: la plantilla de «métrica de héroe» que el dueño no quería.
+- **La ficha** (`FichaPortada`, §3.5): **Base** —«5,48 millones de órdenes de compra, nov 2023 a oct
+  2026», `baseDeLaFicha` sobre `GET /bi/sector`: la suma de `n_oc` y la ventana mínima y máxima,
+  **nunca escrita a mano**; sin analytics, sin `n_oc` en alguna fila o sin ventana, la fila no
+  sale—, **Fuente**, **Se actualiza** (`SE_ACTUALIZA`: «Licitaciones y Compras Ágiles, 4 veces al día
+  de lunes a viernes y una el fin de semana. Precios y mercados, cada domingo.», que sale de
+  `HORAS_HABILES` y `HORAS_FIN_DE_SEMANA`; «de lunes a viernes» y no «día hábil», porque el cron
+  corre también los festivos) y **Lo hace** («{nombre}, {rol}», sólo con `AUTOR_NOMBRE`, enlazado a
+  `AUTOR_URL`; el rol sale de `AUTOR_ROL` y sin ella va el nombre solo).
+- **El gráfico grande** (`GastoPortada` → `GastoMensual`, geometría en `lib/graficoGasto.ts`, frase
+  en `lib/lecturasMercado.ts`; datos de `GET /publico/mercado`, `gasto_mensual`): una columna por
+  mes, **apilada por sector con el color fijo de cada uno** (`lib/sectores.ts`: Salud `serie-1`,
+  Municipalidades `serie-2`, Gobierno y universidades `serie-3`, Obras públicas `serie-4`, Fuerzas
+  Armadas `serie-5`, y el resto —«Otros», «Legislativo y judicial», sin sector— junto en
+  `serie-otros`). El `h2` es la conclusión (`fraseGasto`): «El Estado compró $X en N meses.
+  {Mes} fue el mes más alto: 1,7 veces un mes típico.» —el mes típico es la mediana; bajo
+  `VECES_PICO` (1,25), «Compra parejo»—. **Globo** al pasar el mouse o tocar un mes (total, el %
+  de cada sector y las órdenes); la leyenda es una lista de cifras (cada sector con su total y su
+  %) y pasar por un sector lo resalta en todos los meses. Eje con la unidad dicha una vez («En
+  billones de pesos») y marcas chicas («$0,5», «$1»). Un mes que falta entre el primero y el
+  último se pinta como hueco. **Con menos de `MINIMO_MESES` (6) no sale.** El pie dice las
+  órdenes, el periodo, qué es un mes típico y que las obras del MOP casi no pasan por órdenes.
+- **«Para empezar»** (`LecturasPortada`, `TITULO_LECTURAS`): `h2` de sección y **tres lecturas en
+  fila desde `lg`**, alineadas por subrejilla (la conclusión, el gráfico y el pie de cada una
+  empiezan a la misma altura); en móvil, una tras otra. **Las tres primeras disponibles en el orden
+  precio → concentración → cierres → nota** (`lecturasDeLaPortada`, `MAXIMO_LECTURAS_PORTADA` = 3):
+  con todo, las tres de datos; si falta una, entra la nota; con el backend caído, sólo la nota; sin
+  ninguna, la sección no sale. **Cada frase sale del dato con una regla** (`lib/lecturasPortada.ts`
+  y `lib/lecturasMercado.ts`, fijadas en `__tests__/lecturas-portada.test.ts` y
+  `__tests__/lecturas-mercado.test.ts`), y **cada lectura se oculta entera si le falta su dato**.
+  - **Precio** (§3.2, `lecturaPrecio` → `precioDeBanda`): «{nombre}: la mitad de las compras se pagó
+    entre p25 y p75» —o «…se pagó a $X» si P25 y P75 se escriben igual—, y la conclusión es el enlace
+    al producto. **El gráfico** (`components/precio/GraficoPrecio.tsx`, geometría en
+    `lib/graficoPrecio.ts`, `__tests__/grafico-precio.test.ts`): SVG `aria-hidden` con **globo** (cada
+    punto dice la mediana del comprador y sus compras, con un área de toque de 20 px; la franja, entre
+    qué precios se pagó la mitad y la mediana), escala logarítmica, la franja P25–P75 con su etiqueta
+    directa «la mitad de las compras», la mediana como una
     raya, la línea fina de P10 a P90 («8 de cada 10»), **un punto por comprador en su mediana** (todos los
     de la banda, de `medianas_compradores`, hasta 200; si la API aún no lo trae —`null`, hasta que la
     semanal materialice su tabla— cae a los de `compradores` con la unidad de la banda, que son diez)
@@ -1091,36 +1153,45 @@ componentes cliente y la home perdería título y tarjeta de preview.
     y periodo legible. **P25 = P75 ya no la oculta** (antes sí): con varios compradores es un precio
     estable, y la frase lo dice. La copia en `verificar-produccion.sh` aplica el mismo filtro: si
     cambia uno, cambia el otro.
+  - **Concentración** (`lecturaConcentracion` → `Concentracion`; `GET /publico/mercado`,
+    `concentracion`): «5 de cada 10 pesos se compran en mercados donde un solo proveedor se lleva la
+    mitad o más» (los bordes del redondeo con palabras, como en los cierres). Un histograma de diez
+    tramos de 10 puntos —cuánto se lleva el proveedor principal de cada mercado, un comprador en un
+    rubro—, del alto del **monto** que se compra en ellos (contar mercados exageraba: los chicos salen
+    más concentrados por tener pocas compras); en `dato` los tramos de la mitad o más. Globo por tramo
+    (monto y mercados). El pie dice cuántos mercados, de qué periodo y cuántos tienen un solo proveedor.
   - **Cierres** (§3.3, `lecturaCierres`): «N de cada 10 Compras Ágiles abiertas cierran hoy o
     mañana» y **una barra de diez celdas con tantas en `dato` como esos décimos** (`decimosDe`, el
     mismo redondeo de la frase), y la tabla de los cuatro tramos con hoy y mañana en negrita. Sin
-    hora legible del resumen, no sale (su pie dice de cuándo es: «Contadas el … a las …, por día de
-    cierre en hora de Chile.», sin el total de abiertas, que la tira dice al lado). Los tramos
+    hora legible del resumen, no sale (su pie dice de cuándo es: «Contadas el … a las …, hora de
+    Chile.», sin el total de abiertas, que la frase de arriba ya dice). Los tramos
     tienen que sumar las abiertas.
   - **La nota** (§3.4, `lecturaNota`): **la más reciente que trae `antes_despues`**
     (`notaDeLaPortada`; si ninguna lo trae, la más reciente), para que tenga gráfico como las
-    otras dos; la lista «Notas de datos» sigue con las cuatro últimas en su orden. Con su resumen y su
+    otras; la lista «Notas de datos» sigue con las cuatro últimas en su orden. Con su resumen y su
     `antes_despues` (`components/notas/AntesDespues.tsx`). Es contenido del repo y está siempre:
-    entra cuando falta una de las otras dos, y con el backend caído la sección sigue con ella.
+    entra cuando falta una de las de datos, y con el backend caído la sección sigue con ella.
 - **El pie de método** (`components/metodo/PieDeMetodo.tsx`, V3) va bajo cada lectura —y bajo el
   gráfico de la ficha de producto—: base y periodo en una frase y los enlaces «Cómo se calcula»
   (guía y ancla), «Ver en la API» (`ORIGEN_API_PUBLICA`) y «Código» (`<REPOSITORIO_URL>/blob/main/<ruta>`,
   sólo con repositorio). **Cada método se declara una vez en `lib/metodo.ts` (`METODOS`)** y
   `__tests__/metodo.test.ts` falla si su fichero ya no existe o si la guía o el ancla cambiaron.
   Las anclas son los `id` que `lib/markdown.ts` (`idDeTitulo`) da a cada título de una guía.
-- **Cuatro piezas vivas, pedidas en paralelo desde el servidor**, y **cada una se oculta sola si el
+- **Cinco piezas vivas, pedidas en paralelo desde el servidor**, y **cada una se oculta sola si el
   backend falla o si un campo que se pinta viene mal formado**, y además, por principio 4 (una cifra
   viva sin hora no se publica): «Lo mejor de hoy» sin `actualizado_en` legible se oculta; el
-  resumen sin hora legible oculta la tira, la franja **y la lectura de cierres**; el producto, sin
+  resumen sin hora legible oculta las abiertas, la franja **y la lectura de cierres**; el producto, sin
   periodo legible. `pedirParaLaPortada(ruta, validador, bloque, cache)` nunca lanza, y la caché la
   elige quien llama:
   - **lo vivo, media hora y etiqueta `compra-agil`** (la revalida el cron frecuente): el resumen
-    (`GET /publico/portada`, `pedirResumenPortada`) —la tira, la lectura de cierres y la franja— y
+    (`GET /publico/portada`, `pedirResumenPortada`) —las abiertas, la lectura de cierres y la franja— y
     «Lo mejor de hoy» (`pedirDestacadas`);
   - **lo de analytics, una semana y etiqueta `analytics`** (la revalida el cron semanal): los
     sectores (`GET /bi/sector`, `pedirSectoresPortada`), que ya no son una lectura sino la fila
-    «Base» de la ficha, y la ficha del producto (`pedirProductoPortada`). Con `FEATURE_ANALYTICS`
-    apagada responden 503: la fila «Base» y la lectura de precio no salen.
+    «Base» de la ficha, el mercado (`GET /publico/mercado`, `pedirMercadoPortada`, validado por
+    `esMercadoPortada`: el gráfico grande y la concentración) y la ficha del producto
+    (`pedirProductoPortada`). Con `FEATURE_ANALYTICS` apagada responden 503: la fila «Base», el
+    gráfico grande y las lecturas de precio y de concentración no salen.
 - **La franja de hoy** (`FranjaPortada`, `franjaDeLaPortada`): publicadas hoy («612 licitaciones y
   Compras Ágiles»: cuenta las dos), el organismo que más publica (por nombre; truncado con `title`) y «Actualizado el» con el día —la portada se cachea—.
   Con 0 publicadas hoy (cada madrugada) las dos primeras celdas se ocultan y la que queda primera
@@ -1145,11 +1216,12 @@ componentes cliente y la home perdería título y tarjeta de preview.
 - **Sin «Inteligencia»** en la portada, los metadatos (`openGraph` y `twitter` incluidos) ni la
   tarjeta de vista previa (R10): `__tests__/r10-sin-inteligencia.test.ts`.
 - `e2e/portada.spec.ts` mide la portada a 320, 390, 1024 y 1440 px sin desborde y la captura en
-  claro y oscuro; a 1024 y 1440, el `h1` en dos líneas y las lecturas a la derecha del buscador,
-  empezando más arriba que el campo y apiladas en una sola columna; a 1440×900, la primera
-  conclusión y el primer gráfico sobre el pliegue; a 390×844, la primera conclusión sobre el
-  pliegue. El fixture del E2E trae la lectura de cierres y la de la nota; la de precio se prueba en
-  Vitest.
+  claro y oscuro; a 1024 y 1440, el `h1` en tres líneas como mucho, «Para empezar» en fila (misma
+  altura, una al lado de otra) y, si está, el gráfico grande a la derecha del buscador y a su altura;
+  a 1440×900, la primera conclusión de datos y su gráfico sobre el pliegue; a 390×844, la primera
+  conclusión sobre el pliegue; y que el globo sale al pasar el mouse y se va al salir. El fixture
+  del E2E trae tres meses de `time_series` (sin gráfico grande), la concentración, los cierres y la
+  nota; el gráfico grande y la de precio se prueban en Vitest.
 
 **La ficha de producto** (`/productos/[slug]`) abre con **«Cuánto se pagó»**: el mismo gráfico de
 precio, con su pie de método (spec PORTADA_V7 §6), `precioDeBanda` sobre la unidad con más compras,
@@ -1218,8 +1290,7 @@ medición se rotula «Estimado» (hoy, el dominio). El total es una **proyecció
 (`COSTO_MENSUAL_APROXIMADO`), no una factura y no los US$5 de antes: el plan Hobby de Railway
 cuesta US$5 e incluye US$5 de uso, así que se paga el mayor de los dos —el uso medido, ~US$9–10—
 más Vercel Pro (US$20, desde el 2026-10-20) y el dominio (~US$1). Se repite al cerrar el primer periodo de facturación (2026-11-13). `/acerca`
-y `/apoyar` lo leen de ahí (la prosa de `/apoyar` sale de las mismas constantes). «Cuánto cuesta» está en el pie
-(columna «Sobre el sitio»). En `/apoyar` los medios de aporte van antes que el costo (con la tabla
+y `/apoyar` lo leen de ahí (la prosa de `/apoyar` sale de las mismas constantes). «Cuánto cuesta» está en el pie. En `/apoyar` los medios de aporte van antes que el costo (con la tabla
 delante, el botón quedaba a 3,5 pantallas en un teléfono), y el total sale dos veces: en la entrada
 y en la fila «Total». La tabla es una sola en los dos anchos (`components/apoyar/TablaCostos.tsx`):
 desde `sm`, tres columnas con filetes y sin caja; por debajo, cada fila pone concepto y monto en una
@@ -1265,6 +1336,9 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   configuración regional chilena mete todo en una columna. Un CSV que se abre mal no es un
   entregable, y son dos detalles que un refactor bienintencionado rompe sin que falle nada.
   **La primera línea es la cita de la fuente** y los encabezados van en la segunda (abajo).
+  **Un texto que empieza por `=`, `+`, `-` o `@` sale con un apóstrofo delante**
+  (`exportar.INICIO_DE_FORMULA`): Excel lo leía como fórmula, y hay ~1.000 descripciones de
+  producto que empiezan por «-». La fecha del nombre del archivo es la de Chile.
 - **Atribución a ChileCompra: es una condición de uso de los datos, no un adorno**
   (`docs/DECLARACION_USO_DATOS.md`). La frase literal «Fuente: Dirección de Compras y
   Contratación Pública (ChileCompra / Mercado Público)» y que ChileCompra no respalda el
@@ -1346,7 +1420,9 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
     anterior y lo que se ve ahora. No hay historia previa: se llena desde el despliegue.
   - La Compra Ágil ingerida trae el RUT del comprador, no su código: se traduce con las OC
     (`RutUnidadCompra` → `CodigoOrganismoPublico`, el más frecuente). Lo que no se traduce
-    cuenta igual, con código nulo.
+    cuenta igual, con código nulo, y **el código nulo es una clave más** al acumular
+    (`join_nulls=True`): sin eso no casaba con el de la semana anterior y cada corrida añadía
+    otra fila (nulo, mes). Las ya duplicadas se colapsan al leer la tabla anterior, con el máximo.
 - **«Abierta» tiene una sola definición: `esta_abierta()`** (`repositories/licitaciones.py`):
   publicada y con cierre futuro o sin cierre, siempre sobre `activo`. La usan el orden del
   catálogo, el filtro `abiertas` de `GET /tenders/` (`/licitaciones?abiertas=1`), la cuenta de
@@ -1368,6 +1444,12 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   `codigo_externo`. **Las tablas de analytics no tienen clave única**: `sql_consulta` y
   `sql_busqueda_texto` terminan en `ctid` (`_analytics_sql.DESEMPATE`), la fila física, que no
   cambia mientras la tabla no se reescriba —el pipeline la reemplaza entera cada semana—.
+- **La serie de gasto (`time_series`, `trend_by_market`) cuenta por mes de CREACIÓN y sólo
+  meses completos** (`trend_analysis.py`): desde el período del primer archivo leído hasta el
+  penúltimo (el último es el mes en curso). Por mes de archivo, el primer mes de la ventana
+  perdía las órdenes creadas antes de ella (un 9 % del archivo, medido en local). La regresión
+  rellena con ceros los meses sin compras, y el CAGR compara el primer y el último **año de
+  calendario** del rango; con menos de 24 meses va nulo (`opportunity_scorer` le pone su neutro).
 - **Analytics lee una VENTANA de historia, no toda** (`data_loader.VENTANA_ANALYTICS_MESES` = 36;
   las bandas de precio por producto, `VENTANA_BANDAS_PRECIO_MESES` = 12). Medido: **cada**
   módulo sube de RAM con los meses de historia —de 0,04 GB/mes (clustering, hoy retirado) a
@@ -1382,6 +1464,13 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
     `price_bands`, `competitors_by_market`, `market_concentration` y `sector_dashboard`, y
     `periodo` en la API de precio, de competidores y en la ficha pública de producto. Una cifra
     sin periodo se lee como «de siempre».
+  - **Un año es completo si la ventana lo cubre de enero a diciembre** (`temporal.anios_completos`,
+    con la ventana de `competitors_by_market`; sin ella, si la serie trae los doce meses). Antes
+    bastaba con que tuviera diciembre, y como la ventana empieza a mitad de año (noviembre de
+    2023, p. ej.) el primer año entraba al CAGR con dos meses: un rubro plano salía creciendo un
+    ~145 % al año. El CAGR del rubro se calcula en un solo sitio
+    (`_compute_cagr_rubro_desde_time_series`), para `/bi/tendencia` y `/bi/resumen`, y el
+    tamaño del panorama usa la misma regla (`tests/test_bi_anios_completos.py`).
   - **Los textos del sitio dicen el número de meses con constantes, no a mano**:
     `MESES_ANALISIS`, `MESES_PRECIOS` y `MESES_COMPRA_AGIL` en `frontend/lib/periodo.ts` son copias
     de `VENTANA_ANALYTICS_MESES`, `VENTANA_BANDAS_PRECIO_MESES` y `VENTANA_COMPRA_AGIL_MESES`, y
@@ -1400,6 +1489,26 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   RUT → código sale de las OC masivas, que traen los dos (`RutSucursal` y `CodigoProveedor`;
   la tabla `ordenes_compra` que también los tenía se fue en el paso 7). «Tu posición» comparaba el RUT normalizado contra esa columna y **no
   coincidía nunca**; esa pantalla se retiró con las cuentas, pero el dato sigue siendo así.
+- **Los números de la descarga masiva se leen en `data_loader`, no en cada módulo**
+  (`con_numeros`, con `NUMERICAS_OC` y `NUMERICAS_LIC`). Vienen como texto, con coma decimal y,
+  en licitaciones, en notación científica («2,5e+07»): con un `cast(Float64, strict=False)` por
+  módulo se perdía el 53 % de las filas de órdenes y **el 21 % de los presupuestos de licitación**
+  (95.158 de 450.922 en 42 meses), sesgado hacia los redondos. `discount_by_context` pasó de
+  280.827 a 366.942 licitaciones adjudicadas con descuento calculable. **Un módulo no vuelve a
+  convertir un número que ya llega convertido.** `etl/tests/test_numeros_licitaciones.py`.
+  - **Un parquet que no se puede leer hace fallar la corrida** (`_iterar`, y la clasificación
+    de personas naturales con el nombre del archivo). Antes se saltaba con un WARNING, el módulo
+    terminaba bien y publicaba un mes menos con el latido en verde. `scan_oc` y `scan_lic`, que
+    no saneaban el monto ni lo repartían por línea y sólo usaban los tests, se borraron: el
+    único camino a los consolidados es `iter_oc_parquets` / `iter_lic_parquets`.
+- **Ninguna salida de analytics cuenta las órdenes canceladas**
+  (`data_loader.ESTADOS_CANCELADOS`): `iter_oc_parquets` las quita al leer, enteras, antes de
+  sanear y repartir el monto. Una orden cancelada no es un precio pagado ni una cuota de
+  mercado. Hasta el 2026-10-21 sólo `sector_dashboard` las quitaba. Las piden con
+  `canceladas=True` `buyer_scoring` (su tasa de cancelación y el denominador) y el modelo de
+  referencia del harness (`tfidf_matcher`, `evaluation/`), cuyo entrenamiento no cambia. Una
+  orden sin estado se queda. `etl/tests/test_canceladas.py` pasa un mercado entero de
+  canceladas por cinco módulos y lo busca en cada salida.
 - **El monto en pesos de una orden se sanea al LEER, en un solo sitio**
   (`data_loader.con_monto_saneado`, que `iter_oc_parquets` aplica antes de
   `con_monto_por_linea`): todo módulo lo hereda. ChileCompra pasa a pesos multiplicando
@@ -1432,8 +1541,6 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   - Comparar el total con la suma de las líneas no distingue nada: las imposibles cuadran igual
     (33.047 de 34.912 órdenes en UF o UTM). Un tope por tipo de licitación (LE ≤ 1.000 UTM…)
     atrapa casi sólo lo que ya atrapa (a).
-  - `sector_dashboard` **no cuenta las canceladas** (`compra_agil_mensual.ESTADOS_CANCELADOS`,
-    la misma tupla, importada). Los demás módulos que suman montos todavía sí.
   - Lo fija `etl/tests/test_monto_saneado.py`, con los casos reales en órdenes sintéticas. El
     cruce de Obras Públicas, `etl/tests/test_medir_obras_mop.py`.
 - **`competitors_by_market` tiene una fila por *(organismo, rubro, proveedor)*.** Cualquier
@@ -1441,6 +1548,19 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   donde hay 77.720, y tomar una fila suelta como representativa daba tres «líderes del
   rubro» con 99,9 %, 99,9 % y 99,0 %… cada uno de un comprador distinto. Lo fija
   `tests/test_bi_metricas.py`, con un mercado de juguete donde el error se ve.
+  - **Se agrega en Postgres** (`_base._agregado` y `_totales`, sobre `sql_agregado` y
+    `sql_totales`): los grupos de más monto con tope, y los totales con la suma de los
+    cuadrados para el HHI. El panorama, el resumen y los competidores de un organismo traían
+    todas las filas del rubro a la API (512 MB) para devolver diez; `/mercado` con un rubro, tres
+    veces. `tests/test_bi_agregado_sql.py` compara el SQL con el cálculo de Polars de antes.
+  - **Sin rubro, `/bi/competidores/{org}` y el panel de una licitación agregan sobre TODO lo que
+    compra el organismo**: cuota sobre su monto total, `rank_monto` el puesto en ese total y una
+    sola entrada de `concentracion`, sin rubro. Antes se ordenaban las filas del organismo por
+    `rank_monto` y salían los n.º 1 de cinco rubros cualesquiera, cada uno con la cuota de su
+    rubro. La licitación no trae `RubroN2` (sale de las órdenes), por eso el panel va sin rubro.
+  - **`rank_monto` se rankea con `method="min"`** (dos empatados en el 2.º son 2.º). Con el
+    `average` de Polars salía 2,5, la columna era Float64 y `Competidor.rank_monto: int`
+    devolvía 500; el esquema trunca los decimales de las tablas materializadas antes.
 - **La identidad de una entidad es su CÓDIGO. El nombre nunca va en la clave de agrupación**
   (`etl/analytics/identidad.py`). En el histórico de ChileCompra **145 de 1.186 compradores
   (12,2 %) aparecen con más de un nombre** —los cambios de 2021 dejaron a la misma repartición
@@ -1449,6 +1569,18 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   mentira: 7 de 11 tablas materializadas tenían su clave natural duplicada. El nombre se
   arrastra con `nombre_vigente()`, que se queda con el **más reciente** — un organismo
   renombrado debe salir con su nombre de hoy, y el más frecuente sería siempre el viejo.
+  - **«Más reciente» es por fecha, no por texto.** `_periodo_archivo` es el nombre del ZIP,
+    «2026-3», sin cero: como texto «2025-9» > «2025-12». `nombre_vigente`, `periodo_maximo` y
+    `periodo_minimo` ordenan por `clave_periodo` (año·12 + mes); hasta el 2026-10-21 una ventana
+    que cruzaba septiembre y diciembre se quedaba con el nombre de septiembre, y
+    `provider_diversification.ultimo_periodo` decía «2026-9» a quien vendió en octubre.
+  - Lo cumplen también las bandas de precio L0–L3, `competitor_forecast_l1` y
+    `buyer_transparency`, que agrupaban por nombre de organismo, de sector o de producto. El
+    nombre genérico de un producto llega truncado de dos formas («…personal sanitari»): 770
+    códigos traen dos nombres el mismo mes. **La excepción es Convenio Marco**: toda su línea
+    lleva el código de producto «0» (400.896 de 2,48 M líneas en los seis meses locales) y el
+    producto es su nombre de catálogo, así que L1–L3 agrupan por `_producto` (el código, o «0|»
+    más el nombre). Las tablas conservan sus columnas y su orden.
 - **El HHI tiene una invariante aritmética: con *n* proveedores no puede bajar de 10.000/*n*,
   y la cuota del líder no puede quedar por debajo de 100/*n*.** Las dos se violaban a la vez
   —13,6 % y 98,7 % de las filas— y por separado cada número parecía razonable. De 5.675
@@ -1480,7 +1612,9 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   real 1,63 días— y el producto lo publicaba como plazo de pago en la pantalla, en el correo
   y en la landing. Se renombró a `*_aceptacion` en todas partes y **no se muestra como cifra
   suelta**: sólo como bandera cuando se sale de rango. Lo que sí sale del dato y decide algo
-  es `tasa_adjudicacion` (cuánto de lo que llama termina adjudicando). `Forma de Pago`
+  es `tasa_adjudicacion` (cuánto de lo que llama termina adjudicando), **contada por
+  licitación**: el archivo trae una fila por (línea, oferta), y por filas daba 93,2 % donde
+  por licitaciones es 84,2 % (42 meses). Igual `prom_oferentes` y `pct_trato_directo`. `Forma de Pago`
   tampoco sirve de sustituto: el 98,7 % de las órdenes dice lo mismo.
   **La landing fue el último sitio en soltarla**, y estuvo meses prometiéndola después de que
   el correo y el panel del comprador ya la hubieran retirado: `MockupAviso` mostraba «Paga a
@@ -1586,6 +1720,20 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
     abierta para la disponibilidad.
   - IPv6 cuenta por /64. Uvicorn arranca con `--no-proxy-headers`: la regla es una sola.
   - Las capas por clave de API y por cuota diaria se fueron con las cuentas.
+  - **Las exentas van en fila** (`MAX_EXENTAS_A_LA_VEZ` = 4): una ficha ISR se genera con el
+    slug que trae la URL, así que mil slugs inventados eran mil consultas que el límite no
+    contaba. No se rechazan (un error no se cachea): esperan turno.
+- **Endurecimiento de toda petición** (`app/core/endurecimiento.py`, el middleware más
+  externo): cuerpo de 64 KB como mucho (413; lo único que recibe cuerpo es el MCP, cuyo SDK lo
+  lee entero en memoria), ningún `%00` en ruta ni query (422: Postgres no admite el carácter 0
+  y salía 500), y `nosniff`, `no-referrer` y `X-Frame-Options: DENY` en toda respuesta. Un
+  `X-Request-ID` de fuera sólo se respeta si es `[A-Za-z0-9-]{1,64}`. `/health/ready` no
+  devuelve el texto del error de la base, y un 500 lleva `Access-Control-Allow-Origin: *` con
+  `CORS_ORIGINS=*` (antes un integrador veía «Network Error»).
+- **Sentry no recibe `X-Tordo-Proxy` ni `X-Tordo-Visitante`** (`CABECERAS_PRIVADAS` en
+  `app/observability/sentry.py`): `send_default_pii=False` sólo filtra la lista propia de
+  Sentry, y el secreto del proxy viajaba en cada error y en cada traza muestreada.
+- **La imagen de la API corre sin root** (`USER api` en `backend/Dockerfile`).
 - **Las redirecciones de la API son relativas** (`app/core/redirecciones.py`, rediseño 0d).
   Detrás del TLS de Railway la app ve `scheme=http` y `redirect_slashes` escribía
   `Location: http://…` en las 29 redirecciones por barra final: `https://api.tordo.cl/mcp`
@@ -1598,8 +1746,8 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   esquivando por host cualquier `Location` absoluto, pero ya no lo necesita para los propios.
 - **Todo parámetro público tiene cota** (`app/api/limites.py`): textos con `max_length`,
   enteros con `le=`, `offset` hasta 100.000, ids dentro de un `integer` de Postgres (uno
-  mayor llegaba a la base y volvía **500**), y como mucho 8 términos en la búsqueda de
-  Compra Ágil. `tests/test_parametros_acotados.py` recorre el OpenAPI y falla con un
+  mayor llegaba a la base y volvía **500**), y como mucho 8 términos en la búsqueda (catálogo y
+  Compra Ágil, `limites.MAX_TERMINOS`). `tests/test_parametros_acotados.py` recorre el OpenAPI y falla con un
   parámetro nuevo sin cota. **Y nada que se pida gratis carga una tabla entera**:
   `/bi/productos?q=` traía `product_price_bands_l3` completa a Polars en cada petición
   (~70 ms con seis meses); ahora filtra en SQL sobre el índice de trigramas, con tope de
@@ -1608,14 +1756,19 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   en Postgres) y `oportunidades`, `tendencia` y `rubros` sin rubro traían sus tablas
   completas a la vez; la API moría por OOM (11 `Killed` el 2026-10-14 y el servicio en
   `CRASHED`). Los mínimos van como `minimos` de `sql_consulta`, el top-N como `orden`+`limite`
-  y los conteos con `contar_por` (`COLLATE "C"`, el orden de Polars).
+  (con `desempate_texto` cuando el empate se resolvía por una columna de texto), los conteos con
+  `contar_por` y `contar_filas`, los valores distintos con `distintos(filtros=)` y lo que agrega
+  por proveedor con `agregado`/`totales` (`COLLATE "C"`, el orden de Polars). `_a_polars`
+  infiere el esquema con todas las filas: con las 100 primeras, una columna nula ahí y con
+  texto después lanzaba `ComputeError`.
   `tests/test_bi_mercado_acotado.py` recorre **las 16 funciones `get_*` de `services/bi`**
   (las llamadas del golden más las de primera visita, sin rubro ni organismo) contra el
-  doble de `_load` y falla si alguna lee una tabla sin `filtros` ni `limite`, salvo tres
+  doble de `_load` (y de los agregados) y falla si alguna lee una tabla sin `filtros` ni `limite`, salvo tres
   que se leen enteras por pequeñas, cada una con su motivo escrito en el test
   (`sector_dashboard`, `buyer_scores`, `buyer_risk_flags`). Una función nueva sin llamadas
   en la guarda también la hace fallar. **No cubre** `services/publico/` (las páginas
   indexables también leen analytics con `_load`) ni `repositories/`: ahí la guarda no existe.
+  `/publico/mercado` agrega en el repositorio y no pasa por `_load`.
 - **CORS abierto en producción (`CORS_ORIGINS=*`), sin credenciales**: la API es pública y
   anónima, y limitarla a los dominios del sitio dejaba fuera a los integradores que la
   llaman desde una aplicación web. No abre el MCP: su lista de `Host`/`Origin` es otra
@@ -1689,20 +1842,18 @@ estos patrones, es señal de que hay que arreglar la causa, no de copiarlo:
     Columna generada y no índice por expresión, como `nombre_norm`; la expresión vive una vez, en
     `busqueda.sql_normalizado`, y el ETL la importa. Sin la columna (una tabla materializada antes),
     el nombre se normaliza al vuelo: mismo resultado, sin índice, hasta la semanal siguiente.
-  - **La vía de palabras tiene un límite conocido: el stemmer.** `plainto_tsquery('spanish',
-    'mesa')` es `'mes'`, el mismo lexema que «meses», así que «mesa» encuentra toda licitación
-    que diga «12 meses» en la descripción: en la copia local (4.706 licitaciones), **121 coincidencias, de las que 5
-    tienen una palabra que empieza por «mesa»**. Se queda así porque no hay un arreglo barato y
-    limpio: `busqueda` guarda sólo raíces, y distinguir «mesa» de «meses» exige las palabras
-    tal cual, que sólo están en el texto crudo. Exigir además que el texto (sin tildes) tenga
-    una palabra que empiece por el término —o que sea el término sin su «s»/«es» de plural,
-    para no perder «servicios» → «servicio»— funciona, pero se evalúa al vuelo sobre cada fila
-    que pasa la raíz, y `descripcion` no tiene índice: medido sobre 50.000 filas de 1.700
-    caracteres, **de 5 ms a 115 ms con 25.000 coincidencias y 270 ms con 50.000**, y el listado
-    lo hace dos veces (total y página). Lo limpio es un segundo `tsvector` con la configuración
-    `simple` (palabras sin raíz) y su GIN: una migración que reescribe `licitaciones`, otro
-    índice que mantener en cada carga del ETL y la regla del plural escrita a mano. Es una
-    decisión de producto, no un arreglo.
+  - **La vía de palabras corrige al stemmer** (`_empieza_alguna_palabra`, migración
+    `94f54e8e1fdf`). `plainto_tsquery('spanish', 'mesa')` es `'mes'`, el mismo lexema que
+    «meses», y «mesa» encontraba toda licitación de «12 meses»: en la copia local (4.706
+    licitaciones), 121 coincidencias de las que 5 eran mesas. Ahora cada palabra del término
+    tiene que, además, **empezar** alguna palabra de `busqueda_palabras` (el mismo texto con la
+    configuración `simple`, sin raíz) **o ser exactamente su singular** (sin «s»/«es»):
+    «servicios» encuentra «servicio» y «camiones», «camión»; el singular va exacto porque con
+    `mes:*` «meses» volvería a traer «mesas». Una palabra que el español descarta («de») no exige
+    nada. Con eso «mesa» da 5 y «computador» deja de traer «tomografía computada». **Sin índice
+    a propósito**: sólo filtra lo que encontró el GIN de `busqueda`, y comparar un tsvector
+    guardado es barato —medido sobre 50.000 filas de 1.700 caracteres, ~1 ms más con 50.000
+    coincidencias; la regex sobre `descripcion` que se descartó costaba 270 ms—.
   **El orden por relevancia también es Postgres** (`puntuacion_relevancia`: `ts_rank_cd`
   con todos los términos, que premia la cercanía, + `ts_rank` con cualquiera y sobre el
   nombre). Antes lo hacía el TF-IDF del ETL cargado en la API. **Relevancia ordena, no
@@ -1754,6 +1905,10 @@ versiona su propio protocolo.
   llamadas donde una persona hace tres. Nació para no agotar una cuota en una conversación;
   sin cuotas, sigue acotando la carga que mete un cliente anónimo. Hay un test que falla si
   aparece una quinta herramienta.
+- **Sus argumentos tienen las cotas de la API** (`Codigo`, `Texto`, de `limites.py`;
+  `test_todo_argumento_de_texto_tiene_cota`), y **los servicios de BI corren en un hilo**
+  (`_en_hilo`, como mucho dos a la vez): son síncronos, y llamados desde la corrutina
+  bloqueaban el bucle, con lo que toda la API REST esperaba a que terminara un panel.
 - **Ninguna herramienta acepta `empresa_id`**: un modelo rellenaría ese hueco con lo que le
   pareciera. Un test lo comprueba.
 - **`tests/test_mcp.py` habla el protocolo por HTTP**, no llama a las funciones. Es la única

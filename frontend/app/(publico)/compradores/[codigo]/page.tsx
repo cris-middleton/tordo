@@ -20,6 +20,7 @@ import {
   rutaRubro,
   senalesDelComprador,
 } from '@/lib/publico';
+import { esCodigoComprador } from '@/lib/parametrosPublicos';
 import { pedirPublico, segmento } from '@/lib/publicoServidor';
 import type { CompradorPublico } from '@/types/publico';
 import { TITULO_DESTACADAS } from '@/lib/compraAgil';
@@ -52,6 +53,8 @@ type Props = { params: Promise<{ codigo: string }> };
  * metadatos y el perfil.
  */
 async function obtener(codigo: string): Promise<CompradorPublico> {
+  // Un código con otra forma no existe: 404 sin llamar al backend (`lib/parametrosPublicos.ts`).
+  if (!esCodigoComprador(codigo)) notFound();
   const comprador = await pedirPublico<CompradorPublico>(`/compradores/${segmento(codigo)}`);
   if (!comprador) notFound();
   return { ...comprador, nombre: normalizeText(comprador.nombre) };

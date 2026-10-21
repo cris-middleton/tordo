@@ -23,14 +23,19 @@ Dos reglas que no son obvias:
   el tope acota ese coste. Recortar en silencio sería peor que no recortar: quien
   sume la columna creería tener el total. Por eso la última línea lo avisa, con
   `#` delante para que pandas la salte con `comment="#"`.
+- **Un texto que empieza por `=`, `+`, `-` o `@` lleva un apóstrofo delante.**
+  Excel lee esas celdas como fórmulas: «-Espéculo auricular» salía `#¿NOMBRE?`,
+  y un texto libre del comprador que empezara por `=HYPERLINK(` se ejecutaría al
+  abrir el archivo. El apóstrofo lo hace texto (OWASP, *CSV injection*).
 """
 
 from __future__ import annotations
 
 import csv
 import io
-from datetime import UTC, datetime
 from typing import Any
+
+from app.core.tiempo import hoy_chile
 
 #: Excel en Windows necesita el BOM para leer UTF-8. Sin él, cada tilde sale como
 #: dos caracteres raros y el archivo parece corrupto.
@@ -51,6 +56,10 @@ MAX_FILAS_CSV = 5000
 ATRIBUCION = "Fuente: Dirección de Compras y Contratación Pública (ChileCompra / Mercado Público)"
 
 
+#: Lo que, al principio de una celda, Excel y LibreOffice leen como fórmula.
+INICIO_DE_FORMULA = ("=", "+", "-", "@", "\t", "\r")
+
+
 def _valor(v: Any) -> str:
     if v is None:
         return ""
@@ -58,6 +67,8 @@ def _valor(v: Any) -> str:
         # Coma decimal, que es lo que lee Excel en Chile. Un punto se
         # interpretaría como separador de miles y multiplicaría por mil.
         return f"{v:.2f}".replace(".", ",")
+    if isinstance(v, str) and v.startswith(INICIO_DE_FORMULA):
+        return "'" + v
     return str(v)
 
 
@@ -87,7 +98,9 @@ def nombre_archivo(recurso: str, referencia: str) -> str:
     nadie sabe cuál es la buena.
     """
     limpio = "".join(c if c.isalnum() or c in "-_" else "-" for c in referencia)[:40]
-    return f"tordo-{recurso}-{limpio}-{datetime.now(UTC):%Y-%m-%d}.csv"
+    # La fecha de Chile: con la del contenedor (UTC), lo exportado después de
+    # las 20:00 de Santiago salía con la fecha de mañana.
+    return f"tordo-{recurso}-{limpio}-{hoy_chile():%Y-%m-%d}.csv"
 
 
 COLUMNAS_PRECIO: list[tuple[str, str]] = [
@@ -113,5 +126,7 @@ COLUMNAS_COMPETIDORES: list[tuple[str, str]] = [
     ("CodigoProveedor", "Código de proveedor"),
     ("n_oc", "Órdenes ganadas"),
     ("monto_total", "Monto total"),
-    ("participacion", "Participación"),
+    # La clave es la que devuelve `get_competidores`. Decía `participacion`, que
+    # no existe, y la columna salía vacía en todos los archivos.
+    ("market_share_pct", "Participación (%)"),
 ]

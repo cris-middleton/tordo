@@ -16,6 +16,7 @@ import { ErrorDeCarga } from '@/components/ErrorDeCarga';
 import { FueraDelCatalogo } from '@/components/licitacion/FueraDelCatalogo';
 import { fechaLargaDeChile } from '@/lib/horaChile';
 import { urlMercadoPublico } from '@/lib/compraAgil';
+import { urlDeMercadoPublico } from '@/lib/enlacesExternos';
 import { cierreEnPalabras, normalizeText, shortRegion } from '@/lib/licitacionEstado';
 
 import { useLicitacion, usePanelLicitacion } from '@/lib/queries';
@@ -99,8 +100,10 @@ export default function TenderDetailPage() {
   // (`urlMercadoPublico`). Sin esto su ficha no tenía cómo ir a cotizar.
   const esCompraAgil =
     tenderData?.tipo_convocatoria === 'compra_agil' || /-COT\d+$/i.test(tenderData?.codigo_externo ?? '');
+  // `url_licitacion` viene del dato: se enlaza sólo si es de Mercado Público (`lib/enlacesExternos.ts`).
   const urlFicha = tenderData
-    ? tenderData.url_licitacion || (esCompraAgil ? urlMercadoPublico(tenderData.codigo_externo) : null)
+    ? urlDeMercadoPublico(tenderData.url_licitacion) ??
+      (esCompraAgil ? urlMercadoPublico(tenderData.codigo_externo) : null)
     : null;
   const guardada = Boolean(tenderData) && hydrated && isTenderStored('saved', tenderData!.id);
   const postulada = Boolean(tenderData) && hydrated && isTenderStored('applied', tenderData!.id);

@@ -27,7 +27,8 @@ def get_licitacion_panel(
     Composite BI snapshot for the licitación detail page.
 
     Aggregates: comprador score + transparencia, ventana de preparación,
-    top-5 competidores, and per-product price fallback bands (L1→L2→L3).
+    top-5 competidores del organismo (todos sus rubros), and per-product price
+    fallback bands (L0→L4; sin organismo, L0N→L3).
     Returns a single dict matching the LicitacionBIPanel schema.
     """
     # ── Comprador ─────────────────────────────────────────────────────────────
@@ -62,6 +63,13 @@ def get_licitacion_panel(
     }
 
     # ── Competidores (top 5) ──────────────────────────────────────────────────
+    #
+    # Sin rubro a propósito: los de TODO lo que compra el organismo, agregados
+    # por proveedor, con su cuota sobre ese total y el HHI de esas cuotas (ver
+    # `get_competidores`). La licitación no trae un `RubroN2`: el rubro sale de
+    # las órdenes de compra y sus ítems traen sólo la categoría UNSPSC. Antes
+    # esto mezclaba los primeros de cinco rubros cualesquiera, cada uno con la
+    # cuota de su rubro, bajo «parte de lo que compra este organismo».
     if organismo_id:
         c = get_competidores(organismo_id, top_n=5)
         conc = (c.get("concentracion") or [{}])[0]
@@ -75,9 +83,13 @@ def get_licitacion_panel(
     else:
         competidores = {"disponible": False, "motivo": "organismo_id no disponible"}
 
-    # ── Precios (L1→L2→L3 per product) ───────────────────────────────────────
+    # ── Precios (L0→L4 por producto) ─────────────────────────────────────────
+    #
+    # Sin organismo también: la Compra Ágil trae sólo el RUT del comprador y no
+    # su código, y exigirlo dejaba sin precios a la mitad del catálogo. L0N, L2 y
+    # L3 no necesitan comprador; `get_precio_producto` se salta L0, L1 y L4.
     precios: list = []
-    if product_codes and organismo_id:
+    if product_codes:
         seen: set = set()
         for code in product_codes:
             if code in seen or len(precios) >= 5:

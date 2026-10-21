@@ -172,6 +172,7 @@ class TfidfMatcherEvaluable(Evaluable):
         for _periodo, df in iter_oc_parquets(
             columns=["CodigoLicitacion", "CodigoProveedor", "FechaCreacion"],
             min_year=start.year,
+            canceladas=True,
         ):
             if df.is_empty():
                 continue

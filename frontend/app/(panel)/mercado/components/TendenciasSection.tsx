@@ -7,12 +7,10 @@ import { EligeRubro } from '@/components/bi/EligeRubro';
 import { Columnas } from '@/components/graficos/Columnas';
 import { decimal, monto } from '@/lib/formato';
 
-import { SerieAnualPunto, TendenciaItem } from '../types';
+import { SerieAnualPunto } from '../types';
 import { ShareMenu } from './ShareMenu';
 
 interface TendenciasSectionProps {
-  tendencias: TendenciaItem[];
-  emergentes: TendenciaItem[];
   loading: boolean;
   selectedRubro: string;
   serieAnual?: SerieAnualPunto[] | null;
@@ -29,7 +27,7 @@ const conSigno = (v: number, digitos = 1) => `${v > 0 ? '+' : v < 0 ? '−' : ''
  * signo —el color como juicio— y, sin rubro, un ranking de 12 rubros en barras;
  * desde que `/mercado` abre siempre con un rubro, esa rama no se pintaba nunca.
  */
-export function TendenciasSection({ tendencias, loading, selectedRubro, serieAnual, cagrRubro }: TendenciasSectionProps) {
+export function TendenciasSection({ loading, selectedRubro, serieAnual, cagrRubro }: TendenciasSectionProps) {
   const rootRef = useRef<HTMLElement>(null);
 
   if (!selectedRubro) return <EligeRubro que="ver cómo viene creciendo ese mercado" />;
@@ -41,9 +39,14 @@ export function TendenciasSection({ tendencias, loading, selectedRubro, serieAnu
     );
   }
 
-  const fila = tendencias.find((t) => t.RubroN2 === selectedRubro);
-  const cagr = cagrRubro ?? fila?.cagr ?? null;
+  // Sólo la cifra del rubro, que viene en porcentaje. Había un respaldo a la
+  // fila de `tendencias`, que es UN organismo en el rubro y trae el CAGR como
+  // fracción: un 25 % salía «0,3 % al año». Sin la cifra del rubro, no se dice.
+  const cagr = cagrRubro ?? null;
   const serie = serieAnual ?? [];
+  const ordenes = serie.every((p) => p.n_oc != null)
+    ? serie.reduce((suma, p) => suma + (p.n_oc ?? 0), 0)
+    : null;
   const primero = serie[0]?.anio;
   const ultimo = serie.at(-1)?.anio;
   const conclusion =
@@ -92,9 +95,9 @@ export function TendenciasSection({ tendencias, loading, selectedRubro, serieAnu
               }))}
             />
           </div>
-          {fila?.total_oc != null && (
+          {ordenes != null && (
             <p className="mt-3 text-sm text-muted">
-              {fila.total_oc.toLocaleString('es-CL')} órdenes de compra en {serie.length} años completos.
+              {ordenes.toLocaleString('es-CL')} órdenes de compra en {serie.length} años completos.
             </p>
           )}
         </div>

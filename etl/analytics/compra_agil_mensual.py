@@ -52,7 +52,7 @@ import polars as pl
 from sqlalchemy import create_engine, text
 
 from etl.analytics.config import OUTPUT_DIR
-from etl.analytics.data_loader import iter_oc_parquets
+from etl.analytics.data_loader import ESTADOS_CANCELADOS, iter_oc_parquets
 from etl.config import config
 from etl.shared_imports import CEROS_INICIALES, FUERA_DE_RUT
 
@@ -60,9 +60,6 @@ logger = logging.getLogger(__name__)
 
 SALIDA = "compra_agil_mensual.parquet"
 CLAVE = ["CodigoOrganismoPublico", "mes"]
-
-#: Estados de una orden que no llegó a comprar nada.
-ESTADOS_CANCELADOS = ("Cancelacion solicitada", "Cancelada", "Cancelación solicitada")
 
 COLUMNAS_OC = ["Codigo", "CodigoOrganismoPublico", "RutUnidadCompra", "FechaCreacion"]
 COLUMNAS_OC_FILTRO = ["EsCompraAgil", "Estado"]
@@ -111,6 +108,8 @@ def ordenes_compra_agil(frames: Iterable[pl.DataFrame], extra: Iterable[str] = (
         if not {"EsCompraAgil", "Codigo"} <= set(df.columns):
             continue
         filtro = pl.col("EsCompraAgil") == "Si"
+        # `iter_oc_parquets` ya las quita; el filtro se queda porque los tests
+        # (y quien inyecte `frames`) entregan órdenes sin pasar por él.
         if "Estado" in df.columns:
             filtro &= ~pl.col("Estado").is_in(ESTADOS_CANCELADOS)
         partes.append(
@@ -177,13 +176,22 @@ def publicadas_por_mes(publicadas: pl.DataFrame, traduccion: pl.DataFrame) -> pl
 def combinar(
     adjudicadas: pl.DataFrame, publicadas: pl.DataFrame, anterior: pl.DataFrame | None
 ) -> pl.DataFrame:
-    """Las tres en una tabla. `publicadas` se ACUMULA: máximo con la anterior."""
-    actual = adjudicadas.join(publicadas, on=CLAVE, how="full", coalesce=True)
+    """Las tres en una tabla. `publicadas` se ACUMULA: máximo con la anterior.
+
+    **El código nulo es una clave más** (`join_nulls=True`): lo que no se traduce
+    a código se cuenta en una fila (nulo, mes). Sin eso un nulo no casaba con el
+    de la semana anterior y cada corrida añadía otra fila (nulo, mes): 2, 3, 4…
+    Las que ya están duplicadas en la tabla guardada se colapsan al leerla, con
+    el máximo, que es la regla de la acumulación.
+    """
+    actual = adjudicadas.join(publicadas, on=CLAVE, how="full", coalesce=True, join_nulls=True)
     if anterior is not None and len(anterior):
-        previas = anterior.select(*CLAVE, pl.col("publicadas").alias("publicadas_previas"))
-        actual = actual.join(previas, on=CLAVE, how="full", coalesce=True).with_columns(
-            pl.max_horizontal("publicadas", "publicadas_previas").alias("publicadas")
+        previas = anterior.group_by(CLAVE).agg(
+            pl.col("publicadas").max().alias("publicadas_previas")
         )
+        actual = actual.join(
+            previas, on=CLAVE, how="full", coalesce=True, join_nulls=True
+        ).with_columns(pl.max_horizontal("publicadas", "publicadas_previas").alias("publicadas"))
     for columna, tipo in ESQUEMA.items():
         if columna not in actual.columns:
             actual = actual.with_columns(pl.lit(None, dtype=tipo).alias(columna))

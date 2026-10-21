@@ -10,7 +10,8 @@
  *    en `NO_SON_GRAFICOS`, con su motivo. Un gráfico nuevo hace fallar el test
  *    hasta que alguien decida si cumple la guía.
  * 2. **Los propios sólo pintan con tokens**: `dato` lo que nombra la conclusión,
- *    `dato-tenue` el resto, y tintas y bordes neutros para ejes y rótulos. Ni un
+ *    `dato-tenue` el resto, las series (`serie-1…5`, `serie-otros`) cuando se
+ *    comparan categorías, y tintas y bordes neutros para ejes y rótulos. Ni un
  *    color crudo, ni `accent`, ni `primary`.
  * 3. **Sin adornos**: ni degradados, ni sombras, ni filtros, ni animaciones, ni
  *    leyendas (la etiqueta va junto al dato).
@@ -30,10 +31,14 @@ import { describe, expect, it } from 'vitest';
 
 import { BarrasHorizontales } from '@/components/graficos/BarrasHorizontales';
 import { Columnas } from '@/components/graficos/Columnas';
+import { Concentracion } from '@/components/graficos/Concentracion';
+import { GastoMensual } from '@/components/graficos/GastoMensual';
 import { AntesDespues } from '@/components/notas/AntesDespues';
 import { BarraCierres } from '@/components/portada/BarraCierres';
 import { GraficoPrecio } from '@/components/precio/GraficoPrecio';
+import { graficoGasto } from '@/lib/graficoGasto';
 import { graficoPrecio } from '@/lib/graficoPrecio';
+import { lecturaConcentracion } from '@/lib/lecturasMercado';
 import type { BandaUnidad } from '@/types/publico';
 
 const RAIZ = join(__dirname, '..');
@@ -73,6 +78,33 @@ const DATOS_PRECIO = graficoPrecio(
   BANDA,
   MEDIANAS.map((p50, i) => ({ codigo: `c${i}`, nombre: `Comprador ${i}`, unidad: 'unidad', n: 4, p50 })),
 );
+
+const DATOS_GASTO = graficoGasto(
+  Array.from({ length: 12 }, (_, i) =>
+    ['Salud', 'Municipalidades', 'Otros'].map((sector, j) => ({
+      anio: 2025,
+      mes: i + 1,
+      sector,
+      monto: (j + 1) * 1e11 * (i === 11 ? 1.6 : 1),
+      n_oc: 1000,
+    })),
+  ).flat(),
+)!;
+
+const DATOS_CONCENTRACION = lecturaConcentracion(
+  {
+    gasto_mensual: null,
+    concentracion: {
+      mercados: 100,
+      sobre_la_mitad: 50,
+      un_proveedor: 5,
+      monto_total: 1e12,
+      monto_sobre_la_mitad: 5e11,
+      tramos: Array.from({ length: 10 }, (_, i) => ({ desde: i * 10, hasta: i * 10 + 10, mercados: 10, monto: 1e11 })),
+    },
+  },
+  null,
+)!.grafico;
 
 interface Propio {
   que: string;
@@ -116,6 +148,14 @@ const PROPIOS: Record<string, Propio> = {
       />
     ),
   },
+  'components/graficos/GastoMensual.tsx': {
+    que: 'el gasto mensual por sector de la portada: columnas apiladas con el color fijo de cada sector, globo y leyenda con cifras',
+    ejemplo: () => <GastoMensual datos={DATOS_GASTO} />,
+  },
+  'components/graficos/Concentracion.tsx': {
+    que: 'la concentración de los mercados de la portada: diez tramos, globo, y la tabla de valores en sr-only',
+    ejemplo: () => <Concentracion datos={DATOS_CONCENTRACION} />,
+  },
   'components/graficos/Columnas.tsx': {
     que: 'columnas por mes o por año: estacionalidad y serie anual en /mercado',
     ejemplo: () => (
@@ -147,6 +187,13 @@ const NO_SON_GRAFICOS: Record<string, string> = {
 const COLOR_PERMITIDO = new Set([
   'dato',
   'dato-tenue',
+  'serie-1',
+  'serie-2',
+  'serie-3',
+  'serie-4',
+  'serie-5',
+  'serie-otros',
+  'border-light',
   'text',
   'muted',
   'subtle',
@@ -155,15 +202,16 @@ const COLOR_PERMITIDO = new Set([
   'surface-elevated',
 ]);
 /** `text-sm`, `border-t`… no son colores. */
-const NO_ES_COLOR = /^(?:xs|sm|base|lg|xl|\d?xl|left|right|center|[trblxy]|\d+|\[.*\]|none|collapse|separate|opacity-\d+|solid|dashed)$/;
+const NO_ES_COLOR = /^(?:xs|sm|base|lg|xl|\d?xl|left|right|center|[trblxy]-\d+|[trblxy]|\d+|\[.*\]|none|collapse|separate|opacity-\d+|solid|dashed)$/;
 
 describe('guía de gráficos: todo lo que dibuja datos está declarado', () => {
   const detectados = ARCHIVOS.filter((r) => DIBUJA.test(leer(r)));
 
   it('el detector encuentra gráficos (guarda contra comprobar el vacío)', () => {
     // Eran 13 con la deuda; sin ella (octubre de 2026) quedan 8: los seis propios
-    // y los dos que no son gráficos. Bajó con su motivo, no se borró.
-    expect(detectados.length).toBeGreaterThanOrEqual(7);
+    // y los dos que no son gráficos. Bajó con su motivo, no se borró. Con la portada
+    // de gráficos (gasto mensual y concentración), 10.
+    expect(detectados.length).toBeGreaterThanOrEqual(9);
   });
 
   it('cada fichero que dibuja está en PROPIOS, DEUDA o NO_SON_GRAFICOS', () => {
@@ -209,7 +257,7 @@ describe.each(Object.entries(PROPIOS))('gráfico propio %s', (ruta, propio) => {
 
   it('cada marca de dato cuelga de un aria-hidden, y los svg también', () => {
     const { container } = render(propio.ejemplo());
-    const marcas = [...container.querySelectorAll('[class*="dato"]')];
+    const marcas = [...container.querySelectorAll('[class*="dato"], [class*="serie-"]')];
     expect(marcas.length, 'el ejemplo no dibujó nada').toBeGreaterThan(0);
     expect(marcas.filter((m) => !m.closest('[aria-hidden="true"]')).map((m) => m.outerHTML.slice(0, 80))).toEqual([]);
     expect([...container.querySelectorAll('svg')].filter((s) => s.getAttribute('aria-hidden') !== 'true')).toEqual([]);

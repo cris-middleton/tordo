@@ -34,6 +34,7 @@ import pytest_asyncio
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 
+from app.api import limites
 from app.main import app
 from tests.borde_tls import borde_tls
 
@@ -164,6 +165,19 @@ async def test_expone_cuatro_herramientas_y_son_de_grano_grueso(cliente):
         "perfil_de_comprador",
         "buscar_productos",
     }
+
+
+async def test_todo_argumento_de_texto_tiene_cota(cliente):
+    """`tests/test_parametros_acotados.py` recorre el OpenAPI, que no ve el MCP:
+    `buscar_productos(texto)` aceptaba megabytes. Las cotas son las de la API."""
+    for herramienta in (await _listar_herramientas(cliente))["result"]["tools"]:
+        for nombre, esquema in herramienta["inputSchema"]["properties"].items():
+            variantes = esquema.get("anyOf", [esquema])
+            for variante in variantes:
+                if variante.get("type") == "string":
+                    assert variante.get("maxLength") in (limites.CODIGO, limites.TEXTO), (
+                        f"{herramienta['name']}.{nombre} no tiene maxLength"
+                    )
 
 
 async def test_la_pagina_abierto_lista_las_mismas_herramientas(cliente):

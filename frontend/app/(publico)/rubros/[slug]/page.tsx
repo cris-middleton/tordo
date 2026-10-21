@@ -6,6 +6,7 @@ import { CabeceraFicha, EnlacePanel, Seccion, TablaEnlaces } from '@/components/
 import { entero, metadataRubro, plata, rutaComprador, rutaPanelRubro } from '@/lib/publico';
 import { normalizeText } from '@/lib/nombresChile';
 import { MESES_ANALISIS } from '@/lib/periodo';
+import { esSlugPublico } from '@/lib/parametrosPublicos';
 import { pedirPublico, segmento } from '@/lib/publicoServidor';
 import type { RubroPublico } from '@/types/publico';
 
@@ -27,6 +28,8 @@ export function generateStaticParams(): { slug: string }[] {
 type Props = { params: Promise<{ slug: string }> };
 
 async function obtener(slug: string): Promise<RubroPublico> {
+  // Un slug con otra forma no existe: 404 sin llamar al backend (`lib/parametrosPublicos.ts`).
+  if (!esSlugPublico(slug)) notFound();
   const rubro = await pedirPublico<RubroPublico>(`/rubros/${segmento(slug)}`);
   if (!rubro) notFound();
   return rubro;

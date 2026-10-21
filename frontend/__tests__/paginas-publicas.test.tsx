@@ -89,10 +89,17 @@ describe('llamada al backend', () => {
     await expect(PaginaRubro(params({ slug: 'equipos-medicos' }))).rejects.toThrow(/500/);
   });
 
-  it('escapa el segmento que viene de la URL', async () => {
+  it('un slug o un código con otra forma es 404 sin llamar al backend', async () => {
+    // La ficha pide exenta del límite por IP: una URL inventada no puede ser
+    // una llamada gratis al backend (`lib/parametrosPublicos.ts`).
     simularBackend({});
     await expect(PaginaProducto(params({ slug: '../bi/x?y' }))).rejects.toThrow('NEXT_NOT_FOUND');
-    expect(pedidas[0].url).toBe(`${BACKEND}/api/v1/publico/productos/..%2Fbi%2Fx%3Fy`);
+    await expect(metaProducto(params({ slug: 'Guante-Latex' }))).rejects.toThrow('NEXT_NOT_FOUND');
+    await expect(PaginaRubro(params({ slug: 'a'.repeat(81) }))).rejects.toThrow('NEXT_NOT_FOUND');
+    await expect(metaRubro(params({ slug: 'equipos--medicos' }))).rejects.toThrow('NEXT_NOT_FOUND');
+    await expect(PaginaComprador(params({ codigo: 'no-existe' }))).rejects.toThrow('NEXT_NOT_FOUND');
+    await expect(metaComprador(params({ codigo: '7297/../x' }))).rejects.toThrow('NEXT_NOT_FOUND');
+    expect(pedidas).toEqual([]);
   });
 });
 
@@ -244,9 +251,9 @@ describe('enlaces entre fichas', () => {
     const { container } = render(await PaginaProducto(params({ slug: 'guante-latex-nitrilo' })));
     const titulo = screen.getByRole('heading', { level: 2, name: 'Cuánto se pagó' });
     const seccion = titulo.closest('section') as HTMLElement;
-    expect(within(seccion).getByRole('heading', { level: 3 })).toHaveTextContent('Por caja: la mitad se pagó entre $4.000 y $6.000');
+    expect(within(seccion).getByRole('heading', { level: 3 })).toHaveTextContent('Por caja: la mitad de las compras se pagó entre $4.000 y $6.000');
     // Un punto por comprador de la unidad de la banda: los de «Unidad» no se comparan.
-    expect(seccion.querySelectorAll('svg circle')).toHaveLength(5);
+    expect(seccion.querySelectorAll('svg circle.fill-dato')).toHaveLength(5);
     expect(within(seccion).getByRole('link', { name: 'Cómo se calcula' })).toHaveAttribute(
       'href',
       '/guias/como-leer-una-banda-de-precio#los-cinco-numeros',

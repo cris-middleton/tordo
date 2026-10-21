@@ -21,7 +21,7 @@
 
 import type { BandaUnidad, CompradorDeProducto } from '@/types/publico';
 
-import { decimal } from './formato';
+import { decimal, monto } from './formato';
 import { unidadDeclarada } from './publico';
 
 /**
@@ -72,6 +72,12 @@ export interface PuntoPrecio {
    * arriba (negativa) y abajo (positiva): 0, -1, 1, -2, 2…
    */
   fila: number;
+  /** «$151.000»: la mediana del comprador, para el globo. */
+  texto: string;
+  /** Cuántas compras hizo (null si el dato no lo trae). */
+  compras: number | null;
+  /** El nombre del comprador, cuando el dato lo trae (los diez de `compradores`). */
+  nombre: string | null;
 }
 
 export interface MarcaEje {
@@ -108,12 +114,14 @@ export interface GraficoPrecio {
   /** Radio de los puntos, en px (`radioPara`); la distancia entre filas es `2·radio + 1`. */
   radio: number;
   marcas: MarcaEje[];
-  /** «la mitad central», encima de la franja: dónde y de qué lado se ancla. `null` sin franja. */
+  /** «la mitad de las compras», encima de la franja: dónde y de qué lado se ancla. `null` sin franja. */
   rotuloFranja: { xTexto: number; ancla: Ancla } | null;
+  /** Lo que dice el globo de la franja: «$150.921 a $240.000» y la mediana. `null` sin franja. */
+  textoFranja: { mitad: string; mediana: string | null } | null;
 }
 
 /** La etiqueta directa de la franja (sin leyenda: spec §3.2). */
-export const ROTULO_FRANJA = 'la mitad central';
+export const ROTULO_FRANJA = 'la mitad de las compras';
 
 const unDecimal = (x: number) => Math.round(x * 10) / 10;
 
@@ -247,13 +255,20 @@ export function graficoPrecio(
   const unidad = unidadDeclarada(banda.unidad);
   // Todos los compradores de la banda si el backend los trae; si no (tabla aún sin
   // materializar), los diez de `compradores` con la unidad de la banda.
-  const crudas =
+  type Cruda = { p50: number | null; n: number | null; nombre: string | null };
+  const crudas: Cruda[] =
     banda.medianas_compradores != null
-      ? banda.medianas_compradores.map((m) => m.p50)
-      : compradores.filter((c) => unidadDeclarada(c.unidad) === unidad).map((c) => c.p50);
-  const medianas = crudas.filter((v): v is number => typeof v === 'number' && v > 0).sort((a, b) => a - b);
+      ? banda.medianas_compradores.map((m) => ({ p50: m.p50, n: m.n, nombre: null }))
+      : compradores
+          .filter((c) => unidadDeclarada(c.unidad) === unidad)
+          .map((c) => ({ p50: c.p50, n: c.n ?? null, nombre: c.nombre ?? null }));
+  const ordenadas = crudas
+    .filter((c): c is Cruda & { p50: number } => typeof c.p50 === 'number' && c.p50 > 0)
+    .sort((a, b) => a.p50 - b.p50);
+  const medianas = ordenadas.map((c) => c.p50);
   const unSolo = banda.compradores === 1;
   const valores = unSolo && medianas.length === 0 ? [banda.p50 ?? p25] : unSolo ? medianas.slice(0, 1) : medianas;
+  const detalles = unSolo && medianas.length === 0 ? [{ n: banda.n ?? null, nombre: null }] : ordenadas;
   const dibujados = unSolo || valores.length >= MINIMO_PUNTOS ? valores : [];
   const { p10, p50, p90 } = banda;
   const conBigotes = !unSolo && p10 != null && p90 != null && p10 > 0 && p10 <= p25 && p90 >= p75;
@@ -278,7 +293,13 @@ export function graficoPrecio(
   const xs = dibujados.map(x);
   const radio = radioPara(dibujados.length);
   const filas = filasDePuntos(xs, ancho, 2 * radio + 1);
-  const puntos = xs.map((px, i) => ({ x: px, fila: filas[i] }));
+  const puntos = xs.map((px, i) => ({
+    x: px,
+    fila: filas[i],
+    texto: monto(dibujados[i]),
+    compras: detalles[i]?.n ?? null,
+    nombre: detalles[i]?.nombre ?? null,
+  }));
 
   const marcas = unSolo
     ? marcasFuertes(xs[0], xs[0], plataCorta(valores[0]), plataCorta(valores[0]), ancho)
@@ -302,6 +323,9 @@ export function graficoPrecio(
     bigotes: conBigotes ? { desde: x(p10 as number), hasta: x(p90 as number) } : null,
     mediana: !unSolo && p50 != null && p50 >= p25 && p50 <= p75 ? x(p50) : null,
     rotuloFranja: encima ? { xTexto: encima.xTexto, ancla: encima.ancla } : null,
+    textoFranja: franja
+      ? { mitad: `${monto(p25)} a ${monto(p75)}`, mediana: p50 != null && p50 >= p25 && p50 <= p75 ? monto(p50) : null }
+      : null,
     puntos,
     filas: Math.max(0, ...filas.map(Math.abs)),
     radio,

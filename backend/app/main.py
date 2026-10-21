@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import uuid
 from contextlib import asynccontextmanager
 
@@ -12,6 +13,7 @@ from starlette.requests import Request
 from app.api import bi, compra_agil, health, publico, tenders
 from app.api.documentacion import DESCRIPCION, ETIQUETAS
 from app.config import settings
+from app.core.endurecimiento import EndurecimientoMiddleware
 from app.core.limite_ip import LimitadorEnMemoria, LimitePorIPMiddleware, avisos_de_configuracion
 from app.core.redirecciones import LocationRelativaMiddleware, MCPSinBarraMiddleware
 from app.core.versionado import PREFIJO_API
@@ -95,6 +97,12 @@ app.add_middleware(
 )
 
 
+#: Un `X-Request-ID` que llega de fuera se acepta sólo si parece uno: se repite
+#: en la respuesta, en cada línea de log y en el error del MCP, y sin cota un
+#: cliente metía ahí lo que quisiera, del largo que quisiera.
+_REQUEST_ID_VALIDO = re.compile(r"[A-Za-z0-9-]{1,64}")
+
+
 class RequestIDMiddleware(BaseHTTPMiddleware):
     """Propagate an inbound X-Request-ID or mint one, and echo it on the response.
 
@@ -103,7 +111,8 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
     """
 
     async def dispatch(self, request: Request, call_next):
-        request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex
+        entrante = request.headers.get("X-Request-ID") or ""
+        request_id = entrante if _REQUEST_ID_VALIDO.fullmatch(entrante) else uuid.uuid4().hex
         request.state.request_id = request_id
         # También al contexto de logging, para que todo log emitido durante esta
         # petición lo lleve — incluso desde servicios que no ven el `request`.
@@ -127,6 +136,10 @@ app.add_middleware(LocationRelativaMiddleware)
 # la gente pega en su cliente MCP. El límite por IP la sigue contando.
 app.add_middleware(MCPSinBarraMiddleware)
 
+# Lo más externo: cuerpo acotado, ningún `%00` y las cabeceras de endurecimiento
+# en toda respuesta, también en un 429 o un 413 (`app/core/endurecimiento.py`).
+app.add_middleware(EndurecimientoMiddleware)
+
 
 @app.exception_handler(Exception)
 async def catch_all_exception_handler(request: Request, exc: Exception):
@@ -143,7 +156,11 @@ async def catch_all_exception_handler(request: Request, exc: Exception):
 
     origin = request.headers.get("origin", "")
     headers = {"X-Request-ID": request_id}
-    if origin in settings.cors_origins:
+    # Con `CORS_ORIGINS=*` (producción) el origen no está en la lista y el 500 le
+    # llegaba a un integrador como «Network Error», sin su `request_id`.
+    if "*" in settings.cors_origins:
+        headers["Access-Control-Allow-Origin"] = "*"
+    elif origin in settings.cors_origins:
         headers["Access-Control-Allow-Origin"] = origin
 
     detail = "Error interno del servidor."

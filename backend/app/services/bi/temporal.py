@@ -9,6 +9,9 @@ líneas. El contrato hacia los endpoints no cambia: lo fija el golden master en
 from __future__ import annotations
 
 import logging
+from datetime import date
+
+import polars as pl
 
 from app.services.bi._base import _columnas, _load
 
@@ -68,11 +71,22 @@ def get_estacionalidad(
     organismo_id: str,
     rubro: str | None = None,
 ) -> dict:
+    """En qué meses compra un organismo: doce filas, una por mes.
+
+    Con rubro, las de `seasonality_patterns` para ese (organismo, rubro), tal
+    como las calcula el ETL.
+
+    **Sin rubro, se suman los rubros del organismo mes a mes.** La tabla tiene
+    doce filas por rubro y sin rubro se devolvían todas mezcladas, sin decir de
+    qué rubro era cada una: el mismo mes salía varias veces con cifras distintas.
+    Ahora `compras_mes` es la suma, `prob_mes` la parte del año del organismo
+    que cae en ese mes y `z_score` se recalcula sobre esas partes, como hace el
+    ETL. `consistencia` (en qué fracción de los años compró ese mes) y con ella
+    `es_pico_estacional` van nulas: la tabla guarda cuántos años tuvo compras
+    cada rubro, no cuáles, y la unión entre rubros no se puede reconstruir. Con
+    un solo rubro en el organismo no hay nada que sumar y salen sus filas.
     """
-    Monthly seasonality patterns for an organismo (+ optional rubro filter).
-    Returns prob_mes, consistencia, es_pico_estacional for each of the 12 months.
-    """
-    # 1,78 millones de filas en la tabla, doce en la respuesta.
+    # 1,78 millones de filas en la tabla; las de un organismo, doce por rubro.
     filtros: dict = {"CodigoOrganismoPublico": str(organismo_id)}
     if rubro:
         filtros["RubroN2"] = rubro
@@ -88,17 +102,56 @@ def get_estacionalidad(
             "motivo": "organismo no encontrado en histórico de estacionalidad",
         }
 
-    cols = [
-        c
-        for c in ["mes", "compras_mes", "prob_mes", "consistencia", "z_score", "es_pico_estacional"]
-        if c in rows.columns
-    ]
+    # Un solo rubro (pedido, o el único que el organismo tiene): sus filas son
+    # ya las del organismo, con su consistencia exacta.
+    if rubro or rows.get_column("RubroN2").n_unique() == 1:
+        cols = [
+            c
+            for c in [
+                "mes",
+                "compras_mes",
+                "prob_mes",
+                "consistencia",
+                "z_score",
+                "es_pico_estacional",
+            ]
+            if c in rows.columns
+        ]
+        patrones = rows.select(cols).to_dicts()
+    else:
+        patrones = _estacionalidad_sumada(rows)
+
     return {
         "disponible": True,
         "organismo_id": organismo_id,
         "rubro": rubro,
-        "patrones": rows.select(cols).to_dicts(),
+        "patrones": patrones,
     }
+
+
+def _estacionalidad_sumada(filas: pl.DataFrame) -> list[dict]:
+    """Los rubros de un organismo sumados por mes (ver `get_estacionalidad`)."""
+    por_mes = filas.group_by("mes").agg(pl.col("compras_mes").sum().cast(pl.Int64)).sort("mes")
+    total = float(por_mes.get_column("compras_mes").sum() or 0)
+    if total <= 0:
+        return []
+    por_mes = por_mes.with_columns((pl.col("compras_mes") / total).alias("prob_mes"))
+    # Como `etl/analytics/seasonality.py`: desviación muestral, y 0 sin dispersión.
+    media = por_mes.get_column("prob_mes").mean()
+    desviacion = por_mes.get_column("prob_mes").std()
+    if desviacion and desviacion > 0:
+        z = (pl.col("prob_mes") - media) / desviacion
+    else:
+        z = pl.lit(0.0)
+    return (
+        por_mes.with_columns(
+            z.alias("z_score"),
+            pl.lit(None, dtype=pl.Float64).alias("consistencia"),
+            pl.lit(None, dtype=pl.Boolean).alias("es_pico_estacional"),
+        )
+        .select(["mes", "compras_mes", "prob_mes", "consistencia", "z_score", "es_pico_estacional"])
+        .to_dicts()
+    )
 
 
 def get_tendencia(
@@ -188,73 +241,22 @@ def get_tendencia(
         if not em_rows.is_empty():
             emergentes = em_rows.select(em_cols).to_dicts()
 
-    # serie_anual + cagr_rubro: solo cuando hay rubro filtrado
+    # serie_anual + cagr_rubro: sólo con rubro, y con la MISMA función que el
+    # resumen (`_compute_cagr_rubro_desde_time_series`). Eran dos copias del
+    # cálculo, y las dos contaban como completo un año a medias.
     serie_anual = None
     cagr_rubro = None
     if rubro:
-        import polars as pl  # noqa: PLC0415 — lazy import kept consistent with _load()
-
-        # Filtrada en SQL y sólo con las columnas que se usan. Se traía la tabla
-        # ENTERA (301 MB en Postgres con la ventana de 36 meses) para quedarse
-        # con un rubro: +533 MB medidos con seis meses, y la API moría por OOM.
-        ts_df = _load(
-            "time_series.parquet",
-            filtros={"RubroN2": rubro},
-            columnas=["RubroN2", "anio", "mes", "monto_total", "n_oc"],
-        )
-        if ts_df is not None and "RubroN2" in ts_df.columns:
-            # Filtrar por rubro
-            rubro_ts = ts_df.filter(ts_df["RubroN2"] == rubro)
-
-            # Determinar qué años están completos: max(mes) == 12
-            if "mes" in rubro_ts.columns and len(rubro_ts) > 0:
-                years_coverage = rubro_ts.group_by("anio").agg(pl.col("mes").max().alias("max_mes"))
-                complete_years = set(
-                    years_coverage.filter(pl.col("max_mes") == 12)
-                    .select("anio")
-                    .to_series()
-                    .to_list()
-                )
-            else:
-                complete_years = set()
-
-            # Agregar por año, filtrar a solo años completos, quedarse con los últimos 6
-            year_agg = (
-                rubro_ts.group_by("anio")
-                .agg(
-                    [
-                        pl.col("monto_total").sum().alias("monto_total"),
-                        pl.col("n_oc").sum().alias("n_oc"),
-                    ]
-                )
-                .filter(pl.col("anio").is_in(list(complete_years)))
-                .sort("anio", descending=False)
-                .tail(6)
-            )
-
-            if len(year_agg) >= 2:
-                rows = year_agg.to_dicts()
-                serie_anual = [
-                    {
-                        "anio": int(r["anio"]),
-                        "monto_total": float(r["monto_total"] or 0),
-                        "n_oc": int(r["n_oc"]) if r.get("n_oc") is not None else None,
-                    }
-                    for r in rows
-                ]
-
-                # CAGR rubro-level: (last / first) ^ (1 / (n-1)) - 1
-                first_monto = rows[0]["monto_total"]
-                last_monto = rows[-1]["monto_total"]
-                n_points = len(rows)
-                if first_monto and first_monto > 0 and n_points >= 2:
-                    try:
-                        cagr_rubro = ((last_monto / first_monto) ** (1 / (n_points - 1)) - 1) * 100
-                        # Clamp a rango razonable para evitar valores de outliers extremos
-                        if cagr_rubro > 1000 or cagr_rubro < -99:
-                            cagr_rubro = None
-                    except (ValueError, ZeroDivisionError, OverflowError):
-                        cagr_rubro = None
+        cagr_rubro, _, filas = _compute_cagr_rubro_desde_time_series(rubro)
+        if filas:
+            serie_anual = [
+                {
+                    "anio": int(r["anio"]),
+                    "monto_total": float(r["monto_total"] or 0),
+                    "n_oc": int(r["n_oc"]) if r.get("n_oc") is not None else None,
+                }
+                for r in filas
+            ]
 
     return {
         "disponible": True,
@@ -266,46 +268,90 @@ def get_tendencia(
     }
 
 
+def ventana_de_los_datos() -> tuple[date, date] | None:
+    """(primer día, último día) de la ventana de analytics, o None.
+
+    La escribe el ETL en las tablas que la llevan (`data_loader.con_ventana`);
+    `time_series` sale de la misma ventana pero no la publica, así que se lee de
+    una fila de `competitors_by_market`. None si la tabla no existe o es de antes
+    de la ventana.
+    """
+    if not {"ventana_desde", "ventana_hasta"} <= _columnas("competitors_by_market.parquet"):
+        return None
+    df = _load(
+        "competitors_by_market.parquet", columnas=["ventana_desde", "ventana_hasta"], limite=1
+    )
+    if df is None or df.is_empty():
+        return None
+    desde, hasta = df.row(0)
+    if desde is None or hasta is None:
+        return None
+    return date.fromisoformat(str(desde)[:10]), date.fromisoformat(str(hasta)[:10])
+
+
+def anios_completos(ts: pl.DataFrame, ventana: tuple[date, date] | None = None) -> list[int]:
+    """Los años de la serie que los datos cubren entero, de enero a diciembre.
+
+    **Antes bastaba con que el año tuviera diciembre** (`max(mes) == 12`). La
+    ventana de analytics empieza a mitad de año —36 meses hacia atrás desde el
+    último, p. ej. noviembre de 2023—, así que el primer año entraba al CAGR con
+    dos meses contra los doce del siguiente: un rubro estable salía creciendo un
+    ~145 % al año.
+
+    Con la ventana conocida, un año es completo si la ventana lo cubre entero,
+    aunque el rubro no haya comprado algún mes (ese mes vale cero, no «sin
+    dato»). Sin ventana —una tabla de antes de que existiera—, si la serie trae
+    los doce meses.
+    """
+    if ts.is_empty() or "mes" not in ts.columns:
+        return []
+    if ventana is not None:
+        desde, hasta = ventana
+        anios = ts.get_column("anio").drop_nulls().unique().to_list()
+        return sorted(
+            int(a) for a in anios if date(int(a), 1, 1) >= desde and date(int(a), 12, 31) <= hasta
+        )
+    cobertura = ts.group_by("anio").agg(pl.col("mes").n_unique().alias("meses"))
+    return sorted(int(a) for a in cobertura.filter(pl.col("meses") == 12).get_column("anio"))
+
+
 def _compute_cagr_rubro_desde_time_series(
     rubro: str,
 ) -> tuple[float | None, float | None, list[dict] | None]:
-    """Helper: computa CAGR rubro-level + YoY + serie anual completa desde time_series.parquet.
+    """CAGR del rubro, variación interanual y serie anual, desde `time_series`.
 
-    Excluye años incompletos (max(mes) < 12).
+    Sólo con años completos (`anios_completos`), los últimos 6 como mucho.
     Retorna (cagr_pct, yoy_pct, serie_anual_dicts).
-      - cagr_pct: CAGR histórico sobre todos los años completos disponibles (hasta 6)
+      - cagr_pct: CAGR histórico sobre esos años
       - yoy_pct: variación del último año completo vs el anterior
-    Si no hay data suficiente, retorna (None, None, None).
+    Con menos de dos años completos, (None, None, None).
+
+    Es la única copia del cálculo: la usan `/bi/tendencia` (`cagr_rubro`,
+    `serie_anual`) y `/bi/resumen` (`cagr_pct`, `yoy_pct`).
     """
-    import polars as pl
-
-    # Filtro empujado a SQL: time_series tiene decenas de miles de filas y de
-    # todas ellas sólo interesan las de un rubro.
-    ts_df = _load("time_series.parquet", filtros={"RubroN2": rubro})
-    if ts_df is None or "RubroN2" not in ts_df.columns:
-        return None, None, None
-
-    rubro_ts = ts_df.filter(ts_df["RubroN2"] == rubro)
-    if len(rubro_ts) == 0 or "mes" not in rubro_ts.columns:
-        return None, None, None
-
-    # Años con 12 meses de data
-    years_coverage = rubro_ts.group_by("anio").agg(pl.col("mes").max().alias("max_mes"))
-    complete_years = set(
-        years_coverage.filter(pl.col("max_mes") == 12).select("anio").to_series().to_list()
+    # Filtro empujado a SQL y sólo las columnas que se usan: la tabla entera son
+    # 301 MB en Postgres con la ventana de 36 meses, y la API moría por OOM.
+    ts_df = _load(
+        "time_series.parquet",
+        filtros={"RubroN2": rubro},
+        columnas=["RubroN2", "anio", "mes", "monto_total", "n_oc"],
     )
-    if not complete_years:
+    if ts_df is None or ts_df.is_empty():
+        return None, None, None
+
+    completos = anios_completos(ts_df, ventana_de_los_datos())
+    if not completos:
         return None, None, None
 
     year_agg = (
-        rubro_ts.group_by("anio")
+        ts_df.group_by("anio")
         .agg(
             [
                 pl.col("monto_total").sum().alias("monto_total"),
                 pl.col("n_oc").sum().alias("n_oc"),
             ]
         )
-        .filter(pl.col("anio").is_in(list(complete_years)))
+        .filter(pl.col("anio").is_in(completos))
         .sort("anio")
         .tail(6)
     )
@@ -322,6 +368,7 @@ def _compute_cagr_rubro_desde_time_series(
     if first and first > 0:
         try:
             cagr_pct = ((last / first) ** (1 / (n_points - 1)) - 1) * 100
+            # Fuera de un rango razonable es un artefacto de una base casi nula.
             if cagr_pct > 1000 or cagr_pct < -99:
                 cagr_pct = None
         except (ValueError, ZeroDivisionError, OverflowError):
@@ -329,14 +376,13 @@ def _compute_cagr_rubro_desde_time_series(
 
     # YoY: último año completo vs el anterior
     yoy_pct = None
-    if len(rows) >= 2:
-        prev_monto = rows[-2]["monto_total"]
-        if prev_monto and prev_monto > 0:
-            try:
-                yoy_pct = ((rows[-1]["monto_total"] / prev_monto) - 1) * 100
-                if yoy_pct > 1000 or yoy_pct < -99:
-                    yoy_pct = None
-            except (ValueError, ZeroDivisionError, OverflowError):
+    prev_monto = rows[-2]["monto_total"]
+    if prev_monto and prev_monto > 0:
+        try:
+            yoy_pct = ((rows[-1]["monto_total"] / prev_monto) - 1) * 100
+            if yoy_pct > 1000 or yoy_pct < -99:
                 yoy_pct = None
+        except (ValueError, ZeroDivisionError, OverflowError):
+            yoy_pct = None
 
     return cagr_pct, yoy_pct, rows

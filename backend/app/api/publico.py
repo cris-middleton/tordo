@@ -6,7 +6,9 @@ Qué existe y qué se indexa lo decide `services/publico/indexables.py`; aquí
 sólo se valida la entrada y se traduce «no existe» a 404.
 
 `/publico/portada` es la excepción: no lee analytics sino el catálogo, así que
-es `async`, pide la sesión y no exige `FEATURE_ANALYTICS`.
+es `async`, pide la sesión y no exige `FEATURE_ANALYTICS`. `/publico/mercado`
+también lo pide la portada, pero lee analytics como las fichas: el gasto mensual
+por sector y la concentración de los mercados, agregados en SQL.
 
 Un producto **no indexable** responde 200 con `indexable: false`: la página
 existe, con `noindex`, y se llega a ella por la búsqueda.
@@ -23,13 +25,14 @@ from app.repositories import licitaciones as repo_licitaciones
 from app.schemas.publico import (
     CompraAgilPorCierre,
     CompradorPublico,
+    MercadoPortada,
     ProductoEncontrado,
     ProductoPublico,
     ResumenPortada,
     RubroPublico,
     SitemapPublico,
 )
-from app.services.publico import paginas
+from app.services.publico import mercado, paginas
 
 router = APIRouter(prefix="/publico", tags=["publico"])
 
@@ -68,6 +71,16 @@ async def get_portada(db: AsyncSession = Depends(get_db)):
         publicadas_hoy=hoy.total,
         mas_publica_hoy=hoy.organismo,
     )
+
+
+@router.get(
+    "/mercado",
+    response_model=MercadoPortada,
+    summary="El mercado entero: gasto mensual por sector y concentración de los mercados",
+)
+def get_mercado():
+    requiere_analytics()
+    return mercado.mercado()
 
 
 @router.get(

@@ -171,3 +171,39 @@ export interface ResumenPortada {
   /** El organismo que más publicó hoy, por nombre, tal como se guardó; null sin publicaciones. */
   mas_publica_hoy?: string | null;
 }
+
+/** Una fila de `GET /publico/mercado`: lo que compró un sector en un mes (órdenes de compra). */
+export interface GastoMensual {
+  anio: number;
+  mes: number;
+  sector: string;
+  monto: number;
+  n_oc: number;
+}
+
+/** Los mercados cuyo proveedor principal se lleva entre `desde` y `hasta` % del monto. */
+export interface TramoConcentracion {
+  desde: number;
+  hasta: number;
+  mercados: number;
+  monto: number;
+}
+
+/** La concentración de los mercados (un comprador en un rubro), en tramos de 10 puntos. */
+export interface ConcentracionMercados {
+  mercados: number;
+  sobre_la_mitad: number;
+  un_proveedor: number;
+  monto_total: number;
+  monto_sobre_la_mitad: number;
+  tramos: TramoConcentracion[];
+  /** De qué meses salen los montos; null si la tabla no trae su ventana. */
+  ventana_desde?: string | null;
+  ventana_hasta?: string | null;
+}
+
+/** `GET /publico/mercado`: los dos gráficos de mercado de la portada. Cada bloque puede faltar. */
+export interface MercadoPortada {
+  gasto_mensual: GastoMensual[] | null;
+  concentracion: ConcentracionMercados | null;
+}

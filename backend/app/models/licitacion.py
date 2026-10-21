@@ -1,10 +1,10 @@
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     Column,
     Computed,
     DateTime,
     Index,
-    Integer,
     Numeric,
     String,
     Text,
@@ -69,15 +69,28 @@ class Licitacion(Base):
         {"comment": "Licitaciones publicadas en Mercado Público (listado diario)"},
     )
 
-    id = Column(Integer, primary_key=True)
+    id = Column(
+        BigInteger,
+        primary_key=True,
+        comment="Identificador interno de la fila (secuencia). La clave de negocio es codigo_externo.",
+    )
 
     # Identifiers
-    codigo_externo = Column(String(100), unique=True, nullable=False)
-    codigo_interno = Column(String(100), index=True)
+    codigo_externo = Column(
+        String(100),
+        unique=True,
+        nullable=False,
+        comment="Código de Mercado Público (p. ej. 1057401-1-LP24). Clave de negocio.",
+    )
+    codigo_interno = Column(
+        String(100), index=True, comment="`CodigoInterno` del payload de la API, si viene."
+    )
 
     # Basic information
-    nombre = Column(String(500), nullable=False)
-    descripcion = Column(Text)
+    nombre = Column(String(500), nullable=False, comment="Nombre como lo publica el comprador.")
+    descripcion = Column(
+        Text, comment="Descripción libre del comprador (`Descripcion` o `Detalle` del payload)."
+    )
 
     # Columna GENERADA: Postgres la recalcula solo cuando cambian nombre o
     # descripcion. Se usa la configuración 'spanish', que aporta stemming
@@ -101,6 +114,22 @@ class Licitacion(Base):
         comment="Vector de búsqueda generado desde nombre + descripcion, sin tildes.",
     )
 
+    # Las mismas palabras SIN raíz (configuración `simple`). El stemmer español
+    # reduce «mesa» y «meses» a `mes`, así que `busqueda` sola hacía que «mesa»
+    # encontrara toda licitación de «12 meses». `coincide_termino` exige además
+    # que cada palabra del término empiece alguna palabra de aquí. Sin índice a
+    # propósito: sólo filtra lo que ya encontró el GIN de `busqueda`, y comparar
+    # un tsvector guardado es barato (lo caro era una regex sobre `descripcion`).
+    busqueda_palabras = Column(
+        TSVECTOR,
+        Computed(
+            "to_tsvector('simple', inmutable_unaccent("
+            "coalesce(nombre, '') || ' ' || coalesce(descripcion, '')))",
+            persisted=True,
+        ),
+        comment="Palabras de nombre + descripcion sin tildes y sin raíz (simple).",
+    )
+
     # El trigrama va sobre esta columna y no sobre un índice funcional a
     # propósito: alembic compara mal los índices por expresión, y con
     # `alembic check` bloqueante eso sería deriva perpetua. Una columna generada
@@ -112,15 +141,27 @@ class Licitacion(Base):
     )
 
     # Dates
-    fecha_publicacion = Column(DateTime(timezone=True), nullable=False, index=True)
-    fecha_cierre = Column(DateTime(timezone=True))
-    fecha_inicio = Column(DateTime(timezone=True))
-    fecha_final = Column(DateTime(timezone=True))
+    fecha_publicacion = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        index=True,
+        comment="Publicación (hora de Chile). Si el payload no la trae, el momento de la ingesta.",
+    )
+    fecha_cierre = Column(
+        DateTime(timezone=True), comment="Cierre de la recepción de ofertas (hora de Chile)."
+    )
+    fecha_inicio = Column(DateTime(timezone=True), comment="`FechaInicio` del payload, si viene.")
+    fecha_final = Column(DateTime(timezone=True), comment="`FechaFinal` del payload, si viene.")
 
     # Financial information
-    monto_estimado = Column(Numeric(15, 2))
-    monto_total = Column(Numeric(15, 2))
-    moneda = Column(String(10), default="CLP")
+    monto_estimado = Column(
+        Numeric(15, 2),
+        comment="Monto estimado en `moneda` (`MontoEstimado`; si falta, `MontoTotal`). NULL si no se publicó.",
+    )
+    monto_total = Column(Numeric(15, 2), comment="`MontoTotal` del payload de la API, si viene.")
+    moneda = Column(
+        String(10), default="CLP", comment="Moneda de los montos (`Moneda`; CLP si no viene)."
+    )
 
     # Por qué mecanismo convoca el Estado. Hasta F6 todo lo ingerido era una
     # licitación y el modelo lo daba por hecho; Compra Ágil y Convenio Marco son
@@ -137,31 +178,58 @@ class Licitacion(Base):
     )
 
     # Status and type
-    estado = Column(String(50), index=True)
-    tipo_licitacion = Column(String(100))
-    tipo_moneda = Column(String(10))
+    estado = Column(
+        String(50),
+        index=True,
+        comment="Estado según el listado de Mercado Público (Publicada, Cerrada, Adjudicada…).",
+    )
+    tipo_licitacion = Column(
+        String(100), comment="Tipo de licitación de Mercado Público (L1, LE, LP…)."
+    )
+    tipo_moneda = Column(String(10), comment="`TipoMoneda` del payload (CLP si no viene).")
 
     # Organization
-    codigo_organismo = Column(String(50), index=True)
-    nombre_organismo = Column(String(500))
-    rut_organismo = Column(String(20))
+    codigo_organismo = Column(
+        String(50),
+        index=True,
+        comment="Código del organismo comprador. NULL en Compra Ágil, que sólo trae el RUT.",
+    )
+    nombre_organismo = Column(String(500), comment="Nombre del organismo comprador.")
+    rut_organismo = Column(String(20), comment="RUT del organismo o de la unidad compradora.")
 
     # Location
-    region = Column(String(100))
-    comuna = Column(String(100))
+    region = Column(String(100), comment="Región del comprador, como la escribe Mercado Público.")
+    comuna = Column(String(100), comment="Comuna del comprador, si el payload la trae.")
 
     # Additional data
-    informacion_adicional = Column(JSONB)
-    items = Column(JSONB)  # List of items/products
+    informacion_adicional = Column(
+        JSONB,
+        comment="Resto del payload sin columna propia, ya sin datos de personas naturales.",
+    )
+    items = Column(JSONB, comment="Ítems pedidos, del listado o copiados del detalle.")
 
     # Metadata
-    url_acta = Column(String(500))
-    url_licitacion = Column(String(500))
+    url_acta = Column(String(500), comment="`UrlActa` del payload, si viene.")
+    url_licitacion = Column(
+        String(500), comment="Enlace a la ficha en Mercado Público, si el payload lo trae."
+    )
 
     # ETL metadata
-    fecha_extraccion = Column(DateTime(timezone=True), server_default=func.now())
-    fecha_actualizacion = Column(DateTime(timezone=True), onupdate=func.now())
-    activo = Column(Boolean, default=True)
+    fecha_extraccion = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        comment="Primera vez que el ETL guardó la fila.",
+    )
+    fecha_actualizacion = Column(
+        DateTime(timezone=True),
+        onupdate=func.now(),
+        comment="Última vez que el ETL cambió la fila. NULL si nunca.",
+    )
+    activo = Column(
+        Boolean,
+        default=True,
+        comment="FALSE si Mercado Público la retiró. Toda consulta filtra por activo.",
+    )
     # Lo escribe SÓLO la re-consulta de resultados del cron (`etl/cron.py`):
     # sin ella, las cerradas que la API devuelve sin cambios se pedirían todos
     # los días y el tope diario nunca llegaría a las demás.

@@ -19,10 +19,10 @@ export function FichaAutor({ nombre, rol, url }: { nombre: string; rol: string |
     <aside aria-label="Quién lo hace" className="border-t border-border pt-5">
       <p className="text-text">
         <strong className="font-semibold">{nombre}</strong>
-        {rol && `, ${rol},`} hace {APP_NAME} y escribe las notas de datos.
+        {rol && `, ${rol},`} hace {APP_NAME} y escribe las notas.
       </p>
       <p className="mt-2 text-sm text-muted">
-        Si un número no cuadra con Mercado Público, escríbele: cada corrección sale como nota.
+        Si un número no te cuadra con Mercado Público, escríbele: cada corrección termina en una nota.
       </p>
       <ul className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm">
         <li>

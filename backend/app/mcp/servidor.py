@@ -22,8 +22,13 @@ no hay cuentas, así que no hay clave que pedir.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from functools import partial
+from typing import Annotated, Any
 
+import anyio
+from pydantic import Field
+
+from app.api import limites
 from app.config import settings
 from app.db import AsyncSessionLocal
 from app.observability import request_id_ctx
@@ -52,6 +57,25 @@ aquí.
 
 Los precios están en pesos chilenos.
 """
+
+#: Los argumentos, con las mismas cotas que la API REST (`app/api/limites.py`).
+#: `tests/test_parametros_acotados.py` sólo recorre el OpenAPI, así que el MCP se
+#: saltaba los topes: un `texto` de megabytes llegaba entero a la búsqueda.
+Codigo = Annotated[str, Field(min_length=1, max_length=limites.CODIGO)]
+Texto = Annotated[str, Field(min_length=1, max_length=limites.TEXTO)]
+
+#: Cuántas herramientas corren a la vez. Los servicios de BI son síncronos
+#: (psycopg2): llamados directo desde una corrutina bloqueaban el bucle, y con un
+#: solo worker toda la API REST esperaba a que terminara un panel. Ahora van a un
+#: hilo, y este tope evita que un cliente que lance diez a la vez meta diez
+#: consultas pesadas en 512 MB.
+_HILOS_MCP = anyio.CapacityLimiter(2)
+
+
+async def _en_hilo(funcion, /, **kwargs):
+    """Corre un servicio síncrono de BI fuera del bucle de eventos."""
+    return await anyio.to_thread.run_sync(partial(funcion, **kwargs), limiter=_HILOS_MCP)
+
 
 servidor = MCPServer(
     name=f"{settings.app_name}",
@@ -87,7 +111,7 @@ def _error(exc: Exception) -> dict[str, Any]:
         "encadenar varias herramientas."
     ),
 )
-async def panel_de_licitacion(codigo: str) -> dict[str, Any]:
+async def panel_de_licitacion(codigo: Codigo) -> dict[str, Any]:
     """`codigo` es el código externo de Mercado Público, p. ej. `1057401-1-LP24`."""
     try:
         async with AsyncSessionLocal() as db:
@@ -114,7 +138,8 @@ async def panel_de_licitacion(codigo: str) -> dict[str, Any]:
             if len(codigos) >= MAX_PRODUCTOS:
                 break
 
-        panel = bi_service.get_licitacion_panel(
+        panel = await _en_hilo(
+            bi_service.get_licitacion_panel,
             codigo_externo=codigo,
             organismo_id=lic.codigo_organismo,
             product_codes=codigos,
@@ -145,14 +170,16 @@ async def panel_de_licitacion(codigo: str) -> dict[str, Any]:
     ),
 )
 async def precio_de_producto(
-    codigo_producto: str, organismo_id: str | None = None
+    codigo_producto: Codigo, organismo_id: Codigo | None = None
 ) -> dict[str, Any]:
     try:
         # `confianza` y `n` vienen dentro y NO se filtran: un modelo que recibe
         # una banda sin saber que se calculó con cuatro observaciones la
         # presentará como un hecho.
-        return bi_service.get_precio_producto(
-            codigo_producto=codigo_producto, organismo_id=organismo_id
+        return await _en_hilo(
+            bi_service.get_precio_producto,
+            codigo_producto=codigo_producto,
+            organismo_id=organismo_id,
         )
     except Exception as exc:
         logger.error("[MCP] precio_de_producto(%s) falló: %s", codigo_producto, exc)
@@ -168,9 +195,9 @@ async def precio_de_producto(
         "precio."
     ),
 )
-async def perfil_de_comprador(organismo_id: str) -> dict[str, Any]:
+async def perfil_de_comprador(organismo_id: Codigo) -> dict[str, Any]:
     try:
-        return bi_service.get_comprador(organismo_id)
+        return await _en_hilo(bi_service.get_comprador, organismo_id=organismo_id)
     except Exception as exc:
         logger.error("[MCP] perfil_de_comprador(%s) falló: %s", organismo_id, exc)
         return _error(exc)
@@ -185,9 +212,9 @@ async def perfil_de_comprador(organismo_id: str) -> dict[str, Any]:
         "uno, que es lo que indica si el precio será fiable."
     ),
 )
-async def buscar_productos(texto: str, limite: int = 20) -> dict[str, Any]:
+async def buscar_productos(texto: Texto, limite: int = 20) -> dict[str, Any]:
     try:
-        return bi_service.get_productos(q=texto, limit=max(1, min(limite, 50)))
+        return await _en_hilo(bi_service.get_productos, q=texto, limit=max(1, min(limite, 50)))
     except Exception as exc:
         logger.error("[MCP] buscar_productos(%s) falló: %s", texto, exc)
         return _error(exc)

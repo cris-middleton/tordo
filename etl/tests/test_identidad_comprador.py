@@ -21,7 +21,7 @@ from etl.analytics.competitor_analysis import (
     compute_market_concentration,
     compute_market_shares,
 )
-from etl.analytics.identidad import nombre_vigente
+from etl.analytics.identidad import nombre_vigente, periodo_maximo, periodo_minimo
 
 RUBRO = "Suministros de oficina"
 
@@ -140,6 +140,23 @@ class TestLider:
         assert r["tipo_mercado"] == "concentrado"
 
 
+class TestRangoEntero:
+    def test_un_empate_comparte_el_puesto_y_el_rango_es_entero(self):
+        """Con el método por defecto de Polars (`average`) dos empatados en el
+        2.º puesto salían con 2,5: la columna era Float64 y la API, que declara
+        `rank_monto` entero, respondía 500 al encontrarla."""
+        empate = MERCADO.with_columns(
+            pl.when(pl.col("CodigoProveedor") == "333")
+            .then(pl.lit(80.0))
+            .otherwise(pl.col("monto_total"))
+            .alias("monto_total")
+        )
+        rangos = compute_market_shares(empate).select("CodigoProveedor", "rank_monto")
+
+        assert rangos["rank_monto"].dtype.is_integer()
+        assert dict(rangos.iter_rows()) == {"111": 1, "222": 2, "333": 2}
+
+
 class TestNombreVigente:
     def test_se_queda_con_el_ultimo_periodo(self):
         df = pl.DataFrame(
@@ -164,3 +181,31 @@ class TestNombreVigente:
         )
         r = df.group_by("codigo").agg(nombre_vigente("nombre"))
         assert r.row(0, named=True)["nombre"] == "NUEVO"
+
+    def test_el_periodo_se_ordena_por_fecha_y_no_como_texto(self):
+        """El período real es «2025-9», sin cero: como texto, «2025-9» > «2025-12»."""
+        df = pl.DataFrame(
+            {
+                "codigo": ["A", "A", "A"],
+                "nombre": ["GOBERNACION", "DELEGACION", None],
+                "_periodo_archivo": ["2025-9", "2025-12", "2026-1"],
+            }
+        )
+        r = df.group_by("codigo").agg(
+            nombre_vigente("nombre"), periodo_maximo(), periodo_minimo().alias("desde")
+        )
+        fila = r.row(0, named=True)
+        assert fila["nombre"] == "DELEGACION"
+        assert fila["_periodo_archivo"] == "2026-1"
+        assert fila["desde"] == "2025-9"
+
+    def test_un_grupo_sin_ningun_nombre_no_rompe_la_agregacion(self):
+        df = pl.DataFrame(
+            {
+                "codigo": ["A", "B"],
+                "nombre": ["NUEVO", None],
+                "_periodo_archivo": ["2024-3", "2024-4"],
+            }
+        )
+        r = dict(df.group_by("codigo").agg(nombre_vigente("nombre")).iter_rows())
+        assert r == {"A": "NUEVO", "B": None}

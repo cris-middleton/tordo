@@ -1,8 +1,9 @@
 """Pydantic schemas for BI API responses."""
 
+import math
 from datetime import date
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class BINotAvailable(BaseModel):
@@ -88,10 +89,27 @@ class Competidor(BaseModel):
     NombreProveedor: str | None = None
     market_share_pct: float | None = None
     win_rate_pct: float | None = None
+    #: Puesto del proveedor por monto dentro del mercado (1 = el mayor).
     rank_monto: int | None = None
     n_oc: int | None = None
     monto_total: float | None = None
     n_proveedores: int | None = None
+
+    @field_validator("rank_monto", mode="before")
+    @classmethod
+    def _puesto_entero(cls, valor):
+        """Un rango con decimales se trunca al puesto compartido.
+
+        El ETL rankeaba con el método por defecto de Polars (`average`): dos
+        proveedores empatados en el 2.º puesto salían con 2,5, y `int` lo
+        rechazaba — `/bi/competidores/{org}?rubro=` y el panel de una licitación
+        respondían 500. El ETL ya rankea con `min` (los dos son 2.º); esto cubre
+        las tablas materializadas antes, hasta la corrida semanal siguiente.
+        Para dos empatados, truncar da justo el puesto de `min`.
+        """
+        if isinstance(valor, float) and math.isfinite(valor):
+            return math.floor(valor)
+        return valor
 
 
 class Concentracion(BaseModel):

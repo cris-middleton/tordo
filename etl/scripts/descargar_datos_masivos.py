@@ -111,33 +111,56 @@ def detectar_anio_minimo(tipo: str) -> int:
     return anio_min
 
 
-def descargar_zip(url: str, destino: Path) -> bool:
-    """Descarga un ZIP con streaming. Retorna True si exitoso."""
+#: Lo que puede pasar al bajar un ZIP. **Un 404 y un error no son lo mismo**: el
+#: 404 es un mes que ChileCompra aún no publica; un timeout, un 5xx o una
+#: conexión cortada son un mes que existe y no se pudo bajar. Antes los dos
+#: devolvían `False` y `descargar_tipo` contaba los dos como «no disponibles»:
+#: con la descarga caída, la semanal purgaba los meses recientes, no los podía
+#: rehacer y publicaba analytics sin ellos con el latido en verde.
+BAJADO = "bajado"
+NO_PUBLICADO = "no_publicado"
+FALLIDO = "fallido"
+
+
+def bajar_zip(url: str, destino: Path) -> str:
+    """Descarga un ZIP con streaming. Devuelve `BAJADO`, `NO_PUBLICADO` o `FALLIDO`.
+
+    Escribe primero a `<destino>.part` y lo renombra al terminar: un corte a
+    medio camino que no fuera de red (disco lleno, el proceso muerto) dejaba un
+    ZIP truncado con el nombre definitivo, y la corrida siguiente lo daba por
+    bajado («Ya existe»).
+    """
     if destino.exists():
         logger.info(f"  Ya existe: {destino.name} — saltando")
-        return True
+        return BAJADO
 
+    parcial = destino.with_name(destino.name + ".part")
     try:
         r = requests.get(url, stream=True, timeout=REQUEST_TIMEOUT)
         if r.status_code == 404:
-            return False
+            return NO_PUBLICADO
         r.raise_for_status()
 
         destino.parent.mkdir(parents=True, exist_ok=True)
         size = 0
-        with open(destino, "wb") as f:
+        with open(parcial, "wb") as f:
             for chunk in r.iter_content(chunk_size=CHUNK_SIZE):
                 f.write(chunk)
                 size += len(chunk)
+        parcial.replace(destino)
 
         logger.info(f"  Descargado: {destino.name} ({size / 1024 / 1024:.1f} MB)")
-        return True
+        return BAJADO
 
-    except requests.RequestException as e:
+    except (requests.RequestException, OSError) as e:
         logger.error(f"  Error descargando {url}: {e}")
-        if destino.exists():
-            destino.unlink()
-        return False
+        parcial.unlink(missing_ok=True)
+        return FALLIDO
+
+
+def descargar_zip(url: str, destino: Path) -> bool:
+    """`bajar_zip` para quien sólo necesita saber si el ZIP está (`medir_obras_mop`)."""
+    return bajar_zip(url, destino) == BAJADO
 
 
 def leer_csv_desde_zip(zip_path: Path) -> pl.DataFrame | None:
@@ -200,26 +223,36 @@ def leer_csv_desde_zip(zip_path: Path) -> pl.DataFrame | None:
 
 
 def descargar_tipo(tipo: str, periodos: list[tuple[int, int]]) -> dict:
-    """Descarga todos los ZIPs de un tipo para los periodos dados."""
+    """Descarga todos los ZIPs de un tipo para los periodos dados.
+
+    Devuelve los conteos (`ok`, `skip_404`, `error`) y, por periodo, cuáles no
+    estaban publicados (`no_publicados`) y cuáles fallaron (`fallidos`): quien
+    llama decide si un 404 es aceptable para ESE mes (`etl/cron.py`).
+    """
     base = BASE_URLS[tipo]
     destino_dir = RAW_DIR / tipo
     destino_dir.mkdir(parents=True, exist_ok=True)
 
-    resultados = {"ok": 0, "skip_404": 0, "error": 0}
+    resultados: dict = {
+        "ok": 0,
+        "skip_404": 0,
+        "error": 0,
+        "no_publicados": [],
+        "fallidos": [],
+    }
 
     for year, month in periodos:
         nombre = f"{year}-{month}.zip"
         url = f"{base}/{nombre}"
-        destino = destino_dir / nombre
-
-        ok = descargar_zip(url, destino)
-        if ok:
+        estado = bajar_zip(url, destino_dir / nombre)
+        if estado == BAJADO:
             resultados["ok"] += 1
-        elif not destino.exists():
-            # 404 o futuro: no existe aún
+        elif estado == NO_PUBLICADO:
             resultados["skip_404"] += 1
+            resultados["no_publicados"].append((year, month))
         else:
             resultados["error"] += 1
+            resultados["fallidos"].append((year, month))
 
     logger.info(
         f"{tipo.upper()}: {resultados['ok']} descargados, "
@@ -240,6 +273,10 @@ def consolidar_tipo(tipo: str) -> Path | None:
 
     Idempotente: salta archivos ya procesados. Para leer el histórico completo:
         pl.scan_parquet("etl/data/consolidated/{tipo}/*.parquet").collect()
+
+    Devuelve `None` si no hay nada que consolidar **o si algún ZIP no se pudo
+    leer**: antes devolvía la carpeta igual, y un mes con el ZIP corrupto se
+    quedaba sin parquet mientras la semanal lo daba por consolidado.
     """
     raw_dir = RAW_DIR / tipo
     if not raw_dir.exists():
@@ -286,6 +323,9 @@ def consolidar_tipo(tipo: str) -> Path | None:
         f"— {total_size_mb:.1f} MB total"
     )
     logger.info(f"  Leer todo: pl.scan_parquet('{out_dir}/*.parquet').collect()")
+    if errores:
+        logger.error(f"{tipo.upper()}: {errores} ZIPs no se pudieron consolidar")
+        return None
     return out_dir
 
 

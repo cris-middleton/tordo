@@ -39,6 +39,7 @@ def _load(
     columnas: list[str] | None = None,
     orden: str | None = None,
     descendente: bool = True,
+    desempate_texto: str | None = None,
     limite: int | None = None,
 ) -> Any:
     """Devuelve un DataFrame de Polars con las filas pedidas, o None si la tabla
@@ -56,8 +57,56 @@ def _load(
         columnas=columnas,
         orden=orden,
         descendente=descendente,
+        desempate_texto=desempate_texto,
         limite=limite,
     )
+
+
+def _contar_filas(filename: str, *, filtros: dict[str, Any] | None = None) -> int | None:
+    """Cuántas filas cumplen los filtros, contadas en SQL; None sin tabla."""
+    return repo.contar_filas(_tabla(filename), filtros=filtros)
+
+
+def _agregado(
+    filename: str,
+    clave: str,
+    *,
+    filtros: dict[str, Any] | None = None,
+    sumas: list[str],
+    distintos: list[str] = (),
+    primeros: list[str] = (),
+    limite: int,
+) -> Any:
+    """Los `limite` grupos de `clave` con más `sumas[0]`, agregados en SQL.
+
+    Para `competitors_by_market`, que tiene una fila por (organismo, rubro,
+    proveedor): «quién gana en este rubro» u «a quién le compra este organismo»
+    agregan por proveedor primero, y antes eso se hacía en Polars con todas las
+    filas del rubro en la memoria de la API. None si la tabla no existe.
+    """
+    return repo.agregado(
+        _tabla(filename),
+        clave,
+        filtros=filtros,
+        sumas=sumas,
+        distintos=distintos,
+        primeros=primeros,
+        limite=limite,
+    )
+
+
+def _totales(
+    filename: str,
+    clave: str,
+    *,
+    filtros: dict[str, Any] | None = None,
+    sumas: list[str],
+    distintos: list[str] = (),
+) -> dict[str, Any] | None:
+    """Los totales del mismo agregado: `grupos`, cada suma, `cuadrados` (la suma
+    de los cuadrados de `sumas[0]` por grupo, para el HHI) y `distintos_<col>`
+    sobre las filas. None si la tabla no existe."""
+    return repo.totales(_tabla(filename), clave, filtros=filtros, sumas=sumas, distintos=distintos)
 
 
 #: Tope de filas que trae una búsqueda por subcadena antes de deduplicar. Un
@@ -89,9 +138,11 @@ def _buscar(
     )
 
 
-def _distintos(filename: str, columna: str) -> list[Any] | None:
+def _distintos(
+    filename: str, columna: str, *, filtros: dict[str, Any] | None = None
+) -> list[Any] | None:
     """Los valores distintos y no nulos de una columna, o None sin tabla."""
-    return repo.distintos(_tabla(filename), columna)
+    return repo.distintos(_tabla(filename), columna, filtros=filtros)
 
 
 def _contar(
@@ -142,6 +193,28 @@ def _primero(fila: dict, *claves: str):
         if valor is not None:
             return valor
     return None
+
+
+#: Cortes del índice de Herfindahl. Son los de la literatura de competencia
+#: (DOJ/FTC): por debajo de 1.500 el mercado se considera desconcentrado, entre
+#: 1.500 y 2.500 moderadamente concentrado, y por encima concentrado.
+HHI_MODERADO = 1500
+HHI_CONCENTRADO = 2500
+
+
+def clasificar_hhi(hhi: float | None) -> str | None:
+    """El tramo de un HHI: `concentrado`, `moderado` o `fragmentado`.
+
+    Una sola vez para todo el BI: el panorama del rubro, el resumen y los
+    competidores de un organismo lo clasificaban cada uno por su cuenta.
+    """
+    if hhi is None:
+        return None
+    if hhi > HHI_CONCENTRADO:
+        return "concentrado"
+    if hhi > HHI_MODERADO:
+        return "moderado"
+    return "fragmentado"
 
 
 # ─────────────────────────────────────────────────────────────────────────────

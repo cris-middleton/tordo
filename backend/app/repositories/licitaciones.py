@@ -57,6 +57,9 @@ def coincide_termino(termino: str):
 
     - `busqueda @@ plainto_tsquery('spanish', t)` — palabras, con stemming.
       Encuentra "servicio" buscando "servicios". Cubre nombre y descripción.
+      Y cada palabra del término tiene que empezar alguna palabra SIN raíz
+      (`busqueda_palabras`, `_empieza_alguna_palabra`): el stemmer junta
+      "mesa" con "meses".
     - `nombre_norm ~* '\\m<t>'` — el término al COMIENZO de una palabra del
       nombre, sobre el índice de trigramas (`repositories/busqueda.py`). Es lo
       que salva buscar "valvul". Antes era `ILIKE '%t%'`, y un fragmento casaba
@@ -72,9 +75,25 @@ def coincide_termino(termino: str):
         if trozo
         else false()
     )
-    return or_(
+    por_palabras = and_(
         Licitacion.busqueda.op("@@")(func.plainto_tsquery("spanish", sin_tildes)),
-        por_fragmento,
+        *(_empieza_alguna_palabra(p) for p in busqueda.palabras(termino)),
+    )
+    return or_(por_palabras, por_fragmento)
+
+
+def _empieza_alguna_palabra(palabra: str):
+    """La palabra (o su singular) empieza alguna palabra SIN raíz del texto.
+
+    Corrige al stemmer: `busqueda` reduce «mesa» y «meses» a `mes`, y con él
+    solo «mesa» encontraba toda licitación de «12 meses». Una palabra que el
+    español descarta («de», «la») no exige nada: tampoco la pide `busqueda`.
+    """
+    return or_(
+        Licitacion.busqueda_palabras.op("@@")(
+            func.to_tsquery("simple", busqueda.consulta_prefijos(palabra))
+        ),
+        func.numnode(func.plainto_tsquery("spanish", palabra)) == 0,
     )
 
 
@@ -168,9 +187,11 @@ def _con_filtros(filtros: Filtros, *, aplicar_terminos: bool = True) -> Select:
         # por región no encontraba nada en 9 de las 16. El ETL ya las limpia al
         # guardar; el `trim` cubre las filas guardadas antes.
         consulta = consulta.where(func.trim(Licitacion.region) == filtros.region.strip())
-    if filtros.monto_minimo:
+    # `is not None` y no la verdad del número: `monto_maximo=0` es un filtro
+    # (las que declaran un monto de 0) y se ignoraba.
+    if filtros.monto_minimo is not None:
         consulta = consulta.where(Licitacion.monto_estimado >= filtros.monto_minimo)
-    if filtros.monto_maximo:
+    if filtros.monto_maximo is not None:
         consulta = consulta.where(Licitacion.monto_estimado <= filtros.monto_maximo)
     if aplicar_terminos:
         for termino in filtros.terminos:

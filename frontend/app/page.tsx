@@ -4,6 +4,7 @@ import { Portada } from '@/components/portada/Portada';
 import { DESTACADAS_EN_PORTADA } from '@/lib/portada';
 import {
   pedirDestacadas,
+  pedirMercadoPortada,
   pedirProductoPortada,
   pedirResumenPortada,
   pedirSectoresPortada,
@@ -23,12 +24,12 @@ import { urlRepositorio } from '@/lib/repositorio';
  * vivo, que además vacía el cron frecuente con la etiqueta `compra-agil`. Así la
  * portada sale del CDN y no del servidor en cada visita.
  *
- * Las cuatro piezas se piden en paralelo y **ninguna lanza**: si el backend
+ * Las cinco piezas se piden en paralelo y **ninguna lanza**: si el backend
  * falla al regenerar, cada `pedir…` devuelve `null`, su bloque se oculta y la
  * portada se publica igual, con el buscador; a la media hora se reintenta. Lo
  * vivo (destacadas y resumen) se cachea media hora con `compra-agil`; lo de
- * analytics (los sectores, que dan la «Base» de la ficha, y el producto de la
- * lectura de precio), una semana con `analytics`. (En un build sin backend —CI—
+ * analytics (los sectores, que dan la «Base» de la ficha, el gasto mensual y la
+ * concentración, y el producto de la lectura de precio), una semana con `analytics`. (En un build sin backend —CI—
  * nace sin ellas por lo mismo.) Las notas de datos son contenido del repo: se
  * leen del disco y nunca fallan.
  */
@@ -76,10 +77,11 @@ export const metadata: Metadata = {
 };
 
 export default async function Home() {
-  const [destacadas, resumen, sectores, producto] = await Promise.all([
+  const [destacadas, resumen, sectores, mercado, producto] = await Promise.all([
     pedirDestacadas(DESTACADAS_EN_PORTADA),
     pedirResumenPortada(),
     pedirSectoresPortada(),
+    pedirMercadoPortada(),
     pedirProductoPortada(),
   ]);
   return (
@@ -87,6 +89,7 @@ export default async function Home() {
       destacadas={destacadas}
       resumen={resumen}
       sectores={sectores}
+      mercado={mercado}
       producto={producto}
       notas={leerNotas()}
       repositorio={urlRepositorio()}

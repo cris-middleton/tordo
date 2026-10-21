@@ -50,33 +50,15 @@ def sql_columnas() -> str:
     )
 
 
-def sql_consulta(
-    tabla: str,
-    *,
+def _donde(
     filtros: dict[str, Any] | None = None,
     minimos: dict[str, float] | None = None,
-    columnas: list[str] | None = None,
-    orden: str | None = None,
-    descendente: bool = True,
-    limite: int | None = None,
-    schema: str = SCHEMA,
 ) -> tuple[str, dict[str, Any]]:
-    """Devuelve (sql, params).
+    """La cláusula WHERE (con su « WHERE » delante, o vacía) y sus parámetros.
 
-    Los filtros son igualdades por columna; un valor None significa "IS NULL".
-    Los valores van siempre como parámetros ligados, nunca interpolados.
-
-    Cuando el valor es una lista o tupla se genera un `IN`, que es lo que hace
-    falta para los filtros por varios rubros u organismos a la vez.
-
-    `minimos` son cotas inferiores (`col >= valor`). Existen porque filtrar en
-    Polars DESPUÉS de traer la tabla mataba la API por memoria (`/mercado`, spec
-    del rediseño §8.2), y filtrar después de un `LIMIT` cambiaba la respuesta.
-    Un NULL no pasa un mínimo, igual que en Polars.
+    Una sola construcción para todas las consultas: los filtros de una lectura,
+    de un conteo y de un agregado tienen que significar lo mismo.
     """
-    proyeccion = ", ".join(ident(c) for c in columnas) if columnas else "*"
-    sql = f"SELECT {proyeccion} FROM {tabla_calificada(tabla, schema)}"
-
     params: dict[str, Any] = {}
     clausulas: list[str] = []
     for i, (col, valor) in enumerate((filtros or {}).items()):
@@ -102,18 +84,150 @@ def sql_consulta(
         clave = f"m{i}"
         clausulas.append(f"{ident(col)} >= :{clave}")
         params[clave] = valor
-    if clausulas:
-        sql += " WHERE " + " AND ".join(clausulas)
+    return (" WHERE " + " AND ".join(clausulas) if clausulas else ""), params
+
+
+def sql_consulta(
+    tabla: str,
+    *,
+    filtros: dict[str, Any] | None = None,
+    minimos: dict[str, float] | None = None,
+    columnas: list[str] | None = None,
+    orden: str | None = None,
+    descendente: bool = True,
+    desempate_texto: str | None = None,
+    limite: int | None = None,
+    schema: str = SCHEMA,
+) -> tuple[str, dict[str, Any]]:
+    """Devuelve (sql, params).
+
+    Los filtros son igualdades por columna; un valor None significa "IS NULL".
+    Los valores van siempre como parámetros ligados, nunca interpolados.
+
+    Cuando el valor es una lista o tupla se genera un `IN`, que es lo que hace
+    falta para los filtros por varios rubros u organismos a la vez.
+
+    `minimos` son cotas inferiores (`col >= valor`). Existen porque filtrar en
+    Polars DESPUÉS de traer la tabla mataba la API por memoria (`/mercado`, spec
+    del rediseño §8.2), y filtrar después de un `LIMIT` cambiaba la respuesta.
+    Un NULL no pasa un mínimo, igual que en Polars.
+
+    `desempate_texto` es un segundo criterio, ascendente y por bytes
+    (`COLLATE "C"`, como ordena Polars), antes de `ctid`: hace falta cuando el
+    `LIMIT` corta en un empate de `orden` y el desempate de siempre era una
+    columna de texto, no el orden de carga.
+    """
+    proyeccion = ", ".join(ident(c) for c in columnas) if columnas else "*"
+    donde, params = _donde(filtros, minimos)
+    sql = f"SELECT {proyeccion} FROM {tabla_calificada(tabla, schema)}{donde}"
 
     if orden or limite:
         criterios = (
             [f"{ident(orden)} {'DESC' if descendente else 'ASC'} NULLS LAST"] if orden else []
         )
+        if desempate_texto:
+            criterios.append(f'{ident(desempate_texto)} COLLATE "C" ASC')
         sql += " ORDER BY " + ", ".join([*criterios, DESEMPATE])
     if limite:
         sql += f" LIMIT {int(limite)}"
 
     return sql, params
+
+
+def sql_contar_filas(
+    tabla: str,
+    *,
+    filtros: dict[str, Any] | None = None,
+    schema: str = SCHEMA,
+) -> tuple[str, dict[str, Any]]:
+    """Cuántas filas cumplen los filtros, sin traerlas."""
+    donde, params = _donde(filtros)
+    return f"SELECT count(*) FROM {tabla_calificada(tabla, schema)}{donde}", params
+
+
+def _sql_grupos(
+    tabla: str,
+    clave: str,
+    *,
+    filtros: dict[str, Any] | None,
+    sumas: list[str],
+    distintos: list[str] = (),
+    primeros: list[str] = (),
+    schema: str,
+) -> tuple[str, dict[str, Any]]:
+    """Una fila por valor de `clave`: las `sumas`, los `distintos` contados y el
+    PRIMER valor de cada columna de `primeros` en el orden de carga (`ctid`), que
+    es lo que daba `.first()` de Polars sobre la tabla leída sin ordenar."""
+    donde, params = _donde(filtros)
+    columnas = [f"{ident(clave)} AS {ident(clave)}"]
+    columnas += [f"sum({ident(c)})::double precision AS {ident(c)}" for c in sumas]
+    columnas += [f"count(DISTINCT {ident(c)}) AS {ident('distintos_' + c)}" for c in distintos]
+    columnas += [f"(array_agg({ident(c)} ORDER BY {DESEMPATE}))[1] AS {ident(c)}" for c in primeros]
+    sql = (
+        f"SELECT {', '.join(columnas)} FROM {tabla_calificada(tabla, schema)}{donde} "
+        f"GROUP BY {ident(clave)}"
+    )
+    return sql, params
+
+
+def sql_agregado(
+    tabla: str,
+    clave: str,
+    *,
+    filtros: dict[str, Any] | None = None,
+    sumas: list[str],
+    distintos: list[str] = (),
+    primeros: list[str] = (),
+    limite: int,
+    schema: str = SCHEMA,
+) -> tuple[str, dict[str, Any]]:
+    """Los `limite` grupos de más `sumas[0]`, agregados en Postgres.
+
+    Existe por `competitors_by_market`, que tiene una fila por (organismo,
+    rubro, proveedor): cualquier cifra de un rubro o de un organismo agrega por
+    proveedor primero, y hacerlo en Polars traía a la API todas las filas del
+    rubro para devolver diez. Empates por la clave, por bytes, como Polars.
+    """
+    grupos, params = _sql_grupos(
+        tabla,
+        clave,
+        filtros=filtros,
+        sumas=sumas,
+        distintos=distintos,
+        primeros=primeros,
+        schema=schema,
+    )
+    sql = (
+        f"{grupos} ORDER BY {ident(sumas[0])} DESC NULLS LAST, "
+        f'{ident(clave)} COLLATE "C" ASC LIMIT {int(limite)}'
+    )
+    return sql, params
+
+
+def sql_totales(
+    tabla: str,
+    clave: str,
+    *,
+    filtros: dict[str, Any] | None = None,
+    sumas: list[str],
+    distintos: list[str] = (),
+    schema: str = SCHEMA,
+) -> tuple[str, dict[str, Any]]:
+    """Los totales del mismo agregado: cuántos grupos hay, la suma de cada
+    columna de `sumas`, la suma de los CUADRADOS de `sumas[0]` por grupo (con
+    ella sale el HHI sin traer los grupos) y los `distintos` sobre las filas.
+    """
+    grupos, params = _sql_grupos(tabla, clave, filtros=filtros, sumas=sumas, schema=schema)
+    columnas = ["count(*) AS grupos"]
+    columnas += [f"sum(g.{ident(c)}) AS {ident(c)}" for c in sumas]
+    columnas.append(f"sum(g.{ident(sumas[0])} * g.{ident(sumas[0])}) AS cuadrados")
+    donde, _ = _donde(filtros)
+    columnas += [
+        f"(SELECT count(DISTINCT {ident(c)}) FROM {tabla_calificada(tabla, schema)}{donde}) "
+        f"AS {ident('distintos_' + c)}"
+        for c in distintos
+    ]
+    return f"SELECT {', '.join(columnas)} FROM ({grupos}) AS g", params
 
 
 def sql_contar_por(
@@ -146,14 +260,23 @@ def sql_contar_por(
     return sql, params
 
 
-def sql_distintos(tabla: str, columna: str, *, schema: str = SCHEMA) -> str:
-    """Los valores distintos y no nulos de una columna.
+def sql_distintos(
+    tabla: str,
+    columna: str,
+    *,
+    filtros: dict[str, Any] | None = None,
+    schema: str = SCHEMA,
+) -> tuple[str, dict[str, Any]]:
+    """Los valores distintos y no nulos de una columna, con filtros opcionales.
 
-    Existe para preguntar «¿qué rubros tienen filas?» sin traer las filas: en
-    `competitors_by_market` serían millones para quedarse con unos cientos.
+    Existe para preguntar «¿qué rubros tienen filas?» —o «¿qué compradores tiene
+    este rubro?»— sin traer las filas: en `competitors_by_market` serían
+    millones para quedarse con unos cientos.
     """
     col = ident(columna)
-    return f"SELECT DISTINCT {col} FROM {tabla_calificada(tabla, schema)} WHERE {col} IS NOT NULL"
+    donde, params = _donde(filtros)
+    condicion = f"{donde} AND {col} IS NOT NULL" if donde else f" WHERE {col} IS NOT NULL"
+    return f"SELECT DISTINCT {col} FROM {tabla_calificada(tabla, schema)}{condicion}", params
 
 
 def sql_busqueda_texto(
@@ -195,3 +318,82 @@ def parametros_busqueda(consulta: str) -> dict[str, str] | None:
     """
     trozo = busqueda.fragmento(consulta.strip())
     return busqueda.parametros(trozo) if trozo else None
+
+
+# ── Agregados del mercado para la portada (`/publico/mercado`) ───────────────
+#
+# Se agregan en Postgres y no en Polars: `time_series` pesa 301 MB en
+# producción, y traerla entera para sumarla es lo que mató a la API por memoria
+# el 2026-10-14. Lo que vuelve son unas decenas de filas.
+
+#: Cómo sale un sector sin nombre (NULL o vacío): se suma al «Otros» que ya trae
+#: el ETL, en vez de pintar un sector en blanco al lado.
+SECTOR_SIN_NOMBRE = "Otros"
+
+#: Cuántos tramos de 10 puntos tiene la distribución de la cuota del líder.
+TRAMOS_CUOTA = 10
+
+
+def sql_gasto_mensual(tabla: str, *, schema: str = SCHEMA) -> str:
+    """Monto y órdenes por (año, mes, sector), en orden de mes y de sector.
+
+    El sector vacío o nulo cae en `SECTOR_SIN_NOMBRE`, y se agrupa por la
+    expresión ya traducida: así se funde con el «Otros» que haya, en vez de salir
+    dos veces. Va como literal y no como parámetro porque la misma expresión
+    aparece en el `SELECT` y en el `ORDER BY`, y Postgres sólo las reconoce
+    iguales si lo son al pie de la letra (con dos parámetros ligados no lo son).
+    """
+    sin_nombre = "'" + SECTOR_SIN_NOMBRE.replace("'", "''") + "'"
+    sector = f"COALESCE(NULLIF(btrim({ident('sector')}), ''), {sin_nombre})"
+    return (
+        f"SELECT {ident('anio')} AS anio, {ident('mes')} AS mes, {sector} AS sector, "
+        f"COALESCE(SUM({ident('monto_total')}), 0) AS monto, "
+        f"COALESCE(SUM({ident('n_oc')}), 0) AS n_oc "
+        f"FROM {tabla_calificada(tabla, schema)} "
+        f"WHERE {ident('anio')} IS NOT NULL AND {ident('mes')} IS NOT NULL "
+        # El sector se ordena por bytes, como en el resto del módulo: no depende
+        # de la intercalación de la base.
+        f'GROUP BY 1, 2, 3 ORDER BY 1, 2, {sector} COLLATE "C"'
+    )
+
+
+def sql_concentracion_totales(tabla: str, *, con_ventana: bool, schema: str = SCHEMA) -> str:
+    """Los conteos y montos de `market_concentration` en una sola pasada.
+
+    Un mercado cuenta si tiene cuota del líder: es la base de la distribución,
+    y así `mercados` es la suma de los tramos. `un_proveedor` se cuenta sobre los
+    mismos. Con `con_ventana`, también el periodo (es igual en todas las filas).
+    """
+    cuota, monto = ident("top_share_pct"), ident("monto_total_mercado")
+    ventana = (
+        f", MIN({ident('ventana_desde')}) AS ventana_desde, "
+        f"MAX({ident('ventana_hasta')}) AS ventana_hasta"
+        if con_ventana
+        else ""
+    )
+    return (
+        "SELECT count(*) AS mercados, "
+        f"count(*) FILTER (WHERE {cuota} >= 50) AS sobre_la_mitad, "
+        f"count(*) FILTER (WHERE {ident('n_proveedores')} = 1) AS un_proveedor, "
+        f"COALESCE(SUM({monto}), 0) AS monto_total, "
+        f"COALESCE(SUM({monto}) FILTER (WHERE {cuota} >= 50), 0) AS monto_sobre_la_mitad"
+        f"{ventana} FROM {tabla_calificada(tabla, schema)} WHERE {cuota} IS NOT NULL"
+    )
+
+
+def sql_concentracion_tramos(tabla: str, *, schema: str = SCHEMA) -> str:
+    """Mercados y monto por tramo de 10 puntos de la cuota del líder (0 a 9).
+
+    El 100 % cae en el último tramo (`LEAST`), y una cuota fuera de [0, 100] —que
+    la aritmética no permite, pero un dato roto sí— en el tramo del borde. Los
+    tramos sin mercados no vienen: los rellena quien llama.
+    """
+    cuota, monto = ident("top_share_pct"), ident("monto_total_mercado")
+    ultimo = TRAMOS_CUOTA - 1
+    tramo = f"LEAST(GREATEST(floor({cuota} / 10)::int, 0), {ultimo})"
+    return (
+        f"SELECT {tramo} AS tramo, count(*) AS mercados, "
+        f"COALESCE(SUM({monto}), 0) AS monto "
+        f"FROM {tabla_calificada(tabla, schema)} WHERE {cuota} IS NOT NULL "
+        "GROUP BY 1 ORDER BY 1"
+    )

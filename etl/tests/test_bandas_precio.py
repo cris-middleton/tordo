@@ -16,6 +16,7 @@ from analytics.product_price_bands import (
     build_level_0_nacional,
     build_level_0_nacional_y_compradores,
     build_level_1,
+    build_level_3,
 )
 
 
@@ -385,3 +386,62 @@ class TestCompradoresDelProducto:
     def test_sin_datos_no_revienta(self):
         banda, compradores = build_level_0_nacional_y_compradores(_items([]).clear())
         assert banda.is_empty() and compradores.is_empty()
+
+
+class TestIdentidadPorCodigo:
+    """Las bandas se agrupan por CÓDIGO; los nombres se arrastran (`identidad.py`)."""
+
+    def test_dos_nombres_genericos_del_mismo_codigo_son_una_banda(self):
+        # 770 códigos de producto traían dos nombres genéricos el mismo mes, y L3
+        # salía con dos bandas para un producto.
+        df = _items(
+            [{"NombreroductoGenerico": "Guantes de examen", "pu": 100.0 + i} for i in range(15)]
+            + [{"NombreroductoGenerico": "Guantes quirúrgicos", "pu": 100.0 + i} for i in range(15)]
+        )
+        l3 = build_level_3(df)
+        assert l3.height == 1
+        assert l3["n"][0] == 30
+        # Empate de período: desempata el texto, así que sale siempre el mismo.
+        assert l3["NombreroductoGenerico"][0] == "Guantes quirúrgicos"
+        assert l3.columns[:3] == ["codigoProductoONU", "NombreroductoGenerico", "UnidadMedida"]
+
+    def test_un_organismo_renombrado_es_una_banda_con_su_nombre_de_hoy(self):
+        df = _items(
+            [
+                {"OrganismoPublico": "GOBERNACION PROVINCIAL", "_periodo_archivo": "2025-9"}
+                for _ in range(3)
+            ]
+            + [
+                {"OrganismoPublico": "DELEGACION PRESIDENCIAL", "_periodo_archivo": "2025-12"}
+                for _ in range(3)
+            ]
+        )
+        l1 = build_level_1(df)
+        assert l1.height == 1
+        assert l1["n"][0] == 6
+        # «2025-9» > «2025-12» como texto: el nombre de hoy es el de diciembre.
+        assert l1["OrganismoPublico"][0] == "DELEGACION PRESIDENCIAL"
+        assert l1.columns[:5] == [
+            "codigoProductoONU",
+            "NombreroductoGenerico",
+            "CodigoOrganismoPublico",
+            "OrganismoPublico",
+            "UnidadMedida",
+        ]
+
+    def test_en_convenio_marco_el_producto_es_su_nombre_de_catalogo(self):
+        """Toda línea de Convenio Marco lleva el código «0»: ahí el nombre identifica."""
+        azucar = [
+            {"codigoProductoONU": "0", "NombreroductoGenerico": "AZUCAR 1 K", "pu": 1_500.0 + i}
+            for i in range(25)
+        ]
+        tarro = [
+            {"codigoProductoONU": "0", "NombreroductoGenerico": "ENSURE 850 G", "pu": 17_000.0 + i}
+            for i in range(25)
+        ]
+        l3 = build_level_3(_items(azucar + tarro))
+        assert dict(zip(l3["NombreroductoGenerico"], l3["n"], strict=True)) == {
+            "AZUCAR 1 K": 25,
+            "ENSURE 850 G": 25,
+        }
+        assert "_producto" not in l3.columns

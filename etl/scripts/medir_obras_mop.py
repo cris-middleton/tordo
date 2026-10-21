@@ -37,16 +37,18 @@ from pathlib import Path
 
 import polars as pl
 
-from etl.analytics.data_loader import con_monto_saneado, con_numeros, con_vacios
+from etl.analytics.data_loader import (
+    ESTADOS_CANCELADOS,
+    con_monto_saneado,
+    con_numeros,
+    con_vacios,
+)
 from etl.scripts.descargar_datos_masivos import BASE_URLS, descargar_zip, generar_periodos
 
 logger = logging.getLogger("medir_obras_mop")
 
 SECTOR = "Obras Públicas"
 TIPOS_DE_OBRA = ("O1", "O2")
-#: La misma tupla que `compra_agil_mensual.ESTADOS_CANCELADOS`, que es la que usa
-#: `sector_dashboard`. Copiada para no importar ese módulo, que trae la base.
-ESTADOS_CANCELADOS = ("Cancelacion solicitada", "Cancelada", "Cancelación solicitada")
 #: Un código de licitación: «1151-5-O125», «5048-96-O224».
 PATRON_CODIGO = r"\d+-\d+-[A-Z][A-Z0-9]\d{2}"
 

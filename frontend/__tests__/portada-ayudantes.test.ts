@@ -125,18 +125,18 @@ describe('el lema', () => {
 describe('los textos fijos de la portada', () => {
   it('el subtítulo dice qué responde la búsqueda (spec PORTADA_V7 §3.8)', () => {
     expect(SUBTITULO_PORTADA).toBe(
-      'Antes de cotizar, mira a qué precio se compró en los últimos 12 meses, quién lo compra y qué puedes postular hoy.',
+      'Escribe tu producto. Te mostramos a qué precio lo compró el Estado en los últimos 12 meses, quién lo compra y dónde postular hoy.',
     );
   });
 
   it('el campo no repite los ejemplos, que ya están debajo', () => {
-    expect(PLACEHOLDER_BUSCADOR).toBe('Un producto o un servicio');
+    expect(PLACEHOLDER_BUSCADOR).toBe('Escribe un producto o servicio');
     for (const ejemplo of EJEMPLOS_BUSQUEDA) expect(PLACEHOLDER_BUSCADOR).not.toContain(ejemplo);
   });
 
   it('«se actualiza» sale del horario del cron frecuente, no se escribe', () => {
     expect(SE_ACTUALIZA).toBe(
-      'El catálogo, 4 veces al día de lunes a viernes y una al día el fin de semana. Los precios y los mercados, cada domingo.',
+      'Licitaciones y Compras Ágiles, 4 veces al día de lunes a viernes y una el fin de semana. Precios y mercados, cada domingo.',
     );
     expect(HORAS_HABILES).toHaveLength(4);
   });

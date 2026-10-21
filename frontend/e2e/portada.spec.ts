@@ -1,29 +1,35 @@
 import { expect, test, type Page } from '@playwright/test';
 
 /**
- * La portada v7 (spec docs/PORTADA_V7_Y_NOTAS_2026-10.md §3 y §9), con la opción 2
- * del 2026-10-17 (las lecturas a la derecha del buscador), y `/acerca`, de punta a
- * punta y SIN sesión.
+ * La portada de gráficos (octubre de 2026): a la izquierda el titular, el buscador,
+ * las abiertas de ahora y la ficha; a la derecha el gráfico grande del gasto
+ * mensual por sector; debajo «Para empezar», con tres lecturas en fila. Y
+ * `/acerca`, de punta a punta y SIN sesión.
  *
- * Lo vivo —la tira, las lecturas de precio y de cierres, la franja y «Lo mejor de
- * hoy»— sale del servidor con ISR. `scripts/e2e.sh` construye con el backend
- * levantado y la semilla puesta, así que la portada suele nacer con lo vivo (con
- * el fixture del golden, de las dos lecturas vivas sólo la de cierres: el
- * producto de la portada no está, así que entra la nota). La de la nota es
- * contenido del repo y sale siempre: **la sección de lecturas existe siempre**. Lo que no depende de nada es
- * el buscador, y eso se exige siempre: es lo primero que se ve, también a 390 px
- * (principio 1). El detalle de cada bloque oculto está en `__tests__/portada.test.tsx`.
+ * Lo vivo —las abiertas, las lecturas, la franja y «Lo mejor de hoy»— sale del
+ * servidor con ISR. `scripts/e2e.sh` construye con el backend levantado y la
+ * semilla puesta. Con el fixture del golden el gasto mensual tiene tres meses
+ * (menos de los seis que pide), así que **el gráfico grande no sale** y la ficha
+ * baja tras «Para empezar»; de las lecturas, la concentración y los cierres (el
+ * producto de la portada no está, así que entra la nota). La nota es contenido del
+ * repo y sale siempre: **la sección de lecturas existe siempre**. Lo que no
+ * depende de nada es el buscador, y eso se exige siempre: es lo primero que se ve,
+ * también a 390 px (principio 1). El detalle de cada bloque oculto está en
+ * `__tests__/portada.test.tsx`.
  *
  * Las capturas quedan en `test-results/` para mirarlas: el contraste roto en
  * oscuro es invisible en claro.
  */
 
-const PREGUNTA = '¿Qué le vendes al Estado?';
+const TITULAR = 'Cuánto paga el Estado por lo que vendes';
+const CAMPO = 'Producto o servicio que vendes';
 const ESTRECHO = { width: 320, height: 640 };
 const MOVIL = { width: 390, height: 844 };
 const TABLETA = { width: 1024, height: 768 };
 const ESCRITORIO = { width: 1440, height: 900 };
-const LECTURAS = 'Lo que dicen los datos';
+const LECTURAS = 'Para empezar';
+/** El gráfico grande (si hay meses suficientes): una sección con la conclusión como `h2`. */
+const GASTO = 'section[aria-labelledby="gasto-titulo"]';
 
 async function anchoDelDocumento(page: Page): Promise<number> {
   return page.evaluate(() => document.documentElement.scrollWidth);
@@ -53,36 +59,13 @@ async function cajasDeLecturas(page: Page) {
     );
 }
 
-/**
- * Las líneas del `h1`: la posición vertical de «¿Qué» y de «al Estado?». Con un
- * Range sobre el texto, que es lo que se pinta (la caja del h1 no dice dónde parte).
- */
-async function lineasDelTitular(page: Page) {
-  return page.getByRole('heading', { level: 1 }).evaluate((h1) => {
-    const texto = document.createTreeWalker(h1, NodeFilter.SHOW_TEXT).nextNode() as Text;
-    const arriba = (desde: number, hasta: number) => {
-      const r = document.createRange();
-      r.setStart(texto, desde);
-      r.setEnd(texto, hasta);
-      return r.getBoundingClientRect().top;
-    };
-    const t = texto.data;
-    return {
-      que: arriba(0, 4),
-      vendes: arriba(t.indexOf('vendes'), t.indexOf('vendes') + 6),
-      al: arriba(t.indexOf(' al ') + 1, t.indexOf(' al ') + 3),
-      estado: arriba(t.indexOf('Estado'), t.indexOf('Estado') + 6),
-    };
-  });
-}
-
 test('lo primero es el buscador, y nada de lo que se fue', async ({ page }) => {
   const respuesta = await page.goto('/');
   expect(respuesta?.status()).toBe(200);
 
   await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText(PREGUNTA);
-  await expect(page.getByRole('searchbox', { name: PREGUNTA })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(TITULAR);
+  await expect(page.getByRole('searchbox', { name: CAMPO })).toBeVisible();
   await expect(page.getByRole('list', { name: 'Ejemplos de búsqueda' }).getByRole('link')).toHaveCount(6);
   // La nota es contenido del repo: la sección de lecturas sale siempre.
   await expect(page.getByRole('region', { name: LECTURAS })).toBeVisible();
@@ -94,9 +77,9 @@ test('lo primero es el buscador, y nada de lo que se fue', async ({ page }) => {
   if (await bloque.count()) {
     await expect(bloque.getByRole('list', { name: /compras ágiles destacadas de hoy/i })).toBeVisible();
   }
-  const tira = page.getByRole('list', { name: 'Abiertas ahora' });
-  if (await tira.count()) {
-    await expect(tira.getByRole('link')).toHaveCount(2);
+  const abiertas = page.getByText(/^Ahora puedes postular a /);
+  if (await abiertas.count()) {
+    await expect(abiertas.getByRole('link')).toHaveCount(2);
     // La hora vive en la franja de abajo, con el día.
     await expect(page.getByText('Actualizado el', { exact: true })).toBeVisible();
   }
@@ -125,7 +108,7 @@ test('metadatos y tarjeta de vista previa, sin «Inteligencia»', async ({ page 
 
 test('buscar desde la portada abre /buscar con el término', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('searchbox', { name: PREGUNTA }).fill('guantes de nitrilo');
+  await page.getByRole('searchbox', { name: CAMPO }).fill('guantes de nitrilo');
   await page.getByRole('search').getByRole('button', { name: 'Buscar' }).click();
   await expect(page).toHaveURL(/\/buscar\?q=guantes\+de\+nitrilo$/);
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
@@ -142,7 +125,7 @@ test('a 390 px el buscador y su botón quedan en la primera pantalla, sin desbor
   await page.setViewportSize(MOVIL);
   await page.goto('/');
   for (const control of [
-    page.getByRole('searchbox', { name: PREGUNTA }),
+    page.getByRole('searchbox', { name: CAMPO }),
     page.getByRole('search').getByRole('button', { name: 'Buscar' }),
   ]) {
     await expect(control).toBeVisible();
@@ -163,63 +146,86 @@ test('el pie lleva a /acerca', async ({ page }) => {
 });
 
 for (const viewport of [TABLETA, ESCRITORIO]) {
-  test(`a ${viewport.width} px el h1 va en dos líneas, «¿Qué le vendes / al Estado?»`, async ({ page }) => {
+  test(`a ${viewport.width} px el h1 no pasa de tres líneas`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.goto('/');
-    const l = await lineasDelTitular(page);
-    expect(Math.abs(l.vendes - l.que), '«vendes» en la primera línea').toBeLessThanOrEqual(2);
-    expect(l.al - l.que, '«al» baja a la segunda línea').toBeGreaterThan(20);
-    expect(Math.abs(l.estado - l.al), '«Estado?» junto a «al»').toBeLessThanOrEqual(2);
+    const h1 = page.getByRole('heading', { level: 1 });
+    const alto = (await h1.boundingBox())!.height;
+    const linea = await h1.evaluate((e) => parseFloat(getComputedStyle(e).lineHeight));
+    expect(Math.round(alto / linea), `${alto} px de alto con líneas de ${linea}`).toBeLessThanOrEqual(3);
   });
 
-  test(`a ${viewport.width} px las lecturas van a la derecha del buscador, apiladas y sin desborde`, async ({ page }) => {
+  test(`a ${viewport.width} px «Para empezar» va en fila: misma altura, una al lado de otra, sin desborde`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.goto('/');
     const seccion = page.getByRole('region', { name: LECTURAS });
     await expect(seccion).toBeVisible();
     const caja = (await seccion.boundingBox())!;
     const cajas = await cajasDeLecturas(page);
-    // La nota sale siempre; con la semilla, también los cierres. Nunca más de dos.
-    expect(cajas.length).toBe(2);
+    // La nota sale siempre; con la semilla, también la concentración y los cierres. Nunca más de tres.
+    expect(cajas.length).toBeGreaterThanOrEqual(1);
+    expect(cajas.length).toBeLessThanOrEqual(3);
     for (const [i, c] of cajas.entries()) {
-      expect(Math.abs(c.x - caja.x), 'todas en la misma columna').toBeLessThanOrEqual(1);
-      expect(Math.abs(c.ancho - caja.width), `ancho ${c.ancho}: ocupan la columna entera`).toBeLessThanOrEqual(1);
-      expect(c.derecha, 'no se sale de la columna').toBeLessThanOrEqual(caja.x + caja.width + 1);
-      if (i > 0) expect(c.y, 'una debajo de la otra').toBeGreaterThanOrEqual(cajas[i - 1].abajo - 1);
+      expect(c.derecha, 'no se sale de la sección').toBeLessThanOrEqual(caja.x + caja.width + 1);
+      if (i > 0) {
+        expect(Math.abs(c.y - cajas[0].y), 'todas empiezan a la misma altura').toBeLessThanOrEqual(1);
+        expect(c.x, 'una al lado de la otra').toBeGreaterThanOrEqual(cajas[i - 1].derecha);
+      }
     }
-    // A la derecha del buscador, y a su altura: empieza antes que el campo.
+    expect(await anchoDelDocumento(page), (await quienSeSale(page)).join('\n')).toBeLessThanOrEqual(viewport.width);
+  });
+
+  test(`a ${viewport.width} px, si está, el gráfico grande va a la derecha del buscador y a su altura`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto('/');
+    const gasto = page.locator(GASTO);
+    test.skip((await gasto.count()) === 0, 'sin meses suficientes en el fixture, el gráfico grande no sale');
+    const caja = (await gasto.boundingBox())!;
     const buscador = (await page.getByRole('search').boundingBox())!;
     expect(caja.x, 'a la derecha del buscador').toBeGreaterThanOrEqual(buscador.x + buscador.width);
-    expect(caja.y, 'a la altura del buscador, no debajo').toBeLessThan(buscador.y);
-    expect(await anchoDelDocumento(page), (await quienSeSale(page)).join('\n')).toBeLessThanOrEqual(viewport.width);
+    expect(caja.y, 'empieza antes que el campo').toBeLessThan(buscador.y);
   });
 }
 
-test('a 1440×900 la primera conclusión y el primer gráfico empiezan sobre el pliegue', async ({ page }) => {
+test('a 1440×900 la primera conclusión de datos y su gráfico empiezan sobre el pliegue', async ({ page }) => {
   await page.setViewportSize(ESCRITORIO);
   await page.goto('/');
-  const primera = page.getByRole('region', { name: LECTURAS }).getByRole('article').first();
-  const conclusion = (await primera.getByRole('heading', { level: 3 }).boundingBox())!;
+  const gasto = page.locator(GASTO);
+  const primera = (await gasto.count()) ? gasto : page.getByRole('region', { name: LECTURAS }).getByRole('article').first();
+  const conclusion = (await primera.getByRole('heading').first().boundingBox())!;
   expect(conclusion.y + conclusion.height, `la conclusión termina en y = ${conclusion.y + conclusion.height}`).toBeLessThanOrEqual(
     ESCRITORIO.height,
   );
-  // El gráfico de cada lectura: el SVG del precio, las celdas de cierres o el antes y después de la nota.
   const grafico = (await primera.locator('svg, [data-decimo], figure').first().boundingBox())!;
   expect(grafico.y, `el gráfico empieza en y = ${grafico.y}`).toBeLessThan(ESCRITORIO.height);
 });
 
-test('a 390×844 la conclusión de la primera lectura queda sobre el pliegue', async ({ page }) => {
+test('a 390×844 la primera conclusión de datos queda sobre el pliegue', async ({ page }) => {
   await page.setViewportSize(MOVIL);
   await page.goto('/');
-  // Con la semilla del E2E, la primera es la de cierres (el producto de la portada no está).
-  const primera = page.getByRole('region', { name: LECTURAS }).getByRole('heading', { level: 3 }).first();
+  const gasto = page.locator(GASTO);
+  const primera = (await gasto.count())
+    ? gasto.getByRole('heading', { level: 2 })
+    : page.getByRole('region', { name: LECTURAS }).getByRole('heading', { level: 3 }).first();
   await expect(primera).toBeVisible();
   const caja = (await primera.boundingBox())!;
   expect(caja.y + caja.height, `la conclusión termina en y = ${caja.y + caja.height}`).toBeLessThanOrEqual(MOVIL.height);
 });
 
+test('el globo de un gráfico sale al pasar el mouse y se va al salir', async ({ page }) => {
+  await page.setViewportSize(ESCRITORIO);
+  await page.goto('/');
+  const barras = page.getByRole('region', { name: LECTURAS }).locator('figure .cursor-crosshair');
+  test.skip((await barras.count()) === 0, 'sin la lectura de concentración no hay barras con globo');
+  await barras.last().hover();
+  await expect(page.locator('[data-globo]')).toHaveCount(1);
+  await expect(page.locator('[data-globo]')).toContainText('mercados', { ignoreCase: true });
+  await page.mouse.move(0, 0);
+  await expect(page.locator('[data-globo]')).toHaveCount(0);
+});
+
 const PANTALLAS = [
-  { ruta: '/', nombre: 'portada', titulo: PREGUNTA, anchos: [ESTRECHO, MOVIL, TABLETA, ESCRITORIO] },
+  { ruta: '/', nombre: 'portada', titulo: TITULAR, anchos: [ESTRECHO, MOVIL, TABLETA, ESCRITORIO] },
   { ruta: '/acerca', nombre: 'acerca', titulo: /^acerca de /i, anchos: [ESCRITORIO, MOVIL] },
 ];
 

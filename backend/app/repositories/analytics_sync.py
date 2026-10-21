@@ -22,6 +22,9 @@ logger = logging.getLogger(__name__)
 
 SCHEMA = sql.SCHEMA
 
+#: Tramos de 10 puntos de la cuota del líder que agrega `concentracion_de_mercados`.
+TRAMOS_CUOTA = sql.TRAMOS_CUOTA
+
 
 def _engine():
     # Import diferido a propósito: `app.db` crea los engines al importarse y eso
@@ -41,7 +44,10 @@ def _a_polars(filas: list[dict], columnas_vacio: list[str] | None = None) -> pl.
     trend_by_market venía sin filas.
     """
     if filas:
-        return pl.DataFrame(filas)
+        # Todas las filas para inferir el esquema, no las 100 primeras: una
+        # columna nula en las cien primeras y con texto después hacía fallar la
+        # construcción (ComputeError) — y con ella el endpoint, con un 500.
+        return pl.DataFrame(filas, infer_schema_length=None)
     if columnas_vacio:
         return pl.DataFrame(schema=dict.fromkeys(columnas_vacio, pl.Utf8))
     return pl.DataFrame()
@@ -103,6 +109,7 @@ def consultar(
     columnas: list[str] | None = None,
     orden: str | None = None,
     descendente: bool = True,
+    desempate_texto: str | None = None,
     limite: int | None = None,
 ) -> pl.DataFrame | None:
     """Consulta una tabla de analytics con los filtros empujados a SQL.
@@ -122,6 +129,7 @@ def consultar(
         columnas=columnas,
         orden=orden,
         descendente=descendente,
+        desempate_texto=desempate_texto,
         limite=limite,
     )
     with _engine().connect() as conn:
@@ -132,7 +140,69 @@ def consultar(
     return _a_polars([], columnas or sorted(columnas_de(tabla)))
 
 
-def distintos(tabla: str, columna: str) -> list[Any] | None:
+def contar_filas(tabla: str, *, filtros: dict[str, Any] | None = None) -> int | None:
+    """Cuántas filas cumplen los filtros; None si la tabla no existe."""
+    if not existe_tabla(tabla):
+        return None
+    consulta, params = sql.sql_contar_filas(tabla, filtros=filtros)
+    with _engine().connect() as conn:
+        return int(conn.execute(text(consulta), params).scalar() or 0)
+
+
+def agregado(
+    tabla: str,
+    clave: str,
+    *,
+    filtros: dict[str, Any] | None = None,
+    sumas: list[str],
+    distintos: list[str] = (),
+    primeros: list[str] = (),
+    limite: int,
+) -> pl.DataFrame | None:
+    """Los grupos de más `sumas[0]`, agregados en SQL; None si no hay tabla.
+
+    Columnas: la clave, cada suma con su nombre, `distintos_<col>` y cada
+    columna de `primeros` (su primer valor en el orden de carga).
+    """
+    if not existe_tabla(tabla):
+        return None
+    consulta, params = sql.sql_agregado(
+        tabla,
+        clave,
+        filtros=filtros,
+        sumas=sumas,
+        distintos=distintos,
+        primeros=primeros,
+        limite=limite,
+    )
+    with _engine().connect() as conn:
+        filas = conn.execute(text(consulta), params).mappings().all()
+    nombres = [clave, *sumas, *(f"distintos_{c}" for c in distintos), *primeros]
+    return _a_polars([dict(f) for f in filas], nombres)
+
+
+def totales(
+    tabla: str,
+    clave: str,
+    *,
+    filtros: dict[str, Any] | None = None,
+    sumas: list[str],
+    distintos: list[str] = (),
+) -> dict[str, Any] | None:
+    """Los totales del agregado (`grupos`, cada suma, `cuadrados`,
+    `distintos_<col>`); None si no hay tabla."""
+    if not existe_tabla(tabla):
+        return None
+    consulta, params = sql.sql_totales(
+        tabla, clave, filtros=filtros, sumas=sumas, distintos=distintos
+    )
+    with _engine().connect() as conn:
+        return dict(conn.execute(text(consulta), params).mappings().one())
+
+
+def distintos(
+    tabla: str, columna: str, *, filtros: dict[str, Any] | None = None
+) -> list[Any] | None:
     """Los valores distintos de una columna, o None si la tabla no existe.
 
     Lo usa el índice de páginas públicas para saber qué rubros tienen datos sin
@@ -141,8 +211,9 @@ def distintos(tabla: str, columna: str) -> list[Any] | None:
     """
     if not existe_tabla(tabla):
         return None
+    consulta, params = sql.sql_distintos(tabla, columna, filtros=filtros)
     with _engine().connect() as conn:
-        return [fila[0] for fila in conn.execute(text(sql.sql_distintos(tabla, columna)))]
+        return [fila[0] for fila in conn.execute(text(consulta), params)]
 
 
 def contar_por(
@@ -190,3 +261,56 @@ def buscar_texto(
     if filas:
         return _a_polars([dict(f) for f in filas])
     return _a_polars([], columnas or sorted(columnas_de(tabla)))
+
+
+def gasto_mensual_por_sector(tabla: str = "time_series") -> list[dict] | None:
+    """Monto y órdenes por (año, mes, sector), agregados en SQL; None sin tabla.
+
+    Lo pide la portada (`/publico/mercado`). La tabla nunca llega a la API: vuelve
+    una fila por mes y sector (~40 meses por ~8 sectores en producción).
+    """
+    if not existe_tabla(tabla):
+        return None
+    with _engine().connect() as conn:
+        filas = conn.execute(text(sql.sql_gasto_mensual(tabla))).mappings().all()
+    return [
+        {
+            "anio": int(f["anio"]),
+            "mes": int(f["mes"]),
+            "sector": f["sector"],
+            "monto": float(f["monto"]),
+            "n_oc": int(f["n_oc"]),
+        }
+        for f in filas
+    ]
+
+
+def concentracion_de_mercados(tabla: str = "market_concentration") -> dict | None:
+    """Conteos, montos y tramos de la cuota del líder, agregados en SQL; None sin tabla.
+
+    Dos consultas: los totales (con la ventana si la tabla la publica) y los
+    tramos que tienen mercados. Los tramos vacíos los rellena el servicio.
+    """
+    if not existe_tabla(tabla):
+        return None
+    con_ventana = {"ventana_desde", "ventana_hasta"} <= columnas_de(tabla)
+    with _engine().connect() as conn:
+        totales = dict(
+            conn.execute(text(sql.sql_concentracion_totales(tabla, con_ventana=con_ventana)))
+            .mappings()
+            .one()
+        )
+        tramos = conn.execute(text(sql.sql_concentracion_tramos(tabla))).mappings().all()
+    return {
+        "mercados": int(totales["mercados"]),
+        "sobre_la_mitad": int(totales["sobre_la_mitad"]),
+        "un_proveedor": int(totales["un_proveedor"]),
+        "monto_total": float(totales["monto_total"]),
+        "monto_sobre_la_mitad": float(totales["monto_sobre_la_mitad"]),
+        "ventana_desde": totales.get("ventana_desde"),
+        "ventana_hasta": totales.get("ventana_hasta"),
+        "tramos": [
+            {"tramo": int(f["tramo"]), "mercados": int(f["mercados"]), "monto": float(f["monto"])}
+            for f in tramos
+        ],
+    }

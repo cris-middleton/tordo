@@ -93,6 +93,20 @@ alguien pudiera estar usando:
 | `organismo_id` | cada licitación del catálogo | octubre de 2026 | **siempre fue nulo**: la tabla de organismos que lo llenaría nunca se llenó. El comprador está en `codigo_organismo` y `nombre_organismo` |
 | `similarity_score` | cada licitación del catálogo | octubre de 2026 | **siempre fue nulo** desde que la búsqueda pasó a `ts_rank` (paso 8 del pivote); el orden por relevancia ya es el orden de la lista |
 
+## Respuestas de `v1` que se corrigieron
+
+Tres respuestas de `/bi` cambiaron de significado en octubre de 2026. Las tres
+estaban mal, y la que había no servía para decidir nada:
+
+| dónde | antes | ahora |
+|---|---|---|
+| `/bi/competidores/{organismo_id}` sin `rubro` (y `competidores` del panel de una licitación) | los n.º 1 de rubros cualesquiera, cada uno con la cuota de su rubro, y en `concentracion` una fila por rubro | los proveedores de todo lo que compra el organismo: `market_share_pct` sobre su monto total, `rank_monto` el puesto en ese total, `RubroN2` nulo y una sola entrada de `concentracion` con el HHI de esas cuotas |
+| `/bi/estacionalidad/{organismo_id}` sin `rubro` | doce filas por rubro, sin decir de cuál | doce filas, los rubros sumados mes a mes; `consistencia` y `es_pico_estacional` nulas, porque no salen de la suma. Con un solo rubro, las suyas |
+| `/bi/tendencia?tendencia=` | se documentaba `creciente`, `decreciente`, `estable`; los dos primeros devolvían una lista vacía | `crecimiento`, `decrecimiento` o `estable`, los valores que trae cada fila; otro valor es 422 |
+
+Con `rubro`, `/bi/competidores` y `/bi/estacionalidad` responden lo mismo que
+antes. `rank_monto` es siempre entero: dos empatados comparten el puesto.
+
 ## Cuánto guarda el catálogo
 
 `/tenders` es lo que se puede postular **hoy**, no un archivo histórico: la
@@ -231,6 +245,7 @@ respuesta trae ya los enlaces a las demás.
 | `GET /publico/rubros/{slug}` | el panorama de `/bi/panorama` y sus 10 compradores de más monto |
 | `GET /publico/productos/{slug}` | una banda nacional por unidad de medida —con cuántos organismos la compran (`compradores`), la fracción del mayor (`cuota_mayor`) y si es un precio de mercado (`de_mercado`), más `medianas_compradores`: `{n, p50}` de cada organismo detrás de la banda, las de más compras primero y como mucho 200, `null` si todavía no se calculan—, los 10 compradores que más lo compran —una fila por comprador y unidad, con sus compras (`n`, desde 1) y la mediana de lo que pagó (`p50`), sobre las mismas compras que la banda— y el `periodo` de las bandas (12 meses) |
 | `GET /publico/productos?q=&limite=` | búsqueda por palabras, también de los no indexados, con la `descripcion` de cada producto (cómo lo escribe el comprador) |
+| `GET /publico/mercado` | el gasto mensual del Estado por sector y en cuántos mercados (un comprador en un rubro) un solo proveedor se lleva la mitad o más, con la cuota del líder en diez tramos |
 | `GET /publico/portada` | cuántas licitaciones (no Compra Ágil) y Compras Ágiles se pueden postular ahora, las Compras Ágiles abiertas por día de cierre, cuántas se publicaron hoy y qué organismo publicó más, y la hora de la última ingesta de Compra Ágil |
 
 `/publico/portada` no lee el análisis sino el catálogo: responde aunque el BI esté apagado.
@@ -244,6 +259,21 @@ las licitaciones y Compras Ágiles vigentes publicadas hoy, abiertas o no, y
 Ágil no trae código; un organismo escrito de dos formas cuenta como dos) y escrito como lo
 guarda ChileCompra; nulo si no hubo publicaciones con nombre. Los tres son opcionales: un
 cliente que no los conoce los ignora.
+
+`/publico/mercado` no lleva parámetros y trae dos bloques, cada uno `null` mientras la
+corrida semanal no haya escrito su tabla (y 503 con el BI apagado, como las fichas):
+
+- **`gasto_mensual`**: una fila por mes y sector —`anio`, `mes`, `sector`, `monto` (CLP) y
+  `n_oc`—, en orden de mes y de sector. El sector vacío se suma a `Otros`. Sale de las
+  órdenes de compra: el último mes puede estar a medias, y los contratos de obra del MOP no
+  están, porque la descarga masiva de órdenes no los trae.
+- **`concentracion`**: `mercados` (los que tienen cuota del líder), `sobre_la_mitad` (el líder
+  se lleva el 50 % o más), `un_proveedor`, `monto_total`, `monto_sobre_la_mitad`, `tramos`
+  —diez de 10 puntos, `{desde, hasta, mercados, monto}`; el 100 % cae en el último, y suman
+  `mercados` y `monto_total`— y `ventana_desde`/`ventana_hasta` (36 meses), nulas si la tabla
+  no las publica.
+
+Todo se agrega en la base: la respuesta son unas decenas de filas.
 
 Las cifras del análisis llevan su periodo: `periodo` en `/publico/productos/{slug}` (12
 meses) y `ventana_desde`/`ventana_hasta` en cada sector de `/bi/sector` (36 meses), nulos
@@ -309,7 +339,8 @@ traen `{"detail": "…"}`.
 | código | qué significa | qué hacer |
 |---|---|---|
 | 404 | no existe | revisar el código o identificador |
-| 422 | parámetros inválidos | `detail` nombra el campo |
+| 413 | cuerpo de más de 64 KB (sólo el MCP recibe cuerpo) | acortar la petición |
+| 422 | parámetros inválidos (también: más de 8 palabras en una búsqueda, o un `%00`) | `detail` nombra el campo |
 | 429 | límite por minuto | esperar lo que diga `Retry-After` |
 | 503 | el módulo está desactivado en este despliegue | no depende del cliente |
 

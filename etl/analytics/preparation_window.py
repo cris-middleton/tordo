@@ -87,10 +87,7 @@ def extract_windows() -> pl.DataFrame:
                     pl.col("Rubro2").first(),
                     pl.col("FechaCreacion").first(),
                     pl.col("FechaCierre").first(),
-                    pl.col("MontoEstimado")
-                    .cast(pl.Float64, strict=False)
-                    .first()
-                    .alias("monto_est"),
+                    pl.col("MontoEstimado").first().alias("monto_est"),
                 ]
             )
         )

@@ -6,6 +6,11 @@ on:
   push:
     branches: [main]
 
+# Nada de esto escribe en el repositorio: el token de los jobs sólo lee. Sin el
+# bloque, un push a main corría con los permisos por defecto del repo.
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true

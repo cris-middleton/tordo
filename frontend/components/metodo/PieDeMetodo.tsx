@@ -23,7 +23,7 @@ export function PieDeMetodo({
 }) {
   return (
     <div className={`border-t border-border pt-3 text-[13px] leading-snug text-muted ${className}`.trim()}>
-      <p>{texto}</p>
+      <p className="max-w-[62ch]">{texto}</p>
       {enlaces.length > 0 && (
         <ul aria-label="Método y datos" className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
           {enlaces.map((e) => (

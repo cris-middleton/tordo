@@ -103,10 +103,16 @@ export function tiraDeLaPortada(resumen: ResumenPortada | null): TiraPortada | n
 }
 
 /** Bajo la pregunta: qué hace la búsqueda, en una frase (spec PORTADA_V7 §3.8). */
-export const SUBTITULO_PORTADA = `Antes de cotizar, mira a qué precio se compró en los últimos ${MESES_PRECIOS} meses, quién lo compra y qué puedes postular hoy.`;
+export const SUBTITULO_PORTADA = `Escribe tu producto. Te mostramos a qué precio lo compró el Estado en los últimos ${MESES_PRECIOS} meses, quién lo compra y dónde postular hoy.`;
+
+/** El `h1` de la portada. Sin signos de pregunta: dice lo que el sitio responde. */
+export const TITULO_PORTADA = 'Cuánto paga el Estado por lo que vendes';
+
+/** El nombre del campo: el `h1` ya no es su etiqueta. */
+export const ETIQUETA_BUSCADOR = 'Producto o servicio que vendes';
 
 /** El campo no repite los ejemplos: ya están debajo (spec §3.1). */
-export const PLACEHOLDER_BUSCADOR = 'Un producto o un servicio';
+export const PLACEHOLDER_BUSCADOR = 'Escribe un producto o servicio';
 
 /** «una», «4»: cuántas, para leerlo en una frase. */
 const cuantas = (n: number) => (n === 1 ? 'una' : String(n));
@@ -127,7 +133,9 @@ export const FRECUENCIA_CATALOGO =
  * Los precios y los mercados, cada domingo.», en la ficha (spec PORTADA_V7 §3.5).
  * El semanal corre los domingos (`etl/cron.py`, `semanal`).
  */
-export const SE_ACTUALIZA = `El catálogo, ${FRECUENCIA_CATALOGO}. Los precios y los mercados, cada domingo.`;
+export const SE_ACTUALIZA =
+  `Licitaciones y Compras Ágiles, ${veces(HORAS_HABILES.length)} al día de lunes a viernes y ` +
+  `${cuantas(HORAS_FIN_DE_SEMANA.length)} el fin de semana. Precios y mercados, cada domingo.`;
 
 /** «Datos abiertos de ChileCompra»: la fila «Fuente» de la ficha. */
 export const FUENTE_PORTADA = 'Datos abiertos de ChileCompra';

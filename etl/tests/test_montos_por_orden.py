@@ -124,7 +124,7 @@ def test_la_competencia_cuenta_ordenes_y_montos_de_verdad(monkeypatch):
     ]
     tanda = con_monto_por_linea(con_numeros(con_vacios(_archivo(filas))))
     monkeypatch.setattr(
-        competitor_analysis, "iter_oc_parquets", lambda columns: iter([("2026-3", tanda)])
+        competitor_analysis, "iter_oc_parquets", lambda columns, **_: iter([("2026-3", tanda)])
     )
 
     mercados, _ = competitor_analysis.build_competitor_aggregates()

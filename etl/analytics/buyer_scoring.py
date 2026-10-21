@@ -51,7 +51,7 @@ import polars as pl
 
 from .config import OUTPUT_DIR
 from .data_loader import iter_lic_parquets, iter_oc_parquets, orden_por_fila
-from .identidad import nombre_vigente, periodo_maximo
+from .identidad import nombre_vigente
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +118,9 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
     volume_frames = []
     rating_frames = []
 
-    for _periodo, df in iter_oc_parquets(columns=cols_needed):
+    # Con las canceladas: la tasa de cancelación las cuenta, y sin ellas en el
+    # denominador todo comprador saldría con 0 %.
+    for _periodo, df in iter_oc_parquets(columns=cols_needed, canceladas=True):
         org_col = "CodigoOrganismoPublico"
         if org_col not in df.columns:
             continue
@@ -404,6 +406,7 @@ def build_lic_buyer_metrics() -> pl.DataFrame:
     logger.info("Calculando métricas de LIC por comprador...")
 
     cols_needed = [
+        "CodigoExterno",
         "CodigoOrganismo",
         "NombreOrganismo",
         "Estado",
@@ -413,64 +416,62 @@ def build_lic_buyer_metrics() -> pl.DataFrame:
     ]
     org_col = "CodigoOrganismo"
 
-    lic_frames = []
+    frames = []
+    vistas: set[str] = set()
 
     for periodo, df in iter_lic_parquets(columns=cols_needed):
-        if org_col not in df.columns or "Estado" not in df.columns:
+        if org_col not in df.columns or "Estado" not in df.columns or "CodigoExterno" not in df:
             continue
 
-        # Deduplicar por licitación (cada LIC tiene múltiples líneas)
-        # Usar CodigoOrganismo + Estado como proxy de licitación única por batch
-        agg = (
-            df.filter(pl.col(org_col).is_not_null() & (pl.col(org_col) != "null"))
-            .with_columns(
-                [
-                    pl.col("Estado").str.to_lowercase().alias("estado_lower"),
-                    pl.col("NumeroOferentes").cast(pl.Float64, strict=False).alias("n_oferentes"),
-                    pl.col("CantidadReclamos").cast(pl.Float64, strict=False).alias("n_reclamos"),
-                    (pl.col("CodigoTipo") == "TD").cast(pl.Int8).alias("es_td"),
-                    pl.lit(periodo).alias("_periodo_archivo"),
-                ]
+        # **Una fila por LICITACIÓN, no por línea ni por oferta.** El archivo trae
+        # una fila por cada (línea, oferta), y contar filas ponderaba cada
+        # licitación por su número de líneas × ofertas: medido en 42 meses, la
+        # tasa de adjudicación salía 93,2 % por filas y es 84,2 % por
+        # licitaciones (las grandes, con muchas líneas, se adjudican más). Igual
+        # que `buyer_transparency`: la primera fila de cada licitación, y la
+        # primera vez que aparece.
+        lics = (
+            df.filter(
+                pl.col("CodigoExterno").is_not_null()
+                & (pl.col("CodigoExterno") != "null")
+                & pl.col(org_col).is_not_null()
+                & (pl.col(org_col) != "null")
             )
-            # La clave es el CÓDIGO. Con `NombreOrganismo` dentro, un comprador
-            # renombrado salía con DOS filas de score —medido: 111 de 1.192— y
-            # `get_comprador` se quedaba con la primera que llegara. Ver
-            # `identidad.py`.
-            .group_by(org_col)
+            .group_by("CodigoExterno")
             .agg(
-                [
-                    pl.len().alias("n_lineas_lic"),
-                    (pl.col("estado_lower").str.contains("adjudicada"))
-                    .sum()
-                    .alias("n_adjudicadas"),
-                    (pl.col("estado_lower").str.contains("revocada")).sum().alias("n_revocadas"),
-                    (pl.col("estado_lower").str.contains("desierta")).sum().alias("n_desiertas"),
-                    pl.col("n_oferentes").mean().alias("prom_oferentes"),
-                    pl.col("n_reclamos").mean().alias("prom_reclamos"),
-                    pl.col("es_td").sum().alias("n_trato_directo"),
-                    nombre_vigente("NombreOrganismo"),
-                    periodo_maximo(),
-                ]
+                pl.col(org_col).first(),
+                pl.col("NombreOrganismo").first(),
+                pl.col("Estado").str.to_lowercase().first().alias("estado_lower"),
+                pl.col("NumeroOferentes").first().alias("n_oferentes"),
+                pl.col("CantidadReclamos").first().alias("n_reclamos"),
+                (pl.col("CodigoTipo").first() == "TD").cast(pl.Int8).alias("es_td"),
             )
+            .with_columns(pl.lit(periodo).alias("_periodo_archivo"))
         )
-        lic_frames.append(agg)
+        if vistas:
+            lics = lics.filter(~pl.col("CodigoExterno").is_in(list(vistas)))
+        vistas.update(lics["CodigoExterno"].to_list())
+        frames.append(lics)
 
-    if not lic_frames:
+    if not frames:
         return pl.DataFrame()
 
-    combined = pl.concat(lic_frames, how="diagonal_relaxed")
+    # La clave es el CÓDIGO. Con `NombreOrganismo` dentro, un comprador
+    # renombrado salía con DOS filas de score —medido: 111 de 1.192— y
+    # `get_comprador` se quedaba con la primera que llegara. Ver `identidad.py`.
     result = (
-        combined.group_by(org_col)
+        pl.concat(frames, how="diagonal_relaxed")
+        .group_by(org_col)
         .agg(
             [
-                pl.col("n_lineas_lic").sum(),
+                pl.len().alias("n_lic"),
                 nombre_vigente("NombreOrganismo"),
-                pl.col("n_adjudicadas").sum(),
-                pl.col("n_revocadas").sum(),
-                pl.col("n_desiertas").sum(),
-                pl.col("n_trato_directo").sum(),
-                (pl.col("prom_oferentes") * pl.col("n_lineas_lic")).sum().alias("_wt_ofer"),
-                (pl.col("prom_reclamos") * pl.col("n_lineas_lic")).sum().alias("_wt_recl"),
+                pl.col("estado_lower").str.contains("adjudicada").sum().alias("n_adjudicadas"),
+                pl.col("estado_lower").str.contains("revocada").sum().alias("n_revocadas"),
+                pl.col("estado_lower").str.contains("desierta").sum().alias("n_desiertas"),
+                pl.col("n_oferentes").mean().alias("prom_oferentes"),
+                pl.col("n_reclamos").mean().alias("prom_reclamos"),
+                pl.col("es_td").sum().alias("n_trato_directo"),
             ]
         )
         .with_columns(
@@ -481,9 +482,7 @@ def build_lic_buyer_metrics() -> pl.DataFrame:
                         pl.col("n_adjudicadas") + pl.col("n_revocadas") + pl.col("n_desiertas")
                     ).clip(lower_bound=1)
                 ).alias("tasa_adjudicacion"),
-                (pl.col("_wt_ofer") / pl.col("n_lineas_lic")).alias("prom_oferentes"),
-                (pl.col("_wt_recl") / pl.col("n_lineas_lic")).alias("prom_reclamos"),
-                (pl.col("n_trato_directo") / pl.col("n_lineas_lic").clip(lower_bound=1)).alias(
+                (pl.col("n_trato_directo") / pl.col("n_lic").clip(lower_bound=1)).alias(
                     "pct_trato_directo"
                 ),
             ]
@@ -492,7 +491,7 @@ def build_lic_buyer_metrics() -> pl.DataFrame:
             [
                 org_col,
                 "NombreOrganismo",
-                "n_lineas_lic",
+                "n_lic",
                 "tasa_adjudicacion",
                 "n_revocadas",
                 "n_desiertas",
