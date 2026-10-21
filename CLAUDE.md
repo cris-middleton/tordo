@@ -1594,7 +1594,10 @@ código. Para correr analytics desde un worktree sobre los datos del checkout pr
   suelta**: sólo como bandera cuando se sale de rango. Lo que sí sale del dato y decide algo
   es `tasa_adjudicacion` (cuánto de lo que llama termina adjudicando), **contada por
   licitación**: el archivo trae una fila por (línea, oferta), y por filas daba 93,2 % donde
-  por licitaciones es 84,2 % (42 meses). Igual `prom_oferentes` y `pct_trato_directo`. `Forma de Pago`
+  por licitaciones es 84,2 % (42 meses). Igual `prom_oferentes`. **`pct_trato_directo` sale de las
+  órdenes** (`etl/analytics/trato_directo.py`, `Tipo = "TD"`, por orden y sin canceladas): la
+  descarga de licitaciones no trae ningún trato directo, y buscarlo ahí lo dejaba en 0 % para todo
+  comprador, en la ficha pública y en la nota. Mediana local, 3,7 % de las órdenes. `Forma de Pago`
   tampoco sirve de sustituto: el 98,7 % de las órdenes dice lo mismo.
   **La landing fue el último sitio en soltarla**, y estuvo meses prometiéndola después de que
   el correo y el panel del comprador ya la hubieran retirado: `MockupAviso` mostraba «Paga a
