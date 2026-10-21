@@ -101,6 +101,22 @@ class Licitacion(Base):
         comment="Vector de búsqueda generado desde nombre + descripcion, sin tildes.",
     )
 
+    # Las mismas palabras SIN raíz (configuración `simple`). El stemmer español
+    # reduce «mesa» y «meses» a `mes`, así que `busqueda` sola hacía que «mesa»
+    # encontrara toda licitación de «12 meses». `coincide_termino` exige además
+    # que cada palabra del término empiece alguna palabra de aquí. Sin índice a
+    # propósito: sólo filtra lo que ya encontró el GIN de `busqueda`, y comparar
+    # un tsvector guardado es barato (lo caro era una regex sobre `descripcion`).
+    busqueda_palabras = Column(
+        TSVECTOR,
+        Computed(
+            "to_tsvector('simple', inmutable_unaccent("
+            "coalesce(nombre, '') || ' ' || coalesce(descripcion, '')))",
+            persisted=True,
+        ),
+        comment="Palabras de nombre + descripcion sin tildes y sin raíz (simple).",
+    )
+
     # El trigrama va sobre esta columna y no sobre un índice funcional a
     # propósito: alembic compara mal los índices por expresión, y con
     # `alembic check` bloqueante eso sería deriva perpetua. Una columna generada

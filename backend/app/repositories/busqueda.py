@@ -31,6 +31,8 @@ contra slugs en Polars y usa la misma idea con el guion como separador
 
 from __future__ import annotations
 
+import re
+import unicodedata
 from typing import Any
 
 from sqlalchemy import String, func, literal
@@ -79,6 +81,41 @@ def comienza_palabra(columna: Any, termino_sql: Any) -> ColumnElement:
     # Entre paréntesis: en Postgres `~*` y `||` tienen la misma precedencia y se
     # asocian por la izquierda, así que sin ellos se leería `(col ~* '\m') || t`.
     return columna.op("~*", is_comparison=True)(patron(termino_sql).self_group())
+
+
+#: Las palabras de un término, como las corta el parser de Postgres: letras y
+#: dígitos ASCII una vez quitadas las tildes.
+_PALABRA = re.compile(r"[a-z0-9]+")
+
+
+def palabras(termino: str) -> list[str]:
+    """Las palabras del término, en minúsculas y sin tildes («Válvulas» → `valvulas`).
+
+    Es lo que hace `inmutable_unaccent` + la configuración `simple` con el texto
+    indexado en `licitaciones.busqueda_palabras`: los dos lados igual.
+    """
+    sin_tildes = "".join(
+        c for c in unicodedata.normalize("NFKD", termino.lower()) if not unicodedata.combining(c)
+    )
+    return _PALABRA.findall(sin_tildes)
+
+
+def consulta_prefijos(palabra: str) -> str:
+    """Un `tsquery` (`simple`): una palabra que EMPIECE por esta, o que SEA su singular.
+
+    El stemmer español junta «mesa» con «meses» (raíz `mes`); esto es lo que los
+    separa: «mesa» exige una palabra que empiece por `mesa`. El singular se pide
+    para no perder lo que el stemmer sí acertaba: «servicios» encuentra
+    «servicio» y «camiones», «camión». El singular va exacto y no como prefijo:
+    con `mes:*`, «meses» volvería a encontrar «mesas». Una palabra de `palabras`
+    sólo trae `[a-z0-9]`, así que no hay nada que escapar.
+    """
+    variantes = [f"{palabra}:*"]
+    if len(palabra) > 3 and palabra.endswith("s"):
+        variantes.append(palabra[:-1])
+    if len(palabra) > 4 and palabra.endswith("es"):
+        variantes.append(palabra[:-2])
+    return " | ".join(variantes)
 
 
 def sql_normalizado(expresion_sql: str) -> str:
