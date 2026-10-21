@@ -130,3 +130,37 @@ def test_en_el_tope_justo_no_avisa_de_nada():
     lineas = exportar.a_csv(filas, [("a", "A")]).splitlines()
     assert len(lineas) == 2 + exportar.MAX_FILAS_CSV
     assert not lineas[-1].startswith("#")
+
+
+def test_un_texto_que_parece_formula_sale_como_texto():
+    """Excel lee como fórmula toda celda que empieza por `=`, `+`, `-` o `@`:
+    «-Espéculo auricular» salía `#¿NOMBRE?` y un `=HYPERLINK(` se ejecutaría."""
+    filas = [
+        {"a": "-Espéculo auricular"},
+        {"a": '=HYPERLINK("http://x")'},
+        {"a": "+E Arquitectura"},
+        {"a": "@SUMA(1)"},
+        {"a": "Guantes"},
+    ]
+    lineas = exportar.a_csv(filas, [("a", "A")]).splitlines()[2:]
+    assert lineas == [
+        "'-Espéculo auricular",
+        '"\'=HYPERLINK(""http://x"")"',
+        "'+E Arquitectura",
+        "'@SUMA(1)",
+        "Guantes",
+    ]
+
+
+def test_los_numeros_negativos_no_llevan_apostrofo():
+    """Sólo el texto se protege: un número es un número."""
+    assert exportar.a_csv([{"a": -1.5}], [("a", "A")]).splitlines()[-1] == "-1,50"
+
+
+def test_la_participacion_de_competidores_usa_la_clave_del_servicio():
+    """`get_competidores` devuelve `market_share_pct`; la columna leía
+    `participacion`, que no existe, y salía vacía en todos los archivos."""
+    claves = {clave for clave, _ in exportar.COLUMNAS_COMPETIDORES}
+    assert "market_share_pct" in claves
+    csv = exportar.a_csv([{"market_share_pct": 42.5}], exportar.COLUMNAS_COMPETIDORES)
+    assert "42,50" in csv

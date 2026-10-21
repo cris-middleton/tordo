@@ -15,8 +15,10 @@ def requiere_analytics() -> None:
     if not settings.feature_analytics:
         raise HTTPException(
             status_code=503,
+            # En español como el resto de errores, y accionable para quien
+            # despliega (docs/DESPLIEGUE.md tiene el paso completo).
             detail=(
-                "BI module is disabled. "
-                "Set FEATURE_ANALYTICS=true and generate analytics parquets first."
+                "Los análisis están apagados en este servidor: falta "
+                "FEATURE_ANALYTICS=true y una corrida semanal materializada."
             ),
         )

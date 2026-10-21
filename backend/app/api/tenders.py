@@ -70,6 +70,16 @@ async def list_tenders(
             ),
         )
 
+    terminos = [t.strip() for t in (search or "").split() if t.strip()]
+    if len(terminos) > limites.MAX_TERMINOS:
+        # El mismo tope que «Lo mejor de hoy»: cada palabra suma una búsqueda de
+        # texto y una regex que se evalúan dos veces (total y página), y en 100
+        # caracteres caben 50 palabras de una letra que el trigrama no sirve.
+        raise HTTPException(
+            status_code=422,
+            detail=f"Como mucho {limites.MAX_TERMINOS} palabras en la búsqueda.",
+        )
+
     filtros = repo_licitaciones.Filtros(
         estado=estado,
         codigo_organismo=codigo_organismo,
@@ -77,7 +87,7 @@ async def list_tenders(
         region=region,
         monto_minimo=min_amount,
         monto_maximo=max_amount,
-        terminos=[t.strip() for t in (search or "").split() if t.strip()],
+        terminos=terminos,
         abiertas=abiertas,
     )
     ascendente = sort_order == "asc"
@@ -112,7 +122,9 @@ async def get_tender(
 ):
     tender = await repo_licitaciones.obtener(db, tender_id)
     if not tender:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tender not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No encontramos esa licitación."
+        )
     return tender
 
 
@@ -123,5 +135,7 @@ async def get_tender_by_code(
 ):
     tender = await repo_licitaciones.obtener_por_codigo(db, codigo_externo)
     if not tender:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tender not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No encontramos esa licitación."
+        )
     return tender
