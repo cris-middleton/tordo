@@ -137,13 +137,13 @@ const PROPIOS: Record<string, Propio> = {
     valoresFuera: true,
   },
   'components/graficos/BarrasHorizontales.tsx': {
-    que: 'barras horizontales con etiqueta y valor: sectores y proveedores en /mercado',
+    que: 'barras horizontales con etiqueta y valor: sectores (con su color) y proveedores en /mercado',
     ejemplo: () => (
       <BarrasHorizontales
         etiqueta="Monto por sector"
         filas={[
           { clave: 'a', etiqueta: 'Salud', valor: 3e12, texto: '$3 billones' },
-          { clave: 'b', etiqueta: 'Municipalidades', valor: 2.9e12, texto: '$2,9 billones', detalle: '366 organismos' },
+          { clave: 'b', etiqueta: 'Municipalidades', valor: 2.9e12, texto: '$2,9 billones', detalle: '366 organismos', relleno: 'bg-serie-2' },
         ]}
       />
     ),

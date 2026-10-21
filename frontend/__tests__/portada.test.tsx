@@ -670,7 +670,9 @@ describe('el gráfico grande: cuánto compra el Estado, mes a mes', () => {
       'href',
       'https://api.tordo.cl/api/v1/publico/mercado',
     );
-    expect(grande).toHaveTextContent('18.000 órdenes de compra, nov 2025 a oct 2026');
+    expect(grande).toHaveTextContent('Órdenes de compra de nov 2025 a oct 2026');
+    // Sin el conteo de órdenes: `time_series` lo cuenta por rubro y al sumar se repetía.
+    expect(grande).not.toHaveTextContent(/[0-9.]+ órdenes de compra/);
     expect(grande).toHaveTextContent(/obras del MOP/);
   });
 

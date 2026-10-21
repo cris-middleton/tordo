@@ -89,7 +89,10 @@ export function lecturaGasto(mercado: MercadoPortada | null, repositorio: string
     conclusion: fraseGasto(grafico),
     grafico,
     pie:
-      `${entero(grafico.ordenes)} órdenes de compra, ${desde} a ${hasta}, por mes de envío y sector del comprador. ` +
+      // Sin el número de órdenes: `time_series` cuenta las órdenes únicas de cada rubro, y una
+      // orden con líneas de dos rubros se contaba dos veces al sumar (7,1 millones contra los
+      // 5,5 de la ficha). El monto no tiene ese problema: va repartido por línea.
+      `Órdenes de compra de ${desde} a ${hasta}, por mes de envío y sector del comprador. ` +
       'Un mes típico es la mediana: la mitad de los meses compró menos y la otra mitad, más. ' +
       'Las obras del MOP casi no pasan por órdenes de compra, así que aquí casi no están.',
     enlaces: enlacesDeMetodo(METODO_GASTO, {
