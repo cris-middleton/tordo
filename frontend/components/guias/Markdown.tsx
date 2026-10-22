@@ -141,7 +141,9 @@ function UnBloque({ b }: { b: Bloque }) {
       );
     case 'tabla':
       return (
-        <div className="mt-4 overflow-x-auto rounded-lg border border-border">
+        // La caja a la medida de la tabla (31 rem, la de `.lectura table`): a lo ancho, la
+        // tabla ocupaba dos tercios de su borde y quedaba una franja vacía a la derecha.
+        <div className="mt-4 max-w-[31rem] overflow-x-auto rounded-lg border border-border">
           <table className="w-full text-left text-sm">
             <thead className="bg-surface-elevated">
               <tr>

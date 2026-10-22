@@ -344,6 +344,17 @@ export function BloqueAbiertas({
   licitaciones: Bloque<LicitacionesEncontradas>;
   comprasAgiles: Bloque<CompraAgilDestacadasResponse>;
 }) {
+  // Las dos vacías, en una línea: eran dos subtítulos con su «no hay» cada uno entre
+  // el precio y «Quién lo compra».
+  const ningunaLicitacion = licitaciones.estado === 'ok' && licitaciones.datos.items.length === 0;
+  const ningunaCompraAgil = comprasAgiles.estado === 'ok' && comprasAgiles.datos.items.length === 0;
+  if (ningunaLicitacion && ningunaCompraAgil) {
+    return (
+      <Seccion id="abiertas" titulo="Dónde postular hoy">
+        <p className="text-sm text-subtle">No hay licitaciones ni Compras Ágiles abiertas que mencionen «{termino}».</p>
+      </Seccion>
+    );
+  }
   return (
     <Seccion id="abiertas" titulo="Dónde postular hoy">
       <div className="space-y-8">

@@ -95,13 +95,13 @@ function RubroColumn({ rubro, consulta }: { rubro: string; consulta: UseQueryRes
         )}
 
         <div>
-          <p className="text-xs text-muted">Compradores con puntaje de 4 o más (hasta 10)</p>
+          <p className="text-xs text-muted">Compradores con oportunidad de 4 o más (de 10)</p>
           <p className="cifra font-semibold text-text">{data.oportunidades.length}</p>
         </div>
 
         {maxScore > 0 && (
           <div>
-            <p className="text-xs text-muted">Mejor puntaje</p>
+            <p className="text-xs text-muted">Mayor oportunidad</p>
             <p className="cifra font-semibold text-text">{decimal(maxScore, 1)} de 10</p>
           </div>
         )}

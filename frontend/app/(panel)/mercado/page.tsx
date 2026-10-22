@@ -349,7 +349,7 @@ function BIContenido() {
               {/* ── 2. ¿Qué hago esta semana? ─────────────────────────────── */}
               <Seccion
                 titulo="Qué compradores mirar primero"
-                descripcion="Puntaje de 0 a 10. Sube si el comprador compra mucho, crece, paga precios parejos, compra en los mismos meses y ningún proveedor se lleva todo."
+                descripcion="La oportunidad de cada comprador en este rubro, de 0 a 10. Sube si compra mucho, crece, paga precios parejos, compra en los mismos meses y ningún proveedor se lleva todo."
               >
                 {consultaOportunidades.isError ? (
                   <ErrorDeCarga

@@ -151,7 +151,7 @@ export function OportunidadesSection({ oportunidades, loading, onFocusOrganismo,
     <section ref={rootRef} aria-label="Compradores del rubro, ordenados" className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-muted">
-          Los {Math.min(10, oportunidades.length)} con mejor puntaje. Toca un nombre para ver cómo compra.
+          Los {Math.min(10, oportunidades.length)} con más oportunidad en este rubro. Toca un nombre para ver cómo compra.
         </p>
         <ShareMenu targetRef={rootRef} summaryText={summaryText} filename="donde-mirar" />
       </div>
@@ -162,9 +162,10 @@ export function OportunidadesSection({ oportunidades, loading, onFocusOrganismo,
             <tr className="border-b border-border text-left text-muted">
               <th scope="col" className="py-2 pr-3 text-right font-normal">#</th>
               <th scope="col" className="py-2 pr-3 font-normal">Comprador</th>
-              <th scope="col" className="py-2 pr-3 text-right font-normal">Puntaje</th>
-              <th scope="col" className="hidden py-2 pr-3 text-right font-normal sm:table-cell">Compras</th>
-              <th scope="col" className="py-2 pr-3 text-right font-normal">Proveedores</th>
+              <th scope="col" className="py-2 pr-3 text-right font-normal">Oportunidad</th>
+              {/* En el teléfono se queda «Compras», que es lo que dice cuánto hay que ganar. */}
+              <th scope="col" className="py-2 pr-3 text-right font-normal">Compras</th>
+              <th scope="col" className="hidden py-2 pr-3 text-right font-normal sm:table-cell">Proveedores</th>
               <th scope="col" className="w-8"><span className="sr-only">Abrir</span></th>
             </tr>
           </thead>
@@ -188,10 +189,10 @@ export function OportunidadesSection({ oportunidades, loading, onFocusOrganismo,
                       </button>
                     </td>
                     <td className="cifra py-3 pr-3 text-right font-semibold text-text">{decimal(op.opportunity_score, 1)}</td>
-                    <td className="cifra hidden py-3 pr-3 text-right text-muted sm:table-cell">
+                    <td className="cifra py-3 pr-3 text-right text-muted">
                       {op.n_transacciones.toLocaleString('es-CL')}
                     </td>
-                    <td className="cifra py-3 pr-3 text-right text-muted">{op.n_proveedores.toLocaleString('es-CL')}</td>
+                    <td className="cifra hidden py-3 pr-3 text-right text-muted sm:table-cell">{op.n_proveedores.toLocaleString('es-CL')}</td>
                     <td className="py-3">
                       <button
                         type="button"

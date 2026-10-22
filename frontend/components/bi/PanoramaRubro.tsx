@@ -11,6 +11,7 @@ import { motivoParaPersona } from '@/lib/motivos';
 import { Columnas } from '@/components/graficos/Columnas';
 import { monto, porcentaje } from '@/lib/formato';
 import { rutaComprador } from '@/lib/publico';
+import { MESES_CORTOS } from '@/lib/mesesDeCompra';
 import { MESES_ANALISIS } from '@/lib/periodo';
 import { normalizeText } from '@/lib/nombresChile';
 
@@ -272,7 +273,8 @@ export function PanoramaRubro({
                 textoArriba={false}
                 columnas={estacionalidad.meses.map((m) => ({
                   clave: String(m.mes),
-                  etiqueta: m.nombre.slice(0, 1),
+                  // Tres letras, como el resto de los gráficos de meses: con una, M, J y A eran dos meses cada una.
+                  etiqueta: MESES_CORTOS[m.mes - 1],
                   valor: m.pct,
                   texto: `${mesEntero(m.nombre)}: ${pct(m.pct)}`,
                   destacada: estacionalidad.tiene_temporada && m.nombre === estacionalidad.mes_pico,

@@ -114,7 +114,9 @@ export function CompradoresSection({ topOrganismos, focusedOrganismo }: Comprado
         <h3 className="font-sans text-lg font-semibold text-text">{titulo}</h3>
         <p className="mt-1 max-w-[65ch] text-sm text-muted">
           Qué parte de lo que licita adjudica, cuántas órdenes cancela y cuántas le aceptan los proveedores.
-          La nota de 0 a 10 junta esos tres datos y cuatro más de su historia.
+          La nota como comprador, de 0 a 10, mide cómo compra en todos sus rubros: junta esos tres datos y
+          cuatro más de su historia. Por eso no coincide con la oportunidad de la tabla de arriba, que es la
+          de este rubro.
         </p>
       </div>
       <ul className="divide-y divide-border border-y border-border">

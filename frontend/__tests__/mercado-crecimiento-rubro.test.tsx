@@ -106,7 +106,7 @@ describe('Comparar rubros', () => {
 
     expect(screen.getByText('No pudimos cargar este rubro')).toBeTruthy();
     // La columna que sí cargó dice su cifra; la que falló no pinta un 0.
-    expect(screen.getAllByText('Compradores con puntaje de 4 o más (hasta 10)')).toHaveLength(1);
+    expect(screen.getAllByText('Compradores con oportunidad de 4 o más (de 10)')).toHaveLength(1);
     fireEvent.click(screen.getByRole('button', { name: /reintentar/i }));
     expect(consultas.Obras.refetch).toHaveBeenCalled();
   });
