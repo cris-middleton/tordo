@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
@@ -212,6 +212,19 @@ app.mount("/mcp", aplicacion_mcp())
 #
 # El TF-IDF tampoco: salió de la API en el paso 8 del pivote público. El orden por
 # relevancia lo hace Postgres y `tests/test_api_sin_tfidf.py` impide que vuelva.
+
+
+#: El `robots.txt` de la API. La documentación se puede rastrear; los datos no:
+#: un rastreador recorriendo `/api/v1/bi/*` cuenta en el límite por IP y le pide
+#: consultas pesadas a un proceso de 512 MB que ya murió por memoria con tráfico
+#: ligero. Lo que se indexa del sitio vive en tordo.cl, con su propio sitemap.
+#: Se pedía 17 veces al día y respondía 404 (logs del 2026-10-21).
+ROBOTS_TXT = "User-agent: *\nAllow: /docs\nAllow: /redoc\nDisallow: /\n"
+
+
+@app.get("/robots.txt", tags=["raiz"], include_in_schema=False)
+async def robots_txt():
+    return PlainTextResponse(ROBOTS_TXT)
 
 
 @app.get("/", tags=["raiz"])
