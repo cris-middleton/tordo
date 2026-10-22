@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
 
-import { Seccion } from '@/components/publico/Piezas';
+import { CabeceraFicha, Seccion } from '@/components/publico/Piezas';
 import { PREGUNTAS } from '@/lib/acerca';
 import { COSTO_MENSUAL_APROXIMADO } from '@/lib/costos';
 import { nombreAutor, rolAutor, urlAutor } from '@/lib/autor';
@@ -36,9 +36,7 @@ export const metadata: Metadata = {
  * datos como su trabajo: es lo que muestra cómo trabaja quien lo hace.
  *
  * **El texto corrido va a 16 px y en `text`** (`PROSA`); las preguntas, también.
- * Lo chico y gris queda para lo secundario: la línea del contacto. La entrada va
- * a 18 px: es lo primero que se lee, no un metadato de ficha (`CabeceraFicha`).
- * Las preguntas miden lo que un párrafo (58ch): con los filetes a lo ancho de la
+ * Lo chico y gris queda para lo secundario: la línea del contacto. Las preguntas miden lo que un párrafo (58ch): con los filetes a lo ancho de la
  * columna, la lista se veía más ancha que el texto de arriba.
  */
 const PROSA = 'text-base leading-relaxed text-text';
@@ -51,13 +49,10 @@ export default function PaginaAcerca() {
 
   return (
     <article className="lectura max-w-3xl">
-      <header>
-        <h1 className="page-title">Qué es {APP_NAME}</h1>
-        <p className="mt-3 text-lg leading-relaxed text-muted">
-          Un sitio con lo que el Estado de Chile ya compró, a qué precio y a quién. Con eso decides
-          si postular y a cuánto.
-        </p>
-      </header>
+      <CabeceraFicha
+        titulo={`Qué es ${APP_NAME}`}
+        subtitulo="Un sitio con lo que el Estado de Chile ya compró, a qué precio y a quién. Con eso decides si postular y a cuánto."
+      />
 
       <Seccion id="que-es" titulo="Qué puedes hacer aquí">
         <div className={`space-y-3 ${PROSA}`}>
