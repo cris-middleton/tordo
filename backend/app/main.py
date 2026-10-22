@@ -218,8 +218,9 @@ app.mount("/mcp", aplicacion_mcp())
 #: un rastreador recorriendo `/api/v1/bi/*` cuenta en el límite por IP y le pide
 #: consultas pesadas a un proceso de 512 MB que ya murió por memoria con tráfico
 #: ligero. Lo que se indexa del sitio vive en tordo.cl, con su propio sitemap.
-#: Se pedía 17 veces al día y respondía 404 (logs del 2026-10-21).
-ROBOTS_TXT = "User-agent: *\nAllow: /docs\nAllow: /redoc\nDisallow: /\n"
+#: Se pedía 17 veces al día y respondía 404 (logs del 2026-10-21). El esquema
+#: también: `/docs` y `/redoc` lo piden con JavaScript, y sin él salen vacías.
+ROBOTS_TXT = f"User-agent: *\nAllow: /docs\nAllow: /redoc\nAllow: {app.openapi_url}\nDisallow: /\n"
 
 
 @app.get("/robots.txt", tags=["raiz"], include_in_schema=False)

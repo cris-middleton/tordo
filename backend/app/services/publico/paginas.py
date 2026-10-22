@@ -440,7 +440,11 @@ def _compradores_con_slug() -> pl.DataFrame:
     with _cerrojo_compradores:
         if _slugs_compradores is None or _slugs_compradores[0] != id(indice):
             con_slug = indice.compradores.filter(pl.col("nombre").is_not_null()).with_columns(
-                pl.col("nombre").map_elements(slug, return_dtype=pl.Utf8).alias("slug_nombre")
+                # Entero, sin el corte de 80 caracteres de las URL: un nombre largo
+                # perdía sus últimas palabras («…de Cerro Navia»).
+                pl.col("nombre")
+                .map_elements(lambda n: slug(n, largo=None), return_dtype=pl.Utf8)
+                .alias("slug_nombre")
             )
             _slugs_compradores = (id(indice), con_slug)
         return _slugs_compradores[1]

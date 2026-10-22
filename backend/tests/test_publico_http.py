@@ -810,6 +810,19 @@ def test_buscar_comprador_pone_antes_la_palabra_entera(analytics, cliente):
     assert [c["codigo"] for c in cuerpo] == ["1", "7297"]
 
 
+def test_buscar_comprador_encuentra_las_palabras_del_final_de_un_nombre_largo(analytics, cliente):
+    """El nombre se compara entero: con el slug de las URL, cortado en 80
+    caracteres, «cerro navia» no encontraba la corporación que termina así (6 de
+    1.303 nombres pasan de 80 en la copia local)."""
+    nombre = "Corporación del Deporte e Inclusión Social de la Ilustre Municipalidad de Cerro Navia"
+    analytics["buyer_scores.parquet"] = [
+        {"CodigoOrganismoPublico": "7297", "NombreOrganismo": nombre, "n_oc_total": 900},
+    ]
+    indexables.invalidar()
+    cuerpo = _get(cliente, "/compradores", q="deporte cerro navia").json()
+    assert [c["codigo"] for c in cuerpo] == ["7297"]
+
+
 def test_los_meses_de_compra_del_comprador_suman_sus_rubros(analytics, cliente):
     """«¿En qué meses compra?»: doce filas, sus rubros sumados y cero donde no compró."""
     analytics["seasonality_patterns.parquet"] = [

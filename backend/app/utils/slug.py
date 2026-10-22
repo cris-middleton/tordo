@@ -23,12 +23,15 @@ LARGO_MAXIMO = 80
 _NO_ALFANUMERICO = re.compile(r"[^a-z0-9]+")
 
 
-def slug(texto: str | None) -> str:
+def slug(texto: str | None, largo: int | None = LARGO_MAXIMO) -> str:
     """`"Equipos médicos / Insumos"` → `"equipos-medicos-insumos"`.
 
     La «ñ» pasa a «n» (se descompone como n + virgulilla). Un texto sin ningún
     carácter alfanumérico devuelve cadena vacía: quien llame decide qué hacer
     con eso (no tiene página).
+
+    `largo=None` no recorta: es para comparar un nombre entero (la búsqueda de
+    compradores), no para una URL.
     """
     if not texto:
         return ""
@@ -39,4 +42,4 @@ def slug(texto: str | None) -> str:
     sin_tildes = "".join(c for c in descompuesto if not unicodedata.combining(c)).lower()
     limpio = _NO_ALFANUMERICO.sub("-", sin_tildes).strip("-")
     # Recortar puede dejar un guion colgando al final: se vuelve a limpiar.
-    return limpio[:LARGO_MAXIMO].rstrip("-")
+    return limpio if largo is None else limpio[:largo].rstrip("-")
