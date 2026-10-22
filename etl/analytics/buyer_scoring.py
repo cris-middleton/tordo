@@ -491,12 +491,20 @@ def build_lic_buyer_metrics() -> pl.DataFrame:
         )
         .with_columns(
             [
-                (
+                # **Sin ninguna licitación terminada, no hay tasa: nula, no 0.** El
+                # denominador se recortaba a 1 y daba 0/1 = 0: la ficha decía
+                # «Adjudica 0 %», saltaba `flag_licitaciones_fallidas` y el
+                # componente del score valía lo peor de su escala. Nula, el score
+                # le pone su neutro (`fill_null(0.7)`) y la bandera no salta.
+                pl.when(
+                    (pl.col("n_adjudicadas") + pl.col("n_revocadas") + pl.col("n_desiertas")) > 0
+                )
+                .then(
                     pl.col("n_adjudicadas")
-                    / (
-                        pl.col("n_adjudicadas") + pl.col("n_revocadas") + pl.col("n_desiertas")
-                    ).clip(lower_bound=1)
-                ).alias("tasa_adjudicacion"),
+                    / (pl.col("n_adjudicadas") + pl.col("n_revocadas") + pl.col("n_desiertas"))
+                )
+                .otherwise(None)
+                .alias("tasa_adjudicacion"),
             ]
         )
         .select(
