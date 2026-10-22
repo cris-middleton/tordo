@@ -57,7 +57,7 @@ publique bajo esa misma licencia.
 
 - Cuentas, cobros o cualquier cosa que dependa de quién llama: es una decisión del proyecto
   (`docs/decisiones/0011-sitio-publico-sin-cuentas.md`).
-- Datos de personas naturales en cualquier salida (ver «personas naturales» en `CLAUDE.md`).
+- Datos de personas naturales en cualquier salida (ver «personas naturales» en `etl/CLAUDE.md`).
 - Dependencias nuevas sin pasar antes `make audit`.
 
 ## Conducta

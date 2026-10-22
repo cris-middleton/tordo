@@ -2,7 +2,7 @@
 
 Next.js 16 (App Router) + TypeScript + Tailwind + Recharts. Sitio público: no hay
 cuentas, ni inicio de sesión, ni planes. Las reglas de trabajo están en el
-`CLAUDE.md` de la raíz del repositorio (sección «Frontend»).
+`frontend/CLAUDE.md`, que complementa al `CLAUDE.md` de la raíz del repositorio.
 
 ## Desarrollo
 

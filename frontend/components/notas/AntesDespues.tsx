@@ -5,7 +5,7 @@ import type { AntesDespues as Datos } from '@/lib/notas';
  * con su etiqueta y su valor escrito al lado, y el rótulo debajo.
  *
  * `dato` sólo en el después, que es lo que la nota nombra; el antes en
- * `dato-tenue`, que es decorativo y nunca lleva texto encima (CLAUDE.md, tokens de
+ * `dato-tenue`, que es decorativo y nunca lleva texto encima (frontend/CLAUDE.md, tokens de
  * dato). Las barras son `aria-hidden`: el valor va como texto.
  */
 export function AntesDespues({ datos }: { datos: Datos }) {

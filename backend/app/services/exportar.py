@@ -121,7 +121,7 @@ COLUMNAS_PRECIO: list[tuple[str, str]] = [
 COLUMNAS_COMPETIDORES: list[tuple[str, str]] = [
     ("NombreProveedor", "Proveedor"),
     # `CodigoProveedor` es el identificador interno de Mercado Público, NO un
-    # RUT (ver CLAUDE.md). El encabezado decía «RUT», y quien lo cruzara con
+    # RUT (ver etl/CLAUDE.md). El encabezado decía «RUT», y quien lo cruzara con
     # RUT reales no encontraría coincidencias.
     ("CodigoProveedor", "Código de proveedor"),
     ("n_oc", "Órdenes ganadas"),
