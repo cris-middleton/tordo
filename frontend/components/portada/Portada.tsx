@@ -92,7 +92,11 @@ export function Portada({
 }) {
   const vigencia = resumen && ahora !== undefined ? vigenciaDelResumen(resumen.actualizado_en, ahora) : VIGENTE;
   const tira = tiraDeLaPortada(resumen, vigencia);
-  const franja = franjaDeLaPortada(resumen, vigencia);
+  // Con el resumen atrasado y sin publicadas, la franja era una línea suelta con la hora
+  // («Actualizado el mar 20 oct, 19:13») que parecía la de toda la página. La frase de
+  // las abiertas ya dice ese día y esa hora, y «Lo mejor de hoy» dice la suya.
+  const franjaEntera = franjaDeLaPortada(resumen, vigencia);
+  const franja = franjaEntera && !franjaEntera.publicadasHoy && !vigencia.alDia && tira ? null : franjaEntera;
   const gasto = lecturaGasto(mercado, repositorio, ahora);
   const red = lecturaRed(mercado, repositorio);
   const lecturas: Lecturas = {
