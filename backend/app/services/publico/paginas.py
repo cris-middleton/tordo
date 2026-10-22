@@ -16,11 +16,13 @@ import re
 
 import polars as pl
 
+from app.repositories.busqueda import palabras as palabras_del_termino
 from app.repositories.compra_agil import CAMPOS_HISTORIA
 from app.services.bi._base import _load, _primero, periodo_de
 from app.services.bi.comprador import get_comprador
 from app.services.bi.rubro import get_panorama
 from app.services.publico import indexables
+from app.utils import sinonimos
 from app.utils.firma import terminos_de_busqueda
 
 #: Cuántos enlaces a otras páginas lleva cada una. Más de diez no se leen y sí
@@ -351,23 +353,37 @@ def buscar_productos(q: str, limite: int) -> list[dict]:
     firma las guarda ordenadas). Cada palabra se busca al **comienzo** de una
     palabra del slug, que separa las palabras con guiones: «guante» encuentra
     «guantes», no al revés, y «mesa» no encuentra «parmesano» (la regla de
-    `repositories/busqueda.py`). Primero los indexables, luego por compras.
+    `repositories/busqueda.py`).
 
-    **Sin ninguna palabra que una firma pueda tener** («de la», «pc») devuelve
+    **Cada palabra trae sus otras formas** (`app/utils/sinonimos`): su singular
+    entero («guantes» encuentra «guante»), el otro género, el plural en «-ces»
+    («lápiz», «lápices») y sus sinónimos («lápiz», «bolígrafo»; «pc»,
+    «computador»). Primero lo que coincide con lo escrito, sin sinónimos;
+    dentro, los indexables y luego por compras.
+
+    **Sin ninguna palabra que una firma pueda tener** («de la», «500») devuelve
     `[]` sin mirar el índice. Antes «de la» traía cualquier firma con esas
     letras dentro de otra palabra: 3.691 productos en la copia local.
     """
     palabras = terminos_de_busqueda(q)
+    # Las que la firma descarta por cortas pero llevan a otra («pc»).
+    palabras += [p for p in palabras_del_termino(q) if p in sinonimos.SOLO_CLAVE]
     if not palabras:
         return []
     productos = indexables.indice().productos
-    condicion = pl.lit(True)
+    directa = pl.lit(True)
+    amplia = pl.lit(True)
     for palabra in palabras:
-        # `palabra` es un slug: sin nada que escapar, pero se escapa igual.
-        condicion = condicion & pl.col("slug").str.contains(f"(?:^|-){re.escape(palabra)}")
+        directa = directa & pl.col("slug").str.contains(_patron_slug([palabra]))
+        otras = sinonimos.alternativas(palabra) if _SOLO_LETRAS.fullmatch(palabra) else [palabra]
+        amplia = amplia & pl.col("slug").str.contains(_patron_slug(otras))
     encontrados = (
-        productos.filter(condicion)
-        .sort(["indexable", "n", "slug"], descending=[True, True, False])
+        productos.filter(amplia)
+        .with_columns(directa.alias("_directa"))
+        .sort(
+            ["_directa", "indexable", "n", "slug"],
+            descending=[True, True, True, False],
+        )
         .head(min(limite, MAX_RESULTADOS_BUSQUEDA))
     )
     descripciones = _descripciones(encontrados.get_column("firma").to_list())
@@ -381,6 +397,29 @@ def buscar_productos(q: str, limite: int) -> list[dict]:
         }
         for r in encontrados.iter_rows(named=True)
     ]
+
+
+#: Una palabra que tiene formas y alternativas: sólo letras, como un slug sin guiones.
+_SOLO_LETRAS = re.compile(r"[a-z]+")
+
+
+def _patron_slug(palabras: list[str]) -> str:
+    """Alguna palabra del slug con alguna de las `formas` de alguna de estas.
+
+    El slug separa las palabras con guiones: una forma que es prefijo empieza
+    tras `^` o `-`; una que es la palabra entera termina además en `-` o `$`.
+    """
+    trozos = []
+    for palabra in palabras:
+        formas = (
+            sinonimos.formas(palabra)
+            if _SOLO_LETRAS.fullmatch(palabra)
+            else [sinonimos.Forma(palabra, prefijo=True)]
+        )
+        for forma in formas:
+            fin = "" if forma.prefijo else "(?:-|$)"
+            trozos.append(re.escape(forma.texto) + fin)
+    return "(?:^|-)(?:" + "|".join(trozos) + ")"
 
 
 def _descripciones(firmas: list[str]) -> dict[str, str | None]:

@@ -39,6 +39,7 @@ from app.core.tiempo import ZONA_CHILE, hoy_chile, inicio_del_dia
 from app.models.convocatoria import TipoConvocatoria
 from app.models.licitacion import Licitacion
 from app.repositories import busqueda
+from app.utils import sinonimos
 
 # Columnas por las que se puede ordenar. `relevance` no está: no es una columna
 # sino una puntuación contra los términos, y la resuelve `buscar_por_relevancia`.
@@ -53,7 +54,27 @@ COLUMNAS_ORDENABLES = {
 def coincide_termino(termino: str):
     """Cómo se decide que una licitación coincide con un término.
 
-    Dos vías, ambas con índice:
+    El término coincide si coincide él **o alguna de sus alternativas**
+    (`app/utils/sinonimos.alternativas`): «lápiz» también encuentra «lápices»,
+    «lapicera» y «bolígrafo»; «mantenimiento», «mantención». Cada una se mira
+    con `_coincide_palabra`. Un término con dígitos o signos («covid-19») no
+    tiene alternativas.
+
+    Las alternativas sólo amplían lo que se encuentra. En el orden por
+    relevancia puntúa el término escrito (`puntuacion_relevancia`), así que lo
+    que dice «lápiz» sale antes que lo que sólo dice «bolígrafo».
+    """
+    palabras = busqueda.palabras(termino)
+    otras = (
+        [a for a in sinonimos.alternativas(palabras[0]) if a != palabras[0]]
+        if len(palabras) == 1
+        else []
+    )
+    return or_(*(_coincide_palabra(t) for t in (termino, *otras)))
+
+
+def _coincide_palabra(termino: str):
+    """Una palabra, sin alternativas. Dos vías, ambas con índice:
 
     - `busqueda @@ plainto_tsquery('spanish', t)` — palabras, con stemming.
       Encuentra "servicio" buscando "servicios". Cubre nombre y descripción.

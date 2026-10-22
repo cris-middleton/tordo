@@ -680,3 +680,45 @@ class TestBusquedaConLaReglaDeLaFirma:
         """Antes, «de la» encontraba «desechables … talla» y «pc» encontraba
         «concepcion»: letras sueltas dentro de otra palabra."""
         assert self._slugs(cliente, q) == []
+
+
+class TestBusquedaConLasOtrasFormas:
+    """Plural, género y sinónimos (`app/utils/sinonimos.py`) en `/productos?q=`.
+
+    Medido en la copia local: «lápices» encontraba 20 productos y dejaba fuera
+    los 165 de «lápiz»; «guantes», los 385 de «guante».
+    """
+
+    @pytest.fixture
+    def firmas(self, analytics):
+        analytics["product_price_bands_L0N.parquet"] = [
+            _banda("grafito lapiz", "unidad", 40, "alta", 300.0),
+            _banda("azul boligrafo", "unidad", 90, "alta", 250.0),
+            _banda("latex guante", "caja", 50, "alta", 4_000.0),
+            _banda("escritorio notebook", "unidad", 12, "alta", 600_000.0),
+            _banda("pcr reactivo", "kit", 15, "alta", 90_000.0),
+            _banda("comedor mesa", "unidad", 10, "alta", 150_000.0),
+        ]
+        indexables.invalidar()
+        yield analytics
+        indexables.invalidar()
+
+    def _slugs(self, cliente, q):
+        r = _get(cliente, "/productos", q=q)
+        assert r.status_code == 200
+        return [p["slug"] for p in r.json()]
+
+    @pytest.mark.parametrize("q", ["lapices", "lápiz", "LÁPIZ"])
+    def test_lapices_encuentra_lapiz_y_primero_lo_escrito(self, firmas, cliente, q):
+        """El bolígrafo tiene más compras, pero sólo responde por sinónimo."""
+        assert self._slugs(cliente, q) == ["grafito-lapiz", "azul-boligrafo"]
+
+    def test_guantes_encuentra_guante(self, firmas, cliente):
+        assert self._slugs(cliente, "guantes de látex") == ["latex-guante"]
+
+    def test_pc_encuentra_computadores_y_no_pcr(self, firmas, cliente):
+        assert self._slugs(cliente, "pc") == ["escritorio-notebook"]
+
+    def test_mesas_no_encuentra_meses(self, firmas, cliente):
+        assert self._slugs(cliente, "mesas") == ["comedor-mesa"]
+        assert self._slugs(cliente, "meses") == []
