@@ -706,7 +706,7 @@ precio, con su pie de método (spec PORTADA_V7 §6), `precioDeBanda` sobre la un
 titulada con `tituloDeBanda`, sin el filtro de la portada —una banda de un solo comprador dice «todas
 las compras son de {comprador}»—; debajo, sus cifras (`CifrasBanda`: mediana, la mitad de las compras,
 8 de cada 10 compras y cuántas compras; bajo la mitad de las compras, cuánto se separan sus extremos
-con la cifra, `textoDiferencia` —«De un extremo al otro, 1,9 veces», «Casi el mismo precio»—, sin
+con la cifra, `textoDiferencia` —«El más alto es 1,9 veces el más bajo», «Casi el mismo precio»—, sin
 insignias de color; antes un adjetivo, «Precios algo distintos entre sí»). Con más de
 una unidad, una tabla (`TablaUnidades`). Ya no hay tarjeta de P10…P90 encima del gráfico: la ficha
 decía la mitad de las compras tres veces. Las tablas de las fichas (`TablaEnlaces`) van con filetes y sin caja.

@@ -9,8 +9,8 @@ import type { CompraAgilDestacada } from '@/types/compraAgil';
 
 describe('textoDiferencia', () => {
   it('la cifra entre los extremos de la mitad de las compras', () => {
-    expect(textoDiferencia(167_227, 320_900)).toBe('De un extremo al otro, 1,9 veces');
-    expect(textoDiferencia(100, 200)).toBe('De un extremo al otro, el doble');
+    expect(textoDiferencia(167_227, 320_900)).toBe('El más alto es 1,9 veces el más bajo');
+    expect(textoDiferencia(100, 200)).toBe('El más alto es el doble del más bajo');
     expect(textoDiferencia(100, 105)).toBe('Casi el mismo precio');
   });
   it('sin rango, nada', () => {
