@@ -257,3 +257,21 @@ def test_sin_organismo_el_panel_busca_precios_igual(datos):
 def test_sin_organismo_y_sin_datos_el_precio_dice_no_disponible(datos):
     r = panel.get_licitacion_panel("1-2-COT26", organismo_id=None, product_codes=["00000000"])
     assert r["precios"] == [{"disponible": False, "codigo_producto": "00000000"}]
+
+
+def test_sin_rubro_una_tabla_sin_ventana_no_da_500(monkeypatch):
+    """Una `competitors_by_market` materializada antes de la ventana no tiene
+    `ventana_desde`/`ventana_hasta`: pedirlas por nombre era un error de Postgres
+    («column does not exist») y un 500 en `/bi/competidores/{org}` y en el panel
+    de toda licitación. Sin ellas, la respuesta sale igual, sin periodo."""
+    d = AnalyticsEnMemoria()
+    d["competitors_by_market.parquet"] = [
+        {k: v for k, v in f.items() if not k.startswith("ventana_")} for f in FILAS
+    ]
+    d.instalar(monkeypatch, competencia)
+
+    r = competencia.get_competidores(ORG, top_n=5)
+
+    assert r["disponible"] is True
+    assert [c["NombreProveedor"] for c in r["competidores"]][0] == "INSUMOS C SA"
+    assert r["periodo"] is None

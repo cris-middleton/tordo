@@ -56,6 +56,10 @@ def test_cada_parametro_tiene_cota(nombre, esquema):
             )
         if tipo.get("type") == "integer":
             assert "maximum" in tipo, f"{nombre}: entero sin le=. Ponle una cota."
+        if tipo.get("type") == "number":
+            # `1e308` e `inf` son números válidos para Pydantic y no caben en
+            # ninguna columna `numeric`: sin cota, 500 en vez de 422.
+            assert "maximum" in tipo, f"{nombre}: número sin le=. Ponle una cota."
 
 
 # ── Lo que la cota evita, por HTTP ───────────────────────────────────────────
@@ -77,6 +81,14 @@ def test_un_id_mayor_que_un_integer_no_llega_a_la_base(cliente):
 
 def test_un_texto_demasiado_largo_se_rechaza(cliente):
     r = cliente.get("/api/v1/tenders/", params={"search": "x" * (limites.TEXTO + 1)})
+    assert r.status_code == 422
+
+
+@pytest.mark.parametrize("valor", ["1e308", "inf", str(limites.MONTO_MAX + 1)])
+@pytest.mark.parametrize("parametro", ["min_amount", "max_amount"])
+def test_un_monto_desmedido_se_rechaza(cliente, parametro, valor):
+    """Antes: 500 (`numeric field overflow`: la columna es `Numeric(15, 2)`)."""
+    r = cliente.get("/api/v1/tenders/", params={parametro: valor})
     assert r.status_code == 422
 
 

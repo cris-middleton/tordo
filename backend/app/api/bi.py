@@ -18,6 +18,7 @@ import logging
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import limites
@@ -182,7 +183,12 @@ async def get_licitacion_panel(
             if len(product_codes) >= 10:
                 break
 
-    panel = bi_service.get_licitacion_panel(
+    # El servicio es síncrono (psycopg2, una decena de consultas) y esta ruta es
+    # `async` por la sesión de la licitación: llamado aquí directamente, bloqueaba
+    # el bucle de eventos —y con un solo worker, toda la API— mientras se armaba
+    # el panel. Al hilo, como cualquier ruta síncrona (y como `_en_hilo` del MCP).
+    panel = await run_in_threadpool(
+        bi_service.get_licitacion_panel,
         codigo_externo=codigo_externo,
         organismo_id=organismo_id,
         product_codes=product_codes,

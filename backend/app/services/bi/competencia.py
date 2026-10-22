@@ -9,7 +9,14 @@ from __future__ import annotations
 
 import logging
 
-from app.services.bi._base import _agregado, _load, _totales, clasificar_hhi, periodo_de
+from app.services.bi._base import (
+    _agregado,
+    _columnas,
+    _load,
+    _totales,
+    clasificar_hhi,
+    periodo_de,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +26,9 @@ logger = logging.getLogger(__name__)
 #: debajo. Existe para que ninguna lectura de BI sea «la tabla entera, sin más».
 MAX_FILAS_FORECAST = 5000
 
+
+#: De dónde salen los competidores: una fila por (organismo, rubro, proveedor).
+TABLA = "competitors_by_market.parquet"
 
 #: Columnas de una fila de competidor, en el orden de la respuesta.
 COLUMNAS_COMPETIDOR = [
@@ -99,12 +109,16 @@ def _competidores_del_organismo(organismo_id: str, top_n: int) -> dict:
     proveedor (ver `get_competidores`)."""
     filtros = {"CodigoOrganismoPublico": organismo_id}
     sumas = ["monto_total", "n_oc"]
+    # La ventana sólo si la tabla la trae: una materializada antes no tiene esas
+    # columnas, y pedirlas por nombre es un error de Postgres —un 500 aquí y en el
+    # panel de toda licitación—, no un periodo vacío.
+    ventana = [c for c in ("ventana_desde", "ventana_hasta") if c in _columnas(TABLA)]
     top = _agregado(
-        "competitors_by_market.parquet",
+        TABLA,
         "CodigoProveedor",
         filtros=filtros,
         sumas=sumas,
-        primeros=["NombreProveedor", "OrganismoPublico", "ventana_desde", "ventana_hasta"],
+        primeros=["NombreProveedor", "OrganismoPublico", *ventana],
         limite=top_n,
     )
     if top is None:
@@ -112,9 +126,7 @@ def _competidores_del_organismo(organismo_id: str, top_n: int) -> dict:
     if top.is_empty():
         return {"disponible": False, "motivo": "organismo no encontrado en histórico"}
 
-    total = _totales(
-        "competitors_by_market.parquet", "CodigoProveedor", filtros=filtros, sumas=sumas
-    )
+    total = _totales(TABLA, "CodigoProveedor", filtros=filtros, sumas=sumas)
     monto = float(total["monto_total"] or 0)
     ordenes = int(total["n_oc"] or 0)
     n_proveedores = int(total["grupos"])

@@ -39,12 +39,33 @@ class Base(DeclarativeBase):
 
 # ── Async engine (FastAPI / asyncpg) ─────────────────────────────────────────
 
+#: Opciones de cada sesión de asyncpg con Postgres.
+#:
+#: **`plan_cache_mode = force_custom_plan`**: asyncpg prepara cada consulta con
+#: nombre y la reutiliza, y Postgres, tras la quinta ejecución de una misma
+#: sentencia preparada, puede pasar a un plan GENÉRICO, hecho sin mirar los
+#: parámetros. Las consultas del catálogo dependen justamente de ellos: el
+#: término de búsqueda entra en `plainto_tsquery`, `inmutable_unaccent` y una
+#: expresión regular que con el valor a la vista se pliegan una vez y con el plan
+#: genérico se evalúan fila por fila. Medido el 2026-10-22 con 61.000
+#: licitaciones: `GET /tenders/?search=de` tardaba ~55 ms las cinco primeras
+#: veces y ~800 ms desde la sexta (15×), y `?search=servicio`, de 40 a 120 ms;
+#: con el plan a medida, las diez en ~50 ms. Planificar cada vez cuesta unos
+#: milisegundos, y con el tráfico de un sitio público siempre va en plan
+#: genérico: la sexta petición es la de todo el día.
+#:
+#: Sólo asyncpg: psycopg2 (el motor síncrono de analytics) interpola los
+#: parámetros en el cliente y Postgres planifica cada consulta con sus valores.
+#: `tests/test_plan_a_medida.py` lo fija.
+OPCIONES_DE_SESION = {"plan_cache_mode": "force_custom_plan"}
+
 async_engine = create_async_engine(
     settings.database_url,
     echo=settings.database_echo,
     pool_pre_ping=True,
     pool_size=10,
     max_overflow=20,
+    connect_args={"server_settings": OPCIONES_DE_SESION},
 )
 
 AsyncSessionLocal = async_sessionmaker(

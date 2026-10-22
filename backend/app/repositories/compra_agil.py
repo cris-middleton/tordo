@@ -227,9 +227,14 @@ def _rut_normalizado(columna=None):
 
 
 def _ofertas_recibidas():
-    """El conteo de cotizaciones, o NULL si no es un entero (o no viene)."""
+    """El conteo de cotizaciones, o NULL si no es un entero (o no viene).
+
+    Como mucho nueve cifras: viene del payload de Mercado Público, y uno que no
+    cabe en un `integer` hacía fallar el `CAST` —y con él la lista entera, un
+    500— en vez de contar como ilegible.
+    """
     texto = Licitacion.informacion_adicional["total_ofertas_recibidas"].astext
-    return case((texto.op("~")("^[0-9]+$"), cast(texto, Integer)), else_=null())
+    return case((texto.op("~")("^[0-9]{1,9}$"), cast(texto, Integer)), else_=null())
 
 
 def _ofertas_al():

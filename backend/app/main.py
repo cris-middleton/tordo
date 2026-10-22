@@ -5,6 +5,7 @@ import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -14,6 +15,7 @@ from app.api import bi, compra_agil, health, publico, tenders
 from app.api.documentacion import DESCRIPCION, ETIQUETAS
 from app.config import settings
 from app.core.endurecimiento import EndurecimientoMiddleware
+from app.core.errores_validacion import validacion_en_espanol
 from app.core.limite_ip import LimitadorEnMemoria, LimitePorIPMiddleware, avisos_de_configuracion
 from app.core.redirecciones import LocationRelativaMiddleware, MCPSinBarraMiddleware
 from app.core.versionado import PREFIJO_API
@@ -139,6 +141,11 @@ app.add_middleware(MCPSinBarraMiddleware)
 # Lo más externo: cuerpo acotado, ningún `%00` y las cabeceras de endurecimiento
 # en toda respuesta, también en un 429 o un 413 (`app/core/endurecimiento.py`).
 app.add_middleware(EndurecimientoMiddleware, cors_todos="*" in settings.cors_origins)
+
+
+# Un parámetro inválido es un 422 con la lista de Pydantic, como siempre, pero con
+# cada `msg` en español: lo lee una persona (`app/core/errores_validacion.py`).
+app.add_exception_handler(RequestValidationError, validacion_en_espanol)
 
 
 @app.exception_handler(Exception)

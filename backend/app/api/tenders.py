@@ -38,8 +38,8 @@ async def list_tenders(
         ),
     ),
     region: str | None = Query(None, max_length=limites.NOMBRE),
-    min_amount: float | None = Query(None, ge=0),
-    max_amount: float | None = Query(None, ge=0),
+    min_amount: float | None = Query(None, ge=0, le=limites.MONTO_MAX),
+    max_amount: float | None = Query(None, ge=0, le=limites.MONTO_MAX),
     search: str | None = Query(None, max_length=limites.TEXTO),
     abiertas: bool = Query(
         False,

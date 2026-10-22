@@ -366,7 +366,7 @@ traen `{"detail": "…"}`.
 |---|---|---|
 | 404 | no existe | revisar el código o identificador |
 | 413 | cuerpo de más de 64 KB (sólo el MCP recibe cuerpo) | acortar la petición |
-| 422 | parámetros inválidos (también: más de 8 palabras en una búsqueda, o un `%00`) | `detail` nombra el campo |
+| 422 | parámetros inválidos (también: más de 8 palabras en una búsqueda, un `%00` o un monto sobre 10¹³) | `detail` es la lista de Pydantic (`type`, `loc`, `ctx`) con cada `msg` en español, que nombra el campo y la cota |
 | 429 | límite por minuto | esperar lo que diga `Retry-After` |
 | 503 | el módulo está desactivado en este despliegue | no depende del cliente |
 
