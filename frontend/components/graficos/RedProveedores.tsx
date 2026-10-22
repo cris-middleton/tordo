@@ -258,6 +258,7 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
     const abajo = Math.max(...amplios.map((d) => d.y + d.r));
     return { x: (x / ancho) * 100, y: ((abajo + 6) / alto) * 100, texto: `Le venden a ${datos.mitad} o más` };
   }, [nodos, ancho, alto, datos.mitad]);
+  const hayCentro = nodos.some((d) => d.amplio);
   const nodo = activo != null ? nodos[activo] : null;
   const cerca = activo != null ? vecinos[activo] : null;
   const resaltadasIniciales = useMemo(() => trazo(nodos, delActivo(activo), centro), [activo]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -398,15 +399,16 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
         </ul>
         <ul aria-label="Proveedores" className="flex flex-wrap items-center gap-x-4 gap-y-1">
           <li className="font-medium text-text">Proveedores:</li>
-          {nodos.some((d) => d.amplio) && (
+          {hayCentro && (
             <li className="flex items-center gap-1.5">
               <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-text" />
               le venden a {datos.mitad} compradores o más
             </li>
           )}
+          {/* Sin grupo del centro, «el resto» no tenía de qué ser el resto. */}
           <li className="flex items-center gap-1.5">
             <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full border border-subtle bg-surface" />
-            el resto
+            {hayCentro ? 'el resto' : `le venden a menos de ${datos.mitad} compradores`}
           </li>
         </ul>
       </div>
