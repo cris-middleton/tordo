@@ -245,6 +245,20 @@ pide el detalle de lo que ya está en la base: lo nuevo entraba una vez al día.
     terminaba bien y publicaba un mes menos con el latido en verde. `scan_oc` y `scan_lic`, que
     no saneaban el monto ni lo repartían por línea y sólo usaban los tests, se borraron: el
     único camino a los consolidados es `iter_oc_parquets` / `iter_lic_parquets`.
+- **Un percentil de la ventana sale de todas sus observaciones, nunca de promediar los de
+  cada archivo mensual** (`price_bands`, `sector_dashboard.ticket_mediana`, los días de
+  aceptación de `buyer_scoring`; `etl/tests/test_percentiles_de_la_ventana.py`). Se
+  promediaban ponderando por `n`: en un par que compra una vez al mes, p10, mediana y p90 de
+  cada mes son esa compra, y la banda de 36 meses salía con p10 = p90. Medido en local (6
+  meses): el p10 de `price_bands` cambia más de un 20 % en el 84 % de los pares.
+- **El archivo de licitaciones trae una fila por (línea, oferta)**: el ganador es `Oferta
+  seleccionada = "Seleccionada"`, nunca la primera fila; una licitación «Publicada» trae
+  `NumeroOferentes = 0` porque sus ofertas no se han abierto, y no cuenta como «sin
+  competencia».
+- **Estacionalidad: el z-score cuenta los meses sin compras, y la consistencia divide por los
+  años en que ese mes está en los datos** (`etl/tests/test_estacionalidad.py`). La tabla sólo
+  guarda los meses con compras: quien la suma (`services/bi/temporal._estacionalidad_sumada`)
+  rellena los doce con cero antes de calcular nada.
 - **Ninguna salida de analytics cuenta las órdenes canceladas**
   (`data_loader.ESTADOS_CANCELADOS`): `iter_oc_parquets` las quita al leer, enteras, antes de
   sanear y repartir el monto. Una orden cancelada no es un precio pagado ni una cuota de

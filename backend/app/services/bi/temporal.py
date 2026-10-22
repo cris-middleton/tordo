@@ -130,8 +130,22 @@ def get_estacionalidad(
 
 
 def _estacionalidad_sumada(filas: pl.DataFrame) -> list[dict]:
-    """Los rubros de un organismo sumados por mes (ver `get_estacionalidad`)."""
-    por_mes = filas.group_by("mes").agg(pl.col("compras_mes").sum().cast(pl.Int64)).sort("mes")
+    """Los rubros de un organismo sumados por mes (ver `get_estacionalidad`).
+
+    **Doce filas, con cero en los meses sin compras**, y el z-score sobre las
+    doce. La tabla sólo trae los meses CON compras: sobre ellos, un organismo
+    que compra sólo en marzo tenía una fila, desviación nula y z = 0, y la
+    estacionalidad más marcada no salía nunca como pico. Es la corrección que
+    `etl/analytics/seasonality.py` hizo en la tabla (la ventana de 36 meses
+    cubre los doce meses del calendario).
+    """
+    sumados = filas.group_by("mes").agg(pl.col("compras_mes").sum().cast(pl.Int64))
+    por_mes = (
+        pl.DataFrame({"mes": list(range(1, 13))}, schema={"mes": pl.Int64})
+        .join(sumados.with_columns(pl.col("mes").cast(pl.Int64)), on="mes", how="left")
+        .with_columns(pl.col("compras_mes").fill_null(0))
+        .sort("mes")
+    )
     total = float(por_mes.get_column("compras_mes").sum() or 0)
     if total <= 0:
         return []
