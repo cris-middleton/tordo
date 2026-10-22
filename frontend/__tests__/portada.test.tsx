@@ -754,9 +754,16 @@ describe('la red: quién le compra a quién', () => {
     simularBackend({ ...TODO, mercado: ok({ ...MERCADO, red: RED }) });
     const { container } = render(await Home());
     const grande = red(container) as HTMLElement;
-    expect(grande.querySelectorAll('[data-nodo="comprador"]')).toHaveLength(RED.compradores.length);
-    expect(grande.querySelectorAll('[data-nodo="proveedor"]')).toHaveLength(RED.proveedores.length);
-    expect(grande.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    // Dos disposiciones de la misma red: la del teléfono y la de escritorio, una oculta en cada ancho.
+    const movil = grande.querySelector('.lg\\:hidden') as HTMLElement;
+    const escritorio = grande.querySelector('.hidden.lg\\:block') as HTMLElement;
+    for (const red of [movil, escritorio]) {
+      expect(red.querySelectorAll('[data-nodo="comprador"]')).toHaveLength(RED.compradores.length);
+      expect(red.querySelectorAll('[data-nodo="proveedor"]')).toHaveLength(RED.proveedores.length);
+    }
+    expect(movil.querySelector('svg')).toHaveAttribute('viewBox', '0 0 400 380');
+    expect(escritorio.querySelector('svg')).toHaveAttribute('viewBox', '0 0 640 420');
+    for (const svg of grande.querySelectorAll('svg')) expect(svg).toHaveAttribute('aria-hidden', 'true');
     expect(within(grande).getByRole('link', { name: 'Cómo se calcula' })).toHaveAttribute(
       'href',
       '/guias/concentracion-de-mercado#la-red-de-la-portada',
