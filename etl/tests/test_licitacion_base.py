@@ -22,6 +22,7 @@ from sqlalchemy import create_engine, text
 
 from etl.loaders.database_loader_v2 import DatabaseLoaderV2
 from etl.shared_imports import ZONA_CHILE
+from etl.transformers.licitacion_transformer import LicitacionTransformer
 from etl.utils.licitacion_base import campos_base_desde_detalle
 
 IN_CI = os.getenv("CI", "").lower() in ("1", "true")
@@ -252,6 +253,44 @@ def test_releer_el_listado_no_borra_lo_que_trajo_el_detalle(loader):
     ).one()
     assert estado == "Cerrada"  # lo que SÍ trae el listado se actualiza
     assert descripcion.startswith("Que, este Hospital")
+
+
+def test_releer_el_listado_no_devuelve_la_moneda_a_pesos(loader):
+    """El listado no trae `Moneda`, y el transformador la rellenaba con «CLP»:
+    un texto no vacío, así que el upsert lo tomaba por un dato y pisaba la del
+    detalle. Una licitación de 1.500 UF quedaba «$1.500» en la ficha, con la
+    cifra en UF y la moneda en pesos. Se pasa por el transformador de verdad,
+    con la forma del listado (código, nombre, estado y cierre)."""
+    en_uf = copy.deepcopy(DETALLE_REAL)
+    en_uf["Listado"][0]["Moneda"] = "CLF"
+    en_uf["Listado"][0]["MontoEstimado"] = 1500.0
+    lid, codigo = _licitacion_del_listado(loader, "UF")
+    loader.load_licitacion_detalle_inicial(lid, codigo, en_uf)
+
+    del_listado = LicitacionTransformer().transform(
+        {
+            "CodigoExterno": codigo,
+            "Nombre": "ADQUISICIÓN DE INSUMOS PARA IMAGENOLOGÍA",
+            "CodigoEstado": 5,
+            "FechaCierre": "2026-10-05T15:30:00",
+        }
+    )
+    loader.load_licitaciones([del_listado])
+
+    moneda, monto = loader.session.execute(
+        text("SELECT moneda, monto_estimado FROM licitaciones WHERE codigo_externo = :c"),
+        {"c": codigo},
+    ).one()
+    assert (moneda, monto) == ("CLF", 1500)
+
+
+def test_el_listado_no_inventa_una_moneda():
+    fila = LicitacionTransformer().transform({"CodigoExterno": "1-1-LE26", "Nombre": "X"})
+    assert fila["moneda"] is None
+    con_moneda = LicitacionTransformer().transform(
+        {"CodigoExterno": "1-1-LE26", "Nombre": "X", "Moneda": "USD"}
+    )
+    assert con_moneda["moneda"] == "USD"
 
 
 def test_una_compra_agil_no_se_pide_a_la_api_clasica(loader):

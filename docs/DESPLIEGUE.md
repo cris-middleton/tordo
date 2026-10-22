@@ -871,6 +871,7 @@ punto tiene su momento. En orden.
 | `502 Application failed to respond` con `x-railway-fallback: true`, y `Killed` en el log de la API | OOM: alguna consulta se trae una tabla entera. `make medir-memoria` con `ANALYTICS_DIR` lo reproduce |
 | La API en `CRASHED` y no vuelve | *Restart policy* distinta de **Always** (paso 6): agotó los reintentos. Redeploy (`railway redeploy -s api`) y corrígela |
 | Un cron corre varias veces seguidas tras fallar | *Restart policy* distinta de **Never** en ese servicio (pasos 7 y 8) |
+| `frecuente` estuvo parado más de un día (una pausa de Railway, un ticket vencido) | no hay que hacer nada si vuelve en menos de 72 h: la primera corrida parte de la última escritura en Postgres —Compra Ágil hasta 72 h atrás, licitaciones hasta 5 días— y lo dice en un WARNING (`la ventana se amplía`). Para una caída más larga, las licitaciones se recuperan a mano con `uv run python -m etl.main --fecha-desde <día> --fecha-hasta <día>`; la Compra Ágil anterior a esas 72 h sólo vuelve si cambia de estado |
 | Un cron falla con `CredencialRechazada` | ticket de Mercado Público inválido o vencido: pide otro y cámbialo en los dos cron |
 | tordo.cl responde `402` con `DEPLOYMENT_DISABLED` | la cuenta de Vercel está pausada por una cuota de uso (§13.4): `vercel api /v2/teams/<equipo>` dice cuál en `softBlock` |
 | `revalidación … HTTP 401` en el log de un cron | `REVALIDAR_SECRETO` distinto en Vercel y en ese cron |

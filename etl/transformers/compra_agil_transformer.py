@@ -93,7 +93,10 @@ class CompraAgilTransformer(BaseTransformer):
             # El monto normalizado a CLP, no el original: es lo que permite
             # comparar y ordenar junto al resto del catálogo.
             "monto_estimado": montos.get("monto_disponible_clp"),
-            "moneda": montos.get("moneda") or "CLP",
+            # Y por eso la moneda es CLP siempre. Con `montos.moneda`, la
+            # original, una Compra Ágil en UF quedaba con la cifra en pesos
+            # rotulada «UF». La original va en `informacion_adicional`.
+            "moneda": "CLP",
             "nombre_organismo": institucion.get("organismo_comprador"),
             "rut_organismo": institucion.get("rut"),
             # La API la manda con espacios de relleno («Región del Biobío »).
@@ -114,6 +117,7 @@ class CompraAgilTransformer(BaseTransformer):
                 "fecha_cancelacion": fechas.get("fecha_cancelacion"),
                 "motivos": data.get("motivos") or {},
                 "monto_disponible_original": montos.get("monto_disponible"),
+                "moneda_original": montos.get("moneda"),
             },
             "items": None,
         }

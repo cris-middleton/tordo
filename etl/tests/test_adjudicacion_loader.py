@@ -166,3 +166,62 @@ class TestElProductorEscribeLasTresColumnas:
         ).fetchone()
         assert fila[0] is not None
         assert fila[1] == "500000"
+
+
+def test_la_fecha_del_envoltorio_no_es_un_cambio(loader):
+    """La API clásica envuelve cada respuesta en `{"Cantidad", "FechaCreacion",
+    "Version", "Listado"}`, y `FechaCreacion` es la hora de la RESPUESTA: cambia
+    en cada consulta. Con el hash sobre la respuesta entera, toda re-consulta
+    de resultados contaba como «con novedad» y reescribía el detalle."""
+    licitacion_id = _crear_licitacion(
+        loader, "ENV", fecha_cierre=datetime.now(UTC) - timedelta(days=5)
+    )
+    contenido = [{"Estado": "Cerrada", "Items": {"Cantidad": 0, "Listado": []}}]
+    loader.load_licitacion_detalle_inicial(
+        licitacion_id,
+        f"{PREFIJO}ENV",
+        {
+            "Cantidad": 1,
+            "FechaCreacion": "2026-10-20T10:00:01.1",
+            "Version": "v1",
+            "Listado": contenido,
+        },
+    )
+    cambio = loader.actualizar_licitacion_detalle(
+        licitacion_id=licitacion_id,
+        codigo_externo=f"{PREFIJO}ENV",
+        datos_nuevos={
+            "Cantidad": 1,
+            "FechaCreacion": "2026-10-23T10:00:07.9",
+            "Version": "v1",
+            "Listado": contenido,
+        },
+    )
+    assert cambio is False
+
+
+def test_una_respuesta_sin_la_licitacion_no_borra_su_detalle(loader):
+    """`{"Cantidad": 0, "Listado": []}` es la API diciendo que no la encontró
+    esta vez. Aplicado como un detalle nuevo, la re-consulta de resultados le
+    borraba el estado y los ítems."""
+    licitacion_id = _crear_licitacion(
+        loader, "VACIA", fecha_cierre=datetime.now(UTC) - timedelta(days=5)
+    )
+    items = {"Cantidad": 1, "Listado": [{"Correlativo": 1, "CodigoProducto": 42181801}]}
+    loader.load_licitacion_detalle_inicial(
+        licitacion_id, f"{PREFIJO}VACIA", {"Listado": [{"Estado": "Cerrada", "Items": items}]}
+    )
+    cambio = loader.actualizar_licitacion_detalle(
+        licitacion_id=licitacion_id,
+        codigo_externo=f"{PREFIJO}VACIA",
+        datos_nuevos={"Cantidad": 0, "Listado": []},
+    )
+    assert cambio is False
+    estado, n_items = loader.session.execute(
+        text(
+            "SELECT estado_actual, jsonb_array_length(items -> 'Listado') "
+            "FROM licitaciones_detalle WHERE licitacion_id = :i"
+        ),
+        {"i": licitacion_id},
+    ).one()
+    assert (estado, n_items) == ("Cerrada", 1)

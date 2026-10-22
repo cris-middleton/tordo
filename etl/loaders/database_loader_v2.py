@@ -28,7 +28,7 @@ from etl.utils import (
     extraer_datos_adjudicacion,
     now_santiago,
 )
-from etl.utils.licitacion_base import campos_base_desde_detalle
+from etl.utils.licitacion_base import campos_base_desde_detalle, objeto_principal
 
 
 def _sin_claves_repetidas(
@@ -91,6 +91,17 @@ def _vacio_a_null(valor, columna):
         # serializador JSON y compara contra el STRING `"null"`.
         return func.nullif(valor, literal_column("'null'::jsonb"))
     return valor
+
+
+def _hash_del_detalle(datos: Any) -> str:
+    """El hash de la licitación, sin el envoltorio de la respuesta.
+
+    La API clásica responde `{"Cantidad", "FechaCreacion", "Version",
+    "Listado": [...]}`, y `FechaCreacion` es la hora de la respuesta: cambia en
+    cada consulta. Con el hash sobre la respuesta entera, toda re-consulta
+    contaba como un cambio.
+    """
+    return calcular_hash(objeto_principal(datos))
 
 
 class CargaFallida(RuntimeError):
@@ -359,7 +370,7 @@ class DatabaseLoaderV2(BaseLoader):
 
             # Sólo el hash del payload, no el payload (paso 7 del pivote): basta
             # para saber si la próxima consulta trae algo nuevo.
-            hash_contenido = calcular_hash(datos_api)
+            hash_contenido = _hash_del_detalle(datos_api)
 
             # Extract specific fields (handle nested structure under Listado[0])
             def _get_main_object(payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -449,10 +460,16 @@ class DatabaseLoaderV2(BaseLoader):
                     is not None
                 )
 
+            # `{"Cantidad": 0, "Listado": []}`: la API no la encontró esta vez.
+            # No es un detalle nuevo: aplicado, borraba el estado y los ítems.
+            if isinstance(datos_nuevos, dict) and datos_nuevos.get("Listado") == []:
+                self.logger.warning(f"La API no devolvió {codigo_externo}; se conserva el detalle")
+                return False
+
             # Antes del hash: los ítems que se guardan tienen que salir limpios.
             datos_nuevos = enmascarar_payload(datos_nuevos)
 
-            hash_nuevo = calcular_hash(datos_nuevos)
+            hash_nuevo = _hash_del_detalle(datos_nuevos)
             if hash_nuevo == detalle.hash_contenido:
                 self.logger.debug(f"No changes detected for {codigo_externo}")
                 return False
@@ -635,6 +652,21 @@ class DatabaseLoaderV2(BaseLoader):
             {"c": cuando, "id": licitacion_id},
         )
         self.session.commit()
+
+    def ultimas_escrituras(self) -> Dict[str, datetime]:
+        """Por `tipo_convocatoria`, la última vez que se escribió una fila
+        (`fecha_actualizacion`, o `fecha_extraccion` si nunca se actualizó)."""
+        if not self.session:
+            self.connect()
+        cuando = func.max(
+            func.coalesce(Licitacion.fecha_actualizacion, Licitacion.fecha_extraccion)
+        )
+        filas = (
+            self.session.query(Licitacion.tipo_convocatoria, cuando)
+            .group_by(Licitacion.tipo_convocatoria)
+            .all()
+        )
+        return {tipo: valor for tipo, valor in filas if valor is not None}
 
     def completar_desde_detalle(self, licitacion_id: int, campos: Dict[str, Any]) -> None:
         """Escribe en una licitación lo que trajo su detalle.

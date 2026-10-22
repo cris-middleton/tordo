@@ -6,7 +6,7 @@ Main entry point for ETL processes: licitaciones, su detalle y Compra Ágil
 import logging
 import sys
 import time
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from etl.config import config
 from etl.extractors import MercadoPublicoLicitacionesExtractor
@@ -522,6 +522,27 @@ def run_etl_resultados_licitaciones(*, dias: int, limite: int, reintento: timede
         return False
     finally:
         loader.disconnect()
+
+
+def ultimas_escrituras() -> dict[str, datetime]:
+    """Por `tipo_convocatoria`, la última vez que el ETL escribió una fila.
+
+    Lo usa `etl.cron` para saber si hubo una caída y desde dónde recuperarla.
+    Si no se puede leer, `{}`: la corrida sigue con sus ventanas de siempre, y
+    si la base está caída ya fallará al cargar.
+    """
+    try:
+        loader = DatabaseLoaderV2({"DATABASE_URL": config.DATABASE_URL})
+        loader.connect()
+        try:
+            return loader.ultimas_escrituras()
+        finally:
+            loader.disconnect()
+    except CredencialRechazada:
+        raise
+    except Exception as exc:
+        logger.warning("no se pudo leer la última escritura del catálogo: %s", exc)
+        return {}
 
 
 def run_etl_pipeline_v2(
