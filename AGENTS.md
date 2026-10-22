@@ -1,6 +1,9 @@
 # AGENTS.md
 
 **La referencia completa es [`CLAUDE.md`](./CLAUDE.md). Léelo antes de tocar código.**
+Lo de cada capa sigue en [`backend/CLAUDE.md`](./backend/CLAUDE.md),
+[`etl/CLAUDE.md`](./etl/CLAUDE.md) y [`frontend/CLAUDE.md`](./frontend/CLAUDE.md): léelos
+antes de tocar esa carpeta.
 Este archivo existe para las herramientas que leen `AGENTS.md` en vez de `CLAUDE.md`, y
 repite sólo lo que no se puede ignorar.
 

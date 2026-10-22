@@ -354,7 +354,7 @@ los mismos *watch paths* opcionales— salvo:
   03:00 en verano; da igual, no compite con `frecuente`, que es otro servicio).
   No necesita el ticket de Mercado Público: la descarga masiva es pública.
 - **Recursos**: **8 GB** de RAM (decidido el 2026-10-11; pico proyectado ~6,3 GB
-  con las ventanas de 36 y 12 meses — CLAUDE.md, «Analytics lee una VENTANA»). El
+  con las ventanas de 36 y 12 meses — etl/CLAUDE.md, «Analytics lee una VENTANA»). El
   plan Hobby admite hasta **48 GB de RAM y 100 GB de disco efímero por servicio**
   (docs.railway.com/reference/pricing/plans): caben los 8 GB y el pico de disco de la
   primera corrida.

@@ -1,7 +1,8 @@
 # ETL
 
-Ingesta de Mercado Público y análisis batch. La referencia viva es `CLAUDE.md`
-(secciones «Comandos» y «ETL»); esto es sólo el mapa.
+Ingesta de Mercado Público y análisis batch. La referencia viva es `etl/CLAUDE.md`
+(los cron y los patrones de analytics), con los comandos en el `CLAUDE.md` de la raíz; esto es
+sólo el mapa.
 
 Todo se corre **desde la raíz del repo, como módulo** (`cd etl && python main.py`
 falla con `No module named 'etl'`).

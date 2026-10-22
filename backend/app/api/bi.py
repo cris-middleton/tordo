@@ -10,7 +10,7 @@ responden 503.
 
 `/bi/matching` (texto libre → proveedores, con el TF-IDF cargado en este proceso)
 y `/bi/clusters` (un parquet leído desde la API) se retiraron en el paso 8 del
-pivote público: la API no carga artefactos del ETL. Ver CLAUDE.md, «Un worker
+pivote público: la API no carga artefactos del ETL. Ver backend/CLAUDE.md, «Un worker
 por contenedor».
 """
 

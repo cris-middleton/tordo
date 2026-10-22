@@ -93,7 +93,7 @@ logger = logging.getLogger(__name__)
 #: Las bandas miran sólo los últimos 12 meses de datos, no los 36 del resto de
 #: analytics. Un precio de hace tres años no informa el de hoy. (Que deflactarlo
 #: no lo arreglaba se midió dividiendo el precio por la cantidad, y está
-#: pendiente de re-medir: ver CLAUDE.md.) Además es el módulo que más RAM pide —0,5 GB
+#: pendiente de re-medir: ver etl/CLAUDE.md.) Además es el módulo que más RAM pide —0,5 GB
 #: por mes de historia, medido—, así que su ventana fija el tamaño del semanal.
 #: La API lo devuelve como `periodo`: nadie debe leer la banda como histórica.
 VENTANA_BANDAS_PRECIO_MESES = 12

@@ -121,7 +121,7 @@ MIN_ORDENES_COMPRADOR = 50
 MIN_COMPRAS_PRODUCTO = 10
 
 #: Predictibilidades que se indexan. «baja» significa que por lo mismo se pagaron
-#: precios muy distintos (p75 más de 2,6 veces p25; CLAUDE.md, «El precio se
+#: precios muy distintos (p75 más de 2,6 veces p25; etl/CLAUDE.md, «El precio se
 #: agrupa por PRODUCTO»): la página existe, pero no es una respuesta que
 #: convenga ofrecer a un buscador.
 PREDICTIBILIDAD_INDEXABLE = ("alta", "media")

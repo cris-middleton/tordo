@@ -49,7 +49,7 @@ export interface Costo {
 
 const PIVOTE = 'docs/PIVOTE_PUBLICO_2026-10.md';
 const DESPLIEGUE = 'docs/DESPLIEGUE.md';
-const CLAUDE = 'CLAUDE.md';
+const CLAUDE_ETL = 'etl/CLAUDE.md';
 
 export const ETIQUETA_BASE: Record<BaseCosto, string> = {
   medido: 'Medido',
@@ -93,7 +93,7 @@ export const COSTOS: Costo[] = [
     fuentes: [
       { archivo: DESPLIEGUE, cita: 'Las dos tareas suman ~US$1 al mes (US$0,7–1,5)' },
       { archivo: DESPLIEGUE, cita: '| cron-frecuente | 0,03 GB | US$0,02 | ~US$0,3 |' },
-      { archivo: CLAUDE, cita: '7,23 GB de pico y 15,5 minutos' },
+      { archivo: CLAUDE_ETL, cita: '7,23 GB de pico y 15,5 minutos' },
     ],
   },
   {
