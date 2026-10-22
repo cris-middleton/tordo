@@ -98,15 +98,24 @@ export default function TabPrecio({ organismosConNombre }: { organismosConNombre
         Busca un producto. Si eliges un comprador, ves sólo lo que pagó él.
       </p>
 
-      {/* Combobox producto */}
-      <div className="relative">
+      {/* Combobox producto. Se cierra cuando el foco SALE del conjunto (campo y
+          opciones), no cuando sale del campo: con `onBlur` en el campo, pasar con
+          Tab a una opción la cerraba y la desmontaba, y con el teclado no había
+          forma de elegir un producto. */}
+      <div
+        className="relative"
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setCerradoAMano(true);
+        }}
+      >
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted" />
         <input
           type="text"
           value={query}
           onChange={(e) => { setQuery(e.target.value); setSelected(null); setCerradoAMano(false); }}
           onFocus={() => setCerradoAMano(false)}
-          onBlur={() => { setTimeout(() => setCerradoAMano(true), 150); }}
+          onKeyDown={(e) => { if (e.key === 'Escape') setCerradoAMano(true); }}
+          aria-label="Producto"
           placeholder="Por ejemplo, uniformes, reactivos o papel"
           className="input-field pl-9 pr-9 w-full"
         />

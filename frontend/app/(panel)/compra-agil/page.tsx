@@ -135,6 +135,7 @@ function CompraAgilContenido() {
           />
         </div>
         <SelectField
+          etiqueta="Región"
           value={region}
           onChange={setRegion}
           options={[

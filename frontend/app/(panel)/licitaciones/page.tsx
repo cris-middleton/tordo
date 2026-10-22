@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -11,6 +11,7 @@ import { Search, Loader2, BookmarkPlus, BookmarkCheck, X } from 'lucide-react';
 import { useDashboardCollections } from '@/hooks/useDashboardCollections';
 import { consultaDe, useBusquedasGuardadas } from '@/hooks/useBusquedasGuardadas';
 import { useClaveDeUrlExterna } from '@/hooks/useClaveDeUrlExterna';
+import { useValorRetardado } from '@/hooks/useValorRetardado';
 import { ErrorDeCarga } from '@/components/ErrorDeCarga';
 import FilaLicitacion from '@/components/licitacion/FilaLicitacion';
 import { ESTADOS_LICITACION, REGIONES_CHILE, TIPOS_CONVOCATORIA } from '@/lib/constantesChile';
@@ -35,6 +36,9 @@ import { escribirUrlPropia } from '@/lib/urlPropia';
 import type { Tender } from '@/types/licitacion';
 
 type CampoFiltro = 'estado' | 'tipo_convocatoria' | 'region' | 'min_amount' | 'max_amount';
+
+/** Cuánto se espera a que un monto deje de cambiar antes de pedirlo. */
+const RETARDO_MONTO_MS = 400;
 
 /**
  * El catálogo de licitaciones.
@@ -82,7 +86,16 @@ function CatalogoContenido() {
   // Los parámetros SON la clave: cambiar un filtro cambia la clave y se pide de
   // nuevo. `placeholderData` mantiene la tabla anterior mientras llega la nueva,
   // así que ya no parpadea en cada tecleo del buscador.
-  const consulta = useLicitaciones(paramsDeApi(filtros));
+  //
+  // Los montos se piden cuando dejan de cambiar: cada tecla era una consulta, y
+  // escribir «10.000.000» y «500.000.000» gastaba media cuota del límite por IP
+  // (60 por minuto; cada consulta cuenta dos por la redirección de la barra
+  // final). Con dos montos y unas páginas, el catálogo respondía «espera un momento».
+  const minimoPedido = useValorRetardado(filtros.min_amount, RETARDO_MONTO_MS);
+  const maximoPedido = useValorRetardado(filtros.max_amount, RETARDO_MONTO_MS);
+  const consulta = useLicitaciones(
+    paramsDeApi({ ...filtros, min_amount: minimoPedido, max_amount: maximoPedido }),
+  );
   const { data: respuesta, isFetching: loading } = consulta;
   const tenders: Tender[] = respuesta?.items ?? [];
   const total: number = respuesta?.total ?? 0;
@@ -143,8 +156,28 @@ function CatalogoContenido() {
     });
   }, []);
 
-  const setPage = (actualizar: (p: number) => number) =>
+  // Al cambiar de página se vuelve al principio de la lista: «Siguiente» está al
+  // final, y la página nueva se veía por su última fila.
+  const inicioLista = useRef<HTMLDivElement>(null);
+  const setPage = (actualizar: (p: number) => number) => {
     setFiltros((prev) => ({ ...prev, page: actualizar(prev.page) }));
+    const inicio = inicioLista.current;
+    if (inicio && inicio.getBoundingClientRect().top < 0) inicio.scrollIntoView?.({ block: 'start' });
+  };
+
+  /** Quita la búsqueda y los filtros; «Sólo abiertas» y el orden se quedan. */
+  const borrarFiltros = () => {
+    setTerminosRecortados(false);
+    cambiar({
+      terminos: [],
+      estado: '',
+      tipo_convocatoria: '',
+      region: '',
+      min_amount: '',
+      max_amount: '',
+      sort_by: sortBy === 'relevance' ? 'fecha_publicacion' : sortBy,
+    });
+  };
 
   const filtrosActivos = [
     filtros.tipo_convocatoria,
@@ -184,7 +217,7 @@ function CatalogoContenido() {
             Dejamos las primeras.
           </p>
         )}
-        {keywords.length > 0 && (
+        {(keywords.length > 0 || filtrosActivos > 0) && (
           <div className="flex flex-wrap items-center gap-2">
             {keywords.map((keyword) => (
               <span
@@ -204,13 +237,7 @@ function CatalogoContenido() {
             ))}
             <button
               type="button"
-              onClick={() => {
-                setTerminosRecortados(false);
-                cambiar({
-                  terminos: [],
-                  sort_by: sortBy === 'relevance' ? 'fecha_publicacion' : sortBy,
-                });
-              }}
+              onClick={borrarFiltros}
               className="px-2 py-1 text-sm text-muted hover:text-danger"
             >
               Borrar filtros
@@ -272,6 +299,7 @@ function CatalogoContenido() {
           className={`${filtrosAbiertos ? 'grid' : 'hidden'} grid-cols-1 gap-2 sm:grid sm:grid-cols-3 lg:grid-cols-5`}
         >
           <SelectField
+            etiqueta="Tipo de compra"
             value={filtros.tipo_convocatoria}
             onChange={(v) => handleFilterChange('tipo_convocatoria', v)}
             options={[
@@ -283,6 +311,7 @@ function CatalogoContenido() {
             ]}
           />
           <SelectField
+            etiqueta="Estado"
             value={filtros.estado}
             onChange={(v) => handleFilterChange('estado', v)}
             options={[
@@ -291,6 +320,7 @@ function CatalogoContenido() {
             ]}
           />
           <SelectField
+            etiqueta="Región"
             value={filtros.region}
             onChange={(v) => handleFilterChange('region', v)}
             options={[
@@ -324,7 +354,7 @@ function CatalogoContenido() {
         </div>
       </div>
 
-      <div className="mt-6 flex items-center justify-between gap-4 border-b border-border pb-3">
+      <div ref={inicioLista} className="mt-6 flex items-center justify-between gap-4 border-b border-border pb-3">
         <p className="text-muted" aria-live="polite">
           {!fallo && (
             <>

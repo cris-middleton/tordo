@@ -1,6 +1,3 @@
-'use client';
-
-import { useState, useRef, useEffect } from 'react';
 import { ChevronDown } from 'lucide-react';
 
 interface Option {
@@ -12,66 +9,40 @@ interface SelectFieldProps {
   value: string;
   onChange: (value: string) => void;
   options: Option[];
+  /** Lo que el campo filtra, para quien no lo ve: su opción elegida no lo dice. */
+  etiqueta: string;
   className?: string;
-  placeholder?: string;
 }
 
-export default function SelectField({
-  value,
-  onChange,
-  options,
-  className = '',
-  placeholder,
-}: SelectFieldProps) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  const selected = options.find((o) => o.value === value);
-  const displayLabel = selected?.label ?? placeholder ?? options[0]?.label ?? '';
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
+/**
+ * Un desplegable de filtro: el `select` nativo, con la flecha de la paleta.
+ *
+ * Era una lista hecha a mano (`<button>` + `<li onClick>`) que sólo respondía
+ * al ratón: con el teclado se abría, pero ninguna flecha ni Enter elegía una
+ * opción, así que los filtros de tipo, estado y región del catálogo —y la
+ * región de Compra Ágil— no se podían usar sin ratón, y un lector de pantalla
+ * no sabía qué era. El nativo trae todo eso, y en el teléfono abre el selector
+ * del sistema.
+ */
+export default function SelectField({ value, onChange, options, etiqueta, className = '' }: SelectFieldProps) {
   return (
-    <div ref={ref} className={`relative ${className}`}>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="input-field flex items-center justify-between gap-2 cursor-pointer text-left"
+    <div className={`relative ${className}`}>
+      <select
+        aria-label={etiqueta}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="input-field cursor-pointer appearance-none pr-9"
       >
-        <span className={selected ? 'text-text' : 'text-subtle'}>{displayLabel}</span>
-        <ChevronDown
-          className={`h-4 w-4 text-subtle flex-shrink-0 transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
-        />
-      </button>
-
-      {open && (
-        <ul className="absolute z-50 mt-1 w-full rounded-lg border border-border bg-surface-elevated shadow-lg overflow-auto max-h-60 py-1">
-          {options.map((opt) => (
-            <li
-              key={opt.value}
-              onClick={() => {
-                onChange(opt.value);
-                setOpen(false);
-              }}
-              className={`px-3 py-2 text-sm cursor-pointer transition-colors duration-100
-                ${opt.value === value
-                  ? 'bg-primary/10 text-primary font-medium'
-                  : 'text-text hover:bg-border'
-                }`}
-            >
-              {opt.label}
-            </li>
-          ))}
-        </ul>
-      )}
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown
+        className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle"
+        aria-hidden="true"
+      />
     </div>
   );
 }

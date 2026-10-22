@@ -3,9 +3,12 @@
  *   1. un error de la API se dice y se reintenta (antes: «0 resultados»);
  *   2. una página que ya no existe ofrece volver a la primera;
  *   3. los montos se escriben como en Chile;
- *   4. un término repetido no hace un chip repetido.
+ *   4. un término repetido no hace un chip repetido;
+ *   5. un monto se pide al dejar de teclear, no en cada tecla;
+ *   6. «Borrar filtros» borra los filtros, no sólo la búsqueda;
+ *   7. cambiar de página vuelve al principio de la lista.
  */
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { instalarAlmacenDePrueba } from './ayudas/almacenDePrueba';
@@ -76,8 +79,72 @@ describe('catálogo', () => {
     expect(campo).toHaveAttribute('type', 'text');
     expect(campo).toHaveAttribute('inputmode', 'numeric');
     fireEvent.change(campo, { target: { value: '5.000.000' } });
-    expect(pedidas.at(-1)!.min_amount).toBe(5_000_000);
+    await waitFor(() => expect(pedidas.at(-1)!.min_amount).toBe(5_000_000));
     expect(campo).toHaveValue('5.000.000');
+  });
+
+  it('un monto se pide cuando deja de cambiar, no en cada tecla', async () => {
+    vi.useFakeTimers();
+    try {
+      await montar();
+      const campo = screen.getByLabelText('Monto mínimo, en pesos');
+      for (const valor of ['1', '10', '100', '1.000', '10.000', '100.000', '1.000.000']) {
+        fireEvent.change(campo, { target: { value: valor } });
+        act(() => vi.advanceTimersByTime(100));
+      }
+      // El campo y la URL cambian al teclear; la consulta todavía no.
+      expect(campo).toHaveValue('1.000.000');
+      expect(pedidas.some((p) => p.min_amount !== undefined)).toBe(false);
+      act(() => vi.advanceTimersByTime(500));
+      expect(new Set(pedidas.map((p) => p.min_amount).filter((m) => m !== undefined))).toEqual(
+        new Set([1_000_000]),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('«Borrar filtros» quita la búsqueda y los filtros, y sale también sin búsqueda', async () => {
+    urlInicial = new URLSearchParams(
+      'estado=Publicada&tipo_convocatoria=compra_agil&region=Región+del+Biobío&min_amount=1000&max_amount=9000&abiertas=1',
+    );
+    await montar();
+    expect(pedidas.at(-1)).toMatchObject({ estado: 'Publicada', tipo_convocatoria: 'compra_agil', min_amount: 1000 });
+    fireEvent.click(screen.getByRole('button', { name: 'Borrar filtros' }));
+    await waitFor(() => expect(pedidas.at(-1)!.min_amount).toBeUndefined());
+    const ultima = pedidas.at(-1)!;
+    for (const filtro of ['estado', 'tipo_convocatoria', 'region', 'min_amount', 'max_amount', 'search']) {
+      expect(ultima[filtro]).toBeUndefined();
+    }
+    // «Sólo abiertas» no es un filtro de esos: se queda como estaba.
+    expect(ultima.abiertas).toBe(true);
+    expect(screen.getByLabelText('Estado')).toHaveValue('');
+    expect(screen.getByLabelText('Monto mínimo, en pesos')).toHaveValue('');
+    expect(screen.queryByRole('button', { name: 'Borrar filtros' })).not.toBeInTheDocument();
+  });
+
+  it('cambiar de página vuelve al principio de la lista', async () => {
+    respuesta = {
+      data: {
+        items: [{ id: 1, codigo_externo: '1-1-LE26', nombre: 'Una', estado: 'Publicada' }],
+        total: 60,
+        pages: 3,
+      },
+      isError: false,
+    };
+    const subir = vi.fn();
+    Element.prototype.scrollIntoView = subir;
+    // La lista ya quedó arriba, fuera de la pantalla: se ha bajado hasta «Siguiente».
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({ top: -900 } as DOMRect);
+    try {
+      await montar();
+      fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+      expect(pedidas.at(-1)!.offset).toBe(20);
+      expect(subir).toHaveBeenCalledWith({ block: 'start' });
+    } finally {
+      // jsdom no lo trae: se quita para no dejárselo a los demás tests.
+      delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+    }
   });
 
   it('un término repetido no hace un chip repetido, y más de ocho palabras se avisan', async () => {
