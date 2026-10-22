@@ -252,6 +252,23 @@ export function notaCompradores(banda: BandaUnidad): string | null {
 }
 
 /**
+ * El aviso de una ficha que no se indexa, o `null`. Dice sólo lo que las cifras de
+ * abajo no dicen: con un comprador dominante o precios muy dispersos, eso ya va bajo
+ * el gráfico (`notaCompradores`, `CifrasBanda`), y el aviso de arriba repetía lo mismo
+ * en general («pocas compras, pocos compradores o precios muy distintos»). Con pocas
+ * compras, las cuenta.
+ */
+export function avisoDeFicha(p: { indexable: boolean; unidades: BandaUnidad[] }): string | null {
+  if (p.indexable) return null;
+  const b = p.unidades[0];
+  if (!b) return null;
+  if (notaCompradores(b) || b.predictibilidad === 'baja') return null;
+  if (b.n === 1) return 'Es una sola compra: úsala sólo para orientarte.';
+  if (b.n < 10) return `Son sólo ${entero(b.n)} compras: úsalas sólo para orientarte.`;
+  return 'Hay pocas compras, pocos compradores o precios muy distintos. Úsalo sólo para orientarte.';
+}
+
+/**
  * Cuántas compras pide L0 a un comprador para listarlo (`MIN_N_L0` en
  * `etl/analytics/product_price_bands.py`). Hasta que la semanal materializa
  * `product_price_compradores`, «Quién lo compra» sale de L0.

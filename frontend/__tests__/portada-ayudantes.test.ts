@@ -163,7 +163,7 @@ describe('baseDeLaFicha (spec PORTADA_V7 §3.5, V6): la escala del dato, calcula
       disponible: true,
       sectores: [sector('Salud', 10, '2024-01-01', '2026-09-30'), sector('FFAA', 20, '2023-11-01', '2026-08-31')],
     };
-    expect(baseDeLaFicha(sectores)).toBe('30 órdenes de compra, nov 2023 a sept 2026');
+    expect(baseDeLaFicha(sectores)).toBe('30 órdenes de compra, nov 2023 a sep 2026');
   });
 
   it('bajo un millón, el número entero; justo un millón, en singular', () => {

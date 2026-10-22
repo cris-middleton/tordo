@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { AlertTriangle } from 'lucide-react';
 
 import { PieDeMetodo } from '@/components/metodo/PieDeMetodo';
 import { GraficoPrecio } from '@/components/precio/GraficoPrecio';
@@ -8,6 +9,7 @@ import { CifrasBanda, TablaUnidades } from '@/components/publico/CifrasBanda';
 import { CabeceraFicha, Seccion, TablaEnlaces } from '@/components/publico/Piezas';
 import { precioDeBanda } from '@/lib/lecturasPortada';
 import {
+  avisoDeFicha,
   categoriaProducto,
   descripcionCompradores,
   entero,
@@ -18,6 +20,7 @@ import {
   precioDeLaBanda,
   rutaComprador,
   tituloDeBanda,
+  unidadDeclarada,
 } from '@/lib/publico';
 import { normalizeText } from '@/lib/nombresChile';
 import { rangoDeMeses } from '@/lib/periodo';
@@ -79,6 +82,7 @@ export default async function PaginaProducto({ params }: Props) {
   const categoria = categoriaProducto(p);
   const periodo = rangoDeMeses(p.periodo?.ventana_desde, p.periodo?.ventana_hasta);
   const principal = p.unidades[0];
+  const aviso = avisoDeFicha(p);
   const precio = principal
     ? precioDeBanda({ producto: p, banda: principal, nombre: precioDeLaBanda(principal.unidad), repositorio: urlRepositorio() })
     : null;
@@ -108,9 +112,10 @@ export default async function PaginaProducto({ params }: Props) {
         {p.descripcion && nombre.endsWith('…') && (
           <p className="mt-3 text-sm text-muted">{p.descripcion}</p>
         )}
-        {!p.indexable && (
-          <p className="mt-3 rounded-lg border border-gold/25 bg-gold/10 px-3 py-2 text-xs text-gold">
-            Hay pocas compras, pocos compradores o precios muy distintos. Úsalo sólo para orientarte.
+        {aviso && (
+          <p className="alert-warning mt-3" role="note">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            {aviso}
           </p>
         )}
       </CabeceraFicha>
@@ -144,11 +149,17 @@ export default async function PaginaProducto({ params }: Props) {
       {p.unidades.length > 1 && (
         <Seccion
           titulo="Otras formas de comprarlo"
-          descripcion="Lo mismo se compra por caja, por unidad o por paquete. Cada forma tiene su precio."
+          descripcion="Lo mismo se compra en otras unidades, y cada una tiene su precio."
         >
           {/* Sin la de arriba: sus cifras ya están en el gráfico y bajo él (crítica del 22-10:
-              la ficha decía $956 tres veces). */}
-          <TablaUnidades unidades={p.unidades.slice(1)} titulo={(u) => tituloDeBanda(u.unidad)} />
+              la ficha decía $956 tres veces). «Sin unidad declarada» al final: no es una forma
+              de comprarlo. */}
+          <TablaUnidades
+            unidades={[...p.unidades.slice(1)].sort(
+              (a, b) => Number(!unidadDeclarada(a.unidad)) - Number(!unidadDeclarada(b.unidad)),
+            )}
+            titulo={(u) => tituloDeBanda(u.unidad)}
+          />
         </Seccion>
       )}
 

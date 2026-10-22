@@ -64,3 +64,16 @@ export function monto(clp: number): string {
   const b = uno(v / 1e12);
   return `${signo}$${b} ${b === '1' ? 'billón' : 'billones'}`;
 }
+
+/**
+ * Una fecha corta de `Intl` en es-CL, escrita como el resto del sitio: «vie 25 sep».
+ * `Intl` pone punto a las abreviaturas («sept.», «vie.»), abrevia septiembre como
+ * «sept» —las listas del sitio dicen «sep»— y separa el día de la semana con coma
+ * («vie, 25 sept.»). Convivían «sept» y «sep» en la misma portada.
+ */
+export function fechaCortaDeIntl(texto: string): string {
+  return texto
+    .replace(/\./g, '')
+    .replace(/\bsept\b/g, 'sep')
+    .replace(/^(\p{L}+),\s*/u, '$1 ');
+}

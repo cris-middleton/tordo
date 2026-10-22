@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { CifrasBanda } from '@/components/publico/CifrasBanda';
 import {
+  avisoDeFicha,
   comprasDeOrganismos,
   descripcionCompradores,
   frasePrecio,
@@ -194,5 +195,30 @@ describe('descripcionCompradores', () => {
     };
     const texto = descripcionCompradores(p);
     expect(texto).not.toMatch(/\d{2,}|de 204|una o dos veces/);
+  });
+});
+
+describe('avisoDeFicha', () => {
+  const ficha = (indexable: boolean, b?: BandaUnidad) => ({ indexable, unidades: b ? [b] : [] });
+
+  it('una ficha indexable no lleva aviso', () => {
+    expect(avisoDeFicha(ficha(true, banda({ n: 3 })))).toBeNull();
+  });
+
+  it('con un comprador dominante o precios dispersos, el aviso lo dejan a las cifras de abajo', () => {
+    expect(avisoDeFicha(ficha(false, banda({ de_mercado: false, compradores: 1 })))).toBeNull();
+    expect(avisoDeFicha(ficha(false, banda({ predictibilidad: 'baja' })))).toBeNull();
+  });
+
+  it('con pocas compras, las cuenta', () => {
+    expect(avisoDeFicha(ficha(false, banda({ n: 7 })))).toBe('Son sólo 7 compras: úsalas sólo para orientarte.');
+    expect(avisoDeFicha(ficha(false, banda({ n: 1 })))).toBe('Es una sola compra: úsala sólo para orientarte.');
+  });
+
+  it('sin una razón que se vea abajo, el aviso general', () => {
+    expect(avisoDeFicha(ficha(false, banda()))).toBe(
+      'Hay pocas compras, pocos compradores o precios muy distintos. Úsalo sólo para orientarte.',
+    );
+    expect(avisoDeFicha(ficha(false))).toBeNull();
   });
 });

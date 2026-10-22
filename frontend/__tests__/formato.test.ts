@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { decimal, monto } from '@/lib/formato';
+import { decimal, fechaCortaDeIntl, monto } from '@/lib/formato';
 
 describe('decimal', () => {
   it('escribe con coma decimal', () => {
@@ -59,5 +59,19 @@ describe('monto: el formato de montos del sitio', () => {
 
   it('un negativo lleva el signo menos tipográfico', () => {
     expect(monto(-2_500_000)).toBe('−$2,5 millones');
+  });
+});
+
+describe('fechaCortaDeIntl', () => {
+  it('como el resto del sitio: «sep» sin punto y sin coma tras el día', () => {
+    expect(fechaCortaDeIntl('vie, 25 sept.')).toBe('vie 25 sep');
+    expect(fechaCortaDeIntl('sept 2026')).toBe('sep 2026');
+    expect(fechaCortaDeIntl('22 oct, 18:00')).toBe('22 oct, 18:00');
+    expect(fechaCortaDeIntl('jue, 22 oct')).toBe('jue 22 oct');
+  });
+
+  it('lo que da Intl en es-CL', () => {
+    const f = new Intl.DateTimeFormat('es-CL', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' });
+    expect(fechaCortaDeIntl(f.format(new Date('2026-09-25T12:00:00Z')))).toBe('vie 25 sep');
   });
 });
