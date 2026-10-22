@@ -216,3 +216,6 @@
   la lista de Pydantic (`type`, `loc`, `ctx`) no cambia de forma.
 - **`/health/` y `/health/ready` responden también a HEAD**: muchos monitores preguntan así, y
   un 405 se lee como caído.
+- **La API tiene su `robots.txt`** (`main.ROBOTS_TXT`): rastrear `/docs` y `/redoc` sí, los
+  datos no. Lo pedían a diario y respondía 404, así que nada apartaba a un rastreador de
+  `/api/v1/bi/*`. Va fuera de la versión, como `/` y `/health`.

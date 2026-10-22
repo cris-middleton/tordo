@@ -15,9 +15,10 @@ from app.main import app
 from tests.rutas import comprobar_recorrido, rutas_con_metodo
 
 # Fuera de la versión a propósito. `/health` lo consulta el healthcheck de la
-# plataforma; `/` es la raíz informativa. Versionarlos obligaría a tocar la
+# plataforma; `/` es la raíz informativa; `/robots.txt` lo buscan los rastreadores
+# en la raíz del dominio. Versionarlos obligaría a tocar la
 # configuración de Railway en cada subida de versión.
-SIN_VERSIONAR = {"/", "/health/", "/health/ready"}
+SIN_VERSIONAR = {"/", "/robots.txt", "/health/", "/health/ready"}
 
 
 def test_el_prefijo_es_el_que_dice_el_adr():

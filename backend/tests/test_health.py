@@ -43,3 +43,14 @@ def test_readiness_check():
 def test_un_monitor_puede_preguntar_con_head(ruta):
     """Muchos monitores de disponibilidad mandan HEAD; un 405 se lee como caído."""
     assert client.head(ruta).status_code in (200, 503)
+
+
+def test_la_api_tiene_robots_txt_y_aparta_los_datos():
+    """Se pedía a diario y respondía 404: nada apartaba a los rastreadores de
+    `/api/v1/bi/*`. La documentación sí se rastrea."""
+    r = client.get("/robots.txt")
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/plain")
+    lineas = r.text.splitlines()
+    assert "Disallow: /" in lineas
+    assert "Allow: /docs" in lineas
