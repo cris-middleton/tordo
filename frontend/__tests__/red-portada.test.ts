@@ -145,3 +145,14 @@ describe('nombreCorto', () => {
     expect(nombreCorto('Servicio de Salud Metropolitano Sur Oriente')).toBe('Servicio de Salud…');
   });
 });
+
+describe('detalleRed', () => {
+  it('la mediana de lo que les vendieron, en total, los del centro', async () => {
+    const { detalleRed } = await import('@/lib/redPortada');
+    const nodo = (monto: number, amplio = true) => ({ monto, amplio }) as never;
+    expect(detalleRed({ nodos: [nodo(1e7), nodo(4.68e7), nodo(9e8), nodo(5e12, false)] })).toBe(
+      'La mitad de ellos les vendió menos de $46,8 millones en total.',
+    );
+    expect(detalleRed({ nodos: [nodo(1e7), nodo(2e7)] })).toBeNull();
+  });
+});

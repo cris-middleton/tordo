@@ -52,11 +52,12 @@ export function EscaleraPrecios({ datos }: { datos: GraficoEscalera }) {
               />
               <div className="absolute -inset-y-0.5 w-0.5 -translate-x-1/2 bg-text" style={{ left: `${f.medio}%` }} />
             </div>
+            {/* Debajo de la fila, salvo en las dos últimas: encima tapaba la conclusión. Sin el
+                rango, que ya está escrito en la fila. */}
             {activa === i && fila && (
-              <Globo x={(f.desde + f.hasta) / 2} modo={i < 2 ? 'debajo' : 'encima'}>
+              <Globo x={(f.desde + f.hasta) / 2} modo={i >= datos.filas.length - 2 ? 'encima' : 'debajo'}>
                 <p className="font-semibold">{f.nombre}</p>
                 <div className="mt-1 space-y-0.5">
-                  <FilaGlobo nombre="La mitad de las compras" valor={f.rango} />
                   <FilaGlobo nombre="Mediana" valor={f.mediana} />
                 </div>
                 <p className="mt-1 text-muted">{f.base}</p>

@@ -21,6 +21,7 @@ export function PieDeMetodo({
   className = '',
   completo = false,
   columnas = false,
+  breve = false,
 }: {
   texto: string;
   enlaces: EnlaceMetodo[];
@@ -35,7 +36,14 @@ export function PieDeMetodo({
    * ocupa el ancho del gráfico y cada línea sigue bajo los 80 caracteres.
    */
   columnas?: boolean;
+  /**
+   * En la portada: sólo los enlaces del sitio («Cómo se calcula» y el de la lectura).
+   * «Ver en la API» y «Código» van una vez en la ficha (`FichaPortada`): repetidos bajo
+   * cada gráfico eran ~12 enlaces subrayados de más (crítica del 22-10).
+   */
+  breve?: boolean;
 }) {
+  enlaces = breve ? enlaces.filter((e) => !e.externo) : enlaces;
   return (
     <div className={`border-t border-border pt-3 text-[13px] leading-snug text-muted ${className}`.trim()}>
       {columnas ? (

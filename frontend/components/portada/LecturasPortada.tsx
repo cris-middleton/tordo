@@ -49,7 +49,7 @@ function Lectura({
     >
       <header>{cabecera}</header>
       <div className="mt-4">{children}</div>
-      <PieDeMetodo texto={pie} enlaces={enlaces} className="mt-6 self-end" />
+      <PieDeMetodo texto={pie} enlaces={enlaces} className="mt-6 self-end" breve />
     </article>
   );
 }

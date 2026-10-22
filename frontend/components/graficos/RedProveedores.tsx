@@ -194,7 +194,7 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
         c.setAttribute('cx', u(r1 * r1 * pos[a].x + 2 * r1 * s * ctl.x + s * s * pos[b].x));
         c.setAttribute('cy', u(r1 * r1 * pos[a].y + 2 * r1 * s * ctl.y + s * s * pos[b].y));
         const enLaRed = elegido == null || enlaces[q.e].a === elegido || enlaces[q.e].b === elegido;
-        c.setAttribute('opacity', enLaRed ? String(Math.round(Math.sin(Math.PI * q.p) * 90) / 100) : '0');
+        c.setAttribute('opacity', enLaRed ? String(Math.round(Math.sin(Math.PI * q.p) * 60) / 100) : '0');
       }
     };
     cuadro = requestAnimationFrame(pintar);
@@ -291,7 +291,7 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
                 ref={(c) => {
                   particulasRef.current[k] = c;
                 }}
-                r={2}
+                r={1.6}
                 cx={-10}
                 cy={-10}
                 opacity={0}
@@ -315,6 +315,10 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
               />
             ))}
           </g>
+          {/* El nodo activo, con un aro: con el teclado sólo el globo decía cuál era. */}
+          {nodo && (
+            <circle cx={nodo.x} cy={nodo.y} r={nodo.r + 3.5} className="pointer-events-none fill-none stroke-text" strokeWidth={1.5} />
+          )}
         </svg>
         {/* Rótulos directos: los organismos más grandes, por su nombre corto, del lado de
             adentro del anillo; y el grupo del centro, que es lo que dice la conclusión. */}

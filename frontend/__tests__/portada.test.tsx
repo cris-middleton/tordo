@@ -547,16 +547,16 @@ describe('quién lo hace y de dónde sale (spec PORTADA_V7 §3.5, §3.6)', () =>
     expect(container.textContent).not.toMatch(/código abierto/i);
   });
 
-  it('con REPOSITORIO_URL: «Código» en el pie de cada gráfico calculado, al fichero que lo calcula', async () => {
+  it('con REPOSITORIO_URL: la API y el código, una vez, en la ficha; los pies de los gráficos sólo con enlaces del sitio', async () => {
     process.env.REPOSITORIO_URL = 'https://github.com/x/tordo';
     todo();
     render(await Home());
-    expect(screen.getAllByRole('link', { name: 'Código' }).map((a) => a.getAttribute('href'))).toEqual([
-      'https://github.com/x/tordo/blob/main/etl/analytics/trend_analysis.py',
-      'https://github.com/x/tordo/blob/main/etl/analytics/product_price_bands.py',
-      'https://github.com/x/tordo/blob/main/etl/analytics/competitor_analysis.py',
-      'https://github.com/x/tordo/blob/main/backend/app/repositories/licitaciones.py',
-    ]);
+    const abierto = screen.getByText('Abierto').nextElementSibling as HTMLElement;
+    expect(within(abierto).getByRole('link', { name: 'API' })).toHaveAttribute('href', '/abierto');
+    expect(within(abierto).getByRole('link', { name: 'código' })).toHaveAttribute('href', 'https://github.com/x/tordo');
+    // Bajo cada gráfico ya no van «Ver en la API» ni «Código»: eran ~12 enlaces de más.
+    expect(screen.queryByRole('link', { name: 'Ver en la API' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Código' })).toBeNull();
   });
 
   it('la ficha: Base calculada de /bi/sector, Fuente y Se actualiza', async () => {
@@ -691,7 +691,7 @@ describe('la estructura', () => {
     // La ficha es una franja de tres celdas, el colofón antes de las notas, fuera de la rejilla.
     const ficha = screen.getByText('Fuente').closest('dl') as HTMLElement;
     expect(rejilla).not.toContainElement(ficha);
-    expect(ficha).toHaveClass('lg:grid-cols-3');
+    expect(ficha).toHaveClass('lg:grid-cols-4');
     // «Para empezar» va debajo, a lo ancho: fuera de la rejilla de arriba.
     expect(rejilla).not.toContainElement(screen.getByRole('region', { name: LECTURAS }));
   });
@@ -796,10 +796,7 @@ describe('el gráfico grande: cuánto compra el Estado, mes a mes', () => {
     expect(grande).toHaveTextContent('$6 billones, 32 %');
     // Y la tabla de los meses, fuera de la vista.
     expect(within(grande).getAllByRole('row')).toHaveLength(12);
-    expect(within(grande).getByRole('link', { name: 'Ver en la API' })).toHaveAttribute(
-      'href',
-      'https://api.tordo.cl/api/v1/publico/mercado',
-    );
+    expect(within(grande).getByRole('link', { name: 'Cómo se calcula' })).toBeInTheDocument();
     expect(grande).toHaveTextContent('Órdenes de compra de oct 2025 a sep 2026 (meses completos), por mes y sector del comprador.');
     // Sin el conteo de órdenes: `time_series` lo cuenta por rubro y al sumar se repetía.
     expect(grande).not.toHaveTextContent(/[0-9.]+ órdenes de compra/);
@@ -865,7 +862,7 @@ describe('la escalera de precios', () => {
     conEscalera();
     const { container } = render(await Home());
     expect(conclusiones()[0]).toBe(
-      'La impresora multifuncional es lo que más varía: en la mitad de sus compras, el precio más alto es 1,6 veces el más bajo.',
+      'La impresora multifuncional es lo que más varía: la mitad de las compras se pagó entre $150.921 y $240.000.',
     );
     expect(container.querySelectorAll('[data-fila]')).toHaveLength(PRODUCTOS_ESCALERA.length);
     expect(screen.getByRole('link', { name: 'Lápiz pasta azul' })).toHaveAttribute('href', rutaProducto('azul-lapiz-pasta'));
@@ -901,11 +898,8 @@ describe('«Para empezar»', () => {
       'href',
       urlCatalogoAbiertas('compra_agil', [], { sort_by: 'fecha_cierre', sort_order: 'asc' }),
     );
-    expect(within(banda).getAllByRole('link', { name: 'Ver en la API' }).map((a) => a.getAttribute('href'))).toEqual([
-      `https://api.tordo.cl/api/v1/publico/productos/${PRODUCTO_PORTADA.slug}`,
-      'https://api.tordo.cl/api/v1/publico/mercado',
-      'https://api.tordo.cl/api/v1/publico/portada',
-    ]);
+    // La API va una vez, en la ficha: bajo cada lectura sólo los enlaces del sitio.
+    expect(within(banda).queryByRole('link', { name: 'Ver en la API' })).toBeNull();
   });
 
   it('la concentración: diez tramos, los de la mitad para arriba en el color del dato, y los valores en texto', async () => {

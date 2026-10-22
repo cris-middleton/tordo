@@ -260,6 +260,12 @@ export interface GraficoRed {
 
 export interface LecturaRed {
   conclusion: string;
+  /**
+   * Lo que la conclusión le dice a quien vende: cuánto les vendieron, en total, los del
+   * centro. «La mitad de ellos les vendió menos de $46,8 millones en total.» Con menos
+   * de tres, null.
+   */
+  detalle: string | null;
   grafico: GraficoRed;
   /** La misma red, dispuesta en el lienzo del teléfono (`LIENZO_MOVIL`). */
   graficoMovil: GraficoRed;
@@ -288,6 +294,22 @@ export function fraseRed(
   const sujeto = n === 1 ? 'Un proveedor le vende' : `${entero(n)} proveedores le venden`;
   const frase = `${sujeto} a la mitad o más de ${organismos}.`;
   return dibujados < n ? `${frase} En tinta, los ${entero(dibujados)} que más venden.` : frase;
+}
+
+/**
+ * La segunda frase de la red, la que sirve a una PYME: los que le venden a muchos
+ * organismos, ¿son empresas enormes? La mediana de lo que les vendieron, en total, lo
+ * dice. Con menos de tres en el centro no hay mediana que valga.
+ */
+export function detalleRed(g: Pick<GraficoRed, 'nodos'>): string | null {
+  const montos = g.nodos
+    .filter((d) => d.amplio)
+    .map((d) => d.monto)
+    .sort((a, b) => a - b);
+  if (montos.length < 3) return null;
+  const m = Math.floor(montos.length / 2);
+  const mediana = montos.length % 2 ? montos[m] : (montos[m - 1] + montos[m]) / 2;
+  return `La mitad de ellos les vendió menos de ${monto(mediana)} en total.`;
 }
 
 /** Siglas por las que se conoce a los compradores más grandes, para su rótulo en el dibujo. */
@@ -394,6 +416,7 @@ export function lecturaRed(mercado: { red?: unknown } | null, repositorio: strin
   const proveedores = grafico.nodos.filter((d) => d.tipo === 'proveedor');
   return {
     conclusion: fraseRed(r, grafico.compradores, grafico.nodos.filter((d) => d.amplio).length),
+    detalle: detalleRed(grafico),
     grafico,
     graficoMovil,
     pie:

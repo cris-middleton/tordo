@@ -63,7 +63,7 @@ describe('lecturaEscalera', () => {
 
   it('la que más varía va en la conclusión y destacada', () => {
     expect(l.conclusion).toBe(
-      'La impresora multifuncional es lo que más varía: en la mitad de sus compras, el precio más alto es 1,9 veces el más bajo.',
+      'La impresora multifuncional es lo que más varía: la mitad de las compras se pagó entre $167.227 y $320.900.',
     );
     expect(l.grafico.filas.filter((f) => f.destacada).map((f) => f.slug)).toEqual(['impresora-multifuncional']);
   });

@@ -103,7 +103,7 @@ export function Portada({
     cierres: vigencia.alDia && vigencia.mismoDia ? lecturaCierres(resumen, repositorio) : null,
     nota: lecturaNota(notaDeLaPortada(notas), repositorio),
   };
-  const ficha = <FichaPortada base={baseDeLaFicha(sectores)} className={CLASE_SECCION} />;
+  const ficha = <FichaPortada base={baseDeLaFicha(sectores)} repositorio={repositorio} className={CLASE_SECCION} />;
   // Principio 4: «sin dato fresco, el bloque se oculta». Sin hora legible no hay
   // con qué decir de cuándo es la lista, y se oculta entera, no sólo su línea de hora.
   const horaHoy = destacadas ? actualizadoEnPalabras(destacadas.actualizado_en) : null;

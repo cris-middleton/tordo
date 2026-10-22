@@ -143,10 +143,12 @@ export default async function PaginaProducto({ params }: Props) {
 
       {p.unidades.length > 1 && (
         <Seccion
-          titulo="Por unidad de medida"
+          titulo="Otras formas de comprarlo"
           descripcion="Lo mismo se compra por caja, por unidad o por paquete. Cada forma tiene su precio."
         >
-          <TablaUnidades unidades={p.unidades} titulo={(u) => tituloDeBanda(u.unidad)} />
+          {/* Sin la de arriba: sus cifras ya están en el gráfico y bajo él (crítica del 22-10:
+              la ficha decía $956 tres veces). */}
+          <TablaUnidades unidades={p.unidades.slice(1)} titulo={(u) => tituloDeBanda(u.unidad)} />
         </Seccion>
       )}
 

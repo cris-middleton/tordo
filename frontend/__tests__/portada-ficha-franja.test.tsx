@@ -28,13 +28,14 @@ describe('FichaPortada (spec PORTADA_V7 §3.5)', () => {
       ['Base', BASE],
       ['Fuente', 'Datos abiertos de ChileCompra'],
       ['Se actualiza', SE_ACTUALIZA],
+      ['Abierto', 'Cada cifra está en la API.'],
     ]);
     expect(container.textContent).not.toMatch(/Lo hace/);
   });
 
   it('sin base, esa fila no sale (ni un hueco)', () => {
     const { container } = render(<FichaPortada base={null} />);
-    expect(filas(container.querySelector('dl') as HTMLElement).map(([dt]) => dt)).toEqual(['Fuente', 'Se actualiza']);
+    expect(filas(container.querySelector('dl') as HTMLElement).map(([dt]) => dt)).toEqual(['Fuente', 'Se actualiza', 'Abierto']);
     expect(container.textContent).not.toMatch(/\[\[|null/);
   });
 
