@@ -108,3 +108,28 @@ def test_la_transparencia_de_un_organismo_renombrado_es_una_fila(tmp_path, monke
     assert fila["NombreOrganismo"] == "DELEGACION PRESIDENCIAL"
     assert fila["sector"] == "Gob. Central"
     assert tabla.columns[:3] == ["CodigoOrganismo", "NombreOrganismo", "sector"]
+
+
+def test_la_concentracion_de_ganadores_mira_a_los_ganadores(tmp_path, monkeypatch):
+    """El archivo trae una fila por (línea, oferta): la primera es de un oferente
+    cualquiera. El HHI de ganadores sale de la oferta seleccionada."""
+    lic = tmp_path / "lic"
+    lic.mkdir()
+    filas = []
+    for i in range(20):
+        base = _filas(f"L{i}", "Adjudicada", 1, 2)[0]
+        # Primero la oferta perdedora, siempre del mismo proveedor…
+        filas.append(
+            {**base, "CodigoProveedor": "PERDEDOR", "Oferta seleccionada": "No Seleccionada"}
+        )
+        # …y la ganadora, repartida entre cuatro.
+        filas.append(
+            {**base, "CodigoProveedor": f"G{i % 4}", "Oferta seleccionada": "Seleccionada"}
+        )
+    pl.DataFrame([{**f, "sector": "Salud"} for f in filas]).write_parquet(lic / "2026-3.parquet")
+    monkeypatch.setattr(data_loader, "LIC_PARQUET_DIR", lic)
+    monkeypatch.setattr(data_loader, "OC_PARQUET_DIR", tmp_path / "oc")
+
+    fila = buyer_transparency.build_transparency_metrics().row(0, named=True)
+    assert fila["n_adjudicadas"] == 20
+    assert fila["hhi"] == pytest.approx(0.25)
