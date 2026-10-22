@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useLicitaciones } from '@/lib/queries';
+import { useLicitaciones, useSugerencia } from '@/lib/queries';
 import SelectField from '@/components/SelectField';
 import { Search, Loader2, BookmarkPlus, BookmarkCheck, X } from 'lucide-react';
 
@@ -89,8 +89,9 @@ function CatalogoContenido() {
   //
   // Los montos se piden cuando dejan de cambiar: cada tecla era una consulta, y
   // escribir «10.000.000» y «500.000.000» gastaba media cuota del límite por IP
-  // (60 por minuto; cada consulta cuenta dos por la redirección de la barra
-  // final). Con dos montos y unas páginas, el catálogo respondía «espera un momento».
+  // (60 por minuto; hasta #91 cada consulta contaba dos, por la redirección de
+  // la barra final). Con dos montos y unas páginas, el catálogo respondía
+  // «espera un momento».
   const minimoPedido = useValorRetardado(filtros.min_amount, RETARDO_MONTO_MS);
   const maximoPedido = useValorRetardado(filtros.max_amount, RETARDO_MONTO_MS);
   const consulta = useLicitaciones(
@@ -105,6 +106,11 @@ function CatalogoContenido() {
   const pages: number = Math.min(respuesta?.pages ?? 1, paginaMaxima(filtros.limit));
   // Un error de la API no es «0 resultados»: se dice y se ofrece reintentar.
   const fallo = Boolean(consulta.isError);
+  // «¿Quisiste decir…?»: sólo con palabras buscadas y una respuesta vacía de verdad.
+  const sugerencia = useSugerencia(
+    keywords.join(' '),
+    Boolean(consulta.isSuccess) && !loading && total === 0 && keywords.length > 0,
+  );
 
   /** Cambia filtros y vuelve a la primera página, salvo que se cambie la página. */
   const cambiar = useCallback((cambios: Partial<FiltrosCatalogo>) => {
@@ -163,6 +169,13 @@ function CatalogoContenido() {
     setFiltros((prev) => ({ ...prev, page: actualizar(prev.page) }));
     const inicio = inicioLista.current;
     if (inicio && inicio.getBoundingClientRect().top < 0) inicio.scrollIntoView?.({ block: 'start' });
+  };
+
+  /** Cambia las palabras buscadas por la búsqueda sugerida; los filtros se quedan. */
+  const aplicarSugerencia = (texto: string) => {
+    const { terminos, recortados } = agregarTerminos([], texto);
+    setTerminosRecortados(recortados);
+    cambiar({ terminos });
   };
 
   /** Quita la búsqueda y los filtros; «Sólo abiertas» y el orden se quedan. */
@@ -410,6 +423,15 @@ function CatalogoContenido() {
         </div>
       ) : tenders.length === 0 ? (
         <div className="py-12">
+          {sugerencia && (
+            <p className="mb-3 text-base text-text">
+              ¿Quisiste decir{' '}
+              <button type="button" onClick={() => aplicarSugerencia(sugerencia)} className="enlace font-medium">
+                «{sugerencia}»
+              </button>
+              ?
+            </p>
+          )}
           <p className="font-semibold text-text">Ninguna licitación con estos filtros</p>
           <p className="mt-1 text-muted">Quita un filtro o prueba con otra palabra.</p>
         </div>

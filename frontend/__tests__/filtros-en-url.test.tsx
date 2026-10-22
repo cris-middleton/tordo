@@ -38,6 +38,7 @@ vi.mock('@/lib/queries', () => ({
     return { data: { items: [], total: 0, pages: 1 }, isFetching: false };
   },
   usePanelLicitacion: () => ({ data: null, isFetching: false, error: null }),
+  useSugerencia: () => null,
 }));
 
 describe('filtros ↔ URL', () => {

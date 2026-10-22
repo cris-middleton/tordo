@@ -6,7 +6,8 @@
  *   4. un término repetido no hace un chip repetido;
  *   5. un monto se pide al dejar de teclear, no en cada tecla;
  *   6. «Borrar filtros» borra los filtros, no sólo la búsqueda;
- *   7. cambiar de página vuelve al principio de la lista.
+ *   7. cambiar de página vuelve al principio de la lista;
+ *   8. sin resultados, «¿Quisiste decir…?» cambia las palabras por las sugeridas.
  */
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -24,10 +25,17 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/licitaciones',
 }));
 
+let sugerencia: string | null = null;
+const sugerenciasPedidas: Array<[string, boolean]> = [];
+
 vi.mock('@/lib/queries', () => ({
   useLicitaciones: (params: Record<string, unknown>) => {
     pedidas.push(params);
     return { refetch, isFetching: false, ...respuesta };
+  },
+  useSugerencia: (texto: string, habilitada: boolean) => {
+    sugerenciasPedidas.push([texto, habilitada]);
+    return habilitada ? sugerencia : null;
   },
 }));
 
@@ -39,6 +47,8 @@ async function montar() {
 beforeEach(() => {
   instalarAlmacenDePrueba();
   pedidas.length = 0;
+  sugerencia = null;
+  sugerenciasPedidas.length = 0;
   refetch.mockClear();
   urlInicial = new URLSearchParams();
   respuesta = { data: { items: [], total: 0, pages: 1 }, isError: false };
@@ -164,5 +174,26 @@ describe('catálogo', () => {
   it('el buscador corta en 100 caracteres, como la API', async () => {
     await montar();
     expect(screen.getByPlaceholderText(/Producto o comprador/i)).toHaveAttribute('maxlength', '100');
+  });
+});
+
+describe('«¿Quisiste decir…?»', () => {
+  it('sin resultados propone la búsqueda corregida y pulsarla la busca, con los filtros', async () => {
+    urlInicial = new URLSearchParams('search=computdor&region=Región de Los Lagos');
+    respuesta = { data: { items: [], total: 0, pages: 1 }, isError: false, isSuccess: true };
+    sugerencia = 'computador';
+    await montar();
+    fireEvent.click(screen.getByRole('button', { name: '«computador»' }));
+    await waitFor(() => expect(pedidas.at(-1)!.search).toBe('computador'));
+    expect(pedidas.at(-1)!.region).toBe('Región de Los Lagos');
+  });
+
+  it('con resultados, o sin palabras, no la pide', async () => {
+    urlInicial = new URLSearchParams('search=mesa');
+    respuesta = { data: { items: [], total: 35, pages: 2 }, isError: false, isSuccess: true };
+    sugerencia = 'mesas';
+    await montar();
+    expect(sugerenciasPedidas.every(([, habilitada]) => !habilitada)).toBe(true);
+    expect(screen.queryByText(/quisiste decir/i)).toBeNull();
   });
 });

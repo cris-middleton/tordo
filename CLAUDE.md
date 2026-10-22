@@ -508,6 +508,15 @@ contenedor único (cabecera y pie, con la atribución, son de la cáscara única
   primer pedido con `fetch(…, { next: { revalidate: 604800, tags: ['analytics'] } })` desde
   `lib/publicoServidor.ts`, **como renderizado del servidor** (`cabecerasHaciaElBackend(null)`,
   exento del límite por IP). Un error que no sea 404 lanza: una página rota no se cachea.
+  **Lo que ve el visitante en ese caso no es `error.tsx`**: Next no deja una frontera de error
+  en un render ISR (el primer error lo hace fallar entero, `app-render.js`) y responde con su
+  página 500 integrada, en inglés y sin cáscara (en Vercel, la estática); con `next start` sale
+  además «Internal Server Error» en texto plano, por un fallo de Next 16.3–16.4 en apps sin
+  `pages/`. Sigue siendo 500, sin `Cache-Control`, y el pedido siguiente regenera la ficha
+  (medido el 2026-10-22). `connection()` o `headers()` en la rama del error no la vuelven
+  dinámica: Next lanza «Page changed from static to dynamic at runtime». Hacerla
+  `force-dynamic` lo arregla, pero cada vista pasa a ser una función y un slug inventado deja de
+  cachear su 404: es una decisión de costo, no de código.
   **Por eso el parámetro se valida antes de pedir** (`lib/parametrosPublicos.ts`): un slug
   con otra forma que la de `app/utils/slug.py` (o de más de 80 caracteres) o un código de
   comprador que no sea un número es `notFound()` sin llamar al backend. Sin eso, cada URL
