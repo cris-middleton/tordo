@@ -164,31 +164,46 @@ export function PanoramaRubro({
       {/* ── La franja de cabecera: el rubro en una línea ─────────────────── */}
       <div className="border-y border-border py-4">
         <div className="flex flex-wrap items-end gap-x-8 gap-y-4">
-          <div>
-            <p className="text-xs text-muted">
-              {mercado?.anio != null ? `Comprado en ${mercado.anio}` : 'Comprado en el último año'}
-            </p>
-            <Cifra>{plata(mercado?.monto_clp)}</Cifra>
-          </div>
-          <div>
-            <p className="text-xs text-muted">{mercado?.anio != null ? `Órdenes de compra en ${mercado.anio}` : 'Órdenes en el último año'}</p>
-            <Cifra>{entero(mercado?.n_oc)}</Cifra>
-          </div>
-          <div>
-            <p className="flex items-center gap-1 text-xs text-muted">
-              Monto promedio por orden
-              <InfoTooltip content="Lo comprado en el año dividido por sus órdenes. Unas pocas órdenes grandes lo suben, así que la orden común suele ser más chica." />
-            </p>
-            <Cifra>{plata(mercado?.ticket_promedio_clp)}</Cifra>
-          </div>
-          <div>
-            <p className="text-xs text-muted">Proveedores en {MESES_ANALISIS} meses</p>
-            <Cifra>{entero(competencia?.n_proveedores)}</Cifra>
-          </div>
-          <div>
-            <p className="text-xs text-muted">Compradores en {MESES_ANALISIS} meses</p>
-            <Cifra>{entero(competencia?.n_compradores)}</Cifra>
-          </div>
+          {/* Sólo las cifras que hay: tres «—» seguidos en la cabecera del rubro no decían nada. */}
+          {[
+            {
+              clave: 'monto',
+              rotulo: mercado?.anio != null ? `Comprado en ${mercado.anio}` : 'Comprado en el último año',
+              valor: mercado?.monto_clp != null ? plata(mercado.monto_clp) : null,
+            },
+            {
+              clave: 'ordenes',
+              rotulo: mercado?.anio != null ? `Órdenes de compra en ${mercado.anio}` : 'Órdenes en el último año',
+              valor: mercado?.n_oc != null ? entero(mercado.n_oc) : null,
+            },
+            {
+              clave: 'ticket',
+              rotulo: (
+                <>
+                  Monto promedio por orden
+                  <InfoTooltip content="Lo comprado en el año dividido por sus órdenes. Unas pocas órdenes grandes lo suben, así que la orden común suele ser más chica." />
+                </>
+              ),
+              valor: mercado?.ticket_promedio_clp != null ? plata(mercado.ticket_promedio_clp) : null,
+            },
+            {
+              clave: 'proveedores',
+              rotulo: `Proveedores en ${MESES_ANALISIS} meses`,
+              valor: competencia?.n_proveedores != null ? entero(competencia.n_proveedores) : null,
+            },
+            {
+              clave: 'compradores',
+              rotulo: `Compradores en ${MESES_ANALISIS} meses`,
+              valor: competencia?.n_compradores != null ? entero(competencia.n_compradores) : null,
+            },
+          ]
+            .filter((c) => c.valor != null)
+            .map((c) => (
+              <div key={c.clave}>
+                <p className="flex items-center gap-1 text-xs text-muted">{c.rotulo}</p>
+                <Cifra>{c.valor}</Cifra>
+              </div>
+            ))}
         </div>
       </div>
 
