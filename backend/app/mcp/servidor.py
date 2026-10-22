@@ -208,8 +208,10 @@ async def perfil_de_comprador(organismo_id: Codigo) -> dict[str, Any]:
     description=(
         "Encuentra el código ONU de un producto a partir de su nombre. Es el paso "
         "previo a `precio_de_producto`: el catálogo usa códigos, y el usuario "
-        "habla de «guantes» o «papel». Devuelve cuántas transacciones tiene cada "
-        "uno, que es lo que indica si el precio será fiable."
+        "habla de «guantes» o «papel». Busca por palabras, en cualquier orden y con "
+        "sus plurales y algunos sinónimos («lápiz» también trae «bolígrafo»; «pc», "
+        "computadores): no hace falta probar variantes. Devuelve cuántas "
+        "transacciones tiene cada uno, que es lo que indica si el precio será fiable."
     ),
 )
 async def buscar_productos(texto: Texto, limite: int = 20) -> dict[str, Any]:
