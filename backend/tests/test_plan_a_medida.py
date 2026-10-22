@@ -12,11 +12,17 @@ from __future__ import annotations
 
 from sqlalchemy import text
 
-from app.db import OPCIONES_DE_SESION, AsyncSessionLocal, async_engine
+from app.db import (
+    OPCIONES_DE_SESION,
+    TIEMPO_MAXIMO_CONSULTA_MS,
+    AsyncSessionLocal,
+    async_engine,
+    sync_engine,
+)
 
 
 def test_la_opcion_pide_el_plan_a_medida():
-    assert OPCIONES_DE_SESION == {"plan_cache_mode": "force_custom_plan"}
+    assert OPCIONES_DE_SESION["plan_cache_mode"] == "force_custom_plan"
 
 
 async def test_la_sesion_de_la_api_lleva_el_plan_a_medida(esquema_migrado):
@@ -31,3 +37,19 @@ async def test_la_sesion_de_la_api_lleva_el_plan_a_medida(esquema_migrado):
     finally:
         await async_engine.dispose()
     assert modo == "force_custom_plan"
+
+
+async def test_ninguna_consulta_de_la_api_corre_mas_de_su_tope(esquema_migrado):
+    """Una consulta que el cliente abandonó seguía corriendo en Postgres. Las dos
+    vías de la API —async (rutas, MCP) y sync (analytics)— llevan el tope."""
+    await async_engine.dispose(close=False)
+    try:
+        async with AsyncSessionLocal() as sesion:
+            async_tope = (await sesion.execute(text("SHOW statement_timeout"))).scalar()
+    finally:
+        await async_engine.dispose()
+    with sync_engine.connect() as conexion:
+        sync_tope = conexion.execute(text("SHOW statement_timeout")).scalar()
+    esperado = f"{TIEMPO_MAXIMO_CONSULTA_MS // 1000}s"
+    assert async_tope == esperado
+    assert sync_tope == esperado

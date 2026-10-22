@@ -57,7 +57,19 @@ class Base(DeclarativeBase):
 #: Sólo asyncpg: psycopg2 (el motor síncrono de analytics) interpola los
 #: parámetros en el cliente y Postgres planifica cada consulta con sus valores.
 #: `tests/test_plan_a_medida.py` lo fija.
-OPCIONES_DE_SESION = {"plan_cache_mode": "force_custom_plan"}
+#:
+#: **`statement_timeout`**: ninguna consulta de la API pasa de `TIEMPO_MAXIMO_CONSULTA_MS`.
+#: El navegador corta a los 15 s y el servidor de Next a los 10 (`pedirPublico`), pero
+#: Postgres seguía con una consulta abandonada hasta el final: en un proceso de
+#: 512 MB con un worker, unas cuantas a la vez son la forma de tumbarlo. La más
+#: lenta que se pide de verdad (la red de `/publico/mercado`) tarda ~2 s con las
+#: tablas de producción. Sólo la API: el ETL usa su propio motor.
+TIEMPO_MAXIMO_CONSULTA_MS = 30_000
+
+OPCIONES_DE_SESION = {
+    "plan_cache_mode": "force_custom_plan",
+    "statement_timeout": str(TIEMPO_MAXIMO_CONSULTA_MS),
+}
 
 async_engine = create_async_engine(
     settings.database_url,
@@ -99,4 +111,7 @@ sync_engine = create_engine(
     pool_pre_ping=True,
     pool_size=5,
     max_overflow=10,
+    # El mismo tope que las sesiones async (`OPCIONES_DE_SESION`): las lecturas de
+    # analytics son las más pesadas de la API.
+    connect_args={"options": f"-c statement_timeout={TIEMPO_MAXIMO_CONSULTA_MS}"},
 )
