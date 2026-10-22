@@ -63,22 +63,32 @@ export async function pedirPublico<T>(ruta: string): Promise<T | null> {
   return (await respuesta.json()) as T;
 }
 
-/** Cuánto se guarda una pieza de la portada y con qué etiqueta se vacía. */
+/** Cuánto se guarda una pieza de la portada, con qué etiqueta se vacía y cuánto se la espera. */
 interface CacheDeLaPortada {
   revalidate: number;
   tags: string[];
+  /** Pasado esto, el bloque se oculta: que un backend colgado no deje colgado el render (ni el build). */
+  esperaMs: number;
 }
 
 /** Lo vivo: media hora, y lo vacía el cron frecuente. */
 const CACHE_COMPRA_AGIL: CacheDeLaPortada = {
   revalidate: SEGUNDOS_CACHE_COMPRA_AGIL,
   tags: [ETIQUETA_COMPRA_AGIL],
+  esperaMs: 8000,
 };
 
-/** Lo de analytics (lecturas 1 y 2): una semana, y lo vacía el cron semanal. */
+/**
+ * Lo de analytics (lecturas 1 y 2 y la red): una semana, y lo vacía el cron semanal.
+ * Se espera más: `GET /publico/mercado` recorre dos tablas grandes y, con su caché de
+ * 10 min vacía, tardó 12,7 s en producción (2026-10-22). Con 8 s la portada salía sin la
+ * red tras cada despliegue y quedaba así media hora. 25 s queda bajo los 30 s del
+ * `statement_timeout` de la API; en una regeneración ISR la espera no la ve nadie.
+ */
 const CACHE_ANALYTICS: CacheDeLaPortada = {
   revalidate: SEGUNDOS_CACHE_ANALYTICS,
   tags: [ETIQUETA_ANALYTICS],
+  esperaMs: 25000,
 };
 
 /**
@@ -98,8 +108,7 @@ async function pedirParaLaPortada<T>(
     const respuesta = await fetch(urlDelBackend(ruta), {
       headers: { Accept: 'application/json', ...cabecerasHaciaElBackend(null) },
       next: { revalidate: cache.revalidate, tags: [...cache.tags] },
-      // Que un backend colgado no deje colgado el render (ni el build).
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(cache.esperaMs),
     });
     if (!respuesta.ok) throw new ErrorDelBackendPublico(respuesta.status, ruta);
     const datos: unknown = await respuesta.json();

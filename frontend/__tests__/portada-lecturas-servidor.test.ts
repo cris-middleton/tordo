@@ -125,3 +125,15 @@ describe('generalizar la caché no tocó lo vivo', () => {
     expect(pedidas[0].init.next).toEqual({ revalidate: 1800, tags: ['compra-agil'] });
   });
 });
+
+describe('cuánto se espera cada bloque', () => {
+  it('lo de analytics, 25 s: /publico/mercado tardó 12,7 s en frío en producción; lo vivo, 8 s', async () => {
+    const plazos = vi.spyOn(AbortSignal, 'timeout');
+    simularBackend(ok(SECTORES));
+    await pedirSectoresPortada();
+    expect(plazos).toHaveBeenLastCalledWith(25000);
+    simularBackend(ok({ licitaciones_abiertas: 1, compra_agil_abiertas: 1, actualizado_en: null }));
+    await pedirResumenPortada();
+    expect(plazos).toHaveBeenLastCalledWith(8000);
+  });
+});
