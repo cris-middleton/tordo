@@ -67,7 +67,7 @@ export function BuyerProfilePanel({
   senales?: 'contar' | 'ocultar' | { enlace: string };
 }) {
   const Titulo = nivel;
-  const pct = (v?: number | null) => (v == null ? '—' : `${Math.round(v * 100)}%`);
+  const pct = (v?: number | null) => (v == null ? '—' : `${Math.round(v * 100)}\u00a0%`);
   const tratoDirecto = textoTratoDirecto(comprador.transparencia?.pct_trato_directo);
   const cifras: Cifra[] = [
     {

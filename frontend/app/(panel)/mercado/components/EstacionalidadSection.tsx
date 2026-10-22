@@ -112,7 +112,7 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
                 clave: String(m.mes),
                 etiqueta: m.etiqueta,
                 valor: m.prob,
-                texto: `${decimal(m.prob * 100, 0)}%`,
+                texto: `${decimal(m.prob * 100, 0)}\u00a0%`,
                 destacada: m.pico,
               }))}
             />

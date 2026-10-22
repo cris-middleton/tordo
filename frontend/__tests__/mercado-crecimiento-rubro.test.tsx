@@ -80,7 +80,7 @@ describe('Comparar rubros', () => {
 
     // Una sola columna lo dice: la otra no tiene la cifra del rubro.
     expect(screen.getAllByText('Crecimiento al año, en promedio')).toHaveLength(1);
-    expect(screen.getByText('+25,0%')).toBeTruthy();
+    expect(screen.getByText('+25,0 %')).toBeTruthy();
     expect(screen.queryByText(/0,3/)).toBeNull();
   });
 

@@ -7,7 +7,7 @@ describe('la nota del comprador', () => {
   it('viene de 0 a 1 y se lee de 0 a 10 («0,9/10» era un 9,1)', () => {
     render(<BuyerProfilePanel comprador={{ disponible: true, buyer_score: 0.914, tasa_adjudicacion: 0.6 }} />);
     expect(screen.getByText('9,1 de 10')).toBeInTheDocument();
-    expect(screen.getByText('60%')).toBeInTheDocument();
+    expect(screen.getByText('60 %')).toBeInTheDocument();
   });
 
   it('no juzga con colores ni con etiquetas como «Opaco» o «excelente»', () => {

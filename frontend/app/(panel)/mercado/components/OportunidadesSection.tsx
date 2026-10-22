@@ -20,7 +20,7 @@ interface OportunidadesSectionProps {
 }
 
 function pctOpc(v?: number | null): string {
-  return v == null ? '—' : `${decimal(v * 100, 0)}%`;
+  return v == null ? '—' : `${decimal(v * 100, 0)}\u00a0%`;
 }
 
 function ExpandedRow({

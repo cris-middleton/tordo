@@ -7,7 +7,6 @@ import { MesesDeCompra } from '@/components/publico/MesesDeCompra';
 import {
   CabeceraFicha,
   Dato,
-  EnlacePanel,
   FranjaDatos,
   Seccion,
   TablaEnlaces,
@@ -168,8 +167,6 @@ export default async function PaginaComprador({ params }: Props) {
 
       <MesesDeCompra meses={c.meses_de_compra} />
 
-      {/* `/compra-agil` no filtra por comprador: las de éste ya están arriba. */}
-      <EnlacePanel href="/compra-agil">Ver las Compras Ágiles abiertas de todos los compradores</EnlacePanel>
     </article>
   );
 }

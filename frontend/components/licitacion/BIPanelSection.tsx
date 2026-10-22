@@ -44,7 +44,7 @@ function Plazo({ ventana }: { ventana: VentanaPanel }) {
           {ventana.window_days === 1 ? 'día' : 'días'} entre la publicación y el cierre
           {ventana.pct_del_tipico != null && (
             <>
-              : el <span className="cifra font-semibold">{decimal(ventana.pct_del_tipico, 0)}%</span> de lo que este
+              : el <span className="cifra font-semibold">{decimal(ventana.pct_del_tipico, 0)}{'\u00a0'}%</span> de lo que este
               comprador suele dar
             </>
           )}

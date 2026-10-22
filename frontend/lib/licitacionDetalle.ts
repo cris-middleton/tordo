@@ -134,7 +134,7 @@ export const fmtCLP = (n?: number) => {
 };
 
 export const fmtPct = (n?: number) =>
-  n == null ? '—' : `${decimal(n * 100, 1)}%`;
+  n == null ? '—' : `${decimal(n * 100, 1)}\u00a0%`;
 
 export const fmtDays = (n?: number) =>
   n == null ? '—' : `${n} días`;
