@@ -31,6 +31,9 @@ logger = logging.getLogger(__name__)
 
 MIN_N = 5  # mínimo de licitaciones para estimar distribución
 
+#: Una licitación todavía abierta: sus ofertas no se conocen.
+ESTA_PUBLICADA = pl.col("Estado").cast(pl.Utf8).str.strip_chars().str.to_lowercase() == "publicada"
+
 
 def extract_lic_competition() -> pl.DataFrame:
     """
@@ -48,6 +51,7 @@ def extract_lic_competition() -> pl.DataFrame:
         "NumeroOferentes",
         "sector",
         "MontoEstimado",
+        "Estado",
         "_periodo_archivo",
     ]
 
@@ -67,6 +71,11 @@ def extract_lic_competition() -> pl.DataFrame:
                 ]
             )
             .filter(pl.col("n_ofer").is_not_null() & (pl.col("n_ofer") >= 0))
+            # Una licitación aún publicada no ha abierto sus ofertas: su
+            # `NumeroOferentes` es 0 porque no se sabe, no porque nadie ofertara.
+            # Contada, bajaba la distribución y subía `pct_sin_competencia` con
+            # cada licitación abierta del último mes.
+            .filter(~ESTA_PUBLICADA.fill_null(False))
             # Una fila por licitación
             .group_by("CodigoExterno")
             .agg(

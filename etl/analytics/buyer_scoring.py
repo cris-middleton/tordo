@@ -50,6 +50,7 @@ import logging
 import polars as pl
 
 from . import trato_directo
+from .competitor_predictor import ESTA_PUBLICADA
 from .config import OUTPUT_DIR
 from .data_loader import iter_lic_parquets, iter_oc_parquets, orden_por_fila, sin_canceladas
 from .identidad import nombre_vigente, periodo_maximo
@@ -451,7 +452,12 @@ def build_lic_buyer_metrics() -> pl.DataFrame:
                 pl.col(org_col).first(),
                 pl.col("NombreOrganismo").first(),
                 pl.col("Estado").str.to_lowercase().first().alias("estado_lower"),
-                pl.col("NumeroOferentes").first().alias("n_oferentes"),
+                # Una licitación aún publicada no ha abierto sus ofertas: 0 no
+                # es «nadie ofertó» (`competitor_predictor.ESTA_PUBLICADA`).
+                pl.when(~ESTA_PUBLICADA.fill_null(False))
+                .then(pl.col("NumeroOferentes"))
+                .first()
+                .alias("n_oferentes"),
                 pl.col("CantidadReclamos").first().alias("n_reclamos"),
             )
             .with_columns(pl.lit(periodo).alias("_periodo_archivo"))

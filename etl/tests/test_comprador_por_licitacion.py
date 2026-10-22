@@ -11,7 +11,13 @@ from __future__ import annotations
 import polars as pl
 import pytest
 
-from etl.analytics import buyer_scoring, buyer_transparency, competitor_predictor, data_loader
+from etl.analytics import (
+    buyer_scoring,
+    buyer_transparency,
+    competitor_predictor,
+    data_loader,
+    discount_optimizer,
+)
 
 
 def _filas(codigo, estado, lineas, oferentes, tipo="LE", nombre="HOSPITAL", periodo="2026-3"):
@@ -133,3 +139,63 @@ def test_la_concentracion_de_ganadores_mira_a_los_ganadores(tmp_path, monkeypatc
     fila = buyer_transparency.build_transparency_metrics().row(0, named=True)
     assert fila["n_adjudicadas"] == 20
     assert fila["hhi"] == pytest.approx(0.25)
+
+
+def test_una_licitacion_aun_publicada_no_cuenta_como_sin_oferentes(tmp_path, monkeypatch):
+    """Publicada, sus ofertas no se han abierto: `NumeroOferentes` = 0 no es «nadie ofertó»."""
+    lic = tmp_path / "lic"
+    lic.mkdir()
+    filas = [
+        {
+            **_filas(f"C{i}", "Adjudicada", 1, 4)[0],
+            "Rubro2": "Aseo",
+            "MontoEstimado": "1000",
+            "sector": "Salud",
+        }
+        for i in range(6)
+    ] + [
+        {
+            **_filas(f"P{i}", "Publicada", 1, 0)[0],
+            "Rubro2": "Aseo",
+            "MontoEstimado": "1000",
+            "sector": "Salud",
+        }
+        for i in range(6)
+    ]
+    pl.DataFrame(filas).write_parquet(lic / "2026-3.parquet")
+    monkeypatch.setattr(data_loader, "LIC_PARQUET_DIR", lic)
+    monkeypatch.setattr(data_loader, "OC_PARQUET_DIR", tmp_path / "oc")
+
+    lics = competitor_predictor.extract_lic_competition()
+    assert lics.height == 6
+    l3 = competitor_predictor.compute_competitor_forecast(lics)["l3"].row(0, named=True)
+    assert l3["p50"] == 4
+    assert l3["pct_sin_competencia"] == 0
+
+    fila = buyer_scoring.build_lic_buyer_metrics().row(0, named=True)
+    assert fila["n_lic"] == 12  # las publicadas siguen siendo licitaciones…
+    assert fila["prom_oferentes"] == pytest.approx(4)  # …pero sin oferentes conocidos
+
+
+def test_el_descuento_suma_solo_las_ofertas_ganadoras(tmp_path, monkeypatch):
+    """Si el archivo repite el monto de la línea en cada oferta, sólo cuenta la ganadora."""
+    lic = tmp_path / "lic"
+    lic.mkdir()
+    filas = []
+    for i in range(6):
+        base = {
+            **_filas(f"D{i}", "Adjudicada", 1, 3)[0],
+            "Rubro2": "Aseo",
+            "sector": "Salud",
+            "MontoEstimado": "1000000",
+            "MontoLineaAdjudica": "900000",
+        }
+        filas.append({**base, "Oferta seleccionada": "Seleccionada"})
+        filas += [{**base, "Oferta seleccionada": "No Seleccionada"}] * 2
+    pl.DataFrame(filas).write_parquet(lic / "2026-3.parquet")
+    monkeypatch.setattr(data_loader, "LIC_PARQUET_DIR", lic)
+    monkeypatch.setattr(data_loader, "OC_PARQUET_DIR", tmp_path / "oc")
+
+    lics = discount_optimizer.extract_lic_discounts()
+    assert lics.height == 6
+    assert lics["discount"].to_list() == pytest.approx([0.1] * 6)
