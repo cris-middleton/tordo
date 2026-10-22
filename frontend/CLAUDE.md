@@ -515,7 +515,7 @@ a la página**: Next ignora `metadata` en componentes cliente y la home perderí
   **el resto, huecos** (un aro gris: relleno gris se confundía con el sector «Otros»); el tamaño es el
   monto; cada enlace, una curva hacia el centro. **Rótulos directos**: los 3 organismos de más monto por
   su nombre corto (`nombreCorto`: Cenabast, Junaeb…, sin «Ilustre», ≤ 30 caracteres) y «Le venden a 15 o
-  más» bajo el grupo del centro; la leyenda en dos grupos, «Organismos:» y «Proveedores:». El `h2` es
+  más» bajo el grupo del centro, desde `sm` (en el teléfono se pisaban); la leyenda en dos grupos, «Organismos:» y «Proveedores:». El `h2` es
   la conclusión en una frase (`fraseRed`): «40 proveedores le venden a la mitad o más de los 30
   organismos que más compran.» —**lo que cuenta es lo que se dibuja en tinta**; si el backend cortó la
   lista, añade «En tinta, los N que más venden.»; el total de proveedores va en el pie—. **Globo** al pasar o tocar un nodo, que lo aísla con sus vecinos.
@@ -524,7 +524,7 @@ a la página**: Next ignora `metadata` en componentes cliente y la home perderí
   con la pestaña oculta; las capturas del E2E emulan movimiento reducido. Con menos de
   `MINIMO_COMPRADORES` (8) o mal formada, no sale y el gráfico grande vuelve a ser el gasto.
   `__tests__/red-portada.test.ts`. **Dos disposiciones de la misma red** (`LIENZO_ANCHO` 640 × 420 desde
-  `lg`, `LIENZO_MOVIL` 400 × 380 en el teléfono, una con `display: none` en cada ancho): la apaisada
+  `md`, `LIENZO_MOVIL` 400 × 380 por debajo (a 768 px la cuadrada medía 720 × 684), una con `display: none` en cada ancho): la apaisada
   medía 358 × 235 px a 390 y los proveedores eran puntos de un píxel. «Cómo leer la red»
   (`ComoLeerLaRed`, tres frases y «Toca o pasa el mouse») va bajo las abiertas desde `lg` y bajo la
   leyenda en el teléfono.
