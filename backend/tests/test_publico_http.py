@@ -21,6 +21,7 @@ from app.core.versionado import PREFIJO_API
 from app.main import app
 from app.services.bi import comprador as servicio_comprador
 from app.services.bi import rubro as servicio_rubro
+from app.services.bi import temporal as servicio_temporal
 from app.services.publico import indexables, paginas
 from tests.analytics_en_memoria import AnalyticsEnMemoria
 
@@ -161,7 +162,9 @@ def analytics(monkeypatch):
             OrganismoPublico="MUNICIPALIDAD CHICA",
         ),
     ]
-    datos.instalar(monkeypatch, indexables, paginas, servicio_comprador, servicio_rubro)
+    datos.instalar(
+        monkeypatch, indexables, paginas, servicio_comprador, servicio_rubro, servicio_temporal
+    )
     # El perfil prueba dos nombres de columna para la transparencia; sin tabla, ninguno.
     monkeypatch.setattr(servicio_comprador, "_columna_presente", lambda *_: None)
     monkeypatch.setattr(settings, "feature_analytics", True)
@@ -223,6 +226,7 @@ class TestComprador:
             "perfil",
             "compra_agil",
             "rubros",
+            "meses_de_compra",
         }
         assert cuerpo["codigo"] == "7297"
         assert cuerpo["nombre"] == "HOSPITAL DE PRUEBA"
@@ -804,3 +808,36 @@ def test_buscar_comprador_pone_antes_la_palabra_entera(analytics, cliente):
     indexables.invalidar()
     cuerpo = _get(cliente, "/compradores", q="hospital talca").json()
     assert [c["codigo"] for c in cuerpo] == ["1", "7297"]
+
+
+def test_los_meses_de_compra_del_comprador_suman_sus_rubros(analytics, cliente):
+    """«¿En qué meses compra?»: doce filas, sus rubros sumados y cero donde no compró."""
+    analytics["seasonality_patterns.parquet"] = [
+        {
+            "CodigoOrganismoPublico": "7297",
+            "RubroN2": "Equipos médicos",
+            "mes": 3,
+            "compras_mes": 30,
+        },
+        {
+            "CodigoOrganismoPublico": "7297",
+            "RubroN2": "Aseo / Limpieza",
+            "mes": 3,
+            "compras_mes": 10,
+        },
+        {
+            "CodigoOrganismoPublico": "7297",
+            "RubroN2": "Aseo / Limpieza",
+            "mes": 11,
+            "compras_mes": 5,
+        },
+    ]
+    meses = _get(cliente, "/compradores/7297").json()["meses_de_compra"]
+    assert [m["mes"] for m in meses] == list(range(1, 13))
+    assert meses[2]["compras"] == 40
+    assert meses[10]["compras"] == 5
+    assert sum(m["compras"] for m in meses) == 45
+
+
+def test_sin_estacionalidad_los_meses_de_compra_son_nulos(analytics, cliente):
+    assert _get(cliente, "/compradores/1").json()["meses_de_compra"] is None
