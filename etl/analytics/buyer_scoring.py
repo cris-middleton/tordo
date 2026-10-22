@@ -52,7 +52,7 @@ import polars as pl
 from . import trato_directo
 from .config import OUTPUT_DIR
 from .data_loader import iter_lic_parquets, iter_oc_parquets, orden_por_fila, sin_canceladas
-from .identidad import nombre_vigente
+from .identidad import nombre_vigente, periodo_maximo
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +120,7 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
     volume_frames = []
     rating_frames = []
     td_frames = []
+    nombre_frames = []
 
     # Con las canceladas: la tasa de cancelación las cuenta, y sin ellas en el
     # denominador todo comprador saldría con 0 %.
@@ -138,6 +139,17 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
         # --- Trato directo: de las órdenes, no de las licitaciones ---
         # (`trato_directo.py`: en la descarga de licitaciones no hay ninguno).
         td_frames.append(trato_directo.contar(df))
+
+        # --- Nombre del comprador, también del lado de las órdenes ---
+        # `NombreOrganismo` venía SÓLO de licitaciones: un comprador con órdenes
+        # y sin licitaciones en la ventana salía sin nombre (47 de 1.303 en la
+        # copia local) y su ficha pública, con el título vacío.
+        if "OrganismoPublico" in df.columns and "_periodo_archivo" in df.columns:
+            nombre_frames.append(
+                df.filter(pl.col(org_col).is_not_null())
+                .group_by(org_col)
+                .agg(nombre_vigente("OrganismoPublico"), periodo_maximo())
+            )
 
         # --- Velocidad de ACEPTACIÓN: días entre FechaEnvio y FechaAceptacion ---
         #
@@ -316,7 +328,7 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
             )
         )
     else:
-        payments = pl.DataFrame({org_col: [], "mediana_dias_aceptacion": []})
+        payments = pl.DataFrame(schema={org_col: pl.Utf8, "mediana_dias_aceptacion": pl.Float64})
 
     # Estados
     if status_frames:
@@ -339,7 +351,7 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
             )
         )
     else:
-        statuses = pl.DataFrame({org_col: []})
+        statuses = pl.DataFrame(schema={org_col: pl.Utf8})
 
     # Regularidad mensual
     if volume_frames:
@@ -364,7 +376,7 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
             )
         )
     else:
-        regularity = pl.DataFrame({org_col: []})
+        regularity = pl.DataFrame(schema={org_col: pl.Utf8})
 
     # Calificaciones
     if rating_frames:
@@ -387,9 +399,18 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
             .select([org_col, "prom_calificacion", "n_calificaciones"])
         )
     else:
-        ratings = pl.DataFrame({org_col: []})
+        ratings = pl.DataFrame(schema={org_col: pl.Utf8})
 
     tratos = trato_directo.combinar(td_frames).select([org_col, "pct_trato_directo"])
+
+    if nombre_frames:
+        nombres = (
+            pl.concat(nombre_frames, how="diagonal_relaxed")
+            .group_by(org_col)
+            .agg(nombre_vigente("OrganismoPublico"))
+        )
+    else:
+        nombres = pl.DataFrame(schema={org_col: pl.Utf8, "OrganismoPublico": pl.Utf8})
 
     # ─── Join todo ───
 
@@ -399,6 +420,7 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
         .join(statuses, on=org_col, how="left")
         .join(ratings, on=org_col, how="left")
         .join(tratos, on=org_col, how="left")
+        .join(nombres, on=org_col, how="left")
     )
 
     logger.info(f"Métricas OC: {len(result):,} organismos")
@@ -408,6 +430,18 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
 # ─────────────────────────────────────────────────────────────────────
 # Paso 2: Métricas de Licitaciones por comprador
 # ─────────────────────────────────────────────────────────────────────
+
+#: Lo que devuelve `build_lic_buyer_metrics`, también sin licitaciones.
+ESQUEMA_LIC = {
+    "CodigoOrganismo": pl.Utf8,
+    "NombreOrganismo": pl.Utf8,
+    "n_lic": pl.UInt32,
+    "tasa_adjudicacion": pl.Float64,
+    "n_revocadas": pl.UInt32,
+    "n_desiertas": pl.UInt32,
+    "prom_oferentes": pl.Float64,
+    "prom_reclamos": pl.Float64,
+}
 
 
 def build_lic_buyer_metrics() -> pl.DataFrame:
@@ -466,7 +500,9 @@ def build_lic_buyer_metrics() -> pl.DataFrame:
         frames.append(lics)
 
     if not frames:
-        return pl.DataFrame()
+        # Con el esquema: `compute_buyer_scores` hace el join por esta columna, y
+        # un DataFrame sin columnas tumbaba el módulo entero sin licitaciones.
+        return pl.DataFrame(schema=ESQUEMA_LIC)
 
     # La clave es el CÓDIGO. Con `NombreOrganismo` dentro, un comprador
     # renombrado salía con DOS filas de score —medido: 111 de 1.192— y
@@ -545,6 +581,17 @@ def compute_buyer_scores(oc_metrics: pl.DataFrame, lic_metrics: pl.DataFrame) ->
 
     # Filtrar organismos con al menos 10 OC
     combined = combined.filter(pl.col("n_oc_total") >= 10)
+
+    # El nombre: el de licitaciones si lo hay (el de siempre para casi todos) y,
+    # si no, el más reciente de sus órdenes. Todo comprador de esta tabla tiene
+    # órdenes —es la base del join—, así que ninguno queda sin nombre.
+    if "OrganismoPublico" in combined.columns:
+        combined = combined.with_columns(
+            pl.coalesce(
+                pl.col("NombreOrganismo").str.strip_chars().replace("", None),
+                pl.col("OrganismoPublico"),
+            ).alias("NombreOrganismo")
+        )
 
     max_log_oc = combined["n_oc_total"].log().max() or 1.0
 
