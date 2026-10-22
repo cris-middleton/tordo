@@ -5,6 +5,7 @@ import { useState } from 'react';
 import type { GraficoGasto } from '@/lib/graficoGasto';
 
 import { FilaGlobo, Globo } from './Globo';
+import { teclasDeRecorrido } from './teclado';
 
 /**
  * Cuánto compra el Estado, mes a mes: una columna por mes, apilada por sector
@@ -36,7 +37,18 @@ export function GastoMensual({ datos, leyendaEnFila = false }: { datos: GraficoG
           mes típico
         </p>
       </div>
-      <div className="relative pl-9" onPointerLeave={() => setMes(null)}>
+      <p aria-live="polite" className="sr-only">
+        {activo ? `${activo.largo}: ${activo.texto}` : ''}
+      </p>
+      <div
+        className="relative rounded-sm pl-9"
+        tabIndex={0}
+        role="group"
+        aria-label="Los meses del gráfico: recórrelos con las flechas"
+        onKeyDown={teclasDeRecorrido(n, mes, setMes)}
+        onBlur={() => setMes(null)}
+        onPointerLeave={() => setMes(null)}
+      >
         <div aria-hidden="true" className="relative h-52 sm:h-64">
           {/* Arriba quedan 20 px para el rótulo del mes más alto: las alturas son % de este marco. */}
           <div className="absolute inset-x-0 bottom-0 top-5">

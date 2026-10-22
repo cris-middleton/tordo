@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 
+import { teclasDeRecorrido } from './teclado';
+
 import type { GraficoConcentracion } from '@/lib/lecturasMercado';
 
 import { FilaGlobo, Globo } from './Globo';
@@ -21,6 +23,17 @@ export function Concentracion({ datos }: { datos: GraficoConcentracion }) {
 
   return (
     <figure className="min-w-0">
+      <div
+        tabIndex={0}
+        role="group"
+        aria-label="Los tramos del gráfico: recórrelos con las flechas"
+        className="rounded-sm"
+        onKeyDown={teclasDeRecorrido(datos.tramos.length, activo, setActivo)}
+        onBlur={() => setActivo(null)}
+      >
+      <p aria-live="polite" className="sr-only">
+        {tramo ? `${tramo.rotulo}: ${tramo.textoMonto}, ${tramo.textoMercados}` : ''}
+      </p>
       <div aria-hidden="true" className="relative" onPointerLeave={() => setActivo(null)}>
         <div className="relative flex h-40 items-end gap-1">
           {datos.tramos.map((t, i) => (
@@ -50,6 +63,7 @@ export function Concentracion({ datos }: { datos: GraficoConcentracion }) {
           <span>100 %</span>
         </div>
         <p className="mt-0.5 text-center text-[12px] text-muted">lo que se lleva el proveedor principal</p>
+      </div>
       </div>
       {/* Una tabla no respeta el ancho de 1 px de `sr-only`: va dentro de un div, o ensancha la página. */}
       <div className="sr-only">
