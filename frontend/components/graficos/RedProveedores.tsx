@@ -238,7 +238,7 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
         ...r,
         x: (r.x / ancho) * 100,
         y: (r.y / alto) * 100,
-        clase: { izquierda: '-translate-x-full -translate-y-1/2', derecha: '-translate-y-1/2', arriba: '-translate-x-1/2 -translate-y-full' }[r.lado],
+        clase: { izquierda: '-translate-x-full -translate-y-1/2', derecha: '-translate-y-1/2', arriba: '-translate-x-1/2 -translate-y-full', abajo: '-translate-x-1/2' }[r.lado],
       })),
     [nodos, ancho, alto],
   );

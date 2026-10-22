@@ -182,7 +182,7 @@ describe('rotularCompradores', () => {
     expect(r.map((x) => x.lado)).toEqual(['izquierda', 'derecha']);
   });
 
-  it('dos nodos vecinos no montan sus nombres: el segundo sube o se queda sin rótulo', () => {
+  it('dos nodos vecinos no montan sus nombres: el que choca baja bajo su nodo', () => {
     // Como en producción el 2026-10-22: Cenabast y el Fondo Nacional de Salud, pegados arriba.
     const r = rotularCompradores(
       [
@@ -193,11 +193,25 @@ describe('rotularCompradores', () => {
       lienzo,
       3,
     );
-    expect(r.map((x) => x.id)).toEqual(['c:1', 'c:3']);
+    expect(r.map((x) => [x.id, x.lado])).toEqual([
+      ['c:1', 'abajo'],
+      ['c:2', 'izquierda'],
+      ['c:3', 'izquierda'],
+    ]);
   });
 
   it('se queda en los de más monto aunque alguno no quepa', () => {
     const nodos = Array.from({ length: 6 }, (_, i) => comprador(`c:${i}`, `Comprador ${i}`, 10 - i, 600, 40 + i * 60));
     expect(rotularCompradores(nodos, lienzo, 3).map((x) => x.id)).toEqual(['c:0', 'c:1', 'c:2']);
+  });
+
+  it('no tapa el nodo de otro comprador: sube encima del suyo', () => {
+    // Junaeb abajo, con una municipalidad justo a su derecha (producción, 2026-10-22).
+    const r = rotularCompradores(
+      [comprador('c:1', 'Junaeb', 2, 290, 388), comprador('c:2', 'Municipalidad de Maipú', 1, 340, 390)],
+      lienzo,
+      1,
+    );
+    expect(r).toEqual([expect.objectContaining({ id: 'c:1', lado: 'arriba' })]);
   });
 });
