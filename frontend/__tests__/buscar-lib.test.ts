@@ -31,7 +31,7 @@ import { leerFiltros, paramsDeApi, urlCatalogoAbiertas } from '@/lib/filtrosCata
 import { rutaLicitacion } from '@/lib/publico';
 import { MAXIMO_BUSQUEDA_PRODUCTOS, MINIMO_BUSQUEDA_PRODUCTOS } from '@/lib/queries';
 import type { LicitacionesEncontradas, ResultadosBusqueda } from '@/types/buscar';
-import type { CompradorDeProducto } from '@/types/publico';
+import type { CompradorDeProducto, CompradorEncontrado } from '@/types/publico';
 
 import { DESTACADAS, LICITACIONES, PRODUCTO, PRODUCTOS, fallo, ok } from './ayudas/buscarDePrueba';
 
@@ -224,9 +224,16 @@ describe('estadoDeLaBusqueda', () => {
     ).toBe('con-resultados');
   });
 
-  it('«no encontramos nada» sólo si los cuatro respondieron vacíos', () => {
+  it('«no encontramos nada» sólo si los tres respondieron vacíos', () => {
     expect(estadoDeLaBusqueda(vacios)).toBe('sin-resultados');
     expect(estadoDeLaBusqueda({ ...vacios, licitaciones: fallo<LicitacionesEncontradas>() })).toBe('incompleta');
+  });
+
+  it('los compradores por su nombre que fallan no impiden decir «no encontramos»', () => {
+    // Una API sin `/publico/compradores` (se despliega después del frontend) responde 404.
+    expect(estadoDeLaBusqueda({ ...vacios, compradoresPorNombre: fallo<CompradorEncontrado[]>() })).toBe(
+      'sin-resultados',
+    );
   });
 });
 

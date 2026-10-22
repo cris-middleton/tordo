@@ -162,9 +162,15 @@ export function textoDeFallo(que: string, motivo: MotivoFallo): string {
 export type EstadoBusqueda = 'con-resultados' | 'sin-resultados' | 'incompleta';
 
 /**
- * ¿Puede la página decir «no encontramos nada»? Sólo si los cuatro bloques
- * (productos, licitaciones, Compra Ágil y compradores por su nombre)
- * respondieron y ninguno trae nada. Con alguno caído no se sabe: `incompleta`.
+ * ¿Puede la página decir «no encontramos nada»? Sólo si los tres bloques
+ * (productos, licitaciones y Compra Ágil) respondieron y ninguno trae nada, ni
+ * hay un comprador con ese nombre.
+ *
+ * **Los compradores por su nombre no deciden si la búsqueda está completa**: son
+ * un atajo, no una de las tres respuestas, y una API que todavía no tiene
+ * `/publico/compradores` (el frontend se despliega antes que la API) los da
+ * por fallidos. Si contaran, ninguna búsqueda vacía diría «no encontramos» ni
+ * propondría «¿Quisiste decir…?». Con alguno caído no se sabe: `incompleta`.
  */
 export function estadoDeLaBusqueda(r: ResultadosBusqueda): EstadoBusqueda {
   const hay =
@@ -173,8 +179,6 @@ export function estadoDeLaBusqueda(r: ResultadosBusqueda): EstadoBusqueda {
     (r.comprasAgiles.estado === 'ok' && r.comprasAgiles.datos.items.length > 0) ||
     (r.compradoresPorNombre.estado === 'ok' && r.compradoresPorNombre.datos.length > 0);
   if (hay) return 'con-resultados';
-  const todos = [r.productos, r.licitaciones, r.comprasAgiles, r.compradoresPorNombre].every(
-    (b) => b.estado === 'ok',
-  );
+  const todos = [r.productos, r.licitaciones, r.comprasAgiles].every((b) => b.estado === 'ok');
   return todos ? 'sin-resultados' : 'incompleta';
 }
