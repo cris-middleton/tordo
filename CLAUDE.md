@@ -698,6 +698,19 @@ estos patrones, es señal de que hay que arreglar la causa, no de copiarlo:
     a propósito**: sólo filtra lo que encontró el GIN de `busqueda`, y comparar un tsvector
     guardado es barato —medido sobre 50.000 filas de 1.700 caracteres, ~1 ms más con 50.000
     coincidencias; la regex sobre `descripcion` que se descartó costaba 270 ms—.
+  - **Cada palabra trae sus otras formas y sus sinónimos** (`app/utils/sinonimos.py`, Python
+    puro): `formas` (comienzo, singular entero, el otro género, «-ora» sin la «a») alimenta
+    `consulta_prefijos` y el patrón de los slugs, y `alternativas` (el plural en «-ces» y una
+    lista corta de sinónimos de compras públicas: mantención/mantenimiento, lápiz/bolígrafo,
+    «pc» → notebook) amplía `coincide_termino` y `/publico/productos?q=`. Medido en local:
+    «computadora» encontraba 0 de las 7 de «computador» y «guantes» dejaba fuera 385 productos
+    de «guante». Lo escrito sale primero (la relevancia puntúa sólo el término escrito; los
+    productos ordenan antes lo que coincide sin sinónimos). **Un sinónimo nuevo no puede tener
+    otro sentido en una compra** («auto» empieza «autorización»): `test_busqueda_alternativas.py`.
+  - **«¿Quisiste decir…?»** (`GET /publico/sugerencia`, `services/publico/sugerencias.py`): la
+    búsqueda con cada palabra desconocida cambiada por la más parecida (`difflib`, ≥ 0,8) del
+    vocabulario de las firmas del índice, en memoria. `/buscar` la pide sólo cuando nada
+    encontró nada.
   **El orden por relevancia también es Postgres** (`puntuacion_relevancia`: `ts_rank_cd`
   con todos los términos, que premia la cercanía, + `ts_rank` con cualquiera y sobre el
   nombre). Antes lo hacía el TF-IDF del ETL cargado en la API. **Relevancia ordena, no

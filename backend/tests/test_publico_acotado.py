@@ -107,6 +107,10 @@ EXENTAS = {
     # Cuenta el catálogo (`licitaciones`) con `count(*)` agrupados en SQL; lo
     # fijan `test_portada_hoy.py` y `test_licitaciones_abiertas.py`.
     "/portada",
+    # No lee ninguna tabla por petición: su vocabulario sale de `productos` del
+    # índice (`LECTURAS_DEL_INDICE`), que se construye una vez por TTL. Lo fija
+    # `test_sugerencia_busqueda.py`.
+    "/sugerencia",
 }
 
 

@@ -140,6 +140,10 @@ corta de sinónimos de compras públicas («mantenimiento», «mantención»; «
 `/tenders/` con `sort_by=relevance` y en `/publico/productos`, siempre. La lista vive
 en `backend/app/utils/sinonimos.py`.
 
+`GET /publico/sugerencia?q=` propone la búsqueda con sus palabras mal escritas
+corregidas («computdor» → `{"sugerencia": "computador"}`), con las palabras que usan los
+compradores en las órdenes de compra. `null` si no hay nada que corregir.
+
 ## «Lo mejor de hoy» en Compra Ágil
 
 `GET /api/v1/compra-agil/destacadas?limite=20&region=…&search=…` devuelve las

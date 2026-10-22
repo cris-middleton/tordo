@@ -32,8 +32,9 @@ from app.schemas.publico import (
     ResumenPortada,
     RubroPublico,
     SitemapPublico,
+    SugerenciaBusqueda,
 )
-from app.services.publico import mercado, paginas
+from app.services.publico import mercado, paginas, sugerencias
 
 router = APIRouter(prefix="/publico", tags=["publico"])
 
@@ -126,6 +127,19 @@ def buscar_productos(
 ):
     requiere_analytics()
     return paginas.buscar_productos(q, limite)
+
+
+@router.get(
+    "/sugerencia",
+    response_model=SugerenciaBusqueda,
+    summary="«¿Quisiste decir…?»: la búsqueda con sus palabras mal escritas corregidas",
+)
+def get_sugerencia(
+    q: str = Query(..., min_length=2, max_length=limites.TEXTO, description="Lo que se buscó."),
+):
+    """Con el vocabulario de los productos, que vive en memoria con el índice."""
+    requiere_analytics()
+    return SugerenciaBusqueda(sugerencia=sugerencias.sugerencia(q))
 
 
 @router.get(

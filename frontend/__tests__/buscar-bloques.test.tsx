@@ -205,6 +205,19 @@ describe('sin resultados y ejemplos', () => {
     );
   });
 
+  it('con una sugerencia la propone primero, enlazada a su búsqueda', () => {
+    render(<SinResultados termino="computdor" sugerencia="computador" />);
+    const enlace = screen.getByRole('link', { name: '«computador»' });
+    expect(enlace).toHaveAttribute('href', rutaBuscar('computador'));
+    expect(enlace).toHaveClass('enlace');
+    expect(screen.getByText(/quisiste decir/i)).toBeInTheDocument();
+  });
+
+  it('sin sugerencia no pregunta nada', () => {
+    render(<SinResultados termino="xqz" />);
+    expect(screen.queryByText(/quisiste decir/i)).not.toBeInTheDocument();
+  });
+
   it('los ejemplos son enlaces de contenido (subrayados)', () => {
     render(<EjemplosBusqueda />);
     for (const a of screen.getAllByRole('link')) expect(a).toHaveClass('enlace');

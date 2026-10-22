@@ -17,7 +17,7 @@ import {
   prepararBusqueda,
   type Busqueda,
 } from '@/lib/buscar';
-import { buscarTodo } from '@/lib/buscarServidor';
+import { buscarTodo, pedirSugerencia } from '@/lib/buscarServidor';
 import { MESES_PRECIOS } from '@/lib/periodo';
 import { IMAGEN_OPEN_GRAPH, IMAGEN_TWITTER } from '@/lib/vistaPrevia';
 import type { ResultadosBusqueda } from '@/types/buscar';
@@ -62,9 +62,17 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   };
 }
 
-function Resultados({ busqueda, resultados }: { busqueda: Busqueda; resultados: ResultadosBusqueda }) {
+function Resultados({
+  busqueda,
+  resultados,
+  sugerencia,
+}: {
+  busqueda: Busqueda;
+  resultados: ResultadosBusqueda;
+  sugerencia: string | null;
+}) {
   if (estadoDeLaBusqueda(resultados) === 'sin-resultados') {
-    return <SinResultados termino={busqueda.termino} />;
+    return <SinResultados termino={busqueda.termino} sugerencia={sugerencia} />;
   }
   return (
     <>
@@ -82,7 +90,13 @@ function Resultados({ busqueda, resultados }: { busqueda: Busqueda; resultados: 
 
 export default async function PaginaBuscar({ searchParams }: Props) {
   const busqueda = await leerBusqueda(searchParams);
-  const resultados = busqueda.buscable ? await buscarTodo(busqueda, await headers()) : null;
+  const cabeceras = await headers();
+  const resultados = busqueda.buscable ? await buscarTodo(busqueda, cabeceras) : null;
+  // Sólo si nada encontró nada: así no suma una llamada a una búsqueda con resultados.
+  const sugerencia =
+    resultados && estadoDeLaBusqueda(resultados) === 'sin-resultados'
+      ? await pedirSugerencia(busqueda.termino, cabeceras)
+      : null;
 
   return (
     <div>
@@ -102,7 +116,7 @@ export default async function PaginaBuscar({ searchParams }: Props) {
       </div>
 
       {resultados ? (
-        <Resultados busqueda={busqueda} resultados={resultados} />
+        <Resultados busqueda={busqueda} resultados={resultados} sugerencia={sugerencia} />
       ) : (
         <div className="mt-6 text-sm text-muted">
           <p>
