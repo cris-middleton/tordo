@@ -14,14 +14,18 @@ router = APIRouter(prefix="/health", tags=["health"])
 
 
 # HEAD también: es lo que mandan muchos monitores de disponibilidad, y respondía
-# 405, que un monitor lee como «caído».
-@router.api_route("/", methods=["GET", "HEAD"])
+# 405, que un monitor lee como «caído». Va aparte y fuera del OpenAPI: con
+# `api_route(methods=["GET", "HEAD"])` las dos operaciones salían con el mismo
+# operationId, y un generador de clientes se queda con una sola.
+@router.get("/")
+@router.head("/", include_in_schema=False)
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "timestamp": datetime.now(UTC).isoformat(), "service": "backend"}
 
 
-@router.api_route("/ready", methods=["GET", "HEAD"])
+@router.get("/ready")
+@router.head("/ready", include_in_schema=False)
 async def readiness_check(db: AsyncSession = Depends(get_db)):
     """Readiness check endpoint for Kubernetes/Docker"""
     try:

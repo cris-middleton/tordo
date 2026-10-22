@@ -146,7 +146,7 @@ esac
 seccion "Redirecciones de la API: relativas, nunca a http://"
 
 # Sólo se pide el redirect (rápido, antes del handler): `pedir` no los sigue.
-for ruta in /health /api/v1/tenders /api/v1/bi/rubros/; do
+for ruta in /health /api/v1/bi/rubros/; do
   codigo=$(pedir "$API$ruta")
   destino=$(cabecera location)
   case $destino in
@@ -155,6 +155,16 @@ for ruta in /health /api/v1/tenders /api/v1/bi/rubros/; do
     *) mal "$ruta responde $codigo con Location «${destino}» (se esperaba una ruta relativa)" ;;
   esac
 done
+
+# /tenders sin barra responde sin redirigir (#91): con el 307 el límite por IP
+# contaba dos peticiones por cada consulta del catálogo.
+codigo=$(pedir "$API/api/v1/tenders?limit=1")
+destino=$(cabecera location)
+if [ "$codigo" = 200 ] && [ -z "$destino" ]; then
+  ok "/api/v1/tenders responde 200 sin redirigir"
+else
+  mal "/api/v1/tenders responde $codigo${destino:+ → $destino} (se esperaba 200 sin redirigir)"
+fi
 
 codigo=$(pedir "$API/mcp" -X POST \
   -H 'Accept: application/json, text/event-stream' -H 'Content-Type: application/json' \
