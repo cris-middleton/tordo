@@ -669,7 +669,9 @@ a la página**: Next ignora `metadata` en componentes cliente y la home perderí
 - **La franja de hoy** (`FranjaPortada`, `franjaDeLaPortada`): publicadas hoy («612 licitaciones y
   Compras Ágiles»: cuenta las dos), el organismo que más publica (por nombre; truncado con `title`) y «Actualizado el» con el día —la portada se cachea—.
   Con 0 publicadas hoy (cada madrugada) las dos primeras celdas se ocultan y la que queda primera
-  no lleva sangría. Sin enlace: el catálogo no filtra por fecha de publicación.
+  no lleva sangría. **Con el resumen atrasado y sin publicadas, la franja no sale**: quedaba una
+  línea suelta con la hora que parecía la de toda la página; la frase de las abiertas ya dice ese día
+  y esa hora, y «Lo mejor de hoy» dice la suya. Sin enlace: el catálogo no filtra por fecha de publicación.
 - **«Lo mejor de hoy», compacto** (`pedirDestacadas`, `BloqueHoy`): **cinco, con como mucho dos de un
   mismo comprador** (`variadas`, `POR_COMPRADOR_EN_PORTADA`; se piden `DESTACADAS_PEDIDAS` = 15 para poder
   elegir: el 21-10 las cuatro primeras eran de la misma unidad del MOP). Filas con nombre, comprador,

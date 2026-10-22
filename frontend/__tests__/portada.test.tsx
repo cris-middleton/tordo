@@ -452,6 +452,15 @@ describe('con el cron atrasado (el 21-10-2026, Railway caído todo el día)', ()
     expect(screen.queryByText('Publicadas hoy:')).toBeNull();
   });
 
+  it('sin publicadas, la franja no queda como una hora suelta: la dicen las abiertas y «Lo mejor de hoy»', async () => {
+    vi.setSystemTime(DESPUES);
+    simularBackend({ ...TODO, resumen: ok({ ...RESUMEN, publicadas_hoy: 0, mas_publica_hoy: null }) });
+    const { container } = render(await Home());
+    expect(container).toHaveTextContent('El miércoles 14 de octubre a las 11:00 se podía postular');
+    expect(screen.queryByText(/^Actualizado el$/)).toBeNull();
+    expect(container.querySelector('#hoy')).toHaveTextContent(/Actualizado el/);
+  });
+
   it('una Compra Ágil que ya cerró no sale en «Lo mejor de hoy»', async () => {
     vi.setSystemTime(DESPUES);
     todo();
