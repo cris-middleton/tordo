@@ -39,9 +39,12 @@ def _cliente(**kwargs) -> httpx.AsyncClient:
     ("ruta", "destino"),
     [
         ("/health", "/health/"),
-        (f"{PREFIJO_API}/tenders", f"{PREFIJO_API}/tenders/"),
-        (f"{PREFIJO_API}/tenders?limit=1&offset=20", f"{PREFIJO_API}/tenders/?limit=1&offset=20"),
+        # `/tenders` ya no redirige: tiene su ruta sin barra (`test_tenders_sin_barra.py`).
         (f"{PREFIJO_API}/bi/rubros/", f"{PREFIJO_API}/bi/rubros"),
+        (
+            f"{PREFIJO_API}/bi/rubros/?limit=1&offset=20",
+            f"{PREFIJO_API}/bi/rubros?limit=1&offset=20",
+        ),
     ],
 )
 async def test_la_redireccion_por_barra_final_es_relativa(ruta, destino):

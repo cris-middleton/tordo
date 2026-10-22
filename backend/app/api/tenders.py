@@ -23,6 +23,12 @@ def _paginacion(total: int, salto: int, limite: int) -> tuple[int, int]:
     return pagina, paginas
 
 
+# Sin barra también, y sin redirigir: el navegador pide `/api/proxy/…/tenders/`,
+# Next quita la barra y el proxy llega a `/tenders`. Con sólo la ruta con barra,
+# FastAPI respondía 307 a `/tenders/` y el límite por IP contaba las DOS
+# peticiones: cada consulta del catálogo gastaba dos de las 60 por minuto (la
+# revisión de flujos del 2026-10-22 llegó al 429 tecleando dos montos).
+@router.get("", response_model=TenderListResponse, include_in_schema=False)
 @router.get("/", response_model=TenderListResponse)
 async def list_tenders(
     skip: int = Query(0, ge=0, le=limites.OFFSET_MAX, alias="offset"),

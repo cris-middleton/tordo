@@ -219,3 +219,8 @@
 - **La API tiene su `robots.txt`** (`main.ROBOTS_TXT`): rastrear `/docs` y `/redoc` sí, los
   datos no. Lo pedían a diario y respondía 404, así que nada apartaba a un rastreador de
   `/api/v1/bi/*`. Va fuera de la versión, como `/` y `/health`.
+- **`GET /tenders` sin barra responde sin redirigir** (una ruta oculta junto a `/tenders/`). El
+  navegador pide `/api/proxy/…/tenders/`, Next quita la barra y el proxy llega sin ella: con el
+  307 de `redirect_slashes`, el límite por IP contaba las dos peticiones y cada consulta del
+  catálogo gastaba dos de las 60 por minuto. Una ruta nueva con barra final que el frontend
+  pida necesita lo mismo. `tests/test_tenders_sin_barra.py`.
