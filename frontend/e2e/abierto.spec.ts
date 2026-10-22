@@ -25,7 +25,7 @@ test('/abierto: las cinco secciones, la URL del MCP con barra y nada de terceros
   for (const ancla of ['api', 'mcp', 'datos', 'codigo', 'licencias']) {
     await expect(page.locator(`section#${ancla}`)).toHaveCount(1);
   }
-  await expect(page.getByLabel('URL del servidor MCP')).toHaveText('https://api.tordo.cl/mcp/');
+  await expect(page.getByRole('group', { name: 'URL del servidor MCP' })).toHaveText('https://api.tordo.cl/mcp/');
   await expect(page.locator('a[href^="cursor://"]')).toHaveCount(1);
   // El E2E construye sin REPOSITORIO_URL: el estado de un despliegue con el repo privado.
   await expect(page.locator('section#codigo').getByText(/todavía no está publicado/i)).toBeVisible();

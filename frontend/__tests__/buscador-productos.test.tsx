@@ -93,12 +93,13 @@ describe('buscador de productos', () => {
     expect(screen.queryByText('Fichas para empezar')).toBeNull();
   });
 
-  it('la página, sin búsqueda, enlaza las seis fichas de la escalera sin pedir nada al backend', () => {
+  it('la página, sin búsqueda, enlaza la búsqueda de las seis cosas de la escalera sin pedir nada al backend', () => {
     const fetch = vi.spyOn(globalThis, 'fetch');
     render(<PaginaProductos />);
-    const lista = screen.getByRole('list', { name: 'Fichas para empezar' });
+    const lista = screen.getByRole('list', { name: 'Búsquedas para empezar' });
+    // A su búsqueda y no a su ficha: una ficha escrita a mano puede dejar de existir.
     expect([...lista.querySelectorAll('a')].map((a) => a.getAttribute('href'))).toEqual(
-      PRODUCTOS_ESCALERA.map((p) => `/productos/${p.slug}`),
+      PRODUCTOS_ESCALERA.map((p) => rutaBusquedaProductos(p.nombre.replace(/\s*\(.*\)$/, ''))),
     );
     expect(fetch).not.toHaveBeenCalled();
   });
