@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 
 import { Portada } from '@/components/portada/Portada';
-import { DESTACADAS_EN_PORTADA } from '@/lib/portada';
+import { DESTACADAS_PEDIDAS } from '@/lib/portada';
 import {
   pedirDestacadas,
   pedirMercadoPortada,
   pedirProductoPortada,
+  pedirProductosEscalera,
   pedirResumenPortada,
   pedirSectoresPortada,
 } from '@/lib/publicoServidor';
@@ -79,13 +80,15 @@ export const metadata: Metadata = {
 
 export default async function Home() {
   const [destacadas, resumen, sectores, mercado, producto, ahora] = await Promise.all([
-    pedirDestacadas(DESTACADAS_EN_PORTADA),
+    pedirDestacadas(DESTACADAS_PEDIDAS),
     pedirResumenPortada(),
     pedirSectoresPortada(),
     pedirMercadoPortada(),
     pedirProductoPortada(),
     horaDelRender(),
   ]);
+  // Después del producto de la portada, que es una de sus filas: no se pide dos veces.
+  const escalera = await pedirProductosEscalera(producto);
   return (
     <Portada
       destacadas={destacadas}
@@ -93,6 +96,7 @@ export default async function Home() {
       sectores={sectores}
       mercado={mercado}
       producto={producto}
+      escalera={escalera}
       notas={leerNotas()}
       repositorio={urlRepositorio()}
       autor={nombreAutor()}

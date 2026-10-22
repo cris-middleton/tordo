@@ -19,6 +19,7 @@ import {
   TITULO_DESTACADAS,
   frescura,
   mesesDeVentana,
+  mismaUnidad,
 } from '@/lib/compraAgil';
 import { REGIONES_CHILE } from '@/lib/constantesChile';
 import { shortRegion } from '@/lib/nombresChile';
@@ -184,7 +185,8 @@ function CompraAgilContenido() {
                 item={item}
                 posicion={CON_PUESTO ? i + 1 : undefined}
                 actualizadoEn={datos?.actualizado_en ?? null}
-                historia={{ meses, disponible: datos?.historia_disponible ?? false }}
+                historia={{ meses, disponible: datos?.historia_disponible ?? false, repetida: mismaUnidad(items[i - 1], item) }}
+                ahora={ahora != null ? new Date(ahora) : undefined}
               />
             </li>
           ))}

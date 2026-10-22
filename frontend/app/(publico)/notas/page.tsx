@@ -55,9 +55,9 @@ export default function PaginaNotas() {
               {n.antes_despues && (
                 <p className="mt-2 text-sm text-muted">
                   {n.antes_despues.rotulo}:{' '}
-                  <span className="cifra font-semibold text-text">{n.antes_despues.antes.valor.toLocaleString('es-CL')} %</span>{' '}
+                  <span className="cifra font-semibold text-text">{n.antes_despues.antes.valor.toLocaleString('es-CL')}{'\u00a0'}%</span>{' '}
                   {n.antes_despues.antes.etiqueta.toLowerCase()},{' '}
-                  <span className="cifra font-semibold text-text">{n.antes_despues.despues.valor.toLocaleString('es-CL')} %</span>{' '}
+                  <span className="cifra font-semibold text-text">{n.antes_despues.despues.valor.toLocaleString('es-CL')}{'\u00a0'}%</span>{' '}
                   {n.antes_despues.despues.etiqueta.toLowerCase()}.
                 </p>
               )}

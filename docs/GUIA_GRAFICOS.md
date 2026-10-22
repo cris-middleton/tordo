@@ -55,6 +55,7 @@ titular, palabras de todos los días: «la mitad central» en vez de «P25–P75
 | parte de un todo | diez celdas (*gridplot*), una por décimo | `BarraCierres` |
 | cambio en el tiempo, por partes | columnas por mes apiladas por sector, con la leyenda de cifras | `GastoMensual` |
 | distribución, de muchos | un histograma: diez tramos, destacados los de la conclusión | `Concentracion` |
+| variación de varias cosas a la vez | una escalera: una fila por cosa con su rango escrito y la franja P25–P75 contra su propia mediana (escala logarítmica, de «la mitad» a «el doble») | `EscaleraPrecios` |
 | relaciones (quién con quién) | una red: compradores fijos en un anillo por sector, proveedores adentro por fuerzas; los que nombra la conclusión, en tinta | `RedProveedores` |
 
 Si una pregunta nueva no cabe en la tabla, mira el *Visual Vocabulary* antes de inventar una forma.

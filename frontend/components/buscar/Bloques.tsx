@@ -18,7 +18,7 @@ import {
 } from '@/lib/buscar';
 import { mesesDeVentana, rutaCompraAgil } from '@/lib/compraAgil';
 import { urlCatalogoAbiertas } from '@/lib/filtrosCatalogo';
-import { fechaCortaDeChile } from '@/lib/horaChile';
+import { cierreFijo } from '@/lib/horaChile';
 import { normalizeText, shortRegion } from '@/lib/licitacionEstado';
 import { precioDeBanda } from '@/lib/lecturasPortada';
 import { urlRepositorio } from '@/lib/repositorio';
@@ -223,22 +223,36 @@ export function BloquePrecios({
 
 // ── 2. Dónde postular hoy ────────────────────────────────────────────────────
 
+/**
+ * Una licitación abierta, con la misma forma que la fila del catálogo
+ * (`components/licitacion/FilaLicitacion.tsx`): nombre, comprador y región, el
+ * cierre y el código, y el monto a la derecha. Sin «guardar»: eso vive en el
+ * catálogo y en la ficha. El cierre con su fecha (`cierreFijo`), como lo demás que
+ * se pinta en el servidor.
+ */
 function FilaLicitacion({ licitacion: t }: { licitacion: Tender }) {
   const monto = montoNumerico(t.monto_estimado);
-  // El día del cierre en Santiago: cortar el texto daba el día en UTC, y un
-  // cierre a las 22:00 salía al día siguiente.
-  const cierre = fechaCortaDeChile(t.fecha_cierre);
+  const cierre = cierreFijo(t.fecha_cierre);
+  const lugar = [t.nombre_organismo && normalizeText(t.nombre_organismo), t.region && shortRegion(t.region)]
+    .filter(Boolean)
+    .join(', ');
   return (
-    <li className="py-3">
-      <Link href={rutaLicitacion(t.codigo_externo)} className="break-words font-medium text-primary hover:underline">
-        {normalizeText(t.nombre)}
-      </Link>
-      <p className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted">
-        <span className="font-mono">{t.codigo_externo}</span>
-        {t.nombre_organismo && <span>{normalizeText(t.nombre_organismo)}</span>}
-        {t.region && <span>{shortRegion(t.region)}</span>}
-        {cierre && <span>Cierra el {cierre}</span>}
-        {monto !== null && <span className="cifra">{plata(monto)}</span>}
+    <li className="flex gap-3 py-3">
+      <div className="min-w-0 flex-1">
+        <Link
+          href={rutaLicitacion(t.codigo_externo)}
+          className="line-clamp-2 break-words text-sm font-semibold leading-snug text-text hover:text-primary"
+        >
+          {normalizeText(t.nombre)}
+        </Link>
+        {lugar && <p className="mt-0.5 break-words text-xs text-muted">{lugar}</p>}
+        <p className="mt-0.5 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-xs text-muted">
+          {cierre && <span>{cierre}</span>}
+          <span className="font-mono text-subtle">{t.codigo_externo}</span>
+        </p>
+      </div>
+      <p className="cifra shrink-0 text-sm font-semibold text-text">
+        {monto !== null ? plata(monto) : <span className="font-normal text-subtle">Sin monto</span>}
       </p>
     </li>
   );

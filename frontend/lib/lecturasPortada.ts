@@ -20,6 +20,7 @@
 import type { SectoresBI } from '@/types/bi';
 import type { BandaUnidad, CompraAgilPorCierre, ProductoPublico, ResumenPortada } from '@/types/publico';
 
+import type { LecturaEscalera } from './escaleraPrecios';
 import { urlCatalogoAbiertas } from './filtrosCatalogo';
 import { graficoPrecio, type GraficoPrecio } from './graficoPrecio';
 import type { LecturaConcentracion } from './lecturasMercado';
@@ -464,6 +465,8 @@ export function lecturaNota(nota: Nota | undefined, repositorio: string | null):
 /** Las lecturas de «Para empezar»; cada una, `null` si no tiene dato que pintar con verdad. */
 export interface Lecturas {
   precio: LecturaPrecio | null;
+  /** La escalera de precios (`lib/escaleraPrecios.ts`): si está, va en lugar de `precio`. */
+  escalera?: LecturaEscalera | null;
   concentracion: LecturaConcentracion | null;
   cierres: LecturaCierres | null;
   nota: LecturaNota | null;
@@ -472,6 +475,7 @@ export interface Lecturas {
 /** Una lectura elegida para la portada, con su tipo: cada una se pinta distinto. */
 export type LecturaDeLaPortada =
   | { tipo: 'precio'; lectura: LecturaPrecio }
+  | { tipo: 'escalera'; lectura: LecturaEscalera }
   | { tipo: 'concentracion'; lectura: LecturaConcentracion }
   | { tipo: 'cierres'; lectura: LecturaCierres }
   | { tipo: 'nota'; lectura: LecturaNota };
@@ -485,9 +489,11 @@ export const MAXIMO_LECTURAS_PORTADA = 3;
  * (la nota sigue en «Notas de datos», más abajo); si falta una, entra la nota; con
  * el backend caído, sólo la nota; sin ninguna, nada.
  */
-export function lecturasDeLaPortada({ precio, concentracion, cierres, nota }: Lecturas): LecturaDeLaPortada[] {
+export function lecturasDeLaPortada({ precio, escalera, concentracion, cierres, nota }: Lecturas): LecturaDeLaPortada[] {
   const disponibles: LecturaDeLaPortada[] = [];
-  if (precio) disponibles.push({ tipo: 'precio', lectura: precio });
+  // El precio: la escalera de varias cosas comunes y, sin ella, el de un producto.
+  if (escalera) disponibles.push({ tipo: 'escalera', lectura: escalera });
+  else if (precio) disponibles.push({ tipo: 'precio', lectura: precio });
   if (concentracion) disponibles.push({ tipo: 'concentracion', lectura: concentracion });
   if (cierres) disponibles.push({ tipo: 'cierres', lectura: cierres });
   if (nota) disponibles.push({ tipo: 'nota', lectura: nota });

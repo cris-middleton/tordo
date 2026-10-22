@@ -9,6 +9,7 @@
 import { format } from 'date-fns';
 import es from 'date-fns/locale/es';
 import { monto } from '@/lib/formato';
+import { textoCierre } from '@/lib/horaChile';
 
 // Viven aparte, sin `date-fns`: ver `nombresChile.ts`.
 export { normalizeText, shortRegion } from '@/lib/nombresChile';
@@ -40,40 +41,15 @@ export const getClosingUrgency = (fechaCierre?: string | null) => {
   return { label: format(closing, 'd MMM', { locale: es }), cls: 'text-muted' };
 };
 
-const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-
-/** El día de calendario en Santiago de un instante, como número comparable (días desde 1970). */
-function diaDeChile(instante: Date): { dia: number; mes: number; ordinal: number } {
-  const partes = new Intl.DateTimeFormat('es-CL', {
-    timeZone: 'America/Santiago',
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
-  }).formatToParts(instante);
-  const valor = (tipo: string) => Number(partes.find((p) => p.type === tipo)?.value);
-  const [anio, mes, dia] = [valor('year'), valor('month'), valor('day')];
-  return { dia, mes, ordinal: Math.round(Date.UTC(anio, mes - 1, dia) / 86_400_000) };
-}
-
 /**
- * El cierre de una licitación en palabras, contado en días de calendario de
- * Chile: «Cierra hoy», «Cierra mañana», «Cierra en 4 días», «Cierra el 30 oct»
- * o «Cerró el 12 oct». Antes la tarjeta decía «1d», que no decía si era plazo o
- * antigüedad. `urgente` (hoy o mañana) es lo que se pinta en rojo.
+ * El cierre de una licitación en palabras: `textoCierre` (`lib/horaChile.ts`), la
+ * regla de todo el sitio —«Cierra hoy a las 18:00», «Cierra mañana…», «Cierra el 30
+ * oct a las 15:00», «Cerró el 12 oct»—. Antes la tarjeta decía «1d», que no decía si
+ * era plazo o antigüedad. `urgente` (hoy o mañana) es lo que se pinta en rojo.
  */
 export function cierreEnPalabras(
   fechaCierre: string | null | undefined,
   ahora: Date = new Date(),
 ): { texto: string; urgente: boolean } | null {
-  if (!fechaCierre) return null;
-  const cierre = new Date(fechaCierre);
-  if (Number.isNaN(cierre.getTime())) return null;
-  const c = diaDeChile(cierre);
-  const fecha = `${c.dia} ${MESES_CORTOS[c.mes - 1]}`;
-  if (cierre.getTime() <= ahora.getTime()) return { texto: `Cerró el ${fecha}`, urgente: false };
-  const dias = c.ordinal - diaDeChile(ahora).ordinal;
-  if (dias <= 0) return { texto: 'Cierra hoy', urgente: true };
-  if (dias === 1) return { texto: 'Cierra mañana', urgente: true };
-  if (dias <= 7) return { texto: `Cierra en ${dias} días`, urgente: false };
-  return { texto: `Cierra el ${fecha}`, urgente: false };
+  return textoCierre(fechaCierre, ahora);
 }

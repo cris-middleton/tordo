@@ -91,15 +91,43 @@ export function fechaLargaDeChile(iso: string | null | undefined, conHora = fals
   return conHora && p.conHora ? `${fecha}, ${dosCifras(p.hora)}:${dosCifras(p.minuto)}` : fecha;
 }
 
+/** El día de calendario de unas partes, como número comparable (días desde 1970). */
+const ordinal = (p: { anio: number; mes: number; dia: number }) => Math.round(Date.UTC(p.anio, p.mes - 1, p.dia) / 86_400_000);
+
 /**
- * «Cierra el 22 oct a las 18:00». Sin «hoy» ni «en 3 h», a propósito: lo usa
- * lo que se sirve desde caché (la portada, media hora o más), donde una cuenta
- * atrás o un «hoy» envejecen sin que la página lo sepa.
+ * **El cierre en palabras, con una sola regla para todo el sitio** (crítica del
+ * 21-10: convivían «Cierra el 28 oct a las 12:00», «Cierra en 6 días», «Cierra el 2
+ * nov 2026» y «Cierra el 2 nov» para lo mismo).
+ * - **Con `ahora`** —lo que se pinta fresco: las listas del navegador y `/buscar`—,
+ *   en días de calendario de Chile: «Cierra hoy a las 18:00», «Cierra mañana a las
+ *   12:00», «Cierra el 28 oct a las 12:00» o «Cerró el 12 oct». `urgente` es hoy o
+ *   mañana (lo que se pinta en rojo).
+ * - **Sin `ahora`** —lo que se sirve desde caché: la portada, media hora o más—,
+ *   siempre la fecha: un «hoy» envejece sin que la página lo sepa.
+ * La hora va cuando el dato la trae; el año, sólo si no es el de `ahora`.
  */
-export function cierreFijo(iso: string | null | undefined): string | null {
+export function textoCierre(iso: string | null | undefined, ahora?: Date): { texto: string; urgente: boolean } | null {
   const p = leer(iso);
-  if (!p || !p.conHora) return null;
-  return `Cierra el ${p.dia} ${MESES_CORTOS[p.mes - 1]} a las ${dosCifras(p.hora)}:${dosCifras(p.minuto)}`;
+  if (!p) return null;
+  const hora = p.conHora ? ` a las ${dosCifras(p.hora)}:${dosCifras(p.minuto)}` : '';
+  const hoy = ahora ? partesDeChile(ahora) : null;
+  const anio = hoy && hoy.anio !== p.anio ? ` ${p.anio}` : '';
+  const fecha = `${p.dia} ${MESES_CORTOS[p.mes - 1]}${anio}`;
+  if (!ahora || !hoy) return { texto: `Cierra el ${fecha}${hora}`, urgente: false };
+  const instante = typeof iso === 'string' && !SOLO_FECHA.test(iso) ? Date.parse(iso) : Number.NaN;
+  const cerro = Number.isFinite(instante) ? instante <= ahora.getTime() : ordinal(p) < ordinal(hoy);
+  if (cerro) return { texto: `Cerró el ${fecha}`, urgente: false };
+  const dias = ordinal(p) - ordinal(hoy);
+  if (dias <= 0) return { texto: `Cierra hoy${hora}`, urgente: true };
+  if (dias === 1) return { texto: `Cierra mañana${hora}`, urgente: true };
+  return { texto: `Cierra el ${fecha}${hora}`, urgente: false };
+}
+
+/** «Cierra el 22 oct a las 18:00»: `textoCierre` sin `ahora`, para lo que se sirve desde caché. */
+export function cierreFijo(iso: string | null | undefined): string | null {
+  // Sin hora no se dice: «Cierra el 22 oct» en caché se lee como «a medianoche».
+  if (!leer(iso)?.conHora) return null;
+  return textoCierre(iso)?.texto ?? null;
 }
 
 /**

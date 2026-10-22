@@ -41,3 +41,18 @@ export function textoVariacion(predictibilidad?: string | null): string | null {
       return null;
   }
 }
+
+/**
+ * Cuánto se separan los dos extremos de la mitad de las compras, con un número:
+ * «De un extremo al otro, 1,9 veces». Reemplaza a «Precios algo distintos entre
+ * sí» bajo la mitad de las compras (crítica del 21-10: un adjetivo donde cabe la
+ * cifra). `null` si no hay rango que medir (p25 = p75 al escribirlos, o falta uno).
+ */
+export function textoDiferencia(p25: number | null | undefined, p75: number | null | undefined): string | null {
+  if (p25 == null || p75 == null || !(p25 > 0) || !(p75 > p25)) return null;
+  if (p75 / p25 < 1.1) return 'Casi el mismo precio';
+  const veces = Math.round((p75 / p25) * 10) / 10;
+  if (veces === 2) return 'De un extremo al otro, el doble';
+  if (veces === 3) return 'De un extremo al otro, el triple';
+  return `De un extremo al otro, ${veces.toLocaleString('es-CL')} veces`;
+}

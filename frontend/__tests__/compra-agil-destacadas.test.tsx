@@ -121,7 +121,7 @@ describe('la página', () => {
     // El conteo de cotizaciones está apagado (G1 cerrada: no se refresca): no se dice.
     expect(within(item).queryByText('1 cotización hasta ahora')).not.toBeInTheDocument();
     expect(within(item).getByText('Su unidad de compra: 120 órdenes de Compra Ágil en 6 meses')).toBeInTheDocument();
-    expect(within(item).getByText('Cierra en 20 h')).toBeInTheDocument();
+    expect(within(item).getByText(/^(Cierra mañana a las 09:00|Cerró el 13 oct)$/)).toBeInTheDocument();
     expect(within(item).getByText(/La mitad de sus órdenes va de \$400\.000 a \$1,5 millones/)).toBeInTheDocument();
     // Rediseño §6.7: ni «puntaje N/100» ni «X de Y».
     expect(item.textContent).not.toMatch(/puntaje|\/100/i);
@@ -159,7 +159,7 @@ describe('la página', () => {
   it('la descripción no promete «pocas cotizaciones» ni «adjudica lo que publica»', () => {
     expect(DESCRIPCION_DESTACADAS).not.toMatch(/cotiz|adjudica|publica/i);
     // Dice que el orden usa esas tres cosas y ninguna otra.
-    expect(DESCRIPCION_DESTACADAS).toMatch(/^Ordenadas por tres cosas: .* Nada más\.$/);
+    expect(DESCRIPCION_DESTACADAS).toMatch(/^Ordenadas por tres cosas: .*preparar la oferta\.$/);
     // «Buen monto» juzga; «el monto» sólo dice lo que el orden usa.
     expect(DESCRIPCION_DESTACADAS).toMatch(/el monto/);
     expect(DESCRIPCION_DESTACADAS).not.toMatch(/buen monto/);
@@ -221,7 +221,7 @@ describe('la página', () => {
     const item = screen.getByRole('article');
     expect(item.textContent).not.toMatch(/historial|unidad de compra|órdenes|la mitad de sus/i);
     // Lo demás sigue en pie: el tiempo y los enlaces.
-    expect(within(item).getByText('Cierra en 20 h')).toBeInTheDocument();
+    expect(within(item).getByText(/^(Cierra mañana a las 09:00|Cerró el 13 oct)$/)).toBeInTheDocument();
     expect(within(item).getByRole('link', { name: /mercado público/i })).toBeInTheDocument();
   });
 

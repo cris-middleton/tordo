@@ -30,6 +30,7 @@ import Home, { metadata, revalidate } from '@/app/page';
 import { descripcionDestacadas, TITULO_DESTACADAS } from '@/lib/compraAgil';
 import { urlCatalogoAbiertas } from '@/lib/filtrosCatalogo';
 import { EJEMPLOS_EN_PORTADA } from '@/lib/buscar';
+import { PRODUCTOS_ESCALERA } from '@/lib/escaleraPrecios';
 import { notaDeLaPortada, PRODUCTO_PORTADA } from '@/lib/lecturasPortada';
 import { pedirMercadoPortada } from '@/lib/publicoServidor';
 import { leerNotas, rutaNota } from '@/lib/notas';
@@ -216,10 +217,25 @@ const sinRed: Respuesta = async () => Promise.reject(new TypeError('fetch failed
 
 let pedidas: { url: string; init: RequestInit }[] = [];
 
-type Piezas = { destacadas?: Respuesta; resumen?: Respuesta; sectores?: Respuesta; mercado?: Respuesta; producto?: Respuesta };
+type Piezas = {
+  destacadas?: Respuesta;
+  resumen?: Respuesta;
+  sectores?: Respuesta;
+  mercado?: Respuesta;
+  producto?: Respuesta;
+  /** Las otras fichas de la escalera de precios, por slug (`PRODUCTOS_ESCALERA`). Sin ellas, la lectura de un producto. */
+  escalera?: (slug: string) => Promise<Response>;
+};
 
 /** Cada pieza con su respuesta; lo que no se diga, caído. */
-function simularBackend({ destacadas = caido, resumen = caido, sectores = caido, mercado = caido, producto = caido }: Piezas) {
+function simularBackend({
+  destacadas = caido,
+  resumen = caido,
+  sectores = caido,
+  mercado = caido,
+  producto = caido,
+  escalera = () => caido(),
+}: Piezas) {
   pedidas = [];
   vi.stubGlobal(
     'fetch',
@@ -229,7 +245,8 @@ function simularBackend({ destacadas = caido, resumen = caido, sectores = caido,
       if (url.includes('/compra-agil/destacadas')) return destacadas();
       if (url.endsWith('/bi/sector')) return sectores();
       if (url.endsWith('/publico/mercado')) return mercado();
-      if (url.includes('/publico/productos/')) return producto();
+      if (url.endsWith(`/publico/productos/${PRODUCTO_PORTADA.slug}`)) return producto();
+      if (url.includes('/publico/productos/')) return escalera(decodeURIComponent(url.split('/publico/productos/')[1]));
       return new Response('{}', { status: 404 });
     }),
   );
@@ -272,17 +289,20 @@ afterEach(() => {
 });
 
 describe('lo que la portada pide al backend', () => {
-  it('las cinco piezas, como renderizado del servidor: lo vivo media hora, analytics una semana', async () => {
+  it('las piezas, como renderizado del servidor: lo vivo media hora, analytics una semana', async () => {
     todo();
     render(await Home());
     const cache = Object.fromEntries(pedidas.map((p) => [p.url.replace(BACKEND, ''), p.init.next]));
+    const semana = { revalidate: 604800, tags: ['analytics'] };
     expect(cache).toEqual({
-      '/api/v1/compra-agil/destacadas?limite=5': { revalidate: 1800, tags: ['compra-agil'] },
+      '/api/v1/compra-agil/destacadas?limite=15': { revalidate: 1800, tags: ['compra-agil'] },
       '/api/v1/publico/portada': { revalidate: 1800, tags: ['compra-agil'] },
-      '/api/v1/bi/sector': { revalidate: 604800, tags: ['analytics'] },
-      '/api/v1/publico/mercado': { revalidate: 604800, tags: ['analytics'] },
-      [`/api/v1/publico/productos/${encodeURIComponent(PRODUCTO_PORTADA.slug)}`]: { revalidate: 604800, tags: ['analytics'] },
+      '/api/v1/bi/sector': semana,
+      '/api/v1/publico/mercado': semana,
+      // El producto de la portada y las demás fichas de la escalera; la del producto, una sola vez.
+      ...Object.fromEntries(PRODUCTOS_ESCALERA.map((p) => [`/api/v1/publico/productos/${encodeURIComponent(p.slug)}`, semana])),
     });
+    expect(pedidas.filter((p) => p.url.endsWith(`/publico/productos/${PRODUCTO_PORTADA.slug}`))).toHaveLength(1);
     for (const { init } of pedidas) {
       const cabeceras = new Headers(init.headers);
       expect(cabeceras.get('X-Tordo-Proxy')).toBe(SECRETO);
@@ -817,6 +837,40 @@ describe('el gráfico grande: cuánto compra el Estado, mes a mes', () => {
     expect(screen.getByRole('searchbox', { name: CAMPO })).toBeInTheDocument();
     expect(conclusiones()).toContain(CONCLUSION_PRECIO);
     expect(container.textContent).not.toMatch(/NaN|undefined|Infinity/);
+  });
+});
+
+describe('la escalera de precios', () => {
+  /** Una ficha por slug, con su unidad y una banda que se mueve 1,3 veces; la impresora es `PRODUCTO` (1,6 veces). */
+  const ficha = (slug: string): ProductoPublico => {
+    const i = PRODUCTOS_ESCALERA.findIndex((p) => p.slug === slug);
+    const p = PRODUCTOS_ESCALERA[i];
+    const base = 100 * 10 ** i;
+    return {
+      ...PRODUCTO,
+      slug,
+      unidades: [
+        { ...PRODUCTO.unidades[0], unidad: p.unidad, p25: base, p50: base * 1.2, p75: base * 1.3, n: 50, compradores: 30 },
+      ],
+    };
+  };
+  const conEscalera = () => simularBackend({ ...TODO, escalera: async (slug) => ok(ficha(slug))() });
+
+  it('con sus fichas, va en lugar de la lectura de un producto: una fila por cosa y la que más varía en la conclusión', async () => {
+    conEscalera();
+    const { container } = render(await Home());
+    expect(conclusiones()[0]).toBe(
+      'La impresora multifuncional es lo que más varía: en la mitad de sus compras, el precio más alto es 1,6 veces el más bajo.',
+    );
+    expect(container.querySelectorAll('[data-fila]')).toHaveLength(PRODUCTOS_ESCALERA.length);
+    expect(screen.getByRole('link', { name: 'Lápiz pasta azul' })).toHaveAttribute('href', rutaProducto('azul-lapiz-pasta'));
+    expect(container).toHaveTextContent('escala logarítmica');
+  });
+
+  it('sin las otras fichas, vuelve la lectura de un producto', async () => {
+    todo();
+    render(await Home());
+    expect(conclusiones()[0]).toBe(CONCLUSION_PRECIO);
   });
 });
 

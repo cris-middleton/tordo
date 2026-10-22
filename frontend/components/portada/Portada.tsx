@@ -1,5 +1,6 @@
 import { Contenedor } from '@/components/cascara/Contenedor';
 import { CLASE_SECCION } from '@/components/cascara/Seccion';
+import { lecturaEscalera } from '@/lib/escaleraPrecios';
 import { lecturaConcentracion, lecturaGasto } from '@/lib/lecturasMercado';
 import { lecturaRed } from '@/lib/redPortada';
 import { lecturaCierres, lecturaNota, lecturaPrecio, notaDeLaPortada, type Lecturas } from '@/lib/lecturasPortada';
@@ -7,6 +8,9 @@ import type { Nota } from '@/lib/notas';
 import {
   actualizadoEnPalabras,
   baseDeLaFicha,
+  DESTACADAS_EN_PORTADA,
+  POR_COMPRADOR_EN_PORTADA,
+  variadas,
   franjaDeLaPortada,
   tiraDeLaPortada,
   VIGENTE,
@@ -24,7 +28,7 @@ import { FranjaPortada } from './FranjaPortada';
 import { GastoPortada } from './GastoPortada';
 import { LecturasPortada } from './LecturasPortada';
 import { NotasPortada } from './NotasPortada';
-import { RedPortada } from './RedPortada';
+import { ComoLeerLaRed, RedPortada } from './RedPortada';
 
 /**
  * La portada. **Componente de servidor**; las únicas islas cliente son los
@@ -51,6 +55,7 @@ export function Portada({
   sectores,
   mercado,
   producto,
+  escalera: fichasEscalera = [],
   notas,
   repositorio,
   autor,
@@ -66,6 +71,8 @@ export function Portada({
   mercado: MercadoPortada | null;
   /** La ficha de `PRODUCTO_PORTADA` (la lectura de precio), o null. */
   producto: ProductoPublico | null;
+  /** Las fichas de `PRODUCTOS_ESCALERA`, en su orden (`null` la que falló). Sin ellas, la lectura de un producto. */
+  escalera?: (ProductoPublico | null)[];
   /** Las notas de datos, de la más nueva a la más vieja (`leerNotas()`). */
   notas: Nota[];
   /** `urlRepositorio()`: «Código» y «El script» sólo con el repositorio publicado. */
@@ -90,6 +97,7 @@ export function Portada({
   const red = lecturaRed(mercado, repositorio);
   const lecturas: Lecturas = {
     precio: lecturaPrecio(producto, repositorio),
+    escalera: lecturaEscalera(fichasEscalera, repositorio),
     concentracion: lecturaConcentracion(mercado, repositorio),
     // «Cierran hoy o mañana» es relativo al día del conteo: con uno atrasado o de ayer, mentiría.
     cierres: vigencia.alDia && vigencia.mismoDia ? lecturaCierres(resumen, repositorio) : null,
@@ -110,13 +118,17 @@ export function Portada({
   ) : gasto ? (
     <GastoPortada lectura={gasto} className="mt-10 lg:mt-1" />
   ) : null;
+  // Cinco, con como mucho dos de un mismo comprador (se piden más para poder elegir).
+  const hoyVariadas = hoy ? { ...hoy, items: variadas(hoy.items, DESTACADAS_EN_PORTADA, POR_COMPRADOR_EN_PORTADA) } : null;
 
   return (
     <Contenedor pagina>
       <div className={grande ? 'grid lg:grid-cols-[5fr_7fr] lg:gap-x-12' : 'max-w-2xl'}>
-        <div className="min-w-0">
+        <div className="flex min-w-0 flex-col">
           <BuscadorPortada />
           {tira && <AbiertasAhora tira={tira} className="mt-8" />}
+          {/* Desde `lg`, al pie de la columna y a la altura de la leyenda de la red: cómo se lee. */}
+          {red && <ComoLeerLaRed className="mt-auto hidden pt-10 lg:block" />}
         </div>
         {grande}
       </div>
@@ -131,8 +143,8 @@ export function Portada({
           <FranjaPortada franja={franja} />
         </div>
       )}
-      {hoy && horaHoy && (
-        <BloqueHoy datos={hoy} actualizado={horaHoy} horaEnLaFranja={franja !== null} />
+      {hoyVariadas && horaHoy && (
+        <BloqueHoy datos={hoyVariadas} actualizado={horaHoy} horaEnLaFranja={franja !== null} />
       )}
       <NotasPortada notas={notas} autor={autor} rol={rol} urlAutor={urlAutor} />
     </Contenedor>

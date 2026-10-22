@@ -32,6 +32,7 @@ import { describe, expect, it } from 'vitest';
 import { BarrasHorizontales } from '@/components/graficos/BarrasHorizontales';
 import { Columnas } from '@/components/graficos/Columnas';
 import { Concentracion } from '@/components/graficos/Concentracion';
+import { EscaleraPrecios } from '@/components/graficos/EscaleraPrecios';
 import { GastoMensual } from '@/components/graficos/GastoMensual';
 import { RedProveedores } from '@/components/graficos/RedProveedores';
 import { AntesDespues } from '@/components/notas/AntesDespues';
@@ -123,6 +124,17 @@ const DATOS_RED = graficoRed({
   a_la_mitad_o_mas: 1,
 })!;
 
+const DATOS_ESCALERA = {
+  filas: [
+    { slug: 'a', nombre: 'Lápiz', href: '/productos/a', p25: 83, p50: 100, p75: 134, rango: '$83 a $134', mediana: '$100', base: '293 compras', veces: 1.6, desde: 10, hasta: 20, medio: 15, destacada: true },
+    { slug: 'b', nombre: 'Cloro', href: '/productos/b', p25: 791, p50: 955, p75: 1200, rango: '$791 a $1.200', mediana: '$955', base: '662 compras', veces: 1.5, desde: 40, hasta: 50, medio: 45, destacada: false },
+  ],
+  marcas: [
+    { texto: '$10', x: 0 },
+    { texto: '$10 mil', x: 100 },
+  ],
+};
+
 interface Propio {
   que: string;
   /** Un render con datos de verdad, para las reglas que se miran en el DOM. */
@@ -176,6 +188,11 @@ const PROPIOS: Record<string, Propio> = {
   'components/graficos/RedProveedores.tsx': {
     que: 'la red de la portada: compradores en un anillo con el color de su sector, proveedores adentro, globo y tabla sr-only',
     ejemplo: () => <RedProveedores datos={DATOS_RED} accesible={[{ nombre: 'Proveedor uno', vecinos: 9, texto: '$50 mil millones' }]} />,
+  },
+  'components/graficos/EscaleraPrecios.tsx': {
+    que: 'la escalera de precios de la portada: varias cosas comunes en filas sobre una escala logarítmica, con su rango escrito',
+    ejemplo: () => <EscaleraPrecios datos={DATOS_ESCALERA} />,
+    escalaLog: true,
   },
   'components/graficos/Columnas.tsx': {
     que: 'columnas por mes o por año: estacionalidad y serie anual en /mercado',
