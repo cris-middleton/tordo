@@ -27,6 +27,9 @@ from .data_loader import iter_oc_parquets
 
 logger = logging.getLogger(__name__)
 
+#: Años en que un mes tiene que estar en los datos para poder ser un pico.
+MIN_ANIOS_PICO = 2
+
 
 def build_monthly_aggregates() -> pl.DataFrame:
     """
@@ -40,7 +43,6 @@ def build_monthly_aggregates() -> pl.DataFrame:
         "Codigo",
         "FechaCreacion",
         "CodigoOrganismoPublico",
-        "OrganismoPublico",
         "RubroN2",
         "MontoTotalOC_PesosChilenos",
     ]
@@ -79,9 +81,8 @@ def build_monthly_aggregates() -> pl.DataFrame:
         else:
             monto_expr = pl.lit(0.0)
 
-        agg = parsed.group_by(
-            ["CodigoOrganismoPublico", "OrganismoPublico", "RubroN2", "anio", "mes"]
-        ).agg(
+        # La clave es el CÓDIGO del organismo (`identidad.py`); el nombre no se usa.
+        agg = parsed.group_by(["CodigoOrganismoPublico", "RubroN2", "anio", "mes"]).agg(
             [
                 pl.col("Codigo").n_unique().alias("n_compras"),
                 monto_expr.sum().alias("monto_total"),
@@ -97,9 +98,7 @@ def build_monthly_aggregates() -> pl.DataFrame:
 
     # Combinar y re-agregar (por si un organismo-rubro aparece en múltiples archivos del mismo mes)
     combined = pl.concat(agg_frames, how="diagonal_relaxed")
-    result = combined.group_by(
-        ["CodigoOrganismoPublico", "OrganismoPublico", "RubroN2", "anio", "mes"]
-    ).agg(
+    result = combined.group_by(["CodigoOrganismoPublico", "RubroN2", "anio", "mes"]).agg(
         [
             pl.col("n_compras").sum(),
             pl.col("monto_total").sum(),
@@ -114,8 +113,13 @@ def detect_seasonality_patterns(monthly_agg: pl.DataFrame) -> pl.DataFrame:
     Paso 2: Para cada (organismo, rubro), calcula:
     - prob_mes: proporción de compras en cada mes (1-12)
     - n_anios_activo: en cuántos años distintos compraron ese rubro
-    - consistencia: qué fracción de años tiene compras en ese mes
-    - z_score: desviación respecto al promedio mensual (detecta picos)
+    - consistencia: qué fracción de los años activos en que ese mes está en
+      los datos tiene compras en ese mes
+    - z_score: desviación respecto al promedio mensual (detecta picos), sobre
+      todos los meses de calendario de la ventana, con cero en los que no compró
+
+    Sólo se escriben los meses CON compras: un mes en cero nunca es un pico, y
+    escribirlos todos agrandaría la tabla en Postgres.
     """
     logger.info("Detectando patrones de estacionalidad...")
 
@@ -139,43 +143,78 @@ def detect_seasonality_patterns(monthly_agg: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    # Join para obtener totales y filtrar
-    patterns = monthly_dist.join(
-        totals, on=["CodigoOrganismoPublico", "RubroN2"], how="inner"
-    ).with_columns(
-        [
-            (pl.col("compras_mes") / pl.col("total_compras")).alias("prob_mes"),
-            (pl.col("anios_con_compra_en_mes") / pl.col("n_anios_activo")).alias("consistencia"),
-        ]
+    # **Los meses sin compras cuentan, y la consistencia mira sólo los años en
+    # que ese mes está en los datos.** La tabla trae sólo los meses CON compras,
+    # y el z-score se calculaba sobre ellos: un comprador que compra sólo en
+    # marzo tenía una fila, desviación nula y z = 0, así que la estacionalidad
+    # más marcada no salía nunca como pico (y uno que compra en dos meses no
+    # pasaba de z = 0,71). Ahora la media y la desviación son las de todos los
+    # meses de calendario que la ventana cubre, con cero en los que no compró.
+    # Y la ventana de 36 meses abarca cuatro años de calendario con tres de cada
+    # mes: dividir por los años activos dejaba la consistencia en 3/4 como
+    # mucho. Se divide por los años activos en que ese mes está en los datos.
+    observados = monthly_agg.select(["anio", "mes"]).unique()
+    n_meses = observados["mes"].n_unique()
+    observables = (
+        monthly_agg.select(["CodigoOrganismoPublico", "RubroN2", "anio"])
+        .unique()
+        .join(
+            totals.select(["CodigoOrganismoPublico", "RubroN2"]),
+            on=["CodigoOrganismoPublico", "RubroN2"],
+            how="semi",
+        )
+        .join(observados, on="anio")
+        .group_by(["CodigoOrganismoPublico", "RubroN2", "mes"])
+        .agg(pl.len().alias("_anios_observables"))
     )
 
-    # Calcular z-score mensual por grupo (qué tan por encima del promedio está cada mes)
-    avg_monthly = patterns.group_by(["CodigoOrganismoPublico", "RubroN2"]).agg(
-        [
-            pl.col("prob_mes").mean().alias("prob_avg"),
-            pl.col("prob_mes").std().alias("prob_std"),
-        ]
+    claves = ["CodigoOrganismoPublico", "RubroN2"]
+    patterns = (
+        monthly_dist.join(totals, on=claves, how="inner")
+        .join(observables, on=[*claves, "mes"], how="left")
+        .with_columns(
+            [
+                (pl.col("compras_mes") / pl.col("total_compras")).alias("prob_mes"),
+                (pl.col("anios_con_compra_en_mes") / pl.col("_anios_observables")).alias(
+                    "consistencia"
+                ),
+            ]
+        )
+    )
+
+    # La media de `prob_mes` sobre los `n_meses` es 1/n_meses (suman 1); la
+    # desviación muestral, con los meses en cero incluidos.
+    media = 1.0 / n_meses
+    dispersion = patterns.group_by(claves).agg(
+        (
+            ((pl.col("prob_mes").pow(2).sum() - n_meses * media**2) / max(n_meses - 1, 1))
+            .clip(lower_bound=0)
+            .sqrt()
+        ).alias("prob_std")
     )
 
     patterns = (
-        patterns.join(avg_monthly, on=["CodigoOrganismoPublico", "RubroN2"], how="left")
+        patterns.join(dispersion, on=claves, how="left")
         .with_columns(
             [
-                pl.when(pl.col("prob_std") > 0)
-                .then((pl.col("prob_mes") - pl.col("prob_avg")) / pl.col("prob_std"))
+                pl.when(pl.col("prob_std") > 1e-12)
+                .then((pl.col("prob_mes") - media) / pl.col("prob_std"))
                 .otherwise(0.0)
                 .alias("z_score"),
             ]
         )
         .with_columns(
             [
-                # Flag meses con pico significativo (z > 1.0 y consistencia > 50%)
-                ((pl.col("z_score") > 1.0) & (pl.col("consistencia") > 0.5)).alias(
-                    "es_pico_estacional"
-                ),
+                # Pico: z > 1, consistencia > 50 % y el mes visto en al menos
+                # dos años (con uno, toda compra es «consistente»).
+                (
+                    (pl.col("z_score") > 1.0)
+                    & (pl.col("consistencia") > 0.5)
+                    & (pl.col("_anios_observables") >= MIN_ANIOS_PICO)
+                ).alias("es_pico_estacional"),
             ]
         )
-        .drop(["prob_avg", "prob_std"])
+        .drop(["prob_std", "_anios_observables"])
         .sort(["CodigoOrganismoPublico", "RubroN2", "mes"])
     )
 
