@@ -85,6 +85,30 @@ def comienza_palabra(columna: Any, termino_sql: Any) -> ColumnElement:
     return columna.op("~*", is_comparison=True)(patron(termino_sql).self_group())
 
 
+def comienza_alguna(columna: Any, otras: list[str], termino_sql: Any = None) -> ColumnElement:
+    r"""`columna ~* '\m(?:<término escapado>|otra|…)'`: el término o alguna otra
+    palabra al comienzo de una palabra, en UNA regex.
+
+    `otras` tienen que ser de `[a-z]` (las de `sinonimos.alternativas`): van tal
+    cual en la alternancia, sin escapar. El término, como en `patron`, se escapa
+    en Postgres; sin él (`None`) sólo van las otras.
+    """
+    for otra in otras:
+        if not _PALABRA.fullmatch(otra):
+            raise ValueError(f"alternativa con algo más que [a-z]: {otra!r}")
+    alternancia = "|".join(otras)
+    if termino_sql is None:
+        return columna.op("~*", is_comparison=True)(
+            literal(f"{COMIENZO_DE_PALABRA}(?:{alternancia})", String)
+        )
+    patron_sql = (
+        literal(COMIENZO_DE_PALABRA + "(?:", String)
+        + func.regexp_replace(termino_sql, NO_ALFANUMERICO, ESCAPE, "g")
+        + literal(f"|{alternancia})", String)
+    )
+    return columna.op("~*", is_comparison=True)(patron_sql.self_group())
+
+
 #: Una palabra que se corrige: sólo letras. El stemmer sólo confunde palabras
 #: («mesa» con «meses»); con dígitos o signos («covid-19», «2.500», «1/2») el
 #: parser de Postgres corta distinto que Python, y exigirlas aquí las dejaba sin

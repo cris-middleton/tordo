@@ -13,6 +13,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 import pytest_asyncio
 from sqlalchemy import select
+from sqlalchemy.dialects import postgresql
 
 from app.api.tenders import list_tenders
 from app.models.licitacion import Licitacion
@@ -139,9 +140,20 @@ async def test_mantenimiento_encuentra_mantencion(async_db, catalogo):
 
 
 @pytest.mark.asyncio
-async def test_pc_encuentra_computadores(async_db, catalogo):
-    """Y sigue encontrando lo que empieza por «pc», como antes."""
-    assert await _buscar(async_db, "pc") == {"A-1", "A-2", "A-6"}
+async def test_pc_encuentra_computadores_y_no_pcr(async_db, catalogo):
+    """Una clave corta no va como comienzo de palabra: sólo traía «PCR», y sin
+    trigramas le quitaba el índice a la alternancia entera."""
+    assert await _buscar(async_db, "pc") == {"A-1", "A-2"}
+
+
+@pytest.mark.parametrize("termino", ["lapiz", "computadora", "pc", "mantenimiento"])
+def test_las_alternativas_van_en_una_sola_consulta_por_via(termino):
+    """Un `OR` de una consulta completa por alternativa recorría la tabla: «lapiz»
+    pasaba de 7 a 155 ms con 66.000 licitaciones. Ahora son dos `tsquery` y una
+    regex, como una palabra sin alternativas."""
+    sql = str(coincide_termino(termino).compile(dialect=postgresql.dialect()))
+    assert sql.count("~*") == 1, sql
+    assert sql.count("@@") == 2, sql
 
 
 @pytest.mark.asyncio

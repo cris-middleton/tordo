@@ -56,21 +56,51 @@ def coincide_termino(termino: str):
 
     El término coincide si coincide él **o alguna de sus alternativas**
     (`app/utils/sinonimos.alternativas`): «lápiz» también encuentra «lápices»,
-    «lapicera» y «bolígrafo»; «mantenimiento», «mantención». Cada una se mira
-    con `_coincide_palabra`. Un término con dígitos o signos («covid-19») no
-    tiene alternativas.
+    «lapicera» y «bolígrafo»; «mantenimiento», «mantención». Un término con
+    dígitos o signos («covid-19») no tiene alternativas y va por
+    `_coincide_palabra`.
+
+    **Las alternativas van juntas en cada vía, no una consulta por cada una**:
+    un solo `tsquery` con todas (`||`), un solo `tsquery` de comienzos de
+    palabra y una sola regex con alternancia, `\\m(?:lapiz|lapices|…)`, que el
+    índice de trigramas sigue sirviendo. Con un `OR` de cinco ramas completas el
+    planificador recorría la tabla: «lapiz» pasaba de 7 a 155 ms sobre 66.000
+    licitaciones (medido el 2026-10-22).
 
     Las alternativas sólo amplían lo que se encuentra. En el orden por
     relevancia puntúa el término escrito (`puntuacion_relevancia`), así que lo
     que dice «lápiz» sale antes que lo que sólo dice «bolígrafo».
     """
     palabras = busqueda.palabras(termino)
-    otras = (
-        [a for a in sinonimos.alternativas(palabras[0]) if a != palabras[0]]
-        if len(palabras) == 1
-        else []
+    if len(palabras) != 1:
+        return _coincide_palabra(termino)
+    palabra = palabras[0]
+    otras = [a for a in sinonimos.alternativas(palabra) if a != palabra]
+    if not otras:
+        return _coincide_palabra(termino)
+
+    por_raiz = func.plainto_tsquery("spanish", func.inmutable_unaccent(termino))
+    for otra in otras:
+        # Las alternativas son `[a-z]`: no hay tildes que quitar.
+        por_raiz = por_raiz.op("||")(func.plainto_tsquery("spanish", otra))
+    comienzos = " | ".join(busqueda.consulta_prefijos(p) for p in (palabra, *otras))
+    por_palabras = and_(
+        Licitacion.busqueda.op("@@")(por_raiz),
+        or_(
+            Licitacion.busqueda_palabras.op("@@")(func.to_tsquery("simple", comienzos)),
+            func.numnode(func.plainto_tsquery("spanish", palabra)) == 0,
+        ),
     )
-    return or_(*(_coincide_palabra(t) for t in (termino, *otras)))
+    # Una clave corta («pc») no va como fragmento: sin trigramas que sacarle, la
+    # alternancia entera perdía el índice (754 ms), y como comienzo de palabra
+    # sólo añadía «PCR». La palabra entera la sigue encontrando `por_palabras`.
+    escrito = (
+        None
+        if palabra in sinonimos.SOLO_CLAVE
+        else func.inmutable_unaccent(busqueda.fragmento(termino))
+    )
+    por_fragmento = busqueda.comienza_alguna(Licitacion.nombre_norm, otras, escrito)
+    return or_(por_palabras, por_fragmento)
 
 
 def _coincide_palabra(termino: str):
