@@ -299,12 +299,10 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
             {s.nombre}
           </li>
         ))}
-        {nodos.some((d) => d.amplio) && (
-          <li className="flex items-center gap-1.5">
-            <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-text" />
-            Le vende a {datos.mitad} organismos o más
-          </li>
-        )}
+        <li className="flex items-center gap-1.5">
+          <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-text" />
+          Le vende a {datos.mitad} organismos o más
+        </li>
         <li className="flex items-center gap-1.5">
           <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-subtle" />
           Otros proveedores
