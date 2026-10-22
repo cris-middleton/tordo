@@ -23,3 +23,19 @@ export function RedPortada({ lectura, className = '' }: { lectura: LecturaRed; c
     </section>
   );
 }
+
+/** Lo que se lee en la red, en una frase por cosa. Va al lado, no encima: la conclusión ya está arriba. */
+export const COMO_LEER_LA_RED = [
+  'Cada círculo de color es un organismo, con el color de su sector, y cada punto, un proveedor.',
+  'Los del centro le venden a muchos; los del borde, a uno solo.',
+  'Pasa el mouse por uno para ver con quién se une.',
+] as const;
+
+export function ComoLeerLaRed({ className = '' }: { className?: string }) {
+  return (
+    <div className={`max-w-[44ch] text-sm leading-relaxed text-muted ${className}`.trim()}>
+      <p className="font-semibold text-text">Cómo leer la red</p>
+      <p className="mt-1">{COMO_LEER_LA_RED.join(' ')}</p>
+    </div>
+  );
+}

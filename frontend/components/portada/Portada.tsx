@@ -28,7 +28,7 @@ import { FranjaPortada } from './FranjaPortada';
 import { GastoPortada } from './GastoPortada';
 import { LecturasPortada } from './LecturasPortada';
 import { NotasPortada } from './NotasPortada';
-import { RedPortada } from './RedPortada';
+import { ComoLeerLaRed, RedPortada } from './RedPortada';
 
 /**
  * La portada. **Componente de servidor**; las únicas islas cliente son los
@@ -124,9 +124,11 @@ export function Portada({
   return (
     <Contenedor pagina>
       <div className={grande ? 'grid lg:grid-cols-[5fr_7fr] lg:gap-x-12' : 'max-w-2xl'}>
-        <div className="min-w-0">
+        <div className="flex min-w-0 flex-col">
           <BuscadorPortada />
           {tira && <AbiertasAhora tira={tira} className="mt-8" />}
+          {/* Desde `lg`, al pie de la columna y a la altura de la leyenda de la red: cómo se lee. */}
+          {red && <ComoLeerLaRed className="mt-auto hidden pt-10 lg:block" />}
         </div>
         {grande}
       </div>
