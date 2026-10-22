@@ -405,3 +405,142 @@ def sql_concentracion_tramos(tabla: str, *, schema: str = SCHEMA) -> str:
         f"FROM {tabla_calificada(tabla, schema)} WHERE {cuota} IS NOT NULL "
         "GROUP BY 1 ORDER BY 1"
     )
+
+
+#: Cómo empiezan el código y el nombre de un proveedor persona natural en las
+#: salidas de analytics: un seudónimo (`etl/analytics/personas.py`). La red de la
+#: portada no los dibuja: un seudónimo no es un nombre que se pueda leer.
+PREFIJO_PERSONA_NATURAL = "PN-"
+
+
+def sql_red_de_compradores(
+    tabla: str,
+    tabla_sectores: str | None,
+    *,
+    con_ventana: bool,
+    schema: str = SCHEMA,
+) -> str:
+    """La red de los compradores más grandes y sus proveedores, en un solo JSON.
+
+    Un recorrido entero de `tabla` (`competitors_by_market`, una fila por
+    comprador, rubro y proveedor) agrupado por comprador: de ahí salen el monto
+    total y los `:n_compradores` compradores de más monto. Lo demás se lee sólo
+    para ellos, por el índice de comprador:
+
+    - `pares`: (comprador, proveedor) sumado sobre los rubros.
+    - `red`: los pares con monto, sin personas naturales, numerados dentro de
+      cada comprador por monto (`puesto`).
+    - Proveedores elegidos: los `:por_comprador` primeros de cada comprador más
+      los `:amplios` que venden a más de esos compradores (empate: monto, código).
+    - `sectores`: el de cada comprador en `tabla_sectores` (`time_series`), el
+      vacío como `SECTOR_SIN_NOMBRE`. Sin esa tabla, todos van a ese sector.
+
+    Todo orden con `LIMIT` o numeración termina en el código, que es único en
+    cada paso (`COLLATE "C"`: no depende de la intercalación de la base). Vuelve
+    una fila con un JSON: unas decenas de nodos y un par de centenares de enlaces.
+    Parámetros: `:n_compradores`, `:por_comprador`, `:amplios` y `:persona` (el
+    patrón `LIKE` de los seudónimos).
+    """
+    t = tabla_calificada(tabla, schema)
+    org, prov, monto = (
+        ident("CodigoOrganismoPublico"),
+        ident("CodigoProveedor"),
+        ident("monto_total"),
+    )
+    sin_nombre = "'" + SECTOR_SIN_NOMBRE.replace("'", "''") + "'"
+    ventana = (
+        f", MIN({ident('ventana_desde')})::text AS ventana_desde, "
+        f"MAX({ident('ventana_hasta')})::text AS ventana_hasta"
+        if con_ventana
+        else ", NULL::text AS ventana_desde, NULL::text AS ventana_hasta"
+    )
+    if tabla_sectores:
+        sectores = (
+            f"SELECT {org} AS codigo, "
+            f"MIN(NULLIF(btrim({ident('sector')}), '')) AS sector "
+            f"FROM {tabla_calificada(tabla_sectores, schema)} "
+            f"WHERE {org} IN (SELECT codigo FROM compradores) GROUP BY 1"
+        )
+    else:
+        sectores = "SELECT NULL::text AS codigo, NULL::text AS sector WHERE FALSE"
+    c = '"C"'
+    return f"""
+WITH por_comprador AS (
+    SELECT {org} AS codigo, COALESCE(SUM({monto}), 0) AS monto{ventana}
+    FROM {t} WHERE {org} IS NOT NULL GROUP BY 1
+),
+compradores AS (
+    SELECT codigo, monto FROM por_comprador
+    ORDER BY monto DESC, codigo COLLATE {c} LIMIT :n_compradores
+),
+pares AS (
+    SELECT {org} AS comprador, {prov} AS proveedor,
+           COALESCE(SUM({monto}), 0) AS monto,
+           MIN({ident("NombreProveedor")}) AS nombre,
+           MIN({ident("OrganismoPublico")}) AS nombre_comprador
+    FROM {t} WHERE {org} IN (SELECT codigo FROM compradores)
+    GROUP BY 1, 2
+),
+red AS (
+    SELECT comprador, proveedor, monto, nombre,
+           row_number() OVER (
+               PARTITION BY comprador ORDER BY monto DESC, proveedor COLLATE {c}
+           ) AS puesto
+    FROM pares
+    WHERE monto > 0 AND proveedor IS NOT NULL
+      AND proveedor NOT LIKE :persona AND COALESCE(nombre, '') NOT LIKE :persona
+),
+por_proveedor AS (
+    SELECT proveedor, MIN(nombre) AS nombre, SUM(monto) AS monto,
+           count(*) AS compradores, MIN(puesto) AS mejor_puesto
+    FROM red GROUP BY 1
+),
+amplios AS (
+    SELECT proveedor FROM por_proveedor
+    ORDER BY compradores DESC, monto DESC, proveedor COLLATE {c} LIMIT :amplios
+),
+seleccion AS (
+    SELECT proveedor FROM por_proveedor WHERE mejor_puesto <= :por_comprador
+    UNION
+    SELECT proveedor FROM amplios
+),
+nombres AS (
+    SELECT comprador AS codigo, MIN(nombre_comprador) AS nombre FROM pares GROUP BY 1
+),
+sectores AS ({sectores})
+SELECT json_build_object(
+    'compradores', (
+        SELECT COALESCE(json_agg(json_build_object(
+            'codigo', k.codigo, 'nombre', n.nombre,
+            'sector', COALESCE(s.sector, {sin_nombre}), 'monto', k.monto
+        ) ORDER BY k.monto DESC, k.codigo COLLATE {c}), '[]'::json)
+        FROM compradores k
+        LEFT JOIN nombres n USING (codigo) LEFT JOIN sectores s USING (codigo)
+    ),
+    'proveedores', (
+        SELECT COALESCE(json_agg(json_build_object(
+            'codigo', p.proveedor, 'nombre', p.nombre,
+            'monto', p.monto, 'compradores', p.compradores
+        ) ORDER BY p.monto DESC, p.proveedor COLLATE {c}), '[]'::json)
+        FROM por_proveedor p JOIN seleccion USING (proveedor)
+    ),
+    'enlaces', (
+        SELECT COALESCE(json_agg(json_build_object(
+            'comprador', r.comprador, 'proveedor', r.proveedor, 'monto', r.monto
+        ) ORDER BY r.monto DESC, r.comprador COLLATE {c}, r.proveedor COLLATE {c}), '[]'::json)
+        FROM red r JOIN seleccion USING (proveedor)
+    ),
+    'monto_total', (SELECT COALESCE(SUM(monto), 0) FROM por_comprador),
+    'monto_compradores', (SELECT COALESCE(SUM(monto), 0) FROM compradores),
+    'proveedores_total', (
+        SELECT count(DISTINCT proveedor) FROM pares WHERE monto > 0 AND proveedor IS NOT NULL
+    ),
+    'a_la_mitad_o_mas', (
+        SELECT count(*) FROM por_proveedor
+        WHERE compradores >= (SELECT (count(*) + 1) / 2 FROM compradores)
+          AND (SELECT count(*) FROM compradores) > 0
+    ),
+    'ventana_desde', (SELECT MIN(ventana_desde) FROM por_comprador),
+    'ventana_hasta', (SELECT MAX(ventana_hasta) FROM por_comprador)
+) AS red
+"""

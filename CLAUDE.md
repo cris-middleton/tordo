@@ -910,13 +910,23 @@ contenedor único (cabecera y pie, con la atribución, son de la cáscara única
   La excepción es `GET /publico/portada`, que no lee analytics: la pide la portada con
   `pedirResumenPortada()` (media hora, etiqueta `compra-agil`, nunca lanza).
 - **`GET /publico/mercado`** (`services/publico/mercado.py`): el gasto mensual por sector
-  (`time_series`) y la concentración de los mercados (`market_concentration`: cuántos con el
+  (`time_series`), la concentración de los mercados (`market_concentration`: cuántos con el
   líder en el 50 % o más, con un solo proveedor, y la cuota del líder en diez tramos con su
-  monto), para la portada. **Se agrega en SQL** (`analytics_sync.gasto_mensual_por_sector` y
-  `concentracion_de_mercados`), nunca en Polars: `time_series` pesa 301 MB en producción. Sin
-  su tabla, cada bloque sale `null`; con `FEATURE_ANALYTICS` apagada, 503 como las fichas. Se
-  guarda 10 min en memoria del proceso, sólo si viene completa. `tests/test_publico_mercado.py`,
-  sobre Postgres.
+  monto) y la **red** (`competitors_by_market`), para la portada. **Se agrega en SQL**
+  (`analytics_sync.gasto_mensual_por_sector`, `concentracion_de_mercados` y
+  `red_de_compradores`), nunca en Polars: `time_series` pesa 301 MB y `competitors_by_market`
+  497 MB en producción. Sin su tabla, cada bloque sale `null`; con `FEATURE_ANALYTICS` apagada,
+  503 como las fichas. Se guarda 10 min en memoria del proceso, sólo si vienen los tres bloques.
+  `tests/test_publico_mercado.py`, sobre Postgres.
+  - **La red**: los `N_COMPRADORES` (30) compradores de más monto, con su sector de
+    `time_series` (sin sector, «Otros»), y como proveedores la unión de los `POR_COMPRADOR` (4)
+    primeros de cada uno y los `AMPLIOS` (12) que venden a más de ellos (empate: monto, código);
+    los enlaces son cada par de esos con monto, sumado sobre los rubros. **Las personas
+    naturales (`PN-…`) no son nodos ni enlaces**, pero cuentan en `monto_total` y
+    `proveedores_total`. Una sola consulta que devuelve el JSON armado: un recorrido entero
+    agrupado por comprador y lo demás por el índice de comprador, sólo para los 30. Medido en
+    local (404.000 filas, 91 MB): **160 ms** en `EXPLAIN ANALYZE`, ~55 KB de respuesta (30
+    compradores, 114 proveedores, 548 enlaces).
 - **Revalidación desde los cron**: `POST /api/revalidar` con `X-Revalidar-Secreto`
   (`REVALIDAR_SECRETO`, servidor, sin valor por defecto: sin él responde 503) y
   `{"etiquetas": ["analytics" | "compra-agil"]}` → `revalidateTag(tag, 'max')`. Lo llama

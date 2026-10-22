@@ -89,6 +89,11 @@ LECTURA_ENTERA_PERMITIDA = {
     # la respuesta completa se guarda 10 min (`publico/mercado.py`).
     ("time_series", "sql:gasto_mensual_por_sector"),
     ("market_concentration", "sql:concentracion_de_mercados"),
+    # La red: un recorrido entero de `competitors_by_market` (4,2 M filas) agrupado
+    # por comprador en SQL; lo demás va por el índice de comprador, sólo para los
+    # 30 de más monto. Vuelve un JSON de unos cientos de nodos y enlaces, y se
+    # guarda con el resto de la respuesta.
+    ("competitors_by_market", "sql:red_de_compradores"),
     # `/rubros/{slug}` (el panorama de BI): ~200 filas, los compradores con
     # banderas de riesgo. La misma excepción que en `test_bi_mercado_acotado.py`.
     ("buyer_risk_flags.parquet", "filas"),
@@ -142,11 +147,11 @@ LLAMADAS = {
 
 
 class Registro(RegistroDeLecturas):
-    """El doble de BI, más los dos agregados en SQL de `/publico/mercado`."""
+    """El doble de BI, más los tres agregados en SQL de `/publico/mercado`."""
 
     def instalar_mercado(self, monkeypatch) -> None:
         def registrar(nombre):
-            def leer(tabla):
+            def leer(tabla, *_args, **_kwargs):
                 self.lecturas.append({"tabla": tabla, "sql": nombre})
                 # Sin tabla: el bloque sale `null`. La forma la fija
                 # `test_publico_mercado.py`, contra Postgres.
@@ -154,7 +159,11 @@ class Registro(RegistroDeLecturas):
 
             return leer
 
-        for nombre in ("gasto_mensual_por_sector", "concentracion_de_mercados"):
+        for nombre in (
+            "gasto_mensual_por_sector",
+            "concentracion_de_mercados",
+            "red_de_compradores",
+        ):
             monkeypatch.setattr(analytics_sync, nombre, registrar(nombre))
 
 

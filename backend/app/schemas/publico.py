@@ -248,11 +248,75 @@ class ConcentracionMercados(BaseModel):
     ventana_hasta: date | None = Field(None, description="Último día de los datos.")
 
 
+class CompradorRed(BaseModel):
+    """Uno de los compradores de más monto: un nodo de la red."""
+
+    codigo: str = Field(description="Código del organismo en Mercado Público.")
+    nombre: str | None = Field(
+        None, description="Nombre del organismo, como lo escribe ChileCompra."
+    )
+    sector: str = Field(description="Sector del comprador. Sin sector, «Otros».")
+    monto: float = Field(description="Todo lo que compró en la ventana, CLP.")
+
+
+class ProveedorRed(BaseModel):
+    """Un proveedor elegido de la red. Nunca una persona natural."""
+
+    codigo: str = Field(description="Código del proveedor en Mercado Público (no es su RUT).")
+    nombre: str | None = Field(None, description="Nombre del proveedor.")
+    monto: float = Field(description="Lo que les vendió a los compradores de la red, CLP.")
+    compradores: int = Field(description="A cuántos de los compradores de la red les vende.")
+
+
+class EnlaceRed(BaseModel):
+    """Lo que un comprador de la red le compró a un proveedor elegido, sumado sobre los rubros."""
+
+    comprador: str = Field(description="`codigo` de un comprador de `compradores`.")
+    proveedor: str = Field(description="`codigo` de un proveedor de `proveedores`.")
+    monto: float = Field(description="CLP, mayor que cero.")
+
+
+class RedCompradores(BaseModel):
+    """Los compradores de más monto y los proveedores que les venden."""
+
+    compradores: list[CompradorRed] = Field(
+        description="Los compradores de más monto (hoy 30), de mayor a menor (empate: código)."
+    )
+    proveedores: list[ProveedorRed] = Field(
+        description=(
+            "Los proveedores de más monto de cada comprador (hoy 4) y los que venden a más "
+            "compradores de la red (hoy 12; empate: monto, código), sin personas "
+            "naturales; de mayor a menor monto."
+        )
+    )
+    enlaces: list[EnlaceRed] = Field(
+        description="Cada par comprador y proveedor de la red con monto, de mayor a menor."
+    )
+    monto_total: float = Field(description="Lo que compraron todos los compradores, CLP.")
+    monto_compradores: float = Field(description="Lo que compraron los de la red, CLP.")
+    proveedores_total: int = Field(
+        description="Proveedores distintos que les venden a los de la red, personas naturales incluidas."
+    )
+    a_la_mitad_o_mas: int = Field(
+        description=(
+            "Proveedores (sin personas naturales) que les venden a la mitad o más de los "
+            "compradores de la red."
+        )
+    )
+    ventana_desde: date | None = Field(
+        None, description="Primer día de los datos. Nulo si la tabla no publica su ventana."
+    )
+    ventana_hasta: date | None = Field(None, description="Último día de los datos.")
+
+
 class MercadoPortada(BaseModel):
-    """El mercado entero en dos bloques, para la portada. Un bloque sin su tabla
+    """El mercado entero en tres bloques, para la portada. Un bloque sin su tabla
     de analytics (antes de la primera corrida semanal) es nulo."""
 
     gasto_mensual: list[GastoMensualSector] | None = Field(
         None, description="Monto y órdenes por mes y sector, en orden de mes y de sector."
     )
     concentracion: ConcentracionMercados | None = None
+    red: RedCompradores | None = Field(
+        None, description="Los compradores de más monto y sus proveedores, para dibujar una red."
+    )
