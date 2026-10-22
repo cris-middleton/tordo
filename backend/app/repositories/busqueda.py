@@ -33,12 +33,14 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import String, func, literal
 from sqlalchemy.sql.elements import ColumnElement
 
-from app.utils.sinonimos import formas
+from app.utils.firma import terminos_de_busqueda
+from app.utils.sinonimos import SOLO_CLAVE, alternativas, formas
 
 #: La columna generada (`sql_normalizado` del nombre) que el ETL añade a las
 #: tablas de analytics donde se busca texto, con su índice de trigramas. Hoy,
@@ -158,3 +160,75 @@ def parametros(termino: str) -> dict[str, str]:
         "no_alfanumerico": NO_ALFANUMERICO,
         "escape": ESCAPE,
     }
+
+
+#: Fin de palabra en las regex de Postgres: una forma que tiene que ser la
+#: palabra entera (el singular) termina ahí.
+FIN_DE_PALABRA = r"\M"
+
+
+def patron_de_palabra(palabra: str, *, con_alternativas: bool = True) -> str:
+    r"""`\m(?:…)`: alguna forma de la palabra —o de sus alternativas— al comienzo de una palabra.
+
+    Las formas que son la palabra entera (el singular) llevan `\M` detrás:
+    «guantes» → `\m(?:guantes|guante\M|guant\M)`. Sólo para palabras de `[a-z]`
+    (las de `terminos_de_busqueda`), así que no hay nada que escapar.
+    """
+    trozos: list[str] = []
+    for otra in alternativas(palabra) if con_alternativas else [palabra]:
+        for forma in formas(otra):
+            trozos.append(forma.texto if forma.prefijo else forma.texto + FIN_DE_PALABRA)
+    return COMIENZO_DE_PALABRA + "(?:" + "|".join(dict.fromkeys(trozos)) + ")"
+
+
+@dataclass(frozen=True)
+class CondicionTexto:
+    """Una búsqueda de texto lista para un `WHERE`, con sus parámetros ligados."""
+
+    donde: str
+    #: Una expresión booleana para ordenar primero lo que coincide sin
+    #: sinónimos, o None si no hay sinónimos que separar.
+    directa: str | None
+    parametros: dict[str, str]
+
+
+_SOLO_LETRAS = re.compile(r"[a-z]+")
+
+
+def condicion_por_palabras(columna_sql: str, consulta: str) -> CondicionTexto | None:
+    """Cada palabra útil de la consulta, con sus formas y alternativas, en `columna_sql`.
+
+    Las palabras son las de la firma (`terminos_de_busqueda`: sin artículos ni
+    ruido, de tres letras o más, sin dígitos) más las claves cortas que llevan a
+    otra («pc»). Todas tienen que estar (AND), en cualquier orden: «guantes de
+    nitrilo» encuentra «Guantes de examen de nitrilo». Antes se buscaba la
+    consulta entera como un solo comienzo de palabra, y ese mismo texto no
+    encontraba nada.
+
+    Sin ninguna palabra útil («A4», «3/4», «c++») queda la regla de siempre: la
+    consulta entera desde su primera letra o dígito, escapada en Postgres
+    (`sql_comienza_palabra`). None si ni eso («%», «&»).
+
+    `columna_sql` tiene que venir normalizada (`sql_normalizado` o la columna
+    generada `COLUMNA_BUSCABLE`): los patrones son de `[a-z]`.
+    """
+    utiles = terminos_de_busqueda(consulta)
+    utiles += [p for p in palabras(consulta) if p in SOLO_CLAVE and p not in utiles]
+    utiles = [p for p in utiles if _SOLO_LETRAS.fullmatch(p)]
+    if utiles:
+        ligados: dict[str, str] = {}
+        donde, directa = [], []
+        for i, palabra in enumerate(utiles):
+            ligados[f"patron_{i}"] = patron_de_palabra(palabra)
+            ligados[f"directo_{i}"] = patron_de_palabra(palabra, con_alternativas=False)
+            donde.append(f"{columna_sql} ~* :patron_{i}")
+            directa.append(f"{columna_sql} ~* :directo_{i}")
+        return CondicionTexto(
+            donde=" AND ".join(donde), directa=" AND ".join(directa), parametros=ligados
+        )
+    trozo = fragmento(consulta.strip())
+    if not trozo:
+        return None
+    return CondicionTexto(
+        donde=sql_comienza_palabra(columna_sql), directa=None, parametros=parametros(trozo)
+    )

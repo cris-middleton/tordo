@@ -162,7 +162,9 @@ TABLA = "tabla_busqueda_palabra"
 
 PRODUCTOS = (
     "('Queso parmesano', 5), ('Mesa de reuniones', 4), ('Combustible', 3), "
-    "('Buses de acercamiento', 2), ('Válvula de bola', 1)"
+    "('Buses de acercamiento', 2), ('Válvula de bola', 1), "
+    "('Guantes de examen de nitrilo', 7), ('Bolígrafos', 9), ('Lápices de grafito', 6), "
+    "('Computadores portátiles', 8)"
 )
 
 
@@ -225,6 +227,30 @@ def test_productos_de_bi_con_la_misma_regla(productos, termino, esperado):
     assert _productos(productos, termino) == esperado
 
 
+@pytest.mark.parametrize(
+    ("termino", "esperado"),
+    [
+        # Cada palabra, en cualquier orden: antes la consulta entera era un solo
+        # comienzo de palabra y esto no encontraba nada.
+        ("guantes de nitrilo", {"Guantes de examen de nitrilo"}),
+        ("nitrilo guante", {"Guantes de examen de nitrilo"}),
+        ("guantes de látex", set()),
+        # El otro género y los sinónimos (`app/utils/sinonimos.py`).
+        ("computadora", {"Computadores portátiles"}),
+        ("pc", {"Computadores portátiles"}),
+        ("lápiz", {"Lápices de grafito", "Bolígrafos"}),
+    ],
+)
+def test_productos_de_bi_por_palabras_con_sus_formas(productos, termino, esperado):
+    assert _productos(productos, termino) == esperado
+
+
+def test_lo_escrito_sale_antes_que_el_sinonimo(productos):
+    """«Bolígrafos» tiene más compras, pero «lápiz» lo dice la otra fila."""
+    df = analytics_sync.buscar_texto(TABLA, productos, "lápiz", columnas=["nombre"], orden="n")
+    assert df["nombre"].to_list() == ["Lápices de grafito", "Bolígrafos"]
+
+
 def test_la_columna_generada_usa_el_indice_de_trigramas(productos):
     if productos != COLUMNA_BUSCABLE:
         pytest.skip("sólo la tabla con la columna generada tiene índice")
@@ -236,7 +262,14 @@ def test_la_columna_generada_usa_el_indice_de_trigramas(productos):
             )
         )
         conn.execute(text("SET LOCAL enable_seqscan = off"))
-        consulta = sql.sql_busqueda_texto(TABLA, COLUMNA_BUSCABLE, orden="n")
-        params = {**sql.parametros_busqueda("valv"), "limite": 10}
-        plan = "\n".join(r[0] for r in conn.execute(text(f"EXPLAIN {consulta}"), params))
-    assert "Bitmap Index Scan" in plan, plan
+        planes = []
+        # Una palabra suelta, varias con sus alternativas, y un fragmento sin
+        # palabras útiles (la regla de siempre).
+        for termino in ("valv", "guantes de nitrilo", "lápiz", "c++"):
+            consulta, params = sql.sql_busqueda_texto(TABLA, COLUMNA_BUSCABLE, termino, orden="n")
+            params = {**params, "limite": 10}
+            planes.append(
+                "\n".join(r[0] for r in conn.execute(text(f"EXPLAIN {consulta}"), params))
+            )
+    for plan in planes:
+        assert "Bitmap Index Scan" in plan, plan
