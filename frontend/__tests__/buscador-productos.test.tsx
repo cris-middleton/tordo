@@ -19,7 +19,9 @@ import { BuscadorProductos } from '@/components/publico/BuscadorProductos';
 import { PRODUCTOS_ESCALERA } from '@/lib/escaleraPrecios';
 import { PARAMETRO_BUSQUEDA_PRODUCTOS, rutaBusquedaProductos } from '@/lib/publico';
 
-let estado: { isPending: boolean; isError: boolean; data?: unknown };
+let estado: { isPending: boolean; isError: boolean; isSuccess?: boolean; data?: unknown };
+let sugerencia: string | null = null;
+const sugerenciasPedidas: Array<[string, boolean]> = [];
 const pedidas: string[] = [];
 let urlInicial = new URLSearchParams();
 
@@ -33,6 +35,10 @@ vi.mock('@/lib/queries', () => ({
   useBuscarProductosPublicos: (texto: string) => {
     pedidas.push(texto);
     return estado;
+  },
+  useSugerencia: (texto: string, habilitada: boolean) => {
+    sugerenciasPedidas.push([texto, habilitada]);
+    return habilitada ? sugerencia : null;
   },
 }));
 
@@ -53,6 +59,8 @@ let pushState: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   vi.useFakeTimers();
   pedidas.length = 0;
+  sugerenciasPedidas.length = 0;
+  sugerencia = null;
   urlInicial = new URLSearchParams();
   estado = { isPending: false, isError: false, data: RESULTADOS };
   replaceState = vi.spyOn(window.history, 'replaceState');
@@ -228,5 +236,25 @@ describe('la URL de una búsqueda de productos', () => {
     const ruta = rutaBusquedaProductos('guante de nitrilo & talla M');
     const leida = new URL(ruta, 'https://tordo.cl').searchParams.get(PARAMETRO_BUSQUEDA_PRODUCTOS);
     expect(leida).toBe('guante de nitrilo & talla M');
+  });
+});
+
+describe('«¿Quisiste decir…?»', () => {
+  it('sin resultados propone la búsqueda corregida, y pulsarla la busca', () => {
+    estado = { isPending: false, isError: false, isSuccess: true, data: [] };
+    sugerencia = 'computador';
+    urlInicial = new URLSearchParams({ [PARAMETRO_BUSQUEDA_PRODUCTOS]: 'computdor' });
+    render(<BuscadorProductos />);
+    fireEvent.click(screen.getByRole('button', { name: '«computador»' }));
+    expect(screen.getByLabelText(/buscar un producto/i)).toHaveValue('computador');
+  });
+
+  it('sólo la pide cuando la búsqueda respondió vacía', () => {
+    estado = { isPending: false, isError: false, isSuccess: true, data: RESULTADOS };
+    sugerencia = 'computador';
+    urlInicial = new URLSearchParams({ [PARAMETRO_BUSQUEDA_PRODUCTOS]: 'guante' });
+    render(<BuscadorProductos />);
+    expect(screen.queryByText(/quisiste decir/i)).toBeNull();
+    expect(sugerenciasPedidas.every(([, habilitada]) => !habilitada)).toBe(true);
   });
 });

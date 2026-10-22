@@ -19,6 +19,7 @@ import {
   MAXIMO_BUSQUEDA_PRODUCTOS,
   MINIMO_BUSQUEDA_PRODUCTOS,
   useBuscarProductosPublicos,
+  useSugerencia,
 } from '@/lib/queries';
 import { escribirUrlPropia } from '@/lib/urlPropia';
 
@@ -107,6 +108,7 @@ function Buscador({ inicio }: { inicio?: React.ReactNode }) {
   const consulta = useBuscarProductosPublicos(retardado);
   const buscable = termino.length >= MINIMO_BUSQUEDA_PRODUCTOS;
   const resultados = buscable ? (consulta.data ?? []) : [];
+  const sugerencia = useSugerencia(termino, buscable && consulta.isSuccess && resultados.length === 0);
 
   // Con el término YA retardado —no con cada tecla— y sólo si se busca: la URL
   // es la búsqueda que se hizo. No toca estado de React: escribe fuera.
@@ -156,6 +158,15 @@ function Buscador({ inicio }: { inicio?: React.ReactNode }) {
           <p className="text-sm text-subtle">Buscando…</p>
         ) : resultados.length === 0 ? (
           <div className="space-y-1 text-sm text-subtle">
+            {sugerencia && (
+              <p className="pb-1 text-base text-text">
+                ¿Quisiste decir{' '}
+                <button type="button" onClick={() => setTexto(sugerencia)} className="enlace py-1 font-medium">
+                  «{sugerencia}»
+                </button>
+                ?
+              </p>
+            )}
             <p>Ningún producto coincide con «{termino}».</p>
             <p>Las palabras de menos de tres letras y los números no cuentan en la búsqueda.</p>
           </div>

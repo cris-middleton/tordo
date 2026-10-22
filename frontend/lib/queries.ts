@@ -36,6 +36,7 @@ export const claves = {
   compraAgilDestacadas: (params: ParamsDestacadas) => ['compra-agil', 'destacadas', params] as const,
 
   productosPublicos: (q: string) => ['publico', 'productos', q] as const,
+  sugerencia: (q: string) => ['publico', 'sugerencia', q] as const,
 
   datosTransferencia: () => ['apoyar', 'transferencia'] as const,
 
@@ -166,6 +167,25 @@ export function useBuscarProductosPublicos(texto: string) {
     placeholderData: (anterior) => anterior,
     staleTime: 60 * 60_000,
   });
+}
+
+/**
+ * «¿Quisiste decir…?» para una búsqueda que no encontró nada. Sólo se pide con
+ * `habilitada` (la pantalla ya sabe que no hubo resultados), una vez por término
+ * y sin reintentos: si la API no responde —o todavía no tiene la ruta—, no hay
+ * sugerencia y la pantalla sigue igual. Nunca devuelve el mismo término.
+ */
+export function useSugerencia(texto: string, habilitada: boolean) {
+  const q = texto.trim();
+  const consulta = useQuery({
+    queryKey: claves.sugerencia(q),
+    queryFn: () => apiClient.getSugerencia(q),
+    enabled: habilitada && q.length >= MINIMO_BUSQUEDA_PRODUCTOS,
+    retry: false,
+    staleTime: 60 * 60_000,
+  });
+  const sugerencia = habilitada ? (consulta.data ?? null) : null;
+  return sugerencia && sugerencia.toLowerCase() !== q.toLowerCase() ? sugerencia : null;
 }
 
 export function useLicitacion(codigo?: string) {
