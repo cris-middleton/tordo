@@ -89,6 +89,7 @@ export default async function PaginaComprador({ params }: Props) {
           que repetían las órdenes de compra. */}
       <BuyerProfilePanel
         comprador={{ ...panelDesdePerfil(perfil, c.nombre), nombre: c.nombre }}
+        senales="ocultar"
         extra={
           perfil.volumen
             ? [

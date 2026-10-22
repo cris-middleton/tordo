@@ -42,6 +42,32 @@ describe('normalizeText', () => {
     expect(normalizeText('HOSPITAL (SERVIU)  DE PRUEBA')).toBe('Hospital (Serviu)  de Prueba');
   });
 
+  it('siglas, romanos y abreviaturas en mayúscula', () => {
+    expect(normalizeText('MINISTERIO DE OBRAS PUBLICAS DIREC CION GRAL DE OO PP DCYF')).toBe(
+      'Ministerio de Obras Publicas Direccion Gral de OO PP DCYF',
+    );
+    expect(normalizeText('SERVICIO DE VIVIENDA Y URBANIZACION II REGION')).toBe(
+      'Servicio de Vivienda y Urbanizacion II Region',
+    );
+    expect(normalizeText('METRO S.A.')).toBe('Metro S.A.');
+    expect(normalizeText('Subsecretaría de R.R.E.E.')).toBe('Subsecretaría de R.R.E.E.');
+    expect(normalizeText('I.MUNICIPALIDAD DE MACUL')).toBe('I.Municipalidad de Macul');
+    expect(normalizeText('COMPLEJO ASISTENCIAL DR.VICTOR RIOS RUIZ')).toBe('Complejo Asistencial Dr.Victor Rios Ruiz');
+    expect(normalizeText('CENTRO REFERENCIAL DE SALUD DR SALVADOR ALLENDE GOSSENS')).toBe(
+      'Centro Referencial de Salud Dr Salvador Allende Gossens',
+    );
+    expect(normalizeText('COMANDO DE APOYO DE LAS FF.AA.')).toBe('Comando de Apoyo de las FF.AA.');
+    expect(normalizeText('LIBERTADOR BERNARDO O\'HIGGINS')).toBe("Libertador Bernardo O'Higgins");
+    expect(normalizeText('CONSTRUCTORA EJEMPLO SPA')).toBe('Constructora Ejemplo SpA');
+    expect(normalizeText('TUBO PVC 110 MM')).toBe('Tubo PVC 110 MM');
+  });
+
+  it('las palabras con vocal siguen con mayúscula inicial, aunque sean cortas', () => {
+    expect(normalizeText('SAMU BIO BIO')).toBe('Samu Bio Bio');
+    expect(normalizeText('CORP MUNICIPAL DE LA SERENA')).toBe('Corp Municipal de La Serena');
+    expect(normalizeText('VIVI MIX')).toBe('Vivi Mix');
+  });
+
   it('vacío o ausente, cadena vacía', () => {
     expect(normalizeText('')).toBe('');
     expect(normalizeText(undefined)).toBe('');

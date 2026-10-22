@@ -51,18 +51,10 @@ export function MarketSummaryCard({ resumen, loading, rubro }: MarketSummaryCard
   // Hay data — construir frases
   const frases = buildFrases(resumen);
 
-  // No se pudo construir ninguna frase (todos los campos del backend vinieron null/insuficientes)
-  if (frases.length === 0) {
-    return (
-      <section className="py-2">
-        <div className="flex items-start gap-3">
-          <p className="text-sm text-muted">
-            Este rubro tiene muy pocas compras para resumirlo.
-          </p>
-        </div>
-      </section>
-    );
-  }
+  // Sin crecimiento ni comprador no hay nada que decir que no digan las cifras
+  // de debajo: decir «muy pocas compras para resumirlo» encima de un monto y
+  // de cientos de órdenes se contradecía.
+  if (frases.length === 0) return null;
 
   // Happy path: render la card narrativa
   const summaryText = frases
