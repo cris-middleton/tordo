@@ -6,6 +6,7 @@ import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { nombreCorto, type GraficoRed, type NodoRed } from '@/lib/redPortada';
 
 import { Globo } from './Globo';
+import { teclasDeRecorrido } from './teclado';
 
 /** Cuántas partículas viajan a la vez por la red. */
 const PARTICULAS = 32;
@@ -253,7 +254,17 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
 
   return (
     <figure className="min-w-0">
-      <div className="relative">
+      <p aria-live="polite" className="sr-only">
+        {nodo ? `${nodo.nombre}: ${nodo.tipo === 'comprador' ? `compró ${nodo.texto}` : `les vendió ${nodo.texto} a ${nodo.vecinos} organismos`}` : ''}
+      </p>
+      <div
+        className="relative rounded-sm"
+        tabIndex={0}
+        role="group"
+        aria-label="La red: recorre los organismos y proveedores con las flechas"
+        onKeyDown={teclasDeRecorrido(nodos.length, activo, setActivo)}
+        onBlur={() => setActivo(null)}
+      >
         <svg
           ref={svgRef}
           aria-hidden="true"

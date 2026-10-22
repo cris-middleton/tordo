@@ -33,6 +33,9 @@ export function EscaleraPrecios({ datos }: { datos: GraficoEscalera }) {
             className={`relative ${activa != null && activa !== i ? 'opacity-50' : ''}`}
             onPointerEnter={() => setActiva(i)}
             onPointerDown={() => setActiva(i)}
+            // El nombre es un enlace: con el foco en él, su globo se abre como al pasar el mouse.
+            onFocus={() => setActiva(i)}
+            onBlur={() => setActiva(null)}
           >
             <p className="flex items-baseline justify-between gap-3 text-[13px] leading-snug">
               <Link href={f.href} className="min-w-0 truncate text-text underline-offset-2 hover:underline">

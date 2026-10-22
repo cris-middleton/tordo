@@ -75,6 +75,11 @@
   fueron con ellos (pasada micro de octubre de 2026). Un token en un estilo en línea va dentro de `rgb()`: es
   un triplete, y `var(--color-x)` a secas no es un color (el tooltip de `PriceBandChart` salía sin
   fondo).
+- **Los globos también se abren con el teclado** (`components/graficos/teclado.ts`, `teclasDeRecorrido`):
+  la red, el gasto mensual y la concentración son un grupo con `tabIndex={0}` y nombre; las flechas
+  recorren las marcas, Inicio y Fin van a los extremos y Escape suelta, y una región `sr-only` con
+  `aria-live` anuncia el valor. En la escalera, el foco en el nombre de una fila abre su globo.
+  `__tests__/graficos-teclado.test.tsx`.
 - **Los gráficos siguen `docs/GUIA_GRAFICOS.md`** (reglas con test y criterios para leer, con sus
   fuentes): `__tests__/guia-graficos.test.tsx` exige que todo fichero que dibuje datos esté
   declarado como propio o como deuda, y fija en los propios tokens `dato`/`dato-tenue`, sin

@@ -26,7 +26,7 @@ export default function NoEncontrada() {
   return (
     <Contenedor pagina>
       <h1 className="page-title">Esta página no está</h1>
-      <p className="mt-4 max-w-3xl text-muted">
+      <p className="mt-4 max-w-[60ch] text-muted">
         O el enlace venía mal escrito, o la página se quedó sin datos: las fichas de compradores y
         productos se recalculan cada domingo, y alguna puede salir.
       </p>
