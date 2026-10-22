@@ -1,5 +1,5 @@
 /**
- * La red de la portada: los organismos que más compran y sus proveedores, unidos
+ * La red de la portada: los compradores que más compran y sus proveedores, unidos
  * por lo que se compraron. Sale del bloque `red` de `GET /publico/mercado`
  * (`analytics.competitors_by_market`, agregado en Postgres).
  *
@@ -70,8 +70,11 @@ export const LIENZO_MOVIL: Lienzo = { ancho: 400, alto: 380 };
 /** Lo que se deja libre alrededor de la red. */
 const MARGEN = 14;
 
-/** Hasta dónde llegan los proveedores, en fracción del anillo de los compradores. */
-const DENTRO = 0.86;
+/**
+ * Hasta dónde llegan los proveedores, en fracción del anillo de los compradores. Con
+ * 0,86 los proveedores de un solo comprador quedaban pegados a él y el anillo no se leía.
+ */
+const DENTRO = 0.8;
 
 /** Con menos no hay red que mirar: se oculta. */
 export const MINIMO_COMPRADORES = 8;
@@ -278,8 +281,9 @@ export interface LecturaRed {
 const cuantos = (n: number, una: string, varias: string) => `${n === 1 ? 'Uno' : entero(n)} ${n === 1 ? una : varias}`;
 
 /**
- * «40 proveedores le venden a la mitad o más de los 30 organismos que más
- * compran.» Una frase, y lo que dice es lo que se dibuja en tinta: si el backend
+ * «40 proveedores le venden a la mitad o más de los 30 compradores que más
+ * compran.» «Comprador», no «organismo» (docs/VOZ.md §4). Una frase, y lo que
+ * dice es lo que se dibuja en tinta: si el backend
  * cortó la lista (`dibujados` < `a_la_mitad_o_mas`), lo dice. Antes eran dos
  * frases y decía 40 sobre un dibujo con 12.
  */
@@ -288,17 +292,17 @@ export function fraseRed(
   compradores: number,
   dibujados: number = r.a_la_mitad_o_mas,
 ): string {
-  const organismos = `los ${entero(compradores)} organismos que más compran`;
+  const quienes = `los ${entero(compradores)} compradores que más compran`;
   const n = r.a_la_mitad_o_mas;
-  if (n === 0) return `Ningún proveedor le vende a la mitad de ${organismos}.`;
+  if (n === 0) return `Ningún proveedor le vende a la mitad de ${quienes}.`;
   const sujeto = n === 1 ? 'Un proveedor le vende' : `${entero(n)} proveedores le venden`;
-  const frase = `${sujeto} a la mitad o más de ${organismos}.`;
+  const frase = `${sujeto} a la mitad o más de ${quienes}.`;
   return dibujados < n ? `${frase} En tinta, los ${entero(dibujados)} que más venden.` : frase;
 }
 
 /**
  * La segunda frase de la red, la que sirve a una PYME: los que le venden a muchos
- * organismos, ¿son empresas enormes? La mediana de lo que les vendieron, en total, lo
+ * compradores, ¿son empresas enormes? La mediana de lo que les vendieron, en total, lo
  * dice. Con menos de tres en el centro no hay mediana que valga.
  */
 export function detalleRed(g: Pick<GraficoRed, 'nodos'>): string | null {
@@ -309,7 +313,8 @@ export function detalleRed(g: Pick<GraficoRed, 'nodos'>): string | null {
   if (montos.length < 3) return null;
   const m = Math.floor(montos.length / 2);
   const mediana = montos.length % 2 ? montos[m] : (montos[m - 1] + montos[m]) / 2;
-  return `La mitad de ellos les vendió menos de ${monto(mediana)} en total.`;
+  // «de esos 40» y no «de ellos»: con «ellos» y «les» en la misma frase había que releer quién era quién.
+  return `La mitad de esos ${entero(montos.length)} les vendió menos de ${monto(mediana)} en total.`;
 }
 
 /** Siglas por las que se conoce a los compradores más grandes, para su rótulo en el dibujo. */
@@ -320,7 +325,7 @@ const SIGLAS: [RegExp, string][] = [
 ];
 
 /**
- * El nombre corto de un organismo, para rotularlo junto a su nodo: su sigla si es
+ * El nombre corto de un comprador, para rotularlo junto a su nodo: su sigla si es
  * de los conocidos, «Municipalidad de X» sin el «Ilustre», y como mucho
  * `LARGO_ROTULO` caracteres cortados en una palabra. El nombre entero va en el globo.
  */
@@ -420,7 +425,7 @@ export function lecturaRed(mercado: { red?: unknown } | null, repositorio: strin
     grafico,
     graficoMovil,
     pie:
-      `Los ${grafico.compradores} organismos que más compraron${periodo ? ` de ${periodo}` : ''}` +
+      `Los ${grafico.compradores} compradores que más compraron${periodo ? ` de ${periodo}` : ''}` +
       `${parte != null ? ` (${parte} % de lo que compró el Estado)` : ''} le compraron a ${entero(r.proveedores_total)} proveedores. ` +
       'Aquí, los cuatro más grandes de cada uno y los que le venden a más de ellos. El tamaño es lo que compró o vendió. ' +
       'Sin personas naturales.',

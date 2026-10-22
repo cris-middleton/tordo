@@ -511,7 +511,7 @@ a la página**: Next ignora `metadata` en componentes cliente y la home perderí
   `FRECUENCIA_CATALOGO`, está en `/acerca` y `/compra-agil`). **Quién lo hace no va en la ficha**: lo
   dice la ficha del autor, junto a las notas, y el pie (estaba tres veces en la portada).
 - **La red** (`RedPortada` → `RedProveedores`; geometría, frase y pie en `lib/redPortada.ts`; datos del
-  bloque `red` de `GET /publico/mercado`): **los 30 organismos que más compran, fijos en un anillo**
+  bloque `red` de `GET /publico/mercado`): **los 30 compradores que más compran, fijos en un anillo**
   agrupados por sector con su color (`lib/sectores.ts`, `relleno`), y **sus proveedores adentro**: los 4
   más grandes de cada uno, los 12 que le venden a más de ellos y todos los que le venden a la mitad o
   más (hasta 48), sin personas naturales. Las posiciones
@@ -519,12 +519,14 @@ a la página**: Next ignora `metadata` en componentes cliente y la home perderí
   choque; determinista y sin dependencia): el que le vende a muchos queda al centro y el exclusivo,
   junto a su comprador. En tinta los que le venden a la mitad o más (lo que nombra la conclusión);
   **el resto, huecos** (un aro gris: relleno gris se confundía con el sector «Otros»); el tamaño es el
-  monto; cada enlace, una curva hacia el centro. **Rótulos directos**: los 3 organismos de más monto por
+  monto; cada enlace, una curva hacia el centro **con el color del sector de su comprador** (`trazo`, al
+  30 %: en un solo gris las 550 eran una maraña), y los proveedores no pasan del 80 % del anillo
+  (`DENTRO`), para que el anillo de compradores se lea. **Rótulos directos**: los 3 compradores de más monto por
   su nombre corto (`nombreCorto`: Cenabast, Junaeb…, sin «Ilustre», ≤ 30 caracteres) y «Le venden a 15 o
-  más» bajo el grupo del centro, desde `sm` (en el teléfono se pisaban); la leyenda en dos grupos, «Organismos:» y «Proveedores:». El `h2` es
+  más» bajo el grupo del centro, desde `sm` (en el teléfono se pisaban); la leyenda en dos grupos, «Compradores:» y «Proveedores:» («comprador», no «organismo», docs/VOZ.md §4). El `h2` es
   la conclusión en una frase (`fraseRed`): «40 proveedores le venden a la mitad o más de los 30
-  organismos que más compran.», y debajo lo que le sirve a quien vende (`detalleRed`, la mediana de lo
-  que les vendieron los del centro): «La mitad de ellos les vendió menos de $X en total.» —**lo que cuenta es lo que se dibuja en tinta**; si el backend cortó la
+  compradores que más compran.», y debajo lo que le sirve a quien vende (`detalleRed`, la mediana de lo
+  que les vendieron los del centro): «La mitad de esos 40 les vendió menos de $X en total.» —**lo que cuenta es lo que se dibuja en tinta**; si el backend cortó la
   lista, añade «En tinta, los N que más venden.»; el total de proveedores va en el pie—. **Globo** al pasar o tocar un nodo, que lo aísla con sus vecinos.
   **Se mueve** (la única excepción a R3 de la guía de gráficos): deriva leve y partículas del comprador
   al proveedor, con `requestAnimationFrame`, **quieta con `prefers-reduced-motion`**, fuera de pantalla y
@@ -532,9 +534,10 @@ a la página**: Next ignora `metadata` en componentes cliente y la home perderí
   `MINIMO_COMPRADORES` (8) o mal formada, no sale y el gráfico grande vuelve a ser el gasto.
   `__tests__/red-portada.test.ts`. **Dos disposiciones de la misma red** (`LIENZO_ANCHO` 640 × 420 desde
   `md`, `LIENZO_MOVIL` 400 × 380 por debajo (a 768 px la cuadrada medía 720 × 684), una con `display: none` en cada ancho): la apaisada
-  medía 358 × 235 px a 390 y los proveedores eran puntos de un píxel. «Cómo leer la red»
-  (`ComoLeerLaRed`, tres frases y «Toca o pasa el mouse») va bajo las abiertas desde `lg` y bajo la
-  leyenda en el teléfono.
+  medía 358 × 235 px a 390 y los proveedores eran puntos de un píxel. Cómo se lee
+  (`ComoLeerLaRed`: dónde queda cada proveedor y «Toca o pasa el mouse») va en una línea justo bajo la
+  leyenda, en todos los anchos: en la columna del buscador quedaba a 500 px de ella, y lo que es cada
+  círculo ya lo dice la leyenda.
 - **El gasto mensual** (`GastoPortada` → `GastoMensual`, geometría en `lib/graficoGasto.ts`, frase
   en `lib/lecturasMercado.ts`; datos de `GET /publico/mercado`, `gasto_mensual`), **a lo ancho bajo la
   ficha** cuando la red está arriba (`ancho`: `h2` de sección y la leyenda en una fila): una columna por

@@ -143,7 +143,11 @@ function CompraAgilContenido() {
             ...REGIONES_CHILE.map((r) => ({ value: r, label: shortRegion(r) })),
           ]}
         />
-        <button type="submit" className="btn-secondary h-12">
+        {/* El mismo botón que el buscador de la portada y de /buscar: era el único «Buscar» con borde. */}
+        <button
+          type="submit"
+          className="inline-flex h-12 items-center justify-center rounded-lg bg-dato px-6 font-semibold text-onDato shadow-sm transition-colors hover:bg-dato/90"
+        >
           Buscar
         </button>
       </form>

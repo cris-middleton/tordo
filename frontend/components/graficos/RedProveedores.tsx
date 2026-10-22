@@ -90,7 +90,7 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
   const [activo, setActivo] = useState<number | null>(null);
   const activoRef = useRef<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  const lineasRef = useRef<SVGPathElement>(null);
+  const lineasRef = useRef<(SVGPathElement | null)[]>([]);
   const resaltadasRef = useRef<SVGPathElement>(null);
   const circulosRef = useRef<(SVGCircleElement | null)[]>([]);
   const particulasRef = useRef<(SVGCircleElement | null)[]>([]);
@@ -105,7 +105,17 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
     }
     return v;
   }, [nodos, enlaces]);
-  const base = useMemo(() => trazo(nodos, enlaces, centro), [nodos, enlaces, centro]);
+  // Las líneas, una capa por sector del comprador y con su color: en un solo gris, las
+  // 550 eran una maraña y el centro no se distinguía; en color, el centro se ve como
+  // la mezcla de todos los sectores, que es lo que dice la conclusión.
+  const grupos = useMemo(() => {
+    const porClase = new Map<string, { a: number; b: number }[]>();
+    for (const e of enlaces) {
+      const clase = nodos[e.a].sector?.trazo ?? 'stroke-subtle';
+      porClase.set(clase, [...(porClase.get(clase) ?? []), e]);
+    }
+    return [...porClase.entries()].map(([clase, es]) => ({ clase, enlaces: es, d: trazo(nodos, es, centro) }));
+  }, [nodos, enlaces, centro]);
   const delActivo = (i: number | null) => (i == null ? [] : enlaces.filter((e) => e.a === i || e.b === i));
 
   useEffect(() => {
@@ -167,7 +177,7 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
           c.setAttribute('cy', u(pos[i].y));
         }
       }
-      lineasRef.current?.setAttribute('d', trazo(pos, enlaces, centro));
+      grupos.forEach((g, k) => lineasRef.current[k]?.setAttribute('d', trazo(pos, g.enlaces, centro)));
       const elegido = activoRef.current;
       if (resaltadasRef.current) {
         resaltadasRef.current.setAttribute(
@@ -202,7 +212,7 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
       cancelAnimationFrame(cuadro);
       observador.disconnect();
     };
-  }, [quieto, nodos, enlaces, centro]);
+  }, [quieto, nodos, enlaces, centro, grupos]);
 
   /** El nodo bajo el puntero, con 8 unidades de holgura: los proveedores chicos miden 3. */
   const buscar = (cliente: { clientX: number; clientY: number }) => {
@@ -255,13 +265,13 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
   return (
     <figure className="min-w-0">
       <p aria-live="polite" className="sr-only">
-        {nodo ? `${nodo.nombre}: ${nodo.tipo === 'comprador' ? `compró ${nodo.texto}` : `les vendió ${nodo.texto} a ${nodo.vecinos} organismos`}` : ''}
+        {nodo ? `${nodo.nombre}: ${nodo.tipo === 'comprador' ? `compró ${nodo.texto}` : `les vendió ${nodo.texto} a ${nodo.vecinos} compradores`}` : ''}
       </p>
       <div
         className="relative rounded-sm"
         tabIndex={0}
         role="group"
-        aria-label="La red: recorre los organismos y proveedores con las flechas"
+        aria-label="La red: recorre los compradores y proveedores con las flechas"
         onKeyDown={teclasDeRecorrido(nodos.length, activo, setActivo)}
         onBlur={() => setActivo(null)}
       >
@@ -277,12 +287,17 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
           onPointerDown={(e) => setActivo(buscar(e))}
           onPointerLeave={() => setActivo(null)}
         >
-          <path
-            ref={lineasRef}
-            d={base}
-            className={`fill-none stroke-subtle ${activo != null ? 'opacity-10' : 'opacity-25'}`}
-            strokeWidth={0.6}
-          />
+          {grupos.map((g, k) => (
+            <path
+              key={g.clase}
+              ref={(p) => {
+                lineasRef.current[k] = p;
+              }}
+              d={g.d}
+              className={`fill-none ${g.clase} ${activo != null ? 'opacity-10' : 'opacity-30'}`}
+              strokeWidth={0.6}
+            />
+          ))}
           <path ref={resaltadasRef} d={resaltadasIniciales} className="fill-none stroke-text" strokeWidth={1.1} />
           <g>
             {Array.from({ length: PARTICULAS }, (_, k) => (
@@ -361,7 +376,7 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
                   Les vendió <span className="cifra font-semibold">{nodo.texto}</span>
                 </p>
                 <p className="text-muted">
-                  A {nodo.vecinos} de los {datos.compradores} organismos
+                  A {nodo.vecinos} de los {datos.compradores} compradores
                 </p>
               </>
             )}
@@ -372,8 +387,8 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
       {/* La leyenda en dos grupos, uno por cada cosa que se dibuja: los organismos por su
           color de sector y los proveedores por su forma. */}
       <div className="mt-3 space-y-1.5 text-sm text-muted">
-        <ul aria-label="Organismos, por sector" className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          <li className="font-medium text-text">Organismos:</li>
+        <ul aria-label="Compradores, por sector" className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <li className="font-medium text-text">Compradores:</li>
           {datos.sectores.map((s) => (
             <li key={s.clave} className="flex items-center gap-1.5">
               <span aria-hidden="true" className={`h-3 w-3 rounded-full ${s.fondo}`} />
@@ -386,7 +401,7 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
           {nodos.some((d) => d.amplio) && (
             <li className="flex items-center gap-1.5">
               <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-text" />
-              le venden a {datos.mitad} organismos o más
+              le venden a {datos.mitad} compradores o más
             </li>
           )}
           <li className="flex items-center gap-1.5">
@@ -399,13 +414,13 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
       {/* Una tabla no respeta el ancho de 1 px de `sr-only`: va dentro de un div. */}
       <div className="sr-only">
         <table>
-          <caption>Los proveedores que le venden a más de estos organismos</caption>
+          <caption>Los proveedores que le venden a más de estos compradores</caption>
           <tbody>
             {accesible.map((p) => (
               <tr key={p.nombre}>
                 <th scope="row">{p.nombre}</th>
                 <td>
-                  A {p.vecinos} organismos, {p.texto}
+                  A {p.vecinos} compradores, {p.texto}
                 </td>
               </tr>
             ))}

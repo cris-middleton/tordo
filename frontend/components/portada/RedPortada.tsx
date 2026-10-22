@@ -3,7 +3,7 @@ import { RedProveedores } from '@/components/graficos/RedProveedores';
 import type { LecturaRed } from '@/lib/redPortada';
 
 /**
- * El gráfico grande de la portada: quién le compra a quién entre los organismos
+ * El gráfico grande de la portada: quién le compra a quién entre los compradores
  * que más compran (`lib/redPortada.ts`). Desde `lg` ocupa la columna derecha, a la
  * altura del `h1`; en móvil va justo después del buscador.
  *
@@ -26,25 +26,22 @@ export function RedPortada({ lectura, className = '' }: { lectura: LecturaRed; c
       <div className="mt-4 hidden md:block">
         <RedProveedores datos={lectura.grafico} accesible={lectura.accesible} />
       </div>
-      {/* En el teléfono, cómo se lee va bajo la leyenda; desde `lg`, en la columna de al lado. */}
-      <ComoLeerLaRed className="mt-4 lg:hidden" />
+      {/* Cómo se lee, justo bajo la leyenda: en la columna de al lado quedaba a 500 px de ella. */}
+      <ComoLeerLaRed className="mt-2" />
       <PieDeMetodo texto={lectura.pie} enlaces={lectura.enlaces} className="mt-4" completo breve />
     </section>
   );
 }
 
-/** Lo que se lee en la red, en una frase por cosa. Va al lado, no encima: la conclusión ya está arriba. */
+/**
+ * Lo que la leyenda no dice: dónde queda cada proveedor y cómo se explora. Qué es
+ * cada círculo ya lo dice la leyenda de arriba, y se fue de aquí.
+ */
 export const COMO_LEER_LA_RED = [
-  'Cada círculo de color es un organismo, con el color de su sector, y cada punto, un proveedor.',
-  'Los del centro le venden a muchos; los del borde, a uno solo.',
+  'Los proveedores del centro le venden a muchos; los del borde, a uno solo.',
   'Toca o pasa el mouse por uno para ver con quién se une.',
 ] as const;
 
 export function ComoLeerLaRed({ className = '' }: { className?: string }) {
-  return (
-    <div className={`max-w-[44ch] text-sm leading-relaxed text-muted ${className}`.trim()}>
-      <p className="font-semibold text-text">Cómo leer la red</p>
-      <p className="mt-1">{COMO_LEER_LA_RED.join(' ')}</p>
-    </div>
-  );
+  return <p className={`text-sm leading-relaxed text-muted ${className}`.trim()}>{COMO_LEER_LA_RED.join(' ')}</p>;
 }

@@ -28,7 +28,7 @@ import { FranjaPortada } from './FranjaPortada';
 import { GastoPortada } from './GastoPortada';
 import { LecturasPortada } from './LecturasPortada';
 import { NotasPortada } from './NotasPortada';
-import { ComoLeerLaRed, RedPortada } from './RedPortada';
+import { RedPortada } from './RedPortada';
 
 /**
  * La portada. **Componente de servidor**; las únicas islas cliente son los
@@ -127,8 +127,6 @@ export function Portada({
         <div className="flex min-w-0 flex-col">
           <BuscadorPortada />
           {tira && <AbiertasAhora tira={tira} className="mt-8" />}
-          {/* Desde `lg`, bajo las abiertas, al lado de la red: cómo se lee. En el teléfono va bajo su leyenda. */}
-          {red && <ComoLeerLaRed className="mt-10 hidden lg:block" />}
         </div>
         {grande}
       </div>

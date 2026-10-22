@@ -31,7 +31,7 @@ export default function SelectField({ value, onChange, options, etiqueta, classN
         aria-label={etiqueta}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="input-field cursor-pointer appearance-none pr-9"
+        className="input-field h-full cursor-pointer appearance-none pr-9"
       >
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>

@@ -153,20 +153,22 @@ export default async function PaginaComprador({ params }: Props) {
       </Seccion>
 
       <Seccion titulo="Qué compra" descripcion="Los diez rubros en que más gastó en el periodo.">
-        <TablaEnlaces
-          encabezados={['Rubro', 'Monto', 'Órdenes']}
-          vacio="Todavía no hay rubros con datos para este comprador."
-          filas={c.rubros.map((r) => ({
-            clave: r.slug ?? r.nombre,
-            href: r.slug ? rutaRubro(r.slug) : null,
-            nombre: r.nombre,
-            celdas: [plata(r.monto), entero(r.ordenes)],
-          }))}
-        />
+        {/* A la medida del texto: a lo ancho, entre el rubro y su monto quedaban 700 px. */}
+        <div className="max-w-3xl">
+          <TablaEnlaces
+            encabezados={['Rubro', 'Monto', 'Órdenes']}
+            vacio="Todavía no hay rubros con datos para este comprador."
+            filas={c.rubros.map((r) => ({
+              clave: r.slug ?? r.nombre,
+              href: r.slug ? rutaRubro(r.slug) : null,
+              nombre: r.nombre,
+              celdas: [plata(r.monto), entero(r.ordenes)],
+            }))}
+          />
+        </div>
       </Seccion>
 
       <MesesDeCompra meses={c.meses_de_compra} />
-
     </article>
   );
 }

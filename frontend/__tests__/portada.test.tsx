@@ -187,7 +187,7 @@ const RED: RedPortada = {
   ventana_desde: '2023-11-01',
   ventana_hasta: '2026-10-31',
 };
-const CONCLUSION_RED = '2 proveedores le venden a la mitad o más de los 10 organismos que más compran.';
+const CONCLUSION_RED = '2 proveedores le venden a la mitad o más de los 10 compradores que más compran.';
 const CONCLUSION_GASTO = 'El Estado compró $19 billones en 12 meses. Diciembre de 2025 fue el mes más alto: 1,7 veces un mes típico.';
 const CONCLUSION_PRECIO = `${PRODUCTO_PORTADA.nombre}: la mitad de las compras se pagó entre $150.921 y $240.000`;
 const CONCLUSION_CONCENTRACION = '6 de cada 10 pesos se gastan en mercados donde un solo proveedor se lleva la mitad o más';

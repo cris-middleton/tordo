@@ -44,19 +44,19 @@ describe('esRed', () => {
 
 describe('fraseRed', () => {
   it('una frase: cuántos proveedores le venden a la mitad o más', () => {
-    expect(fraseRed(RED, 30)).toBe('40 proveedores le venden a la mitad o más de los 30 organismos que más compran.');
+    expect(fraseRed(RED, 30)).toBe('40 proveedores le venden a la mitad o más de los 30 compradores que más compran.');
   });
   it('uno y ninguno, en palabras', () => {
     expect(fraseRed({ ...RED, a_la_mitad_o_mas: 1 }, 30)).toBe(
-      'Un proveedor le vende a la mitad o más de los 30 organismos que más compran.',
+      'Un proveedor le vende a la mitad o más de los 30 compradores que más compran.',
     );
     expect(fraseRed({ ...RED, a_la_mitad_o_mas: 0 }, 30)).toBe(
-      'Ningún proveedor le vende a la mitad de los 30 organismos que más compran.',
+      'Ningún proveedor le vende a la mitad de los 30 compradores que más compran.',
     );
   });
   it('si se dibujan menos de los que dice, lo dice: la frase nunca cuenta algo que no se ve', () => {
     expect(fraseRed(RED, 30, 12)).toBe(
-      '40 proveedores le venden a la mitad o más de los 30 organismos que más compran. En tinta, los 12 que más venden.',
+      '40 proveedores le venden a la mitad o más de los 30 compradores que más compran. En tinta, los 12 que más venden.',
     );
   });
 });
@@ -122,7 +122,7 @@ describe('lecturaRed', () => {
   it('el pie dice qué se dibuja, de cuándo, qué parte del gasto es y que no hay personas naturales', () => {
     const l = lecturaRed({ red: RED }, null)!;
     expect(l.pie).toBe(
-      'Los 12 organismos que más compraron de nov 2023 a oct 2026 (62 % de lo que compró el Estado) le compraron a 14.659 proveedores. ' +
+      'Los 12 compradores que más compraron de nov 2023 a oct 2026 (62 % de lo que compró el Estado) le compraron a 14.659 proveedores. ' +
         'Aquí, los cuatro más grandes de cada uno y los que le venden a más de ellos. El tamaño es lo que compró o vendió. ' +
         'Sin personas naturales.',
     );
@@ -151,7 +151,7 @@ describe('detalleRed', () => {
     const { detalleRed } = await import('@/lib/redPortada');
     const nodo = (monto: number, amplio = true) => ({ monto, amplio }) as never;
     expect(detalleRed({ nodos: [nodo(1e7), nodo(4.68e7), nodo(9e8), nodo(5e12, false)] })).toBe(
-      'La mitad de ellos les vendió menos de $46,8 millones en total.',
+      'La mitad de esos 3 les vendió menos de $46,8 millones en total.',
     );
     expect(detalleRed({ nodos: [nodo(1e7), nodo(2e7)] })).toBeNull();
   });
