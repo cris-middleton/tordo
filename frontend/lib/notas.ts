@@ -19,7 +19,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { bloques, type Bloque, type EnLinea } from './markdown';
+import { bloques, idDeTitulo, type Bloque, type EnLinea } from './markdown';
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
 
@@ -300,6 +300,22 @@ export function textoPlano(nodos: EnLinea[]): string {
 /** Los `##` del cuerpo, en orden. */
 export function titulosDeSeccion(cuerpo: Bloque[]): string[] {
   return cuerpo.flatMap((b) => (b.t === 'titulo' && b.nivel === 2 ? [textoPlano(b.hijos)] : []));
+}
+
+/**
+ * El índice de «En esta nota», al costado de la nota desde `lg`: cada `##` con el
+ * `id` que le pone `components/guias/Markdown.tsx` (la misma `idDeTitulo`), así
+ * que cada enlace lleva a su título.
+ */
+export function indiceDeNota(cuerpo: Bloque[]): { id: string; titulo: string }[] {
+  return cuerpo.flatMap((b) =>
+    b.t === 'titulo' && b.nivel === 2 ? [{ id: idDeTitulo(b.hijos), titulo: textoPlano(b.hijos) }] : [],
+  );
+}
+
+/** «#10», el número del PR de `cambio` (siempre un PR de este repositorio). */
+export function numeroDeCambio(cambio: string): string {
+  return `#${cambio.slice(PREFIJO_CAMBIO.length)}`;
 }
 
 /**

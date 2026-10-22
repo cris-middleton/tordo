@@ -148,17 +148,56 @@ describe('/notas/<slug>', () => {
     it('se pinta entera, con estado y fuentes, y sin Markdown suelto', async () => {
       const { container } = render(await PaginaNota(params(slug)));
       expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
-      expect(screen.getByText(ETIQUETA_ESTADO[nota.estado])).toBeInTheDocument();
-      expect(screen.getByText(nota.medido_sobre)).toBeInTheDocument();
+      // Dos copias: bajo el título (bajo `lg`) y en el costado (desde `lg`); ver «el costado».
+      expect(screen.getAllByText(ETIQUETA_ESTADO[nota.estado])).toHaveLength(2);
+      expect(screen.getAllByText(nota.medido_sobre)).toHaveLength(2);
       const fuentes = screen.getByRole('region', { name: /fuentes/i });
       expect(within(fuentes).getAllByRole('listitem')).toHaveLength(nota.fuentes.length);
       if (nota.cambio) expect(screen.getByRole('link', { name: 'El cambio' })).toHaveAttribute('href', nota.cambio);
       else expect(screen.queryByRole('link', { name: 'El cambio' })).toBeNull();
-      if (nota.antes_despues) expect(screen.getByText(nota.antes_despues.rotulo)).toBeInTheDocument();
+      if (nota.antes_despues) expect(screen.getAllByText(nota.antes_despues.rotulo)).toHaveLength(2);
 
       const copia = container.cloneNode(true) as HTMLElement;
       copia.querySelectorAll('pre, code').forEach((n) => n.remove());
       expect(copia.textContent).not.toMatch(/\*\*|\]\(|```|\|---|^#{2,} /m);
+    });
+
+    it('el costado: índice a títulos que existen, y cada pieza una sola vez en cada ancho', async () => {
+      vi.stubEnv('REPOSITORIO_URL', 'https://github.com/cris-middleton/tordo');
+      const { container } = render(await PaginaNota(params(slug)));
+      const costado = screen.getByRole('complementary', { name: 'Sobre esta nota' });
+      // Sólo desde `lg`: bajo ese ancho está en `display: none`, y un lector de pantalla tampoco lo lee.
+      expect(costado.className).toMatch(/(^|\s)hidden(\s|$)/);
+      expect(costado.className).toMatch(/\blg:block\b/);
+      expect(costado.className).toMatch(/\blg:sticky\b/);
+
+      const indice = within(costado).getByRole('navigation', { name: 'En esta nota' });
+      const anclas = within(indice)
+        .getAllByRole('link')
+        .map((a) => a.getAttribute('href'));
+      expect(anclas.length, 'guarda: el índice no está vacío').toBeGreaterThanOrEqual(5);
+      for (const ancla of anclas) {
+        expect(ancla).toMatch(/^#/);
+        expect(container.querySelector(ancla!), ancla!).not.toBeNull();
+      }
+      expect(anclas.at(-1)).toBe('#fuentes');
+
+      // Las copias de la columna de lectura desaparecen desde `lg`: ninguna se ve dos veces.
+      const datos = within(costado).getByText(nota.medido_sobre);
+      const otraCopia = screen.getAllByText(nota.medido_sobre).find((el) => el !== datos)!;
+      expect(otraCopia.closest('dl')!.className).toMatch(/\blg:hidden\b/);
+      if (nota.antes_despues) {
+        const graficos = container.querySelectorAll('figure');
+        expect(graficos).toHaveLength(2);
+        const fuera = [...graficos].find((f) => !costado.contains(f))!;
+        expect(fuera.className).toMatch(/\blg:hidden\b/);
+      }
+      const codigo = screen.queryByRole('navigation', { name: 'El código de esta nota' });
+      if (codigo) expect(codigo.className).toMatch(/\blg:hidden\b/);
+      if (nota.cambio) {
+        expect(within(costado).getByRole('link', { name: /^Pull request #\d+$/ })).toHaveAttribute('href', nota.cambio);
+      }
+      if (nota.script) expect(within(costado).getByRole('link', { name: nota.script })).toBeInTheDocument();
     });
 
     it('enlaces internos a rutas que existen', () => {
