@@ -100,7 +100,12 @@ const SOCIETARIAS: Record<string, string> = { spa: 'SpA', eirl: 'EIRL', sa: 'SA'
  * nada: es la misma palabra, sin el espacio de más. «MINISTERIO DE OBRAS
  * PUBLICAS DIREC CION GRAL DE OO PP DCYF» salía «Direc Cion Gral de Oo Pp Dcyf».
  */
-const PARTIDAS: [RegExp, string][] = [[/\bDIREC CION\b/gi, 'DIRECCION']];
+const PARTIDAS: [RegExp, string][] = [
+  [/\bDIREC CION\b/gi, 'DIRECCION'],
+  // «STARCO S A» al final del nombre es la sociedad anónima, como «S.A.»: sin esto salía
+  // «Starco S a» (la «a» suelta es una preposición). Sólo al final, donde no puede ser otra cosa.
+  [/\bS A$/i, 'S.A.'],
+];
 
 /** Cómo se escribe una palabra que no va en minúscula. */
 function escribir(palabra: string): string {

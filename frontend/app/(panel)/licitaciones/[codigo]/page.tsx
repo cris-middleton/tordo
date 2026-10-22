@@ -227,7 +227,10 @@ export default function TenderDetailPage() {
               <h2 id="descripcion-titulo" className="section-title">
                 Qué se compra
               </h2>
-              <p className="lectura mt-3 text-text">{tipoOracion(tenderData.descripcion)}</p>
+              {/* `lectura` va en el contenedor: limita sus párrafos a 58ch, no a sí misma. */}
+              <div className="lectura mt-3">
+                <p className="text-text">{tipoOracion(tenderData.descripcion)}</p>
+              </div>
             </section>
           )}
 

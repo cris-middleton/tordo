@@ -12,8 +12,8 @@ import { urlMercadoPublico } from '@/lib/compraAgil';
  */
 export function FueraDelCatalogo({ codigo }: { codigo: string | null }) {
   return (
-    <div className="max-w-3xl space-y-4">
-      <p className="lectura text-text">
+    <div className="lectura max-w-3xl space-y-4">
+      <p className="text-text">
         Guardamos cada licitación hasta 90 días después de su cierre, y cada Compra Ágil entre uno y
         dos meses desde que se publica. Si el código está bien escrito, la encuentras en Mercado
         Público.

@@ -107,3 +107,14 @@ describe('shortRegion', () => {
     expect(shortRegion('REGIÓN AYSÉN DEL GENERAL CARLOS IBÁÑEZ DEL CAMPO')).toBe('Aysén');
   });
 });
+
+describe('la sociedad anónima al final del nombre', () => {
+  it('«S A» sale «S.A.», como «S.A.»; «SA» se queda', () => {
+    expect(normalizeText('STARCO S A')).toBe('Starco S.A.');
+    expect(normalizeText('COMERCIAL MEDTRONIC CHILE S.A.')).toBe('Comercial Medtronic Chile S.A.');
+    expect(normalizeText('COPEC SA')).toBe('Copec SA');
+  });
+  it('una «a» en medio sigue siendo preposición', () => {
+    expect(normalizeText('SERVICIOS A DOMICILIO SPA')).toBe('Servicios a Domicilio SpA');
+  });
+});
