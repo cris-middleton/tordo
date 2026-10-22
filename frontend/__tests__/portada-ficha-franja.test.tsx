@@ -37,6 +37,8 @@ describe('FichaPortada (spec PORTADA_V7 §3.5)', () => {
     const { container } = render(<FichaPortada base={null} />);
     expect(filas(container.querySelector('dl') as HTMLElement).map(([dt]) => dt)).toEqual(['Fuente', 'Se actualiza', 'Abierto']);
     expect(container.textContent).not.toMatch(/\[\[|null/);
+    // Tres columnas desde lg, no cuatro con la última vacía.
+    expect(container.querySelector('dl')).toHaveClass('lg:grid-cols-3');
   });
 
   it('«Se usa» se fue (V11): la salida a API, MCP y CSV es la de la cabecera y el pie', () => {

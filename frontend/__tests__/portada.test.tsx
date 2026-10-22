@@ -877,6 +877,15 @@ describe('la escalera de precios', () => {
 });
 
 describe('«Para empezar»', () => {
+  it('con menos de tres lecturas, dos columnas: una tercera vacía parecía una fila rota', async () => {
+    simularBackend({});
+    render(await Home());
+    const banda = screen.getByRole('region', { name: LECTURAS });
+    expect(within(banda).getAllByRole('article')).toHaveLength(1);
+    expect(banda.innerHTML).toMatch(/lg:grid-cols-2/);
+    expect(banda.innerHTML).not.toMatch(/lg:grid-cols-3/);
+  });
+
   it('con todo, tres lecturas en fila —precio, concentración y cierres—, cada una con su pie de método', async () => {
     todo();
     const { container } = render(await Home());

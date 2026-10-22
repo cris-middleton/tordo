@@ -562,7 +562,8 @@ a la página**: Next ignora `metadata` en componentes cliente y la home perderí
   empiezan a la misma altura); en móvil, una tras otra. **Las tres primeras disponibles en el orden
   precio → concentración → cierres → nota** (`lecturasDeLaPortada`, `MAXIMO_LECTURAS_PORTADA` = 3):
   con todo, las tres de datos; si falta una, entra la nota; con el backend caído, sólo la nota; sin
-  ninguna, la sección no sale. **Cada frase sale del dato con una regla** (`lib/lecturasPortada.ts`
+  ninguna, la sección no sale. Con menos de tres, la fila es de dos columnas (en tres, la tercera
+  quedaba vacía). **Cada frase sale del dato con una regla** (`lib/lecturasPortada.ts`
   y `lib/lecturasMercado.ts`, fijadas en `__tests__/lecturas-portada.test.ts` y
   `__tests__/lecturas-mercado.test.ts`), y **cada lectura se oculta entera si le falta su dato**.
   - **Precio** (§3.2, `lecturaPrecio` → `precioDeBanda`): «{nombre}: la mitad de las compras se pagó
