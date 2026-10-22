@@ -12,8 +12,11 @@ import {
   urlMercadoPublico,
 } from '@/lib/compraAgil';
 import { textoCierre } from '@/lib/horaChile';
+import { rangoMonto } from '@/lib/rangoMonto';
 import { formatCurrency, normalizeText, shortRegion } from '@/lib/licitacionEstado';
 import type { CompraAgilDestacada } from '@/types/compraAgil';
+
+import { RangoMonto } from './RangoMonto';
 
 /**
  * Una Compra Ágil en una fila: la misma en la portada, en `/compra-agil`, en
@@ -22,8 +25,9 @@ import type { CompraAgilDestacada } from '@/types/compraAgil';
  * sin cocientes** (rediseño §6.7).
  *
  * Con `historia` añade la región y lo que se sabe de la unidad que compra —«Esta
- * unidad: 524 órdenes de Compra Ágil en 6 meses» y lo que suele gastar—; la
- * portada, compacta, no lo dice. Antes fuera de la portada era una tarjeta de
+ * unidad: 524 órdenes de Compra Ágil en 6 meses» y lo que suele gastar—, y bajo
+ * el monto, dónde cae frente a eso (`RangoMonto`); la portada, compacta, no lo
+ * dice. Antes fuera de la portada era una tarjeta de
  * ~200 px con chips de icono: 20 medían 7.000 px en un teléfono.
  *
  * `min-w-0`, `line-clamp-*` y `break-words`: un nombre de 300 letras, o uno sin
@@ -67,6 +71,9 @@ export function FilaCompraAgil({
       ? 'La misma unidad de compra que la anterior'
       : textoComprador(item.comprador, historia.meses, historia.disponible);
   const suele = historia?.disponible && !historia.repetida ? textoMontoTipico(item.comprador) : null;
+  // El punto contra lo que suele pedir la unidad: sólo con historia (no en la
+  // portada) y también en la fila repetida, porque su monto es otro.
+  const rango = historia?.disponible ? rangoMonto(item) : null;
   const lugar = [
     item.nombre_organismo && normalizeText(item.nombre_organismo),
     historia && item.region ? shortRegion(item.region) : null,
@@ -120,7 +127,10 @@ export function FilaCompraAgil({
             </p>
           )}
         </div>
-        <div className={historia ? 'sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:text-right' : 'shrink-0 text-right'}>{montoPintado}</div>
+        <div className={historia ? 'sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:text-right' : 'shrink-0 text-right'}>
+          {montoPintado}
+          {rango && <RangoMonto rango={rango} />}
+        </div>
         {historia && (
           <div className="min-w-0 text-xs text-muted">
             <p className="flex flex-wrap gap-x-3 gap-y-1">
