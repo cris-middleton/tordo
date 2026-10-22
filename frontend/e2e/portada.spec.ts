@@ -203,7 +203,8 @@ test('a 1440×900 la primera conclusión de datos y su gráfico empiezan sobre e
   expect(conclusion.y + conclusion.height, `la conclusión termina en y = ${conclusion.y + conclusion.height}`).toBeLessThanOrEqual(
     ESCRITORIO.height,
   );
-  const grafico = (await primera.locator('svg, [data-decimo], figure').first().boundingBox())!;
+  // Sólo lo que se ve: la red trae dos disposiciones y la del teléfono está oculta en escritorio.
+  const grafico = (await primera.locator('svg:visible, [data-decimo]:visible, figure:visible').first().boundingBox())!;
   expect(grafico.y, `el gráfico empieza en y = ${grafico.y}`).toBeLessThan(ESCRITORIO.height);
 });
 
