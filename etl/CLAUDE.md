@@ -386,7 +386,8 @@ pide el detalle de lo que ya está en la base: lo nuevo entraba una vez al día.
     productos (`/publico/productos?q=`, `terminos_de_busqueda`): el término pasa por la misma
     regla, así que «guantes de nitrilo» encuentra `guantes nitrilo talla`, y cada palabra se
     busca al comienzo de una palabra del slug («mesa» no encuentra «parmesano»). Un término sin
-    ninguna palabra útil («de la», «pc») da `[]`. `etl/tests/test_normalizacion_precio.py`
+    ninguna palabra útil («de la», «500») da `[]`; «pc» lleva a computadores por sinónimo
+    (`app/utils/sinonimos.py`). `etl/tests/test_normalizacion_precio.py`
     fija la firma byte a byte y que la regla de Python y la de Polars coinciden.
     **Cambiar `RUIDO` cambia firmas, slugs de páginas públicas y búsquedas a la vez.**
   - **La dispersión se mide con QCD, no con CV.** Sobre precios con cola larga la
