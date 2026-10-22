@@ -117,11 +117,11 @@ def test_todo_orden_con_limite_termina_en_un_criterio_unico():
     única: el desempate es la posición física (`DESEMPATE`)."""
     con_orden, _ = sql.sql_consulta("t", orden="n", limite=3)
     sin_orden, _ = sql.sql_consulta("t", limite=3)
-    busqueda = sql.sql_busqueda_texto("t", "nombre", orden="n")
+    busqueda, _ = sql.sql_busqueda_texto("t", "nombre", "guante", orden="n")
 
     assert con_orden.endswith('ORDER BY "n" DESC NULLS LAST, ctid LIMIT 3')
     assert sin_orden.endswith("ORDER BY ctid LIMIT 3")
-    assert busqueda.endswith('ORDER BY "n" DESC NULLS LAST, ctid LIMIT :limite')
+    assert busqueda.endswith('DESC, "n" DESC NULLS LAST, ctid LIMIT :limite')
 
 
 TABLA_EMPATE = "tabla_empate_prueba"

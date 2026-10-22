@@ -300,17 +300,20 @@ def buscar_texto(
     orden: str | None = None,
     limite: int = 20,
 ) -> pl.DataFrame | None:
-    """El término al comienzo de una palabra, servido por el índice GIN de pg_trgm.
+    """Las palabras al comienzo de una palabra, servidas por el índice GIN de pg_trgm.
 
-    La regla está en `repositories/busqueda.py`: «mesa» no encuentra «parmesano».
+    La regla está en `repositories/busqueda.py`: «mesa» no encuentra «parmesano»,
+    y cada palabra trae sus formas y sinónimos (`condicion_por_palabras`).
     """
     if not existe_tabla(tabla):
         return None
 
-    params = sql.parametros_busqueda(consulta_texto)
+    busqueda = sql.sql_busqueda_texto(
+        tabla, columna, consulta_texto, columnas=columnas, orden=orden
+    )
     filas = []
-    if params is not None:
-        consulta = sql.sql_busqueda_texto(tabla, columna, columnas=columnas, orden=orden)
+    if busqueda is not None:
+        consulta, params = busqueda
         with _engine().connect() as conn:
             filas = conn.execute(text(consulta), {**params, "limite": limite}).mappings().all()
     if filas:

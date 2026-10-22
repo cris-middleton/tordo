@@ -65,6 +65,7 @@ def formas(palabra: str) -> list[Forma]:
 
     - Como comienzo de palabra: «guante» encuentra «guantes».
     - Su singular, entero: «guantes» encuentra «guante».
+    - Su plural en «-ces», entero: «lápiz» encuentra «lápices».
     - El otro género, como comienzo: «clínica» encuentra «clínico».
     - «-ora» sin la «a», como comienzo: «computadora» encuentra «computador» e
       «impresora», «impresor». Con más de cinco letras: «hora» no busca «hor».
@@ -72,6 +73,9 @@ def formas(palabra: str) -> list[Forma]:
     resultado = [Forma(palabra, prefijo=True)]
     bases = [palabra, *singulares(palabra)]
     resultado.extend(Forma(s, prefijo=False) for s in bases[1:])
+    plural = plural_en_ces(palabra)
+    if plural:
+        resultado.append(Forma(plural, prefijo=False))
     for base in bases:
         if len(base) > 3 and base[-1] in _GENERO:
             resultado.append(Forma(base[:-1] + _GENERO[base[-1]], prefijo=True))

@@ -286,12 +286,18 @@ def sql_distintos(
 def sql_busqueda_texto(
     tabla: str,
     columna: str,
+    consulta: str,
     *,
     columnas: list[str] | None = None,
     orden: str | None = None,
     schema: str = SCHEMA,
-) -> str:
-    """Las filas donde `columna` tiene una palabra que empieza por el término.
+) -> tuple[str, dict[str, str]] | None:
+    """Las filas donde `columna` tiene las palabras de `consulta`, y sus parámetros.
+
+    Cada palabra al comienzo de una palabra, con sus formas y sinónimos
+    (`busqueda.condicion_por_palabras`); primero lo que coincide sin sinónimos y
+    luego por `orden`. None si no hay nada que buscar («%», «&»): ninguna fila
+    coincide y no hace falta preguntarle a la base.
 
     Sin tildes ni mayúsculas en los dos lados (`busqueda.sql_normalizado`). La
     columna generada `COLUMNA_BUSCABLE` ya viene normalizada y lleva el índice de
@@ -299,29 +305,19 @@ def sql_busqueda_texto(
     con una tabla materializada antes de que existiera la columna, hasta la
     corrida semanal siguiente.
     """
-    proyeccion = ", ".join(ident(c) for c in columnas) if columnas else "*"
     izquierda = (
         ident(columna)
         if columna == busqueda.COLUMNA_BUSCABLE
         else busqueda.sql_normalizado(ident(columna))
     )
-    sql = (
-        f"SELECT {proyeccion} FROM {tabla_calificada(tabla, schema)} "
-        f"WHERE {busqueda.sql_comienza_palabra(izquierda)}"
-    )
+    condicion = busqueda.condicion_por_palabras(izquierda, consulta)
+    if condicion is None:
+        return None
+    proyeccion = ", ".join(ident(c) for c in columnas) if columnas else "*"
+    sql = f"SELECT {proyeccion} FROM {tabla_calificada(tabla, schema)} WHERE {condicion.donde}"
+    primero = f"({condicion.directa}) DESC, " if condicion.directa else ""
     orden_sql = f"{ident(orden)} DESC NULLS LAST, " if orden else ""
-    return sql + f" ORDER BY {orden_sql}{DESEMPATE} LIMIT :limite"
-
-
-def parametros_busqueda(consulta: str) -> dict[str, str] | None:
-    """Los parámetros de `sql_busqueda_texto`, o None si no hay nada que buscar.
-
-    El término va desde su primera letra o dígito (`busqueda.fragmento`); las
-    tildes y las mayúsculas las quita Postgres. None («%», «&»): ninguna fila
-    coincide y no hace falta preguntarle a la base.
-    """
-    trozo = busqueda.fragmento(consulta.strip())
-    return busqueda.parametros(trozo) if trozo else None
+    return sql + f" ORDER BY {primero}{orden_sql}{DESEMPATE} LIMIT :limite", condicion.parametros
 
 
 # ── Agregados del mercado para la portada (`/publico/mercado`) ───────────────
