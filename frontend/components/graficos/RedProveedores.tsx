@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useMediaQuery } from '@/hooks/useMediaQuery';
-import { nombreCorto, type GraficoRed, type NodoRed } from '@/lib/redPortada';
+import { rotularCompradores, type GraficoRed, type NodoRed } from '@/lib/redPortada';
 
 import { Globo } from './Globo';
 import { teclasDeRecorrido } from './teclado';
@@ -234,21 +234,12 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
 
   const rotulos = useMemo(
     () =>
-      nodos
-        .filter((d) => d.tipo === 'comprador')
-        .sort((a, b) => b.monto - a.monto)
-        .slice(0, ROTULADOS)
-        .map((d) => {
-          // Del lado de adentro: a la izquierda del nodo si está a la derecha del centro, y al revés.
-          const derecha = d.x > ancho / 2;
-          return {
-            id: d.id,
-            texto: nombreCorto(d.nombre),
-            x: ((derecha ? d.x - d.r - 3 : d.x + d.r + 3) / ancho) * 100,
-            y: (d.y / alto) * 100,
-            clase: `${derecha ? '-translate-x-full' : ''} -translate-y-1/2`,
-          };
-        }),
+      rotularCompradores(nodos, { ancho, alto }, ROTULADOS).map((r) => ({
+        ...r,
+        x: (r.x / ancho) * 100,
+        y: (r.y / alto) * 100,
+        clase: { izquierda: '-translate-x-full -translate-y-1/2', derecha: '-translate-y-1/2', arriba: '-translate-x-1/2 -translate-y-full' }[r.lado],
+      })),
     [nodos, ancho, alto],
   );
   const centro_ = useMemo(() => {

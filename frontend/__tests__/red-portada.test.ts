@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ALTO, ANCHO, esRed, fraseRed, graficoRed, lecturaRed, LIENZO_MOVIL, MINIMO_COMPRADORES } from '@/lib/redPortada';
+import { ALTO, ANCHO, esRed, fraseRed, graficoRed, lecturaRed, LIENZO_MOVIL, MINIMO_COMPRADORES, rotularCompradores, type NodoRed } from '@/lib/redPortada';
 import type { RedPortada } from '@/types/publico';
 
 /**
@@ -154,5 +154,50 @@ describe('detalleRed', () => {
       'La mitad de esos 3 les vendió menos de $46,8 millones en total.',
     );
     expect(detalleRed({ nodos: [nodo(1e7), nodo(2e7)] })).toBeNull();
+  });
+});
+
+describe('rotularCompradores', () => {
+  const comprador = (id: string, nombre: string, monto: number, x: number, y: number): NodoRed => ({
+    id,
+    tipo: 'comprador',
+    nombre,
+    monto,
+    texto: '',
+    vecinos: 0,
+    sector: null,
+    amplio: false,
+    x,
+    y,
+    r: 10,
+  });
+  const lienzo = { ancho: 640, alto: 420 };
+
+  it('pone cada rótulo del lado de adentro de su nodo', () => {
+    const r = rotularCompradores(
+      [comprador('c:1', 'Junaeb', 3, 600, 200), comprador('c:2', 'Junji', 2, 40, 200)],
+      lienzo,
+      3,
+    );
+    expect(r.map((x) => x.lado)).toEqual(['izquierda', 'derecha']);
+  });
+
+  it('dos nodos vecinos no montan sus nombres: el segundo sube o se queda sin rótulo', () => {
+    // Como en producción el 2026-10-22: Cenabast y el Fondo Nacional de Salud, pegados arriba.
+    const r = rotularCompradores(
+      [
+        comprador('c:1', 'Fondo Nacional de Salud', 3, 380, 30),
+        comprador('c:2', 'Central de Abastecimiento del S.N.S.S.', 2, 330, 20),
+        comprador('c:3', 'Junaeb', 1, 330, 380),
+      ],
+      lienzo,
+      3,
+    );
+    expect(r.map((x) => x.id)).toEqual(['c:1', 'c:3']);
+  });
+
+  it('se queda en los de más monto aunque alguno no quepa', () => {
+    const nodos = Array.from({ length: 6 }, (_, i) => comprador(`c:${i}`, `Comprador ${i}`, 10 - i, 600, 40 + i * 60));
+    expect(rotularCompradores(nodos, lienzo, 3).map((x) => x.id)).toEqual(['c:0', 'c:1', 'c:2']);
   });
 });
