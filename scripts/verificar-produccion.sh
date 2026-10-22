@@ -235,6 +235,49 @@ ejemplo 'impresora'
 ejemplo 'pendón'
 ejemplo 'cambio de aceite'
 
+# ── La escalera de precios de la portada ─────────────────────────────────────
+# Copia LITERAL de PRODUCTOS_ESCALERA (frontend/lib/escaleraPrecios.ts), slug y
+# unidad, en su orden: frontend/__tests__/escalera-precios.test.ts falla si se
+# separan. Un GET por producto y un segundo entre cada uno: nunca un bucle contra
+# producción. Mira lo mismo que bandaDeLaEscalera: indexable y, en ESA unidad,
+# precio de mercado, predictibilidad alta o media, 1 ≤ p25 ≤ p75. Con menos de
+# cuatro que pasen, la portada vuelve a la lectura de un solo producto.
+seccion "Escalera de precios: cada producto con su banda de mercado en su unidad"
+escalon() {
+  local slug="$1" unidad="$2"
+  codigo=$(pedir "$API/api/v1/publico/productos/$slug")
+  if [ "$codigo" = 200 ] && python3 -I - "$TMP/cuerpo" "$unidad" 2>/dev/null <<'PY'
+import json, sys, unicodedata
+def normal(texto):
+    sin_tildes = unicodedata.normalize("NFD", texto or "")
+    sin_tildes = "".join(c for c in sin_tildes if not unicodedata.combining(c))
+    return " ".join(sin_tildes.lower().split())
+p = json.load(open(sys.argv[1]))
+banda = next((u for u in p.get("unidades") or [] if normal(u.get("unidad")) == sys.argv[2]), None)
+listo = (
+    p.get("indexable") is True
+    and banda is not None
+    and banda.get("de_mercado") is True
+    and normal(banda.get("predictibilidad")) in ("alta", "media")
+    and banda.get("p25") is not None and banda.get("p75") is not None
+    and 1 <= banda["p25"] <= banda["p75"]
+)
+sys.exit(0 if listo else 1)
+PY
+  then
+    ok "«${slug}» (${unidad}): banda de mercado creíble"
+  else
+    mal "«${slug}» (${unidad}) ($codigo): sin banda de mercado creíble en esa unidad — la escalera pierde una fila; cámbialo en frontend/lib/escaleraPrecios.ts y aquí"
+  fi
+  sleep 1
+}
+escalon 'azul-lapiz-pasta' 'unidad'
+escalon 'agua-gas-mineral-sin' 'unidad'
+escalon 'cloro-gel' 'unidad'
+escalon 'carta-papel-resma' 'unidad'
+escalon 'guantes-nitrilo-talla' 'caja'
+escalon 'impresora-multifuncional' 'unidad'
+
 # ── El producto de la portada (lectura de precio) ────────────────────────────
 # Copia LITERAL de PRODUCTO_PORTADA.slug (frontend/lib/lecturasPortada.ts):
 # frontend/__tests__/portada-ayudantes.test.ts falla si se separan. Un GET y un

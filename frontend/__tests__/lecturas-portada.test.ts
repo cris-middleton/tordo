@@ -534,7 +534,7 @@ describe('lecturasDeLaPortada: las tres primeras en el orden precio → concentr
     const elegidas = lecturasDeLaPortada(lecturas);
     expect(elegidas.map((e) => e.tipo)).toEqual(esperado);
     // Cada una lleva su lectura, no una copia ni otra.
-    for (const e of elegidas) expect(e.lectura).toBe(lecturas[e.tipo]);
+    for (const e of elegidas) expect(e.lectura).toBe((lecturas as Record<string, unknown>)[e.tipo]);
   });
 
   it('nunca más de tres (MAXIMO_LECTURAS_PORTADA)', () => {

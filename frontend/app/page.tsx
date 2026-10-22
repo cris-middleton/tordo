@@ -6,6 +6,7 @@ import {
   pedirDestacadas,
   pedirMercadoPortada,
   pedirProductoPortada,
+  pedirProductosEscalera,
   pedirResumenPortada,
   pedirSectoresPortada,
 } from '@/lib/publicoServidor';
@@ -86,6 +87,8 @@ export default async function Home() {
     pedirProductoPortada(),
     horaDelRender(),
   ]);
+  // Después del producto de la portada, que es una de sus filas: no se pide dos veces.
+  const escalera = await pedirProductosEscalera(producto);
   return (
     <Portada
       destacadas={destacadas}
@@ -93,6 +96,7 @@ export default async function Home() {
       sectores={sectores}
       mercado={mercado}
       producto={producto}
+      escalera={escalera}
       notas={leerNotas()}
       repositorio={urlRepositorio()}
       autor={nombreAutor()}

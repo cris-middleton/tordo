@@ -21,6 +21,7 @@ import type { SectoresBI } from '@/types/bi';
 import type { CompraAgilDestacada, CompraAgilDestacadasResponse } from '@/types/compraAgil';
 import type { MercadoPortada, ProductoPublico, ResumenPortada } from '@/types/publico';
 
+import { PRODUCTOS_ESCALERA } from './escaleraPrecios';
 import { esConteo, esProductoPortada, esSectores, PRODUCTO_PORTADA } from './lecturasPortada';
 import { esMercadoPortada } from './lecturasMercado';
 import {
@@ -191,6 +192,22 @@ export async function pedirProductoPortada(): Promise<ProductoPublico | null> {
     esProductoPortada,
     'el producto de la portada',
     CACHE_ANALYTICS,
+  );
+}
+
+/**
+ * Las fichas de la escalera de precios (`PRODUCTOS_ESCALERA`), en su orden, sin
+ * la de `PRODUCTO_PORTADA`, que ya pide `pedirProductoPortada` (va en su sitio).
+ * Cada una cachea una semana con la etiqueta `analytics`, como la del producto; una
+ * que falla es un `null` y una fila menos.
+ */
+export async function pedirProductosEscalera(producto: ProductoPublico | null): Promise<(ProductoPublico | null)[]> {
+  return Promise.all(
+    PRODUCTOS_ESCALERA.map((p) =>
+      p.slug === PRODUCTO_PORTADA.slug
+        ? Promise.resolve(producto)
+        : pedirParaLaPortada(`${API}/publico/productos/${segmento(p.slug)}`, esProductoPortada, `«${p.nombre}»`, CACHE_ANALYTICS),
+    ),
   );
 }
 

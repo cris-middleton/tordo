@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { PieDeMetodo } from '@/components/metodo/PieDeMetodo';
 import { AntesDespues } from '@/components/notas/AntesDespues';
 import { Concentracion } from '@/components/graficos/Concentracion';
+import { EscaleraPrecios } from '@/components/graficos/EscaleraPrecios';
 import { BarraCierres } from '@/components/portada/BarraCierres';
 import { GraficoPrecio } from '@/components/precio/GraficoPrecio';
 import {
@@ -14,6 +15,7 @@ import {
   type LecturaPrecio,
   type Lecturas,
 } from '@/lib/lecturasPortada';
+import type { LecturaEscalera } from '@/lib/escaleraPrecios';
 import type { LecturaConcentracion } from '@/lib/lecturasMercado';
 import type { EnlaceMetodo } from '@/lib/metodo';
 
@@ -91,6 +93,20 @@ function VistaPrecio({ lectura, primera }: { lectura: LecturaPrecio; primera: bo
   );
 }
 
+function VistaEscalera({ lectura, primera }: { lectura: LecturaEscalera; primera: boolean }) {
+  return (
+    <Lectura
+      id="lectura-escalera"
+      primera={primera}
+      cabecera={<Conclusion id="lectura-escalera">{lectura.conclusion}</Conclusion>}
+      pie={lectura.pie}
+      enlaces={lectura.enlaces}
+    >
+      <EscaleraPrecios datos={lectura.grafico} />
+    </Lectura>
+  );
+}
+
 function VistaConcentracion({ lectura, primera }: { lectura: LecturaConcentracion; primera: boolean }) {
   return (
     <Lectura
@@ -160,6 +176,8 @@ function VistaNota({ lectura, primera }: { lectura: LecturaNota; primera: boolea
 /** Una lectura elegida, con la vista que le toca. */
 function Vista({ elegida, primera }: { elegida: LecturaDeLaPortada; primera: boolean }) {
   switch (elegida.tipo) {
+    case 'escalera':
+      return <VistaEscalera lectura={elegida.lectura} primera={primera} />;
     case 'precio':
       return <VistaPrecio lectura={elegida.lectura} primera={primera} />;
     case 'concentracion':

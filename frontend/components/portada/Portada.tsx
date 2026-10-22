@@ -1,5 +1,6 @@
 import { Contenedor } from '@/components/cascara/Contenedor';
 import { CLASE_SECCION } from '@/components/cascara/Seccion';
+import { lecturaEscalera } from '@/lib/escaleraPrecios';
 import { lecturaConcentracion, lecturaGasto } from '@/lib/lecturasMercado';
 import { lecturaRed } from '@/lib/redPortada';
 import { lecturaCierres, lecturaNota, lecturaPrecio, notaDeLaPortada, type Lecturas } from '@/lib/lecturasPortada';
@@ -54,6 +55,7 @@ export function Portada({
   sectores,
   mercado,
   producto,
+  escalera: fichasEscalera = [],
   notas,
   repositorio,
   autor,
@@ -69,6 +71,8 @@ export function Portada({
   mercado: MercadoPortada | null;
   /** La ficha de `PRODUCTO_PORTADA` (la lectura de precio), o null. */
   producto: ProductoPublico | null;
+  /** Las fichas de `PRODUCTOS_ESCALERA`, en su orden (`null` la que falló). Sin ellas, la lectura de un producto. */
+  escalera?: (ProductoPublico | null)[];
   /** Las notas de datos, de la más nueva a la más vieja (`leerNotas()`). */
   notas: Nota[];
   /** `urlRepositorio()`: «Código» y «El script» sólo con el repositorio publicado. */
@@ -93,6 +97,7 @@ export function Portada({
   const red = lecturaRed(mercado, repositorio);
   const lecturas: Lecturas = {
     precio: lecturaPrecio(producto, repositorio),
+    escalera: lecturaEscalera(fichasEscalera, repositorio),
     concentracion: lecturaConcentracion(mercado, repositorio),
     // «Cierran hoy o mañana» es relativo al día del conteo: con uno atrasado o de ayer, mentiría.
     cierres: vigencia.alDia && vigencia.mismoDia ? lecturaCierres(resumen, repositorio) : null,
