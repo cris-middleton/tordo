@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useRef, useEffect, RefObject } from 'react';
-import { MoreHorizontal, Copy, Download, Link as LinkIcon, Check } from 'lucide-react';
+import { Share2, Copy, Download, Link as LinkIcon, Check } from 'lucide-react';
 
 import { enlaceConRubro } from '@/lib/compartir';
 
@@ -25,8 +25,12 @@ const ContextoRubro = createContext('');
 export const RubroMostrado = ContextoRubro.Provider;
 
 /**
- * Menú `⋯` con 3 acciones: copiar resumen, descargar PNG y copiar link.
+ * Menú «Compartir» con 3 acciones: copiar resumen, descargar PNG y copiar link.
  * Usa html2canvas (dynamic import, solo se carga al descargar).
+ *
+ * El botón dice lo que hace: era un `⋯` suelto, que no se lee como «compartir» y
+ * quedaba flotando a mitad de fila. El PNG sale con el fondo de la página (en
+ * tema oscuro, oscuro), no con un blanco escrito a mano.
  */
 export function ShareMenu({ targetRef, summaryText, filename }: ShareMenuProps) {
   const [open, setOpen] = useState(false);
@@ -66,7 +70,7 @@ export function ShareMenu({ targetRef, summaryText, filename }: ShareMenuProps) 
     try {
       const html2canvas = (await import('html2canvas')).default;
       const canvas = await html2canvas(targetRef.current, {
-        backgroundColor: '#ffffff',
+        backgroundColor: getComputedStyle(document.body).backgroundColor,
         scale: 2,
         logging: false,
       });
@@ -85,11 +89,13 @@ export function ShareMenu({ targetRef, summaryText, filename }: ShareMenuProps) 
   return (
     <div ref={rootRef} className="relative">
       <button
+        type="button"
         onClick={() => setOpen((o) => !o)}
-        aria-label="Compartir"
-        className="p-1.5 text-muted hover:text-text rounded-lg hover:bg-surface transition-colors"
+        aria-expanded={open}
+        className="-mx-2 inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-lg px-2 text-sm text-muted transition-colors hover:bg-surface-elevated hover:text-text"
       >
-        <MoreHorizontal className="h-4 w-4" />
+        <Share2 className="h-4 w-4" aria-hidden="true" />
+        Compartir
       </button>
       {open && (
         <div className="absolute right-0 top-full mt-1 w-56 rounded-xl border border-border bg-surface shadow-xl z-20 py-1">
