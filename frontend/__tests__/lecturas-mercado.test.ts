@@ -41,6 +41,26 @@ const CONCENTRACION: ConcentracionMercados = {
 const MERCADO: MercadoPortada = { gasto_mensual: meses(1.6e12), concentracion: CONCENTRACION };
 
 describe('fraseGasto', () => {
+  const dosAnios = (dic2024: number, jun2024: number): GastoMensual[] =>
+    Array.from({ length: 24 }, (_, i) => ({
+      anio: 2024 + Math.floor(i / 12),
+      mes: (i % 12) + 1,
+      sector: 'Salud',
+      monto: i === 11 ? dic2024 : i === 23 ? 1.8e12 : i === 5 ? jun2024 : 1e12,
+    }));
+
+  it('si el mes del pico es el más alto de cada año, lo dice', () => {
+    expect(fraseGasto(graficoGasto(dosAnios(1.5e12, 1e12))!)).toBe(
+      'El Estado compró $25,3 billones en 24 meses. Diciembre es el mes más alto de cada año. El de 2025 fue 1,8 veces un mes típico.',
+    );
+  });
+
+  it('si otro año tuvo otro mes más alto, nombra sólo el pico', () => {
+    expect(fraseGasto(graficoGasto(dosAnios(1.5e12, 1.6e12))!)).toBe(
+      'El Estado compró $25,9 billones en 24 meses. Diciembre de 2025 fue el mes más alto: 1,8 veces un mes típico.',
+    );
+  });
+
   it('el total del periodo y el mes más alto, en veces un mes típico', () => {
     expect(fraseGasto(graficoGasto(meses(1.6e12))!)).toBe(
       'El Estado compró $12,6 billones en 12 meses. Diciembre de 2025 fue el mes más alto: 1,6 veces un mes típico.',

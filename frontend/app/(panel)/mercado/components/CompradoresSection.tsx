@@ -17,7 +17,7 @@ interface CompradorSectionProps {
 }
 
 function pctOpc(v?: number | null): string {
-  return v == null ? '—' : `${decimal(v * 100, 0)}%`;
+  return v == null ? '—' : `${decimal(v * 100, 0)}\u00a0%`;
 }
 
 /** Las señales del historial, en palabras y sin alarma: lo que el dato dice, no un juicio. */

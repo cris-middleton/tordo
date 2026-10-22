@@ -110,7 +110,7 @@ function RubroColumn({ rubro, consulta }: { rubro: string; consulta: UseQueryRes
           <div>
             <p className="text-xs text-muted">Crecimiento al año, en promedio</p>
             <p className={`cifra font-semibold ${cagr >= 0 ? 'text-accent' : 'text-danger'}`}>
-              {cagr > 0 ? '+' : ''}{decimal(cagr, 1)}%
+              {cagr > 0 ? '+' : ''}{decimal(cagr, 1)}{'\u00a0'}%
             </p>
           </div>
         )}

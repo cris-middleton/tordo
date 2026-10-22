@@ -36,7 +36,8 @@ export const metadata: Metadata = {
  * datos como su trabajo: es lo que muestra cómo trabaja quien lo hace.
  *
  * **El texto corrido va a 16 px y en `text`** (`PROSA`); las preguntas, también.
- * Lo chico y gris queda para lo secundario: la línea del contacto.
+ * Lo chico y gris queda para lo secundario: la línea del contacto. Las preguntas miden lo que un párrafo (58ch): con los filetes a lo ancho de la
+ * columna, la lista se veía más ancha que el texto de arriba.
  */
 const PROSA = 'text-base leading-relaxed text-text';
 
@@ -96,7 +97,7 @@ export default function PaginaAcerca() {
           <Link href="/apoyar#costos" className="enlace">
             alrededor de {COSTO_MENSUAL_APROXIMADO} al mes
           </Link>
-          . Lo pagamos nosotros, con la ayuda de quienes aportan.
+          . Lo paga quien lo hace, con la ayuda de quienes aportan.
         </p>
       </Seccion>
 
@@ -136,7 +137,7 @@ export default function PaginaAcerca() {
       )}
 
       <Seccion id="preguntas" titulo="Preguntas frecuentes">
-        <div className="divide-y divide-border border-y border-border">
+        <div className="max-w-[58ch] divide-y divide-border border-y border-border">
           {PREGUNTAS.map((p) => (
             <details key={p.pregunta} className="group">
               <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 py-3 text-base font-semibold text-text hover:text-primary [&::-webkit-details-marker]:hidden">
@@ -146,7 +147,7 @@ export default function PaginaAcerca() {
                   aria-hidden="true"
                 />
               </summary>
-              <div className={`pb-4 pr-8 ${PROSA}`}>
+              <div className={`pb-4 ${PROSA}`}>
                 <p>{p.respuesta}</p>
                 {p.enlace && (
                   <Link href={p.enlace.href} className="enlace mt-2 inline-block">

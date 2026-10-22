@@ -113,8 +113,8 @@ describe('cómo compra un comprador', () => {
     rerender(
       <BuyerProfilePanel comprador={{ disponible: true, buyer_score: 0.5, transparencia: { pct_trato_directo: 0.12 } }} />,
     );
-    expect(screen.getByText('12%')).toBeInTheDocument();
-    expect(textoTratoDirecto(0.003)).toBe('menos de 1%');
+    expect(screen.getByText('12 %')).toBeInTheDocument();
+    expect(textoTratoDirecto(0.003)).toBe('menos de 1\u00a0%');
     expect(textoTratoDirecto(null)).toBeNull();
   });
 
@@ -125,9 +125,9 @@ describe('cómo compra un comprador', () => {
   });
 
   it('el proveedor principal se dice en una frase que se lee al derecho', () => {
-    expect(fraseProveedorPrincipal(2.4)).toBe('El proveedor principal se lleva el 2% de sus órdenes por Compra Ágil.');
+    expect(fraseProveedorPrincipal(2.4)).toBe('El proveedor principal se lleva el 2\u00a0% de sus órdenes por Compra Ágil.');
     expect(fraseProveedorPrincipal(0.2)).toBe(
-      'El proveedor principal se lleva menos del 1% de sus órdenes por Compra Ágil.',
+      'El proveedor principal se lleva menos del 1\u00a0% de sus órdenes por Compra Ágil.',
     );
   });
 });

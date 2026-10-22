@@ -14,7 +14,7 @@ describe('MesesDeCompra', () => {
     expect(screen.getByText('Compra sobre todo en marzo y noviembre.')).toBeInTheDocument();
     const lista = screen.getByRole('list', { name: 'Parte de sus órdenes en cada mes' });
     expect(within(lista).getAllByRole('listitem')).toHaveLength(12);
-    expect(within(lista).getByText('89%')).toBeInTheDocument();
+    expect(within(lista).getByText('89 %')).toBeInTheDocument();
   });
 
   it('parejo todo el año no pinta ningún mes en el color del dato', () => {

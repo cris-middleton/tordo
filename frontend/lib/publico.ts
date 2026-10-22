@@ -138,7 +138,7 @@ export function entero(n?: number | null): string {
 }
 
 export function porcentaje(fraccion?: number | null): string {
-  return fraccion == null ? '—' : `${Math.round(fraccion * 100)}%`;
+  return fraccion == null ? '—' : `${Math.round(fraccion * 100)}\u00a0%`;
 }
 
 /** «2026-10-04» → «4 oct 2026». Sin `Date`, para no depender del huso. */

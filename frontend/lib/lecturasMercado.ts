@@ -66,13 +66,39 @@ export interface LecturaGasto {
 }
 
 /**
+ * ¿El mes del pico es el más alto de cada año? Cuentan los años con al menos
+ * `MESES_PARA_UN_ANIO` meses en la serie y que tengan ese mes; hacen falta dos.
+ * Un año con dos meses no dice nada de cuál es su mes más alto.
+ */
+const MESES_PARA_UN_ANIO = 6;
+
+function picoQueSeRepite(g: GraficoGasto): boolean {
+  const porAnio = new Map<number, GraficoGasto['meses']>();
+  for (const m of g.meses) porAnio.set(m.anio, [...(porAnio.get(m.anio) ?? []), m]);
+  const anios = [...porAnio.values()].filter(
+    (ms) => ms.length >= MESES_PARA_UN_ANIO && ms.some((m) => m.mes === g.pico.mes),
+  );
+  return (
+    anios.length >= 2 &&
+    anios.every((ms) => ms.reduce((a, m) => (m.total > a.total ? m : a)).mes === g.pico.mes)
+  );
+}
+
+/**
  * «El Estado compró $31,7 billones en 36 meses. Diciembre de 2025 fue el mes más
  * alto: 1,6 veces un mes típico.» El mes típico es la mediana de los meses. Si
- * ningún mes llega a `VECES_PICO` veces el típico, se dice que compra parejo.
+ * ningún mes llega a `VECES_PICO` veces el típico, se dice que compra parejo. Si
+ * el mes del pico es también el más alto de los otros años, eso es lo que hay que
+ * saber: «Diciembre es el mes más alto de cada año. El de 2025 fue…».
  */
 export function fraseGasto(g: GraficoGasto): string {
   const primera = `El Estado compró ${monto(g.total)} en ${g.meses.length} meses.`;
   if (g.veces >= VECES_PICO) {
+    if (picoQueSeRepite(g)) {
+      const nombre = g.pico.largo.split(' ')[0];
+      const mes = nombre.charAt(0).toUpperCase() + nombre.slice(1);
+      return `${primera} ${mes} es el mes más alto de cada año. El de ${g.pico.anio} fue ${veces(g.veces)} un mes típico.`;
+    }
     const mes = g.pico.largo.charAt(0).toUpperCase() + g.pico.largo.slice(1);
     return `${primera} ${mes} fue el mes más alto: ${veces(g.veces)} un mes típico.`;
   }

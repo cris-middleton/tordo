@@ -18,8 +18,8 @@
  */
 export function textoTratoDirecto(v: number | null | undefined): string | null {
   if (v == null || !Number.isFinite(v) || v <= 0) return null;
-  if (v < 0.005) return 'menos de 1%';
-  return `${Math.round(v * 100)}%`;
+  if (v < 0.005) return 'menos de 1\u00a0%';
+  return `${Math.round(v * 100)}\u00a0%`;
 }
 
 /**
@@ -47,6 +47,6 @@ export function ofertasPorLicitacion(promedio: number | null | undefined): numbe
  * el proveedor. Bajo el 1%, «menos del 1%».
  */
 export function fraseProveedorPrincipal(cuotaPct: number): string {
-  const cifra = cuotaPct > 0 && cuotaPct < 0.5 ? 'menos del 1%' : `el ${Math.round(cuotaPct)}%`;
+  const cifra = cuotaPct > 0 && cuotaPct < 0.5 ? 'menos del 1\u00a0%' : `el ${Math.round(cuotaPct)}\u00a0%`;
   return `El proveedor principal se lleva ${cifra} de sus órdenes por Compra Ágil.`;
 }

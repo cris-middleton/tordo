@@ -10,7 +10,9 @@ import Link from 'next/link';
  *
  * Sin antetítulo en mayúsculas («PRECIO DE REFERENCIA», «ACERCA»): repetía la
  * navegación y es una señal de plantilla (spec PORTADA_V7, V10). Nada va antes
- * del `h1`: el tope lo pone el contenedor (§4).
+ * del `h1`: el tope lo pone el contenedor (§4). La entrada va a 16 px, como en
+ * `/licitaciones` y `/compra-agil`: a 14, debajo de un `h1` de 36, se leía como
+ * letra chica.
  */
 export function CabeceraFicha({
   titulo,
@@ -24,7 +26,7 @@ export function CabeceraFicha({
   return (
     <header className="mb-8">
       <h1 className="page-title break-words">{titulo}</h1>
-      {subtitulo && <p className="mt-2 max-w-3xl text-sm text-muted">{subtitulo}</p>}
+      {subtitulo && <p className="mt-2 max-w-[65ch] text-base leading-relaxed text-muted">{subtitulo}</p>}
       {children}
     </header>
   );

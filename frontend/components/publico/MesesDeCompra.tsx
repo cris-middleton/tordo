@@ -31,7 +31,7 @@ export function MesesDeCompra({ meses }: { meses: MesDeCompra[] | null | undefin
               clave: String(m.mes),
               etiqueta: MESES_CORTOS[m.mes - 1],
               valor: m.prob,
-              texto: `${decimal(m.prob * 100, 0)}%`,
+              texto: `${decimal(m.prob * 100, 0)}\u00a0%`,
               destacada: nombrados.has(m.mes),
             }))}
           />

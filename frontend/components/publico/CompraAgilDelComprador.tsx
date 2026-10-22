@@ -18,7 +18,8 @@ import { useCompraAgilDestacadas } from '@/lib/queries';
  * abierta hoy es lo normal para la mayoría de los compradores, y un fallo de
  * esta sección no debería hacer parecer rota una ficha que sí cargó. Pero cada
  * línea dice lo que pasó: con error no se sabe si tiene abiertas, y decir que
- * no tiene sería falso.
+ * no tiene sería falso. Con filas, el mismo enlace va debajo: es el único de la
+ * ficha (antes la página lo repetía al final).
  */
 export function CompraAgilDelComprador({ codigo }: { codigo: string }) {
   const consulta = useCompraAgilDestacadas({ codigo_organismo: codigo, limite: 10 });
@@ -45,17 +46,24 @@ export function CompraAgilDelComprador({ codigo }: { codigo: string }) {
   const meses = mesesDeVentana(datos?.ventana_desde ?? null, datos?.ventana_hasta ?? null);
   const Lista = CON_PUESTO ? 'ol' : 'ul';
   return (
-    <Lista className="divide-y divide-border border-y border-border" aria-label="Compras Ágiles abiertas de este comprador">
-      {items.map((item, i) => (
-        <li key={item.codigo_externo}>
-          <FilaCompraAgil
-            item={item}
-            posicion={CON_PUESTO ? i + 1 : undefined}
-            actualizadoEn={datos?.actualizado_en ?? null}
-            historia={{ meses, disponible: datos?.historia_disponible ?? false }}
-          />
-        </li>
-      ))}
-    </Lista>
+    <>
+      <Lista className="divide-y divide-border border-y border-border" aria-label="Compras Ágiles abiertas de este comprador">
+        {items.map((item, i) => (
+          <li key={item.codigo_externo}>
+            <FilaCompraAgil
+              item={item}
+              posicion={CON_PUESTO ? i + 1 : undefined}
+              actualizadoEn={datos?.actualizado_en ?? null}
+              historia={{ meses, disponible: datos?.historia_disponible ?? false }}
+            />
+          </li>
+        ))}
+      </Lista>
+      <p className="mt-3 text-sm">
+        <Link href="/compra-agil" className="enlace">
+          Ver las de todos los compradores
+        </Link>
+      </p>
+    </>
   );
 }
