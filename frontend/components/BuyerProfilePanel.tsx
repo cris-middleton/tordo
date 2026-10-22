@@ -4,6 +4,8 @@ import Link from 'next/link';
 
 import { motivoParaPersona } from '@/lib/motivos';
 import { decimal } from '@/lib/formato';
+import { METODO_COMPRADOR, rutaComoSeCalcula } from '@/lib/metodo';
+import { textoTratoDirecto } from '@/lib/comprador';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -22,6 +24,12 @@ interface CompradorPanel {
   n_base?: number | null;
   transparencia?: TransparenciaComprador | null;
   motivo?: string | null;
+}
+
+interface Cifra {
+  etiqueta: string;
+  valor: string;
+  detalle?: React.ReactNode;
 }
 
 interface BuyerProfilePanelProps {
@@ -60,21 +68,29 @@ export function BuyerProfilePanel({
 }) {
   const Titulo = nivel;
   const pct = (v?: number | null) => (v == null ? '—' : `${Math.round(v * 100)}%`);
-  const cifras = [
+  const tratoDirecto = textoTratoDirecto(comprador.transparencia?.pct_trato_directo);
+  const cifras: Cifra[] = [
     {
       etiqueta: 'Nota como comprador',
       // `buyer_score` viene de 0 a 1 (etl/analytics/buyer_scoring.py: «≥ 0,8» es su
       // tramo alto); se lee de 0 a 10. Se pintaba tal cual: «0,9/10» para un 9,1.
       valor: comprador.buyer_score != null ? `${decimal(comprador.buyer_score * 10, 1)} de 10` : '—',
+      // Una nota sin método no se cree: el enlace dice de qué siete cifras sale.
+      detalle:
+        comprador.buyer_score != null ? (
+          <Link href={rutaComoSeCalcula(METODO_COMPRADOR.guia!)} className="enlace">
+            Cómo se calcula
+          </Link>
+        ) : null,
     },
-    { etiqueta: 'Trato directo', valor: pct(comprador.transparencia?.pct_trato_directo), detalle: 'de lo que compra, sin licitar' },
+    ...(tratoDirecto ? [{ etiqueta: 'Trato directo', valor: tratoDirecto, detalle: 'de lo que compra, sin licitar' }] : []),
     { etiqueta: 'Adjudica', valor: pct(comprador.tasa_adjudicacion), detalle: 'de lo que licita' },
-    ...(extra ?? [
-      {
-        etiqueta: 'Calculado con',
-        valor: comprador.n_base != null ? `${comprador.n_base.toLocaleString('es-CL')} órdenes` : '—',
-      },
-    ]),
+    // «Calculado con —» no dice nada: sin la base (el panel de una licitación no la
+    // trae), la celda no sale.
+    ...(extra ??
+      (comprador.n_base != null
+        ? [{ etiqueta: 'Calculado con', valor: `${comprador.n_base.toLocaleString('es-CL')} órdenes` }]
+        : [])),
   ];
 
   return (
@@ -93,7 +109,7 @@ export function BuyerProfilePanel({
               <div key={c.etiqueta}>
                 <dt className="text-sm text-muted">{c.etiqueta}</dt>
                 <dd className="cifra mt-1 font-semibold text-text">{c.valor}</dd>
-                {'detalle' in c && c.detalle && <dd className="text-sm text-muted">{c.detalle}</dd>}
+                {c.detalle && <dd className="text-sm text-muted">{c.detalle}</dd>}
               </div>
             ))}
           </dl>

@@ -5,6 +5,8 @@ import { BarrasHorizontales } from '@/components/graficos/BarrasHorizontales';
 import { rango } from '@/components/publico/CifrasBanda';
 import { decimal } from '@/lib/formato';
 import { motivoParaPersona } from '@/lib/motivos';
+import { nombresDeCategorias } from '@/lib/licitacionDetalle';
+import { normalizeText } from '@/lib/nombresChile';
 import { plata, rutaComprador } from '@/lib/publico';
 import type { BIPanel, CompetidoresPanel, PrecioFallback, TenderDetail, VentanaPanel } from '@/types/licitacionDetalle';
 
@@ -27,32 +29,31 @@ const TRAMO_MERCADO: Record<string, string> = {
   competitivo: 'Fragmentado: muchos proveedores se reparten lo que compra.',
 };
 
+/**
+ * El plazo frente a lo que este comprador suele dar. Sin dato no sale: un
+ * título «El plazo» sobre «Todavía no tenemos…» era una sección vacía.
+ */
 function Plazo({ ventana }: { ventana: VentanaPanel }) {
+  if (!ventana.disponible || ventana.window_days == null) return null;
   return (
     <section>
       <h3 className={TITULO}>El plazo</h3>
-      {!ventana.disponible || ventana.window_days == null ? (
-        <p className="mt-2 text-sm text-muted">
-          {motivoParaPersona(ventana.motivo, 'Todavía no tenemos plazos de otras licitaciones de este comprador.')}
-        </p>
-      ) : (
-        <div className="mt-2 max-w-[65ch]">
-          <p className="text-text">
-            Hay <span className="cifra font-semibold">{ventana.window_days}</span>{' '}
-            {ventana.window_days === 1 ? 'día' : 'días'} entre la publicación y el cierre
-            {ventana.pct_del_tipico != null && (
-              <>
-                : el <span className="cifra font-semibold">{decimal(ventana.pct_del_tipico, 0)}%</span> de lo que este
-                comprador suele dar
-              </>
-            )}
-            .
-          </p>
-          {ventana.alerta_ventana_corta && (
-            <p className="mt-1 font-semibold text-danger">Es un plazo corto para este comprador.</p>
+      <div className="mt-2 max-w-[65ch]">
+        <p className="text-text">
+          Hay <span className="cifra font-semibold">{ventana.window_days}</span>{' '}
+          {ventana.window_days === 1 ? 'día' : 'días'} entre la publicación y el cierre
+          {ventana.pct_del_tipico != null && (
+            <>
+              : el <span className="cifra font-semibold">{decimal(ventana.pct_del_tipico, 0)}%</span> de lo que este
+              comprador suele dar
+            </>
           )}
-        </div>
-      )}
+          .
+        </p>
+        {ventana.alerta_ventana_corta && (
+          <p className="mt-1 font-semibold text-danger">Es un plazo corto para este comprador.</p>
+        )}
+      </div>
     </section>
   );
 }
@@ -74,7 +75,8 @@ function Competencia({ competidores }: { competidores: CompetidoresPanel }) {
             etiqueta="Qué parte de lo que compra se lleva cada proveedor"
             filas={lista.map((c, i) => ({
               clave: `${c.NombreProveedor ?? 'proveedor'}-${i}`,
-              etiqueta: c.NombreProveedor ?? 'Sin nombre',
+              // Llegan en mayúsculas («STARCO S A»), como todo nombre de Mercado Público.
+              etiqueta: c.NombreProveedor ? normalizeText(c.NombreProveedor) : 'Sin nombre',
               valor: c.market_share_pct ?? 0,
               texto: `${decimal(c.market_share_pct ?? 0, 1)} %`,
               detalle:
@@ -87,7 +89,12 @@ function Competencia({ competidores }: { competidores: CompetidoresPanel }) {
   );
 }
 
-function Precios({ precios }: { precios: PrecioFallback[] }) {
+/**
+ * El panel sólo trae el código ONU de cada categoría («53102706»); el nombre sale
+ * de los ítems de la licitación (`nombresDeCategorias`). Sin nombre, la fila dice
+ * al menos qué es el número.
+ */
+function Precios({ precios, nombres }: { precios: PrecioFallback[]; nombres: Map<string, string> }) {
   const con = precios.filter((p) => p.disponible && p.p50 != null);
   return (
     <section>
@@ -112,11 +119,27 @@ function Precios({ precios }: { precios: PrecioFallback[] }) {
             <tbody>
               {con.map((p, i) => (
                 <tr key={`${p.codigo_producto ?? 'sin-codigo'}-${i}`} className="border-b border-border">
-                  <th scope="row" className="py-3 pr-4 text-left font-mono font-normal text-text">
-                    {p.codigo_producto ?? '—'}
+                  <th scope="row" className="py-3 pr-4 text-left font-normal">
+                    {p.codigo_producto && nombres.get(p.codigo_producto) && (
+                      <span className="block text-text">{nombres.get(p.codigo_producto)}</span>
+                    )}
+                    <span
+                      className={
+                        p.codigo_producto && nombres.get(p.codigo_producto) ? 'block text-muted' : 'block text-text'
+                      }
+                    >
+                      {p.codigo_producto ? (
+                        <>
+                          Categoría ONU <span className="font-mono">{p.codigo_producto}</span>
+                        </>
+                      ) : (
+                        'Sin categoría'
+                      )}
+                    </span>
                   </th>
                   <td className="cifra whitespace-nowrap py-3 pr-4 text-right font-semibold text-text">{plata(p.p50)}</td>
                   <td className="cifra whitespace-nowrap py-3 pr-4 text-right text-muted">
+                    {/* Con P25 y P75 iguales, un precio y no «$18.000 a $18.000» (`rango`). */}
                     {rango(p.p25 ?? null, p.p75 ?? null) ?? '—'}
                   </td>
                   <td className="hidden py-3 text-muted sm:table-cell">
@@ -144,8 +167,9 @@ function Precios({ precios }: { precios: PrecioFallback[] }) {
  * ChileCompra no publica. Se fue, con la línea de hitos que repetía las fechas
  * de arriba y la tarjeta «Mercado» que repetía este mismo panel.
  */
-export default function BIPanelSection({ panel }: { panel: BIPanel; tender?: TenderDetail }) {
+export default function BIPanelSection({ panel, tender }: { panel: BIPanel; tender?: TenderDetail }) {
   const { comprador, ventana, competidores, precios, organismo_id } = panel;
+  const nombres = nombresDeCategorias(tender?.items);
   // Sin nada que comparar (lo normal en una Compra Ágil de un comprador sin
   // historia en el análisis), una línea y no cuatro «Todavía no tenemos…».
   const vacio =
@@ -171,7 +195,7 @@ export default function BIPanelSection({ panel }: { panel: BIPanel; tender?: Ten
         senales={organismo_id ? { enlace: rutaComprador(organismo_id) } : 'contar'}
       />
       <Competencia competidores={competidores} />
-      <Precios precios={precios} />
+      <Precios precios={precios} nombres={nombres} />
     </div>
   );
 }

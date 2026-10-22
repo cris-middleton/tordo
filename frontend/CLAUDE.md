@@ -408,6 +408,14 @@ proveedores son `components/graficos/BarrasHorizontales.tsx` y los meses y años
 `components/graficos/Columnas.tsx`, que siguen la guía de gráficos (`PROPIOS`). Sin «¿Son
 confiables?», sin la insignia «excelente», sin «Probabilidad de compra», sin semáforos: la nota
 del comprador es «9,2 de 10» y sus tres números al lado.
+**`PanoramaRubro` titula con la conclusión, no con el tema**: cada bloque lleva el tema como etiqueta
+chica («Contra quién compites», con su ayuda) y la conclusión como título («Rubro fragmentado», «Se
+compra parejo todo el año», «41 de los 890 compradores del rubro tienen alguna señal…»). `nivel`
+elige su rango: `h3` en `/mercado` (dentro de «Cómo está el rubro») y `h2` en `/rubros/[slug]`, que
+no tiene otra sección encima (saltaba de `h1` a `h3`). **«Parejo» no resalta ningún mes** (resaltaba
+enero, desmintiendo el título); con temporada, el mes pico. Una cuota que se redondearía a cero dice
+«menos de 0,1 %» (`porcentaje`, `lib/formato.ts`), y los compradores a mirar con cuidado enlazan a
+su ficha como la tabla «Quién compra más».
 
 **La URL de esa pantalla se lee, no sólo se escribe.** `rubro`, `focus` y `compare` se leen
 con `useSearchParams` en un inicializador perezoso —dentro de una frontera de `Suspense`,
@@ -688,6 +696,33 @@ compras o más en una misma unidad).
 **`/productos` sin búsqueda** enlaza, bajo los ejemplos, las seis fichas de la escalera
 (`PRODUCTOS_ESCALERA`, «Lo que compra todo el Estado»): enlaces escritos sin cifras ni `prefetch`, que
 pinta la página de servidor y el buscador coloca (`inicio`), así que no piden nada al backend.
+
+**La ficha de una licitación** (`/licitaciones/[codigo]`) **siempre sale a Mercado Público**, que es
+donde se postula: «Abrir en Mercado Público» es su acción principal (`btn-primary`, primera). La URL
+del dato (`url_licitacion`, filtrada por `urlDeMercadoPublico`) casi nunca viene, así que se arma del
+código: la Compra Ágil, con el buscador (`urlMercadoPublico`); una licitación, con
+`urlLicitacionMercadoPublico` (`…/RFB/DetailsAcquisition.aspx?idlicitacion=<código>`, que el portal
+redirige a su ficha; comprobado el 2026-10-22). El comprador enlaza a su ficha (`rutaComprador`) sólo
+si el panel de BI lo conoce (`comprador` o `competidores` disponibles): sin historia, la ficha sería un
+404. La descripción va en tipo oración si llega toda en mayúsculas (`tipoOracion`). En el panel
+(`BIPanelSection`): sin plazo no hay sección «El plazo»; los proveedores pasan por `normalizeText`; y
+cada fila de precios dice qué es su código —el nombre que traen los ítems (`nombresDeCategorias`, el
+panel sólo trae el código) y «Categoría ONU 53102706»—, con P25 = P75 en un solo precio (`rango`). El
+título de la ficha lleva el sufijo del sitio porque `licitaciones/layout.tsx` declara `template`: Next
+sólo pasa a los hijos la plantilla del segmento de arriba, y un título de texto plano la borraba.
+
+**Cómo compra un comprador** (`BuyerProfilePanel`, en su ficha y en cada licitación; las reglas en
+`lib/comprador.ts`): la nota enlaza a «Cómo se calcula» (`METODO_COMPRADOR`, la sección «La nota como
+comprador» de la guía `como-leer-un-comprador`, con los siete pesos de `buyer_scoring.py`); «Calculado
+con» sólo sale con base (el panel de licitación no la trae). **Un trato directo de 0 exacto no se
+muestra** (`textoTratoDirecto`): hasta #61 (2026-10-21) era 0 para todo comprador, y lo materializado
+antes de la semanal siguiente sigue diciéndolo; se puede volver a mostrar cuando no quede ninguna tabla
+anterior. **Ojo**: ese 0 también inflaba la nota (el trato directo pesa 25 %) hasta esa semanal. Las
+ofertas por licitación sobre `MAXIMO_OFERTAS_CREIBLE` (50) no salen («299,4» en producción: la media
+de `NumeroOferentes`, arrastrada por pocas licitaciones). En la ficha, la cuota del proveedor
+principal de Compra Ágil va en una frase (`fraseProveedorPrincipal`: «El proveedor principal se lleva
+el 2% de sus órdenes por Compra Ágil.»), y el enlace final dice «de todos los compradores»:
+`/compra-agil` no filtra por comprador, y las suyas ya están arriba.
 
 **Acerca** (`/acerca`, `app/(publico)/acerca/`): lo que la portada dejó de explicar —qué es, de
 dónde salen los datos, cómo se financia— y las preguntas frecuentes (`PREGUNTAS`, en

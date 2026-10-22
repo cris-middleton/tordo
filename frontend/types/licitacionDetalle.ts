@@ -28,6 +28,8 @@ export interface TenderDetail {
   moneda?: string;
   codigo_organismo?: string;
   informacion_adicional?: Record<string, any>;
+  /** Los ítems tal como los da Mercado Público (`CodigoProducto`, `NombreProducto`…). */
+  items?: Record<string, unknown>[] | null;
 }
 
 export interface Transparencia {

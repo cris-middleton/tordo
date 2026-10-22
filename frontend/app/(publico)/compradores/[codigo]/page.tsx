@@ -26,6 +26,8 @@ import { pedirPublico, segmento } from '@/lib/publicoServidor';
 import type { CompradorPublico } from '@/types/publico';
 import { TITULO_DESTACADAS } from '@/lib/compraAgil';
 import { decimal } from '@/lib/formato';
+import { normalizeText } from '@/lib/nombresChile';
+import { fraseProveedorPrincipal, ofertasPorLicitacion } from '@/lib/comprador';
 import { etiquetaPublicadas, MESES_COMPRA_AGIL } from '@/lib/periodo';
 
 /**
@@ -70,6 +72,7 @@ export default async function PaginaComprador({ params }: Props) {
   const c = await obtener(codigo);
   const { perfil, compra_agil: ca, periodo } = c;
   const senales = senalesDelComprador(perfil);
+  const ofertas = ofertasPorLicitacion(perfil.volumen?.prom_oferentes);
   const desde = fechaCorta(periodo.ventana_desde);
   const hasta = fechaCorta(periodo.ventana_hasta);
 
@@ -95,10 +98,10 @@ export default async function PaginaComprador({ params }: Props) {
             ? [
                 { etiqueta: 'Órdenes de compra', valor: entero(perfil.volumen.n_oc_total) },
                 { etiqueta: 'Meses con compras', valor: entero(perfil.volumen.n_meses_activo) },
-                {
-                  etiqueta: 'Ofertas por licitación, en promedio',
-                  valor: perfil.volumen.prom_oferentes != null ? decimal(perfil.volumen.prom_oferentes, 1) : '—',
-                },
+                // Sobre `MAXIMO_OFERTAS_CREIBLE` no sale (`lib/comprador.ts`): «299,4» no se cree.
+                ...(ofertas != null
+                  ? [{ etiqueta: 'Ofertas por licitación, en promedio', valor: decimal(ofertas, 1) }]
+                  : []),
                 { etiqueta: 'Licitaciones', valor: entero(perfil.transparencia?.n_lic_total) },
               ]
             : undefined
@@ -127,16 +130,16 @@ export default async function PaginaComprador({ params }: Props) {
             <Dato etiqueta="Órdenes" valor={entero(ca.ordenes)} />
             <Dato etiqueta={etiquetaPublicadas(periodo.ventana_hasta)} valor={entero(ca.publicadas)} />
             <Dato etiqueta="Proveedores que le vendieron" valor={entero(ca.proveedores_distintos)} />
-            <Dato
-              etiqueta="Su proveedor principal"
-              valor={ca.cuota_lider_pct != null ? `${Math.round(ca.cuota_lider_pct)}% de las órdenes` : '—'}
-            />
             <Dato etiqueta="Monto mediano por orden" valor={plata(ca.monto_mediana)} />
           </FranjaDatos>
-          {ca.monto_p25 != null && ca.monto_p75 != null && (
+          {/* La cuota del proveedor principal va en una frase: como celda
+              («Su proveedor principal: 2% de las órdenes») se leía al revés. */}
+          {(ca.cuota_lider_pct != null || (ca.monto_p25 != null && ca.monto_p75 != null)) && (
             <p className="mt-3 text-sm text-muted">
-              La mitad de sus órdenes por Compra Ágil fue de entre {plata(ca.monto_p25)} y{' '}
-              {plata(ca.monto_p75)}.
+              {ca.cuota_lider_pct != null && `${fraseProveedorPrincipal(ca.cuota_lider_pct)} `}
+              {ca.monto_p25 != null &&
+                ca.monto_p75 != null &&
+                `La mitad de sus órdenes por Compra Ágil fue de entre ${plata(ca.monto_p25)} y ${plata(ca.monto_p75)}.`}
             </p>
           )}
         </Seccion>
@@ -162,7 +165,8 @@ export default async function PaginaComprador({ params }: Props) {
         />
       </Seccion>
 
-      <EnlacePanel href="/compra-agil">Ver las Compras Ágiles abiertas hoy</EnlacePanel>
+      {/* `/compra-agil` no filtra por comprador: las de éste ya están arriba. */}
+      <EnlacePanel href="/compra-agil">Ver las Compras Ágiles abiertas de todos los compradores</EnlacePanel>
     </article>
   );
 }

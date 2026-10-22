@@ -51,7 +51,8 @@ export default async function PaginaRubro({ params }: Props) {
         subtitulo="Cuánto compra el Estado en este rubro, a quién le compra y en qué meses."
       />
 
-      <PanoramaRubro panorama={r.panorama} cargando={false} rubro={r.nombre} />
+      {/* `h2`: las conclusiones del panorama son las primeras secciones bajo el `h1`. */}
+      <PanoramaRubro panorama={r.panorama} cargando={false} rubro={r.nombre} nivel="h2" />
 
       <Seccion
         titulo="Quién compra más"

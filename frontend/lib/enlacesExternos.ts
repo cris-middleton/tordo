@@ -24,3 +24,15 @@ export function urlDeMercadoPublico(valor: unknown): string | null {
   if (host !== DOMINIO && !host.endsWith(`.${DOMINIO}`)) return null;
   return url.href;
 }
+
+/**
+ * La ficha pública de una licitación en Mercado Público, armada desde su código.
+ *
+ * `url_licitacion` casi nunca viene en el dato, y sin ella la ficha no tenía cómo
+ * ir a postular. Esta dirección la publica el propio portal: redirige a la ficha
+ * de esa licitación (comprobado el 2026-10-22 con 2450-100-LE26). La Compra Ágil
+ * no vive ahí: su ficha es la del buscador (`urlMercadoPublico`, `lib/compraAgil.ts`).
+ */
+export function urlLicitacionMercadoPublico(codigo: string): string {
+  return `https://www.mercadopublico.cl/Procurement/Modules/RFB/DetailsAcquisition.aspx?idlicitacion=${encodeURIComponent(codigo)}`;
+}

@@ -31,6 +31,17 @@ export function decimal(v: number, digitos = 1): string {
 }
 
 /**
+ * Una cuota (nunca negativa) en es-CL con su espacio: `porcentaje(34.5)` → «34,5 %». Lo que se
+ * redondearía a cero dice «menos de 0,1 %»: «0,0 % de las órdenes» de un proveedor
+ * que sí vendió se leía como que no vendió nada.
+ */
+export function porcentaje(v: number, digitos = 1): string {
+  const minimo = 10 ** -digitos;
+  if (v < minimo / 2) return `menos de ${decimal(minimo, digitos)} %`;
+  return `${decimal(v, digitos)} %`;
+}
+
+/**
  * Un monto en pesos, como se lee en Chile: «$825.000», «$7,2 millones», «$1 millón»,
  * «$1,5 mil millones», «$2,1 billones». **El formato de montos de todo el sitio**
  * (listas, fichas, RSS): antes convivían «$825K», «$7,2M», «$1,5B» (que en Chile se

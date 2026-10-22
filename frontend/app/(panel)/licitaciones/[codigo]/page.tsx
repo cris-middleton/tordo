@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import {
   Bookmark,
@@ -16,12 +17,13 @@ import { ErrorDeCarga } from '@/components/ErrorDeCarga';
 import { FueraDelCatalogo } from '@/components/licitacion/FueraDelCatalogo';
 import { fechaLargaDeChile } from '@/lib/horaChile';
 import { urlMercadoPublico } from '@/lib/compraAgil';
-import { urlDeMercadoPublico } from '@/lib/enlacesExternos';
+import { urlDeMercadoPublico, urlLicitacionMercadoPublico } from '@/lib/enlacesExternos';
+import { rutaComprador } from '@/lib/publico';
 import { cierreEnPalabras, normalizeText, shortRegion } from '@/lib/licitacionEstado';
 
 import { useLicitacion, usePanelLicitacion } from '@/lib/queries';
 import BIPanelSection from '@/components/licitacion/BIPanelSection';
-import { esNoEncontrada, montoConMoneda, normalizeTenderDetail } from '@/lib/licitacionDetalle';
+import { esNoEncontrada, montoConMoneda, normalizeTenderDetail, tipoOracion } from '@/lib/licitacionDetalle';
 import type { BIPanel, TenderDetail } from '@/types/licitacionDetalle';
 
 // ─── Main page ────────────────────────────────────────────────────────────────
@@ -96,15 +98,25 @@ export default function TenderDetailPage() {
       ]
     : [];
   const comprador = tenderData?.nombre_organismo ? normalizeText(tenderData.nombre_organismo) : '';
-  // La Compra Ágil no trae URL en el dato: se arma la del buscador público por código
-  // (`urlMercadoPublico`). Sin esto su ficha no tenía cómo ir a cotizar.
+  // `url_licitacion` casi nunca viene en el dato, y sin ella la ficha no tenía cómo ir
+  // a postular. Se arma desde el código: la Compra Ágil, con la del buscador público
+  // (`urlMercadoPublico`); una licitación, con su ficha del portal
+  // (`urlLicitacionMercadoPublico`). La del dato se enlaza sólo si es de Mercado
+  // Público (`lib/enlacesExternos.ts`).
   const esCompraAgil =
     tenderData?.tipo_convocatoria === 'compra_agil' || /-COT\d+$/i.test(tenderData?.codigo_externo ?? '');
-  // `url_licitacion` viene del dato: se enlaza sólo si es de Mercado Público (`lib/enlacesExternos.ts`).
-  const urlFicha = tenderData
+  const urlFicha = tenderData?.codigo_externo
     ? urlDeMercadoPublico(tenderData.url_licitacion) ??
-      (esCompraAgil ? urlMercadoPublico(tenderData.codigo_externo) : null)
+      (esCompraAgil
+        ? urlMercadoPublico(tenderData.codigo_externo)
+        : urlLicitacionMercadoPublico(tenderData.codigo_externo))
     : null;
+  // El comprador enlaza a su ficha sólo si el análisis lo conoce: la ficha pública
+  // existe para los compradores con historia, y sin ella sería un 404. La Compra
+  // Ágil no trae código de comprador (sólo su RUT), así que no enlaza.
+  const codigoComprador = biPanel?.organismo_id ?? null;
+  const compradorConFicha =
+    codigoComprador && (biPanel?.comprador.disponible || biPanel?.competidores.disponible) ? codigoComprador : null;
   const guardada = Boolean(tenderData) && hydrated && isTenderStored('saved', tenderData!.id);
   const postulada = Boolean(tenderData) && hydrated && isTenderStored('applied', tenderData!.id);
 
@@ -119,12 +131,35 @@ export default function TenderDetailPage() {
         </h1>
         {tenderData && (
           <>
-            {comprador && <p className="mt-2 text-muted">{comprador}</p>}
+            {comprador && (
+              <p className="mt-2 text-muted">
+                {compradorConFicha ? (
+                  <Link href={rutaComprador(compradorConFicha)} className="enlace">
+                    {comprador}
+                  </Link>
+                ) : (
+                  comprador
+                )}
+              </p>
+            )}
             <p className="mt-1 flex flex-wrap gap-x-3 text-sm text-subtle">
               <span className="font-mono">{tenderData.codigo_externo}</span>
               {esCompraAgil && <span>Compra Ágil</span>}
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
+              {/* La salida a postular va primero y es la acción principal: se postula
+                  en Mercado Público, y aquí no había cómo llegar. */}
+              {urlFicha && (
+                <a
+                  href={urlFicha}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-primary flex h-11 items-center gap-2"
+                >
+                  <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                  Abrir en Mercado Público
+                </a>
+              )}
               <button
                 type="button"
                 disabled={!hydrated}
@@ -153,17 +188,6 @@ export default function TenderDetailPage() {
                 )}
                 {postulada ? 'Postulé' : 'Marcar que postulé'}
               </button>
-              {urlFicha && (
-                <a
-                  href={urlFicha}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-secondary flex h-11 items-center gap-2"
-                >
-                  <ExternalLink className="h-4 w-4" aria-hidden="true" />
-                  Abrir en Mercado Público
-                </a>
-              )}
             </div>
           </>
         )}
@@ -203,7 +227,7 @@ export default function TenderDetailPage() {
               <h2 id="descripcion-titulo" className="section-title">
                 Qué se compra
               </h2>
-              <p className="lectura mt-3 text-text">{tenderData.descripcion}</p>
+              <p className="lectura mt-3 text-text">{tipoOracion(tenderData.descripcion)}</p>
             </section>
           )}
 

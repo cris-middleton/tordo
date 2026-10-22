@@ -2,11 +2,12 @@
 titulo: "Qué mirar de un comprador antes de postular"
 descripcion: "Si adjudica lo que licita, cuántas Compras Ágiles publica y adjudica, por qué no decimos cuándo paga y cómo seguirlo aunque cambie de nombre."
 slug: "como-leer-un-comprador"
-actualizado: "2026-10-21"
+actualizado: "2026-10-22"
 fuentes:
   - "Descarga masiva de órdenes de compra y licitaciones de ChileCompra"
   - "Diccionario de datos oficial de la API de Mercado Público (Órdenes de Compra)"
   - "API de Compra Ágil de Mercado Público"
+  - "Los pesos de la nota: etl/analytics/buyer_scoring.py (WEIGHTS)"
 ---
 
 Postular te cuesta horas. Antes de gastarlas, conviene saber **cómo compra quien llama**:
@@ -21,6 +22,22 @@ parte de lo que publica te hace perder el tiempo. Uno que adjudica casi todo, no
 
 De las cifras que salen de los datos, es la que más decide, y por eso va primero. Vale
 para las **licitaciones**. La Compra Ágil no tiene tasa, y abajo va por qué.
+
+## La nota como comprador
+
+La nota va de 0 a 10 y junta siete cifras de su historia, cada una con su peso:
+
+- **Trato directo** (25 %): cuánto compra sin licitar. Con el 40 % de sus órdenes o más,
+  este punto vale cero.
+- **Órdenes aceptadas** (20 %): cuántas de sus órdenes acepta el proveedor.
+- **Órdenes canceladas** (15 %): con el 20 % canceladas o más, vale cero.
+- **Licitaciones adjudicadas** (15 %): la tasa de adjudicación de arriba.
+- **Regularidad** (10 %): si compra parecido todos los meses o a saltos.
+- **Volumen** (10 %): cuántas órdenes emite, comparado con el que más emite.
+- **Calificación** (5 %): el promedio de la calificación que traen sus órdenes.
+
+Sirve para comparar compradores entre sí. En su página, el trato directo y lo que adjudica
+van al lado de la nota.
 
 ## En Compra Ágil, dos conteos por separado
 

@@ -171,3 +171,38 @@ export function codigoDeRutaLicitacion(ruta: string | null | undefined): string 
     return m[1];
   }
 }
+
+/**
+ * Un texto que llega todo en MAYÚSCULAS, en tipo oración: «SE REQUIERE LA
+ * ADQUISICION…» → «Se requiere la adquisicion…». Con alguna minúscula se deja
+ * como viene: quien lo escribió ya eligió. Las tildes que faltan no se inventan.
+ */
+export function tipoOracion(texto: string | null | undefined): string {
+  if (typeof texto !== 'string') return '';
+  const limpio = texto.trim();
+  if (!/\p{L}/u.test(limpio) || /\p{Ll}/u.test(limpio)) return limpio;
+  const bajo = limpio.toLowerCase();
+  return bajo.charAt(0).toUpperCase() + bajo.slice(1);
+}
+
+/**
+ * El nombre de cada categoría del catálogo (código ONU) que pide la licitación,
+ * leído de sus ítems: el panel de precios sólo trae el código («53102706»), y
+ * una tabla de códigos sueltos no le dice nada a nadie. Las claves son las que
+ * lee el backend para pedir los precios (`api/bi.py`); el nombre, el que da la
+ * API de Mercado Público a cada ítem (`NombreProducto`, o su `Categoria`).
+ */
+export function nombresDeCategorias(items: unknown): Map<string, string> {
+  const nombres = new Map<string, string>();
+  if (!Array.isArray(items)) return nombres;
+  for (const item of items) {
+    if (!item || typeof item !== 'object') continue;
+    const fila = buildLookup(item as Record<string, unknown>);
+    const codigo = getFirstValue([fila], 'codigoProductoONU', 'CodigoProducto', 'codigo_producto');
+    const nombre = getFirstValue([fila], 'NombreProducto', 'nombre_producto', 'Categoria');
+    if (codigo == null || typeof nombre !== 'string' || !nombre.trim()) continue;
+    const clave = String(codigo).trim();
+    if (!nombres.has(clave)) nombres.set(clave, tipoOracion(nombre));
+  }
+  return nombres;
+}

@@ -59,6 +59,12 @@ export const METODO_RED: Metodo = {
   codigo: 'backend/app/repositories/analytics_sync.py',
 };
 
+/** La nota del comprador, de 0 a 10 (`analytics.buyer_scores`): siete cifras de su historia con su peso. */
+export const METODO_COMPRADOR: Metodo = {
+  guia: { slug: 'como-leer-un-comprador', ancla: 'la-nota-como-comprador' },
+  codigo: 'etl/analytics/buyer_scoring.py',
+};
+
 /** Todos, para el test: uno nuevo se añade aquí y el test lo revisa. */
 export const METODOS: Readonly<Record<string, Metodo>> = {
   precio: METODO_PRECIO,
@@ -66,6 +72,7 @@ export const METODOS: Readonly<Record<string, Metodo>> = {
   gasto: METODO_GASTO,
   concentracion: METODO_CONCENTRACION,
   red: METODO_RED,
+  comprador: METODO_COMPRADOR,
 };
 
 /** `/guias/<slug>#<ancla>`. */
