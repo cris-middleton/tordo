@@ -1,27 +1,34 @@
 import type { InstalacionMcp } from '@/lib/abierto';
 
+import { BotonCopiar } from './BotonCopiar';
+
 /**
- * Un fragmento para copiar (una URL, un `curl`, un JSON), en monoespaciada.
+ * Un fragmento para copiar (una URL, un `curl`, un JSON), en monoespaciada, con
+ * su botón «Copiar» (`BotonCopiar`, la única isla de la página).
  *
- * **Sin botón de copiar, a propósito**: sería una isla de JavaScript en una
- * página que hoy no tiene ninguna. `select-all` selecciona el bloque entero con
- * un clic. `tabIndex={0}` y `role="group"`: la región con desplazamiento tiene que
- * poder alcanzarse con el teclado, y `aria-label` sobre un `<pre>` pelado no
- * se anuncia de forma fiable.
+ * **Las líneas largas se parten** (`whitespace-pre-wrap` y `overflow-wrap:
+ * anywhere`), como en las guías: el `curl` quedaba cortado en una caja de 31 rem
+ * que había que desplazar. Sin desplazamiento no hace falta `tabIndex`; el foco
+ * va al botón. **Todos ocupan el ancho de su columna** (`max-w-none` le gana al
+ * tope de `.lectura`), así que terminan en el mismo borde.
  *
- * Lo que no cabe se desplaza dentro del bloque, con la barra siempre a la vista
- * (`desplazable-x`, `app/globals.css`): sin ella el comando parecía cortado.
+ * El botón va arriba a la derecha: en un teléfono el texto empieza debajo de él
+ * (`pt-12`) y usa todo el ancho; desde `sm`, a su lado (`pr-28`). `select-all`
+ * sigue seleccionando el bloque entero con un clic, y `role="group"` con
+ * `aria-label` le da nombre (sobre un `<pre>` pelado no se anuncia de forma fiable).
  */
 export function Codigo({ etiqueta, children }: { etiqueta: string; children: string }) {
   return (
-    <pre
-      role="group"
-      aria-label={etiqueta}
-      tabIndex={0}
-      className="desplazable-x mt-2 whitespace-pre rounded-lg border border-border bg-surface-elevated px-3 py-2 font-mono text-xs leading-relaxed text-text select-all"
-    >
-      <code>{children}</code>
-    </pre>
+    <div className="relative mt-2 max-w-none">
+      <pre
+        role="group"
+        aria-label={etiqueta}
+        className="max-w-none whitespace-pre-wrap rounded-lg border border-border bg-surface-elevated pb-3 pl-4 pr-4 pt-12 font-mono text-sm sm:pr-28 sm:pt-3 leading-relaxed text-text select-all [overflow-wrap:anywhere]"
+      >
+        <code>{children}</code>
+      </pre>
+      <BotonCopiar texto={children} etiqueta={etiqueta} />
+    </div>
   );
 }
 

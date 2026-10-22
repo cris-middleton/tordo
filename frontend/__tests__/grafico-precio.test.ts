@@ -8,7 +8,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ANCHO_CARACTER,
+  AIRE_DOMINIO,
   ANCHO_REFERENCIA,
+  dominioDelDato,
   filasDePuntos,
   graficoPrecio,
   MINIMO_PUNTOS,
@@ -90,9 +92,26 @@ describe('plataCorta', () => {
 });
 
 describe('valoresRedondos', () => {
-  it('1, 2 y 5 por una potencia de 10, dentro del rango', () => {
-    expect(valoresRedondos(60_000, 600_000)).toEqual([100_000, 200_000, 500_000]);
-    expect(valoresRedondos(3, 12)).toEqual([5, 10]);
+  it('1; 1,5; 2; 2,5; 3; 4; 5; 6; 7 y 8 por una potencia de 10, dentro del rango', () => {
+    expect(valoresRedondos(60_000, 260_000)).toEqual([60_000, 70_000, 80_000, 100_000, 150_000, 200_000, 250_000]);
+    expect(valoresRedondos(3, 12)).toEqual([3, 4, 5, 6, 7, 8, 10]);
+    expect(valoresRedondos(650, 1_600)).toEqual([700, 800, 1_000, 1_500]);
+  });
+});
+
+describe('dominioDelDato', () => {
+  it('el dato ocupa ~77 % del eje: el eje mide 1,3 veces el tramo del dato (en logaritmos)', () => {
+    const { desde, hasta } = dominioDelDato([725, 1_437, 900]);
+    const dato = Math.log(1_437 / 725);
+    expect(Math.log(hasta / desde) / dato).toBeCloseTo(1 + 2 * AIRE_DOMINIO, 6);
+    expect(Math.log(725 / desde)).toBeCloseTo(Math.log(hasta / 1_437), 6);
+  });
+
+  it('un solo precio abre el eje a su alrededor, centrado', () => {
+    const { desde, hasta } = dominioDelDato([16_850]);
+    expect(desde).toBeLessThan(16_850);
+    expect(hasta).toBeGreaterThan(16_850);
+    expect(Math.log(16_850 / desde)).toBeCloseTo(Math.log(hasta / 16_850), 6);
   });
 });
 
@@ -120,9 +139,56 @@ describe('graficoPrecio', () => {
     const fuertes = g.marcas.filter((m) => m.fuerte).map((m) => m.texto);
     expect(fuertes).toEqual(['$151 mil', '$240 mil']);
     const contexto = g.marcas.filter((m) => !m.fuerte).map((m) => m.texto);
-    expect(contexto).toEqual(['$50 mil', '$500 mil']);
+    expect(contexto).toEqual(['$80 mil', '$500 mil']);
     // En orden de izquierda a derecha, y la escala es logarítmica: el doble está a la misma distancia.
     expect(g.marcas.map((m) => m.x)).toEqual([...g.marcas.map((m) => m.x)].sort((a, b) => a - b));
+    sinPisarse(g);
+  });
+
+  it('el cloro gel: 8 de cada 10 compras llenan el ancho, y las marcas de contexto no estiran el eje', () => {
+    // La banda real de producción (2026-10-22). Con el eje viejo iba de $200 a $5 mil
+    // y de $725 a $1.437 había una cuarta parte del ancho.
+    const cloro: BandaUnidad = {
+      ...BANDA,
+      n: 662,
+      p10: 725,
+      p25: 791,
+      p50: 955.5,
+      p75: 1_200,
+      p90: 1_437,
+      compradores: 204,
+      cuota_mayor: 0.12,
+    };
+    const g = graficoPrecio(cloro, [])!;
+    const ancho = g.bigotes!.hasta - g.bigotes!.desde;
+    expect(ancho).toBeGreaterThanOrEqual(70);
+    expect(ancho).toBeLessThanOrEqual(85);
+    expect(g.marcas.map((m) => m.texto)).toEqual(['$700', '$791', '$1,2 mil', '$1,5 mil']);
+    sinPisarse(g);
+  });
+
+  it('con puntos, lo que se dibuja (P10 a P90 y los compradores) ocupa entre el 70 y el 85 % del ancho', () => {
+    const g = graficoPrecio(BANDA, DIEZ)!;
+    const xs = [g.bigotes!.desde, g.bigotes!.hasta, ...g.puntos.map((p) => p.x)];
+    const ancho = Math.max(...xs) - Math.min(...xs);
+    expect(ancho).toBeGreaterThanOrEqual(70);
+    expect(ancho).toBeLessThanOrEqual(85);
+  });
+
+  it.each([
+    ['cloro', { p10: 725, p25: 791, p50: 955.5, p75: 1_200, p90: 1_437 }],
+    ['de cola larga', { p10: 50, p25: 900, p50: 2_000, p75: 9_000, p90: 400_000 }],
+  ])('%s: el eje es el del dato; las marcas de contexto caen dentro y no lo estiran', (_, cambio) => {
+    const g = graficoPrecio({ ...BANDA, ...cambio }, [])!;
+    // De P10 a P90 mide siempre 1/(1 + 2·aire) del ancho, haya o no marcas de contexto.
+    expect(g.bigotes!.hasta - g.bigotes!.desde).toBeCloseTo(100 / (1 + 2 * AIRE_DOMINIO), 0);
+    expect(g.marcas.some((m) => !m.fuerte)).toBe(true);
+    sinPisarse(g);
+  });
+
+  it('un tramo muy angosto se abre centrado, y no se pisa nada', () => {
+    const g = graficoPrecio({ ...BANDA, p10: 990, p25: 1_000, p50: 1_010, p75: 1_020, p90: 1_030 }, [])!;
+    expect(g.bigotes!.desde + g.bigotes!.hasta).toBeCloseTo(100, 0);
     sinPisarse(g);
   });
 

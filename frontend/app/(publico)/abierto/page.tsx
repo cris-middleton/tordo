@@ -33,7 +33,12 @@ export const metadata: Metadata = {
  * ahí). **Ninguna petición a terceros**: ni botones de GitHub ni *badges* de
  * shields.io, que meterían peticiones que la política de privacidad no declara.
  * Los enlaces a otros sitios son enlaces, no recursos.
+ *
+ * **El texto corrido va a 16 px y en `text`** (`PROSA`), como en `/acerca` y las
+ * guías; los pasos de instalación y las notas quedan chicos.
  */
+const PROSA = 'text-base leading-relaxed text-text';
+
 export default function PaginaAbierto() {
   const repositorio = urlRepositorio();
 
@@ -53,7 +58,7 @@ export default function PaginaAbierto() {
       </CabeceraFicha>
 
       <Seccion id="api" titulo="API">
-        <div className="space-y-3 text-sm leading-relaxed text-muted">
+        <div className={`space-y-3 ${PROSA}`}>
           <p>
             Es de sólo lectura y responde en JSON. Trae el catálogo de licitaciones y Compras Ágiles,
             los precios pagados por producto, la competencia en cada rubro y el historial de cada
@@ -64,7 +69,7 @@ export default function PaginaAbierto() {
             El límite es de{' '}
             <strong className="text-text">{LIMITE_POR_MINUTO} peticiones por minuto por IP</strong>.
             Cada respuesta trae en las cabeceras{' '}
-            <code className="font-mono text-text">X-RateLimit-*</code> cuántas te quedan. Si te pasas,
+            <code className="whitespace-nowrap font-mono text-text">X-RateLimit-*</code> cuántas te quedan. Si te pasas,
             recibes un 429 con <code className="font-mono text-text">Retry-After</code>, que dice
             cuántos segundos esperar.
           </p>
@@ -72,20 +77,21 @@ export default function PaginaAbierto() {
         </div>
       </Seccion>
 
-      <Seccion
-        id="mcp"
-        titulo="Pregúntale a tu asistente"
-        descripcion={`MCP es la forma en que un asistente de IA, como Claude o ChatGPT, consulta otros sistemas. Con este servidor, el tuyo busca precios, compradores y licitaciones mientras conversas. Comparte con la API el límite por IP (${LIMITE_POR_MINUTO} peticiones por minuto).`}
-      >
-        <p className="text-sm text-muted">Su dirección, con la barra del final:</p>
+      <Seccion id="mcp" titulo="Pregúntale a tu asistente">
+        <p className={PROSA}>
+          MCP es la forma en que un asistente de IA, como Claude o ChatGPT, consulta otros sistemas.
+          Con este servidor, el tuyo busca precios, compradores y licitaciones mientras conversas.
+          Comparte con la API el límite por IP ({LIMITE_POR_MINUTO} peticiones por minuto).
+        </p>
+        <p className={`mt-3 ${PROSA}`}>Su dirección, con la barra del final:</p>
         <Codigo etiqueta="URL del servidor MCP">{URL_MCP}</Codigo>
         <ul className="mt-6 divide-y divide-border border-y border-border">
           {instalacionesMcp(APP_NAME).map((instalacion) => (
             <FilaInstalacion key={instalacion.id} instalacion={instalacion} />
           ))}
         </ul>
-        <h3 className="mt-8 text-sm font-semibold text-text">Sus cuatro herramientas</h3>
-        <ul className="mt-2 space-y-2 text-sm leading-relaxed text-muted">
+        <h3 className="mt-8 text-base font-semibold text-text">Sus cuatro herramientas</h3>
+        <ul className={`mt-2 space-y-2 ${PROSA}`}>
           {HERRAMIENTAS_MCP.map((h) => (
             <li key={h.nombre}>
               <code className="font-mono text-text">{h.nombre}</code>: {h.descripcion}
@@ -98,7 +104,7 @@ export default function PaginaAbierto() {
       </Seccion>
 
       <Seccion id="datos" titulo="CSV y RSS">
-        <ul className="space-y-3 text-sm leading-relaxed text-muted">
+        <ul className={`space-y-3 ${PROSA}`}>
           <li>
             <strong className="text-text">CSV.</strong> Los precios de un producto se bajan desde
             la herramienta de precio de{' '}
@@ -126,7 +132,7 @@ export default function PaginaAbierto() {
       </Seccion>
 
       <Seccion id="codigo" titulo="Código">
-        <div className="space-y-3 text-sm leading-relaxed text-muted">
+        <div className={`space-y-3 ${PROSA}`}>
           {repositorio ? (
             <p>
               El código del sitio, de la API y del procesamiento de datos está en{' '}
@@ -149,7 +155,7 @@ export default function PaginaAbierto() {
       </Seccion>
 
       <Seccion id="licencias" titulo="Licencias">
-        <dl className="space-y-4 text-sm leading-relaxed text-muted">
+        <dl className={`space-y-4 ${PROSA}`}>
           <div>
             <dt className="font-semibold text-text">
               Lo que calcula {APP_NAME}: {LICENCIA_DATOS.nombre}

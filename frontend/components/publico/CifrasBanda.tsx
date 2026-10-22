@@ -53,36 +53,66 @@ export function CifrasBanda({ banda }: { banda: BandaUnidad }) {
 /**
  * Las bandas de un producto, una fila por unidad de medida: cada unidad es otro
  * envase y no se compara con las demás. Sólo cuando hay más de una.
+ *
+ * **Una sola tabla en los dos anchos**, como `TablaCostos`. Desde `sm`, cinco
+ * columnas con filetes. Por debajo, cada fila es una rejilla: la unidad y su
+ * mediana en una línea y las demás cifras debajo, cada una con su nombre (los
+ * encabezados quedan sólo para el lector de pantalla). A 390 px la tabla se
+ * desplazaba de lado y escondía cuántas compras había detrás. Al cambiar el
+ * `display`, los roles de tabla van explícitos para que siga siéndolo.
  */
+const FILA_UNIDAD =
+  'grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1 border-b border-border py-3 sm:table-row sm:py-0';
+const CELDA_UNIDAD = 'block sm:table-cell sm:py-3';
+const DEBAJO = `${CELDA_UNIDAD} col-span-2 text-muted sm:whitespace-nowrap sm:pl-4 sm:text-right`;
+
+/** El nombre de la cifra, sólo bajo `sm` (arriba lo dice el encabezado). */
+function NombreEnMovil({ children }: { children: string }) {
+  return (
+    <span aria-hidden="true" className="sm:hidden">
+      {children}:{' '}
+    </span>
+  );
+}
+
 export function TablaUnidades({ unidades, titulo }: { unidades: BandaUnidad[]; titulo: (u: BandaUnidad) => string }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-border text-left text-muted">
-            <th scope="col" className="py-2 pr-4 font-normal">Se compra</th>
-            <th scope="col" className="py-2 pr-4 text-right font-normal">Mediana</th>
-            <th scope="col" className="py-2 pr-4 text-right font-normal">La mitad de las compras</th>
-            <th scope="col" className="hidden py-2 pr-4 text-right font-normal sm:table-cell">8 de cada 10 compras</th>
-            <th scope="col" className="py-2 text-right font-normal">Cuántas compras</th>
+    <table role="table" className="block w-full text-sm sm:table">
+      <thead role="rowgroup" className="sr-only sm:not-sr-only sm:table-header-group">
+        <tr role="row" className="border-b border-border text-left text-muted">
+          <th role="columnheader" scope="col" className="py-2 pr-4 font-normal">Se compra</th>
+          <th role="columnheader" scope="col" className="py-2 pl-4 text-right font-normal">Mediana</th>
+          <th role="columnheader" scope="col" className="py-2 pl-4 text-right font-normal">La mitad de las compras</th>
+          <th role="columnheader" scope="col" className="py-2 pl-4 text-right font-normal">8 de cada 10 compras</th>
+          <th role="columnheader" scope="col" className="py-2 pl-4 text-right font-normal">Cuántas compras</th>
+        </tr>
+      </thead>
+      <tbody role="rowgroup" className="block border-t border-border sm:table-row-group sm:border-t-0">
+        {unidades.map((u, i) => (
+          <tr role="row" key={`${u.unidad ?? 'sin-unidad'}-${i}`} className={FILA_UNIDAD}>
+            <th role="rowheader" scope="row" className={`${CELDA_UNIDAD} pr-4 text-left font-semibold text-text`}>
+              {titulo(u)}
+            </th>
+            <td role="cell" className={`${CELDA_UNIDAD} cifra whitespace-nowrap text-right font-semibold text-text sm:pl-4`}>
+              <span aria-hidden="true" className="font-normal text-muted sm:hidden">
+                Mediana{' '}
+              </span>
+              {plata(u.p50)}
+            </td>
+            <td role="cell" className={`${DEBAJO} cifra`}>
+              <NombreEnMovil>La mitad de las compras</NombreEnMovil>
+              {rango(u.p25, u.p75) ?? '—'}
+            </td>
+            <td role="cell" className={`${DEBAJO} cifra`}>
+              <NombreEnMovil>8 de cada 10 compras</NombreEnMovil>
+              {rango(u.p10, u.p90) ?? '—'}
+            </td>
+            <td role="cell" className={`${DEBAJO} cifra`}>
+              {comprasDeOrganismos(u.n, u.compradores)}
+            </td>
           </tr>
-        </thead>
-        <tbody>
-          {unidades.map((u, i) => (
-            <tr key={`${u.unidad ?? 'sin-unidad'}-${i}`} className="border-b border-border">
-              <th scope="row" className="py-3 pr-4 text-left font-semibold text-text">
-                {titulo(u)}
-              </th>
-              <td className="cifra whitespace-nowrap py-3 pr-4 text-right font-semibold text-text">{plata(u.p50)}</td>
-              <td className="cifra whitespace-nowrap py-3 pr-4 text-right text-muted">{rango(u.p25, u.p75) ?? '—'}</td>
-              <td className="cifra hidden whitespace-nowrap py-3 pr-4 text-right text-muted sm:table-cell">
-                {rango(u.p10, u.p90) ?? '—'}
-              </td>
-              <td className="cifra whitespace-nowrap py-3 text-right text-muted">{comprasDeOrganismos(u.n, u.compradores)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+        ))}
+      </tbody>
+    </table>
   );
 }

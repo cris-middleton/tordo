@@ -27,7 +27,7 @@ vi.mock('next/navigation', () => ({
 import PaginaGuia, { dynamicParams, generateMetadata, generateStaticParams } from '@/app/(publico)/guias/[slug]/page';
 import PaginaGuias from '@/app/(publico)/guias/page';
 import { Markdown } from '@/components/guias/Markdown';
-import { leerGuias } from '@/lib/guias';
+import { ORDEN_GUIAS, leerGuias, ultimaActualizacion } from '@/lib/guias';
 import { bloques, destinos, enLinea, idDeTitulo, idsDeTitulos, type Bloque } from '@/lib/markdown';
 
 const GUIAS = leerGuias();
@@ -176,7 +176,27 @@ describe('las guías', () => {
     await expect(PaginaGuia(params('no-existe'))).rejects.toThrow('NEXT_NOT_FOUND');
   });
 
-  it('el índice las enlaza todas con su fecha', () => {
+  it('el índice va en orden de lectura, y cada guía tiene su lugar en él', () => {
+    // Una guía nueva sin lugar en `ORDEN_GUIAS` saldría al final sin que nadie lo decidiera.
+    expect([...GUIAS.map((g) => g.slug)].sort()).toEqual([...ORDEN_GUIAS].sort());
+    expect(GUIAS.map((g) => g.slug)).toEqual([...ORDEN_GUIAS]);
+    const { container } = render(<PaginaGuias />);
+    const titulos = [...container.querySelectorAll('li h2')].map((h) => h.textContent);
+    expect(titulos.slice(0, 2)).toEqual(['De dónde salen los datos y qué les falta', 'Las cuatro formas en que compra el Estado']);
+  });
+
+  it('el índice dice la fecha una vez, la de la última revisada', () => {
+    const { container } = render(<PaginaGuias />);
+    expect(container.textContent?.match(/Actualizada el/g) ?? []).toHaveLength(0);
+    expect(container.querySelectorAll('time')).toHaveLength(1);
+    expect(container.querySelector('time')).toHaveAttribute('dateTime', ultimaActualizacion(GUIAS));
+    expect(ultimaActualizacion([{ actualizado: '2026-01-02' }, { actualizado: '2026-10-21' }, { actualizado: '2026-03-04' }])).toBe(
+      '2026-10-21',
+    );
+    expect(ultimaActualizacion([])).toBeNull();
+  });
+
+  it('el índice las enlaza todas', () => {
     render(<PaginaGuias />);
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     for (const g of GUIAS) {

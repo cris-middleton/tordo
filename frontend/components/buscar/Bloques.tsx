@@ -167,7 +167,7 @@ function PreciosEncontrados({
       {ficha?.estado === 'fallo' ? (
         <AvisoDeFallo que="el precio de este producto" motivo={ficha.motivo} />
       ) : banda ? (
-        <div className="max-w-3xl">
+        <div>
           {precio ? (
             <>
               <p className="font-semibold text-text">{precio.conclusion}</p>

@@ -15,15 +15,19 @@ import { COSTOS, ETIQUETA_BASE, TOTAL } from '@/lib/costos';
  * Al cambiar el `display` de una tabla, Safari y Chrome le quitan sus roles: van
  * explícitos (`role="table"`, `row`, `rowheader`, `cell`…) para que la tabla
  * siga siéndolo con el lector de pantalla.
+ *
+ * **Ocupa la columna entera** (`max-w-none` le gana al tope de 31 rem de
+ * `.lectura`) y «Cómo se sabe» se lleva el 60 %: a 31 rem cada explicación
+ * ocupaba cinco o seis líneas.
  */
-const TABLA = 'block w-full text-left text-sm sm:table';
+const TABLA = 'block w-full max-w-none text-left text-sm sm:table';
 const GRUPO = 'block sm:table-row-group';
 const FILA =
   'grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1 py-3 sm:table-row sm:py-0';
 const CELDA = 'block sm:table-cell sm:py-3 sm:align-top';
-const CONCEPTO = `${CELDA} sm:w-[30%] sm:pr-4`;
+const CONCEPTO = `${CELDA} sm:w-1/4 sm:pr-4`;
 const MONTO = `${CELDA} cifra whitespace-nowrap text-right sm:w-24 sm:pr-6`;
-const DETALLE = `${CELDA} col-span-2 text-xs leading-relaxed text-muted sm:text-sm`;
+const DETALLE = `${CELDA} col-span-2 text-xs leading-relaxed text-muted sm:w-[60%] sm:text-sm`;
 
 export function TablaCostos() {
   return (

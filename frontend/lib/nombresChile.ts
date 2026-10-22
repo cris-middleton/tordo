@@ -14,13 +14,22 @@
  */
 const MINUSCULAS = new Set(['a', 'al', 'con', 'de', 'del', 'e', 'en', 'la', 'las', 'los', 'o', 'para', 'por', 'y']);
 
-/** Los artículos que también forman parte de un nombre de lugar («Las Condes»). */
-const ARTICULOS = new Set(['la', 'las', 'los']);
+/** Los artículos que también forman parte de un nombre de lugar («Las Condes», «El Quisco»). */
+const ARTICULOS = new Set(['el', 'la', 'las', 'los']);
+
+/**
+ * «El» no está en `MINUSCULAS` porque abre muchos nombres propios que no son
+ * lugares: «Hospital El Pino», «Jardín Infantil El Principito». Va en minúscula
+ * sólo detrás de una de esas palabras («para el Hospital», «en el CMT»), que es
+ * donde actúa de artículo; y ni ahí si le sigue una comuna («Municipalidad de El
+ * Bosque»).
+ */
+const EL = 'el';
 
 /**
  * Lo que sigue a un artículo cuando el artículo es parte del nombre propio: las
  * comunas y regiones de Chile que lo llevan («Municipalidad de La Florida»,
- * «Región de Los Ríos»). Sin tildes, porque el dato casi nunca las trae. Frente a
+ * «Región de Los Ríos», «Municipalidad de El Quisco»). Sin tildes, porque el dato casi nunca las trae. Frente a
  * la duda, la mayúscula: «de La Cruz Roja» se lee igual; «de la Florida», no.
  */
 const LUGARES_CON_ARTICULO = new Set([
@@ -28,8 +37,10 @@ const LUGARES_CON_ARTICULO = new Set([
   'andes',
   'angeles',
   'araucania',
+  'bosque',
   'cabras',
   'calera',
+  'carmen',
   'casas',
   'cisterna',
   'condes',
@@ -41,12 +52,17 @@ const LUGARES_CON_ARTICULO = new Set([
   'higueras',
   'lagos',
   'ligua',
+  'loa',
+  'monte',
   'muermos',
   'pintana',
+  'quisco',
   'reina',
   'rios',
+  'salvador',
   'sauces',
   'serena',
+  'tabo',
   'union',
   'vilos',
 ]);
@@ -84,7 +100,12 @@ const SOCIETARIAS: Record<string, string> = { spa: 'SpA', eirl: 'EIRL', sa: 'SA'
  * nada: es la misma palabra, sin el espacio de más. «MINISTERIO DE OBRAS
  * PUBLICAS DIREC CION GRAL DE OO PP DCYF» salía «Direc Cion Gral de Oo Pp Dcyf».
  */
-const PARTIDAS: [RegExp, string][] = [[/\bDIREC CION\b/gi, 'DIRECCION']];
+const PARTIDAS: [RegExp, string][] = [
+  [/\bDIREC CION\b/gi, 'DIRECCION'],
+  // «STARCO S A» al final del nombre es la sociedad anónima, como «S.A.»: sin esto salía
+  // «Starco S a» (la «a» suelta es una preposición). Sólo al final, donde no puede ser otra cosa.
+  [/\bS A$/i, 'S.A.'],
+];
 
 /** Cómo se escribe una palabra que no va en minúscula. */
 function escribir(palabra: string): string {
@@ -116,7 +137,9 @@ export const normalizeText = (text: string | undefined): string => {
       const baja = word.toLowerCase();
       const esPrimera = primera;
       primera = false;
-      if (esPrimera || !MINUSCULAS.has(baja)) return escribir(word);
+      const anterior = palabras.slice(0, i).reverse().find(Boolean)?.toLowerCase();
+      const articuloEl = baja === EL && anterior !== undefined && MINUSCULAS.has(anterior);
+      if (esPrimera || (!MINUSCULAS.has(baja) && !articuloEl)) return escribir(word);
       if (ARTICULOS.has(baja)) {
         const siguiente = palabras.slice(i + 1).find(Boolean);
         if (siguiente && LUGARES_CON_ARTICULO.has(sinTildes(siguiente.toLowerCase()))) return capitalizar(word);

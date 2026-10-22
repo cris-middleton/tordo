@@ -70,7 +70,9 @@ export default function FilaLicitacion({
         {tender.monto_estimado ? (
           <p className="cifra text-base font-semibold text-text">{formatCurrency(tender.monto_estimado)}</p>
         ) : (
-          <p className="text-sm text-subtle">Sin monto</p>
+          // Sin monto, nada: un «Sin monto» gris en más de la mitad de las filas tapaba los montos
+          // que el ojo busca. El hueco sostiene la columna (en móvil, el botón abajo).
+          <span aria-hidden="true" />
         )}
         <button
           type="button"

@@ -262,7 +262,8 @@ ninguna página ni layout de grupo pinta cabecera, pie, `PieAtribucion` ni `<mai
   el 28 oct a las 12:00» o «Cerró el 12 oct»; en lo que se sirve desde caché o del servidor (la portada,
   `/buscar`, la ficha del comprador; `cierreFijo`) siempre la fecha con su hora. Convivían «Cierra en 6
   días», «Cierra el 2 nov 2026» y «Cierra en 3 h» para lo mismo. La fila de licitación de `/buscar` tiene
-  la forma de `FilaLicitacion` (nombre, comprador y región, cierre y código, monto a la derecha), sin
+  la forma de `FilaLicitacion` (nombre, comprador y región, cierre y código, monto a la derecha; **sin
+  monto, nada**: un «Sin monto» gris en más de la mitad de las filas tapaba los montos), sin
   «guardar».
 - **Un monto de Compra Ágil bajo `MONTO_SIMBOLICO` ($1.000) es «Sin monto»** (`montoDeclarado`): hay
   quien escribe $1 para no declarar nada. En `/compra-agil`, una fila de la misma unidad que la de arriba
@@ -303,8 +304,10 @@ ninguna página ni layout de grupo pinta cabecera, pie, `PieAtribucion` ni `<mai
 - **Los nombres de Mercado Público se escriben con `normalizeText`** (`lib/nombresChile.ts`): llegan
   en MAYÚSCULAS y salen con mayúscula inicial, pero «de», «del», «la», «las», «los», «y», «e», «o»,
   «en», «a», «al», «por», «para» y «con» en minúscula salvo al principio («Policia de Investigaciones de
-  Chile»). Un artículo que es parte de una comuna o región la conserva («Municipalidad de Las
-  Condes», `LUGARES_CON_ARTICULO`): ante la duda, mayúscula. Las tildes que faltan no se inventan.
+  Chile»). **«El» va en minúscula sólo detrás de una de esas palabras** («para el Hospital», «en el
+  CMT»): delante abre nombres propios que no son lugares («Hospital El Pino», «Jardín Infantil El
+  Principito»). Un artículo que es parte de una comuna o región la conserva («Municipalidad de Las
+  Condes», «de El Quisco», `LUGARES_CON_ARTICULO`): ante la duda, mayúscula. Las tildes que faltan no se inventan.
   Van enteros en mayúscula los romanos («II Región»), las abreviaturas de letra doble («OO PP»,
   «FF.AA.») y las palabras sin vocal («DCYF», «PVC»; no «Dr» ni «Sn»); tras un punto o un apóstrofo
   va mayúscula («S.A.», «I.Municipalidad», «O'Higgins»), y `PARTIDAS` une las palabras que el dato
@@ -407,6 +410,14 @@ proveedores son `components/graficos/BarrasHorizontales.tsx` y los meses y años
 `components/graficos/Columnas.tsx`, que siguen la guía de gráficos (`PROPIOS`). Sin «¿Son
 confiables?», sin la insignia «excelente», sin «Probabilidad de compra», sin semáforos: la nota
 del comprador es «9,2 de 10» y sus tres números al lado.
+**`PanoramaRubro` titula con la conclusión, no con el tema**: cada bloque lleva el tema como etiqueta
+chica («Contra quién compites», con su ayuda) y la conclusión como título («Rubro fragmentado», «Se
+compra parejo todo el año», «41 de los 890 compradores del rubro tienen alguna señal…»). `nivel`
+elige su rango: `h3` en `/mercado` (dentro de «Cómo está el rubro») y `h2` en `/rubros/[slug]`, que
+no tiene otra sección encima (saltaba de `h1` a `h3`). **«Parejo» no resalta ningún mes** (resaltaba
+enero, desmintiendo el título); con temporada, el mes pico. Una cuota que se redondearía a cero dice
+«menos de 0,1 %» (`porcentaje`, `lib/formato.ts`), y los compradores a mirar con cuidado enlazan a
+su ficha como la tabla «Quién compra más».
 
 **La URL de esa pantalla se lee, no sólo se escribe.** `rubro`, `focus` y `compare` se leen
 con `useSearchParams` en un inicializador perezoso —dentro de una frontera de `Suspense`,
@@ -550,7 +561,14 @@ a la página**: Next ignora `metadata` en componentes cliente y la home perderí
     semanal materialice su tabla— cae a los de `compradores` con la unidad de la banda, que son diez)
     **sólo con `MINIMO_PUNTOS` (5) o más**, y más chicos cuantos más son (`radioPara`: 8, 5 o 3,5 px) —con menos,
     ninguno, y la franja baja a 44 px: dos puntos de 63 compradores se leían como «los compradores» y el
-    pie decía «uno de los 1»—, P25 y P75 en negrita y dos valores redondos de contexto en `muted`. **Sin `viewBox`:
+    pie decía «uno de los 1»—, P25 y P75 en negrita y hasta dos valores redondos de contexto en `muted`. **El eje es del
+    dato** (`dominioDelDato`): de lo más bajo a lo más alto que se dibuja —P10, P90, la franja y los
+    puntos— con `AIRE_DOMINIO` (15 % de ese tramo) a cada lado, así que el dato llena ~77 % del ancho; un
+    tramo de menos de `RAZON_MINIMA` (1,5×) se abre centrado. Las marcas de contexto (1; 1,5; 2; 2,5;
+    3… 8 por una potencia de 10) caen **dentro** de ese eje, fuera de la franja, la más alejada cuyo
+    rótulo no pise otro, y **nunca lo estiran**: si no cabe ninguna, ese lado va sin marca. Antes se
+    buscaban al doble de P25 y P75 como mínimo y estiraban el eje: el cloro gel iba de $200 a $5 mil
+    con 8 de cada 10 compras entre $725 y $1.437, en una cuarta parte del ancho. **Sin `viewBox`:
     lo horizontal va en % y lo vertical en px**, así que puntos y rótulos no se deforman; si dos
     puntos se tocan (se apilan) o dos rótulos se pisan (se apartan, o se juntan en uno) se decide al
     ancho más estrecho en que se pinta (`ANCHO_REFERENCIA`, 280 px): más ancho, nada empieza a
@@ -666,19 +684,70 @@ con la cifra, `textoDiferencia` —«De un extremo al otro, 1,9 veces», «Casi 
 insignias de color; antes un adjetivo, «Precios algo distintos entre sí»). Con más de
 una unidad, una tabla (`TablaUnidades`). Ya no hay tarjeta de P10…P90 encima del gráfico: la ficha
 decía la mitad de las compras tres veces. Las tablas de las fichas (`TablaEnlaces`) van con filetes y sin caja.
+**Un solo ancho, el de lectura** (`max-w-3xl` en el `<article>`): el gráfico medía ~680 px y las tablas
+~1.090, y cada sección terminaba en otro sitio. `/buscar` hace lo mismo con la página entera.
+**Las dos tablas se apilan bajo `sm`**, como `TablaCostos`: `TablaUnidades` pone la unidad y su mediana
+en una línea y las demás cifras debajo, cada una con su nombre; `TablaEnlaces`, el nombre en su línea y
+las celdas debajo con su encabezado delante (los de arriba quedan para el lector de pantalla, y los
+roles de tabla van explícitos porque cambia el `display`). A 390 px la de unidades se desplazaba de lado
+y escondía columnas, y la de compradores ocultaba la unidad y tocaba el borde. **«Quién lo compra» no
+cuenta compradores** (`descripcionCompradores`): la tabla mezcla unidades y se corta en diez, y «Son 7 de
+204: los demás lo compraron una o dos veces» la contradecía; con la lista de L0 dice sólo el corte (3
+compras o más en una misma unidad).
+
+**`/productos` sin búsqueda** enlaza, bajo los ejemplos, la búsqueda de las seis cosas de la
+escalera (`PRODUCTOS_ESCALERA`, «Lo que compra todo el Estado»): **a su búsqueda, no a su ficha** —una
+ficha escrita a mano puede dejar de ser indexable, y en el fixture del E2E no existe—, sin cifras ni
+`prefetch`, que pinta la página de servidor y el buscador coloca (`inicio`): no piden nada al backend.
+
+**La ficha de una licitación** (`/licitaciones/[codigo]`) **siempre sale a Mercado Público**, que es
+donde se postula: «Abrir en Mercado Público» es su acción principal (`btn-primary`, primera). La URL
+del dato (`url_licitacion`, filtrada por `urlDeMercadoPublico`) casi nunca viene, así que se arma del
+código: la Compra Ágil, con el buscador (`urlMercadoPublico`); una licitación, con
+`urlLicitacionMercadoPublico` (`…/RFB/DetailsAcquisition.aspx?idlicitacion=<código>`, que el portal
+redirige a su ficha; comprobado el 2026-10-22). El comprador enlaza a su ficha (`rutaComprador`) sólo
+si el panel de BI lo conoce (`comprador` o `competidores` disponibles): sin historia, la ficha sería un
+404. La descripción va en tipo oración si llega toda en mayúsculas (`tipoOracion`). En el panel
+(`BIPanelSection`): sin plazo no hay sección «El plazo»; los proveedores pasan por `normalizeText`; y
+cada fila de precios dice qué es su código —el nombre que traen los ítems (`nombresDeCategorias`, el
+panel sólo trae el código) y «Categoría ONU 53102706»—, con P25 = P75 en un solo precio (`rango`). El
+título de la ficha lleva el sufijo del sitio porque `licitaciones/layout.tsx` declara `template`: Next
+sólo pasa a los hijos la plantilla del segmento de arriba, y un título de texto plano la borraba.
+
+**Cómo compra un comprador** (`BuyerProfilePanel`, en su ficha y en cada licitación; las reglas en
+`lib/comprador.ts`): la nota enlaza a «Cómo se calcula» (`METODO_COMPRADOR`, la sección «La nota como
+comprador» de la guía `como-leer-un-comprador`, con los siete pesos de `buyer_scoring.py`); «Calculado
+con» sólo sale con base (el panel de licitación no la trae). **Un trato directo de 0 exacto no se
+muestra** (`textoTratoDirecto`): hasta #61 (2026-10-21) era 0 para todo comprador, y lo materializado
+antes de la semanal siguiente sigue diciéndolo; se puede volver a mostrar cuando no quede ninguna tabla
+anterior. **Ojo**: ese 0 también inflaba la nota (el trato directo pesa 25 %) hasta esa semanal. Las
+ofertas por licitación sobre `MAXIMO_OFERTAS_CREIBLE` (50) no salen («299,4» en producción: la media
+de `NumeroOferentes`, arrastrada por pocas licitaciones). En la ficha, la cuota del proveedor
+principal de Compra Ágil va en una frase (`fraseProveedorPrincipal`: «El proveedor principal se lleva
+el 2% de sus órdenes por Compra Ágil.»), y el enlace final dice «de todos los compradores»:
+`/compra-agil` no filtra por comprador, y las suyas ya están arriba.
 
 **Acerca** (`/acerca`, `app/(publico)/acerca/`): lo que la portada dejó de explicar —qué es, de
 dónde salen los datos, cómo se financia— y las preguntas frecuentes (`PREGUNTAS`, en
 `lib/acerca.ts`). Indexable, en `PAGINAS_FIJAS`, enlazada desde el pie junto a las licencias y
 el contacto (no es una sección de la navegación). Las preguntas son `<details>` sin caja, entre
 filetes, con el `<summary>` de 44 px como mínimo; «Quién lo hace» es su propia sección y sólo sale
-con `AUTOR_NOMBRE` (enlaza a `/notas` y, con `REPOSITORIO_URL`, al código).
+con `AUTOR_NOMBRE`: el nombre enlaza a `AUTOR_URL` si está, señala las notas de datos como su
+trabajo y, con `REPOSITORIO_URL`, enlaza al código.
+
+**El texto corrido de las páginas de lectura va a 16 px y en `text`** (`text-base leading-relaxed
+text-text`): `/acerca`, `/apoyar`, `/abierto` y el cuerpo de guías y notas (`components/guias/Markdown.tsx`).
+Era `text-sm text-muted`, que se leía como nota al pie. Lo secundario sigue chico: el subtítulo de
+la cabecera, la letra chica, los pasos de instalación, las celdas de tabla y las fuentes.
 
 **Guías** (`/guias`, `/guias/[slug]`): el contenido vive en `frontend/content/explicativos/*.mdx`
 (Markdown plano; el test de frontmatter prohíbe `{` y `<`) y se publica en **`/guias/`** — los
 enlaces internos ya apuntan ahí. Se renderiza con `lib/markdown.ts`, sin `@next/mdx`: el
 contenido no usa JSX y cinco dependencias para eso no valen la pena. Si una guía necesita algo
-que el parser no soporta, se amplía el parser con su test. `guias.test.tsx` comprueba que cada
+que el parser no soporta, se amplía el parser con su test. **El índice va en orden de lectura**
+(`ORDEN_GUIAS` en `lib/guias.ts`: los datos y las cuatro formas de comprar primero), no por título,
+y una guía nueva hace fallar `guias.test.tsx` hasta tener su lugar; la fecha sale una vez, la de la
+última revisada (`ultimaActualizacion`). `guias.test.tsx` comprueba que cada
 enlace interno de cada guía resuelve. **Cada título lleva un `id`** (`idDeTitulo`: minúsculas, sin
 tildes ni signos), que es el ancla de los «Cómo se calcula»: renombrar un título rompe su ancla, y
 `metodo.test.ts` lo dice. El texto dice «TORDO» y se sustituye por `APP_NAME` al
@@ -739,12 +808,18 @@ y `/apoyar` lo leen de ahí (la prosa de `/apoyar` sale de las mismas constantes
 delante, el botón quedaba a 3,5 pantallas en un teléfono), y el total sale dos veces: en la entrada
 y en la fila «Total». La tabla es una sola en los dos anchos (`components/apoyar/TablaCostos.tsx`):
 desde `sm`, tres columnas con filetes y sin caja; por debajo, cada fila pone concepto y monto en una
-línea y «Cómo se sabe» debajo, con los roles de tabla explícitos porque cambia su `display`.
+línea y «Cómo se sabe» debajo, con los roles de tabla explícitos porque cambia su `display`. **Ocupa la
+columna entera** (`max-w-none` le gana al tope de 31 rem de `.lectura`) y «Cómo se sabe» se lleva el
+60 %. Bajo los botones, una frase («Un aporte es una donación: quien aporta ve el mismo sitio que
+cualquiera.») y el enlace a los términos, que dicen el resto: eran cuatro líneas de negaciones.
 
 **Abierto** (`/abierto`): API, MCP con una fila de instalación por cliente (una lista con filetes;
 en rejilla de dos, la quinta caja quedaba sola), CSV y RSS, código y
 licencias (código AGPL-3.0 o posterior, `AGPL-3.0-or-later`; lo que el sitio calcula, CC BY 4.0; el catálogo, condiciones de
-ChileCompra — los términos §4 y §7 lo dicen igual). **La dirección pública de la API vive sólo en
+ChileCompra — los términos §4 y §7 lo dicen igual). **Cada fragmento (`Codigo`, `components/abierto/Bloques.tsx`) lleva un botón «Copiar»** (`BotonCopiar`,
+la única isla de la página: `navigator.clipboard`, «Copiado» anunciado con `aria-live`, «Cópialo a
+mano» sin permiso), parte las líneas largas en vez de desplazarse y ocupa el ancho de su columna. Las
+descripciones de las herramientas empiezan en minúscula: van tras «nombre:». **La dirección pública de la API vive sólo en
 `lib/abierto.ts`** (`ORIGEN_API_PUBLICA`, test que lo exige): no es `API_URL`, que es a dónde
 habla el proxy. **La URL del MCP se publica siempre con barra final.** Las cuatro herramientas
 están copiadas a mano y `backend/tests/test_mcp.py` las compara con el `tools/list` real.

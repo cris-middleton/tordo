@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { CabeceraFicha } from '@/components/publico/Piezas';
-import { leerGuias, rutaGuia } from '@/lib/guias';
+import { leerGuias, rutaGuia, ultimaActualizacion } from '@/lib/guias';
 import { fechaCorta } from '@/lib/publico';
 
 export const metadata: Metadata = {
@@ -13,11 +13,16 @@ export const metadata: Metadata = {
 };
 
 /**
- * `/guias` — el índice de las guías, en la misma lista que las notas: título,
- * descripción y fecha, con filetes y sin tarjetas. Estático: se genera en el build.
+ * `/guias` — el índice de las guías, en la misma lista que las notas: título y
+ * descripción, con filetes y sin tarjetas. Estático: se genera en el build.
+ *
+ * **En orden de lectura** (`ORDEN_GUIAS`), no por título: primero de dónde salen
+ * los datos y cómo compra el Estado. **La fecha va una vez**, la de la última
+ * revisada: repetida en cada guía era la misma línea gris ocho veces.
  */
 export default function PaginaGuias() {
   const guias = leerGuias();
+  const ultima = ultimaActualizacion(guias);
   return (
     <article className="lectura max-w-3xl">
       <CabeceraFicha
@@ -33,12 +38,14 @@ export default function PaginaGuias() {
               </Link>
             </h2>
             <p className="mt-2 text-muted">{g.descripcion}</p>
-            <p className="mt-2 text-sm text-subtle">
-              Actualizada el <span className="cifra">{fechaCorta(g.actualizado)}</span>
-            </p>
           </li>
         ))}
       </ul>
+      {ultima && (
+        <p className="mt-4 text-sm text-subtle">
+          La última revisión es del <time dateTime={ultima} className="cifra">{fechaCorta(ultima)}</time>.
+        </p>
+      )}
     </article>
   );
 }

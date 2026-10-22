@@ -56,62 +56,72 @@ export function FranjaDatos({ children }: { children: React.ReactNode }) {
  * sus compradores, el producto → quién lo compra. Es lo que convierte tres
  * tipos de página sueltos en un sitio que se recorre.
  *
- * Filas con filete y sin caja, como las tablas de cifras de las fichas.
- * `ocultarEnMovil` son los índices de `celdas` que no caben en un teléfono (la
- * unidad, cuando todas dicen lo mismo): bajo `sm` se ocultan, y el nombre no
- * queda partido en cuatro líneas.
+ * Filas con filete y sin caja, como las tablas de cifras de las fichas. **Una
+ * sola tabla en los dos anchos**, como `TablaCostos`: desde `sm`, columnas; por
+ * debajo, cada fila pone el nombre en su línea y las cifras debajo, cada una con
+ * su encabezado delante (los de arriba quedan sólo para el lector de pantalla).
+ * Antes, bajo `sm`, la unidad se ocultaba y la mediana tocaba el borde: «Quién lo
+ * compra» mezcla unidades, y sin ella una mediana no se entiende. Al cambiar el
+ * `display`, los roles de tabla van explícitos.
  */
 export function TablaEnlaces({
   encabezados,
   filas,
   vacio,
-  ocultarEnMovil = [],
 }: {
   encabezados: [string, ...string[]];
   filas: { clave: string; href: string | null; nombre: string; celdas: string[] }[];
   vacio: string;
-  ocultarEnMovil?: number[];
 }) {
   if (filas.length === 0) return <p className="text-sm text-subtle">{vacio}</p>;
-  const oculta = (i: number) => (ocultarEnMovil.includes(i) ? 'hidden sm:table-cell' : '');
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-border text-left text-muted">
-            {encabezados.map((e, i) => (
-              <th
-                key={e}
-                scope="col"
-                className={`py-2 font-normal ${i > 0 ? `pl-4 text-right ${oculta(i - 1)}` : 'pr-2'}`}
+    <table role="table" className="block w-full text-sm sm:table">
+      <thead role="rowgroup" className="sr-only sm:not-sr-only sm:table-header-group">
+        <tr role="row" className="border-b border-border text-left text-muted">
+          {encabezados.map((e, i) => (
+            <th
+              key={e}
+              role="columnheader"
+              scope="col"
+              className={`py-2 font-normal ${i > 0 ? 'pl-4 text-right' : 'pr-2'}`}
+            >
+              {e}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody role="rowgroup" className="block border-t border-border sm:table-row-group sm:border-t-0">
+        {filas.map((f) => (
+          <tr
+            role="row"
+            key={f.clave}
+            className="flex flex-wrap gap-x-4 gap-y-1 border-b border-border py-3 sm:table-row sm:py-0"
+          >
+            <td role="cell" className="block basis-full sm:table-cell sm:py-3 sm:pr-2">
+              {f.href ? (
+                <Link href={f.href} className="font-medium text-primary hover:text-accent">
+                  {f.nombre}
+                </Link>
+              ) : (
+                <span className="font-medium">{f.nombre}</span>
+              )}
+            </td>
+            {f.celdas.map((c, i) => (
+              <td
+                role="cell"
+                key={i}
+                className="cifra block whitespace-nowrap text-muted sm:table-cell sm:py-3 sm:pl-4 sm:text-right"
               >
-                {e}
-              </th>
+                <span aria-hidden="true" className="sm:hidden">
+                  {encabezados[i + 1]}:{' '}
+                </span>
+                <span className="text-text sm:text-muted">{c}</span>
+              </td>
             ))}
           </tr>
-        </thead>
-        <tbody>
-          {filas.map((f) => (
-            <tr key={f.clave} className="border-b border-border">
-              <td className="py-3 pr-2">
-                {f.href ? (
-                  <Link href={f.href} className="font-medium text-primary hover:text-accent">
-                    {f.nombre}
-                  </Link>
-                ) : (
-                  <span className="font-medium">{f.nombre}</span>
-                )}
-              </td>
-              {f.celdas.map((c, i) => (
-                <td key={i} className={`cifra whitespace-nowrap py-3 pl-4 text-right text-muted ${oculta(i)}`}>
-                  {c}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+        ))}
+      </tbody>
+    </table>
   );
 }
 

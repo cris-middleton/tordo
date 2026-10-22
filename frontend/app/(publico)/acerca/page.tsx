@@ -5,7 +5,7 @@ import { ChevronDown } from 'lucide-react';
 import { CabeceraFicha, Seccion } from '@/components/publico/Piezas';
 import { PREGUNTAS } from '@/lib/acerca';
 import { COSTO_MENSUAL_APROXIMADO } from '@/lib/costos';
-import { nombreAutor, rolAutor } from '@/lib/autor';
+import { nombreAutor, rolAutor, urlAutor } from '@/lib/autor';
 import { urlRepositorio } from '@/lib/repositorio';
 import { MESES_ANALISIS, MESES_PRECIOS } from '@/lib/periodo';
 import { FRECUENCIA_CATALOGO } from '@/lib/portada';
@@ -31,11 +31,19 @@ export const metadata: Metadata = {
  * ella la sección no sale, ni con un hueco ni con un nombre inventado. Enlaza a las
  * notas de datos y, con `REPOSITORIO_URL`, al código. La autoría no es el
  * responsable legal: `/terminos` y `/privacidad` siguen con `RESPONSABLE_LEGAL`.
- * El rol sale de `AUTOR_ROL` (`rolAutor()`); sin él, el nombre solo.
+ * El rol sale de `AUTOR_ROL` (`rolAutor()`); sin él, el nombre solo. El nombre
+ * enlaza a `AUTOR_URL` (`urlAutor()`) si está, y la sección señala las notas de
+ * datos como su trabajo: es lo que muestra cómo trabaja quien lo hace.
+ *
+ * **El texto corrido va a 16 px y en `text`** (`PROSA`); las preguntas, también.
+ * Lo chico y gris queda para lo secundario: la línea del contacto.
  */
+const PROSA = 'text-base leading-relaxed text-text';
+
 export default function PaginaAcerca() {
   const autor = nombreAutor();
   const rol = rolAutor();
+  const enlaceAutor = urlAutor();
   const repositorio = urlRepositorio();
 
   return (
@@ -46,7 +54,7 @@ export default function PaginaAcerca() {
       />
 
       <Seccion id="que-es" titulo="Qué puedes hacer aquí">
-        <div className="space-y-3 text-sm leading-relaxed text-muted">
+        <div className={`space-y-3 ${PROSA}`}>
           <p>
             Escribes lo que vendes y ves a qué precio lo compró el Estado en los últimos {MESES_PRECIOS}{' '}
             meses, y quién lo compra. También están las licitaciones y Compras Ágiles abiertas hoy y,
@@ -64,7 +72,7 @@ export default function PaginaAcerca() {
       </Seccion>
 
       <Seccion id="datos" titulo="De dónde salen los datos">
-        <div className="space-y-3 text-sm leading-relaxed text-muted">
+        <div className={`space-y-3 ${PROSA}`}>
           <p>
             Todo sale de ChileCompra. Los precios y los mercados, de sus archivos abiertos de órdenes
             de compra: los últimos {MESES_ANALISIS} meses, y {MESES_PRECIOS} para los precios. Las
@@ -83,7 +91,7 @@ export default function PaginaAcerca() {
       </Seccion>
 
       <Seccion id="financiacion" titulo="Quién lo paga">
-        <p className="text-sm leading-relaxed text-muted">
+        <p className={PROSA}>
           Tenerlo en línea cuesta{' '}
           <Link href="/apoyar#costos" className="enlace">
             alrededor de {COSTO_MENSUAL_APROXIMADO} al mes
@@ -94,14 +102,25 @@ export default function PaginaAcerca() {
 
       {autor && (
         <Seccion id="quien-lo-hace" titulo="Quién lo hace">
-          <div className="space-y-3 text-sm leading-relaxed text-muted">
-            <p>{rol ? `Lo hace ${autor}, ${rol}, a título personal.` : `Lo hace ${autor}, a título personal.`}</p>
+          <div className={`space-y-3 ${PROSA}`}>
             <p>
-              Cuando encontramos un error en los datos, o uno nuestro, lo contamos en las{' '}
+              Lo hace{' '}
+              {enlaceAutor ? (
+                <a href={enlaceAutor} rel="noopener noreferrer" className="enlace">
+                  {autor}
+                </a>
+              ) : (
+                autor
+              )}
+              {rol ? `, ${rol}` : ''}, a título personal.
+            </p>
+            <p>
+              Su trabajo se lee en las{' '}
               <Link href="/notas" className="enlace">
                 notas de datos
               </Link>
-              , con cómo lo medimos.
+              : cada una cuenta un error que encontramos en las compras públicas, a veces nuestro, cómo
+              lo medimos y qué cambió en el sitio.
               {repositorio && (
                 <>
                   {' '}El{' '}
@@ -120,14 +139,14 @@ export default function PaginaAcerca() {
         <div className="divide-y divide-border border-y border-border">
           {PREGUNTAS.map((p) => (
             <details key={p.pregunta} className="group">
-              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 py-3 text-sm font-semibold text-text hover:text-primary [&::-webkit-details-marker]:hidden">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 py-3 text-base font-semibold text-text hover:text-primary [&::-webkit-details-marker]:hidden">
                 {p.pregunta}
                 <ChevronDown
                   className="h-4 w-4 shrink-0 text-muted transition-transform group-open:rotate-180 motion-reduce:transition-none"
                   aria-hidden="true"
                 />
               </summary>
-              <div className="pb-4 pr-8 text-sm leading-relaxed text-muted">
+              <div className={`pb-4 pr-8 ${PROSA}`}>
                 <p>{p.respuesta}</p>
                 {p.enlace && (
                   <Link href={p.enlace.href} className="enlace mt-2 inline-block">

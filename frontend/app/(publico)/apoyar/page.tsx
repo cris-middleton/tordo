@@ -31,7 +31,14 @@ export const metadata: Metadata = {
  * **Sin publicidad** (spec §4.1): se decidió cuando el sitio estaba en Vercel
  * Hobby, donde un anuncio lo convertía en comercial. Desde el 2026-10-20 está en
  * Pro y ese motivo ya no aplica; la decisión sigue.
+ *
+ * **El texto corrido va a 16 px y en `text`** (`PROSA`). La letra chica bajo los
+ * botones es una frase afirmativa y el enlace a los términos, que dicen el resto:
+ * eran cuatro líneas de negaciones encadenadas. La tabla del costo ocupa la
+ * columna entera (`TablaCostos`).
  */
+const PROSA = 'text-base leading-relaxed text-text';
+
 export default function PaginaApoyar() {
   const { enlaces, transferencia } = mediosDeDonacion();
   const hayAlguno = enlaces.length > 0 || transferencia;
@@ -75,7 +82,7 @@ export default function PaginaApoyar() {
             )}
             {transferencia && (
               <div>
-                <p className="mb-2 text-sm text-muted">
+                <p className={`mb-2 ${PROSA}`}>
                   O por transferencia bancaria, sin comisión para nadie.
                 </p>
                 <VerTransferencia />
@@ -83,15 +90,13 @@ export default function PaginaApoyar() {
             )}
           </div>
         ) : (
-          <p className="text-sm leading-relaxed text-muted">
+          <p className={PROSA}>
             Todavía no hay medios de aporte habilitados. Mientras, la mejor ayuda es que se lo
             cuentes a alguien que licite.
           </p>
         )}
-        <p className="mt-6 text-xs leading-relaxed text-subtle">
-          Un aporte es una donación. No compra ningún servicio ni da acceso a nada que no tenga
-          cualquier visitante, y no obliga a mantener el sitio ni ninguna función por un plazo
-          determinado. Cada plataforma procesa el pago con sus propias condiciones. Lo dicen los{' '}
+        <p className="mt-6 text-sm leading-relaxed text-muted">
+          Un aporte es una donación: quien aporta ve el mismo sitio que cualquiera. Las condiciones están en los{' '}
           <Link href="/terminos" className="enlace">
             términos de uso
           </Link>
@@ -100,7 +105,7 @@ export default function PaginaApoyar() {
       </Seccion>
 
       <Seccion id="costos" titulo="Cuánto cuesta">
-        <p className="text-sm leading-relaxed text-muted">
+        <p className={PROSA}>
           Tenerlo en línea cuesta{' '}
           <strong className="text-text">alrededor de {COSTO_MENSUAL_APROXIMADO} al mes</strong>. La
           plata se va en Vercel, que sirve las páginas, y en Railway, donde viven la API, la base de
@@ -112,7 +117,7 @@ export default function PaginaApoyar() {
       </Seccion>
 
       <Seccion titulo="Qué hacemos con tus datos si aportas">
-        <p className="text-sm leading-relaxed text-muted">
+        <p className={PROSA}>
           Si aportas, la plataforma que elijas nos informa normalmente tu nombre, el monto y la
           fecha. Lo guardamos sólo para la contabilidad y no lo publicamos sin tu permiso. El
           detalle está en la{' '}

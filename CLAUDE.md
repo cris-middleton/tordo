@@ -577,8 +577,9 @@ contenedor único (cabecera y pie, con la atribución, son de la cáscara única
   («de abr 2025 a mar 2026») en la ficha (el periodo en la cabecera), en `/buscar` (en las cifras de la banda, `CifrasBanda`, con el mismo gráfico que la ficha) y en
   el pie de la lectura de la portada. Con p25 y p75 iguales tras `plata`, nunca «entre $X y $X».
 - **Un producto se titula como lo escribe quien lo compra** (`nombreProducto`): la
-  `descripcion` de su banda con más compras, sin los códigos del principio, en tipo oración si
-  venía en mayúsculas y cortada a 80 caracteres; sin una legible, la firma. La firma sigue siendo
+  `descripcion` de su banda con más compras, sin los códigos del principio ni el registro del ISP
+  («D-232/21», «Reg. ISP N° …»), en tipo oración si venía en mayúsculas, con la región en romanos
+  («región IX») y cortada a 80 caracteres; sin una legible, la firma. La firma sigue siendo
   la identidad y el slug, y va al pie de la ficha. La búsqueda (`/publico/productos?q=`) manda
   la `descripcion` de cada resultado, pedida sólo para esos (no se guarda en el índice). **Un rubro se indexa sólo si tiene filas en
   `competitors_by_market`**: sin ellas el panorama sale vacío y la página dice «Sin datos

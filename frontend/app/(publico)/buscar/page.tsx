@@ -100,8 +100,10 @@ export default async function PaginaBuscar({ searchParams }: Props) {
       ? await pedirSugerencia(busqueda.termino, cabeceras)
       : null;
 
+  // Un solo ancho para toda la página, el de lectura (el mismo de la ficha de
+  // producto): el gráfico de precio medía ~680 px y las listas ~1.090.
   return (
-    <div>
+    <div className="max-w-3xl">
       <div className="mb-2">
         <h1 className="page-title">
           {busqueda.buscable ? `Resultados para «${busqueda.termino}»` : 'Cuánto paga el Estado por lo que vendes'}

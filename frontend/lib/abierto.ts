@@ -47,28 +47,30 @@ export const LICENCIA_DATOS = {
 /**
  * Las herramientas del MCP, una línea cada una. **Espejo a mano de
  * `backend/app/mcp/servidor.py`**: `backend/tests/test_mcp.py` compara estos
- * nombres con el `tools/list` real y falla si divergen.
+ * nombres con el `tools/list` real y falla si divergen. Cada descripción empieza
+ * en minúscula: la página la pinta tras «nombre:», y en español después de los
+ * dos puntos no va mayúscula.
  */
 export const HERRAMIENTAS_MCP = [
   {
     nombre: 'panel_de_licitacion',
     descripcion:
-      'Lo que necesitas para decidir si postular a una licitación, en una llamada: quién compra, cuánto plazo da, quién suele competir y a qué precio se compraron sus productos.',
+      'lo que necesitas para decidir si postular a una licitación, en una llamada: quién compra, cuánto plazo da, quién suele competir y a qué precio se compraron sus productos.',
   },
   {
     nombre: 'precio_de_producto',
     descripcion:
-      'A qué precio se compró un producto, por su código ONU (el del catálogo de Mercado Público), con cuántas compras hay detrás y qué tan confiable es.',
+      'a qué precio se compró un producto, por su código ONU (el del catálogo de Mercado Público), con cuántas compras hay detrás y qué tan confiable es.',
   },
   {
     nombre: 'perfil_de_comprador',
     descripcion:
-      'Cómo compra un comprador del Estado: cuánto de lo que licita termina adjudicando y qué señales de riesgo tiene.',
+      'cómo compra un comprador del Estado: cuánto de lo que licita termina adjudicando y qué señales de riesgo tiene.',
   },
   {
     nombre: 'buscar_productos',
     descripcion:
-      'Del nombre de un producto («guantes», «resma») a su código ONU, con cuántas compras tiene cada uno.',
+      'del nombre de un producto («guantes», «resma») a su código ONU, con cuántas compras tiene cada uno.',
   },
 ] as const;
 
