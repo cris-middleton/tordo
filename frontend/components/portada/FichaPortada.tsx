@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 import { FUENTE_PORTADA, SE_ACTUALIZA } from '@/lib/portada';
 
 /**
@@ -17,10 +19,19 @@ import { FUENTE_PORTADA, SE_ACTUALIZA } from '@/lib/portada';
  * colofón antes de las notas: como lista en la columna del buscador medía ~200 px
  * de alto, y justo bajo el gráfico grande era metadata en el mejor lugar de la página.
  */
-export function FichaPortada({ base, className = '' }: { base: string | null; className?: string }) {
+export function FichaPortada({
+  base,
+  repositorio = null,
+  className = '',
+}: {
+  base: string | null;
+  /** `urlRepositorio()`: con él, «el código» enlaza al repositorio. */
+  repositorio?: string | null;
+  className?: string;
+}) {
   return (
     <dl
-      className={`grid grid-cols-2 gap-x-6 gap-y-4 border-y border-border py-4 text-sm lg:grid-cols-3 lg:gap-x-8 ${className}`.trim()}
+      className={`grid grid-cols-2 gap-x-6 gap-y-4 border-y border-border py-4 text-sm lg:grid-cols-4 lg:gap-x-8 ${className}`.trim()}
     >
       {base && (
         <div className="min-w-0">
@@ -35,6 +46,26 @@ export function FichaPortada({ base, className = '' }: { base: string | null; cl
       <div className="min-w-0">
         <dt className="text-muted">Se actualiza</dt>
         <dd className="mt-0.5 text-text">{SE_ACTUALIZA}</dd>
+      </div>
+      {/* Lo que estaba bajo cada gráfico de la portada («Ver en la API», «Código»), una vez. */}
+      <div className="min-w-0">
+        <dt className="text-muted">Abierto</dt>
+        <dd className="mt-0.5 text-text">
+          Cada cifra está en la{' '}
+          <Link href="/abierto" className="enlace">
+            API
+          </Link>
+          {repositorio ? (
+            <>
+              {' '}
+              y su cálculo, en el{' '}
+              <a href={repositorio} rel="noopener noreferrer" className="enlace">
+                código
+              </a>
+            </>
+          ) : null}
+          .
+        </dd>
       </div>
     </dl>
   );

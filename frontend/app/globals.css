@@ -154,7 +154,10 @@
   --color-success-light: 10 35 24;    /* #0A2318 */
 
   --color-dato: 61 185 187;           /* #3DB9BB — turquesa del ala; sobre brand-navy 6.04:1 */
-  --color-dato-tenue: 52 80 143;      /* #34508F */
+  /* Pizarra desaturada y no azul: el #34508F de antes, junto al teal de `dato`, se leía como una
+     segunda serie (crítica del 22-10). Misma luminosidad aproximada: las barras atenuadas también
+     son dato (la forma del histograma) y no pueden hundirse en el fondo. */
+  --color-dato-tenue: 59 74 99;       /* #3B4A63 */
 
   /* Las mismas series, escalonadas para el fondo oscuro (banda L 0,48–0,67). */
   --color-serie-1: 79 120 232;        /* #4F78E8 */
@@ -210,7 +213,8 @@
   }
   h1,
   h2,
-  h3 {
+  h3,
+  figcaption {
     text-wrap: balance;
   }
 
@@ -328,7 +332,7 @@
      página al enfocar el campo. Un `text-sm` suelto en el elemento lo deshace
      (`__tests__/campos-moviles.test.ts`). */
   .input-field {
-    @apply w-full rounded-lg border border-borderInput bg-surface px-4 py-2.5 text-base text-text sm:text-sm placeholder-subtle shadow-sm transition-all duration-200 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/60 disabled:cursor-not-allowed disabled:bg-surface-elevated disabled:opacity-70 font-sans;
+    @apply w-full rounded-lg border border-borderInput bg-surface px-4 py-2.5 text-base text-text sm:text-sm placeholder-subtle shadow-sm transition-all duration-200 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent disabled:cursor-not-allowed disabled:bg-surface-elevated disabled:opacity-70 font-sans;
   }
 
   select.input-field {

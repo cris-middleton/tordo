@@ -243,9 +243,9 @@ describe('enlaces entre fichas', () => {
   it('el producto pinta una fila por unidad y enlaza a quien lo compra', async () => {
     simularBackend({ '/productos/guante-latex-nitrilo': PRODUCTO });
     render(await PaginaProducto(params({ slug: 'guante-latex-nitrilo' })));
-    // Con más de una unidad, una tabla: cada unidad es otro envase.
-    expect(screen.getByRole('rowheader', { name: 'Por caja' })).toBeInTheDocument();
-    expect(screen.getByRole('rowheader', { name: 'Por unidad' })).toBeInTheDocument();
+    // Con más de una unidad, una tabla con las OTRAS: la primera ya está en el gráfico y sus cifras.
+    expect(screen.getByRole('heading', { name: 'Otras formas de comprarlo' })).toBeInTheDocument();
+    expect(screen.getAllByRole('rowheader')).toHaveLength(PRODUCTO.unidades.length - 1);
     expect(screen.getByRole('link', { name: 'Hospital de Prueba' })).toHaveAttribute('href', '/compradores/7297');
     expect(screen.queryByText(/[Úú]salo sólo para orientarte/)).not.toBeInTheDocument();
   });

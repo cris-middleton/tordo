@@ -35,7 +35,8 @@ export function FranjaPortada({ franja }: { franja: DatosFranja }) {
           </dd>
         </div>
       )}
-      <div className="flex min-w-0 flex-wrap gap-x-2 py-3 lg:flex-1 lg:pl-6 lg:first:pl-0">
+      {/* La hora mide lo que su texto: si se repartía el ancho con el nombre, el nombre se cortaba con espacio de sobra. */}
+      <div className="flex min-w-0 flex-wrap gap-x-2 py-3 lg:flex-none lg:pl-6 lg:first:pl-0">
         <dt>Actualizado el</dt>
         <dd className="cifra font-semibold text-text">{franja.actualizado}</dd>
       </div>

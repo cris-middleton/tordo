@@ -20,7 +20,6 @@
 
 import type { BandaUnidad, ProductoPublico } from '@/types/publico';
 
-import { decimal } from './formato';
 import { esFechaOAusente } from './lecturasPortada';
 import { enlacesDeMetodo, METODO_PRECIO, type EnlaceMetodo } from './metodo';
 import { rangoDeMeses } from './periodo';
@@ -115,25 +114,18 @@ const TOPES = [
   { veces: 4, abajo: 'un cuarto', arriba: '4 veces' },
 ] as const;
 
-/** «el doble del», «1,9 veces el»: cuánto se mueve el precio, en la conclusión (sigue «más bajo»). */
-function cuanto(veces: number): string {
-  const redondo = Math.round(veces * 10) / 10;
-  if (redondo === 2) return 'el doble del';
-  if (redondo === 3) return 'el triple del';
-  return `${decimal(redondo, 1)} veces el`;
-}
-
 /**
- * «La impresora multifuncional es lo que más varía: en la mitad de sus compras,
- * el precio más alto es 1,9 veces el más bajo.» Sale de la regla: la fila con el
- * mayor p75/p25. Si ninguna pasa de 1,25, se dice que el precio es parejo.
+ * «El agua mineral sin gas es lo que más varía: la mitad de las compras se pagó
+ * entre $415 y $719.» La fila con el mayor p75/p25, dicha con sus dos precios: la
+ * versión con «1,7 veces el más bajo» había que leerla dos veces (crítica del 22-10).
+ * Si ninguna pasa de 1,25 veces, se dice que el precio es parejo.
  */
 export function fraseEscalera(filas: FilaEscalera[], productos: readonly ProductoEscalera[] = PRODUCTOS_ESCALERA): string {
   const mayor = filas.reduce((a, f) => (f.veces > a.veces ? f : a), filas[0]);
   const producto = productos.find((p) => p.slug === mayor.slug);
   const quien = producto?.conArticulo ?? mayor.nombre;
   if (mayor.veces < 1.25) return `Por estas ${filas.length} cosas, el Estado paga casi siempre lo mismo.`;
-  return `${quien} es lo que más varía: en la mitad de sus compras, el precio más alto es ${cuanto(mayor.veces)} más bajo.`;
+  return `${quien} es lo que más varía: la mitad de las compras se pagó entre ${plata(mayor.p25)} y ${plata(mayor.p75)}.`;
 }
 
 /**

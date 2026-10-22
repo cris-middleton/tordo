@@ -16,6 +16,7 @@ export function RedPortada({ lectura, className = '' }: { lectura: LecturaRed; c
       <h2 id="red-titulo" className="font-sans text-xl font-bold leading-snug text-text">
         {lectura.conclusion}
       </h2>
+      {lectura.detalle && <p className="mt-2 text-muted">{lectura.detalle}</p>}
       {/* Dos disposiciones de la misma red: casi cuadrada en el teléfono, apaisada desde `md`
           (a 768 px la cuadrada medía 720 × 684 y los nodos parecían botones). La que no
           corresponde va con `display: none`, así que ni se lee ni se anima. */}
@@ -27,7 +28,7 @@ export function RedPortada({ lectura, className = '' }: { lectura: LecturaRed; c
       </div>
       {/* En el teléfono, cómo se lee va bajo la leyenda; desde `lg`, en la columna de al lado. */}
       <ComoLeerLaRed className="mt-4 lg:hidden" />
-      <PieDeMetodo texto={lectura.pie} enlaces={lectura.enlaces} className="mt-4" completo />
+      <PieDeMetodo texto={lectura.pie} enlaces={lectura.enlaces} className="mt-4" completo breve />
     </section>
   );
 }

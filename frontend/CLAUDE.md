@@ -442,7 +442,8 @@ negro con tornasol azul-verdoso:
 - **Dos tokens de dato** (`--color-dato`, `--color-dato-tenue`, y `--color-on-dato` encima):
   cada gráfico pinta en `dato` sólo lo que nombra su conclusión y deja el resto en `dato-tenue`,
   que es decorativo (`SIN_PAR`): nunca lleva texto y el valor va escrito al lado. Claro: el azul
-  del cuerpo del pájaro; oscuro: el turquesa del ala.
+  del cuerpo del pájaro; oscuro: el turquesa del ala. **`dato-tenue` en oscuro es pizarra
+  desaturada (#3B4A63)**, no azul: el #34508F, junto al teal, se leía como una segunda serie.
 - Tipografía (`docs/IDENTIDAD_Y_PORTADA_2026-10.md` §4, revisada el 2026-10-21; `app/layout.tsx`,
   `next/font/google`, autoalojada): **Libre Franklin sólo en los titulares** (`h1`, `h2` y
   `font-display`: 800 y `letter-spacing: -0.015em`), **Public Sans en todo lo demás** —cuerpo,
@@ -522,7 +523,8 @@ a la página**: Next ignora `metadata` en componentes cliente y la home perderí
   su nombre corto (`nombreCorto`: Cenabast, Junaeb…, sin «Ilustre», ≤ 30 caracteres) y «Le venden a 15 o
   más» bajo el grupo del centro, desde `sm` (en el teléfono se pisaban); la leyenda en dos grupos, «Organismos:» y «Proveedores:». El `h2` es
   la conclusión en una frase (`fraseRed`): «40 proveedores le venden a la mitad o más de los 30
-  organismos que más compran.» —**lo que cuenta es lo que se dibuja en tinta**; si el backend cortó la
+  organismos que más compran.», y debajo lo que le sirve a quien vende (`detalleRed`, la mediana de lo
+  que les vendieron los del centro): «La mitad de ellos les vendió menos de $X en total.» —**lo que cuenta es lo que se dibuja en tinta**; si el backend cortó la
   lista, añade «En tinta, los N que más venden.»; el total de proveedores va en el pie—. **Globo** al pasar o tocar un nodo, que lo aísla con sus vecinos.
   **Se mueve** (la única excepción a R3 de la guía de gráficos): deriva leve y partículas del comprador
   al proveedor, con `requestAnimationFrame`, **quieta con `prefers-reduced-motion`**, fuera de pantalla y
@@ -592,7 +594,7 @@ a la página**: Next ignora `metadata` en componentes cliente y la home perderí
     por caja y la impresora), una por fila, con el rango en pesos escrito y la franja P25–P75
     **dibujada contra su propia mediana** (escala logarítmica de «la mitad» a «el doble»; si alguna se
     sale, el triple o el cuádruple): sobre los pesos, de $10 a $1 millón, cada franja medía un 4 % del
-    ancho. La conclusión nombra la que más varía (mayor p75/p25), que va en `dato`. Cada fila pasa el
+    ancho. La conclusión nombra la que más varía (mayor p75/p25), que va en `dato`, con sus dos precios: «El agua mineral sin gas es lo que más varía: la mitad de las compras se pagó entre $415 y $719.» (la versión «1,7 veces el más bajo» había que leerla dos veces). Su globo va debajo de la fila salvo en las dos últimas y no repite el rango. Cada fila pasa el
     filtro de la lectura de un producto **en la unidad escrita** (`bandaDeLaEscalera`); con menos de
     `MINIMO_FILAS` (4), vuelve la lectura de un producto. La impresora la pide `pedirProductoPortada`
     y las otras cinco `pedirProductosEscalera` (una semana, `analytics`). Elegidas en producción el
@@ -625,6 +627,10 @@ a la página**: Next ignora `metadata` en componentes cliente y la home perderí
     otras; la lista «Notas de datos» sigue con las cuatro últimas en su orden. Con su resumen y su
     `antes_despues` (`components/notas/AntesDespues.tsx`). Es contenido del repo y está siempre:
     entra cuando falta una de las de datos, y con el backend caído la sección sigue con ella.
+- **En la portada, el pie de método es breve** (`breve`): sólo los enlaces del sitio («Cómo se
+  calcula» y el de la lectura). «Ver en la API» y «Código» van una vez, en la celda «Abierto» de la ficha
+  —repetidos bajo cada gráfico eran ~12 enlaces subrayados de más (tercera crítica, 22-10)—. La ficha de
+  producto y las demás páginas siguen con los cuatro.
 - **El pie de método** (`components/metodo/PieDeMetodo.tsx`, V3) va bajo cada lectura —y bajo el
   gráfico de la ficha de producto—: base y periodo en una frase y los enlaces «Cómo se calcula»
   (guía y ancla), «Ver en la API» (`ORIGEN_API_PUBLICA`) y «Código» (`<REPOSITORIO_URL>/blob/main/<ruta>`,
