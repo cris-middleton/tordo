@@ -81,3 +81,42 @@ def test_sin_archivos_de_licitaciones_el_modulo_no_revienta(ordenes):
     scores = buyer_scoring.compute_buyer_scores(buyer_scoring.build_oc_buyer_metrics(), lic)
     assert scores.height == 2
     assert scores["NombreOrganismo"].null_count() == 0
+
+
+def _licitacion(codigo, organismo, estado):
+    return {
+        "CodigoExterno": codigo,
+        "CodigoOrganismo": organismo,
+        "NombreOrganismo": "HOSPITAL",
+        "Estado": estado,
+        "NumeroOferentes": "2",
+        "CantidadReclamos": "0",
+        "RutProveedor": "77.000.000-1",
+        "CodigoProveedor": "P1",
+    }
+
+
+def test_sin_licitaciones_terminadas_no_hay_tasa_de_adjudicacion(ordenes, tmp_path):
+    """Con el denominador recortado a 1 salía 0/1 = 0: la ficha decía «Adjudica
+    0 %», saltaba la bandera y el componente valía lo peor de su escala."""
+    lic = tmp_path / "lic"
+    lic.mkdir()
+    pl.DataFrame(
+        [_licitacion("A-1", "7084", "Publicada"), _licitacion("A-2", "7084", "Cerrada")]
+        + [_licitacion("B-1", "1817958", "Adjudicada"), _licitacion("B-2", "1817958", "Desierta")]
+    ).write_parquet(lic / "2025-12.parquet")
+
+    metricas = buyer_scoring.build_lic_buyer_metrics()
+    tasas = dict(metricas.select("CodigoOrganismo", "tasa_adjudicacion").iter_rows())
+    assert tasas["7084"] is None
+    assert tasas["1817958"] == pytest.approx(0.5)
+
+    scores = buyer_scoring.compute_buyer_scores(buyer_scoring.build_oc_buyer_metrics(), metricas)
+    sin_tasa = scores.filter(pl.col("CodigoOrganismoPublico") == "7084").row(0, named=True)
+    assert sin_tasa["tasa_adjudicacion"] is None
+    # El neutro de la escala (0,7 → 0,4), no el peor valor.
+    assert sin_tasa["score_tasa_adjudicacion"] == pytest.approx(0.4)
+
+    # La tabla de banderas sólo lista a los que tienen alguna: no está.
+    banderas = buyer_scoring.compute_risk_flags(scores)
+    assert "7084" not in banderas.get_column("CodigoOrganismoPublico").to_list()
