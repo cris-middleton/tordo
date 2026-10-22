@@ -636,6 +636,21 @@ class DatabaseLoaderV2(BaseLoader):
         )
         self.session.commit()
 
+    def ultimas_escrituras(self) -> Dict[str, datetime]:
+        """Por `tipo_convocatoria`, la última vez que se escribió una fila
+        (`fecha_actualizacion`, o `fecha_extraccion` si nunca se actualizó)."""
+        if not self.session:
+            self.connect()
+        cuando = func.max(
+            func.coalesce(Licitacion.fecha_actualizacion, Licitacion.fecha_extraccion)
+        )
+        filas = (
+            self.session.query(Licitacion.tipo_convocatoria, cuando)
+            .group_by(Licitacion.tipo_convocatoria)
+            .all()
+        )
+        return {tipo: valor for tipo, valor in filas if valor is not None}
+
     def completar_desde_detalle(self, licitacion_id: int, campos: Dict[str, Any]) -> None:
         """Escribe en una licitación lo que trajo su detalle.
 

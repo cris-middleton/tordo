@@ -198,3 +198,21 @@ def test_un_duplicado_no_arrastra_a_las_demas(loader):
         {"p": f"{PREFIJO}%"},
     ).fetchone()
     assert fila[0] >= 3
+
+
+def test_la_ultima_escritura_por_mecanismo(loader):
+    """Lo que lee `etl.cron` para saber si hubo una caída: la última fila
+    escrita de cada mecanismo, con zona. Una actualización cuenta, y una carga
+    de licitaciones no mueve la marca de Compra Ágil."""
+    antes = datetime.now(UTC) - timedelta(seconds=1)
+    loader.load_licitaciones([_fila("ULT-CA", tipo_convocatoria="compra_agil")])
+    ultimas = loader.ultimas_escrituras()
+    assert ultimas["compra_agil"] >= antes
+    assert ultimas["compra_agil"].tzinfo is not None
+    marca_ca = ultimas["compra_agil"]
+
+    loader.load_licitaciones([_fila("ULT-LIC")])
+    loader.load_licitaciones([_fila("ULT-LIC", nombre="Otra vez")])  # ahora, actualización
+    ultimas = loader.ultimas_escrituras()
+    assert ultimas["licitacion"] >= marca_ca
+    assert ultimas["compra_agil"] == marca_ca

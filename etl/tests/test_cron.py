@@ -160,6 +160,95 @@ def test_primera_del_dia(ahora, primera):
     assert cron.es_primera_del_dia(_chile(ahora)) is primera
 
 
+# ── Recuperación tras una caída ──────────────────────────────────────────────
+#
+# Las ventanas de arriba toleran UNA corrida perdida. Si el cron deja de correr
+# más de un día (el 2026-10-21 Railway pausó los servicios tras un incidente de
+# seguridad: la última Compra Ágil se escribió el martes 20 a las 19:13), lo que
+# cambió entre la última corrida buena y la primera tras la caída no lo mira
+# nadie. La última escritura en Postgres dice dónde se quedó el catálogo.
+
+
+def test_sin_caida_la_ultima_escritura_no_cambia_la_ventana():
+    """Con el cron sano, la última escritura es de la corrida anterior: la
+    ventana es la de siempre, en todas las horas de una semana."""
+    corridas = _horas_programadas_entre(
+        datetime(2026, 10, 12, tzinfo=ZONA_CHILE), datetime(2026, 10, 19, tzinfo=ZONA_CHILE)
+    )
+    for anterior, corrida in zip(corridas, corridas[1:], strict=False):
+        escrita = anterior + timedelta(minutes=12)
+        assert cron.ventana_compra_agil(corrida, escrita) == cron.ventana_compra_agil(corrida)
+
+
+def test_tras_una_caida_de_dos_dias_la_ventana_parte_de_la_ultima_escritura():
+    """Si vuelve el jueves 23 a las 10 h, la ventana normal parte del martes 21 a
+    las 18 h y dejaría sin mirar desde el martes 20 a las 19:13."""
+    escrita = _chile("2026-10-20T19:13:27")
+    inicio, fin = cron.ventana_compra_agil(_chile("2026-10-23T10:00:00"), escrita)
+    assert inicio == datetime(2026, 10, 20, 18, 13, 27)
+    assert fin == datetime(2026, 10, 23, 10, 0)
+    # La ventana normal sí lo habría dejado fuera.
+    assert cron.ventana_compra_agil(_chile("2026-10-23T10:00:00"))[0] == datetime(2026, 10, 21, 18)
+
+
+def test_la_recuperacion_tiene_tope():
+    """Una caída de semanas no se recupera de golpe: la cuota de Compra Ágil es
+    diaria y un 429 a medias no deja escrito nada, así que la misma ventana
+    fallaría cada día."""
+    ahora = _chile("2026-10-23T13:00:00")
+    inicio, _ = cron.ventana_compra_agil(ahora, _chile("2026-09-01T10:00:00"))
+    assert inicio == (ahora - cron.RECUPERACION_COMPRA_AGIL).replace(tzinfo=None)
+
+
+def test_ninguna_caida_dentro_del_tope_deja_hueco_en_compra_agil():
+    """Se tiran todas las corridas de un bloque seguido —de una a las que caben
+    en el tope—: la primera que vuelve cubre desde la última escritura."""
+    corridas = _horas_programadas_entre(
+        datetime(2026, 8, 24, tzinfo=ZONA_CHILE), datetime(2026, 9, 21, tzinfo=ZONA_CHILE)
+    )
+    for i in range(1, len(corridas) - 1):
+        ultima_buena = corridas[i - 1]
+        escrita = ultima_buena + timedelta(minutes=12)
+        for j in range(i + 1, len(corridas)):
+            vuelve = corridas[j]
+            if vuelve - escrita > cron.RECUPERACION_COMPRA_AGIL - cron.SOLAPE:
+                break
+            inicio, _ = cron.ventana_compra_agil(vuelve, escrita)
+            fin_buena = cron.ventana_compra_agil(ultima_buena)[1]
+            assert inicio <= fin_buena, f"hueco si caen de {corridas[i]} a {corridas[j - 1]}"
+
+
+@pytest.mark.parametrize(
+    ("ahora", "escrita", "dias"),
+    [
+        # Sano, primera del día: anteayer y ayer, como siempre.
+        ("2026-10-15T10:00:00", "2026-10-14T19:05:00", ("2026-10-13", "2026-10-14")),
+        # Sano, una intermedia: ningún barrido.
+        ("2026-10-15T13:00:00", "2026-10-15T10:20:00", None),
+        # La primera de hoy no escribió nada: la de las 13 h barre en su lugar.
+        ("2026-10-15T13:00:00", "2026-10-14T19:05:00", ("2026-10-13", "2026-10-14")),
+        # Vuelve el viernes 23 tras caerse el martes 20 por la noche: desde el 20.
+        ("2026-10-23T10:00:00", "2026-10-20T19:13:00", ("2026-10-20", "2026-10-22")),
+        # Y si vuelve a media tarde, también.
+        ("2026-10-23T16:00:00", "2026-10-20T19:13:00", ("2026-10-20", "2026-10-22")),
+        # Con tope: una caída de un mes barre los últimos días, no el mes.
+        ("2026-10-23T10:00:00", "2026-09-20T19:13:00", ("2026-10-18", "2026-10-22")),
+    ],
+)
+def test_dias_del_barrido(ahora, escrita, dias):
+    resultado = cron.dias_del_barrido(_chile(ahora), _chile(escrita))
+    esperado = None if dias is None else tuple(datetime.fromisoformat(d).date() for d in dias)
+    assert resultado == esperado
+
+
+def test_sin_ultima_escritura_el_barrido_es_el_de_siempre():
+    assert cron.dias_del_barrido(_chile("2026-10-15T13:00:00"), None) is None
+    assert cron.dias_del_barrido(_chile("2026-10-15T10:00:00"), None) == (
+        datetime(2026, 10, 13).date(),
+        datetime(2026, 10, 14).date(),
+    )
+
+
 # ── Orquestación de `frecuente` ──────────────────────────────────────────────
 
 
@@ -236,6 +325,17 @@ def test_resultados_en_la_primera_del_fin_de_semana():
     assert r.nombres()[-1] == "resultados"
 
 
+def test_los_pasos_reales_leen_la_ultima_escritura():
+    assert cron.PasosFrecuente.reales().ultimas_escrituras is etl_main.ultimas_escrituras
+
+
+def test_sin_base_la_ultima_escritura_es_vacia_y_no_revienta(monkeypatch, caplog):
+    monkeypatch.setattr(etl_main.config, "DATABASE_URL", "postgresql://nadie@127.0.0.1:1/nada")
+    with caplog.at_level(logging.WARNING):
+        assert etl_main.ultimas_escrituras() == {}
+    assert "última escritura" in caplog.text
+
+
 def test_los_pasos_reales_reconsultan_con_ventana_y_tope(monkeypatch):
     """Lo que se cablea en producción: la ventana y el tope diario declarados."""
     recibido = {}
@@ -253,6 +353,35 @@ def test_los_pasos_reales_reconsultan_con_ventana_y_tope(monkeypatch):
     }
     # Contra la cuota de la API clásica (10.000 al día): margen de sobra.
     assert cron.TOPE_RESULTADOS_DIARIO <= 1000
+
+
+def test_frecuente_recupera_tras_una_caida():
+    """La primera corrida tras la caída, aunque sea a media tarde: Compra Ágil
+    desde la última escritura y el barrido desde el día de la última licitación.
+    Las últimas escrituras se leen ANTES de escribir nada."""
+    r = _Registro()
+    pasos = _pasos_frecuente(r)
+
+    def ultimas():
+        r.llamadas.append(("ultimas",))
+        return {
+            "compra_agil": _chile("2026-10-20T19:13:27"),
+            "licitacion": _chile("2026-10-20T19:10:00"),
+        }
+
+    pasos.ultimas_escrituras = ultimas
+    assert cron.correr_frecuente(_chile("2026-10-23T16:00:00"), pasos)
+    assert r.nombres() == ["ultimas", "compra_agil", "licitaciones", "detalles_nuevos", "barrido"]
+    assert r.llamadas[1][1] == datetime(2026, 10, 20, 18, 13, 27)
+    assert ("barrido", "2026-10-20", "2026-10-22") in r.llamadas
+
+
+def test_si_no_se_puede_leer_la_ultima_escritura_la_corrida_sigue_igual():
+    r = _Registro()
+    pasos = _pasos_frecuente(r)
+    pasos.ultimas_escrituras = lambda: {}
+    assert cron.correr_frecuente(_chile("2026-07-14T13:00:00"), pasos)
+    assert r.nombres() == ["compra_agil", "licitaciones", "detalles_nuevos"]
 
 
 def test_un_paso_fallido_no_corta_los_demas_pero_falla_la_corrida():

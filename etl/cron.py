@@ -40,7 +40,7 @@ import sys
 import traceback
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -54,6 +54,7 @@ from etl.analytics.data_loader import VENTANA_ANALYTICS_MESES
 from etl.extractors.compra_agil import CuotaDiariaAgotada
 from etl.loaders.analytics_catalog import CATALOGO
 from etl.scripts import descargar_datos_masivos as descarga
+from etl.shared_imports import TipoConvocatoria
 
 logger = logging.getLogger("etl.cron")
 
@@ -70,6 +71,19 @@ HORAS_FIN_DE_SEMANA = (12,)
 #: Lo que la ventana de Compra Ágil retrocede más allá de la corrida anterior:
 #: cubre que ésta haya llegado tarde o que la API publique con retraso.
 SOLAPE = timedelta(hours=1)
+
+#: Lo más atrás que una corrida mira para recuperar una caída del cron (ver
+#: `ventana_compra_agil`). Con tope porque la cuota de Compra Ágil es diaria y
+#: el listado se escribe entero al final: si una ventana enorme agotara la cuota
+#: a medias no quedaría nada escrito, y la corrida siguiente volvería a pedir la
+#: misma ventana, cada día. 72 h son una vez y media la ventana más larga de una
+#: corrida normal (~47 h, la primera del lunes o del martes).
+RECUPERACION_COMPRA_AGIL = timedelta(hours=72)
+
+#: Lo mismo para el barrido de licitaciones, en días. Cada día es una petición
+#: de listado más el detalle de lo nuevo que siga publicado (~500 al día contra
+#: 10.000 de cuota de la API clásica).
+DIAS_RECUPERACION_LICITACIONES = 5
 
 #: Cuánto del error viaja en el /fail. Healthchecks guarda 10 kB por ping;
 #: la cola es lo que dice qué pasó.
@@ -101,6 +115,10 @@ MESES_A_REDESCARGAR = 3
 #: 2007–2026 son ~26 GB (18 de OC, 8 de LIC) y la capa gratuita de R2 son 10 GB;
 #: 39 meses son ~4,5 GB. Ver `etl/almacen.py`.
 MESES_EN_R2 = VENTANA_ANALYTICS_MESES + MESES_A_REDESCARGAR
+
+
+TIPO_COMPRA_AGIL = TipoConvocatoria.COMPRA_AGIL.value
+TIPO_LICITACION = TipoConvocatoria.LICITACION.value
 
 
 # ── El calendario ────────────────────────────────────────────────────────────
@@ -151,11 +169,27 @@ def corrida_anterior(instante: datetime) -> datetime:
     raise AssertionError("ninguna hora programada en ocho días")  # pragma: no cover
 
 
-def ventana_compra_agil(instante: datetime) -> tuple[datetime, datetime]:
+def primera_de_hoy(instante: datetime) -> datetime:
+    """La hora de la primera corrida programada del día de `instante`, en Chile."""
+    dia = _en_chile(instante).date()
+    return datetime.combine(dia, time(horas_programadas(dia)[0]), tzinfo=ZONA_CHILE)
+
+
+def ventana_compra_agil(
+    instante: datetime, ultima_escritura: datetime | None = None
+) -> tuple[datetime, datetime]:
     """[desde, hasta) del listado de Compra Ágil, en hora de Chile y sin zona.
 
     Desde la corrida programada anterior menos `SOLAPE`; en la primera del día,
     desde la anterior a la primera de ayer.
+
+    **Y nunca después de la última Compra Ágil escrita** (menos `SOLAPE`, con
+    tope `RECUPERACION_COMPRA_AGIL`). Las ventanas toleran que falle UNA
+    corrida; si el cron no corre durante días —el 2026-10-21 Railway pausó los
+    servicios tras un incidente de seguridad—, lo que cambió entre la última
+    corrida buena y la primera que vuelve no lo miraba nadie. La última
+    escritura en Postgres es el estado que dice dónde se quedó el catálogo: con
+    el cron sano es de la corrida anterior y no cambia nada.
 
     Sin zona porque la API las espera así: sus marcas son de Chile aunque digan
     `Z` (§6.1). La aritmética se hace en tiempo real, no de reloj, para que el
@@ -172,10 +206,48 @@ def ventana_compra_agil(instante: datetime) -> tuple[datetime, datetime]:
     # se añade son sobre todo horas de noche, con pocos cambios.
     referencia = primera_de_ayer(instante) if es_primera_del_dia(instante) else instante
     desde = corrida_anterior(referencia).astimezone(UTC) - SOLAPE
+    if ultima_escritura is not None:
+        recuperar = max(
+            ultima_escritura.astimezone(UTC) - SOLAPE,
+            instante.astimezone(UTC) - RECUPERACION_COMPRA_AGIL,
+        )
+        if recuperar < desde:
+            logger.warning(
+                "frecuente: la última Compra Ágil se escribió el %s; la ventana se "
+                "amplía para recuperar la caída",
+                _en_chile(ultima_escritura).strftime("%Y-%m-%d %H:%M"),
+            )
+            desde = recuperar
     return (
         _en_chile(desde).replace(tzinfo=None),
         _en_chile(instante).replace(tzinfo=None),
     )
+
+
+def dias_del_barrido(
+    instante: datetime, ultima_escritura: datetime | None = None
+) -> tuple[date, date] | None:
+    """Los días (desde, hasta) de licitaciones que barre esta corrida, o None.
+
+    La primera del día barre anteayer y ayer. **Tras una caída barre desde el
+    día de la última licitación escrita** (con tope
+    `DIAS_RECUPERACION_LICITACIONES`), y si la primera de hoy no escribió nada
+    —no corrió, o la API no respondió—, barre la corrida que venga en su lugar:
+    si no, la de mañana encontraría ya escrito lo de hoy y no sabría que hubo
+    una caída.
+    """
+    hoy = _en_chile(instante).date()
+    ayer, anteayer = hoy - timedelta(days=1), hoy - timedelta(days=2)
+    primera = es_primera_del_dia(instante)
+    if ultima_escritura is None:
+        return (anteayer, ayer) if primera else None
+    if not primera and ultima_escritura >= primera_de_hoy(instante):
+        return None
+    desde = max(
+        min(anteayer, _en_chile(ultima_escritura).date()),
+        hoy - timedelta(days=DIAS_RECUPERACION_LICITACIONES),
+    )
+    return desde, ayer
 
 
 def periodos_recientes(instante: datetime, n_meses: int) -> list[tuple[int, int]]:
@@ -198,6 +270,9 @@ class PasosFrecuente:
     barrido: Callable[[str, str], bool]
     resultados: Callable[[], bool]
     revalidar: Callable[[list[str]], object] = lambda _etiquetas: None
+    #: Por `tipo_convocatoria`, la última vez que se escribió una fila. Vacío si
+    #: no se pudo leer: la corrida sigue con las ventanas de siempre.
+    ultimas_escrituras: Callable[[], Mapping[str, datetime]] = dict
 
     @classmethod
     def reales(cls) -> PasosFrecuente:
@@ -216,6 +291,7 @@ class PasosFrecuente:
                 reintento=REINTENTO_RESULTADOS,
             ),
             revalidar=Revalidador.desde_entorno().revalidar,
+            ultimas_escrituras=etl.ultimas_escrituras,
         )
 
 
@@ -244,14 +320,19 @@ def correr_frecuente(instante: datetime, pasos: PasosFrecuente) -> bool:
     hizo. Cuesta una petición de listado más (el detalle sólo se pide de lo
     nuevo).
 
+    Tras una caída del cron, las dos ventanas parten de la última escritura en
+    Postgres (`ventana_compra_agil`, `dias_del_barrido`).
+
     **El listado de Compra Ágil va primero** (§5.3): nada de lo que venga
     después puede dejarlo sin cuota. La re-consulta de resultados, la más
     prescindible, va la última y sólo una vez al día. Un paso que falla no corta los siguientes
     —son independientes—, pero la corrida queda como fallida.
     """
-    local = _en_chile(instante)
-    hoy = local.date()
-    desde, hasta = ventana_compra_agil(instante)
+    hoy = _en_chile(instante).date()
+    # Antes de escribir nada: lo que escriba esta corrida taparía la caída.
+    ultimas = pasos.ultimas_escrituras()
+    desde, hasta = ventana_compra_agil(instante, ultimas.get(TIPO_COMPRA_AGIL))
+    barrido = dias_del_barrido(instante, ultimas.get(TIPO_LICITACION))
     logger.info("frecuente: Compra Ágil entre %s y %s", desde, hasta)
 
     resultados = [
@@ -259,11 +340,11 @@ def correr_frecuente(instante: datetime, pasos: PasosFrecuente) -> bool:
         pasos.licitaciones(hoy.isoformat()),
         pasos.detalles_nuevos(),
     ]
+    if barrido:
+        primero, ultimo = (dia.isoformat() for dia in barrido)
+        logger.info("frecuente: barrido de licitaciones de %s a %s", primero, ultimo)
+        resultados.append(pasos.barrido(primero, ultimo))
     if es_primera_del_dia(instante):
-        anteayer = (hoy - timedelta(days=2)).isoformat()
-        ayer = (hoy - timedelta(days=1)).isoformat()
-        logger.info("frecuente: primera del día, barrido de %s a %s", anteayer, ayer)
-        resultados.append(pasos.barrido(anteayer, ayer))
         logger.info("frecuente: re-consulta de resultados de licitaciones cerradas")
         resultados.append(pasos.resultados())
     # Al final y pase lo que pase con los pasos: lo que sí entró merece verse.
