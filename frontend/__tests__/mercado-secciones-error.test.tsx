@@ -116,7 +116,7 @@ describe('CompetenciaSection', () => {
         competidores: [
           {
             CodigoProveedor: '1',
-            NombreProveedor: 'Proveedor A',
+            NombreProveedor: 'COMERCIAL ANDES SPA',
             RubroN2: 'Aseo',
             market_share_pct: 40,
             win_rate_pct: 30,
@@ -131,7 +131,8 @@ describe('CompetenciaSection', () => {
 
     const barra = container.querySelector('.bg-dato');
     expect(barra?.closest('[aria-hidden="true"]')).not.toBeNull();
-    expect(screen.getByText('Proveedor A')).toBeInTheDocument();
+    // El nombre llega en mayúsculas y se pinta legible (normalizeText).
+    expect(screen.getByText('Comercial Andes SpA')).toBeInTheDocument();
     expect(screen.getByText('40,0 %')).toBeInTheDocument();
     expect(container.querySelector('.recharts-responsive-container')).toBeNull();
   });

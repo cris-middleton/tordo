@@ -48,6 +48,12 @@ export function SectorOverview() {
   const hasta = ordenados.map((s) => s.ventana_hasta).filter(Boolean).sort().at(-1);
   const periodo = rangoDeMeses(desde, hasta);
   const mayor = ordenados[0];
+  // El nombre del sitio («Gobierno y universidades», «Fuerzas Armadas»), el mismo de la
+  // portada; un sector que no es de los cinco grandes conserva el suyo (no es «Otros»).
+  const nombre = (sector: string) => {
+    const c = sectorConColor(sector);
+    return c.clave === sector ? c.nombre : sector || 'Sin sector';
+  };
 
   return (
     <section aria-labelledby="sectores-titulo" className="mt-8">
@@ -55,7 +61,7 @@ export function SectorOverview() {
         Qué sector del Estado compra más
       </h2>
       <p className="mt-2 max-w-[65ch] text-muted">
-        {mayor.sector}: {monto(mayor.monto_total ?? 0)} en órdenes de compra
+        {nombre(mayor.sector)}: {monto(mayor.monto_total ?? 0)} en órdenes de compra
         {periodo ? ` de ${periodo}` : ''}, más que cualquier otro sector.
       </p>
       <div className="mt-6 max-w-3xl">
@@ -63,7 +69,7 @@ export function SectorOverview() {
           etiqueta="Monto en órdenes de compra por sector"
           filas={ordenados.map((s) => ({
             clave: s.sector,
-            etiqueta: s.sector || 'Sin sector',
+            etiqueta: nombre(s.sector),
             relleno: sectorConColor(s.sector).fondo,
             valor: s.monto_total ?? 0,
             texto: monto(s.monto_total ?? 0),
