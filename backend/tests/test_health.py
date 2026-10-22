@@ -45,6 +45,21 @@ def test_un_monitor_puede_preguntar_con_head(ruta):
     assert client.head(ruta).status_code in (200, 503)
 
 
+def test_ningun_operation_id_se_repite():
+    """`api_route(methods=["GET", "HEAD"])` daba el mismo operationId a las dos
+    operaciones: FastAPI avisaba al arrancar y un generador de clientes se quedaba
+    con una sola."""
+    ids = [
+        op["operationId"]
+        for camino in app.openapi()["paths"].values()
+        for op in camino.values()
+        if isinstance(op, dict) and "operationId" in op
+    ]
+    assert len(ids) > 10, f"se esperaban más de 10 operaciones, hay {len(ids)}"
+    repetidos = sorted({i for i in ids if ids.count(i) > 1})
+    assert not repetidos, repetidos
+
+
 def test_la_api_tiene_robots_txt_y_aparta_los_datos():
     """Se pedía a diario y respondía 404: nada apartaba a los rastreadores de
     `/api/v1/bi/*`. La documentación sí se rastrea."""
