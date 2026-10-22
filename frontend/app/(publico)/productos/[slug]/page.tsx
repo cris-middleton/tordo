@@ -9,6 +9,7 @@ import { CabeceraFicha, Seccion, TablaEnlaces } from '@/components/publico/Pieza
 import { precioDeBanda } from '@/lib/lecturasPortada';
 import {
   categoriaProducto,
+  descripcionCompradores,
   entero,
   frasePrecio,
   metadataProducto,
@@ -149,7 +150,7 @@ export default async function PaginaProducto({ params }: Props) {
         </Seccion>
       )}
 
-      <Seccion titulo="Quién lo compra" descripcion="Los que más veces lo compraron, y lo que pagó cada uno (su mediana).">
+      <Seccion titulo="Quién lo compra" descripcion={descripcionCompradores(p)}>
         <TablaEnlaces
           encabezados={['Comprador', 'Unidad de medida', 'Compras', 'Mediana']}
           vacio="Todavía no hay compradores con datos de este producto."

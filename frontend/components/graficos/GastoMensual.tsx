@@ -28,38 +28,64 @@ export function GastoMensual({ datos }: { datos: GraficoGasto }) {
 
   return (
     <figure className="min-w-0">
-      <p aria-hidden="true" className="mb-2 text-[12px] text-muted">{datos.unidad}</p>
+      <div aria-hidden="true" className="mb-2 flex items-center justify-between gap-4 text-[12px] text-muted">
+        <p>{datos.unidad}</p>
+        {/* La llave de la raya del mes típico: arriba, donde no tapa ninguna columna. */}
+        <p data-tipico-llave className="flex items-center gap-1.5 text-text">
+          <span className="w-5 border-t border-dashed border-text" />
+          mes típico
+        </p>
+      </div>
       <div className="relative pl-9" onPointerLeave={() => setMes(null)}>
         <div aria-hidden="true" className="relative h-52 sm:h-64">
-          {datos.marcas.map((m) => (
-            <div key={m.valor} className="absolute -left-9 right-0 border-t border-border" style={{ bottom: `${m.y}%` }}>
-              <span className="cifra absolute left-0 top-0 -translate-y-1/2 bg-surface pr-1 text-[12px] text-muted">{m.texto}</span>
-            </div>
-          ))}
-          <div className="absolute inset-0 flex items-end gap-px sm:gap-0.5">
-            {datos.meses.map((m, i) => (
-              <div
-                key={m.clave}
-                data-mes={m.clave}
-                className={`flex h-full min-w-0 flex-1 cursor-crosshair items-end ${mes != null && mes !== i ? 'opacity-50' : ''}`}
-                onPointerEnter={() => setMes(i)}
-                onPointerDown={() => setMes(i)}
-              >
-                <div className="flex w-full flex-col-reverse overflow-hidden rounded-t-sm" style={{ height: `${m.alto}%` }}>
-                  {datos.series.map((s, j) =>
-                    m.partes[j] > 0 ? (
-                      <div
-                        key={s.clave}
-                        className={`${s.fondo} border-t border-surface first:border-t-0 ${serie != null && serie !== j ? 'opacity-25' : ''}`}
-                        style={{ height: `${(m.partes[j] / m.total) * 100}%` }}
-                      />
-                    ) : null,
-                  )}
-                </div>
+          {/* Arriba quedan 20 px para el rótulo del mes más alto: las alturas son % de este marco. */}
+          <div className="absolute inset-x-0 bottom-0 top-5">
+            {datos.marcas.map((m) => (
+              <div key={m.valor} className="absolute -left-9 right-0 border-t border-border" style={{ bottom: `${m.y}%` }}>
+                <span className="cifra absolute left-0 top-0 -translate-y-1/2 bg-surface pr-1 text-[12px] text-muted">{m.texto}</span>
               </div>
             ))}
+            <div className="absolute inset-0 flex items-end gap-px sm:gap-0.5">
+              {datos.meses.map((m, i) => (
+                <div
+                  key={m.clave}
+                  data-mes={m.clave}
+                  className={`flex h-full min-w-0 flex-1 cursor-crosshair items-end ${mes != null && mes !== i ? 'opacity-50' : ''}`}
+                  onPointerEnter={() => setMes(i)}
+                  onPointerDown={() => setMes(i)}
+                >
+                  <div className="flex w-full flex-col-reverse overflow-hidden rounded-t-sm" style={{ height: `${m.alto}%` }}>
+                    {datos.series.map((s, j) =>
+                      m.partes[j] > 0 ? (
+                        <div
+                          key={s.clave}
+                          className={`${s.fondo} border-t border-surface first:border-t-0 ${serie != null && serie !== j ? 'opacity-25' : ''}`}
+                          style={{ height: `${(m.partes[j] / m.total) * 100}%` }}
+                        />
+                      ) : null,
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* El mes típico de la conclusión, dibujado: una raya sobre las columnas; su nombre va en la llave de arriba. */}
+            <div
+              data-tipico
+              className="pointer-events-none absolute inset-x-0 border-t border-dashed border-text"
+              style={{ bottom: `${datos.yTipico}%` }}
+            />
+            {/* El mes más alto, nombrado encima de su columna: la conclusión habla de él. */}
+            <span
+              data-pico
+              className={`cifra pointer-events-none absolute mb-0.5 whitespace-nowrap text-[12px] font-semibold text-text ${
+                datos.indicePico > n - 4 ? '-translate-x-full' : datos.indicePico < 3 ? '' : '-translate-x-1/2'
+              }`}
+              style={{ left: `${((datos.indicePico + (datos.indicePico > n - 4 ? 1 : datos.indicePico < 3 ? 0 : 0.5)) / n) * 100}%`, bottom: `${datos.pico.alto}%` }}
+            >
+              {datos.pico.etiqueta}
+            </span>
+            <div className="absolute inset-x-0 bottom-0 border-t border-muted" />
           </div>
-          <div className="absolute inset-x-0 bottom-0 border-t border-muted" />
           {activo && mes != null && (
             <Globo x={((mes + 0.5) / n) * 100} medio={50 / n}>
               <p className="text-muted first-letter:uppercase">{activo.largo}</p>

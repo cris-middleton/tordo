@@ -233,6 +233,34 @@ export function notaCompradores(banda: BandaUnidad): string | null {
   return `${entero(suyas)} de las ${entero(banda.n)} compras son de un mismo comprador.`;
 }
 
+/**
+ * Cuántas compras pide L0 a un comprador para listarlo (`MIN_N_L0` en
+ * `etl/analytics/product_price_bands.py`). Hasta que la semanal materializa
+ * `product_price_compradores`, «Quién lo compra» sale de L0.
+ */
+export const MINIMO_COMPRAS_L0 = 3;
+
+/**
+ * Qué dice la lista de «Quién lo compra». Con `medianas_compradores` (la tabla
+ * de todos los compradores) son los que más veces lo compraron. Sin ella la
+ * lista sale de L0, que sólo cuenta a quien lo compró `MINIMO_COMPRAS_L0` veces
+ * o más: «87 compras de 63 compradores» sobre una lista de uno se leía como un
+ * error. Entonces se dice el corte y cuántos quedan fuera.
+ */
+export function listaDeL0(p: Pick<ProductoPublico, 'unidades'>): boolean {
+  return p.unidades.length > 0 && p.unidades.every((u) => u.medianas_compradores == null);
+}
+
+export function descripcionCompradores(p: Pick<ProductoPublico, 'unidades' | 'compradores'>): string {
+  if (!listaDeL0(p)) return 'Los que más veces lo compraron, y lo que pagó cada uno (su mediana).';
+  const corte = `Los que lo compraron ${MINIMO_COMPRAS_L0} veces o más, y lo que pagó cada uno (su mediana).`;
+  const principal = p.unidades[0];
+  const listados = new Set(p.compradores.filter((c) => c.unidad === principal.unidad).map((c) => c.codigo)).size;
+  if (principal.compradores == null || listados >= principal.compradores) return corte;
+  const cuantos = listados === 1 ? 'Es uno' : `Son ${entero(listados)}`;
+  return `${corte} ${cuantos} de ${entero(principal.compradores)}: los demás lo compraron una o dos veces.`;
+}
+
 /** La categoría del catálogo, como contexto debajo del nombre; null si no hay. */
 export function categoriaProducto(p: Pick<ProductoPublico, 'nombre_generico'>): string | null {
   const generico = p.nombre_generico?.trim();

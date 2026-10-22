@@ -79,8 +79,12 @@ export function fraseGasto(g: GraficoGasto): string {
   return `${primera} Compra parejo: ningún mes pasa de ${veces(g.veces)} un mes típico.`;
 }
 
-export function lecturaGasto(mercado: MercadoPortada | null, repositorio: string | null): LecturaGasto | null {
-  const grafico = graficoGasto(mercado?.gasto_mensual);
+export function lecturaGasto(
+  mercado: MercadoPortada | null,
+  repositorio: string | null,
+  ahora?: number,
+): LecturaGasto | null {
+  const grafico = graficoGasto(mercado?.gasto_mensual, ahora);
   if (!grafico) return null;
   const desde = grafico.meses[0].etiqueta;
   const hasta = grafico.meses.at(-1)!.etiqueta;
@@ -91,7 +95,9 @@ export function lecturaGasto(mercado: MercadoPortada | null, repositorio: string
       // Sin el número de órdenes: `time_series` cuenta las órdenes únicas de cada rubro, y una
       // orden con líneas de dos rubros se contaba dos veces al sumar (7,1 millones contra los
       // 5,5 de la ficha). El monto no tiene ese problema: va repartido por línea.
-      `Órdenes de compra de ${desde} a ${hasta}, por mes de envío y sector del comprador. ` +
+      // «Por mes», sin decir de qué fecha: hasta la semanal del 25-10 es el mes de envío, y
+      // desde ella el de creación (#57). Lo dice la guía de «Cómo se calcula».
+      `Órdenes de compra de ${desde} a ${hasta}, por mes y sector del comprador. ` +
       'Un mes típico es la mediana: la mitad de los meses compró menos y la otra mitad, más. ' +
       'Las obras del MOP casi no pasan por órdenes de compra, así que aquí casi no están.',
     enlaces: enlacesDeMetodo(METODO_GASTO, {

@@ -961,6 +961,11 @@ contenedor único (cabecera y pie, con la atribución, son de la cáscara única
     `TOPE_MEDIANAS_POR_BANDA` (200; una firma local llega a 505). Sin tope son tantas como
     `compradores` y suman su `n`. **`null` sin la tabla, nunca `[]`**: no se sabe, que no es
     «ningún comprador». `compradores` (los 10 de «Quién lo compra») no cambia.
+  - **Mientras no esté la tabla, «Quién lo compra» dice su corte** (`descripcionCompradores`,
+    `listaDeL0`): la lista de L0 sólo trae a quien compró `MINIMO_COMPRAS_L0` (3) veces o más, y
+    «87 compras de 63 compradores» sobre una lista de uno se leía como un error. Dice «Los que lo
+    compraron 3 veces o más…» y cuántos quedan fuera («Es uno de 63: los demás lo compraron una o
+    dos veces.»); en `/buscar`, «Los que compraron «X» 3 veces o más.».
 - **Todo precio dice cuántos compradores tiene detrás y de cuándo** (`comprasDeOrganismos`,
   `frasePrecio`, `notaCompradores` en `lib/publico.ts`): «46 compras de 40 compradores» y el periodo
   («de abr 2025 a mar 2026») en la ficha (el periodo en la cabecera), en `/buscar` (en las cifras de la banda, `CifrasBanda`, con el mismo gráfico que la ficha) y en
@@ -1146,8 +1151,13 @@ que se pintan igual en el servidor). **No le pongas `'use client'` a la página*
   rubros una orden de dos rubros salía dos veces —7,1 millones contra los 5,5 de la ficha—); la leyenda es una lista de cifras (cada sector con su total y su
   %) y pasar por un sector lo resalta en todos los meses. Eje con la unidad dicha una vez («En
   billones de pesos») y marcas chicas («$0,5», «$1»). Un mes que falta entre el primero y el
-  último se pinta como hueco. **Con menos de `MINIMO_MESES` (6) no sale.** El pie dice el
-  periodo, qué es un mes típico y que las obras del MOP casi no pasan por órdenes.
+  último se pinta como hueco. **Con menos de `MINIMO_MESES` (6) no sale.** **Sólo meses
+  cerrados**: el mes en curso (en Chile, con la hora del render) no se dibuja ni se suma —octubre
+  de 2026 salía a medias y se leía como un desplome—. Dibuja lo que dice su conclusión: una raya
+  discontinua en el mes típico (con su llave arriba, «mes típico») y el nombre del mes más alto
+  sobre su columna. «2,0 veces» se escribe «el doble de». El pie dice el periodo, «por mes» (sin
+  decir de qué fecha: era el envío y desde #57 es la creación), qué es un mes típico y que las obras
+  del MOP casi no pasan por órdenes.
 - **«Para empezar»** (`LecturasPortada`, `TITULO_LECTURAS`): `h2` de sección y **tres lecturas en
   fila desde `lg`**, alineadas por subrejilla (la conclusión, el gráfico y el pie de cada una
   empiezan a la misma altura); en móvil, una tras otra. **Las tres primeras disponibles en el orden
@@ -1207,6 +1217,14 @@ que se pintan igual en el servidor). **No le pongas `'use client'` a la página*
   sólo con repositorio). **Cada método se declara una vez en `lib/metodo.ts` (`METODOS`)** y
   `__tests__/metodo.test.ts` falla si su fichero ya no existe o si la guía o el ancla cambiaron.
   Las anclas son los `id` que `lib/markdown.ts` (`idDeTitulo`) da a cada título de una guía.
+- **Lo vivo dice de cuándo es** (`vigenciaDelResumen` en `lib/portada.ts`, con la hora del render
+  que `app/page.tsx` lee con `horaDelRender`): si se saltó una corrida del cron frecuente
+  (`seSaltoUnaCorrida`, la regla del aviso de `/compra-agil`), la frase de abiertas no dice «Ahora»
+  sino «El martes 20 de octubre a las 19:13 se podía postular a…»; si el conteo no es de hoy en
+  Chile, la franja dice «Publicadas el mar 20 oct» y «Más publicó ese día»; con cualquiera de las
+  dos, la lectura de cierres («cierran hoy o mañana») no sale; y «Lo mejor de hoy» quita las que ya
+  cerraron. El 21-10-2026 Railway estuvo caído el día entero y la portada daba el conteo de la tarde
+  anterior como de ahora.
 - **Cinco piezas vivas, pedidas en paralelo desde el servidor**, y **cada una se oculta sola si el
   backend falla o si un campo que se pinta viene mal formado**, y además, por principio 4 (una cifra
   viva sin hora no se publica): «Lo mejor de hoy» sin `actualizado_en` legible se oculta; el

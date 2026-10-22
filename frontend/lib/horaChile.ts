@@ -118,3 +118,12 @@ export function instanteDeChile(fecha: string, hora: number): Date | null {
   const desfase = Date.UTC(p.anio, p.mes - 1, p.dia, p.hora, p.minuto) - supuesto;
   return new Date(supuesto - desfase);
 }
+
+/**
+ * La hora a la que se genera una página de servidor. Un componente no puede llamar
+ * a `Date.now()` (`react-hooks/purity`): una página ISR la lee una vez por
+ * regeneración, junto con sus datos, y la pasa como prop.
+ */
+export async function horaDelRender(): Promise<number> {
+  return Date.now();
+}

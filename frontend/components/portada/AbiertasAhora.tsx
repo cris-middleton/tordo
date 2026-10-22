@@ -10,7 +10,8 @@ import type { TiraPortada } from '@/lib/portada';
  * Antes eran dos bloques con el número grande, la etiqueta chica y un filete
  * lateral grueso: la plantilla de «métrica de héroe» que se ve en cualquier
  * tablero. La frase dice lo mismo, se lee de corrido y deja el espacio al gráfico.
- * Sin tira (`tiraDeLaPortada` → null) no se llega aquí.
+ * Sin tira (`tiraDeLaPortada` → null) no se llega aquí. Con el conteo atrasado
+ * (`tira.atrasado`) no dice «Ahora»: dice de cuándo es.
  */
 export function AbiertasAhora({ tira, className = '' }: { tira: TiraPortada; className?: string }) {
   const [lic, ca] = tira.cifras;
@@ -21,7 +22,15 @@ export function AbiertasAhora({ tira, className = '' }: { tira: TiraPortada; cla
   );
   return (
     <p className={`text-lg leading-relaxed text-muted ${className}`.trim()}>
-      Ahora puedes postular a {enlace(lic)} y {enlace(ca)}.
+      {tira.atrasado ? (
+        <>
+          {tira.atrasado.charAt(0).toUpperCase() + tira.atrasado.slice(1)} se podía postular a {enlace(lic)} y {enlace(ca)}.
+        </>
+      ) : (
+        <>
+          Ahora puedes postular a {enlace(lic)} y {enlace(ca)}.
+        </>
+      )}
     </p>
   );
 }

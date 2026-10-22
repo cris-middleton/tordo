@@ -47,6 +47,19 @@ describe('fraseGasto', () => {
     );
   });
 
+  it('dos veces es «el doble»', () => {
+    expect(fraseGasto(graficoGasto(meses(2e12))!)).toBe(
+      'El Estado compró $13 billones en 12 meses. Diciembre de 2025 fue el mes más alto: el doble de un mes típico.',
+    );
+  });
+
+  it('con la hora del render, el mes en curso no entra', () => {
+    const filas = [...meses(1.6e12), { anio: 2026, mes: 1, sector: 'Salud', monto: 1e9 }];
+    const g = graficoGasto(filas, Date.parse('2026-01-15T12:00:00-03:00'))!;
+    expect(g.meses.at(-1)!.clave).toBe('2025-12');
+    expect(graficoGasto(filas)!.meses.at(-1)!.clave).toBe('2026-1');
+  });
+
   it('bajo 1,25 veces, dice que compra parejo', () => {
     expect(fraseGasto(graficoGasto(meses(1.2e12))!)).toBe(
       'El Estado compró $12,2 billones en 12 meses. Compra parejo: ningún mes pasa de 1,2 veces un mes típico.',

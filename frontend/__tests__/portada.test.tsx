@@ -130,9 +130,10 @@ const PRODUCTO: ProductoPublico = {
  * salvo diciembre, en que Salud compra $2 billones. Total $19 billones; el mes
  * típico (la mediana) es $1,5 billones y diciembre, $2,5: 1,7 veces.
  */
+/** De octubre de 2025 a septiembre de 2026: meses cerrados respecto de `AHORA` (el mes en curso no se dibuja). */
 const GASTO: GastoMensual[] = Array.from({ length: 12 }, (_, i) => {
-  const anio = i < 2 ? 2025 : 2026;
-  const mes = ((10 + i) % 12) + 1;
+  const anio = i < 3 ? 2025 : 2026;
+  const mes = ((9 + i) % 12) + 1;
   return [
     { anio, mes, sector: 'Salud', monto: mes === 12 ? 2e12 : 1e12 },
     { anio, mes, sector: 'Municipalidades', monto: 0.5e12 },
@@ -214,12 +215,24 @@ const TODO: Piezas = {
 };
 const todo = () => simularBackend(TODO);
 
+/**
+ * La portada lee la hora del render (`horaDelRender`) para decidir si lo vivo es de
+ * ahora. Se fija antes del resumen (11:00 del 14-10) y del cierre de las Compras
+ * Ágiles (07:00): el mismo día, sin corridas saltadas y con todas abiertas.
+ */
+const AHORA = new Date('2026-10-14T06:30:00-03:00');
+/** El mes en curso de `AHORA`: va a medias y no se dibuja. */
+const OCTUBRE_2026: GastoMensual = { anio: 2026, mes: 10, sector: 'Salud', monto: 0.1e12 };
+
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(AHORA);
   process.env.API_URL = BACKEND;
   process.env.PROXY_SECRETO = SECRETO;
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   delete process.env.REPOSITORIO_URL;
@@ -370,6 +383,32 @@ describe('las abiertas de ahora', () => {
     expect(container.querySelector('#hoy')).not.toBeNull();
     // Sin hora legible tampoco hay de cuándo son los tramos de cierre (principio 4).
     if (/hora/.test(nombre)) expect(screen.queryByText(CONCLUSION_CIERRES)).toBeNull();
+  });
+});
+
+describe('con el cron atrasado (el 21-10-2026, Railway caído todo el día)', () => {
+  /** El día siguiente a las 22:28: el resumen es de la víspera a las 11:00 y se saltaron las cuatro corridas. */
+  const DESPUES = new Date('2026-10-15T22:28:00-03:00');
+
+  it('no dice «Ahora», no dice «cierran hoy o mañana» y la franja dice de qué día es', async () => {
+    vi.setSystemTime(DESPUES);
+    todo();
+    const { container } = render(await Home());
+    expect(abiertas()).toBeNull();
+    expect(container).toHaveTextContent(
+      'El miércoles 14 de octubre a las 11:00 se podía postular a 4.232 licitaciones y 2.714 Compras Ágiles.',
+    );
+    expect(screen.queryByText(CONCLUSION_CIERRES)).toBeNull();
+    expect(screen.getByText('Publicadas el mié 14 oct:')).toBeInTheDocument();
+    expect(screen.queryByText('Publicadas hoy:')).toBeNull();
+  });
+
+  it('una Compra Ágil que ya cerró no sale en «Lo mejor de hoy»', async () => {
+    vi.setSystemTime(DESPUES);
+    todo();
+    const { container } = render(await Home());
+    // Las cinco del fixture cierran el 14 a las 07:00: todas cerraron.
+    expect(container.querySelector('#hoy')).toHaveTextContent(/no hay compras ágiles abiertas/i);
   });
 });
 
@@ -670,10 +709,28 @@ describe('el gráfico grande: cuánto compra el Estado, mes a mes', () => {
       'href',
       'https://api.tordo.cl/api/v1/publico/mercado',
     );
-    expect(grande).toHaveTextContent('Órdenes de compra de nov 2025 a oct 2026');
+    expect(grande).toHaveTextContent('Órdenes de compra de oct 2025 a sep 2026, por mes y sector del comprador.');
     // Sin el conteo de órdenes: `time_series` lo cuenta por rubro y al sumar se repetía.
     expect(grande).not.toHaveTextContent(/[0-9.]+ órdenes de compra/);
     expect(grande).toHaveTextContent(/obras del MOP/);
+  });
+
+  it('el mes en curso va a medias y no se dibuja: ni columna, ni suma, ni «13 meses»', async () => {
+    simularBackend({ ...TODO, mercado: ok({ ...MERCADO, gasto_mensual: [...GASTO, OCTUBRE_2026] }) });
+    const { container } = render(await Home());
+    const grande = gasto(container) as HTMLElement;
+    expect(grande.querySelectorAll('[data-mes]')).toHaveLength(12);
+    expect(grande.querySelector('[data-mes="2026-10"]')).toBeNull();
+    expect(within(grande).getByRole('heading', { level: 2 })).toHaveTextContent(CONCLUSION_GASTO);
+  });
+
+  it('dibuja lo que dice la conclusión: la raya del mes típico y el nombre del mes más alto', async () => {
+    todo();
+    const { container } = render(await Home());
+    const grande = gasto(container) as HTMLElement;
+    expect(grande.querySelector('[data-tipico]')).not.toBeNull();
+    expect(grande.querySelector('[data-tipico-llave]')).toHaveTextContent('mes típico');
+    expect(grande.querySelector('[data-pico]')).toHaveTextContent('dic 2025');
   });
 
   it('el dibujo, fuera del árbol accesible', async () => {

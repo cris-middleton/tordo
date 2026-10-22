@@ -15,13 +15,43 @@
 import type { SectoresBI } from '@/types/bi';
 import type { ResumenPortada } from '@/types/publico';
 
-import { HORAS_FIN_DE_SEMANA, HORAS_HABILES } from './compraAgil';
+import { HORAS_FIN_DE_SEMANA, HORAS_HABILES, seSaltoUnaCorrida } from './compraAgil';
 import { urlCatalogoAbiertas } from './filtrosCatalogo';
 import { decimal } from './formato';
-import { esConteo, esFechaOAusente } from './lecturasPortada';
+import { diaYHora, esConteo, esFechaOAusente } from './lecturasPortada';
 import { normalizeText } from './nombresChile';
 import { MESES_PRECIOS, rangoDeMeses } from './periodo';
 import { entero } from './publico';
+
+/**
+ * Si lo vivo de la portada sigue siendo de ahora. La portada se cachea media hora y
+ * el resumen sale del cron frecuente: si el cron no corrió (el 21-10-2026 Railway
+ * estuvo caído el día entero), la portada decía «Ahora puedes postular…» y «cierran
+ * hoy o mañana» con el conteo de la tarde anterior, sin aviso.
+ * - `alDia`: no se saltó ninguna corrida programada (`seSaltoUnaCorrida`, la misma
+ *   regla del aviso de `/compra-agil`).
+ * - `mismoDia`: el conteo es de hoy en Chile. Un sábado a las 9 lo último es del
+ *   viernes a las 19 sin que falte ninguna corrida, y «hoy» sería el viernes.
+ * Sin hora legible, las dos son falsas.
+ */
+export interface Vigencia {
+  alDia: boolean;
+  mismoDia: boolean;
+}
+
+const diaDeChile = new Intl.DateTimeFormat('es-CL', { timeZone: 'America/Santiago', year: 'numeric', month: 'numeric', day: 'numeric' });
+
+export function vigenciaDelResumen(iso: string | null | undefined, ahora: number): Vigencia {
+  const instante = iso ? Date.parse(iso) : Number.NaN;
+  if (!Number.isFinite(instante)) return { alDia: false, mismoDia: false };
+  return {
+    alDia: !seSaltoUnaCorrida(instante, ahora),
+    mismoDia: diaDeChile.format(instante) === diaDeChile.format(ahora),
+  };
+}
+
+/** Vigente: lo que se lee sin `ahora` (los tests de siempre, que no fijan la hora). */
+export const VIGENTE: Vigencia = { alDia: true, mismoDia: true };
 
 /** Lo que se ve en el bloque vivo de la portada. El resto, en la página entera. */
 export const DESTACADAS_EN_PORTADA = 5;
@@ -70,6 +100,11 @@ export interface TiraPortada {
    * franja), pero sin hora legible no hay tira.
    */
   actualizado: string;
+  /**
+   * Con el conteo atrasado (`Vigencia.alDia` falso), de cuándo es: «el martes 20 de
+   * octubre a las 19:13». La frase deja de decir «Ahora». Al día, null.
+   */
+  atrasado: string | null;
 }
 
 /**
@@ -79,7 +114,7 @@ export interface TiraPortada {
  * enseñar números sin fecha. Cada cifra enlaza al catálogo con el mismo filtro que
  * la cuenta (`urlCatalogoAbiertas`), también la de Compra Ágil.
  */
-export function tiraDeLaPortada(resumen: ResumenPortada | null): TiraPortada | null {
+export function tiraDeLaPortada(resumen: ResumenPortada | null, vigencia: Vigencia = VIGENTE): TiraPortada | null {
   if (!resumen) return null;
   const actualizado = actualizadoEnPalabras(resumen.actualizado_en);
   if (!actualizado) return null;
@@ -99,6 +134,7 @@ export function tiraDeLaPortada(resumen: ResumenPortada | null): TiraPortada | n
       },
     ],
     actualizado,
+    atrasado: vigencia.alDia ? null : diaYHora(resumen.actualizado_en),
   };
 }
 
@@ -186,6 +222,12 @@ export interface DatosFranja {
   masPublicaHoy: string | null;
   /** «mié, 14 oct, 13:17»: con el día, porque la portada se cachea. */
   actualizado: string;
+  /**
+   * El rótulo de las dos primeras celdas: «Publicadas hoy» y «Más publica hoy» si
+   * el conteo es de hoy; si no, «Publicadas el mar 20 oct» y «Más publicó ese día».
+   */
+  rotuloPublicadas: string;
+  rotuloMasPublica: string;
 }
 
 /**
@@ -193,7 +235,7 @@ export interface DatosFranja {
  * publicadas hoy se ocultan las dos primeras celdas; un backend anterior, que no
  * manda los campos, deja sólo la hora. Ningún campo mal formado lanza.
  */
-export function franjaDeLaPortada(resumen: ResumenPortada | null): DatosFranja | null {
+export function franjaDeLaPortada(resumen: ResumenPortada | null, vigencia: Vigencia = VIGENTE): DatosFranja | null {
   if (!resumen) return null;
   const actualizado = actualizadoEnPalabras(resumen.actualizado_en);
   if (!actualizado) return null;
@@ -204,5 +246,7 @@ export function franjaDeLaPortada(resumen: ResumenPortada | null): DatosFranja |
     publicadasHoy: hay ? `${entero(n)} ${n === 1 ? 'licitación o Compra Ágil' : 'licitaciones y Compras Ágiles'}` : null,
     masPublicaHoy: hay && nombre ? normalizeText(nombre) : null,
     actualizado,
+    rotuloPublicadas: vigencia.mismoDia ? 'Publicadas hoy' : `Publicadas el ${actualizado.replace(/, \d\d:\d\d$/, '').replace(',', '')}`,
+    rotuloMasPublica: vigencia.mismoDia ? 'Más publica hoy' : 'Más publicó ese día',
   };
 }

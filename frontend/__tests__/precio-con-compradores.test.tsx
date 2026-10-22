@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { CifrasBanda } from '@/components/publico/CifrasBanda';
 import {
   comprasDeOrganismos,
+  descripcionCompradores,
   frasePrecio,
   metadataProducto,
   nombreProducto,
@@ -157,5 +158,26 @@ describe('nombreProducto', () => {
       compradores: [],
     } as ProductoPublico;
     expect(String(metadataProducto(producto).title)).toBe('Cuánto paga el Estado por papel higiénico jumbo');
+  });
+});
+
+describe('descripcionCompradores', () => {
+  const comprador = (codigo: string, unidad = 'unidad') => ({ codigo, nombre: 'Municipalidad', unidad, n: 6, p50: 279_995 });
+
+  it('con la tabla de todos los compradores, los que más veces lo compraron', () => {
+    const p = { unidades: [banda({ medianas_compradores: [{ n: 6, p50: 279_995 }] })], compradores: [comprador('1')] };
+    expect(descripcionCompradores(p)).toBe('Los que más veces lo compraron, y lo que pagó cada uno (su mediana).');
+  });
+
+  it('sin ella (lista de L0), dice el corte y cuántos quedan fuera: 1 de 63 se leía como un error', () => {
+    const p = { unidades: [banda({ compradores: 63, medianas_compradores: null })], compradores: [comprador('1'), comprador('2', 'caja')] };
+    expect(descripcionCompradores(p)).toBe(
+      'Los que lo compraron 3 veces o más, y lo que pagó cada uno (su mediana). Es uno de 63: los demás lo compraron una o dos veces.',
+    );
+  });
+
+  it('sin ella pero con todos listados, sólo el corte', () => {
+    const p = { unidades: [banda({ compradores: 1, medianas_compradores: null })], compradores: [comprador('1')] };
+    expect(descripcionCompradores(p)).toBe('Los que lo compraron 3 veces o más, y lo que pagó cada uno (su mediana).');
   });
 });

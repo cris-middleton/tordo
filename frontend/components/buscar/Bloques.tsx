@@ -25,6 +25,8 @@ import { urlRepositorio } from '@/lib/repositorio';
 import {
   entero,
   frasePrecio,
+  listaDeL0,
+  MINIMO_COMPRAS_L0,
   nombreProducto,
   plata,
   precioDeLaBanda,
@@ -368,7 +370,11 @@ export function BloqueCompradores({ ficha }: { ficha: Bloque<ProductoPublico> })
       id="compradores"
       titulo="Quién lo compra"
       descripcion={
-        ficha.estado === 'ok' ? `Los que más veces compraron «${nombreProducto(ficha.datos)}».` : undefined
+        ficha.estado === 'ok'
+          ? listaDeL0(ficha.datos)
+            ? `Los que compraron «${nombreProducto(ficha.datos)}» ${MINIMO_COMPRAS_L0} veces o más.`
+            : `Los que más veces compraron «${nombreProducto(ficha.datos)}».`
+          : undefined
       }
     >
       {ficha.estado === 'fallo' ? (

@@ -3,7 +3,14 @@ import { CLASE_SECCION } from '@/components/cascara/Seccion';
 import { lecturaConcentracion, lecturaGasto } from '@/lib/lecturasMercado';
 import { lecturaCierres, lecturaNota, lecturaPrecio, notaDeLaPortada, type Lecturas } from '@/lib/lecturasPortada';
 import type { Nota } from '@/lib/notas';
-import { actualizadoEnPalabras, baseDeLaFicha, franjaDeLaPortada, tiraDeLaPortada } from '@/lib/portada';
+import {
+  actualizadoEnPalabras,
+  baseDeLaFicha,
+  franjaDeLaPortada,
+  tiraDeLaPortada,
+  VIGENTE,
+  vigenciaDelResumen,
+} from '@/lib/portada';
 import type { SectoresBI } from '@/types/bi';
 import type { CompraAgilDestacadasResponse } from '@/types/compraAgil';
 import type { MercadoPortada, ProductoPublico, ResumenPortada } from '@/types/publico';
@@ -49,6 +56,7 @@ export function Portada({
   autor,
   rol,
   urlAutor,
+  ahora,
 }: {
   destacadas: CompraAgilDestacadasResponse | null;
   resumen: ResumenPortada | null;
@@ -68,14 +76,22 @@ export function Portada({
   rol: string | null;
   /** `urlAutor()`: el enlace del nombre. */
   urlAutor: string | null;
+  /**
+   * La hora del render (`Date.now()` en `app/page.tsx`): decide si lo vivo sigue
+   * siendo de ahora (`vigenciaDelResumen`), qué mes va a medias y qué Compra Ágil
+   * ya cerró. Sin ella todo se da por vigente.
+   */
+  ahora?: number;
 }) {
-  const tira = tiraDeLaPortada(resumen);
-  const franja = franjaDeLaPortada(resumen);
-  const gasto = lecturaGasto(mercado, repositorio);
+  const vigencia = resumen && ahora !== undefined ? vigenciaDelResumen(resumen.actualizado_en, ahora) : VIGENTE;
+  const tira = tiraDeLaPortada(resumen, vigencia);
+  const franja = franjaDeLaPortada(resumen, vigencia);
+  const gasto = lecturaGasto(mercado, repositorio, ahora);
   const lecturas: Lecturas = {
     precio: lecturaPrecio(producto, repositorio),
     concentracion: lecturaConcentracion(mercado, repositorio),
-    cierres: lecturaCierres(resumen, repositorio),
+    // «Cierran hoy o mañana» es relativo al día del conteo: con uno atrasado o de ayer, mentiría.
+    cierres: vigencia.alDia && vigencia.mismoDia ? lecturaCierres(resumen, repositorio) : null,
     nota: lecturaNota(notaDeLaPortada(notas), repositorio),
   };
   // Principio 4: «sin dato fresco, el bloque se oculta». Sin hora legible no hay
@@ -84,6 +100,11 @@ export function Portada({
     <FichaPortada base={baseDeLaFicha(sectores)} autor={autor} rol={rol} urlAutor={urlAutor} className={className} />
   );
   const horaHoy = destacadas ? actualizadoEnPalabras(destacadas.actualizado_en) : null;
+  // Una Compra Ágil que ya cerró no se ofrece: con el cron atrasado, la lista guardada las trae.
+  const hoy =
+    destacadas && ahora !== undefined
+      ? { ...destacadas, items: destacadas.items.filter((i) => !i.fecha_cierre || Date.parse(i.fecha_cierre) > ahora) }
+      : destacadas;
 
   return (
     <Contenedor pagina>
@@ -109,8 +130,8 @@ export function Portada({
           <FranjaPortada franja={franja} />
         </div>
       )}
-      {destacadas && horaHoy && (
-        <BloqueHoy datos={destacadas} actualizado={horaHoy} horaEnLaFranja={franja !== null} />
+      {hoy && horaHoy && (
+        <BloqueHoy datos={hoy} actualizado={horaHoy} horaEnLaFranja={franja !== null} />
       )}
       <NotasPortada notas={notas} autor={autor} rol={rol} urlAutor={urlAutor} />
     </Contenedor>
