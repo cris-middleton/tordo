@@ -715,10 +715,12 @@ cuenta compradores** (`descripcionCompradores`): la tabla mezcla unidades y se c
 204: los demás lo compraron una o dos veces» la contradecía; con la lista de L0 dice sólo el corte (3
 compras o más en una misma unidad).
 
-**`/productos` sin búsqueda** enlaza, bajo los ejemplos, la búsqueda de las seis cosas de la
-escalera (`PRODUCTOS_ESCALERA`, «Lo que compra todo el Estado»): **a su búsqueda, no a su ficha** —una
-ficha escrita a mano puede dejar de ser indexable, y en el fixture del E2E no existe—, sin cifras ni
-`prefetch`, que pinta la página de servidor y el buscador coloca (`inicio`): no piden nada al backend.
+**`/productos` sin búsqueda** enlaza la búsqueda de las seis cosas de la escalera
+(`PRODUCTOS_ESCALERA`, «Lo que compra todo el Estado»): **a su búsqueda, no a su ficha** —una
+ficha escrita a mano puede dejar de ser indexable, y en el fixture del E2E no existe—, sin cifras, sin
+unidad ni `prefetch`, que pinta la página de servidor y el buscador coloca (`inicio`): no piden nada al
+backend. Con `inicio`, el buscador no pinta además «Por ejemplo» (repetía cuatro de los seis), y
+«Escribe al menos tres letras» sale sólo cuando ya hay algo escrito.
 
 **La ficha de una licitación** (`/licitaciones/[codigo]`) **siempre sale a Mercado Público**, que es
 donde se postula: «Abrir en Mercado Público» es su acción principal (`btn-primary`, primera). La URL
