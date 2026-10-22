@@ -132,6 +132,14 @@ pero no «combustible». `GET /bi/productos?q=` y `GET /publico/productos?q=` bu
 también desde el comienzo de una palabra y sin tildes: «mesa» no encuentra «parmesano»
 y «valv» encuentra «Válvula».
 
+`/tenders/`, `/compra-agil/destacadas` y `/publico/productos` buscan además las otras
+formas de cada palabra: el singular («guantes», «guante»), el otro género
+(«computadora», «computador»), el plural en «-ces» («lápiz», «lápices») y una lista
+corta de sinónimos de compras públicas («mantenimiento», «mantención»; «lápiz»,
+«bolígrafo»; «pc», «notebook»). Lo que dice la palabra escrita sale primero: en
+`/tenders/` con `sort_by=relevance` y en `/publico/productos`, siempre. La lista vive
+en `backend/app/utils/sinonimos.py`.
+
 ## «Lo mejor de hoy» en Compra Ágil
 
 `GET /api/v1/compra-agil/destacadas?limite=20&region=…&search=…` devuelve las

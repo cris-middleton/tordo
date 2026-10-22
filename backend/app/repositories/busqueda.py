@@ -38,6 +38,8 @@ from typing import Any
 from sqlalchemy import String, func, literal
 from sqlalchemy.sql.elements import ColumnElement
 
+from app.utils.sinonimos import formas
+
 #: La columna generada (`sql_normalizado` del nombre) que el ETL añade a las
 #: tablas de analytics donde se busca texto, con su índice de trigramas. Hoy,
 #: `product_price_bands_l3` (`/bi/productos?q=`).
@@ -104,38 +106,25 @@ def palabras(termino: str) -> list[str]:
     return [w for w in sin_tildes.split() if _PALABRA.fullmatch(w)]
 
 
-#: El otro género de una terminación: «clínica» tiene que encontrar «clínico».
-_GENERO = {"a": "o", "o": "a"}
-
-
 def consulta_prefijos(palabra: str) -> str:
-    """Un `tsquery` (`simple`): una palabra que EMPIECE por esta, o que SEA su singular.
+    """Un `tsquery` (`simple`): alguna palabra con una de las `formas` de esta.
 
     El stemmer español junta «mesa» con «meses» (raíz `mes`); esto es lo que los
     separa: «mesa» exige una palabra que empiece por `mesa`. Y no se pierde lo
-    que el stemmer sí acertaba:
+    que el stemmer sí acertaba (`app/utils/sinonimos.formas`):
 
     - el singular, exacto: «servicios» encuentra «servicio» y «camiones»,
       «camión». Exacto y no como prefijo: con `mes:*`, «meses» volvería a
       encontrar «mesas»;
     - el otro género, como prefijo: «clínica» encuentra «clínico» y «clínicos»,
       «eléctrico», «eléctrica». Sin esto «clínica» bajaba de 108 coincidencias a
-      20 en la copia local. «mesa» pide además `meso:*`, que no es «meses».
+      20 en la copia local. «mesa» pide además `meso:*`, que no es «meses»;
+    - «-ora» sin la «a»: «computadora» encuentra «computador». El stemmer los
+      junta (`comput`) y esta corrección los separaba: 0 de 7 en la copia local.
 
     Una palabra de `palabras` sólo trae `[a-z]`, así que no hay nada que escapar.
     """
-    singulares = []
-    if len(palabra) > 3 and palabra.endswith("s"):
-        singulares.append(palabra[:-1])
-    if len(palabra) > 4 and palabra.endswith("es"):
-        singulares.append(palabra[:-2])
-    variantes = [f"{palabra}:*", *singulares]
-    for base in (palabra, *singulares):
-        if len(base) > 3 and base[-1] in _GENERO:
-            otro = f"{base[:-1]}{_GENERO[base[-1]]}:*"
-            if otro not in variantes:
-                variantes.append(otro)
-    return " | ".join(variantes)
+    return " | ".join(f"{f.texto}:*" if f.prefijo else f.texto for f in formas(palabra))
 
 
 def sql_normalizado(expresion_sql: str) -> str:
