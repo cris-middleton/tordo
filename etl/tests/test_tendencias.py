@@ -141,3 +141,14 @@ def test_con_menos_de_dos_anios_no_hay_cagr():
     fila = _tendencia(ts, "Corto")
     assert fila["cagr"] is None
     assert fila["tendencia"] == "crecimiento"
+
+
+def test_un_mercado_que_nace_no_tiene_cagr_y_uno_que_muere_cae_un_cien_por_ciento():
+    # «Nace»: nada el primer año, compras desde el segundo. «Muere»: compras el
+    # primer año y nada el último. Los dos salían con CAGR 0, «estable».
+    ts = _serie(
+        ("Nace", dict.fromkeys(range(12, 36), 100)),
+        ("Muere", dict.fromkeys(range(0, 24), 100)),
+    )
+    assert _tendencia(ts, "Nace")["cagr"] is None
+    assert _tendencia(ts, "Muere")["cagr"] == -1.0
