@@ -223,3 +223,7 @@
   307 de `redirect_slashes`, el límite por IP contaba las dos peticiones y cada consulta del
   catálogo gastaba dos de las 60 por minuto. Una ruta nueva con barra final que el frontend
   pida necesita lo mismo. `tests/test_tenders_sin_barra.py`.
+- **Ninguna consulta de la API corre más de 30 s** (`TIEMPO_MAXIMO_CONSULTA_MS`,
+  `statement_timeout` en las sesiones async y en el motor sync de analytics). El navegador corta a
+  los 15 s y Next a los 10, y Postgres seguía con la consulta abandonada. Sólo la API: el ETL usa su
+  propio motor. `tests/test_plan_a_medida.py`.
