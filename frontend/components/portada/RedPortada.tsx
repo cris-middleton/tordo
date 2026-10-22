@@ -16,7 +16,12 @@ export function RedPortada({ lectura, className = '' }: { lectura: LecturaRed; c
       <h2 id="red-titulo" className="font-sans text-xl font-bold leading-snug text-text">
         {lectura.conclusion}
       </h2>
-      <div className="mt-4">
+      {/* Dos disposiciones de la misma red: casi cuadrada en el teléfono, apaisada desde `lg`.
+          La que no corresponde va con `display: none`, así que ni se lee ni se anima. */}
+      <div className="mt-4 lg:hidden">
+        <RedProveedores datos={lectura.graficoMovil} accesible={lectura.accesible} />
+      </div>
+      <div className="mt-4 hidden lg:block">
         <RedProveedores datos={lectura.grafico} accesible={lectura.accesible} />
       </div>
       <PieDeMetodo texto={lectura.pie} enlaces={lectura.enlaces} className="mt-4" completo />

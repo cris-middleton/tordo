@@ -4,8 +4,9 @@ Léela antes de tocar un gráfico o de dibujar uno nuevo: `components/precio/Gra
 su geometría en `lib/graficoPrecio.ts`), `components/notas/AntesDespues.tsx`,
 `components/portada/BarraCierres.tsx`, `components/graficos/BarrasHorizontales.tsx`,
 `components/graficos/Columnas.tsx`, `components/graficos/GastoMensual.tsx` (geometría en
-`lib/graficoGasto.ts`) y `components/graficos/Concentracion.tsx`, con su globo en
-`components/graficos/Globo.tsx`.
+`lib/graficoGasto.ts`), `components/graficos/Concentracion.tsx`, con su globo en
+`components/graficos/Globo.tsx`, y `components/compraAgil/RangoMonto.tsx` (geometría en
+`lib/rangoMonto.ts`).
 
 Las reglas salen de cuatro guías públicas (al final, con su URL) y de lo que el sitio ya decidió en
 la portada v7 (`PORTADA_V7_Y_NOTAS_2026-10.md` §3.2–§3.4). Hay dos clases:
@@ -56,6 +57,7 @@ titular, palabras de todos los días: «la mitad central» en vez de «P25–P75
 | cambio en el tiempo, por partes | columnas por mes apiladas por sector, con la leyenda de cifras | `GastoMensual` |
 | distribución, de muchos | un histograma: diez tramos, destacados los de la conclusión | `Concentracion` |
 | variación de varias cosas a la vez | una escalera: una fila por cosa con su rango escrito y la franja P25–P75 contra su propia mediana (escala logarítmica, de «la mitad» a «el doble») | `EscaleraPrecios` |
+| un valor contra lo usual | una franja P25–P75 en `dato-tenue`, la mediana como raya y el valor como un punto en `dato`, lineal desde cero, con la comparación escrita al lado | `RangoMonto` |
 | relaciones (quién con quién) | una red: compradores fijos en un anillo por sector, proveedores adentro por fuerzas; los que nombra la conclusión, en tinta | `RedProveedores` |
 
 Si una pregunta nueva no cabe en la tabla, mira el *Visual Vocabulary* antes de inventar una forma.

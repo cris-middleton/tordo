@@ -29,6 +29,7 @@ import { render } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { describe, expect, it } from 'vitest';
 
+import { RangoMonto } from '@/components/compraAgil/RangoMonto';
 import { BarrasHorizontales } from '@/components/graficos/BarrasHorizontales';
 import { Columnas } from '@/components/graficos/Columnas';
 import { Concentracion } from '@/components/graficos/Concentracion';
@@ -42,6 +43,7 @@ import { graficoGasto } from '@/lib/graficoGasto';
 import { graficoPrecio } from '@/lib/graficoPrecio';
 import { graficoRed } from '@/lib/redPortada';
 import { lecturaConcentracion } from '@/lib/lecturasMercado';
+import { rangoMonto } from '@/lib/rangoMonto';
 import type { BandaUnidad } from '@/types/publico';
 
 const RAIZ = join(__dirname, '..');
@@ -193,6 +195,29 @@ const PROPIOS: Record<string, Propio> = {
     que: 'la escalera de precios de la portada: varias cosas comunes en filas sobre una escala logarítmica, con su rango escrito',
     ejemplo: () => <EscaleraPrecios datos={DATOS_ESCALERA} />,
     escalaLog: true,
+  },
+  'components/compraAgil/RangoMonto.tsx': {
+    que: 'el monto de una Compra Ágil contra lo que suele gastar su unidad de compra: franja P25–P75, mediana y un punto (filas con historia)',
+    ejemplo: () => (
+      <RangoMonto
+        rango={
+          rangoMonto({
+            monto_estimado: 3_000_000,
+            monto_es_tope: false,
+            comprador: {
+              ordenes: 120,
+              publicadas: null,
+              proveedores_distintos: 45,
+              cuota_lider_pct: 12,
+              monto_mediana: 850_000,
+              monto_p25: 400_000,
+              monto_p75: 1_500_000,
+              percentil_ordenes: 0.84,
+            },
+          })!
+        }
+      />
+    ),
   },
   'components/graficos/Columnas.tsx': {
     que: 'columnas por mes o por año: estacionalidad y serie anual en /mercado',

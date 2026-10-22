@@ -251,6 +251,12 @@ ninguna página ni layout de grupo pinta cabecera, pie, `PieAtribucion` ni `<mai
 - **Las Compras Ágiles se pintan con UNA fila**, `FilaCompraAgil`, en la portada (compacta), `/compra-agil`,
   `/buscar` y la ficha del comprador (con `historia`: región, órdenes de la unidad y «Abrir en Mercado
   Público», porque su dato no trae URL).
+  Con `historia`, bajo el monto va **un gráfico chico** (`RangoMonto`, regla y geometría en
+  `lib/rangoMonto.ts`): la mitad de las órdenes de la unidad (P25–P75) en `dato-tenue`, la mediana como
+  raya y el monto de esa Compra Ágil como un punto en `dato`, **lineal desde cero** (un monto diez veces
+  lo usual tiene que verse lejos), y la frase «Más de / Dentro de / Menos de lo que suele gastar» (sobre
+  P75, en la franja con sus bordes, bajo P25). Sale también en la fila repetida (su monto es otro), y no
+  con el tope, sin monto, sin historia o con P25 = P75. La portada, compacta, no lo lleva.
 - **El cierre se dice con UNA regla en todo el sitio** (`textoCierre`, `lib/horaChile.ts`): con la hora
   de quien mira (las listas del navegador) «Cierra hoy a las 18:00», «Cierra mañana a las 12:00», «Cierra
   el 28 oct a las 12:00» o «Cerró el 12 oct»; en lo que se sirve desde caché o del servidor (la portada,
@@ -498,7 +504,9 @@ a la página**: Next ignora `metadata` en componentes cliente y la home perderí
   al proveedor, con `requestAnimationFrame`, **quieta con `prefers-reduced-motion`**, fuera de pantalla y
   con la pestaña oculta; las capturas del E2E emulan movimiento reducido. Con menos de
   `MINIMO_COMPRADORES` (8) o mal formada, no sale y el gráfico grande vuelve a ser el gasto.
-  `__tests__/red-portada.test.ts`. Desde `lg`, al pie de la columna izquierda y a la altura de su
+  `__tests__/red-portada.test.ts`. **Dos disposiciones de la misma red** (`LIENZO_ANCHO` 640 × 420 desde
+  `lg`, `LIENZO_MOVIL` 400 × 380 en el teléfono, una con `display: none` en cada ancho): la apaisada
+  medía 358 × 235 px a 390 y los proveedores eran puntos de un píxel. Desde `lg`, al pie de la columna izquierda y a la altura de su
   leyenda, «Cómo leer la red» (`ComoLeerLaRed`): tres frases, y la invitación a pasar el mouse.
 - **El gasto mensual** (`GastoPortada` → `GastoMensual`, geometría en `lib/graficoGasto.ts`, frase
   en `lib/lecturasMercado.ts`; datos de `GET /publico/mercado`, `gasto_mensual`), **a lo ancho bajo la
@@ -694,6 +702,15 @@ que lee del disco (`content/notas` va en la traza del sitemap y de `/rss/notas`,
 - **Secciones fijas, en orden**: «En corto» (tres viñetas), «Qué vimos», «Cómo lo medimos», «Qué
   cambió», «Lo que todavía no sabemos» y, con `script`, «Reprodúcelo». `antes_despues` se pinta
   justo bajo «Qué cambió» (`components/notas/AntesDespues.tsx`).
+- **Desde `lg`, la nota va en dos columnas**: la de lectura (el texto sigue a 58ch) y un costado
+  (`<aside>` «Sobre esta nota», `sticky` a 32 px y alineado con el `h1`) con el antes y el después
+  —se ve sin bajar—, «En esta nota» (un enlace por `##` más «Fuentes», con los `id` de
+  `idDeTitulo` vía `indiceDeNota`) y los datos: estado, con qué datos, el PR (`numeroDeCambio`) y
+  el script. Bajo `lg` el costado es `hidden` y esas piezas van donde siempre (los datos bajo el
+  título, el gráfico bajo «Qué cambió», «El cambio» y «El script» al final), con `lg:hidden`: están
+  dos veces en el HTML y se ve **una** en cada ancho; lo que está en `display: none` tampoco lo lee
+  un lector de pantalla. `__tests__/notas.test.tsx` y `e2e/notas.spec.ts` lo fijan. `/notas` va en
+  dos columnas desde `lg`, con las barras del antes y el después en la nota que las trae.
 - **La firma** («La escribe {nombre}.») sale de `AUTOR_NOMBRE` (`lib/autor.ts`, servidor, en el
   build) y sin ella no hay línea; `AUTOR_URL` (sólo `https://`) enlaza el nombre.
 - Ninguna nota nombra a un proveedor persona natural ni promete trabajo que no esté en un PR

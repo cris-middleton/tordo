@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ALTO, ANCHO, esRed, fraseRed, graficoRed, lecturaRed, MINIMO_COMPRADORES } from '@/lib/redPortada';
+import { ALTO, ANCHO, esRed, fraseRed, graficoRed, lecturaRed, LIENZO_MOVIL, MINIMO_COMPRADORES } from '@/lib/redPortada';
 import type { RedPortada } from '@/types/publico';
 
 /**
@@ -93,6 +93,17 @@ describe('graficoRed', () => {
 
   it('el sector sin nombre cae en «Otros», y la leyenda sigue el orden fijo', () => {
     expect(g.sectores.map((s) => s.nombre)).toEqual(['Salud', 'Municipalidades', 'Otros']);
+  });
+
+  it('en el lienzo del teléfono, todo dentro y los proveedores dentro del anillo', () => {
+    const m = graficoRed(RED, LIENZO_MOVIL)!;
+    expect([m.ancho, m.alto]).toEqual([400, 380]);
+    for (const d of m.nodos) {
+      expect(d.x - d.r).toBeGreaterThanOrEqual(0);
+      expect(d.x + d.r).toBeLessThanOrEqual(400);
+      expect(d.y - d.r).toBeGreaterThanOrEqual(0);
+      expect(d.y + d.r).toBeLessThanOrEqual(380);
+    }
   });
 
   it(`con menos de ${MINIMO_COMPRADORES} compradores no hay red`, () => {

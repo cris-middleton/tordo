@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useMediaQuery } from '@/hooks/useMediaQuery';
-import { ALTO, ANCHO, type GraficoRed, type NodoRed } from '@/lib/redPortada';
+import type { GraficoRed, NodoRed } from '@/lib/redPortada';
 
 import { Globo } from './Globo';
 
@@ -26,24 +26,24 @@ function azar(semilla: number) {
 /** Una coordenada del `viewBox` con un decimal (sin `toFixed`, que el test de cifras prohíbe). */
 const u = (v: number) => String(Math.round(v * 10) / 10);
 
-const CX = ANCHO / 2;
-const CY = ALTO / 2;
 /** Cuánto se curva cada línea hacia el centro: la red se lee como un tejido y no como una malla. */
 const CURVA = 0.3;
 
-/** El punto de control de la curva de un enlace: su punto medio, tirado hacia el centro. */
-const control = (a: { x: number; y: number }, b: { x: number; y: number }) => {
+type Punto = { x: number; y: number };
+
+/** El punto de control de la curva de un enlace: su punto medio, tirado hacia el centro del lienzo. */
+const control = (a: Punto, b: Punto, centro: Punto) => {
   const mx = (a.x + b.x) / 2;
   const my = (a.y + b.y) / 2;
-  return { x: mx + (CX - mx) * CURVA, y: my + (CY - my) * CURVA };
+  return { x: mx + (centro.x - mx) * CURVA, y: my + (centro.y - my) * CURVA };
 };
 
-const trazo = (nodos: { x: number; y: number }[], enlaces: { a: number; b: number }[]) =>
+const trazo = (nodos: Punto[], enlaces: { a: number; b: number }[], centro: Punto) =>
   enlaces
     .map((e) => {
       const a = nodos[e.a];
       const b = nodos[e.b];
-      const c = control(a, b);
+      const c = control(a, b, centro);
       return `M${u(a.x)} ${u(a.y)}Q${u(c.x)} ${u(c.y)} ${u(b.x)} ${u(b.y)}`;
     })
     .join('');
@@ -70,7 +70,8 @@ const relleno = (d: NodoRed) => (d.sector ? d.sector.relleno : d.amplio ? 'fill-
  * `aria-hidden`.
  */
 export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesible: { nombre: string; vecinos: number; texto: string }[] }) {
-  const { nodos, enlaces } = datos;
+  const { nodos, enlaces, ancho, alto } = datos;
+  const centro = useMemo(() => ({ x: ancho / 2, y: alto / 2 }), [ancho, alto]);
   const quieto = useMediaQuery('(prefers-reduced-motion: reduce)');
   const [activo, setActivo] = useState<number | null>(null);
   const activoRef = useRef<number | null>(null);
@@ -90,7 +91,7 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
     }
     return v;
   }, [nodos, enlaces]);
-  const base = useMemo(() => trazo(nodos, enlaces), [nodos, enlaces]);
+  const base = useMemo(() => trazo(nodos, enlaces, centro), [nodos, enlaces, centro]);
   const delActivo = (i: number | null) => (i == null ? [] : enlaces.filter((e) => e.a === i || e.b === i));
 
   useEffect(() => {
@@ -152,12 +153,12 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
           c.setAttribute('cy', u(pos[i].y));
         }
       }
-      lineasRef.current?.setAttribute('d', trazo(pos, enlaces));
+      lineasRef.current?.setAttribute('d', trazo(pos, enlaces, centro));
       const elegido = activoRef.current;
       if (resaltadasRef.current) {
         resaltadasRef.current.setAttribute(
           'd',
-          elegido == null ? '' : trazo(pos, enlaces.filter((e) => e.a === elegido || e.b === elegido)),
+          elegido == null ? '' : trazo(pos, enlaces.filter((e) => e.a === elegido || e.b === elegido), centro),
         );
       }
       for (let k = 0; k < particulas.length; k++) {
@@ -173,7 +174,7 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
         if (!c) continue;
         const { a, b } = enlaces[q.e];
         const s = q.p * q.p * (3 - 2 * q.p);
-        const ctl = control(pos[a], pos[b]);
+        const ctl = control(pos[a], pos[b], centro);
         // Sobre la misma curva que la línea: la cuadrática de Bézier en s.
         const r1 = 1 - s;
         c.setAttribute('cx', u(r1 * r1 * pos[a].x + 2 * r1 * s * ctl.x + s * s * pos[b].x));
@@ -187,7 +188,7 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
       cancelAnimationFrame(cuadro);
       observador.disconnect();
     };
-  }, [quieto, nodos, enlaces]);
+  }, [quieto, nodos, enlaces, centro]);
 
   /** El nodo bajo el puntero, con 8 unidades de holgura: los proveedores chicos miden 3. */
   const buscar = (cliente: { clientX: number; clientY: number }) => {
@@ -209,7 +210,7 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
 
   const nodo = activo != null ? nodos[activo] : null;
   const cerca = activo != null ? vecinos[activo] : null;
-  const resaltadasIniciales = useMemo(() => trazo(nodos, delActivo(activo)), [activo]); // eslint-disable-line react-hooks/exhaustive-deps
+  const resaltadasIniciales = useMemo(() => trazo(nodos, delActivo(activo), centro), [activo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <figure className="min-w-0">
@@ -217,7 +218,7 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
         <svg
           ref={svgRef}
           aria-hidden="true"
-          viewBox={`0 0 ${ANCHO} ${ALTO}`}
+          viewBox={`0 0 ${ancho} ${alto}`}
           className="block h-auto w-full touch-pan-y"
           onPointerMove={(e) => {
             const i = buscar(e);
@@ -266,7 +267,7 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
           </g>
         </svg>
         {nodo && activo != null && (
-          <Globo x={(nodo.x / ANCHO) * 100} medio={(nodo.r / ANCHO) * 100}>
+          <Globo x={(nodo.x / ancho) * 100} medio={(nodo.r / ancho) * 100}>
             <p className="font-semibold leading-snug">{nodo.nombre}</p>
             {nodo.tipo === 'comprador' ? (
               <>
