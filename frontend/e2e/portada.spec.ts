@@ -72,7 +72,8 @@ test('lo primero es el buscador, y nada de lo que se fue', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(TITULAR);
   await expect(page.getByRole('searchbox', { name: CAMPO })).toBeVisible();
-  await expect(page.getByRole('list', { name: 'Ejemplos de búsqueda' }).getByRole('link')).toHaveCount(6);
+  // Los cuatro primeros, en una línea (`EJEMPLOS_EN_PORTADA`).
+  await expect(page.getByRole('list', { name: 'Ejemplos de búsqueda' }).getByRole('link')).toHaveCount(4);
   // La nota es contenido del repo: la sección de lecturas sale siempre.
   await expect(page.getByRole('region', { name: LECTURAS })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Notas de datos' })).toBeVisible();
