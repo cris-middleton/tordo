@@ -130,20 +130,27 @@ function Buscador({ inicio }: { inicio?: React.ReactNode }) {
       <div className="mt-4" aria-live="polite">
         {!buscable ? (
           <div>
-            <p className="text-sm text-subtle">Escribe al menos tres letras.</p>
-            {/* Sin nada escrito, la página no queda en blanco: los mismos ejemplos de la
-                portada, verificados en producción, llenan el campo al pulsarlos. */}
-            <p className="mt-4 text-sm text-muted">Por ejemplo:</p>
-            <ul aria-label="Ejemplos de búsqueda" className="mt-1 flex flex-wrap gap-x-4 gap-y-2 text-sm">
-              {EJEMPLOS_BUSQUEDA.map((ejemplo) => (
-                <li key={ejemplo}>
-                  <button type="button" onClick={() => setTexto(ejemplo)} className="enlace py-1">
-                    {ejemplo}
-                  </button>
-                </li>
-              ))}
-            </ul>
-            {inicio}
+            {/* Sólo si ya escribió algo: con el campo vacío, «Escribe al menos tres
+                letras» corregía a quien todavía no había hecho nada. */}
+            {termino.length > 0 && <p className="mb-4 text-sm text-subtle">Escribe al menos tres letras.</p>}
+            {/* Sin nada escrito, la página no queda en blanco: con `inicio`, lo que trae
+                la página; sin él, los mismos ejemplos de la portada, verificados en
+                producción, que llenan el campo al pulsarlos. Los dos a la vez repetían
+                cuatro de seis productos. */}
+            {inicio ?? (
+              <>
+                <p className="text-sm text-muted">Por ejemplo:</p>
+                <ul aria-label="Ejemplos de búsqueda" className="mt-1 flex flex-wrap gap-x-4 gap-y-2 text-sm">
+                  {EJEMPLOS_BUSQUEDA.map((ejemplo) => (
+                    <li key={ejemplo}>
+                      <button type="button" onClick={() => setTexto(ejemplo)} className="enlace py-1">
+                        {ejemplo}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
           </div>
         ) : consulta.isError ? (
           // Una línea y no una caja, como el resto de la búsqueda; con el

@@ -6,7 +6,7 @@ import { BuscadorProductos } from '@/components/publico/BuscadorProductos';
 import { CabeceraFicha, Seccion } from '@/components/publico/Piezas';
 import { PRODUCTOS_ESCALERA } from '@/lib/escaleraPrecios';
 import { MESES_PRECIOS } from '@/lib/periodo';
-import { rutaBusquedaProductos, tituloDeBanda } from '@/lib/publico';
+import { rutaBusquedaProductos } from '@/lib/publico';
 
 /**
  * `/productos` — buscar el precio de referencia de un producto.
@@ -30,24 +30,27 @@ export const metadata: Metadata = {
  * de la portada (`PRODUCTOS_ESCALERA`). **Enlazan a su búsqueda, no a su ficha**: una
  * ficha que deja de ser indexable (o que no existe, como en el fixture del E2E) sería
  * un enlace roto escrito a mano, y la búsqueda siempre responde. Sin cifras: la
- * página no pide nada al backend por mostrarlos.
+ * página no pide nada al backend por mostrarlos. Sin la unidad tampoco: la búsqueda
+ * trae todas las formas de comprarlo, y «por caja» repetía «(caja)».
  */
 function FichasParaEmpezar() {
   return (
     <Seccion titulo="Lo que compra todo el Estado">
       <ul aria-label="Búsquedas para empezar" className="divide-y divide-border border-y border-border text-sm">
-        {PRODUCTOS_ESCALERA.map((p) => (
-          <li key={p.slug}>
-            <Link
-              href={rutaBusquedaProductos(p.nombre.replace(/\s*\(.*\)$/, ''))}
-              prefetch={false}
-              className="flex items-baseline justify-between gap-3 py-3 hover:text-accent"
-            >
-              <span className="font-medium text-primary">{p.nombre}</span>
-              <span className="shrink-0 text-muted">{tituloDeBanda(p.unidad).toLowerCase()}</span>
-            </Link>
-          </li>
-        ))}
+        {PRODUCTOS_ESCALERA.map((p) => {
+          const nombre = p.nombre.replace(/\s*\(.*\)$/, '');
+          return (
+            <li key={p.slug}>
+              <Link
+                href={rutaBusquedaProductos(nombre)}
+                prefetch={false}
+                className="block py-3 font-medium text-primary hover:text-accent"
+              >
+                {nombre}
+              </Link>
+            </li>
+          );
+        })}
       </ul>
     </Seccion>
   );
