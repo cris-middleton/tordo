@@ -13,9 +13,12 @@ Celery en el paso 5 del pivote público (`docs/PIVOTE_PUBLICO_2026-10.md`, D11).
 Ventana fija de un minuto. Al cambiar de minuto se tira el diccionario entero:
 todo lo que había pertenece a la ventana anterior, así que la memoria la acota
 el número de IP distintas EN UN MINUTO, no el histórico. Y aun así hay techo
-(`MAX_CLAVES`): pasado, una IP nueva entra sin contarse en lo que queda de
-minuto. Fallar abierto con las nuevas es mejor que desalojar a las que ya se
-cuentan — que son, por definición, las que más piden.
+(`MAX_CLAVES`): pasado, las IP nuevas de lo que queda de minuto no se guardan
+una a una sino que comparten UN cubo, de `FACTOR_DESBORDE` veces el límite. No
+se desaloja a las que ya se cuentan — que son, por definición, las que más
+piden. Antes cada nueva pasaba sin contarse, y eso no era fallar abierto sino
+quitar el límite: quien llenara el techo al empezar el minuto (50.000 IP son las
+/64 de un solo bloque IPv6 /48) pedía sin tope el resto del minuto.
 
 Modelo de confianza: de dónde sale la IP
 -----------------------------------------
@@ -78,6 +81,13 @@ CABECERA_VISITANTE = "x-tordo-visitante"
 #: son ~150 bytes (clave + entero en un dict): 50.000 son ~8 MB.
 MAX_CLAVES = 50_000
 
+#: Con el techo lleno, las IP nuevas comparten un cubo de este múltiplo del
+#: límite. Pasar de `MAX_CLAVES` IP en un minuto sólo ocurre en un ataque: el
+#: cubo deja algo de servicio a quien llegue entonces sin quitarle el tope.
+FACTOR_DESBORDE = 10
+#: La clave del cubo compartido. No es una IP, así que no choca con ninguna.
+CLAVE_DESBORDE = "desborde"
+
 #: Un secreto más corto que esto se acepta, pero se avisa al arrancar.
 LARGO_MINIMO_SECRETO = 16
 
@@ -127,22 +137,25 @@ class LimitadorEnMemoria:
             self._avisado_lleno = False
         reinicio_en = max(1, math.ceil((ventana + 1) * self.ventana_s - ahora))
 
+        limite = self.limite
         cuenta = self._cuentas.get(clave)
         if cuenta is None and len(self._cuentas) >= self.max_claves:
             if not self._avisado_lleno:
                 logger.warning(
-                    "límite por IP: %d IP distintas en un minuto; las nuevas pasan sin contarse",
+                    "límite por IP: %d IP distintas en un minuto; las nuevas comparten un cubo",
                     self.max_claves,
                 )
                 self._avisado_lleno = True
-            return Decision(True, self.limite, self.limite, reinicio_en)
+            clave = CLAVE_DESBORDE
+            limite = self.limite * FACTOR_DESBORDE
+            cuenta = self._cuentas.get(clave)
 
         cuenta = (cuenta or 0) + 1
         self._cuentas[clave] = cuenta
         return Decision(
-            permitido=cuenta <= self.limite,
-            limite=self.limite,
-            restantes=max(0, self.limite - cuenta),
+            permitido=cuenta <= limite,
+            limite=limite,
+            restantes=max(0, limite - cuenta),
             reinicio_en=reinicio_en,
         )
 

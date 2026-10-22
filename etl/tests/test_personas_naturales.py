@@ -15,6 +15,7 @@ import polars as pl
 import pytest
 
 from etl.analytics import data_loader, personas
+from etl.analytics.normalizacion import firma_producto
 from etl.analytics.personas import NOMBRE_ENMASCARADO
 
 RAIZ = Path(__file__).resolve().parents[2]
@@ -154,6 +155,64 @@ def test_funciona_igual_en_lazy():
 )
 def test_borrar_nombre(texto, nombre, esperado):
     assert personas.borrar_nombre(texto, nombre) == esperado
+
+
+# ── El RUT de una persona escrito en el texto del comprador ─────────────────
+#
+# `borrar_nombre` sólo quita las PALABRAS del nombre, y sólo en las filas de la
+# persona: el número de su RUT se quedaba en la `descripcion` de las bandas, que
+# la ficha de producto y la búsqueda publican. Medido el 2026-10-22 en la copia
+# local: descripciones de L0N con «Nombre Apellido, Rut.: <RUT bajo 50M>» en
+# filas de una empresa, y con «RUT: <RUT bajo 50M>» en otras.
+
+
+@pytest.mark.parametrize(
+    ("texto", "esperado"),
+    [
+        ("Honorarios, Rut.: 12.708.987-6", "Honorarios, Rut.: "),
+        ("PAGO AL RUT 9.876.543-K POR SERVICIO", "PAGO AL RUT  POR SERVICIO"),
+        ("pago rut 12708987-6 enero", "pago rut  enero"),
+        ("Pago R.U.T. N° 12708987-6.", "Pago R.U.T. N° ."),
+        ("(12.708.987 - 6)", "()"),
+        # Seguidos: el separador no se lo lleva el primero.
+        ("12.708.987-6,9.876.543-2,1.234.567-8,2.345.678-9", ",,,"),
+        # Una empresa (≥ 50M) se queda: su RUT es público y el dato lo publica.
+        ("Oferente JASH SPA, RUT: 76.473.150-6", "Oferente JASH SPA, RUT: 76.473.150-6"),
+        # Sin puntos ni la palabra RUT es un código de artículo o un código BIP.
+        ("12708987-6 CANULA VENOSA", "12708987-6 CANULA VENOSA"),
+        ("CODIGO BIP 40012345-0", "CODIGO BIP 40012345-0"),
+        ("Compra Agil 1510-140-COT24", "Compra Agil 1510-140-COT24"),
+        # Un número más largo no es un RUT.
+        ("Folio 112.708.987-6", "Folio 112.708.987-6"),
+        (None, None),
+    ],
+)
+def test_borrar_ruts_de_personas(texto, esperado):
+    assert personas.borrar_ruts_de_personas(texto) == esperado
+    fuera = pl.DataFrame({"t": [texto]}, schema={"t": pl.Utf8}).select(
+        personas.sin_ruts_de_personas(pl.col("t"))
+    )
+    assert fuera["t"][0] == esperado
+
+
+def test_el_rut_de_una_persona_sale_del_texto_libre_en_toda_fila():
+    """En la fila de la persona y en la de una empresa que la nombra."""
+    persona = {**PERSONA, "EspecificacionComprador": "Honorarios RUT 12.708.987-6, guardia"}
+    empresa = {**EMPRESA, "EspecificacionComprador": "Arriendo, contacto Rut: 9.876.543-2"}
+    fuera = personas.enmascarar(_frame(persona, empresa), frozenset({PERSONA["CodigoProveedor"]}))
+    textos = fuera["EspecificacionComprador"].to_list()
+    assert not any("12.708.987" in t or "9.876.543" in t for t in textos)
+    assert textos[1] == "Arriendo, contacto Rut: "
+    # Lo demás de la empresa no se toca.
+    assert fuera.row(1, named=True) == {**empresa, "EspecificacionComprador": textos[1]}
+
+
+def test_borrar_el_rut_no_cambia_la_firma():
+    """La firma ya descarta los tokens con dígitos: los slugs no se mueven."""
+    texto = "Mantencion grupo electrogeno, Rut.: 12.708.987-K, oferente"
+    df = pl.DataFrame({"EspecificacionComprador": [texto, personas.borrar_ruts_de_personas(texto)]})
+    firmas = df.select(firma_producto())["firma_producto"].to_list()
+    assert firmas[0] == firmas[1]
 
 
 # ── El cargador: único camino hacia los consolidados ────────────────────────

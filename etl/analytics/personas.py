@@ -141,6 +141,57 @@ def borrar_nombre(texto: str | None, nombre: str | None) -> str | None:
     return re.sub(r"\s{2,}", " ", patron.sub("", texto)).strip()
 
 
+# ── El RUT de una persona escrito en un texto libre ─────────────────────────
+#
+# `borrar_nombre` quita las palabras del nombre en las filas de la persona, pero
+# el NÚMERO se quedaba: «Honorarios, Rut.: 12.708.987-6» publicaba el RUT en la
+# `descripcion` de las bandas. Y en la fila de una empresa que nombra a una
+# persona no se borraba nada. Aquí se borra en TODA fila, porque el número se
+# reconoce solo: bajo 50.000.000 (siete u ocho cifras; las de ocho, de 10 a 49
+# millones) y con su dígito verificador.
+#
+# Sólo dos formas, para no borrar códigos: con puntos de miles («12.708.987-6»),
+# que es como se escribe un RUT, o detrás de la palabra «RUT» («RUT 12708987-6»).
+# Sin ninguna de las dos es casi siempre un código de artículo o un código BIP
+# («40012345-0»): medido en la copia local, todos los de esa forma lo eran.
+#
+# Se borra el número y nada más: el texto alrededor no cambia, y la firma de
+# producto, que ya descarta los tokens con dígitos, sale idéntica.
+#
+# Las dos expresiones valen para `re` y para el motor de Polars (Rust), con dos
+# grupos: lo que va antes y lo que va después del número. Rust no tiene
+# *lookaround*, así que el separador entre dos RUT seguidos («…-6,9.876.543-2»)
+# lo consume el primero y el segundo no casa: cada patrón se aplica dos veces.
+_CUERPO_RUT_PERSONA = r"(?:[1-4][0-9]|[1-9])"
+PATRONES_RUT_PERSONA = (
+    _CUERPO_RUT_PERSONA.join((r"(^|[^0-9.])", r"\.[0-9]{3}\.[0-9]{3} ?- ?[0-9kK]([^0-9A-Za-z]|$)")),
+    _CUERPO_RUT_PERSONA.join(
+        (
+            r"(?i)((?:^|[^0-9a-z])r\.? ?u\.? ?t\.?[^0-9a-z]{0,6}(?:(?:nro|no|n)[°º.]?[^0-9a-z]{0,3})?)",
+            r"\.?[0-9]{3}\.?[0-9]{3} ?- ?[0-9k]([^0-9a-z]|$)",
+        )
+    ),
+)
+_RUT_PERSONA_RE = tuple(re.compile(p) for p in PATRONES_RUT_PERSONA)
+
+
+def borrar_ruts_de_personas(texto: str | None) -> str | None:
+    """Quita de `texto` todo RUT de persona natural (ver `PATRONES_RUT_PERSONA`)."""
+    if not texto:
+        return texto
+    for patron in _RUT_PERSONA_RE:
+        texto = patron.sub(r"\1\2", patron.sub(r"\1\2", texto))
+    return texto
+
+
+def sin_ruts_de_personas(expr: pl.Expr) -> pl.Expr:
+    """`borrar_ruts_de_personas` como expresión de Polars, sin pasar por Python."""
+    salida = expr.cast(pl.Utf8)
+    for patron in PATRONES_RUT_PERSONA:
+        salida = salida.str.replace_all(patron, "${1}${2}").str.replace_all(patron, "${1}${2}")
+    return salida
+
+
 def numero_rut(columna: str) -> pl.Expr:
     """«12.708.987-6» → 12708987. Nulo si no es legible («NA», vacío, basura)."""
     return (
@@ -255,6 +306,12 @@ def enmascarar(frame, codigos: frozenset[str], sal: bytes = _SAL):
                 if c in columnas
             ]
         )
+
+    # El RUT de una persona, en cualquier fila: también en la de una empresa
+    # que la nombra (`borrar_ruts_de_personas`).
+    frame = frame.with_columns(
+        [sin_ruts_de_personas(pl.col(c)).alias(c) for c in COLUMNAS_TEXTO_LIBRE if c in columnas]
+    )
 
     reemplazos = []
     if COLUMNA_CODIGO in columnas:

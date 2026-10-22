@@ -144,8 +144,10 @@ pide el detalle de lo que ya está en la base: lo nuevo entraba una vez al día.
     suelto da seudónimos distintos de los del resto; el cron semanal corre todo en un proceso.
   - Se tapan nombre, código, RUT, `CodigoSucursal`, `Sucursal` y `EspecificacionProveedor`, y
     se borra el nombre de la persona del **texto libre del comprador en sus propias filas**
-    (`EspecificacionComprador`, `Nombre`, `Descripcion`). Límite: una mención en una fila
-    ajena no se detecta.
+    (`EspecificacionComprador`, `Nombre`, `Descripcion`). Además se borra, en toda fila, el número de un RUT de persona escrito en ese texto
+    (`borrar_ruts_de_personas`: con puntos de miles o tras «RUT», bajo 50.000.000; sin ninguna de
+    las dos se deja, porque casi siempre es un código de artículo o BIP). Límite: el nombre de una
+    persona en una fila ajena no se detecta.
   - `etl/tests/test_personas_naturales.py` pasa una persona conocida por `run_all` entero y la
     busca en **cada** archivo de salida, joblib y npz incluidos. Sin el enmascarado aparece en
     once.
