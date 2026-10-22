@@ -251,6 +251,16 @@ ninguna página ni layout de grupo pinta cabecera, pie, `PieAtribucion` ni `<mai
 - **Las Compras Ágiles se pintan con UNA fila**, `FilaCompraAgil`, en la portada (compacta), `/compra-agil`,
   `/buscar` y la ficha del comprador (con `historia`: región, órdenes de la unidad y «Abrir en Mercado
   Público», porque su dato no trae URL).
+- **El cierre se dice con UNA regla en todo el sitio** (`textoCierre`, `lib/horaChile.ts`): con la hora
+  de quien mira (las listas del navegador) «Cierra hoy a las 18:00», «Cierra mañana a las 12:00», «Cierra
+  el 28 oct a las 12:00» o «Cerró el 12 oct»; en lo que se sirve desde caché o del servidor (la portada,
+  `/buscar`, la ficha del comprador; `cierreFijo`) siempre la fecha con su hora. Convivían «Cierra en 6
+  días», «Cierra el 2 nov 2026» y «Cierra en 3 h» para lo mismo. La fila de licitación de `/buscar` tiene
+  la forma de `FilaLicitacion` (nombre, comprador y región, cierre y código, monto a la derecha), sin
+  «guardar».
+- **Un monto de Compra Ágil bajo `MONTO_SIMBOLICO` ($1.000) es «Sin monto»** (`montoDeclarado`): hay
+  quien escribe $1 para no declarar nada. En `/compra-agil`, una fila de la misma unidad que la de arriba
+  (`mismaUnidad`) dice «La misma unidad de compra que la anterior» en vez de repetir su historia.
 - **Cifras y fechas en `es-CL`** (`__tests__/formatos-es-cl.test.ts`): ningún `toLocale*String` ni
   `new Intl.*` sin `'es-CL'`, ni un `format` de date-fns con nombres de mes sin `{ locale: es }`
   («29,586» y «16 Oct 26» salían en producción).
@@ -488,7 +498,8 @@ a la página**: Next ignora `metadata` en componentes cliente y la home perderí
   al proveedor, con `requestAnimationFrame`, **quieta con `prefers-reduced-motion`**, fuera de pantalla y
   con la pestaña oculta; las capturas del E2E emulan movimiento reducido. Con menos de
   `MINIMO_COMPRADORES` (8) o mal formada, no sale y el gráfico grande vuelve a ser el gasto.
-  `__tests__/red-portada.test.ts`.
+  `__tests__/red-portada.test.ts`. Desde `lg`, al pie de la columna izquierda y a la altura de su
+  leyenda, «Cómo leer la red» (`ComoLeerLaRed`): tres frases, y la invitación a pasar el mouse.
 - **El gasto mensual** (`GastoPortada` → `GastoMensual`, geometría en `lib/graficoGasto.ts`, frase
   en `lib/lecturasMercado.ts`; datos de `GET /publico/mercado`, `gasto_mensual`), **a lo ancho bajo la
   ficha** cuando la red está arriba (`ancho`: `h2` de sección y la leyenda en una fila): una columna por
@@ -535,6 +546,18 @@ a la página**: Next ignora `metadata` en componentes cliente y la home perderí
     ancho más estrecho en que se pinta (`ANCHO_REFERENCIA`, 280 px): más ancho, nada empieza a
     pisarse. Con un solo comprador no hay franja (sólo en la ficha de producto: la portada no lo deja
     pasar). Los valores, como texto `sr-only`.
+  - **La escalera de precios va en su lugar cuando está** (`lecturaEscalera`, `lib/escaleraPrecios.ts`;
+    `components/graficos/EscaleraPrecios.tsx`): seis cosas que compra todo el Estado
+    (`PRODUCTOS_ESCALERA`: lápiz pasta azul, agua mineral, cloro gel, resma carta, guantes de nitrilo
+    por caja y la impresora), una por fila, con el rango en pesos escrito y la franja P25–P75
+    **dibujada contra su propia mediana** (escala logarítmica de «la mitad» a «el doble»; si alguna se
+    sale, el triple o el cuádruple): sobre los pesos, de $10 a $1 millón, cada franja medía un 4 % del
+    ancho. La conclusión nombra la que más varía (mayor p75/p25), que va en `dato`. Cada fila pasa el
+    filtro de la lectura de un producto **en la unidad escrita** (`bandaDeLaEscalera`); con menos de
+    `MINIMO_FILAS` (4), vuelve la lectura de un producto. La impresora la pide `pedirProductoPortada`
+    y las otras cinco `pedirProductosEscalera` (una semana, `analytics`). Elegidas en producción el
+    2026-10-22, con copia literal (slug y unidad) en `scripts/verificar-produccion.sh`, que
+    `__tests__/escalera-precios.test.ts` compara.
   - **`PRODUCTO_PORTADA` es `{ slug, nombre }`**, escrito a mano y genérico, sin marca: hoy
     «Impresora multifuncional», elegida el 2026-10-16 con el precio corregido y la regla de precio
     de mercado. **Tiene copia literal en `scripts/verificar-produccion.sh`**, que comprueba con una
@@ -595,7 +618,9 @@ a la página**: Next ignora `metadata` en componentes cliente y la home perderí
   Compras Ágiles»: cuenta las dos), el organismo que más publica (por nombre; truncado con `title`) y «Actualizado el» con el día —la portada se cachea—.
   Con 0 publicadas hoy (cada madrugada) las dos primeras celdas se ocultan y la que queda primera
   no lleva sangría. Sin enlace: el catálogo no filtra por fecha de publicación.
-- **«Lo mejor de hoy», compacto** (`pedirDestacadas`, `BloqueHoy`): filas con nombre, comprador,
+- **«Lo mejor de hoy», compacto** (`pedirDestacadas`, `BloqueHoy`): **cinco, con como mucho dos de un
+  mismo comprador** (`variadas`, `POR_COMPRADOR_EN_PORTADA`; se piden `DESTACADAS_PEDIDAS` = 15 para poder
+  elegir: el 21-10 las cuatro primeras eran de la misma unidad del MOP). Filas con nombre, comprador,
   cierre y monto; **el cierre es la hora en Santiago** («Cierra el 22 oct a las 18:00», `cierreFijo`),
   no «Cierra en 3 h», que envejece con la caché; sin puntaje, sin cocientes y sin la historia de la unidad, que vive en
   `/compra-agil`. `Portada` lee la hora una vez y se la pasa al bloque.
@@ -626,8 +651,9 @@ a la página**: Next ignora `metadata` en componentes cliente y la home perderí
 precio, con su pie de método (spec PORTADA_V7 §6), `precioDeBanda` sobre la unidad con más compras,
 titulada con `tituloDeBanda`, sin el filtro de la portada —una banda de un solo comprador dice «todas
 las compras son de {comprador}»—; debajo, sus cifras (`CifrasBanda`: mediana, la mitad de las compras,
-8 de cada 10 compras y cuántas compras, con la variación en palabras de `textoVariacion` —«Precios
-parecidos entre sí»…—, sin insignias de color). Con más de
+8 de cada 10 compras y cuántas compras; bajo la mitad de las compras, cuánto se separan sus extremos
+con la cifra, `textoDiferencia` —«De un extremo al otro, 1,9 veces», «Casi el mismo precio»—, sin
+insignias de color; antes un adjetivo, «Precios algo distintos entre sí»). Con más de
 una unidad, una tabla (`TablaUnidades`). Ya no hay tarjeta de P10…P90 encima del gráfico: la ficha
 decía la mitad de las compras tres veces. Las tablas de las fichas (`TablaEnlaces`) van con filetes y sin caja.
 
