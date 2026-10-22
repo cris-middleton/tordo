@@ -4,9 +4,10 @@ import type { AntesDespues as Datos } from '@/lib/notas';
  * El antes y el después de una nota (`antes_despues` del frontmatter): dos barras
  * con su etiqueta y su valor escrito al lado, y el rótulo —qué se mide—.
  *
- * El rótulo va debajo cuando el gráfico cuelga de una conclusión que ya lo
- * presenta (la lectura de la portada) y arriba, en negrita, cuando el gráfico se
- * lee solo: en las páginas de notas, bajo «Qué cambió», en el costado y en la lista.
+ * El rótulo va arriba, en negrita, en todas partes: en las páginas de notas, bajo
+ * «Qué cambió», en el costado, en la lista y en la portada. Debajo sólo si la
+ * conclusión de encima ya dijo qué se mide; la portada lo ponía debajo de una nota
+ * cuyo título no lo dice, y los porcentajes se leían antes de saber de qué eran.
  *
  * `dato` sólo en el después, que es lo que la nota nombra; el antes en
  * `dato-tenue`, que es decorativo y nunca lleva texto encima (frontend/CLAUDE.md, tokens de

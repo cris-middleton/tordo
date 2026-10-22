@@ -168,7 +168,9 @@ function VistaNota({ lectura, primera }: { lectura: LecturaNota; primera: boolea
       enlaces={lectura.enlaces}
     >
       <p className="text-sm leading-relaxed text-muted">{lectura.resumen}</p>
-      {lectura.antesDespues && <AntesDespues datos={lectura.antesDespues} />}
+      {/* El rótulo arriba: el título de la nota («Dividíamos dos veces…») no dice qué
+          miden las barras, y debajo se leían 33 % y 82 % antes de saber de qué. */}
+      {lectura.antesDespues && <AntesDespues datos={lectura.antesDespues} rotulo="arriba" />}
     </Lectura>
   );
 }
