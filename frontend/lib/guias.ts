@@ -91,12 +91,40 @@ export function leerGuia(archivo: string): Guia {
   };
 }
 
-/** Todas, por título. */
+/**
+ * El orden en que se leen, por slug: primero de dónde salen los datos y cómo
+ * compra el Estado, después cómo leer cada cifra y al final lo de cada día.
+ * Por título salía «Cómo se ordena «Lo mejor de hoy»» antes que la de los datos.
+ * Una guía nueva que no esté aquí va al final, por título, y
+ * `__tests__/guias.test.tsx` falla hasta que alguien le dé su lugar.
+ */
+export const ORDEN_GUIAS = [
+  'de-donde-salen-los-datos',
+  'licitacion-compra-agil-convenio-marco',
+  'como-leer-una-banda-de-precio',
+  'como-leer-un-comprador',
+  'concentracion-de-mercado',
+  'compra-agil-como-funciona',
+  'lo-mejor-de-hoy-en-compra-agil',
+  'seguir-una-busqueda-por-rss',
+] as const;
+
+const puesto = (slug: string) => {
+  const i = (ORDEN_GUIAS as readonly string[]).indexOf(slug);
+  return i === -1 ? ORDEN_GUIAS.length : i;
+};
+
+/** Todas, en el orden de lectura (`ORDEN_GUIAS`). */
 export function leerGuias(): Guia[] {
   return readdirSync(DIRECTORIO_GUIAS)
     .filter((f) => f.endsWith('.mdx'))
     .map(leerGuia)
-    .sort((a, b) => a.titulo.localeCompare(b.titulo, 'es'));
+    .sort((a, b) => puesto(a.slug) - puesto(b.slug) || a.titulo.localeCompare(b.titulo, 'es'));
+}
+
+/** La fecha de la guía revisada más tarde (`AAAA-MM-DD` se ordena como texto). */
+export function ultimaActualizacion(guias: Pick<Guia, 'actualizado'>[]): string | null {
+  return guias.reduce<string | null>((max, g) => (max === null || g.actualizado > max ? g.actualizado : max), null);
 }
 
 export function buscarGuia(slug: string): Guia | null {

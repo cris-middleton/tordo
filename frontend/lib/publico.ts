@@ -158,19 +158,35 @@ export const LARGO_NOMBRE_PRODUCTO = 80;
 const CODIGO_INICIAL = /^[([]?[\d.,/\-]+[)\]]?$/;
 
 /**
+ * El registro sanitario del ISP que el comprador copia del catálogo: «D-232/21»,
+ * «Reg. ISP N° F-1234/18», «registro ISP». Identifica el registro, no el producto,
+ * y en un título se lee como ruido.
+ */
+const REGISTRO_ISP =
+  /(?:\b(?:reg(?:istro)?\.?\s*)?(?:sanitario\s*)?(?:isp\b\.?\s*)(?:n[°º.]?\s*)?)?\b[a-z]{1,2}-\d{2,6}\/\d{2,4}\b|\b(?:reg(?:istro)?\.?\s*)(?:sanitario\s*)?isp\b\.?/giu;
+
+/** «región ix» → «región IX»: el número de una región se escribe en romanos y en mayúscula. */
+const REGION_ROMANA = /\b(regi[oó]n)\s+([ivx]+)\b/giu;
+const ROMANO = /^x{0,3}(ix|iv|v?i{0,3})$/;
+
+/**
  * La descripción que escribe el comprador, lista para titular: sin los códigos
- * internos del principio ni tabuladores o saltos de línea, en tipo oración si
- * venía toda en mayúsculas y cortada en una palabra si es larga. `null` si no
- * queda nada con letras.
+ * internos del principio, sin el registro del ISP y sin tabuladores o saltos de
+ * línea, en tipo oración si venía toda en mayúsculas, con la región en romanos
+ * («región IX») y cortada en una palabra si es larga. `null` si no queda nada con
+ * letras.
  */
 function tituloDeDescripcion(descripcion: string | null | undefined): string | null {
   if (typeof descripcion !== 'string') return null;
-  const palabras = descripcion.replace(/\s+/g, ' ').trim().split(' ');
+  const palabras = descripcion.replace(REGISTRO_ISP, ' ').replace(/\s+/g, ' ').trim().split(' ');
   while (palabras.length && CODIGO_INICIAL.test(palabras[0])) palabras.shift();
   let texto = palabras.join(' ').replace(/[\s.,;:\-–]+$/u, '');
   if (!/\p{L}/u.test(texto)) return null;
   // Toda en mayúsculas: a tipo oración. Con minúsculas, el comprador ya eligió.
   if (!/\p{Ll}/u.test(texto)) texto = texto.toLowerCase();
+  texto = texto.replace(REGION_ROMANA, (todo, region: string, numero: string) =>
+    ROMANO.test(numero.toLowerCase()) ? `${region} ${numero.toUpperCase()}` : todo,
+  );
   if (texto.length > LARGO_NOMBRE_PRODUCTO) {
     const corte = texto.lastIndexOf(' ', LARGO_NOMBRE_PRODUCTO);
     texto = `${texto.slice(0, corte > 0 ? corte : LARGO_NOMBRE_PRODUCTO).replace(/[\s.,;:\-–]+$/u, '')}…`;

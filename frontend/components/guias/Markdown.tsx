@@ -9,6 +9,10 @@ import { idDeTitulo, type Bloque, type EnLinea } from '@/lib/markdown';
  * Los estilos van en cada elemento, con tokens: sin `@tailwindcss/typography`
  * (otra dependencia, y su paleta propia habría que domarla a tokens en los dos
  * temas).
+ *
+ * **El texto corrido va a 16 px y en `text`**, no en `muted`: un párrafo gris de
+ * 15 px se leía como nota al pie en una página que es toda lectura. Lo secundario
+ * (las celdas de una tabla, las fuentes) sigue en `muted`.
  */
 
 /** Un enlace del contenido: interno con `Link`, correo y `https` como `<a>`; lo demás, texto. */
@@ -96,12 +100,12 @@ function UnBloque({ b }: { b: Bloque }) {
     }
     case 'parrafo':
       return (
-        <p className="mt-4 leading-relaxed text-muted">
+        <p className="mt-4 leading-relaxed text-text">
           <Linea nodos={b.hijos} />
         </p>
       );
     case 'lista': {
-      const clase = `mt-4 space-y-2 pl-5 leading-relaxed text-muted ${b.ordenada ? 'list-decimal' : 'list-disc'}`;
+      const clase = `mt-4 space-y-2 pl-5 leading-relaxed text-text ${b.ordenada ? 'list-decimal' : 'list-disc'}`;
       const items = b.items.map((item, i) => (
         <li key={i} className="pl-1">
           <Linea nodos={item} />
@@ -167,7 +171,7 @@ function UnBloque({ b }: { b: Bloque }) {
 
 export function Markdown({ arbol }: { arbol: Bloque[] }) {
   return (
-    <div className="text-[0.95rem]">
+    <div className="text-base">
       {arbol.map((b, i) => (
         <UnBloque key={i} b={b} />
       ))}

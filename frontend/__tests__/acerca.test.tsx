@@ -20,6 +20,7 @@ const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
 afterEach(() => {
   delete process.env.AUTOR_NOMBRE;
   delete process.env.AUTOR_ROL;
+  delete process.env.AUTOR_URL;
   delete process.env.RESPONSABLE_LEGAL;
   delete process.env.REPOSITORIO_URL;
 });
@@ -69,16 +70,16 @@ describe('la página /acerca', () => {
   it('con AUTOR_NOMBRE y AUTOR_ROL dice quién lo hace, con su rol', () => {
     process.env.AUTOR_NOMBRE = '  Nombre De Prueba ';
     process.env.AUTOR_ROL = ' ingeniero que construye productos con datos ';
-    render(<PaginaAcerca />);
-    expect(
-      screen.getByText('Lo hace Nombre De Prueba, ingeniero que construye productos con datos, a título personal.'),
-    ).toBeInTheDocument();
+    const { container } = render(<PaginaAcerca />);
+    expect(container.querySelector('#quien-lo-hace p')).toHaveTextContent(
+      'Lo hace Nombre De Prueba, ingeniero que construye productos con datos, a título personal.',
+    );
   });
 
   it('con AUTOR_NOMBRE y sin AUTOR_ROL, sólo el nombre: no hay rol por defecto', () => {
     process.env.AUTOR_NOMBRE = 'Nombre De Prueba';
     const { container } = render(<PaginaAcerca />);
-    expect(screen.getByText('Lo hace Nombre De Prueba, a título personal.')).toBeInTheDocument();
+    expect(container.querySelector('#quien-lo-hace p')).toHaveTextContent(/^Lo hace Nombre De Prueba, a título personal\.$/);
     expect(container.textContent).not.toMatch(/data scientist/i);
   });
 
@@ -95,6 +96,35 @@ describe('la página /acerca', () => {
     expect(within(seccion).getByRole('link', { name: 'notas de datos' })).toHaveAttribute('href', '/notas');
     // Sin REPOSITORIO_URL no se enlaza el código.
     expect(within(seccion).queryByRole('link', { name: /código/i })).toBeNull();
+  });
+
+  it('con AUTOR_URL https el nombre enlaza ahí; sin ella, o con http, es texto', () => {
+    process.env.AUTOR_NOMBRE = 'Nombre De Prueba';
+    process.env.AUTOR_URL = 'https://github.com/prueba';
+    const con = render(<PaginaAcerca />);
+    const seccion = con.container.querySelector('section#quien-lo-hace') as HTMLElement;
+    expect(within(seccion).getByRole('link', { name: 'Nombre De Prueba' })).toHaveAttribute(
+      'href',
+      'https://github.com/prueba',
+    );
+    // Las notas, como su trabajo, en una frase que no se alaba.
+    expect(seccion.textContent).toMatch(/Su trabajo se lee en las notas de datos: cada una cuenta un error/);
+    con.unmount();
+
+    process.env.AUTOR_URL = 'http://github.com/prueba';
+    const sin = render(<PaginaAcerca />).container.querySelector('section#quien-lo-hace') as HTMLElement;
+    expect(within(sin).queryByRole('link', { name: 'Nombre De Prueba' })).toBeNull();
+  });
+
+  it('el texto corrido va a 16 px y en text, no chico y gris', () => {
+    process.env.AUTOR_NOMBRE = 'Nombre De Prueba';
+    const { container } = render(<PaginaAcerca />);
+    for (const id of ['que-es', 'datos', 'financiacion', 'quien-lo-hace']) {
+      const p = container.querySelector(`section#${id} p`) as HTMLElement;
+      const caja = p.closest('[class*="text-"]') as HTMLElement;
+      expect(caja.className, id).toMatch(/\btext-base\b/);
+      expect(caja.className, id).toMatch(/\btext-text\b/);
+    }
   });
 
   it('con REPOSITORIO_URL, «Quién lo hace» enlaza al código', () => {

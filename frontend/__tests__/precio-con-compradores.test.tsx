@@ -130,6 +130,17 @@ describe('nombreProducto', () => {
     ['353-0050 TORNILLO CORTICAL 3.5 X 12 MM', 'Tornillo cortical 3.5 x 12 mm'],
     ['9\tGuía metálica J 0.35 x 260 cm\n', 'Guía metálica J 0.35 x 260 cm'],
     ['  IMPRESORA MULTIFUNCIONAL.  ', 'Impresora multifuncional'],
+    // El registro del ISP no es parte del nombre, y la región va en romanos.
+    [
+      'CLORO CONCENTRADO IMPEKE BOTELLA 5% 1000 ML D-232/21 REGIÓN IX',
+      'Cloro concentrado impeke botella 5% 1000 ml región IX',
+    ],
+    ['Alcohol gel 1 lt Reg. ISP N° F-1234/18', 'Alcohol gel 1 lt'],
+    ['DESINFECTANTE AMONIO CUATERNARIO REGISTRO ISP D-55/20', 'Desinfectante amonio cuaternario'],
+    ['Jabón líquido reg isp', 'Jabón líquido'],
+    ['Servicio de aseo region xiv', 'Servicio de aseo region XIV'],
+    // Un «vi» que no sigue a «región» no es un número romano.
+    ['Vaso vi 250 cc', 'Vaso vi 250 cc'],
   ])('«%s» → «%s»', (descripcion, esperado) => {
     expect(nombreProducto(p(descripcion))).toBe(esperado);
   });

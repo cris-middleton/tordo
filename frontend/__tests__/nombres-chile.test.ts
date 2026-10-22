@@ -23,6 +23,17 @@ describe('normalizeText', () => {
     expect(normalizeText('LAPICES O BOLIGRAFOS')).toBe('Lapices o Boligrafos');
   });
 
+  it('«el» va en minúscula detrás de una preposición, y sólo ahí', () => {
+    // La crítica de producción del 22-10: «para El Hospital», «para El CMT».
+    expect(normalizeText('SERVICIO DE ASEO PARA EL HOSPITAL')).toBe('Servicio de Aseo para el Hospital');
+    expect(normalizeText('MANTENCION DE EQUIPOS PARA EL CMT')).toBe('Mantencion de Equipos para el CMT');
+    expect(normalizeText('CAPACITACION EN EL USO Y EL CUIDADO')).toBe('Capacitacion en el Uso y el Cuidado');
+    // Detrás de un sustantivo abre un nombre propio, que no es un lugar.
+    expect(normalizeText('HOSPITAL EL PINO')).toBe('Hospital El Pino');
+    expect(normalizeText('JARDIN INFANTIL EL PRINCIPITO')).toBe('Jardin Infantil El Principito');
+    expect(normalizeText('EL MERCURIO')).toBe('El Mercurio');
+  });
+
   it('la primera palabra va con mayúscula aunque sea una preposición', () => {
     expect(normalizeText('DE LA FUENTE CONSTRUCCIONES')).toBe('De la Fuente Construcciones');
     expect(normalizeText('LA CONSTRUCCION DEL PUENTE')).toBe('La Construccion del Puente');
@@ -35,6 +46,12 @@ describe('normalizeText', () => {
     expect(normalizeText('SERVICIO DE SALUD DE LOS RÍOS')).toBe('Servicio de Salud de Los Ríos');
     expect(normalizeText('REGIÓN DE LA ARAUCANÍA')).toBe('Región de La Araucanía');
     expect(normalizeText('I MUNICIPALIDAD DE PADRE LAS CASAS')).toBe('I Municipalidad de Padre Las Casas');
+    expect(normalizeText('ILUSTRE MUNICIPALIDAD DE EL QUISCO')).toBe('Ilustre Municipalidad de El Quisco');
+    expect(normalizeText('MUNICIPALIDAD DE EL BOSQUE')).toBe('Municipalidad de El Bosque');
+    expect(normalizeText('I. MUNICIPALIDAD DE EL TABO')).toBe('I. Municipalidad de El Tabo');
+    expect(normalizeText('MUNICIPALIDAD DE EL MONTE')).toBe('Municipalidad de El Monte');
+    expect(normalizeText('MUNICIPALIDAD DE EL CARMEN')).toBe('Municipalidad de El Carmen');
+    expect(normalizeText('PROVINCIA DE EL LOA')).toBe('Provincia de El Loa');
   });
 
   it('no inventa tildes ni toca lo que no es palabra', () => {

@@ -262,7 +262,8 @@ ninguna página ni layout de grupo pinta cabecera, pie, `PieAtribucion` ni `<mai
   el 28 oct a las 12:00» o «Cerró el 12 oct»; en lo que se sirve desde caché o del servidor (la portada,
   `/buscar`, la ficha del comprador; `cierreFijo`) siempre la fecha con su hora. Convivían «Cierra en 6
   días», «Cierra el 2 nov 2026» y «Cierra en 3 h» para lo mismo. La fila de licitación de `/buscar` tiene
-  la forma de `FilaLicitacion` (nombre, comprador y región, cierre y código, monto a la derecha), sin
+  la forma de `FilaLicitacion` (nombre, comprador y región, cierre y código, monto a la derecha; **sin
+  monto, nada**: un «Sin monto» gris en más de la mitad de las filas tapaba los montos), sin
   «guardar».
 - **Un monto de Compra Ágil bajo `MONTO_SIMBOLICO` ($1.000) es «Sin monto»** (`montoDeclarado`): hay
   quien escribe $1 para no declarar nada. En `/compra-agil`, una fila de la misma unidad que la de arriba
@@ -303,8 +304,10 @@ ninguna página ni layout de grupo pinta cabecera, pie, `PieAtribucion` ni `<mai
 - **Los nombres de Mercado Público se escriben con `normalizeText`** (`lib/nombresChile.ts`): llegan
   en MAYÚSCULAS y salen con mayúscula inicial, pero «de», «del», «la», «las», «los», «y», «e», «o»,
   «en», «a», «al», «por», «para» y «con» en minúscula salvo al principio («Policia de Investigaciones de
-  Chile»). Un artículo que es parte de una comuna o región la conserva («Municipalidad de Las
-  Condes», `LUGARES_CON_ARTICULO`): ante la duda, mayúscula. Las tildes que faltan no se inventan.
+  Chile»). **«El» va en minúscula sólo detrás de una de esas palabras** («para el Hospital», «en el
+  CMT»): delante abre nombres propios que no son lugares («Hospital El Pino», «Jardín Infantil El
+  Principito»). Un artículo que es parte de una comuna o región la conserva («Municipalidad de Las
+  Condes», «de El Quisco», `LUGARES_CON_ARTICULO`): ante la duda, mayúscula. Las tildes que faltan no se inventan.
   Van enteros en mayúscula los romanos («II Región»), las abreviaturas de letra doble («OO PP»,
   «FF.AA.») y las palabras sin vocal («DCYF», «PVC»; no «Dr» ni «Sn»); tras un punto o un apóstrofo
   va mayúscula («S.A.», «I.Municipalidad», «O'Higgins»), y `PARTIDAS` une las palabras que el dato
@@ -691,13 +694,22 @@ dónde salen los datos, cómo se financia— y las preguntas frecuentes (`PREGUN
 `lib/acerca.ts`). Indexable, en `PAGINAS_FIJAS`, enlazada desde el pie junto a las licencias y
 el contacto (no es una sección de la navegación). Las preguntas son `<details>` sin caja, entre
 filetes, con el `<summary>` de 44 px como mínimo; «Quién lo hace» es su propia sección y sólo sale
-con `AUTOR_NOMBRE` (enlaza a `/notas` y, con `REPOSITORIO_URL`, al código).
+con `AUTOR_NOMBRE`: el nombre enlaza a `AUTOR_URL` si está, señala las notas de datos como su
+trabajo y, con `REPOSITORIO_URL`, enlaza al código.
+
+**El texto corrido de las páginas de lectura va a 16 px y en `text`** (`text-base leading-relaxed
+text-text`): `/acerca`, `/apoyar`, `/abierto` y el cuerpo de guías y notas (`components/guias/Markdown.tsx`).
+Era `text-sm text-muted`, que se leía como nota al pie. Lo secundario sigue chico: el subtítulo de
+la cabecera, la letra chica, los pasos de instalación, las celdas de tabla y las fuentes.
 
 **Guías** (`/guias`, `/guias/[slug]`): el contenido vive en `frontend/content/explicativos/*.mdx`
 (Markdown plano; el test de frontmatter prohíbe `{` y `<`) y se publica en **`/guias/`** — los
 enlaces internos ya apuntan ahí. Se renderiza con `lib/markdown.ts`, sin `@next/mdx`: el
 contenido no usa JSX y cinco dependencias para eso no valen la pena. Si una guía necesita algo
-que el parser no soporta, se amplía el parser con su test. `guias.test.tsx` comprueba que cada
+que el parser no soporta, se amplía el parser con su test. **El índice va en orden de lectura**
+(`ORDEN_GUIAS` en `lib/guias.ts`: los datos y las cuatro formas de comprar primero), no por título,
+y una guía nueva hace fallar `guias.test.tsx` hasta tener su lugar; la fecha sale una vez, la de la
+última revisada (`ultimaActualizacion`). `guias.test.tsx` comprueba que cada
 enlace interno de cada guía resuelve. **Cada título lleva un `id`** (`idDeTitulo`: minúsculas, sin
 tildes ni signos), que es el ancla de los «Cómo se calcula»: renombrar un título rompe su ancla, y
 `metodo.test.ts` lo dice. El texto dice «TORDO» y se sustituye por `APP_NAME` al
@@ -758,12 +770,18 @@ y `/apoyar` lo leen de ahí (la prosa de `/apoyar` sale de las mismas constantes
 delante, el botón quedaba a 3,5 pantallas en un teléfono), y el total sale dos veces: en la entrada
 y en la fila «Total». La tabla es una sola en los dos anchos (`components/apoyar/TablaCostos.tsx`):
 desde `sm`, tres columnas con filetes y sin caja; por debajo, cada fila pone concepto y monto en una
-línea y «Cómo se sabe» debajo, con los roles de tabla explícitos porque cambia su `display`.
+línea y «Cómo se sabe» debajo, con los roles de tabla explícitos porque cambia su `display`. **Ocupa la
+columna entera** (`max-w-none` le gana al tope de 31 rem de `.lectura`) y «Cómo se sabe» se lleva el
+60 %. Bajo los botones, una frase («Un aporte es una donación: quien aporta ve el mismo sitio que
+cualquiera.») y el enlace a los términos, que dicen el resto: eran cuatro líneas de negaciones.
 
 **Abierto** (`/abierto`): API, MCP con una fila de instalación por cliente (una lista con filetes;
 en rejilla de dos, la quinta caja quedaba sola), CSV y RSS, código y
 licencias (código AGPL-3.0 o posterior, `AGPL-3.0-or-later`; lo que el sitio calcula, CC BY 4.0; el catálogo, condiciones de
-ChileCompra — los términos §4 y §7 lo dicen igual). **La dirección pública de la API vive sólo en
+ChileCompra — los términos §4 y §7 lo dicen igual). **Cada fragmento (`Codigo`, `components/abierto/Bloques.tsx`) lleva un botón «Copiar»** (`BotonCopiar`,
+la única isla de la página: `navigator.clipboard`, «Copiado» anunciado con `aria-live`, «Cópialo a
+mano» sin permiso), parte las líneas largas en vez de desplazarse y ocupa el ancho de su columna. Las
+descripciones de las herramientas empiezan en minúscula: van tras «nombre:». **La dirección pública de la API vive sólo en
 `lib/abierto.ts`** (`ORIGEN_API_PUBLICA`, test que lo exige): no es `API_URL`, que es a dónde
 habla el proxy. **La URL del MCP se publica siempre con barra final.** Las cuatro herramientas
 están copiadas a mano y `backend/tests/test_mcp.py` las compara con el `tools/list` real.
