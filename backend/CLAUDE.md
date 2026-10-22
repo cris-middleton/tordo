@@ -79,8 +79,7 @@
   - **En memoria exige UN worker**: con `WEB_CONCURRENCY=N` cada proceso lleva sus
     contadores y el límite real es N×. Avisa al arrancar si lo ve.
   - **La memoria está acotada**: al cambiar de minuto se tira el diccionario entero, y hay
-    techo de 50.000 IP por minuto; pasado, una IP nueva entra sin contarse (no se desaloja a
-    las que ya se cuentan, que son las que más piden).
+    techo de 50.000 IP por minuto; pasado, las IP nuevas comparten un cubo de `FACTOR_DESBORDE` (10) veces el límite: no se desaloja a las que ya se cuentan, y llenar el techo ya no quita el límite el resto del minuto.
   - **De dónde sale la IP — el modelo de confianza.** `request.client.host` detrás de
     Railway es el balanceador: contar por él metía a todo internet en un cubo. En orden:
     (1) con `X-Tordo-Proxy` == `PROXY_SECRETO` (tiempo constante), la IP de
