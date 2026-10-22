@@ -792,6 +792,10 @@ ninguna página ni layout de grupo pinta cabecera, pie, `PieAtribucion` ni `<mai
   «en», «a», «al», «por», «para» y «con» en minúscula salvo al principio («Policia de Investigaciones de
   Chile»). Un artículo que es parte de una comuna o región la conserva («Municipalidad de Las
   Condes», `LUGARES_CON_ARTICULO`): ante la duda, mayúscula. Las tildes que faltan no se inventan.
+  Van enteros en mayúscula los romanos («II Región»), las abreviaturas de letra doble («OO PP»,
+  «FF.AA.») y las palabras sin vocal («DCYF», «PVC»; no «Dr» ni «Sn»); tras un punto o un apóstrofo
+  va mayúscula («S.A.», «I.Municipalidad», «O'Higgins»), y `PARTIDAS` une las palabras que el dato
+  trae cortadas («DIREC CION»). Salía «Direc Cion Gral de Oo Pp Dcyf».
   La ficha del comprador y la tabla de compradores del rubro también lo pasan (analytics trae
   los nombres en mayúsculas). `__tests__/nombres-chile.test.ts`.
 - **«Código» sólo con `REPOSITORIO_URL`** (`lib/repositorio.ts`), y por eso la cabecera tiene que
@@ -1029,7 +1033,10 @@ está el mercado (resumen, panorama y crecimiento) → dónde mirar primero → 
 herramientas. **Sin rubro en la URL abre en el de más mercados** (`/bi/rubros` viene por frecuencia;
 el elegido por defecto no se escribe en la URL): antes abría con tres recuadros vacíos. La
 cabecera del rubro la pinta `PanoramaRubro` desde `GET /bi/panorama`, que es una sola
-llamada para las cuatro preguntas de mercado. **Ya no hay Recharts en `/mercado`**: sectores y
+llamada para las cuatro preguntas de mercado. **El resumen de arriba (`narrative/templates.ts`) dice
+sólo lo que esas cifras no dicen**: cuánto crece el rubro y su comprador más activo, con periodo. Repetía
+el monto, los proveedores y unos compradores del último año junto a «Compradores en 36 meses»
+(`__tests__/resumen-rubro.test.ts`). **Ya no hay Recharts en `/mercado`**: sectores y
 proveedores son `components/graficos/BarrasHorizontales.tsx` y los meses y años,
 `components/graficos/Columnas.tsx`, que siguen la guía de gráficos (`PROPIOS`). Sin «¿Son
 confiables?», sin la insignia «excelente», sin «Probabilidad de compra», sin semáforos: la nota

@@ -5,7 +5,7 @@ import { BarrasHorizontales } from '@/components/graficos/BarrasHorizontales';
 import { rango } from '@/components/publico/CifrasBanda';
 import { decimal } from '@/lib/formato';
 import { motivoParaPersona } from '@/lib/motivos';
-import { plata } from '@/lib/publico';
+import { plata, rutaComprador } from '@/lib/publico';
 import type { BIPanel, CompetidoresPanel, PrecioFallback, TenderDetail, VentanaPanel } from '@/types/licitacionDetalle';
 
 const TITULO = 'font-sans text-lg font-semibold text-text';
@@ -145,7 +145,7 @@ function Precios({ precios }: { precios: PrecioFallback[] }) {
  * de arriba y la tarjeta «Mercado» que repetía este mismo panel.
  */
 export default function BIPanelSection({ panel }: { panel: BIPanel; tender?: TenderDetail }) {
-  const { comprador, ventana, competidores, precios } = panel;
+  const { comprador, ventana, competidores, precios, organismo_id } = panel;
   // Sin nada que comparar (lo normal en una Compra Ágil de un comprador sin
   // historia en el análisis), una línea y no cuatro «Todavía no tenemos…».
   const vacio =
@@ -168,6 +168,7 @@ export default function BIPanelSection({ panel }: { panel: BIPanel; tender?: Ten
         comprador={comprador}
         titulo="Cómo compra"
         nivel="h3"
+        senales={organismo_id ? { enlace: rutaComprador(organismo_id) } : 'contar'}
       />
       <Competencia competidores={competidores} />
       <Precios precios={precios} />

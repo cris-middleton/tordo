@@ -53,19 +53,62 @@ const LUGARES_CON_ARTICULO = new Set([
 
 const sinTildes = (palabra: string) => palabra.normalize('NFD').replace(/[̀-ͯ]/g, '');
 
-/** «(SERVIU» → «(Serviu»: la mayúscula va en la primera letra, no en el signo. */
+/**
+ * «(SERVIU» → «(Serviu»: la mayúscula va en la primera letra, no en el signo. Y
+ * también tras un punto o un apóstrofo: «S.A.», «I.Municipalidad», «Dr.Victor»
+ * y «O'Higgins», no «S.a.», «I.municipalidad»…
+ */
 const capitalizar = (palabra: string) =>
-  palabra.toLowerCase().replace(/^([^\p{L}\p{N}]*)(\p{L})/u, (_, signos: string, letra: string) => signos + letra.toUpperCase());
+  palabra
+    .toLowerCase()
+    .replace(/^([^\p{L}\p{N}]*)(\p{L})/u, (_, signos: string, letra: string) => signos + letra.toUpperCase())
+    .replace(/(['.’])(\p{L})/gu, (_, signo: string, letra: string) => signo + letra.toUpperCase());
+
+/** «II Región», no «Ii Region». Las de una letra salen bien con `capitalizar`. */
+const ROMANO = /^(?=[ivx]{2,}$)x{0,3}(ix|iv|v?i{0,3})$/;
+
+/** «OO PP», «FF.AA.», «EE.UU.»: las abreviaturas de plural se escriben con la letra doble en mayúscula. */
+const LETRA_DOBLE = /^((\p{L})\2)+$/u;
+
+/**
+ * Una palabra sin vocales es una sigla («DCYF», «PVC», «XL»), salvo estas
+ * abreviaturas, que se escriben con mayúscula inicial («Dr Salvador Allende»).
+ */
+const ABREVIATURAS_SIN_VOCAL = new Set(['dr', 'dra', 'sr', 'sra', 'srta', 'sn', 'st', 'mr', 'pbro', 'hn', 'hnos', 'ltd']);
+
+/** Las formas societarias, como se escriben. */
+const SOCIETARIAS: Record<string, string> = { spa: 'SpA', eirl: 'EIRL', sa: 'SA' };
+
+/**
+ * Palabras que llegan partidas en el dato de ChileCompra. Unirlas no inventa
+ * nada: es la misma palabra, sin el espacio de más. «MINISTERIO DE OBRAS
+ * PUBLICAS DIREC CION GRAL DE OO PP DCYF» salía «Direc Cion Gral de Oo Pp Dcyf».
+ */
+const PARTIDAS: [RegExp, string][] = [[/\bDIREC CION\b/gi, 'DIRECCION']];
+
+/** Cómo se escribe una palabra que no va en minúscula. */
+function escribir(palabra: string): string {
+  const baja = palabra.toLowerCase();
+  const letras = baja.replace(/[^\p{L}]/gu, '');
+  if (SOCIETARIAS[letras] && letras === baja) return SOCIETARIAS[letras];
+  if (ROMANO.test(letras) && letras === baja) return palabra.toUpperCase();
+  if (letras.length >= 2 && LETRA_DOBLE.test(letras)) return palabra.toUpperCase();
+  if (letras.length >= 2 && !/[aeiouáéíóúü]/.test(letras) && !ABREVIATURAS_SIN_VOCAL.has(letras)) {
+    return palabra.toUpperCase();
+  }
+  return capitalizar(palabra);
+}
 
 /**
  * Los nombres llegan en MAYÚSCULAS desde Mercado Público. Aquí se pasan a
  * mayúscula inicial para que se puedan leer, con las preposiciones, artículos y
- * conjunciones en minúscula (`MINUSCULAS`) salvo al principio. Las tildes que
- * faltan vienen del dato y no se inventan.
+ * conjunciones en minúscula (`MINUSCULAS`) salvo al principio, y las siglas,
+ * los números romanos y las abreviaturas en mayúscula (`escribir`). Las tildes
+ * que faltan vienen del dato y no se inventan.
  */
 export const normalizeText = (text: string | undefined): string => {
   if (!text) return '';
-  const palabras = text.split(' ');
+  const palabras = PARTIDAS.reduce((t, [patron, arreglo]) => t.replace(patron, arreglo), text).split(' ');
   let primera = true;
   return palabras
     .map((word, i) => {
@@ -73,7 +116,7 @@ export const normalizeText = (text: string | undefined): string => {
       const baja = word.toLowerCase();
       const esPrimera = primera;
       primera = false;
-      if (esPrimera || !MINUSCULAS.has(baja)) return capitalizar(word);
+      if (esPrimera || !MINUSCULAS.has(baja)) return escribir(word);
       if (ARTICULOS.has(baja)) {
         const siguiente = palabras.slice(i + 1).find(Boolean);
         if (siguiente && LUGARES_CON_ARTICULO.has(sinTildes(siguiente.toLowerCase()))) return capitalizar(word);

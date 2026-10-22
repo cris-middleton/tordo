@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { motivoParaPersona } from '@/lib/motivos';
 import { decimal } from '@/lib/formato';
 
@@ -42,11 +44,19 @@ export function BuyerProfilePanel({
   titulo = 'Cómo compra',
   nivel = 'h2',
   extra,
+  senales = 'contar',
 }: BuyerProfilePanelProps & {
   titulo?: string;
   nivel?: 'h2' | 'h3';
   /** Más cifras en el mismo bloque (la ficha del comprador suma su volumen). Con ellas, la base no se repite. */
   extra?: { etiqueta: string; valor: string }[];
+  /**
+   * Qué hacer con las señales del historial. Sólo llega cuántas son (el panel
+   * de una licitación no trae cuáles), y «tiene 2 señales» sin decir cuáles no
+   * le sirve a nadie: con la ruta de su ficha, la línea enlaza ahí, donde se
+   * nombran. `'ocultar'` en la propia ficha, que las lista justo debajo.
+   */
+  senales?: 'contar' | 'ocultar' | { enlace: string };
 }) {
   const Titulo = nivel;
   const pct = (v?: number | null) => (v == null ? '—' : `${Math.round(v * 100)}%`);
@@ -87,10 +97,21 @@ export function BuyerProfilePanel({
               </div>
             ))}
           </dl>
-          {comprador.n_flags != null && comprador.n_flags > 0 && (
+          {senales !== 'ocultar' && comprador.n_flags != null && comprador.n_flags > 0 && (
             <p className="mt-3 text-sm text-muted">
-              Tiene {comprador.n_flags} {comprador.n_flags === 1 ? 'señal' : 'señales'} de alerta en su historia.
-              Conviene saberlo antes de postular.
+              Su historial tiene {comprador.n_flags} {comprador.n_flags === 1 ? 'señal' : 'señales'} que conviene
+              conocer antes de postular
+              {typeof senales === 'object' ? (
+                <>
+                  :{' '}
+                  <Link href={senales.enlace} className="enlace">
+                    {comprador.n_flags === 1 ? 'cuál es' : 'cuáles son'}, en su ficha
+                  </Link>
+                  .
+                </>
+              ) : (
+                '.'
+              )}
             </p>
           )}
         </>

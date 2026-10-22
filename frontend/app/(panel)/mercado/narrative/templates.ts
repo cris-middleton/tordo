@@ -1,5 +1,5 @@
 import { ResumenMercado } from '../types';
-import { decimal, monto } from '@/lib/formato';
+import { decimal } from '@/lib/formato';
 import { MESES_ANALISIS } from '@/lib/periodo';
 import { normalizeText } from '@/lib/nombresChile';
 
@@ -20,55 +20,41 @@ function esc(texto: string): string {
     .replace(/"/g, '&quot;');
 }
 
-/** El monto en el formato de todo el sitio (`monto`). */
-const formatCLP = (value: number): string => monto(value);
-
-export function frase1(r: ResumenMercado): string | null {
-  if (!r.rubro) return null;
-  if (r.monto_anual_clp == null && r.n_organismos == null) return null;
-
-  const parts: string[] = [];
-  parts.push(`En el último año completo, <b>${esc(r.rubro)}</b>`);
-
-  if (r.monto_anual_clp != null) {
-    parts.push(`movió <b>${formatCLP(r.monto_anual_clp)}</b>`);
-  }
-
-  if (r.n_organismos != null) {
-    if (r.monto_anual_clp != null) {
-      parts.push(`entre <b>${r.n_organismos.toLocaleString('es-CL')} compradores</b>`);
-    } else {
-      parts.push(`tuvo <b>${r.n_organismos.toLocaleString('es-CL')} compradores</b>`);
-    }
-  }
-
-  return parts.join(' ') + '.';
+/** Quién se dice que crece: «las compras de <rubro>», o del rubro si no hay nombre. */
+function sujeto(r: ResumenMercado): string {
+  return r.rubro ? `Las compras de <b>${esc(r.rubro)}</b>` : 'Las compras del rubro';
 }
 
-/** Los proveedores salen de la ventana de analytics, no del último año: se dice. */
-function proveedores(n: number): string {
-  return `En los últimos ${MESES_ANALISIS} meses le vendieron <b>${n.toLocaleString('es-CL')} proveedores</b>.`;
-}
-
+/**
+ * Cómo ha cambiado el rubro: la única cifra del resumen.
+ *
+ * El monto del año, los compradores y los proveedores ya no van aquí: están en
+ * las cifras de justo debajo (`PanoramaRubro`), cada una con su periodo. Aquí
+ * se repetían, y los compradores salían dos veces con dos periodos distintos
+ * —los del último año en la frase y los de 36 meses en la cifra—, uno al lado
+ * del otro.
+ */
 export function frase2(r: ResumenMercado): string | null {
   const cagr = r.cagr_pct;
   const yoy = r.yoy_pct;
   if (cagr == null && yoy == null) return null;
 
-  // Helpers
-  const fmtPct = (v: number) => `${v > 0 ? '+' : ''}${decimal(v, 0)} %`;
-  const sinSigno = (v: number) => `${decimal(Math.abs(v), 0)} %`;
+  // Un decimal, como la conclusión del gráfico por año (`TendenciasSection`):
+  // «12 %» arriba y «12,4 %» abajo parecían dos cifras.
+  const fmtPct = (v: number) => `${v > 0 ? '+' : ''}${decimal(v, 1)} %`;
+  const sinSigno = (v: number) => `${decimal(Math.abs(v), 1)} %`;
+  const quien = sujeto(r);
 
   // Clasificación del CAGR histórico (lenguaje en pasado/promedio, no "está")
   let leading: string;
   if (cagr != null && cagr > 10) {
-    leading = `Ha crecido <b>${sinSigno(cagr)} al año</b> en promedio`;
+    leading = `${quien} han crecido <b>${sinSigno(cagr)} al año</b> en promedio`;
   } else if (cagr != null && cagr < -5) {
-    leading = `Se ha achicado <b>${sinSigno(cagr)} al año</b> en promedio`;
+    leading = `${quien} se han achicado <b>${sinSigno(cagr)} al año</b> en promedio`;
   } else if (cagr != null) {
-    leading = `Se ha mantenido <b>estable</b> (${fmtPct(cagr)} al año en promedio)`;
+    leading = `${quien} se han mantenido <b>estables</b> (${fmtPct(cagr)} al año en promedio)`;
   } else {
-    leading = `El último año cambió <b>${fmtPct(yoy!)}</b>`;
+    leading = `${quien} cambiaron <b>${fmtPct(yoy!)}</b> el último año`;
   }
 
   // Si CAGR y YoY divergen mucho (abs diff > 15pp) → tendencia reciente distinta al promedio
@@ -76,35 +62,18 @@ export function frase2(r: ResumenMercado): string | null {
 
   if (divergent) {
     if (Math.abs(yoy!) < 5) {
-      return `${leading}, pero el último año <b>se estancó</b> (${fmtPct(yoy!)}).`;
+      return `${leading}, pero el último año <b>se estancaron</b> (${fmtPct(yoy!)}).`;
     }
     if ((cagr < 0 && yoy! > 0) || (cagr > 0 && yoy! < 0)) {
-      const direction = yoy! > 0 ? 'subió' : 'bajó';
+      const direction = yoy! > 0 ? 'subieron' : 'bajaron';
       return `${leading}, aunque el último año <b>${direction} ${sinSigno(yoy!)}</b>.`;
     }
-    return `${leading}, y el último año cambió <b>${fmtPct(yoy!)}</b>.`;
+    return `${leading}, y el último año cambiaron <b>${fmtPct(yoy!)}</b>.`;
   }
 
-  // Caso normal: CAGR y YoY consistentes (o solo tenemos uno)
   if (yoy != null && Math.abs(yoy) >= 2 && cagr != null) {
-    if (r.n_proveedores_actual != null) {
-      return `${leading} (el último año, ${fmtPct(yoy)}). ${proveedores(r.n_proveedores_actual)}`;
-    }
     return `${leading} (el último año, ${fmtPct(yoy)}).`;
   }
-
-  // Sin YoY o YoY muy pequeño.
-  //
-  // Aquí había una rama que comparaba los proveedores de hoy contra los de hace
-  // tres años. El campo nunca llegó a existir en la respuesta: el teaser sólo
-  // manda el conteo actual, así que `n_proveedores_hace_3_anios` era siempre
-  // `undefined` y la rama estaba muerta desde el primer día. Contar una
-  // evolución de la competencia exigiría una serie por rubro que el pipeline no
-  // materializa — y decirla a medias es peor que no decirla.
-  if (r.n_proveedores_actual != null) {
-    return `${leading}. ${proveedores(r.n_proveedores_actual)}`;
-  }
-
   return `${leading}.`;
 }
 
@@ -128,11 +97,13 @@ export function frase3(r: ResumenMercado): string | null {
   // `n_oc_total` —todas las suyas— salía «con 1.596.100 órdenes» en un rubro
   // que en total tenía 6.377.
   if (t.n_oc_rubro != null && t.n_oc_rubro > 0) {
-    return `El comprador más activo es <b>${esc(normalizeText(t.nombre))}</b>, con <b>${t.n_oc_rubro.toLocaleString('es-CL')} órdenes</b> en este rubro.`;
+    // `n_transacciones` de `opportunity_scores`: las órdenes de la ventana de
+    // analytics (`competitors_by_market`), no las de un año.
+    return `El comprador más activo es <b>${esc(normalizeText(t.nombre))}</b>, con <b>${t.n_oc_rubro.toLocaleString('es-CL')} órdenes</b> en este rubro en los últimos ${MESES_ANALISIS} meses.`;
   }
   return `El comprador más activo es <b>${esc(normalizeText(t.nombre))}</b>.`;
 }
 
 export function buildFrases(r: ResumenMercado): string[] {
-  return [frase1(r), frase2(r), frase3(r)].filter((f): f is string => f !== null);
+  return [frase2(r), frase3(r)].filter((f): f is string => f !== null);
 }
