@@ -154,7 +154,7 @@ export function CompetenciaSection({
           etiqueta="Parte del monto que compra este comprador que se lleva cada proveedor"
           filas={competidores.slice(0, 10).map((c) => ({
             clave: c.CodigoProveedor,
-            etiqueta: c.NombreProveedor,
+            etiqueta: normalizeText(c.NombreProveedor),
             valor: c.market_share_pct,
             texto: `${decimal(c.market_share_pct, 1)} %`,
             // `win_rate_pct` es n_oc / órdenes del mercado (etl/analytics/competitor_analysis.py):
