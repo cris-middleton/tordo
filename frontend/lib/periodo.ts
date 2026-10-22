@@ -6,6 +6,8 @@
  * Una cifra sin periodo se lee como «de siempre», y no lo es.
  */
 
+import { fechaCortaDeIntl } from './formato';
+
 /**
  * Cuántos meses de historia lee cada análisis. **Copias de las constantes del
  * ETL** —`VENTANA_ANALYTICS_MESES` (`etl/analytics/data_loader.py`),
@@ -26,8 +28,8 @@ export interface Periodo {
 const MES = new Intl.DateTimeFormat('es-CL', { month: 'short', year: 'numeric', timeZone: 'UTC' });
 
 function mesCorto(iso: string): string {
-  // «abr 2025», sin el punto que Intl le pone a la abreviatura.
-  return MES.format(new Date(`${iso.slice(0, 10)}T00:00:00Z`)).replace('.', '');
+  // «abr 2025» y «sep 2025»: sin el punto que Intl le pone a la abreviatura ni su «sept».
+  return fechaCortaDeIntl(MES.format(new Date(`${iso.slice(0, 10)}T00:00:00Z`)));
 }
 
 /** «abr 2025 – mar 2026 (12 meses)», o null si no hay periodo. */

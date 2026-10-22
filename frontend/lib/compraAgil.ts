@@ -12,6 +12,7 @@
 
 import type { CompraAgilDestacada, CompradorCompraAgil } from '@/types/compraAgil';
 
+import { fechaCortaDeIntl } from './formato';
 import { formatCurrency } from './licitacionEstado';
 
 const ZONA = 'America/Santiago';
@@ -150,7 +151,7 @@ export function textoCompetencia(
   const leido = ofertasAl ? Date.parse(ofertasAl) : Number.NaN;
   const lista = actualizadoEn ? Date.parse(actualizadoEn) : Number.NaN;
   if (Number.isFinite(leido) && Number.isFinite(lista) && lista - leido > VIGENCIA_COTIZACIONES) {
-    const cuando = fechaHoraCorta.format(new Date(leido));
+    const cuando = fechaCortaDeIntl(fechaHoraCorta.format(new Date(leido)));
     if (ofertas === 0) return `Sin cotizaciones al ${cuando}`;
     return `${ofertas} ${ofertas === 1 ? 'cotización' : 'cotizaciones'} al ${cuando}`;
   }
@@ -337,7 +338,8 @@ export function frescura(actualizadoEn: string | null, ahora: number | null): Fr
         }).format(fecha);
   return {
     hora,
-    dia,
+    // «vie 25 sep», como en la portada: era «vie, 25 sept.».
+    dia: dia && fechaCortaDeIntl(dia),
     desactualizado: ahora !== null && seSaltoUnaCorrida(instante, ahora),
   };
 }

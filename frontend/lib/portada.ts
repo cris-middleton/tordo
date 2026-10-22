@@ -17,7 +17,7 @@ import type { ResumenPortada } from '@/types/publico';
 
 import { HORAS_FIN_DE_SEMANA, HORAS_HABILES, seSaltoUnaCorrida } from './compraAgil';
 import { urlCatalogoAbiertas } from './filtrosCatalogo';
-import { decimal } from './formato';
+import { decimal, fechaCortaDeIntl } from './formato';
 import { diaYHora, esConteo, esFechaOAusente } from './lecturasPortada';
 import { normalizeText } from './nombresChile';
 import { rangoDeMeses } from './periodo';
@@ -106,17 +106,16 @@ export function actualizadoEnPalabras(iso: string | null): string | null {
     day: 'numeric',
     month: 'short',
   })
-    .format(fecha)
-    .replace(/\.$/, '')
-    // «jue 22 oct», sin la coma tras el día: «Actualizado el jue, 22 oct» se leía torpe.
-    .replace(/^(\p{L}+),\s*/u, '$1 ');
+    .format(fecha);
+  // «jue 22 oct», sin la coma tras el día: «Actualizado el jue, 22 oct» se leía torpe.
+  const diaLimpio = fechaCortaDeIntl(dia);
   const hora = new Intl.DateTimeFormat('es-CL', {
     timeZone: zona,
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
   }).format(fecha);
-  return `${dia}, ${hora}`;
+  return `${diaLimpio}, ${hora}`;
 }
 
 export interface CifraPortada {
