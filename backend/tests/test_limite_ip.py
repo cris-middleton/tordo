@@ -32,6 +32,7 @@ from app.core.limite_ip import (
     CABECERA_SECRETO,
     CABECERA_VISITANTE,
     EXENTA,
+    FACTOR_DESBORDE,
     LimitadorEnMemoria,
     LimitePorIPMiddleware,
     aplica,
@@ -274,16 +275,38 @@ def test_la_ventana_nueva_tira_la_anterior():
     assert len(limitador) == 1
 
 
-def test_con_el_techo_lleno_una_ip_nueva_pasa_sin_contarse():
-    """Fallar abierto con las nuevas, sin desalojar a las que ya se cuentan."""
+def test_con_el_techo_lleno_una_ip_nueva_pasa_sin_desalojar_a_nadie():
+    """Las nuevas entran (al cubo de desborde), y las ya contadas siguen en el suyo."""
     limitador = LimitadorEnMemoria(1, max_claves=3, reloj=Reloj())
     for ip in ("1.1.1.1", "2.2.2.2", "3.3.3.3"):
         limitador.consumir(ip)
     assert limitador.consumir("4.4.4.4").permitido
     assert limitador.consumir("4.4.4.4").permitido
-    assert len(limitador) == 3
     # Las ya contadas siguen limitadas.
     assert not limitador.consumir("1.1.1.1").permitido
+
+
+def test_con_el_techo_lleno_las_nuevas_comparten_un_cupo_acotado():
+    """Pasado el techo, las IP nuevas no se guardan una a una, pero tampoco pasan
+    sin límite: comparten un cubo de `FACTOR_DESBORDE` veces el límite.
+
+    Antes cada una pasaba sin contarse, así que quien llenara el techo en el
+    primer segundo de un minuto —50.000 IP distintas son las /64 de un solo
+    bloque IPv6 /48— pedía sin límite el resto del minuto desde cualquiera.
+    """
+    reloj = Reloj()
+    limitador = LimitadorEnMemoria(2, max_claves=3, reloj=reloj)
+    for ip in ("1.1.1.1", "2.2.2.2", "3.3.3.3"):
+        limitador.consumir(ip)
+    cupo = 2 * FACTOR_DESBORDE
+    decisiones = [limitador.consumir(f"9.9.{i // 256}.{i % 256}") for i in range(cupo + 5)]
+    assert all(d.permitido for d in decisiones[:cupo])
+    assert not any(d.permitido for d in decisiones[cupo:])
+    # La memoria sigue acotada: el desborde es UNA entrada más.
+    assert len(limitador) == 4
+    # Al minuto siguiente todo empieza de cero.
+    reloj.t += 60
+    assert limitador.consumir("9.9.0.0").permitido
 
 
 # ── Arranque ─────────────────────────────────────────────────────────────────
