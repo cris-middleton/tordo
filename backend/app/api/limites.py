@@ -20,5 +20,9 @@ OFFSET_MAX = 100_000
 #: Los id de `licitaciones` son `bigint` de Postgres (migración e8e7e0f3f5e5): uno
 #: mayor no existe, y sin cota llegaba a la base y volvía 500 en vez de 404.
 ID_MAX = 9_223_372_036_854_775_807
+#: Montos en pesos de un filtro: `licitaciones.monto_estimado` es `Numeric(15, 2)`,
+#: así que nada guardado pasa de 10¹³. Sin cota, `min_amount=1e308` (o `inf`)
+#: llegaba a Postgres, que no puede convertirlo a ese tipo: 500 en vez de 422.
+MONTO_MAX = 10**13
 #: Términos de búsqueda que se combinan con AND en Compra Ágil.
 MAX_TERMINOS = 8
