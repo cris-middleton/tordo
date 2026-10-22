@@ -134,6 +134,16 @@ export interface ProductoPublico {
 }
 
 /** Un resultado de `GET /publico/productos?q=&limite=`. */
+/** Un comprador de `GET /publico/compradores?q=`: llegar a su ficha por su nombre. */
+export interface CompradorEncontrado {
+  codigo: string;
+  /** Como lo trae Mercado Público (en mayúsculas): se pinta con `normalizeText`. */
+  nombre: string;
+  /** Órdenes de compra en la ventana de análisis. */
+  n: number | null;
+  indexable: boolean;
+}
+
 export interface ProductoEncontrado {
   slug: string;
   firma: string;

@@ -85,7 +85,7 @@ class TestCompradores:
         ]
         analytics["market_concentration.parquet"] = [_mercado("1", "Aseo", nombre="OTRO")]
         df = indexables.construir().compradores
-        assert df.to_dicts() == [{"codigo": "1", "nombre": "NUEVO", "indexable": True}]
+        assert df.to_dicts() == [{"codigo": "1", "nombre": "NUEVO", "n": 900, "indexable": True}]
 
 
 class TestRubros:

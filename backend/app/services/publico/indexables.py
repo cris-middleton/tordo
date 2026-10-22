@@ -214,7 +214,9 @@ def _mercados_por(clave: str, **kwargs) -> pl.DataFrame | None:
 def _compradores(por_comprador: pl.DataFrame | None) -> pl.DataFrame:
     """Los compradores con página. `por_comprador` es una fila por código de
     `market_concentration` (`_mercados_por`), con el nombre de su primera fila."""
-    vacio = pl.DataFrame(schema={"codigo": pl.Utf8, "nombre": pl.Utf8, "indexable": pl.Boolean})
+    vacio = pl.DataFrame(
+        schema={"codigo": pl.Utf8, "nombre": pl.Utf8, "n": pl.Int64, "indexable": pl.Boolean}
+    )
     scores = _load(
         "buyer_scores.parquet",
         columnas=["CodigoOrganismoPublico", "NombreOrganismo", "n_oc_total"],
@@ -230,6 +232,7 @@ def _compradores(por_comprador: pl.DataFrame | None) -> pl.DataFrame:
             .select(
                 pl.col("CodigoOrganismoPublico").cast(pl.Utf8).alias("codigo"),
                 pl.col("NombreOrganismo").cast(pl.Utf8).alias("nombre"),
+                pl.col("n_oc_total").cast(pl.Int64).alias("n"),
                 (pl.col("n_oc_total").fill_null(0) >= MIN_ORDENES_COMPRADOR).alias("con_volumen"),
             )
         )
@@ -238,6 +241,7 @@ def _compradores(por_comprador: pl.DataFrame | None) -> pl.DataFrame:
             por_comprador.select(
                 pl.col("CodigoOrganismoPublico").cast(pl.Utf8).alias("codigo"),
                 pl.col("OrganismoPublico").cast(pl.Utf8).alias("nombre"),
+                _entero("n_transacciones").alias("n"),
                 pl.lit(None, dtype=pl.Boolean).alias("con_volumen"),
             )
         )
@@ -262,6 +266,7 @@ def _compradores(por_comprador: pl.DataFrame | None) -> pl.DataFrame:
         .group_by("codigo", maintain_order=True)
         .agg(
             pl.col("nombre").drop_nulls().first(),
+            pl.col("n").drop_nulls().first(),
             pl.col("con_volumen").drop_nulls().first(),
         )
         .with_columns(
@@ -269,7 +274,7 @@ def _compradores(por_comprador: pl.DataFrame | None) -> pl.DataFrame:
                 pl.col("con_volumen").fill_null(False) & pl.col("codigo").is_in(list(con_mercado))
             ).alias("indexable")
         )
-        .select("codigo", "nombre", "indexable")
+        .select("codigo", "nombre", "n", "indexable")
         .sort("codigo")
     )
 

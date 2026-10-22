@@ -5,8 +5,8 @@
  * `rssServidor.ts` → `backendServidor.ts`, que lee `PROXY_SECRETO`.
  *
  * - **Como el visitante** (`pedirAlBackend`, el de los feeds): cada búsqueda
- *   cuenta en el límite por IP de quien busca —hasta cuatro llamadas: la ficha
- *   sólo si hubo productos, la sugerencia sólo si no hubo nada—. Una
+ *   cuenta en el límite por IP de quien busca —hasta cinco llamadas: las cuatro
+ *   listas, y después la ficha si hubo productos o la sugerencia si no hubo nada—. Una
  *   página dinámica, generada por visitante y exenta como un renderizado del
  *   servidor, sería una forma gratis de saltarse el límite.
  * - **Sin caché** (`no-store`): cada término es una URL distinta.
@@ -18,12 +18,18 @@
  *   otra forma— vuelve como `fallo` y la página lo oculta con una línea.
  */
 
-import { COMPRAS_AGILES_EN_BUSCAR, PRODUCTOS_EN_BUSCAR, paramsLicitacionesAbiertas, type Busqueda } from './buscar';
+import {
+  COMPRADORES_POR_NOMBRE_EN_BUSCAR,
+  COMPRAS_AGILES_EN_BUSCAR,
+  PRODUCTOS_EN_BUSCAR,
+  paramsLicitacionesAbiertas,
+  type Busqueda,
+} from './buscar';
 import { segmento } from './publicoServidor';
 import { ErrorDelBackend, pedirAlBackend } from './rssServidor';
 import type { Bloque, LicitacionesEncontradas, ResultadosBusqueda } from '@/types/buscar';
 import type { CompraAgilDestacadasResponse } from '@/types/compraAgil';
-import type { ProductoEncontrado, ProductoPublico } from '@/types/publico';
+import type { CompradorEncontrado, ProductoEncontrado, ProductoPublico } from '@/types/publico';
 
 /**
  * Lo que espera cada llamada. Dos etapas (la ficha va después de la lista de
@@ -42,6 +48,10 @@ const esObjeto = (d: unknown): d is Record<string, unknown> => typeof d === 'obj
 
 function esListaDeProductos(d: unknown): d is ProductoEncontrado[] {
   return Array.isArray(d) && d.every((p) => esObjeto(p) && typeof p.slug === 'string' && typeof p.firma === 'string');
+}
+
+function esListaDeCompradores(d: unknown): d is CompradorEncontrado[] {
+  return Array.isArray(d) && d.every((c) => esObjeto(c) && typeof c.codigo === 'string' && typeof c.nombre === 'string');
 }
 
 function esListaDeLicitaciones(d: unknown): d is LicitacionesEncontradas {
@@ -80,8 +90,9 @@ async function pedirBloque<T>(
 }
 
 /**
- * Los bloques de una búsqueda. Productos, licitaciones y Compra Ágil en
- * paralelo; la ficha del primer producto, después (depende de la lista).
+ * Los bloques de una búsqueda. Productos, licitaciones, Compra Ágil y
+ * compradores por su nombre en paralelo; la ficha del primer producto, después
+ * (depende de la lista).
  */
 export async function buscarTodo(
   busqueda: Busqueda,
@@ -92,7 +103,7 @@ export async function buscarTodo(
     throw new Error('buscarTodo: búsqueda de menos de tres letras; la página no debía llamar al backend');
   }
   const { termino, terminos } = busqueda;
-  const [productos, licitaciones, comprasAgiles] = await Promise.all([
+  const [productos, licitaciones, comprasAgiles, compradoresPorNombre] = await Promise.all([
     pedirBloque(
       'los productos',
       '/publico/productos',
@@ -117,6 +128,14 @@ export async function buscarTodo(
       esDestacadas,
       tiempoMaximoMs,
     ),
+    pedirBloque(
+      'los compradores',
+      '/publico/compradores',
+      new URLSearchParams({ q: termino, limite: String(COMPRADORES_POR_NOMBRE_EN_BUSCAR) }),
+      cabeceras,
+      esListaDeCompradores,
+      tiempoMaximoMs,
+    ),
   ]);
 
   const primero = productos.estado === 'ok' ? productos.datos[0] : undefined;
@@ -131,7 +150,7 @@ export async function buscarTodo(
       )
     : null;
 
-  return { productos, ficha, licitaciones, comprasAgiles };
+  return { productos, ficha, licitaciones, comprasAgiles, compradoresPorNombre };
 }
 
 /**

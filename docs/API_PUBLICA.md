@@ -140,6 +140,10 @@ corta de sinónimos de compras públicas («mantenimiento», «mantención»; «
 `/tenders/` con `sort_by=relevance` y en `/publico/productos`, siempre. La lista vive
 en `backend/app/utils/sinonimos.py`.
 
+`GET /publico/compradores?q=&limite=5` busca compradores por su nombre («hospital de talca»), con la
+misma regla de palabras que los productos: primero los que tienen ficha indexable, luego los que
+nombran cada palabra entera (Talca antes que Talcahuano) y luego los que más compran.
+
 `GET /publico/sugerencia?q=` propone la búsqueda con sus palabras mal escritas
 corregidas («computdor» → `{"sugerencia": "computador"}`), con las palabras que usan los
 compradores en las órdenes de compra. `null` si no hay nada que corregir.

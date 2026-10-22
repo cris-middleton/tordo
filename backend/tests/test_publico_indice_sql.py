@@ -69,7 +69,9 @@ def _indice_de_antes(tablas: dict[str, pl.DataFrame]) -> indexables.Indice:
     )
 
     # _compradores
-    vacio = pl.DataFrame(schema={"codigo": pl.Utf8, "nombre": pl.Utf8, "indexable": pl.Boolean})
+    vacio = pl.DataFrame(
+        schema={"codigo": pl.Utf8, "nombre": pl.Utf8, "n": pl.Int64, "indexable": pl.Boolean}
+    )
     scores = cargar(SCORES, ["CodigoOrganismoPublico", "NombreOrganismo", "n_oc_total"])
     partes = []
     if scores is not None and not scores.is_empty():
@@ -79,6 +81,7 @@ def _indice_de_antes(tablas: dict[str, pl.DataFrame]) -> indexables.Indice:
             .select(
                 pl.col("CodigoOrganismoPublico").cast(pl.Utf8).alias("codigo"),
                 pl.col("NombreOrganismo").cast(pl.Utf8).alias("nombre"),
+                pl.col("n_oc_total").cast(pl.Int64).alias("n"),
                 (pl.col("n_oc_total").fill_null(0) >= indexables.MIN_ORDENES_COMPRADOR).alias(
                     "con_volumen"
                 ),
@@ -86,9 +89,15 @@ def _indice_de_antes(tablas: dict[str, pl.DataFrame]) -> indexables.Indice:
         )
     if mercados is not None and not mercados.is_empty():
         partes.append(
-            mercados.unique(subset="CodigoOrganismoPublico", keep="first").select(
+            mercados.group_by("CodigoOrganismoPublico", maintain_order=True)
+            .agg(
+                pl.col("OrganismoPublico").first(),
+                pl.col("n_transacciones").cast(pl.Float64).sum(),
+            )
+            .select(
                 pl.col("CodigoOrganismoPublico").cast(pl.Utf8).alias("codigo"),
                 pl.col("OrganismoPublico").cast(pl.Utf8).alias("nombre"),
+                pl.col("n_transacciones").fill_null(0).cast(pl.Int64).alias("n"),
                 pl.lit(None, dtype=pl.Boolean).alias("con_volumen"),
             )
         )
@@ -108,6 +117,7 @@ def _indice_de_antes(tablas: dict[str, pl.DataFrame]) -> indexables.Indice:
             .group_by("codigo", maintain_order=True)
             .agg(
                 pl.col("nombre").drop_nulls().first(),
+                pl.col("n").drop_nulls().first(),
                 pl.col("con_volumen").drop_nulls().first(),
             )
             .with_columns(
@@ -116,7 +126,7 @@ def _indice_de_antes(tablas: dict[str, pl.DataFrame]) -> indexables.Indice:
                     & pl.col("codigo").is_in(list(con_mercado))
                 ).alias("indexable")
             )
-            .select("codigo", "nombre", "indexable")
+            .select("codigo", "nombre", "n", "indexable")
             .sort("codigo")
         )
 

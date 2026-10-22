@@ -13,6 +13,7 @@ el panorama (nombres o seudónimos `PN-` de los líderes, sin código ni RUT).
 from __future__ import annotations
 
 import re
+import threading
 
 import polars as pl
 
@@ -24,6 +25,7 @@ from app.services.bi.rubro import get_panorama
 from app.services.publico import indexables
 from app.utils import sinonimos
 from app.utils.firma import terminos_de_busqueda
+from app.utils.slug import slug
 
 #: Cuántos enlaces a otras páginas lleva cada una. Más de diez no se leen y sí
 #: pesan en la respuesta (y en el HTML que se cachea una semana).
@@ -394,6 +396,72 @@ def buscar_productos(q: str, limite: int) -> list[dict]:
             "slug": r["slug"],
             "firma": r["firma"],
             "descripcion": descripciones.get(r["firma"]),
+            "n": r["n"],
+            "indexable": r["indexable"],
+        }
+        for r in encontrados.iter_rows(named=True)
+    ]
+
+
+#: Tope de resultados de la búsqueda de compradores.
+MAX_COMPRADORES_BUSQUEDA = 20
+
+_cerrojo_compradores = threading.Lock()
+#: Los compradores del índice con el slug de su nombre, y el índice del que salieron.
+_slugs_compradores: tuple[int, pl.DataFrame] | None = None
+
+
+def _compradores_con_slug() -> pl.DataFrame:
+    """`indice().compradores` con `slug_nombre`, calculado una vez por índice."""
+    global _slugs_compradores
+    indice = indexables.indice()
+    with _cerrojo_compradores:
+        if _slugs_compradores is None or _slugs_compradores[0] != id(indice):
+            con_slug = indice.compradores.filter(pl.col("nombre").is_not_null()).with_columns(
+                pl.col("nombre").map_elements(slug, return_dtype=pl.Utf8).alias("slug_nombre")
+            )
+            _slugs_compradores = (id(indice), con_slug)
+        return _slugs_compradores[1]
+
+
+def buscar_compradores(q: str, limite: int) -> list[dict]:
+    """Compradores cuyo nombre tiene todas las palabras útiles de `q`.
+
+    «Hospital de Talca» llevaba a productos y licitaciones, nunca a la ficha del
+    hospital: sólo se llegaba a ella por un enlace. La regla es la de los
+    productos (`terminos_de_busqueda`, cada palabra al comienzo de una palabra
+    del nombre, con su singular y el otro género), sin sinónimos: un nombre
+    propio no tiene. Primero los indexables; luego los que tienen más palabras
+    enteras («talca» antes que «Talcahuano»), y luego los que más compran.
+
+    Sólo lee el índice en memoria (`indexables`), nunca una tabla.
+    """
+    palabras = terminos_de_busqueda(q)
+    if not palabras:
+        return []
+    condicion = pl.lit(True)
+    enteras = pl.lit(0)
+    for palabra in palabras:
+        condicion = condicion & pl.col("slug_nombre").str.contains(_patron_slug([palabra]))
+        # «talca» empieza «Talcahuano»: lo que la nombra entera va antes.
+        enteras = enteras + pl.col("slug_nombre").str.contains(
+            f"(?:^|-){re.escape(palabra)}(?:-|$)"
+        ).cast(pl.Int32)
+    encontrados = (
+        _compradores_con_slug()
+        .filter(condicion)
+        .with_columns(enteras.alias("_enteras"))
+        .sort(
+            ["indexable", "_enteras", "n", "codigo"],
+            descending=[True, True, True, False],
+            nulls_last=True,
+        )
+        .head(min(limite, MAX_COMPRADORES_BUSQUEDA))
+    )
+    return [
+        {
+            "codigo": r["codigo"],
+            "nombre": r["nombre"],
             "n": r["n"],
             "indexable": r["indexable"],
         }

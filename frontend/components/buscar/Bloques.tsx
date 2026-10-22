@@ -38,7 +38,7 @@ import {
 import type { Bloque, LicitacionesEncontradas, MotivoFallo } from '@/types/buscar';
 import type { CompraAgilDestacadasResponse } from '@/types/compraAgil';
 import type { Tender } from '@/types/licitacion';
-import type { ProductoEncontrado, ProductoPublico } from '@/types/publico';
+import type { CompradorEncontrado, ProductoEncontrado, ProductoPublico } from '@/types/publico';
 
 /**
  * Los bloques de `/buscar` (spec del rediseño §6.4). Componentes de servidor:
@@ -409,6 +409,34 @@ export function BloqueCompradores({ ficha }: { ficha: Bloque<ProductoPublico> })
       ) : (
         <Compradores producto={ficha.datos} />
       )}
+    </Seccion>
+  );
+}
+
+// ── 0. Un comprador con ese nombre ───────────────────────────────────────────
+
+/**
+ * «Hospital de Talca» llevaba a productos y licitaciones, nunca a la ficha del
+ * hospital. Si el nombre de algún comprador tiene las palabras buscadas, sale
+ * arriba, como atajo. Sin ninguno —lo normal al buscar un producto— o si la
+ * consulta falló, no se pinta nada: no es una de las tres respuestas.
+ */
+export function BloqueCompradoresPorNombre({ bloque }: { bloque: Bloque<CompradorEncontrado[]> }) {
+  if (bloque.estado !== 'ok' || bloque.datos.length === 0) return null;
+  return (
+    <Seccion id="compradores-por-nombre" titulo="Compradores con ese nombre">
+      <ul aria-label="Compradores con ese nombre" className={LISTA}>
+        {bloque.datos.map((c) => (
+          <li key={c.codigo}>
+            <Link href={rutaComprador(c.codigo)} className="flex items-baseline justify-between gap-3 py-2.5">
+              <span className="min-w-0 truncate font-medium text-primary hover:text-accent">
+                {normalizeText(c.nombre)}
+              </span>
+              {c.n != null && c.n > 0 && <span className="cifra shrink-0 text-xs text-muted">{entero(c.n)} órdenes</span>}
+            </Link>
+          </li>
+        ))}
+      </ul>
     </Seccion>
   );
 }

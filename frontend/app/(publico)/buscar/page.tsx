@@ -4,6 +4,7 @@ import { headers } from 'next/headers';
 import {
   BloqueAbiertas,
   BloqueCompradores,
+  BloqueCompradoresPorNombre,
   BloquePrecios,
   EjemplosBusqueda,
   SinResultados,
@@ -76,6 +77,7 @@ function Resultados({
   }
   return (
     <>
+      <BloqueCompradoresPorNombre bloque={resultados.compradoresPorNombre} />
       <BloquePrecios termino={busqueda.termino} productos={resultados.productos} ficha={resultados.ficha} />
       <BloqueAbiertas
         termino={busqueda.termino}

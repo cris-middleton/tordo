@@ -19,6 +19,7 @@ import { pedirAlBackend } from '@/lib/rssServidor';
 
 import {
   BACKEND,
+  COMPRADORES_POR_NOMBRE,
   DESTACADAS,
   LICITACIONES,
   PRODUCTO,
@@ -60,6 +61,7 @@ describe('buscarTodo', () => {
 
     expect(pedidas.map((p) => p.url.pathname).sort()).toEqual([
       '/api/v1/compra-agil/destacadas',
+      '/api/v1/publico/compradores',
       '/api/v1/publico/productos',
       '/api/v1/publico/productos/guante-latex-nitrilo',
       '/api/v1/tenders/',
@@ -78,6 +80,7 @@ describe('buscarTodo', () => {
       ficha: { estado: 'ok', datos: PRODUCTO },
       licitaciones: { estado: 'ok', datos: LICITACIONES },
       comprasAgiles: { estado: 'ok', datos: DESTACADAS },
+      compradoresPorNombre: { estado: 'ok', datos: [] },
     });
   });
 
@@ -92,8 +95,9 @@ describe('buscarTodo', () => {
     }
   });
 
-  it('productos, licitaciones y Compra Ágil están en vuelo a la vez; la ficha espera', async () => {
+  it('productos, licitaciones, Compra Ágil y compradores están en vuelo a la vez; la ficha espera', async () => {
     const respuestas: Record<string, () => Response> = {
+      '/publico/compradores': () => json([]),
       '/publico/productos': () => json(PRODUCTOS),
       '/tenders/': () => json(LICITACIONES),
       '/compra-agil/destacadas': () => json(DESTACADAS),
@@ -122,11 +126,11 @@ describe('buscarTodo', () => {
     // Deja correr las microtareas: nada se ha resuelto, así que lo que haya
     // pedido está en vuelo. Con peticiones en serie sólo habría una.
     await new Promise((r) => setTimeout(r, 0));
-    expect(enVueloAlLlegar).toEqual([1, 2, 3]);
-    // Se resuelven las tres primeras; sólo entonces aparece la ficha.
-    liberar.splice(0, 3).forEach((f) => f());
+    expect(enVueloAlLlegar).toEqual([1, 2, 3, 4]);
+    // Se resuelven las cuatro primeras; sólo entonces aparece la ficha.
+    liberar.splice(0, 4).forEach((f) => f());
     await new Promise((r) => setTimeout(r, 0));
-    expect(enVueloAlLlegar).toHaveLength(4);
+    expect(enVueloAlLlegar).toHaveLength(5);
     liberar.splice(0).forEach((f) => f());
     const r = await busqueda;
     expect(r.ficha?.estado).toBe('ok');
@@ -159,7 +163,7 @@ describe('buscarTodo', () => {
   it('sin productos no pide ficha', async () => {
     const pedidas = simularBackend({ ...TODO_BIEN, '/publico/productos': () => json([]) });
     const r = await buscarTodo(prepararBusqueda('zafiro'), VISITANTE);
-    expect(pedidas).toHaveLength(3);
+    expect(pedidas).toHaveLength(4);
     expect(r.productos).toEqual({ estado: 'ok', datos: [] });
     expect(r.ficha).toBeNull();
   });
@@ -284,5 +288,21 @@ describe('pedirSugerencia', () => {
     expect(await pedirSugerencia('computdor', VISITANTE)).toBeNull();
     simularBackend({ '/publico/sugerencia': () => json({ sugerencia: 3 }) });
     expect(await pedirSugerencia('computdor', VISITANTE)).toBeNull();
+  });
+});
+
+describe('compradores por su nombre', () => {
+  it('pide como mucho tres, con el término, y una forma rara es un fallo', async () => {
+    const pedidas = simularBackend({ ...TODO_BIEN, '/publico/compradores': () => json(COMPRADORES_POR_NOMBRE) });
+    const conNombre = await buscarTodo(prepararBusqueda('hospital de talca'), VISITANTE);
+    expect(conNombre.compradoresPorNombre).toEqual({ estado: 'ok', datos: COMPRADORES_POR_NOMBRE });
+    const pedida = pedidas.find((p) => p.url.pathname === '/api/v1/publico/compradores')!;
+    expect(pedida.url.searchParams.get('q')).toBe('hospital de talca');
+    expect(pedida.url.searchParams.get('limite')).toBe('3');
+
+    simularBackend({ ...TODO_BIEN, '/publico/compradores': () => json([{ codigo: 7297 }]) });
+    const r = await buscarTodo(prepararBusqueda('hospital de talca'), VISITANTE);
+    expect(r.compradoresPorNombre.estado).toBe('fallo');
+    expect(r.productos.estado).toBe('ok');
   });
 });

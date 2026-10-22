@@ -8,7 +8,7 @@
 
 import type { CompraAgilDestacadasResponse } from './compraAgil';
 import type { Tender } from './licitacion';
-import type { ProductoEncontrado, ProductoPublico } from './publico';
+import type { CompradorEncontrado, ProductoEncontrado, ProductoPublico } from './publico';
 
 export type MotivoFallo = 'limite' | 'error';
 
@@ -26,4 +26,6 @@ export interface ResultadosBusqueda {
   ficha: Bloque<ProductoPublico> | null;
   licitaciones: Bloque<LicitacionesEncontradas>;
   comprasAgiles: Bloque<CompraAgilDestacadasResponse>;
+  /** Los compradores cuyo nombre tiene las palabras buscadas («Hospital de Talca»). */
+  compradoresPorNombre: Bloque<CompradorEncontrado[]>;
 }

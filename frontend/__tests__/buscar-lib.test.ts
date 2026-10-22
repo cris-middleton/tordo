@@ -209,15 +209,22 @@ describe('estadoDeLaBusqueda', () => {
     ficha: null,
     licitaciones: ok({ items: [], total: 0 }),
     comprasAgiles: ok({ ...DESTACADAS, items: [] }),
+    compradoresPorNombre: ok([]),
   };
 
   it('con algo en cualquier bloque hay resultados', () => {
     expect(estadoDeLaBusqueda({ ...vacios, productos: ok(PRODUCTOS), ficha: ok(PRODUCTO) })).toBe('con-resultados');
     expect(estadoDeLaBusqueda({ ...vacios, licitaciones: ok(LICITACIONES) })).toBe('con-resultados');
     expect(estadoDeLaBusqueda({ ...vacios, comprasAgiles: ok(DESTACADAS) })).toBe('con-resultados');
+    expect(
+      estadoDeLaBusqueda({
+        ...vacios,
+        compradoresPorNombre: ok([{ codigo: '1', nombre: 'HOSPITAL DE TALCA', n: 9, indexable: true }]),
+      }),
+    ).toBe('con-resultados');
   });
 
-  it('«no encontramos nada» sólo si los tres respondieron vacíos', () => {
+  it('«no encontramos nada» sólo si los cuatro respondieron vacíos', () => {
     expect(estadoDeLaBusqueda(vacios)).toBe('sin-resultados');
     expect(estadoDeLaBusqueda({ ...vacios, licitaciones: fallo<LicitacionesEncontradas>() })).toBe('incompleta');
   });

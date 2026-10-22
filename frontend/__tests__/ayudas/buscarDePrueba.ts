@@ -111,9 +111,15 @@ export function simularBackend(rutas: Record<string, Responder>): Pedida[] {
   return pedidas;
 }
 
+export const COMPRADORES_POR_NOMBRE = [
+  { codigo: '7297', nombre: 'HOSPITAL DE TALCA', n: 9000, indexable: true },
+];
+
 export const TODO_BIEN: Record<string, Responder> = {
   '/publico/productos': () => json(PRODUCTOS),
   '/publico/productos/guante-latex-nitrilo': () => json(PRODUCTO),
   '/tenders/': () => json(LICITACIONES),
   '/compra-agil/destacadas': () => json(DESTACADAS),
+  // Lo normal al buscar un producto: ningún comprador se llama así.
+  '/publico/compradores': () => json([]),
 };

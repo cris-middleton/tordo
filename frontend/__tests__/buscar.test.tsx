@@ -21,7 +21,15 @@ vi.mock('next/headers', () => ({
 import PaginaBuscar, { generateMetadata } from '@/app/(publico)/buscar/page';
 import { EJEMPLOS_BUSQUEDA, rutaBuscar } from '@/lib/buscar';
 
-import { BACKEND, DESTACADAS, SECRETO, TODO_BIEN, json, simularBackend } from './ayudas/buscarDePrueba';
+import {
+  BACKEND,
+  COMPRADORES_POR_NOMBRE,
+  DESTACADAS,
+  SECRETO,
+  TODO_BIEN,
+  json,
+  simularBackend,
+} from './ayudas/buscarDePrueba';
 
 type SearchParams = Record<string, string | string[] | undefined>;
 const props = (q?: string | string[]) => ({
@@ -71,7 +79,7 @@ describe('con búsqueda', () => {
   it('los tres bloques en el orden de la spec, con el término arriba', async () => {
     const pedidas = simularBackend(TODO_BIEN);
     render(await PaginaBuscar(props('guante nitrilo')));
-    expect(pedidas).toHaveLength(4);
+    expect(pedidas).toHaveLength(5);
     expect(screen.getByRole('heading', { level: 1, name: 'Resultados para «guante nitrilo»' })).toBeInTheDocument();
     expect(screen.getByRole('searchbox')).toHaveValue('guante nitrilo');
     expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual([
@@ -80,6 +88,14 @@ describe('con búsqueda', () => {
       'Quién lo compra',
     ]);
     expect(screen.queryByText(/no encontramos «/i)).toBeNull();
+  });
+
+  it('un comprador con ese nombre sale arriba, como atajo a su ficha', async () => {
+    simularBackend({ ...TODO_BIEN, '/publico/compradores': () => json(COMPRADORES_POR_NOMBRE) });
+    render(await PaginaBuscar(props('hospital de talca')));
+    expect(screen.getAllByRole('heading', { level: 2 })[0]).toHaveTextContent('Compradores con ese nombre');
+    const lista = screen.getByRole('list', { name: 'Compradores con ese nombre' });
+    expect(within(lista).getByRole('link', { name: /hospital de talca/i })).toHaveAttribute('href', '/compradores/7297');
   });
 
   it('con dos q en la URL busca la primera', async () => {
@@ -107,6 +123,7 @@ describe('con búsqueda', () => {
       '/publico/productos': () => json([]),
       '/tenders/': () => json({ items: [], total: 0, page: 1, size: 5, pages: 0 }),
       '/compra-agil/destacadas': () => json({ ...DESTACADAS, items: [] }),
+      '/publico/compradores': () => json([]),
     });
     render(await PaginaBuscar(props('xqzwvk')));
     expect(screen.getByText(/no encontramos «xqzwvk»/i)).toBeInTheDocument();
