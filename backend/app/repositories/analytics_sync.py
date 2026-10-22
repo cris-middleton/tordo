@@ -380,6 +380,7 @@ def red_de_compradores(
     n_compradores: int,
     por_comprador: int,
     amplios: int,
+    tope_amplios: int | None = None,
 ) -> dict | None:
     """Los compradores de más monto y los proveedores que les venden, en SQL; None sin tabla.
 
@@ -399,6 +400,7 @@ def red_de_compradores(
         "n_compradores": n_compradores,
         "por_comprador": por_comprador,
         "amplios": amplios,
+        "tope_amplios": tope_amplios if tope_amplios is not None else amplios,
         "persona": sql.PREFIJO_PERSONA_NATURAL + "%",
     }
     with _engine().connect() as conn:

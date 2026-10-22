@@ -91,12 +91,18 @@ export function GastoMensual({ datos, leyendaEnFila = false }: { datos: GraficoG
               <p className="text-muted first-letter:uppercase">{activo.largo}</p>
               <p className="cifra text-base font-bold">{activo.texto}</p>
               <div className="mt-1.5 space-y-0.5">
+                {/* En el orden de la leyenda y con su misma llave: ordenar por % cambiaba el orden de un mes a otro. */}
                 {datos.series
                   .map((s, j) => ({ s, v: activo.partes[j] }))
                   .filter(({ v }) => v > 0)
-                  .sort((a, b) => b.v - a.v)
                   .map(({ s, v }) => (
-                    <FilaGlobo key={s.clave} llave={s.fondo} nombre={s.nombre} valor={`${Math.round((v / activo.total) * 100)} %`} />
+                    <FilaGlobo
+                      key={s.clave}
+                      llave={s.fondo}
+                      forma="cuadro"
+                      nombre={s.nombre}
+                      valor={`${Math.round((v / activo.total) * 100)} %`}
+                    />
                   ))}
               </div>
             </Globo>

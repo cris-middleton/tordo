@@ -241,11 +241,22 @@ def test_red_con_menos_amplios_deja_fuera_a_quien_no_es_primero_de_nadie(
     tablas, cliente, monkeypatch
 ):
     monkeypatch.setattr(mercado, "AMPLIOS", 1)
+    monkeypatch.setattr(mercado, "TOPE_AMPLIOS", 1)
     red = cliente.get(URL).json()["red"]
     assert [p["codigo"] for p in red["proveedores"]] == ["P2", "P1", "P3", "P9"]
     assert all(e["proveedor"] != "P6" for e in red["enlaces"])
     # Los totales no dependen de cuántos se dibujan.
     assert red["proveedores_total"] == 8 and red["a_la_mitad_o_mas"] == 4
+
+
+def test_red_dibuja_a_todos_los_que_le_venden_a_la_mitad_o_mas(tablas, cliente, monkeypatch):
+    # Con 12 fijos la portada decía «40 le venden a la mitad o más» y pintaba 12: ahora
+    # entran todos los de la mitad o más (hasta TOPE_AMPLIOS), aunque AMPLIOS sea menor.
+    monkeypatch.setattr(mercado, "AMPLIOS", 1)
+    red = cliente.get(URL).json()["red"]
+    mitad = -(-len(red["compradores"]) // 2)
+    dibujados = [p for p in red["proveedores"] if p["compradores"] >= mitad]
+    assert len(dibujados) == red["a_la_mitad_o_mas"]
 
 
 def test_red_sin_tabla_de_sectores_pone_a_todos_en_otros(tablas, cliente, monkeypatch):

@@ -97,7 +97,7 @@ export function lecturaGasto(
       // 5,5 de la ficha). El monto no tiene ese problema: va repartido por línea.
       // «Por mes», sin decir de qué fecha: hasta la semanal del 25-10 es el mes de envío, y
       // desde ella el de creación (#57). Lo dice la guía de «Cómo se calcula».
-      `Órdenes de compra de ${desde} a ${hasta}, por mes y sector del comprador. ` +
+      `Órdenes de compra de ${desde} a ${hasta} (meses completos), por mes y sector del comprador. ` +
       'Un mes típico es la mediana: la mitad de los meses compró menos y la otra mitad, más. ' +
       'Las obras del MOP casi no pasan por órdenes de compra, así que aquí casi no están.',
     enlaces: enlacesDeMetodo(METODO_GASTO, {

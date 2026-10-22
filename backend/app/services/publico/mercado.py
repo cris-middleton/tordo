@@ -46,6 +46,9 @@ TABLA_RED = "competitors_by_market"
 N_COMPRADORES = 30
 POR_COMPRADOR = 4
 AMPLIOS = 12
+#: Hasta cuántos de los que le venden a la mitad o más se dibujan (todos, salvo que
+#: pasen de esto: cada uno trae una línea a 15 o más compradores).
+TOPE_AMPLIOS = 48
 
 #: Cuánto vive la respuesta en memoria. Ver «Caché» en el docstring del módulo.
 TTL_SEGUNDOS = 600
@@ -88,6 +91,7 @@ def _red() -> dict | None:
         n_compradores=N_COMPRADORES,
         por_comprador=POR_COMPRADOR,
         amplios=AMPLIOS,
+        tope_amplios=TOPE_AMPLIOS,
     )
     if red is None:
         return None

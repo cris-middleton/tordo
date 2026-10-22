@@ -22,38 +22,24 @@ const filas = (dl: HTMLElement) =>
   [...dl.querySelectorAll('dt')].map((d) => [d.textContent, d.nextElementSibling?.textContent]);
 
 describe('FichaPortada (spec PORTADA_V7 §3.5)', () => {
-  it('con todo: Base, Fuente, Se actualiza y Lo hace, en ese orden', () => {
-    const { container } = render(
-      <FichaPortada base={BASE} autor="Nombre De Prueba" rol={ROL} urlAutor="https://github.com/prueba" />,
-    );
+  it('con todo: Base, Fuente y Se actualiza, en ese orden; quién lo hace va en la ficha del autor', () => {
+    const { container } = render(<FichaPortada base={BASE} />);
     expect(filas(container.querySelector('dl') as HTMLElement)).toEqual([
       ['Base', BASE],
       ['Fuente', 'Datos abiertos de ChileCompra'],
       ['Se actualiza', SE_ACTUALIZA],
-      ['Lo hace', `Nombre De Prueba, ${ROL}`],
     ]);
-    expect(screen.getByRole('link', { name: 'Nombre De Prueba' })).toHaveAttribute('href', 'https://github.com/prueba');
+    expect(container.textContent).not.toMatch(/Lo hace/);
   });
 
-  it('sin base ni autor, esas filas no salen (ni un hueco)', () => {
-    const { container } = render(<FichaPortada base={null} autor={null} rol={ROL} urlAutor={null} />);
+  it('sin base, esa fila no sale (ni un hueco)', () => {
+    const { container } = render(<FichaPortada base={null} />);
     expect(filas(container.querySelector('dl') as HTMLElement).map(([dt]) => dt)).toEqual(['Fuente', 'Se actualiza']);
-    expect(container.textContent).not.toMatch(/Lo hace|ingeniero|\[\[|null/);
-  });
-
-  it('con autor y sin URL, el nombre sin enlace', () => {
-    render(<FichaPortada base={BASE} autor="Nombre De Prueba" rol={ROL} urlAutor={null} />);
-    expect(screen.queryByRole('link')).toBeNull();
-    expect(screen.getByText(/Nombre De Prueba/)).toBeInTheDocument();
-  });
-
-  it('con autor y sin rol, sólo el nombre: no hay rol por defecto', () => {
-    const { container } = render(<FichaPortada base={BASE} autor="Nombre De Prueba" rol={null} urlAutor={null} />);
-    expect(filas(container.querySelector('dl') as HTMLElement).at(-1)).toEqual(['Lo hace', 'Nombre De Prueba']);
+    expect(container.textContent).not.toMatch(/\[\[|null/);
   });
 
   it('«Se usa» se fue (V11): la salida a API, MCP y CSV es la de la cabecera y el pie', () => {
-    const { container } = render(<FichaPortada base={BASE} autor={null} rol={null} urlAutor={null} />);
+    const { container } = render(<FichaPortada base={BASE} />);
     expect(container.textContent).not.toMatch(/Se usa|MCP|CSV/);
   });
 });

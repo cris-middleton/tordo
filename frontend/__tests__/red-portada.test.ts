@@ -43,14 +43,21 @@ describe('esRed', () => {
 });
 
 describe('fraseRed', () => {
-  it('cuántos proveedores y cuántos le venden a la mitad o más', () => {
-    expect(fraseRed(RED, 30)).toBe(
-      'Los 30 organismos que más compran le compraron a 14.659 proveedores. 40 le venden a la mitad de ellos o más.',
-    );
+  it('una frase: cuántos proveedores le venden a la mitad o más', () => {
+    expect(fraseRed(RED, 30)).toBe('40 proveedores le venden a la mitad o más de los 30 organismos que más compran.');
   });
   it('uno y ninguno, en palabras', () => {
-    expect(fraseRed({ ...RED, a_la_mitad_o_mas: 1 }, 30)).toMatch(/Uno le vende a la mitad de ellos o más\.$/);
-    expect(fraseRed({ ...RED, a_la_mitad_o_mas: 0 }, 30)).toMatch(/Ninguno le vende a la mitad de ellos\.$/);
+    expect(fraseRed({ ...RED, a_la_mitad_o_mas: 1 }, 30)).toBe(
+      'Un proveedor le vende a la mitad o más de los 30 organismos que más compran.',
+    );
+    expect(fraseRed({ ...RED, a_la_mitad_o_mas: 0 }, 30)).toBe(
+      'Ningún proveedor le vende a la mitad de los 30 organismos que más compran.',
+    );
+  });
+  it('si se dibujan menos de los que dice, lo dice: la frase nunca cuenta algo que no se ve', () => {
+    expect(fraseRed(RED, 30, 12)).toBe(
+      '40 proveedores le venden a la mitad o más de los 30 organismos que más compran. En tinta, los 12 que más venden.',
+    );
   });
 });
 
@@ -115,8 +122,9 @@ describe('lecturaRed', () => {
   it('el pie dice qué se dibuja, de cuándo, qué parte del gasto es y que no hay personas naturales', () => {
     const l = lecturaRed({ red: RED }, null)!;
     expect(l.pie).toBe(
-      'Los 12 organismos que más compraron de nov 2023 a oct 2026 (62 % de lo que compró el Estado) y sus proveedores: ' +
-        'los más grandes de cada uno y los que le venden a más de ellos. El tamaño es lo que compró o vendió. Sin personas naturales.',
+      'Los 12 organismos que más compraron de nov 2023 a oct 2026 (62 % de lo que compró el Estado) le compraron a 14.659 proveedores. ' +
+        'Aquí, los cuatro más grandes de cada uno y los que le venden a más de ellos. El tamaño es lo que compró o vendió. ' +
+        'Sin personas naturales.',
     );
     expect(l.accesible[0]).toEqual({ nombre: 'Le Vende a Todos SpA', vecinos: 12, texto: '$3 mil millones' });
   });
@@ -126,5 +134,14 @@ describe('lecturaRed', () => {
     expect(lecturaRed({ red: null }, null)).toBeNull();
     expect(lecturaRed({ red: { ...RED, enlaces: 'x' } }, null)).toBeNull();
     expect(lecturaRed(null, null)).toBeNull();
+  });
+});
+
+describe('nombreCorto', () => {
+  it('las siglas conocidas, sin «Ilustre» y cortado en una palabra', async () => {
+    const { nombreCorto } = await import('@/lib/redPortada');
+    expect(nombreCorto('Central de Abastecimiento del Sistema Nacional de Servicios de Salud')).toBe('Cenabast');
+    expect(nombreCorto('I Municipalidad de Puente Alto')).toBe('Municipalidad de Puente Alto');
+    expect(nombreCorto('Servicio de Salud Metropolitano Sur Oriente')).toBe('Servicio de Salud…');
   });
 });

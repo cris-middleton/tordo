@@ -12,6 +12,9 @@ import type { EnlaceMetodo } from '@/lib/metodo';
  * y `lib/metodo.ts`; aquí sólo se pintan. Los enlaces van en una lista y en texto
  * corrido de pie, así que llevan `enlace` (subrayado).
  */
+/** Las oraciones de un texto, partido tras cada punto seguido de espacio y mayúscula. */
+const oraciones = (texto: string) => texto.split(/(?<=\.)\s+(?=[A-ZÁÉÍÓÚÑ«])/u);
+
 export function PieDeMetodo({
   texto,
   enlaces,
@@ -35,7 +38,18 @@ export function PieDeMetodo({
 }) {
   return (
     <div className={`border-t border-border pt-3 text-[13px] leading-snug text-muted ${className}`.trim()}>
-      <p className={columnas ? 'lg:columns-2 lg:gap-12' : completo ? 'max-w-[64ch]' : 'max-w-[62ch]'}>{texto}</p>
+      {columnas ? (
+        // En dos columnas, una oración no se parte entre ellas: cada una es su propio párrafo.
+        <div className="lg:columns-2 lg:gap-12">
+          {oraciones(texto).map((o) => (
+            <p key={o} className="break-inside-avoid">
+              {o}
+            </p>
+          ))}
+        </div>
+      ) : (
+        <p className={completo ? 'max-w-[64ch]' : 'max-w-[62ch]'}>{texto}</p>
+      )}
       {enlaces.length > 0 && (
         <ul aria-label="Método y datos" className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
           {enlaces.map((e) => (
