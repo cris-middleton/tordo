@@ -27,7 +27,7 @@ export function BloqueHoy({
   horaEnLaFranja = false,
 }: {
   datos: CompraAgilDestacadasResponse;
-  /** «mar, 13 oct, 09:30»: la hora de `datos.actualizado_en`, en palabras y en hora de Chile. */
+  /** «mar 13 oct, 09:30»: la hora de `datos.actualizado_en`, en palabras y en hora de Chile. */
   actualizado: string;
   /** La portada ya dice la hora en su franja: aquí no se repite. Por defecto, sí se dice. */
   horaEnLaFranja?: boolean;

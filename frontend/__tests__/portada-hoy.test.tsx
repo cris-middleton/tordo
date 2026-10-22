@@ -45,7 +45,7 @@ const DATOS: CompraAgilDestacadasResponse = {
 };
 
 /** La hora ya leída, como la pasa la portada (no la vuelve a leer el bloque). */
-const HORA = 'mar, 13 oct, 09:30';
+const HORA = 'mar 13 oct, 09:30';
 
 const lista = () => screen.getByRole('list', { name: /compras ágiles destacadas de hoy/i });
 
