@@ -93,7 +93,7 @@ describe('tiraDeLaPortada', () => {
     ]);
     // 11:00 en Santiago, con el día: la portada se cachea media hora. La tira no
     // la pinta (va en la franja), pero sin hora legible no hay tira.
-    expect(tira!.actualizado).toBe('mié, 14 oct, 11:00');
+    expect(tira!.actualizado).toBe('mié 14 oct, 11:00');
   });
 
   it('en singular cuando hay una, y con el cero dicho', () => {
@@ -131,7 +131,8 @@ describe('los textos fijos de la portada', () => {
   });
 
   it('el campo no repite los ejemplos, que ya están debajo', () => {
-    expect(PLACEHOLDER_BUSCADOR).toBe('Escribe un producto o servicio');
+    // No empieza con «Escribe», como el subtítulo de arriba.
+    expect(PLACEHOLDER_BUSCADOR).toBe('Un producto o un servicio');
     for (const ejemplo of EJEMPLOS_BUSQUEDA) expect(PLACEHOLDER_BUSCADOR).not.toContain(ejemplo);
   });
 
@@ -223,7 +224,7 @@ describe('franjaDeLaPortada', () => {
     expect(franjaDeLaPortada(CON_HOY)).toEqual({
       publicadasHoy: '612 licitaciones y Compras Ágiles',
       masPublicaHoy: 'Servicio de Salud Metropolitano Sur',
-      actualizado: 'mié, 14 oct, 11:00',
+      actualizado: 'mié 14 oct, 11:00',
       rotuloPublicadas: 'Publicadas hoy',
       rotuloMasPublica: 'Más publica hoy',
     });
@@ -239,7 +240,7 @@ describe('franjaDeLaPortada', () => {
     expect(franjaDeLaPortada({ ...CON_HOY, publicadas_hoy: 0 })).toEqual({
       publicadasHoy: null,
       masPublicaHoy: null,
-      actualizado: 'mié, 14 oct, 11:00',
+      actualizado: 'mié 14 oct, 11:00',
       rotuloPublicadas: 'Publicadas hoy',
       rotuloMasPublica: 'Más publica hoy',
     });
@@ -253,7 +254,7 @@ describe('franjaDeLaPortada', () => {
   });
 
   it('un backend sin los campos nuevos: sólo la hora', () => {
-    expect(franjaDeLaPortada(RESUMEN)).toMatchObject({ publicadasHoy: null, masPublicaHoy: null, actualizado: 'mié, 14 oct, 11:00' });
+    expect(franjaDeLaPortada(RESUMEN)).toMatchObject({ publicadasHoy: null, masPublicaHoy: null, actualizado: 'mié 14 oct, 11:00' });
   });
 
   it.each([

@@ -42,7 +42,7 @@ async function fijarElReloj(page: Page): Promise<void> {
       [/\b\d{1,2}:\d{2}\b/g, '10:00'],
       [new RegExp(`\\b\\d{1,2}( de)? ${MES}`, 'gi'), '17$1 oct'],
       [/\b(lunes|martes|miércoles|jueves|viernes|sábado|domingo)\b/gi, 'viernes'],
-      [/(^|\s)(lun|mar|mié|jue|vie|sáb|dom),/gi, '$1vie,'],
+      [/(^|\s)(lun|mar|mié|jue|vie|sáb|dom)(,? )(?=\d)/gi, '$1vie$3'],
       [/\b20\d\d\b/g, '2026'],
     ];
     const recorrido = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);

@@ -90,7 +90,7 @@ export function variadas<T extends { nombre_organismo: string | null }>(items: T
 }
 
 /**
- * «lun, 12 oct, 13:05», en hora de Chile. Con el día siempre: la portada se
+ * «lun 12 oct, 13:05», en hora de Chile. Con el día siempre: la portada se
  * cachea, así que «a las 13:05» a secas no diría si es de hoy o de ayer, y en
  * el servidor no se sabe la fecha del visitante.
  */
@@ -107,7 +107,9 @@ export function actualizadoEnPalabras(iso: string | null): string | null {
     month: 'short',
   })
     .format(fecha)
-    .replace(/\.$/, '');
+    .replace(/\.$/, '')
+    // «jue 22 oct», sin la coma tras el día: «Actualizado el jue, 22 oct» se leía torpe.
+    .replace(/^(\p{L}+),\s*/u, '$1 ');
   const hora = new Intl.DateTimeFormat('es-CL', {
     timeZone: zona,
     hour: '2-digit',
@@ -129,7 +131,7 @@ export interface CifraPortada {
 export interface TiraPortada {
   cifras: [CifraPortada, CifraPortada];
   /**
-   * «mié, 14 oct, 11:00», en hora de Chile. La tira no la pinta (la dice la
+   * «mié 14 oct, 11:00», en hora de Chile. La tira no la pinta (la dice la
    * franja), pero sin hora legible no hay tira.
    */
   actualizado: string;
@@ -181,7 +183,7 @@ export const TITULO_PORTADA = 'Cuánto paga el Estado por lo que vendes';
 export const ETIQUETA_BUSCADOR = 'Producto o servicio que vendes';
 
 /** El campo no repite los ejemplos: ya están debajo (spec §3.1). */
-export const PLACEHOLDER_BUSCADOR = 'Escribe un producto o servicio';
+export const PLACEHOLDER_BUSCADOR = 'Un producto o un servicio';
 
 /** «una», «4»: cuántas, para leerlo en una frase. */
 const cuantas = (n: number) => (n === 1 ? 'una' : String(n));
@@ -255,7 +257,7 @@ export interface DatosFranja {
   publicadasHoy: string | null;
   /** El organismo que más publicó hoy, como lo escribe «Lo mejor de hoy». */
   masPublicaHoy: string | null;
-  /** «mié, 14 oct, 13:17»: con el día, porque la portada se cachea. */
+  /** «mié 14 oct, 13:17»: con el día, porque la portada se cachea. */
   actualizado: string;
   /**
    * El rótulo de las dos primeras celdas: «Publicadas hoy» y «Más publica hoy» si
@@ -281,7 +283,7 @@ export function franjaDeLaPortada(resumen: ResumenPortada | null, vigencia: Vige
     publicadasHoy: hay ? `${entero(n)} ${n === 1 ? 'licitación o Compra Ágil' : 'licitaciones y Compras Ágiles'}` : null,
     masPublicaHoy: hay && nombre ? normalizeText(nombre) : null,
     actualizado,
-    rotuloPublicadas: vigencia.mismoDia ? 'Publicadas hoy' : `Publicadas el ${actualizado.replace(/, \d\d:\d\d$/, '').replace(',', '')}`,
+    rotuloPublicadas: vigencia.mismoDia ? 'Publicadas hoy' : `Publicadas el ${actualizado.replace(/, \d\d:\d\d$/, '')}`,
     rotuloMasPublica: vigencia.mismoDia ? 'Más publica hoy' : 'Más publicó ese día',
   };
 }

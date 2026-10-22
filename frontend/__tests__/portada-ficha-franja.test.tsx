@@ -70,7 +70,7 @@ describe('FichaAutor (spec PORTADA_V7 §3.6)', () => {
 const FRANJA: DatosFranja = {
   publicadasHoy: '612 licitaciones y Compras Ágiles',
   masPublicaHoy: 'Servicio de Salud Metropolitano Sur',
-  actualizado: 'mié, 14 oct, 13:17',
+  actualizado: 'mié 14 oct, 13:17',
   rotuloPublicadas: 'Publicadas hoy',
   rotuloMasPublica: 'Más publica hoy',
 };
@@ -97,7 +97,7 @@ describe('FranjaPortada', () => {
     expect([...container.querySelectorAll('dd')].map((d) => d.textContent)).toEqual([
       '612 licitaciones y Compras Ágiles',
       'Servicio de Salud Metropolitano Sur',
-      'mié, 14 oct, 13:17',
+      'mié 14 oct, 13:17',
     ]);
   });
 
@@ -131,7 +131,7 @@ describe('FranjaPortada', () => {
       'Publicadas hoy:',
       'Actualizado el',
     ]);
-    expect([...container.querySelectorAll('dd')].map((d) => d.textContent)).toEqual(['612 licitaciones y Compras Ágiles', 'mié, 14 oct, 13:17']);
+    expect([...container.querySelectorAll('dd')].map((d) => d.textContent)).toEqual(['612 licitaciones y Compras Ágiles', 'mié 14 oct, 13:17']);
   });
 
   it('cualquier celda que quede primera pierde la sangría izquierda desde lg', () => {
