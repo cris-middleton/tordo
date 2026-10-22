@@ -42,18 +42,28 @@ import { escribirUrlPropia } from '@/lib/urlPropia';
  *
  * Una URL que llega de fuera («Precios» en la cabecera con una búsqueda puesta)
  * vuelve a montar el buscador con su término: ver `lib/urlPropia.ts`.
+ *
+ * `inicio` es lo que se ve mientras no hay búsqueda, debajo de los ejemplos: lo
+ * pinta el servidor (la página) y aquí sólo se coloca, así que no pide nada.
  */
-export function BuscadorProductos() {
+export function BuscadorProductos({ inicio }: { inicio?: React.ReactNode }) {
   return (
-    <Suspense fallback={<Campo texto="" />}>
-      <BuscadorDeLaUrl />
+    <Suspense
+      fallback={
+        <>
+          <Campo texto="" />
+          {inicio}
+        </>
+      }
+    >
+      <BuscadorDeLaUrl inicio={inicio} />
     </Suspense>
   );
 }
 
-function BuscadorDeLaUrl() {
+function BuscadorDeLaUrl({ inicio }: { inicio?: React.ReactNode }) {
   const clave = useClaveDeUrlExterna('productos');
-  return <Buscador key={clave} />;
+  return <Buscador key={clave} inicio={inicio} />;
 }
 
 function Campo({ texto, alCambiar }: { texto: string; alCambiar?: (valor: string) => void }) {
@@ -83,7 +93,7 @@ function Campo({ texto, alCambiar }: { texto: string; alCambiar?: (valor: string
   );
 }
 
-function Buscador() {
+function Buscador({ inicio }: { inicio?: React.ReactNode }) {
   const urlInicial = useSearchParams();
   // Un enlace compartido puede traer un término más largo que el del backend
   // (un 422 que se leería como caída): se trunca al tope, como haría el campo.
@@ -126,6 +136,7 @@ function Buscador() {
                 </li>
               ))}
             </ul>
+            {inicio}
           </div>
         ) : consulta.isError ? (
           // Una línea y no una caja, como el resto de la búsqueda; con el

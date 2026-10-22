@@ -21,9 +21,9 @@ const NOTA_ESCALA = 18; // «escala logarítmica»
  * franja P25–P75 en `dato-tenue` con su etiqueta directa, la mediana como una
  * raya en `text`, la línea fina de P10 a P90 en `muted`, un punto en `dato` por
  * comprador en su mediana (sólo con `MINIMO_PUNTOS` o más; sin puntos, la franja
- * baja a 44 px: es un rango, no una nube), y el eje logarítmico con P25 y P75 en
- * negrita y dos valores redondos de contexto en `muted`. Sin leyenda: el pie de
- * método dice qué es cada trazo.
+ * baja a 44 px: es un rango, no una nube), y el eje logarítmico, ceñido al dato,
+ * con P25 y P75 en negrita y hasta dos valores redondos de contexto en `muted`.
+ * Sin leyenda: el pie de método dice qué es cada trazo.
  *
  * **SVG de servidor y sin `viewBox`**: lo horizontal va en % del ancho de la
  * columna y lo vertical en px, así que un punto es redondo y un rótulo mide 12 px

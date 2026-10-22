@@ -83,8 +83,10 @@ export default async function PaginaProducto({ params }: Props) {
     ? precioDeBanda({ producto: p, banda: principal, nombre: precioDeLaBanda(principal.unidad), repositorio: urlRepositorio() })
     : null;
 
+  // Un solo ancho para toda la ficha: el de lectura. El gráfico medía ~680 px y
+  // las tablas ~1.090, y cada sección empezaba y terminaba en otro sitio.
   return (
-    <article>
+    <article className="max-w-3xl">
       <CabeceraFicha
         titulo={nombre}
         subtitulo={
@@ -104,10 +106,10 @@ export default async function PaginaProducto({ params }: Props) {
         )}
         {/* El título ya es la descripción; entera, sólo si hubo que cortarla. */}
         {p.descripcion && nombre.endsWith('…') && (
-          <p className="mt-3 max-w-3xl text-sm text-muted">{p.descripcion}</p>
+          <p className="mt-3 text-sm text-muted">{p.descripcion}</p>
         )}
         {!p.indexable && (
-          <p className="mt-3 max-w-3xl rounded-lg border border-gold/25 bg-gold/10 px-3 py-2 text-xs text-gold">
+          <p className="mt-3 rounded-lg border border-gold/25 bg-gold/10 px-3 py-2 text-xs text-gold">
             Hay pocas compras, pocos compradores o precios muy distintos. Úsalo sólo para orientarte.
           </p>
         )}
@@ -117,7 +119,7 @@ export default async function PaginaProducto({ params }: Props) {
         {!principal ? (
           <p className="text-sm text-subtle">Todavía hay muy pocas compras para darte un precio.</p>
         ) : (
-          <div className="max-w-3xl">
+          <div>
             {precio ? (
               <>
                 <h3 className="font-sans text-[17px] font-bold leading-snug text-text">{precio.conclusion}</h3>
@@ -144,17 +146,14 @@ export default async function PaginaProducto({ params }: Props) {
           titulo="Por unidad de medida"
           descripcion="Lo mismo se compra por caja, por unidad o por paquete. Cada forma tiene su precio."
         >
-          <div className="max-w-3xl">
-            <TablaUnidades unidades={p.unidades} titulo={(u) => tituloDeBanda(u.unidad)} />
-          </div>
+          <TablaUnidades unidades={p.unidades} titulo={(u) => tituloDeBanda(u.unidad)} />
         </Seccion>
       )}
 
       <Seccion titulo="Quién lo compra" descripcion={descripcionCompradores(p)}>
         <TablaEnlaces
-          encabezados={['Comprador', 'Unidad de medida', 'Compras', 'Mediana']}
+          encabezados={['Comprador', 'Unidad', 'Compras', 'Mediana']}
           vacio="Todavía no hay compradores con datos de este producto."
-          ocultarEnMovil={[0]}
           filas={p.compradores.map((c) => ({
             clave: `${c.codigo}-${c.unidad}`,
             href: rutaComprador(c.codigo),

@@ -548,7 +548,14 @@ a la página**: Next ignora `metadata` en componentes cliente y la home perderí
     semanal materialice su tabla— cae a los de `compradores` con la unidad de la banda, que son diez)
     **sólo con `MINIMO_PUNTOS` (5) o más**, y más chicos cuantos más son (`radioPara`: 8, 5 o 3,5 px) —con menos,
     ninguno, y la franja baja a 44 px: dos puntos de 63 compradores se leían como «los compradores» y el
-    pie decía «uno de los 1»—, P25 y P75 en negrita y dos valores redondos de contexto en `muted`. **Sin `viewBox`:
+    pie decía «uno de los 1»—, P25 y P75 en negrita y hasta dos valores redondos de contexto en `muted`. **El eje es del
+    dato** (`dominioDelDato`): de lo más bajo a lo más alto que se dibuja —P10, P90, la franja y los
+    puntos— con `AIRE_DOMINIO` (15 % de ese tramo) a cada lado, así que el dato llena ~77 % del ancho; un
+    tramo de menos de `RAZON_MINIMA` (1,5×) se abre centrado. Las marcas de contexto (1; 1,5; 2; 2,5;
+    3… 8 por una potencia de 10) caen **dentro** de ese eje, fuera de la franja, la más alejada cuyo
+    rótulo no pise otro, y **nunca lo estiran**: si no cabe ninguna, ese lado va sin marca. Antes se
+    buscaban al doble de P25 y P75 como mínimo y estiraban el eje: el cloro gel iba de $200 a $5 mil
+    con 8 de cada 10 compras entre $725 y $1.437, en una cuarta parte del ancho. **Sin `viewBox`:
     lo horizontal va en % y lo vertical en px**, así que puntos y rótulos no se deforman; si dos
     puntos se tocan (se apilan) o dos rótulos se pisan (se apartan, o se juntan en uno) se decide al
     ancho más estrecho en que se pinta (`ANCHO_REFERENCIA`, 280 px): más ancho, nada empieza a
@@ -664,6 +671,20 @@ con la cifra, `textoDiferencia` —«De un extremo al otro, 1,9 veces», «Casi 
 insignias de color; antes un adjetivo, «Precios algo distintos entre sí»). Con más de
 una unidad, una tabla (`TablaUnidades`). Ya no hay tarjeta de P10…P90 encima del gráfico: la ficha
 decía la mitad de las compras tres veces. Las tablas de las fichas (`TablaEnlaces`) van con filetes y sin caja.
+**Un solo ancho, el de lectura** (`max-w-3xl` en el `<article>`): el gráfico medía ~680 px y las tablas
+~1.090, y cada sección terminaba en otro sitio. `/buscar` hace lo mismo con la página entera.
+**Las dos tablas se apilan bajo `sm`**, como `TablaCostos`: `TablaUnidades` pone la unidad y su mediana
+en una línea y las demás cifras debajo, cada una con su nombre; `TablaEnlaces`, el nombre en su línea y
+las celdas debajo con su encabezado delante (los de arriba quedan para el lector de pantalla, y los
+roles de tabla van explícitos porque cambia el `display`). A 390 px la de unidades se desplazaba de lado
+y escondía columnas, y la de compradores ocultaba la unidad y tocaba el borde. **«Quién lo compra» no
+cuenta compradores** (`descripcionCompradores`): la tabla mezcla unidades y se corta en diez, y «Son 7 de
+204: los demás lo compraron una o dos veces» la contradecía; con la lista de L0 dice sólo el corte (3
+compras o más en una misma unidad).
+
+**`/productos` sin búsqueda** enlaza, bajo los ejemplos, las seis fichas de la escalera
+(`PRODUCTOS_ESCALERA`, «Lo que compra todo el Estado»): enlaces escritos sin cifras ni `prefetch`, que
+pinta la página de servidor y el buscador coloca (`inicio`), así que no piden nada al backend.
 
 **Acerca** (`/acerca`, `app/(publico)/acerca/`): lo que la portada dejó de explicar —qué es, de
 dónde salen los datos, cómo se financia— y las preguntas frecuentes (`PREGUNTAS`, en

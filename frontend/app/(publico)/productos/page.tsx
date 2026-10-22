@@ -1,8 +1,12 @@
 import type { Metadata } from 'next';
 
+import Link from 'next/link';
+
 import { BuscadorProductos } from '@/components/publico/BuscadorProductos';
-import { CabeceraFicha } from '@/components/publico/Piezas';
+import { CabeceraFicha, Seccion } from '@/components/publico/Piezas';
+import { PRODUCTOS_ESCALERA } from '@/lib/escaleraPrecios';
 import { MESES_PRECIOS } from '@/lib/periodo';
+import { rutaProducto, tituloDeBanda } from '@/lib/publico';
 
 /**
  * `/productos` — buscar el precio de referencia de un producto.
@@ -21,6 +25,34 @@ export const metadata: Metadata = {
   alternates: { canonical: '/productos' },
 };
 
+/**
+ * Mientras no hay búsqueda, seis fichas para abrir de una: las de la escalera de
+ * la portada (`PRODUCTOS_ESCALERA`), elegidas en producción y comprobadas por
+ * `scripts/verificar-produccion.sh`. Son enlaces escritos, sin cifras: la página
+ * no pide nada al backend por mostrarlos. Sin `prefetch`, que en cada vista
+ * generaría las seis fichas.
+ */
+function FichasParaEmpezar() {
+  return (
+    <Seccion titulo="Lo que compra todo el Estado">
+      <ul aria-label="Fichas para empezar" className="divide-y divide-border border-y border-border text-sm">
+        {PRODUCTOS_ESCALERA.map((p) => (
+          <li key={p.slug}>
+            <Link
+              href={rutaProducto(p.slug)}
+              prefetch={false}
+              className="flex items-baseline justify-between gap-3 py-3 hover:text-accent"
+            >
+              <span className="font-medium text-primary">{p.nombre}</span>
+              <span className="shrink-0 text-muted">{tituloDeBanda(p.unidad).toLowerCase()}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </Seccion>
+  );
+}
+
 export default function PaginaProductos() {
   return (
     <article className="max-w-3xl">
@@ -28,7 +60,7 @@ export default function PaginaProductos() {
         titulo="¿Cuánto paga el Estado por…?"
         subtitulo={`Escríbelo como lo pediría un comprador. Cada ficha dice a qué precio se compró en los últimos ${MESES_PRECIOS} meses y quién lo compra.`}
       />
-      <BuscadorProductos />
+      <BuscadorProductos inicio={<FichasParaEmpezar />} />
     </article>
   );
 }

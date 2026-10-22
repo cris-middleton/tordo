@@ -14,7 +14,9 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import PaginaProductos from '@/app/(publico)/productos/page';
 import { BuscadorProductos } from '@/components/publico/BuscadorProductos';
+import { PRODUCTOS_ESCALERA } from '@/lib/escaleraPrecios';
 import { PARAMETRO_BUSQUEDA_PRODUCTOS, rutaBusquedaProductos } from '@/lib/publico';
 
 let estado: { isPending: boolean; isError: boolean; data?: unknown };
@@ -81,6 +83,24 @@ describe('buscador de productos', () => {
     expect(pedidas.at(-1)).toBe('guante');
     expect(pedidas).not.toContain('gu');
     expect(pedidas).not.toContain('guan');
+  });
+
+  it('lo de `inicio` (las fichas para empezar de la página) sale sin búsqueda y se va al buscar', () => {
+    render(<BuscadorProductos inicio={<p>Fichas para empezar</p>} />);
+    expect(screen.getByText('Fichas para empezar')).toBeInTheDocument();
+    escribir('guante');
+    act(() => vi.advanceTimersByTime(300));
+    expect(screen.queryByText('Fichas para empezar')).toBeNull();
+  });
+
+  it('la página, sin búsqueda, enlaza las seis fichas de la escalera sin pedir nada al backend', () => {
+    const fetch = vi.spyOn(globalThis, 'fetch');
+    render(<PaginaProductos />);
+    const lista = screen.getByRole('list', { name: 'Fichas para empezar' });
+    expect([...lista.querySelectorAll('a')].map((a) => a.getAttribute('href'))).toEqual(
+      PRODUCTOS_ESCALERA.map((p) => `/productos/${p.slug}`),
+    );
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it('con menos de tres letras pide escribir más, sin resultados', () => {

@@ -246,21 +246,24 @@ export const MINIMO_COMPRAS_L0 = 3;
  * Qué dice la lista de «Quién lo compra». Con `medianas_compradores` (la tabla
  * de todos los compradores) son los que más veces lo compraron. Sin ella la
  * lista sale de L0, que sólo cuenta a quien lo compró `MINIMO_COMPRAS_L0` veces
- * o más: «87 compras de 63 compradores» sobre una lista de uno se leía como un
- * error. Entonces se dice el corte y cuántos quedan fuera.
+ * o más en una misma unidad: «87 compras de 63 compradores» sobre una lista de
+ * uno se leía como un error, así que se dice el corte.
  */
 export function listaDeL0(p: Pick<ProductoPublico, 'unidades'>): boolean {
   return p.unidades.length > 0 && p.unidades.every((u) => u.medianas_compradores == null);
 }
 
-export function descripcionCompradores(p: Pick<ProductoPublico, 'unidades' | 'compradores'>): string {
-  if (!listaDeL0(p)) return 'Los que más veces lo compraron, y lo que pagó cada uno (su mediana).';
-  const corte = `Los que lo compraron ${MINIMO_COMPRAS_L0} veces o más, y lo que pagó cada uno (su mediana).`;
-  const principal = p.unidades[0];
-  const listados = new Set(p.compradores.filter((c) => c.unidad === principal.unidad).map((c) => c.codigo)).size;
-  if (principal.compradores == null || listados >= principal.compradores) return corte;
-  const cuantos = listados === 1 ? 'Es uno' : `Son ${entero(listados)}`;
-  return `${corte} ${cuantos} de ${entero(principal.compradores)}: los demás lo compraron una o dos veces.`;
+/**
+ * La descripción de «Quién lo compra», **sin contar compradores**: la tabla de
+ * debajo mezcla unidades de medida y se corta en los diez primeros, así que
+ * cualquier cuenta sobre la unidad principal la contradecía («Son 7 de 204: los
+ * demás lo compraron una o dos veces», sobre diez filas de tres unidades, y el
+ * undécimo pudo comprarlo once veces).
+ */
+export function descripcionCompradores(p: Pick<ProductoPublico, 'unidades'>): string {
+  const lista = 'Los que más veces lo compraron, y lo que pagó cada uno (su mediana).';
+  if (!listaDeL0(p)) return lista;
+  return `${lista} Sólo entra quien lo compró ${MINIMO_COMPRAS_L0} veces o más en una misma unidad de medida.`;
 }
 
 /** La categoría del catálogo, como contexto debajo del nombre; null si no hay. */

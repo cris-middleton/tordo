@@ -162,22 +162,26 @@ describe('nombreProducto', () => {
 });
 
 describe('descripcionCompradores', () => {
-  const comprador = (codigo: string, unidad = 'unidad') => ({ codigo, nombre: 'Municipalidad', unidad, n: 6, p50: 279_995 });
-
   it('con la tabla de todos los compradores, los que más veces lo compraron', () => {
-    const p = { unidades: [banda({ medianas_compradores: [{ n: 6, p50: 279_995 }] })], compradores: [comprador('1')] };
+    const p = { unidades: [banda({ medianas_compradores: [{ n: 6, p50: 279_995 }] })] };
     expect(descripcionCompradores(p)).toBe('Los que más veces lo compraron, y lo que pagó cada uno (su mediana).');
   });
 
-  it('sin ella (lista de L0), dice el corte y cuántos quedan fuera: 1 de 63 se leía como un error', () => {
-    const p = { unidades: [banda({ compradores: 63, medianas_compradores: null })], compradores: [comprador('1'), comprador('2', 'caja')] };
+  it('sin ella (lista de L0), dice el corte: con una sola fila de 63 compradores se leía como un error', () => {
+    const p = { unidades: [banda({ compradores: 63, medianas_compradores: null })] };
     expect(descripcionCompradores(p)).toBe(
-      'Los que lo compraron 3 veces o más, y lo que pagó cada uno (su mediana). Es uno de 63: los demás lo compraron una o dos veces.',
+      'Los que más veces lo compraron, y lo que pagó cada uno (su mediana). Sólo entra quien lo compró 3 veces o más en una misma unidad de medida.',
     );
   });
 
-  it('sin ella pero con todos listados, sólo el corte', () => {
-    const p = { unidades: [banda({ compradores: 1, medianas_compradores: null })], compradores: [comprador('1')] };
-    expect(descripcionCompradores(p)).toBe('Los que lo compraron 3 veces o más, y lo que pagó cada uno (su mediana).');
+  it('no cuenta compradores: la tabla mezcla unidades y se corta en diez, y una cuenta la contradecía (cloro gel, «Son 7 de 204»)', () => {
+    const p = {
+      unidades: [
+        banda({ unidad: 'unidad', compradores: 204, medianas_compradores: null }),
+        banda({ unidad: 'sin unidad declarada', compradores: 24, medianas_compradores: null }),
+      ],
+    };
+    const texto = descripcionCompradores(p);
+    expect(texto).not.toMatch(/\d{2,}|de 204|una o dos veces/);
   });
 });

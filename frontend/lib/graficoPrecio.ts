@@ -15,8 +15,14 @@
  *
  * **Escala logarítmica**: los precios del Estado tienen cola larga, y en escala
  * lineal la mitad central de los productos baratos se aplastaba contra el borde.
- * Dos marcas de contexto en valores redondos (1, 2 o 5 por una potencia de 10)
- * dicen dónde está el resto.
+ *
+ * **El eje es del dato** (`dominioDelDato`): va de lo más bajo a lo más alto que
+ * se dibuja —P10 y P90, la franja y los puntos— con un aire de `AIRE_DOMINIO` de
+ * ese tramo a cada lado, así que el dato ocupa ~77 % del ancho. Las marcas de
+ * contexto son valores redondos que caen dentro de ese eje, fuera de la franja:
+ * nunca lo estiran. Antes cada una se buscaba al doble de P25 o de P75 como
+ * mínimo y el eje se estiraba hasta ella: el cloro gel iba de $200 a $5 mil con
+ * 8 de cada 10 compras entre $725 y $1.437, en una cuarta parte del ancho.
  */
 
 import type { BandaUnidad, CompradorDeProducto } from '@/types/publico';
@@ -56,11 +62,18 @@ export const MINIMO_PUNTOS = 5;
 const AIRE_ROTULOS = 6;
 
 /**
- * Una marca de contexto queda, como mínimo, a este factor de P25 o de P75: más
- * cerca no se distingue de la franja ni deja sitio a su rótulo. El dominio se
- * estira hasta incluirla.
+ * El aire del eje a cada lado del dato, como fracción del tramo que ocupa el dato
+ * (en escala logarítmica): con 0,15 el dato llena 1/1,3 ≈ 77 % del ancho, y el eje
+ * entero mide como mucho 1,3 veces el tramo del dato.
  */
-const FACTOR_CONTEXTO = 2;
+export const AIRE_DOMINIO = 0.15;
+
+/**
+ * El tramo mínimo del dato, como razón entre el más alto y el más bajo. Con un
+ * solo precio (un comprador, o P10 = P90) el tramo es cero y el eje no tendría
+ * ancho: se abre hasta que el más alto sea 1,5 veces el más bajo, centrado.
+ */
+export const RAZON_MINIMA = 1.5;
 
 export type Ancla = 'start' | 'middle' | 'end';
 
@@ -138,12 +151,16 @@ export function plataCorta(clp: number): string {
   return `$${millones} ${millones === '1' ? 'millón' : 'millones'}`;
 }
 
-/** Valores redondos (1, 2 y 5 por una potencia de 10) entre `desde` y `hasta`. */
+/**
+ * Valores redondos entre `desde` y `hasta`: 1, 1,5, 2, 2,5, 3, 4, 5, 6, 7 y 8 por
+ * una potencia de 10 («$700», «$1,5 mil», «$250 mil»). Con sólo 1, 2 y 5 casi
+ * nunca caía uno dentro de un eje ceñido al dato.
+ */
 export function valoresRedondos(desde: number, hasta: number): number[] {
   const salida: number[] = [];
   for (let e = Math.floor(Math.log10(desde)) - 1; e <= Math.ceil(Math.log10(hasta)) + 1; e++) {
-    for (const m of [1, 2, 5]) {
-      const v = m * 10 ** e;
+    for (const m of [1, 1.5, 2, 2.5, 3, 4, 5, 6, 7, 8]) {
+      const v = Number((m * 10 ** e).toPrecision(2));
       if (v >= desde && v <= hasta) salida.push(v);
     }
   }
@@ -236,6 +253,25 @@ function cajasDe(marcas: MarcaEje[], ancho: number): Caja[] {
 }
 
 /**
+ * El eje de un gráfico de precio, en pesos: de lo más bajo a lo más alto de
+ * `valores`, con `AIRE_DOMINIO` del tramo a cada lado (en logaritmos), así que el
+ * dato ocupa ~77 % del ancho. Un tramo más corto que `RAZON_MINIMA` se abre,
+ * centrado, hasta medirla.
+ */
+export function dominioDelDato(valores: number[]): { desde: number; hasta: number } {
+  let a = Math.log(Math.min(...valores));
+  let b = Math.log(Math.max(...valores));
+  const minimo = Math.log(RAZON_MINIMA);
+  if (b - a < minimo) {
+    const centro = (a + b) / 2;
+    a = centro - minimo / 2;
+    b = centro + minimo / 2;
+  }
+  const aire = (b - a) * AIRE_DOMINIO;
+  return { desde: Math.exp(a - aire), hasta: Math.exp(b + aire) };
+}
+
+/**
  * El gráfico de una banda, o `null` si no hay franja que dibujar (sin P25 o P75,
  * o con P75 bajo P25). Los puntos son los compradores **de la misma unidad** que
  * la banda (los de otra unidad no se comparan: es otro envase) con mediana.
@@ -273,21 +309,11 @@ export function graficoPrecio(
   const { p10, p50, p90 } = banda;
   const conBigotes = !unSolo && p10 != null && p90 != null && p10 > 0 && p10 <= p25 && p90 >= p75;
 
-  // Las dos marcas de contexto: el valor redondo más cercano a cada lado, a un
-  // factor de la franja (o del único punto). El dominio llega hasta ellas.
-  const izquierda = unSolo ? valores[0] : p25;
-  const derecha = unSolo ? valores[0] : p75;
-  const contexto = [
-    valoresRedondos(izquierda / 1000, izquierda / FACTOR_CONTEXTO).at(-1),
-    valoresRedondos(derecha * FACTOR_CONTEXTO, derecha * 1000)[0],
-  ].filter((v): v is number => v !== undefined);
-
+  // El eje es del dato: de lo más bajo a lo más alto que se dibuja, con aire.
   const extremos = conBigotes ? [p10 as number, p90 as number] : [];
-  let a = Math.log(Math.min(p25, ...dibujados, ...extremos, ...contexto));
-  let b = Math.log(Math.max(p75, ...dibujados, ...extremos, ...contexto));
-  const margen = (b - a) * 0.05;
-  a -= margen;
-  b += margen;
+  const dominio = dominioDelDato([p25, p75, ...dibujados, ...extremos]);
+  const a = Math.log(dominio.desde);
+  const b = Math.log(dominio.hasta);
   const x = (v: number) => unDecimal(((Math.log(v) - a) / (b - a)) * 100);
 
   const xs = dibujados.map(x);
@@ -305,13 +331,26 @@ export function graficoPrecio(
     ? marcasFuertes(xs[0], xs[0], plataCorta(valores[0]), plataCorta(valores[0]), ancho)
     : marcasFuertes(x(p25), x(p75), plataCorta(p25), plataCorta(p75), ancho);
 
-  // Las de contexto, sólo si su rótulo no pisa otro.
-  for (const v of contexto) {
-    const texto = plataCorta(v);
-    const r = rotulo(x(v), texto, ancho);
-    // Pegada a un borde, el rótulo se apoya en él y sigue cubriendo su marca.
-    if (cajasDe(marcas, ancho).some((c) => sePisan(c, r.caja))) continue;
-    marcas.push({ x: x(v), texto, fuerte: false, xTexto: r.xTexto, ancla: r.ancla });
+  // Las de contexto: a cada lado de la franja (o del único punto), el valor
+  // redondo dentro del eje más alejado de ella cuyo rótulo no pise otro. Nunca
+  // estiran el eje: si no cae ninguno, ese lado va sin marca.
+  const izquierda = unSolo ? valores[0] : p25;
+  const derecha = unSolo ? valores[0] : p75;
+  const lados = [
+    valoresRedondos(dominio.desde, izquierda).filter((v) => v < izquierda),
+    valoresRedondos(derecha, dominio.hasta)
+      .filter((v) => v > derecha)
+      .reverse(),
+  ];
+  for (const candidatos of lados) {
+    for (const v of candidatos) {
+      const texto = plataCorta(v);
+      // Pegada a un borde, el rótulo se apoya en él y sigue cubriendo su marca.
+      const r = rotulo(x(v), texto, ancho);
+      if (cajasDe(marcas, ancho).some((c) => sePisan(c, r.caja))) continue;
+      marcas.push({ x: x(v), texto, fuerte: false, xTexto: r.xTexto, ancla: r.ancla });
+      break;
+    }
   }
   marcas.sort((m, n) => m.x - n.x);
 
