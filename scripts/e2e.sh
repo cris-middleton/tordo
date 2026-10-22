@@ -21,10 +21,16 @@ set -m
 RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$RAIZ"
 
-CONTENEDOR="tordo-e2e-pg"
-PUERTO_PG="${E2E_PUERTO_PG:-55433}"
-PUERTO_API="${E2E_PUERTO_API:-8210}"
-PUERTO_FRONT="${E2E_PUERTO_FRONT:-3210}"
+# Un contenedor y unos puertos POR WORKTREE, como `make ci`: con un nombre y
+# unos puertos fijos, dos worktrees corriendo `make e2e` a la vez se borraban el
+# Postgres el uno al otro, y el segundo backend no podía escuchar en el puerto.
+# Los puertos los elige el sistema salvo que se fijen con E2E_PUERTO_*.
+NOMBRE_WORKTREE="$(basename "$RAIZ")"
+CONTENEDOR="tordo-e2e-pg-${NOMBRE_WORKTREE//[^A-Za-z0-9_.-]/-}"
+puerto_libre() { python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])'; }
+PUERTO_PG="${E2E_PUERTO_PG:-$(puerto_libre)}"
+PUERTO_API="${E2E_PUERTO_API:-$(puerto_libre)}"
+PUERTO_FRONT="${E2E_PUERTO_FRONT:-$(puerto_libre)}"
 # Debe coincidir con la versión de @playwright/test del package.json: si se
 # separan, el cliente y el navegador hablan protocolos distintos.
 IMAGEN_PLAYWRIGHT="mcr.microsoft.com/playwright:v1.62.1-noble"
