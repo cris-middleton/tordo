@@ -126,8 +126,10 @@ export function lecturaGasto(
       `Órdenes de compra de ${desde} a ${hasta} (meses completos), por mes y sector del comprador. ` +
       'Un mes típico es la mediana: la mitad de los meses compró menos y la otra mitad, más. ' +
       'Las obras del MOP casi no pasan por órdenes de compra, así que aquí casi no están.',
+    // Cada pie nombra lo que se encuentra al llegar: con la red, la portada decía «Los
+    // mercados por rubro» tres veces, bajo tres gráficos distintos.
     enlaces: enlacesDeMetodo(METODO_GASTO, {
-      primero: { texto: 'Los mercados por rubro', href: '/mercado', externo: false },
+      primero: { texto: 'Cuánto compra cada sector', href: '/mercado', externo: false },
       api: '/publico/mercado',
       repositorio,
     }),
@@ -202,7 +204,7 @@ export function lecturaConcentracion(mercado: MercadoPortada | null, repositorio
       `La altura es lo que se compró en ellos; el tramo, cuánto se lleva el proveedor que más vende. ` +
       `En ${entero(c.un_proveedor)} de ellos hay un solo proveedor.`,
     enlaces: enlacesDeMetodo(METODO_CONCENTRACION, {
-      primero: { texto: 'Los mercados por rubro', href: '/mercado', externo: false },
+      primero: { texto: 'Quién se lleva cada rubro', href: '/mercado', externo: false },
       api: '/publico/mercado',
       repositorio,
     }),

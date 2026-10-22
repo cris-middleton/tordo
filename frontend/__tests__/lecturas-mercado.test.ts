@@ -93,7 +93,7 @@ describe('lecturaGasto', () => {
     expect(l.pie).toMatch(/^Órdenes de compra de ene 2025 a dic 2025/);
     expect(l.pie).not.toMatch(/\d órdenes/);
     expect(l.pie).toContain('obras del MOP');
-    expect(l.enlaces.map((e) => e.texto)).toEqual(['Los mercados por rubro', 'Cómo se calcula', 'Ver en la API', 'Código']);
+    expect(l.enlaces.map((e) => e.texto)).toEqual(['Cuánto compra cada sector', 'Cómo se calcula', 'Ver en la API', 'Código']);
   });
 
   it('sin el bloque o con menos de seis meses, null', () => {
