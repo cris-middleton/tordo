@@ -340,7 +340,7 @@ export function nombreCorto(n: string): string {
 }
 
 /** Dónde va el rótulo de un comprador, en unidades del lienzo: el punto de anclaje y hacia dónde crece la caja. */
-export type Rotulo = { id: string; texto: string; x: number; y: number; lado: 'izquierda' | 'derecha' | 'arriba' };
+export type Rotulo = { id: string; texto: string; x: number; y: number; lado: 'izquierda' | 'derecha' | 'arriba' | 'abajo' };
 
 /** Lo que mide un rótulo en el lienzo (12 px; el dibujo se ve a escala casi 1:1 desde `sm`). */
 const ANCHO_LETRA = 6.6;
@@ -351,15 +351,17 @@ const seCruzan = (a: Caja, b: Caja) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1
 
 /**
  * Los rótulos de los `cuantos` compradores de más monto, sin pisarse. Cada uno va del
- * lado de adentro de su nodo; si ahí choca con uno ya puesto o se sale del lienzo,
- * prueba encima del nodo, y si tampoco cabe se queda sin rótulo (el nombre sigue en
+ * lado de adentro de su nodo; si ahí choca con uno ya puesto o con otro comprador, o se sale del lienzo,
+ * prueba encima del nodo y luego debajo, y si tampoco cabe se queda sin rótulo (el nombre sigue en
  * el globo). Con los datos de producción del 2026-10-22, Cenabast y el Fondo Nacional
  * de Salud quedaban uno al lado del otro arriba y sus nombres se montaban.
  */
 export function rotularCompradores(nodos: NodoRed[], { ancho, alto }: Lienzo, cuantos: number): Rotulo[] {
-  const puestas: Caja[] = [];
   const rotulos: Rotulo[] = [];
   const candidatos = nodos.filter((d) => d.tipo === 'comprador').sort((a, b) => b.monto - a.monto);
+  // Los otros compradores también estorban: un rótulo encima de un nodo del anillo lo tapa.
+  const nodosDelAnillo = candidatos.map((d) => ({ id: d.id, caja: { x0: d.x - d.r, x1: d.x + d.r, y0: d.y - d.r, y1: d.y + d.r } }));
+  const puestas: Caja[] = [];
   for (const d of candidatos) {
     if (rotulos.length === cuantos) break;
     const texto = nombreCorto(d.nombre);
@@ -379,10 +381,19 @@ export function rotularCompradores(nodos: NodoRed[], { ancho, alto }: Lienzo, cu
         r: { id: d.id, texto, x: d.x, y: d.y - d.r - 2, lado: 'arriba' },
         caja: { x0: d.x - w / 2, x1: d.x + w / 2, y0: d.y - d.r - 2 - ALTO_ROTULO, y1: d.y - d.r - 2 },
       },
+      {
+        r: { id: d.id, texto, x: d.x, y: d.y + d.r + 2, lado: 'abajo' },
+        caja: { x0: d.x - w / 2, x1: d.x + w / 2, y0: d.y + d.r + 2, y1: d.y + d.r + 2 + ALTO_ROTULO },
+      },
     ];
     const cabe = opciones.find(
       ({ caja }) =>
-        caja.x0 >= 0 && caja.x1 <= ancho && caja.y0 >= 0 && caja.y1 <= alto && !puestas.some((p) => seCruzan(p, caja)),
+        caja.x0 >= 0 &&
+        caja.x1 <= ancho &&
+        caja.y0 >= 0 &&
+        caja.y1 <= alto &&
+        !puestas.some((p) => seCruzan(p, caja)) &&
+        !nodosDelAnillo.some((n) => n.id !== d.id && seCruzan(n.caja, caja)),
     );
     if (!cabe) continue;
     puestas.push(cabe.caja);
