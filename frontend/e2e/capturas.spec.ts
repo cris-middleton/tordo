@@ -59,6 +59,9 @@ for (const viewport of [ESCRITORIO, MOVIL]) {
     test(`captura de ${nombre} a ${viewport.width} px en tema claro`, async ({ page }, testInfo) => {
       test.skip(process.platform !== 'linux', 'las líneas base son de Linux (ver la cabecera)');
       await page.setViewportSize(viewport);
+      // La red de la portada se mueve (deriva y partículas) salvo con movimiento
+      // reducido: sin esto cada captura saldría distinta.
+      await page.emulateMedia({ reducedMotion: 'reduce' });
       await page.goto(ruta);
       await expect(listo(page)).toBeVisible({ timeout: 15_000 });
       await page.waitForLoadState('networkidle');

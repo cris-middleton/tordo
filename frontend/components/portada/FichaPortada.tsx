@@ -13,6 +13,10 @@ import { FUENTE_PORTADA, SE_ACTUALIZA } from '@/lib/portada';
  *   Firma la autoría, no el responsable legal.
  *
  * «Se usa» se fue (V11): la salida a API, MCP y CSV está en la cabecera y el pie.
+ *
+ * Una franja de cuatro celdas a lo ancho, bajo la parte de arriba (dos en una
+ * tableta, una en el teléfono): como lista de etiqueta y valor en la columna del
+ * buscador medía ~200 px de alto y empujaba todo hacia abajo.
  */
 export function FichaPortada({
   base,
@@ -30,22 +34,26 @@ export function FichaPortada({
 }) {
   return (
     <dl
-      className={`grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-2 border-t border-border pt-4 text-sm ${className}`.trim()}
+      className={`grid grid-cols-2 gap-x-6 gap-y-4 border-y border-border py-4 text-sm lg:grid-cols-4 lg:gap-x-8 ${className}`.trim()}
     >
       {base && (
-        <>
+        <div className="min-w-0">
           <dt className="text-muted">Base</dt>
-          <dd className="text-text">{base}</dd>
-        </>
+          <dd className="mt-0.5 text-text">{base}</dd>
+        </div>
       )}
-      <dt className="text-muted">Fuente</dt>
-      <dd className="text-text">{FUENTE_PORTADA}</dd>
-      <dt className="text-muted">Se actualiza</dt>
-      <dd className="text-text">{SE_ACTUALIZA}</dd>
+      <div className="min-w-0">
+        <dt className="text-muted">Fuente</dt>
+        <dd className="mt-0.5 text-text">{FUENTE_PORTADA}</dd>
+      </div>
+      <div className="min-w-0">
+        <dt className="text-muted">Se actualiza</dt>
+        <dd className="mt-0.5 text-text">{SE_ACTUALIZA}</dd>
+      </div>
       {autor && (
-        <>
+        <div className="min-w-0">
           <dt className="text-muted">Lo hace</dt>
-          <dd className="text-text">
+          <dd className="mt-0.5 text-text">
             {urlAutor ? (
               <a href={urlAutor} rel="noopener noreferrer" className="enlace">
                 {autor}
@@ -55,7 +63,7 @@ export function FichaPortada({
             )}
             {rol && `, ${rol}`}
           </dd>
-        </>
+        </div>
       )}
     </dl>
   );

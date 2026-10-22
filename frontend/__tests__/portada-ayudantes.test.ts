@@ -126,7 +126,7 @@ describe('el lema', () => {
 describe('los textos fijos de la portada', () => {
   it('el subtítulo dice qué responde la búsqueda (spec PORTADA_V7 §3.8)', () => {
     expect(SUBTITULO_PORTADA).toBe(
-      'Escribe tu producto. Te mostramos a qué precio lo compró el Estado en los últimos 12 meses, quién lo compra y dónde postular hoy.',
+      'Escribe lo que vendes. Te mostramos a qué precio lo compró el Estado, quién lo compra y dónde postular hoy.',
     );
   });
 
@@ -137,7 +137,7 @@ describe('los textos fijos de la portada', () => {
 
   it('«se actualiza» sale del horario del cron frecuente, no se escribe', () => {
     expect(SE_ACTUALIZA).toBe(
-      'Licitaciones y Compras Ágiles, 4 veces al día de lunes a viernes y una el fin de semana. Precios y mercados, cada domingo.',
+      'Licitaciones y Compras Ágiles, hasta 4 veces al día. Precios y mercados, cada domingo.',
     );
     expect(HORAS_HABILES).toHaveLength(4);
   });

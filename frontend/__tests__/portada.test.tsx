@@ -29,7 +29,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Home, { metadata, revalidate } from '@/app/page';
 import { descripcionDestacadas, TITULO_DESTACADAS } from '@/lib/compraAgil';
 import { urlCatalogoAbiertas } from '@/lib/filtrosCatalogo';
-import { EJEMPLOS_BUSQUEDA } from '@/lib/buscar';
+import { EJEMPLOS_EN_PORTADA } from '@/lib/buscar';
 import { notaDeLaPortada, PRODUCTO_PORTADA } from '@/lib/lecturasPortada';
 import { pedirMercadoPortada } from '@/lib/publicoServidor';
 import { leerNotas, rutaNota } from '@/lib/notas';
@@ -39,7 +39,7 @@ import { pedirDestacadas } from '@/lib/publicoServidor';
 import { TITULO_LECTURAS } from '@/components/portada/LecturasPortada';
 import type { SectoresBI } from '@/types/bi';
 import type { CompraAgilDestacada, CompraAgilDestacadasResponse } from '@/types/compraAgil';
-import type { BandaUnidad, GastoMensual, MercadoPortada, ProductoPublico, ResumenPortada } from '@/types/publico';
+import type { BandaUnidad, GastoMensual, MercadoPortada, ProductoPublico, RedPortada, ResumenPortada } from '@/types/publico';
 
 const BACKEND = 'http://backend.prueba:8000';
 const SECRETO = 'secreto-de-prueba-del-proxy-0123456789';
@@ -158,6 +158,35 @@ const MERCADO: MercadoPortada = {
 };
 
 const NOTAS = leerNotas();
+/** Diez organismos y seis proveedores: los dos primeros le venden a los diez (la mitad o más). */
+const RED: RedPortada = {
+  compradores: Array.from({ length: 10 }, (_, i) => ({
+    codigo: String(100 + i),
+    nombre: `HOSPITAL DE PRUEBA ${i}`,
+    sector: i < 6 ? 'Salud' : 'Municipalidades',
+    monto: (10 - i) * 1e11,
+  })),
+  proveedores: Array.from({ length: 6 }, (_, j) => ({
+    codigo: String(900 + j),
+    nombre: `PROVEEDOR DE PRUEBA ${j} SPA`,
+    monto: (6 - j) * 1e10,
+    compradores: j < 2 ? 10 : 1,
+  })),
+  enlaces: [
+    ...Array.from({ length: 10 }, (_, i) => [
+      { comprador: String(100 + i), proveedor: '900', monto: 1e9 },
+      { comprador: String(100 + i), proveedor: '901', monto: 5e8 },
+    ]).flat(),
+    ...[2, 3, 4, 5].map((j) => ({ comprador: String(100 + j), proveedor: String(900 + j), monto: 2e10 })),
+  ],
+  monto_total: 10e12,
+  monto_compradores: 5.5e12,
+  proveedores_total: 1234,
+  a_la_mitad_o_mas: 2,
+  ventana_desde: '2023-11-01',
+  ventana_hasta: '2026-10-31',
+};
+const CONCLUSION_RED = 'Los 10 organismos que más compran le compraron a 1.234 proveedores. 2 le venden a la mitad de ellos o más.';
 const CONCLUSION_GASTO = 'El Estado compró $19 billones en 12 meses. Diciembre de 2025 fue el mes más alto: 1,7 veces un mes típico.';
 const CONCLUSION_PRECIO = `${PRODUCTO_PORTADA.nombre}: la mitad de las compras se pagó entre $150.921 y $240.000`;
 const CONCLUSION_CONCENTRACION = '6 de cada 10 pesos se gastan en mercados donde un solo proveedor se lleva la mitad o más';
@@ -334,7 +363,7 @@ describe('lo primero: el buscador', () => {
     expect(screen.getByRole('searchbox', { name: CAMPO })).toHaveAttribute('name', 'q');
     expect(screen.getByRole('search')).toHaveAttribute('action', '/buscar');
     expect(within(screen.getByRole('list', { name: 'Ejemplos de búsqueda' })).getAllByRole('link')).toHaveLength(
-      EJEMPLOS_BUSQUEDA.length,
+      EJEMPLOS_EN_PORTADA,
     );
   });
 
@@ -631,37 +660,31 @@ describe('lo que ya no está', () => {
 });
 
 describe('la estructura', () => {
-  it('desde lg, dos columnas 5/7: buscador, abiertas y ficha a la izquierda; el gráfico grande a la derecha', async () => {
+  it('desde lg, dos columnas 5/7: buscador y abiertas a la izquierda, el gráfico grande a la derecha; la ficha, a lo ancho debajo', async () => {
     todo();
     const { container } = render(await Home());
     expect(container.querySelector('.max-w-6xl')).not.toBeNull();
     const grande = gasto(container) as HTMLElement;
     const rejilla = grande.parentElement as HTMLElement;
     expect(rejilla).toHaveClass('grid', 'lg:grid-cols-[5fr_7fr]', 'lg:gap-x-12');
-    expect(grande).toHaveClass('lg:col-start-2', 'lg:row-start-1', 'lg:row-span-2');
-    const buscador = screen.getByRole('searchbox', { name: CAMPO }).closest('.lg\\:col-start-1') as HTMLElement;
+    const buscador = screen.getByRole('searchbox', { name: CAMPO }).closest('.min-w-0') as HTMLElement;
     expect(buscador.parentElement).toBe(rejilla);
-    expect(buscador).toHaveClass('lg:row-start-1');
     expect(buscador).toContainElement(abiertas());
+    // La ficha es una franja de cuatro celdas bajo la parte de arriba, fuera de la rejilla.
     const ficha = screen.getByText('Fuente').closest('dl') as HTMLElement;
-    expect(ficha.parentElement).toBe(rejilla);
-    expect(ficha).toHaveClass('lg:col-start-1', 'lg:row-start-2');
+    expect(rejilla).not.toContainElement(ficha);
+    expect(ficha).toHaveClass('lg:grid-cols-4');
     // «Para empezar» va debajo, a lo ancho: fuera de la rejilla de arriba.
     expect(rejilla).not.toContainElement(screen.getByRole('region', { name: LECTURAS }));
   });
 
-  it('sin el gráfico grande, el buscador se queda solo con su ancho de lectura y la ficha baja tras «Para empezar»', async () => {
+  it('sin el gráfico grande, el buscador se queda solo con su ancho de lectura', async () => {
     simularBackend({ ...TODO, mercado: caido });
     const { container } = render(await Home());
     expect(gasto(container)).toBeNull();
-    const buscador = screen.getByRole('searchbox', { name: CAMPO }).closest('.lg\\:col-start-1') as HTMLElement;
+    const buscador = screen.getByRole('searchbox', { name: CAMPO }).closest('.min-w-0') as HTMLElement;
     expect(buscador.parentElement).toHaveClass('max-w-2xl');
     expect(buscador.parentElement).not.toHaveClass('grid');
-    const ficha = screen.getByText('Fuente').closest('dl') as HTMLElement;
-    expect(ficha).toHaveClass('max-w-2xl');
-    // La primera conclusión cabe así en la primera pantalla del teléfono.
-    const lecturas = screen.getByRole('region', { name: LECTURAS });
-    expect(lecturas.compareDocumentPosition(ficha) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('en el DOM (y en móvil): buscador, abiertas, gráfico grande, ficha, «Para empezar», franja, «Lo mejor de hoy» y notas', async () => {
@@ -681,12 +704,55 @@ describe('la estructura', () => {
       expect(orden[i - 1].compareDocumentPosition(orden[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     }
   });
+});
 
-  it('sin abiertas, la ficha sigue a la izquierda, bajo el buscador', async () => {
-    simularBackend({ ...TODO, resumen: caido });
-    render(await Home());
-    expect(abiertas()).toBeNull();
-    expect(screen.getByText('Fuente').closest('dl')).toHaveClass('lg:col-start-1', 'lg:row-start-2');
+describe('la red: quién le compra a quién', () => {
+  const red = (container: HTMLElement) => container.querySelector<HTMLElement>('section[aria-labelledby="red-titulo"]');
+
+  it('con la red, ella es el gráfico grande y el gasto baja a lo ancho, tras la ficha', async () => {
+    simularBackend({ ...TODO, mercado: ok({ ...MERCADO, red: RED }) });
+    const { container } = render(await Home());
+    const grande = red(container) as HTMLElement;
+    expect(grande.parentElement).toHaveClass('grid', 'lg:grid-cols-[5fr_7fr]');
+    expect(within(grande).getByRole('heading', { level: 2 })).toHaveTextContent(CONCLUSION_RED);
+    const mensual = gasto(container) as HTMLElement;
+    expect(grande.parentElement).not.toContainElement(mensual);
+    expect(within(mensual).getByRole('heading', { level: 2 })).toHaveClass('section-title');
+    const orden = [
+      screen.getByRole('searchbox', { name: CAMPO }),
+      grande,
+      screen.getByText('Fuente').closest('dl') as HTMLElement,
+      mensual,
+      screen.getByRole('region', { name: LECTURAS }),
+    ];
+    for (let i = 1; i < orden.length; i++) {
+      expect(orden[i - 1].compareDocumentPosition(orden[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
+  });
+
+  it('un nodo por comprador y por proveedor, el dibujo fuera del árbol accesible y su pie de método', async () => {
+    simularBackend({ ...TODO, mercado: ok({ ...MERCADO, red: RED }) });
+    const { container } = render(await Home());
+    const grande = red(container) as HTMLElement;
+    expect(grande.querySelectorAll('[data-nodo="comprador"]')).toHaveLength(RED.compradores.length);
+    expect(grande.querySelectorAll('[data-nodo="proveedor"]')).toHaveLength(RED.proveedores.length);
+    expect(grande.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    expect(within(grande).getByRole('link', { name: 'Cómo se calcula' })).toHaveAttribute(
+      'href',
+      '/guias/concentracion-de-mercado#la-red-de-la-portada',
+    );
+    expect(grande).toHaveTextContent('Sin personas naturales.');
+  });
+
+  it.each([
+    ['mal formada', { ...RED, enlaces: 'raro' }],
+    ['con pocos compradores', { ...RED, compradores: RED.compradores.slice(0, 3) }],
+  ])('%s, el gráfico grande vuelve a ser el gasto y lo demás sigue', async (_, r) => {
+    simularBackend({ ...TODO, mercado: ok({ ...MERCADO, red: r }) });
+    const { container } = render(await Home());
+    expect(red(container)).toBeNull();
+    expect(gasto(container)?.parentElement).toHaveClass('grid');
+    expect(screen.getByRole('region', { name: LECTURAS })).toBeInTheDocument();
   });
 });
 

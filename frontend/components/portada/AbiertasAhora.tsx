@@ -16,12 +16,12 @@ import type { TiraPortada } from '@/lib/portada';
 export function AbiertasAhora({ tira, className = '' }: { tira: TiraPortada; className?: string }) {
   const [lic, ca] = tira.cifras;
   const enlace = (c: TiraPortada['cifras'][number]) => (
-    <Link href={c.href} className="whitespace-nowrap font-semibold text-text underline decoration-dato decoration-2 underline-offset-4 hover:text-primary">
+    <Link href={c.href} className="whitespace-nowrap font-semibold text-text underline decoration-dato decoration-[1.5px] underline-offset-4 hover:text-primary">
       <span className="cifra">{c.numero}</span> {c.etiqueta.replace(/ abiertas?$/, '')}
     </Link>
   );
   return (
-    <p className={`text-lg leading-relaxed text-muted ${className}`.trim()}>
+    <p className={`text-base leading-relaxed text-muted ${className}`.trim()}>
       {tira.atrasado ? (
         <>
           {tira.atrasado.charAt(0).toUpperCase() + tira.atrasado.slice(1)} se podía postular a {enlace(lic)} y {enlace(ca)}.

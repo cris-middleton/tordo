@@ -59,6 +59,9 @@ export const EJEMPLOS_BUSQUEDA = [
   'cambio de aceite',
 ] as const;
 
+/** Cuántos caben en una línea bajo el buscador de la portada (los primeros). `/buscar` los muestra todos. */
+export const EJEMPLOS_EN_PORTADA = 4;
+
 export interface Busqueda {
   /** Lo que se busca y se muestra: limpio y recortado. Es `terminos.join(' ')`. */
   termino: string;

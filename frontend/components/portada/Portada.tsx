@@ -1,6 +1,7 @@
 import { Contenedor } from '@/components/cascara/Contenedor';
 import { CLASE_SECCION } from '@/components/cascara/Seccion';
 import { lecturaConcentracion, lecturaGasto } from '@/lib/lecturasMercado';
+import { lecturaRed } from '@/lib/redPortada';
 import { lecturaCierres, lecturaNota, lecturaPrecio, notaDeLaPortada, type Lecturas } from '@/lib/lecturasPortada';
 import type { Nota } from '@/lib/notas';
 import {
@@ -23,6 +24,7 @@ import { FranjaPortada } from './FranjaPortada';
 import { GastoPortada } from './GastoPortada';
 import { LecturasPortada } from './LecturasPortada';
 import { NotasPortada } from './NotasPortada';
+import { RedPortada } from './RedPortada';
 
 /**
  * La portada. **Componente de servidor**; las únicas islas cliente son los
@@ -30,20 +32,18 @@ import { NotasPortada } from './NotasPortada';
  * cáscara única.
  *
  * Desde `lg`, dos columnas `5fr / 7fr` con 48 px entre ellas: a la izquierda el
- * titular, el buscador, las abiertas de ahora y la ficha; a la derecha **el
- * gráfico grande**, cuánto compra el Estado mes a mes y por sector, a la altura
- * del `h1`. Debajo, a lo ancho: «Para empezar» (precio, concentración y cierres,
- * tres en fila), la franja de hoy, «Lo mejor de hoy» y las notas con la ficha del
- * autor.
+ * titular, el buscador y las abiertas de ahora; a la derecha **el gráfico
+ * grande**: la red de los organismos que más compran y sus proveedores, o sin
+ * ella el gasto mensual. Debajo, a lo ancho: la ficha (cuatro celdas), el gasto
+ * mensual si la red ocupó arriba, «Para empezar» (precio, concentración y
+ * cierres, tres en fila), la franja de hoy, «Lo mejor de hoy» y las notas con la
+ * ficha del autor.
  *
- * En móvil, una columna: buscador, abiertas, el gráfico grande y la ficha. La
- * ficha va después del gráfico en el DOM y desde `lg` la rejilla la sube a la
- * columna izquierda (fila 2). Sin el gráfico grande, la ficha baja después de
- * «Para empezar». Un solo ejemplar de cada cosa.
+ * En móvil, una columna en el mismo orden. Un solo ejemplar de cada cosa.
  *
  * Todo lo vivo llega de `app/page.tsx` y puede faltar: `null`, una hora ilegible
- * o un campo mal formado ocultan SU bloque y nada más. Sin el gráfico grande, la
- * columna izquierda ocupa el ancho. El buscador no depende de nada.
+ * o un campo mal formado ocultan SU bloque y nada más. Sin gráfico grande, la
+ * columna izquierda ocupa el ancho de lectura. El buscador no depende de nada.
  */
 export function Portada({
   destacadas,
@@ -87,6 +87,7 @@ export function Portada({
   const tira = tiraDeLaPortada(resumen, vigencia);
   const franja = franjaDeLaPortada(resumen, vigencia);
   const gasto = lecturaGasto(mercado, repositorio, ahora);
+  const red = lecturaRed(mercado, repositorio);
   const lecturas: Lecturas = {
     precio: lecturaPrecio(producto, repositorio),
     concentracion: lecturaConcentracion(mercado, repositorio),
@@ -94,36 +95,36 @@ export function Portada({
     cierres: vigencia.alDia && vigencia.mismoDia ? lecturaCierres(resumen, repositorio) : null,
     nota: lecturaNota(notaDeLaPortada(notas), repositorio),
   };
+  const ficha = <FichaPortada base={baseDeLaFicha(sectores)} autor={autor} rol={rol} urlAutor={urlAutor} className="mt-10 lg:mt-12" />;
   // Principio 4: «sin dato fresco, el bloque se oculta». Sin hora legible no hay
   // con qué decir de cuándo es la lista, y se oculta entera, no sólo su línea de hora.
-  const ficha = (className: string) => (
-    <FichaPortada base={baseDeLaFicha(sectores)} autor={autor} rol={rol} urlAutor={urlAutor} className={className} />
-  );
   const horaHoy = destacadas ? actualizadoEnPalabras(destacadas.actualizado_en) : null;
   // Una Compra Ágil que ya cerró no se ofrece: con el cron atrasado, la lista guardada las trae.
   const hoy =
     destacadas && ahora !== undefined
       ? { ...destacadas, items: destacadas.items.filter((i) => !i.fecha_cierre || Date.parse(i.fecha_cierre) > ahora) }
       : destacadas;
+  // El gráfico grande es la red; sin ella (un backend anterior, o sin la tabla), el gasto.
+  const grande = red ? (
+    <RedPortada lectura={red} className="mt-10 lg:mt-1" />
+  ) : gasto ? (
+    <GastoPortada lectura={gasto} className="mt-10 lg:mt-1" />
+  ) : null;
 
   return (
     <Contenedor pagina>
-      <div className={gasto ? 'grid lg:grid-cols-[5fr_7fr] lg:grid-rows-[auto_1fr] lg:gap-x-12' : 'max-w-2xl'}>
-        <div className="min-w-0 lg:col-start-1 lg:row-start-1">
+      <div className={grande ? 'grid lg:grid-cols-[5fr_7fr] lg:gap-x-12' : 'max-w-2xl'}>
+        <div className="min-w-0">
           <BuscadorPortada />
           {tira && <AbiertasAhora tira={tira} className="mt-8" />}
         </div>
-        {gasto && (
-          <>
-            <GastoPortada lectura={gasto} className="mt-10 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-1" />
-            {ficha('mt-10 lg:col-start-1 lg:row-start-2 lg:self-end')}
-          </>
-        )}
+        {grande}
       </div>
+      {ficha}
+
+      {red && gasto && <GastoPortada lectura={gasto} ancho className={CLASE_SECCION} />}
 
       <LecturasPortada lecturas={lecturas} className={CLASE_SECCION} />
-      {/* Sin el gráfico grande, la ficha va después de las lecturas: así la primera conclusión cabe en la primera pantalla del teléfono. */}
-      {!gasto && ficha(`${CLASE_SECCION} max-w-2xl`)}
 
       {franja && (
         <div className={CLASE_SECCION}>
