@@ -368,3 +368,69 @@ def concentracion_de_mercados(tabla: str = "market_concentration") -> dict | Non
             for f in tramos
         ],
     }
+
+
+def red_de_compradores(
+    tabla: str = "competitors_by_market",
+    tabla_sectores: str = "time_series",
+    *,
+    n_compradores: int,
+    por_comprador: int,
+    amplios: int,
+) -> dict | None:
+    """Los compradores de más monto y los proveedores que les venden, en SQL; None sin tabla.
+
+    Una sola consulta (`sql.sql_red_de_compradores`) que devuelve un JSON ya
+    armado: la tabla (4,2 millones de filas en producción) nunca llega a la API.
+    Sin `tabla_sectores`, todos los compradores van a «Otros».
+    """
+    if not existe_tabla(tabla):
+        return None
+    con_ventana = {"ventana_desde", "ventana_hasta"} <= columnas_de(tabla)
+    consulta = sql.sql_red_de_compradores(
+        tabla,
+        tabla_sectores if existe_tabla(tabla_sectores) else None,
+        con_ventana=con_ventana,
+    )
+    params = {
+        "n_compradores": n_compradores,
+        "por_comprador": por_comprador,
+        "amplios": amplios,
+        "persona": sql.PREFIJO_PERSONA_NATURAL + "%",
+    }
+    with _engine().connect() as conn:
+        red = conn.execute(text(consulta), params).scalar_one()
+    return {
+        "compradores": [
+            {
+                "codigo": str(c["codigo"]),
+                "nombre": c["nombre"],
+                "sector": c["sector"],
+                "monto": float(c["monto"]),
+            }
+            for c in red["compradores"]
+        ],
+        "proveedores": [
+            {
+                "codigo": str(p["codigo"]),
+                "nombre": p["nombre"],
+                "monto": float(p["monto"]),
+                "compradores": int(p["compradores"]),
+            }
+            for p in red["proveedores"]
+        ],
+        "enlaces": [
+            {
+                "comprador": str(e["comprador"]),
+                "proveedor": str(e["proveedor"]),
+                "monto": float(e["monto"]),
+            }
+            for e in red["enlaces"]
+        ],
+        "monto_total": float(red["monto_total"]),
+        "monto_compradores": float(red["monto_compradores"]),
+        "proveedores_total": int(red["proveedores_total"]),
+        "a_la_mitad_o_mas": int(red["a_la_mitad_o_mas"]),
+        "ventana_desde": red["ventana_desde"],
+        "ventana_hasta": red["ventana_hasta"],
+    }

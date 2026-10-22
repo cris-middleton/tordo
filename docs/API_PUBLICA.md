@@ -246,7 +246,7 @@ respuesta trae ya los enlaces a las demás.
 | `GET /publico/rubros/{slug}` | el panorama de `/bi/panorama` y sus 10 compradores de más monto |
 | `GET /publico/productos/{slug}` | una banda nacional por unidad de medida —con cuántos organismos la compran (`compradores`), la fracción del mayor (`cuota_mayor`) y si es un precio de mercado (`de_mercado`), más `medianas_compradores`: `{n, p50}` de cada organismo detrás de la banda, las de más compras primero y como mucho 200, `null` si todavía no se calculan—, los 10 compradores que más lo compran —una fila por comprador y unidad, con sus compras (`n`, desde 1) y la mediana de lo que pagó (`p50`), sobre las mismas compras que la banda— y el `periodo` de las bandas (12 meses) |
 | `GET /publico/productos?q=&limite=` | búsqueda por palabras, también de los no indexados, con la `descripcion` de cada producto (cómo lo escribe el comprador) |
-| `GET /publico/mercado` | el gasto mensual del Estado por sector y en cuántos mercados (un comprador en un rubro) un solo proveedor se lleva la mitad o más, con la cuota del líder en diez tramos |
+| `GET /publico/mercado` | el gasto mensual del Estado por sector, en cuántos mercados (un comprador en un rubro) un solo proveedor se lleva la mitad o más, con la cuota del líder en diez tramos, y la red de los 30 compradores de más monto con sus proveedores |
 | `GET /publico/portada` | cuántas licitaciones (no Compra Ágil) y Compras Ágiles se pueden postular ahora, las Compras Ágiles abiertas por día de cierre, cuántas se publicaron hoy y qué organismo publicó más, y la hora de la última ingesta de Compra Ágil |
 
 `/publico/portada` no lee el análisis sino el catálogo: responde aunque el BI esté apagado.
@@ -261,7 +261,7 @@ las licitaciones y Compras Ágiles vigentes publicadas hoy, abiertas o no, y
 guarda ChileCompra; nulo si no hubo publicaciones con nombre. Los tres son opcionales: un
 cliente que no los conoce los ignora.
 
-`/publico/mercado` no lleva parámetros y trae dos bloques, cada uno `null` mientras la
+`/publico/mercado` no lleva parámetros y trae tres bloques, cada uno `null` mientras la
 corrida semanal no haya escrito su tabla (y 503 con el BI apagado, como las fichas):
 
 - **`gasto_mensual`**: una fila por mes y sector —`anio`, `mes`, `sector` y `monto` (CLP)—,
@@ -274,8 +274,24 @@ corrida semanal no haya escrito su tabla (y 503 con el BI apagado, como las fich
   —diez de 10 puntos, `{desde, hasta, mercados, monto}`; el 100 % cae en el último, y suman
   `mercados` y `monto_total`— y `ventana_desde`/`ventana_hasta` (36 meses), nulas si la tabla
   no las publica.
+- **`red`**: los compradores más grandes y a quién le compran, para dibujar una red.
+  - `compradores`: los 30 de más monto en la ventana, `{codigo, nombre, sector, monto}`, de
+    mayor a menor (empate: código). El sector sin nombre, o un comprador sin sector, es
+    `Otros`.
+  - `proveedores`: los 4 de más monto de cada comprador más los 12 que venden a más de los
+    30 (empate: monto y código), `{codigo, nombre, monto, compradores}`. `monto` es lo que
+    les vendió a los 30 y `compradores`, a cuántos de ellos. `codigo` es el código de
+    Mercado Público, no el RUT. **Nunca una persona natural**: sus seudónimos (`PN-…`) no
+    son nodos ni enlaces.
+  - `enlaces`: cada par de un comprador y un proveedor de los de arriba con monto,
+    `{comprador, proveedor, monto}`, sumado sobre los rubros y de mayor a menor.
+  - `monto_total` (todos los compradores), `monto_compradores` (los 30),
+    `proveedores_total` (los proveedores distintos de los 30, personas naturales incluidas),
+    `a_la_mitad_o_mas` (los que les venden a 15 o más de los 30, sin personas naturales) y
+    `ventana_desde`/`ventana_hasta`, nulas si la tabla no las publica.
 
-Todo se agrega en la base: la respuesta son unas decenas de filas.
+Todo se agrega en la base: la respuesta son unas decenas de filas y, en la red, unos
+cientos de nodos y enlaces.
 
 Las cifras del análisis llevan su periodo: `periodo` en `/publico/productos/{slug}` (12
 meses) y `ventana_desde`/`ventana_hasta` en cada sector de `/bi/sector` (36 meses), nulos

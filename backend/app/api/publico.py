@@ -8,7 +8,8 @@ sólo se valida la entrada y se traduce «no existe» a 404.
 `/publico/portada` es la excepción: no lee analytics sino el catálogo, así que
 es `async`, pide la sesión y no exige `FEATURE_ANALYTICS`. `/publico/mercado`
 también lo pide la portada, pero lee analytics como las fichas: el gasto mensual
-por sector y la concentración de los mercados, agregados en SQL.
+por sector, la concentración de los mercados y la red de los compradores más
+grandes con sus proveedores, agregados en SQL.
 
 Un producto **no indexable** responde 200 con `indexable: false`: la página
 existe, con `noindex`, y se llega a ella por la búsqueda.
@@ -76,7 +77,10 @@ async def get_portada(db: AsyncSession = Depends(get_db)):
 @router.get(
     "/mercado",
     response_model=MercadoPortada,
-    summary="El mercado entero: gasto mensual por sector y concentración de los mercados",
+    summary=(
+        "El mercado entero: gasto mensual por sector, concentración de los mercados "
+        "y la red de los compradores más grandes"
+    ),
 )
 def get_mercado():
     requiere_analytics()

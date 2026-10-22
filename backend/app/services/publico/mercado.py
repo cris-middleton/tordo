@@ -1,4 +1,4 @@
-"""El mercado entero en dos cifras para la portada (`GET /publico/mercado`).
+"""El mercado entero en tres bloques para la portada (`GET /publico/mercado`).
 
 - **`gasto_mensual`**: cuánto compró el Estado cada mes, por sector (de
   `analytics.time_series`). El sector vacío se suma a «Otros».
@@ -6,18 +6,24 @@
   de `analytics.market_concentration`— un solo proveedor se lleva la mitad o
   más, y cómo se reparte la cuota del líder en tramos de 10 puntos, con el
   monto de cada tramo.
+- **`red`**: los `N_COMPRADORES` compradores de más monto y los proveedores que
+  les venden (de `analytics.competitors_by_market`, con el sector de cada
+  comprador de `time_series`): los `POR_COMPRADOR` primeros de cada uno más los
+  `AMPLIOS` que venden a más de ellos. Las personas naturales (seudónimos `PN-`)
+  no son nodos ni enlaces, pero cuentan en los totales.
 
 **Todo se agrega en Postgres** (`repositories/analytics_sync.py`): `time_series`
-pesa 301 MB en producción y leerla entera mató la API por memoria el
+pesa 301 MB y `competitors_by_market` 497 MB en producción y leerla entera mató la API por memoria el
 2026-10-14. Aquí sólo llegan unas decenas de filas.
 
-Sin una de las dos tablas (un despliegue antes de la primera corrida semanal),
-su bloque sale `null` y el otro sigue: una portada a medias es mejor que un 500.
+Sin una de las tablas (un despliegue antes de la primera corrida semanal), su
+bloque sale `null` y los otros siguen (la red sin `time_series` pone a todos sus
+compradores en «Otros»): una portada a medias es mejor que un 500.
 
 **Caché.** El resultado es igual toda la semana (analytics se re-materializa los
 domingos), así que se guarda `TTL_SEGUNDOS` en memoria del proceso: un visitante
 que repite la petición no repite el recorrido de dos tablas grandes. Sólo se
-guarda una respuesta completa; con un bloque `null` se vuelve a preguntar, como
+guarda una respuesta completa —los tres bloques—; con uno `null` se vuelve a preguntar, como
 `existe_tabla` con el no.
 """
 
@@ -32,6 +38,14 @@ from app.repositories import analytics_sync as repo
 #: las apunte a tablas de juguete sin tocar las del golden master.
 TABLA_GASTO = "time_series"
 TABLA_CONCENTRACION = "market_concentration"
+TABLA_RED = "competitors_by_market"
+
+#: La red: cuántos compradores (los de más monto), cuántos proveedores de cada
+#: uno y cuántos de los que venden a más de ellos. Variables de módulo para que
+#: un test las cambie.
+N_COMPRADORES = 30
+POR_COMPRADOR = 4
+AMPLIOS = 12
 
 #: Cuánto vive la respuesta en memoria. Ver «Caché» en el docstring del módulo.
 TTL_SEGUNDOS = 600
@@ -67,11 +81,29 @@ def _concentracion() -> dict | None:
     }
 
 
+def _red() -> dict | None:
+    red = repo.red_de_compradores(
+        TABLA_RED,
+        TABLA_GASTO,
+        n_compradores=N_COMPRADORES,
+        por_comprador=POR_COMPRADOR,
+        amplios=AMPLIOS,
+    )
+    if red is None:
+        return None
+    return {
+        **red,
+        "ventana_desde": _fecha(red.get("ventana_desde")),
+        "ventana_hasta": _fecha(red.get("ventana_hasta")),
+    }
+
+
 def construir() -> dict:
-    """Lee los dos bloques. Sin caché: para eso está `mercado()`."""
+    """Lee los tres bloques. Sin caché: para eso está `mercado()`."""
     return {
         "gasto_mensual": repo.gasto_mensual_por_sector(TABLA_GASTO),
         "concentracion": _concentracion(),
+        "red": _red(),
     }
 
 
