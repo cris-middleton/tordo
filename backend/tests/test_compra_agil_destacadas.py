@@ -760,3 +760,28 @@ async def test_un_codigo_de_comprador_vacio_no_filtra(cliente, mercado, vacio):
     r = await cliente.get(RUTA, params={"codigo_organismo": vacio})
     assert r.status_code == 200
     assert set(_codigos(r)) == set(todas)
+
+
+@pytest.mark.parametrize("ofertas", [99_999_999_999, "99999999999", "1" * 40])
+async def test_un_conteo_de_cotizaciones_desmedido_no_tumba_la_lista(cliente, mercado, ofertas):
+    """El conteo viene del payload de Mercado Público. Con `^[0-9]+$` y un
+    `CAST(… AS INTEGER)`, un número que no cabe en un `integer` era «integer out of
+    range» y un 500 para TODA la lista (y la portada sin «Lo mejor de hoy»).
+    Ahora es un conteo ilegible: sin dato, como uno que no viene."""
+    mercado.add(_ca("CA-DESMEDIDA", horas=48, ofertas=ofertas, nombre="Conteo zzdesmedido"))
+    await mercado.flush()
+
+    r = await cliente.get(RUTA, params={"search": "zzdesmedido"})
+
+    assert r.status_code == 200, r.text
+    (item,) = r.json()["items"]
+    assert item["ofertas_recibidas"] is None
+    assert item["factores"]["competencia"] == repo.NEUTRO_POR_FACTOR["competencia"]
+
+
+async def test_un_conteo_de_nueve_cifras_se_sigue_leyendo(cliente, mercado):
+    mercado.add(_ca("CA-NUEVE", horas=48, ofertas="123456789", nombre="Conteo zznueve"))
+    await mercado.flush()
+
+    (item,) = (await cliente.get(RUTA, params={"search": "zznueve"})).json()["items"]
+    assert item["ofertas_recibidas"] == 123_456_789
