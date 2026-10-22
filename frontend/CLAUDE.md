@@ -341,13 +341,15 @@ ha pagado el Estado (`/publico/productos?q=` y la ficha del primero), qué está
 (licitaciones con el filtro de `urlCatalogoAbiertas` y «Lo mejor de hoy» con `search`) y quién
 lo compra (los compradores de esa ficha)—.
 - **Componente de servidor y dinámico que pide como el visitante** (`lib/buscarServidor.ts`, sobre
-  `pedirAlBackend` de `lib/rssServidor.ts`): hasta cuatro llamadas por búsqueda **cuentan en el
+  `pedirAlBackend` de `lib/rssServidor.ts`): hasta cinco llamadas por búsqueda **cuentan en el
   límite por IP de quien busca**. No va exenta como un renderizado del servidor: una página
   dinámica, generada por visitante y exenta, sería una forma gratis de saltarse el límite.
-- **Pocas filas y tiempo máximo**: 3 productos, 5 licitaciones, 3 Compras Ágiles y una ficha;
+- **Pocas filas y tiempo máximo**: 3 productos, 5 licitaciones, 3 Compras Ágiles, 3 compradores
+  por su nombre (`/publico/compradores?q=`, un atajo a su ficha que sólo se pinta si hay alguno)
+  y una ficha —o, sin resultados, la sugerencia—;
   6 s por llamada (`TIEMPO_MAXIMO_BLOQUE_MS`). **Un bloque que falla se oculta con una línea**
   —un 429 dice «espera un momento»— y la página nunca lanza por la API. «No encontramos nada»
-  sólo si los tres respondieron vacíos.
+  sólo si los cuatro respondieron vacíos.
 - **Con menos de 3 caracteres no llama al backend.** El término se recorta a 100 caracteres y 8
   palabras **antes** de llamar (`prepararBusqueda`, `lib/buscar.ts`): Compra Ágil responde 422
   con más, y el recorte vale para los tres bloques y sus enlaces, así que cada total es el de su

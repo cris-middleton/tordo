@@ -144,6 +144,13 @@ class ProductoPublico(BaseModel):
     )
 
 
+class CompradorEncontrado(BaseModel):
+    codigo: str
+    nombre: str
+    n: int | None = Field(None, description="Órdenes de compra en la ventana de análisis.")
+    indexable: bool
+
+
 class ProductoEncontrado(BaseModel):
     slug: str
     firma: str

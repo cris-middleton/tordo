@@ -25,6 +25,7 @@ from app.repositories import compra_agil as repo_compra_agil
 from app.repositories import licitaciones as repo_licitaciones
 from app.schemas.publico import (
     CompraAgilPorCierre,
+    CompradorEncontrado,
     CompradorPublico,
     MercadoPortada,
     ProductoEncontrado,
@@ -86,6 +87,19 @@ async def get_portada(db: AsyncSession = Depends(get_db)):
 def get_mercado():
     requiere_analytics()
     return mercado.mercado()
+
+
+@router.get(
+    "/compradores",
+    response_model=list[CompradorEncontrado],
+    summary="Buscar compradores por su nombre",
+)
+def buscar_compradores(
+    q: str = Query(..., min_length=2, max_length=limites.TEXTO, description="Palabras del nombre."),
+    limite: int = Query(5, ge=1, le=paginas.MAX_COMPRADORES_BUSQUEDA),
+):
+    requiere_analytics()
+    return paginas.buscar_compradores(q, limite)
 
 
 @router.get(

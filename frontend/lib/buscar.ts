@@ -41,6 +41,8 @@ export const MAXIMO_TERMINOS_BUSCAR = 8;
 export const PRODUCTOS_EN_BUSCAR = 3;
 export const LICITACIONES_EN_BUSCAR = 5;
 export const COMPRAS_AGILES_EN_BUSCAR = 3;
+/** Cuántos compradores por su nombre: es un atajo a una ficha, no una lista. */
+export const COMPRADORES_POR_NOMBRE_EN_BUSCAR = 3;
 export const COMPRADORES_EN_BUSCAR = 5;
 
 /**
@@ -160,15 +162,19 @@ export function textoDeFallo(que: string, motivo: MotivoFallo): string {
 export type EstadoBusqueda = 'con-resultados' | 'sin-resultados' | 'incompleta';
 
 /**
- * ¿Puede la página decir «no encontramos nada»? Sólo si los tres bloques
+ * ¿Puede la página decir «no encontramos nada»? Sólo si los cuatro bloques
+ * (productos, licitaciones, Compra Ágil y compradores por su nombre)
  * respondieron y ninguno trae nada. Con alguno caído no se sabe: `incompleta`.
  */
 export function estadoDeLaBusqueda(r: ResultadosBusqueda): EstadoBusqueda {
   const hay =
     (r.productos.estado === 'ok' && r.productos.datos.length > 0) ||
     (r.licitaciones.estado === 'ok' && r.licitaciones.datos.items.length > 0) ||
-    (r.comprasAgiles.estado === 'ok' && r.comprasAgiles.datos.items.length > 0);
+    (r.comprasAgiles.estado === 'ok' && r.comprasAgiles.datos.items.length > 0) ||
+    (r.compradoresPorNombre.estado === 'ok' && r.compradoresPorNombre.datos.length > 0);
   if (hay) return 'con-resultados';
-  const todos = [r.productos, r.licitaciones, r.comprasAgiles].every((b) => b.estado === 'ok');
+  const todos = [r.productos, r.licitaciones, r.comprasAgiles, r.compradoresPorNombre].every(
+    (b) => b.estado === 'ok',
+  );
   return todos ? 'sin-resultados' : 'incompleta';
 }

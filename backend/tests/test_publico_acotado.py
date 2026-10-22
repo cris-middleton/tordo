@@ -111,6 +111,9 @@ EXENTAS = {
     # índice (`LECTURAS_DEL_INDICE`), que se construye una vez por TTL. Lo fija
     # `test_sugerencia_busqueda.py`.
     "/sugerencia",
+    # Igual: busca en `compradores` del índice, en memoria. Lo fija
+    # `test_publico_http.py` (`TestBuscarCompradores`).
+    "/compradores",
 }
 
 

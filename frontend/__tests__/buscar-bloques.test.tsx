@@ -7,7 +7,14 @@
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { BloqueAbiertas, BloqueCompradores, BloquePrecios, EjemplosBusqueda, SinResultados } from '@/components/buscar/Bloques';
+import {
+  BloqueAbiertas,
+  BloqueCompradores,
+  BloqueCompradoresPorNombre,
+  BloquePrecios,
+  EjemplosBusqueda,
+  SinResultados,
+} from '@/components/buscar/Bloques';
 import { FormularioBuscar } from '@/components/buscar/FormularioBuscar';
 import { EJEMPLOS_BUSQUEDA, rutaBuscar } from '@/lib/buscar';
 import { urlCatalogoAbiertas } from '@/lib/filtrosCatalogo';
@@ -221,5 +228,26 @@ describe('sin resultados y ejemplos', () => {
   it('los ejemplos son enlaces de contenido (subrayados)', () => {
     render(<EjemplosBusqueda />);
     for (const a of screen.getAllByRole('link')) expect(a).toHaveClass('enlace');
+  });
+});
+
+describe('compradores por su nombre', () => {
+  it('enlaza cada uno a su ficha, con el nombre escrito como en el sitio', () => {
+    render(
+      <BloqueCompradoresPorNombre
+        bloque={ok([{ codigo: '7297', nombre: 'HOSPITAL DE TALCA', n: 9000, indexable: true }])}
+      />,
+    );
+    const enlace = screen.getByRole('link', { name: /hospital de talca/i });
+    expect(enlace).toHaveAttribute('href', '/compradores/7297');
+    expect(enlace).toHaveTextContent('Hospital de Talca');
+    expect(enlace).toHaveTextContent('9.000 órdenes');
+  });
+
+  it('sin ninguno, o si la consulta falló, no pinta nada', () => {
+    const { container } = render(<BloqueCompradoresPorNombre bloque={ok([])} />);
+    expect(container).toBeEmptyDOMElement();
+    const fallido = render(<BloqueCompradoresPorNombre bloque={{ estado: 'fallo', motivo: 'error' }} />);
+    expect(fallido.container).toBeEmptyDOMElement();
   });
 });

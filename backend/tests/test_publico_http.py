@@ -743,3 +743,64 @@ def test_un_perfil_sin_nombre_toma_el_de_sus_mercados(analytics, cliente, sin_no
     cuerpo = _get(cliente, "/compradores/7297").json()
     assert cuerpo["nombre"] == "HOSPITAL DE PRUEBA"
     assert cuerpo["indexable"] is True
+
+
+class TestBuscarCompradores:
+    """`GET /publico/compradores?q=`: llegar a la ficha de un comprador por su nombre."""
+
+    def _codigos(self, cliente, q, **params):
+        r = _get(cliente, "/compradores", q=q, **params)
+        assert r.status_code == 200
+        return [c["codigo"] for c in r.json()]
+
+    def test_por_su_nombre_sin_tildes_ni_mayusculas(self, analytics, cliente):
+        assert self._codigos(cliente, "hospital de prueba") == ["7297"]
+        assert self._codigos(cliente, "HOSPITAL") == ["7297"]
+        assert self._codigos(cliente, "municipalidad chica") == ["1"]
+
+    def test_cada_palabra_al_comienzo_de_una_palabra_y_en_cualquier_orden(self, analytics, cliente):
+        assert self._codigos(cliente, "prueba hosp") == ["7297"]
+        assert self._codigos(cliente, "spital") == []
+        assert self._codigos(cliente, "hospitales") == ["7297"]
+
+    def test_primero_los_indexables(self, analytics, cliente):
+        """Los dos se llaman «Hospital…»: primero el que tiene ficha indexable."""
+        analytics["buyer_scores.parquet"] = [
+            {
+                "CodigoOrganismoPublico": "7297",
+                "NombreOrganismo": "HOSPITAL DE PRUEBA",
+                "n_oc_total": 5000,
+            },
+            {"CodigoOrganismoPublico": "1", "NombreOrganismo": "HOSPITAL CHICO", "n_oc_total": 3},
+        ]
+        indexables.invalidar()
+        cuerpo = _get(cliente, "/compradores", q="hospital").json()
+        assert [c["codigo"] for c in cuerpo] == ["7297", "1"]
+        assert [c["indexable"] for c in cuerpo] == [True, False]
+        assert cuerpo[0]["n"] == 5000
+
+    def test_sin_palabras_utiles_no_busca(self, analytics, cliente):
+        assert self._codigos(cliente, "de la") == []
+
+    def test_respeta_el_limite(self, analytics, cliente):
+        assert len(self._codigos(cliente, "hospital", limite=1)) == 1
+        assert _get(cliente, "/compradores", q="hospital", limite=0).status_code == 422
+
+
+def test_buscar_comprador_pone_antes_la_palabra_entera(analytics, cliente):
+    """«talca» empieza «Talcahuano», que compra más; el de Talca va primero."""
+    analytics["buyer_scores.parquet"] = [
+        {
+            "CodigoOrganismoPublico": "7297",
+            "NombreOrganismo": "HOSPITAL DE TALCAHUANO",
+            "n_oc_total": 9000,
+        },
+        {"CodigoOrganismoPublico": "1", "NombreOrganismo": "HOSPITAL DE TALCA", "n_oc_total": 900},
+    ]
+    analytics["market_concentration.parquet"] = [
+        _mercado("7297", "HOSPITAL DE TALCAHUANO", "Equipos médicos", 120, 9_000_000.0),
+        _mercado("1", "HOSPITAL DE TALCA", "Equipos médicos", 40, 1_000_000.0),
+    ]
+    indexables.invalidar()
+    cuerpo = _get(cliente, "/compradores", q="hospital talca").json()
+    assert [c["codigo"] for c in cuerpo] == ["1", "7297"]
