@@ -722,3 +722,24 @@ class TestBusquedaConLasOtrasFormas:
     def test_mesas_no_encuentra_meses(self, firmas, cliente):
         assert self._slugs(cliente, "mesas") == ["comedor-mesa"]
         assert self._slugs(cliente, "meses") == []
+
+
+@pytest.mark.parametrize("sin_nombre", [None, "", "   "])
+def test_un_perfil_sin_nombre_toma_el_de_sus_mercados(analytics, cliente, sin_nombre):
+    """`buyer_scores` saca el nombre de las licitaciones: un comprador con órdenes
+    y sin licitaciones en la ventana llegaba sin él (47 de 1.303 en la copia local),
+    y su página indexable salía con el `h1` vacío."""
+    analytics["buyer_scores.parquet"] = [
+        {
+            "CodigoOrganismoPublico": "7297",
+            "NombreOrganismo": sin_nombre,
+            "buyer_score": 0.8,
+            "clasificacion": "bueno",
+            "n_oc_total": 5000,
+            "n_meses_activo": 30,
+        }
+    ]
+    indexables.invalidar()
+    cuerpo = _get(cliente, "/compradores/7297").json()
+    assert cuerpo["nombre"] == "HOSPITAL DE PRUEBA"
+    assert cuerpo["indexable"] is True

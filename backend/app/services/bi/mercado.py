@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import logging
 
+import polars as pl
+
 from app.services.bi._base import _agregado, _distintos, _load, _totales, clasificar_hhi
 from app.services.bi.temporal import _compute_cagr_rubro_desde_time_series
 
@@ -163,6 +165,26 @@ def get_sector(
     }
 
 
+def _nombre_de_comprador(nombre: str | None, codigo: str) -> str | None:
+    """El nombre del perfil, o el de sus mercados si el perfil viene sin él.
+
+    `buyer_scores` saca el nombre de las licitaciones: un comprador con órdenes y
+    sin licitaciones en la ventana llegaba sin nombre (47 de 1.303 en la copia
+    local), y el resumen decía «su comprador más activo» sin decir cuál.
+    """
+    if nombre and nombre.strip():
+        return nombre
+    fila = _load(
+        "market_concentration.parquet",
+        filtros={"CodigoOrganismoPublico": codigo},
+        columnas=["OrganismoPublico"],
+        limite=1,
+    )
+    if fila is None or fila.is_empty():
+        return None
+    return fila.get_column("OrganismoPublico")[0]
+
+
 def get_resumen(rubro: str | None = None) -> dict:
     """
     Resumen narrativo de un rubro. Combina:
@@ -238,9 +260,12 @@ def get_resumen(rubro: str | None = None) -> dict:
     df_opp = _load("opportunity_scores.parquet", filtros={"RubroN2": rubro})
     df_buyers = _load("buyer_scores.parquet")
     if df_opp is not None and "RubroN2" in df_opp.columns and df_buyers is not None:
+        # Desempata el código: con dos compradores igual de activos, el resumen
+        # nombraba a uno u otro según el orden físico de la tabla.
         opps_rubro = (
             df_opp.filter(df_opp["RubroN2"] == rubro)
-            .sort("n_transacciones", descending=True)
+            .with_columns(pl.col("CodigoOrganismoPublico").cast(pl.Utf8).alias("_codigo"))
+            .sort(["n_transacciones", "_codigo"], descending=[True, False], nulls_last=True)
             .head(10)
         )
         if len(opps_rubro) > 0:
@@ -259,7 +284,7 @@ def get_resumen(rubro: str | None = None) -> dict:
                     # sí se puede verificar.
                     top_comprador = {
                         "codigo": code,
-                        "nombre": b.get("NombreOrganismo"),
+                        "nombre": _nombre_de_comprador(b.get("NombreOrganismo"), code),
                         "n_oc_total": b.get("n_oc_total"),
                         # Las de ESTE rubro, que es por lo que se le eligió. La
                         # frase decía «el comprador más activo [del rubro], con

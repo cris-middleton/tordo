@@ -21,9 +21,16 @@ anteayer y ayer, como hacía la diaria de las 02:00 — sólo licitaciones: **la
 compra ya no se ingieren por la API** (paso 7); salen de la descarga masiva, y cada una
 costaba un detalle de la cuota. Antes eran 26 h y un día: si fallaba la primera de un día,
 lo que cambió entre la última de anteayer y ella no lo miraba nadie
-(`test_una_corrida_cualquiera_que_falla_no_deja_hueco`). No se guarda cuál fue la última
-corrida **buena** (no hay dónde sin añadir estado), así que dos primeras del día seguidas
-fallidas sí dejan hueco.
+(`test_una_corrida_cualquiera_que_falla_no_deja_hueco`). **Tras una caída, la ventana parte
+de la última escritura en Postgres** (`ultimas_escrituras`, por `tipo_convocatoria`, leída
+antes de escribir nada): Compra Ágil nunca desde después de la última fila escrita menos 1 h
+(tope `RECUPERACION_COMPRA_AGIL`, 72 h, por la cuota diaria), y el barrido de licitaciones
+desde el día de la última licitación escrita (tope `DIAS_RECUPERACION_LICITACIONES`, 5
+días); si la primera de hoy no escribió nada, barre la corrida siguiente. Con el cron sano no
+cambia nada. Una caída más larga que esos topes sí deja hueco.
+**El listado de la API clásica no trae `Moneda`**: el transformador la deja en `None` y la pone
+el detalle (el upsert no pisa con nulos). La Compra Ágil se guarda siempre en CLP
+(`monto_disponible_clp`), con la moneda original en `informacion_adicional.moneda_original`.
 **La primera del día re-consulta además los resultados** de las licitaciones cerradas en los
 últimos 30 días sin adjudicación (tope 500/día, el 5 % de la cuota de la API clásica; ni
 desiertas, ni revocadas, ni Compra Ágil). Sin esto la adjudicación sólo se llenaba si

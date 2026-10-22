@@ -13,13 +13,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/health", tags=["health"])
 
 
-@router.get("/")
+# HEAD también: es lo que mandan muchos monitores de disponibilidad, y respondía
+# 405, que un monitor lee como «caído».
+@router.api_route("/", methods=["GET", "HEAD"])
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "timestamp": datetime.now(UTC).isoformat(), "service": "backend"}
 
 
-@router.get("/ready")
+@router.api_route("/ready", methods=["GET", "HEAD"])
 async def readiness_check(db: AsyncSession = Depends(get_db)):
     """Readiness check endpoint for Kubernetes/Docker"""
     try:

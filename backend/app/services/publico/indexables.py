@@ -250,9 +250,20 @@ def _compradores(por_comprador: pl.DataFrame | None) -> pl.DataFrame:
         else set()
     )
     # El perfil va primero: su nombre gana, y `con_volumen` sólo lo tiene él.
+    # **Salvo que el perfil venga sin nombre**: `buyer_scores` lo saca de las
+    # licitaciones, y un comprador con órdenes pero sin licitaciones en la
+    # ventana quedaba sin él (47 de 1.303 en la copia local). Su página salía
+    # indexable, en el sitemap, con el `h1` vacío. Un nombre en blanco no cuenta,
+    # y se toma el de sus mercados.
+    nombre = pl.col("nombre").str.strip_chars()
     return (
         pl.concat(partes)
-        .unique(subset="codigo", keep="first", maintain_order=True)
+        .with_columns(pl.when(nombre != "").then(nombre).alias("nombre"))
+        .group_by("codigo", maintain_order=True)
+        .agg(
+            pl.col("nombre").drop_nulls().first(),
+            pl.col("con_volumen").drop_nulls().first(),
+        )
         .with_columns(
             (
                 pl.col("con_volumen").fill_null(False) & pl.col("codigo").is_in(list(con_mercado))

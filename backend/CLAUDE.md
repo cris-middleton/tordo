@@ -121,8 +121,9 @@
   esquivando por host cualquier `Location` absoluto, pero ya no lo necesita para los propios.
 - **Todo parámetro público tiene cota** (`app/api/limites.py`): textos con `max_length`,
   enteros con `le=`, `offset` hasta 100.000, ids dentro de un `bigint` de Postgres (uno
-  mayor llegaba a la base y volvía **500**), y como mucho 8 términos en la búsqueda (catálogo y
-  Compra Ágil, `limites.MAX_TERMINOS`). `tests/test_parametros_acotados.py` recorre el OpenAPI y falla con un
+  mayor llegaba a la base y volvía **500**), montos hasta `MONTO_MAX` (10¹³, `min_amount` y
+  `max_amount`: `1e308` o `inf` eran un 500), y como mucho 8 términos en la búsqueda (catálogo y
+  Compra Ágil, `limites.MAX_TERMINOS`). Los parámetros numéricos también llevan `le=`. `tests/test_parametros_acotados.py` recorre el OpenAPI y falla con un
   parámetro nuevo sin cota. **Y nada que se pida gratis carga una tabla entera**:
   `/bi/productos?q=` traía `product_price_bands_l3` completa a Polars en cada petición
   (~70 ms con seis meses); ahora filtra en SQL sobre el índice de trigramas, con tope de
@@ -205,3 +206,13 @@
   con mensaje accionable. `feature_tfidf` se fue con el TF-IDF de la API (paso 8 del pivote).
 
 ---
+- **Las sesiones de asyncpg planifican con los parámetros** (`OPCIONES_DE_SESION` en
+  `app/db/__init__.py`: `plan_cache_mode=force_custom_plan`). asyncpg reutiliza sentencias
+  preparadas y Postgres, desde la sexta ejecución, puede pasar a un plan genérico que no pliega
+  el término de búsqueda: `GET /tenders/?search=de` pasaba de ~55 ms a ~800 ms con 61.000
+  licitaciones (medido el 2026-10-22). Una medición de rendimiento del catálogo tiene que
+  repetir la petición más de cinco veces. `tests/test_plan_a_medida.py`.
+- **Los 422 de validación llevan cada `msg` en español** (`app/core/errores_validacion.py`);
+  la lista de Pydantic (`type`, `loc`, `ctx`) no cambia de forma.
+- **`/health/` y `/health/ready` responden también a HEAD**: muchos monitores preguntan así, y
+  un 405 se lee como caído.

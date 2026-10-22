@@ -100,9 +100,16 @@ def _indice_de_antes(tablas: dict[str, pl.DataFrame]) -> indexables.Indice:
             if mercados is not None
             else set()
         )
+        # Un nombre en blanco del perfil cede al de sus mercados (como `_compradores`).
+        nombre = pl.col("nombre").str.strip_chars()
         compradores = (
             pl.concat(partes)
-            .unique(subset="codigo", keep="first", maintain_order=True)
+            .with_columns(pl.when(nombre != "").then(nombre).alias("nombre"))
+            .group_by("codigo", maintain_order=True)
+            .agg(
+                pl.col("nombre").drop_nulls().first(),
+                pl.col("con_volumen").drop_nulls().first(),
+            )
             .with_columns(
                 (
                     pl.col("con_volumen").fill_null(False)

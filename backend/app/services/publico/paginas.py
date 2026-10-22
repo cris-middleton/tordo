@@ -124,7 +124,9 @@ def comprador(codigo: str) -> dict | None:
     perfil = get_comprador(codigo)
     return {
         "codigo": codigo,
-        "nombre": perfil.get("nombre") or conocido["nombre"],
+        # Un nombre en blanco del perfil no es un nombre: el del índice, que ya
+        # lo cambió por el de sus mercados.
+        "nombre": (perfil.get("nombre") or "").strip() or conocido["nombre"],
         "indexable": bool(conocido["indexable"]),
         "periodo": _periodo(indice),
         "perfil": perfil,
