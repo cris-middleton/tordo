@@ -15,7 +15,8 @@ import { FUENTE_PORTADA, SE_ACTUALIZA } from '@/lib/portada';
  *
  * «Se usa» se fue (V11): la salida a API, MCP y CSV está en la cabecera y el pie.
  *
- * Una franja de tres celdas a lo ancho (dos por fila por debajo de `lg`), como
+ * Una franja de cuatro celdas a lo ancho (tres sin «Base»: una columna vacía al
+ * final parecía un dato que faltaba; dos por fila por debajo de `lg`), como
  * colofón antes de las notas: como lista en la columna del buscador medía ~200 px
  * de alto, y justo bajo el gráfico grande era metadata en el mejor lugar de la página.
  */
@@ -31,7 +32,7 @@ export function FichaPortada({
 }) {
   return (
     <dl
-      className={`grid grid-cols-2 gap-x-6 gap-y-4 border-y border-border py-4 text-sm lg:grid-cols-4 lg:gap-x-8 ${className}`.trim()}
+      className={`grid grid-cols-2 gap-x-6 gap-y-4 border-y border-border py-4 text-sm ${base ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} lg:gap-x-8 ${className}`.trim()}
     >
       {base && (
         <div className="min-w-0">
