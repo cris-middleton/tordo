@@ -4,10 +4,9 @@
 #
 # Por qué existe
 # --------------
-# GitHub Actions no está habilitado en esta cuenta (requiere tarjeta), así que
-# los PR se mergean sin que CI los verifique. Sin este script, "pasar CI" es una
-# lista de comandos en la cabeza de alguien, y lo que se olvida es siempre lo
-# mismo: el ciclo de migraciones y el build del frontend.
+# Es el ensayo previo de GitHub Actions: lo mismo en minutos, sin esperar al
+# runner. Lo que más se olvida es siempre lo mismo: el ciclo de migraciones y el
+# build del frontend.
 #
 # Levanta su propio Postgres en un contenedor efímero y lo destruye al terminar,
 # así que no toca la base de desarrollo.
@@ -17,17 +16,22 @@
 #
 # Uso:  make ci
 #
-# Diferencia conocida con GitHub Actions: allí `alembic check` es informativo
-# (`continue-on-error`) por la deriva modelos↔migraciones pendiente de F4. Aquí
-# también se informa sin bloquear, por la misma razón.
+# Una diferencia con GitHub Actions: el job de DCO, que sólo corre en los PR
+# desde un fork (`scripts/dco.sh`), no está aquí.
 
 set -euo pipefail
 
 RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$RAIZ"
 
-CONTENEDOR="tordo-ci-local"
-PUERTO="${CI_LOCAL_PG_PORT:-55432}"
+# Un contenedor, un puerto y un log POR WORKTREE. Con un nombre y un puerto
+# fijos, dos worktrees corriendo `make ci` a la vez se borraban el Postgres el
+# uno al otro (`limpiar` del segundo hacía `docker rm -f` del primero) y el log
+# de `/tmp` se pisaba: el informe de uno mostraba los fallos del otro.
+NOMBRE_WORKTREE="$(basename "$RAIZ")"
+CONTENEDOR="tordo-ci-local-${NOMBRE_WORKTREE//[^A-Za-z0-9_.-]/-}"
+PUERTO="${CI_LOCAL_PG_PORT:-$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')}"
+LOG="$(mktemp -t ci-local.XXXXXX)"
 export DATABASE_URL="postgresql://postgres:postgres@localhost:${PUERTO}/tordo_test"
 # Los tests distinguen CI de local: en local se saltan si falta la base o los
 # datos de analytics; en CI eso es un error. Sin esta variable, `make ci` era más
@@ -45,15 +49,15 @@ malo() { printf "%s   ✗ %s%s\n" "$rojo" "$1" "$fin"; FALLOS+=("$1"); }
 # `|| malo` en vez de `set -e`: interesa el informe completo, no el primer fallo.
 correr() {
   local nombre="$1"; shift
-  if "$@" >/tmp/ci-local.log 2>&1; then
+  if "$@" >"$LOG" 2>&1; then
     ok "$nombre"
   else
     malo "$nombre"
-    sed 's/^/     /' /tmp/ci-local.log | tail -25
+    sed 's/^/     /' "$LOG" | tail -25
   fi
 }
 
-limpiar() { docker rm -f "$CONTENEDOR" >/dev/null 2>&1 || true; }
+limpiar() { docker rm -f "$CONTENEDOR" >/dev/null 2>&1 || true; rm -f "$LOG"; }
 trap limpiar EXIT
 
 # `docker rm -f` devuelve antes de que el nombre quede libre, y el `docker run`
