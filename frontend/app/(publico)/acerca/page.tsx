@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
 
-import { CabeceraFicha, Seccion } from '@/components/publico/Piezas';
+import { Seccion } from '@/components/publico/Piezas';
 import { PREGUNTAS } from '@/lib/acerca';
 import { COSTO_MENSUAL_APROXIMADO } from '@/lib/costos';
 import { nombreAutor, rolAutor, urlAutor } from '@/lib/autor';
@@ -36,7 +36,10 @@ export const metadata: Metadata = {
  * datos como su trabajo: es lo que muestra cómo trabaja quien lo hace.
  *
  * **El texto corrido va a 16 px y en `text`** (`PROSA`); las preguntas, también.
- * Lo chico y gris queda para lo secundario: la línea del contacto.
+ * Lo chico y gris queda para lo secundario: la línea del contacto. La entrada va
+ * a 18 px: es lo primero que se lee, no un metadato de ficha (`CabeceraFicha`).
+ * Las preguntas miden lo que un párrafo (58ch): con los filetes a lo ancho de la
+ * columna, la lista se veía más ancha que el texto de arriba.
  */
 const PROSA = 'text-base leading-relaxed text-text';
 
@@ -48,10 +51,13 @@ export default function PaginaAcerca() {
 
   return (
     <article className="lectura max-w-3xl">
-      <CabeceraFicha
-        titulo={`Qué es ${APP_NAME}`}
-        subtitulo="Un sitio con lo que el Estado de Chile ya compró, a qué precio y a quién. Con eso decides si postular y a cuánto."
-      />
+      <header>
+        <h1 className="page-title">Qué es {APP_NAME}</h1>
+        <p className="mt-3 text-lg leading-relaxed text-muted">
+          Un sitio con lo que el Estado de Chile ya compró, a qué precio y a quién. Con eso decides
+          si postular y a cuánto.
+        </p>
+      </header>
 
       <Seccion id="que-es" titulo="Qué puedes hacer aquí">
         <div className={`space-y-3 ${PROSA}`}>
@@ -96,7 +102,7 @@ export default function PaginaAcerca() {
           <Link href="/apoyar#costos" className="enlace">
             alrededor de {COSTO_MENSUAL_APROXIMADO} al mes
           </Link>
-          . Lo pagamos nosotros, con la ayuda de quienes aportan.
+          . Lo paga quien lo hace, con la ayuda de quienes aportan.
         </p>
       </Seccion>
 
@@ -136,7 +142,7 @@ export default function PaginaAcerca() {
       )}
 
       <Seccion id="preguntas" titulo="Preguntas frecuentes">
-        <div className="divide-y divide-border border-y border-border">
+        <div className="max-w-[58ch] divide-y divide-border border-y border-border">
           {PREGUNTAS.map((p) => (
             <details key={p.pregunta} className="group">
               <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 py-3 text-base font-semibold text-text hover:text-primary [&::-webkit-details-marker]:hidden">
@@ -146,7 +152,7 @@ export default function PaginaAcerca() {
                   aria-hidden="true"
                 />
               </summary>
-              <div className={`pb-4 pr-8 ${PROSA}`}>
+              <div className={`pb-4 ${PROSA}`}>
                 <p>{p.respuesta}</p>
                 {p.enlace && (
                   <Link href={p.enlace.href} className="enlace mt-2 inline-block">

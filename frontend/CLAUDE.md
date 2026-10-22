@@ -543,7 +543,9 @@ a la página**: Next ignora `metadata` en componentes cliente y la home perderí
   Armadas `serie-5`, y el resto —«Otros», «Legislativo y judicial», sin sector— junto en
   `serie-otros`). El `h2` es la conclusión (`fraseGasto`): «El Estado compró $X en N meses.
   {Mes} fue el mes más alto: 1,7 veces un mes típico.» —el mes típico es la mediana; bajo
-  `VECES_PICO` (1,25), «Compra parejo»—. **Globo** al pasar el mouse o tocar un mes (total y el %
+  `VECES_PICO` (1,25), «Compra parejo»—. Si ese mes es también el más alto de cada otro año con
+  seis meses o más en la serie (hacen falta dos años), dice el patrón: «Diciembre es el mes más
+  alto de cada año. El de 2025 fue…» (`picoQueSeRepite`). **Globo** al pasar el mouse o tocar un mes (total y el %
   de cada sector; **sin contar órdenes**: `time_series` las cuenta únicas por rubro, y al sumar
   rubros una orden de dos rubros salía dos veces —7,1 millones contra los 5,5 de la ficha—); la leyenda es una lista de cifras (cada sector con su total y su
   %) y pasar por un sector lo resalta en todos los meses. Eje con la unidad dicha una vez («En
