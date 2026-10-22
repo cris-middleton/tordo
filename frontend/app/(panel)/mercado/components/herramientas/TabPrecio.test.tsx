@@ -14,7 +14,7 @@
  *   3. `predictibilidad` y `qcd` son visibles, no un detalle que hay que
  *      adivinar mirando un número crudo.
  */
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -146,5 +146,36 @@ describe('TabPrecio', () => {
     expect(screen.getByText(/por caja de 100/)).toBeInTheDocument();
     // Con unidad no hay nada que avisar.
     expect(screen.queryByText(/sin unidad de medida/)).not.toBeInTheDocument();
+  });
+
+  it('el producto se elige con el teclado: Tab baja a la opción sin cerrar la lista', async () => {
+    const usuario = userEvent.setup();
+    render(<TabPrecio />);
+    const campo = screen.getByRole('textbox', { name: 'Producto' });
+    await usuario.click(campo);
+    await usuario.tab();
+    // Lo que tarda una persona en pulsar la tecla siguiente. Antes el `onBlur`
+    // del campo cerraba la lista a los 150 ms y la opción desaparecía con el foco.
+    await act(() => new Promise((r) => setTimeout(r, 300)));
+    const opcion = screen.getByRole('button', { name: /Guantes de nitrilo/ });
+    expect(opcion).toHaveFocus();
+    await usuario.keyboard('{Enter}');
+    expect(campo).toHaveValue('Guantes de nitrilo');
+    expect(screen.getByRole('button', { name: 'Ver precios' })).toBeEnabled();
+  });
+
+  it('salir del combobox o pulsar Escape cierra la lista', async () => {
+    const usuario = userEvent.setup();
+    render(<TabPrecio />);
+    const campo = screen.getByRole('textbox', { name: 'Producto' });
+    await usuario.click(campo);
+    expect(screen.getByRole('button', { name: /Guantes de nitrilo/ })).toBeInTheDocument();
+    await usuario.keyboard('{Escape}');
+    expect(screen.queryByRole('button', { name: /Guantes de nitrilo/ })).not.toBeInTheDocument();
+    await usuario.type(campo, 'g');
+    expect(screen.getByRole('button', { name: /Guantes de nitrilo/ })).toBeInTheDocument();
+    await usuario.tab();
+    await usuario.tab();
+    expect(screen.queryByRole('button', { name: /Guantes de nitrilo/ })).not.toBeInTheDocument();
   });
 });
