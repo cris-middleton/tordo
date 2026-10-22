@@ -28,6 +28,7 @@ import bisect
 import difflib
 import re
 import threading
+import weakref
 from dataclasses import dataclass
 
 import polars as pl
@@ -77,16 +78,17 @@ def vocabulario_de(productos: pl.DataFrame) -> Vocabulario:
 
 
 _cerrojo = threading.Lock()
-#: El vocabulario y el índice del que salió: se rehace cuando el índice cambia.
-_cache: tuple[int, Vocabulario] | None = None
+#: El vocabulario y el índice del que salió: se rehace cuando el índice cambia. Una
+#: referencia débil y no `id()`, que Python reusa cuando el índice viejo se libera.
+_cache: tuple[weakref.ref, Vocabulario] | None = None
 
 
 def vocabulario() -> Vocabulario:
     global _cache
     actual = indexables.indice()
     with _cerrojo:
-        if _cache is None or _cache[0] != id(actual):
-            _cache = (id(actual), vocabulario_de(actual.productos))
+        if _cache is None or _cache[0]() is not actual:
+            _cache = (weakref.ref(actual), vocabulario_de(actual.productos))
         return _cache[1]
 
 

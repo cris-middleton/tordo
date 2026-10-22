@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import re
 import threading
+import weakref
 
 import polars as pl
 
@@ -430,7 +431,9 @@ MAX_COMPRADORES_BUSQUEDA = 20
 
 _cerrojo_compradores = threading.Lock()
 #: Los compradores del índice con el slug de su nombre, y el índice del que salieron.
-_slugs_compradores: tuple[int, pl.DataFrame] | None = None
+#: Una referencia débil y no `id()`: Python reusa el id de un índice ya liberado, y
+#: con él se servirían los compradores del viejo.
+_slugs_compradores: tuple[weakref.ref, pl.DataFrame] | None = None
 
 
 def _compradores_con_slug() -> pl.DataFrame:
@@ -438,7 +441,7 @@ def _compradores_con_slug() -> pl.DataFrame:
     global _slugs_compradores
     indice = indexables.indice()
     with _cerrojo_compradores:
-        if _slugs_compradores is None or _slugs_compradores[0] != id(indice):
+        if _slugs_compradores is None or _slugs_compradores[0]() is not indice:
             con_slug = indice.compradores.filter(pl.col("nombre").is_not_null()).with_columns(
                 # Entero, sin el corte de 80 caracteres de las URL: un nombre largo
                 # perdía sus últimas palabras («…de Cerro Navia»).
@@ -446,7 +449,7 @@ def _compradores_con_slug() -> pl.DataFrame:
                 .map_elements(lambda n: slug(n, largo=None), return_dtype=pl.Utf8)
                 .alias("slug_nombre")
             )
-            _slugs_compradores = (id(indice), con_slug)
+            _slugs_compradores = (weakref.ref(indice), con_slug)
         return _slugs_compradores[1]
 
 

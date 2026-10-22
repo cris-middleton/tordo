@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import gc
+import weakref
+
 import polars as pl
 import pytest
 from fastapi.testclient import TestClient
@@ -35,6 +38,26 @@ def vocab(monkeypatch) -> Vocabulario:
     v = vocabulario_de(PRODUCTOS)
     monkeypatch.setattr(sugerencias, "vocabulario", lambda: v)
     return v
+
+
+class _Indice:
+    def __init__(self, productos: pl.DataFrame):
+        self.productos = productos
+
+
+def test_el_vocabulario_se_rehace_con_cada_indice_y_no_retiene_el_viejo(monkeypatch):
+    """La caché reconoce el índice por referencia débil, no por `id()`: Python reusa
+    el id de un índice liberado, y con él se serviría el vocabulario del viejo."""
+    monkeypatch.setattr(sugerencias, "_cache", None)
+    vigente = [_Indice(PRODUCTOS)]
+    monkeypatch.setattr(sugerencias.indexables, "indice", lambda: vigente[0])
+    assert "computador" in sugerencias.vocabulario().peso
+
+    viejo = weakref.ref(vigente[0])
+    vigente[0] = _Indice(pl.DataFrame({"slug": ["mesa-comedor"], "n": [3]}))
+    gc.collect()
+    assert viejo() is None
+    assert set(sugerencias.vocabulario().peso) == {"mesa", "comedor"}
 
 
 def test_el_vocabulario_son_las_palabras_de_los_slugs_con_sus_compras():
