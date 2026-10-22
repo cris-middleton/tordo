@@ -64,7 +64,7 @@ test('el buscador de productos se carga sin sesión', async ({ page }) => {
   const respuesta = await page.goto('/productos');
   expect(respuesta?.status()).toBe(200);
   await expect(page.getByLabel(/buscar un producto/i)).toBeVisible();
-  await expect(page.getByText(/al menos tres letras/i)).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Búsquedas para empezar' })).toBeVisible();
 });
 
 test('/productos?q= abre con los resultados, sin escribir nada', async ({ page }) => {

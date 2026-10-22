@@ -67,8 +67,8 @@ export function MarketSummaryCard({ resumen, loading, rubro }: MarketSummaryCard
     // Antes iba en una tarjeta con degradado y un icono de destellos: el disfraz
     // de «lo escribió una IA» sobre frases que salen de plantillas con el dato.
     <section ref={rootRef}>
-      <div className="flex items-start gap-3">
-        <div className="max-w-[65ch] flex-1 space-y-2">
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+        <div className="max-w-[65ch] space-y-2">
           {frases.map((f, i) => (
             <p
               key={i}

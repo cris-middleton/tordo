@@ -22,7 +22,7 @@ export default function GuardadosPage() {
     <div className="max-w-3xl">
       <div>
         <h1 className="page-title">Guardados</h1>
-        <p className="mt-2 text-sm text-muted">
+        <p className="mt-2 max-w-[65ch] text-base leading-relaxed text-muted">
           Se guardan en este navegador, sin cuenta: desde otro equipo no los verás, y se borran si
           borras los datos del sitio.
         </p>

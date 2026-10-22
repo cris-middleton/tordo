@@ -10,7 +10,7 @@ import { ErrorDeCarga } from '@/components/ErrorDeCarga';
 import { useEstacionalidad } from '@/lib/queries';
 import { decimal } from '@/lib/formato';
 import { normalizeText } from '@/lib/nombresChile';
-import { conclusionDeMeses, MESES_LARGOS } from '@/lib/mesesDeCompra';
+import { conclusionDeMeses, MESES_LARGOS, mesesNombrados } from '@/lib/mesesDeCompra';
 
 interface EstacionalidadSectionProps {
   topOrganismos: OrganismoConNombre[];
@@ -52,6 +52,10 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
   });
   const picoMeses = meses.filter((m) => m.pico).map((m) => MESES_LARGOS[m.mes - 1]);
   const conclusion = conclusionDeMeses(meses, picoMeses);
+  // En `dato` lo que nombra la frase: los picos del ETL o, sin ellos, los meses que
+  // la frase saca de la forma (docs/GUIA_GRAFICOS.md). Sin esto, «Compra sobre todo
+  // en febrero, marzo y noviembre» iba sobre doce columnas del mismo color.
+  const nombrados = picoMeses.length > 0 ? new Set<number>() : new Set(mesesNombrados(meses));
 
   return (
     <section className="space-y-4">
@@ -113,7 +117,7 @@ export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, 
                 etiqueta: m.etiqueta,
                 valor: m.prob,
                 texto: `${decimal(m.prob * 100, 0)}\u00a0%`,
-                destacada: m.pico,
+                destacada: m.pico || nombrados.has(m.mes),
               }))}
             />
           </div>

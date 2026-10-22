@@ -78,7 +78,10 @@ export default function TenderDetailPage() {
         {
           etiqueta: 'Cierre',
           valor: cierre?.texto ?? 'Sin fecha',
-          detalle: fechaLargaDeChile(tenderData.fecha_cierre, true),
+          // La fecha larga sólo si el valor no la dice: «Cierra hoy a las 13:00» la
+          // necesita; «Cierra el 26 oct a las 13:00» ya la tiene, y repetida debajo
+          // («26 de octubre de 2026, 13:00») se leía como un segundo dato.
+          detalle: cierre?.texto.startsWith('Cierra el ') ? null : fechaLargaDeChile(tenderData.fecha_cierre, true),
           destacado: cierre?.urgente,
         },
         {

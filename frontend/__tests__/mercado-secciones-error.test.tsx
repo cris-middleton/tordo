@@ -177,4 +177,19 @@ describe('EstacionalidadSection', () => {
     expect(screen.getByText(/no tiene compras del rubro/i)).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
+
+  it('sin picos del ETL, las columnas de los meses que nombra la frase van en dato', () => {
+    const probs: Record<number, number> = { 2: 0.38, 3: 0.25, 10: 0.13, 11: 0.19, 12: 0.05 };
+    estados.estacionalidad = {
+      ...base(),
+      data: {
+        disponible: true,
+        patrones: Object.entries(probs).map(([mes, p]) => ({ mes: Number(mes), prob_mes: p, es_pico_estacional: false })),
+      },
+    };
+    const { container } = pintar();
+
+    expect(screen.getByText('Compra sobre todo en febrero, marzo y noviembre.')).toBeInTheDocument();
+    expect(container.querySelectorAll('.bg-dato')).toHaveLength(3);
+  });
 });
