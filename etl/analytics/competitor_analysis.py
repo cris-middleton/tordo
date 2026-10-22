@@ -137,7 +137,29 @@ def build_competitor_aggregates() -> tuple[pl.DataFrame, pl.DataFrame]:
             pl.col("monto_total").sum(),
             nombre_vigente("OrganismoPublico"),
             nombre_vigente("NombreProveedor"),
+            periodo_maximo(),
         ]
+    )
+    # **Un organismo, un nombre en toda la tabla.** El nombre vigente de cada
+    # fila (organismo, rubro, proveedor) es el último con el que ESE proveedor
+    # le vendió: uno que sólo vendió antes del cambio de nombre dejaba al mismo
+    # comprador con su nombre viejo en esa fila, y `market_concentration` toma
+    # el de la fila del líder.
+    nombres_org = markets.group_by("CodigoOrganismoPublico").agg(nombre_vigente("OrganismoPublico"))
+    markets = (
+        markets.drop("OrganismoPublico")
+        .join(nombres_org, on="CodigoOrganismoPublico", how="left")
+        .select(
+            [
+                "CodigoOrganismoPublico",
+                "RubroN2",
+                "CodigoProveedor",
+                "n_oc",
+                "monto_total",
+                "OrganismoPublico",
+                "NombreProveedor",
+            ]
+        )
     )
 
     # Combinar proveedores

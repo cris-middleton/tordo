@@ -18,20 +18,17 @@ import polars as pl
 
 from .config import MIN_OBSERVATIONS, OC_PARQUET_DIR, OUTPUT_DIR
 from .data_loader import VENTANA_ANALYTICS_MESES, con_ventana, iter_oc_parquets, limites_ventana
-from .identidad import nombre_vigente, periodo_maximo
+from .identidad import nombre_vigente
 
 logger = logging.getLogger(__name__)
 
 
 def build_price_aggregates() -> pl.DataFrame:
     """
-    Pre-agrega precios de OC por (organismo, rubro), calculando estadísticas
-    de distribución en cada batch para no cargar todo en RAM.
+    Distribución de lo que gasta cada orden por (organismo, rubro).
 
-    Recolecta precios individuales agrupados para después calcular percentiles.
-    Usa un approach de dos pasadas:
-      1. Primera pasada: calcular count, sum, sum_sq, min, max por grupo
-      2. Segunda pasada (selectiva): calcular percentiles solo para grupos significativos
+    Una observación es lo que una orden gastó en el rubro; los percentiles se
+    calculan sobre todas las de la ventana.
     """
     logger.info("Construyendo agregados de precios...")
 
@@ -48,8 +45,14 @@ def build_price_aggregates() -> pl.DataFrame:
         "_periodo_archivo",
     ]
 
-    # Primera pasada: estadísticas básicas
-    stats_frames = []
+    # **Los percentiles salen de TODAS las órdenes del grupo, no de promediar
+    # los de cada archivo.** Se calculaban por archivo mensual y luego se
+    # promediaban ponderando por `n`: el promedio de los p10 mensuales no es el
+    # p10 de la ventana, y en un par que compra una vez al mes el p10, la
+    # mediana y el p90 de cada mes son esa única compra, así que la banda de 36
+    # meses salía con p10 = p90 = el promedio. Se guarda una fila por (orden,
+    # organismo, rubro) —pocos millones con la ventana entera— y se agrega una vez.
+    frames = []
     for _periodo, df in iter_oc_parquets(columns=cols_needed):
         if "MontoTotalOC_PesosChilenos" not in df.columns:
             continue
@@ -68,77 +71,42 @@ def build_price_aggregates() -> pl.DataFrame:
                 pl.col("OrganismoPublico").first(),
                 pl.col("_periodo_archivo").first(),
             )
+            .filter(pl.col("monto").is_not_null() & (pl.col("monto") > 0))
+            .drop("Codigo")
         )
-        agg = (
-            por_orden.filter(pl.col("monto").is_not_null() & (pl.col("monto") > 0))
-            # La clave es el CÓDIGO del organismo. Con el nombre dentro, un
-            # comprador escrito de varias formas partía su propia banda de
-            # precio en varias bandas más estrechas y con menos observaciones
-            # cada una — justo lo contrario de lo que hace falta. Ver
-            # `identidad.py`.
-            .group_by(["CodigoOrganismoPublico", "RubroN2"])
-            .agg(
-                [
-                    pl.len().alias("n"),
-                    nombre_vigente("OrganismoPublico"),
-                    periodo_maximo(),
-                    pl.col("monto").sum().alias("sum_monto"),
-                    (pl.col("monto").pow(2)).sum().alias("sum_sq_monto"),
-                    pl.col("monto").min().alias("min_monto"),
-                    pl.col("monto").max().alias("max_monto"),
-                    pl.col("monto").median().alias("median_monto"),
-                    pl.col("monto").quantile(0.10).alias("p10"),
-                    pl.col("monto").quantile(0.25).alias("p25"),
-                    pl.col("monto").quantile(0.75).alias("p75"),
-                    pl.col("monto").quantile(0.90).alias("p90"),
-                    # Log-normal params (para precios > 0)
-                    pl.col("monto").log().mean().alias("log_mean"),
-                    pl.col("monto").log().std().alias("log_std"),
-                ]
-            )
-        )
-        stats_frames.append(agg)
+        frames.append(por_orden)
 
-    if not stats_frames:
+    if not frames:
         return pl.DataFrame()
 
-    # Combinar batches
-    combined = pl.concat(stats_frames, how="diagonal_relaxed")
-
-    # Re-agregar por grupo (weighted stats)
+    # La clave es el CÓDIGO del organismo. Con el nombre dentro, un comprador
+    # escrito de varias formas partía su propia banda de precio en varias bandas
+    # más estrechas y con menos observaciones cada una — justo lo contrario de
+    # lo que hace falta. Ver `identidad.py`.
     result = (
-        combined.group_by(["CodigoOrganismoPublico", "RubroN2"])
+        pl.concat(frames, how="diagonal_relaxed")
+        .group_by(["CodigoOrganismoPublico", "RubroN2"])
         .agg(
             [
-                pl.col("n").sum().alias("n_transacciones"),
+                pl.len().alias("n_transacciones"),
                 nombre_vigente("OrganismoPublico"),
-                pl.col("sum_monto").sum().alias("sum_monto"),
-                pl.col("sum_sq_monto").sum().alias("sum_sq_monto"),
-                pl.col("min_monto").min().alias("min_monto"),
-                pl.col("max_monto").max().alias("max_monto"),
-                # Weighted median/percentiles (approximate — use weighted average of batch medians)
-                (pl.col("median_monto") * pl.col("n")).sum().alias("_wt_median"),
-                (pl.col("p10") * pl.col("n")).sum().alias("_wt_p10"),
-                (pl.col("p25") * pl.col("n")).sum().alias("_wt_p25"),
-                (pl.col("p75") * pl.col("n")).sum().alias("_wt_p75"),
-                (pl.col("p90") * pl.col("n")).sum().alias("_wt_p90"),
-                # Weighted log params
-                (pl.col("log_mean") * pl.col("n")).sum().alias("_wt_log_mean"),
-                (pl.col("log_std") * pl.col("n")).sum().alias("_wt_log_std"),
+                pl.col("monto").sum().alias("sum_monto"),
+                (pl.col("monto").pow(2)).sum().alias("sum_sq_monto"),
+                pl.col("monto").min().alias("min_monto"),
+                pl.col("monto").max().alias("max_monto"),
+                pl.col("monto").median().alias("precio_mediana"),
+                pl.col("monto").quantile(0.10).alias("p10"),
+                pl.col("monto").quantile(0.25).alias("p25"),
+                pl.col("monto").quantile(0.75).alias("p75"),
+                pl.col("monto").quantile(0.90).alias("p90"),
+                # Parámetros log-normales (montos > 0).
+                pl.col("monto").log().mean().alias("log_mean"),
+                pl.col("monto").log().std().alias("log_std"),
             ]
         )
         .filter(pl.col("n_transacciones") >= MIN_OBSERVATIONS)
         .with_columns(
-            [
-                (pl.col("sum_monto") / pl.col("n_transacciones")).alias("precio_promedio"),
-                (pl.col("_wt_median") / pl.col("n_transacciones")).alias("precio_mediana"),
-                (pl.col("_wt_p10") / pl.col("n_transacciones")).alias("p10"),
-                (pl.col("_wt_p25") / pl.col("n_transacciones")).alias("p25"),
-                (pl.col("_wt_p75") / pl.col("n_transacciones")).alias("p75"),
-                (pl.col("_wt_p90") / pl.col("n_transacciones")).alias("p90"),
-                (pl.col("_wt_log_mean") / pl.col("n_transacciones")).alias("log_mean"),
-                (pl.col("_wt_log_std") / pl.col("n_transacciones")).alias("log_std"),
-            ]
+            (pl.col("sum_monto") / pl.col("n_transacciones")).alias("precio_promedio"),
         )
     )
 

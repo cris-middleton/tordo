@@ -41,7 +41,7 @@ import polars as pl
 
 from .config import OUTPUT_DIR
 from .data_loader import iter_oc_parquets
-from .identidad import periodo_maximo, periodo_minimo
+from .identidad import PERIODO, nombre_vigente, periodo_maximo, periodo_minimo
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +127,9 @@ def build_provider_metrics() -> pl.DataFrame:
         if "_periodo_archivo" in df.columns:
             prd = base.group_by([prov_col]).agg(
                 [
-                    pl.col("NombreProveedor").first(),
+                    # El nombre más reciente, no el de la primera fila: un
+                    # proveedor que cambió de razón social salía con cualquiera.
+                    nombre_vigente("NombreProveedor"),
                     pl.col("_periodo_archivo").n_unique().alias("n_periodos"),
                     pl.col("Codigo").n_unique().alias("n_oc"),
                     pl.col("monto").sum().alias("monto_total"),
@@ -148,10 +150,12 @@ def build_provider_metrics() -> pl.DataFrame:
     # Base: volumen y períodos
     base_df = (
         pl.concat(period_frames, how="diagonal_relaxed")
+        # `nombre_vigente` necesita el período de cada fila: el último de la tanda.
+        .with_columns(pl.col("ultimo_periodo").alias(PERIODO))
         .group_by(prov_col)
         .agg(
             [
-                pl.col("NombreProveedor").first(),
+                nombre_vigente("NombreProveedor"),
                 pl.col("n_oc").sum(),
                 pl.col("monto_total").sum(),
                 pl.col("n_periodos").sum().alias("n_periodos_activo"),
@@ -188,10 +192,12 @@ def build_provider_metrics() -> pl.DataFrame:
             org_rev_total.join(prov_totals, on=prov_col)
             .with_columns(
                 [
-                    (
-                        (pl.col("monto_org") / pl.col("monto_total_prov").clip(lower_bound=0.01))
-                        ** 2
-                    ).alias("share_sq"),
+                    # Sin monto no hay cuotas: el HHI queda nulo (y se rellena
+                    # abajo como «un solo cliente»). Con el `clip` de antes salía
+                    # 0, el mercado más repartido posible.
+                    pl.when(pl.col("monto_total_prov") > 0)
+                    .then((pl.col("monto_org") / pl.col("monto_total_prov")) ** 2)
+                    .alias("share_sq"),
                     # Recurrencia: organismos con >1 OC
                     (pl.col("n_oc_org") > 1).cast(pl.Int8).alias("es_recurrente"),
                 ]
@@ -199,7 +205,9 @@ def build_provider_metrics() -> pl.DataFrame:
             .group_by(prov_col)
             .agg(
                 [
-                    pl.col("share_sq").sum().alias("hhi_org"),
+                    pl.when(pl.col("share_sq").is_not_null().any())
+                    .then(pl.col("share_sq").sum())
+                    .alias("hhi_org"),
                     pl.col("n_organismos").first(),
                     pl.col("es_recurrente").mean().alias("pct_clientes_recurrentes"),
                     pl.col("monto_org").max().alias("monto_cliente_principal"),

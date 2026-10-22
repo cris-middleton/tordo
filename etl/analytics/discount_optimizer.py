@@ -67,6 +67,7 @@ def extract_lic_discounts() -> pl.DataFrame:
         "NumeroOferentes",
         "MontoEstimado",
         "MontoLineaAdjudica",
+        "Oferta seleccionada",
         "Estado",
         "CodigoOrganismo",
         "NombreOrganismo",
@@ -101,6 +102,16 @@ def extract_lic_discounts() -> pl.DataFrame:
 
         if estado_col:
             batch = batch.filter(pl.col("Estado").str.to_lowercase().str.contains("adjudicad"))
+
+        # El monto adjudicado es el de las ofertas SELECCIONADAS. El archivo trae
+        # una fila por (línea, oferta): sumar `MontoLineaAdjudica` en todas las
+        # filas cuenta también las ofertas que perdieron si el archivo repite
+        # ahí el monto de la línea. Con la marca, se suman sólo las ganadoras.
+        if "Oferta seleccionada" in batch.columns:
+            batch = batch.filter(
+                pl.col("Oferta seleccionada").cast(pl.Utf8).str.strip_chars().str.to_lowercase()
+                == "seleccionada"
+            )
 
         # Agregar por licitación: sum de líneas adjudicadas, first del resto
         agg = (

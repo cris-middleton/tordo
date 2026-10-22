@@ -53,9 +53,11 @@ def build_transparency_metrics() -> pl.DataFrame:
         "sector",
         "Estado",
         "CodigoProveedor",
+        "Oferta seleccionada",
     ]
 
     frames = []
+    ganadores_frames = []
     seen_lics: set[str] = set()
 
     for periodo, df in iter_lic_parquets(columns=cols_needed):
@@ -74,6 +76,26 @@ def build_transparency_metrics() -> pl.DataFrame:
         if len(batch) == 0:
             continue
 
+        # Quién ganó: la fila de la oferta seleccionada. El archivo trae una fila
+        # por (línea, oferta), y la primera fila de una licitación es la de un
+        # oferente cualquiera, no la del ganador.
+        if "Oferta seleccionada" in batch.columns and "CodigoProveedor" in batch.columns:
+            ganadores_frames.append(
+                batch.filter(
+                    (
+                        pl.col("Oferta seleccionada")
+                        .cast(pl.Utf8)
+                        .str.strip_chars()
+                        .str.to_lowercase()
+                        == "seleccionada"
+                    )
+                    & pl.col("CodigoProveedor").is_not_null()
+                    & (pl.col("CodigoProveedor") != "null")
+                )
+                .select(["CodigoExterno", "CodigoProveedor"])
+                .unique()
+            )
+
         # Deduplicar por licitación (primera fila por CodigoExterno)
         lic_dedup = (
             batch.group_by("CodigoExterno")
@@ -85,7 +107,6 @@ def build_transparency_metrics() -> pl.DataFrame:
                     pl.col("Estado").str.to_lowercase().first().alias("estado_lower")
                     if estado_col
                     else pl.lit("").alias("estado_lower"),
-                    pl.col("CodigoProveedor").first(),
                 ]
             )
             .with_columns(pl.lit(periodo).alias(PERIODO))
@@ -132,10 +153,6 @@ def build_transparency_metrics() -> pl.DataFrame:
                 pl.len().alias("n_lic_total"),
                 pl.col("es_fracaso").sum().alias("n_fracasos"),
                 pl.col("es_adjudicada").sum().alias("n_adjudicadas"),
-                # Para HHI: recopilar proveedores ganadores
-                pl.col("CodigoProveedor")
-                .filter(pl.col("es_adjudicada") == 1)
-                .alias("provs_ganadores"),
             ]
         )
         .filter(pl.col("n_lic_total") >= MIN_LIC)
@@ -146,11 +163,19 @@ def build_transparency_metrics() -> pl.DataFrame:
         )
     )
 
-    # HHI de proveedores ganadores por organismo
-    # Calculamos directamente con Polars: contar adjudicaciones por proveedor
+    # HHI de los proveedores GANADORES por organismo: cuántas de sus licitaciones
+    # adjudicadas ganó cada uno (una licitación con varias líneas puede tener
+    # varios ganadores, y cuenta para cada uno). Antes salía de la primera fila
+    # de cada licitación, la de un oferente cualquiera.
+    ganadores = (
+        pl.concat(ganadores_frames, how="vertical_relaxed").unique()
+        if ganadores_frames
+        else pl.DataFrame(schema={"CodigoExterno": pl.Utf8, "CodigoProveedor": pl.Utf8})
+    )
     adjudicated = (
         all_lics.filter(pl.col("estado_lower").str.contains("adjudicad"))
-        .filter(pl.col("CodigoProveedor").is_not_null() & (pl.col("CodigoProveedor") != "null"))
+        .select(["CodigoExterno", "CodigoOrganismo"])
+        .join(ganadores, on="CodigoExterno", how="inner")
         .group_by(["CodigoOrganismo", "CodigoProveedor"])
         .agg(pl.len().alias("n_adj"))
     )
@@ -185,7 +210,6 @@ def build_transparency_metrics() -> pl.DataFrame:
                 pl.col("hhi").fill_null(1.0),
             ]
         )
-        .drop("provs_ganadores")
     )
 
     # Calcular score de transparencia

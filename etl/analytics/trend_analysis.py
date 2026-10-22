@@ -203,10 +203,17 @@ def compute_market_trends(ts: pl.DataFrame) -> pl.DataFrame:
             first_year_avg = np.mean(y[:12])
             last_year_avg = np.mean(y[-12:])
             n_years = (n_meses - 12) / 12
+            # Un año en cero no es «crecimiento 0 %»: sin compras el primer año
+            # el crecimiento no está definido (nulo, y el scorer le pone su
+            # neutro), y sin compras el último el mercado cayó un 100 %. Antes
+            # los dos salían con 0, «estable», junto a una pendiente que decía
+            # lo contrario.
             if first_year_avg > 0 and last_year_avg > 0:
                 cagr = round((last_year_avg / first_year_avg) ** (1 / n_years) - 1, 4)
+            elif first_year_avg > 0:
+                cagr = -1.0
             else:
-                cagr = 0.0
+                cagr = None
         else:
             cagr = None
 
