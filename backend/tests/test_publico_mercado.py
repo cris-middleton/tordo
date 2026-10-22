@@ -137,6 +137,9 @@ def tablas(monkeypatch):
     monkeypatch.setattr(mercado, "N_COMPRADORES", 4)
     monkeypatch.setattr(mercado, "POR_COMPRADOR", 1)
     monkeypatch.setattr(mercado, "AMPLIOS", 2)
+    # Las pruebas de la regla de los amplios la aíslan con el tope igual a AMPLIOS;
+    # la de «todos los de la mitad o más» lo sube.
+    monkeypatch.setattr(mercado, "TOPE_AMPLIOS", 2)
     yield
     with sync_engine.begin() as conn:
         for tabla in (GASTO, CONCENTRACION, RED):
@@ -253,6 +256,7 @@ def test_red_dibuja_a_todos_los_que_le_venden_a_la_mitad_o_mas(tablas, cliente, 
     # Con 12 fijos la portada decía «40 le venden a la mitad o más» y pintaba 12: ahora
     # entran todos los de la mitad o más (hasta TOPE_AMPLIOS), aunque AMPLIOS sea menor.
     monkeypatch.setattr(mercado, "AMPLIOS", 1)
+    monkeypatch.setattr(mercado, "TOPE_AMPLIOS", 48)
     red = cliente.get(URL).json()["red"]
     mitad = -(-len(red["compradores"]) // 2)
     dibujados = [p for p in red["proveedores"] if p["compradores"] >= mitad]
