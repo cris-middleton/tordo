@@ -192,7 +192,9 @@ function Vista({ elegida, primera }: { elegida: LecturaDeLaPortada; primera: boo
 /**
  * «Para empezar»: las lecturas cortas de la portada, bajo el buscador y el gráfico
  * grande. Desde `lg`, tres en fila, alineadas por subrejilla; en móvil, una tras
- * otra. Las tres primeras disponibles en el orden precio → concentración →
+ * otra. Con menos de tres (una lectura sin su dato), dos columnas: en tres, la
+ * tercera quedaba vacía y la fila parecía rota; en una sola, el gráfico se
+ * estiraba a todo el ancho. Las tres primeras disponibles en el orden precio → concentración →
  * cierres → nota (`lecturasDeLaPortada`). Sin ninguna, la sección no sale.
  *
  * Cada lectura: la conclusión que sale del dato, el gráfico (con globo al pasar
@@ -207,7 +209,7 @@ export function LecturasPortada({ lecturas, className = '' }: { lecturas: Lectur
       <h2 id="lecturas-titulo" className="section-title">
         {TITULO_LECTURAS}
       </h2>
-      <div className="mt-2 grid lg:mt-6 lg:grid-cols-3 lg:gap-x-10 lg:border-t lg:border-border lg:pt-6">
+      <div className={`mt-2 grid lg:mt-6 ${elegidas.length >= 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-2'} lg:gap-x-10 lg:border-t lg:border-border lg:pt-6`}>
         {elegidas.map((elegida, i) => (
           <Vista key={elegida.tipo} elegida={elegida} primera={i === 0} />
         ))}
