@@ -71,13 +71,15 @@ export default function TenderDetailPage() {
 
   const nombre = tenderData ? normalizeText(tenderData.nombre) : null;
   const cierre = cierreEnPalabras(tenderData?.fecha_cierre);
+  // «Cierra» en la etiqueta y lo demás en el valor: «Cierre / Cierra el 26 oct» decía el verbo dos veces.
+  const verbo = cierre?.texto.match(/^(Cierra|Cerró) (.+)$/);
   // En hora de Chile, como el resto del sitio: con `date-fns` salía en la del
   // navegador, y la misma ficha mezclaba los dos husos.
   const datosClave: { etiqueta: string; valor: string; detalle?: string | null; destacado?: boolean }[] = tenderData
     ? [
         {
-          etiqueta: 'Cierre',
-          valor: cierre?.texto ?? 'Sin fecha',
+          etiqueta: verbo ? verbo[1] : 'Cierre',
+          valor: verbo ? verbo[2].charAt(0).toUpperCase() + verbo[2].slice(1) : (cierre?.texto ?? 'Sin fecha'),
           // La fecha larga sólo si el valor no la dice: «Cierra hoy a las 13:00» la
           // necesita; «Cierra el 26 oct a las 13:00» ya la tiene, y repetida debajo
           // («26 de octubre de 2026, 13:00») se leía como un segundo dato.

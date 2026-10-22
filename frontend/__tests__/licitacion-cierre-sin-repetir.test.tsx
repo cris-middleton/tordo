@@ -35,7 +35,8 @@ describe('la celda del cierre', () => {
     vi.setSystemTime(new Date('2026-10-20T12:00:00-03:00'));
     dato.fecha_cierre = '2026-10-26T13:00:00-03:00';
     render(<TenderDetailPage />);
-    expect(screen.getByText('Cierra el 26 oct a las 13:00')).toBeInTheDocument();
+    expect(screen.getByText('El 26 oct a las 13:00')).toBeInTheDocument();
+    expect(screen.getByText('Cierra')).toBeInTheDocument();
     expect(screen.queryByText(/26 de octubre de 2026/)).not.toBeInTheDocument();
   });
 
@@ -44,7 +45,7 @@ describe('la celda del cierre', () => {
     vi.setSystemTime(new Date('2026-10-25T12:00:00-03:00'));
     dato.fecha_cierre = '2026-10-26T13:00:00-03:00';
     render(<TenderDetailPage />);
-    expect(screen.getByText('Cierra mañana a las 13:00')).toBeInTheDocument();
+    expect(screen.getByText('Mañana a las 13:00')).toBeInTheDocument();
     expect(screen.getByText(/26 de octubre de 2026/)).toBeInTheDocument();
   });
 });

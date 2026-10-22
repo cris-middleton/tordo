@@ -44,7 +44,7 @@ export function textoVariacion(predictibilidad?: string | null): string | null {
 
 /**
  * Cuánto se separan los dos extremos de la mitad de las compras, con un número:
- * «De un extremo al otro, 1,9 veces». Reemplaza a «Precios algo distintos entre
+ * «El más alto es 1,9 veces el más bajo». Reemplaza a «Precios algo distintos entre
  * sí» bajo la mitad de las compras (crítica del 21-10: un adjetivo donde cabe la
  * cifra). `null` si no hay rango que medir (p25 = p75 al escribirlos, o falta uno).
  */
@@ -52,7 +52,9 @@ export function textoDiferencia(p25: number | null | undefined, p75: number | nu
   if (p25 == null || p75 == null || !(p25 > 0) || !(p75 > p25)) return null;
   if (p75 / p25 < 1.1) return 'Casi el mismo precio';
   const veces = Math.round((p75 / p25) * 10) / 10;
-  if (veces === 2) return 'De un extremo al otro, el doble';
-  if (veces === 3) return 'De un extremo al otro, el triple';
-  return `De un extremo al otro, ${veces.toLocaleString('es-CL')} veces`;
+  // «De un extremo al otro, 1,9 veces» había que releerlo (¿veces qué?): la frase dice
+  // de qué extremos habla y en qué orden.
+  if (veces === 2) return 'El más alto es el doble del más bajo';
+  if (veces === 3) return 'El más alto es el triple del más bajo';
+  return `El más alto es ${veces.toLocaleString('es-CL')} veces el más bajo`;
 }
