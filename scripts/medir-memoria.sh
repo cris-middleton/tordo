@@ -98,6 +98,14 @@ CAMINOS=(
   # compradores, rubros y productos; la búsqueda lo recorre.
   "/api/v1/publico/sitemap"
   "/api/v1/publico/productos?q=guante&limite=20"
+  # Con sinónimos: la búsqueda por palabras con sus alternativas.
+  "/api/v1/publico/productos?q=lapices&limite=50"
+  "/api/v1/tenders/?limit=20&search=mantenimiento&sort_by=relevance&abiertas=true"
+  # El vocabulario de «¿Quisiste decir…?» se arma con el índice y queda en memoria.
+  "/api/v1/publico/sugerencia?q=computdor"
+  # La portada: el gasto por sector, la concentración y la red de compradores,
+  # agregados en SQL; la red lee `competitors_by_market` y `time_series` enteras.
+  "/api/v1/publico/mercado"
   "/api/v1/compra-agil/destacadas"
 )
 
