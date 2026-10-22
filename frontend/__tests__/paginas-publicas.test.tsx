@@ -185,6 +185,20 @@ describe('enlaces entre fichas', () => {
     expect(String(m.title)).toMatch(/^Hospital de la Prueba/);
   });
 
+  it('un comprador sin nombre (la API manda `nombre: null`) se titula con su código', async () => {
+    // Visto en la revisión de enlaces del 2026-10-22: seis fichas indexables, en el
+    // sitemap, con el `h1` vacío y el título «: qué compra y cómo».
+    for (const nombre of [null, '', '   ']) {
+      simularBackend({ '/compradores/7297': { ...COMPRADOR, nombre } });
+      render(await PaginaComprador(params({ codigo: '7297' })));
+      expect(screen.getByRole('heading', { level: 1, name: 'Comprador 7297' })).toBeInTheDocument();
+      const m = await metaComprador(params({ codigo: '7297' }));
+      expect(String(m.title)).toBe('Comprador 7297: qué compra y cómo');
+      expect(String(m.description)).toMatch(/^Comprador 7297/);
+      document.body.innerHTML = '';
+    }
+  });
+
   it('el rubro enlaza a sus compradores y a Mercados por el NOMBRE', async () => {
     simularBackend({ '/rubros/equipos-medicos': RUBRO });
     render(await PaginaRubro(params({ slug: 'equipos-medicos' })));

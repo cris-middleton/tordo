@@ -6,6 +6,7 @@ import { Markdown } from '@/components/guias/Markdown';
 import { CabeceraFicha } from '@/components/publico/Piezas';
 import { buscarGuia, leerGuias, rutaGuia } from '@/lib/guias';
 import { fechaCorta } from '@/lib/publico';
+import { IMAGEN_OPEN_GRAPH } from '@/lib/vistaPrevia';
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -34,6 +35,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       url: ruta,
       type: 'article',
       modifiedTime: guia.actualizado,
+      images: [IMAGEN_OPEN_GRAPH],
     },
   };
 }
