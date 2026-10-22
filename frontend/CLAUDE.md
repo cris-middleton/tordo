@@ -471,12 +471,13 @@ a la página**: Next ignora `metadata` en componentes cliente y la home perderí
 - **Dos columnas desde `lg`, `5fr / 7fr`** (48 px entre ellas), dentro de `Contenedor pagina`: a la
   izquierda el titular («Cuánto paga el Estado por lo que vendes», `TITULO_PORTADA`), el buscador y
   las abiertas de ahora; a la derecha **el gráfico grande**: la red (`RedPortada`), y sin ella —un
-  backend sin el bloque `red`, o sin la tabla— el gasto mensual. Debajo, a lo ancho: **la ficha**
-  (una franja de cuatro celdas), **el gasto mensual** (si la red ocupó arriba), «Para empezar» (tres
-  lecturas en fila), la franja de hoy, «Lo mejor de hoy» y las notas de datos, cada una con la
-  separación de `Seccion` (`CLASE_SECCION`). Sin ningún gráfico grande, la parte de arriba es una
+  backend sin el bloque `red`, o sin la tabla— el gasto mensual. Debajo, a lo ancho: «Para empezar»
+  (tres lecturas en fila), **el gasto mensual** (si la red ocupó arriba), la franja de hoy, «Lo mejor
+  de hoy», **la ficha** (el colofón: de qué base sale todo) y las notas de datos, cada una con la
+  separación de `Seccion` (`CLASE_SECCION`). El orden es el de la historia (crítica del 22-10): la
+  ficha justo bajo el gráfico grande era metadata en el mejor lugar de la página. Sin ningún gráfico grande, la parte de arriba es una
   columna `max-w-2xl`.
-- **En móvil, una columna en ese orden**: buscador, abiertas, el gráfico grande, la ficha… La
+- **En móvil, una columna en ese orden**: buscador, abiertas, el gráfico grande, «Para empezar»… La
   conclusión del gráfico grande —o, sin él, la de la primera lectura— queda sobre el pliegue a
   390×844 (`e2e/portada.spec.ts`). **Un solo ejemplar de cada pieza**.
 - **El buscador** (`BuscadorPortada`), un `<form method="get" action="/buscar">` que funciona sin
@@ -494,33 +495,39 @@ a la página**: Next ignora `metadata` en componentes cliente y la home perderí
   4.409 licitaciones y 2.409 Compras Ágiles.», cada cifra con lo que cuenta enlazada al catálogo con
   el filtro que la cuenta (`urlCatalogoAbiertas`). Reemplaza a `TiraCifras`, dos bloques con número
   grande y filete lateral grueso: la plantilla de «métrica de héroe» que el dueño no quería.
-- **La ficha** (`FichaPortada`, §3.5), **una franja de cuatro celdas a lo ancho** bajo la parte de
-  arriba (dos por fila por debajo de `lg`): como lista en la columna del buscador medía ~200 px de
+- **La ficha** (`FichaPortada`, §3.5), **una franja de tres celdas a lo ancho**, el colofón antes de
+  las notas (dos por fila por debajo de `lg`): como lista en la columna del buscador medía ~200 px de
   alto. **Base** —«5,48 millones de órdenes de compra, nov 2023 a oct 2026», `baseDeLaFicha` sobre
   `GET /bi/sector`: la suma de `n_oc` y la ventana mínima y máxima, **nunca escrita a mano**; sin
   analytics, sin `n_oc` en alguna fila o sin ventana, la celda no sale—, **Fuente**, **Se actualiza**
   (`SE_ACTUALIZA`: «Licitaciones y Compras Ágiles, hasta 4 veces al día. Precios y mercados, cada
   domingo.», que sale de `HORAS_HABILES` y `HORAS_FIN_DE_SEMANA`; el horario entero,
-  `FRECUENCIA_CATALOGO`, está en `/acerca` y `/compra-agil`) y **Lo hace** («{nombre}, {rol}», sólo
-  con `AUTOR_NOMBRE`, enlazado a `AUTOR_URL`; el rol sale de `AUTOR_ROL` y sin ella va el nombre solo).
+  `FRECUENCIA_CATALOGO`, está en `/acerca` y `/compra-agil`). **Quién lo hace no va en la ficha**: lo
+  dice la ficha del autor, junto a las notas, y el pie (estaba tres veces en la portada).
 - **La red** (`RedPortada` → `RedProveedores`; geometría, frase y pie en `lib/redPortada.ts`; datos del
   bloque `red` de `GET /publico/mercado`): **los 30 organismos que más compran, fijos en un anillo**
   agrupados por sector con su color (`lib/sectores.ts`, `relleno`), y **sus proveedores adentro**: los 4
-  más grandes de cada uno y los 12 que le venden a más de ellos, sin personas naturales. Las posiciones
+  más grandes de cada uno, los 12 que le venden a más de ellos y todos los que le venden a la mitad o
+  más (hasta 48), sin personas naturales. Las posiciones
   salen de una **simulación de fuerzas en el servidor** (resortes hacia sus compradores, repulsión,
   choque; determinista y sin dependencia): el que le vende a muchos queda al centro y el exclusivo,
-  junto a su comprador. En tinta los que le venden a la mitad o más (lo que nombra la conclusión), en
-  gris el resto; el tamaño es el monto; cada enlace, una curva hacia el centro. El `h2` es la
-  conclusión (`fraseRed`): «Los 30 organismos que más compran le compraron a 14.659 proveedores. 40 le
-  venden a la mitad de ellos o más.». **Globo** al pasar o tocar un nodo, que lo aísla con sus vecinos.
+  junto a su comprador. En tinta los que le venden a la mitad o más (lo que nombra la conclusión);
+  **el resto, huecos** (un aro gris: relleno gris se confundía con el sector «Otros»); el tamaño es el
+  monto; cada enlace, una curva hacia el centro. **Rótulos directos**: los 3 organismos de más monto por
+  su nombre corto (`nombreCorto`: Cenabast, Junaeb…, sin «Ilustre», ≤ 30 caracteres) y «Le venden a 15 o
+  más» bajo el grupo del centro; la leyenda en dos grupos, «Organismos:» y «Proveedores:». El `h2` es
+  la conclusión en una frase (`fraseRed`): «40 proveedores le venden a la mitad o más de los 30
+  organismos que más compran.» —**lo que cuenta es lo que se dibuja en tinta**; si el backend cortó la
+  lista, añade «En tinta, los N que más venden.»; el total de proveedores va en el pie—. **Globo** al pasar o tocar un nodo, que lo aísla con sus vecinos.
   **Se mueve** (la única excepción a R3 de la guía de gráficos): deriva leve y partículas del comprador
   al proveedor, con `requestAnimationFrame`, **quieta con `prefers-reduced-motion`**, fuera de pantalla y
   con la pestaña oculta; las capturas del E2E emulan movimiento reducido. Con menos de
   `MINIMO_COMPRADORES` (8) o mal formada, no sale y el gráfico grande vuelve a ser el gasto.
   `__tests__/red-portada.test.ts`. **Dos disposiciones de la misma red** (`LIENZO_ANCHO` 640 × 420 desde
   `lg`, `LIENZO_MOVIL` 400 × 380 en el teléfono, una con `display: none` en cada ancho): la apaisada
-  medía 358 × 235 px a 390 y los proveedores eran puntos de un píxel. Desde `lg`, al pie de la columna izquierda y a la altura de su
-  leyenda, «Cómo leer la red» (`ComoLeerLaRed`): tres frases, y la invitación a pasar el mouse.
+  medía 358 × 235 px a 390 y los proveedores eran puntos de un píxel. «Cómo leer la red»
+  (`ComoLeerLaRed`, tres frases y «Toca o pasa el mouse») va bajo las abiertas desde `lg` y bajo la
+  leyenda en el teléfono.
 - **El gasto mensual** (`GastoPortada` → `GastoMensual`, geometría en `lib/graficoGasto.ts`, frase
   en `lib/lecturasMercado.ts`; datos de `GET /publico/mercado`, `gasto_mensual`), **a lo ancho bajo la
   ficha** cuando la red está arriba (`ancho`: `h2` de sección y la leyenda en una fila): una columna por

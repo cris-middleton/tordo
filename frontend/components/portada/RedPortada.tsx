@@ -24,6 +24,8 @@ export function RedPortada({ lectura, className = '' }: { lectura: LecturaRed; c
       <div className="mt-4 hidden lg:block">
         <RedProveedores datos={lectura.grafico} accesible={lectura.accesible} />
       </div>
+      {/* En el teléfono, cómo se lee va bajo la leyenda; desde `lg`, en la columna de al lado. */}
+      <ComoLeerLaRed className="mt-4 lg:hidden" />
       <PieDeMetodo texto={lectura.pie} enlaces={lectura.enlaces} className="mt-4" completo />
     </section>
   );
@@ -33,7 +35,7 @@ export function RedPortada({ lectura, className = '' }: { lectura: LecturaRed; c
 export const COMO_LEER_LA_RED = [
   'Cada círculo de color es un organismo, con el color de su sector, y cada punto, un proveedor.',
   'Los del centro le venden a muchos; los del borde, a uno solo.',
-  'Pasa el mouse por uno para ver con quién se une.',
+  'Toca o pasa el mouse por uno para ver con quién se une.',
 ] as const;
 
 export function ComoLeerLaRed({ className = '' }: { className?: string }) {

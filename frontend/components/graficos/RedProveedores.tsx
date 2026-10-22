@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useMediaQuery } from '@/hooks/useMediaQuery';
-import type { GraficoRed, NodoRed } from '@/lib/redPortada';
+import { nombreCorto, type GraficoRed, type NodoRed } from '@/lib/redPortada';
 
 import { Globo } from './Globo';
 
@@ -48,7 +48,20 @@ const trazo = (nodos: Punto[], enlaces: { a: number; b: number }[], centro: Punt
     })
     .join('');
 
-const relleno = (d: NodoRed) => (d.sector ? d.sector.relleno : d.amplio ? 'fill-text' : 'fill-subtle');
+/**
+ * Cómo se pinta cada nodo: el organismo con el color de su sector; el proveedor que
+ * nombra la conclusión, en tinta; el resto de los proveedores, hueco (un aro gris):
+ * relleno de gris se confundía con el sector «Otros», que también es gris.
+ */
+const pintura = (d: NodoRed) =>
+  d.sector
+    ? `${d.sector.relleno} stroke-surface`
+    : d.amplio
+      ? 'fill-text stroke-surface'
+      : 'fill-surface stroke-subtle';
+
+/** Cuántos organismos se rotulan con su nombre en el dibujo: los de más monto. */
+const ROTULADOS = 3;
 
 /**
  * Quién le compra a quién entre los que más compran: los organismos (con el color
@@ -208,6 +221,32 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
     return mejor;
   };
 
+  const rotulos = useMemo(
+    () =>
+      nodos
+        .filter((d) => d.tipo === 'comprador')
+        .sort((a, b) => b.monto - a.monto)
+        .slice(0, ROTULADOS)
+        .map((d) => {
+          // Del lado de adentro: a la izquierda del nodo si está a la derecha del centro, y al revés.
+          const derecha = d.x > ancho / 2;
+          return {
+            id: d.id,
+            texto: nombreCorto(d.nombre),
+            x: ((derecha ? d.x - d.r - 3 : d.x + d.r + 3) / ancho) * 100,
+            y: (d.y / alto) * 100,
+            clase: `${derecha ? '-translate-x-full' : ''} -translate-y-1/2`,
+          };
+        }),
+    [nodos, ancho, alto],
+  );
+  const centro_ = useMemo(() => {
+    const amplios = nodos.filter((d) => d.amplio);
+    if (amplios.length < 3) return null;
+    const x = amplios.reduce((a, d) => a + d.x, 0) / amplios.length;
+    const abajo = Math.max(...amplios.map((d) => d.y + d.r));
+    return { x: (x / ancho) * 100, y: ((abajo + 6) / alto) * 100, texto: `Le venden a ${datos.mitad} o más` };
+  }, [nodos, ancho, alto, datos.mitad]);
   const nodo = activo != null ? nodos[activo] : null;
   const cerca = activo != null ? vecinos[activo] : null;
   const resaltadasIniciales = useMemo(() => trazo(nodos, delActivo(activo), centro), [activo]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -260,12 +299,33 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
                 cx={d.x}
                 cy={d.y}
                 r={d.r}
-                strokeWidth={d.tipo === 'comprador' ? 1.5 : 1}
-                className={`${relleno(d)} stroke-surface ${activo != null && activo !== i && !cerca?.has(i) ? 'opacity-15' : ''}`}
+                strokeWidth={d.tipo === 'comprador' ? 1.5 : d.amplio ? 1 : 1.2}
+                className={`${pintura(d)} ${activo != null && activo !== i && !cerca?.has(i) ? 'opacity-15' : ''}`}
               />
             ))}
           </g>
         </svg>
+        {/* Rótulos directos: los organismos más grandes, por su nombre corto, del lado de
+            adentro del anillo; y el grupo del centro, que es lo que dice la conclusión. */}
+        <div aria-hidden="true" className={`pointer-events-none ${activo != null ? 'opacity-0' : ''}`}>
+          {rotulos.map((r) => (
+            <span
+              key={r.id}
+              className={`absolute whitespace-nowrap rounded-sm bg-surface px-1 text-[12px] font-medium leading-tight text-text ${r.clase}`}
+              style={{ left: `${r.x}%`, top: `${r.y}%` }}
+            >
+              {r.texto}
+            </span>
+          ))}
+          {centro_ && (
+            <span
+              className="absolute -translate-x-1/2 whitespace-nowrap rounded-sm bg-surface px-1 text-[12px] leading-tight text-text"
+              style={{ left: `${centro_.x}%`, top: `${centro_.y}%` }}
+            >
+              {centro_.texto}
+            </span>
+          )}
+        </div>
         {nodo && activo != null && (
           <Globo x={(nodo.x / ancho) * 100} medio={(nodo.r / ancho) * 100}>
             <p className="font-semibold leading-snug">{nodo.nombre}</p>
@@ -293,24 +353,32 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
         )}
       </div>
 
-      <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted">
-        {datos.sectores.map((s) => (
-          <li key={s.clave} className="flex items-center gap-1.5">
-            <span aria-hidden="true" className={`h-3 w-3 rounded-full ${s.fondo}`} />
-            {s.nombre}
-          </li>
-        ))}
-        {nodos.some((d) => d.amplio) && (
+      {/* La leyenda en dos grupos, uno por cada cosa que se dibuja: los organismos por su
+          color de sector y los proveedores por su forma. */}
+      <div className="mt-3 space-y-1.5 text-sm text-muted">
+        <ul aria-label="Organismos, por sector" className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <li className="font-medium text-text">Organismos:</li>
+          {datos.sectores.map((s) => (
+            <li key={s.clave} className="flex items-center gap-1.5">
+              <span aria-hidden="true" className={`h-3 w-3 rounded-full ${s.fondo}`} />
+              {s.nombre}
+            </li>
+          ))}
+        </ul>
+        <ul aria-label="Proveedores" className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <li className="font-medium text-text">Proveedores:</li>
+          {nodos.some((d) => d.amplio) && (
+            <li className="flex items-center gap-1.5">
+              <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-text" />
+              le venden a {datos.mitad} organismos o más
+            </li>
+          )}
           <li className="flex items-center gap-1.5">
-            <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-text" />
-            Le vende a {datos.mitad} organismos o más
+            <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full border border-subtle bg-surface" />
+            el resto
           </li>
-        )}
-        <li className="flex items-center gap-1.5">
-          <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-subtle" />
-          Otros proveedores
-        </li>
-      </ul>
+        </ul>
+      </div>
 
       {/* Una tabla no respeta el ancho de 1 px de `sr-only`: va dentro de un div. */}
       <div className="sr-only">

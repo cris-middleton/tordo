@@ -294,8 +294,9 @@ corrida semanal no haya escrito su tabla (y 503 con el BI apagado, como las fich
   - `compradores`: los 30 de más monto en la ventana, `{codigo, nombre, sector, monto}`, de
     mayor a menor (empate: código). El sector sin nombre, o un comprador sin sector, es
     `Otros`.
-  - `proveedores`: los 4 de más monto de cada comprador más los 12 que venden a más de los
-    30 (empate: monto y código), `{codigo, nombre, monto, compradores}`. `monto` es lo que
+  - `proveedores`: los 4 de más monto de cada comprador, los 12 que venden a más de los
+    30 y todos los que le venden a la mitad o más de ellos, hasta 48 (empate: monto y código),
+    `{codigo, nombre, monto, compradores}`. `monto` es lo que
     les vendió a los 30 y `compradores`, a cuántos de ellos. `codigo` es el código de
     Mercado Público, no el RUT. **Nunca una persona natural**: sus seudónimos (`PN-…`) no
     son nodos ni enlaces.

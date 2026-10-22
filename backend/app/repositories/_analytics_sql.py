@@ -427,15 +427,18 @@ def sql_red_de_compradores(
     - `red`: los pares con monto, sin personas naturales, numerados dentro de
       cada comprador por monto (`puesto`).
     - Proveedores elegidos: los `:por_comprador` primeros de cada comprador más
-      los `:amplios` que venden a más de esos compradores (empate: monto, código).
+      los que venden a más de esos compradores: los `:amplios` primeros y, además,
+      todos los que le venden a la mitad o más (la misma cuenta que `a_la_mitad_o_mas`), hasta `:tope_amplios` (empate:
+      monto, código). Así lo que la portada dice («40 le venden a la mitad o más»)
+      es lo que dibuja; con 12 fijos decía 40 y pintaba 12.
     - `sectores`: el de cada comprador en `tabla_sectores` (`time_series`), el
       vacío como `SECTOR_SIN_NOMBRE`. Sin esa tabla, todos van a ese sector.
 
     Todo orden con `LIMIT` o numeración termina en el código, que es único en
     cada paso (`COLLATE "C"`: no depende de la intercalación de la base). Vuelve
     una fila con un JSON: unas decenas de nodos y un par de centenares de enlaces.
-    Parámetros: `:n_compradores`, `:por_comprador`, `:amplios` y `:persona` (el
-    patrón `LIKE` de los seudónimos).
+    Parámetros: `:n_compradores`, `:por_comprador`, `:amplios`,
+    `:tope_amplios` y `:persona` (el patrón `LIKE` de los seudónimos).
     """
     t = tabla_calificada(tabla, schema)
     org, prov, monto = (
@@ -492,8 +495,14 @@ por_proveedor AS (
     FROM red GROUP BY 1
 ),
 amplios AS (
-    SELECT proveedor FROM por_proveedor
-    ORDER BY compradores DESC, monto DESC, proveedor COLLATE {c} LIMIT :amplios
+    SELECT proveedor FROM (
+        SELECT proveedor, compradores, row_number() OVER (
+            ORDER BY compradores DESC, monto DESC, proveedor COLLATE {c}
+        ) AS orden
+        FROM por_proveedor
+    ) AS x
+    WHERE orden <= :amplios
+       OR (compradores >= (SELECT (count(*) + 1) / 2 FROM compradores) AND orden <= :tope_amplios)
 ),
 seleccion AS (
     SELECT proveedor FROM por_proveedor WHERE mejor_puesto <= :por_comprador

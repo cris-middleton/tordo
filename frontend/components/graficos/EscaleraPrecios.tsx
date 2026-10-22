@@ -50,7 +50,7 @@ export function EscaleraPrecios({ datos }: { datos: GraficoEscalera }) {
               <div className="absolute -inset-y-0.5 w-0.5 -translate-x-1/2 bg-text" style={{ left: `${f.medio}%` }} />
             </div>
             {activa === i && fila && (
-              <Globo x={(f.desde + f.hasta) / 2} modo="encima">
+              <Globo x={(f.desde + f.hasta) / 2} modo={i < 2 ? 'debajo' : 'encima'}>
                 <p className="font-semibold">{f.nombre}</p>
                 <div className="mt-1 space-y-0.5">
                   <FilaGlobo nombre="La mitad de las compras" valor={f.rango} />

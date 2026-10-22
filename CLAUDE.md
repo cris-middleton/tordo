@@ -525,7 +525,9 @@ contenedor único (cabecera y pie, con la atribución, son de la cáscara única
   `tests/test_publico_mercado.py`, sobre Postgres.
   - **La red**: los `N_COMPRADORES` (30) compradores de más monto, con su sector de
     `time_series` (sin sector, «Otros»), y como proveedores la unión de los `POR_COMPRADOR` (4)
-    primeros de cada uno y los `AMPLIOS` (12) que venden a más de ellos (empate: monto, código);
+    primeros de cada uno, los `AMPLIOS` (12) que venden a más de ellos y, además, **todos los que le
+    venden a la mitad o más, hasta `TOPE_AMPLIOS` (48)** (empate: monto, código): con 12 fijos la
+    portada decía «40 le venden a la mitad o más» y dibujaba 12;
     los enlaces son cada par de esos con monto, sumado sobre los rubros. **Las personas
     naturales (`PN-…`) no son nodos ni enlaces**, pero cuentan en `monto_total` y
     `proveedores_total`. Una sola consulta que devuelve el JSON armado: un recorrido entero

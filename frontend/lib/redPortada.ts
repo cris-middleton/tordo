@@ -272,13 +272,44 @@ export interface LecturaRed {
 const cuantos = (n: number, una: string, varias: string) => `${n === 1 ? 'Uno' : entero(n)} ${n === 1 ? una : varias}`;
 
 /**
- * «Los 30 organismos que más compran le compraron a 14.659 proveedores. 40 le
- * venden a la mitad de ellos o más.» Con ninguno sobre la mitad, lo dice.
+ * «40 proveedores le venden a la mitad o más de los 30 organismos que más
+ * compran.» Una frase, y lo que dice es lo que se dibuja en tinta: si el backend
+ * cortó la lista (`dibujados` < `a_la_mitad_o_mas`), lo dice. Antes eran dos
+ * frases y decía 40 sobre un dibujo con 12.
  */
-export function fraseRed(r: Pick<RedPortada, 'proveedores_total' | 'a_la_mitad_o_mas'>, compradores: number): string {
-  const primera = `Los ${entero(compradores)} organismos que más compran le compraron a ${entero(r.proveedores_total)} proveedores.`;
-  if (r.a_la_mitad_o_mas === 0) return `${primera} Ninguno le vende a la mitad de ellos.`;
-  return `${primera} ${cuantos(r.a_la_mitad_o_mas, 'le vende', 'le venden')} a la mitad de ellos o más.`;
+export function fraseRed(
+  r: Pick<RedPortada, 'a_la_mitad_o_mas'>,
+  compradores: number,
+  dibujados: number = r.a_la_mitad_o_mas,
+): string {
+  const organismos = `los ${entero(compradores)} organismos que más compran`;
+  const n = r.a_la_mitad_o_mas;
+  if (n === 0) return `Ningún proveedor le vende a la mitad de ${organismos}.`;
+  const sujeto = n === 1 ? 'Un proveedor le vende' : `${entero(n)} proveedores le venden`;
+  const frase = `${sujeto} a la mitad o más de ${organismos}.`;
+  return dibujados < n ? `${frase} En tinta, los ${entero(dibujados)} que más venden.` : frase;
+}
+
+/** Siglas por las que se conoce a los compradores más grandes, para su rótulo en el dibujo. */
+const SIGLAS: [RegExp, string][] = [
+  [/^Central de Abastecimiento/i, 'Cenabast'],
+  [/^Junta Nacional de Auxilio Escolar/i, 'Junaeb'],
+  [/^Junta Nacional de Jardines Infantiles/i, 'Junji'],
+];
+
+/**
+ * El nombre corto de un organismo, para rotularlo junto a su nodo: su sigla si es
+ * de los conocidos, «Municipalidad de X» sin el «Ilustre», y como mucho
+ * `LARGO_ROTULO` caracteres cortados en una palabra. El nombre entero va en el globo.
+ */
+export const LARGO_ROTULO = 30;
+export function nombreCorto(n: string): string {
+  const sigla = SIGLAS.find(([patron]) => patron.test(n));
+  if (sigla) return sigla[1];
+  const limpio = n.replace(/^(I\.?|Ilustre)\s+Municipalidad/i, 'Municipalidad').trim();
+  if (limpio.length <= LARGO_ROTULO) return limpio;
+  const corte = limpio.slice(0, LARGO_ROTULO + 1).replace(/\s+\S*$/, '');
+  return `${corte.replace(/\s+(de|del|la|las|los|y|e)$/i, '')}…`;
 }
 
 /** El nombre tal como llega de Mercado Público, legible (`normalizeText`). */
@@ -362,13 +393,14 @@ export function lecturaRed(mercado: { red?: unknown } | null, repositorio: strin
   const parte = r.monto_total > 0 ? Math.round((r.monto_compradores / r.monto_total) * 100) : null;
   const proveedores = grafico.nodos.filter((d) => d.tipo === 'proveedor');
   return {
-    conclusion: fraseRed(r, grafico.compradores),
+    conclusion: fraseRed(r, grafico.compradores, grafico.nodos.filter((d) => d.amplio).length),
     grafico,
     graficoMovil,
     pie:
       `Los ${grafico.compradores} organismos que más compraron${periodo ? ` de ${periodo}` : ''}` +
-      `${parte != null ? ` (${parte} % de lo que compró el Estado)` : ''} y sus proveedores: los más grandes de cada uno ` +
-      'y los que le venden a más de ellos. El tamaño es lo que compró o vendió. Sin personas naturales.',
+      `${parte != null ? ` (${parte} % de lo que compró el Estado)` : ''} le compraron a ${entero(r.proveedores_total)} proveedores. ` +
+      'Aquí, los cuatro más grandes de cada uno y los que le venden a más de ellos. El tamaño es lo que compró o vendió. ' +
+      'Sin personas naturales.',
     accesible: [...proveedores]
       .sort((a, b) => b.vecinos - a.vecinos || b.monto - a.monto)
       .slice(0, 12)

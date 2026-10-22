@@ -187,7 +187,7 @@ const RED: RedPortada = {
   ventana_desde: '2023-11-01',
   ventana_hasta: '2026-10-31',
 };
-const CONCLUSION_RED = 'Los 10 organismos que más compran le compraron a 1.234 proveedores. 2 le venden a la mitad de ellos o más.';
+const CONCLUSION_RED = '2 proveedores le venden a la mitad o más de los 10 organismos que más compran.';
 const CONCLUSION_GASTO = 'El Estado compró $19 billones en 12 meses. Diciembre de 2025 fue el mes más alto: 1,7 veces un mes típico.';
 const CONCLUSION_PRECIO = `${PRODUCTO_PORTADA.nombre}: la mitad de las compras se pagó entre $150.921 y $240.000`;
 const CONCLUSION_CONCENTRACION = '6 de cada 10 pesos se gastan en mercados donde un solo proveedor se lleva la mitad o más';
@@ -592,15 +592,14 @@ describe('quién lo hace y de dónde sale (spec PORTADA_V7 §3.5, §3.6)', () =>
     expect(screen.queryByRole('complementary', { name: 'Quién lo hace' })).toBeNull();
   });
 
-  it('con AUTOR_NOMBRE, AUTOR_ROL y AUTOR_URL: «Lo hace» en la ficha y la ficha del autor junto a las notas', async () => {
+  it('con AUTOR_NOMBRE, AUTOR_ROL y AUTOR_URL: la ficha del autor junto a las notas, y una sola vez', async () => {
     process.env.AUTOR_NOMBRE = 'Nombre De Prueba';
     process.env.AUTOR_ROL = 'ingeniero que construye productos con datos';
     process.env.AUTOR_URL = 'https://github.com/prueba';
     todo();
     render(await Home());
-    expect(screen.getByText('Lo hace').nextElementSibling).toHaveTextContent(
-      'Nombre De Prueba, ingeniero que construye productos con datos',
-    );
+    // «Lo hace» ya no va en la ficha de la base: estaba tres veces en la portada.
+    expect(screen.queryByText('Lo hace')).toBeNull();
     const ficha = screen.getByRole('complementary', { name: 'Quién lo hace' });
     expect(ficha).toHaveTextContent(
       /Nombre De Prueba, ingeniero que construye productos con datos, hace .+ y escribe las notas\./,
@@ -613,7 +612,6 @@ describe('quién lo hace y de dónde sale (spec PORTADA_V7 §3.5, §3.6)', () =>
     process.env.AUTOR_NOMBRE = 'Nombre De Prueba';
     todo();
     const { container } = render(await Home());
-    expect(screen.getByText('Lo hace').nextElementSibling?.textContent).toBe('Nombre De Prueba');
     const ficha = screen.getByRole('complementary', { name: 'Quién lo hace' });
     expect(ficha).toHaveTextContent(/Nombre De Prueba hace .+ y escribe las notas\./);
     expect(container.textContent).not.toMatch(/data scientist/i);
@@ -680,7 +678,7 @@ describe('lo que ya no está', () => {
 });
 
 describe('la estructura', () => {
-  it('desde lg, dos columnas 5/7: buscador y abiertas a la izquierda, el gráfico grande a la derecha; la ficha, a lo ancho debajo', async () => {
+  it('desde lg, dos columnas 5/7: buscador y abiertas a la izquierda, el gráfico grande a la derecha; la ficha, a lo ancho y abajo', async () => {
     todo();
     const { container } = render(await Home());
     expect(container.querySelector('.max-w-6xl')).not.toBeNull();
@@ -690,10 +688,10 @@ describe('la estructura', () => {
     const buscador = screen.getByRole('searchbox', { name: CAMPO }).closest('.min-w-0') as HTMLElement;
     expect(buscador.parentElement).toBe(rejilla);
     expect(buscador).toContainElement(abiertas());
-    // La ficha es una franja de cuatro celdas bajo la parte de arriba, fuera de la rejilla.
+    // La ficha es una franja de tres celdas, el colofón antes de las notas, fuera de la rejilla.
     const ficha = screen.getByText('Fuente').closest('dl') as HTMLElement;
     expect(rejilla).not.toContainElement(ficha);
-    expect(ficha).toHaveClass('lg:grid-cols-4');
+    expect(ficha).toHaveClass('lg:grid-cols-3');
     // «Para empezar» va debajo, a lo ancho: fuera de la rejilla de arriba.
     expect(rejilla).not.toContainElement(screen.getByRole('region', { name: LECTURAS }));
   });
@@ -707,17 +705,17 @@ describe('la estructura', () => {
     expect(buscador.parentElement).not.toHaveClass('grid');
   });
 
-  it('en el DOM (y en móvil): buscador, abiertas, gráfico grande, ficha, «Para empezar», franja, «Lo mejor de hoy» y notas', async () => {
+  it('en el DOM (y en móvil): buscador, abiertas, gráfico grande, «Para empezar», franja, «Lo mejor de hoy», ficha y notas', async () => {
     todo();
     const { container } = render(await Home());
     const orden = [
       screen.getByRole('searchbox', { name: CAMPO }),
       abiertas() as HTMLElement,
       gasto(container) as HTMLElement,
-      screen.getByText('Fuente').closest('dl') as HTMLElement,
       screen.getByRole('region', { name: LECTURAS }),
       screen.getByText('Actualizado el').closest('dl') as HTMLElement,
       container.querySelector('#hoy') as HTMLElement,
+      screen.getByText('Fuente').closest('dl') as HTMLElement,
       screen.getByRole('region', { name: 'Notas de datos' }),
     ];
     for (let i = 1; i < orden.length; i++) {
@@ -729,7 +727,7 @@ describe('la estructura', () => {
 describe('la red: quién le compra a quién', () => {
   const red = (container: HTMLElement) => container.querySelector<HTMLElement>('section[aria-labelledby="red-titulo"]');
 
-  it('con la red, ella es el gráfico grande y el gasto baja a lo ancho, tras la ficha', async () => {
+  it('con la red, ella es el gráfico grande y el gasto baja a lo ancho, tras «Para empezar»', async () => {
     simularBackend({ ...TODO, mercado: ok({ ...MERCADO, red: RED }) });
     const { container } = render(await Home());
     const grande = red(container) as HTMLElement;
@@ -741,9 +739,9 @@ describe('la red: quién le compra a quién', () => {
     const orden = [
       screen.getByRole('searchbox', { name: CAMPO }),
       grande,
-      screen.getByText('Fuente').closest('dl') as HTMLElement,
-      mensual,
       screen.getByRole('region', { name: LECTURAS }),
+      mensual,
+      screen.getByText('Fuente').closest('dl') as HTMLElement,
     ];
     for (let i = 1; i < orden.length; i++) {
       expect(orden[i - 1].compareDocumentPosition(orden[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -802,7 +800,7 @@ describe('el gráfico grande: cuánto compra el Estado, mes a mes', () => {
       'href',
       'https://api.tordo.cl/api/v1/publico/mercado',
     );
-    expect(grande).toHaveTextContent('Órdenes de compra de oct 2025 a sep 2026, por mes y sector del comprador.');
+    expect(grande).toHaveTextContent('Órdenes de compra de oct 2025 a sep 2026 (meses completos), por mes y sector del comprador.');
     // Sin el conteo de órdenes: `time_series` lo cuenta por rubro y al sumar se repetía.
     expect(grande).not.toHaveTextContent(/[0-9.]+ órdenes de compra/);
     expect(grande).toHaveTextContent(/obras del MOP/);

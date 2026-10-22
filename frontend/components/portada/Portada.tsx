@@ -103,7 +103,7 @@ export function Portada({
     cierres: vigencia.alDia && vigencia.mismoDia ? lecturaCierres(resumen, repositorio) : null,
     nota: lecturaNota(notaDeLaPortada(notas), repositorio),
   };
-  const ficha = <FichaPortada base={baseDeLaFicha(sectores)} autor={autor} rol={rol} urlAutor={urlAutor} className="mt-10 lg:mt-12" />;
+  const ficha = <FichaPortada base={baseDeLaFicha(sectores)} className={CLASE_SECCION} />;
   // Principio 4: «sin dato fresco, el bloque se oculta». Sin hora legible no hay
   // con qué decir de cuándo es la lista, y se oculta entera, no sólo su línea de hora.
   const horaHoy = destacadas ? actualizadoEnPalabras(destacadas.actualizado_en) : null;
@@ -127,16 +127,15 @@ export function Portada({
         <div className="flex min-w-0 flex-col">
           <BuscadorPortada />
           {tira && <AbiertasAhora tira={tira} className="mt-8" />}
-          {/* Desde `lg`, al pie de la columna y a la altura de la leyenda de la red: cómo se lee. */}
-          {red && <ComoLeerLaRed className="mt-auto hidden pt-10 lg:block" />}
+          {/* Desde `lg`, bajo las abiertas, al lado de la red: cómo se lee. En el teléfono va bajo su leyenda. */}
+          {red && <ComoLeerLaRed className="mt-10 hidden lg:block" />}
         </div>
         {grande}
       </div>
-      {ficha}
-
-      {red && gasto && <GastoPortada lectura={gasto} ancho className={CLASE_SECCION} />}
 
       <LecturasPortada lecturas={lecturas} className={CLASE_SECCION} />
+
+      {red && gasto && <GastoPortada lectura={gasto} ancho className={CLASE_SECCION} />}
 
       {franja && (
         <div className={CLASE_SECCION}>
@@ -146,6 +145,8 @@ export function Portada({
       {hoyVariadas && horaHoy && (
         <BloqueHoy datos={hoyVariadas} actualizado={horaHoy} horaEnLaFranja={franja !== null} />
       )}
+      {/* De qué base sale todo y cada cuánto: el colofón, antes de las notas y de quién lo hace. */}
+      {ficha}
       <NotasPortada notas={notas} autor={autor} rol={rol} urlAutor={urlAutor} />
     </Contenedor>
   );

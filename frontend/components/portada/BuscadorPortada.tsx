@@ -59,10 +59,12 @@ export function BuscadorPortada() {
         </button>
       </form>
 
-      {/* Una línea: «Por ejemplo:» arriba en el teléfono y al lado desde `sm`. Con los seis ejemplos se partía en dos. */}
-      <div className="mt-3 text-sm sm:flex sm:items-baseline sm:gap-x-3">
-        <span className="text-muted">Por ejemplo:</span>
-        <ul aria-label="Ejemplos de búsqueda" className="mt-1 flex flex-wrap gap-x-3 gap-y-2 sm:mt-0">
+      {/* «Por ejemplo:» al lado de los ejemplos donde caben en una línea (`sm`, y desde `xl`) y
+          encima donde la columna es angosta (el teléfono, y `lg` con el gráfico al lado: a 1024 px
+          se partía en «Por / ejemplo:»), como el formulario de arriba. */}
+      <div className="mt-3 text-sm sm:flex sm:items-baseline sm:gap-x-3 lg:block xl:flex">
+        <span className="shrink-0 whitespace-nowrap text-muted">Por ejemplo:</span>
+        <ul aria-label="Ejemplos de búsqueda" className="mt-1 flex flex-wrap gap-x-3 gap-y-2 sm:mt-0 lg:mt-1 xl:mt-0">
           {EJEMPLOS_BUSQUEDA.slice(0, EJEMPLOS_EN_PORTADA).map((ejemplo) => (
             <li key={ejemplo}>
               <Link href={rutaBuscar(ejemplo)} className="enlace">
