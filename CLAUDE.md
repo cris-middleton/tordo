@@ -537,8 +537,9 @@ contenedor único (cabecera y pie, con la atribución, son de la cáscara única
   `{"etiquetas": ["analytics" | "compra-agil"]}` → `revalidateTag(tag, 'max')`. Lo llama
   `Revalidador` en `etl/cron.py`. CI construye con un centinela y `check:secreto` lo busca.
 - **Qué se indexa vive en un solo sitio**, `services/publico/indexables.py`, con sus umbrales
-  y conteos medidos (≈1.039 compradores, 309 rubros y **7.758 productos**: con el precio unitario
-  corregido eran 15.452, y la regla de precio de mercado deja la mitad). El resto existe con
+  y conteos medidos (≈1.039 compradores, 309 rubros y **7.758 productos** en la copia local: con
+  el precio unitario corregido eran 15.452, y la regla de precio de mercado deja la mitad; en
+  producción, el sitemap lista 13.381 productos el 2026-10-22). El resto existe con
   `noindex` (producto, comprador o rubro) o 404.
 - **Un precio «del Estado» necesita varios compradores** (decisión del 2026-10-16). Una banda
   nacional es **precio de mercado** (`de_mercado`) si tiene **≥ 3 organismos compradores y

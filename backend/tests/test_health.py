@@ -37,3 +37,9 @@ def test_readiness_check():
         pytest.skip("sin base de datos disponible — levanta el stack con `make dev-up-d`")
     assert response.status_code == 200
     assert response.json()["status"] == "ready"
+
+
+@pytest.mark.parametrize("ruta", ["/health/", "/health/ready"])
+def test_un_monitor_puede_preguntar_con_head(ruta):
+    """Muchos monitores de disponibilidad mandan HEAD; un 405 se lee como caído."""
+    assert client.head(ruta).status_code in (200, 503)
