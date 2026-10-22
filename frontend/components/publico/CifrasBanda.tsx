@@ -1,5 +1,5 @@
 import { comprasDeOrganismos, notaCompradores, plata } from '@/lib/publico';
-import { textoVariacion } from '@/lib/predictibilidad';
+import { textoDiferencia } from '@/lib/predictibilidad';
 import type { BandaUnidad } from '@/types/publico';
 
 /** «$167.227 a $320.900», o una sola cifra si las dos se escriben igual. */
@@ -14,13 +14,13 @@ export function rango(desde: number | null, hasta: number | null): string | null
  * Las cifras de una banda bajo su gráfico: la mediana, la mitad de las compras
  * y 8 de cada 10 compras. De cuántas compras y compradores salen lo dice el pie
  * del gráfico, justo debajo: repetirlo aquí lo ponía dos veces en dos líneas.
- * Cuánto se parecen los precios (`textoVariacion`) va bajo la mitad de las
- * compras, que es lo que mide. Antes iban en una tarjeta
+ * Cuánto se separan los precios (`textoDiferencia`, con la cifra) va bajo la mitad de
+ * las compras, que es lo que mide. Antes iban en una tarjeta
  * aparte (P10…P90 con su propia barra), encima del gráfico, y la ficha decía lo
  * mismo tres veces.
  */
 export function CifrasBanda({ banda }: { banda: BandaUnidad }) {
-  const variacion = textoVariacion(banda.predictibilidad);
+  const variacion = rango(banda.p25, banda.p75)?.includes(' a ') ? textoDiferencia(banda.p25, banda.p75) : null;
   const nota = notaCompradores(banda);
   const cifras: { etiqueta: string; valor: string | null; detalle?: string | null }[] = [
     { etiqueta: 'Mediana', valor: plata(banda.p50), detalle: 'El precio del medio' },

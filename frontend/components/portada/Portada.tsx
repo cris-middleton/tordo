@@ -7,6 +7,9 @@ import type { Nota } from '@/lib/notas';
 import {
   actualizadoEnPalabras,
   baseDeLaFicha,
+  DESTACADAS_EN_PORTADA,
+  POR_COMPRADOR_EN_PORTADA,
+  variadas,
   franjaDeLaPortada,
   tiraDeLaPortada,
   VIGENTE,
@@ -110,6 +113,8 @@ export function Portada({
   ) : gasto ? (
     <GastoPortada lectura={gasto} className="mt-10 lg:mt-1" />
   ) : null;
+  // Cinco, con como mucho dos de un mismo comprador (se piden más para poder elegir).
+  const hoyVariadas = hoy ? { ...hoy, items: variadas(hoy.items, DESTACADAS_EN_PORTADA, POR_COMPRADOR_EN_PORTADA) } : null;
 
   return (
     <Contenedor pagina>
@@ -131,8 +136,8 @@ export function Portada({
           <FranjaPortada franja={franja} />
         </div>
       )}
-      {hoy && horaHoy && (
-        <BloqueHoy datos={hoy} actualizado={horaHoy} horaEnLaFranja={franja !== null} />
+      {hoyVariadas && horaHoy && (
+        <BloqueHoy datos={hoyVariadas} actualizado={horaHoy} horaEnLaFranja={franja !== null} />
       )}
       <NotasPortada notas={notas} autor={autor} rol={rol} urlAutor={urlAutor} />
     </Contenedor>

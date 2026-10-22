@@ -26,7 +26,7 @@ export function AntesDespues({ datos }: { datos: Datos }) {
                 className={`block h-3 flex-none rounded-sm ${f.clase}`}
                 style={{ width: `${f.valor * 0.8}%` }}
               />
-              <span className="cifra font-semibold text-text">{f.valor.toLocaleString('es-CL')} %</span>
+              <span className="cifra font-semibold text-text">{f.valor.toLocaleString('es-CL')}{'\u00a0'}%</span>
             </dd>
           </div>
         ))}

@@ -45,7 +45,8 @@ function Linea({ nodos }: { nodos: EnLinea[] }) {
       {nodos.map((n, i) => {
         switch (n.t) {
           case 'texto':
-            return <span key={i}>{n.v}</span>;
+            // «82 %» no se parte: el signo no queda solo al comienzo de la línea siguiente.
+            return <span key={i}>{n.v.replace(/(\d) %/g, '$1\u00a0%')}</span>;
           case 'codigo':
             return (
               <code key={i} className="rounded bg-surface-elevated px-1 py-0.5 font-mono text-[0.9em] text-text">
@@ -121,7 +122,8 @@ function UnBloque({ b }: { b: Bloque }) {
         </blockquote>
       );
     case 'codigo':
-      // Se desplaza en horizontal en móvil, así que se alcanza con el teclado
+      // Las líneas largas se parten (un comando cortado en el borde se leía como
+      // incompleto); si aun así no cabe, se desplaza en horizontal, así que se alcanza con el teclado
       // (WCAG 2.1.1; axe, `scrollable-region-focusable`). Como en
       // `components/abierto/Bloques.tsx`: `role="group"` para que el nombre se anuncie.
       return (
@@ -129,7 +131,7 @@ function UnBloque({ b }: { b: Bloque }) {
           role="group"
           aria-label="Bloque de código"
           tabIndex={0}
-          className="mt-4 overflow-x-auto rounded-lg border border-border bg-surface-elevated px-4 py-3 text-sm text-text">
+          className="mt-4 overflow-x-auto whitespace-pre-wrap rounded-lg border border-border bg-surface-elevated px-4 py-3 text-sm text-text [overflow-wrap:anywhere]">
           <code className="font-mono">{b.v}</code>
         </pre>
       );

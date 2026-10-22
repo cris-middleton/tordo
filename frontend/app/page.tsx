@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 import { Portada } from '@/components/portada/Portada';
-import { DESTACADAS_EN_PORTADA } from '@/lib/portada';
+import { DESTACADAS_PEDIDAS } from '@/lib/portada';
 import {
   pedirDestacadas,
   pedirMercadoPortada,
@@ -79,7 +79,7 @@ export const metadata: Metadata = {
 
 export default async function Home() {
   const [destacadas, resumen, sectores, mercado, producto, ahora] = await Promise.all([
-    pedirDestacadas(DESTACADAS_EN_PORTADA),
+    pedirDestacadas(DESTACADAS_PEDIDAS),
     pedirResumenPortada(),
     pedirSectoresPortada(),
     pedirMercadoPortada(),

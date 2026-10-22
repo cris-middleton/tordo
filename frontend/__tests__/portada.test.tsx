@@ -277,7 +277,7 @@ describe('lo que la portada pide al backend', () => {
     render(await Home());
     const cache = Object.fromEntries(pedidas.map((p) => [p.url.replace(BACKEND, ''), p.init.next]));
     expect(cache).toEqual({
-      '/api/v1/compra-agil/destacadas?limite=5': { revalidate: 1800, tags: ['compra-agil'] },
+      '/api/v1/compra-agil/destacadas?limite=15': { revalidate: 1800, tags: ['compra-agil'] },
       '/api/v1/publico/portada': { revalidate: 1800, tags: ['compra-agil'] },
       '/api/v1/bi/sector': { revalidate: 604800, tags: ['analytics'] },
       '/api/v1/publico/mercado': { revalidate: 604800, tags: ['analytics'] },

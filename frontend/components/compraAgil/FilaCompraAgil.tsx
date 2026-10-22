@@ -3,15 +3,15 @@ import { ExternalLink } from 'lucide-react';
 
 import {
   esTopeCompraAgil,
+  montoDeclarado,
   MOSTRAR_COTIZACIONES,
   NOTA_TOPE,
   textoComprador,
   textoCompetencia,
   textoMontoTipico,
-  textoTiempo,
   urlMercadoPublico,
 } from '@/lib/compraAgil';
-import { cierreFijo } from '@/lib/horaChile';
+import { textoCierre } from '@/lib/horaChile';
 import { formatCurrency, normalizeText, shortRegion } from '@/lib/licitacionEstado';
 import type { CompraAgilDestacada } from '@/types/compraAgil';
 
@@ -40,19 +40,33 @@ export function FilaCompraAgil({
   actualizadoEn,
   historia,
   cierreFijo: conCierreFijo = false,
+  ahora,
 }: {
   item: CompraAgilDestacada;
   posicion?: number;
   actualizadoEn: string | null;
-  /** La historia de la unidad. `disponible` es `historia_disponible` de la respuesta: falso = no se dice nada del comprador. */
-  historia?: { meses: number | null; disponible: boolean };
-  /** La hora de cierre en vez de la cuenta atrás: para lo que se sirve desde caché. */
+  /**
+   * La historia de la unidad. `disponible` es `historia_disponible` de la respuesta:
+   * falso = no se dice nada del comprador. `repetida`: es la misma unidad que la fila
+   * de arriba, y su historia no se repite (`mismaUnidad`).
+   */
+  historia?: { meses: number | null; disponible: boolean; repetida?: boolean };
+  /** La hora de cierre siempre con fecha (sin «hoy»): para lo que se sirve desde caché. */
   cierreFijo?: boolean;
+  /**
+   * La hora con que se pinta, para decir «Cierra hoy a las 18:00» (`textoCierre`).
+   * Sin ella —o con `cierreFijo`— el cierre va con su fecha.
+   */
+  ahora?: Date;
 }) {
-  const cierre = conCierreFijo ? cierreFijo(item.fecha_cierre) : textoTiempo(item.horas_restantes);
+  const cierre = textoCierre(item.fecha_cierre, conCierreFijo ? undefined : ahora)?.texto ?? null;
   const detalle = `/licitaciones/${encodeURIComponent(item.codigo_externo)}`;
-  const deLaUnidad = historia ? textoComprador(item.comprador, historia.meses, historia.disponible) : null;
-  const suele = historia?.disponible ? textoMontoTipico(item.comprador) : null;
+  const deLaUnidad = !historia
+    ? null
+    : historia.repetida
+      ? 'La misma unidad de compra que la anterior'
+      : textoComprador(item.comprador, historia.meses, historia.disponible);
+  const suele = historia?.disponible && !historia.repetida ? textoMontoTipico(item.comprador) : null;
   const lugar = [
     item.nombre_organismo && normalizeText(item.nombre_organismo),
     historia && item.region ? shortRegion(item.region) : null,
@@ -65,7 +79,7 @@ export function FilaCompraAgil({
       <p className="cifra text-sm font-semibold text-text">Hasta {formatCurrency(item.monto_estimado)}</p>
       <p className="text-xs text-muted">{NOTA_TOPE}</p>
     </>
-  ) : item.monto_estimado ? (
+  ) : montoDeclarado(item) != null ? (
     <p className="cifra text-sm font-semibold text-text">{formatCurrency(item.monto_estimado)}</p>
   ) : (
     <p className="text-xs text-subtle">Sin monto</p>

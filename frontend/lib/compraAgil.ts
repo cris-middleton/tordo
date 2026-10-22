@@ -45,7 +45,7 @@ export const TITULO_DESTACADAS = 'Lo mejor de hoy en Compra Ágil';
  * `MOSTRAR_COTIZACIONES`).
  */
 export const DESCRIPCION_DESTACADAS =
-  'Ordenadas por tres cosas: cuánto compra ese comprador por Compra Ágil, el monto y el tiempo que queda para preparar la oferta. Nada más.';
+  'Ordenadas por tres cosas: cuánto compra ese comprador por Compra Ágil, el monto y el tiempo que queda para preparar la oferta.';
 
 /**
  * La misma frase cuando **aún no hay historia por unidad** (`historia_disponible`
@@ -217,6 +217,37 @@ type MontoDeLista = Pick<CompraAgilDestacada, 'monto_estimado' | 'monto_es_tope'
  */
 export const NOTA_TOPE = 'El máximo que permite Compra Ágil';
 
+/**
+ * Bajo esto, un monto estimado no es una estimación: hay compradores que escriben
+ * $1 (o $100) para no declarar nada, y «$1» junto a «Tinta Epson» se leía como un
+ * dato. Se dice «Sin monto», como cuando no viene.
+ */
+export const MONTO_SIMBOLICO = 1_000;
+
+/** El monto que se puede decir, o null: sin monto o simbólico. */
+export function montoDeclarado(item: Pick<MontoDeLista, 'monto_estimado'>): number | null {
+  const m = item.monto_estimado;
+  return m != null && m >= MONTO_SIMBOLICO ? m : null;
+}
+
+/**
+ * ¿Es la misma unidad de compra que la fila anterior? Mismo organismo y la misma
+ * historia (las órdenes, la mediana): la Compra Ágil no trae el código de la
+ * unidad, y dos unidades distintas de un organismo traen historias distintas. En
+ * `/compra-agil` las cuatro primeras llegaron a ser de la misma unidad del MOP, con
+ * «Su unidad de compra: 2.322 órdenes…» escrito cuatro veces.
+ */
+export function mismaUnidad(a: CompraAgilDestacada | undefined, b: CompraAgilDestacada): boolean {
+  if (!a || !a.comprador || !b.comprador) return false;
+  return (
+    normalizarNombre(a.nombre_organismo) === normalizarNombre(b.nombre_organismo) &&
+    a.comprador.ordenes === b.comprador.ordenes &&
+    a.comprador.monto_mediana === b.comprador.monto_mediana
+  );
+}
+
+const normalizarNombre = (n: string | null | undefined) => (n ?? '').trim().toLowerCase();
+
 /** ¿Se dice como tope? Sólo con monto y con `monto_es_tope` explícito. */
 export function esTopeCompraAgil(item: MontoDeLista): boolean {
   return Boolean(item.monto_estimado) && item.monto_es_tope === true;
@@ -224,8 +255,9 @@ export function esTopeCompraAgil(item: MontoDeLista): boolean {
 
 /** El monto en una línea del RSS, o null sin monto. */
 export function textoMontoRss(item: MontoDeLista): string | null {
-  if (!item.monto_estimado) return null;
-  const monto = formatCurrency(item.monto_estimado);
+  const declarado = montoDeclarado(item);
+  if (declarado == null) return null;
+  const monto = formatCurrency(declarado);
   return esTopeCompraAgil(item) ? `Hasta ${monto} (el máximo que permite Compra Ágil)` : `Monto estimado ${monto}`;
 }
 

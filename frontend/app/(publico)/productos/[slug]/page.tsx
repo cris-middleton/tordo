@@ -165,8 +165,7 @@ export default async function PaginaProducto({ params }: Props) {
       </Seccion>
 
       <p className="mt-6 text-xs text-subtle">
-        Esta ficha junta las compras descritas con estas palabras, en cualquier orden y sin contar números ni
-        códigos: «{p.firma}».
+        Junta las compras descritas con estas palabras, en cualquier orden: «{p.firma}».
       </p>
 
       <p className="mt-4 text-sm">

@@ -15,15 +15,16 @@ const AHORA = new Date('2026-10-17T00:30:00Z');
 describe('cierreEnPalabras', () => {
   it('cuenta días de calendario de Chile, no de UTC', () => {
     // 23:00 del mismo jueves en Santiago: hoy, aunque en UTC ya sea viernes.
-    expect(cierreEnPalabras('2026-10-17T02:00:00Z', AHORA)).toEqual({ texto: 'Cierra hoy', urgente: true });
+    expect(cierreEnPalabras('2026-10-17T02:00:00Z', AHORA)).toEqual({ texto: 'Cierra hoy a las 23:00', urgente: true });
     // 09:00 del viernes en Santiago.
-    expect(cierreEnPalabras('2026-10-17T12:00:00Z', AHORA)).toEqual({ texto: 'Cierra mañana', urgente: true });
+    expect(cierreEnPalabras('2026-10-17T12:00:00Z', AHORA)).toEqual({ texto: 'Cierra mañana a las 09:00', urgente: true });
   });
 
-  it('dice los días hasta una semana y la fecha después', () => {
-    expect(cierreEnPalabras('2026-10-20T15:00:00Z', AHORA)?.texto).toBe('Cierra en 4 días');
-    expect(cierreEnPalabras('2026-10-23T15:00:00Z', AHORA)?.texto).toBe('Cierra en 7 días');
-    expect(cierreEnPalabras('2026-10-30T15:00:00Z', AHORA)?.texto).toBe('Cierra el 30 oct');
+  it('después de mañana, la fecha con su hora: la misma forma en todo el sitio', () => {
+    expect(cierreEnPalabras('2026-10-20T15:00:00Z', AHORA)?.texto).toBe('Cierra el 20 oct a las 12:00');
+    expect(cierreEnPalabras('2026-10-30T15:00:00Z', AHORA)?.texto).toBe('Cierra el 30 oct a las 12:00');
+    // El año, sólo si no es el de ahora.
+    expect(cierreEnPalabras('2027-01-05T15:00:00Z', AHORA)?.texto).toBe('Cierra el 5 ene 2027 a las 12:00');
   });
 
   it('lo cerrado dice cuándo cerró, sin urgencia', () => {

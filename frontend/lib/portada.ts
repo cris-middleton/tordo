@@ -57,6 +57,39 @@ export const VIGENTE: Vigencia = { alDia: true, mismoDia: true };
 export const DESTACADAS_EN_PORTADA = 5;
 
 /**
+ * Cuántas se piden para elegir esas cinco: con un comprador que publica diez
+ * parecidas, las cinco primeras eran suyas (cuatro del mismo MOP el 21-10).
+ */
+export const DESTACADAS_PEDIDAS = 15;
+
+/** Como mucho, cuántas de un mismo comprador entre las de la portada. */
+export const POR_COMPRADOR_EN_PORTADA = 2;
+
+/**
+ * Las primeras `n` en su orden, con como mucho `porComprador` de cada comprador
+ * (por nombre del organismo: la Compra Ágil no trae su código). Si no alcanzan,
+ * se completa con las que quedaron fuera, en su orden: mejor cinco que tres.
+ */
+export function variadas<T extends { nombre_organismo: string | null }>(items: T[], n: number, porComprador: number): T[] {
+  const cuenta = new Map<string, number>();
+  const elegidas: T[] = [];
+  const fuera: T[] = [];
+  for (const item of items) {
+    const clave = (item.nombre_organismo ?? '').trim().toLowerCase();
+    const ya = cuenta.get(clave) ?? 0;
+    if (ya < porComprador && elegidas.length < n) {
+      elegidas.push(item);
+      cuenta.set(clave, ya + 1);
+    } else fuera.push(item);
+  }
+  if (elegidas.length < n) {
+    const completar = new Set(fuera.slice(0, n - elegidas.length));
+    return items.filter((i) => elegidas.includes(i) || completar.has(i));
+  }
+  return elegidas;
+}
+
+/**
  * «lun, 12 oct, 13:05», en hora de Chile. Con el día siempre: la portada se
  * cachea, así que «a las 13:05» a secas no diría si es de hoy o de ayer, y en
  * el servidor no se sabe la fecha del visitante.
