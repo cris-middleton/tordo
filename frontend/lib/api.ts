@@ -48,6 +48,16 @@ class ApiClient {
   // ── Páginas públicas ────────────────────────────────────────────────────────
 
   /** Búsqueda de productos, indexables o no: es como se llega a los segundos. */
+  /**
+   * «¿Quisiste decir…?» (`GET /publico/sugerencia`): la búsqueda con sus palabras
+   * mal escritas corregidas, o `null` si no hay nada que corregir.
+   */
+  async getSugerencia(q: string): Promise<string | null> {
+    const res = await this.client.get(`${API}/publico/sugerencia`, { params: { q } });
+    const sugerencia = res.data?.sugerencia;
+    return typeof sugerencia === 'string' && sugerencia.trim() ? sugerencia.trim() : null;
+  }
+
   async getProductosPublicos(q: string, limite = 20): Promise<ProductoEncontrado[]> {
     const res = await this.client.get(`${API}/publico/productos`, { params: { q, limite } });
     return res.data;
