@@ -5,6 +5,12 @@ export interface Columna {
   valor: number;
   /** El valor escrito sobre la columna: «38%», «$2,1 mil millones». */
   texto: string;
+  /**
+   * El valor en un teléfono, si `texto` no cabe: con doce columnas cada una mide
+   * ~26 px a 390, y «38 %» (con espacio duro) se montaba sobre la de al lado
+   * («38 %25 %»). Las de meses pasan la cifra sin «%»: la unidad la dice su sección.
+   */
+  textoCorto?: string;
   destacada?: boolean;
 }
 
@@ -39,7 +45,16 @@ export function Columnas({
         {columnas.map((c) => (
           <li key={c.clave} className="flex min-w-0 flex-1 flex-col items-center">
             {textoArriba && (
-              <span className={`cifra mb-1 break-words text-center text-xs leading-tight ${c.destacada ? 'font-semibold text-text' : 'text-muted'}`}>{c.texto}</span>
+              <span className={`cifra mb-1 break-words text-center text-xs leading-tight ${c.destacada ? 'font-semibold text-text' : 'text-muted'}`}>
+                {c.textoCorto ? (
+                  <>
+                    <span className="sm:hidden">{c.textoCorto}</span>
+                    <span className="hidden sm:inline">{c.texto}</span>
+                  </>
+                ) : (
+                  c.texto
+                )}
+              </span>
             )}
             {!textoArriba && <span className="sr-only">{c.texto}</span>}
             <div aria-hidden="true" className="flex w-full items-end" style={{ height: alto }}>

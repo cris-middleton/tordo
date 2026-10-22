@@ -154,13 +154,20 @@ describe('BloqueAbiertas', () => {
     expect(screen.getAllByRole('article')).toHaveLength(3);
   });
 
-  it('vacías: lo dicen, sin enlaces', () => {
+  it('las dos vacías: una sola línea, sin subtítulos ni enlaces', () => {
     abiertas(ok({ items: [], total: 0 }), ok({ ...DESTACADAS, items: [] }));
+    expect(screen.getByText('No hay licitaciones ni Compras Ágiles abiertas que mencionen «guante nitrilo».')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 3 })).toBeNull();
+    expect(screen.queryByRole('link')).toBeNull();
+  });
+
+  it('una vacía y la otra no: cada una dice lo suyo', () => {
+    abiertas(ok({ items: [], total: 0 }), ok(DESTACADAS));
     expect(screen.getByText('No hay licitaciones abiertas que mencionen «guante nitrilo».')).toBeInTheDocument();
+    abiertas(ok(LICITACIONES), ok({ ...DESTACADAS, items: [] }));
     expect(
       screen.getByText('No hay Compras Ágiles abiertas que mencionen «guante nitrilo» y cierren en más de dos horas.'),
     ).toBeInTheDocument();
-    expect(screen.queryByRole('link')).toBeNull();
   });
 
   it('una sola licitación se dice en singular', () => {
