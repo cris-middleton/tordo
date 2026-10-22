@@ -264,3 +264,40 @@ def test_sin_zona_tambien_es_hora_de_chile():
 def test_un_desfase_explicito_se_respeta():
     cierre = _cierre("2026-07-15T10:00:00+00:00")
     assert cierre.astimezone(UTC) == datetime(2026, 7, 15, 10, 0, tzinfo=UTC)
+
+
+class _RespuestaConCabeceras(_Respuesta):
+    def __init__(self, cuerpo, status_code=200, headers=None, text=""):
+        super().__init__(cuerpo, status_code)
+        self.headers = headers or {}
+        self.text = text
+
+
+def test_el_429_dice_cuantas_pidio_la_corrida_y_lo_que_dijo_la_api(monkeypatch):
+    """No se conoce la cuota diaria. El 2026-10-21 la corrida de las 16 h recibió
+    429 en su primera petición y el log no decía nada más."""
+    respuestas = iter(
+        [
+            _RespuestaConCabeceras(
+                _envuelto([dict(ITEM, codigo="A-1")], total_paginas=2),
+                headers={"X-RateLimit-Remaining": "1", "Content-Type": "application/json"},
+            ),
+            _RespuestaConCabeceras(
+                {"success": "NOK"},
+                status_code=429,
+                headers={"X-RateLimit-Remaining": "0", "Retry-After": "3600"},
+                text='{"message": "Limite diario de 10000 alcanzado"}',
+            ),
+        ]
+    )
+    monkeypatch.setattr("etl.extractors.compra_agil.requests.get", lambda *a, **k: next(respuestas))
+    extractor = CompraAgilExtractor({"COMPRA_AGIL_TICKET": "T"})
+    with pytest.raises(CuotaDiariaAgotada) as error:
+        extractor.extract()
+    mensaje = str(error.value)
+    assert "llevaba 2 petición(es)" in mensaje
+    assert "'X-RateLimit-Remaining': '0'" in mensaje
+    assert "Retry-After" in mensaje
+    assert "Limite diario de 10000" in mensaje
+    assert "Content-Type" not in mensaje
+    assert extractor.peticiones == 2
