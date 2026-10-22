@@ -3,6 +3,7 @@ import { Search } from 'lucide-react';
 
 import {
   EJEMPLOS_BUSQUEDA,
+  EJEMPLOS_EN_PORTADA,
   MAXIMO_CARACTERES_BUSCAR,
   MINIMO_LETRAS_BUSCAR,
   PARAMETRO_BUSCAR,
@@ -58,10 +59,11 @@ export function BuscadorPortada() {
         </button>
       </form>
 
-      <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-2 text-sm">
+      {/* Una línea: «Por ejemplo:» arriba en el teléfono y al lado desde `sm`. Con los seis ejemplos se partía en dos. */}
+      <div className="mt-3 text-sm sm:flex sm:items-baseline sm:gap-x-3">
         <span className="text-muted">Por ejemplo:</span>
-        <ul aria-label="Ejemplos de búsqueda" className="flex flex-wrap gap-x-3 gap-y-2">
-          {EJEMPLOS_BUSQUEDA.map((ejemplo) => (
+        <ul aria-label="Ejemplos de búsqueda" className="mt-1 flex flex-wrap gap-x-3 gap-y-2 sm:mt-0">
+          {EJEMPLOS_BUSQUEDA.slice(0, EJEMPLOS_EN_PORTADA).map((ejemplo) => (
             <li key={ejemplo}>
               <Link href={rutaBuscar(ejemplo)} className="enlace">
                 {ejemplo}

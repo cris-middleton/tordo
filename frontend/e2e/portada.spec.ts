@@ -1,16 +1,17 @@
 import { expect, test, type Page } from '@playwright/test';
 
 /**
- * La portada de gráficos (octubre de 2026): a la izquierda el titular, el buscador,
- * las abiertas de ahora y la ficha; a la derecha el gráfico grande del gasto
- * mensual por sector; debajo «Para empezar», con tres lecturas en fila. Y
+ * La portada de gráficos (octubre de 2026): a la izquierda el titular, el buscador
+ * y las abiertas de ahora; a la derecha el gráfico grande —la red de compradores y
+ * proveedores, o sin ella el gasto mensual por sector—; debajo, la ficha a lo ancho
+ * y «Para empezar», con tres lecturas en fila. Y
  * `/acerca`, de punta a punta y SIN sesión.
  *
  * Lo vivo —las abiertas, las lecturas, la franja y «Lo mejor de hoy»— sale del
  * servidor con ISR. `scripts/e2e.sh` construye con el backend levantado y la
  * semilla puesta. Con el fixture del golden el gasto mensual tiene tres meses
- * (menos de los seis que pide), así que **el gráfico grande no sale** y la ficha
- * baja tras «Para empezar»; de las lecturas, la concentración y los cierres (el
+ * (menos de los seis que pide), así que el gasto no sale; la red sale si el fixture
+ * tiene compradores suficientes en `competitors_by_market`. De las lecturas, la concentración y los cierres (el
  * producto de la portada no está, así que entra la nota). La nota es contenido del
  * repo y sale siempre: **la sección de lecturas existe siempre**. Lo que no
  * depende de nada es el buscador, y eso se exige siempre: es lo primero que se ve,
@@ -28,8 +29,13 @@ const MOVIL = { width: 390, height: 844 };
 const TABLETA = { width: 1024, height: 768 };
 const ESCRITORIO = { width: 1440, height: 900 };
 const LECTURAS = 'Para empezar';
-/** El gráfico grande (si hay meses suficientes): una sección con la conclusión como `h2`. */
+/**
+ * El gráfico grande: la red si el backend la manda, y si no, el gasto mensual (si hay
+ * meses suficientes). Una sección con la conclusión como `h2`.
+ */
+const RED = 'section[aria-labelledby="red-titulo"]';
 const GASTO = 'section[aria-labelledby="gasto-titulo"]';
+const grande = async (page: Page) => ((await page.locator(RED).count()) ? page.locator(RED) : page.locator(GASTO));
 
 async function anchoDelDocumento(page: Page): Promise<number> {
   return page.evaluate(() => document.documentElement.scrollWidth);
@@ -178,8 +184,8 @@ for (const viewport of [TABLETA, ESCRITORIO]) {
   test(`a ${viewport.width} px, si está, el gráfico grande va a la derecha del buscador y a su altura`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.goto('/');
-    const gasto = page.locator(GASTO);
-    test.skip((await gasto.count()) === 0, 'sin meses suficientes en el fixture, el gráfico grande no sale');
+    const gasto = await grande(page);
+    test.skip((await gasto.count()) === 0, 'sin red ni meses suficientes en el fixture, el gráfico grande no sale');
     const caja = (await gasto.boundingBox())!;
     const buscador = (await page.getByRole('search').boundingBox())!;
     expect(caja.x, 'a la derecha del buscador').toBeGreaterThanOrEqual(buscador.x + buscador.width);
@@ -190,7 +196,7 @@ for (const viewport of [TABLETA, ESCRITORIO]) {
 test('a 1440×900 la primera conclusión de datos y su gráfico empiezan sobre el pliegue', async ({ page }) => {
   await page.setViewportSize(ESCRITORIO);
   await page.goto('/');
-  const gasto = page.locator(GASTO);
+  const gasto = await grande(page);
   const primera = (await gasto.count()) ? gasto : page.getByRole('region', { name: LECTURAS }).getByRole('article').first();
   const conclusion = (await primera.getByRole('heading').first().boundingBox())!;
   expect(conclusion.y + conclusion.height, `la conclusión termina en y = ${conclusion.y + conclusion.height}`).toBeLessThanOrEqual(
@@ -203,7 +209,7 @@ test('a 1440×900 la primera conclusión de datos y su gráfico empiezan sobre e
 test('a 390×844 la primera conclusión de datos queda sobre el pliegue', async ({ page }) => {
   await page.setViewportSize(MOVIL);
   await page.goto('/');
-  const gasto = page.locator(GASTO);
+  const gasto = await grande(page);
   const primera = (await gasto.count())
     ? gasto.getByRole('heading', { level: 2 })
     : page.getByRole('region', { name: LECTURAS }).getByRole('heading', { level: 3 }).first();

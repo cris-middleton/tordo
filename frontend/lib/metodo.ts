@@ -53,12 +53,19 @@ export const METODO_CONCENTRACION: Metodo = {
   codigo: 'etl/analytics/competitor_analysis.py',
 };
 
+/** Quién le compra a quién: los organismos que más compran y sus proveedores (`analytics.competitors_by_market`). */
+export const METODO_RED: Metodo = {
+  guia: { slug: 'concentracion-de-mercado', ancla: 'la-red-de-la-portada' },
+  codigo: 'backend/app/repositories/analytics_sync.py',
+};
+
 /** Todos, para el test: uno nuevo se añade aquí y el test lo revisa. */
 export const METODOS: Readonly<Record<string, Metodo>> = {
   precio: METODO_PRECIO,
   cierres: METODO_CIERRES,
   gasto: METODO_GASTO,
   concentracion: METODO_CONCENTRACION,
+  red: METODO_RED,
 };
 
 /** `/guias/<slug>#<ancla>`. */

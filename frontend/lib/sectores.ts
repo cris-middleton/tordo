@@ -22,22 +22,25 @@ export interface SectorConColor {
   fondo: string;
   /** Trazo de una línea o el borde de un punto. */
   trazo: string;
+  /** Relleno de una forma SVG (un nodo de la red). */
+  relleno: string;
 }
 
 export const OTROS = 'Otros';
 
 export const SECTORES_CON_COLOR: readonly SectorConColor[] = [
-  { clave: 'Salud', nombre: 'Salud', fondo: 'bg-serie-1', trazo: 'stroke-serie-1' },
-  { clave: 'Municipalidades', nombre: 'Municipalidades', fondo: 'bg-serie-2', trazo: 'stroke-serie-2' },
+  { clave: 'Salud', nombre: 'Salud', fondo: 'bg-serie-1', trazo: 'stroke-serie-1', relleno: 'fill-serie-1' },
+  { clave: 'Municipalidades', nombre: 'Municipalidades', fondo: 'bg-serie-2', trazo: 'stroke-serie-2', relleno: 'fill-serie-2' },
   {
     clave: 'Gob. Central, Universidades',
     nombre: 'Gobierno y universidades',
     fondo: 'bg-serie-3',
     trazo: 'stroke-serie-3',
+    relleno: 'fill-serie-3',
   },
-  { clave: 'Obras Públicas', nombre: 'Obras públicas', fondo: 'bg-serie-4', trazo: 'stroke-serie-4' },
-  { clave: 'FFAA', nombre: 'Fuerzas Armadas', fondo: 'bg-serie-5', trazo: 'stroke-serie-5' },
-  { clave: OTROS, nombre: 'Otros', fondo: 'bg-serie-otros', trazo: 'stroke-serie-otros' },
+  { clave: 'Obras Públicas', nombre: 'Obras públicas', fondo: 'bg-serie-4', trazo: 'stroke-serie-4', relleno: 'fill-serie-4' },
+  { clave: 'FFAA', nombre: 'Fuerzas Armadas', fondo: 'bg-serie-5', trazo: 'stroke-serie-5', relleno: 'fill-serie-5' },
+  { clave: OTROS, nombre: 'Otros', fondo: 'bg-serie-otros', trazo: 'stroke-serie-otros', relleno: 'fill-serie-otros' },
 ];
 
 const POR_CLAVE = new Map(SECTORES_CON_COLOR.map((s) => [s.clave, s]));

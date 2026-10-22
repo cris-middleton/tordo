@@ -16,14 +16,20 @@ export function PieDeMetodo({
   texto,
   enlaces,
   className = '',
+  completo = false,
 }: {
   texto: string;
   enlaces: EnlaceMetodo[];
   className?: string;
+  /**
+   * Bajo un gráfico ancho, el texto ocupa el ancho del gráfico: con la medida de
+   * lectura quedaba corto y corrido a la izquierda, sin acompañar al dibujo.
+   */
+  completo?: boolean;
 }) {
   return (
     <div className={`border-t border-border pt-3 text-[13px] leading-snug text-muted ${className}`.trim()}>
-      <p className="max-w-[62ch]">{texto}</p>
+      <p className={completo ? undefined : 'max-w-[62ch]'}>{texto}</p>
       {enlaces.length > 0 && (
         <ul aria-label="Método y datos" className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
           {enlaces.map((e) => (

@@ -33,11 +33,13 @@ import { BarrasHorizontales } from '@/components/graficos/BarrasHorizontales';
 import { Columnas } from '@/components/graficos/Columnas';
 import { Concentracion } from '@/components/graficos/Concentracion';
 import { GastoMensual } from '@/components/graficos/GastoMensual';
+import { RedProveedores } from '@/components/graficos/RedProveedores';
 import { AntesDespues } from '@/components/notas/AntesDespues';
 import { BarraCierres } from '@/components/portada/BarraCierres';
 import { GraficoPrecio } from '@/components/precio/GraficoPrecio';
 import { graficoGasto } from '@/lib/graficoGasto';
 import { graficoPrecio } from '@/lib/graficoPrecio';
+import { graficoRed } from '@/lib/redPortada';
 import { lecturaConcentracion } from '@/lib/lecturasMercado';
 import type { BandaUnidad } from '@/types/publico';
 
@@ -105,6 +107,22 @@ const DATOS_CONCENTRACION = lecturaConcentracion(
   null,
 )!.grafico;
 
+const DATOS_RED = graficoRed({
+  compradores: Array.from({ length: 9 }, (_, i) => ({ codigo: String(i), nombre: `ORGANISMO ${i}`, sector: i % 2 ? 'Salud' : 'FFAA', monto: 1e11 * (9 - i) })),
+  proveedores: [
+    { codigo: 'p1', nombre: 'PROVEEDOR UNO SPA', monto: 5e10, compradores: 9 },
+    { codigo: 'p2', nombre: 'PROVEEDOR DOS SPA', monto: 2e10, compradores: 1 },
+  ],
+  enlaces: [
+    ...Array.from({ length: 9 }, (_, i) => ({ comprador: String(i), proveedor: 'p1', monto: 1e9 })),
+    { comprador: '0', proveedor: 'p2', monto: 2e10 },
+  ],
+  monto_total: 1e12,
+  monto_compradores: 5e11,
+  proveedores_total: 40,
+  a_la_mitad_o_mas: 1,
+})!;
+
 interface Propio {
   que: string;
   /** Un render con datos de verdad, para las reglas que se miran en el DOM. */
@@ -154,6 +172,10 @@ const PROPIOS: Record<string, Propio> = {
   'components/graficos/Concentracion.tsx': {
     que: 'la concentración de los mercados de la portada: diez tramos, globo, y la tabla de valores en sr-only',
     ejemplo: () => <Concentracion datos={DATOS_CONCENTRACION} />,
+  },
+  'components/graficos/RedProveedores.tsx': {
+    que: 'la red de la portada: compradores en un anillo con el color de su sector, proveedores adentro, globo y tabla sr-only',
+    ejemplo: () => <RedProveedores datos={DATOS_RED} accesible={[{ nombre: 'Proveedor uno', vecinos: 9, texto: '$50 mil millones' }]} />,
   },
   'components/graficos/Columnas.tsx': {
     que: 'columnas por mes o por año: estacionalidad y serie anual en /mercado',

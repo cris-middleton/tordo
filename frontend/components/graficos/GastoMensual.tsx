@@ -20,7 +20,7 @@ import { FilaGlobo, Globo } from './Globo';
  * Cajas y no SVG: las alturas van en % (`lib/graficoGasto.ts`) y el ancho lo
  * reparte `flex`, así que cabe igual a 320 que a 1440 px.
  */
-export function GastoMensual({ datos }: { datos: GraficoGasto }) {
+export function GastoMensual({ datos, leyendaEnFila = false }: { datos: GraficoGasto; leyendaEnFila?: boolean }) {
   const [mes, setMes] = useState<number | null>(null);
   const [serie, setSerie] = useState<number | null>(null);
   const n = datos.meses.length;
@@ -111,7 +111,10 @@ export function GastoMensual({ datos }: { datos: GraficoGasto }) {
         </div>
       </div>
 
-      <ul className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3" onPointerLeave={() => setSerie(null)}>
+      <ul
+        className={`mt-4 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3 ${leyendaEnFila ? 'lg:grid-cols-6' : ''}`}
+        onPointerLeave={() => setSerie(null)}
+      >
         {datos.series
           .map((s, j) => ({ s, j }))
           .filter(({ s }) => s.total > 0)

@@ -202,7 +202,42 @@ export interface ConcentracionMercados {
 }
 
 /** `GET /publico/mercado`: los dos gráficos de mercado de la portada. Cada bloque puede faltar. */
+/** Un organismo de la red de la portada: de los que más compran. */
+export interface CompradorRed {
+  codigo: string;
+  nombre: string;
+  sector: string | null;
+  monto: number;
+}
+
+/** Un proveedor de la red: lo que les vendió a esos compradores y a cuántos de ellos. */
+export interface ProveedorRed {
+  codigo: string;
+  nombre: string;
+  monto: number;
+  compradores: number;
+}
+
+/**
+ * La red de la portada (`red` de `GET /publico/mercado`): los organismos que más
+ * compran, sus proveedores más grandes y los que le venden a más de ellos, con lo
+ * que se compraron. Sin personas naturales.
+ */
+export interface RedPortada {
+  compradores: CompradorRed[];
+  proveedores: ProveedorRed[];
+  enlaces: { comprador: string; proveedor: string; monto: number }[];
+  monto_total: number;
+  monto_compradores: number;
+  proveedores_total: number;
+  a_la_mitad_o_mas: number;
+  ventana_desde?: string | null;
+  ventana_hasta?: string | null;
+}
+
 export interface MercadoPortada {
   gasto_mensual: GastoMensual[] | null;
   concentracion: ConcentracionMercados | null;
+  /** Ausente en un backend anterior; `null` sin la tabla. Mal formada, se ignora (`esRed`). */
+  red?: RedPortada | null;
 }

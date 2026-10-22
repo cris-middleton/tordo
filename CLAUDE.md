@@ -1100,47 +1100,65 @@ negro con tornasol azul-verdoso:
 - Tema claro por defecto, con selector claro/oscuro/sistema en el pie del sitio
   (`components/SelectorTema.tsx`, dentro de `components/cascara/PieSitio.tsx`).
 
-**La portada de gráficos: se busca a la izquierda, el gasto del Estado a la derecha** (octubre de
-2026, sobre `docs/PORTADA_V7_Y_NOTAS_2026-10.md` §3; `app/page.tsx` + `components/portada/`): server
-component con ISR de 30 min; las únicas islas cliente propias son los gráficos con globo
-(`components/graficos/GastoMensual.tsx`, `Concentracion.tsx` y `components/precio/GraficoPrecio.tsx`,
-que se pintan igual en el servidor). **No le pongas `'use client'` a la página**: Next ignora
-`metadata` en componentes cliente y la home perdería título y tarjeta de preview.
+**La portada de gráficos: se busca a la izquierda, la red de compradores y proveedores a la derecha**
+(octubre de 2026, sobre `docs/PORTADA_V7_Y_NOTAS_2026-10.md` §3; `app/page.tsx` + `components/portada/`):
+server component con ISR de 30 min; las únicas islas cliente propias son los gráficos con globo
+(`components/graficos/RedProveedores.tsx`, `GastoMensual.tsx`, `Concentracion.tsx` y
+`components/precio/GraficoPrecio.tsx`, que se pintan igual en el servidor). **No le pongas `'use client'`
+a la página**: Next ignora `metadata` en componentes cliente y la home perdería título y tarjeta de preview.
 - **Dos columnas desde `lg`, `5fr / 7fr`** (48 px entre ellas), dentro de `Contenedor pagina`: a la
-  izquierda el titular («Cuánto paga el Estado por lo que vendes», `TITULO_PORTADA`), el buscador,
-  las abiertas de ahora y la ficha; a la derecha **el gráfico grande** (`GastoPortada`): cuánto
-  compra el Estado mes a mes, por sector, a la altura del `h1`. Debajo, a lo ancho: «Para empezar»
-  (tres lecturas en fila), la franja de hoy, «Lo mejor de hoy» y las notas de datos, cada una con la
-  separación de `Seccion` (`CLASE_SECCION`). **Sin el gráfico grande** (menos de seis meses de
-  `time_series`, como en el fixture del E2E) la parte de arriba es una columna `max-w-2xl` y la
-  ficha baja tras «Para empezar».
-- **En móvil, una columna: buscador, abiertas, el gráfico grande y la ficha**: la conclusión del
-  gráfico grande —o, sin él, la de la primera lectura— queda sobre el pliegue a 390×844
-  (`e2e/portada.spec.ts`). La ficha va después del gráfico en el DOM y desde `lg` la rejilla la sube
-  a la columna izquierda (`lg:row-start-2`). **Un solo ejemplar de cada pieza**.
+  izquierda el titular («Cuánto paga el Estado por lo que vendes», `TITULO_PORTADA`), el buscador y
+  las abiertas de ahora; a la derecha **el gráfico grande**: la red (`RedPortada`), y sin ella —un
+  backend sin el bloque `red`, o sin la tabla— el gasto mensual. Debajo, a lo ancho: **la ficha**
+  (una franja de cuatro celdas), **el gasto mensual** (si la red ocupó arriba), «Para empezar» (tres
+  lecturas en fila), la franja de hoy, «Lo mejor de hoy» y las notas de datos, cada una con la
+  separación de `Seccion` (`CLASE_SECCION`). Sin ningún gráfico grande, la parte de arriba es una
+  columna `max-w-2xl`.
+- **En móvil, una columna en ese orden**: buscador, abiertas, el gráfico grande, la ficha… La
+  conclusión del gráfico grande —o, sin él, la de la primera lectura— queda sobre el pliegue a
+  390×844 (`e2e/portada.spec.ts`). **Un solo ejemplar de cada pieza**.
 - **El buscador** (`BuscadorPortada`), un `<form method="get" action="/buscar">` que funciona sin
   JavaScript. El `<h1>` ya no es la etiqueta del campo: el campo se llama `ETIQUETA_BUSCADOR`
   («Producto o servicio que vendes», en `aria-label`). 36 px en móvil y 48 desde `lg`, con
   `text-balance`; el E2E exige que no pase de tres líneas a 1024 y 1440. Debajo,
   `SUBTITULO_PORTADA`; el campo dice `PLACEHOLDER_BUSCADOR` (no repite los ejemplos) y el botón es
-  `bg-dato text-onDato`. Los ejemplos (`EJEMPLOS_BUSQUEDA`, `rutaBuscar` y los límites del campo,
-  todos de `lib/buscar.ts`) están **verificados contra producción**: `scripts/verificar-produccion.sh`
-  pide cada uno, espaciados y sin bucle, con una copia literal que `__tests__/portada-ayudantes.test.ts`
-  compara. Un ejemplo nuevo se verifica antes en producción y nunca es corto ni alfanumérico («pc», «A4»).
+  `bg-dato text-onDato`. Bajo el campo, **los primeros `EJEMPLOS_EN_PORTADA` (4) ejemplos, en una
+  línea** (con los seis se partía en dos; `/buscar` los muestra todos). Los ejemplos (`EJEMPLOS_BUSQUEDA`,
+  `rutaBuscar` y los límites del campo, todos de `lib/buscar.ts`) están **verificados contra
+  producción**: `scripts/verificar-produccion.sh` pide cada uno, espaciados y sin bucle, con una copia
+  literal que `__tests__/portada-ayudantes.test.ts` compara. Un ejemplo nuevo se verifica antes en
+  producción y nunca es corto ni alfanumérico («pc», «A4»).
 - **Las abiertas, en una frase** (`AbiertasAhora`, sobre `tiraDeLaPortada`): «Ahora puedes postular a
   4.409 licitaciones y 2.409 Compras Ágiles.», cada cifra con lo que cuenta enlazada al catálogo con
   el filtro que la cuenta (`urlCatalogoAbiertas`). Reemplaza a `TiraCifras`, dos bloques con número
   grande y filete lateral grueso: la plantilla de «métrica de héroe» que el dueño no quería.
-- **La ficha** (`FichaPortada`, §3.5): **Base** —«5,48 millones de órdenes de compra, nov 2023 a oct
-  2026», `baseDeLaFicha` sobre `GET /bi/sector`: la suma de `n_oc` y la ventana mínima y máxima,
-  **nunca escrita a mano**; sin analytics, sin `n_oc` en alguna fila o sin ventana, la fila no
-  sale—, **Fuente**, **Se actualiza** (`SE_ACTUALIZA`: «Licitaciones y Compras Ágiles, 4 veces al día
-  de lunes a viernes y una el fin de semana. Precios y mercados, cada domingo.», que sale de
-  `HORAS_HABILES` y `HORAS_FIN_DE_SEMANA`; «de lunes a viernes» y no «día hábil», porque el cron
-  corre también los festivos) y **Lo hace** («{nombre}, {rol}», sólo con `AUTOR_NOMBRE`, enlazado a
-  `AUTOR_URL`; el rol sale de `AUTOR_ROL` y sin ella va el nombre solo).
-- **El gráfico grande** (`GastoPortada` → `GastoMensual`, geometría en `lib/graficoGasto.ts`, frase
-  en `lib/lecturasMercado.ts`; datos de `GET /publico/mercado`, `gasto_mensual`): una columna por
+- **La ficha** (`FichaPortada`, §3.5), **una franja de cuatro celdas a lo ancho** bajo la parte de
+  arriba (dos por fila por debajo de `lg`): como lista en la columna del buscador medía ~200 px de
+  alto. **Base** —«5,48 millones de órdenes de compra, nov 2023 a oct 2026», `baseDeLaFicha` sobre
+  `GET /bi/sector`: la suma de `n_oc` y la ventana mínima y máxima, **nunca escrita a mano**; sin
+  analytics, sin `n_oc` en alguna fila o sin ventana, la celda no sale—, **Fuente**, **Se actualiza**
+  (`SE_ACTUALIZA`: «Licitaciones y Compras Ágiles, hasta 4 veces al día. Precios y mercados, cada
+  domingo.», que sale de `HORAS_HABILES` y `HORAS_FIN_DE_SEMANA`; el horario entero,
+  `FRECUENCIA_CATALOGO`, está en `/acerca` y `/compra-agil`) y **Lo hace** («{nombre}, {rol}», sólo
+  con `AUTOR_NOMBRE`, enlazado a `AUTOR_URL`; el rol sale de `AUTOR_ROL` y sin ella va el nombre solo).
+- **La red** (`RedPortada` → `RedProveedores`; geometría, frase y pie en `lib/redPortada.ts`; datos del
+  bloque `red` de `GET /publico/mercado`): **los 30 organismos que más compran, fijos en un anillo**
+  agrupados por sector con su color (`lib/sectores.ts`, `relleno`), y **sus proveedores adentro**: los 4
+  más grandes de cada uno y los 12 que le venden a más de ellos, sin personas naturales. Las posiciones
+  salen de una **simulación de fuerzas en el servidor** (resortes hacia sus compradores, repulsión,
+  choque; determinista y sin dependencia): el que le vende a muchos queda al centro y el exclusivo,
+  junto a su comprador. En tinta los que le venden a la mitad o más (lo que nombra la conclusión), en
+  gris el resto; el tamaño es el monto; cada enlace, una curva hacia el centro. El `h2` es la
+  conclusión (`fraseRed`): «Los 30 organismos que más compran le compraron a 14.659 proveedores. 40 le
+  venden a la mitad de ellos o más.». **Globo** al pasar o tocar un nodo, que lo aísla con sus vecinos.
+  **Se mueve** (la única excepción a R3 de la guía de gráficos): deriva leve y partículas del comprador
+  al proveedor, con `requestAnimationFrame`, **quieta con `prefers-reduced-motion`**, fuera de pantalla y
+  con la pestaña oculta; las capturas del E2E emulan movimiento reducido. Con menos de
+  `MINIMO_COMPRADORES` (8) o mal formada, no sale y el gráfico grande vuelve a ser el gasto.
+  `__tests__/red-portada.test.ts`.
+- **El gasto mensual** (`GastoPortada` → `GastoMensual`, geometría en `lib/graficoGasto.ts`, frase
+  en `lib/lecturasMercado.ts`; datos de `GET /publico/mercado`, `gasto_mensual`), **a lo ancho bajo la
+  ficha** cuando la red está arriba (`ancho`: `h2` de sección y la leyenda en una fila): una columna por
   mes, **apilada por sector con el color fijo de cada uno** (`lib/sectores.ts`: Salud `serie-1`,
   Municipalidades `serie-2`, Gobierno y universidades `serie-3`, Obras públicas `serie-4`, Fuerzas
   Armadas `serie-5`, y el resto —«Otros», «Legislativo y judicial», sin sector— junto en
@@ -1155,9 +1173,9 @@ que se pintan igual en el servidor). **No le pongas `'use client'` a la página*
   cerrados**: el mes en curso (en Chile, con la hora del render) no se dibuja ni se suma —octubre
   de 2026 salía a medias y se leía como un desplome—. Dibuja lo que dice su conclusión: una raya
   discontinua en el mes típico (con su llave arriba, «mes típico») y el nombre del mes más alto
-  sobre su columna. «2,0 veces» se escribe «el doble de». El pie dice el periodo, «por mes» (sin
-  decir de qué fecha: era el envío y desde #57 es la creación), qué es un mes típico y que las obras
-  del MOP casi no pasan por órdenes.
+  sobre su columna. «2,0 veces» se escribe «el doble de». El pie (a lo ancho del gráfico, `completo`)
+  dice el periodo, «por mes» (sin decir de qué fecha: era el envío y desde #57 es la creación), qué es
+  un mes típico y que las obras del MOP casi no pasan por órdenes.
 - **«Para empezar»** (`LecturasPortada`, `TITULO_LECTURAS`): `h2` de sección y **tres lecturas en
   fila desde `lg`**, alineadas por subrejilla (la conclusión, el gráfico y el pie de cada una
   empiezan a la misma altura); en móvil, una tras otra. **Las tres primeras disponibles en el orden

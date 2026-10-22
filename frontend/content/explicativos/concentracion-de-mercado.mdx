@@ -7,6 +7,7 @@ fuentes:
   - "Descarga masiva de órdenes de compra de ChileCompra (ventana de 36 meses)"
   - "Guías de concentración horizontal del Departamento de Justicia y la FTC de Estados Unidos (cortes de 1.500 y 2.500)"
   - "Código del cálculo: etl/analytics/competitor_analysis.py"
+  - "Código de la red de la portada: backend/app/repositories/analytics_sync.py"
 ---
 
 Antes de postular conviene saber si en ese mercado la plata se reparte entre muchos
@@ -66,3 +67,21 @@ puede ser menor que 100 / *n* por ciento. Un mercado con un solo proveedor tiene
 
 La concentración de cada rubro está en [Mercados](/mercado) y en las páginas de rubro, como
 `/rubros/servicios-de-aseo`.
+
+## La red de la portada
+
+La red de la portada mira lo mismo desde arriba: quién le compra a quién entre los que más
+compran.
+
+- **Los compradores** son los 30 organismos que más compraron en la ventana, con el color de
+  su sector.
+- **Los proveedores** son, de cada uno de esos organismos, sus 4 proveedores más grandes, y
+  además los 12 que le venden a más de esos 30. Los que le venden a la mitad o más van en
+  tinta oscura; los demás, en gris.
+- **Cada línea** une a un comprador con un proveedor que le vendió algo en la ventana. El
+  tamaño de cada círculo es lo que compró o vendió.
+
+La disposición no es un mapa: la calcula una simulación de fuerzas, en la que cada línea
+acerca a sus dos extremos y cada círculo aparta a los demás. Por eso los proveedores que le
+venden a muchos quedan al centro, y los grandes contratos de un solo comprador, en el borde.
+Las personas naturales no aparecen.

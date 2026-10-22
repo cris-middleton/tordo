@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest';
 
 import { BuscadorPortada } from '@/components/portada/BuscadorPortada';
 import { AbiertasAhora } from '@/components/portada/AbiertasAhora';
-import { EJEMPLOS_BUSQUEDA, rutaBuscar } from '@/lib/buscar';
+import { EJEMPLOS_BUSQUEDA, EJEMPLOS_EN_PORTADA, rutaBuscar } from '@/lib/buscar';
 import { urlCatalogoAbiertas } from '@/lib/filtrosCatalogo';
 import {
   ETIQUETA_BUSCADOR,
@@ -70,8 +70,10 @@ describe('BuscadorPortada', () => {
   it('los ejemplos, en su orden, cada uno a su búsqueda', () => {
     render(<BuscadorPortada />);
     const enlaces = within(screen.getByRole('list', { name: 'Ejemplos de búsqueda' })).getAllByRole('link');
-    expect(enlaces.map((a) => a.textContent)).toEqual([...EJEMPLOS_BUSQUEDA]);
-    expect(enlaces.map((a) => a.getAttribute('href'))).toEqual(EJEMPLOS_BUSQUEDA.map(rutaBuscar));
+    // Los primeros, los que caben en una línea; `/buscar` muestra todos.
+    const primeros = EJEMPLOS_BUSQUEDA.slice(0, EJEMPLOS_EN_PORTADA);
+    expect(enlaces.map((a) => a.textContent)).toEqual([...primeros]);
+    expect(enlaces.map((a) => a.getAttribute('href'))).toEqual(primeros.map(rutaBuscar));
   });
 
   it.each(['BuscadorPortada.tsx', 'AbiertasAhora.tsx'])('%s no lleva JavaScript propio', (f) => {

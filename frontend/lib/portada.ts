@@ -20,7 +20,7 @@ import { urlCatalogoAbiertas } from './filtrosCatalogo';
 import { decimal } from './formato';
 import { diaYHora, esConteo, esFechaOAusente } from './lecturasPortada';
 import { normalizeText } from './nombresChile';
-import { MESES_PRECIOS, rangoDeMeses } from './periodo';
+import { rangoDeMeses } from './periodo';
 import { entero } from './publico';
 
 /**
@@ -139,7 +139,7 @@ export function tiraDeLaPortada(resumen: ResumenPortada | null, vigencia: Vigenc
 }
 
 /** Bajo la pregunta: qué hace la búsqueda, en una frase (spec PORTADA_V7 §3.8). */
-export const SUBTITULO_PORTADA = `Escribe tu producto. Te mostramos a qué precio lo compró el Estado en los últimos ${MESES_PRECIOS} meses, quién lo compra y dónde postular hoy.`;
+export const SUBTITULO_PORTADA = 'Escribe lo que vendes. Te mostramos a qué precio lo compró el Estado, quién lo compra y dónde postular hoy.';
 
 /** El `h1` de la portada. Sin signos de pregunta: dice lo que el sitio responde. */
 export const TITULO_PORTADA = 'Cuánto paga el Estado por lo que vendes';
@@ -165,13 +165,15 @@ export const FRECUENCIA_CATALOGO =
   `${cuantas(HORAS_FIN_DE_SEMANA.length)} al día el fin de semana`;
 
 /**
- * «El catálogo, 4 veces al día de lunes a viernes y una al día el fin de semana.
- * Los precios y los mercados, cada domingo.», en la ficha (spec PORTADA_V7 §3.5).
- * El semanal corre los domingos (`etl/cron.py`, `semanal`).
+ * «Licitaciones y Compras Ágiles, hasta 4 veces al día. Precios y mercados, cada
+ * domingo.», en la ficha (spec PORTADA_V7 §3.5). «Hasta»: el fin de semana es una.
+ * El detalle del horario está en `FRECUENCIA_CATALOGO` (`/acerca`, `/compra-agil`);
+ * la ficha es una franja de cuatro celdas y no le cabe. El semanal corre los
+ * domingos (`etl/cron.py`, `semanal`).
  */
 export const SE_ACTUALIZA =
-  `Licitaciones y Compras Ágiles, ${veces(HORAS_HABILES.length)} al día de lunes a viernes y ` +
-  `${cuantas(HORAS_FIN_DE_SEMANA.length)} el fin de semana. Precios y mercados, cada domingo.`;
+  `Licitaciones y Compras Ágiles, hasta ${veces(Math.max(HORAS_HABILES.length, HORAS_FIN_DE_SEMANA.length))} al día. ` +
+  'Precios y mercados, cada domingo.';
 
 /** «Datos abiertos de ChileCompra»: la fila «Fuente» de la ficha. */
 export const FUENTE_PORTADA = 'Datos abiertos de ChileCompra';
