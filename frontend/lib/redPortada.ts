@@ -339,6 +339,58 @@ export function nombreCorto(n: string): string {
   return `${corte.replace(/\s+(de|del|la|las|los|y|e)$/i, '')}…`;
 }
 
+/** Dónde va el rótulo de un comprador, en unidades del lienzo: el punto de anclaje y hacia dónde crece la caja. */
+export type Rotulo = { id: string; texto: string; x: number; y: number; lado: 'izquierda' | 'derecha' | 'arriba' };
+
+/** Lo que mide un rótulo en el lienzo (12 px; el dibujo se ve a escala casi 1:1 desde `sm`). */
+const ANCHO_LETRA = 6.6;
+const ALTO_ROTULO = 16;
+
+type Caja = { x0: number; x1: number; y0: number; y1: number };
+const seCruzan = (a: Caja, b: Caja) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+
+/**
+ * Los rótulos de los `cuantos` compradores de más monto, sin pisarse. Cada uno va del
+ * lado de adentro de su nodo; si ahí choca con uno ya puesto o se sale del lienzo,
+ * prueba encima del nodo, y si tampoco cabe se queda sin rótulo (el nombre sigue en
+ * el globo). Con los datos de producción del 2026-10-22, Cenabast y el Fondo Nacional
+ * de Salud quedaban uno al lado del otro arriba y sus nombres se montaban.
+ */
+export function rotularCompradores(nodos: NodoRed[], { ancho, alto }: Lienzo, cuantos: number): Rotulo[] {
+  const puestas: Caja[] = [];
+  const rotulos: Rotulo[] = [];
+  const candidatos = nodos.filter((d) => d.tipo === 'comprador').sort((a, b) => b.monto - a.monto);
+  for (const d of candidatos) {
+    if (rotulos.length === cuantos) break;
+    const texto = nombreCorto(d.nombre);
+    const w = texto.length * ANCHO_LETRA + 8;
+    const derecha = d.x > ancho / 2;
+    const opciones: { r: Rotulo; caja: Caja }[] = [
+      derecha
+        ? {
+            r: { id: d.id, texto, x: d.x - d.r - 3, y: d.y, lado: 'izquierda' },
+            caja: { x0: d.x - d.r - 3 - w, x1: d.x - d.r - 3, y0: d.y - ALTO_ROTULO / 2, y1: d.y + ALTO_ROTULO / 2 },
+          }
+        : {
+            r: { id: d.id, texto, x: d.x + d.r + 3, y: d.y, lado: 'derecha' },
+            caja: { x0: d.x + d.r + 3, x1: d.x + d.r + 3 + w, y0: d.y - ALTO_ROTULO / 2, y1: d.y + ALTO_ROTULO / 2 },
+          },
+      {
+        r: { id: d.id, texto, x: d.x, y: d.y - d.r - 2, lado: 'arriba' },
+        caja: { x0: d.x - w / 2, x1: d.x + w / 2, y0: d.y - d.r - 2 - ALTO_ROTULO, y1: d.y - d.r - 2 },
+      },
+    ];
+    const cabe = opciones.find(
+      ({ caja }) =>
+        caja.x0 >= 0 && caja.x1 <= ancho && caja.y0 >= 0 && caja.y1 <= alto && !puestas.some((p) => seCruzan(p, caja)),
+    );
+    if (!cabe) continue;
+    puestas.push(cabe.caja);
+    rotulos.push(cabe.r);
+  }
+  return rotulos;
+}
+
 /** El nombre tal como llega de Mercado Público, legible (`normalizeText`). */
 const nombre = (texto: string) => normalizeText(texto.trim());
 
