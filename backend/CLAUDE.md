@@ -215,8 +215,8 @@
   la lista de Pydantic (`type`, `loc`, `ctx`) no cambia de forma.
 - **`/health/` y `/health/ready` responden también a HEAD**: muchos monitores preguntan así, y
   un 405 se lee como caído.
-- **La API tiene su `robots.txt`** (`main.ROBOTS_TXT`): rastrear `/docs` y `/redoc` sí, los
-  datos no. Lo pedían a diario y respondía 404, así que nada apartaba a un rastreador de
+- **La API tiene su `robots.txt`** (`main.ROBOTS_TXT`): rastrear `/docs` y `/redoc` sí, y
+  `/openapi.json`, que las dos piden con JavaScript; los datos no. Lo pedían a diario y respondía 404, así que nada apartaba a un rastreador de
   `/api/v1/bi/*`. Va fuera de la versión, como `/` y `/health`.
 - **`GET /tenders` sin barra responde sin redirigir** (una ruta oculta junto a `/tenders/`). El
   navegador pide `/api/proxy/…/tenders/`, Next quita la barra y el proxy llega sin ella: con el

@@ -54,3 +54,11 @@ def test_la_api_tiene_robots_txt_y_aparta_los_datos():
     lineas = r.text.splitlines()
     assert "Disallow: /" in lineas
     assert "Allow: /docs" in lineas
+
+
+def test_robots_deja_leer_el_esquema_que_pintan_docs_y_redoc():
+    """`/docs` y `/redoc` son páginas vacías que piden el esquema con JavaScript:
+    con `/openapi.json` bajo `Disallow: /`, un rastreador que respeta robots.txt
+    las pintaba sin un solo endpoint."""
+    lineas = client.get("/robots.txt").text.splitlines()
+    assert f"Allow: {app.openapi_url}" in lineas

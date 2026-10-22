@@ -19,7 +19,13 @@ import { BuscadorProductos } from '@/components/publico/BuscadorProductos';
 import { PRODUCTOS_ESCALERA } from '@/lib/escaleraPrecios';
 import { PARAMETRO_BUSQUEDA_PRODUCTOS, rutaBusquedaProductos } from '@/lib/publico';
 
-let estado: { isPending: boolean; isError: boolean; isSuccess?: boolean; data?: unknown };
+let estado: {
+  isPending: boolean;
+  isError: boolean;
+  isSuccess?: boolean;
+  isPlaceholderData?: boolean;
+  data?: unknown;
+};
 let sugerencia: string | null = null;
 const sugerenciasPedidas: Array<[string, boolean]> = [];
 const pedidas: string[] = [];
@@ -255,6 +261,22 @@ describe('«¿Quisiste decir…?»', () => {
     urlInicial = new URLSearchParams({ [PARAMETRO_BUSQUEDA_PRODUCTOS]: 'guante' });
     render(<BuscadorProductos />);
     expect(screen.queryByText(/quisiste decir/i)).toBeNull();
+    expect(sugerenciasPedidas.every(([, habilitada]) => !habilitada)).toBe(true);
+  });
+
+  it('no la pide con el vacío del término anterior mientras llega el nuevo', () => {
+    // `placeholderData` deja `isSuccess` y el `[]` de «computdor» mientras se pide
+    // «impresora»: sin mirar `isPlaceholderData` se pedía la sugerencia de un
+    // término que sí encuentra, una llamada más al límite por IP.
+    estado = {
+      isPending: false,
+      isError: false,
+      isSuccess: true,
+      isPlaceholderData: true,
+      data: [],
+    };
+    urlInicial = new URLSearchParams({ [PARAMETRO_BUSQUEDA_PRODUCTOS]: 'impresora' });
+    render(<BuscadorProductos />);
     expect(sugerenciasPedidas.every(([, habilitada]) => !habilitada)).toBe(true);
   });
 });

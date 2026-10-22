@@ -108,7 +108,12 @@ function Buscador({ inicio }: { inicio?: React.ReactNode }) {
   const consulta = useBuscarProductosPublicos(retardado);
   const buscable = termino.length >= MINIMO_BUSQUEDA_PRODUCTOS;
   const resultados = buscable ? (consulta.data ?? []) : [];
-  const sugerencia = useSugerencia(termino, buscable && consulta.isSuccess && resultados.length === 0);
+  // Sin `isPlaceholderData`: mientras llega el término nuevo, `placeholderData`
+  // deja el `[]` del anterior, y se pedía la sugerencia de uno que sí encuentra.
+  const sugerencia = useSugerencia(
+    termino,
+    buscable && consulta.isSuccess && !consulta.isPlaceholderData && resultados.length === 0,
+  );
 
   // Con el término YA retardado —no con cada tecla— y sólo si se busca: la URL
   // es la búsqueda que se hizo. No toca estado de React: escribe fuera.

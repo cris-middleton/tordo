@@ -92,8 +92,12 @@ function CatalogoContenido() {
   // (60 por minuto; hasta #91 cada consulta contaba dos, por la redirección de
   // la barra final). Con dos montos y unas páginas, el catálogo respondía
   // «espera un momento».
-  const minimoPedido = useValorRetardado(filtros.min_amount, RETARDO_MONTO_MS);
-  const maximoPedido = useValorRetardado(filtros.max_amount, RETARDO_MONTO_MS);
+  // Un monto borrado se pide sin esperar: con «Borrar filtros», el retardo
+  // pedía primero el catálogo sin los demás filtros pero con el monto viejo.
+  const minimoRetardado = useValorRetardado(filtros.min_amount, RETARDO_MONTO_MS);
+  const maximoRetardado = useValorRetardado(filtros.max_amount, RETARDO_MONTO_MS);
+  const minimoPedido = filtros.min_amount === '' ? '' : minimoRetardado;
+  const maximoPedido = filtros.max_amount === '' ? '' : maximoRetardado;
   const consulta = useLicitaciones(
     paramsDeApi({ ...filtros, min_amount: minimoPedido, max_amount: maximoPedido }),
   );

@@ -133,6 +133,17 @@ describe('catálogo', () => {
     expect(screen.queryByRole('button', { name: 'Borrar filtros' })).not.toBeInTheDocument();
   });
 
+  it('«Borrar filtros» no pide una consulta a medias, sin filtros pero con el monto viejo', async () => {
+    // El monto se pide retardado; borrado, no: si no, durante el retardo se
+    // pedía el catálogo sin estado ni región pero con `min_amount=1000`, una
+    // consulta que nadie ve en pantalla y que gasta una del límite por IP.
+    urlInicial = new URLSearchParams('estado=Publicada&region=Región+del+Biobío&min_amount=1000&abiertas=1');
+    await montar();
+    fireEvent.click(screen.getByRole('button', { name: 'Borrar filtros' }));
+    await waitFor(() => expect(pedidas.at(-1)!.min_amount).toBeUndefined());
+    expect(pedidas.filter((p) => p.estado === undefined && p.min_amount !== undefined)).toEqual([]);
+  });
+
   it('cambiar de página vuelve al principio de la lista', async () => {
     respuesta = {
       data: {
