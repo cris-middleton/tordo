@@ -5,7 +5,8 @@
  * `rssServidor.ts` → `backendServidor.ts`, que lee `PROXY_SECRETO`.
  *
  * - **Como el visitante** (`pedirAlBackend`, el de los feeds): cada búsqueda
- *   cuenta en el límite por IP de quien busca —hasta cuatro llamadas—. Una
+ *   cuenta en el límite por IP de quien busca —hasta cuatro llamadas: la ficha
+ *   sólo si hubo productos, la sugerencia sólo si no hubo nada—. Una
  *   página dinámica, generada por visitante y exenta como un renderizado del
  *   servidor, sería una forma gratis de saltarse el límite.
  * - **Sin caché** (`no-store`): cada término es una URL distinta.
@@ -49,6 +50,10 @@ function esListaDeLicitaciones(d: unknown): d is LicitacionesEncontradas {
 
 function esDestacadas(d: unknown): d is CompraAgilDestacadasResponse {
   return esObjeto(d) && Array.isArray(d.items);
+}
+
+function esSugerencia(d: unknown): d is { sugerencia: string | null } {
+  return esObjeto(d) && (d.sugerencia === null || typeof d.sugerencia === 'string');
 }
 
 function esFicha(d: unknown): d is ProductoPublico {
@@ -127,4 +132,27 @@ export async function buscarTodo(
     : null;
 
   return { productos, ficha, licitaciones, comprasAgiles };
+}
+
+/**
+ * «¿Quisiste decir…?» (`GET /publico/sugerencia`). Sólo se pide cuando ningún
+ * bloque encontró nada, así que nunca suma una quinta llamada. Nunca lanza: sin
+ * respuesta, o con la misma búsqueda, `null`.
+ */
+export async function pedirSugerencia(
+  termino: string,
+  cabeceras: Headers,
+  { tiempoMaximoMs = TIEMPO_MAXIMO_BLOQUE_MS }: OpcionesBusqueda = {},
+): Promise<string | null> {
+  const bloque = await pedirBloque(
+    'la sugerencia',
+    '/publico/sugerencia',
+    new URLSearchParams({ q: termino }),
+    cabeceras,
+    esSugerencia,
+    tiempoMaximoMs,
+  );
+  if (bloque.estado !== 'ok' || !bloque.datos.sugerencia) return null;
+  const sugerencia = bloque.datos.sugerencia.trim();
+  return sugerencia && sugerencia.toLowerCase() !== termino.trim().toLowerCase() ? sugerencia : null;
 }

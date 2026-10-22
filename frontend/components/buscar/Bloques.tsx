@@ -88,9 +88,22 @@ export function EjemplosBusqueda() {
   );
 }
 
-export function SinResultados({ termino }: { termino: string }) {
+/**
+ * Nada encontró nada. Con `sugerencia` (`GET /publico/sugerencia`, la búsqueda con
+ * sus palabras mal escritas corregidas) la propone primero, enlazada.
+ */
+export function SinResultados({ termino, sugerencia = null }: { termino: string; sugerencia?: string | null }) {
   return (
     <div className="mt-8 border-y border-border py-6">
+      {sugerencia && (
+        <p className="mb-2 text-base text-text">
+          ¿Quisiste decir{' '}
+          <Link href={rutaBuscar(sugerencia)} className="enlace font-medium">
+            «{sugerencia}»
+          </Link>
+          ?
+        </p>
+      )}
       <p className="text-sm text-text">
         No encontramos «{termino}» en los precios pagados ni en lo que está abierto hoy.
       </p>

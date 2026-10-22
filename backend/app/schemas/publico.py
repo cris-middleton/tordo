@@ -154,6 +154,18 @@ class ProductoEncontrado(BaseModel):
     indexable: bool
 
 
+class SugerenciaBusqueda(BaseModel):
+    """La búsqueda con sus palabras desconocidas corregidas (`services/publico/sugerencias.py`)."""
+
+    sugerencia: str | None = Field(
+        None,
+        description=(
+            "La misma búsqueda con cada palabra mal escrita cambiada por la más parecida "
+            "que usan los compradores. Null si no hay nada que corregir."
+        ),
+    )
+
+
 class CompraAgilPorCierre(BaseModel):
     """Las Compras Ágiles abiertas según el día de Chile en que cierran. Suman
     `compra_agil_abiertas`."""

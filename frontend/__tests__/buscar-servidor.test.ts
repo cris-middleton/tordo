@@ -14,7 +14,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { COMPRAS_AGILES_EN_BUSCAR, LICITACIONES_EN_BUSCAR, PRODUCTOS_EN_BUSCAR, prepararBusqueda } from '@/lib/buscar';
-import { TIEMPO_MAXIMO_BLOQUE_MS, buscarTodo } from '@/lib/buscarServidor';
+import { TIEMPO_MAXIMO_BLOQUE_MS, buscarTodo, pedirSugerencia } from '@/lib/buscarServidor';
 import { pedirAlBackend } from '@/lib/rssServidor';
 
 import {
@@ -253,5 +253,36 @@ describe('buscarTodo', () => {
     const pedidas = simularBackend(TODO_BIEN);
     await expect(buscarTodo(prepararBusqueda('ab'), VISITANTE)).rejects.toThrow(/menos de tres letras/);
     expect(pedidas).toHaveLength(0);
+  });
+});
+
+describe('pedirSugerencia', () => {
+  it('pide la sugerencia como el visitante y la devuelve', async () => {
+    const pedidas = simularBackend({ '/publico/sugerencia': () => json({ sugerencia: 'computador' }) });
+    expect(await pedirSugerencia('computdor', VISITANTE)).toBe('computador');
+    expect(pedidas).toHaveLength(1);
+    const [pedida] = pedidas;
+    expect(pedida.url.pathname).toBe('/api/v1/publico/sugerencia');
+    expect(pedida.url.searchParams.get('q')).toBe('computdor');
+    const cabeceras = new Headers(pedida.init.headers);
+    expect(cabeceras.get('X-Tordo-Proxy')).toBe(SECRETO);
+    expect(cabeceras.get('X-Tordo-Visitante')).toBe('203.0.113.7');
+    expect(pedida.init.cache).toBe('no-store');
+  });
+
+  it('sin nada que corregir, o con la misma búsqueda, no hay sugerencia', async () => {
+    simularBackend({ '/publico/sugerencia': () => json({ sugerencia: null }) });
+    expect(await pedirSugerencia('xqz', VISITANTE)).toBeNull();
+    simularBackend({ '/publico/sugerencia': () => json({ sugerencia: 'Silla ' }) });
+    expect(await pedirSugerencia('silla', VISITANTE)).toBeNull();
+  });
+
+  it('un error, un 429 o una forma rara no lanzan: no hay sugerencia', async () => {
+    simularBackend({ '/publico/sugerencia': () => json({ detail: 'x' }, 500) });
+    expect(await pedirSugerencia('computdor', VISITANTE)).toBeNull();
+    simularBackend({ '/publico/sugerencia': () => json({ detail: 'Demasiadas' }, 429) });
+    expect(await pedirSugerencia('computdor', VISITANTE)).toBeNull();
+    simularBackend({ '/publico/sugerencia': () => json({ sugerencia: 3 }) });
+    expect(await pedirSugerencia('computdor', VISITANTE)).toBeNull();
   });
 });
