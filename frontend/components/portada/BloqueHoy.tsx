@@ -36,27 +36,30 @@ export function BloqueHoy({
 
   return (
     <section id="hoy" aria-labelledby="hoy-titulo" className={CLASE_SECCION}>
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h2 id="hoy-titulo" className="section-title">
+      {/* «Ver todas» va después de la descripción en el DOM: en un teléfono el título se
+          parte en dos líneas y el enlace quedaba entre él y su descripción. Desde `sm`, la
+          rejilla lo sube a la fila del título, a la derecha. */}
+      <div className="grid grid-cols-1 items-baseline gap-x-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+        <h2 id="hoy-titulo" className="section-title sm:col-start-1 sm:row-start-1">
           {TITULO_DESTACADAS}
         </h2>
+        <p className="mt-2 text-sm text-muted sm:col-span-2 sm:row-start-2">
+          {descripcionDestacadas(datos.historia_disponible === true)}
+          {!horaEnLaFranja && (
+            <>
+              {' '}
+              Actualizado el <span className="cifra">{actualizado}</span>.
+            </>
+          )}
+        </p>
         <Link
           href="/compra-agil"
           aria-label={`Ver todas: ${TITULO_DESTACADAS}`}
-          className="enlace py-1 text-sm"
+          className="enlace mt-1 justify-self-start py-1 text-sm sm:col-start-2 sm:row-start-1 sm:mt-0"
         >
           Ver todas
         </Link>
       </div>
-      <p className="mt-2 text-sm text-muted">
-        {descripcionDestacadas(datos.historia_disponible === true)}
-        {!horaEnLaFranja && (
-          <>
-            {' '}
-            Actualizado el <span className="cifra">{actualizado}</span>.
-          </>
-        )}
-      </p>
 
       {datos.items.length > 0 ? (
         <Lista
