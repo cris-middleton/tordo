@@ -307,7 +307,8 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
         </svg>
         {/* Rótulos directos: los organismos más grandes, por su nombre corto, del lado de
             adentro del anillo; y el grupo del centro, que es lo que dice la conclusión. */}
-        <div aria-hidden="true" className={`pointer-events-none ${activo != null ? 'opacity-0' : ''}`}>
+        {/* Desde `sm`: en el teléfono los rótulos se pisaban entre ellos y con el anillo; la leyenda basta. */}
+        <div aria-hidden="true" className={`pointer-events-none hidden sm:block ${activo != null ? 'opacity-0' : ''}`}>
           {rotulos.map((r) => (
             <span
               key={r.id}

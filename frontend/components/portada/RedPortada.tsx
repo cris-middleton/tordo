@@ -16,12 +16,13 @@ export function RedPortada({ lectura, className = '' }: { lectura: LecturaRed; c
       <h2 id="red-titulo" className="font-sans text-xl font-bold leading-snug text-text">
         {lectura.conclusion}
       </h2>
-      {/* Dos disposiciones de la misma red: casi cuadrada en el teléfono, apaisada desde `lg`.
-          La que no corresponde va con `display: none`, así que ni se lee ni se anima. */}
-      <div className="mt-4 lg:hidden">
+      {/* Dos disposiciones de la misma red: casi cuadrada en el teléfono, apaisada desde `md`
+          (a 768 px la cuadrada medía 720 × 684 y los nodos parecían botones). La que no
+          corresponde va con `display: none`, así que ni se lee ni se anima. */}
+      <div className="mt-4 md:hidden">
         <RedProveedores datos={lectura.graficoMovil} accesible={lectura.accesible} />
       </div>
-      <div className="mt-4 hidden lg:block">
+      <div className="mt-4 hidden md:block">
         <RedProveedores datos={lectura.grafico} accesible={lectura.accesible} />
       </div>
       {/* En el teléfono, cómo se lee va bajo la leyenda; desde `lg`, en la columna de al lado. */}

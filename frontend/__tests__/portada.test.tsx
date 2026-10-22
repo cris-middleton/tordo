@@ -753,8 +753,8 @@ describe('la red: quién le compra a quién', () => {
     const { container } = render(await Home());
     const grande = red(container) as HTMLElement;
     // Dos disposiciones de la misma red: la del teléfono y la de escritorio, una oculta en cada ancho.
-    const movil = grande.querySelector('.lg\\:hidden') as HTMLElement;
-    const escritorio = grande.querySelector('.hidden.lg\\:block') as HTMLElement;
+    const movil = grande.querySelector('.md\\:hidden') as HTMLElement;
+    const escritorio = grande.querySelector('.hidden.md\\:block') as HTMLElement;
     for (const red of [movil, escritorio]) {
       expect(red.querySelectorAll('[data-nodo="comprador"]')).toHaveLength(RED.compradores.length);
       expect(red.querySelectorAll('[data-nodo="proveedor"]')).toHaveLength(RED.proveedores.length);
