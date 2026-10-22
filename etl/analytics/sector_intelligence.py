@@ -74,39 +74,36 @@ def build_sector_dashboard() -> pl.DataFrame:
         for contador in distintos.values():
             contador.añadir(df)
 
-        batch = (
+        # Una fila por orden: el total de la ORDEN, una vez por orden (sector y
+        # región son de la orden, y el ticket es por orden, no por línea).
+        #
+        # **Se guardan las órdenes y se agrega al final**: `ticket_mediana` era
+        # el promedio de las medianas de cada archivo mensual ponderado por sus
+        # órdenes, que no es la mediana de la ventana.
+        frames.append(
             orden_por_fila(df)
             .filter(
                 pl.col("sector").is_not_null()
                 & (pl.col("sector") != "null")
                 & (pl.col("sector") != "")
             )
-            # El total de la ORDEN, una vez por orden: sector y región son de
-            # la orden, y el ticket es por orden, no por línea.
-            .with_columns(pl.col("MontoTotalOC_PesosChilenos").alias("monto"))
-            .group_by("sector")
-            .agg(
-                [
-                    pl.len().alias("n_oc"),
-                    pl.col("monto").sum().alias("monto_total"),
-                    pl.col("monto").median().alias("ticket_mediana"),
-                    pl.col("monto").mean().alias("ticket_promedio"),
-                ]
-            )
+            .select("sector", pl.col("MontoTotalOC_PesosChilenos").alias("monto"))
         )
-        frames.append(batch)
 
     if not frames:
         return pl.DataFrame()
 
-    combined = pl.concat(frames, how="diagonal_relaxed")
-    result = combined.group_by("sector").agg(
-        [
-            pl.col("n_oc").sum(),
-            pl.col("monto_total").sum(),
-            (pl.col("ticket_mediana") * pl.col("n_oc")).sum().alias("_wt_med"),
-            (pl.col("ticket_promedio") * pl.col("n_oc")).sum().alias("_wt_avg"),
-        ]
+    result = (
+        pl.concat(frames, how="vertical_relaxed")
+        .group_by("sector")
+        .agg(
+            [
+                pl.len().alias("n_oc"),
+                pl.col("monto").sum().alias("monto_total"),
+                pl.col("monto").median().alias("ticket_mediana"),
+                pl.col("monto").mean().alias("ticket_promedio"),
+            ]
+        )
     )
     for alias, contador in distintos.items():
         conteos = contador.conteos(alias)
@@ -115,24 +112,18 @@ def build_sector_dashboard() -> pl.DataFrame:
             if not conteos.is_empty()
             else result.with_columns(pl.lit(None, dtype=pl.UInt32).alias(alias))
         )
-    result = (
-        result.with_columns(
-            [
-                (pl.col("_wt_med") / pl.col("n_oc")).alias("ticket_mediana"),
-                (pl.col("_wt_avg") / pl.col("n_oc")).alias("ticket_promedio"),
-                # Accesibilidad: más proveedores por OC = más competitivo pero más accesible
-                (pl.col("n_proveedores") / pl.col("n_oc").clip(lower_bound=1)).alias(
-                    "ratio_proveedores_oc"
-                ),
-                # Monto promedio por organismo (tamaño del comprador promedio)
-                (pl.col("monto_total") / pl.col("n_organismos").clip(lower_bound=1)).alias(
-                    "monto_por_organismo"
-                ),
-            ]
-        )
-        .drop(["_wt_med", "_wt_avg"])
-        .sort("monto_total", descending=True)
-    )
+    result = result.with_columns(
+        [
+            # Accesibilidad: más proveedores por OC = más competitivo pero más accesible
+            (pl.col("n_proveedores") / pl.col("n_oc").clip(lower_bound=1)).alias(
+                "ratio_proveedores_oc"
+            ),
+            # Monto promedio por organismo (tamaño del comprador promedio)
+            (pl.col("monto_total") / pl.col("n_organismos").clip(lower_bound=1)).alias(
+                "monto_por_organismo"
+            ),
+        ]
+    ).sort("monto_total", descending=True)
 
     logger.info(f"Sectores: {len(result):,}")
     return result

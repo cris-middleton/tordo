@@ -196,16 +196,12 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
                     ]
                 )
                 .filter((pl.col("dias_aceptacion") >= 0) & (pl.col("dias_aceptacion") <= 365))
-                .group_by(org_col)
-                .agg(
-                    [
-                        pl.col("dias_aceptacion").median().alias("mediana_dias_aceptacion"),
-                        pl.col("dias_aceptacion").quantile(0.75).alias("p75_dias_aceptacion"),
-                        pl.col("dias_aceptacion").quantile(0.90).alias("p90_dias_aceptacion"),
-                        pl.col("dias_aceptacion").mean().alias("promedio_dias_aceptacion"),
-                        pl.len().alias("n_con_fecha_aceptacion"),
-                    ]
-                )
+                # Una fila por orden, y los percentiles al final sobre todas: se
+                # calculaban por archivo mensual y se promediaban, y el promedio
+                # de las medianas de cada mes no es la mediana de la ventana. Con
+                # las banderas de abajo cortando en 5 y 15 días, eso decidía quién
+                # salía marcado.
+                .select(org_col, pl.col("dias_aceptacion").cast(pl.Int16))
             )
             payment_frames.append(pay)
 
@@ -280,50 +276,16 @@ def build_oc_buyer_metrics() -> pl.DataFrame:
 
     # Velocidad de pago
     if payment_frames:
-        payments = pl.concat(payment_frames, how="diagonal_relaxed")
         payments = (
-            payments.group_by(org_col)
+            pl.concat(payment_frames, how="vertical_relaxed")
+            .group_by(org_col)
             .agg(
                 [
-                    (pl.col("mediana_dias_aceptacion") * pl.col("n_con_fecha_aceptacion"))
-                    .sum()
-                    .alias("_wt_med"),
-                    (pl.col("p75_dias_aceptacion") * pl.col("n_con_fecha_aceptacion"))
-                    .sum()
-                    .alias("_wt_p75"),
-                    (pl.col("p90_dias_aceptacion") * pl.col("n_con_fecha_aceptacion"))
-                    .sum()
-                    .alias("_wt_p90"),
-                    (pl.col("promedio_dias_aceptacion") * pl.col("n_con_fecha_aceptacion"))
-                    .sum()
-                    .alias("_wt_avg"),
-                    pl.col("n_con_fecha_aceptacion").sum(),
-                ]
-            )
-            .with_columns(
-                [
-                    (pl.col("_wt_med") / pl.col("n_con_fecha_aceptacion")).alias(
-                        "mediana_dias_aceptacion"
-                    ),
-                    (pl.col("_wt_p75") / pl.col("n_con_fecha_aceptacion")).alias(
-                        "p75_dias_aceptacion"
-                    ),
-                    (pl.col("_wt_p90") / pl.col("n_con_fecha_aceptacion")).alias(
-                        "p90_dias_aceptacion"
-                    ),
-                    (pl.col("_wt_avg") / pl.col("n_con_fecha_aceptacion")).alias(
-                        "promedio_dias_aceptacion"
-                    ),
-                ]
-            )
-            .select(
-                [
-                    org_col,
-                    "mediana_dias_aceptacion",
-                    "p75_dias_aceptacion",
-                    "p90_dias_aceptacion",
-                    "promedio_dias_aceptacion",
-                    "n_con_fecha_aceptacion",
+                    pl.col("dias_aceptacion").median().alias("mediana_dias_aceptacion"),
+                    pl.col("dias_aceptacion").quantile(0.75).alias("p75_dias_aceptacion"),
+                    pl.col("dias_aceptacion").quantile(0.90).alias("p90_dias_aceptacion"),
+                    pl.col("dias_aceptacion").mean().alias("promedio_dias_aceptacion"),
+                    pl.len().alias("n_con_fecha_aceptacion"),
                 ]
             )
         )
