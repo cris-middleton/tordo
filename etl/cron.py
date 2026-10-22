@@ -42,6 +42,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
+from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -614,6 +615,19 @@ ETIQUETAS_SEMANAL = ["analytics"]
 ETIQUETAS_FRECUENTE = ["compra-agil"]
 
 
+#: Donde `REVALIDAR_URL` puede ir sin TLS: sólo la propia máquina (local y E2E).
+HOSTS_SIN_TLS = frozenset({"localhost", "127.0.0.1", "::1", "host.docker.internal"})
+
+
+def url_segura(url: str) -> bool:
+    """`https://`, o `http://` a la propia máquina. El secreto viaja en una cabecera:
+    una URL `http://` mal escrita en la configuración lo mandaba en claro."""
+    partes = urlsplit(url)
+    return partes.scheme == "https" or (
+        partes.scheme == "http" and (partes.hostname or "") in HOSTS_SIN_TLS
+    )
+
+
 class Revalidador:
     """Pide a Next que regenere las páginas de unas etiquetas. Nunca lanza.
 
@@ -643,6 +657,12 @@ class Revalidador:
         if not (self.url and self.secreto):
             logger.info(
                 "revalidación: sin REVALIDAR_URL o REVALIDAR_SECRETO — %s omitida", etiquetas
+            )
+            return False
+        if not url_segura(self.url):
+            logger.error(
+                "revalidación de %s omitida: REVALIDAR_URL no es https y el secreto iría en claro",
+                etiquetas,
             )
             return False
         try:

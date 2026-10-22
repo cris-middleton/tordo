@@ -62,6 +62,26 @@ def test_sin_las_dos_variables_no_hace_nada(url, secreto, caplog):
 
 
 @pytest.mark.parametrize(
+    "url",
+    ["http://tordo.cl/api/revalidar", "ftp://tordo.cl/x", "tordo.cl/api/revalidar"],
+)
+def test_sin_https_no_manda_el_secreto(url, caplog):
+    """El secreto va en una cabecera: por `http://` viajaría en claro."""
+    next_falso = _Next()
+    with caplog.at_level(logging.ERROR, logger="etl.cron"):
+        assert _revalidador(next_falso, url).revalidar(["analytics"]) is False
+    assert next_falso.peticiones == []
+    assert "no es https" in caplog.text
+    assert SECRETO not in caplog.text
+
+
+def test_en_la_propia_maquina_http_vale():
+    next_falso = _Next()
+    assert _revalidador(next_falso, "http://localhost:3000/api/revalidar").revalidar(["analytics"])
+    assert len(next_falso.peticiones) == 1
+
+
+@pytest.mark.parametrize(
     "estado,pista",
     [(401, "secreto"), (400, "cuerpo"), (503, "no tiene"), (500, "inesperada")],
 )
