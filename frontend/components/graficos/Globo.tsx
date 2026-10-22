@@ -29,7 +29,7 @@ export function Globo({
 }) {
   const posicion =
     modo === 'encima'
-      ? { left: `clamp(0px, calc(${x}% - 7.5rem), calc(100% - 15rem))`, bottom: 'calc(100% + 6px)' }
+      ? { left: `clamp(0px, calc(${x}% - 8rem), calc(100% - 16rem))`, bottom: 'calc(100% + 6px)' }
       : x < 50
         ? { left: `calc(${x + medio}% + 8px)`, top: 0 }
         : { right: `calc(${100 - x + medio}% + 8px)`, top: 0 };
@@ -37,7 +37,7 @@ export function Globo({
     <div
       aria-hidden="true"
       data-globo=""
-      className="pointer-events-none absolute z-10 w-60 rounded-md border border-border-light bg-surface px-3 py-2 text-[13px] leading-snug text-text"
+      className="pointer-events-none absolute z-10 w-64 rounded-md border border-border-light bg-surface px-3 py-2 text-[13px] leading-snug text-text"
       style={posicion}
     >
       {children}

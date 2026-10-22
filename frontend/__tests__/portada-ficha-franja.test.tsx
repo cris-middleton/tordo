@@ -85,9 +85,22 @@ const FRANJA: DatosFranja = {
   publicadasHoy: '612 licitaciones y Compras Ágiles',
   masPublicaHoy: 'Servicio de Salud Metropolitano Sur',
   actualizado: 'mié, 14 oct, 13:17',
+  rotuloPublicadas: 'Publicadas hoy',
+  rotuloMasPublica: 'Más publica hoy',
 };
 
 describe('FranjaPortada', () => {
+  it('con el conteo de otro día, el rótulo dice de qué día', () => {
+    const { container } = render(
+      <FranjaPortada franja={{ ...FRANJA, rotuloPublicadas: 'Publicadas el mar 20 oct', rotuloMasPublica: 'Más publicó ese día' }} />,
+    );
+    expect([...container.querySelectorAll('dt')].map((d) => d.textContent)).toEqual([
+      'Publicadas el mar 20 oct:',
+      'Más publicó ese día:',
+      'Actualizado el',
+    ]);
+  });
+
   it('tres celdas: publicadas hoy, quién más publica y la hora', () => {
     const { container } = render(<FranjaPortada franja={FRANJA} />);
     expect([...container.querySelectorAll('dt')].map((d) => d.textContent)).toEqual([
@@ -111,7 +124,7 @@ describe('FranjaPortada', () => {
   });
 
   it('sin publicadas hoy, sólo la hora', () => {
-    render(<FranjaPortada franja={{ publicadasHoy: null, masPublicaHoy: null, actualizado: FRANJA.actualizado }} />);
+    render(<FranjaPortada franja={{ ...FRANJA, publicadasHoy: null, masPublicaHoy: null }} />);
     expect(screen.queryByText('Publicadas hoy:')).toBeNull();
     expect(screen.queryByText('Más publica hoy:')).toBeNull();
     expect(screen.getByText('Actualizado el')).toBeInTheDocument();
@@ -119,7 +132,7 @@ describe('FranjaPortada', () => {
 
   it('con sólo la hora, su celda no queda sangrada desde lg', () => {
     const { container } = render(
-      <FranjaPortada franja={{ publicadasHoy: null, masPublicaHoy: null, actualizado: FRANJA.actualizado }} />,
+      <FranjaPortada franja={{ ...FRANJA, publicadasHoy: null, masPublicaHoy: null }} />,
     );
     const dl = container.querySelector('dl') as HTMLElement;
     expect(dl.children).toHaveLength(1);

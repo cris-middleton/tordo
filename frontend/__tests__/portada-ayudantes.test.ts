@@ -28,6 +28,7 @@ import {
   SE_ACTUALIZA,
   SUBTITULO_PORTADA,
   tiraDeLaPortada,
+  vigenciaDelResumen,
 } from '@/lib/portada';
 import { MAXIMO_BUSQUEDA_PRODUCTOS, MINIMO_BUSQUEDA_PRODUCTOS } from '@/lib/queries';
 import type { ResumenPortada } from '@/types/publico';
@@ -182,6 +183,35 @@ describe('baseDeLaFicha (spec PORTADA_V7 §3.5, V6): la escala del dato, calcula
   });
 });
 
+describe('vigenciaDelResumen', () => {
+  const RESUMEN_ISO = '2026-10-20T19:13:00-03:00';
+  const en = (iso: string) => vigenciaDelResumen(RESUMEN_ISO, Date.parse(iso));
+
+  it('la misma tarde, al día y del mismo día', () => {
+    expect(en('2026-10-20T21:00:00-03:00')).toEqual({ alDia: true, mismoDia: true });
+  });
+
+  it('a la mañana siguiente antes de la corrida de las 10: al día, pero de ayer', () => {
+    expect(en('2026-10-21T09:00:00-03:00')).toEqual({ alDia: true, mismoDia: false });
+  });
+
+  it('el 21-10 por la noche, sin ninguna corrida del día (Railway caído): atrasado y de ayer', () => {
+    expect(en('2026-10-21T22:28:00-03:00')).toEqual({ alDia: false, mismoDia: false });
+  });
+
+  it('sin hora legible, nada es vigente', () => {
+    expect(vigenciaDelResumen('ayer', Date.parse('2026-10-21T09:00:00-03:00'))).toEqual({ alDia: false, mismoDia: false });
+    expect(vigenciaDelResumen(null, Date.parse('2026-10-21T09:00:00-03:00'))).toEqual({ alDia: false, mismoDia: false });
+  });
+});
+
+describe('tiraDeLaPortada atrasada', () => {
+  it('al día no dice de cuándo; atrasada, sí', () => {
+    expect(tiraDeLaPortada(RESUMEN)?.atrasado).toBeNull();
+    expect(tiraDeLaPortada(RESUMEN, { alDia: false, mismoDia: false })?.atrasado).toBe('el miércoles 14 de octubre a las 11:00');
+  });
+});
+
 describe('franjaDeLaPortada', () => {
   const CON_HOY: ResumenPortada = {
     ...RESUMEN,
@@ -194,7 +224,15 @@ describe('franjaDeLaPortada', () => {
       publicadasHoy: '612 licitaciones y Compras Ágiles',
       masPublicaHoy: 'Servicio de Salud Metropolitano Sur',
       actualizado: 'mié, 14 oct, 11:00',
+      rotuloPublicadas: 'Publicadas hoy',
+      rotuloMasPublica: 'Más publica hoy',
     });
+  });
+
+  it('con el conteo de otro día, los rótulos dicen de qué día y no «hoy»', () => {
+    const franja = franjaDeLaPortada(CON_HOY, { alDia: false, mismoDia: false });
+    expect(franja?.rotuloPublicadas).toBe('Publicadas el mié 14 oct');
+    expect(franja?.rotuloMasPublica).toBe('Más publicó ese día');
   });
 
   it('con 0 publicadas hoy (cada madrugada) se ocultan las dos celdas; la hora sigue', () => {
@@ -202,6 +240,8 @@ describe('franjaDeLaPortada', () => {
       publicadasHoy: null,
       masPublicaHoy: null,
       actualizado: 'mié, 14 oct, 11:00',
+      rotuloPublicadas: 'Publicadas hoy',
+      rotuloMasPublica: 'Más publica hoy',
     });
   });
 
@@ -213,7 +253,7 @@ describe('franjaDeLaPortada', () => {
   });
 
   it('un backend sin los campos nuevos: sólo la hora', () => {
-    expect(franjaDeLaPortada(RESUMEN)).toEqual({ publicadasHoy: null, masPublicaHoy: null, actualizado: 'mié, 14 oct, 11:00' });
+    expect(franjaDeLaPortada(RESUMEN)).toMatchObject({ publicadasHoy: null, masPublicaHoy: null, actualizado: 'mié, 14 oct, 11:00' });
   });
 
   it.each([

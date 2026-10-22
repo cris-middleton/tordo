@@ -23,13 +23,13 @@ export function FranjaPortada({ franja }: { franja: DatosFranja }) {
     >
       {franja.publicadasHoy && (
         <div className="flex gap-2 py-3 lg:flex-none lg:pr-6 lg:first:pl-0">
-          <dt className="shrink-0">Publicadas hoy:</dt>
+          <dt className="shrink-0">{franja.rotuloPublicadas}:</dt>
           <dd className="cifra font-semibold text-text lg:whitespace-nowrap">{franja.publicadasHoy}</dd>
         </div>
       )}
       {franja.masPublicaHoy && (
         <div className="flex min-w-0 gap-2 py-3 lg:flex-1 lg:px-6 lg:first:pl-0">
-          <dt className="shrink-0">Más publica hoy:</dt>
+          <dt className="shrink-0">{franja.rotuloMasPublica}:</dt>
           <dd className="min-w-0 truncate font-semibold text-text" title={franja.masPublicaHoy}>
             {franja.masPublicaHoy}
           </dd>

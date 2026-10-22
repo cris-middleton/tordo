@@ -10,6 +10,7 @@ import {
   pedirSectoresPortada,
 } from '@/lib/publicoServidor';
 import { nombreAutor, rolAutor, urlAutor } from '@/lib/autor';
+import { horaDelRender } from '@/lib/horaChile';
 import { leerNotas } from '@/lib/notas';
 import { MESES_PRECIOS } from '@/lib/periodo';
 import { urlRepositorio } from '@/lib/repositorio';
@@ -77,12 +78,13 @@ export const metadata: Metadata = {
 };
 
 export default async function Home() {
-  const [destacadas, resumen, sectores, mercado, producto] = await Promise.all([
+  const [destacadas, resumen, sectores, mercado, producto, ahora] = await Promise.all([
     pedirDestacadas(DESTACADAS_EN_PORTADA),
     pedirResumenPortada(),
     pedirSectoresPortada(),
     pedirMercadoPortada(),
     pedirProductoPortada(),
+    horaDelRender(),
   ]);
   return (
     <Portada
@@ -96,6 +98,7 @@ export default async function Home() {
       autor={nombreAutor()}
       rol={rolAutor()}
       urlAutor={urlAutor()}
+      ahora={ahora}
     />
   );
 }

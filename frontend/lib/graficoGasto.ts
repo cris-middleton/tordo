@@ -77,6 +77,10 @@ export interface GraficoGasto {
   tipico: number;
   /** pico / típico. */
   veces: number;
+  /** Dónde va la línea del mes típico: desde abajo, en % del alto del gráfico. */
+  yTipico: number;
+  /** El índice del mes más alto en `meses`: lleva su rótulo encima. */
+  indicePico: number;
   /** Los años que empiezan dentro del gráfico: dónde va cada rótulo del eje. */
   anios: { anio: number; indice: number }[];
 }
@@ -110,16 +114,34 @@ const esFila = (f: GastoMensual) =>
   Number.isFinite(f.monto) &&
   f.monto >= 0;
 
+/** El mes de Chile en que cae un instante, como índice `año·12 + mes − 1`. */
+export function mesDeChile(instante: number): number {
+  const partes = new Intl.DateTimeFormat('es-CL', { timeZone: 'America/Santiago', year: 'numeric', month: 'numeric' }).formatToParts(
+    instante,
+  );
+  const valor = (tipo: string) => Number(partes.find((p) => p.type === tipo)!.value);
+  return valor('year') * 12 + valor('month') - 1;
+}
+
 /**
  * Las columnas, de la más vieja a la más nueva, con los meses que falten entre
  * la primera y la última rellenos en cero (un hueco en el tiempo se ve como
  * hueco, no como dos meses pegados). `null` si no hay con qué decir algo verdadero:
  * menos de `MINIMO_MESES`, una fila ilegible o un total en cero.
  */
-export function graficoGasto(filas: GastoMensual[] | null | undefined): GraficoGasto | null {
+export function graficoGasto(filas: GastoMensual[] | null | undefined, ahora?: number): GraficoGasto | null {
   if (!filas?.length || !filas.every(esFila)) return null;
 
   const indice = (anio: number, mes: number) => anio * 12 + mes - 1;
+  // **Sólo meses cerrados.** El mes en curso va a medias y se leía como un desplome
+  // (octubre de 2026: $0,7 billones contra $1,3 de un mes típico, el 21-10). El ETL
+  // ya deja fuera el mes en curso de sus datos (#57), pero la tabla se materializa
+  // el domingo y el mes cambia entremedio: se corta aquí también, con la hora del render.
+  if (ahora !== undefined) {
+    const enCurso = mesDeChile(ahora);
+    filas = filas.filter((f) => indice(f.anio, f.mes) < enCurso);
+    if (!filas.length) return null;
+  }
   const primero = Math.min(...filas.map((f) => indice(f.anio, f.mes)));
   const ultimo = Math.max(...filas.map((f) => indice(f.anio, f.mes)));
   const cuantos = ultimo - primero + 1;
@@ -170,7 +192,8 @@ export function graficoGasto(filas: GastoMensual[] | null | undefined): GraficoG
     marcas.push({ valor: v, texto: `$${decimal(v / escala.divisor, digitos).replace(/,0$/, '')}`, y: (v / maximo) * 100 });
   }
 
-  const pico = meses.reduce((a, m) => (m.total > a.total ? m : a), meses[0]);
+  const indicePico = meses.reduce((a, m, i) => (m.total > meses[a].total ? i : a), 0);
+  const pico = meses[indicePico];
   const tipico = mediana(totales);
   // Un rótulo por año, en su enero. El año del primer mes sólo si le quedan al
   // menos cuatro meses antes del enero siguiente: si no, los dos rótulos se pisan.
@@ -185,9 +208,19 @@ export function graficoGasto(filas: GastoMensual[] | null | undefined): GraficoG
     pico,
     tipico,
     veces: tipico > 0 ? pico.total / tipico : 0,
+    yTipico: (tipico / maximo) * 100,
+    indicePico,
     anios,
   };
 }
 
-/** «1,6 veces». */
-export const veces = (v: number) => `${decimal(v, 1)} veces`;
+/**
+ * «1,6 veces». Dos y tres, en palabras: «2,0 veces un mes típico» se lee peor que
+ * «el doble de un mes típico».
+ */
+export const veces = (v: number) => {
+  const redondo = decimal(v, 1);
+  if (redondo === '2,0') return 'el doble de';
+  if (redondo === '3,0') return 'el triple de';
+  return `${redondo} veces`;
+};
