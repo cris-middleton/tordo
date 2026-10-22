@@ -23,6 +23,7 @@ estado congelado en el de la primera vez que se vio.
 
 from __future__ import annotations
 
+import re
 import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, Iterator, List
@@ -80,6 +81,13 @@ class CuotaDiariaAgotada(RuntimeError):
     """La API respondió 429. No se reintenta: la cuota vuelve mañana."""
 
 
+#: Cabeceras de respuesta que podrían decir cuánta cuota queda. No se conoce la
+#: cuota diaria de la API (docs/deploy_steps/tareas_manuales.md §2): el
+#: 2026-10-21 la corrida de las 16 h recibió 429 en su primera petición y no
+#: había cómo saber cuántas se habían gastado. Se registra lo que venga.
+CABECERAS_DE_CUOTA = re.compile(r"ratelimit|rate-limit|quota|cuota|remaining|retry-after", re.I)
+
+
 class CompraAgilExtractor(BaseExtractor):
     """Lee Compras Ágiles de la API v2 de Mercado Público."""
 
@@ -100,6 +108,10 @@ class CompraAgilExtractor(BaseExtractor):
         self.api_url = f"{self.base_url}/v2/compra-agil"
         self.max_retries = int(entrada.get("MAX_RETRIES", 3))
         self.retry_delay = int(entrada.get("RETRY_DELAY", 2))
+        #: Peticiones que respondió la API en esta corrida (listado y detalles):
+        #: lo único que se sabe del gasto de cuota mientras no se conozca.
+        self.peticiones = 0
+        self._cuota_vista: Dict[str, str] = {}
 
     def validate(self, data: Dict[str, Any]) -> bool:
         """Un registro sirve si tiene código y fecha de publicación.
@@ -141,11 +153,20 @@ class CompraAgilExtractor(BaseExtractor):
             )
             return None
 
+        self.peticiones += 1
+        cuota = self._anotar_cuota(respuesta)
         if respuesta.status_code == 429:
             # No se reintenta a propósito: la cuota es DIARIA. Insistir hoy sólo
-            # consume lo que quede para el resto de procesos.
+            # consume lo que quede para el resto de procesos. El mensaje lleva lo
+            # que se sabe —cuántas pidió esta corrida, las cabeceras y lo que dijo
+            # la API— porque es lo que llega al log y al /fail del latido.
+            cuerpo = (getattr(respuesta, "text", "") or "")[:200].strip()
             raise CuotaDiariaAgotada(
-                "La API de Compra Ágil agotó su cuota diaria. Se restablece mañana."
+                "La API de Compra Ágil agotó su cuota diaria. Se restablece mañana. "
+                f"Esta corrida llevaba {self.peticiones} petición(es)"
+                + (f"; cabeceras de cuota: {cuota}" if cuota else "")
+                + (f"; la API dijo: {cuerpo}" if cuerpo else "")
+                + "."
             )
         if respuesta.status_code in (401, 403):
             # Verificado en vivo (2026-10-12): un ticket inválido responde 401 con
@@ -176,6 +197,15 @@ class CompraAgilExtractor(BaseExtractor):
             return None
 
         return respuesta.json()
+
+    def _anotar_cuota(self, respuesta: Any) -> Dict[str, str]:
+        """Las cabeceras de cuota de la respuesta; se registran cuando cambian."""
+        cabeceras = getattr(respuesta, "headers", None) or {}
+        cuota = {k: str(v) for k, v in cabeceras.items() if CABECERAS_DE_CUOTA.search(k)}
+        if cuota and cuota != self._cuota_vista:
+            self.logger.info("Compra Ágil: cabeceras de cuota %s", cuota)
+            self._cuota_vista = cuota
+        return cuota
 
     @staticmethod
     def _payload(cuerpo: Dict[str, Any] | None) -> Dict[str, Any] | None:

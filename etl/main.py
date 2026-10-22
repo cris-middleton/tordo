@@ -146,6 +146,7 @@ def run_etl_compra_agil(cambio_desde=None, cambio_hasta=None, cuota_agotada_es_f
         logger.info("Compra Ágil: sin ticket configurado — se omite")
         return True
 
+    extractor = None
     try:
         extractor = CompraAgilExtractor(
             {
@@ -213,6 +214,14 @@ def run_etl_compra_agil(cambio_desde=None, cambio_hasta=None, cuota_agotada_es_f
     except Exception as exc:
         logger.error("ETL de Compra Ágil falló: %s", exc, exc_info=True)
         return False
+    finally:
+        # Lo que gastó esta pasada de la cuota diaria, que no se conoce: sumado
+        # entre las corridas de un día, dice cuánto aguanta antes del 429.
+        # Un registro no puede tumbar la corrida: `getattr` por si el extractor
+        # no las cuenta (un doble de los tests, o uno que falló al construirse).
+        peticiones = getattr(extractor, "peticiones", None)
+        if peticiones is not None:
+            logger.info("Compra Ágil: %d peticiones a la API en esta pasada", peticiones)
 
 
 def _completar_compras_agiles(extractor, loader, cuota_agotada_es_fallo=False) -> None:
