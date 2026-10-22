@@ -187,6 +187,21 @@ def test_mapea_a_la_forma_de_licitaciones():
     assert fila["fecha_publicacion"].year == 2026
 
 
+def test_el_monto_va_en_pesos_y_la_moneda_lo_dice():
+    """`monto_estimado` es `monto_disponible_clp`, ya en pesos. La moneda salía
+    de `montos.moneda`, la ORIGINAL: una Compra Ágil en UF quedaba con la cifra
+    en pesos rotulada «UF» («3.900.000 UF» en la ficha). La original y su monto
+    quedan en `informacion_adicional`."""
+    en_uf = {
+        **ITEM,
+        "montos": {"moneda": "CLF", "monto_disponible": 100, "monto_disponible_clp": 3_900_000},
+    }
+    fila = CompraAgilTransformer().transform(en_uf)
+    assert (fila["monto_estimado"], fila["moneda"]) == (3_900_000, "CLP")
+    assert fila["informacion_adicional"]["moneda_original"] == "CLF"
+    assert fila["informacion_adicional"]["monto_disponible_original"] == 100
+
+
 def test_el_llamado_se_conserva_aunque_no_tenga_columna():
     """Una Compra Ágil desierta en el primer llamado se vuelve a abrir.
 

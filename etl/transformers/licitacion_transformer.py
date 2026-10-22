@@ -127,7 +127,11 @@ class LicitacionTransformer(BaseTransformer):
             "fecha_final": fecha_final,
             "monto_estimado": monto_estimado,
             "monto_total": monto_total,
-            "moneda": data.get("Moneda") or data.get("moneda") or "CLP",
+            # Sin «CLP» por defecto: el listado no trae `Moneda`, y un texto no
+            # vacío pisaba en el upsert la que había copiado el detalle (una
+            # licitación en UF quedaba con la cifra en UF y la moneda en pesos).
+            # None no borra nada; la pone el detalle.
+            "moneda": data.get("Moneda") or data.get("moneda") or None,
             "tipo_moneda": data.get("TipoMoneda") or data.get("tipoMoneda") or "CLP",
             "estado": (
                 data.get("Estado")
