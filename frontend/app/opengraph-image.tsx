@@ -4,6 +4,7 @@ import { COLORES_IMAGEN as C } from '@/lib/coloresImagen';
 import { fuentesImagen } from '@/lib/fuentesImagen';
 import { OJO_PAJARO, TRAZOS_PAJARO, VIEWBOX_PAJARO } from '@/lib/pajaroImagen';
 import { origenDelSitio } from '@/lib/publico';
+import { ALT_VISTA_PREVIA } from '@/lib/vistaPrevia';
 
 /*
  * La tarjeta de vista previa al compartir un enlace del sitio (1200×630).
@@ -21,7 +22,7 @@ import { origenDelSitio } from '@/lib/publico';
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Tordo';
 const DOMINIO = origenDelSitio().replace(/^https?:\/\//, '');
 
-export const alt = `${APP_NAME}: cuánto paga el Estado por lo que vendes. Precios pagados, licitaciones abiertas y Compra Ágil, con datos públicos de ChileCompra`;
+export const alt = ALT_VISTA_PREVIA;
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 

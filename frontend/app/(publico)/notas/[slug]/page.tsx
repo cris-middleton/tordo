@@ -18,6 +18,7 @@ import {
   urlEnRepositorio,
 } from '@/lib/notas';
 import { urlRepositorio } from '@/lib/repositorio';
+import { IMAGEN_OPEN_GRAPH } from '@/lib/vistaPrevia';
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -48,6 +49,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       url: ruta,
       type: 'article',
       publishedTime: nota.fecha,
+      images: [IMAGEN_OPEN_GRAPH],
     },
   };
 }

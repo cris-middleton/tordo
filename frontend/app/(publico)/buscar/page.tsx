@@ -19,6 +19,7 @@ import {
 } from '@/lib/buscar';
 import { buscarTodo } from '@/lib/buscarServidor';
 import { MESES_PRECIOS } from '@/lib/periodo';
+import { IMAGEN_OPEN_GRAPH, IMAGEN_TWITTER } from '@/lib/vistaPrevia';
 import type { ResultadosBusqueda } from '@/types/buscar';
 
 /**
@@ -56,8 +57,8 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     title: buscable ? `Buscar «${termino}»` : 'Buscar',
     description: descripcion,
     robots: { index: false, follow: true },
-    openGraph: { title: 'Buscar', description: descripcion },
-    twitter: { title: 'Buscar', description: descripcion },
+    openGraph: { title: 'Buscar', description: descripcion, images: [IMAGEN_OPEN_GRAPH] },
+    twitter: { card: 'summary_large_image', title: 'Buscar', description: descripcion, images: [IMAGEN_TWITTER] },
   };
 }
 

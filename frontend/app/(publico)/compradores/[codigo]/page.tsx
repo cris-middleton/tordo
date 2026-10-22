@@ -15,6 +15,7 @@ import {
   entero,
   fechaCorta,
   metadataComprador,
+  nombreDeComprador,
   panelDesdePerfil,
   plata,
   rutaRubro,
@@ -25,7 +26,6 @@ import { pedirPublico, segmento } from '@/lib/publicoServidor';
 import type { CompradorPublico } from '@/types/publico';
 import { TITULO_DESTACADAS } from '@/lib/compraAgil';
 import { decimal } from '@/lib/formato';
-import { normalizeText } from '@/lib/nombresChile';
 import { etiquetaPublicadas, MESES_COMPRA_AGIL } from '@/lib/periodo';
 
 /**
@@ -49,15 +49,15 @@ type Props = { params: Promise<{ codigo: string }> };
 
 /**
  * El nombre llega en MAYÚSCULAS desde analytics («I MUNICIPALIDAD DE AYSEN»): se
- * escribe como en el resto del sitio (`normalizeText`) en el título, los
- * metadatos y el perfil.
+ * escribe como en el resto del sitio (`nombreDeComprador`) en el título, los
+ * metadatos y el perfil, y sin nombre la ficha se titula con el código.
  */
 async function obtener(codigo: string): Promise<CompradorPublico> {
   // Un código con otra forma no existe: 404 sin llamar al backend (`lib/parametrosPublicos.ts`).
   if (!esCodigoComprador(codigo)) notFound();
   const comprador = await pedirPublico<CompradorPublico>(`/compradores/${segmento(codigo)}`);
   if (!comprador) notFound();
-  return { ...comprador, nombre: normalizeText(comprador.nombre) };
+  return { ...comprador, nombre: nombreDeComprador(comprador.nombre, comprador.codigo) };
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

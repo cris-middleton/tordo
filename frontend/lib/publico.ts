@@ -9,7 +9,9 @@
 
 import type { Metadata } from 'next';
 
+import { normalizeText } from '@/lib/nombresChile';
 import { MESES_ANALISIS, MESES_PRECIOS, rangoDeMeses } from '@/lib/periodo';
+import { IMAGEN_OPEN_GRAPH } from '@/lib/vistaPrevia';
 import type { CompradorPerfil } from '@/types/bi';
 import type {
   BandaUnidad,
@@ -384,9 +386,19 @@ function base(ruta: string, titulo: string, descripcion: string, indexable: bool
     title: titulo,
     description: descripcion,
     alternates: { canonical: ruta },
-    openGraph: { title: titulo, description: descripcion, url: ruta, type: 'website' },
+    openGraph: { title: titulo, description: descripcion, url: ruta, type: 'website', images: [IMAGEN_OPEN_GRAPH] },
     ...(indexable ? {} : { robots: { index: false, follow: true } }),
   };
+}
+
+/**
+ * El nombre con que se titula la ficha de un comprador: el de analytics, escrito
+ * como en el resto del sitio (`normalizeText`), o «Comprador {código}» si no
+ * trae ninguno. Hay compradores indexables con `nombre: null` en la API, y sin
+ * esto su ficha salía con el `h1` vacío y el título «: qué compra y cómo».
+ */
+export function nombreDeComprador(nombre: string | null | undefined, codigo: string): string {
+  return normalizeText(nombre?.trim() || undefined) || `Comprador ${codigo}`;
 }
 
 export function metadataComprador(c: CompradorPublico): Metadata {
