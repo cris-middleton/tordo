@@ -258,7 +258,7 @@ respuesta trae ya los enlaces a las demás.
 | ruta | qué devuelve |
 |---|---|
 | `GET /publico/sitemap` | `actualizado` y los códigos y slugs **indexables** de cada tipo |
-| `GET /publico/compradores/{codigo}` | el perfil de `/bi/comprador`, su Compra Ágil y sus 10 rubros de más monto |
+| `GET /publico/compradores/{codigo}` | el perfil de `/bi/comprador`, su Compra Ágil, sus 10 rubros de más monto y `meses_de_compra`: sus órdenes en cada mes del calendario, enero a diciembre, sumando sus rubros (`null` sin dato) |
 | `GET /publico/rubros/{slug}` | el panorama de `/bi/panorama` y sus 10 compradores de más monto |
 | `GET /publico/productos/{slug}` | una banda nacional por unidad de medida —con cuántos organismos la compran (`compradores`), la fracción del mayor (`cuota_mayor`) y si es un precio de mercado (`de_mercado`), más `medianas_compradores`: `{n, p50}` de cada organismo detrás de la banda, las de más compras primero y como mucho 200, `null` si todavía no se calculan—, los 10 compradores que más lo compran —una fila por comprador y unidad, con sus compras (`n`, desde 1) y la mediana de lo que pagó (`p50`), sobre las mismas compras que la banda— y el `periodo` de las bandas (12 meses) |
 | `GET /publico/productos?q=&limite=` | búsqueda por palabras, también de los no indexados, con la `descripcion` de cada producto (cómo lo escribe el comprador) |

@@ -22,6 +22,7 @@ from app.repositories.compra_agil import CAMPOS_HISTORIA
 from app.services.bi._base import _load, _primero, periodo_de
 from app.services.bi.comprador import get_comprador
 from app.services.bi.rubro import get_panorama
+from app.services.bi.temporal import get_estacionalidad
 from app.services.publico import indexables
 from app.utils import sinonimos
 from app.utils.firma import terminos_de_busqueda
@@ -134,7 +135,28 @@ def comprador(codigo: str) -> dict | None:
         "perfil": perfil,
         "compra_agil": _compra_agil(codigo),
         "rubros": _rubros_del_comprador(codigo, indice),
+        "meses_de_compra": _meses_de_compra(codigo),
     }
+
+
+def _meses_de_compra(codigo: str) -> list[dict] | None:
+    """Cuántas órdenes emitió en cada mes del calendario, sumando sus rubros.
+
+    Responde «¿en qué meses compra?», que decide cuándo preparar una oferta. Sale
+    de `seasonality_patterns` (`get_estacionalidad` sin rubro: los rubros sumados,
+    con los doce meses), por el índice del organismo. Doce filas, con cero en los
+    meses sin compras; None sin tabla o sin compras.
+    """
+    estacionalidad = get_estacionalidad(codigo)
+    if not estacionalidad.get("disponible"):
+        return None
+    por_mes = {
+        int(p["mes"]): int(p.get("compras_mes") or 0)
+        for p in estacionalidad.get("patrones") or []
+        if p.get("mes") is not None
+    }
+    meses = [{"mes": mes, "compras": por_mes.get(mes, 0)} for mes in range(1, 13)]
+    return meses if any(m["compras"] for m in meses) else None
 
 
 # ── Rubro ────────────────────────────────────────────────────────────────────

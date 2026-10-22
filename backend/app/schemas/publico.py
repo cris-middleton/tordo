@@ -42,6 +42,13 @@ class RubroDeComprador(BaseModel):
     ordenes: int = Field(description="Órdenes de compra en el rubro en la ventana.")
 
 
+class MesDeCompra(BaseModel):
+    mes: int = Field(ge=1, le=12)
+    compras: int = Field(
+        description="Órdenes de compra emitidas en ese mes del calendario, en la ventana."
+    )
+
+
 class CompradorPublico(BaseModel):
     codigo: str
     nombre: str | None = None
@@ -52,6 +59,13 @@ class CompradorPublico(BaseModel):
         None, description="Su historia en Compra Ágil (6 meses). Nula sin dato."
     )
     rubros: list[RubroDeComprador] = Field(description="Sus 10 rubros de más monto.")
+    meses_de_compra: list[MesDeCompra] | None = Field(
+        None,
+        description=(
+            "Sus órdenes por mes del calendario (enero a diciembre), sumando sus rubros. "
+            "Nula sin dato."
+        ),
+    )
 
 
 class CompradorDeRubro(BaseModel):

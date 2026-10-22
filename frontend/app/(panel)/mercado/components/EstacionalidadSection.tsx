@@ -10,6 +10,7 @@ import { ErrorDeCarga } from '@/components/ErrorDeCarga';
 import { useEstacionalidad } from '@/lib/queries';
 import { decimal } from '@/lib/formato';
 import { normalizeText } from '@/lib/nombresChile';
+import { conclusionDeMeses, MESES_LARGOS } from '@/lib/mesesDeCompra';
 
 interface EstacionalidadSectionProps {
   topOrganismos: OrganismoConNombre[];
@@ -17,35 +18,6 @@ interface EstacionalidadSectionProps {
   focusedOrganismo?: OrganismoConNombre | null;
   focused?: boolean; // when true, hide the organismo dropdown (filter is shown in filter bar chip)
   focusedNombre?: string; // NEW: display name of the focused organismo
-}
-
-const MESES_LARGOS = [
-  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
-];
-
-/** «enero, febrero y octubre». */
-const enLista = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} y ${xs.at(-1)}`);
-
-/**
- * La frase sobre los meses. Con picos marcados por el ETL, los nombra. Sin ellos, lo
- * decide la forma: «Compra parejo todo el año.» salía sobre un gráfico con 38 % en
- * febrero y seis meses en 0 % (el ETL no marca pico con pocas compras). Si los tres
- * meses de más compras suman la mitad o más, se nombran; si ningún mes pasa del 15 %,
- * es parejo; si no, se nombra el mayor.
- */
-export function conclusionDeMeses(meses: { mes: number; prob: number }[], picoMeses: string[]): string {
-  if (picoMeses.length > 0) return `Compra sobre todo en ${enLista(picoMeses)}.`;
-  const total = meses.reduce((a, m) => a + m.prob, 0);
-  if (!(total > 0)) return 'No hay compras en el rubro para ver en qué meses.';
-  const orden = [...meses].sort((a, b) => b.prob - a.prob || a.mes - b.mes);
-  const tres = orden.slice(0, 3);
-  if (tres.reduce((a, m) => a + m.prob, 0) / total >= 0.5) {
-    const nombres = [...tres].sort((a, b) => a.mes - b.mes).map((m) => MESES_LARGOS[m.mes - 1]);
-    return `Compra sobre todo en ${enLista(nombres)}.`;
-  }
-  if (orden[0].prob / total <= 0.15) return 'Compra parejo todo el año.';
-  return `Compra todo el año, con más en ${MESES_LARGOS[orden[0].mes - 1]}.`;
 }
 
 export function EstacionalidadSection({ topOrganismos, rubro, focusedOrganismo, focused, focusedNombre }: EstacionalidadSectionProps) {

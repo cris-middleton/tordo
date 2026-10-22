@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { conclusionDeMeses } from '@/app/(panel)/mercado/components/EstacionalidadSection';
+import { conclusionDeMeses } from '@/lib/mesesDeCompra';
 
 const meses = (probs: number[]) => probs.map((prob, i) => ({ mes: i + 1, prob }));
 
@@ -26,5 +26,15 @@ describe('conclusionDeMeses', () => {
 
   it('sin compras, lo dice', () => {
     expect(conclusionDeMeses(meses(Array(12).fill(0)), [])).toBe('No hay compras en el rubro para ver en qué meses.');
+  });
+
+  it('nunca nombra un mes sin compras para completar tres', () => {
+    const p = meses([0, 0, 40 / 45, 0, 0, 0, 0, 0, 0, 0, 5 / 45, 0]);
+    expect(conclusionDeMeses(p, [])).toBe('Compra sobre todo en marzo y noviembre.');
+  });
+
+  it('con un solo mes, ése', () => {
+    const p = meses([0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]);
+    expect(conclusionDeMeses(p, [])).toBe('Compra sobre todo en junio.');
   });
 });

@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 
 import { BuyerProfilePanel } from '@/components/BuyerProfilePanel';
 import { CompraAgilDelComprador } from '@/components/publico/CompraAgilDelComprador';
+import { MesesDeCompra } from '@/components/publico/MesesDeCompra';
 import {
   CabeceraFicha,
   Dato,
@@ -164,6 +165,8 @@ export default async function PaginaComprador({ params }: Props) {
           }))}
         />
       </Seccion>
+
+      <MesesDeCompra meses={c.meses_de_compra} />
 
       {/* `/compra-agil` no filtra por comprador: las de éste ya están arriba. */}
       <EnlacePanel href="/compra-agil">Ver las Compras Ágiles abiertas de todos los compradores</EnlacePanel>

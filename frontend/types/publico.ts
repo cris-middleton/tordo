@@ -51,6 +51,16 @@ export interface CompradorPublico {
   compra_agil: CompraAgilComprador | null;
   /** Top 10, por monto. */
   rubros: RubroDeComprador[];
+  /**
+   * Sus órdenes en cada mes del calendario, enero a diciembre, sumando sus rubros.
+   * Ausente en una API anterior; `null` sin dato.
+   */
+  meses_de_compra?: MesDeCompra[] | null;
+}
+
+export interface MesDeCompra {
+  mes: number;
+  compras: number;
 }
 
 export interface CompradorDeRubro {
