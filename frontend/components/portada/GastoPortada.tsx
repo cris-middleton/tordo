@@ -35,7 +35,7 @@ export function GastoPortada({
       <div className={ancho ? 'mt-6' : 'mt-10'}>
         <GastoMensual datos={lectura.grafico} leyendaEnFila={ancho} />
       </div>
-      <PieDeMetodo texto={lectura.pie} enlaces={lectura.enlaces} className="mt-5" completo />
+      <PieDeMetodo texto={lectura.pie} enlaces={lectura.enlaces} className="mt-5" completo columnas={ancho} />
     </section>
   );
 }
