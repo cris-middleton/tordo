@@ -24,7 +24,7 @@ lo que cambió entre la última de anteayer y ella no lo miraba nadie
 (`test_una_corrida_cualquiera_que_falla_no_deja_hueco`). **Tras una caída, la ventana parte
 de la última escritura en Postgres** (`ultimas_escrituras`, por `tipo_convocatoria`, leída
 antes de escribir nada): Compra Ágil nunca desde después de la última fila escrita menos 1 h
-(tope `RECUPERACION_COMPRA_AGIL`, 72 h, por la cuota diaria), y el barrido de licitaciones
+(tope `RECUPERACION_COMPRA_AGIL`, 72 h, por el límite de tasa), y el barrido de licitaciones
 desde el día de la última licitación escrita (tope `DIAS_RECUPERACION_LICITACIONES`, 5
 días); si la primera de hoy no escribió nada, barre la corrida siguiente. Con el cron sano no
 cambia nada. Una caída más larga que esos topes sí deja hueco.
@@ -46,6 +46,15 @@ La API clásica responde a un ticket inválido con **HTTP 203** —un 2xx— y `
 registraba y seguía. Con el ticket roto los cron terminaban bien y el latido daba verde. Ahora
 no se reintenta, `main.py` la deja pasar por sus `except Exception` y llega al `/fail`. **Un
 `except Exception` nuevo en el ETL tiene que dejarla pasar.**
+
+**El 429 de Compra Ágil es un límite de TASA, no una cuota diaria** (corregido el 2026-10-24).
+Responde «Se ha superado el límite de tasa de solicitudes» y el mismo día vuelve a dejar pasar:
+el 10-23 cortó tras 141 peticiones a las 13 UTC y tras 4 a las 16, y dejó pasar 605 a las 19 y
+una corrida entera a las 22. El cliente lo tomaba por la cuota del día y no reintentaba: dos
+listados perdidos y una corrida «terminada con errores» con el listado ya cargado. Ahora espera
+y reintenta (`ESPERAS_TRAS_429`: 30, 60 y 120 s, o lo que pida `Retry-After`; como mucho
+`ESPERA_MAXIMA_POR_CORRIDA_S`, 10 min por corrida) y luego lanza `LimiteDeTasa`. **En el cron,
+sólo el listado cortado es fallo**; un detalle cortado deja el resto para la pasada siguiente.
 
 **Un fallo TOTAL también hace fallar la corrida; uno aislado, no** (`etl/tests/test_fallo_total.py`).
 Con la API clásica caída cada día salía «0 registros», con la primera página de Compra Ágil

@@ -11,7 +11,7 @@ que un refactor puede deshacer sin que nada falle:
 
 - el ticket va en una **cabecera**, no en la URL;
 - la respuesta viene **envuelta** en `{success, payload}`;
-- un **429** es cuota diaria agotada y NO se reintenta.
+- un **429** es un límite de tasa: se espera y se reintenta, con tope por corrida.
 """
 
 from __future__ import annotations
@@ -26,8 +26,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from etl.extractors.base import ConsultaFallida  # noqa: E402
 from etl.extractors.compra_agil import (  # noqa: E402
+    ESPERA_MAXIMA_POR_CORRIDA_S,
+    ESPERAS_TRAS_429,
     CompraAgilExtractor,
-    CuotaDiariaAgotada,
+    LimiteDeTasa,
 )
 from etl.shared_imports import ZONA_CHILE  # noqa: E402
 from etl.transformers.compra_agil_transformer import CompraAgilTransformer  # noqa: E402
@@ -134,23 +136,95 @@ def test_recorre_todas_las_paginas(monkeypatch):
     assert [r["codigo"] for r in registros] == ["A-1", "A-2", "A-3"]
 
 
-def test_un_429_no_se_reintenta(monkeypatch):
-    """La cuota es DIARIA: insistir hoy sólo consume lo que quede.
+#: El cuerpo del 429 tal como lo devolvió la API en producción el 2026-10-23.
+CUERPO_429 = (
+    '{"errors":[{"codigo":"429","detalle":null,"mensaje":"Se ha superado el límite de '
+    'tasa de solicitudes. Intente nuevamente más tarde."}],"payload":null,'
+    '"success":"NOK","trace":null}'
+)
 
-    Se levanta una excepción con nombre propio para que el orquestador pueda
-    distinguirla de un fallo de red y no marque la corrida como rota.
-    """
+
+@pytest.fixture
+def esperas(monkeypatch) -> list[float]:
+    """Las esperas pedidas a `time.sleep`, sin dormir."""
+    pedidas: list[float] = []
+    monkeypatch.setattr("etl.extractors.compra_agil.time.sleep", pedidas.append)
+    return pedidas
+
+
+def _respuestas(monkeypatch, *respuestas) -> dict:
     llamadas = {"n": 0}
+    cola = iter(respuestas)
 
     def falso_get(url, params=None, headers=None, timeout=None):
         llamadas["n"] += 1
-        return _Respuesta({"success": "NOK"}, status_code=429)
+        return next(cola)
 
     monkeypatch.setattr("etl.extractors.compra_agil.requests.get", falso_get)
+    return llamadas
 
-    with pytest.raises(CuotaDiariaAgotada):
+
+def _r429(headers=None):
+    return _RespuestaConCabeceras(
+        {"success": "NOK"}, status_code=429, headers=headers, text=CUERPO_429
+    )
+
+
+def test_un_429_se_espera_y_se_reintenta(monkeypatch, esperas):
+    """Es un límite de TASA: el 2026-10-23 la API cortó a las 4 peticiones a las
+    16 UTC y dejó pasar 605 a las 19. Tomarlo por la cuota del día perdía la corrida."""
+    detalle = {"success": "OK", "payload": {"codigo": "A-1"}}
+    llamadas = _respuestas(monkeypatch, _r429(), _RespuestaConCabeceras(detalle))
+    extractor = CompraAgilExtractor({"COMPRA_AGIL_TICKET": "T"})
+    assert extractor.extract_detalle("A-1") == {"codigo": "A-1"}
+    assert llamadas["n"] == 2
+    assert esperas == [ESPERAS_TRAS_429[0]]
+    assert extractor.esperado_429 == ESPERAS_TRAS_429[0]
+
+
+def test_retry_after_se_respeta_si_pide_mas(monkeypatch, esperas):
+    detalle = {"success": "OK", "payload": {"codigo": "A-1"}}
+    _respuestas(
+        monkeypatch,
+        _r429({"Retry-After": "90"}),
+        _r429({"retry-after": "1"}),
+        _RespuestaConCabeceras(detalle),
+    )
+    assert CompraAgilExtractor({"COMPRA_AGIL_TICKET": "T"}).extract_detalle("A-1")
+    assert esperas == [90, ESPERAS_TRAS_429[1]]
+
+
+def test_tras_las_esperas_corta_con_limite_de_tasa(monkeypatch, esperas):
+    """Se distingue de un fallo de red con nombre propio: el cron lo cuenta como
+    fallo del listado y el ETL a mano, como aviso."""
+    llamadas = _respuestas(monkeypatch, *[_r429() for _ in range(len(ESPERAS_TRAS_429) + 1)])
+    with pytest.raises(LimiteDeTasa) as error:
         CompraAgilExtractor({"COMPRA_AGIL_TICKET": "T"}).extract()
-    assert llamadas["n"] == 1, "no se reintenta"
+    assert llamadas["n"] == len(ESPERAS_TRAS_429) + 1
+    assert esperas == list(ESPERAS_TRAS_429)
+    mensaje = str(error.value)
+    assert f"tras {len(ESPERAS_TRAS_429)} reintento(s)" in mensaje
+    assert f"esperó {sum(ESPERAS_TRAS_429)} s" in mensaje
+    assert "límite de tasa de solicitudes" in mensaje
+
+
+def test_la_espera_de_una_corrida_tiene_tope(monkeypatch, esperas):
+    """Gastado el tope, el 429 siguiente corta sin esperar: la tarea no se alarga
+    sin techo y la corrida siguiente lo reintenta."""
+    llamadas = _respuestas(monkeypatch, _r429())
+    extractor = CompraAgilExtractor({"COMPRA_AGIL_TICKET": "T"})
+    extractor.esperado_429 = ESPERA_MAXIMA_POR_CORRIDA_S - ESPERAS_TRAS_429[0] + 1
+    with pytest.raises(LimiteDeTasa):
+        extractor.extract()
+    assert llamadas["n"] == 1
+    assert esperas == []
+
+
+def test_un_retry_after_mas_largo_que_el_tope_no_se_espera(monkeypatch, esperas):
+    _respuestas(monkeypatch, _r429({"Retry-After": str(ESPERA_MAXIMA_POR_CORRIDA_S + 1)}))
+    with pytest.raises(LimiteDeTasa):
+        CompraAgilExtractor({"COMPRA_AGIL_TICKET": "T"}).extract()
+    assert esperas == []
 
 
 def test_una_respuesta_no_ok_no_se_toma_por_buena(monkeypatch):
@@ -274,8 +348,9 @@ class _RespuestaConCabeceras(_Respuesta):
 
 
 def test_el_429_dice_cuantas_pidio_la_corrida_y_lo_que_dijo_la_api(monkeypatch):
-    """No se conoce la cuota diaria. El 2026-10-21 la corrida de las 16 h recibió
-    429 en su primera petición y el log no decía nada más."""
+    """No se conoce el límite. El 2026-10-21 la corrida de las 16 h recibió 429 en
+    su primera petición y el log no decía nada más. (Un `Retry-After` de una hora
+    pasa del tope de la corrida: corta sin esperar.)"""
     respuestas = iter(
         [
             _RespuestaConCabeceras(
@@ -292,7 +367,7 @@ def test_el_429_dice_cuantas_pidio_la_corrida_y_lo_que_dijo_la_api(monkeypatch):
     )
     monkeypatch.setattr("etl.extractors.compra_agil.requests.get", lambda *a, **k: next(respuestas))
     extractor = CompraAgilExtractor({"COMPRA_AGIL_TICKET": "T"})
-    with pytest.raises(CuotaDiariaAgotada) as error:
+    with pytest.raises(LimiteDeTasa) as error:
         extractor.extract()
     mensaje = str(error.value)
     assert "llevaba 2 petición(es)" in mensaje
