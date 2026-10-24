@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 /**
  * La portada de gráficos (octubre de 2026): a la izquierda el titular, el buscador
@@ -36,6 +36,9 @@ const LECTURAS = 'Para empezar';
 const RED = 'section[aria-labelledby="red-titulo"]';
 const GASTO = 'section[aria-labelledby="gasto-titulo"]';
 const grande = async (page: Page) => ((await page.locator(RED).count()) ? page.locator(RED) : page.locator(GASTO));
+
+/** La conclusión del gráfico grande: el título que lo nombra. La de la red va en la otra columna. */
+const tituloDe = async (page: Page, seccion: Locator) => page.locator(`#${await seccion.getAttribute('aria-labelledby')}`);
 
 async function anchoDelDocumento(page: Page): Promise<number> {
   return page.evaluate(() => document.documentElement.scrollWidth);
@@ -199,7 +202,8 @@ test('a 1440×900 la primera conclusión de datos y su gráfico empiezan sobre e
   await page.goto('/');
   const gasto = await grande(page);
   const primera = (await gasto.count()) ? gasto : page.getByRole('region', { name: LECTURAS }).getByRole('article').first();
-  const conclusion = (await primera.getByRole('heading').first().boundingBox())!;
+  const titulo = (await gasto.count()) ? await tituloDe(page, gasto) : primera.getByRole('heading').first();
+  const conclusion = (await titulo.boundingBox())!;
   expect(conclusion.y + conclusion.height, `la conclusión termina en y = ${conclusion.y + conclusion.height}`).toBeLessThanOrEqual(
     ESCRITORIO.height,
   );
@@ -213,7 +217,7 @@ test('a 390×844 la primera conclusión de datos queda sobre el pliegue', async 
   await page.goto('/');
   const gasto = await grande(page);
   const primera = (await gasto.count())
-    ? gasto.getByRole('heading', { level: 2 })
+    ? await tituloDe(page, gasto)
     : page.getByRole('region', { name: LECTURAS }).getByRole('heading', { level: 3 }).first();
   await expect(primera).toBeVisible();
   const caja = (await primera.boundingBox())!;
