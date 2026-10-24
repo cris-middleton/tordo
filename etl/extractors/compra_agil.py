@@ -7,9 +7,9 @@ importan al escribir el cliente:
 1. **Otro host**: `api2.mercadopublico.cl`, no `api.mercadopublico.cl`.
 2. **El ticket va en una cabecera HTTP**, no como parámetro de la URL. Sin él la
    API responde 401, no 203 como la clásica.
-3. **Hay cuota diaria.** Al agotarla responde 429 y *no se restablece hasta el
-   día siguiente*: reintentar dentro del mismo día sólo gasta el resto de la
-   cuota de otros procesos.
+3. **Limita la tasa de peticiones.** Pasado el límite responde 429 con «Se ha
+   superado el límite de tasa de solicitudes. Intente nuevamente más tarde.», y
+   vuelve a responder minutos u horas después, el mismo día (`ESPERAS_TRAS_429`).
 
 Referencia: «Guía de uso API Compra Ágil v3» (ChileCompra, mayo 2026).
 
@@ -58,7 +58,7 @@ VENTANA_POR_DEFECTO = timedelta(hours=2)
 FORMATO_CONSULTA = "%Y-%m-%dT%H:%M:%SZ"
 
 #: Cortafuegos: si la paginación se descontrolara, esto evita un bucle infinito
-#: contra una API con cuota diaria.
+#: contra una API que limita la tasa.
 MAX_PAGINAS = 400
 
 
@@ -77,12 +77,38 @@ def tramos(desde: datetime, hasta: datetime) -> Iterator[tuple[datetime, datetim
         inicio = fin
 
 
-class CuotaDiariaAgotada(RuntimeError):
-    """La API respondió 429. No se reintenta: la cuota vuelve mañana."""
+class LimiteDeTasa(RuntimeError):
+    """La API siguió respondiendo 429 después de esperar lo que se espera en una corrida."""
 
 
-#: Cabeceras de respuesta que podrían decir cuánta cuota queda. No se conoce la
-#: cuota diaria de la API (docs/deploy_steps/tareas_manuales.md §2): el
+#: Lo que se espera antes de cada reintento tras un 429, en segundos (si la API
+#: pide más con `Retry-After`, se le da). **Es un límite de tasa, no una cuota
+#: diaria**, como se creyó hasta el 2026-10-24: el 429 dice «Se ha superado el
+#: límite de tasa de solicitudes», y el 2026-10-23 la API cortó a las 13 UTC tras
+#: 141 peticiones y a las 16 tras 4, dejó pasar 605 a las 19 y una corrida entera a
+#: las 22. El código lo tomaba por la cuota del día y no volvía a pedir hasta la
+#: corrida siguiente: perdió el listado de dos corridas y los detalles de otra.
+ESPERAS_TRAS_429 = (30, 60, 120)
+
+#: Lo que una corrida espera, sumando todos sus 429. Agotado, el siguiente 429
+#: corta: la corrida siguiente (unas 3 h después, con ventana solapada) lo vuelve
+#: a intentar, y la tarea no se alarga sin techo.
+ESPERA_MAXIMA_POR_CORRIDA_S = 10 * 60
+
+
+def _segundos_pedidos(cabeceras: Any) -> float | None:
+    """`Retry-After` en segundos, si viene y es un número (no se lee la forma con fecha)."""
+    for clave, valor in (cabeceras or {}).items():
+        if clave.lower() == "retry-after":
+            try:
+                return max(0.0, float(valor))
+            except (TypeError, ValueError):
+                return None
+    return None
+
+
+#: Cabeceras de respuesta que podrían decir cuánta cuota queda. No se conoce el
+#: límite de la API (docs/deploy_steps/tareas_manuales.md §2): el
 #: 2026-10-21 la corrida de las 16 h recibió 429 en su primera petición y no
 #: había cómo saber cuántas se habían gastado. Se registra lo que venga.
 CABECERAS_DE_CUOTA = re.compile(r"ratelimit|rate-limit|quota|cuota|remaining|retry-after", re.I)
@@ -112,6 +138,8 @@ class CompraAgilExtractor(BaseExtractor):
         #: lo único que se sabe del gasto de cuota mientras no se conozca.
         self.peticiones = 0
         self._cuota_vista: Dict[str, str] = {}
+        #: Segundos esperados por 429 en esta corrida (tope `ESPERA_MAXIMA_POR_CORRIDA_S`).
+        self.esperado_429 = 0.0
 
     def validate(self, data: Dict[str, Any]) -> bool:
         """Un registro sirve si tiene código y fecha de publicación.
@@ -127,7 +155,11 @@ class CompraAgilExtractor(BaseExtractor):
     # ── HTTP ─────────────────────────────────────────────────────────────────
 
     def _pedir(
-        self, params: Dict[str, Any], intento: int = 0, url: str | None = None
+        self,
+        params: Dict[str, Any],
+        intento: int = 0,
+        url: str | None = None,
+        reintentos_429: int = 0,
     ) -> Dict[str, Any] | None:
         try:
             respuesta = requests.get(
@@ -147,7 +179,7 @@ class CompraAgilExtractor(BaseExtractor):
                     exc,
                 )
                 time.sleep(self.retry_delay)
-                return self._pedir(params, intento + 1, url)
+                return self._pedir(params, intento + 1, url, reintentos_429)
             self.logger.error(
                 "Compra Ágil: sin respuesta tras %d intentos: %s", self.max_retries, exc
             )
@@ -156,14 +188,25 @@ class CompraAgilExtractor(BaseExtractor):
         self.peticiones += 1
         cuota = self._anotar_cuota(respuesta)
         if respuesta.status_code == 429:
-            # No se reintenta a propósito: la cuota es DIARIA. Insistir hoy sólo
-            # consume lo que quede para el resto de procesos. El mensaje lleva lo
-            # que se sabe —cuántas pidió esta corrida, las cabeceras y lo que dijo
-            # la API— porque es lo que llega al log y al /fail del latido.
+            espera = self._espera_tras_429(reintentos_429, respuesta)
+            if espera is not None:
+                self.logger.warning(
+                    "Compra Ágil: 429 (límite de tasa), se espera %d s y se reintenta (%d/%d)",
+                    espera,
+                    reintentos_429 + 1,
+                    len(ESPERAS_TRAS_429),
+                )
+                time.sleep(espera)
+                self.esperado_429 += espera
+                return self._pedir(params, intento, url, reintentos_429 + 1)
+            # El mensaje lleva lo que se sabe —cuántas pidió esta corrida, cuánto
+            # esperó, las cabeceras y lo que dijo la API— porque es lo que llega al
+            # log y al /fail del latido.
             cuerpo = (getattr(respuesta, "text", "") or "")[:200].strip()
-            raise CuotaDiariaAgotada(
-                "La API de Compra Ágil agotó su cuota diaria. Se restablece mañana. "
-                f"Esta corrida llevaba {self.peticiones} petición(es)"
+            raise LimiteDeTasa(
+                "La API de Compra Ágil sigue en su límite de tasa tras "
+                f"{reintentos_429} reintento(s); esta corrida esperó {self.esperado_429:.0f} s "
+                f"por 429 y llevaba {self.peticiones} petición(es)"
                 + (f"; cabeceras de cuota: {cuota}" if cuota else "")
                 + (f"; la API dijo: {cuerpo}" if cuerpo else "")
                 + "."
@@ -188,7 +231,7 @@ class CompraAgilExtractor(BaseExtractor):
                 self.max_retries,
             )
             time.sleep(self.retry_delay)
-            return self._pedir(params, intento + 1, url)
+            return self._pedir(params, intento + 1, url, reintentos_429)
 
         try:
             respuesta.raise_for_status()
@@ -197,6 +240,18 @@ class CompraAgilExtractor(BaseExtractor):
             return None
 
         return respuesta.json()
+
+    def _espera_tras_429(self, reintentos: int, respuesta: Any) -> float | None:
+        """Cuánto esperar antes de reintentar, o `None` si ya no se reintenta."""
+        if reintentos >= len(ESPERAS_TRAS_429):
+            return None
+        espera = float(ESPERAS_TRAS_429[reintentos])
+        pedida = _segundos_pedidos(getattr(respuesta, "headers", None))
+        if pedida is not None:
+            espera = max(espera, pedida)
+        if self.esperado_429 + espera > ESPERA_MAXIMA_POR_CORRIDA_S:
+            return None
+        return espera
 
     def _anotar_cuota(self, respuesta: Any) -> Dict[str, str]:
         """Las cabeceras de cuota de la respuesta; se registran cuando cambian."""

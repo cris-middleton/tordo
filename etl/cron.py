@@ -52,7 +52,7 @@ from etl import main as etl
 from etl.analytics import materialize, run_all
 from etl.analytics.config import DATA_DIR
 from etl.analytics.data_loader import VENTANA_ANALYTICS_MESES
-from etl.extractors.compra_agil import CuotaDiariaAgotada
+from etl.extractors.compra_agil import LimiteDeTasa
 from etl.loaders.analytics_catalog import CATALOGO
 from etl.scripts import descargar_datos_masivos as descarga
 from etl.shared_imports import TipoConvocatoria
@@ -74,8 +74,8 @@ HORAS_FIN_DE_SEMANA = (12,)
 SOLAPE = timedelta(hours=1)
 
 #: Lo más atrás que una corrida mira para recuperar una caída del cron (ver
-#: `ventana_compra_agil`). Con tope porque la cuota de Compra Ágil es diaria y
-#: el listado se escribe entero al final: si una ventana enorme agotara la cuota
+#: `ventana_compra_agil`). Con tope porque Compra Ágil limita la tasa y el
+#: listado se escribe entero al final: si una ventana enorme chocara con el límite
 #: a medias no quedaría nada escrito, y la corrida siguiente volvería a pedir la
 #: misma ventana, cada día. 72 h son una vez y media la ventana más larga de una
 #: corrida normal (~47 h, la primera del lunes o del martes).
@@ -297,18 +297,20 @@ class PasosFrecuente:
 
 
 def _compra_agil(desde: datetime, hasta: datetime) -> bool:
-    """El ETL de Compra Ágil, con la cuota agotada contada como FALLO.
+    """El ETL de Compra Ágil, con el listado cortado por el límite de tasa contado como FALLO.
 
-    En Celery era un aviso: la cuota vuelve mañana. Aquí nadie mira el worker,
-    y si el latido diera la corrida por buena el ranking «de hoy» se quedaría
-    quieto sin que nadie se enterase. El mensaje es el que llega en el /fail.
+    En Celery era un aviso. Aquí nadie mira el worker, y si el latido diera la
+    corrida por buena el ranking «de hoy» se quedaría quieto sin que nadie se
+    enterase. El mensaje es el que llega en el /fail.
     """
     try:
-        return etl.run_etl_compra_agil(
-            cambio_desde=desde, cambio_hasta=hasta, cuota_agotada_es_fallo=True
+        return etl.run_etl_compra_agil(cambio_desde=desde, cambio_hasta=hasta, limite_es_fallo=True)
+    except LimiteDeTasa as exc:
+        logger.error(
+            "límite de tasa de Compra Ágil: el listado no entró; lo reintenta la corrida "
+            "siguiente (%s)",
+            exc,
         )
-    except CuotaDiariaAgotada as exc:
-        logger.error("cuota diaria de Compra Ágil agotada; se restablece mañana (%s)", exc)
         return False
 
 

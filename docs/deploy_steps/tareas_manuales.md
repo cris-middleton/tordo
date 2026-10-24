@@ -69,7 +69,7 @@ registrada.
 | host | `api.mercadopublico.cl` | `api2.mercadopublico.cl` |
 | ticket | parámetro de la URL | **cabecera `ticket`** |
 | sin ticket | responde `203` | responde `401` |
-| cuota | — | **diaria**; al agotarla `429` y **no se restablece hasta el día siguiente** |
+| límite | 10.000 peticiones al día | **de tasa**: `429` «Se ha superado el límite de tasa de solicitudes», y vuelve a responder el mismo día (medido el 2026-10-23; antes se creyó una cuota diaria) |
 
 **✅ Contrastado en vivo el 2026-09-24** (con el ticket de `.env`), y la primera
 pasada real ingirió 327 Compras Ágiles. Lo que enseñó:
@@ -92,7 +92,9 @@ pasada real ingirió 327 Compras Ágiles. Lo que enseñó:
 
 **Pendiente, y no es de código:** pedir un ticket propio (el de `.env` es el de
 demostración de Mercado Público, compartido y con 429 frecuentes) y medir la
-cuota diaria real antes de subir el ritmo de detalles.
+el límite de tasa real antes de subir el ritmo de detalles. Tras un `429` el cliente espera
+30, 60 y 120 s (o lo que pida `Retry-After`), con 10 min de espera como mucho por corrida
+(`ESPERAS_TRAS_429`, `ESPERA_MAXIMA_POR_CORRIDA_S` en `etl/extractors/compra_agil.py`).
 
 ---
 

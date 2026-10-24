@@ -16,7 +16,7 @@ import requests
 from etl import cron
 from etl import main as etl_main
 from etl.cron import ZONA_CHILE
-from etl.extractors.compra_agil import CuotaDiariaAgotada
+from etl.extractors.compra_agil import LimiteDeTasa
 
 
 def _utc(texto: str) -> datetime:
@@ -650,11 +650,12 @@ def test_semanal_sin_almacen_configurado_falla_con_el_motivo(monkeypatch):
     assert "ETL_ALMACEN" in transporte.peticiones[-1].content.decode()
 
 
-# ── Cuota de Compra Ágil ─────────────────────────────────────────────────────
+# ── Límite de tasa de Compra Ágil ────────────────────────────────────────────
 #
-# En el modelo de cron nadie mira el worker: una cuota agotada deja el ranking
-# «de hoy» quieto, y si el latido dijera que todo va bien sería justo el fallo
-# silencioso que existe para evitar.
+# En el modelo de cron nadie mira el worker: un listado que no entra deja el
+# ranking «de hoy» quieto, y si el latido dijera que todo va bien sería justo el
+# fallo silencioso que existe para evitar. Los detalles, en cambio, son un atraso
+# que la pasada siguiente retoma: no tumban la corrida.
 
 
 class _ExtractorSinCuota:
@@ -663,11 +664,11 @@ class _ExtractorSinCuota:
 
     def extract(self, **_kwargs):
         if self.listado_agota:
-            raise CuotaDiariaAgotada("429")
+            raise LimiteDeTasa("429")
         return []
 
     def extract_detalle(self, _codigo):
-        raise CuotaDiariaAgotada("429")
+        raise LimiteDeTasa("429")
 
 
 class _LoaderFalso:
@@ -713,13 +714,22 @@ def test_sin_cuota_el_etl_de_siempre_lo_da_por_bueno(_etl_sin_cuota, listado_ago
     assert etl_main.run_etl_compra_agil() is True
 
 
-@pytest.mark.parametrize("listado_agota", [True, False], ids=["listado", "detalles"])
-def test_sin_cuota_el_cron_falla_y_lo_dice(_etl_sin_cuota, listado_agota, caplog):
-    loaders = _etl_sin_cuota(listado_agota=listado_agota)
+def test_sin_listado_el_cron_falla_y_lo_dice(_etl_sin_cuota, caplog):
+    loaders = _etl_sin_cuota(listado_agota=True)
     with caplog.at_level("ERROR"):
         assert cron._compra_agil(datetime(2026, 7, 14, 9), datetime(2026, 7, 14, 13)) is False
-    assert "cuota diaria de Compra Ágil agotada; se restablece mañana" in caplog.text
-    # La conexión se cierra también cuando la cuota corta a mitad de camino.
+    assert "límite de tasa de Compra Ágil: el listado no entró" in caplog.text
+    assert all(loader.desconectado for loader in loaders if loader.conectado)
+
+
+def test_sin_detalles_el_cron_sigue_bien(_etl_sin_cuota, caplog):
+    """El 2026-10-23 a las 19 UTC el listado entró entero y la corrida salió
+    «terminada con errores» por el 429 de un detalle."""
+    loaders = _etl_sin_cuota(listado_agota=False)
+    with caplog.at_level("WARNING"):
+        assert cron._compra_agil(datetime(2026, 7, 14, 9), datetime(2026, 7, 14, 13)) is True
+    assert "el resto de los detalles, en la pasada siguiente" in caplog.text
+    # La conexión se cierra también cuando el límite corta a mitad de camino.
     assert all(loader.desconectado for loader in loaders if loader.conectado)
 
 
@@ -742,8 +752,8 @@ def test_sin_cuota_el_latido_manda_fail_con_el_motivo(_etl_sin_cuota):
     )
     assert codigo == 1
     assert transporte.urls()[-1] == f"{URL}/fail"
-    assert "cuota diaria de Compra Ágil agotada" in transporte.peticiones[-1].content.decode()
-    # Sin cuota de Compra Ágil, la API clásica tiene la suya: se sigue.
+    assert "límite de tasa de Compra Ágil" in transporte.peticiones[-1].content.decode()
+    # Sin Compra Ágil, la API clásica tiene su propio límite: se sigue.
     assert r.nombres() == ["licitaciones", "detalles_nuevos"]
 
 

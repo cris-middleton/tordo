@@ -10,7 +10,7 @@ Darle tabla propia obligaría a duplicar cada consulta del producto.
 Qué se pierde, dicho claro
 --------------------------
 El **listado** de la API v2 no trae `descripcion`; sólo el detalle, y el detalle
-cuesta una petición por registro contra una API con **cuota diaria**. Se ingiere
+cuesta una petición por registro contra una API que **limita la tasa**. Se ingiere
 desde el listado, así que las Compras Ágiles entran con descripción vacía y su
 búsqueda por texto se apoya sólo en el nombre.
 """

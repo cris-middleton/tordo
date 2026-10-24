@@ -20,7 +20,7 @@ class ETLConfig:
     MERCADO_PUBLICO_TICKET: str = os.getenv("MERCADO_PUBLICO_TICKET", "")
 
     # Compra Ágil tiene API propia (api2.mercadopublico.cl) con autenticación
-    # por cabecera y cuota diaria. El ticket se pide en el mismo sitio, así que
+    # por cabecera y límite de tasa. El ticket se pide en el mismo sitio, así que
     # normalmente es el mismo; se deja variable propia por si ChileCompra separa
     # las cuotas. Vacío = la integración no se intenta.
     COMPRA_AGIL_TICKET: str = os.getenv("COMPRA_AGIL_TICKET", "")
