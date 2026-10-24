@@ -82,14 +82,32 @@ const ROTULADOS = 3;
  * que el globo dice está también en texto: la conclusión, la leyenda y la tabla
  * `sr-only` de los proveedores que le venden a más compradores. El dibujo es
  * `aria-hidden`.
+ *
+ * **Con el dedo, un toque elige y otro toque suelta** (`pointerType === 'touch'`): al
+ * levantar el dedo el navegador manda `pointerleave`, y el nodo se desmarcaba en el
+ * mismo instante. Mantenerlo apretado no selecciona ni ofrece «Copiar»
+ * (`select-none`, sin `-webkit-touch-callout` y sin menú contextual). Con `enLinea`
+ * (el teléfono) lo del nodo va en una caja bajo el dibujo y no en un globo: el globo
+ * mide 256 px y a un costado de un nodo se salía de la pantalla.
  */
-export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesible: { nombre: string; vecinos: number; texto: string }[] }) {
+export function RedProveedores({
+  datos,
+  accesible,
+  enLinea = false,
+}: {
+  datos: GraficoRed;
+  accesible: { nombre: string; vecinos: number; texto: string }[];
+  /** Lo del nodo elegido, en una caja bajo el dibujo en vez de un globo. */
+  enLinea?: boolean;
+}) {
   const { nodos, enlaces, ancho, alto } = datos;
   const centro = useMemo(() => ({ x: ancho / 2, y: alto / 2 }), [ancho, alto]);
   const quieto = useMediaQuery('(prefers-reduced-motion: reduce)');
   const [activo, setActivo] = useState<number | null>(null);
   const activoRef = useRef<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  // Con qué se tocó por última vez: el `click` que sigue a un toque no lo dice en todos los navegadores.
+  const punteroRef = useRef<string>('mouse');
   const lineasRef = useRef<(SVGPathElement | null)[]>([]);
   const resaltadasRef = useRef<SVGPathElement>(null);
   const circulosRef = useRef<(SVGCircleElement | null)[]>([]);
@@ -260,7 +278,7 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
         {nodo ? `${nodo.nombre}: ${nodo.tipo === 'comprador' ? `compró ${nodo.texto}` : `les vendió ${nodo.texto} a ${nodo.vecinos} compradores`}` : ''}
       </p>
       <div
-        className="relative rounded-sm"
+        className="relative select-none rounded-sm [-webkit-touch-callout:none]"
         tabIndex={0}
         role="group"
         aria-label="La red: recorre los compradores y proveedores con las flechas"
@@ -273,11 +291,25 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
           viewBox={`0 0 ${ancho} ${alto}`}
           className="block h-auto w-full touch-pan-y"
           onPointerMove={(e) => {
+            if (e.pointerType === 'touch') return;
             const i = buscar(e);
             if (i !== activo) setActivo(i);
           }}
-          onPointerDown={(e) => setActivo(buscar(e))}
-          onPointerLeave={() => setActivo(null)}
+          onPointerDown={(e) => {
+            punteroRef.current = e.pointerType;
+            if (e.pointerType !== 'touch') setActivo(buscar(e));
+          }}
+          // El toque se decide en `click` y no al apoyar el dedo: si el dedo arrastra para
+          // bajar la página, no hay `click` y no se elige nada.
+          onClick={(e) => {
+            if (punteroRef.current !== 'touch') return;
+            const i = buscar(e);
+            setActivo(i === activo ? null : i);
+          }}
+          onPointerLeave={(e) => {
+            if (e.pointerType !== 'touch') setActivo(null);
+          }}
+          onContextMenu={(e) => e.preventDefault()}
         >
           {grupos.map((g, k) => (
             <path
@@ -349,32 +381,18 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
             </span>
           )}
         </div>
-        {nodo && activo != null && (
+        {nodo && !enLinea && (
           <Globo x={(nodo.x / ancho) * 100} medio={(nodo.r / ancho) * 100}>
-            <p className="font-semibold leading-snug">{nodo.nombre}</p>
-            {nodo.tipo === 'comprador' ? (
-              <>
-                <p className="text-muted">{nodo.sector?.nombre}</p>
-                <p className="mt-1">
-                  Compró <span className="cifra font-semibold">{nodo.texto}</span>
-                </p>
-                <p className="text-muted">
-                  Le compra a {nodo.vecinos} {nodo.vecinos === 1 ? 'proveedor' : 'proveedores'} de la red
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="mt-1">
-                  Les vendió <span className="cifra font-semibold">{nodo.texto}</span>
-                </p>
-                <p className="text-muted">
-                  A {nodo.vecinos} de los {datos.compradores} compradores
-                </p>
-              </>
-            )}
+            <FichaNodo nodo={nodo} compradores={datos.compradores} />
           </Globo>
         )}
       </div>
+      {enLinea ? (
+        // Alto reservado para un nombre y dos líneas: elegir otro nodo no mueve la leyenda.
+        <div aria-hidden="true" className="mt-2 flex min-h-[4.5rem] flex-col justify-center rounded-md bg-surface-elevated px-3 py-2 text-sm leading-snug text-text">
+          {nodo ? <FichaNodo nodo={nodo} compradores={datos.compradores} /> : <p className="text-muted">{PISTA_TOQUE}</p>}
+        </div>
+      ) : null}
 
       {/* La leyenda en dos grupos, uno por cada cosa que se dibuja: los organismos por su
           color de sector y los proveedores por su forma. */}
@@ -402,6 +420,7 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
             {hayCentro ? 'el resto' : `le venden a menos de ${datos.mitad} compradores`}
           </li>
         </ul>
+        {!enLinea && <p>{PISTA}</p>}
       </div>
 
       {/* Una tabla no respeta el ancho de 1 px de `sr-only`: va dentro de un div. */}
@@ -421,5 +440,30 @@ export function RedProveedores({ datos, accesible }: { datos: GraficoRed; accesi
         </table>
       </div>
     </figure>
+  );
+}
+
+/** Cómo se explora, bajo la leyenda. En el teléfono va en la caja del nodo (`PISTA_TOQUE`). */
+export const PISTA = 'Toca o pasa el mouse por un punto para ver con quién se une.';
+export const PISTA_TOQUE = 'Toca un punto para ver con quién se une.';
+
+/** Lo que se sabe de un nodo: en el globo y, en el teléfono, en la caja bajo el dibujo. */
+function FichaNodo({ nodo, compradores }: { nodo: NodoRed; compradores: number }) {
+  return (
+    <>
+      <p className="font-semibold leading-snug">{nodo.nombre}</p>
+      {nodo.tipo === 'comprador' ? (
+        <p className="mt-0.5">
+          {nodo.sector?.nombre && <span className="text-muted">{nodo.sector.nombre}. </span>}
+          Compró <span className="cifra font-semibold">{nodo.texto}</span>. Le compra a {nodo.vecinos}{' '}
+          {nodo.vecinos === 1 ? 'proveedor' : 'proveedores'} de la red.
+        </p>
+      ) : (
+        <p className="mt-0.5">
+          Les vendió <span className="cifra font-semibold">{nodo.texto}</span> a {nodo.vecinos} de los {compradores}{' '}
+          compradores.
+        </p>
+      )}
+    </>
   );
 }

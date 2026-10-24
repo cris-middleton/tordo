@@ -263,11 +263,7 @@ export interface GraficoRed {
 
 export interface LecturaRed {
   conclusion: string;
-  /**
-   * Lo que la conclusión le dice a quien vende: cuánto les vendieron, en total, los del
-   * centro. «La mitad de ellos les vendió menos de $46,8 millones en total.» Con menos
-   * de tres, null.
-   */
+  /** Dónde se ven en el dibujo los que nombra la conclusión (`detalleRed`); sin ninguno, null. */
   detalle: string | null;
   grafico: GraficoRed;
   /** La misma red, dispuesta en el lienzo del teléfono (`LIENZO_MOVIL`). */
@@ -278,43 +274,31 @@ export interface LecturaRed {
   enlaces: EnlaceMetodo[];
 }
 
-const cuantos = (n: number, una: string, varias: string) => `${n === 1 ? 'Uno' : entero(n)} ${n === 1 ? una : varias}`;
-
 /**
- * «40 proveedores le venden a la mitad o más de los 30 compradores que más
- * compran.» «Comprador», no «organismo» (docs/VOZ.md §4). Una frase, y lo que
- * dice es lo que se dibuja en tinta: si el backend
- * cortó la lista (`dibujados` < `a_la_mitad_o_mas`), lo dice. Antes eran dos
- * frases y decía 40 sobre un dibujo con 12.
+ * «40 proveedores le venden a 15 o más de los 30 compradores que más compran.» Con
+ * el número y no «a la mitad o más de»: así había que hacer la cuenta para saber
+ * cuántos eran. «Comprador», no «organismo» (docs/VOZ.md §4).
  */
-export function fraseRed(
-  r: Pick<RedPortada, 'a_la_mitad_o_mas'>,
-  compradores: number,
-  dibujados: number = r.a_la_mitad_o_mas,
-): string {
-  const quienes = `los ${entero(compradores)} compradores que más compran`;
+export function fraseRed(r: Pick<RedPortada, 'a_la_mitad_o_mas'>, compradores: number, mitad: number): string {
+  const aQuienes = `a ${entero(mitad)} o más de los ${entero(compradores)} compradores que más compran`;
   const n = r.a_la_mitad_o_mas;
-  if (n === 0) return `Ningún proveedor le vende a la mitad de ${quienes}.`;
-  const sujeto = n === 1 ? 'Un proveedor le vende' : `${entero(n)} proveedores le venden`;
-  const frase = `${sujeto} a la mitad o más de ${quienes}.`;
-  return dibujados < n ? `${frase} En tinta, los ${entero(dibujados)} que más venden.` : frase;
+  if (n === 0) return `Ningún proveedor le vende ${aQuienes}.`;
+  return n === 1 ? `Un proveedor le vende ${aQuienes}.` : `${entero(n)} proveedores le venden ${aQuienes}.`;
 }
 
 /**
- * La segunda frase de la red, la que sirve a una PYME: los que le venden a muchos
- * compradores, ¿son empresas enormes? La mediana de lo que les vendieron, en total, lo
- * dice. Con menos de tres en el centro no hay mediana que valga.
+ * Dónde se ven en el dibujo los que nombra la conclusión, y los del borde. Si el
+ * backend cortó la lista (`dibujados` < `a_la_mitad_o_mas`), dice cuántos se
+ * dibujan. Antes la segunda frase era la mediana de lo que les vendieron («La mitad
+ * de esos 55 les vendió menos de $359,4 millones en total»): tres cifras en dos
+ * frases, y el dueño la leyó como «súper inentendible» (2026-10-24).
  */
-export function detalleRed(g: Pick<GraficoRed, 'nodos'>): string | null {
-  const montos = g.nodos
-    .filter((d) => d.amplio)
-    .map((d) => d.monto)
-    .sort((a, b) => a - b);
-  if (montos.length < 3) return null;
-  const m = Math.floor(montos.length / 2);
-  const mediana = montos.length % 2 ? montos[m] : (montos[m - 1] + montos[m]) / 2;
-  // «de esos 40» y no «de ellos»: con «ellos» y «les» en la misma frase había que releer quién era quién.
-  return `La mitad de esos ${entero(montos.length)} les vendió menos de ${monto(mediana)} en total.`;
+export function detalleRed(r: Pick<RedPortada, 'a_la_mitad_o_mas'>, dibujados: number): string | null {
+  if (dibujados === 0) return null;
+  const borde = 'Cerca del borde, los que le venden a uno solo.';
+  if (dibujados === 1) return `Es el punto lleno del centro. ${borde}`;
+  const cuales = dibujados < r.a_la_mitad_o_mas ? ` (aquí, los ${entero(dibujados)} que más venden)` : '';
+  return `Son los puntos llenos del centro${cuales}. ${borde}`;
 }
 
 /** Siglas por las que se conoce a los compradores más grandes, para su rótulo en el dibujo. */
@@ -483,8 +467,8 @@ export function lecturaRed(mercado: { red?: unknown } | null, repositorio: strin
   const parte = r.monto_total > 0 ? Math.round((r.monto_compradores / r.monto_total) * 100) : null;
   const proveedores = grafico.nodos.filter((d) => d.tipo === 'proveedor');
   return {
-    conclusion: fraseRed(r, grafico.compradores, grafico.nodos.filter((d) => d.amplio).length),
-    detalle: detalleRed(grafico),
+    conclusion: fraseRed(r, grafico.compradores, grafico.mitad),
+    detalle: detalleRed(r, grafico.nodos.filter((d) => d.amplio).length),
     grafico,
     graficoMovil,
     pie:
