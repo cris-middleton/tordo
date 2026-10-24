@@ -524,20 +524,30 @@ a la página**: Next ignora `metadata` en componentes cliente y la home perderí
   (`DENTRO`), para que el anillo de compradores se lea. **Rótulos directos**: los 3 compradores de más monto por
   su nombre corto (`nombreCorto`: Cenabast, Junaeb…, sin «Ilustre», ≤ 30 caracteres) y «Le venden a 15 o
   más» bajo el grupo del centro, desde `sm` (en el teléfono se pisaban); la leyenda en dos grupos, «Compradores:» y «Proveedores:» («comprador», no «organismo», docs/VOZ.md §4). El `h2` es
-  la conclusión en una frase (`fraseRed`): «40 proveedores le venden a la mitad o más de los 30
-  compradores que más compran.», y debajo lo que le sirve a quien vende (`detalleRed`, la mediana de lo
-  que les vendieron los del centro): «La mitad de esos 40 les vendió menos de $X en total.» —**lo que cuenta es lo que se dibuja en tinta**; si el backend cortó la
-  lista, añade «En tinta, los N que más venden.»; el total de proveedores va en el pie—. **Globo** al pasar o tocar un nodo, que lo aísla con sus vecinos.
+  la conclusión en una frase y con el número (`fraseRed`): «459 proveedores le venden a 15 o más de los
+  30 compradores que más compran.», y debajo dónde se ven (`detalleRed`): «Son los puntos llenos del
+  centro (aquí, los 55 que más venden). Cerca del borde, los que le venden a uno solo.» —el paréntesis
+  sólo si el backend cortó la lista; el total de proveedores va en el pie—. Antes eran «a la mitad o más
+  de», «En tinta, los 55…» y la mediana de lo que les vendieron: tres cifras en dos frases, y el dueño
+  las leyó como «súper inentendible» (2026-10-24). **El `h2` va en la columna del buscador, bajo las
+  abiertas** (`CabeceraRed`), y el dibujo ocupa la otra columna desde arriba (`RedPortada`, una
+  `section` nombrada por ese `h2`): con el título encima del dibujo, la derecha medía ~900 px y la
+  izquierda ~550, y quedaba un hueco abajo a la izquierda; ahora terminan a la par (~640 y ~685 a 1440).
+  **Globo** al pasar el mouse por un nodo, que lo aísla con sus vecinos. **Con el dedo, un toque elige y
+  otro suelta** (en `click`, para que arrastrar para bajar no elija nada): al levantar el dedo llega un
+  `pointerleave` y el nodo se desmarcaba en el acto. Mantener apretado no selecciona ni ofrece «Copiar»
+  (`select-none`, sin `-webkit-touch-callout`, sin menú contextual). **En el teléfono (`enLinea`) lo del
+  nodo va en una caja bajo el dibujo**, con alto reservado, y no en un globo: el globo mide 256 px y a un
+  costado de un nodo se salía de la pantalla.
   **Se mueve** (la única excepción a R3 de la guía de gráficos): deriva leve y partículas del comprador
   al proveedor, con `requestAnimationFrame`, **quieta con `prefers-reduced-motion`**, fuera de pantalla y
   con la pestaña oculta; las capturas del E2E emulan movimiento reducido. Con menos de
   `MINIMO_COMPRADORES` (8) o mal formada, no sale y el gráfico grande vuelve a ser el gasto.
   `__tests__/red-portada.test.ts`. **Dos disposiciones de la misma red** (`LIENZO_ANCHO` 640 × 420 desde
   `md`, `LIENZO_MOVIL` 400 × 380 por debajo (a 768 px la cuadrada medía 720 × 684), una con `display: none` en cada ancho): la apaisada
-  medía 358 × 235 px a 390 y los proveedores eran puntos de un píxel. Cómo se lee
-  (`ComoLeerLaRed`: dónde queda cada proveedor y «Toca o pasa el mouse») va en una línea justo bajo la
-  leyenda, en todos los anchos: en la columna del buscador quedaba a 500 px de ella, y lo que es cada
-  círculo ya lo dice la leyenda.
+  medía 358 × 235 px a 390 y los proveedores eran puntos de un píxel. Cómo se
+  explora va bajo la leyenda (`PISTA`) y, en el teléfono, en la caja del nodo mientras no se elige
+  ninguno (`PISTA_TOQUE`); dónde queda cada proveedor lo dice `detalleRed`.
 - **El gasto mensual** (`GastoPortada` → `GastoMensual`, geometría en `lib/graficoGasto.ts`, frase
   en `lib/lecturasMercado.ts`; datos de `GET /publico/mercado`, `gasto_mensual`), **a lo ancho bajo la
   ficha** cuando la red está arriba (`ancho`: `h2` de sección y la leyenda en una fila): una columna por

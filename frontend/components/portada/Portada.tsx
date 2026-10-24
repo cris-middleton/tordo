@@ -28,7 +28,7 @@ import { FranjaPortada } from './FranjaPortada';
 import { GastoPortada } from './GastoPortada';
 import { LecturasPortada } from './LecturasPortada';
 import { NotasPortada } from './NotasPortada';
-import { RedPortada } from './RedPortada';
+import { CabeceraRed, RedPortada } from './RedPortada';
 
 /**
  * La portada. **Componente de servidor**; las únicas islas cliente son los
@@ -36,9 +36,9 @@ import { RedPortada } from './RedPortada';
  * cáscara única.
  *
  * Desde `lg`, dos columnas `5fr / 7fr` con 48 px entre ellas: a la izquierda el
- * titular, el buscador y las abiertas de ahora; a la derecha **el gráfico
- * grande**: la red de los organismos que más compran y sus proveedores, o sin
- * ella el gasto mensual. Debajo, a lo ancho: la ficha (cuatro celdas), el gasto
+ * titular, el buscador, las abiertas de ahora y la conclusión de la red; a la
+ * derecha **el gráfico grande**: el dibujo de la red de los compradores que más
+ * compran y sus proveedores, o sin ella el gasto mensual con su título. Debajo, a lo ancho: la ficha (cuatro celdas), el gasto
  * mensual si la red ocupó arriba, «Para empezar» (precio, concentración y
  * cierres, tres en fila), la franja de hoy, «Lo mejor de hoy» y las notas con la
  * ficha del autor.
@@ -117,8 +117,10 @@ export function Portada({
       ? { ...destacadas, items: destacadas.items.filter((i) => !i.fecha_cierre || Date.parse(i.fecha_cierre) > ahora) }
       : destacadas;
   // El gráfico grande es la red; sin ella (un backend anterior, o sin la tabla), el gasto.
+  // La red parte en dos: su conclusión va en la columna del buscador y el dibujo ocupa la
+  // otra desde arriba, para que las dos columnas terminen a la par.
   const grande = red ? (
-    <RedPortada lectura={red} className="mt-10 lg:mt-1" />
+    <RedPortada lectura={red} className="mt-6 lg:mt-2" />
   ) : gasto ? (
     <GastoPortada lectura={gasto} className="mt-10 lg:mt-1" />
   ) : null;
@@ -131,6 +133,7 @@ export function Portada({
         <div className="flex min-w-0 flex-col">
           <BuscadorPortada />
           {tira && <AbiertasAhora tira={tira} className="mt-8" />}
+          {red && <CabeceraRed lectura={red} className="mt-10 lg:mt-12" />}
         </div>
         {grande}
       </div>

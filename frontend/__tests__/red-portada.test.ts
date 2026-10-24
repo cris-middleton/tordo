@@ -43,21 +43,34 @@ describe('esRed', () => {
 });
 
 describe('fraseRed', () => {
-  it('una frase: cuántos proveedores le venden a la mitad o más', () => {
-    expect(fraseRed(RED, 30)).toBe('40 proveedores le venden a la mitad o más de los 30 compradores que más compran.');
+  it('una frase, con el número: a 15 o más de los 30, no «a la mitad o más de»', () => {
+    expect(fraseRed(RED, 30, 15)).toBe('40 proveedores le venden a 15 o más de los 30 compradores que más compran.');
   });
   it('uno y ninguno, en palabras', () => {
-    expect(fraseRed({ ...RED, a_la_mitad_o_mas: 1 }, 30)).toBe(
-      'Un proveedor le vende a la mitad o más de los 30 compradores que más compran.',
+    expect(fraseRed({ ...RED, a_la_mitad_o_mas: 1 }, 30, 15)).toBe(
+      'Un proveedor le vende a 15 o más de los 30 compradores que más compran.',
     );
-    expect(fraseRed({ ...RED, a_la_mitad_o_mas: 0 }, 30)).toBe(
-      'Ningún proveedor le vende a la mitad de los 30 compradores que más compran.',
+    expect(fraseRed({ ...RED, a_la_mitad_o_mas: 0 }, 30, 15)).toBe(
+      'Ningún proveedor le vende a 15 o más de los 30 compradores que más compran.',
     );
   });
-  it('si se dibujan menos de los que dice, lo dice: la frase nunca cuenta algo que no se ve', () => {
-    expect(fraseRed(RED, 30, 12)).toBe(
-      '40 proveedores le venden a la mitad o más de los 30 compradores que más compran. En tinta, los 12 que más venden.',
+});
+
+describe('detalleRed', () => {
+  it('dice dónde se ven, y cuántos se dibujan si son menos de los que cuenta la conclusión', async () => {
+    const { detalleRed } = await import('@/lib/redPortada');
+    expect(detalleRed(RED, 40)).toBe('Son los puntos llenos del centro. Cerca del borde, los que le venden a uno solo.');
+    expect(detalleRed(RED, 12)).toBe(
+      'Son los puntos llenos del centro (aquí, los 12 que más venden). Cerca del borde, los que le venden a uno solo.',
     );
+    expect(detalleRed({ a_la_mitad_o_mas: 1 }, 1)).toBe(
+      'Es el punto lleno del centro. Cerca del borde, los que le venden a uno solo.',
+    );
+    expect(detalleRed({ a_la_mitad_o_mas: 0 }, 0)).toBeNull();
+  });
+  it('sin la mediana de lo vendido: tres cifras en dos frases no se entendían', async () => {
+    const { detalleRed } = await import('@/lib/redPortada');
+    expect(detalleRed(RED, 12)).not.toMatch(/\$/);
   });
 });
 
@@ -143,17 +156,6 @@ describe('nombreCorto', () => {
     expect(nombreCorto('Central de Abastecimiento del Sistema Nacional de Servicios de Salud')).toBe('Cenabast');
     expect(nombreCorto('I Municipalidad de Puente Alto')).toBe('Municipalidad de Puente Alto');
     expect(nombreCorto('Servicio de Salud Metropolitano Sur Oriente')).toBe('Servicio de Salud…');
-  });
-});
-
-describe('detalleRed', () => {
-  it('la mediana de lo que les vendieron, en total, los del centro', async () => {
-    const { detalleRed } = await import('@/lib/redPortada');
-    const nodo = (monto: number, amplio = true) => ({ monto, amplio }) as never;
-    expect(detalleRed({ nodos: [nodo(1e7), nodo(4.68e7), nodo(9e8), nodo(5e12, false)] })).toBe(
-      'La mitad de esos 3 les vendió menos de $46,8 millones en total.',
-    );
-    expect(detalleRed({ nodos: [nodo(1e7), nodo(2e7)] })).toBeNull();
   });
 });
 

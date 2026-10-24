@@ -187,7 +187,7 @@ const RED: RedPortada = {
   ventana_desde: '2023-11-01',
   ventana_hasta: '2026-10-31',
 };
-const CONCLUSION_RED = '2 proveedores le venden a la mitad o más de los 10 compradores que más compran.';
+const CONCLUSION_RED = '2 proveedores le venden a 5 o más de los 10 compradores que más compran.';
 const CONCLUSION_GASTO = 'El Estado compró $19 billones en 12 meses. Diciembre de 2025 fue el mes más alto: 1,7 veces un mes típico.';
 const CONCLUSION_PRECIO = `${PRODUCTO_PORTADA.nombre}: la mitad de las compras se pagó entre $150.921 y $240.000`;
 const CONCLUSION_CONCENTRACION = '6 de cada 10 pesos se gastan en mercados donde un solo proveedor se lleva la mitad o más';
@@ -741,12 +741,17 @@ describe('la red: quién le compra a quién', () => {
     const { container } = render(await Home());
     const grande = red(container) as HTMLElement;
     expect(grande.parentElement).toHaveClass('grid', 'lg:grid-cols-[5fr_7fr]');
-    expect(within(grande).getByRole('heading', { level: 2 })).toHaveTextContent(CONCLUSION_RED);
+    // La conclusión va en la columna del buscador, y nombra la sección del dibujo, que va en la otra.
+    const titulo = screen.getByRole('heading', { level: 2, name: CONCLUSION_RED });
+    expect(grande).not.toContainElement(titulo);
+    expect(grande.parentElement?.firstElementChild).toContainElement(titulo);
+    expect(screen.getByRole('region', { name: CONCLUSION_RED })).toBe(grande);
     const mensual = gasto(container) as HTMLElement;
     expect(grande.parentElement).not.toContainElement(mensual);
     expect(within(mensual).getByRole('heading', { level: 2 })).toHaveClass('section-title');
     const orden = [
       screen.getByRole('searchbox', { name: CAMPO }),
+      titulo,
       grande,
       screen.getByRole('region', { name: LECTURAS }),
       mensual,
